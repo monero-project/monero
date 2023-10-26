@@ -2400,7 +2400,6 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
 	const char indent2[] = "        ";
 	const char indent3[] = "            ";
 	bool is_registered = entry.total_contributed >= entry.total_reserved;
-	bool is_rewardable = ((entry.portions_for_operator != STAKING_PORTIONS && entry.contributors.size() > 1) || hard_fork_version < 12 || entry.total_contributed == entry.staking_requirement);
 
   buffer.reserve(buffer.size() + 2048);
   // Print Funding Status
@@ -2428,16 +2427,8 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
 	// Print Expiry Information
 	{
 	  uint64_t const now = time(nullptr);
-	  uint64_t expiry_height;
-		if (hard_fork_version >= cryptonote::network_version_18)
-		{
-		  expiry_height = entry.requested_unlock_height;
-		}
-		else
-		{
-		  expiry_height = entry.registration_height + service_nodes::staking_num_lock_blocks(nettype);
-		  expiry_height += STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
-		}
+	  uint64_t expiry_height = entry.registration_height + service_nodes::staking_num_lock_blocks(nettype);
+	  if (hard_fork_version >= cryptonote::network_version_5) expiry_height =+ STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS;
 
 		uint64_t delta_height = expiry_height - curr_height;
 		uint64_t expiry_epoch_time = now + (delta_height * DIFFICULTY_TARGET_V3);
@@ -2479,8 +2470,6 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
 
 	if (is_registered) // Print Service Node Tests
 	{
-		epee::console_colors uptime_proof_color = (entry.last_uptime_proof == 0) ? epee::console_color_red : epee::console_color_green;
-
 		buffer.append(indent2);
 		if (entry.last_uptime_proof == 0)
 		{
@@ -2499,7 +2488,7 @@ static void append_printable_service_node_list_entry(cryptonote::network_type ne
 		buffer.append("\n");
 	  for (size_t j = 0; j < entry.contributors.size(); ++j)
 		{
-		  const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor &contributor = entry.contributors[j];
+		  const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution &contributor = entry.contributors[j];
 
 		  buffer.append(indent2);
 			buffer.append("[");
@@ -2542,6 +2531,7 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 
 	cryptonote::network_type nettype = cryptonote::UNDEFINED;
 	uint64_t curr_height = 0;
+	uint8_t hard_fork_version = cryptonote::network_version_4;
 	if (m_is_rpc)
 	{
 		if (!m_rpc_client->rpc_request(get_info_req, get_info_res, "/getinfo", fail_message.c_str()))
@@ -2549,7 +2539,17 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 			tools::fail_msg_writer() << make_error(fail_message, get_info_res.status);
 			return true;
 		}
+		{
+		  cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  hard_fork_info_req = {};
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hard_fork_info_res = {};
+			if (!m_rpc_client->json_rpc_request(hard_fork_info_req, hard_fork_info_res, "hard_fork_info", fail_message.c_str()))
+			{
+				tools::fail_msg_writer() << make_error(fail_message, hard_fork_info_res.status);
+				return true;
+			}
 
+			hard_fork_version = hard_fork_info_res.version;
+		}
 		if (!m_rpc_client->json_rpc_request(req, res, "get_service_nodes", fail_message.c_str()))
 		{
 			tools::fail_msg_writer() << make_error(fail_message, res.status);
@@ -2564,6 +2564,17 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 	{
 		if (m_rpc_server->on_get_info(get_info_req, get_info_res) || get_info_res.status == CORE_RPC_STATUS_OK)
 			curr_height = get_info_res.height;
+
+    {
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::request  hard_fork_info_req = {};
+			cryptonote::COMMAND_RPC_HARD_FORK_INFO::response hard_fork_info_res = {};
+			if (!m_rpc_server->on_hard_fork_info(hard_fork_info_req, hard_fork_info_res, error_resp) || hard_fork_info_res.status != CORE_RPC_STATUS_OK)
+			{
+				tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
+				return true;
+			}
+			hard_fork_version = hard_fork_info_res.version;
+		}
 
 		if (!m_rpc_server->on_get_service_nodes(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
 		{
@@ -2640,53 +2651,12 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 		return true;
 	}
 
-	using hard_fork_height = uint64_t;
-	std::array<hard_fork_height, cryptonote::network_version_count> hard_fork_heights = {};
-	for (size_t version = cryptonote::network_version_5; version < hard_fork_heights.size(); ++version)
-	{
-	  cryptonote::COMMAND_RPC_HARD_FORK_INFO::request request = {};
-	  cryptonote::COMMAND_RPC_HARD_FORK_INFO::response response = {};
-	  request.version = version;
-
-	  if (m_is_rpc)
-	  {
-	    if (!m_rpc_client->json_rpc_request(request, response, "hard_fork_info", fail_message.c_str()))
-	    {
-	      tools::fail_msg_writer() << make_error(fail_message, response.status);
-	      return true;
-	    }
-	  }
-	  else
-	  {
-	    if (!m_rpc_server->on_hard_fork_info(request, response, error_resp) || response.status != CORE_RPC_STATUS_OK)
-	    {
-	      tools::fail_msg_writer() << make_error(fail_message, error_resp.message);
-	      return true;
-	    }
-	  }
-
-	  hard_fork_heights[request.version] = response.earliest_height;
-	}
-
-	auto const find_closest_hardfork = [](std::array<hard_fork_height, cryptonote::network_version_count> const &hard_fork_heights, uint64_t registration_height) -> size_t {
-	  uint64_t result = cryptonote::network_version_count - 1;
-	  for (uint8_t version = cryptonote::network_version_1; version < cryptonote::network_version_count; version++)
-	  {
-	    uint64_t hard_fork_height = hard_fork_heights[version];
-	    if (registration_height < hard_fork_height)
-	      break;
-	    result = version;
-	  }
-	  return result;
-	};
-
 	std::string unregistered_print_data;
 	std::string registered_print_data;
 	for (size_t i = 0; i < unregistered.size(); i++)
 	{
 	  cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &entry = (*unregistered[i]);
-	  size_t hf_version = find_closest_hardfork(hard_fork_heights, entry.registration_height);
-	  append_printable_service_node_list_entry(nettype, hf_version, curr_height, i, entry, unregistered_print_data);
+	  append_printable_service_node_list_entry(nettype, hard_fork_version, curr_height, i, entry, unregistered_print_data);
 	  if (i < unregistered.size())
 	    unregistered_print_data.append("\n");
 	}
@@ -2694,8 +2664,7 @@ bool t_rpc_command_executor::print_sn(const std::vector<std::string> &args)
 	for (size_t i = 0; i < registered.size(); i++)
 	{
 	  cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry const &entry = (*registered[i]);
-	  size_t hf_version = find_closest_hardfork(hard_fork_heights, entry.registration_height);
-	  append_printable_service_node_list_entry(nettype, hf_version, curr_height, i, entry, registered_print_data);
+	  append_printable_service_node_list_entry(nettype, hard_fork_version, curr_height, i, entry, registered_print_data);
 	  if (i < registered.size())
 	    registered_print_data.append("\n");
 	}
@@ -2741,16 +2710,16 @@ bool t_rpc_command_executor::print_sn_status(const std::vector<std::string>& arg
 	}
 
 	bool result = false;
-	if (args.size() == 1)
-	{
-	  result = print_sn({res.service_node_pubkey, args[0]});
-	}
-	else
-	{
-	  result = print_sn({res.service_node_pubkey});
-	}
+  if(args.size() == 1)
+  {
+    result = print_sn({res.service_node_pubkey, args[0]});
+  }
+  else
+  {
+    result = print_sn({res.service_node_pubkey});
+  }
 
-	return result;
+  return result;
 }
 
 bool t_rpc_command_executor::print_sr(uint64_t height)
@@ -2930,7 +2899,7 @@ bool t_rpc_command_executor::prepare_sn()
     }
 
     cryptonote::block_header_response const &header = res.block_header;
-    uint64_t const now                              = time(nullptr);
+    uint64_t const now = time(nullptr);
 
     if (now >= header.timestamp)
     {
@@ -2955,7 +2924,7 @@ bool t_rpc_command_executor::prepare_sn()
   }
 
   const uint64_t staking_requirement = std::max(service_nodes::get_staking_requirement(nettype, block_height), service_nodes::get_staking_requirement(nettype, block_height + 30 * 24));
-  auto max_stakers = (hard_fork_version >= 12) ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : (hard_fork_version >= 9) ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
+  const uint64_t max_stakers = hard_fork_version >= cryptonote::network_version_12 ? MAX_NUMBER_OF_CONTRIBUTORS_V3 : hard_fork_version >= cryptonote::network_version_9 ? MAX_NUMBER_OF_CONTRIBUTORS_V2 : MAX_NUMBER_OF_CONTRIBUTORS;
   const uint64_t DUST = max_stakers;
 
   std::cout << "Current staking requirement: " << cryptonote::print_money(staking_requirement) << " " << cryptonote::get_unit() << std::endl;
@@ -3071,12 +3040,12 @@ bool t_rpc_command_executor::prepare_sn()
 
       case register_step::is_open_stake__operator_amount_to_reserve:
       {
-        const uint64_t min_contribution = (hard_fork_version >= 12) ? MIN_OPERATOR_V12 * COIN : staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2;
-        uint64_t max_contribution = (hard_fork_version >= 17) ? staking_requirement : MAX_OPERATOR_V12 * COIN;
+        const uint64_t min_contribution = hard_fork_version >= cryptonote::network_version_12 ? MIN_OPERATOR_V12 * COIN : staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2;
+        uint64_t max_contribution = hard_fork_version >= cryptonote::network_version_17 ? staking_requirement : MAX_OPERATOR_V12 * COIN;
         const uint64_t min_portions = service_nodes::get_portions_to_make_amount(max_contribution, min_contribution);
         const uint64_t min_contribution_portions = std::min(state.portions_remaining, min_portions);
         std::cout << "Minimum amount that can be reserved: " << cryptonote::print_money(min_contribution) << " " << cryptonote::get_unit() << std::endl;
-        if (hard_fork_version >= 12 && hard_fork_version < 17)
+        if (hard_fork_version >= cryptonote::network_version_12 && hard_fork_version < cryptonote::network_version_17)
           std::cout << "Maximum amount that can be reserved: " << cryptonote::print_money(max_contribution) << " " << cryptonote::get_unit() << std::endl;
 
         std::string contribution_str;
@@ -3159,7 +3128,7 @@ bool t_rpc_command_executor::prepare_sn()
         for (size_t i = 0; i < state.num_participants; ++i)
         {
           const std::string participant_name = (i==0) ? "Operator" : "Contributor " + std::to_string(i);
-          uint64_t amount = get_actual_amount((hard_fork_version >= 17) ? staking_requirement : (i==0) ? MAX_OPERATOR_V12 * COIN : MAX_POOL_STAKERS_V12 * COIN, state.contributions[i]);
+          uint64_t amount = get_actual_amount(hard_fork_version >= cryptonote::network_version_17 ? staking_requirement : (i==0) ? MAX_OPERATOR_V12 * COIN : MAX_POOL_STAKERS_V12 * COIN, state.contributions[i]);
           if (amount_left <= DUST && i == 0)
             amount += amount_left; // add dust to the operator.
           printf("%-16s%-9s%-19s\n", participant_name.c_str(), state.addresses[i].substr(0,6).c_str(), cryptonote::print_money(amount).c_str());

@@ -702,67 +702,6 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
   //-----------------------------------------------
-  struct COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS
-  {
-    struct request_t
-    {
-      std::vector<uint64_t> heights;
-      bool decode_as_json;
-      bool prune;
-      bool include_miner_txs;
-      bool range;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(heights)
-        KV_SERIALIZE_OPT(decode_as_json, false)
-        KV_SERIALIZE_OPT(prune, false)
-        KV_SERIALIZE_OPT(include_miner_txs, false)
-        KV_SERIALIZE_OPT(range, false)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct entry
-    {
-      std::string tx_hash;
-      std::string as_hex;
-      std::string as_json;
-      bool in_pool;
-      bool double_spend_seen;
-      uint64_t block_height;
-      uint64_t block_timestamp;
-      std::vector<uint64_t> output_indices;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(tx_hash)
-        KV_SERIALIZE(as_hex)
-        KV_SERIALIZE(as_json)
-        KV_SERIALIZE(in_pool)
-        KV_SERIALIZE(double_spend_seen)
-        KV_SERIALIZE(block_height)
-        KV_SERIALIZE(block_timestamp)
-        KV_SERIALIZE(output_indices)
-      END_KV_SERIALIZE_MAP()
-    };
-
-    struct response_t
-    {
-      std::vector<std::string> missed_tx;   //not found transactions
-      std::vector<entry> txs;
-      std::string status;
-      bool untrusted;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(txs)
-        KV_SERIALIZE(missed_tx)
-        KV_SERIALIZE(status)
-        KV_SERIALIZE(untrusted)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
-  //-----------------------------------------------
   struct COMMAND_RPC_IS_KEY_IMAGE_SPENT
   {
     enum STATUS {
@@ -1038,8 +977,8 @@ namespace cryptonote
       bool overspend;
       bool fee_too_low;
       bool too_few_outputs;
-      bool key_image_locked_by_snode;
-      bool key_image_blacklisted;
+      bool invalid_version;
+      bool invalid_type;
       bool sanity_check_failed;
       bool untrusted;
       bool invalid_block_height;
@@ -1061,8 +1000,8 @@ namespace cryptonote
         KV_SERIALIZE(overspend)
         KV_SERIALIZE(fee_too_low)
         KV_SERIALIZE(too_few_outputs)
-        KV_SERIALIZE(key_image_locked_by_snode)
-        KV_SERIALIZE(key_image_blacklisted)
+        KV_SERIALIZE(invalid_version)
+        KV_SERIALIZE(invalid_type)
         KV_SERIALIZE(sanity_check_failed)
         KV_SERIALIZE(untrusted)
         KV_SERIALIZE(invalid_block_height)
@@ -1227,7 +1166,27 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
+  {
+    struct request_t
+    {
+      bool active_only;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(active_only, (bool)true)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
 
+    struct response_t
+    {
+      std::vector<std::string> keys;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
   {
@@ -2851,6 +2810,45 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_GET_QUORUM_STATE_BATCHED
+  {
+    struct request_t
+    {
+      uint64_t height_begin;
+      uint64_t height_end;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height_begin)
+        KV_SERIALIZE(height_end)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_entry
+    {
+      uint64_t height;
+      std::vector<std::string> quorum_nodes;
+      std::vector<std::string> nodes_to_test;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(quorum_nodes)
+        KV_SERIALIZE(nodes_to_test)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct response_t
+    {
+      std::string status;
+      std::vector<response_entry> quorum_entries;
+      bool untrusted;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(status)
+        KV_SERIALIZE(quorum_entries)
+        KV_SERIALIZE(untrusted)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW
   {
     struct request_t
@@ -2958,29 +2956,14 @@ namespace cryptonote
 	  {
 		  struct contribution
 		  {
-		    std::string key_image;
-		    std::string key_image_pub_key;
-		    uint64_t amount;
-
-		    BEGIN_KV_SERIALIZE_MAP()
-		      KV_SERIALIZE(key_image)
-		      KV_SERIALIZE(key_image_pub_key)
-		      KV_SERIALIZE(amount)
-		    END_KV_SERIALIZE_MAP()
-		  };
-
-		  struct contributor
-		  {
 			  uint64_t amount;
 			  uint64_t reserved;
 			  std::string address;
-			  std::vector<contribution> locked_contributions;
 
 			  BEGIN_KV_SERIALIZE_MAP()
 				  KV_SERIALIZE(amount)
 				  KV_SERIALIZE(reserved)
 				  KV_SERIALIZE(address)
-				  KV_SERIALIZE(locked_contributions)
 			  END_KV_SERIALIZE_MAP()
 		  };
 
@@ -2988,11 +2971,10 @@ namespace cryptonote
 		  {
 			  std::string                        service_node_pubkey;
 			  uint64_t                           registration_height;
-			  uint64_t                           requested_unlock_height;
 			  uint64_t                           last_reward_block_height;
 			  uint32_t                           last_reward_transaction_index;
 			  uint64_t                           last_uptime_proof;
-			  std::vector<contributor>           contributors;
+			  std::vector<contribution>          contributors;
 			  uint64_t                           total_contributed;
 			  uint64_t                           total_reserved;
 			  uint64_t                           staking_requirement;
@@ -3003,7 +2985,6 @@ namespace cryptonote
 			  BEGIN_KV_SERIALIZE_MAP()
 				  KV_SERIALIZE(service_node_pubkey)
 				  KV_SERIALIZE(registration_height)
-				  KV_SERIALIZE(requested_unlock_height)
 				  KV_SERIALIZE(last_reward_block_height)
 				  KV_SERIALIZE(last_reward_transaction_index)
 				  KV_SERIALIZE(last_uptime_proof)
@@ -3199,60 +3180,6 @@ namespace cryptonote
       uint64_t amount;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(amount)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
-  struct COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES
-  {
-    struct request_t
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct entry
-    {
-      std::string key_image;
-      uint64_t unlock_height;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(key_image)
-        KV_SERIALIZE(unlock_height)
-      END_KV_SERIALIZE_MAP()
-    };
-
-    struct response_t
-    {
-      std::vector<entry> blacklist;
-      std::string status;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(blacklist)
-        KV_SERIALIZE(status)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
-  struct COMMAND_RPC_GET_OUTPUT_BLACKLIST
-  {
-    struct request_t
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct response_t
-    {
-      std::vector<uint64_t> blacklist;
-      std::string status;
-      bool untrusted;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(blacklist)
-        KV_SERIALIZE(status)
-        KV_SERIALIZE(untrusted)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

@@ -135,7 +135,7 @@ bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
 // and collects the public key for each from the transaction it was included in
 // via the visitor passed to it.
 template <class visitor_t>
-bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
+bool Blockchain::scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -1200,10 +1200,10 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
     return true;
   CHECK_AND_ASSERT_MES(b.miner_tx.vin.size() == 1, false, "coinbase transaction in the block has no inputs");
   CHECK_AND_ASSERT_MES(b.miner_tx.vin[0].type() == typeid(txin_gen), false, "coinbase transaction in the block has the wrong type");
-  CHECK_AND_ASSERT_MES(b.miner_tx.version > 1 || hf_version < HF_VERSION_MIN_V2_COINBASE_TX, false, "Invalid coinbase transaction version");
+  CHECK_AND_ASSERT_MES(b.miner_tx.version >= txversion::v2 || hf_version < HF_VERSION_MIN_V2_COINBASE_TX, false, "Invalid coinbase transaction version");
 
   // for v2 txes (ringct), we only accept empty rct signatures for miner transactions,
-  if (hf_version >= HF_VERSION_REJECT_SIGS_IN_COINBASE && b.miner_tx.version >= 2)
+  if (hf_version >= HF_VERSION_REJECT_SIGS_IN_COINBASE && b.miner_tx.version >= txversion::v2)
   {
     CHECK_AND_ASSERT_MES(b.miner_tx.rct_signatures.type == rct::RCTTypeNull, false, "RingCT signatures not allowed in coinbase transactions");
   }
@@ -1238,7 +1238,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   for (auto& o: b.miner_tx.vout)
     money_in_use += o.amount;
   partial_block_reward = false;
-  if(hard_fork_version == 1){
+  if(hard_fork_version == network_version_1){
     return true;
   }
 
@@ -1260,7 +1260,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
   block_reward_context.height                    = height;
 
 	block_reward_parts reward_parts;
-	if (!get_triton_block_reward(median_weight, cumulative_block_weight, already_generated_coins, hard_fork_version, reward_parts, block_reward_context, height, m_nettype))
+	if (!get_equilibria_block_reward(median_weight, cumulative_block_weight, already_generated_coins, hard_fork_version, reward_parts, block_reward_context, height, m_nettype))
 	{
 		MERROR_VER("block weight " << cumulative_block_weight << " is bigger than allowed for this blockchain");
 		return false;
@@ -1274,9 +1274,9 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     }
 	}
 	base_reward = reward_parts.original_base_reward;
-  if(hard_fork_version >= 7 && (reward_parts.governance > 0 || reward_parts.dev_fund > 0))
+  if(hard_fork_version >= network_version_7 && (reward_parts.governance > 0 || reward_parts.dev_fund > 0))
   {
-    if (hard_fork_version < 17)
+    if (hard_fork_version < network_version_17)
     {
       if(b.miner_tx.vout.back().amount != reward_parts.governance)
       {
@@ -1285,7 +1285,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       }
     }
 
-    if (hard_fork_version < 11)
+    if (hard_fork_version < network_version_11)
     {
       if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).GOVERNANCE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
@@ -1293,7 +1293,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         return false;
       }
     }
-    else if (hard_fork_version < 14)
+    else if (hard_fork_version < network_version_14)
     {
       if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
@@ -1301,7 +1301,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
         return false;
       }
     }
-    else if (hard_fork_version < 17)
+    else if (hard_fork_version < network_version_17)
     {
       if(!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
       {
@@ -1356,13 +1356,31 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     }
   }
 
+  if (hard_fork_version >= network_version_18)
+  {
+    if (b.miner_tx.type != txtype::standard)
+    {
+      MERROR("Coinbase transaction invalid type");
+      return false;
+    }
+
+    txversion min_version = transaction::get_max_version_for_hf(hard_fork_version);
+    txversion max_version = transaction::get_min_version_for_hf(hard_fork_version);
+
+    if (b.miner_tx.version < min_version || b.miner_tx.version > max_version)
+    {
+      MERROR_VER("Coinbase transaction invalid version: " << b.miner_tx.version << " for hardfork: " << hard_fork_version);
+      return false;
+    }
+  }
+
   if(base_reward + fee < money_in_use)
   {
     MERROR_VER("coinbase transaction spend too much money (" << print_money(money_in_use) << "). Block reward is " << print_money(base_reward + fee) << "(" << print_money(base_reward) << "+" << print_money(fee) << "), cumulative_block_weight " << cumulative_block_weight);
     return false;
   }
   // From hard fork 2, we allow a miner to claim less block reward than is allowed, in case a miner wants less dust
-  if (hard_fork_version < 2)
+  if (hard_fork_version < network_version_2)
   {
     if(base_reward + fee != money_in_use)
     {
@@ -1593,9 +1611,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob weight
   uint8_t hf_version = m_hardfork->get_current_version();
 
-  miner_tx_context miner_context(m_nettype,
-  m_service_node_list.select_winner(),
-  m_service_node_list.get_winner_addresses_and_portions());
+  miner_tx_context miner_context(m_nettype, m_service_node_list.select_winner(), m_service_node_list.get_winner_addresses_and_portions());
 
   bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, hf_version, miner_context);
 
@@ -1814,7 +1830,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     memset(proof_of_work.data, 0xff, sizeof(proof_of_work.data));
 
     get_block_longhash(bei.bl, proof_of_work, m_pow_ctx);
-    
+
     if(!check_hash(proof_of_work, current_diff))
     {
       MERROR_VER("Block with id: " << id << std::endl << " for alternative chain, does not have enough proof of work: " << proof_of_work << std::endl << " expected difficulty: " << current_diff);
@@ -1968,10 +1984,11 @@ bool Blockchain::get_blocks(uint64_t start_offset, size_t count, std::vector<std
   if(start_offset >= height)
     return false;
 
-  blocks.reserve(blocks.size() + height - start_offset);
-  for(size_t i = start_offset; i < start_offset + count && i < height;i++)
+  const size_t num_blocks = std::min<uint64_t>(height - start_offset, count);
+  blocks.reserve(blocks.size() + num_blocks);
+  for (size_t i = 0; i < num_blocks; i++)
   {
-    blocks.push_back(std::make_pair(m_db->get_block_blob_from_height(i), block()));
+    blocks.emplace_back(m_db->get_block_blob_from_height(start_offset + i), block{});
     if (!parse_and_validate_block_from_blob(blocks.back().first, blocks.back().second))
     {
       LOG_ERROR("Invalid block");
@@ -2007,17 +2024,15 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
 
     // FIXME: s/rsp.missed_ids/missed_tx_id/ ?  Seems like rsp.missed_ids
     //        is for missed blocks, not missed transactions as well.
-
     e.pruned = arg.prune;
     get_transactions_blobs(bl.second.tx_hashes, e.txs, missed_tx_ids, arg.prune);
     if (missed_tx_ids.size() != 0)
     {
-      // do not display an error if the peer asked for an unpruned block which we are not meant to have
       if (tools::has_unpruned_block(get_block_height(bl.second), get_current_blockchain_height(), get_blockchain_pruning_seed()))
       {
         LOG_ERROR("Error retrieving blocks, missed " << missed_tx_ids.size()
-            << " transactions for block with hash: " << get_block_hash(bl.second)
-            << std::endl
+          << " transactions for block with hash: " << get_block_hash(bl.second)
+          << std::endl
         );
       }
 
@@ -2414,11 +2429,6 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   }
 }
 //------------------------------------------------------------------
-bool Blockchain::get_output_blacklist(std::vector<uint64_t> &blacklist) const
-{
-  return m_db->get_output_blacklist(blacklist);
-}
-//------------------------------------------------------------------
 // This function takes a list of block hashes from another node
 // on the network to find where the split point is between us and them.
 // This is used to see what to send another node that needs to sync.
@@ -2561,7 +2571,6 @@ static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, tx_blob_entry &t
   {
     if (is_v1_tx(tx.blob))
     {
-      // v1 txes aren't pruned, so fetch the whole thing
       cryptonote::blobdata prunable_blob;
       if (!db->get_prunable_tx_blob(tx_hash, prunable_blob))
       {
@@ -2608,7 +2617,7 @@ bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>& txs_ids
   }
   return true;
 }
-//------------------------------------------------------------------
+//----------------------------------------------------------------
 bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>& txs_ids, std::vector<tx_blob_entry>& txs, std::vector<crypto::hash>& missed_txs, bool pruned) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2692,7 +2701,7 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
       cryptonote::blobdata tx;
       if (m_db->get_tx_blob(tx_hash, tx))
       {
-        txs.push_back(transaction());
+        txs.emplace_back();
         if (!parse_and_validate_tx_from_blob(tx, txs.back()))
         {
           LOG_ERROR("Invalid transaction");
@@ -3034,9 +3043,9 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   const uint8_t hf_version = m_hardfork->get_current_version();
 
   // from hard fork 2, we forbid dust and compound outputs
-  if (hf_version >= 2){
+  if (hf_version >= network_version_2){
     for (auto &o: tx.vout) {
-      if (tx.version == 1)
+      if (tx.version == txversion::v1)
       {
         if (!is_valid_decomposed_amount(o.amount)) {
           tvc.m_invalid_output = true;
@@ -3047,8 +3056,8 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // in a v2 tx, all outputs must have 0 amount
-  if (hf_version >= 3) {
-    if (tx.version >= 2) {
+  if (hf_version >= network_version_3) {
+    if (tx.version >= txversion::v2) {
       for (auto &o: tx.vout) {
         if (o.amount != 0) {
           tvc.m_invalid_output = true;
@@ -3059,7 +3068,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v4, forbid invalid pubkeys
-  if (hf_version >= 4) {
+  if (hf_version >= network_version_4) {
     for (const auto &o: tx.vout) {
       if (o.target.type() == typeid(txout_to_key)) {
         const txout_to_key& out_to_key = boost::get<txout_to_key>(o.target);
@@ -3072,8 +3081,8 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v5, allow bulletproofs
-  if (hf_version < 4) {
-    if (tx.version >= 2) {
+  if (hf_version < network_version_4) {
+    if (tx.version >= txversion::v2) {
       const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
       if (bulletproof || !tx.rct_signatures.p.bulletproofs.empty())
       {
@@ -3085,8 +3094,8 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   }
 
   // from v6, forbid borromean range proofs
-  if (hf_version > 5) {
-    if (tx.version >= 2) {
+  if (hf_version > network_version_5) {
+    if (tx.version >= txversion::v2) {
       const bool borromean = rct::is_rct_borromean(tx.rct_signatures.type);
       if (borromean)
       {
@@ -3099,7 +3108,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
 
   // from v6, allow bulletproofs v2
   if (hf_version < HF_VERSION_SMALLER_BP) {
-    if (tx.version >= 2) {
+    if (tx.version >= txversion::v2) {
       if (tx.rct_signatures.type == rct::RCTTypeBulletproof2)
       {
         MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeBulletproof2 << " is not allowed before v" << HF_VERSION_SMALLER_BP);
@@ -3111,7 +3120,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
 
   // from v11, allow only bulletproofs v2
   if (hf_version > HF_VERSION_SMALLER_BP) {
-    if (tx.version >= 2) {
+    if (tx.version >= txversion::v2) {
       if (tx.rct_signatures.type == rct::RCTTypeBulletproof)
       {
         MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeBulletproof << " is not allowed from v" << (HF_VERSION_SMALLER_BP + 1));
@@ -3138,7 +3147,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
 bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys) const
 {
   PERF_TIMER(expand_transaction_2);
-  CHECK_AND_ASSERT_MES(tx.version >= 2, false, "Transaction version is not 2");
+  CHECK_AND_ASSERT_MES(tx.version >= txversion::v2, false, "Transaction version is less than 2");
 
   rct::rctSig &rv = tx.rct_signatures;
 
@@ -3231,7 +3240,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
 	// from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
 	// if one output cannot mix with 2 others, we accept at most 1 output that can mix
-	if (hf_version >= 2 && !tx.is_deregister_tx())
+	if (hf_version >= 2 && tx.type != txtype::deregister)
 	{
 		size_t n_unmixable = 0, n_mixable = 0;
 		size_t mixin = std::numeric_limits<size_t>::max();
@@ -3288,26 +3297,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				return false;
 			}
 		}
-
-		// min/max tx version based on HF, and we accept v1 txes if having a non mixable
-		const size_t max_tx_version = (hf_version <= 3) ? 1 : (hf_version < SERVICE_NODE_VERSION)
-			? transaction::version_2
-			: transaction::version_3_per_output_unlock_times;
-
-
-		if (tx.version > max_tx_version)
-		{
-			MERROR_VER("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
-			tvc.m_verifivation_failed = true;
-			return false;
-		}
-		const size_t min_tx_version = (n_unmixable > 0 ? 1 : (hf_version >= HF_VERSION_ENFORCE_RCT) ? 2 : 1);
-		if (tx.version < min_tx_version)
-		{
-			MERROR_VER("transaction version " << (unsigned)tx.version << " is lower than min accepted version " << min_tx_version);
-			tvc.m_verifivation_failed = true;
-			return false;
-		}
 	}
 
 	// from v7, sorted ins
@@ -3356,7 +3345,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 			return false;
 		}
 
-		if (tx.version == 1)
+		if (tx.version == txversion::v1)
 		{
 			// basically, make sure number of inputs == number of signatures
 			CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
@@ -3380,7 +3369,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 
 		// make sure that output being spent matches up correctly with the
 		// signature spending it.
-		if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash, tx.version == 1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height))
+		if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash, tx.version == txversion::v1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height))
 		{
       MERROR_VER("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
       if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
@@ -3391,7 +3380,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 			return false;
 		}
 
-		if (tx.version == 1)
+		if (tx.version == txversion::v1)
     {
       if (threads > 1)
       {
@@ -3416,34 +3405,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
-    if (hf_version >= 18)
-    {
-      const std::vector<service_nodes::key_image_blacklist_entry> &blacklist = m_service_node_list.get_blacklisted_key_images();
-      for (const auto &entry : blacklist)
-      {
-        if (in_to_key.k_image == entry.key_image)
-        {
-          MERROR_VER("Key image: " << epee::string_tools::pod_to_hex(entry.key_image) << " is blacklisted");
-          tvc.m_key_image_blacklisted = true;
-          return false;
-        }
-      }
-
-      uint64_t unlock_height = 0;
-      if (m_service_node_list.is_key_image_locked(in_to_key.k_image, &unlock_height))
-      {
-        MERROR_VER("Key image: " << epee::string_tools::pod_to_hex(in_to_key.k_image) << " is locked in stake until height: " << unlock_height);
-        tvc.m_key_image_locked_by_snode = true;
-        return false;
-      }
-    }
-
     sig_index++;
   }
-	if (tx.version == 1 && threads > 1)
+	if (tx.version == txversion::v1 && threads > 1)
 		waiter.wait(&tpool);
 
-  if (tx.version == 1)
+  if (tx.version == txversion::v1)
   {
     if (threads > 1)
     {
@@ -3462,7 +3429,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
   }
-	else if (!tx.is_deregister_tx())
+	else if (tx.type != txtype::deregister)
 	{
 		if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys))
 		{
@@ -3620,7 +3587,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 			}
 		}
 	}
-	if (tx.is_deregister_tx())
+	if (tx.type == txtype::deregister)
 	{
 		if (tx.rct_signatures.txnFee != 0)
 		{
@@ -3701,7 +3668,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				continue;
 			}
 
-			if (!existing_tx.is_deregister_tx())
+			if (existing_tx.type != txtype::deregister)
 				continue;
 
 			tx_extra_service_node_deregister existing_deregister;
@@ -3719,8 +3686,10 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 				continue;
 			}
 
-			if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] == quorum_state->nodes_to_test[deregister.service_node_index])
+			if (existing_deregister_quorum_state->nodes_to_test[existing_deregister.service_node_index] ==
+				quorum_state->nodes_to_test[deregister.service_node_index])
 			{
+			  MERROR_VER("Already seen this deregister tx (aka double spend)");
 				tvc.m_double_spend = true;
 				return false;
 			}
@@ -3733,7 +3702,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
 	}
   return true;
 }
-
 //------------------------------------------------------------------
 void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image, const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature>& sig, uint64_t &result) const
 {
@@ -3779,7 +3747,7 @@ uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_b
     return lo;
   }
 
-  const uint64_t fee_base = version >= 5 ? DYNAMIC_FEE_PER_KB_BASE_FEE_V5 : DYNAMIC_FEE_PER_KB_BASE_FEE;
+  const uint64_t fee_base = version >= network_version_5 ? DYNAMIC_FEE_PER_KB_BASE_FEE_V5 : DYNAMIC_FEE_PER_KB_BASE_FEE;
 
   uint64_t unscaled_fee_base = (fee_base * min_block_weight / median_block_weight);
   lo = mul128(unscaled_fee_base, block_reward, &hi);
@@ -3905,7 +3873,7 @@ bool Blockchain::is_output_spendtime_unlocked(uint64_t unlock_time) const
 // This function locates all outputs associated with a given input (mixins)
 // and validates that they exist and are usable.  It also checks the ring
 // signature for each input.
-bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height) const
+bool Blockchain::check_tx_input(txversion tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -3944,7 +3912,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
 
   // collect output keys
   outputs_visitor vi(output_keys, *this);
-  if (!scan_outputkeys_for_indexes(tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
+  if (!scan_outputkeys_for_indexes(txin, vi, tx_prefix_hash, pmax_related_block_height))
   {
     MERROR_VER("Failed to get output keys for tx with amount = " << print_money(txin.amount) << " and count indexes " << txin.key_offsets.size());
     return false;
@@ -3955,7 +3923,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
     MERROR_VER("Output keys for tx with amount = " << txin.amount << " and count indexes " << txin.key_offsets.size() << " returned wrong keys count " << output_keys.size());
     return false;
   }
-  if (tx_version == 1) {
+  if (tx_version == txversion::v1) {
     CHECK_AND_ASSERT_MES(sig.size() == output_keys.size(), false, "internal error: tx signatures count=" << sig.size() << " mismatch with outputs keys count for inputs=" << output_keys.size());
   }
   // rct_signatures will be expanded after this
@@ -4382,6 +4350,9 @@ leave:
   else money_sup = MONEY_SUPPLY;
   if (blockchain_height == 1056413) already_generated_coins -= (uint64_t)0xba43b74000;
   if (blockchain_height == 1056415) already_generated_coins -= (uint64_t)0x5d21dba000;
+  if (blockchain_height == 1199424) already_generated_coins -= (uint64_t)0x5d21dba000;
+  if (blockchain_height == 1199425) already_generated_coins -= (uint64_t)0x5d21dba000;
+  if (blockchain_height == 1199426) already_generated_coins -= (uint64_t)0x5d21dba000;
   already_generated_coins = base_reward < (money_sup - already_generated_coins) ? already_generated_coins + base_reward : money_sup;
   if(blockchain_height)
     cumulative_difficulty += m_db->get_block_cumulative_difficulty(blockchain_height - 1);
@@ -4846,7 +4817,7 @@ uint64_t Blockchain::prevalidate_block_hashes(uint64_t height, const std::vector
   // build hashes vector to hash hashes together
   std::vector<crypto::hash> data_hashes;
   std::vector<uint64_t> data_weights;
-  data_hashes.reserve(hashes.size() + HASH_OF_HASHES_STEP - 1); // may be a bit too much
+  data_hashes.reserve(hashes.size() + HASH_OF_HASHES_STEP - 1);
   if (!weights.empty())
     data_weights.reserve(data_hashes.size());
 
@@ -4948,7 +4919,6 @@ bool Blockchain::has_block_weights(uint64_t height, uint64_t nblocks) const
       return false;
   return true;
 }
-
 //------------------------------------------------------------------
 // ND: Speedups:
 // 1. Thread long_hash computations if possible (m_max_prepare_blocks_threads = nthreads, default = 4)
@@ -5452,7 +5422,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "b28820e60fce5370342623f63192de61ff33fb2e0d332583014fe48ca5ab7a76";
+static const char expected_block_hashes_hash[] = "aa758c24430460466b8305bbf3c359815b0e68be5f874b9d79f3adea99b12b49";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)
@@ -5497,12 +5467,7 @@ void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get
         return;
       }
       const size_t size_needed = 4 + nblocks * (sizeof(crypto::hash) * 2);
-      if(checkpoints.size() != size_needed)
-      {
-        MERROR("Failed to load hashes - unexpected data size");
-        return;
-      }
-      else if(nblocks > 0 && nblocks > (m_db->height() + HASH_OF_HASHES_STEP - 1) / HASH_OF_HASHES_STEP)
+      if (nblocks > 0 && nblocks > (m_db->height() + HASH_OF_HASHES_STEP - 1) / HASH_OF_HASHES_STEP && checkpoints.size() >= size_needed)
       {
         p += sizeof(uint32_t);
         m_blocks_hash_of_hashes.reserve(nblocks);

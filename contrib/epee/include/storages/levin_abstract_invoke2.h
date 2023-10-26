@@ -266,7 +266,6 @@ namespace epee
   return handle_invoke_map(true, command, in_buff, fake_str, context, handled); \
   } 
 
-
 #define CHAIN_LEVIN_INVOKE_MAP() \
   int invoke(int command, const epee::span<const uint8_t> in_buff, std::string& buff_out, epee::net_utils::connection_context_base& context) \
   { \

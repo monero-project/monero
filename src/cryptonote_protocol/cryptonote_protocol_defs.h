@@ -70,15 +70,15 @@ namespace cryptonote
 
     uint64_t live_time;
 
-	uint64_t avg_download;
-	uint64_t current_download;
+    uint64_t avg_download;
+    uint64_t current_download;
 
-	uint64_t avg_upload;
-	uint64_t current_upload;
+    uint64_t avg_upload;
+    uint64_t current_upload;
 
-	uint32_t support_flags;
+    uint32_t support_flags;
 
-	std::string connection_id;
+    std::string connection_id;
 
     uint64_t height;
 
@@ -163,28 +163,6 @@ namespace cryptonote
 
     block_complete_entry(): pruned(false), block_weight(0) {}
   };
-
-
-  /************************************************************************/
-  /*                                                                      */
-  /************************************************************************/
-  struct NOTIFY_NEW_BLOCK
-  {
-    const static int ID = BC_COMMANDS_POOL_BASE + 1;
-
-    struct request_t
-    {
-      block_complete_entry b;
-      uint64_t current_blockchain_height;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(b)
-        KV_SERIALIZE(current_blockchain_height)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-  };
-
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -297,6 +275,7 @@ namespace cryptonote
       uint64_t cumulative_difficulty_top64;
       std::vector<crypto::hash> m_block_ids;
       std::vector<uint64_t> m_block_weights;
+      cryptonote::blobdata first_block;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(start_height)
@@ -308,6 +287,7 @@ namespace cryptonote
           KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_weights)
+        KV_SERIALIZE(first_block)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

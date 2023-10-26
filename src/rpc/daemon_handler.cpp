@@ -417,15 +417,15 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details += "too few outputs";
       }
-      if (tvc.m_key_image_locked_by_snode)
+      if (tvc.m_invalid_version)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "tx uses outputs that are locked by the service node network";
+        res.error_details = "tx is not version 3 or later";
       }
-      if (tvc.m_key_image_blacklisted)
+      if (tvc.m_invalid_type)
       {
         if (!res.error_details.empty()) res.error_details += " and ";
-        res.error_details = "tx uses a key image that has been temporarily blacklisted by the service node network";
+        res.error_details = "tx has invalid type";
       }
       if (res.error_details.empty())
       {

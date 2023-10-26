@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2019, The Monero Project
+\// Copyright (c) 2017-2019, The Monero Project
 //
 // All rights reserved.
 //
@@ -544,7 +544,7 @@ namespace tx {
     auto & tx = cur_tx();
     const size_t input_size = tx.sources.size();
 
-    m_ct.tx.version = 2;
+    m_ct.tx.version = cryptonote::txversion::v2;
     m_ct.tx.unlock_time = tx.unlock_time;
     m_client_version = (m_aux_data->client_version ? m_aux_data->client_version.get() : 1);
 

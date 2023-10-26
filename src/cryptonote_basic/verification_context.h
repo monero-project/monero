@@ -65,8 +65,8 @@ namespace cryptonote
     bool m_overspend;
     bool m_fee_too_low;
     bool m_too_few_outputs;
-    bool m_key_image_locked_by_snode;
-    bool m_key_image_blacklisted;
+    bool m_invalid_version;
+    bool m_invalid_type;
 
 	vote_verification_context m_vote_ctx;
   };

@@ -563,13 +563,6 @@ namespace cryptonote
     bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
     /**
-     * @brief gets global output indexes that should not be used, i.e. registration tx outputs
-     *
-     * @param return-by-reference blacklist global indexes of rct outputs to ignore
-     */
-    bool get_output_blacklist(std::vector<uint64_t> &blacklist) const;
-
-    /**
      * @brief gets the global indices for outputs from a given transaction
      *
      * This function gets the global indices for all outputs belonging
@@ -1061,19 +1054,7 @@ namespace cryptonote
      */
     void pop_blocks(uint64_t nblocks);
 
-    /**
-     * @brief checks whether a given block height is included in the precompiled block hash area
-     *
-     * @param height the height to check for
-     */
     bool is_within_compiled_block_hash_area(uint64_t height) const;
-
-    /**
-     * @brief checks whether we have known weights for the given block heights
-     *
-     * @param height the start height to check for
-     * @param nblocks how many blocks to check from that height
-     */
     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
     /**
@@ -1201,7 +1182,7 @@ namespace cryptonote
      * @return false if any keys are not found or any inputs are not unlocked, otherwise true
      */
     template<class visitor_t>
-    inline bool scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
+    bool scan_outputkeys_for_indexes(const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
 
     /**
      * @brief collect output public keys of a transaction input set
@@ -1223,7 +1204,7 @@ namespace cryptonote
      *
      * @return false if any output is not yet unlocked, or is missing, otherwise true
      */
-    bool check_tx_input(size_t tx_version,const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height) const;
+    bool check_tx_input(txversion tx_version, const txin_to_key& txin, const crypto::hash& tx_prefix_hash, const std::vector<crypto::signature>& sig, const rct::rctSig &rct_signatures, std::vector<rct::ctkey> &output_keys, uint64_t* pmax_related_block_height) const;
 
     /**
      * @brief validate a transaction's inputs and their keys

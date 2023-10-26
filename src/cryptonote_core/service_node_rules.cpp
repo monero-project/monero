@@ -1,12 +1,13 @@
 #include "cryptonote_config.h"
-#include "common/exp2.h"
+#include "common/equilibria.h"
 #include "int-util.h"
 #include <vector>
 #include <boost/lexical_cast.hpp>
 
 #include "service_node_rules.h"
 
-namespace service_nodes {
+namespace service_nodes
+{
 	uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
 	{
 		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106950 : 581 /* stagenet */;
@@ -73,16 +74,6 @@ namespace service_nodes {
 	  return true;
 	}
 
-	uint64_t get_min_node_contribution(uint8_t hard_fork_version, uint64_t staking_requirement, uint64_t total_reserved)
-	{
-	  if (hard_fork_version < 10)
-	    return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
-	  else if (hard_fork_version < 12)
-	    return std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2);
-
-	  return MIN_POOL_STAKERS_V12;
-	}
-
 	uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount)
 	{
 		uint64_t lo, hi, resulthi, resultlo;
@@ -131,7 +122,7 @@ namespace service_nodes {
 		return get_portions_from_percent(cut_percent, portions);
 	}
 
-  uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
+	uint64_t uniform_distribution_portable(std::mt19937_64& mersenne_twister, uint64_t n)
   {
     uint64_t secureMax = mersenne_twister.max() - mersenne_twister.max() % n;
     uint64_t x;

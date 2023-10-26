@@ -106,7 +106,6 @@ namespace cryptonote
 	  MAP_URI_AUTO_BIN2("/getrandom_rctouts.bin", on_get_random_rct_outs, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS)
       MAP_URI_AUTO_JON2("/get_transactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
       MAP_URI_AUTO_JON2("/gettransactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
-      MAP_URI_AUTO_JON2("/gettransactions_by_heights", on_get_transactions_by_heights, COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS)
       MAP_URI_AUTO_JON2("/get_alt_blocks_hashes", on_get_alt_blocks_hashes, COMMAND_RPC_GET_ALT_BLOCKS_HASHES)
       MAP_URI_AUTO_JON2("/is_key_image_spent", on_is_key_image_spent, COMMAND_RPC_IS_KEY_IMAGE_SPENT)
       MAP_URI_AUTO_JON2("/send_raw_transaction", on_send_raw_tx, COMMAND_RPC_SEND_RAW_TX)
@@ -136,57 +135,58 @@ namespace cryptonote
       MAP_URI_AUTO_JON2("/get_outs", on_get_outs, COMMAND_RPC_GET_OUTPUTS)
       MAP_URI_AUTO_JON2_IF("/update", on_update, COMMAND_RPC_UPDATE, !m_restricted)
       MAP_URI_AUTO_BIN2("/get_output_distribution.bin", on_get_output_distribution_bin, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION)
-      MAP_URI_AUTO_BIN2("/get_output_blacklist.bin", on_get_output_blacklist_bin, COMMAND_RPC_GET_OUTPUT_BLACKLIST)
       MAP_URI_AUTO_JON2_IF("/pop_blocks", on_pop_blocks, COMMAND_RPC_POP_BLOCKS, !m_restricted)
       BEGIN_JSON_RPC_MAP("/json_rpc")
-        MAP_JON_RPC("get_block_count",           on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
-        MAP_JON_RPC("getblockcount",             on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
-        MAP_JON_RPC_WE("on_get_block_hash",      on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
-        MAP_JON_RPC_WE("on_getblockhash",        on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
-        MAP_JON_RPC_WE("get_block_template",     on_getblocktemplate,           COMMAND_RPC_GETBLOCKTEMPLATE)
-        MAP_JON_RPC_WE("getblocktemplate",       on_getblocktemplate,           COMMAND_RPC_GETBLOCKTEMPLATE)
-        MAP_JON_RPC_WE("submit_block",           on_submitblock,                COMMAND_RPC_SUBMITBLOCK)
-        MAP_JON_RPC_WE("submitblock",            on_submitblock,                COMMAND_RPC_SUBMITBLOCK)
-        MAP_JON_RPC_WE_IF("generateblocks",         on_generateblocks,             COMMAND_RPC_GENERATEBLOCKS, !m_restricted)
-        MAP_JON_RPC_WE("get_last_block_header",  on_get_last_block_header,      COMMAND_RPC_GET_LAST_BLOCK_HEADER)
-        MAP_JON_RPC_WE("getlastblockheader",     on_get_last_block_header,      COMMAND_RPC_GET_LAST_BLOCK_HEADER)
-        MAP_JON_RPC_WE("get_block_header_by_hash", on_get_block_header_by_hash,   COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH)
-        MAP_JON_RPC_WE("getblockheaderbyhash",   on_get_block_header_by_hash,   COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH)
+        MAP_JON_RPC("get_block_count",               on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
+        MAP_JON_RPC("getblockcount",                 on_getblockcount,              COMMAND_RPC_GETBLOCKCOUNT)
+        MAP_JON_RPC_WE("on_get_block_hash",          on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
+        MAP_JON_RPC_WE("on_getblockhash",            on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
+        MAP_JON_RPC_WE("get_block_template",         on_getblocktemplate,           COMMAND_RPC_GETBLOCKTEMPLATE)
+        MAP_JON_RPC_WE("getblocktemplate",           on_getblocktemplate,           COMMAND_RPC_GETBLOCKTEMPLATE)
+        MAP_JON_RPC_WE("submit_block",               on_submitblock,                COMMAND_RPC_SUBMITBLOCK)
+        MAP_JON_RPC_WE("submitblock",                on_submitblock,                COMMAND_RPC_SUBMITBLOCK)
+        MAP_JON_RPC_WE_IF("generateblocks",          on_generateblocks,             COMMAND_RPC_GENERATEBLOCKS, !m_restricted)
+        MAP_JON_RPC_WE("get_last_block_header",      on_get_last_block_header,      COMMAND_RPC_GET_LAST_BLOCK_HEADER)
+        MAP_JON_RPC_WE("getlastblockheader",         on_get_last_block_header,      COMMAND_RPC_GET_LAST_BLOCK_HEADER)
+        MAP_JON_RPC_WE("get_block_header_by_hash",   on_get_block_header_by_hash,   COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH)
+        MAP_JON_RPC_WE("getblockheaderbyhash",       on_get_block_header_by_hash,   COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH)
         MAP_JON_RPC_WE("get_block_header_by_height", on_get_block_header_by_height, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT)
-        MAP_JON_RPC_WE("getblockheaderbyheight", on_get_block_header_by_height, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT)
-        MAP_JON_RPC_WE("get_block_headers_range", on_get_block_headers_range,    COMMAND_RPC_GET_BLOCK_HEADERS_RANGE)
-        MAP_JON_RPC_WE("getblockheadersrange",   on_get_block_headers_range,    COMMAND_RPC_GET_BLOCK_HEADERS_RANGE)
-        MAP_JON_RPC_WE("get_block",              on_get_block,                 COMMAND_RPC_GET_BLOCK)
-        MAP_JON_RPC_WE("getblock",                on_get_block,                 COMMAND_RPC_GET_BLOCK)
-        MAP_JON_RPC_WE_IF("get_connections",     on_get_connections,            COMMAND_RPC_GET_CONNECTIONS, !m_restricted)
-        MAP_JON_RPC_WE("get_info",               on_get_info_json,              COMMAND_RPC_GET_INFO)
-        MAP_JON_RPC("resolve_open_alias",        on_resolve_open_alias,   COMMAND_RPC_RESOLVE_OPEN_ALIAS)
-        MAP_JON_RPC_WE("hard_fork_info",         on_hard_fork_info,             COMMAND_RPC_HARD_FORK_INFO)
-        MAP_JON_RPC_WE_IF("set_bans",            on_set_bans,                   COMMAND_RPC_SETBANS, !m_restricted)
-        MAP_JON_RPC_WE_IF("get_bans",            on_get_bans,                   COMMAND_RPC_GETBANS, !m_restricted)
-        MAP_JON_RPC_WE_IF("banned",              on_banned,                     COMMAND_RPC_BANNED, !m_restricted)
-        MAP_JON_RPC_WE_IF("flush_txpool",        on_flush_txpool,               COMMAND_RPC_FLUSH_TRANSACTION_POOL, !m_restricted)
-        MAP_JON_RPC_WE("get_output_histogram",   on_get_output_histogram,       COMMAND_RPC_GET_OUTPUT_HISTOGRAM)
-        MAP_JON_RPC_WE("get_version",            on_get_version,                COMMAND_RPC_GET_VERSION)
-        MAP_JON_RPC_WE_IF("get_coinbase_tx_sum", on_get_coinbase_tx_sum,        COMMAND_RPC_GET_COINBASE_TX_SUM, !m_restricted)
-        MAP_JON_RPC_WE("get_fee_estimate",       on_get_base_fee_estimate,      COMMAND_RPC_GET_BASE_FEE_ESTIMATE)
-        MAP_JON_RPC_WE_IF("get_alternate_chains",on_get_alternate_chains,       COMMAND_RPC_GET_ALTERNATE_CHAINS, !m_restricted)
-        MAP_JON_RPC_WE_IF("relay_tx",            on_relay_tx,                   COMMAND_RPC_RELAY_TX, !m_restricted)
-        MAP_JON_RPC_WE_IF("sync_info",           on_sync_info,                  COMMAND_RPC_SYNC_INFO, !m_restricted)
-        MAP_JON_RPC_WE("get_txpool_backlog",     on_get_txpool_backlog,         COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG)
-        MAP_JON_RPC_WE("get_output_distribution", on_get_output_distribution, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION)
-		    MAP_JON_RPC_WE("get_quorum_state", on_get_quorum_state, COMMAND_RPC_GET_QUORUM_STATE)
+        MAP_JON_RPC_WE("getblockheaderbyheight",     on_get_block_header_by_height, COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT)
+        MAP_JON_RPC_WE("get_block_headers_range",    on_get_block_headers_range,    COMMAND_RPC_GET_BLOCK_HEADERS_RANGE)
+        MAP_JON_RPC_WE("getblockheadersrange",       on_get_block_headers_range,    COMMAND_RPC_GET_BLOCK_HEADERS_RANGE)
+        MAP_JON_RPC_WE("get_block",                  on_get_block,                  COMMAND_RPC_GET_BLOCK)
+        MAP_JON_RPC_WE("getblock",                   on_get_block,                  COMMAND_RPC_GET_BLOCK)
+        MAP_JON_RPC_WE_IF("get_connections",         on_get_connections,            COMMAND_RPC_GET_CONNECTIONS, !m_restricted)
+        MAP_JON_RPC_WE("get_info",                   on_get_info_json,              COMMAND_RPC_GET_INFO)
+        MAP_JON_RPC("resolve_open_alias",            on_resolve_open_alias,         COMMAND_RPC_RESOLVE_OPEN_ALIAS)
+        MAP_JON_RPC_WE("hard_fork_info",             on_hard_fork_info,             COMMAND_RPC_HARD_FORK_INFO)
+        MAP_JON_RPC_WE_IF("set_bans",                on_set_bans,                   COMMAND_RPC_SETBANS, !m_restricted)
+        MAP_JON_RPC_WE_IF("get_bans",                on_get_bans,                   COMMAND_RPC_GETBANS, !m_restricted)
+        MAP_JON_RPC_WE_IF("banned",                  on_banned,                     COMMAND_RPC_BANNED, !m_restricted)
+        MAP_JON_RPC_WE_IF("flush_txpool",            on_flush_txpool,               COMMAND_RPC_FLUSH_TRANSACTION_POOL, !m_restricted)
+        MAP_JON_RPC_WE("get_output_histogram",       on_get_output_histogram,       COMMAND_RPC_GET_OUTPUT_HISTOGRAM)
+        MAP_JON_RPC_WE("get_version",                on_get_version,                COMMAND_RPC_GET_VERSION)
+        MAP_JON_RPC_WE_IF("get_coinbase_tx_sum",     on_get_coinbase_tx_sum,        COMMAND_RPC_GET_COINBASE_TX_SUM, !m_restricted)
+        MAP_JON_RPC_WE("get_fee_estimate",           on_get_base_fee_estimate,      COMMAND_RPC_GET_BASE_FEE_ESTIMATE)
+        MAP_JON_RPC_WE_IF("get_alternate_chains",    on_get_alternate_chains,       COMMAND_RPC_GET_ALTERNATE_CHAINS, !m_restricted)
+        MAP_JON_RPC_WE_IF("relay_tx",                on_relay_tx,                   COMMAND_RPC_RELAY_TX, !m_restricted)
+        MAP_JON_RPC_WE_IF("sync_info",               on_sync_info,                  COMMAND_RPC_SYNC_INFO, !m_restricted)
+        MAP_JON_RPC_WE("get_txpool_backlog",         on_get_txpool_backlog,         COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG)
+        MAP_JON_RPC_WE("get_output_distribution",    on_get_output_distribution,    COMMAND_RPC_GET_OUTPUT_DISTRIBUTION)
+		    MAP_JON_RPC_WE("get_quorum_state",           on_get_quorum_state,           COMMAND_RPC_GET_QUORUM_STATE)
+		    MAP_JON_RPC_WE("get_quorum_state_batched",   on_get_quorum_state_batched,   COMMAND_RPC_GET_QUORUM_STATE_BATCHED)
         MAP_JON_RPC_WE("get_service_node_registration_cmd_raw", on_get_service_node_registration_cmd_raw, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW)
-		    MAP_JON_RPC_WE("get_service_node_registration_cmd", on_get_service_node_registration_cmd, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD)
-		    MAP_JON_RPC_WE("get_service_node_blacklisted_key_images", on_get_service_node_blacklisted_key_images, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES)
-        MAP_JON_RPC_WE("get_service_node_key", on_get_service_node_key, COMMAND_RPC_GET_SERVICE_NODE_KEY)
-        MAP_JON_RPC_WE("get_service_nodes", on_get_service_nodes, COMMAND_RPC_GET_SERVICE_NODES)
-        MAP_JON_RPC_WE("get_staking_requirement", on_get_staking_requirement, COMMAND_RPC_GET_STAKING_REQUIREMENT)
-        MAP_JON_RPC_WE("check_signature", on_get_staking_requirement, COMMAND_RPC_GET_STAKING_REQUIREMENT)
-        MAP_JON_RPC_WE_IF("prune_blockchain",    on_prune_blockchain,           COMMAND_RPC_PRUNE_BLOCKCHAIN, !m_restricted)
-        MAP_JON_RPC_WE_IF("flush_cache",         on_flush_cache,                COMMAND_RPC_FLUSH_CACHE, !m_restricted)
-        MAP_JON_RPC_WE("on_get_signature",  on_get_signature,         COMMAND_RPC_GET_SIGNATURE)
-        MAP_JON_RPC_WE("on_verify_signature",  on_verify_signature,         COMMAND_RPC_VERIFY_SIGNATURE)
+		    MAP_JON_RPC_WE("get_service_node_registration_cmd",     on_get_service_node_registration_cmd,     COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD)
+        MAP_JON_RPC_WE("get_service_node_key",       on_get_service_node_key,       COMMAND_RPC_GET_SERVICE_NODE_KEY)
+        MAP_JON_RPC_WE("get_service_nodes",          on_get_service_nodes,          COMMAND_RPC_GET_SERVICE_NODES)
+        MAP_JON_RPC_WE("get_all_service_nodes",      on_get_all_service_nodes,      COMMAND_RPC_GET_SERVICE_NODES)
+        MAP_JON_RPC_WE("get_all_service_nodes_keys", on_get_all_service_nodes_keys, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS)
+        MAP_JON_RPC_WE("get_staking_requirement",    on_get_staking_requirement,    COMMAND_RPC_GET_STAKING_REQUIREMENT)
+        MAP_JON_RPC_WE("check_signature",            on_get_staking_requirement,    COMMAND_RPC_GET_STAKING_REQUIREMENT)
+        MAP_JON_RPC_WE_IF("prune_blockchain",        on_prune_blockchain,           COMMAND_RPC_PRUNE_BLOCKCHAIN, !m_restricted)
+        MAP_JON_RPC_WE_IF("flush_cache",             on_flush_cache,                COMMAND_RPC_FLUSH_CACHE, !m_restricted)
+        MAP_JON_RPC_WE("on_get_signature",           on_get_signature,              COMMAND_RPC_GET_SIGNATURE)
+        MAP_JON_RPC_WE("on_verify_signature",        on_verify_signature,           COMMAND_RPC_VERIFY_SIGNATURE)
       END_JSON_RPC_MAP()
     END_URI_MAP2()
 
@@ -226,7 +226,6 @@ namespace cryptonote
     bool on_get_output_distribution_bin(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, const connection_context *ctx = NULL);
     bool on_pop_blocks(const COMMAND_RPC_POP_BLOCKS::request& req, COMMAND_RPC_POP_BLOCKS::response& res, const connection_context *ctx = NULL);
 
-    bool on_get_output_blacklist_bin(const COMMAND_RPC_GET_OUTPUT_BLACKLIST::request& req, COMMAND_RPC_GET_OUTPUT_BLACKLIST::response& res, const connection_context *ctx = NULL);
     //json_rpc
     bool on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, const connection_context *ctx = NULL);
     bool on_getblockhash(const COMMAND_RPC_GETBLOCKHASH::request& req, COMMAND_RPC_GETBLOCKHASH::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
@@ -255,18 +254,18 @@ namespace cryptonote
     bool on_get_txpool_backlog(const COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request& req, COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_get_output_distribution(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_prune_blockchain(const COMMAND_RPC_PRUNE_BLOCKCHAIN::request& req, COMMAND_RPC_PRUNE_BLOCKCHAIN::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
-    
     bool on_get_quorum_state(const COMMAND_RPC_GET_QUORUM_STATE::request& req, COMMAND_RPC_GET_QUORUM_STATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_get_quorum_state_batched(const COMMAND_RPC_GET_QUORUM_STATE_BATCHED::request& req, COMMAND_RPC_GET_QUORUM_STATE_BATCHED::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 	  bool on_get_service_node_registration_cmd(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::request& req, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
-	  bool on_get_service_node_blacklisted_key_images(const COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request& req, COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx = NULL);
 	  bool on_get_service_node_key(const COMMAND_RPC_GET_SERVICE_NODE_KEY::request& req, COMMAND_RPC_GET_SERVICE_NODE_KEY::response& res, epee::json_rpc::error &error_resp, const connection_context *ctx = NULL);
 	  bool on_get_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+	  bool on_get_all_service_nodes(const COMMAND_RPC_GET_SERVICE_NODES::request& req, COMMAND_RPC_GET_SERVICE_NODES::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+	  bool on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 	  bool on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 	  bool on_get_random_outs(const COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::request& req, COMMAND_RPC_GET_RANDOM_OUTPUTS_FOR_AMOUNTS::response& res, const connection_context *ctx = NULL);
     bool on_get_random_rct_outs(const COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::request& req, COMMAND_RPC_GET_RANDOM_RCT_OUTPUTS::response& res, const connection_context *ctx = NULL);
     bool on_get_service_node_registration_cmd_raw(const COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::request& req, COMMAND_RPC_GET_SERVICE_NODE_REGISTRATION_CMD_RAW::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
 
-    bool on_get_transactions_by_heights(const COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS::request& req, COMMAND_RPC_GET_TRANSACTIONS_BY_HEIGHTS::response& res, const connection_context *ctx = NULL);
     bool on_resolve_open_alias(const COMMAND_RPC_RESOLVE_OPEN_ALIAS::request& req, COMMAND_RPC_RESOLVE_OPEN_ALIAS::response& res, const connection_context *ctx = NULL);
 
 

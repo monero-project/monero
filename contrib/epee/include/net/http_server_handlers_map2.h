@@ -25,7 +25,7 @@
 // 
 
 
-#pragma once 
+#pragma once
 #include "http_base.h"
 #include "jsonrpc_structs.h"
 #include "storages/portable_storage.h"

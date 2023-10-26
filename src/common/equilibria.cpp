@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* Specification.  */
-#include "exp2.h"
+#include "equilibria.h"
 #include <assert.h>
 
 #include <limits>
@@ -25,6 +25,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <algorithm>
 #include <vector>
+
+static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
 
 /* Best possible approximation of log(2) as a 'double'.  */
 #define LOG2 0.693147180559945309417232121458176568075
@@ -37,11 +39,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* Best possible approximation of 256/log(2) as a 'double'.  */
 #define LOG2_BY_256_INVERSE 369.329930467574632284140718336484387181
-
-// TODO(triton This is temporary until we switch to integer math for calculating
-// block rewards. We provide the specific implementation to minimise the risk of
-// different results from math functions across different std libraries.
-static_assert(std::numeric_limits<double>::is_iec559, "We require IEEE standard compliant doubles.");
 
 double
 equilibria::exp2(double x)
@@ -98,7 +95,7 @@ equilibria::exp2(double x)
 	truncate the series after the z^5 term.  */
 
 	{
-		double nm = equilibria::round(x * 256.0); /* = 256 * n + m */
+		double nm = equilibria::round (x * 256.0); /* = 256 * n + m */
 		double z = (x * 256.0 - nm) * (LOG2_BY_256 * 0.5);
 
 		/* Coefficients of the power series for tanh(z).  */
@@ -120,8 +117,8 @@ equilibria::exp2(double x)
 
 		double exp_y = (1.0 + tanh_z) / (1.0 - tanh_z);
 
-		int n = (int)equilibria::round(nm * (1.0 / 256.0));
-		int m = (int)nm - 256 * n;
+		int n = (int) equilibria::round (nm * (1.0 / 256.0));
+		int m = (int) nm - 256 * n;
 
 		/* exp_table[i] = exp((i - 128) * log(2)/256).
 		Computed in GNU clisp through
@@ -418,17 +415,17 @@ contain floating-point operations.  Pacify this compiler.  */
 #endif
 
 double
-equilibria::round(double x)
+equilibria::round (double x)
 {
 	/* 2^(DBL_MANT_DIG-1).  */
 	static const double TWO_MANT_DIG =
 		/* Assume DBL_MANT_DIG <= 5 * 31.
 		Use the identity
 		n = floor(n/5) + floor((n+1)/5) + ... + floor((n+4)/5).  */
-		(double)(1U << ((DBL_MANT_DIG - 1) / 5))
-		* (double)(1U << ((DBL_MANT_DIG - 1 + 1) / 5))
-		* (double)(1U << ((DBL_MANT_DIG - 1 + 2) / 5))
-		* (double)(1U << ((DBL_MANT_DIG - 1 + 3) / 5))
+		(double) (1U << ((DBL_MANT_DIG - 1) / 5))
+		* (double) (1U << ((DBL_MANT_DIG - 1 + 1) / 5))
+		* (double) (1U << ((DBL_MANT_DIG - 1 + 2) / 5))
+		* (double) (1U << ((DBL_MANT_DIG - 1 + 3) / 5))
 		* (double)(1U << ((DBL_MANT_DIG - 1 + 4) / 5));
 
 	/* The use of 'volatile' guarantees that excess precision bits are dropped at
@@ -483,10 +480,10 @@ equilibria::round(double x)
 
 // adapted from triton llarp/encode.hpp
 // from  https://en.wikipedia.org/wiki/Base32#z-base-32
-static const char zbase32_alpha[] = { 'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
-'e', 'j', 'k', 'm', 'c', 'p', 'q', 'x',
-'o', 't', '1', 'u', 'w', 'i', 's', 'z',
-'a', '3', '4', '5', 'h', '7', '6', '9' };
+static const char zbase32_alpha[] = {'y', 'b', 'n', 'd', 'r', 'f', 'g', '8',
+                                     'e', 'j', 'k', 'm', 'c', 'p', 'q', 'x',
+                                     'o', 't', '1', 'u', 'w', 'i', 's', 'z',
+                                     'a', '3', '4', '5', 'h', '7', '6', '9'};
 
 /// adapted from i2pd
 template <typename stack_t>

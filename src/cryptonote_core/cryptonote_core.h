@@ -621,8 +621,6 @@ namespace cryptonote
       */
      bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const;
 
-     bool get_output_blacklist(std::vector<uint64_t> &blacklist) const;
-
      /**
       * @copydoc miner::pause
       *
@@ -808,13 +806,6 @@ namespace cryptonote
      bool is_update_available() const { return m_update_available; }
 
      /**
-      * @brief get whether fluffy blocks are enabled
-      *
-      * @return whether fluffy blocks are enabled
-      */
-     bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
-
-     /**
       * @brief check a set of hashes against the precompiled hash set
       *
       * @return number of usable blocks
@@ -841,8 +832,6 @@ namespace cryptonote
      * @return Null shared ptr if quorum has not been determined yet for height
      */
 	 const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
-
-	 const std::vector<service_nodes::key_image_blacklist_entry> &get_service_node_blacklisted_key_images() const;
 
   /**
 	* @brief Get a snapshot of the service node list state at the time of the call.
@@ -874,7 +863,9 @@ namespace cryptonote
     * @param sec_key The secret key for the service node, unmodified if not a service node
     * @return True if we are a service node
     */
-	bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+	 bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+
+	 void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool active_only) const;
 
    /**
     * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
@@ -922,6 +913,9 @@ namespace cryptonote
       */
      bool check_blockchain_pruning();
 
+     bool is_within_compiled_block_hash_area(uint64_t height) const;
+     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
+
      /**
       * @brief flushes the bad txs cache
       */
@@ -940,18 +934,6 @@ namespace cryptonote
       * @return true iff success, false otherwise
       */
      bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
-
-     /**
-      * @brief checks whether a given block height is included in the precompiled block hash area
-      *
-      * @param height the height to check for
-      */
-     bool is_within_compiled_block_hash_area(uint64_t height) const;
-
-     /**
-      * @brief checks whether block weights are known for the given range
-      */
-     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
    private:
 
@@ -1191,7 +1173,6 @@ namespace cryptonote
      size_t m_last_update_length;
      boost::mutex m_update_mutex;
 
-     bool m_fluffy_blocks_enabled;
      bool m_offline;
 
      std::shared_ptr<tools::Notify> m_block_rate_notify;

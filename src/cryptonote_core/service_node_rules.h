@@ -22,7 +22,6 @@ namespace service_nodes {
   constexpr size_t   DECOMMISSIONED_REDISTRIBUTION_LOWER_PERCENTILE = 0;
   constexpr size_t   STEALING_SWARM_UPPER_PERCENTILE                = 75;
   constexpr uint64_t QUEUE_SWARM_ID                                 = 0;
-  constexpr int      MAX_KEY_IMAGES_PER_CONTRIBUTOR                 = 1;
 
   using swarm_id_t = uint64_t;
   constexpr swarm_id_t UNASSIGNED_SWARM_ID          = UINT64_MAX;
@@ -31,13 +30,16 @@ inline uint64_t staking_num_lock_blocks(cryptonote::network_type nettype)
 {
   switch(nettype)
   {
-    case cryptonote::TESTNET: return BLOCKS_EXPECTED_IN_DAYS(2);
+    case cryptonote::TESTNET: return 1440;
     case cryptonote::FAKECHAIN: return 30;
-    default: return BLOCKS_EXPECTED_IN_DAYS(30);
+    default: return 20160;
   }
 }
 
-uint64_t get_min_node_contribution(uint8_t hard_fork_version, uint64_t staking_requirement, uint64_t total_reserved);
+inline uint64_t get_min_node_contribution(uint8_t hard_fork_version, uint64_t staking_requirement, uint64_t total_reserved)
+{
+  return hard_fork_version >= cryptonote::network_version_12 ? MIN_POOL_STAKERS_V12 * COIN : hard_fork_version > cryptonote::network_version_9 ? std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+}
 
 uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
 

@@ -66,60 +66,36 @@ namespace service_nodes
 
 	struct service_node_info // registration information
 	{
-	  struct contribution_t
-	  {
-	    uint8_t version = version_3_lc;
-	    crypto::public_key key_image_pub_key;
-	    crypto::key_image key_image;
-	    uint64_t amount;
-
-	    BEGIN_SERIALIZE_OBJECT()
-	      VARINT_FIELD(version)
-	      FIELD(key_image_pub_key)
-	      FIELD(key_image)
-	      VARINT_FIELD(amount)
-	    END_SERIALIZE()
-	  };
-
 		enum version
 		{
 			version_0,
 			version_1_swarms,
 			version_pool_upgrade,
-			version_3_lc,
+			version_3
 		};
 
-		struct contributor_t
+		struct contribution
 		{
-		  uint8_t version;
 			uint64_t amount;
 			uint64_t reserved;
 			cryptonote::account_public_address address;
-			std::vector<contribution_t> locked_contributions;
-			contributor_t() = default;
-			contributor_t(uint64_t reserved_, const cryptonote::account_public_address& address_) : reserved(reserved_), address(address_)
+			contribution() {}
+			contribution(uint64_t _reserved, const cryptonote::account_public_address& _address) : amount(0), reserved(_reserved), address(_address)
 			{
-			  *this = {};
-			  reserved = reserved_;
-			  address = address_;
 			}
 
 			BEGIN_SERIALIZE_OBJECT()
-			  VARINT_FIELD(version)
 				VARINT_FIELD(amount)
 				VARINT_FIELD(reserved)
 				FIELD(address)
-				if (version >= version_3_lc)
-				  FIELD(locked_contributions)
 			END_SERIALIZE()
 		};
 
-		uint8_t  version;
+		uint8_t  version = service_node_info::version_0;
 		uint64_t registration_height;
-		uint64_t requested_unlock_height;
 		uint64_t last_reward_block_height;
 		uint32_t last_reward_transaction_index;
-		std::vector<contributor_t> contributors;
+		std::vector<contribution> contributors;
 		uint64_t total_contributed;
 		uint64_t total_reserved;
 		uint64_t staking_requirement;
@@ -127,16 +103,15 @@ namespace service_nodes
 		swarm_id_t swarm_id;
 		cryptonote::account_public_address operator_address;
 
-		service_node_info() = default;
-
 		bool is_valid() const { return total_contributed >= total_reserved; }
 		bool is_fully_funded() const { return total_contributed >= staking_requirement; }
-		size_t total_num_locked_contributions() const;
+		uint64_t get_min_contribution(uint8_t hard_fork_version) const;
+
+		service_node_info() = default;
 
 		BEGIN_SERIALIZE_OBJECT()
 			VARINT_FIELD(version)
 			VARINT_FIELD(registration_height)
-			VARINT_FIELD(requested_unlock_height)
 			VARINT_FIELD(last_reward_block_height)
 			VARINT_FIELD(last_reward_transaction_index)
 			FIELD(contributors)
@@ -144,47 +119,34 @@ namespace service_nodes
 			VARINT_FIELD(total_reserved)
 			VARINT_FIELD(staking_requirement)
 			VARINT_FIELD(portions_for_operator)
-			FIELD(operator_address)
 			VARINT_FIELD(swarm_id)
+			FIELD(operator_address)
 		END_SERIALIZE()
 	};
 
 	struct service_node_pubkey_info
 	{
 		crypto::public_key pubkey;
-		service_node_info  info;
-
+		service_node_info info;
 		BEGIN_SERIALIZE_OBJECT()
 		  FIELD(pubkey)
 		  FIELD(info)
 		END_SERIALIZE()
 	};
 
-	struct key_image_blacklist_entry
-	{
-	  uint8_t version = service_node_info::version_3_lc;
-	  crypto::key_image key_image;
-	  uint64_t unlock_height;
-
-	  BEGIN_SERIALIZE()
-	    VARINT_FIELD(version)
-	    FIELD(key_image)
-	    VARINT_FIELD(unlock_height)
-	  END_SERIALIZE()
-	};
-
 	template<typename T>
-	void triton_shuffle(std::vector<T>& a, uint64_t seed)
-	{
-	  if (a.size() <= 1) return;
-	  std::mt19937_64 mersenne_twister(seed);
-	  for (size_t i = 1; i < a.size(); i++)
-	  {
-	    size_t j = (size_t)uniform_distribution_portable(mersenne_twister, i+1);
-	    if (i != j)
-	      std::swap(a[i], a[j]);
-	  }
-	}
+  void xeq_shuffle(std::vector<T>& a, uint64_t seed)
+  {
+    if (a.size() <= 1)
+      return;
+    std::mt19937_64 mersenne_twister(seed);
+    for (size_t i = 1; i < a.size(); i++)
+    {
+      size_t j = (size_t)uniform_distribution_portable(mersenne_twister, i + 1);
+      if (i != j)
+        std::swap(a[i], a[j]);
+    }
+  }
 
 	class service_node_list
 		: public cryptonote::BlockAddedHook,
@@ -204,17 +166,17 @@ namespace service_nodes
 
 		std::vector<crypto::public_key> get_service_nodes_pubkeys() const;
 		bool is_service_node(const crypto::public_key& pubkey) const;
-		bool is_key_image_locked(crypto::key_image const &check_image, uint64_t *unlock_height = nullptr, service_node_info::contribution_t *the_locked_contribution = nullptr) const;
 		void update_swarms(uint64_t height);
 
 		/// Note(maxim): this should not affect thread-safety as the returned object is const
 		const std::shared_ptr<const quorum_state> get_quorum_state(uint64_t height) const;
 		std::vector<service_node_pubkey_info> get_service_node_list_state(const std::vector<crypto::public_key> &service_node_pubkeys) const;
-		const std::vector<key_image_blacklist_entry> &get_blacklisted_key_images() const { return m_key_image_blacklist; }
 
 		void set_db_pointer(cryptonote::BlockchainDB* db);
 		void set_my_service_node_keys(crypto::public_key const *pub_key);
 		bool store();
+
+		void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool active_only) const;
 
 		struct rollback_event
 		{
@@ -222,19 +184,19 @@ namespace service_nodes
 			{
 				change_type,
 				new_type,
-				prevent_type,
-				key_image_blacklist_type,
+				prevent_type
 			};
 
 			rollback_event() = default;
 			rollback_event(uint64_t block_height, rollback_type type);
 			virtual ~rollback_event() { }
+			virtual bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const = 0;
 
 			rollback_type type;
 
 			uint64_t m_block_height;
 
-			BEGIN_SERIALIZE()
+			BEGIN_SERIALIZE_OBJECT()
 				VARINT_FIELD(m_block_height)
 			END_SERIALIZE()
 		};
@@ -244,62 +206,49 @@ namespace service_nodes
 		{
 			rollback_change() { type = change_type; }
 			rollback_change(uint64_t block_height, const crypto::public_key& key, const service_node_info& info);
+			bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const;
 			crypto::public_key m_key;
 			service_node_info m_info;
 
-			BEGIN_SERIALIZE()
+			BEGIN_SERIALIZE_OBJECT()
 				FIELDS(*static_cast<rollback_event *>(this))
 				FIELD(m_key)
 				FIELD(m_info)
-				END_SERIALIZE()
+			END_SERIALIZE()
 		};
 
 		struct rollback_new : public rollback_event
 		{
 			rollback_new() { type = new_type; }
 			rollback_new(uint64_t block_height, const crypto::public_key& key);
+			bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const;
 			crypto::public_key m_key;
 
-			BEGIN_SERIALIZE()
+			BEGIN_SERIALIZE_OBJECT()
 				FIELDS(*static_cast<rollback_event *>(this))
 				FIELD(m_key)
-				END_SERIALIZE()
+			END_SERIALIZE()
 		};
 
 		struct prevent_rollback : public rollback_event
 		{
 			prevent_rollback() { type = prevent_type; }
 			prevent_rollback(uint64_t block_height);
+			bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const;
 
-			BEGIN_SERIALIZE()
+			BEGIN_SERIALIZE_OBJECT()
 				FIELDS(*static_cast<rollback_event *>(this))
-				END_SERIALIZE()
+			END_SERIALIZE()
 		};
 
-		struct rollback_key_image_blacklist : public rollback_event
-		{
-		  rollback_key_image_blacklist() { *this = {}; type = key_image_blacklist_type; }
-		  rollback_key_image_blacklist(uint64_t block_height, key_image_blacklist_entry const &entry, bool is_adding_to_blacklist);
-
-		  key_image_blacklist_entry m_entry;
-		  bool m_was_adding_to_blacklist;
-
-		  BEGIN_SERIALIZE()
-		    FIELDS(*static_cast<rollback_event *>(this))
-		    FIELD(m_entry)
-		    FIELD(m_was_adding_to_blacklist)
-		  END_SERIALIZE()
-		};
-		typedef boost::variant<rollback_change, rollback_new, prevent_rollback, rollback_key_image_blacklist> rollback_event_variant;
+		typedef boost::variant<rollback_change, rollback_new, prevent_rollback> rollback_event_variant;
 
 		struct quorum_state_for_serialization
 		{
-		  uint8_t version;
 			uint64_t height;
 			quorum_state state;
 
 			BEGIN_SERIALIZE()
-			  FIELD(version)
 				FIELD(height)
 				FIELD(state)
 			END_SERIALIZE()
@@ -311,41 +260,36 @@ namespace service_nodes
 			crypto::hash registerHash; //register hash;
 			uint64_t balance; //balance of contract for payments
 			std::pair<uint64_t, std::string> last_data; //index of last data submission / data
-			
 			BEGIN_SERIALIZE()
 				FIELD(height)
 				FIELD(registerHash)
 				FIELD(balance)
 				FIELD(last_data)
-			END_SERIALIZE()		
+			END_SERIALIZE()
 		};
 
 		struct data_members_for_serialization
 		{
-		  uint8_t version;
 		  uint64_t height;
 			std::vector<quorum_state_for_serialization> quorum_states;
 			std::vector<service_node_pubkey_info> infos;
 			std::vector<rollback_event_variant> events;
-			std::vector<key_image_blacklist_entry> key_image_blacklist;
 			std::vector<contract_info_for_serialization> contracts;
 			//std::vector<contract_event_variant> contract_events;
 
-			BEGIN_SERIALIZE()
-			  VARINT_FIELD(version)
+			BEGIN_SERIALIZE_OBJECT()
 				FIELD(quorum_states)
 				FIELD(infos)
 				FIELD(events)
 				FIELD(contracts)
 				FIELD(height)
-				if (version >= service_node_info::version_3_lc)
-				  FIELD(key_image_blacklist)
 			END_SERIALIZE()
 		};
 
 	private:
 
 		// Note(maxim): private methods don't have to be protected the mutex
+		bool get_contribution(const cryptonote::transaction& tx, uint64_t block_height, cryptonote::account_public_address& address, uint64_t& transferred) const;
 		bool process_registration_tx(const cryptonote::transaction& tx, uint64_t block_timestamp, uint64_t block_height, uint32_t index);
 		void process_contribution_tx(const cryptonote::transaction& tx, uint64_t block_height, uint32_t index);
 		bool process_deregistration_tx(const cryptonote::transaction& tx, uint64_t block_height);
@@ -372,15 +316,14 @@ namespace service_nodes
     mutable boost::recursive_mutex m_sn_mutex;
 
 		crypto::public_key const *m_service_node_pubkey;
-
 		cryptonote::BlockchainDB* m_db;
 
-		std::vector<key_image_blacklist_entry> m_key_image_blacklist;
 		std::map<block_height, std::shared_ptr<const quorum_state>> m_quorum_states;
 
 		std::vector<contract> m_contracts;
 	};
 
+	uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
 	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
 	struct converted_registration_args
@@ -403,4 +346,3 @@ VARIANT_TAG(binary_archive, service_nodes::service_node_list::data_members_for_s
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_change, 0xa1);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_new, 0xa2);
 VARIANT_TAG(binary_archive, service_nodes::service_node_list::prevent_rollback, 0xa3);
-VARIANT_TAG(binary_archive, service_nodes::service_node_list::rollback_key_image_blacklist, 0xa4);

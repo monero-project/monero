@@ -213,7 +213,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
   return 0;
 }
 
-int import_from_file(cryptonote::core& core, const std::string& import_file_path, uint64_t block_stop=0)
+int import_from_file(cryptonote::core& core, const std::string& import_file_path, uint64_t block_stop = 0)
 {
   // Reset stats, in case we're using newly created db, accumulating stats
   // from addition of genesis block.

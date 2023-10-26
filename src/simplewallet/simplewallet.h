@@ -83,11 +83,8 @@ namespace cryptonote
     std::string get_commands_str();
     std::string get_command_usage(const std::vector<std::string> &args);
 
-
-    
   private:
     enum ResetType { ResetNone, ResetSoft, ResetHard, ResetSoftKeepKI };
-    enum txType { None, Burn, Swap, Create_Contract };
     bool handle_command_line(const boost::program_options::variables_map& vm);
 
     bool run_console_handler();
@@ -163,13 +160,12 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
-    bool transfer_main(int transfer_type, const std::vector<std::string> &args, bool called_by_mms, txType transferType = txType::None);
+    bool transfer_main(int transfer_type, const std::vector<std::string> &args, bool called_by_mms);
     bool transfer(const std::vector<std::string> &args);
     bool locked_transfer(const std::vector<std::string> &args);
+    bool swap_transfer(const std::vector<std::string> &args);
     bool stake(const std::vector<std::string> &args_);
     bool register_service_node(const std::vector<std::string> &args_);
-    bool print_locked_stakes(const std::vector<std::string>&);
-    bool query_locked_stakes(bool print_result);
     bool locked_sweep_all(const std::vector<std::string> &args);
 
     enum class sweep_type_t { stake, register_stake, all_or_below, single };
@@ -274,11 +270,6 @@ namespace cryptonote
                                     uint64_t staking_requirement);
 
     bool on_unknown_command(const std::vector<std::string>& args);
-
-    bool swap_request(const std::vector<std::string>& args);
-    bool burn(const std::vector<std::string>& args);
-    bool create_contract(const std::vector<std::string>& args);
-
 
     bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);
     uint64_t get_daemon_blockchain_height(std::string& err);
@@ -446,7 +437,6 @@ namespace cryptonote
     uint64_t m_restore_height;  // optional
     bool m_do_not_relay;
     bool m_use_english_language_names;
-    bool m_has_locked_key_images;
 
     epee::console_handlers_binder m_cmd_binder;
 

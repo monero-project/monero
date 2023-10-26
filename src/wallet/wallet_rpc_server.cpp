@@ -361,7 +361,7 @@ namespace tools
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = d.address(m_wallet->nettype(), pd.m_payment_id);
+      td.address = d.original.empty() ? d.address(m_wallet->nettype(), pd.m_payment_id) : d.original;
     }
 
     entry.type = "out";
@@ -392,7 +392,7 @@ namespace tools
       entry.destinations.push_back(wallet_rpc::transfer_destination());
       wallet_rpc::transfer_destination &td = entry.destinations.back();
       td.amount = d.amount;
-      td.address = d.address(m_wallet->nettype(), pd.m_payment_id);
+      td.address = d.original.empty() ? d.address(m_wallet->nettype(), pd.m_payment_id) : d.original;
     }
 
     entry.type = is_failed ? "failed" : "pending";
@@ -1036,6 +1036,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
+
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
 
       if (ptx_vector.empty())
@@ -1095,6 +1096,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
+
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
@@ -1143,7 +1145,7 @@ namespace tools
       return false;
     }
 
-    tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(snode_key, addr_info, req.amount, 0, req.priority, 0, req.subaddr_indices);
+    tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(snode_key, req.amount, 0, req.priority, req.subaddr_indices);
     if (stake_result.status != tools::wallet2::stake_result_status::success)
     {
       er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;
@@ -1210,8 +1212,8 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
+
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
-      
       if (ptx_vector.empty())
       {
         er.code = WALLET_RPC_ERROR_CODE_TX_NOT_POSSIBLE;

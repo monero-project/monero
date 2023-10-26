@@ -212,10 +212,7 @@ namespace service_nodes
 		return result;
 	}
 
-	bool deregister_vote_pool::add_vote(const deregister_vote& new_vote,
-		cryptonote::vote_verification_context& vvc,
-		const service_nodes::quorum_state &quorum_state,
-		cryptonote::transaction &tx)
+	bool deregister_vote_pool::add_vote(const uint8_t hard_fork_version, const deregister_vote& new_vote, cryptonote::vote_verification_context& vvc, const service_nodes::quorum_state &quorum_state, cryptonote::transaction &tx)
 	{
 		if (!deregister_vote::verify_vote(m_nettype, new_vote, vvc, quorum_state))
 		{
@@ -266,12 +263,12 @@ namespace service_nodes
 				vvc.m_full_tx_deregister_made = cryptonote::add_service_node_deregister_to_tx_extra(tx.extra, deregister);
 				if (vvc.m_full_tx_deregister_made)
 				{
-					tx.version = cryptonote::transaction::version_3_per_output_unlock_times;
-					tx.is_deregister = true;
+					tx.version = cryptonote::transaction::get_max_version_for_hf(hard_fork_version);
+					tx.type = cryptonote::txtype::deregister;
 				}
 				else
 				{
-					LOG_PRINT_L1("Could not create version 3 deregistration transaction from votes");
+					LOG_PRINT_L1("Could not create deregistration transaction from votes");
 				}
 			}
 		}
@@ -284,13 +281,13 @@ namespace service_nodes
 		CRITICAL_REGION_LOCAL(m_lock);
 		for (const auto &tx : txs)
 		{
-			if (!tx.is_deregister_tx())
+			if (tx.type != cryptonote::txtype::deregister)
 				continue;
 
 			cryptonote::tx_extra_service_node_deregister deregister;
 			if (!get_service_node_deregister_from_tx_extra(tx.extra, deregister))
 			{
-				LOG_ERROR("Could not get deregister from tx version 3, possibly corrupt tx");
+				LOG_ERROR("Could not get deregister from tx, possibly corrupt tx");
 				continue;
 			}
 
@@ -303,7 +300,7 @@ namespace service_nodes
 
 	void deregister_vote_pool::remove_expired_votes(uint64_t height)
 	{
-    	const auto vote_lifetime = height >= 426143 ? service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT_V2 : service_nodes::deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
+    	const auto vote_lifetime = height >= 426143 ? deregister_vote::VOTE_LIFETIME_BY_HEIGHT_V2 : deregister_vote::VOTE_LIFETIME_BY_HEIGHT;
 
 		if (height < vote_lifetime)
 		{

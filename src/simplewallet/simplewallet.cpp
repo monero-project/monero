@@ -49,6 +49,7 @@
 #include <boost/format.hpp>
 #include <boost/regex.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/filesystem.hpp>
 #include "include_base_utils.h"
 #include "console_handler.h"
 #include "common/i18n.h"
@@ -142,6 +143,7 @@ enum TransferType
 {
   Transfer,
   TransferLocked,
+  TransferSwap,
 };
 
 static std::string get_human_readable_timespan(std::chrono::seconds seconds);
@@ -179,7 +181,8 @@ namespace
   const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
   const char* USAGE_PAYMENT_ID("payment_id");
-  const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>] [memo=<memo data>]");
+  const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]");
+  const char* USAGE_SWAP_TRANSFER("swap_transfer [index=<N1>[,<N2>,...}} [<priority>] [<ring_size>] (<address> <amount> [<payment_id>] [memo=<memo data>]");
   const char* USAGE_LOCKED_TRANSFER("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <addr> <amount>) <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_LOCKED_SWEEP_ALL("locked_sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] <address> <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_SWEEP_ALL("sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] [outputs=<N>] <address> [<payment_id (obsolete)>]");
@@ -273,7 +276,6 @@ namespace
   // Service Nodes
   const char* USAGE_REGISTER_SERVICE_NODE("register_service_node [priority] <address> <fraction> <expiration_timestamp> <pubkey> <signature> <amount>");
   const char* USAGE_STAKE("stake [index=<N1>[,<N2>,...]] [priority] <service node pubkey> <amount>");
-  const char* USAGE_PRINT_LOCKED_STAKES("print_locked_stakes");
 
   std::string input_line(const std::string& prompt, bool yesno = false)
   {
@@ -2827,12 +2829,14 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::on_command, this, &simple_wallet::transfer, _1),
                            tr(USAGE_TRANSFER),
                            tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
-  m_cmd_binder.set_handler("locked_transfer",
-                           boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_transfer,_1),
+  m_cmd_binder.set_handler("locked_transfer", boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_transfer, _1),
                            tr(USAGE_LOCKED_TRANSFER),
                            tr("Transfer <amount> to <address> and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+  m_cmd_binder.set_handler("swap_transfer", boost::bind(&simple_wallet::on_command, this, &simple_wallet::swap_transfer, _1),
+                           tr(USAGE_SWAP_TRANSFER),
+                           tr("Transfer using cross-chain XEQ to wXEQ"));
   m_cmd_binder.set_handler("locked_sweep_all",
-                           boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_sweep_all,_1),
+                           boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_sweep_all, _1),
                            tr(USAGE_LOCKED_SWEEP_ALL),
                            tr("Send all unlocked balance to an address and lock it for <lockblocks> (max. 1000000). If the parameter \"index=<N1>[,<N2>,...]\" or \"index=all\" is specified, the wallet sweeps outputs received by those or all address indices, respectively. If omitted, the wallet randomly chooses an address index to be used. <priority> is the priority of the sweep. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability."));
  m_cmd_binder.set_handler("register_service_node",
@@ -2843,10 +2847,6 @@ simple_wallet::simple_wallet()
                           boost::bind(&simple_wallet::stake, this, _1),
                           tr(USAGE_STAKE),
                           tr("Send <amount> to this wallet's main account, locked for the required staking time plus a small buffer. If the parameter \"index<N1>[,<N2>,...]\" is specified, the wallet stakes outputs received by those address indices. <priority> is the priority of the stake. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used."));
-  m_cmd_binder.set_handler("print_locked_stakes",
-                           boost::bind(&simple_wallet::print_locked_stakes, this, _1),
-                           tr(USAGE_PRINT_LOCKED_STAKES),
-                           tr("Print stakes currently locked on Service Node network"));
   m_cmd_binder.set_handler("sweep_unmixable",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::sweep_unmixable, _1),
                            tr("Send all unmixable outputs to yourself with ring_size 1"));
@@ -3303,18 +3303,6 @@ simple_wallet::simple_wallet()
                            tr("Returns version information"));
   m_cmd_binder.set_handler("help",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::help, _1),
-                           tr(USAGE_HELP),
-                           tr("Show the help section or the documentation about a <command>."));
-  m_cmd_binder.set_handler("swap",
-                           boost::bind(&simple_wallet::swap_request, this, _1),
-                           tr(USAGE_HELP),
-                           tr("Show the help section or the documentation about a <command>."));
-  m_cmd_binder.set_handler("burn",
-                           boost::bind(&simple_wallet::burn, this, _1),
-                           tr(USAGE_HELP),
-                           tr("Show the help section or the documentation about a <command>."));
-  m_cmd_binder.set_handler("create_contract",
-                           boost::bind(&simple_wallet::create_contract, this, _1),
                            tr(USAGE_HELP),
                            tr("Show the help section or the documentation about a <command>."));
   m_cmd_binder.set_unknown_command_handler(boost::bind(&simple_wallet::on_command, this, &simple_wallet::on_unknown_command, _1));
@@ -4811,8 +4799,8 @@ void simple_wallet::start_background_mining()
   }
   if (!resq.is_background_mining_enabled)
   {
-    COMMAND_RPC_START_MINING::request req;
-    COMMAND_RPC_START_MINING::response res;
+    COMMAND_RPC_START_MINING::request req{};
+    COMMAND_RPC_START_MINING::response res{};
     req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     req.threads_count = 1;
     req.do_background_mining = true;
@@ -5305,7 +5293,6 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
       }
     }
 
-    m_has_locked_key_images = query_locked_stakes(false);
     ok = true;
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -5954,7 +5941,7 @@ std::string jsonString(const rapidjson::Document& d)
 }
 
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_, bool called_by_mms, txType transferType)
+bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::string> &args_, bool called_by_mms)
 {
 //  "transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"
   if (!try_connect_to_daemon())
@@ -6046,7 +6033,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
   }
 
   uint64_t burn_amount = 0;
-  bool is_swap_tx = false;
 
   vector<cryptonote::address_parse_info> dsts_info;
   vector<cryptonote::tx_destination_entry> dsts;
@@ -6107,14 +6093,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       return false;
     }
 
-    if (transferType == txType::Burn)
-    {
-      add_burned_amount_to_tx_extra(extra, de.amount);
-      burn_amount += de.amount;
-      de.amount = 1;
-    }
-
-    if (transferType == txType::Swap)
+    if (transfer_type == TransferSwap)
     {
       std::string chain = input_line(tr("Please enter the chain you want to swap to (ETH or AVAX). MUST BE EXACT!: "));
       std::string eth_address = input_line(tr("Please enter the address you want to swap to: "));
@@ -6134,8 +6113,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         fail_msg_writer() << tr("Failed to serialise transaction memo");
         return false;
       }
-
-      is_swap_tx = true;
     }
 
     de.addr = info.address;
@@ -6186,25 +6163,18 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     std::vector<tools::wallet2::pending_tx> ptx_vector;
     uint64_t bc_height, unlock_block = 0;
     std::string err;
-    switch (transfer_type)
+    if (transfer_type == TransferLocked)
     {
-      case TransferLocked:
-        bc_height = get_daemon_blockchain_height(err);
-        if (!err.empty())
-        {
-          fail_msg_writer() << tr("failed to get blockchain height: ") << err;
-          return false;
-        }
-        unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, false, is_swap_tx);
-      break;
-      default:
-        LOG_ERROR("Unknown transfer method, using default");
-        /* FALLTHRU */
-      case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, false, is_swap_tx);
-      break;
+      bc_height = get_daemon_blockchain_height(err);
+      if (!err.empty())
+      {
+        fail_msg_writer() << tr("failed to get blockchain height: ") << err;
+        return false;
+      }
+      unlock_block = bc_height + locked_blocks;
     }
+
+    ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block, priority, extra, m_current_subaddress_account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -6295,12 +6265,12 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
             subaddr_indices.insert(i);
           for (uint32_t i : subaddr_indices)
-            if(transferType != txType::Swap || transferType != txType::Burn)
+            if(transfer_type != TransferSwap)
               prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)
             prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
         }
-        if(transferType != txType::Swap || transferType != txType::Burn)
+        if(transfer_type != TransferSwap)
           prompt << boost::format(tr("Sending %s.  ")) % print_money(total_sent);
         if (ptx_vector.size() > 1)
         {
@@ -6310,11 +6280,6 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         }
         else
         {
-
-          if(transferType == txType::Burn) {
-            prompt << boost::format(tr("Burning %s XEQ: ")) %
-            print_money(burn_amount);
-          }
           prompt << boost::format(tr("The transaction fee is %s")) %
             print_money(total_fee - burn_amount);
         }
@@ -6441,40 +6406,22 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer(const std::vector<std::string> &args_)
 {
-  transfer_main(Transfer, args_, false);
-  return true;
+  return transfer_main(Transfer, args_, false);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::locked_transfer(const std::vector<std::string> &args_)
 {
-  transfer_main(TransferLocked, args_, false);
-  return true;
+  return transfer_main(TransferLocked, args_, false);
+}
+//----------------------------------------------------------------------------------------------------
+bool simple_wallet::swap_transfer(const std::vector<std::string> &args_)
+{
+  return transfer_main(TransferSwap, args_, false);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::locked_sweep_all(const std::vector<std::string> &args_)
 {
   sweep_main(m_current_subaddress_account, 0, true, args_);
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::swap_request(const std::vector<std::string> &args_)
-{
-  std::vector<std::string> local_args = args_;
-  transfer_main(Transfer, local_args, false, txType::Swap);
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::burn(const std::vector<std::string> &args_)
-{
-  std::vector<std::string> local_args = args_;
-  transfer_main(Transfer, local_args, false, txType::Burn);
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::create_contract(const std::vector<std::string> &args_)
-{
-  std::vector<std::string> local_args = args_;
-  transfer_main(Transfer, local_args, false, txType::Create_Contract);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -6570,7 +6517,7 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
       amount = 0;
       try
       {
-        amount_fraction = boost::lexical_cast<double>(local_args[2]) / 100.0;
+        amount_fraction = boost::lexical_cast<double>(local_args[1]) / 100.0;
       }
       catch (const std::exception &e)
       {
@@ -6601,12 +6548,9 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     m_wallet->refresh(false);
     try
     {
-      address_parse_info info = {};
-      info.address = m_wallet->get_address();
-
       time_t begin_construct_time = time(nullptr);
 
-      tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(service_node_key, info, amount, amount_fraction, priority, m_current_subaddress_account, subaddr_indices);
+      tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(service_node_key, amount, amount_fraction, priority, subaddr_indices);
       if (stake_result.status != tools::wallet2::stake_result_status::success)
       {
         fail_msg_writer() << stake_result.msg;
@@ -6617,6 +6561,8 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
         tools::msg_writer() << stake_result.msg;
 
       std::vector<tools::wallet2::pending_tx> ptx_vector = {stake_result.ptx};
+      cryptonote::address_parse_info info = {};
+      info.address = m_wallet->get_address();
       if (!sweep_main_internal(sweep_type_t::stake, ptx_vector, info))
       {
         fail_msg_writer() << tr("Sending stake transaction failed");
@@ -6642,157 +6588,6 @@ bool simple_wallet::stake(const std::vector<std::string> &args_)
     }
   }
 
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::query_locked_stakes(bool print_result)
-{
-  if (!try_connect_to_daemon())
-    return false;
-
-  bool has_locked_stakes = false;
-  std::string msg_buf;
-  {
-    using namespace cryptonote;
-    boost::optional<std::string> failed;
-    const std::vector<COMMAND_RPC_GET_SERVICE_NODES::response::entry> response = m_wallet->get_all_service_nodes(failed);
-    if (failed)
-    {
-      fail_msg_writer() << *failed;
-      return has_locked_stakes;
-    }
-
-    cryptonote::account_public_address const primary_address = m_wallet->get_address();
-    for (COMMAND_RPC_GET_SERVICE_NODES::response::entry const &node_info : response)
-    {
-      bool only_once = true;
-      for (COMMAND_RPC_GET_SERVICE_NODES::response::contributor const &contributor : node_info.contributors)
-      {
-        address_parse_info address_info = {};
-        if (!cryptonote::get_account_address_from_str(address_info, m_wallet->nettype(), contributor.address))
-        {
-          fail_msg_writer() << tr("Failed to parse string representation of address: ") << contributor.address;
-          continue;
-        }
-
-        if (primary_address != address_info.address)
-          continue;
-
-        for (size_t i = 0; i < contributor.locked_contributions.size(); ++i)
-        {
-          COMMAND_RPC_GET_SERVICE_NODES::response::contribution const &contribution = contributor.locked_contributions[i];
-          has_locked_stakes = true;
-
-          if (!print_result)
-            continue;
-
-          msg_buf.reserve(512);
-          if (only_once)
-          {
-            only_once = false;
-            msg_buf.append("Service Node: ");
-            msg_buf.append(node_info.service_node_pubkey);
-            msg_buf.append("\n");
-
-            msg_buf.append("Unlock height: ");
-            if (node_info.requested_unlock_height == 0)
-              msg_buf.append("Service Node registered before Hard-Fork v18");
-            else
-              msg_buf.append(std::to_string(node_info.requested_unlock_height));
-            msg_buf.append("\n");
-
-            msg_buf.append("Total Locked: ");
-            msg_buf.append(cryptonote::print_money(contributor.amount));
-            msg_buf.append("\n");
-
-            msg_buf.append("Amount/Key Image: ");
-          }
-
-          msg_buf.append(cryptonote::print_money(contribution.amount));
-          msg_buf.append("/");
-          msg_buf.append(contribution.key_image);
-          msg_buf.append("\n");
-
-          if (i < (contributor.locked_contributions.size() - 1))
-          {
-            msg_buf.append("                  ");
-          }
-          else
-          {
-            msg_buf.append("\n");
-          }
-        }
-      }
-    }
-  }
-
-  {
-    using namespace cryptonote;
-    boost::optional<std::string> failed;
-    const std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> response = m_wallet->get_service_node_blacklisted_key_images(failed);
-    if (failed)
-    {
-      fail_msg_writer() << *failed;
-      return has_locked_stakes;
-    }
-
-    bool once_only = true;
-    cryptonote::blobdata binary_buf;
-    binary_buf.reserve(sizeof(crypto::key_image));
-    for (size_t i = 0; i < response.size(); ++i)
-    {
-      COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry const &entry = response[i];
-      binary_buf.clear();
-      if (!epee::string_tools::parse_hexstr_to_binbuff(entry.key_image, binary_buf) || binary_buf.size() != sizeof(crypto::key_image))
-      {
-        fail_msg_writer() << tr("Failed to parse hex representation of key image: ") << entry.key_image;
-        continue;
-      }
-
-      if (!m_wallet->contains_key_image(*reinterpret_cast<const crypto::key_image*>(binary_buf.data())))
-        continue;
-
-      has_locked_stakes = true;
-      if (!print_result)
-        continue;
-
-      msg_buf.reserve(512);
-      if (once_only)
-      {
-        msg_buf.append("Blacklisted Stakes\n");
-        once_only = false;
-      }
-
-      msg_buf.append(" Unlock Height/Key Image: ");
-      msg_buf.append(std::to_string(entry.unlock_height));
-      msg_buf.append("/");
-      msg_buf.append(entry.key_image);
-      msg_buf.append("\n");
-
-      if (i < (response.size() - 1))
-        msg_buf.append("\n");
-    }
-  }
-
-  if (print_result)
-  {
-    if (has_locked_stakes)
-    {
-      tools::msg_writer() << msg_buf;
-    }
-    else
-    {
-      tools::msg_writer() << "No locked stakes known for this wallet on the network";
-    }
-  }
-
-  return has_locked_stakes;
-}
-//----------------------------------------------------------------------------------------------------
-bool simple_wallet::print_locked_stakes(const std::vector<std::string>&)
-{
-  SCOPED_WALLET_UNLOCK();
-  query_locked_stakes(true);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -6939,10 +6734,7 @@ bool simple_wallet::sweep_main_internal(sweep_type_t sweep_type, std::vector<too
       total_sent += m_wallet->get_transfer_details(i).amount();
 
     if (sweep_type == sweep_type_t::stake || sweep_type == sweep_type_t::register_stake)
-    {
-      ptx_vector[n].tx.version = std::max((size_t)transaction::version_3_per_output_unlock_times, ptx_vector[n].tx.version);
       total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
-    }
   }
 
   std::ostringstream prompt;
@@ -7354,8 +7146,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_all(const std::vector<std::string> &args_)
 {
-  sweep_main(m_current_subaddress_account, 0, false, args_);
-  return true;
+  return sweep_main(m_current_subaddress_account, 0, false, args_);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sweep_account(const std::vector<std::string> &args_)
@@ -9038,20 +8829,8 @@ std::string simple_wallet::get_prompt() const
   std::string prompt = std::string("[") + tr("wallet") + " " + addr_start;
   if (!m_wallet->check_connection(NULL))
     prompt += tr(" (no daemon)");
-  else
-  {
-    if (!m_wallet->is_synced())
-    {
-      if (m_has_locked_key_images)
-      {
-        prompt += tr(" (has locked stakes)");
-      }
-    }
-    else
-    {
-      prompt += tr(" (out of sync)");
-    }
-  }
+  else if (!m_wallet->is_synced())
+    prompt += tr(" (out of sync)");
   prompt += "]: ";
   return prompt;
 }

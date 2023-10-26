@@ -47,7 +47,7 @@ namespace levin
 	{
 		uint64_t m_signature;
 		uint64_t m_cb;
-		bool     m_have_to_return_data;
+		uint8_t  m_have_to_return_data;
 		uint32_t m_command;
 		int32_t  m_return_code;
 		uint32_t m_reservedA; //probably some flags in future
@@ -62,7 +62,7 @@ namespace levin
   {
     uint64_t m_signature;
     uint64_t m_cb;
-    bool     m_have_to_return_data;
+    uint8_t  m_have_to_return_data;
     uint32_t m_command;
     int32_t  m_return_code;
     uint32_t m_flags;

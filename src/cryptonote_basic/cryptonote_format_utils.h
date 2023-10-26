@@ -93,8 +93,6 @@ namespace cryptonote
 
   bool get_tx_secret_key_from_tx_extra(const std::vector<uint8_t>& tx_extra, crypto::secret_key& key);
   void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::secret_key& key);
-  bool get_tx_key_image_proofs_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_tx_key_image_proofs &proofs);
-  bool add_tx_key_image_proofs_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_tx_key_image_proofs& proofs);
 
   void add_service_node_winner_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& winner);
   crypto::public_key get_service_node_winner_from_tx_extra(const std::vector<uint8_t>& tx_extra);
@@ -179,6 +177,12 @@ namespace cryptonote
 
   char const *print_tx_verification_context(tx_verification_context const &tvc, transaction const *tx = nullptr);
   char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::deregister_vote const *vote = nullptr);
+
+  inline std::ostream &operator<<(std::ostream &stream, transaction const &tx)
+  {
+    stream << "tx={version=" << tx.version << ", type=" << tx.type << ", hash=" << get_transaction_hash(tx) << "}";
+    return stream;
+  }
 
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
   //---------------------------------------------------------------

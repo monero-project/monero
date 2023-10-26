@@ -27,7 +27,6 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "node_rpc_proxy.h"
-#include "rpc/core_rpc_server_commands_defs.h"
 #include "storages/http_abstract_invoke.h"
 
 #include <boost/thread.hpp>
@@ -59,9 +58,6 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_cli
 
 void NodeRPCProxy::invalidate()
 {
-  m_service_node_blacklisted_key_images_cached_height = 0;
-  m_service_node_blacklisted_key_images.clear();
-
   m_all_service_nodes_cached_height = 0;
   m_all_service_nodes.clear();
 
@@ -188,6 +184,21 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
 
   earliest_height = m_earliest_height[version];
   return boost::optional<std::string>();
+}
+
+boost::optional<uint8_t> NodeRPCProxy::get_hardfork_version() const
+{
+  cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req{};
+  cryptonote::COMMAND_RPC_HARD_FORK_INFO::response resp{};
+
+  m_daemon_rpc_mutex.lock();
+  bool r = net_utils::invoke_http_json_rpc("/json_rpc", "hard_fork_info", req, resp, m_http_client, rpc_timeout);
+  m_daemon_rpc_mutex.unlock();
+  CHECK_AND_ASSERT_MES(r, {}, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(resp.status != CORE_RPC_STATUS_BUSY, {}, "Failed to connect to daemon");
+  CHECK_AND_ASSERT_MES(resp.status == CORE_RPC_STATUS_OK, {}, "Failed to get hard fork status");
+
+  return resp.version;
 }
 
 boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const
@@ -363,7 +374,7 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
           [&contributor](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry &e)
           {
             return std::any_of(e.contributors.begin(), e.contributors.end(),
-                [&contributor](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contributor &c) { return contributor == c.address; });
+                [&contributor](const cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::contribution &c) { return contributor == c.address; });
           }
       );
       m_contributed_service_nodes_cached_height = height;
@@ -371,57 +382,6 @@ std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> NodeRPCP
     }
 
     result = m_contributed_service_nodes;
-  }
-
-  return result;
-}
-
-std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> NodeRPCProxy::get_service_node_blacklisted_key_images(boost::optional<std::string> &failed) const
-{
-  std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> result;
-  if (m_offline)
-  {
-    failed = std::string("Offline");
-    return result;
-  }
-
-  uint64_t height;
-  failed = get_height(height);
-  if (failed)
-    return result;
-
-  {
-    boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
-    if (m_service_node_blacklisted_key_images_cached_height != height)
-    {
-      cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::request req = {};
-      cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::response res = {};
-
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_service_node_blacklisted_key_images", req, res, m_http_client, rpc_timeout);
-
-      if(!r)
-      {
-        failed = std::string("Failed to connect to daemon");
-        return result;
-      }
-
-      if (res.status == CORE_RPC_STATUS_BUSY)
-      {
-        failed = res.status;
-        return result;
-      }
-
-      if (res.status != CORE_RPC_STATUS_OK)
-      {
-        failed = res.status;
-        return result;
-      }
-
-      m_service_node_blacklisted_key_images_cached_height = height;
-      m_service_node_blacklisted_key_images = std::move(res.blacklist);
-    }
-
-    result = m_service_node_blacklisted_key_images;
   }
 
   return result;

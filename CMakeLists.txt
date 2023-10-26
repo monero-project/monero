@@ -736,6 +736,12 @@ else()
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
   message(STATUS "Using linker security hardening flags: ${LD_SECURITY_FLAGS}")
 
+  if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64" AND CMAKE_C_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
+    # request classic linker for Xcode 15 for Apple Silicon Macs
+    message("-- Xcode >= 15 on arm6 detected, requesting classic linker")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ld_classic")
+  endif()
+
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${COVERAGE_FLAGS} ${PIC_FLAG} ${C_SECURITY_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_CPP_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${COVERAGE_FLAGS} ${PIC_FLAG} ${CXX_SECURITY_FLAGS}")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LD_SECURITY_FLAGS} ${LD_BACKCOMPAT_FLAGS}")
@@ -839,7 +845,7 @@ else()
   if(APPLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.15 -fvisibility=hidden -DGTEST_HAS_TR1_TUPLE=0")
     if(NOT DEPENDS)
-      set(CMAKE_OSX_DEPLOYMENT_TARGET 13.0)
+      set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
     endif()
   endif()
 
@@ -1062,6 +1068,8 @@ endif()
 
 add_subdirectory(contrib)
 add_subdirectory(src)
+
+cmake_policy(SET CMP0148 OLD)
 
 find_package(PythonInterp)
 if(BUILD_TESTS)

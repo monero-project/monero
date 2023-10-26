@@ -624,6 +624,7 @@ namespace nodetool
       full_addrs.insert("xeq.supporters.ml:9230");
       full_addrs.insert("xeq.gntl.uk:9230");
       full_addrs.insert("equilibria.fastnode.eu:9230");
+      full_addrs.insert("144.91.88.92:9230");
       //Amsterdam
     }
     return full_addrs;
@@ -902,7 +903,8 @@ namespace nodetool
             }
             else
             {
-              ++number_of_out_peers;
+              if (!(cntxt.m_state == p2p_connection_context::state_before_handshake && std::time(NULL) < cntxt.m_started + 10))
+                ++number_of_out_peers;
             }
             return true;
           }); // lambda
@@ -1441,10 +1443,10 @@ namespace nodetool
 
       std::deque<size_t> filtered;
       const size_t limit = use_white_list ? 20 : std::numeric_limits<size_t>::max();
+      size_t idx = 0, skipped = 0;
       for (int step = 0; step < 2; ++step)
       {
         bool skip_duplicate_class_B = step == 0;
-        size_t idx = 0, skipped = 0;
         zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe](const peerlist_entry &pe){
           if (filtered.size() >= limit)
             return false;
@@ -1519,7 +1521,6 @@ namespace nodetool
 
       if(zone.m_our_address == pe.adr)
         continue;
-        
 
       if(is_peer_used(pe)) {
         _note("Peer is used");
@@ -2686,8 +2687,8 @@ namespace nodetool
     const uint32_t index = stripe - 1;
     CRITICAL_REGION_LOCAL(m_used_stripe_peers_mutex);
     MINFO("adding stripe " << stripe << " peer: " << context.m_remote_address.str());
-    std::remove_if(m_used_stripe_peers[index].begin(), m_used_stripe_peers[index].end(),
-        [&context](const epee::net_utils::network_address &na){ return context.m_remote_address == na; });
+    m_used_stripe_peers[index].erase(std::remove_if(m_used_stripe_peers[index].begin(), m_used_stripe_peers[index].end(),
+        [&context](const epee::net_utils::network_address &na){ return context.m_remote_address == na; }), m_used_stripe_peers[index].end());
     m_used_stripe_peers[index].push_back(context.m_remote_address);
   }
 
@@ -2700,8 +2701,8 @@ namespace nodetool
     const uint32_t index = stripe - 1;
     CRITICAL_REGION_LOCAL(m_used_stripe_peers_mutex);
     MINFO("removing stripe " << stripe << " peer: " << context.m_remote_address.str());
-    std::remove_if(m_used_stripe_peers[index].begin(), m_used_stripe_peers[index].end(),
-        [&context](const epee::net_utils::network_address &na){ return context.m_remote_address == na; });
+    m_used_stripe_peers[index].erase(std::remove_if(m_used_stripe_peers[index].begin(), m_used_stripe_peers[index].end(),
+        [&context](const epee::net_utils::network_address &na){ return context.m_remote_address == na; }), m_used_stripe_peers[index].end());
   }
 
   template<class t_payload_net_handler>

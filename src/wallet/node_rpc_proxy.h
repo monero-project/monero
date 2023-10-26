@@ -30,6 +30,7 @@
 
 #include <string>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include "include_base_utils.h"
 #include "net/abstract_http_client.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -53,10 +54,10 @@ public:
   boost::optional<std::string> get_earliest_height(uint8_t version, uint64_t &earliest_height) const;
   boost::optional<std::string> get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee) const;
   boost::optional<std::string> get_fee_quantization_mask(uint64_t &fee_quantization_mask) const;
+  boost::optional<uint8_t> get_hardfork_version() const;
 
   std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry>             get_service_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const;
   std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry>             get_all_service_nodes(boost::optional<std::string> &failed) const;
-  std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> get_service_node_blacklisted_key_images(boost::optional<std::string> &failed) const;
   std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry>             get_contributed_service_nodes(const std::string &contributor, boost::optional<std::string> &failed) const;
 
 private:
@@ -65,9 +66,6 @@ private:
   epee::net_utils::http::abstract_http_client &m_http_client;
   boost::recursive_mutex &m_daemon_rpc_mutex;
   bool m_offline;
-
-  mutable uint64_t m_service_node_blacklisted_key_images_cached_height;
-  mutable std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODE_BLACKLISTED_KEY_IMAGES::entry> m_service_node_blacklisted_key_images;
 
   bool update_all_service_nodes_cache(uint64_t, boost::optional<std::string> &failed) const;
 

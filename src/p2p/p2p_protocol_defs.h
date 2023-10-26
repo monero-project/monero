@@ -128,7 +128,7 @@ namespace nodetool
     {
       ss << peerid_to_string(pe.id) << "\t" << pe.adr.str()
         << " \trpc port " << (pe.rpc_port > 0 ? std::to_string(pe.rpc_port) : "-")
-        << " \tpruning seed " << pe.pruning_seed 
+        << " \tpruning seed " << pe.pruning_seed
         << " \tlast_seen: " << (pe.last_seen == 0 ? std::string("never") : epee::misc_utils::get_time_interval_string(now_time - pe.last_seen))
         << std::endl;
     }
