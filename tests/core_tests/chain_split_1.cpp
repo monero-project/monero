@@ -114,9 +114,9 @@ bool gen_simple_chain_split_1::generate(std::vector<test_event_entry> &events) c
 
   REWIND_BLOCKS(events, blk_23r, blk_23, first_miner_account);                                //  30...N1
   GENERATE_ACCOUNT(alice);
-  MAKE_TX(events, tx_0, first_miner_account, alice, MK_COINS(10), blk_23);                    //  N1+1
-  MAKE_TX(events, tx_1, first_miner_account, alice, MK_COINS(20), blk_23);                    //  N1+2
-  MAKE_TX(events, tx_2, first_miner_account, alice, MK_COINS(30), blk_23);                    //  N1+3
+  MAKE_TX(events, tx_0, first_miner_account, alice, MK_COINS(10), blk_23r);                   //  N1+1
+  MAKE_TX(events, tx_1, first_miner_account, alice, MK_COINS(20), blk_23r);                   //  N1+2
+  MAKE_TX(events, tx_2, first_miner_account, alice, MK_COINS(30), blk_23r);                   //  N1+3
   DO_CALLBACK(events, "check_mempool_1");                                                     //  N1+4
   MAKE_NEXT_BLOCK_TX1(events, blk_24, blk_23r, first_miner_account, tx_0);                    //  N1+5
   DO_CALLBACK(events, "check_mempool_2");                                                     //  N1+6

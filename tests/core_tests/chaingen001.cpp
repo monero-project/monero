@@ -120,18 +120,18 @@ bool gen_simple_chain_001::generate(std::vector<test_event_entry> &events)
     std::cout << "BALANCE = " << get_balance(miner, chain, mtx) << std::endl;
 
     REWIND_BLOCKS(events, blk_2r, blk_2, miner);
-    MAKE_TX_LIST_START(events, txlist_0, miner, alice, MK_COINS(1), blk_2);
-    MAKE_TX_LIST(events, txlist_0, miner, alice, MK_COINS(2), blk_2);
-    MAKE_TX_LIST(events, txlist_0, miner, alice, MK_COINS(4), blk_2);
+    MAKE_TX_LIST_START(events, txlist_0, miner, alice, MK_COINS(1), blk_2r);
+    MAKE_TX_LIST(events, txlist_0, miner, alice, MK_COINS(2), blk_2r);
+    MAKE_TX_LIST(events, txlist_0, miner, alice, MK_COINS(4), blk_2r);
     MAKE_NEXT_BLOCK_TX_LIST(events, blk_3, blk_2r, miner, txlist_0);
     REWIND_BLOCKS(events, blk_3r, blk_3, miner);
-    MAKE_TX(events, tx_1, miner, alice, MK_COINS(50), blk_3);
+    MAKE_TX(events, tx_1, miner, alice, MK_COINS(50), blk_3r);
     MAKE_NEXT_BLOCK_TX1(events, blk_4, blk_3r, miner, tx_1);
     REWIND_BLOCKS(events, blk_4r, blk_4, miner);
-    MAKE_TX(events, tx_2, miner, alice, MK_COINS(50), blk_4);
+    MAKE_TX(events, tx_2, miner, alice, MK_COINS(50), blk_4r);
     MAKE_NEXT_BLOCK_TX1(events, blk_5, blk_4r, miner, tx_2);
     REWIND_BLOCKS(events, blk_5r, blk_5, miner);
-    MAKE_TX(events, tx_3, miner, alice, MK_COINS(50), blk_5);
+    MAKE_TX(events, tx_3, miner, alice, MK_COINS(50), blk_5r);
     MAKE_NEXT_BLOCK_TX1(events, blk_6, blk_5r, miner, tx_3);
 
     DO_CALLBACK(events, "verify_callback_1");
