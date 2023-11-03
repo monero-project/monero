@@ -1137,3 +1137,15 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(frozen)
+
+    def set_subaddress_lookahead(self, major_idx: int, minor_idx: int):
+        lookahead = {
+            'method': 'set_subaddress_lookahead',
+            'jsonrpc': '2.0',
+            'params' : {
+                'major_idx': major_idx,
+                'minor_idx': minor_idx
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(lookahead)
