@@ -1947,6 +1947,25 @@ void wallet2::set_subaddress_lookahead(size_t major, size_t minor)
   THROW_WALLET_EXCEPTION_IF(major > 0xffffffff, error::wallet_internal_error, "Subaddress major lookahead is too large");
   THROW_WALLET_EXCEPTION_IF(minor == 0, error::wallet_internal_error, "Subaddress minor lookahead may not be zero");
   THROW_WALLET_EXCEPTION_IF(minor > 0xffffffff, error::wallet_internal_error, "Subaddress minor lookahead is too large");
+
+  if (major > m_subaddress_lookahead_major) { // if increasing the lookahead
+    // then generate new subaddress pubkeys and add them to m_subaddresses table
+    for (uint32_t i = m_subaddress_labels.size()+m_subaddress_lookahead_major; i < m_subaddress_labels.size()+major; i++) { // m_subaddress_labels are the accounts the user is conciously keeping track of. We want that number plus the lookahead major accounts in our key table
+      for (uint32_t j = 0; j < minor; j++) { // these are newly made accounts, minor index will start from zero
+        cryptonote::subaddress_index idx = {i,j};
+        create_one_off_subaddress(idx); // then generate the key and add it to the table
+      }
+    }
+  }
+  if (minor > m_subaddress_lookahead_minor) { // if increasing the minor lookahead we need to also go back and expand the existing accounts
+    for (uint32_t i = 0; i < m_subaddress_labels.size()+m_subaddress_lookahead_major; i++) {
+      uint32_t minor_idx_start = i < m_subaddress_labels.size() ? m_subaddress_labels[i].size()+m_subaddress_lookahead_minor : m_subaddress_lookahead_minor; // if there are existing minor indices being tracked under this account we need to account for that
+      for (uint32_t j = minor_idx_start; j < minor; j++) {
+        cryptonote::subaddress_index idx = {i,j};
+        create_one_off_subaddress(idx);
+      }
+    }
+  }
   m_subaddress_lookahead_major = major;
   m_subaddress_lookahead_minor = minor;
 }
