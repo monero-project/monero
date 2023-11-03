@@ -182,6 +182,27 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_SET_SUBADDR_LOOKAHEAD
+  {
+    struct request_t
+    {
+      uint64_t major_idx;
+      uint64_t minor_idx;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(major_idx)
+        KV_SERIALIZE(minor_idx)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_CREATE_ADDRESS
   {
     struct request_t
