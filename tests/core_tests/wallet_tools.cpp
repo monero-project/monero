@@ -4,7 +4,6 @@
 
 #include "wallet_tools.h"
 #include <random>
-#include <boost/assign.hpp>
 
 using namespace std;
 using namespace epee;
@@ -39,7 +38,8 @@ void wallet_accessor_test::process_parsed_blocks(tools::wallet2 * wallet, uint64
 
 void wallet_tools::process_transactions(tools::wallet2 * wallet, const std::vector<test_event_entry>& events, const cryptonote::block& blk_head, block_tracker &bt, const boost::optional<crypto::hash>& blk_tail)
 {
-  process_transactions(boost::assign::list_of(wallet), events, blk_head, bt, blk_tail);
+  std::vector<tools::wallet2*> wallet_vector = { wallet };
+  process_transactions(wallet_vector, events, blk_head, bt, blk_tail);
 }
 
 void wallet_tools::process_transactions(const std::vector<tools::wallet2*>& wallets, const std::vector<test_event_entry>& events, const cryptonote::block& blk_head, block_tracker &bt, const boost::optional<crypto::hash>& blk_tail)
@@ -56,7 +56,8 @@ void wallet_tools::process_transactions(const std::vector<tools::wallet2*>& wall
 }
 
 void wallet_tools::process_transactions(tools::wallet2 * wallet, const std::vector<const cryptonote::block*>& blockchain, const map_hash2tx_t & mtx, block_tracker &bt){
-  process_transactions(boost::assign::list_of(wallet), blockchain, mtx, bt);
+  std::vector<tools::wallet2*> wallet_vector = { wallet };
+  process_transactions(wallet_vector, blockchain, mtx, bt);
 }
 
 void wallet_tools::process_transactions(const std::vector<tools::wallet2*>& wallets, const std::vector<const cryptonote::block*>& blockchain, const map_hash2tx_t & mtx, block_tracker &bt)
