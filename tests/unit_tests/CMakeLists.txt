@@ -123,6 +123,7 @@ target_link_libraries(unit_tests
     rpc
     net
     serialization
+    seraphis_crypto
     wallet
     p2p
     version
