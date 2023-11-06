@@ -362,11 +362,17 @@ namespace rct {
           {
             if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
             {
+              // Since RCTTypeBulletproof2 enote types, we don't serialize the blinding factor, and only serialize the
+              // first 8 bytes of ecdhInfo[i].amount
               ar.begin_object();
-              if (!typename Archive<W>::is_saving())
+              crypto::hash8 trunc_amount; // placeholder variable needed to maintain "strict aliasing"
+              if (!typename Archive<W>::is_saving()) // loading
                 memset(ecdhInfo[i].amount.bytes, 0, sizeof(ecdhInfo[i].amount.bytes));
-              crypto::hash8 &amount = (crypto::hash8&)ecdhInfo[i].amount;
-              FIELD(amount);
+              else // saving
+                memcpy(trunc_amount.data, ecdhInfo[i].amount.bytes, sizeof(trunc_amount));
+              FIELD(trunc_amount);
+              if (!typename Archive<W>::is_saving()) // loading
+                memcpy(ecdhInfo[i].amount.bytes, trunc_amount.data, sizeof(trunc_amount));
               ar.end_object();
             }
             else
