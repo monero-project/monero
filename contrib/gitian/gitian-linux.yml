@@ -21,6 +21,7 @@ packages:
 - "g++-7-arm-linux-gnueabihf"
 - "gcc-arm-linux-gnueabihf"
 - "g++-arm-linux-gnueabihf"
+- "g++-riscv64-linux-gnu"
 - "g++-7-multilib"
 - "gcc-7-multilib"
 - "binutils-arm-linux-gnueabihf"
@@ -43,7 +44,7 @@ files: []
 script: |
 
   WRAP_DIR=$HOME/wrapped
-  HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu i686-linux-gnu"
+  HOSTS="x86_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu i686-linux-gnu riscv64-linux-gnu"
   FAKETIME_HOST_PROGS=""
   FAKETIME_PROGS="date"
   HOST_CFLAGS="-O2 -g"
@@ -159,7 +160,13 @@ script: |
     fi
     export C_INCLUDE_PATH="$EXTRA_INCLUDES"
     export CPLUS_INCLUDE_PATH="$EXTRA_INCLUDES"
-    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=ON -DCMAKE_SKIP_RPATH=ON
+    #  glibc only added riscv support in 2.27, disable backwards compatibility
+    if [ "$i" == "riscv64-linux-gnu" ]; then
+      BACKCOMPAT_OPTION=OFF
+    else
+      BACKCOMPAT_OPTION=ON
+    fi
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=${BASEPREFIX}/${i}/share/toolchain.cmake -DBACKCOMPAT=${BACKCOMPAT_OPTION} -DCMAKE_SKIP_RPATH=ON
     make ${MAKEOPTS}
     chmod 755 bin/*
     cp ../LICENSE ../README.md ../docs/ANONYMITY_NETWORKS.md bin
