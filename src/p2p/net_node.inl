@@ -51,7 +51,6 @@
 #include "common/dns_utils.h"
 #include "common/pruning.h"
 #include "net/error.h"
-#include "math_helper.h"
 #include "misc_log_ex.h"
 #include "p2p_protocol_defs.h"
 #include "crypto/crypto.h"

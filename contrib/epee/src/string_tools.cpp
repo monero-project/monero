@@ -82,16 +82,6 @@ namespace string_tools
     return true;
   }
   //----------------------------------------------------------------------------
-  bool validate_hex(uint64_t length, const std::string& str)
-  {
-    if (str.size() != length)
-      return false;
-    for (char c: str)
-      if (!isxdigit(c))
-        return false;
-    return true;
-  }
-  //----------------------------------------------------------------------------
   bool parse_peer_from_string(uint32_t& ip, uint16_t& port, const std::string& addres)
   {
     //parse ip and address

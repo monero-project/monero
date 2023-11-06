@@ -35,7 +35,6 @@
 #include <string>
 #include "common/util.h"
 #include "net/http_server_impl_base.h"
-#include "math_helper.h"
 #include "wallet_rpc_server_commands_defs.h"
 #include "wallet2.h"
 
