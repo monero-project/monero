@@ -63,7 +63,7 @@ int main(int argc, char** argv)
   ::testing::InitGoogleTest(&argc, argv);
 
   // the default test data directory is ../data (relative to the executable's directory)
-  const auto default_test_data_dir = boost::filesystem::path(argv[0]).parent_path().parent_path() / "data";
+  const auto default_test_data_dir = boost::filesystem::canonical(argv[0]).parent_path().parent_path() / "data";
 
   po::options_description desc_options("Command line options");
   const command_line::arg_descriptor<std::string> arg_data_dir = { "data-dir", "Data files directory", default_test_data_dir.string() };
