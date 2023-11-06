@@ -676,7 +676,7 @@ private:
     //! Next timestamp that a DB check for relayable txes is allowed
     std::atomic<time_t> m_next_check;
 
-    friend class BlockchainAndPool;
+    friend struct BlockchainAndPool;
   };
 }
 

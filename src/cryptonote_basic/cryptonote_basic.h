@@ -77,7 +77,7 @@ namespace cryptonote
   // outputs <= HF_VERSION_VIEW_TAGS
   struct txout_to_key
   {
-    txout_to_key() { }
+    txout_to_key(): key() { }
     txout_to_key(const crypto::public_key &_key) : key(_key) { }
     crypto::public_key key;
   };
@@ -85,7 +85,7 @@ namespace cryptonote
   // outputs >= HF_VERSION_VIEW_TAGS
   struct txout_to_tagged_key
   {
-    txout_to_tagged_key() { }
+    txout_to_tagged_key(): key(), view_tag() { }
     txout_to_tagged_key(const crypto::public_key &_key, const crypto::view_tag &_view_tag) : key(_key), view_tag(_view_tag) { }
     crypto::public_key key;
     crypto::view_tag view_tag; // optimization to reduce scanning time
