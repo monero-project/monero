@@ -1,31 +1,74 @@
 #ifndef JSONRPC_STRUCTS_H
 #define	JSONRPC_STRUCTS_H
 
-#include <string>
+#include <boost/optional/optional.hpp>
 #include <cstdint>
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage_base.h"
+#include <string>
+#include "serialization/wire/basic_value.h"
+#include "serialization/wire/field.h"
+#include "serialization/wire/fwd.h"
+#include "serialization/wire/json/base.h"
+
+//! Must be done in the `epee::json_rpc` namespace!
+#define EPEE_JSONRPC_DECLARE(command)				    \
+  WIRE_JSON_DECLARE_CONVERSION(request_specific<command::request>); \
+  WIRE_JSON_DECLARE_CONVERSION(client_request<command::request>);   \
+  WIRE_JSON_DECLARE_CONVERSION(response<command::response>)
+
+//! Must be done in the `epee::json_rpc` namespace (cpp)!
+#define EPEE_JSONRPC_DEFINE(command)				   \
+  WIRE_JSON_DEFINE_CONVERSION(request_specific<command::request>)  \
+  WIRE_JSON_DEFINE_CONVERSION(client_request<command::request>)	   \
+  WIRE_JSON_DEFINE_CONVERSION(response<command::response>)
 
 namespace epee 
 {
   namespace json_rpc
   {
-    template<typename t_param>
-    struct request
+    struct request_generic
     {
       std::string jsonrpc;
       std::string method;
-      epee::serialization::storage_entry id;
-      t_param     params;
+      wire::basic_value id;
 
-      request(): id{}, params{} {}
+      request_generic(): jsonrpc(), method(), id{} {}
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(jsonrpc)
-        KV_SERIALIZE(id)
-        KV_SERIALIZE(method)
-        KV_SERIALIZE(params)
-      END_KV_SERIALIZE_MAP()
+      WIRE_BEGIN_MAP(),
+        WIRE_FIELD(jsonrpc),
+        WIRE_OPTIONAL_FIELD(id),
+        WIRE_FIELD(method)
+      WIRE_END_MAP()
+    };
+    WIRE_JSON_DECLARE_CONVERSION(request_generic);
+
+    template<typename t_param>
+    struct request_specific
+    {
+      t_param params;
+
+      request_specific() : params{} {}
+
+      WIRE_BEGIN_MAP(),
+        WIRE_FIELD(params)
+      WIRE_END_MAP()
+    };
+
+    template<typename t_param>
+    struct client_request
+    {
+      std::string jsonrpc;
+      std::string method;
+      wire::basic_value id;
+      t_param params;
+
+      client_request() : jsonrpc(), method(), id{}, params{} {}
+
+      WIRE_BEGIN_MAP(),
+        WIRE_FIELD(jsonrpc),
+        WIRE_FIELD(method),
+        WIRE_FIELD(id),
+        WIRE_FIELD(params)
+      WIRE_END_MAP()
     };
 
     struct error
@@ -33,77 +76,32 @@ namespace epee
       int64_t code;
       std::string message;
 
-      error(): code(0) {}
+      error(): code(0), message() {}
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(code)
-        KV_SERIALIZE(message)
-      END_KV_SERIALIZE_MAP()
-    };
-    
-    struct dummy_error
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-
-    struct dummy_result
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-
-    template<typename t_param, typename t_error>
-    struct response
-    {
-      std::string jsonrpc;
-      t_param     result;
-      epee::serialization::storage_entry id;
-      t_error     error;
-
-      response(): result{}, id(), error{} {}
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(jsonrpc)
-        KV_SERIALIZE(id)
-        KV_SERIALIZE(result)
-        KV_SERIALIZE(error)
-      END_KV_SERIALIZE_MAP()
+      WIRE_BEGIN_MAP(),
+        WIRE_FIELD(code),
+        WIRE_FIELD(message)
+      WIRE_END_MAP()
     };
 
     template<typename t_param>
-    struct response<t_param, dummy_error>
+    struct response
     {
       std::string jsonrpc;
-      t_param     result;
-      epee::serialization::storage_entry id;
+      wire::basic_value id;
+      boost::optional<t_param> result;
+      boost::optional<error> error_;
 
-      response(): result{}, id{} {}
+      response(): jsonrpc(), id(), result(), error_() {}
 
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(jsonrpc)
-        KV_SERIALIZE(id)
-        KV_SERIALIZE(result)
-      END_KV_SERIALIZE_MAP()
+      WIRE_BEGIN_MAP(),
+        WIRE_FIELD(jsonrpc),
+        WIRE_OPTIONAL_FIELD(id),
+        WIRE_OPTIONAL_FIELD(result),
+        wire::optional_field("error", std::ref(self.error_))
+      WIRE_END_MAP()
     };
-
-    template<typename t_error>
-    struct response<dummy_result, t_error>
-    {
-      std::string jsonrpc;
-      t_error     error;
-      epee::serialization::storage_entry id;
-
-      response(): error{}, id{} {}
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(jsonrpc)
-        KV_SERIALIZE(id)
-        KV_SERIALIZE(error)
-      END_KV_SERIALIZE_MAP()
-    };
-
-    typedef response<dummy_result, error> error_response;
+    WIRE_JSON_DECLARE_CONVERSION(response<std::string>); // used as default error response
   }
 }
 

@@ -160,11 +160,15 @@ void ZmqServer::serve()
       {
         std::string message = MONERO_UNWRAP(net::zmq::receive(rep.get(), read_flags));
         MDEBUG("Received RPC request: \"" << message << "\"");
-        epee::byte_slice response = handler.handle(std::move(message));
-
-        const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
-        MDEBUG("Sending RPC reply: \"" << response_view << "\"");
-        MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
+        expect<epee::byte_slice> response = handler.handle(std::move(message));
+        if (response)
+        {
+          const boost::string_ref response_view{reinterpret_cast<const char*>(response->data()), response->size()};
+          MDEBUG("Sending RPC reply: \"" << response_view << "\"");
+          MONERO_UNWRAP(net::zmq::send(std::move(*response), rep.get()));
+        }
+        else
+          MERROR("Failed to handle RPC message: " << response.error().message());
       }
     }
   }

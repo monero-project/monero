@@ -44,6 +44,7 @@
 #include "hex.h"
 #include "span.h"
 #include "hash.h"
+#include "serialization/wire/traits.h"
 
 namespace crypto {
 
@@ -351,3 +352,15 @@ CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)
 CRYPTO_MAKE_COMPARABLE(view_tag)
+
+namespace wire
+{
+  WIRE_DECLARE_BLOB_NS(crypto::ec_point);
+  WIRE_DECLARE_BLOB_NS(crypto::ec_scalar);
+  WIRE_DECLARE_BLOB_NS(crypto::public_key);
+  WIRE_DECLARE_BLOB_NS(crypto::key_derivation);
+  WIRE_DECLARE_BLOB_NS(crypto::key_image);
+  WIRE_DECLARE_BLOB_NS(crypto::signature);
+  WIRE_DECLARE_BLOB_NS(crypto::view_tag);
+}
+

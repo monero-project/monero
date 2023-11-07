@@ -37,13 +37,15 @@ set(rpc_sources
   bootstrap_daemon.cpp
   bootstrap_node_selector.cpp
   core_rpc_server.cpp
+  core_rpc_server_commands_defs.cpp
   rpc_payment.cpp
   rpc_version_str.cpp
   instanciations.cpp)
 
 set(daemon_messages_sources
   message.cpp
-  daemon_messages.cpp)
+  daemon_messages.cpp
+  message_data_structs.cpp)
 
 set(rpc_pub_sources zmq_pub.cpp)
 
@@ -135,6 +137,7 @@ target_link_libraries(rpc
     common
     cryptonote_core
     cryptonote_protocol
+    epee_wire_json
     net
     version
     ${Boost_REGEX_LIBRARY}
@@ -147,7 +150,6 @@ target_link_libraries(rpc_pub
     epee
     net
     cryptonote_basic
-    serialization
     ${Boost_THREAD_LIBRARY})
 
 target_link_libraries(daemon_messages
@@ -155,7 +157,6 @@ target_link_libraries(daemon_messages
     cryptonote_core
     cryptonote_protocol
     version
-    serialization
     ${EXTRA_LIBRARIES})
 
 target_link_libraries(daemon_rpc_server
@@ -166,7 +167,6 @@ target_link_libraries(daemon_rpc_server
     cryptonote_protocol
     version
     daemon_messages
-    serialization
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

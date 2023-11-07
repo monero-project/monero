@@ -44,6 +44,7 @@
 
 #include <string>
 #include <atomic>
+#include <deque>
 #include <memory>
 
 #include <boost/asio.hpp>

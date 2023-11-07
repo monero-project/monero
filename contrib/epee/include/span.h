@@ -33,6 +33,8 @@
 #include <memory>
 #include <type_traits>
 
+#include "serialization/wire/traits.h"
+
 namespace epee
 {
   /*!
@@ -183,4 +185,13 @@ namespace epee
     static_assert(std::is_same<T, char>() || std::is_same<T, unsigned char>() || std::is_same<T, int8_t>() || std::is_same<T, uint8_t>(), "Unexpected destination type");
     return {reinterpret_cast<const T*>(s.data()), s.size()};
   }
+}
+
+namespace wire
+{
+  //! Enable span types for array output
+  template<typename T>
+  struct is_array<epee::span<T>>
+    : std::true_type
+  {};
 }

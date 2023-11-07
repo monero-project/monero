@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
       }
       const int round_modes[3] = { FE_DOWNWARD, FE_TONEAREST, FE_UPWARD };
       for (int i = 0; i < 3; ++i) {
-        std::fesetround(round_modes[i]);
+        fesetround(round_modes[i]);
         const int result = test_variant2_int_sqrt();
         if (result != 0) {
           cerr << "FPU round mode was set to ";

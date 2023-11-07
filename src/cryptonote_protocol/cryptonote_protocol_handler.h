@@ -49,6 +49,7 @@
 #include "cryptonote_basic/connection_context.h"
 #include "net/levin_base.h"
 #include "p2p/net_node_common.h"
+#include "serialization/wire/epee/base.h"
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
@@ -212,7 +213,11 @@ namespace cryptonote
         LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(context) << "] post " << typeid(t_parameter).name() << " -->");
 
         epee::levin::message_writer out{256 * 1024}; // optimize for block responses
-        epee::serialization::store_t_to_binary(arg, out.buffer);
+        if (std::error_code error = wire::epee_bin::to_bytes(out.buffer, arg))
+        {
+          MERROR("Failed to convert " << typeid(arg).name() << "to bytes: " << error.message());
+          return false;
+        }
         //handler_response_blocks_now(blob.size()); // XXX
         return m_p2p->invoke_notify_to_peer(t_parameter::ID, std::move(out), context);
       }

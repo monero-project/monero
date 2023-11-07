@@ -77,11 +77,7 @@ namespace net
         */
         static expect<tor_address> make(boost::string_ref address, std::uint16_t default_port = 0);
 
-        //! Load from epee p2p format, and \return false if not valid tor address
-        bool _load(epee::serialization::portable_storage& src, epee::serialization::section* hparent);
-
-        //! Store in epee p2p format
-        bool store(epee::serialization::portable_storage& dest, epee::serialization::section* hparent) const;
+        // `read_bytes` / `write_bytes` in `net/serialization.h`
 
         // Moves and  copies are currently identical
 

@@ -33,6 +33,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "ringct/rctSigs.h"
 #include "rpc/rpc_handler.h"
+#include "serialization/wire/fwd.h"
 
 #include <unordered_map>
 #include <vector>
@@ -48,6 +49,7 @@ namespace rpc
     cryptonote::block block;
     std::vector<cryptonote::transaction> transactions;
   };
+  WIRE_DECLARE_OBJECT(block_with_transactions);
 
   typedef std::vector<uint64_t> tx_output_indices;
 
@@ -59,12 +61,14 @@ namespace rpc
     bool in_pool;
     uint64_t height;
   };
+  WIRE_DECLARE_OBJECT(transaction_info);
 
   struct output_key_and_amount_index
   {
     uint64_t amount_index;
     crypto::public_key key;
   };
+  WIRE_DECLARE_OBJECT(output_key_and_amount_index);
 
   typedef std::vector<output_key_and_amount_index> outputs_for_amount;
 
@@ -73,6 +77,7 @@ namespace rpc
     uint64_t amount;
     outputs_for_amount outputs;
   };
+  WIRE_DECLARE_OBJECT(amount_with_random_outputs);
 
   struct peer
   {
@@ -84,6 +89,7 @@ namespace rpc
     uint64_t last_seen;
     uint32_t pruning_seed;
   };
+  WIRE_DECLARE_OBJECT(peer);
 
   struct tx_in_pool
   {
@@ -103,6 +109,7 @@ namespace rpc
     bool do_not_relay;
     bool double_spend_seen;
   };
+  WIRE_DECLARE_OBJECT(tx_in_pool);
 
   typedef std::unordered_map<crypto::key_image, std::vector<crypto::hash> > key_images_with_tx_hashes;
 
@@ -113,12 +120,14 @@ namespace rpc
     uint64_t unlocked_count;
     uint64_t recent_count;
   };
+  WIRE_DECLARE_OBJECT(output_amount_count);
 
   struct output_amount_and_index
   {
     uint64_t amount;
     uint64_t index;
   };
+  WIRE_DECLARE_OBJECT(output_amount_and_index);
 
   struct output_key_mask_unlocked
   {
@@ -126,6 +135,7 @@ namespace rpc
     rct::key mask;
     bool unlocked;
   };
+  WIRE_DECLARE_OBJECT(output_key_mask_unlocked);
 
   struct hard_fork_info
   {
@@ -138,6 +148,7 @@ namespace rpc
     uint32_t state;
     uint64_t earliest_height;
   };
+  WIRE_DECLARE_OBJECT(hard_fork_info);
 
   //required by JSON-RPC 2.0 spec
   struct error
@@ -171,6 +182,7 @@ namespace rpc
     uint64_t difficulty;
     uint64_t reward;
   };
+  WIRE_DECLARE_OBJECT(BlockHeaderResponse);
 
   struct DaemonInfo
   {
@@ -201,6 +213,7 @@ namespace rpc
     uint64_t start_time;
     std::string version;
   };
+  WIRE_DECLARE_OBJECT(DaemonInfo);
 
   struct output_distribution
   {
@@ -208,6 +221,7 @@ namespace rpc
     uint64_t amount;
     bool cumulative;
   };
+  WIRE_DECLARE_OBJECT(output_distribution);
 }  // namespace rpc
 
 }  // namespace cryptonote

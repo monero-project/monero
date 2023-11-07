@@ -30,27 +30,29 @@
 
 #include "gtest/gtest.h"
 
+#include "byte_stream.h"
 #include "include_base_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "storages/portable_storage_template_helper.h"
 
 TEST(protocol_pack, protocol_pack_command) 
 {
-  epee::byte_slice buff;
+  epee::byte_stream buff;
   cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request r;
   r.start_height = 1;
   r.total_height = 3;
   for(int i = 1; i < 10000; i += i*10)
   {
+    buff.clear();
     r.m_block_ids.resize(i, crypto::hash{});
-    bool res = epee::serialization::store_t_to_binary(r, buff);
-    ASSERT_TRUE(res);
+    std::error_code error = wire::epee_bin::to_bytes(buff, r);
+    ASSERT_FALSE(error) << error.message();
 
     cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request r2;
-    res = epee::serialization::load_t_from_binary(r2, epee::to_span(buff));
-    ASSERT_TRUE(res);
-    ASSERT_TRUE(r.m_block_ids.size() == i);
-    ASSERT_TRUE(r.start_height == 1);
-    ASSERT_TRUE(r.total_height == 3);
+    error = wire::epee_bin::from_bytes(epee::to_span(buff), r2);
+    ASSERT_FALSE(error) << error.message();
+    ASSERT_EQ(i, r2.m_block_ids.size());
+    ASSERT_TRUE(r2.start_height == 1);
+    ASSERT_TRUE(r2.total_height == 3);
   }
 }

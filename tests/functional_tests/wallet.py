@@ -120,16 +120,16 @@ class WalletTest():
         assert res.account_index == 2, res
         assert res.address == '8Bdb75y2MhvbkvaBnG7vYP6DCNneLWcXqNmfPmyyDkavAUUgrHQEAhTNK3jEq69kGPDrd3i5inPivCwTvvA12eQ4SJk9iyy', res
 
-        res = wallet.get_address(0, 0)
+        res = wallet.get_address(0, [0])
         assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', res
         assert len(res.addresses) == 1
         assert res.addresses[0].address_index == 0, res
-        res = wallet.get_address(1, 0)
+        res = wallet.get_address(1, [0])
         assert res.address == '82pP87g1Vkd3LUMssBCumk3MfyEsFqLAaGDf6oxddu61EgSFzt8gCwUD4tr3kp9TUfdPs2CnpD7xLZzyC1Ei9UsW3oyCWDf', res
         assert len(res.addresses) == 1
         assert res.addresses[0].label == 'idx1', res
         assert res.addresses[0].address_index == 0, res
-        res = wallet.get_address(2, 0)
+        res = wallet.get_address(2, [0])
         assert res.address == '8Bdb75y2MhvbkvaBnG7vYP6DCNneLWcXqNmfPmyyDkavAUUgrHQEAhTNK3jEq69kGPDrd3i5inPivCwTvvA12eQ4SJk9iyy', res
         assert len(res.addresses) == 1
         assert res.addresses[0].label == 'idx2', res

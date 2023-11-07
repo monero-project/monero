@@ -32,7 +32,8 @@
 
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
-#include "serialization/keyvalue_serialization.h"
+#include "serialization/wire/epee/base.h"
+#include "serialization/wire/field.h"
 
 namespace cryptonote
 {
@@ -46,15 +47,6 @@ namespace cryptonote
     hw::device *m_device = &hw::get_device("default");
     crypto::chacha_iv m_encryption_iv;
 
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(m_account_address)
-      KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_spend_secret_key)
-      KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_view_secret_key)
-      KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_multisig_keys)
-      const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
-      KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
-    END_KV_SERIALIZE_MAP()
-
     void encrypt(const crypto::chacha_key &key);
     void decrypt(const crypto::chacha_key &key);
     void encrypt_viewkey(const crypto::chacha_key &key);
@@ -66,6 +58,7 @@ namespace cryptonote
   private:
     void xor_with_key_stream(const crypto::chacha_key &key);
   };
+  WIRE_EPEE_DECLARE_OBJECT(account_keys);
 
   /************************************************************************/
   /*                                                                      */
@@ -109,14 +102,15 @@ namespace cryptonote
       a & m_creation_timestamp;
     }
 
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(m_keys)
-      KV_SERIALIZE(m_creation_timestamp)
-    END_KV_SERIALIZE_MAP()
+    WIRE_BEGIN_MAP(),
+      WIRE_FIELD(m_keys),
+      WIRE_FIELD(m_creation_timestamp)
+    WIRE_END_MAP()
 
   private:
     void set_null();
     account_keys m_keys;
     uint64_t m_creation_timestamp;
   };
+  WIRE_EPEE_DECLARE_CONVERSION(account_base);
 }

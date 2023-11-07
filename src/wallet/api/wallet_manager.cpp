@@ -238,16 +238,16 @@ void WalletManagerImpl::setDaemonAddress(const std::string &address)
 
 bool WalletManagerImpl::connected(uint32_t *version)
 {
-    epee::json_rpc::request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t = AUTO_VAL_INIT(req_t);
-    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, std::string> resp_t = AUTO_VAL_INIT(resp_t);
+    epee::json_rpc::client_request<cryptonote::COMMAND_RPC_GET_VERSION::request> req_t{};
+    epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response> resp_t{};
     req_t.jsonrpc = "2.0";
-    req_t.id = epee::serialization::storage_entry(0);
+    req_t.id = wire::basic_value{{std::uintmax_t(0)}};
     req_t.method = "get_version";
-    if (!epee::net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client))
+    if (!epee::net_utils::invoke_http_json("/json_rpc", req_t, resp_t, m_http_client) || !resp_t.result)
       return false;
 
     if (version)
-        *version = resp_t.result.version;
+        *version = resp_t.result->version;
     return true;
 }
 

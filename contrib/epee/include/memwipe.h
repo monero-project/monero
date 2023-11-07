@@ -33,6 +33,7 @@
 #ifdef __cplusplus
 #include <array>
 #include <cstddef>
+#include "serialization/wire/fwd.h"
 
 extern "C" {
 #endif
@@ -73,6 +74,14 @@ namespace tools {
 
   template<typename T>
   const T& unwrap(scrubbed<T> const& src) { return src; }
+
+  template<typename R, typename T>
+  void read_bytes(R& source, scrubbed<T>& dest)
+  { wire_read::bytes(source, unwrap(dest)); }
+
+  template<typename W, typename T>
+  void write_bytes(W& dest, const scrubbed<T>& source)
+  { wire_write::bytes(dest, unwrap(source)); }
 
   template <class T, size_t N>
   using scrubbed_arr = scrubbed<std::array<T, N>>;

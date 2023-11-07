@@ -27,586 +27,1024 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "daemon_messages.h"
-#include "serialization/json_object.h"
+#include "cryptonote_config.h"
+#include "cryptonote_protocol/cryptonote_protocol_defs.h"
+#include "serialization/wire.h"
+#include "serialization/wire/adapted/list.h"
+#include "serialization/wire/adapted/unordered_map.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/wrapper/array.h"
+#include "serialization/wire/wrappers_impl.h"
 
 namespace cryptonote
 {
 
 namespace rpc
 {
-void GetHeight::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+namespace
+{
+  using max_outputs = wire::max_element_count<2000>;
+
+  template<typename F, typename T>
+  void height_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+
+  template<typename F, typename T>
+  void height_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(height));
+  }
+}
+
+void GetHeight::Request::write_bytes(wire::writer& dest) const
+{
+  height_request_map(dest, *this);
+}
+
+void GetHeight::Request::read_bytes(wire::reader& source)
+{
+  height_request_map(source, *this);
+}
+
+void GetHeight::Response::write_bytes(wire::writer& dest) const
+{
+  height_response_map(dest, *this);
+}
+
+void GetHeight::Response::read_bytes(wire::reader& source)
+{
+  height_response_map(source, *this);
+}
+
+// technically exceeds max bounds, but is "OK"
+static void read_bytes(wire::reader& source, std::vector<block_with_transactions>& dest)
+{ wire_read::array_unchecked(source, dest, 0, COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT); }
+
+static void write_bytes(wire::writer& dest, const std::vector<block_with_transactions>& source)
+{ wire_write::array(dest, source); }
+
+namespace
+{
+  template<typename F, typename T>
+  void blocks_fast_request_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(block_ids),
+      WIRE_FIELD(start_height),
+      WIRE_FIELD(prune)
+    );
+  }
+
+  template<typename F, typename T>
+  void blocks_fast_response_map(F& format, T& self)
+  {
+    using max_blocks = wire::max_element_count<COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT>;
+    using max_txes = wire::max_element_count<COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT>;
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(blocks),
+      WIRE_FIELD(start_height),
+      WIRE_FIELD(current_height),
+      wire::field("output_indices", wire::array<max_blocks>(wire::array<max_txes>(wire::array<max_outputs>(std::ref(self.output_indices)))))
+    );
+  }
+}
 
-void GetHeight::Request::fromJson(const rapidjson::Value& val)
+void GetBlocksFast::Request::write_bytes(wire::writer& dest) const
 {
+  blocks_fast_request_map(dest, *this);
 }
 
-void GetHeight::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetBlocksFast::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, height, height);
+  blocks_fast_request_map(source, *this);
 }
 
-void GetHeight::Response::fromJson(const rapidjson::Value& val)
+void GetBlocksFast::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, height, height);
+  blocks_fast_response_map(dest, *this);
 }
 
+void GetBlocksFast::Response::read_bytes(wire::reader& source)
+{
+  blocks_fast_response_map(source, *this);
+}
 
-void GetBlocksFast::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, block_ids, block_ids);
-  INSERT_INTO_JSON_OBJECT(dest, start_height, start_height);
-  INSERT_INTO_JSON_OBJECT(dest, prune, prune);
+  template<typename F, typename T>
+  void hashes_fast_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(known_hashes), WIRE_FIELD(start_height));
+  }
+
+  template<typename F, typename T>
+  void hashes_fast_response_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(hashes),
+      WIRE_FIELD(start_height),
+      WIRE_FIELD(current_height)
+    );
+  }
 }
 
-void GetBlocksFast::Request::fromJson(const rapidjson::Value& val)
+void GetHashesFast::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, block_ids, block_ids);
-  GET_FROM_JSON_OBJECT(val, start_height, start_height);
-  GET_FROM_JSON_OBJECT(val, prune, prune);
+  hashes_fast_request_map(dest, *this);
 }
 
-void GetBlocksFast::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetHashesFast::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, blocks, blocks);
-  INSERT_INTO_JSON_OBJECT(dest, start_height, start_height);
-  INSERT_INTO_JSON_OBJECT(dest, current_height, current_height);
-  INSERT_INTO_JSON_OBJECT(dest, output_indices, output_indices);
+  hashes_fast_request_map(source, *this);
 }
 
-void GetBlocksFast::Response::fromJson(const rapidjson::Value& val)
+void GetHashesFast::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, blocks, blocks);
-  GET_FROM_JSON_OBJECT(val, start_height, start_height);
-  GET_FROM_JSON_OBJECT(val, current_height, current_height);
-  GET_FROM_JSON_OBJECT(val, output_indices, output_indices);
+  hashes_fast_response_map(dest, *this);
 }
 
+void GetHashesFast::Response::read_bytes(wire::reader& source)
+{
+  hashes_fast_response_map(source, *this);
+}
 
-void GetHashesFast::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, known_hashes, known_hashes);
-  INSERT_INTO_JSON_OBJECT(dest, start_height, start_height);
+  template<typename F, typename T>
+  void transactions_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(tx_hashes));
+  }
+
+  template<typename F, typename T>
+  void transactions_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(txs), WIRE_FIELD(missed_hashes));
+  }
 }
 
-void GetHashesFast::Request::fromJson(const rapidjson::Value& val)
+void GetTransactions::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, known_hashes, known_hashes);
-  GET_FROM_JSON_OBJECT(val, start_height, start_height);
+  transactions_request_map(dest, *this);
 }
 
-void GetHashesFast::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetTransactions::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, hashes, hashes);
-  INSERT_INTO_JSON_OBJECT(dest, start_height, start_height);
-  INSERT_INTO_JSON_OBJECT(dest, current_height, current_height);
+  transactions_request_map(source, *this);
 }
 
-void GetHashesFast::Response::fromJson(const rapidjson::Value& val)
+void GetTransactions::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, hashes, hashes);
-  GET_FROM_JSON_OBJECT(val, start_height, start_height);
-  GET_FROM_JSON_OBJECT(val, current_height, current_height);
+  transactions_response_map(dest, *this);
 }
 
+void GetTransactions::Response::read_bytes(wire::reader& source)
+{
+  throw std::logic_error{"Not yet imeplemented, reading to unordered_map"};
+}
 
-void GetTransactions::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, tx_hashes, tx_hashes);
+  template<typename F, typename T>
+  void key_images_spent_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(key_images));
+  }
+
+  template<typename F, typename T>
+  void key_images_spent_response_map(F& format, T& self)
+  {
+    using max_spent = wire::max_element_count<65536>;
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(spent_status, max_spent));
+  }
 }
 
-void GetTransactions::Request::fromJson(const rapidjson::Value& val)
+void KeyImagesSpent::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, tx_hashes, tx_hashes);
+  key_images_spent_request_map(dest, *this);
 }
 
-void GetTransactions::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void KeyImagesSpent::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, txs, txs);
-  INSERT_INTO_JSON_OBJECT(dest, missed_hashes, missed_hashes);
+  key_images_spent_request_map(source, *this);
 }
 
-void GetTransactions::Response::fromJson(const rapidjson::Value& val)
+void KeyImagesSpent::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, txs, txs);
-  GET_FROM_JSON_OBJECT(val, missed_hashes, missed_hashes);
+  key_images_spent_response_map(dest, *this);
 }
 
+void KeyImagesSpent::Response::read_bytes(wire::reader& source)
+{
+  key_images_spent_response_map(source, *this);
+}
 
-void KeyImagesSpent::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, key_images, key_images);
+  template<typename F, typename T>
+  void output_indices_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(tx_hash));
+  }
+
+  template<typename F, typename T>
+  void output_indices_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(output_indices, max_outputs));
+  }
 }
 
-void KeyImagesSpent::Request::fromJson(const rapidjson::Value& val)
+void GetTxGlobalOutputIndices::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, key_images, key_images);
+  output_indices_request_map(dest, *this);
 }
 
-void KeyImagesSpent::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetTxGlobalOutputIndices::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, spent_status, spent_status);
+  output_indices_request_map(source, *this);
 }
 
-void KeyImagesSpent::Response::fromJson(const rapidjson::Value& val)
+void GetTxGlobalOutputIndices::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, spent_status, spent_status);
+  output_indices_response_map(dest, *this);
 }
 
+void GetTxGlobalOutputIndices::Response::read_bytes(wire::reader& source)
+{
+  output_indices_response_map(source, *this);
+}
 
-void GetTxGlobalOutputIndices::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, tx_hash, tx_hash);
+  template<typename F, typename T>
+  void send_raw_tx_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(tx), WIRE_FIELD(relay));
+  }
+
+  template<typename F, typename T>
+  void send_raw_tx_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(relayed));
+  }
 }
 
-void GetTxGlobalOutputIndices::Request::fromJson(const rapidjson::Value& val)
+void SendRawTx::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, tx_hash, tx_hash);
+  send_raw_tx_request_map(dest, *this);
 }
 
-void GetTxGlobalOutputIndices::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void SendRawTx::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, output_indices, output_indices);
+  send_raw_tx_request_map(source, *this);
 }
 
-void GetTxGlobalOutputIndices::Response::fromJson(const rapidjson::Value& val)
+void SendRawTx::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, output_indices, output_indices);
+  send_raw_tx_response_map(dest, *this);
 }
 
-void SendRawTx::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+
+void SendRawTx::Response::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, tx, tx);
-  INSERT_INTO_JSON_OBJECT(dest, relay, relay);
+  send_raw_tx_response_map(source, *this);
 }
 
-void SendRawTx::Request::fromJson(const rapidjson::Value& val)
+namespace
 {
-  GET_FROM_JSON_OBJECT(val, tx, tx);
-  GET_FROM_JSON_OBJECT(val, relay, relay);
+  template<typename F, typename T>
+  void send_raw_tx_hex_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(tx_as_hex), WIRE_FIELD(relay));
+  }
 }
 
-void SendRawTx::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void SendRawTxHex::Request::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, relayed, relayed);
+  send_raw_tx_hex_request_map(dest, *this);
 }
 
+void SendRawTxHex::Request::read_bytes(wire::reader& source)
+{
+  send_raw_tx_hex_request_map(source, *this);
+}
 
-void SendRawTx::Response::fromJson(const rapidjson::Value& val)
+namespace
 {
-  GET_FROM_JSON_OBJECT(val, relayed, relayed);
+  template<typename F, typename T>
+  void start_mining_request_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(miner_address),
+      WIRE_FIELD(threads_count),
+      WIRE_FIELD(do_background_mining),
+      WIRE_FIELD(ignore_battery)
+    );
+  }
+
+  template<typename F, typename T>
+  void start_mining_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
 }
 
-void SendRawTxHex::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void StartMining::Request::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, tx_as_hex, tx_as_hex);
-  INSERT_INTO_JSON_OBJECT(dest, relay, relay);
+  start_mining_request_map(dest, *this);
 }
 
-void SendRawTxHex::Request::fromJson(const rapidjson::Value& val)
+void StartMining::Request::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, tx_as_hex, tx_as_hex);
-  GET_FROM_JSON_OBJECT(val, relay, relay);
+  start_mining_request_map(source, *this);
 }
 
-void StartMining::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void StartMining::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, miner_address, miner_address);
-  INSERT_INTO_JSON_OBJECT(dest, threads_count, threads_count);
-  INSERT_INTO_JSON_OBJECT(dest, do_background_mining, do_background_mining);
-  INSERT_INTO_JSON_OBJECT(dest, ignore_battery, ignore_battery);
+  start_mining_response_map(dest, *this);
 }
 
-void StartMining::Request::fromJson(const rapidjson::Value& val)
+void StartMining::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, miner_address, miner_address);
-  GET_FROM_JSON_OBJECT(val, threads_count, threads_count);
-  GET_FROM_JSON_OBJECT(val, do_background_mining, do_background_mining);
-  GET_FROM_JSON_OBJECT(val, ignore_battery, ignore_battery);
+  start_mining_response_map(source, *this);
 }
+
+namespace
+{
+  template<typename F, typename T>
+  void stop_mining_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
 
-void StartMining::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+  template<typename F, typename T>
+  void stop_mining_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+}
 
-void StartMining::Response::fromJson(const rapidjson::Value& val)
+void StopMining::Request::write_bytes(wire::writer& dest) const
 {
+  stop_mining_request_map(dest, *this);
 }
 
+void StopMining::Request::read_bytes(wire::reader& source)
+{
+  stop_mining_request_map(source, *this);
+}
 
-void StopMining::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void StopMining::Response::write_bytes(wire::writer& dest) const
+{
+  stop_mining_response_map(dest, *this);
+}
 
-void StopMining::Request::fromJson(const rapidjson::Value& val)
+void StopMining::Response::read_bytes(wire::reader& source)
 {
+  stop_mining_response_map(source, *this);
 }
+
+namespace
+{
+  template<typename F, typename T>
+  void mining_status_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
 
-void StopMining::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+  template<typename F, typename T>
+  void mining_status_response_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(active),
+      WIRE_FIELD(speed),
+      WIRE_FIELD(threads_count),
+      WIRE_FIELD(address),
+      WIRE_FIELD(is_background_mining_enabled)
+    );
+  }
+}
 
-void StopMining::Response::fromJson(const rapidjson::Value& val)
+void MiningStatus::Request::write_bytes(wire::writer& dest) const
 {
+  mining_status_request_map(dest, *this);
 }
 
+void MiningStatus::Request::read_bytes(wire::reader& source)
+{
+  mining_status_request_map(source, *this);
+}
 
-void MiningStatus::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void MiningStatus::Response::write_bytes(wire::writer& dest) const
+{
+  mining_status_response_map(dest, *this);
+}
 
-void MiningStatus::Request::fromJson(const rapidjson::Value& val)
+void MiningStatus::Response::read_bytes(wire::reader& source)
 {
+  mining_status_response_map(source, *this);
 }
 
-void MiningStatus::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, active, active);
-  INSERT_INTO_JSON_OBJECT(dest, speed, speed);
-  INSERT_INTO_JSON_OBJECT(dest, threads_count, threads_count);
-  INSERT_INTO_JSON_OBJECT(dest, address, address);
-  INSERT_INTO_JSON_OBJECT(dest, is_background_mining_enabled, is_background_mining_enabled);
+  template<typename F, typename T>
+  void get_info_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+
+  template<typename F, typename T>
+  void get_info_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(info));
+  }
 }
 
-void MiningStatus::Response::fromJson(const rapidjson::Value& val)
+void GetInfo::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, active, active);
-  GET_FROM_JSON_OBJECT(val, speed, speed);
-  GET_FROM_JSON_OBJECT(val, threads_count, threads_count);
-  GET_FROM_JSON_OBJECT(val, address, address);
-  GET_FROM_JSON_OBJECT(val, is_background_mining_enabled, is_background_mining_enabled);
+  get_info_request_map(dest, *this);
 }
 
+void GetInfo::Request::read_bytes(wire::reader& source)
+{
+  get_info_request_map(source, *this);
+}
 
-void GetInfo::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void GetInfo::Response::write_bytes(wire::writer& dest) const
+{
+  get_info_response_map(dest, *this);
+}
 
-void GetInfo::Request::fromJson(const rapidjson::Value& val)
+void GetInfo::Response::read_bytes(wire::reader& source)
 {
+  get_info_response_map(source, *this);
 }
 
-void GetInfo::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, info, info);
+  template<typename F, typename T>
+  void save_bc_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+
+  template<typename F, typename T>
+  void save_bc_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
 }
 
-void GetInfo::Response::fromJson(const rapidjson::Value& val)
+void SaveBC::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, info, info);
+  save_bc_request_map(dest, *this);
 }
 
+void SaveBC::Request::read_bytes(wire::reader& source)
+{
+  save_bc_request_map(source, *this);
+}
 
-void SaveBC::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void SaveBC::Response::write_bytes(wire::writer& dest) const
+{
+  save_bc_response_map(dest, *this);
+}
 
-void SaveBC::Request::fromJson(const rapidjson::Value& val)
+void SaveBC::Response::read_bytes(wire::reader& source)
 {
+  save_bc_response_map(source, *this);
 }
 
-void SaveBC::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+namespace
+{
+  template<typename F, typename T>
+  void get_block_hash_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(height));
+  }
+
+  template<typename F, typename T>
+  void get_block_hash_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(hash));
+  }
+}
 
-void SaveBC::Response::fromJson(const rapidjson::Value& val)
+void GetBlockHash::Request::write_bytes(wire::writer& dest) const
 {
+  get_block_hash_request_map(dest, *this);
 }
 
+void GetBlockHash::Request::read_bytes(wire::reader& source)
+{
+  get_block_hash_request_map(source, *this);
+}
 
-void GetBlockHash::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetBlockHash::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, height, height);
+  get_block_hash_response_map(dest, *this);
 }
 
-void GetBlockHash::Request::fromJson(const rapidjson::Value& val)
+void GetBlockHash::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, height, height);
+  get_block_hash_response_map(source, *this);
 }
 
-void GetBlockHash::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, hash, hash);
+  template<typename F, typename T>
+  void get_last_block_header_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+
+  template<typename F, typename T>
+  void get_last_block_header_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(header));
+  }
 }
 
-void GetBlockHash::Response::fromJson(const rapidjson::Value& val)
+void GetLastBlockHeader::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, hash, hash);
+  get_last_block_header_request_map(dest, *this);
 }
 
+void GetLastBlockHeader::Request::read_bytes(wire::reader& source)
+{
+  get_last_block_header_request_map(source, *this);
+}
 
-void GetLastBlockHeader::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void GetLastBlockHeader::Response::write_bytes(wire::writer& dest) const
+{
+  get_last_block_header_response_map(dest, *this);
+}
 
-void GetLastBlockHeader::Request::fromJson(const rapidjson::Value& val)
+void GetLastBlockHeader::Response::read_bytes(wire::reader& source)
 {
+  get_last_block_header_response_map(source, *this);
 }
 
-void GetLastBlockHeader::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, header, header);
+  template<typename F, typename T>
+  void block_header_hash_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(hash));
+  }
+
+  template<typename F, typename T>
+  void block_header_hash_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(header));
+  }
 }
 
-void GetLastBlockHeader::Response::fromJson(const rapidjson::Value& val)
+void GetBlockHeaderByHash::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, header, header);
+  block_header_hash_request_map(dest, *this);
 }
 
+void GetBlockHeaderByHash::Request::read_bytes(wire::reader& source)
+{
+  block_header_hash_request_map(source, *this);
+}
 
-void GetBlockHeaderByHash::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetBlockHeaderByHash::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, hash, hash);
+  block_header_hash_response_map(dest, *this);
 }
 
-void GetBlockHeaderByHash::Request::fromJson(const rapidjson::Value& val)
+void GetBlockHeaderByHash::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, hash, hash);
+  block_header_hash_response_map(source, *this);
 }
 
-void GetBlockHeaderByHash::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, header, header);
+  template<typename F, typename T>
+  void header_by_height_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(height));
+  }
+
+  template<typename F, typename T>
+  void header_by_height_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(header));
+  }
 }
 
-void GetBlockHeaderByHash::Response::fromJson(const rapidjson::Value& val)
+void GetBlockHeaderByHeight::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, header, header);
+  header_by_height_request_map(dest, *this);
 }
 
+void GetBlockHeaderByHeight::Request::read_bytes(wire::reader& source)
+{
+  header_by_height_request_map(source, *this);
+}
 
-void GetBlockHeaderByHeight::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetBlockHeaderByHeight::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, height, height);
+  header_by_height_response_map(dest, *this);
 }
 
-void GetBlockHeaderByHeight::Request::fromJson(const rapidjson::Value& val)
+void GetBlockHeaderByHeight::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, height, height);
+  header_by_height_response_map(source, *this);
 }
 
-void GetBlockHeaderByHeight::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, header, header);
+  using max_headers = wire::max_element_count<2048>;
+  template<typename F, typename T>
+  void headers_by_height_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(heights, max_headers));
+  }
+
+  template<typename F, typename T>
+  void headers_by_height_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(headers, max_headers));
+  }
 }
 
-void GetBlockHeaderByHeight::Response::fromJson(const rapidjson::Value& val)
+void GetBlockHeadersByHeight::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, header, header);
+  headers_by_height_request_map(dest, *this);
 }
 
+void GetBlockHeadersByHeight::Request::read_bytes(wire::reader& source)
+{
+  headers_by_height_request_map(source, *this);
+}
 
-void GetBlockHeadersByHeight::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetBlockHeadersByHeight::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, heights, heights);
+  headers_by_height_response_map(dest, *this);
 }
 
-void GetBlockHeadersByHeight::Request::fromJson(const rapidjson::Value& val)
+void GetBlockHeadersByHeight::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, heights, heights);
+  headers_by_height_response_map(source, *this);
 }
 
-void GetBlockHeadersByHeight::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, headers, headers);
+  template<typename F, typename T>
+  void peer_list_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+
+  template<typename F, typename T>
+  void peer_list_response_map(F& format, T& self)
+  {
+    using max_peers = wire::max_element_count<8192>;
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD_ARRAY(white_list, max_peers),
+      WIRE_FIELD_ARRAY(gray_list, max_peers)
+    );
+  }
 }
 
-void GetBlockHeadersByHeight::Response::fromJson(const rapidjson::Value& val)
+void GetPeerList::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, headers, headers);
+  peer_list_request_map(dest, *this);
 }
 
+void GetPeerList::Request::read_bytes(wire::reader& source)
+{
+  peer_list_request_map(source, *this);
+}
 
-void GetPeerList::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void GetPeerList::Response::write_bytes(wire::writer& dest) const
+{
+  peer_list_response_map(dest, *this);
+}
 
-void GetPeerList::Request::fromJson(const rapidjson::Value& val)
+void GetPeerList::Response::read_bytes(wire::reader& source)
 {
+  peer_list_response_map(source, *this);
 }
 
-void GetPeerList::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, white_list, white_list);
-  INSERT_INTO_JSON_OBJECT(dest, gray_list, gray_list);
+  template<typename F, typename T>
+  void set_log_level_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(level));
+  }
+
+  template<typename F, typename T>
+  void set_log_level_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
 }
 
-void GetPeerList::Response::fromJson(const rapidjson::Value& val)
+void SetLogLevel::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, white_list, white_list);
-  GET_FROM_JSON_OBJECT(val, gray_list, gray_list);
+  set_log_level_request_map(dest, *this);
 }
 
+void SetLogLevel::Request::read_bytes(wire::reader& source)
+{
+  set_log_level_request_map(source, *this);
+}
 
-void SetLogLevel::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void SetLogLevel::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, level, level);
+  set_log_level_response_map(dest, *this);
 }
 
-void SetLogLevel::Request::fromJson(const rapidjson::Value& val)
+void SetLogLevel::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, level, level);
+  set_log_level_response_map(source, *this);
 }
+
+namespace
+{
+  template<typename F, typename T>
+  void transaction_pool_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
 
-void SetLogLevel::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+  template<typename F, typename T>
+  void transaction_pool_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(transactions), WIRE_FIELD(key_images));
+  }
+}
 
-void SetLogLevel::Response::fromJson(const rapidjson::Value& val)
+void GetTransactionPool::Request::write_bytes(wire::writer& dest) const
 {
+  transaction_pool_request_map(dest, *this);
 }
 
+void GetTransactionPool::Request::read_bytes(wire::reader& source)
+{
+  transaction_pool_request_map(source, *this);
+}
 
-void GetTransactionPool::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void GetTransactionPool::Response::write_bytes(wire::writer& dest) const
+{
+  transaction_pool_response_map(dest, *this);
+}
 
-void GetTransactionPool::Request::fromJson(const rapidjson::Value& val)
+void GetTransactionPool::Response::read_bytes(wire::reader& source)
 {
+  throw std::logic_error{"Not yet imeplemented, reading to unordered_map"};
 }
 
-void GetTransactionPool::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, transactions, transactions);
-  INSERT_INTO_JSON_OBJECT(dest, key_images, key_images);
+  template<typename F, typename T>
+  void fork_info_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(version));
+  }
+
+  template<typename F, typename T>
+  void fork_info_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(info));
+  }
 }
 
-void GetTransactionPool::Response::fromJson(const rapidjson::Value& val)
+void HardForkInfo::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, transactions, transactions);
-  GET_FROM_JSON_OBJECT(val, key_images, key_images);
+  fork_info_request_map(dest, *this);
 }
 
+void HardForkInfo::Request::read_bytes(wire::reader& source)
+{
+  fork_info_request_map(source, *this);
+}
 
-void HardForkInfo::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void HardForkInfo::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, version, version);
+  fork_info_response_map(dest, *this);
 }
 
-void HardForkInfo::Request::fromJson(const rapidjson::Value& val)
+void HardForkInfo::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, version, version);
+  fork_info_response_map(source, *this);
 }
 
-void HardForkInfo::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, info, info);
+  using max_histograms = wire::max_element_count<16384>;
+
+  template<typename F, typename T>
+  void output_histogram_request_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD_ARRAY(amounts, max_histograms),
+      WIRE_FIELD(min_count),
+      WIRE_FIELD(max_count),
+      WIRE_FIELD(unlocked),
+      WIRE_FIELD(recent_cutoff)
+    );
+  }
+
+  template<typename F, typename T>
+  void output_histogram_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(histogram, max_histograms));
+  }
 }
 
-void HardForkInfo::Response::fromJson(const rapidjson::Value& val)
+void GetOutputHistogram::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, info, info);
+  output_histogram_request_map(dest, *this);
 }
 
+void GetOutputHistogram::Request::read_bytes(wire::reader& source)
+{
+  output_histogram_request_map(source, *this);
+}
 
-void GetOutputHistogram::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetOutputHistogram::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, amounts, amounts);
-  INSERT_INTO_JSON_OBJECT(dest, min_count, min_count);
-  INSERT_INTO_JSON_OBJECT(dest, max_count, max_count);
-  INSERT_INTO_JSON_OBJECT(dest, unlocked, unlocked);
-  INSERT_INTO_JSON_OBJECT(dest, recent_cutoff, recent_cutoff);
+  output_histogram_response_map(dest, *this);
 }
 
-void GetOutputHistogram::Request::fromJson(const rapidjson::Value& val)
+void GetOutputHistogram::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, amounts, amounts);
-  GET_FROM_JSON_OBJECT(val, min_count, min_count);
-  GET_FROM_JSON_OBJECT(val, max_count, max_count);
-  GET_FROM_JSON_OBJECT(val, unlocked, unlocked);
-  GET_FROM_JSON_OBJECT(val, recent_cutoff, recent_cutoff);
+  output_histogram_response_map(source, *this);
 }
 
-void GetOutputHistogram::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, histogram, histogram);
+  template<typename F, typename T>
+  void output_keys_request_map(F& format, T& self)
+  {
+    using max_outputs = wire::max_element_count<32768>;
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(outputs, max_outputs));
+  }
+
+  template<typename F, typename T>
+  void output_keys_response_map(F& format, T& self)
+  {
+    using min_size = wire::min_element_sizeof<crypto::public_key, rct::key>;
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD_ARRAY(keys, min_size));
+  }
 }
 
-void GetOutputHistogram::Response::fromJson(const rapidjson::Value& val)
+void GetOutputKeys::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, histogram, histogram);
+  output_keys_request_map(dest, *this);
 }
 
+void GetOutputKeys::Request::read_bytes(wire::reader& source)
+{
+  output_keys_request_map(source, *this);
+}
 
-void GetOutputKeys::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetOutputKeys::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, outputs, outputs);
+  output_keys_response_map(dest, *this);
 }
 
-void GetOutputKeys::Request::fromJson(const rapidjson::Value& val)
+void GetOutputKeys::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, outputs, outputs);
+  output_keys_response_map(source, *this);
 }
 
-void GetOutputKeys::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, keys, keys);
+  template<typename F, typename T>
+  void rpc_version_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version));
+  }
+
+  template<typename F, typename T>
+  void rpc_version_response_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(version));
+  }
 }
 
-void GetOutputKeys::Response::fromJson(const rapidjson::Value& val)
+void GetRPCVersion::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, keys, keys);
+  rpc_version_request_map(dest, *this);
 }
 
+void GetRPCVersion::Request::read_bytes(wire::reader& source)
+{
+  rpc_version_request_map(source, *this);
+}
 
-void GetRPCVersion::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
-{}
+void GetRPCVersion::Response::write_bytes(wire::writer& dest) const
+{
+  rpc_version_response_map(dest, *this);
+}
 
-void GetRPCVersion::Request::fromJson(const rapidjson::Value& val)
+void GetRPCVersion::Response::read_bytes(wire::reader& source)
 {
+  rpc_version_response_map(source, *this);
 }
 
-void GetRPCVersion::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+namespace
 {
-  INSERT_INTO_JSON_OBJECT(dest, version, version);
+  template<typename F, typename T>
+  void fee_estimate_request_map(F& format, T& self)
+  {
+    wire::object(format, WIRE_FIELD(rpc_version), WIRE_FIELD(num_grace_blocks));
+  }
+
+  template<typename F, typename T>
+  void fee_estimate_response_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(estimated_base_fee),
+      WIRE_FIELD(fee_mask),
+      WIRE_FIELD(size_scale),
+      WIRE_FIELD(hard_fork_version)
+    );
+  }
 }
 
-void GetRPCVersion::Response::fromJson(const rapidjson::Value& val)
+void GetFeeEstimate::Request::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, version, version);
+  fee_estimate_request_map(dest, *this);
 }
 
-void GetFeeEstimate::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetFeeEstimate::Request::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, num_grace_blocks, num_grace_blocks);
+  fee_estimate_request_map(source, *this);
 }
 
-void GetFeeEstimate::Request::fromJson(const rapidjson::Value& val)
+void GetFeeEstimate::Response::write_bytes(wire::writer& dest) const
 {
-  GET_FROM_JSON_OBJECT(val, num_grace_blocks, num_grace_blocks);
+  fee_estimate_response_map(dest, *this);
 }
 
-void GetFeeEstimate::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetFeeEstimate::Response::read_bytes(wire::reader& source)
 {
-  INSERT_INTO_JSON_OBJECT(dest, estimated_base_fee, estimated_base_fee);
-  INSERT_INTO_JSON_OBJECT(dest, fee_mask, fee_mask);
-  INSERT_INTO_JSON_OBJECT(dest, size_scale, size_scale);
-  INSERT_INTO_JSON_OBJECT(dest, hard_fork_version, hard_fork_version);
+  fee_estimate_response_map(source, *this);
 }
 
-void GetFeeEstimate::Response::fromJson(const rapidjson::Value& val)
+namespace
 {
-  GET_FROM_JSON_OBJECT(val, estimated_base_fee, estimated_base_fee);
-  GET_FROM_JSON_OBJECT(val, fee_mask, fee_mask);
-  GET_FROM_JSON_OBJECT(val, size_scale, size_scale);
-  GET_FROM_JSON_OBJECT(val, hard_fork_version, hard_fork_version);
+  using max_distributions = wire::max_element_count<1024>;
+
+  template<typename F, typename T>
+  void output_distribution_request_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD_ARRAY(amounts, max_distributions),
+      WIRE_FIELD(from_height),
+      WIRE_FIELD(to_height),
+      WIRE_FIELD(cumulative)
+    );
+  }
+
+  template<typename F, typename T>
+  void output_distribution_response_map(F& format, T& self)
+  {
+    wire::object(format,
+      WIRE_FIELD(rpc_version),
+      WIRE_FIELD(status),
+      WIRE_FIELD_ARRAY(distributions, max_distributions)
+    );
+  }
 }
 
-void GetOutputDistribution::Request::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetOutputDistribution::Request::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, amounts, amounts);
-  INSERT_INTO_JSON_OBJECT(dest, from_height, from_height);
-  INSERT_INTO_JSON_OBJECT(dest, to_height, to_height);
-  INSERT_INTO_JSON_OBJECT(dest, cumulative, cumulative);
+  output_distribution_request_map(dest, *this);
 }
 
-void GetOutputDistribution::Request::fromJson(const rapidjson::Value& val)
+void GetOutputDistribution::Request::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, amounts, amounts);
-  GET_FROM_JSON_OBJECT(val, from_height, from_height);
-  GET_FROM_JSON_OBJECT(val, to_height, to_height);
-  GET_FROM_JSON_OBJECT(val, cumulative, cumulative);
+  output_distribution_request_map(source, *this);
 }
 
-void GetOutputDistribution::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
+void GetOutputDistribution::Response::write_bytes(wire::writer& dest) const
 {
-  INSERT_INTO_JSON_OBJECT(dest, status, status);
-  INSERT_INTO_JSON_OBJECT(dest, distributions, distributions);
+  output_distribution_response_map(dest, *this);
 }
 
-void GetOutputDistribution::Response::fromJson(const rapidjson::Value& val)
+void GetOutputDistribution::Response::read_bytes(wire::reader& source)
 {
-  GET_FROM_JSON_OBJECT(val, status, status);
-  GET_FROM_JSON_OBJECT(val, distributions, distributions);
+  output_distribution_response_map(source, *this);
 }
 
 }  // namespace rpc

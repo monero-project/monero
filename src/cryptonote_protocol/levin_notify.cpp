@@ -47,6 +47,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "net/dandelionpp.h"
 #include "p2p/net_node.h"
+#include "serialization/wire/epee/base.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p.tx"
@@ -181,8 +182,9 @@ namespace levin
           padding -= overhead;
         request._ = std::string(padding, ' ');
 
-        epee::byte_slice arg_buff;
-        epee::serialization::store_t_to_binary(request, arg_buff);
+        epee::byte_stream arg_buff;
+        if (std::error_code error = wire::epee_bin::to_bytes(arg_buff, request))
+          throw std::system_error{error, "Failed to serialize to epee binary format"};
 
         // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
         size_t remove = arg_buff.size() % granularity;
@@ -194,8 +196,8 @@ namespace levin
       }
 
       epee::levin::message_writer out;
-      if (!epee::serialization::store_t_to_binary(request, out.buffer))
-        throw std::runtime_error{"Failed to serialize to epee binary format"};
+      if (std::error_code error = wire::epee_bin::to_bytes(out.buffer, request))
+        throw std::system_error{error, "Failed to serialize to epee binary format"};
 
       return out;
     }
