@@ -51,11 +51,7 @@ namespace wire
     `value_type` is `T` with optional `std::reference_wrapper` removed.
     `value_type` needs a `read_bytes` function when parsing with a
     `wire::reader` - see `read.h` for more info. `value_type` needs a
-<<<<<<< HEAD
-    `write_bytes` function when writing with a `wire::writer` - see `write.h`
-=======
     `write_bytes` function when parsing with a `wire::writer` - see `write.h`
->>>>>>> 9871bbc98 (Replace serialization functions for:)
     for more info.
 
     Any `value_type` where `is_optional_on_empty<value_type> == true`, will
