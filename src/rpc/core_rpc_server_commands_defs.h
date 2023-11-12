@@ -1094,7 +1094,7 @@ namespace cryptonote
       blobdata blocktemplate_blob;
       blobdata blockhashing_blob;
       std::string merkle_root;
-      uint32_t merkle_tree_depth;
+      uint64_t merkle_tree_depth;
       std::vector<aux_pow_t> aux_pow;
 
       BEGIN_KV_SERIALIZE_MAP()
