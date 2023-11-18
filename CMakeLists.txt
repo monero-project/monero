@@ -62,6 +62,28 @@ if (USE_COMPILATION_TIME_PROFILER)
 	add_compile_options("-ftime-trace")
 endif()
 
+option(USE_PCH "Use precompiled headers" OFF)
+if (USE_PCH)
+	set(PCH_MIN_CMAKE_VERSION "3.16.6")
+	if(${CMAKE_VERSION} VERSION_LESS ${PCH_MIN_CMAKE_VERSION})
+		message(WARNING "Precompiled headers cannot be used with CMake prior to ${PCH_MIN_CMAKE_VERSION}")
+		set(USE_PCH OFF)
+	else()
+		message(STATUS "Using precompiled headers")
+	endif()
+endif()
+macro (monero_use_pch_private target header)
+  if (USE_PCH)
+    if (NOT MSVC)
+      # Play nicely with ccache:
+      # https://stackoverflow.com/questions/2530864/gcc-precompiled-headers-weird-behaviour-with-c-option
+      # https://ccache.dev/manual/latest.html#_precompiled_headers
+      target_compile_options(${target} PRIVATE "-fpch-preprocess")
+    endif()
+    target_precompile_headers(${target} PRIVATE ${header})
+  endif()
+endmacro()
+
 if (${CMAKE_VERSION} VERSION_GREATER "3.0.0" AND CMAKE_MAKE_PROGRAM MATCHES "ninja")
   set(MONERO_PARALLEL_COMPILE_JOBS "" CACHE STRING "The maximum number of concurrent compilation jobs.")
   if (MONERO_PARALLEL_COMPILE_JOBS)
