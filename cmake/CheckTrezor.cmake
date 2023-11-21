@@ -156,10 +156,6 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
     endif()
 
     if(USE_DEVICE_TREZOR_PROTOBUF_TEST)
-        if(${CMAKE_CXX_STANDARD} LESS 17 AND ${Protobuf_VERSION} GREATER 21)
-            trezor_fatal_msg("Trezor: Unsupported Protobuf version ${Protobuf_VERSION} with C++ ${CMAKE_CXX_STANDARD}. Please, use Protobuf v21.")
-        endif()
-
         if(PROTOBUF_LDFLAGS)
             set(PROTOBUF_TRYCOMPILE_LINKER "${PROTOBUF_LDFLAGS}")
         else()
