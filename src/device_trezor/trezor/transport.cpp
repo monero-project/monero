@@ -31,8 +31,13 @@
 #include <libusb.h>
 #endif
 
+#include "net/http.h"
+#include "string_tools.h"
+#include "string_tools_lexical.h"
+
 #include <algorithm>
 #include <functional>
+#include <boost/bind/bind.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -339,6 +344,7 @@ namespace trezor{
   BridgeTransport::BridgeTransport(
         boost::optional<std::string> device_path,
         boost::optional<std::string> bridge_host):
+    m_http_client(net::http::client_factory().create()),
     m_device_path(device_path),
     m_bridge_host(bridge_host ? bridge_host.get() : DEFAULT_BRIDGE),
     m_response(boost::none),
@@ -356,7 +362,7 @@ namespace trezor{
         MDEBUG("Bridge host: " << m_bridge_host);
       }
 
-      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+      m_http_client->set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     }
 
   std::string BridgeTransport::get_path() const {
@@ -372,7 +378,7 @@ namespace trezor{
     json bridge_res;
     std::string req;
 
-    bool req_status = invoke_bridge_http("/enumerate", req, bridge_res, m_http_client);
+    bool req_status = invoke_bridge_http("/enumerate", req, bridge_res, *m_http_client);
     if (!req_status){
       throw exc::CommunicationException("Bridge enumeration failed");
     }
@@ -416,7 +422,7 @@ namespace trezor{
     std::string uri = "/acquire/" + m_device_path.get() + "/null";
     std::string req;
     json bridge_res;
-    bool req_status = invoke_bridge_http(uri, req, bridge_res, m_http_client);
+    bool req_status = invoke_bridge_http(uri, req, bridge_res, *m_http_client);
     if (!req_status){
       throw exc::CommunicationException("Failed to acquire device");
     }
@@ -438,7 +444,7 @@ namespace trezor{
     std::string uri = "/release/" + m_session.get();
     std::string req;
     json bridge_res;
-    bool req_status = invoke_bridge_http(uri, req, bridge_res, m_http_client);
+    bool req_status = invoke_bridge_http(uri, req, bridge_res, *m_http_client);
     if (!req_status){
       throw exc::CommunicationException("Failed to release device");
     }
@@ -462,7 +468,7 @@ namespace trezor{
     epee::wipeable_string res_hex;
     epee::wipeable_string req_hex = epee::to_hex::wipeable_string(epee::span<const std::uint8_t>(req_buff_raw, buff_size));
 
-    bool req_status = invoke_bridge_http(uri, req_hex, res_hex, m_http_client);
+    bool req_status = invoke_bridge_http(uri, req_hex, res_hex, *m_http_client);
     if (!req_status){
       throw exc::CommunicationException("Call method failed");
     }

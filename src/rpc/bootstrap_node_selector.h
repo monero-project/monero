@@ -29,6 +29,8 @@
 
 #pragma  once
 
+#include "net/http_auth.h"
+
 #include <functional>
 #include <limits>
 #include <map>
@@ -39,8 +41,6 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/optional/optional.hpp>
-
-#include "net/http_client.h"
 
 namespace cryptonote
 {
