@@ -78,10 +78,10 @@ def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
             continue
 
         # 6
-        psuedo_global_output_index = num_usable_rct_outputs - 1 - target_num_outputs_post_unlock
+        pseudo_global_output_index = num_usable_rct_outputs - 1 - target_num_outputs_post_unlock
 
         # 7
-        picked_block_index = bisect.bisect_left(crod, psuedo_global_output_index)
+        picked_block_index = bisect.bisect_left(crod, pseudo_global_output_index)
 
         # 8
         if picked_block_index == 0:
@@ -104,7 +104,7 @@ def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
 def main():
     # Handle CLI arguments
     arg_parser = argparse.ArgumentParser(prog='Decoy Selection Python Reference',
-                    description='We provide an easy-to-read non-fingerprinting reference for Monero decoy selecton',
+                    description='We provide an easy-to-read non-fingerprinting reference for Monero decoy selection',
                     epilog='Remember: Don\'t be Unique!')
     arg_parser.add_argument('-t', '--to-height', default=0, type=int)
     arg_parser.add_argument('-n', '--num-picks', default=1000000, type=int)

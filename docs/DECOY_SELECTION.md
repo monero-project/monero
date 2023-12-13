@@ -32,8 +32,8 @@ contain ring members with the same amount.
 
 Finally, when we are doing decoy selection to find the other members of a ring, our result is a list of global output
 indexes, which represent a set of transaction outputs with the same amount as the transaction output we are trying to
-spend. We sample these global output indicies according to a certain distribution, with this distribution hopefully
-statistically matching the distribution of the ages of "true spends", so that the ring member we truely wish to spend is
+spend. We sample these global output indices according to a certain distribution, with this distribution hopefully
+statistically matching the distribution of the ages of "true spends", so that the ring member we truly wish to spend is
 masked from external observers within a certain probability.
 
 ### How Transaction Unlock Times Affect Decoy Selection
@@ -53,7 +53,7 @@ unusable. It then picks from the valid remaining outputs. The trap that one can 
 statistical dependence for picks within rings more than necessary. When you are trying to build up a set of X unique
 decoy picks, if the first pick has 100 choices, then the next pick has 99 choices, then 98 choices, etc, etc. Since
 these picks are not statistically independent, then the distribution of the picks gets more and more skewed for the later
-picks. You can combat this effect by simply commiting to the order in which you pick the outputs, and try adding them
+picks. You can combat this effect by simply committing to the order in which you pick the outputs, and try adding them
 in this order, assuming that they are valid.
 
 ## Implementing Decoy Selection
@@ -69,9 +69,9 @@ and methods.
 ### First, Some Numeric Constants
 
 * `GAMMA_SHAPE = 19.28` [source](https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/wallet/wallet2.cpp#L141-L142)
-  * Shape paramater for a [gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
+  * Shape parameter for a [gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
 * `GAMMA_RATE = 1.61` [source](https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/wallet/wallet2.cpp#L141-L142)
-  * Rate paramater for a [gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
+  * Rate parameter for a [gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
   * :memo: **NOTE**: Here we used a "rate" parameter, but gamma distributions can also be parameterized with a "scale" parameter, where `scale = 1 / rate`. If you use a library to sample from a gamma distribution, make sure you don't get rate & scale mixed up.
 * `DIFFICULTY_TARGET_V2 = 120` [source](https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/cryptonote_config.h#L79)
   * The current protocol target blocktime, in seconds
@@ -230,10 +230,10 @@ until we have built up a set of global output indices of a certain desired size.
     * `target_num_outputs_post_unlock = floor(target_post_unlock_output_age / average_output_delay)`
 5. Here is the first point in which a gamma pick can fail: if the target output index post-unlock is greater than the number of usable outputs on chain:
     * If `target_num_outputs_post_unlock >= num_usable_rct_outputs`, then restart the gamma pick operation from step 1.
-6. Now we get what I call a "psuedo global output index". This value *could* be used as a global output index, but since we want all outputs within the same block to have the same chance of being picked, we instead use this global output index to "pick" a block.
-    * `psuedo_global_output_index = num_usable_rct_outputs - 1 - target_num_outputs_post_unlock`
-7. Let us get the block index containing our psuedo global output index. In practice, one can use a binary search to perform this operation in `O(log(CROD_length))` time.
-    * `picked_block_index = i such that CROD[i] <= psuedo_global_output_index < CROD[i + 1]`
+6. Now we get what I call a "pseudo global output index". This value *could* be used as a global output index, but since we want all outputs within the same block to have the same chance of being picked, we instead use this global output index to "pick" a block.
+    * `pseudo_global_output_index = num_usable_rct_outputs - 1 - target_num_outputs_post_unlock`
+7. Let us get the block index containing our pseudo global output index. In practice, one can use a binary search to perform this operation in `O(log(CROD_length))` time.
+    * `picked_block_index = i such that CROD[i] <= pseudo_global_output_index < CROD[i + 1]`
 8. To pick an output from this block, we need the first global output index in this block.
     * If `picked_block_index == 0`, then `block_first_global_output_index = 0`, else `block_first_global_output_index = CROD[picked_block_index - 1]`
 9. From this block, we also need to know how many outputs are contained within:
@@ -283,10 +283,10 @@ def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
             continue
 
         # 6
-        psuedo_global_output_index = num_usable_rct_outputs - 1 - target_num_outputs_post_unlock
+        pseudo_global_output_index = num_usable_rct_outputs - 1 - target_num_outputs_post_unlock
 
         # 7
-        picked_block_index = bisect.bisect_left(crod, psuedo_global_output_index)
+        picked_block_index = bisect.bisect_left(crod, pseudo_global_output_index)
 
         # 8
         if picked_block_index == 0:
@@ -313,7 +313,7 @@ Assuming that we can correctly treat the distribution of picks by the decoy sele
 distribution, we can use a two-sample [Kolmogorov–Smirnov Test](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Smirnov_test)
 to statistically test if a given implementation statistically matches the reference implementation. Running the provided
 Python decoy selection reference script (utils/python-rpc/decoy_selection.py) will generate a TXT file containing
-decoy selection picks (you can specify how many) seperated by newlines. This data can be imported and used to perform
+decoy selection picks (you can specify how many) separated by newlines. This data can be imported and used to perform
 a two-sample KS test using, for example, `scipy.stats.kstest`. Just make sure that when you're testing, you use the same
 *CROD* list, which can be enforced in the Python script with the argument `--to-height`. 
 
