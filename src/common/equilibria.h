@@ -59,7 +59,7 @@ namespace equilibria
 	#define XEQ_TOKEN_COMBINE(x, y) XEQ_TOKEN_COMBINE2(x, y)
 	#define XEQ_DEFER auto const XEQ_TOKEN_COMBINE(xeq_defer_, __LINE__) = equilibria::defer_helper() + [&]()
 
-	template <typename T, size_t N>
+	template<typename T, size_t N>
 	constexpr size_t array_count(T (&)[N]) { return N; }
 }; // namespace equilibria
 

@@ -34,7 +34,7 @@
 #ifdef HAVE_READLINE
   #include "readline_buffer.h"
   #define PAUSE_READLINE() \
-    rdln::suspend_readline pause_readline; 
+    rdln::suspend_readline pause_readline;
 #else
   #define PAUSE_READLINE()
 #endif

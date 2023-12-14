@@ -37,7 +37,7 @@ include(CheckCXXCompilerFlag)
 include(CheckLinkerFlag)
 include(CheckLibraryExists)
 include(CheckFunctionExists)
-include(FindPythonInterp)
+include(FindPython)
 
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
@@ -46,10 +46,9 @@ endif()
 cmake_minimum_required(VERSION 3.18)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "macOS deployment target (Apple clang only)")
+project(equilibria)
 
-project(equilibria
-  LANGUAGES CXX C)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "macOS deployment target (Apple clang only)")
 
 set(CMAKE_FIND_FRAMEWORK "LAST")
 
@@ -69,8 +68,6 @@ endif()
 enable_language(C ASM)
 
 include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
-
-enable_language(C ASM)
 
 function (die msg)
   if (NOT WIN32)
@@ -736,7 +733,7 @@ else()
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
   message(STATUS "Using linker security hardening flags: ${LD_SECURITY_FLAGS}")
 
-  if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64" AND CMAKE_C_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
+  if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "arm64" AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
     # request classic linker for Xcode 15 for Apple Silicon Macs
     message("-- Xcode >= 15 on arm6 detected, requesting classic linker")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -ld_classic")
@@ -843,9 +840,9 @@ else()
   endif()
 
   if(APPLE)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.15 -fvisibility=hidden -DGTEST_HAS_TR1_TUPLE=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -DGTEST_HAS_TR1_TUPLE=0")
     if(NOT DEPENDS)
-      set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
+      set(CMAKE_OSX_DEPLOYMENT_TARGET 14.10)
     endif()
   endif()
 
@@ -1118,7 +1115,7 @@ find_package(PythonInterp)
 find_program(iwyu_tool_path NAMES iwyu_tool.py iwyu_tool)
 if (iwyu_tool_path AND PYTHONINTERP_FOUND)
   add_custom_target(iwyu
-    COMMAND "${PYTHON_EXECUTABLE}" "${iwyu_tool_path}" -p "${CMAKE_BINARY_DIR}" -- --no_fwd_decls
+    COMMAND "${Python_EXECUTABLE}" "${iwyu_tool_path}" -p "${CMAKE_BINARY_DIR}" -- --no_fwd_decls
     COMMENT "Running include-what-you-use tool"
     VERBATIM
   )

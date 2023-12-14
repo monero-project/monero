@@ -39,6 +39,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <chrono>
 
 #ifdef _WIN32
 #include "windows.h"
@@ -246,7 +247,7 @@ namespace tools
 
   std::string get_human_readable_timestamp(uint64_t ts);
 
-  std::string get_human_readable_timespan(uint64_t seconds);
+  std::string get_human_readable_timespan(std::chrono::seconds seconds);
 
   std::string get_human_readable_bytes(uint64_t bytes);
 
@@ -260,5 +261,5 @@ namespace tools
   constexpr auto enum_count = static_cast<std::underlying_type_t<Enum>>(Enum::_count);
 
   template<typename Enum>
-  constexpr Enum enum_top = static_cast<Enum>(enum_count<Enum> -1);
+  constexpr Enum enum_top = static_cast<Enum>(enum_count<Enum> - 1);
 }

@@ -27,7 +27,6 @@
 #pragma once
 
 #include "misc_log_ex.h"
-#include "enableable.h"
 #include "keyvalue_serialization_overloads.h"
 
 #undef XEQ_DEFAULT_LOG_CATEGORY

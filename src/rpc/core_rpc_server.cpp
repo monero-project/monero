@@ -73,13 +73,6 @@ using namespace epee;
 
 namespace
 {
-  void add_reason(std::string &reasons, const char *reason)
-  {
-    if (!reasons.empty())
-      reasons += ", ";
-    reasons += reason;
-  }
-
   uint64_t round_up(uint64_t value, uint64_t quantum)
   {
     return (value + quantum - 1) / quantum * quantum;
@@ -90,6 +83,13 @@ namespace
     sdiff = (difficulty & 0xffffffffffffffff).convert_to<uint64_t>();
     swdiff = cryptonote::hex(difficulty);
     stop64 = ((difficulty >> 64) & 0xffffffffffffffff).convert_to<uint64_t>();
+  }
+
+  void add_reason(std::string &reasons, const char* reason)
+  {
+    if (!reasons.empty())
+      reasons += ", ";
+    reasons += reason;
   }
 }
 
@@ -340,22 +340,6 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_all_service_nodes_keys(const COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::request& req, COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
-  {
-    std::vector<crypto::public_key> keys;
-    m_core.get_all_service_nodes_public_keys(keys, req.active_only);
-
-    res.keys.clear();
-    res.keys.resize(keys.size());
-    size_t i = 0;
-    for (const auto& key : keys)
-    {
-      std::string const hex64 = string_tools::pod_to_hex(key);
-      res.keys[i++] = equilibria::hex64_to_base32z(hex64);
-    }
-    return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_net_stats(const COMMAND_RPC_GET_NET_STATS::request& req, COMMAND_RPC_GET_NET_STATS::response& res, const connection_context *ctx)
   {
     PERF_TIMER(on_get_net_stats);
@@ -419,7 +403,6 @@ namespace cryptonote
     for(auto& bd: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
-      res.blocks.back().pruned = req.prune;
       res.blocks.back().block = bd.first.first;
       size += bd.first.first.size();
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
@@ -430,10 +413,10 @@ namespace cryptonote
       res.blocks.back().txs.reserve(bd.second.size());
       for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
       {
-        res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
+        res.blocks.back().txs.push_back(std::move(i->second));
         i->second.clear();
         i->second.shrink_to_fit();
-        size += res.blocks.back().txs.back().blob.size();
+        size += res.blocks.back().txs.back().size();
       }
 
       const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
@@ -523,7 +506,7 @@ namespace cryptonote
       res.blocks.resize(res.blocks.size() + 1);
       res.blocks.back().block = block_to_blob(blk);
       for (auto& tx : txs)
-        res.blocks.back().txs.push_back({tx_to_blob(tx), crypto::null_hash});
+        res.blocks.back().txs.push_back(tx_to_blob(tx));
     }
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -537,7 +520,7 @@ namespace cryptonote
       return r;
 
     res.start_height = req.start_height;
-    if(!m_core.get_blockchain_storage().find_blockchain_supplement(req.block_ids, res.m_block_ids, NULL, res.start_height, res.current_height, false))
+    if(!m_core.get_blockchain_storage().find_blockchain_supplement(req.block_ids, res.m_block_ids, res.start_height, res.current_height, false))
     {
       res.status = "Failed";
       add_host_fail(ctx);
@@ -1050,33 +1033,33 @@ namespace cryptonote
 
     const bool restricted = m_restricted && ctx;
 
+    cryptonote_connection_context fake_context{};
     tx_verification_context tvc{};
-    if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verification_failed)
     {
       res.status = "Failed";
       std::string reason = "";
-      if ((res.low_mixin = tvc.m_low_mixin))
-        add_reason(reason, "bad ring size");
-      if ((res.double_spend = tvc.m_double_spend))
-        add_reason(reason, "double spend");
-      if ((res.invalid_input = tvc.m_invalid_input))
-        add_reason(reason, "invalid input");
-      if ((res.invalid_output = tvc.m_invalid_output))
-        add_reason(reason, "invalid output");
-      if ((res.too_big = tvc.m_too_big))
-        add_reason(reason, "too big");
-      if ((res.overspend = tvc.m_overspend))
-        add_reason(reason, "overspend");
-      if ((res.fee_too_low = tvc.m_fee_too_low))
-        add_reason(reason, "fee too low");
-      if ((res.too_few_outputs = tvc.m_too_few_outputs))
-        add_reason(reason, "too few outputs");
-      if ((res.invalid_version = tvc.m_invalid_version))
-        add_reason(reason, "invalid version");
-      if ((res.invalid_type = tvc.m_invalid_type))
-        add_reason(reason, "invalid type");
+      if ((res.low_mixin = tvc.m_low_mixin)) add_reason(reason, "wrong ring size");
+      if ((res.double_spend = tvc.m_double_spend)) add_reason(reason, "double spend");
+      if ((res.invalid_input = tvc.m_invalid_input)) add_reason(reason, "invalid input");
+      if ((res.invalid_output = tvc.m_invalid_output)) add_reason(reason, "invalid output");
+      if ((res.too_big = tvc.m_too_big)) add_reason(reason, "too big");
+      if ((res.overspend = tvc.m_overspend)) add_reason(reason, "overspend");
+      if ((res.fee_too_low = tvc.m_fee_too_low)) add_reason(reason, "fee too low");
+      if ((res.too_few_outputs = tvc.m_too_few_outputs)) add_reason(reason, "too few outputs");
+      if ((res.invalid_version = tvc.m_invalid_version)) add_reason(reason, "invalid version");
+
+      const vote_verification_context &vvc = tvc.m_vote_ctx;
+      if((res.invalid_block_height = vvc.m_invalid_block_height)) add_reason(res.reason, "block height was invalid");
+      if((res.duplicate_voters = vvc.m_duplicate_voters)) add_reason(res.reason, "voters index was duplicated");
+      if((res.voters_quorum_index_out_of_bounds = vvc.m_voters_quorum_index_out_of_bounds)) add_reason(res.reason, "voters quorum index specified out of bounds");
+      if((res.service_node_index_out_of_bounds = vvc.m_service_node_index_out_of_bounds)) add_reason(res.reason, "service node index specified out of bounds");
+      if((res.signature_not_valid = vvc.m_signature_not_valid)) add_reason(res.reason, "signature was not valid");
+      if((res.not_enough_votes = vvc.m_not_enough_votes)) add_reason(res.reason, "not enough votes");
+
+
       const std::string punctuation = reason.empty() ? "" : ": ";
-      if (tvc.m_verifivation_failed)
+      if (tvc.m_verification_failed)
       {
         LOG_PRINT_L0("[on_send_raw_tx]: tx verification failed" << punctuation << reason);
       }
@@ -2934,8 +2917,8 @@ namespace cryptonote
 
     std::vector<std::string> args;
 
-    uint64_t const curr_height = m_core.get_current_blockchain_height();
-    uint64_t staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), curr_height);
+    uint64_t staking_requirement = 0;
+    staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
 
     {
       uint64_t portions_cut;
@@ -2983,8 +2966,7 @@ namespace cryptonote
       return false;
     }
     std::string err_msg;
-    uint8_t hard_fork_version = m_core.get_hard_fork_version(m_core.get_current_blockchain_height());
-    if (!service_nodes::make_registration_cmd(m_core.get_nettype(), hard_fork_version, req.staking_requirement, req.args, service_node_pubkey, service_node_key, res.registration_cmd, req.make_friendly, err_msg))
+    if (!service_nodes::make_registration_cmd(m_core.get_nettype(), req.args, service_node_pubkey, service_node_key, res.registration_cmd, req.make_friendly, err_msg))
     {
       error_resp.code    = CORE_RPC_ERROR_CODE_WRONG_PARAM;
       error_resp.message = "Failed to make registration command";
@@ -3019,17 +3001,7 @@ namespace cryptonote
 
 	  res.status = CORE_RPC_STATUS_OK;
 	  res.service_node_states.reserve(pubkey_info_list.size());
-
-	  if (req.include_json)
-	  {
-	    res.as_json = "{\n}";
-	    if (pubkey_info_list.size() > 0)
-	    {
-	      res.as_json = cryptonote::obj_to_json_str(pubkey_info_list);
-	    }
-	  }
-
-	  for (auto &pubkey_info : pubkey_info_list)
+	  for (const auto &pubkey_info : pubkey_info_list)
 	  {
 		  COMMAND_RPC_GET_SERVICE_NODES::response::entry entry = {};
 
@@ -3077,7 +3049,7 @@ namespace cryptonote
   bool core_rpc_server::on_get_staking_requirement(const COMMAND_RPC_GET_STAKING_REQUIREMENT::request& req, COMMAND_RPC_GET_STAKING_REQUIREMENT::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
 	  PERF_TIMER(on_get_staking_requirement);
-    res.staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), req.height);
+    res.staking_requirement = service_nodes::get_staking_requirement(m_core.get_nettype(), m_core.get_current_blockchain_height());
 	  res.status = CORE_RPC_STATUS_OK;
 	  return true;
   }

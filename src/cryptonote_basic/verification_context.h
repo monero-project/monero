@@ -49,13 +49,14 @@ namespace cryptonote
 		bool m_full_tx_deregister_made;
 		bool m_not_enough_votes;
 	};
+
   struct tx_verification_context
   {
     static_assert(unsigned(relay_method::none) == 0, "default m_relay initialization is not to relay_method::none");
 
     relay_method m_relay; // gives indication on how tx should be relayed (if at all)
-    bool m_verifivation_failed; //bad tx, should drop connection
-    bool m_verifivation_impossible; //the transaction is related with an alternative blockchain
+    bool m_verification_failed; //bad tx, should drop connection
+    bool m_verification_impossible; //the transaction is related with an alternative blockchain
     bool m_added_to_pool;
     bool m_low_mixin;
     bool m_double_spend;
@@ -68,13 +69,13 @@ namespace cryptonote
     bool m_invalid_version;
     bool m_invalid_type;
 
-	vote_verification_context m_vote_ctx;
+	  vote_verification_context m_vote_ctx;
   };
 
 	struct block_verification_context
 	{
 	  bool m_added_to_main_chain;
-		bool m_verifivation_failed; //bad block, should drop connection
+		bool m_verification_failed; //bad block, should drop connection
 		bool m_marked_as_orphaned;
 		bool m_already_exists;
 		bool m_partial_block_reward;

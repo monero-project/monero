@@ -152,7 +152,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
     }
     hashes.push_back(cryptonote::get_block_hash(block));
   }
-  core.prevalidate_block_hashes(core.get_blockchain_storage().get_db().height(), hashes, {});
+  core.prevalidate_block_hashes(core.get_blockchain_storage().get_db().height(), hashes);
 
   std::vector<block> pblocks;
   if (!core.prepare_handle_incoming_blocks(blocks, pblocks))
@@ -176,10 +176,10 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
     {
       tx_verification_context tvc{};
       core.handle_incoming_tx(tx_blob, tvc, relay_method::block, true);
-      if(tvc.m_verifivation_failed)
+      if(tvc.m_verification_failed)
       {
         MERROR("transaction verification failed, tx_id = "
-            << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob.blob)));
+            << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob)));
         core.cleanup_handle_incoming_blocks();
         return 1;
       }
@@ -191,7 +191,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
 
     core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx++], bvc, false); // <--- process block
 
-    if(bvc.m_verifivation_failed)
+    if(bvc.m_verification_failed)
     {
       MERROR("Block verification failed, id = "
           << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block)));
@@ -430,17 +430,13 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
         {
           cryptonote::blobdata block;
           cryptonote::block_to_blob(bp.block, block);
-          std::vector<tx_blob_entry> txs;
+          std::vector<cryptonote::blobdata> txs;
           for (const auto &tx: bp.txs)
           {
-            txs.push_back({cryptonote::blobdata(), crypto::null_hash});
-            cryptonote::tx_to_blob(tx, txs.back().blob);
+            txs.push_back(cryptonote::blobdata());
+            cryptonote::tx_to_blob(tx, txs.back());
           }
-          block_complete_entry bce;
-          bce.pruned = false;
-          bce.block = std::move(block);
-          bce.txs = std::move(txs);
-          blocks.push_back(bce);
+          blocks.push_back({block, txs});
           int ret = check_flush(core, blocks, false);
           if (ret)
           {

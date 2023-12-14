@@ -98,7 +98,7 @@ namespace service_nodes
 
 		for (; m_last_height < (height - REORG_SAFETY_BUFFER_IN_BLOCKS); m_last_height++)
 		{
-			if (m_core.get_hard_fork_version(m_last_height) < cryptonote::network_version_5)
+			if (m_core.get_hard_fork_version(m_last_height) < 5)
 				continue;
 
 			const std::shared_ptr<const quorum_state> state = m_core.get_quorum_state(m_last_height);
@@ -208,7 +208,7 @@ namespace service_nodes
 		uint64_t now = time(nullptr);
 		uint64_t const latest_height = std::max(m_core.get_current_blockchain_height(), m_core.get_target_blockchain_height());
 		uint64_t prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS;
-		if(m_core.get_hard_fork_version(latest_height) >= cryptonote::network_version_10)
+		if(m_core.get_hard_fork_version(latest_height) >= 10)
 			prune_from_timestamp = now - UPTIME_PROOF_MAX_TIME_IN_SECONDS_V2;
 
 		CRITICAL_REGION_LOCAL(m_lock);

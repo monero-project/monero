@@ -33,7 +33,6 @@
 #include "cryptonote_basic_impl.h"
 #include "tx_extra.h"
 #include "account.h"
-#include "blobdatatype.h"
 #include "crypto/pow_hash/cn_slow_hash.hpp"
 #include "subaddress_index.h"
 #include "include_base_utils.h"
@@ -65,14 +64,25 @@ namespace cryptonote
   bool is_v1_tx(const blobdata& tx_blob);
 
   template<typename T>
-  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t index = 0)
+  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t skip_fields = 0)
   {
-    auto it = std::find_if(tx_extra_fields.begin(), tx_extra_fields.end(), [&index](const tx_extra_field& f) { return typeid(T) == f.type() && !index--; });
-    if(tx_extra_fields.end() == it)
+    if (skip_fields >= tx_extra_fields.size())
       return false;
 
-    field = boost::get<T>(*it);
-    return true;
+    for (tx_extra_field const &check_field : tx_extra_fields)
+    {
+      if (typeid(T) != check_field.type())
+        continue;
+
+      if (skip_fields == 0)
+      {
+        field = boost::get<T>(check_field);
+        return true;
+      }
+      skip_fields--;
+    }
+
+    return false;
   }
 
   bool parse_tx_extra(const std::vector<uint8_t>& tx_extra, std::vector<tx_extra_field>& tx_extra_fields);
@@ -149,7 +159,7 @@ namespace cryptonote
   crypto::hash get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash);
 
   blobdata get_block_hashing_blob(const block& b);
-  bool calculate_block_hash(const block& b, crypto::hash& res, const blobdata *blob = NULL);
+  bool calculate_block_hash(const block& b, crypto::hash& res);
   bool get_block_hash(const block& b, crypto::hash& res);
   crypto::hash get_block_hash(const block& b);
   bool get_block_longhash(const block& b, crypto::hash& res, cn_gpu_hash &ctx);
@@ -177,12 +187,6 @@ namespace cryptonote
 
   char const *print_tx_verification_context(tx_verification_context const &tvc, transaction const *tx = nullptr);
   char const *print_vote_verification_context(vote_verification_context const &vvc, service_nodes::deregister_vote const *vote = nullptr);
-
-  inline std::ostream &operator<<(std::ostream &stream, transaction const &tx)
-  {
-    stream << "tx={version=" << tx.version << ", type=" << tx.type << ", hash=" << get_transaction_hash(tx) << "}";
-    return stream;
-  }
 
   std::string print_money(uint64_t amount, unsigned int decimal_point = -1);
   //---------------------------------------------------------------

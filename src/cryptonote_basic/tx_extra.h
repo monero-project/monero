@@ -256,7 +256,8 @@ struct tx_extra_service_node_deregister
 		FIELD(votes)
 		END_SERIALIZE()
 };
- struct tx_extra_tx_secret_key
+
+struct tx_extra_tx_secret_key
 {
   crypto::secret_key key;
 
@@ -265,23 +266,22 @@ struct tx_extra_service_node_deregister
   END_SERIALIZE()
 };
 
-  struct tx_extra_burn
-  {
-    uint64_t amount;
+struct tx_extra_burn
+{
+  uint64_t amount;
+  BEGIN_SERIALIZE()
+    FIELD(amount)
+  END_SERIALIZE()
+};
 
-    BEGIN_SERIALIZE()
-      FIELD(amount)
-    END_SERIALIZE()
-  };
+struct tx_extra_contract_info
+{
+  std::string contract_json;
 
-  struct tx_extra_contract_info
-  {
-    std::string contract_json;
-
-    BEGIN_SERIALIZE()
-      FIELD(contract_json)
-    END_SERIALIZE()
-  };
+  BEGIN_SERIALIZE()
+    FIELD(contract_json)
+  END_SERIALIZE()
+};
 
   struct tx_extra_memo
   {

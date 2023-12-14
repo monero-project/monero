@@ -58,7 +58,6 @@ public:
 
   std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry>             get_service_nodes(std::vector<std::string> const &pubkeys, boost::optional<std::string> &failed) const;
   std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry>             get_all_service_nodes(boost::optional<std::string> &failed) const;
-  std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry>             get_contributed_service_nodes(const std::string &contributor, boost::optional<std::string> &failed) const;
 
 private:
   boost::optional<std::string> get_info() const;
@@ -67,14 +66,8 @@ private:
   boost::recursive_mutex &m_daemon_rpc_mutex;
   bool m_offline;
 
-  bool update_all_service_nodes_cache(uint64_t, boost::optional<std::string> &failed) const;
-
   mutable uint64_t m_all_service_nodes_cached_height;
   mutable std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> m_all_service_nodes;
-
-  mutable uint64_t m_contributed_service_nodes_cached_height;
-  mutable std::string m_contributed_service_nodes_cached_address;
-  mutable std::vector<cryptonote::COMMAND_RPC_GET_SERVICE_NODES::response::entry> m_contributed_service_nodes;
 
   mutable uint64_t m_height;
   mutable uint64_t m_earliest_height[256];

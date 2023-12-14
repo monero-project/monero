@@ -128,13 +128,13 @@ t_command_server::t_command_server(
    m_command_lookup.set_handler(
 	   "print_sn"
 	   , std::bind(&t_command_parser_executor::print_sn, &m_parser, p::_1)
-	   , "print_sn [<pubkey> [...]] [+json]"
+	   , "print_sn [<pubkey> [...]]"
 	   , "Print oracle node registration info for the current height"
    );
    m_command_lookup.set_handler(
 	   "print_sn_status"
 	   , std::bind(&t_command_parser_executor::print_sn_status, &m_parser, p::_1)
-	   , "print_sn_status [+json]"
+	   , "print_sn_status"
 	   , "Print oracle node registration info for this oracle node"
    );
   m_command_lookup.set_handler(

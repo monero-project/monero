@@ -30,9 +30,6 @@
 
 #include <algorithm>
 #include <boost/utility/string_ref.hpp>
-#include <string>
-#include <cstdint>
-
 #include "misc_log_ex.h"
 
 #undef XEQ_DEFAULT_LOG_CATEGORY

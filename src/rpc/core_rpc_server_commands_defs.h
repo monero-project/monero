@@ -43,6 +43,8 @@
 #include "common/varint.h"
 #include "common/perf_timer.h"
 
+#include "cryptonote_core/service_node_list.h"
+
 namespace
 {
   template<typename T>
@@ -651,7 +653,7 @@ namespace cryptonote
       uint64_t received_timestamp;
       std::vector<uint64_t> output_indices;
       bool relayed;
-      uint64_t burnt_amount;
+      uint64_t burned_amount;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_hash)
@@ -673,6 +675,7 @@ namespace cryptonote
           KV_SERIALIZE(relayed)
           KV_SERIALIZE(received_timestamp)
         }
+        KV_SERIALIZE(burned_amount)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -978,9 +981,9 @@ namespace cryptonote
       bool fee_too_low;
       bool too_few_outputs;
       bool invalid_version;
-      bool invalid_type;
       bool sanity_check_failed;
       bool untrusted;
+
       bool invalid_block_height;
       bool voters_quorum_index_out_of_bounds;
       bool duplicate_voters;
@@ -1001,12 +1004,12 @@ namespace cryptonote
         KV_SERIALIZE(fee_too_low)
         KV_SERIALIZE(too_few_outputs)
         KV_SERIALIZE(invalid_version)
-        KV_SERIALIZE(invalid_type)
         KV_SERIALIZE(sanity_check_failed)
         KV_SERIALIZE(untrusted)
+
         KV_SERIALIZE(invalid_block_height)
         KV_SERIALIZE(voters_quorum_index_out_of_bounds)
-		    KV_SERIALIZE(duplicate_voters)
+        KV_SERIALIZE(duplicate_voters)
         KV_SERIALIZE(service_node_index_out_of_bounds)
         KV_SERIALIZE(signature_not_valid)
         KV_SERIALIZE(not_enough_votes)
@@ -1162,27 +1165,6 @@ namespace cryptonote
         KV_SERIALIZE(total_bytes_in)
         KV_SERIALIZE(total_packets_out)
         KV_SERIALIZE(total_bytes_out)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-  //-----------------------------------------------
-  struct COMMAND_RPC_GET_ALL_SERVICE_NODES_KEYS
-  {
-    struct request_t
-    {
-      bool active_only;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_OPT(active_only, (bool)true)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct response_t
-    {
-      std::vector<std::string> keys;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(keys)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2942,12 +2924,10 @@ namespace cryptonote
   {
     struct request_t
 	  {
-		  std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the service nodes
-		  bool include_json;
+		  std::vector<std::string> service_node_pubkeys; // pass empty vector to get all the service nodes bool include_json;
 
 		  BEGIN_KV_SERIALIZE_MAP()
 			  KV_SERIALIZE(service_node_pubkeys)
-			  KV_SERIALIZE(include_json)
 		  END_KV_SERIALIZE_MAP()
 	  };
 	  typedef epee::misc_utils::struct_init<request_t> request;
@@ -2973,7 +2953,6 @@ namespace cryptonote
 			  uint64_t                           registration_height;
 			  uint64_t                           last_reward_block_height;
 			  uint32_t                           last_reward_transaction_index;
-			  uint64_t                           last_uptime_proof;
 			  std::vector<contribution>          contributors;
 			  uint64_t                           total_contributed;
 			  uint64_t                           total_reserved;
@@ -2981,13 +2960,13 @@ namespace cryptonote
 			  uint64_t                           portions_for_operator;
 			  std::string                        operator_address;
         bool                               is_pool;
+        uint64_t                           last_uptime_proof;
 
 			  BEGIN_KV_SERIALIZE_MAP()
 				  KV_SERIALIZE(service_node_pubkey)
 				  KV_SERIALIZE(registration_height)
 				  KV_SERIALIZE(last_reward_block_height)
 				  KV_SERIALIZE(last_reward_transaction_index)
-				  KV_SERIALIZE(last_uptime_proof)
 				  KV_SERIALIZE(contributors)
 				  KV_SERIALIZE(total_contributed)
 				  KV_SERIALIZE(total_reserved)
@@ -2995,17 +2974,16 @@ namespace cryptonote
 				  KV_SERIALIZE(portions_for_operator)
 				  KV_SERIALIZE(operator_address)
           KV_SERIALIZE(is_pool)
+          KV_SERIALIZE(last_uptime_proof)
 			  END_KV_SERIALIZE_MAP()
 		  };
 
 		  std::vector<entry> service_node_states;
 		  std::string status;
-		  std::string as_json;
 
 		  BEGIN_KV_SERIALIZE_MAP()
 			  KV_SERIALIZE(service_node_states)
 			  KV_SERIALIZE(status)
-			  KV_SERIALIZE(as_json)
 		  END_KV_SERIALIZE_MAP()
 	  };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -3163,26 +3141,4 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
-
-  struct COMMAND_RPC_ON_BURNT_AMOUNT
-  {
-    struct request_t
-    {
-      std::string hash;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(hash)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct response_t
-    {
-      uint64_t amount;
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(amount)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
 }

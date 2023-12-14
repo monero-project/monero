@@ -265,17 +265,8 @@ inline bool do_serialize(Archive &ar, bool &v)
     if (!ar.stream().good()) return false;	\
   } while(0);
 
-/*! \macro ENUM_FIELD(f, test)
- *  \brief tags and serializes (as a varint) the scoped enum \a f with a requirement that expression
- *  \a test be true (typically for range testing).
- */
 #define ENUM_FIELD(f, test) ENUM_FIELD_N(#f, f, test)
 
-/*! \macro ENUM_FIELD_N(t, f, begin, end)
- *
- * \brief tags (as \a t) and serializes (as a varint) the scoped enum \a f with a requirement that
- * expession \a test be true (typically for range testing).
- */
 #define ENUM_FIELD_N(t, f, test) \
   do { \
     using enum_t = decltype(f); \
@@ -344,11 +335,11 @@ namespace serialization {
     {
       bool result = false;
       if (s.good())
-	{
-	  std::ios_base::iostate state = s.rdstate();
-	  result = noeof || EOF == s.peek();
-	  s.clear(state);
-	}
+      {
+        std::ios_base::iostate state = s.rdstate();
+        result = noeof || EOF == s.peek();
+        s.clear(state);
+      }
       return result;
     }
   }

@@ -29,6 +29,7 @@
 #pragma once
 
 #include <boost/variant.hpp>
+#include <mutex>
 #include "serialization/serialization.h"
 #include "cryptonote_core/service_node_rules.h"
 #include "cryptonote_core/service_node_deregister.h"
@@ -70,8 +71,7 @@ namespace service_nodes
 		{
 			version_0,
 			version_1_swarms,
-			version_pool_upgrade,
-			version_3
+			version_pool_upgrade
 		};
 
 		struct contribution
@@ -80,18 +80,16 @@ namespace service_nodes
 			uint64_t reserved;
 			cryptonote::account_public_address address;
 			contribution() {}
-			contribution(uint64_t _reserved, const cryptonote::account_public_address& _address) : amount(0), reserved(_reserved), address(_address)
-			{
-			}
+			contribution(uint64_t _reserved, const cryptonote::account_public_address& _address) : amount(0), reserved(_reserved), address(_address) { }
 
-			BEGIN_SERIALIZE_OBJECT()
+			BEGIN_SERIALIZE()
 				VARINT_FIELD(amount)
 				VARINT_FIELD(reserved)
 				FIELD(address)
 			END_SERIALIZE()
 		};
 
-		uint8_t  version = service_node_info::version_0;
+		uint8_t version = service_node_info::version_0;
 		uint64_t registration_height;
 		uint64_t last_reward_block_height;
 		uint32_t last_reward_transaction_index;
@@ -105,11 +103,12 @@ namespace service_nodes
 
 		bool is_valid() const { return total_contributed >= total_reserved; }
 		bool is_fully_funded() const { return total_contributed >= staking_requirement; }
-		uint64_t get_min_contribution(uint8_t hard_fork_version) const;
+
+		uint64_t get_min_contribution(uint64_t hard_fork_version) const;
 
 		service_node_info() = default;
 
-		BEGIN_SERIALIZE_OBJECT()
+		BEGIN_SERIALIZE()
 			VARINT_FIELD(version)
 			VARINT_FIELD(registration_height)
 			VARINT_FIELD(last_reward_block_height)
@@ -119,7 +118,10 @@ namespace service_nodes
 			VARINT_FIELD(total_reserved)
 			VARINT_FIELD(staking_requirement)
 			VARINT_FIELD(portions_for_operator)
-			VARINT_FIELD(swarm_id)
+			if (version >= service_node_info::version_1_swarms)
+			{
+			  VARINT_FIELD(swarm_id)
+			}
 			FIELD(operator_address)
 		END_SERIALIZE()
 	};
@@ -128,10 +130,6 @@ namespace service_nodes
 	{
 		crypto::public_key pubkey;
 		service_node_info info;
-		BEGIN_SERIALIZE_OBJECT()
-		  FIELD(pubkey)
-		  FIELD(info)
-		END_SERIALIZE()
 	};
 
 	template<typename T>
@@ -148,6 +146,7 @@ namespace service_nodes
     }
   }
 
+  using block_height = uint64_t;
 	class service_node_list
 		: public cryptonote::BlockAddedHook,
   		public cryptonote::BlockchainDetachedHook,
@@ -176,8 +175,6 @@ namespace service_nodes
 		void set_my_service_node_keys(crypto::public_key const *pub_key);
 		bool store();
 
-		void get_all_service_nodes_public_keys(std::vector<crypto::public_key>& keys, bool active_only) const;
-
 		struct rollback_event
 		{
 			enum rollback_type
@@ -196,7 +193,7 @@ namespace service_nodes
 
 			uint64_t m_block_height;
 
-			BEGIN_SERIALIZE_OBJECT()
+			BEGIN_SERIALIZE()
 				VARINT_FIELD(m_block_height)
 			END_SERIALIZE()
 		};
@@ -210,7 +207,7 @@ namespace service_nodes
 			crypto::public_key m_key;
 			service_node_info m_info;
 
-			BEGIN_SERIALIZE_OBJECT()
+			BEGIN_SERIALIZE()
 				FIELDS(*static_cast<rollback_event *>(this))
 				FIELD(m_key)
 				FIELD(m_info)
@@ -224,7 +221,7 @@ namespace service_nodes
 			bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const;
 			crypto::public_key m_key;
 
-			BEGIN_SERIALIZE_OBJECT()
+			BEGIN_SERIALIZE()
 				FIELDS(*static_cast<rollback_event *>(this))
 				FIELD(m_key)
 			END_SERIALIZE()
@@ -236,12 +233,22 @@ namespace service_nodes
 			prevent_rollback(uint64_t block_height);
 			bool apply(std::unordered_map<crypto::public_key, service_node_info>& service_nodes_infos) const;
 
-			BEGIN_SERIALIZE_OBJECT()
+			BEGIN_SERIALIZE()
 				FIELDS(*static_cast<rollback_event *>(this))
 			END_SERIALIZE()
 		};
 
 		typedef boost::variant<rollback_change, rollback_new, prevent_rollback> rollback_event_variant;
+
+		struct node_info_for_serialization
+		{
+		  crypto::public_key key;
+		  service_node_info info;
+		  BEGIN_SERIALIZE()
+		    FIELD(key)
+		    FIELD(info)
+		  END_SERIALIZE()
+		};
 
 		struct quorum_state_for_serialization
 		{
@@ -270,14 +277,15 @@ namespace service_nodes
 
 		struct data_members_for_serialization
 		{
-		  uint64_t height;
 			std::vector<quorum_state_for_serialization> quorum_states;
-			std::vector<service_node_pubkey_info> infos;
+			std::vector<node_info_for_serialization> infos;
 			std::vector<rollback_event_variant> events;
 			std::vector<contract_info_for_serialization> contracts;
 			//std::vector<contract_event_variant> contract_events;
 
-			BEGIN_SERIALIZE_OBJECT()
+			uint64_t height;
+
+			BEGIN_SERIALIZE()
 				FIELD(quorum_states)
 				FIELD(infos)
 				FIELD(events)
@@ -309,11 +317,9 @@ namespace service_nodes
 		std::unordered_map<crypto::public_key, service_node_info> m_service_nodes_infos;
 		std::list<std::unique_ptr<rollback_event>> m_rollback_events;
 		cryptonote::Blockchain& m_blockchain;
-
-		using block_height = uint64_t;
 		block_height m_height;
 
-    mutable boost::recursive_mutex m_sn_mutex;
+		mutable boost::recursive_mutex m_sn_mutex;
 
 		crypto::public_key const *m_service_node_pubkey;
 		cryptonote::BlockchainDB* m_db;
@@ -323,20 +329,23 @@ namespace service_nodes
 		std::vector<contract> m_contracts;
 	};
 
-	uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
+  uint64_t get_reg_tx_staking_output_contribution(const cryptonote::transaction& tx, int i, crypto::key_derivation derivation, hw::device& hwdev);
 	bool reg_tx_extract_fields(const cryptonote::transaction& tx, std::vector<cryptonote::account_public_address>& addresses, uint64_t& portions_for_operator, std::vector<uint64_t>& portions, uint64_t& expiration_timestamp, crypto::public_key& service_node_key, crypto::signature& signature, crypto::public_key& tx_pub_key);
 
-	struct converted_registration_args
-	{
-	  bool success;
-	  std::vector<cryptonote::account_public_address> addresses;
-	  std::vector<uint64_t> portions;
-	  uint64_t portions_for_operator;
-	  std::string err_msg;
-	};
-	converted_registration_args convert_registration_args(cryptonote::network_type nettype, const std::vector<std::string>& args, uint64_t staking_requirement, uint8_t hard_fork_version);
+  bool convert_registration_args(cryptonote::network_type nettype,
+                                 std::vector<std::string> args,
+                                 std::vector<cryptonote::account_public_address>& addresses,
+                                 std::vector<uint64_t>& portions,
+                                 uint64_t& portions_for_operator,
+                                 boost::optional<std::string&> err_msg);
 
-	bool make_registration_cmd(cryptonote::network_type nettype, uint8_t hard_fork_version, uint64_t staking_requirement, const std::vector<std::string>& args, const crypto::public_key& service_node_pubkey, const crypto::secret_key &service_node_key, std::string &cmd, bool make_friendly, boost::optional<std::string&> err_msg);
+	bool make_registration_cmd(cryptonote::network_type nettype,
+	                           const std::vector<std::string> args,
+	                           const crypto::public_key& service_node_pubkey,
+	                           const crypto::secret_key &service_node_key,
+	                           std::string &cmd,
+	                           bool make_friendly,
+	                           boost::optional<std::string&> err_msg);
 
 	const static cryptonote::account_public_address null_address{ crypto::null_pkey, crypto::null_pkey };
 	const static std::vector<std::pair<cryptonote::account_public_address, uint64_t>> null_winner = { std::pair<cryptonote::account_public_address, uint64_t>({ null_address, STAKING_PORTIONS }) };

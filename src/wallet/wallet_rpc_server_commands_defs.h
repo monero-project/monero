@@ -46,8 +46,8 @@
 // whether they can talk to a given wallet without having to know in
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
-#define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 19
+#define WALLET_RPC_VERSION_MAJOR 2
+#define WALLET_RPC_VERSION_MINOR 0
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -769,7 +769,6 @@ namespace wallet_rpc
       std::string address;
       uint32_t account_index;
       std::set<uint32_t> subaddr_indices;
-      bool subaddr_indices_all;
       uint32_t priority;
       uint64_t ring_size;
       uint64_t outputs;
@@ -785,7 +784,6 @@ namespace wallet_rpc
         KV_SERIALIZE(address)
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(subaddr_indices)
-        KV_SERIALIZE_OPT(subaddr_indices_all, false)
         KV_SERIALIZE(priority)
         KV_SERIALIZE_OPT(ring_size, (uint64_t)0)
         KV_SERIALIZE_OPT(outputs, (uint64_t)1)

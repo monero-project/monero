@@ -60,6 +60,12 @@ constexpr const char XEQ_DONATION_ADDR[] = "TvzdbKGga5fSr7fgCTuvR1GY4g9v3No28a6Q
  */
 namespace cryptonote
 {
+  enum class Transfer {
+    Normal,
+    Locked,
+    Swap
+  };
+
   /*!
    * \brief Manages wallet operations. This is the most abstracted wallet class.
    */
@@ -160,7 +166,7 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
-    bool transfer_main(int transfer_type, const std::vector<std::string> &args, bool called_by_mms);
+    bool transfer_main(Transfer transfer_type, const std::vector<std::string> &args, bool called_by_mms);
     bool transfer(const std::vector<std::string> &args);
     bool locked_transfer(const std::vector<std::string> &args);
     bool swap_transfer(const std::vector<std::string> &args);
@@ -170,9 +176,8 @@ namespace cryptonote
 
     enum class sweep_type_t { stake, register_stake, all_or_below, single };
     bool sweep_main_internal(sweep_type_t sweep_type, std::vector<tools::wallet2::pending_tx> &ptx_vector, cryptonote::address_parse_info const &dest);
-    bool sweep_main(uint32_t account, uint64_t below, bool locked, const std::vector<std::string> &args);
+    bool sweep_main(uint64_t below, Transfer transfer_type, const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
-    bool sweep_account(const std::vector<std::string> &args);
     bool sweep_below(const std::vector<std::string> &args);
     bool sweep_single(const std::vector<std::string> &args);
     bool sweep_unmixable(const std::vector<std::string> &args);

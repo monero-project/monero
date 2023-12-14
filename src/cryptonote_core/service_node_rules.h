@@ -38,7 +38,7 @@ inline uint64_t staking_num_lock_blocks(cryptonote::network_type nettype)
 
 inline uint64_t get_min_node_contribution(uint8_t hard_fork_version, uint64_t staking_requirement, uint64_t total_reserved)
 {
-  return hard_fork_version >= cryptonote::network_version_12 ? MIN_POOL_STAKERS_V12 * COIN : hard_fork_version > cryptonote::network_version_9 ? std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+  return hard_fork_version >= 12 ? MIN_POOL_STAKERS_V12 * COIN : hard_fork_version > 9 ? std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
 }
 
 uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);

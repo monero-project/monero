@@ -176,16 +176,18 @@ namespace boost
     if (x.version >= cryptonote::txversion::v3)
     {
       a & x.output_unlock_times;
-      bool is_deregister = x.type == cryptonote::txtype::deregister;
-      a & is_deregister;
-      x.type = is_deregister ? cryptonote::txtype::deregister : cryptonote::txtype::standard;
+      if (x.version == cryptonote::txversion::v3) {
+        bool is_deregister = x.type == cryptonote::txtype::deregister;
+        a & is_deregister;
+        x.type = is_deregister ? cryptonote::txtype::deregister : cryptonote::txtype::standard;
+      }
     }
     a & x.unlock_time;
     a & x.vin;
     a & x.vout;
     a & x.extra;
     if (x.version >= cryptonote::txversion::v4)
-      a & x.type;
+     a & x.type;
   }
 
   template <class Archive>

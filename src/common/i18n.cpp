@@ -68,7 +68,6 @@ std::string i18n_get_language()
     e = "en";
 
   std::string language = e;
-  language = language.substr(0, language.find("."));
   language = language.substr(0, language.find("@"));
 
   // check valid values
