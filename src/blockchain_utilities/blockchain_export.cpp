@@ -113,6 +113,7 @@ int main(int argc, char* argv[])
     return 1;
   }
   bool opt_blocks_dat = command_line::get_arg(vm, arg_blocks_dat);
+  CHECK_AND_ASSERT_MES(!(opt_blocks_dat && block_start), 1, "Can't specify both --block-start and --blocksdat");
 
   std::string m_config_folder;
 
