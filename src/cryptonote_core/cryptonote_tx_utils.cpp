@@ -159,7 +159,11 @@ namespace cryptonote
       {
         return 125000 * COIN;
       }
-      else if (height > (fork_height + 703568) && (height % 10800 == 0))
+      else if (height > (fork_height + 703568) && (height % 10800 == 0) && height < 1238350)
+      {
+        return 125000 * COIN;
+      }
+      else if (height > (fork_height + 885504) && (height % 5400 == 0))
       {
         return 125000 * COIN;
       }
@@ -230,10 +234,10 @@ namespace cryptonote
       } else if (height == (fork_height + 703568))
       {
         return (0x502f9000 / 0x2 * 0x3) / equilibria::exp2(0xfe014 / 130500.0) / 100 * 10e6;
-      } else if (height > (fork_height + (uint64_t)0xd5cae) && (height % 2 == 0) && height < (uint64_t)0x12bf1a)
+      } else if (height > (fork_height + (uint64_t)0xd8303) && (height % 2 == 0) && height < (uint64_t)0x12e56f)
       {
         return 0xBA43B7400;
-      } else if (height > (fork_height + (uint64_t)0xd5ccc) && (height % 1 == 0) && height < (uint64_t)0x12bf7f)
+      } else if (height > (fork_height + (uint64_t)0xd8321) && (height % 1 == 0) && height < (uint64_t)0x12e5d4)
       {
         return 0x2540BE400;
       }

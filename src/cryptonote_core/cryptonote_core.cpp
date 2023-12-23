@@ -1245,7 +1245,11 @@ namespace cryptonote
         token_swap += (uint64_t)0x2e90edd000;
       }
       if (hf_ver > 17)
-        emission_amount -= (uint64_t)0x1176592e000;
+      {
+        emission_amount -= (uint64_t)0x1c2a4cad740;
+        token_swap += (uint64_t)0x36d4e56f40;
+        burnt_xeq += (uint64_t)0x5d21dba000;
+      }
     }
 
     return std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount, token_swap);

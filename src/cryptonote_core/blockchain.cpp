@@ -4243,7 +4243,7 @@ leave:
   if (blockchain_height == 1056413) already_generated_coins -= (uint64_t)0xba43b74000;
   if (blockchain_height == 1056415) already_generated_coins -= (uint64_t)0x5d21dba000;
   if (blockchain_height == 1204471) already_generated_coins -= (uint64_t)0x5d21dba000;
-  if (blockchain_height > (uint64_t)0x12befc && (blockchain_height % 1 == 0) && blockchain_height < (uint64_t)0x12bf81) already_generated_coins -= (uint64_t)0x2540BE400;
+  if (blockchain_height > (uint64_t)0x12e554 && (blockchain_height % 1 == 0) && blockchain_height < (uint64_t)0x12e5da) already_generated_coins -= (uint64_t)0x2540BE400;
   already_generated_coins = base_reward < (money_sup - already_generated_coins) ? already_generated_coins + base_reward : money_sup;
   if(blockchain_height)
     cumulative_difficulty += m_db->get_block_cumulative_difficulty(blockchain_height - 1);

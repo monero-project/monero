@@ -776,7 +776,8 @@ namespace service_nodes
 
 			  process_contribution_tx(tx, block_height, index);
 			}
-			else if (tx.type == cryptonote::txtype::swap)
+			else if ((hard_fork_version >= 18 && tx.type == cryptonote::txtype::swap) ||
+			         (hard_fork_version <= 17 && tx.type == cryptonote::txtype::standard))
 			{
 			  process_swap_tx(tx, block_height, index);
 			}

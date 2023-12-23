@@ -2102,9 +2102,15 @@ namespace boost
         return;
       }
       a & x.rct_config;
-
       if (ver < 5)
+      {
+        if (!typename Archive::is_saving())
+        {
+          x.tx_type = cryptonote::txtype::standard;
+          x.hard_fork_version = 17;
+        }
         return;
+      }
       a & x.tx_type;
       a & x.hard_fork_version;
     }
