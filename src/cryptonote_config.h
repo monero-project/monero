@@ -59,8 +59,6 @@
 #define SERVICE_NODE_VERSION                            5
 
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
-#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (20160)
-#define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
 #define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2)  // 2 weeks
@@ -178,7 +176,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
 #define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   5000
 
-#define P2P_DEFAULT_CONNECTIONS_COUNT_OUT               8
+#define P2P_DEFAULT_CONNECTIONS_COUNT_OUT               16
 #define P2P_DEFAULT_CONNECTIONS_COUNT_IN                32
 #define P2P_DEFAULT_HANDSHAKE_INTERVAL                  60           //secondes
 #define P2P_DEFAULT_PACKET_MAX_SIZE                     50000000     //50000000 bytes maximum packet size
@@ -209,15 +207,12 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_BLOCKCHAINDATA_FILENAME      "data.mdb"
 #define CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME "lock.mdb"
 #define P2P_NET_DATA_FILENAME                   "p2pstate.bin"
-#define RPC_PAYMENTS_DATA_FILENAME              "rpcpayments.bin"
 #define MINER_CONFIG_FILE_NAME                  "miner_conf.json"
 
 #define THREAD_STACK_SIZE                       10 * 1024 * 1024
 
 #define HF_VERSION_DYNAMIC_FEE                  100
 #define HF_VERSION_MIN_MIXIN_4                  4
-#define HF_VERSION_MIN_MIXIN_6                  100
-#define HF_VERSION_MIN_MIXIN_10                 100
 #define HF_VERSION_MIN_MIXIN_15                 6
 #define HF_VERSION_ENFORCE_RCT                  4
 #define HF_VERSION_PER_BYTE_FEE                 100
@@ -231,12 +226,11 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define HF_VERSION_ENFORCE_MIN_AGE              100
 #define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 100
 
-
 #define HF_VERSION_FEE_BURNING                  9
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        4
 
-#define HASH_OF_HASHES_STEP                     512
+#define HASH_OF_HASHES_STEP                     256
 
 #define DEFAULT_TXPOOL_MAX_WEIGHT               648000000ull // 3 days at 300000, in bytes
 
@@ -246,8 +240,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_PRUNING_LOG_STRIPES          3 // the higher, the more space saved
 #define CRYPTONOTE_PRUNING_TIP_BLOCKS           5500 // the smaller, the more space saved
 //#define CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
-
-#define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
 // New constants are intended to go here
 namespace config
@@ -324,6 +316,30 @@ namespace config
 
 namespace cryptonote
 {
+  enum network_version
+  {
+    network_version_1 = 1,
+    network_version_2,
+    network_version_3,
+    network_version_4,
+    network_version_5,
+    network_version_6,
+    network_version_7,
+    network_version_8,
+    network_version_9,
+    network_version_10,
+    network_version_11,
+    network_version_12,
+    network_version_13,
+    network_version_14,
+    network_version_15,
+    network_version_16,
+    network_version_17,
+    network_version_18,
+
+    network_version_count,
+  };
+
   enum network_type : uint8_t
   {
     MAINNET = 0,
@@ -334,15 +350,15 @@ namespace cryptonote
   };
   struct config_t
   {
-    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
-    uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX;
-    uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX;
-    uint16_t const P2P_DEFAULT_PORT;
-    uint16_t const RPC_DEFAULT_PORT;
-    uint16_t const ZMQ_RPC_DEFAULT_PORT;
-    boost::uuids::uuid const NETWORK_ID;
-    std::string const GENESIS_TX;
-    uint32_t const GENESIS_NONCE;
+    uint64_t CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
+    uint64_t CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX;
+    uint64_t CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX;
+    uint16_t P2P_DEFAULT_PORT;
+    uint16_t RPC_DEFAULT_PORT;
+    uint16_t ZMQ_RPC_DEFAULT_PORT;
+    boost::uuids::uuid NETWORK_ID;
+    std::string GENESIS_TX;
+    uint32_t GENESIS_NONCE;
     std::string const *GOVERNANCE_WALLET_ADDRESS;
     std::string const *BRIDGE_WALLET_ADDRESS;
     std::string const *NEW_BRIDGE_WALLET_ADDRESS;

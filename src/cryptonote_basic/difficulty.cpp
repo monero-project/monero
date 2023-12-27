@@ -34,11 +34,11 @@
 #include <cstdint>
 #include <vector>
 
+#include "common/equilibria.h"
 #include "int-util.h"
 #include "crypto/hash.h"
 #include "cryptonote_config.h"
 #include "difficulty.h"
-#include <boost/math/special_functions/round.hpp>
 
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "difficulty"
@@ -175,7 +175,7 @@ namespace cryptonote {
         harmonic_mean_D = N / sum_inverse_D;
 
         // Keep LWMA sane in case something unforeseen occurs.
-        if (static_cast<int64_t>(boost::math::round(LWMA)) < T / 20)
+        if (static_cast<int64_t>(equilibria::round(LWMA)) < T / 20)
           LWMA = static_cast<double>(T / 20);
 
         nextDifficulty = harmonic_mean_D * T / LWMA * adjust;
@@ -278,7 +278,7 @@ namespace cryptonote {
         harmonic_mean_D = N / sum_inverse_D;
 
         // Keep LWMA sane in case something unforeseen occurs.
-        if (static_cast<int64_t>(boost::math::round(LWMA)) < T / 20)
+        if (static_cast<int64_t>(equilibria::round(LWMA)) < T / 20)
           LWMA = static_cast<double>(T / 20);
 
         nextDifficulty = harmonic_mean_D * T / LWMA * adjust;

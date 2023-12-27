@@ -1,4 +1,5 @@
-// Copyright (c) 2019, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
 // 
@@ -26,25 +27,40 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#ifndef EQUILIBRIA_H
+#define EQUILIBRIA_H
 
-#define COST_PER_BLOCK 0.05
-#define COST_PER_TX_RELAY 100
-#define COST_PER_OUT 1
-#define COST_PER_OUTPUT_INDEXES 1
-#define COST_PER_TX 0.5
-#define COST_PER_KEY_IMAGE 0.01
-#define COST_PER_POOL_HASH 0.01
-#define COST_PER_TX_POOL_STATS 0.2
-#define COST_PER_BLOCK_HEADER 0.1
-#define COST_PER_GET_INFO 1
-#define COST_PER_OUTPUT_HISTOGRAM 25000
-#define COST_PER_FULL_OUTPUT_HISTOGRAM 5000000
-#define COST_PER_OUTPUT_DISTRIBUTION_0 20
-#define COST_PER_OUTPUT_DISTRIBUTION 50000
-#define COST_PER_COINBASE_TX_SUM_BLOCK 2
-#define COST_PER_BLOCK_HASH 0.002
-#define COST_PER_FEE_ESTIMATE 1
-#define COST_PER_SYNC_INFO 2
-#define COST_PER_HARD_FORK_INFO 1
-#define COST_PER_PEER_LIST 2
+#include <string>
+
+namespace equilibria
+{
+	double      round (double);
+	double      exp2 (double);
+	std::string hex64_to_base32z(std::string const& src);
+
+	template<typename lambda_t>
+	struct defer
+	{
+	  lambda_t lambda;
+	  defer(lambda_t lambda) : lambda(lambda) {}
+	  ~defer() { lambda(); }
+	};
+
+	struct defer_helper
+	{
+	  template<typename lambda_t>
+	  defer<lambda_t> operator+(lambda_t lambda)
+	  {
+	    return defer<lambda_t>(lambda);
+	  }
+	};
+
+	#define XEQ_TOKEN_COMBINE2(x, y) x ## y
+	#define XEQ_TOKEN_COMBINE(x, y) XEQ_TOKEN_COMBINE2(x, y)
+	#define XEQ_DEFER auto const XEQ_TOKEN_COMBINE(xeq_defer_, __LINE__) = equilibria::defer_helper() + [&]()
+
+	template<typename T, size_t N>
+	constexpr size_t array_count(T (&)[N]) { return N; }
+}; // namespace equilibria
+
+#endif // EQUILIBRIA_H

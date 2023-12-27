@@ -38,6 +38,7 @@
 #include <ctime>
 #include <iostream>
 #include <stdexcept>
+#include <cstdint>
 
 //  Public interface for libwallet library
 namespace Monero {
@@ -1046,7 +1047,7 @@ struct Wallet
      */
     virtual Device getDeviceType() const = 0;
 
-    virtual PendingTransaction* stakePending(const std::string& service_node_key, const std::string& address, const std::string& amount) = 0;
+    virtual PendingTransaction* stakePending(const std::string& service_node_key, const std::string& amount) = 0;
     //! cold-device protocol key image sync
     virtual uint64_t coldKeyImageSync(uint64_t &spent, uint64_t &unspent) = 0;
 

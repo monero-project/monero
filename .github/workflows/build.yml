@@ -76,10 +76,10 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
       with:
         submodules: recursive
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: C:\Users\runneradmin\.ccache
         key: ccache-windows-build-${{ github.sha }}
@@ -87,11 +87,15 @@ jobs:
     - uses: eine/setup-msys2@v2
       with:
         update: true
-        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb libtool binutils git automake autoconf patch
+        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-libusb libtool binutils git automake autoconf patch
     - name: Boost 1.77.0 and ICU 69
       run: |
+        curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst
+        curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
+        pacman --noconfirm -U mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
         pacman --noconfirm -U https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-icu-69.1-1-any.pkg.tar.zst
-        pacman --noconfirm -U https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-boost-1.78.0-1-any.pkg.tar.zst
+        pacman --noconfirm -U https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-boost-1.78.0-3-any.pkg.tar.zst
+
     - name: build
       run: |
         ccache --max-size=150M

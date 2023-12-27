@@ -31,6 +31,8 @@
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <sstream>
 #include "file_io_utils.h"
@@ -752,7 +754,7 @@ void message_store::write_to_file(const multisig_wallet_state &state, const std:
   crypto::chacha_key key;
   crypto::generate_chacha_key(&state.view_secret_key, sizeof(crypto::secret_key), key, 1);
 
-  file_data write_file_data = {};
+  file_data write_file_data{};
   write_file_data.magic_string = "MMS";
   write_file_data.file_version = 0;
   write_file_data.iv = crypto::rand<crypto::chacha_iv>();

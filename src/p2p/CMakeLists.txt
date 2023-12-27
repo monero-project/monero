@@ -26,7 +26,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.18)
 project (equilibria CXX)
 
 file(GLOB P2P *)
@@ -41,7 +41,6 @@ target_link_libraries(p2p
     version
     cryptonote_core
     net
-    libunbound
     miniupnpc
     ${Boost_CHRONO_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

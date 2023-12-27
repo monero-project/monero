@@ -36,6 +36,10 @@
 #include "common/i18n.h"
 #include "translation_files.h"
 
+#include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
+#include <algorithm>
+
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "i18n"
 
@@ -64,7 +68,6 @@ std::string i18n_get_language()
     e = "en";
 
   std::string language = e;
-  language = language.substr(0, language.find("."));
   language = language.substr(0, language.find("@"));
 
   // check valid values

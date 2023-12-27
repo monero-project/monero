@@ -48,7 +48,8 @@ const hardfork_t mainnet_hard_forks[] = {
   { 14,  936500, 0, 1665518459 },
   { 15,  991430, 0, 1672174800 },
   { 16, 1001320, 0, 1673377200 },
-  { 17, 1056414, 0, 1680070995 }
+  { 17, 1056414, 0, 1680070995 },
+  { 18, 1238350, 0, 1704230052 }
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 

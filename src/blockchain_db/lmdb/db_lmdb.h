@@ -71,7 +71,6 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_hf_versions;
   MDB_cursor *m_txc_service_node_data;
-
   MDB_cursor *m_txc_properties;
 } mdb_txn_cursors;
 
@@ -419,7 +418,7 @@ private:
 
   std::vector<uint64_t> get_block_info_64bit_fields(uint64_t start_height, size_t count, off_t offset) const;
 
-  uint64_t get_max_block_size();
+  uint64_t get_max_block_size() override;
   void add_max_block_size(uint64_t sz) override;
 
   // fix up anything that may be wrong due to past bugs

@@ -28,6 +28,7 @@
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/archive/portable_binary_oarchive.hpp>
 #include "common/unordered_containers_boost_serialization.h"
@@ -1551,7 +1552,7 @@ int main(int argc, char* argv[])
         for (const auto &out: tx.vout)
         {
           uint64_t amount = out.amount;
-          if (miner_tx && tx.version >= 2)
+          if (miner_tx && tx.version >= cryptonote::txversion::v2)
             amount = 0;
 
           if (opt_rct_only && amount != 0)

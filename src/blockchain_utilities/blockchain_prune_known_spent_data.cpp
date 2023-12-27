@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include "common/command_line.h"
 #include "serialization/crypto.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -207,7 +208,7 @@ int main(int argc, char* argv[])
       for (const auto &out: tx.vout)
       {
         uint64_t amount = out.amount;
-        if (miner_tx && tx.version >= 2)
+        if (miner_tx && tx.version >= cryptonote::txversion::v2)
           amount = 0;
         if (amount == 0)
           continue;

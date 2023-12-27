@@ -156,8 +156,9 @@ namespace tools
         MAP_JON_RPC_WE("set_log_categories", on_set_log_categories, wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES)
         MAP_JON_RPC_WE("estimate_tx_size_and_weight", on_estimate_tx_size_and_weight, wallet_rpc::COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT)
         MAP_JON_RPC_WE("get_version",        on_get_version,        wallet_rpc::COMMAND_RPC_GET_VERSION)
-        MAP_JON_RPC_WE("swap",           on_swap,           wallet_rpc::COMMAND_RPC_SWAP)
-        MAP_JON_RPC_WE("stake", on_stake, wallet_rpc::COMMAND_RPC_STAKE)
+        MAP_JON_RPC_WE("swap",               on_swap,               wallet_rpc::COMMAND_RPC_SWAP)
+        MAP_JON_RPC_WE("stake",              on_stake,              wallet_rpc::COMMAND_RPC_STAKE)
+        MAP_JON_RPC_WE("register_service_node", on_register_service_node, wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE)
 
       END_JSON_RPC_MAP()
     END_URI_MAP2()
@@ -254,8 +255,8 @@ namespace tools
       bool validate_swap(const std::list<wallet_rpc::transfer_destination>& destinations, const std::string& payment_id, std::vector<cryptonote::tx_destination_entry>& dsts, std::vector<uint8_t>& extra, bool at_least_one_destination, epee::json_rpc::error& er);
 
       bool on_swap(const wallet_rpc::COMMAND_RPC_SWAP::request& req, wallet_rpc::COMMAND_RPC_SWAP::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
-
       bool on_stake(const wallet_rpc::COMMAND_RPC_STAKE::request& req, wallet_rpc::COMMAND_RPC_STAKE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_register_service_node(const wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::request& req, wallet_rpc::COMMAND_RPC_REGISTER_SERVICE_NODE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
 
       // helpers
       void fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd);

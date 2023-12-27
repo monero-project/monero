@@ -48,7 +48,7 @@ namespace command_line
     if (str == "y" || str == "Y")
       return true;
 
-    boost::algorithm::is_iequal ignore_case{};
+    boost::algorithm::is_equal ignore_case{};
     if (boost::algorithm::equals("yes", str, ignore_case))
       return true;
     if (boost::algorithm::equals(command_line::tr("yes"), str, ignore_case))
@@ -60,7 +60,7 @@ namespace command_line
   bool is_no(const std::string& str)
   {
     if (str == "n" || str == "N")
-      return true;
+    return true;
 
     boost::algorithm::is_iequal ignore_case{};
     if (boost::algorithm::equals("no", str, ignore_case))

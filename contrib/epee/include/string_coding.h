@@ -129,7 +129,7 @@ namespace string_encoding
 	}
 
 	inline 
-	std::string& base64_chars()
+	const std::string& base64_chars()
 	{
 
 		static std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

@@ -269,9 +269,7 @@ namespace hw {
         /* ======================================================================= */
         /*                               TRANSACTION                               */
         /* ======================================================================= */
-        void device_default::generate_tx_proof(const crypto::hash &prefix_hash, 
-                                               const crypto::public_key &R, const crypto::public_key &A, const boost::optional<crypto::public_key> &B, const crypto::public_key &D, const crypto::secret_key &r, 
-                                               crypto::signature &sig) {
+        void device_default::generate_tx_proof(const crypto::hash &prefix_hash, const crypto::public_key &R, const crypto::public_key &A, const boost::optional<crypto::public_key> &B, const crypto::public_key &D, const crypto::secret_key &r, crypto::signature &sig) {
             crypto::generate_tx_proof(prefix_hash, R, A, B, D, r, sig);
         }
 
@@ -281,18 +279,13 @@ namespace hw {
             return true;
         }
 
-        void device_default::get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) {
-            cryptonote::get_transaction_prefix_hash(tx, h);
-        }
-
-        bool device_default::generate_output_ephemeral_keys(const size_t tx_version,
-                                                            const cryptonote::account_keys &sender_account_keys, const crypto::public_key &txkey_pub,  const crypto::secret_key &tx_key,
-                                                            const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
+        bool device_default::generate_output_ephemeral_keys(const size_t tx_version, bool &found_change, const cryptonote::account_keys &sender_account_keys,
+                                                            const crypto::public_key &txkey_pub, const crypto::secret_key &tx_key, const cryptonote::tx_destination_entry &dst_entr,
+                                                            const boost::optional<cryptonote::tx_destination_entry> &change_addr, const size_t output_index,
                                                             const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                             std::vector<crypto::public_key> &additional_tx_public_keys,
-                                                            std::vector<rct::key> &amount_keys,  crypto::public_key &out_eph_public_key, bool &found_change, std::vector<uint64_t> &output_unlock_times, uint64_t unlock_time) {
+                                                            std::vector<rct::key> &amount_keys, crypto::public_key &out_eph_public_key) {
 
-            crypto::key_derivation derivation;
             cryptonote::keypair additional_txkey;
             if (need_additional_txkeys)
             {
@@ -303,27 +296,19 @@ namespace hw {
                     additional_txkey.pub = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(additional_txkey.sec)));
             }
             bool r;
-             if (change_addr && *change_addr == dst_entr && !found_change)
+            crypto::key_derivation derivation;
+            if (change_addr && *change_addr == dst_entr && !found_change)
             {
                 found_change = true;
                 // sending change to yourself; derivation = a*R
                 r = generate_key_derivation(txkey_pub, sender_account_keys.m_view_secret_key, derivation);
                 CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << txkey_pub << ", " << sender_account_keys.m_view_secret_key << ")");
-                if (tx_version > 2)
-                {
-                    output_unlock_times.push_back(0); // 0 unlock time for change
-                }
             }
             else
             {
                 // sending to the recipient; derivation = r*A (or s*C in the subaddress scheme)
                 r = generate_key_derivation(dst_entr.addr.m_view_public_key, dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : tx_key, derivation);
                 CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << (dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : tx_key) << ")");
-
-                if (tx_version > 2)
-                {
-                    output_unlock_times.push_back(unlock_time); // for now, all non-change have same unlock time
-                }
             }
 
             if (need_additional_txkeys)

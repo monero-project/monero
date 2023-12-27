@@ -33,7 +33,6 @@
 #include "cryptonote_basic_impl.h"
 #include "tx_extra.h"
 #include "account.h"
-#include "blobdatatype.h"
 #include "crypto/pow_hash/cn_slow_hash.hpp"
 #include "subaddress_index.h"
 #include "include_base_utils.h"
@@ -65,14 +64,25 @@ namespace cryptonote
   bool is_v1_tx(const blobdata& tx_blob);
 
   template<typename T>
-  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t index = 0)
+  bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t skip_fields = 0)
   {
-    auto it = std::find_if(tx_extra_fields.begin(), tx_extra_fields.end(), [&index](const tx_extra_field& f) { return typeid(T) == f.type() && !index--; });
-    if(tx_extra_fields.end() == it)
+    if (skip_fields >= tx_extra_fields.size())
       return false;
 
-    field = boost::get<T>(*it);
-    return true;
+    for (tx_extra_field const &check_field : tx_extra_fields)
+    {
+      if (typeid(T) != check_field.type())
+        continue;
+
+      if (skip_fields == 0)
+      {
+        field = boost::get<T>(check_field);
+        return true;
+      }
+      skip_fields--;
+    }
+
+    return false;
   }
 
   bool parse_tx_extra(const std::vector<uint8_t>& tx_extra, std::vector<tx_extra_field>& tx_extra_fields);
@@ -83,15 +93,17 @@ namespace cryptonote
   void add_tx_pub_key_to_extra(transaction& tx, const crypto::public_key& tx_pub_key);
   void add_tx_pub_key_to_extra(transaction_prefix& tx, const crypto::public_key& tx_pub_key);
   void add_tx_pub_key_to_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& tx_pub_key);
+
   bool add_service_node_deregister_to_tx_extra(std::vector<uint8_t>& tx_extra, const tx_extra_service_node_deregister& deregistration);
   bool get_service_node_register_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_register& registration);
   bool get_service_node_deregister_from_tx_extra(const std::vector<uint8_t>& tx_extra, tx_extra_service_node_deregister& deregistration);
   bool get_service_node_pubkey_from_tx_extra(const std::vector<uint8_t>& tx_extra, crypto::public_key& pubkey);
   bool get_service_node_contributor_from_tx_extra(const std::vector<uint8_t>& tx_extra, cryptonote::account_public_address& address);
-  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, uint64_t portions_for_operator,
-const std::vector<uint64_t >& portions, uint64_t expiration_timestamp, const crypto::signature& signature);
+  bool add_service_node_register_to_tx_extra(std::vector<uint8_t>& tx_extra, const std::vector<cryptonote::account_public_address>& addresses, uint64_t portions_for_operator, const std::vector<uint64_t >& portions, uint64_t expiration_timestamp, const crypto::signature& signature);
+
   bool get_tx_secret_key_from_tx_extra(const std::vector<uint8_t>& tx_extra, crypto::secret_key& key);
   void add_tx_secret_key_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::secret_key& key);
+
   void add_service_node_winner_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& winner);
   crypto::public_key get_service_node_winner_from_tx_extra(const std::vector<uint8_t>& tx_extra);
   void add_service_node_pubkey_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::public_key& pubkey);
@@ -147,7 +159,7 @@ const std::vector<uint64_t >& portions, uint64_t expiration_timestamp, const cry
   crypto::hash get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash);
 
   blobdata get_block_hashing_blob(const block& b);
-  bool calculate_block_hash(const block& b, crypto::hash& res, const blobdata *blob = NULL);
+  bool calculate_block_hash(const block& b, crypto::hash& res);
   bool get_block_hash(const block& b, crypto::hash& res);
   crypto::hash get_block_hash(const block& b);
   bool get_block_longhash(const block& b, crypto::hash& res, cn_gpu_hash &ctx);

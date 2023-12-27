@@ -46,6 +46,8 @@
 #include <set>
 #include <unordered_set>
 #include <string>
+#include <ios>
+#include <boost/mpl/bool.hpp>
 #include <boost/type_traits/is_integral.hpp>
 #include <boost/type_traits/integral_constant.hpp>
 
@@ -218,12 +220,7 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro VALUE(f)
  * \brief the same as FIELD(f)
  */
-#define VALUE(f)					\
-  do {							\
-    ar.tag(#f);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
-  } while(0);
+#define VALUE(f) FIELD(f)
 
 /*! \macro FIELD_N(t,f)
  *
@@ -240,12 +237,7 @@ inline bool do_serialize(Archive &ar, bool &v)
  *
  * \brief tags the field with the variable name and then serializes it
  */
-#define FIELD(f)					\
-  do {							\
-    ar.tag(#f);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
-  } while(0);
+#define FIELD(f) FIELD_N(#f, f)
 
 /*! \macro FIELDS(f)
  *
@@ -260,12 +252,7 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro VARINT_FIELD(f)
  *  \brief tags and serializes the varint \a f
  */
-#define VARINT_FIELD(f)				\
-  do {						\
-    ar.tag(#f);					\
-    ar.serialize_varint(f);			\
-    if (!ar.stream().good()) return false;	\
-  } while(0);
+#define VARINT_FIELD(f) VARINT_FIELD_N(#f, f)
 
 /*! \macro VARINT_FIELD_N(t, f)
  *
@@ -278,6 +265,21 @@ inline bool do_serialize(Archive &ar, bool &v)
     if (!ar.stream().good()) return false;	\
   } while(0);
 
+#define ENUM_FIELD(f, test) ENUM_FIELD_N(#f, f, test)
+
+#define ENUM_FIELD_N(t, f, test) \
+  do { \
+    using enum_t = decltype(f); \
+    using int_t = typename std::underlying_type<enum_t>::type; \
+    int_t int_value = W ? static_cast<int_t>(f) : 0; \
+    ar.tag(t); \
+    ar.serialize_varint(int_value); \
+    if (!ar.stream().good()) return false; \
+    if (!W) { \
+      f = static_cast<enum_t>(int_value); \
+      if (!(test)) return false; \
+    } \
+  } while(0);
 
 namespace serialization {
   /*! \namespace detail
@@ -333,11 +335,11 @@ namespace serialization {
     {
       bool result = false;
       if (s.good())
-	{
-	  std::ios_base::iostate state = s.rdstate();
-	  result = noeof || EOF == s.peek();
-	  s.clear(state);
-	}
+      {
+        std::ios_base::iostate state = s.rdstate();
+        result = noeof || EOF == s.peek();
+        s.clear(state);
+      }
       return result;
     }
   }

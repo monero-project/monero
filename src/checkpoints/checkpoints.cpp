@@ -34,6 +34,8 @@
 #include "string_tools.h"
 #include "storages/portable_storage_template_helper.h" // epee json include
 #include "serialization/keyvalue_serialization.h"
+#include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
 #include <functional>
 #include <vector>
 
@@ -169,15 +171,10 @@ namespace cryptonote
     }
     ADD_CHECKPOINT(0, "85bb9128c170896673aa1b47f2c7d238f77b6c6f06cd7f25b399747d5015577e");
 	  ADD_CHECKPOINT(1, "ed1dd5a452b32bdc13cd11aee5e2485ca69d2a2ae8beb1e28e7da2d30959c799");
-  //hf v2
 	  ADD_CHECKPOINT(8, "5311cf4bd7a02cb267f89bf9e727aeaf27f669468979876fbd42c3f6a2ed0808");
-	//hf v3
     ADD_CHECKPOINT(100, "a46c1f2818fe83cb65b6a83dc9c4c50eb7eaa00e6a8acf3716549c220f5815cc");
-	//hv v4
     ADD_CHECKPOINT(45000, "e632e631eeb62c94c40c19c9eb5f04d11f634477e9293cde889a4478c85ef16f");
-  //hf v5
 	  ADD_CHECKPOINT(106950, "c00fa5ecd7c2e08f6b88f39a3fd3acc31e9ee5ef2872e0543324d2c58ad2c57c");
-  //hf v6
 	  ADD_CHECKPOINT(181056, "180d0ac84048d1dd57126c38b53c353df90fa73aeb60def9359e21e55b4b2946");
 
     return true;

@@ -74,7 +74,6 @@ namespace nodetool
     int64_t last_seen;
     uint32_t pruning_seed;
     uint16_t rpc_port;
-    uint32_t rpc_credits_per_hash;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
@@ -82,7 +81,6 @@ namespace nodetool
       KV_SERIALIZE_OPT(last_seen, (int64_t)0)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
-      KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
     END_KV_SERIALIZE_MAP()
   };
   typedef peerlist_entry_base<epee::net_utils::network_address> peerlist_entry;
@@ -130,8 +128,7 @@ namespace nodetool
     {
       ss << peerid_to_string(pe.id) << "\t" << pe.adr.str()
         << " \trpc port " << (pe.rpc_port > 0 ? std::to_string(pe.rpc_port) : "-")
-        << " \trpc credits per hash " << (pe.rpc_credits_per_hash > 0 ? std::to_string(pe.rpc_credits_per_hash) : "-")
-        << " \tpruning seed " << pe.pruning_seed 
+        << " \tpruning seed " << pe.pruning_seed
         << " \tlast_seen: " << (pe.last_seen == 0 ? std::string("never") : epee::misc_utils::get_time_interval_string(now_time - pe.last_seen))
         << std::endl;
     }
@@ -161,10 +158,9 @@ namespace nodetool
 
   struct basic_node_data
   {
-    uuid network_id;                   
+    uuid network_id;
     uint32_t my_port;
     uint16_t rpc_port;
-    uint32_t rpc_credits_per_hash;
     peerid_type peer_id;
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -172,10 +168,9 @@ namespace nodetool
       KV_SERIALIZE(peer_id)
       KV_SERIALIZE(my_port)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)(0))
-      KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
     END_KV_SERIALIZE_MAP()
   };
-  
+
 
 #define P2P_COMMANDS_POOL_BASE 1000
 

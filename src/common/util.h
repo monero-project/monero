@@ -39,6 +39,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <chrono>
 
 #ifdef _WIN32
 #include "windows.h"
@@ -246,7 +247,7 @@ namespace tools
 
   std::string get_human_readable_timestamp(uint64_t ts);
 
-  std::string get_human_readable_timespan(uint64_t seconds);
+  std::string get_human_readable_timespan(std::chrono::seconds seconds);
 
   std::string get_human_readable_bytes(uint64_t bytes);
 
@@ -255,4 +256,10 @@ namespace tools
   std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns);
 
   uint64_t cumulative_block_sync_weight(cryptonote::network_type nettype, uint64_t start_block, uint64_t num_blocks);
+
+  template<typename Enum>
+  constexpr auto enum_count = static_cast<std::underlying_type_t<Enum>>(Enum::_count);
+
+  template<typename Enum>
+  constexpr Enum enum_top = static_cast<Enum>(enum_count<Enum> - 1);
 }

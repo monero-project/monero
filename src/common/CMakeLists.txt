@@ -35,7 +35,7 @@ set(common_sources
   download.cpp
   error.cpp
   expect.cpp
-  exp2.cpp
+  equilibria.cpp
   util.cpp
   i18n.cpp
   notify.cpp
@@ -70,7 +70,7 @@ set(common_private_headers
   download.h
   error.h
   expect.h
-  exp2.h
+  equilibria.h
   http_connection.h
   notify.h
   pod-class.h

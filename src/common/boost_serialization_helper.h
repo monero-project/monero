@@ -97,7 +97,7 @@ namespace tools
   {
     TRY_ENTRY();
 
-    std::ifstream data_file;  
+    std::ifstream data_file;
     data_file.open( file_path, std::ios_base::binary | std::ios_base::in);
     if(data_file.fail())
       return false;
