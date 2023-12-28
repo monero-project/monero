@@ -248,7 +248,8 @@ until we have built up a set of global output indices of a certain desired size.
 
 ```Python
 import bisect
-import numpy as np
+import math
+import random
 
 GAMMA_SHAPE = 19.28
 GAMMA_RATE = 1.61
@@ -259,21 +260,19 @@ DIFFICULTY_TARGET_V2 = 120
 DEFAULT_UNLOCK_TIME = CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE * DIFFICULTY_TARGET_V2
 RECENT_SPEND_WINDOW = 15 * DIFFICULTY_TARGET_V2
 
-rng = np.random.Generator(np.random.PCG64(seed=None))
-
 def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
     while True:
         # 1
-        x = rng.gamma(GAMMA_SHAPE, GAMMA_SCALE) # parameterized by scale, not rate!
+        x = random.gammavariate(GAMMA_SHAPE, GAMMA_SCALE) # parameterized by scale, not rate!
 
         # 2
-        target_output_age = np.exp(x)
+        target_output_age = math.exp(x)
 
         # 3
         if target_output_age > DEFAULT_UNLOCK_TIME:
             target_post_unlock_output_age = target_output_age - DEFAULT_UNLOCK_TIME
         else:
-            target_post_unlock_output_age = np.floor(rng.uniform(0.0, RECENT_SPEND_WINDOW))
+            target_post_unlock_output_age = np.floor(random.uniform(0.0, RECENT_SPEND_WINDOW))
 
         # 4
         target_num_outputs_post_unlock = int(target_post_unlock_output_age / average_output_delay)
@@ -302,7 +301,7 @@ def gamma_pick(crod, average_output_delay, num_usable_rct_outputs):
             continue
 
         # 11
-        global_output_index_result = int(rng.uniform(block_first_global_output_index, crod[picked_block_index]))
+        global_output_index_result = int(random.uniform(block_first_global_output_index, crod[picked_block_index]))
 
         return global_output_index_result
 ```
