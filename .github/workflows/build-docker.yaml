@@ -20,6 +20,8 @@ jobs:
       run: |
         docker build -t nyancod3r/monero_cli:latest .
         docker tag  nyancod3r/monero_cli:latest  nyancod3r/monero_cli:${{ github.sha }}
+        inspect_output=$(docker inspect "$(docker build -q .)")
+        echo "Docker Inspect Output: $inspect_output"
 
     - name: Create SHA256 Hash
       run: |
