@@ -38,12 +38,10 @@ jobs:
         docker push  nyancod3r/monero_cli:${{ github.sha }}
     
     - name: Update Release Description
-            run: |
-              release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/latest" | jq -r '.id')
-              current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/$release_id" | jq -r '.body')
-
-              # Append the SHA256 hash to the existing release description
-              updated_description="${current_description}"$'\n'"$(cat image_description.txt)"
-
-              # Update the release with the new description
-              curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -X PATCH --data "{\"body\":\"${updated_description}\"}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/$release_id"
+      run: |
+        release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/latest" | jq -r '.id')
+        current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/$release_id" | jq -r '.body
+        # Append the SHA256 hash to the existing release description
+        updated_description="${current_description}"$'\n'"$(cat image_description.txt
+        # Update the release with the new description
+        curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -X PATCH --data "{\"body\":\"${updated_description}\"}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/$release_id"
