@@ -16,23 +16,23 @@ jobs:
     - name: Install jq
       run: sudo apt-get install jq
 
-    - name: Build Docker Image
-      run: |
-        docker build -t nyancod3r/monero_cli:latest .
-        docker tag  nyancod3r/monero_cli:latest  nyancod3r/monero_cli:${{ github.sha }}
-        inspect_output=$(docker inspect "$(docker build -q .)")
-        echo "Docker Inspect Output: $inspect_output"
-
-    - name: Build Docker Image and Extract Hash from Logs
-      run: |
-        image_sha256=$(docker build -t your_username/your_image_name:latest . | tee /dev/tty | grep -oP '(?<=sha256:)[a-f0-9]+')
-        echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
-
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build Docker Image
+      run: |
+        docker build -t nyancod3r/monero_cli:latest .
+        docker tag  nyancod3r/monero_cli:latest  nyancod3r/monero_cli:${{ github.sha }}
+        inspect_output=$(docker inspect "nyancod3r/monero_cli:latest")
+        echo "Docker Inspect Output: $inspect_output"
+
+    - name: Build Docker Image and Extract Hash from Logs
+      run: |
+        image_sha256=$(docker images -q nyancod3r/monero_cli:latest)
+        echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
 
     - name: Push Docker Image
       run: |
@@ -41,11 +41,11 @@ jobs:
     
       - name: Update Release Description
         run: |
-          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/latest" | jq -r '.id')
-          current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/$release_id" | jq -r '.body')
+          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/latest" | jq -r '.id')
+          current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/$release_id" | jq -r '.body')
 
           # Append the SHA256 hash to the existing release description
           updated_description="${current_description}"$'\n'"$(cat image_description.txt)"
 
           # Update the release with the new description
-          curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -X PATCH --data "{\"body\":\"${updated_description}\"}" "https://api.github.com/repos/${GH_REPOSITORY}/releases/$release_id"
+          curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -X PATCH --data "{\"body\":\"${updated_description}\"}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/$release_id"
