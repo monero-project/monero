@@ -20,19 +20,16 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build Docker Image
         run: |
           docker build -t nyancod3r/monero_cli:latest .
           docker tag  nyancod3r/monero_cli:latest  nyancod3r/monero_cli:${{ github.sha }}
           inspect_output=$(docker inspect "nyancod3r/monero_cli:latest")
           echo "Docker Inspect Output: $inspect_output"
-
       - name: Build Docker Image and Extract Hash from Logs
         run: |
           image_sha256=$(docker images -q nyancod3r/monero_cli:latest)
           echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
-
       - name: Push Docker Image
         run: |
           docker push  nyancod3r/monero_cli:latest
