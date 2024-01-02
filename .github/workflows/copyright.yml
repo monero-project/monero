@@ -45,7 +45,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Copyright: Update to ${{ env.YEAR }}"
           committer: GitHub <noreply@github.com>
-          author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+          author: copyCat <copy@Cat.com>
           signoff: false
           branch: bump-copyright-year
           delete-branch: true
