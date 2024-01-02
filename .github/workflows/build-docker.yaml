@@ -31,9 +31,9 @@ jobs:
           inspect_output=$(docker inspect "${{ env.LATEST_TAG }}")
           echo "Docker Inspect Output: $inspect_output"
 
-      - name: Build Docker Image and Extract Hash from Logs
+      - name: Extract Hash from Logs
         run: |
-          image_sha256=$(docker images -q ${{ env.LATEST_TAG }})
+          image_sha256=$(echo "$inspect_output" | jq -r '.[0].Id')
           echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
 
       - name: Push Docker Image
@@ -42,7 +42,7 @@ jobs:
 
       - name: Update Release Description
         run: |
-          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/${{ env.LATEST_TAG }}" | jq -r '.id')
+          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/tags/${{ github.ref }}" | jq -r '.id')
           current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/$release_id" | jq -r '.body')
 
           # Append the SHA256 hash to the existing release description
