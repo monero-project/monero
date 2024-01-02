@@ -39,11 +39,10 @@ jobs:
       - name: Push Docker Image
         run: |
           docker push  ${{ env.LATEST_TAG }}
-          docker push  nyancod3r/monero_cli:${{ github.sha }}
 
       - name: Update Release Description
         run: |
-          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/latest" | jq -r '.id')
+          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/${{ env.LATEST_TAG }}" | jq -r '.id')
           current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/${nyancod3r/monero-to-docker}/releases/$release_id" | jq -r '.body')
 
           # Append the SHA256 hash to the existing release description
