@@ -5,6 +5,9 @@ on:
     types:
       - published
 
+env:
+  LATEST_TAG: nyancod3r/monero_cli:0.18.3.1
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,19 +26,19 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t nyancod3r/monero_cli:latest .
-          docker tag  nyancod3r/monero_cli:latest  nyancod3r/monero_cli:${{ github.sha }}
-          inspect_output=$(docker inspect "nyancod3r/monero_cli:latest")
+          docker build -t ${{ env.LATEST_TAG }} .
+          docker tag  ${{ env.LATEST_TAG }}  nyancod3r/monero_cli:${{ github.sha }}
+          inspect_output=$(docker inspect "${{ env.LATEST_TAG }}")
           echo "Docker Inspect Output: $inspect_output"
 
       - name: Build Docker Image and Extract Hash from Logs
         run: |
-          image_sha256=$(docker images -q nyancod3r/monero_cli:latest)
+          image_sha256=$(docker images -q ${{ env.LATEST_TAG }})
           echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
 
       - name: Push Docker Image
         run: |
-          docker push  nyancod3r/monero_cli:latest
+          docker push  ${{ env.LATEST_TAG }}
           docker push  nyancod3r/monero_cli:${{ github.sha }}
 
       - name: Update Release Description
