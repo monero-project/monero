@@ -358,8 +358,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
 
   if (m_nettype != FAKECHAIN)
   {
-    // ensure we fixup anything we found and fix in the future
-    m_db->fixup();
   }
 
   db_rtxn_guard rtxn_guard(m_db);
@@ -3141,30 +3139,6 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v14, allow only CLSAGs
-  if (hf_version > HF_VERSION_CLSAG) {
-    if (tx.version >= 2) {
-      if (tx.rct_signatures.type <= rct::RCTTypeBulletproof2)
-      {
-        // two MLSAG txes went in due to a bug with txes that went into the txpool before the fork, grandfather them in
-        static const char * grandfathered[2] = { "c5151944f0583097ba0c88cd0f43e7fabb3881278aa2f73b3b0a007c5d34e910", "6f2f117cde6fbcf8d4a6ef8974fcac744726574ac38cf25d3322c996b21edd4c" };
-        crypto::hash h0, h1;
-        epee::string_tools::hex_to_pod(grandfathered[0], h0);
-        epee::string_tools::hex_to_pod(grandfathered[1], h1);
-        if (cryptonote::get_transaction_hash(tx) == h0 || cryptonote::get_transaction_hash(tx) == h1)
-        {
-          MDEBUG("Grandfathering cryptonote::get_transaction_hash(tx) in");
-        }
-        else
-        {
-          MERROR_VER("Ringct type " << (unsigned)tx.rct_signatures.type << " is not allowed from v" << (HF_VERSION_CLSAG + 1));
-          tvc.m_invalid_output = true;
-          return false;
-        }
-      }
-    }
-  }
-
   // from v15, allow bulletproofs plus
   if (hf_version < HF_VERSION_BULLETPROOF_PLUS) {
     if (tx.version >= 2) {
@@ -5550,6 +5524,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
+// get the sha256 of blocks.dat exported from utility
 static const char expected_block_hashes_hash[] = "e9371004b9f6be59921b27bc81e28b4715845ade1c6d16891d5c455f72e21365";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
