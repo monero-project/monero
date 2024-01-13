@@ -4560,13 +4560,6 @@ uint64_t BlockchainLMDB::get_database_size() const
   return size;
 }
 
-void BlockchainLMDB::fixup()
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  // Always call parent as well
-  BlockchainDB::fixup();
-}
-
 #define RENAME_DB(name) do { \
     char n2[] = name; \
     MDB_dbi tdbi; \
@@ -5695,16 +5688,6 @@ void BlockchainLMDB::migrate_4_5()
 
 void BlockchainLMDB::migrate(const uint32_t oldversion)
 {
-  if (oldversion < 1)
-    migrate_0_1();
-  if (oldversion < 2)
-    migrate_1_2();
-  if (oldversion < 3)
-    migrate_2_3();
-  if (oldversion < 4)
-    migrate_3_4();
-  if (oldversion < 5)
-    migrate_4_5();
 }
 
 }  // namespace cryptonote
