@@ -3115,63 +3115,6 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v11, allow only bulletproofs v2
-  if (hf_version > HF_VERSION_SMALLER_BP) {
-    if (tx.version >= 2) {
-      if (tx.rct_signatures.type == rct::RCTTypeBulletproof)
-      {
-        MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeBulletproof << " is not allowed from v" << (HF_VERSION_SMALLER_BP + 1));
-        tvc.m_invalid_output = true;
-        return false;
-      }
-    }
-  }
-
-  // from v13, allow CLSAGs
-  if (hf_version < HF_VERSION_CLSAG) {
-    if (tx.version >= 2) {
-      if (tx.rct_signatures.type == rct::RCTTypeCLSAG)
-      {
-        MERROR_VER("Ringct type " << (unsigned)rct::RCTTypeCLSAG << " is not allowed before v" << HF_VERSION_CLSAG);
-        tvc.m_invalid_output = true;
-        return false;
-      }
-    }
-  }
-
-  // from v15, allow bulletproofs plus
-  if (hf_version < HF_VERSION_BULLETPROOF_PLUS) {
-    if (tx.version >= 2) {
-      const bool bulletproof_plus = rct::is_rct_bulletproof_plus(tx.rct_signatures.type);
-      if (bulletproof_plus || !tx.rct_signatures.p.bulletproofs_plus.empty())
-      {
-        MERROR_VER("Bulletproofs plus are not allowed before v" << std::to_string(HF_VERSION_BULLETPROOF_PLUS));
-        tvc.m_invalid_output = true;
-        return false;
-      }
-    }
-  }
-
-  // from v16, forbid bulletproofs
-  if (hf_version > HF_VERSION_BULLETPROOF_PLUS) {
-    if (tx.version >= 2) {
-      const bool bulletproof = rct::is_rct_bulletproof(tx.rct_signatures.type);
-      if (bulletproof)
-      {
-        MERROR_VER("Bulletproof range proofs are not allowed after v" + std::to_string(HF_VERSION_BULLETPROOF_PLUS));
-        tvc.m_invalid_output = true;
-        return false;
-      }
-    }
-  }
-
-  // from v15, require view tags on outputs
-  if (!check_output_types(tx, hf_version))
-  {
-    tvc.m_invalid_output = true;
-    return false;
-  }
-
   return true;
 }
 //------------------------------------------------------------------
