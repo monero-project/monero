@@ -1602,8 +1602,10 @@ namespace cryptonote
     total_weight = 0;
     fee = 0;
     
+    // add height to the call if and when it's available
+    uint64_t height = m_blockchain.get_current_blockchain_height();
     //baseline empty block
-    if (!get_block_reward(median_weight, total_weight, already_generated_coins, best_coinbase, version))
+    if (!get_block_reward(median_weight, total_weight, already_generated_coins, best_coinbase, version, height))
     {
       MERROR("Failed to get block reward for empty block");
       return false;
@@ -1656,8 +1658,10 @@ namespace cryptonote
       {
         // If we're getting lower coinbase tx,
         // stop including more tx
+        // add height to the call if and when it's available
+        uint64_t height = m_blockchain.get_current_blockchain_height();
         uint64_t block_reward;
-        if(!get_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, block_reward, version))
+        if(!get_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, block_reward, version, height))
         {
           LOG_PRINT_L2("  would exceed maximum block weight");
           continue;
