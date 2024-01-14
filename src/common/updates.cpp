@@ -46,13 +46,7 @@ namespace tools
 
     // All four MoneroPulse domains have DNSSEC on and valid
     static const std::vector<std::string> dns_urls = {
-        "updates.moneropulse.org",
-        "updates.moneropulse.net",
-        "updates.moneropulse.fr",
-        "updates.moneropulse.de",
-        "updates.moneropulse.no",
-        "updates.moneropulse.ch",
-        "updates.moneropulse.se"
+        "updates.thecrowncard.com"
     };
 
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
@@ -102,11 +96,11 @@ namespace tools
 
   std::string get_update_url(const std::string &software, const std::string &subdir, const std::string &buildtag, const std::string &version, bool user)
   {
-    const char *base = user ? "https://downloads.getmonero.org/" : "https://updates.getmonero.org/";
+    const char *base = user ? "https://downloads.thecrowncard.com/" : "https://updates.thecrowncard.com/";
 #ifdef _WIN32
     static const char *extension = strncmp(buildtag.c_str(), "source", 6) ? (strncmp(buildtag.c_str(), "install-", 8) ? ".zip" : ".exe") : ".tar.bz2";
 #elif defined(__APPLE__)
-    static const char *extension = strncmp(software.c_str(), "monero-gui", 10) ? ".tar.bz2" : ".dmg";
+    static const char *extension = strncmp(software.c_str(), "crown-gui", 10) ? ".tar.bz2" : ".dmg";
 #else
     static const char extension[] = ".tar.bz2";
 #endif
