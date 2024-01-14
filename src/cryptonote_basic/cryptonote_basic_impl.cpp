@@ -86,7 +86,7 @@ namespace cryptonote {
     const int target_minutes = target / 60;
     const int emission_speed_factor = EMISSION_SPEED_FACTOR_PER_MINUTE - (target_minutes-1);
     
-    const uint64_t genesis = 20000000000U;
+    const uint64_t genesis = 2000000000000000000U;
     if ((uint64_t)height == 1) {
       reward = genesis;
       return true;
