@@ -51,6 +51,7 @@
 #include "generate_keypair.h"
 #include "signature.h"
 #include "is_out_to_acc.h"
+#include "is_valid_decomposed_amount.h"
 #include "out_can_be_to_acc.h"
 #include "subaddress_expand.h"
 #include "sc_reduce32.h"
@@ -216,6 +217,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, p, test_derive_view_tag);
 
   TEST_PERFORMANCE2(filter, p, test_wallet2_expand_subaddresses, 50, 200);
+
+  TEST_PERFORMANCE0(filter, p, test_is_valid_decomposed_amount);
 
   TEST_PERFORMANCE1(filter, p, test_cn_slow_hash, 0);
   TEST_PERFORMANCE1(filter, p, test_cn_slow_hash, 1);
