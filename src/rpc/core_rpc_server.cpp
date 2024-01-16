@@ -478,13 +478,6 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCKS_BY_HEIGHT>(invoke_http_mode::BIN, "/getblocks_by_height.bin", req, res, r))
       return r;
 
-    const bool restricted = m_restricted && ctx;
-    if (restricted && req.heights.size() > RESTRICTED_BLOCK_COUNT)
-    {
-      res.status = "Too many blocks requested in restricted mode";
-      return true;
-    }
-
     res.status = "Failed";
     res.blocks.clear();
     res.blocks.reserve(req.heights.size());
@@ -699,14 +692,7 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_TRANSACTIONS>(invoke_http_mode::JON, "/gettransactions", req, res, ok))
       return ok;
 
-    const bool restricted = m_restricted && ctx;
     const bool request_has_rpc_origin = ctx != NULL;
-
-    if (restricted && req.txs_hashes.size() > RESTRICTED_TRANSACTIONS_COUNT)
-    {
-      res.status = "Too many transactions requested in restricted mode";
-      return true;
-    }
 
     std::vector<crypto::hash> vh;
     for(const auto& tx_hex_str: req.txs_hashes)
@@ -742,7 +728,7 @@ namespace cryptonote
     {
       std::vector<tx_info> pool_tx_info;
       std::vector<spent_key_image_info> pool_key_image_info;
-      bool r = m_core.get_pool_transactions_and_spent_keys_info(pool_tx_info, pool_key_image_info, !request_has_rpc_origin || !restricted);
+      bool r = m_core.get_pool_transactions_and_spent_keys_info(pool_tx_info, pool_key_image_info, !request_has_rpc_origin);
       if(r)
       {
         // sort to match original request
@@ -1031,9 +1017,6 @@ namespace cryptonote
     }
     res.sanity_check_failed = false;
 
-    const bool restricted = m_restricted && ctx;
-
-    cryptonote_connection_context fake_context{};
     tx_verification_context tvc{};
     if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verification_failed)
     {
@@ -1861,8 +1844,7 @@ namespace cryptonote
       error_resp.message = "Internal error: can't get last block.";
       return false;
     }
-    const bool restricted = m_restricted && ctx;
-    bool response_filled = fill_block_header_response(last_block, false, last_block_height, last_block_hash, res.block_header, req.fill_pow_hash && !restricted);
+    bool response_filled = fill_block_header_response(last_block, false, last_block_height, last_block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1880,15 +1862,7 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH>(invoke_http_mode::JON_RPC, "getblockheaderbyhash", req, res, r))
       return r;
 
-    const bool restricted = m_restricted && ctx;
-    if (restricted && req.hashes.size() > RESTRICTED_BLOCK_COUNT)
-    {
-      error_resp.code = CORE_RPC_ERROR_CODE_RESTRICTED;
-      error_resp.message = "Too many block headers requested in restricted mode";
-      return false;
-    }
-
-    auto get = [this](const std::string &hash, bool fill_pow_hash, block_header_response &block_header, bool restricted, epee::json_rpc::error& error_resp) -> bool {
+    auto get = [this](const std::string &hash, bool fill_pow_hash, block_header_response &block_header, epee::json_rpc::error& error_resp) -> bool {
       crypto::hash block_hash;
       bool hash_parsed = parse_hash256(hash, block_hash);
       if(!hash_parsed)
@@ -1913,7 +1887,7 @@ namespace cryptonote
         return false;
       }
       uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-      bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, block_header, fill_pow_hash && !restricted);
+      bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, block_header, fill_pow_hash);
       if (!response_filled)
       {
         error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1925,14 +1899,14 @@ namespace cryptonote
 
     if (!req.hash.empty())
     {
-      if (!get(req.hash, req.fill_pow_hash, res.block_header, restricted, error_resp))
+      if (!get(req.hash, req.fill_pow_hash, res.block_header, error_resp))
         return false;
     }
     res.block_headers.reserve(req.hashes.size());
     for (const std::string &hash: req.hashes)
     {
       res.block_headers.push_back({});
-      if (!get(hash, req.fill_pow_hash, res.block_headers.back(), restricted, error_resp))
+      if (!get(hash, req.fill_pow_hash, res.block_headers.back(), error_resp))
         return false;
     }
 
@@ -1952,13 +1926,6 @@ namespace cryptonote
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
       error_resp.message = "Invalid start/end heights.";
-      return false;
-    }
-    const bool restricted = m_restricted && ctx;
-    if (restricted && req.end_height - req.start_height > RESTRICTED_BLOCK_HEADER_RANGE)
-    {
-      error_resp.code = CORE_RPC_ERROR_CODE_RESTRICTED;
-      error_resp.message = "Too many block headers requested.";
       return false;
     }
 
@@ -1987,7 +1954,7 @@ namespace cryptonote
         return false;
       }
       res.headers.push_back(block_header_response());
-      bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.headers.back(), req.fill_pow_hash && !restricted);
+      bool response_filled = fill_block_header_response(blk, false, block_height, block_hash, res.headers.back(), req.fill_pow_hash);
       if (!response_filled)
       {
         error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -2021,8 +1988,7 @@ namespace cryptonote
       error_resp.message = "Internal error: can't get block by height. Height = " + std::to_string(req.height) + '.';
       return false;
     }
-    const bool restricted = m_restricted && ctx;
-    bool response_filled = fill_block_header_response(blk, false, req.height, block_hash, res.block_header, req.fill_pow_hash && !restricted);
+    bool response_filled = fill_block_header_response(blk, false, req.height, block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -2077,8 +2043,7 @@ namespace cryptonote
       return false;
     }
     uint64_t block_height = boost::get<txin_gen>(blk.miner_tx.vin.front()).height;
-    const bool restricted = m_restricted && ctx;
-    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header, req.fill_pow_hash && !restricted);
+    bool response_filled = fill_block_header_response(blk, orphan, block_height, block_hash, res.block_header, req.fill_pow_hash);
     if (!response_filled)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -2363,11 +2328,10 @@ namespace cryptonote
   bool core_rpc_server::on_get_coinbase_tx_sum(const COMMAND_RPC_GET_COINBASE_TX_SUM::request& req, COMMAND_RPC_GET_COINBASE_TX_SUM::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     PERF_TIMER(on_get_coinbase_tx_sum);
-    std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
+    std::tuple<uint64_t, uint64_t, uint64_t> amounts = m_core.get_coinbase_tx_sum(req.height, req.count);
     res.emission_amount = std::get<1>(amounts);
     res.fee_amount = std::get<2>(amounts);
     res.burn_amount = std::get<0>(amounts);
-    res.token_amount = std::get<3>(amounts);
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }

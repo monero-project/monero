@@ -1320,10 +1320,21 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
           return false;
         }
 
-        if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, vout_end - 2, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 2].target).key, m_nettype))
+        if (hard_fork_version >= 19)
         {
-          MERROR("Governance reward public key incorrect");
-          return false;
+          if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).NEW_GOV_WALLET, vout_end - 2, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 2].target).key, m_nettype))
+          {
+            MERROR("Governance reward public key incorrect");
+            return false;
+          }
+        }
+        else
+        {
+          if (!validate_governance_reward_key(height, *cryptonote::get_config(m_nettype).NEW_BRIDGE_WALLET_ADDRESS, vout_end - 2, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 2].target).key, m_nettype))
+          {
+            MERROR("Governance reward public key incorrect");
+            return false;
+          }
         }
 
         if (b.miner_tx.vout[vout_end - 1].amount != reward_parts.dev_fund)
@@ -1332,10 +1343,21 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
           return false;
         }
 
-        if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).DEV_FUND_WALLET, vout_end - 1, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 1].target).key, m_nettype))
+        if (hard_fork_version >= 19)
         {
-          MERROR("Dev Fund reward public key incorrect");
-          return false;
+          if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).NEW_DEV_WALLET, vout_end - 1, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 1].target).key, m_nettype))
+          {
+            MERROR("Dev fund reward public key incorrect");
+            return false;
+          }
+        }
+        else
+        {
+          if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).DEV_FUND_WALLET, vout_end - 1, boost::get<cryptonote::txout_to_key>(b.miner_tx.vout[vout_end - 1].target).key, m_nettype))
+          {
+            MERROR("Dev Fund reward public key incorrect");
+            return false;
+          }
         }
       }
 
@@ -1347,10 +1369,21 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
           return false;
         }
 
-        if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).DEV_FUND_WALLET, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+        if (hard_fork_version >= 19)
         {
-          MERROR("Dev Fund reward public key incorrect");
-          return false;
+          if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).NEW_DEV_WALLET, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+          {
+            MERROR("Dev Fund reward public key incorrect");
+            return false;
+          }
+        }
+        else
+        {
+          if (!validate_dev_fund_reward_key(height, *cryptonote::get_config(m_nettype).DEV_FUND_WALLET, b.miner_tx.vout.size() - 1, boost::get<txout_to_key>(b.miner_tx.vout.back().target).key, m_nettype))
+          {
+            MERROR("Dev Fund reward public key incorrect");
+            return false;
+          }
         }
       }
     }
@@ -5280,7 +5313,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "92e0036fa613473da6c85d943a995ef13c5c4b372f74a8c04fdae68847dba2eb";
+static const char expected_block_hashes_hash[] = "ae324a90b8498518249a6ea800694034914772871968a5b68a94d07faa2e9df5";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)

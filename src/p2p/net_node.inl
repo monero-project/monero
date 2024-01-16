@@ -621,11 +621,10 @@ namespace nodetool
       full_addrs.insert("154.38.165.93:9230");
       full_addrs.insert("38.242.135.157:9230");
       full_addrs.insert("213.155.160.222:9230");
-      full_addrs.insert("xeq.supporters.ml:9230");
-      full_addrs.insert("xeq.gntl.uk:9230");
-      full_addrs.insert("equilibria.fastnode.eu:9230");
-      full_addrs.insert("144.91.88.92:9230");
-      //Amsterdam
+      full_addrs.insert("194.233.64.43:9230");
+      full_addrs.insert("207.244.249.105:9230");
+      full_addrs.insert("161.97.102.172:9230");
+      full_addrs.insert("62.171.181.142:9230");
     }
     return full_addrs;
   }

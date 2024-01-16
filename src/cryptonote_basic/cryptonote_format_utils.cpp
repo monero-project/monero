@@ -485,13 +485,18 @@ namespace cryptonote
     return get_transaction_weight(tx, blob_size);
   }
   //---------------------------------------------------------------
-  bool get_tx_miner_fee(const transaction& tx, uint64_t & fee, bool burning_enabled)
+  bool get_tx_miner_fee(const transaction& tx, uint64_t & fee, uint8_t hf_ver, bool burning_enabled)
   {
     if (tx.version >= txversion::v2)
     {
       fee = tx.rct_signatures.txnFee;
       if (burning_enabled)
-        fee -= std::min(fee, get_burned_amount_from_tx_extra(tx.extra));
+      {
+        if (hf_ver < 19)
+          fee -= std::min(fee, get_burned_amount_from_tx_extra(tx.extra));
+        else
+          fee -= std::min(fee, (uint64_t)0);
+      }
       return true;
     }
 
@@ -504,10 +509,10 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  uint64_t get_tx_miner_fee(const transaction& tx, bool burning_enabled)
+  uint64_t get_tx_miner_fee(const transaction& tx, uint8_t hf_ver, bool burning_enabled)
   {
     uint64_t r = 0;
-    if(!get_tx_miner_fee(tx, r, burning_enabled))
+    if(!get_tx_miner_fee(tx, r, hf_ver, burning_enabled))
       return 0;
     return r;
   }

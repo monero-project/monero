@@ -1952,8 +1952,7 @@ bool t_rpc_command_executor::print_coinbase_tx_sum(uint64_t height, uint64_t cou
     << "consisting of " << cryptonote::print_money(res.emission_amount)
     << " in emissions,\nand " << cryptonote::print_money(res.fee_amount)
     << " in fees,\nand " << cryptonote::print_money(res.burn_amount)
-    << " was burnt,\nand " << cryptonote::print_money(res.token_amount)
-    << " was locked at cross-chain bridge.";
+    << " was burnt.";
   return true;
 }
 

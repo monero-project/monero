@@ -419,7 +419,7 @@ namespace service_nodes
 		{
 		  uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
 		  uint64_t total_fee = tx.rct_signatures.txnFee;
-		  uint64_t miner_fee = get_tx_miner_fee(tx, true);
+		  uint64_t miner_fee = get_tx_miner_fee(tx, hf_version, true);
 		  uint64_t burn_fee = total_fee - miner_fee;
 
 		  if (burned_amount < burn_fee) return false;
@@ -631,7 +631,7 @@ namespace service_nodes
 		{
 		  uint64_t burned_amount = cryptonote::get_burned_amount_from_tx_extra(tx.extra);
 		  uint64_t total_fee = tx.rct_signatures.txnFee;
-		  uint64_t miner_fee = get_tx_miner_fee(tx, true);
+		  uint64_t miner_fee = get_tx_miner_fee(tx, hf_version, true);
 		  uint64_t burn_fee = total_fee - miner_fee;
 		  uint64_t b_fee;
 
