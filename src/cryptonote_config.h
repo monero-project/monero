@@ -277,6 +277,8 @@ namespace config
   std::string const BRIDGE_WALLET_ADDRESS = "Tw16wVGVwjqY2sSKx11UNjQ8NAosTSwzzitYZfVrXt3iP3DgL5beLz55quDcqpqUvoQTvjyNyRb7mUXf3JKDAyLd36AtDf2ei";
   std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvyjwByVHjgCqNKrngt4TQRDgJL7cazWnTXYHXmbFewsKMuN6ozKNcBVkgcpyQwVPRYZCyaAe1W7xN8SdgxqnT4S1UMStejYx";
   std::string const DEV_FUND_WALLET = "TvzdbKGga5fSr7fgCTuvR1GY4g9v3No28a6QrcdnnwBkFtisk4MKPLnARAunWBxQJ82L96nGS3ET7BQMhzM788Kp1pweuUfPD";
+  std::string const NEW_GOV_WALLET = "TvzXGov4tNr6jYG2gdox7bcuEBwwSTpQYAb6w7qgSxuu4hsxY9CMgMgaL6EeqVcQ6hS7Cppn73W8ZSMU8gLMi4N42yTShfkP9";
+  std::string const NEW_DEV_WALLET = "Tw1XDEVkfVsRFhvjPQJgTjFi4uXDBiMomYeaaaj43SHPSTyLj8nBkdv2KBV8t9CzuCUy1fgYkk9tse6xA3B5oPJZjLfHLDrh";
 
   namespace testnet
   {
@@ -336,6 +338,7 @@ namespace cryptonote
     network_version_16,
     network_version_17,
     network_version_18,
+    network_version_19,
 
     network_version_count,
   };
@@ -363,6 +366,8 @@ namespace cryptonote
     std::string const *BRIDGE_WALLET_ADDRESS;
     std::string const *NEW_BRIDGE_WALLET_ADDRESS;
     std::string const *DEV_FUND_WALLET;
+    std::string const *NEW_GOV_WALLET;
+    std::string const *NEW_DEV_WALLET;
 
   };
   inline const config_t& get_config(network_type nettype)
@@ -381,6 +386,8 @@ namespace cryptonote
       &::config::BRIDGE_WALLET_ADDRESS,
       &::config::NEW_BRIDGE_WALLET_ADDRESS,
       &::config::DEV_FUND_WALLET,
+      &::config::NEW_GOV_WALLET,
+      &::config::NEW_DEV_WALLET,
     };
     static config_t testnet = {
       ::config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -395,7 +402,6 @@ namespace cryptonote
       &::config::testnet::GOVERNANCE_WALLET_ADDRESS,
       &::config::testnet::BRIDGE_WALLET_ADDRESS,
       &::config::testnet::NEW_BRIDGE_WALLET_ADDRESS,
-
     };
     static config_t stagenet = {
       ::config::stagenet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,

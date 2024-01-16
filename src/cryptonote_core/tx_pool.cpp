@@ -199,7 +199,7 @@ namespace cryptonote
     // fee per kilobyte, size rounded up.
     uint64_t fee;
 
-    if (!get_tx_miner_fee(tx, fee, version >= HF_VERSION_FEE_BURNING))
+    if (!get_tx_miner_fee(tx, fee, version, version >= HF_VERSION_FEE_BURNING))
     {
       tvc.m_verification_failed = true;
       tvc.m_fee_too_low = true;

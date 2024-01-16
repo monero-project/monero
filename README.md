@@ -116,7 +116,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v18
+        git checkout v19
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -212,7 +212,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
     ```bash
     git clone https://github.com/equilibriacc/equilibria.git
     cd equilibria
-    git checkout v18
+    git checkout v19
     ```
 
 * Build:
@@ -326,7 +326,7 @@ application.
 
         cd equilibria
 
-        git checkout v18
+        git checkout v19
 
 * If you are on a 64-bit system, run:
 

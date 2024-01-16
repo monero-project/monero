@@ -136,8 +136,8 @@ namespace cryptonote
   boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::device &hwdev);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_public_keys, std::vector<size_t>& outs, uint64_t& money_transfered);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered);
-  bool get_tx_miner_fee(const transaction& tx, uint64_t & fee, bool burning_enabled);
-  uint64_t get_tx_miner_fee(const transaction& tx, bool burning_enabled);
+  bool get_tx_miner_fee(const transaction& tx, uint64_t & fee, uint8_t hf_ver, bool burning_enabled);
+  uint64_t get_tx_miner_fee(const transaction& tx, uint8_t hf_ver, bool burning_enabled);
   bool generate_key_image_helper(const account_keys& ack, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev);
   bool generate_key_image_helper_precomp(const account_keys& ack, const crypto::public_key& out_key, const crypto::key_derivation& recv_derivation, size_t real_output_index, const subaddress_index& received_index, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev);
   void get_blob_hash(const blobdata& blob, crypto::hash& res);

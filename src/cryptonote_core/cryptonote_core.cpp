@@ -1191,7 +1191,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   size_t core::get_block_sync_size(uint64_t height) const
   {
-    static const uint64_t quick_height = m_nettype == MAINNET ? 1210000 : 0;
+    static const uint64_t quick_height = m_nettype == MAINNET ? 1245000 : 0;
     if (block_sync_size > 0)
       return block_sync_size;
     if (height >= quick_height)
@@ -1206,17 +1206,16 @@ namespace cryptonote
     return m_mempool.check_for_key_images(key_im, spent);
   }
   //-----------------------------------------------------------------------------------------------
-  std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
+  std::tuple<uint64_t, uint64_t, uint64_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
   {
     uint64_t emission_amount = 0;
     uint64_t total_fee_amount = 0;
     uint64_t burnt_xeq = 0;
-    uint64_t token_swap = 0;
     if (count)
     {
       const uint64_t end = start_offset + count - 1;
       m_blockchain_storage.for_blocks_range(start_offset, end,
-        [this, &emission_amount, &total_fee_amount, &burnt_xeq, &token_swap](uint64_t, const crypto::hash& hash, const block& b){
+        [this, &emission_amount, &total_fee_amount, &burnt_xeq](uint64_t, const crypto::hash& hash, const block& b){
 		  std::vector <transaction> txs;
       std::vector<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
@@ -1225,7 +1224,7 @@ namespace cryptonote
       uint64_t b_xeq = 0;
       for(const auto& tx: txs)
       {
-        tx_fee_amount += get_tx_miner_fee(tx, b.major_version >= HF_VERSION_FEE_BURNING);
+        tx_fee_amount += get_tx_miner_fee(tx, b.major_version, b.major_version >= HF_VERSION_FEE_BURNING);
         if (b.major_version >= HF_VERSION_FEE_BURNING)
         {
           b_xeq += get_burned_amount_from_tx_extra(tx.extra);
@@ -1237,22 +1236,9 @@ namespace cryptonote
       burnt_xeq += b_xeq;
       return true;
       });
-
-      const uint8_t hf_ver = m_blockchain_storage.get_current_hard_fork_version();
-      if (hf_ver > 16)
-      {
-        emission_amount -= (uint64_t)0x1176592e000;
-        token_swap += (uint64_t)0x2e90edd000;
-      }
-      if (hf_ver > 17)
-      {
-        emission_amount -= (uint64_t)0x1c2a4cad740;
-        token_swap += (uint64_t)0x36d4e56f40;
-        burnt_xeq += (uint64_t)0x5d21dba000;
-      }
     }
 
-    return std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount, token_swap);
+    return std::tuple<uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx) const
