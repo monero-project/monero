@@ -2775,12 +2775,10 @@ namespace cryptonote
   {
     struct request_t: public rpc_request_base
     {
-      bool bad_txs;
       bool bad_blocks;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
-        KV_SERIALIZE_OPT(bad_txs, false)
         KV_SERIALIZE_OPT(bad_blocks, false)
       END_KV_SERIALIZE_MAP()
     };
