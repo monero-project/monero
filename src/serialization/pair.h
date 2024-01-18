@@ -47,7 +47,7 @@ namespace serialization
     typename std::enable_if<!use_pair_varint<T>(), bool>::type
     serialize_pair_element(Archive& ar, T& e)
     {
-      return ::do_serialize(ar, e);
+      return do_serialize(ar, e);
     }
 
     template<typename Archive, typename T>
@@ -57,7 +57,7 @@ namespace serialization
       static constexpr const bool previously_varint = std::is_same<uint64_t, T>();
 
       if (!previously_varint && ar.varint_bug_backward_compatibility_enabled() && !typename Archive::is_saving())
-        return ::do_serialize(ar, e);
+        return do_serialize(ar, e);
       ar.serialize_varint(e);
       return true;
     }

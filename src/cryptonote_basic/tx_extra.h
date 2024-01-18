@@ -52,7 +52,7 @@ namespace cryptonote
 
     // load
     template <template <bool> class Archive>
-    bool do_serialize(Archive<false>& ar)
+    bool member_do_serialize(Archive<false>& ar)
     {
       // size - 1 - because of variant tag
       for (size = 1; size <= TX_EXTRA_PADDING_MAX_COUNT; ++size)
@@ -73,7 +73,7 @@ namespace cryptonote
 
     // store
     template <template <bool> class Archive>
-    bool do_serialize(Archive<true>& ar)
+    bool member_do_serialize(Archive<true>& ar)
     {
       if(TX_EXTRA_PADDING_MAX_COUNT < size)
         return false;
@@ -129,7 +129,7 @@ namespace cryptonote
 
     // load
     template <template <bool> class Archive>
-    bool do_serialize(Archive<false>& ar)
+    bool member_do_serialize(Archive<false>& ar)
     {
       std::string field;
       if(!::do_serialize(ar, field))
@@ -142,7 +142,7 @@ namespace cryptonote
 
     // store
     template <template <bool> class Archive>
-    bool do_serialize(Archive<true>& ar)
+    bool member_do_serialize(Archive<true>& ar)
     {
       std::ostringstream oss;
       binary_archive<true> oar(oss);
