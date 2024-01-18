@@ -7304,9 +7304,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     crypto::key_derivation derivation;
     std::vector<crypto::key_derivation> additional_derivations;
 
-    // compute public keys from out secret keys
-    crypto::public_key tx_pub_key;
-    crypto::secret_key_to_public_key(txs[n].tx_key, tx_pub_key);
+    crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
     std::vector<crypto::public_key> additional_tx_pub_keys;
     for (const crypto::secret_key &skey: txs[n].additional_tx_keys)
     {
