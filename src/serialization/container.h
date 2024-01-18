@@ -57,8 +57,28 @@ namespace serialization
       return true;
     }
 
-    template <typename C>
-    void do_reserve(C &c, size_t N) {}
+    //! @brief Add an element to a container, inserting at the back if applicable.
+    template <class Container>
+    auto do_add(Container &c, typename Container::value_type &&e) -> decltype(c.emplace_back(e))
+    { return c.emplace_back(e); }
+    template <class Container>
+    auto do_add(Container &c, typename Container::value_type &&e) -> decltype(c.emplace(e))
+    { return c.emplace(e); }
+
+    //! @brief Reserve space for N elements if applicable for container.
+    template<typename... C>
+    void do_reserve(const C&...) {}
+    template<typename C>
+    auto do_reserve(C &c, std::size_t N) -> decltype(c.reserve(N)) { return c.reserve(N); }
+
+    // The value_type of STL map-like containers come in the form std::pair<const K, V>.
+    // Since we can't {de}serialize const types in this lib, we must convert this to std::pair<K, V>
+    template <class Container, typename = void>
+    struct serializable_value_type
+    { using type = typename Container::value_type; };
+    template <class Container>
+    struct serializable_value_type<Container, std::conditional_t<false, typename Container::mapped_type, void>>
+    { using type = std::pair<typename Container::key_type, typename Container::mapped_type>; };
   }
 }
 
@@ -82,7 +102,7 @@ bool do_serialize_container(Archive<false> &ar, C &v)
   for (size_t i = 0; i < cnt; i++) {
     if (i > 0)
       ar.delimit_array();
-    typename C::value_type e;
+    typename ::serialization::detail::serializable_value_type<C>::type e;
     if (!::serialization::detail::serialize_container_element(ar, e))
       return false;
     ::serialization::detail::do_add(v, std::move(e));
@@ -104,7 +124,8 @@ bool do_serialize_container(Archive<true> &ar, C &v)
       return false;
     if (i != v.begin())
       ar.delimit_array();
-    if(!::serialization::detail::serialize_container_element(ar, (typename C::value_type&)*i))
+    using serializable_value_type = typename ::serialization::detail::serializable_value_type<C>::type;
+    if(!::serialization::detail::serialize_container_element(ar, (serializable_value_type&)*i))
       return false;
     if (!ar.good())
       return false;

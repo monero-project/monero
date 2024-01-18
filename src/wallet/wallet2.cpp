@@ -1821,7 +1821,7 @@ void reattach_blockchain(hashchain &blockchain, wallet2::detached_blockchain_dat
 }
 //----------------------------------------------------------------------------------------------------
 bool has_nonrequested_tx_at_height_or_above_requested(uint64_t height, const std::unordered_set<crypto::hash> &requested_txids, const wallet2::transfer_container &transfers,
-    const wallet2::payment_container &payments, const serializable_unordered_map<crypto::hash, wallet2::confirmed_transfer_details> &confirmed_txs)
+    const wallet2::payment_container &payments, const std::unordered_map<crypto::hash, wallet2::confirmed_transfer_details> &confirmed_txs)
 {
   for (const auto &td : transfers)
     if (td.m_block_height >= height && requested_txids.find(td.m_txid) == requested_txids.end())
@@ -12033,7 +12033,7 @@ std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t,
   }
 
   // collect all subaddress spend keys that received those outputs and generate their signatures
-  serializable_unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
+  std::unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
   for (const cryptonote::subaddress_index &index : subaddr_indices)
   {
     crypto::secret_key subaddr_spend_skey = m_account.get_keys().m_spend_secret_key;
@@ -12078,7 +12078,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
 
   bool loaded = false;
   std::vector<reserve_proof_entry> proofs;
-  serializable_unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
+  std::unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
   try
   {
     binary_archive<false> ar{epee::strspan<std::uint8_t>(sig_decoded)};
@@ -12092,7 +12092,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   {
     std::istringstream iss(sig_decoded);
     boost::archive::portable_binary_iarchive ar(iss);
-    ar >> proofs >> subaddr_spendkeys.parent();
+    ar >> proofs >> subaddr_spendkeys;
   }
 
   THROW_WALLET_EXCEPTION_IF(subaddr_spendkeys.count(address.m_spend_public_key) == 0, error::wallet_internal_error,
@@ -12336,7 +12336,7 @@ std::string wallet2::get_description() const
   return "";
 }
 
-const std::pair<serializable_map<std::string, std::string>, std::vector<std::string>>& wallet2::get_account_tags()
+const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& wallet2::get_account_tags()
 {
   // ensure consistency
   if (m_account_tags.second.size() != get_num_subaddress_accounts())
