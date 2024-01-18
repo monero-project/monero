@@ -124,7 +124,7 @@ namespace cryptonote
       END_SERIALIZE()
     };
 
-    size_t depth;
+    uint64_t depth;
     crypto::hash merkle_root;
 
     // load

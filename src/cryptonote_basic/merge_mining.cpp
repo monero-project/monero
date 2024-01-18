@@ -71,21 +71,21 @@ uint32_t get_path_from_aux_slot(uint32_t slot, uint32_t n_aux_chains)
   return path;
 }
 //---------------------------------------------------------------
-uint32_t encode_mm_depth(uint32_t n_aux_chains, uint32_t nonce)
+uint64_t encode_mm_depth(uint32_t n_aux_chains, uint32_t nonce)
 {
   CHECK_AND_ASSERT_THROW_MES(n_aux_chains > 0, "n_aux_chains is 0");
+  CHECK_AND_ASSERT_THROW_MES(n_aux_chains <= 256, "n_aux_chains is too large");
 
   // how many bits to we need to representing n_aux_chains - 1
   uint32_t n_bits = 1;
-  while ((1u << n_bits) < n_aux_chains && n_bits < 16)
+  while ((1u << n_bits) < n_aux_chains)
     ++n_bits;
-  CHECK_AND_ASSERT_THROW_MES(n_bits <= 16, "Way too many bits required");
 
-  const uint32_t depth = (n_bits - 1) | ((n_aux_chains - 1) << 3) | (nonce << (3 + n_bits));
+  const uint64_t depth = (n_bits - 1) | ((n_aux_chains - 1) << 3) | (((uint64_t)nonce) << (3 + n_bits));
   return depth;
 }
 //---------------------------------------------------------------
-bool decode_mm_depth(uint32_t depth, uint32_t &n_aux_chains, uint32_t &nonce)
+bool decode_mm_depth(uint64_t depth, uint32_t &n_aux_chains, uint32_t &nonce)
 {
   const uint32_t n_bits = 1 + (depth & 7);
   n_aux_chains = 1 + (depth >> 3 & ((1 << n_bits) - 1));

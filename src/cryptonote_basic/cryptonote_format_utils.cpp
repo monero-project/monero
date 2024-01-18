@@ -739,22 +739,28 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool add_mm_merkle_root_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::hash& mm_merkle_root, size_t mm_merkle_tree_depth)
+  bool add_mm_merkle_root_to_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::hash& mm_merkle_root, uint64_t mm_merkle_tree_depth)
   {
-    CHECK_AND_ASSERT_MES(mm_merkle_tree_depth < 32, false, "merge mining merkle tree depth should be less than 32");
     size_t start_pos = tx_extra.size();
-    tx_extra.resize(tx_extra.size() + 3 + 32);
+    static const size_t max_varint_size = 16;
+    tx_extra.resize(tx_extra.size() + 2 + 32 + max_varint_size);
     //write tag
     tx_extra[start_pos] = TX_EXTRA_MERGE_MINING_TAG;
     //write data size
     ++start_pos;
-    tx_extra[start_pos] = 33;
-    //write depth varint (always one byte here)
+    const off_t len_bytes = start_pos;
+    // one byte placeholder for length since we'll only know the size later after writing a varint
+    tx_extra[start_pos] = 0;
+    //write depth varint
     ++start_pos;
-    tx_extra[start_pos] = mm_merkle_tree_depth;
+    uint8_t *ptr = &tx_extra[start_pos], *start = ptr;
+    tools::write_varint(ptr, mm_merkle_tree_depth);
     //write data
-    ++start_pos;
+    const size_t varint_size = ptr - start;
+    start_pos += varint_size;
     memcpy(&tx_extra[start_pos], &mm_merkle_root, 32);
+    tx_extra.resize(tx_extra.size() - (max_varint_size - varint_size));
+    tx_extra[len_bytes] = 32 + varint_size;
     return true;
   }
   //---------------------------------------------------------------
