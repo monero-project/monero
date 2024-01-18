@@ -28,6 +28,7 @@
 
 #include "common/dns_utils.h"
 // check local first (in the event of static or in-source compilation of libunbound)
+#include "misc_language.h"
 #include "unbound.h"
 
 #include <deque>
@@ -195,36 +196,7 @@ boost::optional<std::string> tlsa_to_string(const char* src, size_t len)
     return boost::none;
   return std::string(src, len);
 }
-
-// custom smart pointer.
-// TODO: see if std::auto_ptr and the like support custom destructors
-template<typename type, void (*freefunc)(type*)>
-class scoped_ptr
-{
-public:
-  scoped_ptr():
-    ptr(nullptr)
-  {
-  }
-  scoped_ptr(type *p):
-    ptr(p)
-  {
-  }
-  ~scoped_ptr()
-  {
-    freefunc(ptr);
-  }
-  operator type *() { return ptr; }
-  type **operator &() { return &ptr; }
-  type *operator->() { return ptr; }
-  operator const type*() const { return &ptr; }
-
-private:
-  type* ptr;
-};
-
-typedef class scoped_ptr<ub_result,ub_resolve_free> ub_result_ptr;
-
+  
 struct DNSResolverData
 {
   ub_ctx* m_ub_context;
@@ -327,10 +299,14 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   std::vector<std::string> addresses;
   dnssec_available = false;
   dnssec_valid = false;
-
-  // destructor takes care of cleanup
-  ub_result_ptr result;
-
+  
+  ub_result *result;
+  // Make sure we are cleaning after result.
+  epee::misc_utils::auto_scope_leave_caller scope_exit_handler =
+    epee::misc_utils::create_scope_leave_handler([&](){
+    ub_resolve_free(result);
+  });
+  
   MDEBUG("Performing DNSSEC " << get_record_name(record_type) << " record query for " << url);
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
