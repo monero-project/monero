@@ -43,8 +43,8 @@ WORKDIR $WORKDIR
 
 RUN	git clone https://github.com/monero-project/gitian.sigs.git sigs; \
   git clone https://github.com/devrandom/gitian-builder.git builder; \
-  cd builder; git checkout c0f77ca018cb5332bfd595e0aff0468f77542c23; mkdir -p inputs var; cd inputs; \
-  git clone https://github.com/monero-project/monero
+  cd builder; git checkout 6f21a0ef5c9ea3df1a515c4b8b9a9296512821dd; mkdir -p inputs var; cd inputs; \
+  git clone -v --branch $VERSION --depth 1 https://github.com/monero-project/monero
 
 CMD ["sleep", "infinity"]
 EOF
