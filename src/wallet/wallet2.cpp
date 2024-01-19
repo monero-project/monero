@@ -13591,7 +13591,7 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
     return false;
   }
 
-  std::string remainder = uri.substr(7);
+  std::string remainder = uri.substr(11);
   const char *ptr = strchr(remainder.c_str(), '?');
   address = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
 
