@@ -12,7 +12,7 @@ on:
 
 # The below variables reduce repetitions across similar targets
 env:
-  REMOVE_BUNDLED_BOOST : rm -rf /usr/local/share/boost
+  REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   BUILD_DEFAULT_LINUX: |
         cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build -j3
   APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
@@ -98,8 +98,8 @@ jobs:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
-    - name: remove bundled boost
-      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: update apt
@@ -124,8 +124,8 @@ jobs:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-libwallet-
-    - name: remove bundled boost
-      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: update apt
@@ -153,8 +153,8 @@ jobs:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-ubuntu-latest
-    - name: remove bundled boost
-      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: update apt
