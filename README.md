@@ -14,7 +14,7 @@ Equilibria can be used by anyone with access to the internet.
 ### Oracle Clusters
 Equilibria is a hybrid PoW/PoS decentralized oracle node network
 
-### High Utility 
+### High Utility
 Use-cases span from stablecoins to eSports
 
 ### For announcements:
@@ -116,7 +116,7 @@ invokes cmake commands as needed.
 * Change to the root of the source code directory, change to the most recent release branch, and build:
 
         cd equilibria
-        git checkout v19
+        git checkout v20
         make
 
     *Optional*: If your machine has several cores and enough memory, enable
@@ -212,7 +212,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
     ```bash
     git clone https://github.com/equilibriacc/equilibria.git
     cd equilibria
-    git checkout v19
+    git checkout v20
     ```
 
 * Build:
@@ -326,7 +326,7 @@ application.
 
         cd equilibria
 
-        git checkout v19
+        git checkout v20
 
 * If you are on a 64-bit system, run:
 
@@ -355,6 +355,3 @@ application.
     ```
 
 * The resulting executables can be found in `build/debug/bin`
-
-
-
