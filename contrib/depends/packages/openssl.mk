@@ -1,6 +1,6 @@
 package=openssl
 $(package)_version=1.1.1l
-$(package)_download_path=https://www.openssl.org/source
+$(package)_download_path=https://www.openssl.org/source/old/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=0b7a3e5e59c34827fe0c3a74b7ec8baef302b98fa80088d7f9153aa16fa76bd1
 $(package)_patches=fix_darwin.patch
