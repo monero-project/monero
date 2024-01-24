@@ -31,7 +31,6 @@
 #pragma once
 
 #include <assert.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -47,86 +46,95 @@
 #include <endian.h>
 #endif
 
-#if defined(_MSC_VER)
-#include <stdlib.h>
-
-static inline uint32_t rol32(uint32_t x, int r) {
-  static_assert(sizeof(uint32_t) == sizeof(unsigned int), "this code assumes 32-bit integers");
-  return _rotl(x, r);
-}
-
-static inline uint64_t rol64(uint64_t x, int r) {
-  return _rotl64(x, r);
-}
-
-#else
-
 static inline uint32_t rol32(uint32_t x, int r) {
   return (x << (r & 31)) | (x >> (-r & 31));
 }
 
-static inline uint64_t rol64(uint64_t x, int r) {
-  return (x << (r & 63)) | (x >> (-r & 63));
-}
+// Adapted from xxHash's function XXH_mult64to128 without the MSVC code
+// https://github.com/Cyan4973/xxHash/blob/8e5fdcbe70687573265b7154515567ee7ca0645c/xxh3.h#L294
+// Note: prod_hi must be a valid pointer, otherwise this function will segfault
+static inline uint64_t mul128(uint64_t lhs, uint64_t rhs, uint64_t* prod_hi) {
+    assert(NULL != prod_hi);
 
+#if defined(__GNUC__) && !defined(__wasm__) && defined(__SIZEOF_INT128__) \
+      || (defined(_INTEGRAL_MAX_BITS) && _INTEGRAL_MAX_BITS >= 128)
+    /*
+     * GCC/Clang __uint128_t method.
+     *
+     * On most 64-bit targets, GCC and Clang define a __uint128_t type.
+     * This is usually the best way as it usually uses a native long 64-bit
+     * multiply, such as MULQ on x86_64 or MUL + UMULH on aarch64.
+     *
+     * Usually.
+     *
+     * Despite being a 32-bit platform, Clang (and emscripten) define this
+     * type despite not having the arithmetic for it. This results in a
+     * laggy compiler builtin call which calculates a full 128-bit multiply.
+     * In that case it is best to use the portable one.
+     * https://github.com/Cyan4973/xxHash/issues/211#issuecomment-515575677
+     */
+
+    __uint128_t product = (__uint128_t)lhs * (__uint128_t)rhs;
+    *prod_hi = product >> 64;
+    return product;
+
+#else
+    /*
+     * Portable scalar method. Optimized for 32-bit and 64-bit ALUs.
+     *
+     * This is a fast and simple grade school multiply, which is shown
+     * below with base 10 arithmetic instead of base 0x100000000.
+     *
+     *           9 3 // D2 lhs = 93
+     *         x 7 5 // D2 rhs = 75
+     *     ----------
+     *           1 5 // D2 lo_lo = (93 % 10) * (75 % 10)
+     *         4 5 | // D2 hi_lo = (93 / 10) * (75 % 10)
+     *         2 1 | // D2 lo_hi = (93 % 10) * (75 / 10)
+     *     + 6 3 | | // D2 hi_hi = (93 / 10) * (75 / 10)
+     *     ---------
+     *         2 7 | // D2 cross  = (15 / 10) + (45 % 10) + 21
+     *     + 6 7 | | // D2 upper  = (27 / 10) + (45 / 10) + 63
+     *     ---------
+     *       6 9 7 5
+     *
+     * The reasons for adding the products like this are:
+     *  1. It avoids manual carry tracking. Just like how
+     *     (9 * 9) + 9 + 9 = 99, the same applies with this for
+     *     UINT64_MAX. This avoids a lot of complexity.
+     *
+     *  2. It hints for, and on Clang, compiles to, the powerful UMAAL
+     *     instruction available in ARMv6+ A32/T32, which is shown below:
+     *
+     *         void UMAAL(xxh_u32 *RdLo, xxh_u32 *RdHi, xxh_u32 Rn, xxh_u32 Rm)
+     *         {
+     *             xxh_u64 product = (xxh_u64)*RdLo * (xxh_u64)*RdHi + Rn + Rm;
+     *             *RdLo = (xxh_u32)(product & 0xFFFFFFFF);
+     *             *RdHi = (xxh_u32)(product >> 32);
+     *         }
+     *
+     *     This instruction was designed for efficient long multiplication,
+     *     and allows this to be calculated in only 4 instructions which
+     *     is comparable to some 64-bit ALUs.
+     *
+     *  3. It isn't terrible on other platforms. Usually this will be
+     *     a couple of 32-bit ADD/ADCs.
+     */
+
+    /* First calculate all of the cross products. */
+    uint64_t const lo_lo = (lhs & 0xFFFFFFFF) * (rhs & 0xFFFFFFFF);
+    uint64_t const hi_lo = (lhs >> 32       ) * (rhs & 0xFFFFFFFF);
+    uint64_t const lo_hi = (lhs & 0xFFFFFFFF) * (rhs >> 32);
+    uint64_t const hi_hi = (lhs >> 32       ) * (rhs >> 32);
+
+    /* Now add the products together. These will never overflow. */
+    uint64_t const cross = (lo_lo >> 32) + (hi_lo & 0xFFFFFFFF) + lo_hi;
+    uint64_t const upper = (hi_lo >> 32) + (cross >> 32)        + hi_hi;
+    uint64_t const lower = (cross << 32) | (lo_lo & 0xFFFFFFFF);
+
+    *prod_hi = upper;
+    return lower;
 #endif
-
-static inline uint64_t hi_dword(uint64_t val) {
-  return val >> 32;
-}
-
-static inline uint64_t lo_dword(uint64_t val) {
-  return val & 0xFFFFFFFF;
-}
-
-static inline uint64_t mul128(uint64_t multiplier, uint64_t multiplicand, uint64_t* product_hi) {
-  // multiplier   = ab = a * 2^32 + b
-  // multiplicand = cd = c * 2^32 + d
-  // ab * cd = a * c * 2^64 + (a * d + b * c) * 2^32 + b * d
-  uint64_t a = hi_dword(multiplier);
-  uint64_t b = lo_dword(multiplier);
-  uint64_t c = hi_dword(multiplicand);
-  uint64_t d = lo_dword(multiplicand);
-
-  uint64_t ac = a * c;
-  uint64_t ad = a * d;
-  uint64_t bc = b * c;
-  uint64_t bd = b * d;
-
-  uint64_t adbc = ad + bc;
-  uint64_t adbc_carry = adbc < ad ? 1 : 0;
-
-  // multiplier * multiplicand = product_hi * 2^64 + product_lo
-  uint64_t product_lo = bd + (adbc << 32);
-  uint64_t product_lo_carry = product_lo < bd ? 1 : 0;
-  *product_hi = ac + (adbc >> 32) + (adbc_carry << 32) + product_lo_carry;
-  assert(ac <= *product_hi);
-
-  return product_lo;
-}
-
-static inline uint64_t div_with_reminder(uint64_t dividend, uint32_t divisor, uint32_t* remainder) {
-  dividend |= ((uint64_t)*remainder) << 32;
-  *remainder = dividend % divisor;
-  return dividend / divisor;
-}
-
-// Long division with 2^32 base
-static inline uint32_t div128_32(uint64_t dividend_hi, uint64_t dividend_lo, uint32_t divisor, uint64_t* quotient_hi, uint64_t* quotient_lo) {
-  uint64_t dividend_dwords[4];
-  uint32_t remainder = 0;
-
-  dividend_dwords[3] = hi_dword(dividend_hi);
-  dividend_dwords[2] = lo_dword(dividend_hi);
-  dividend_dwords[1] = hi_dword(dividend_lo);
-  dividend_dwords[0] = lo_dword(dividend_lo);
-
-  *quotient_hi  = div_with_reminder(dividend_dwords[3], divisor, &remainder) << 32;
-  *quotient_hi |= div_with_reminder(dividend_dwords[2], divisor, &remainder);
-  *quotient_lo  = div_with_reminder(dividend_dwords[1], divisor, &remainder) << 32;
-  *quotient_lo |= div_with_reminder(dividend_dwords[0], divisor, &remainder);
-
-  return remainder;
 }
 
 // Long divisor with 2^64 base
