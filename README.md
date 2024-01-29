@@ -21,7 +21,7 @@ Use-cases span from stablecoins to eSports
 [Website](https://equilibriacc.com/)
 [Twitter](https://twitter.com/equilibriadevs)
 [Discord](https://discord.equilibriacc.com)
-[Telegram](https://telegram.equilibiracc.com)
+[Telegram](https://telegram.equilibriacc.com)
 
 
 # General Information
