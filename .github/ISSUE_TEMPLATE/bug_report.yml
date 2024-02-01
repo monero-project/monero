@@ -1,0 +1,94 @@
+name: Bug report
+description: Submit a new bug report.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## This issue tracker is only for technical issues related to Monero.
+
+        * General monero questions and/or support requests should use Monero StackExchange at https://monero.stackexchange.com.
+        * For reporting security issues, please read instructions at https://github.com/monero-project/meta/blob/master/VULNERABILITY_RESPONSE_PROCESS.md.
+        * For reporting GUI issues, please use Monero-GUI repository [issue tracker](https://github.com/monero-project/monero-gui/issues/new).
+
+        ----
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if an issue already exists for the bug you encountered. You can search [here](https://github.com/monero-project/monero/issues?q=is%3Aissue).
+      options:
+      - label: I have searched the existing issues
+        required: true
+  - type: textarea
+    id: current-behaviour
+    attributes:
+      label: Current behaviour
+      description: Tell us what went wrong
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behaviour
+    attributes:
+      label: Expected behaviour
+      description: Tell us what you expected to happen
+    validations:
+      required: false
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Tell us how to reproduce your bug. Please attach related screenshots if necessary.
+        * Run-time or compile-time configuration options
+        * Actions taken
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Please copy and paste any relevant log output or attach a debug log file.
+
+        * For daemon log you can get log information via `--log-level=2` flag, or by taking a look at log files at `~/.bitmonero/` in cli version.
+        * For `monero-wallet-cli` you should pass `--log-level=2` log level information. `monero-wallet-cli.log` will be saved beside of the monero-wallet-cli file.
+        * For more information on how to generate a log, use `--help` to find the argument you need to set for logging information.
+
+        Please be aware that the debug log might contain personally identifying information. Please remove personal information before posting.
+    validations:
+      required: false
+  - type: dropdown
+    attributes:
+      label: How did you obtain Monero
+      multiple: false
+      options:
+        - Compiled from source
+        - Pre-built binaries
+        - Package manager
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: monero-version
+    attributes:
+      label: What version of Monero are you using?
+      description: Run `monerod --version` or in Monero-GUI use `Settings > Info`
+      placeholder: e.g. Monero 'Fluorine Fermi' (v0.18.1.0-059028a30)
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      placeholder: e.g. "MacOS Ventura 13.2" or "Ubuntu 22.04 LTS"
+    validations:
+      required: true
+  - type: textarea
+    id: machine-specs
+    attributes:
+      label: Machine specifications
+      description: |
+        What are the specifications of the host machine?
+        e.g. OS/CPU and disk type, network connectivity
+    validations:
+      required: true
