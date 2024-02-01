@@ -647,7 +647,7 @@ block Blockchain::pop_block_from_blockchain()
       // that might not be always true. Unlikely though, and always relaying
       // these again might cause a spike of traffic as many nodes re-relay
       // all the transactions in a popped block when a reorg happens.
-      bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version);
+      bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, true);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -3937,6 +3937,47 @@ bool Blockchain::is_tx_spendtime_unlocked(uint64_t unlock_time, uint8_t hf_versi
   }
   return false;
 }
+
+bool Blockchain::get_maximum_block_id_height(transaction& tx, uint8_t version, uint64_t* pmax_used_block_height, crypto::hash* pmax_used_block_id)
+{
+
+  crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
+  std::vector<std::vector<rct::ctkey>> pubkeys(tx.vin.size());
+  size_t sig_index = 0;
+      
+  for (const auto& txin : tx.vin)
+    {
+      CHECK_AND_ASSERT_MES(txin.type() == typeid(txin_to_key), false, "wrong type id in tx input at Blockchain::check_tx_inputs");
+      const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+
+      CHECK_AND_ASSERT_MES(in_to_key.key_offsets.size(), false, "empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
+
+      if (tx.version == 1)
+        {
+          // basically, make sure number of inputs == number of signatures
+          CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
+        }
+
+      // make sure that output being spent matches up correctly with the
+      // signature spending it.
+      if (!check_tx_input(tx.version, in_to_key, tx_prefix_hash, tx.version == 1 ? tx.signatures[sig_index] : std::vector<crypto::signature>(), tx.rct_signatures, pubkeys[sig_index], pmax_used_block_height, version))
+        {
+          // MERROR_VER("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
+          // if (pmax_used_block_height) // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
+          //   {
+          //     MERROR_VER("  *pmax_used_block_height: " << *pmax_used_block_height);
+          //   }
+
+          return false;
+        }
+
+      sig_index++;
+    }
+
+  *pmax_used_block_id = m_db->get_block_hash_from_height(*pmax_used_block_height);
+  return true;
+}
+
 //------------------------------------------------------------------
 // This function locates all outputs associated with a given input (mixins)
 // and validates that they exist and are usable.  It also checks the ring
