@@ -34,6 +34,7 @@
 #include <string>
 #include <utility>
 #include <list>
+#include <stdint.h>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"

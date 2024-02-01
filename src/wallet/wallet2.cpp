@@ -1821,7 +1821,7 @@ void reattach_blockchain(hashchain &blockchain, wallet2::detached_blockchain_dat
 }
 //----------------------------------------------------------------------------------------------------
 bool has_nonrequested_tx_at_height_or_above_requested(uint64_t height, const std::unordered_set<crypto::hash> &requested_txids, const wallet2::transfer_container &transfers,
-    const wallet2::payment_container &payments, const serializable_unordered_map<crypto::hash, wallet2::confirmed_transfer_details> &confirmed_txs)
+    const wallet2::payment_container &payments, const std::unordered_map<crypto::hash, wallet2::confirmed_transfer_details> &confirmed_txs)
 {
   for (const auto &td : transfers)
     if (td.m_block_height >= height && requested_txids.find(td.m_txid) == requested_txids.end())
@@ -7304,9 +7304,7 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     crypto::key_derivation derivation;
     std::vector<crypto::key_derivation> additional_derivations;
 
-    // compute public keys from out secret keys
-    crypto::public_key tx_pub_key;
-    crypto::secret_key_to_public_key(txs[n].tx_key, tx_pub_key);
+    crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
     std::vector<crypto::public_key> additional_tx_pub_keys;
     for (const crypto::secret_key &skey: txs[n].additional_tx_keys)
     {
@@ -8685,6 +8683,26 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     COMMAND_RPC_GET_OUTPUTS_BIN::request req = AUTO_VAL_INIT(req);
     COMMAND_RPC_GET_OUTPUTS_BIN::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
 
+    // The secret picking order contains outputs in the order that we selected them.
+    //
+    // We will later sort the output request entries in a pre-determined order so that the daemon
+    // that we're requesting information from doesn't learn any information about the true spend
+    // for each ring. However, internally, we want to prefer to construct our rings using the
+    // outputs that we picked first versus outputs picked later.
+    //
+    // The reason why is because each consecutive output pick within a ring becomes increasing less
+    // statistically independent from other picks, since we pick outputs from a finite set
+    // *without replacement*, due to the protocol not allowing duplicate ring members. This effect
+    // is exacerbated by the fact that we pick 1.5x + 75 as many outputs as we need per RPC
+    // request to account for unusable outputs. This effect is small, but non-neglibile and gets
+    // worse with larger ring sizes.
+    std::vector<get_outputs_out> secret_picking_order;
+
+    // Convenience/safety lambda to make sure that both output lists req.outputs and secret_picking_order are updated together
+    // Each ring section of req.outputs gets sorted later after selecting all outputs for that ring
+    const auto add_output_to_lists = [&req, &secret_picking_order](const get_outputs_out &goo)
+      { req.outputs.push_back(goo); secret_picking_order.push_back(goo); };
+
     std::unique_ptr<gamma_picker> gamma;
     if (has_rct)
       gamma.reset(new gamma_picker(rct_offsets));
@@ -8819,7 +8837,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
             if (out < num_outs)
             {
               MINFO("Using it");
-              req.outputs.push_back({amount, out});
+              add_output_to_lists({amount, out});
               ++num_found;
               seen_indices.emplace(out);
               if (out == td.m_global_output_index)
@@ -8841,12 +8859,12 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (num_outs <= requested_outputs_count)
       {
         for (uint64_t i = 0; i < num_outs; i++)
-          req.outputs.push_back({amount, i});
+          add_output_to_lists({amount, i});
         // duplicate to make up shortfall: this will be caught after the RPC call,
         // so we can also output the amounts for which we can't reach the required
         // mixin after checking the actual unlockedness
         for (uint64_t i = num_outs; i < requested_outputs_count; ++i)
-          req.outputs.push_back({amount, num_outs - 1});
+          add_output_to_lists({amount, num_outs - 1});
       }
       else
       {
@@ -8855,7 +8873,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         {
           num_found = 1;
           seen_indices.emplace(td.m_global_output_index);
-          req.outputs.push_back({amount, td.m_global_output_index});
+          add_output_to_lists({amount, td.m_global_output_index});
           LOG_PRINT_L1("Selecting real output: " << td.m_global_output_index << " for " << print_money(amount));
         }
 
@@ -8963,7 +8981,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           seen_indices.emplace(i);
 
           picks[type].insert(i);
-          req.outputs.push_back({amount, i});
+          add_output_to_lists({amount, i});
           ++num_found;
           MDEBUG("picked " << i << ", " << num_found << " now picked");
         }
@@ -8977,7 +8995,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         // we'll error out later
         while (num_found < requested_outputs_count)
         {
-          req.outputs.push_back({amount, 0});
+          add_output_to_lists({amount, 0});
           ++num_found;
         }
       }
@@ -8987,6 +9005,10 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           [](const get_outputs_out &a, const get_outputs_out &b) { return a.index < b.index; });
     }
 
+    THROW_WALLET_EXCEPTION_IF(req.outputs.size() != secret_picking_order.size(), error::wallet_internal_error,
+        "bug: we did not update req.outputs/secret_picking_order in tandem");
+
+    // List all requested outputs to debug log
     if (ELPP->vRegistry()->allowed(el::Level::Debug, MONERO_DEFAULT_LOG_CATEGORY))
     {
       std::map<uint64_t, std::set<uint64_t>> outs;
@@ -9104,18 +9126,21 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         }
       }
 
-      // then pick others in random order till we reach the required number
-      // since we use an equiprobable pick here, we don't upset the triangular distribution
-      std::vector<size_t> order;
-      order.resize(requested_outputs_count);
-      for (size_t n = 0; n < order.size(); ++n)
-        order[n] = n;
-      std::shuffle(order.begin(), order.end(), crypto::random_device{});
-
+      // While we are still lacking outputs in this result ring, in our secret pick order...
       LOG_PRINT_L2("Looking for " << (fake_outputs_count+1) << " outputs of size " << print_money(td.is_rct() ? 0 : td.amount()));
-      for (size_t o = 0; o < requested_outputs_count && outs.back().size() < fake_outputs_count + 1; ++o)
+      for (size_t ring_pick_idx = base; ring_pick_idx < base + requested_outputs_count && outs.back().size() < fake_outputs_count + 1; ++ring_pick_idx)
       {
-        size_t i = base + order[o];
+        const get_outputs_out attempted_output = secret_picking_order[ring_pick_idx];
+
+        // Find the index i of our pick in the request/response arrays
+        size_t i;
+        for (i = base; i < base + requested_outputs_count; ++i)
+          if (req.outputs[i].index == attempted_output.index)
+            break;
+        THROW_WALLET_EXCEPTION_IF(i == base + requested_outputs_count, error::wallet_internal_error,
+          "Could not find index of picked output in requested outputs");
+
+        // Try adding this output's information to result ring if output isn't invalid
         LOG_PRINT_L2("Index " << i << "/" << requested_outputs_count << ": idx " << req.outputs[i].index << " (real " << td.m_global_output_index << "), unlocked " << daemon_resp.outs[i].unlocked << ", key " << daemon_resp.outs[i].key);
         tx_add_fake_output(outs, req.outputs[i].index, daemon_resp.outs[i].key, daemon_resp.outs[i].mask, td.m_global_output_index, daemon_resp.outs[i].unlocked, valid_public_keys_cache);
       }
@@ -12008,7 +12033,7 @@ std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t,
   }
 
   // collect all subaddress spend keys that received those outputs and generate their signatures
-  serializable_unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
+  std::unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
   for (const cryptonote::subaddress_index &index : subaddr_indices)
   {
     crypto::secret_key subaddr_spend_skey = m_account.get_keys().m_spend_secret_key;
@@ -12053,7 +12078,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
 
   bool loaded = false;
   std::vector<reserve_proof_entry> proofs;
-  serializable_unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
+  std::unordered_map<crypto::public_key, crypto::signature> subaddr_spendkeys;
   try
   {
     binary_archive<false> ar{epee::strspan<std::uint8_t>(sig_decoded)};
@@ -12067,7 +12092,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   {
     std::istringstream iss(sig_decoded);
     boost::archive::portable_binary_iarchive ar(iss);
-    ar >> proofs >> subaddr_spendkeys.parent();
+    ar >> proofs >> subaddr_spendkeys;
   }
 
   THROW_WALLET_EXCEPTION_IF(subaddr_spendkeys.count(address.m_spend_public_key) == 0, error::wallet_internal_error,
@@ -12311,7 +12336,7 @@ std::string wallet2::get_description() const
   return "";
 }
 
-const std::pair<serializable_map<std::string, std::string>, std::vector<std::string>>& wallet2::get_account_tags()
+const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& wallet2::get_account_tags()
 {
   // ensure consistency
   if (m_account_tags.second.size() != get_num_subaddress_accounts())

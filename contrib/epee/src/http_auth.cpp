@@ -217,15 +217,13 @@ namespace
   //// Digest Authentication
 
   template<typename Digest>
-  typename std::result_of<Digest()>::type generate_a1(
-    Digest digest, const http::login& creds, const boost::string_ref realm)
+  auto generate_a1(Digest digest, const http::login& creds, const boost::string_ref realm)
   {
     return digest(creds.username, u8":", realm, u8":", creds.password);
   }
 
   template<typename Digest>
-  typename std::result_of<Digest()>::type generate_a1(
-    Digest digest, const http::http_client_auth::session& user)
+  auto generate_a1(Digest digest, const http::http_client_auth::session& user)
   {
     return generate_a1(std::move(digest), user.credentials, user.server.realm);
   }

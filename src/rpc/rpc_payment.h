@@ -148,8 +148,8 @@ namespace cryptonote
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
-      a & m_client_info.parent();
-      a & m_hashrate.parent();
+      a & m_client_info;
+      a & m_hashrate;
       a & m_credits_total;
       a & m_credits_used;
       a & m_nonces_good;
@@ -177,9 +177,9 @@ namespace cryptonote
     cryptonote::account_public_address m_address;
     uint64_t m_diff;
     uint64_t m_credits_per_hash_found;
-    serializable_unordered_map<crypto::public_key, client_info> m_client_info;
+    std::unordered_map<crypto::public_key, client_info> m_client_info;
     std::string m_directory;
-    serializable_map<uint64_t, uint64_t> m_hashrate;
+    std::map<uint64_t, uint64_t> m_hashrate;
     uint64_t m_credits_total;
     uint64_t m_credits_used;
     uint64_t m_nonces_good;
