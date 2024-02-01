@@ -231,6 +231,7 @@ namespace epee
       default: 
         CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << type);
       }
+      return read_ae<int8_t>(); // unreachable, dummy return to avoid compiler warning
     }
 
     inline 
@@ -322,6 +323,7 @@ namespace epee
       default: 
         CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << ent_type);
       }
+      return read_se<int8_t>(); // unreachable, dummy return to avoid compiler warning
     }
     inline 
     void throwable_buffer_reader::read(section& sec)

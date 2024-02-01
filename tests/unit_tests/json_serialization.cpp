@@ -13,6 +13,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "serialization/json_object.h"
+#include "rpc/daemon_messages.h"
 
 
 namespace test
@@ -240,3 +241,9 @@ TEST(JsonSerialization, BulletproofTransaction)
     EXPECT_EQ(tx_bytes, tx_copy_bytes);
 }
 
+TEST(JsonRpcSerialization, HandlerFromJson)
+{
+  cryptonote::rpc::FullMessage req_full("{\"jsonrpc\":\"2.0\",\"method\":\"get_hashes_fast\",\"params\":[1]}", true);
+  cryptonote::rpc::GetHashesFast::Request request{};
+  EXPECT_THROW(request.fromJson(req_full.getMessage()), cryptonote::json::WRONG_TYPE);
+}

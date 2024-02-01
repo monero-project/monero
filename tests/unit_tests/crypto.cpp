@@ -307,17 +307,21 @@ TEST(Crypto, tree_branch)
   ASSERT_FALSE(crypto::tree_branch((const char(*)[32])inputs, 5, crypto::null_hash.data, (char(*)[32])branch, &depth, &path));
 
   // depth encoding roundtrip
-  for (uint32_t n_chains = 1; n_chains <= 65; ++n_chains)
+  for (uint32_t n_chains = 1; n_chains <= 256; ++n_chains)
   {
-    for (uint32_t nonce = 0; nonce < 1024; ++nonce)
+    for (uint32_t nonce = 0xffffffff - 512; nonce != 1025; ++nonce)
     {
-      const uint32_t depth = cryptonote::encode_mm_depth(n_chains, nonce);
+      const uint64_t depth = cryptonote::encode_mm_depth(n_chains, nonce);
       uint32_t n_chains_2, nonce_2;
       ASSERT_TRUE(cryptonote::decode_mm_depth(depth, n_chains_2, nonce_2));
       ASSERT_EQ(n_chains, n_chains_2);
       ASSERT_EQ(nonce, nonce_2);
     }
   }
+
+  // 257 chains is too much
+  try { cryptonote::encode_mm_depth(257, 0); ASSERT_TRUE(false); }
+  catch (...) {}
 }
 
 TEST(Crypto, generator_consistency)

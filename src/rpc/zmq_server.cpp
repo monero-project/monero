@@ -158,13 +158,22 @@ void ZmqServer::serve()
 
       if (!pub || sockets[2].revents)
       {
-        std::string message = MONERO_UNWRAP(net::zmq::receive(rep.get(), read_flags));
-        MDEBUG("Received RPC request: \"" << message << "\"");
-        epee::byte_slice response = handler.handle(std::move(message));
+        expect<std::string> message = net::zmq::receive(rep.get(), read_flags);
+        if (!message)
+        {
+          // EAGAIN can occur when using `zmq_poll`, which doesn't inspect for message validity
+          if (message != net::zmq::make_error_code(EAGAIN))
+            MONERO_THROW(message.error(), "Read failure on ZMQ-RPC");
+        }
+        else // no errors
+        {
+          MDEBUG("Received RPC request: \"" << *message << "\"");
+          epee::byte_slice response = handler.handle(std::move(*message));
 
-        const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
-        MDEBUG("Sending RPC reply: \"" << response_view << "\"");
-        MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
+          const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
+          MDEBUG("Sending RPC reply: \"" << response_view << "\"");
+          MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
+        }
       }
     }
   }
