@@ -1080,6 +1080,12 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
+    else if (req.unlock_time)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME;
+      er.message = "Transaction cannot have non-zero unlock time";
+      return false;
+    }
 
     CHECK_MULTISIG_ENABLED();
 
@@ -1093,7 +1099,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices, req.subtract_fee_from_outputs);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, priority, extra, req.account_index, req.subaddr_indices, req.subtract_fee_from_outputs);
 
       if (ptx_vector.empty())
       {
@@ -1134,6 +1140,12 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
+    else if (req.unlock_time)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME;
+      er.message = "Transaction cannot have non-zero unlock time";
+      return false;
+    }
 
     CHECK_MULTISIG_ENABLED();
 
@@ -1148,7 +1160,7 @@ namespace tools
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, req.unlock_time, priority, extra, req.account_index, req.subaddr_indices);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, priority, extra, req.account_index, req.subaddr_indices);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
 
       if (ptx_vector.empty())
@@ -1570,6 +1582,12 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
+    else if (req.unlock_time)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME;
+      er.message = "Transaction cannot have non-zero unlock time";
+      return false;
+    }
 
     CHECK_MULTISIG_ENABLED();
 
@@ -1605,7 +1623,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, req.unlock_time, priority, extra, req.account_index, subaddr_indices);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, priority, extra, req.account_index, subaddr_indices);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.amounts_by_dest_list, res.fee_list, res.weight_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
           res.tx_hash_list, req.get_tx_hex, res.tx_blob_list, req.get_tx_metadata, res.tx_metadata_list, res.spent_key_images_list, er);
@@ -1628,6 +1646,12 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_DENIED;
       er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    else if (req.unlock_time)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME;
+      er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
 
@@ -1662,7 +1686,7 @@ namespace tools
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
       uint32_t priority = m_wallet->adjust_priority(req.priority);
-      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, req.unlock_time, priority, extra);
+      std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, priority, extra);
 
       if (ptx_vector.empty())
       {
