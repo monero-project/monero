@@ -310,7 +310,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   crypto::secret_key multisig_tx_key_entropy;
   auto sources_copy = sources;
   multisig::signing::tx_builder_ringct_t tx_builder;
-  CHECK_AND_ASSERT_MES(tx_builder.init(miner_account[creator].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 4}, true, false, tx_key, additional_tx_secret_keys, multisig_tx_key_entropy, tx), false, "error: multisig::signing::tx_builder_ringct_t::init");
+  CHECK_AND_ASSERT_MES(tx_builder.init(miner_account[creator].get_keys(), {}, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 4}, true, false, tx_key, additional_tx_secret_keys, multisig_tx_key_entropy, tx), false, "error: multisig::signing::tx_builder_ringct_t::init");
 
   // work out the permutation done on sources
   std::vector<size_t> ins_order;
@@ -399,7 +399,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     }
     tools::apply_permutation(ins_order, k);
     multisig::signing::tx_builder_ringct_t signer_tx_builder;
-    CHECK_AND_ASSERT_MES(signer_tx_builder.init(miner_account[signer].get_keys(), {}, 0, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 4}, true, true, tx_key, additional_tx_secret_keys, multisig_tx_key_entropy, tx), false, "error: multisig::signing::tx_builder_ringct_t::init");
+    CHECK_AND_ASSERT_MES(signer_tx_builder.init(miner_account[signer].get_keys(), {}, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 4}, true, true, tx_key, additional_tx_secret_keys, multisig_tx_key_entropy, tx), false, "error: multisig::signing::tx_builder_ringct_t::init");
 
     MDEBUG("signing with k size " << k.size());
     for (size_t n = 0; n < multisig::signing::kAlphaComponents; ++n)

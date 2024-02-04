@@ -235,6 +235,15 @@ namespace cryptonote
       return false;
     }
 
+    if (!kept_by_block && tx.unlock_time)
+    {
+      LOG_PRINT_L1("transaction unlock time is not zero: " << tx.unlock_time);
+      tvc.m_verifivation_failed = true;
+      tvc.m_nonzero_unlock_time = true;
+      tvc.m_no_drop_offense = true;
+      return false;
+    }
+
     // if the transaction came from a block popped from the chain,
     // don't check if we have its key images as spent.
     // TODO: Investigate why not?
