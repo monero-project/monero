@@ -162,9 +162,17 @@ namespace cryptonote
       return false;
     }
 
-    // fee per kilobyte, size rounded up.
-    const uint64_t fee = get_tx_fee(tx);
-    if (!kept_by_block && !m_blockchain.check_fee(tx_weight, fee))
+    uint64_t fee;
+    bool fee_good = false;
+    try
+    {
+      // get_tx_fee() can throw. It shouldn't throw because we check preconditions in
+      // ver_non_input_consensus(), but let's put it in a try block just in case.
+      fee = get_tx_fee(tx);
+      fee_good = kept_by_block || m_blockchain.check_fee(tx_weight, fee);
+    }
+    catch(...) {}
+    if (!fee_good) // if fee calculation failed or fee in relayed tx is too low...
     {
       tvc.m_verifivation_failed = true;
       tvc.m_fee_too_low = true;
