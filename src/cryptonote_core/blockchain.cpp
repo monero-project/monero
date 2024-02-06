@@ -2095,7 +2095,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
           .hash = txid,
           .blob_size = tx_blob.size(),
           .weight = get_transaction_weight(tx),
-          .res = tx_relay != relay_method::block}});
+          .res = true}});
     }
     extra_block_txs.txs_by_txid.clear();
     extra_block_txs.nic_verified_hf_version = 0;

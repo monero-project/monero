@@ -1081,7 +1081,7 @@ namespace cryptonote
         .hash = tx_hash,
         .blob_size = blob.size(),
         .weight = tx_weight,
-        .res = tx_relay != relay_method::block}});
+        .res = true}});
 
     return res;
   }
