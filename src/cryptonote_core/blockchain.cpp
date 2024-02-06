@@ -2071,10 +2071,12 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     }
 
     // Add pool supplement txs to the main mempool with relay_method::block
+
     for (auto& extra_block_tx : extra_block_txs.txs_by_txid)
     {
       const crypto::hash& txid = extra_block_tx.first;
       transaction& tx = extra_block_tx.second.first;
+      const blobdata &tx_blob = extra_block_tx.second.second;
 
       tx_verification_context tvc{};
       if (!m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version)
@@ -2086,8 +2088,17 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
         return false;
       }
 
-      extra_block_txs.txs_by_txid.erase(txid);
+      // If new incoming tx in alt block passed verification and entered the pool, notify ZMQ
+      if (!tvc.m_verifivation_failed && tvc.m_added_to_pool)
+        notify_txpool_event({txpool_event{
+          .tx = tx,
+          .hash = txid,
+          .blob_size = tx_blob.size(),
+          .weight = get_transaction_weight(tx),
+          .res = tx_relay != relay_method::block}});
     }
+    extra_block_txs.txs_by_txid.clear();
+    extra_block_txs.nic_verified_hf_version = 0;
 
     bei.block_cumulative_weight = cryptonote::get_transaction_weight(b.miner_tx);
     for (const crypto::hash &txid: b.tx_hashes)

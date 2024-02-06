@@ -318,13 +318,13 @@ namespace cryptonote
           add_tx_to_transient_lists(id, meta.fee / (double)(tx_weight ? tx_weight : 1), receive_time);
         }
         lock.commit();
+        tvc.m_added_to_pool = !existing_tx;
       }
       catch (const std::exception &e)
       {
         MERROR("internal error: error adding transaction to txpool: " << e.what());
         return false;
       }
-      tvc.m_added_to_pool = true;
 
       static_assert(unsigned(relay_method::none) == 0, "expected relay_method::none value to be zero");
       if(meta.fee > 0 && tx_relay != relay_method::forward)
@@ -337,13 +337,6 @@ namespace cryptonote
     ++m_cookie;
 
     MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size());
-    if (tvc.m_added_to_pool && meta.matches(relay_category::legacy))
-      m_blockchain.notify_txpool_event({txpool_event{
-        .tx = tx,
-        .hash = id,
-        .blob_size = blob.size(),
-        .weight = tx_weight,
-        .res = !kept_by_block}});
 
     prune(m_txpool_max_weight);
 

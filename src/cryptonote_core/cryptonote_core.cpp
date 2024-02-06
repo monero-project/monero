@@ -767,6 +767,8 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
   {
+    tvc = {};
+
     TRY_ENTRY();
 
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
@@ -786,17 +788,6 @@ namespace cryptonote
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
       tvc.m_verifivation_failed = true;
       return false;
-    }
-
-    if (m_mempool.have_tx(txid, relay_category::legacy))
-    {
-      LOG_PRINT_L2("already have tx " << txid << " in pool");
-      return true;
-    }
-    else if (m_blockchain_storage.have_tx(txid))
-    {
-      LOG_PRINT_L2("already have tx " << txid << " in blockchain");
-      return true;
     }
 
     const uint64_t tx_weight = get_transaction_weight(tx, tx_blob.size());
@@ -1081,7 +1072,18 @@ namespace cryptonote
     }
 
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    return m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
+    const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
+
+    // If new incoming tx passed verification and entered the pool, notify ZMQ
+    if (!tvc.m_verifivation_failed && tvc.m_added_to_pool)
+      m_blockchain_storage.notify_txpool_event({txpool_event{
+        .tx = tx,
+        .hash = tx_hash,
+        .blob_size = blob.size(),
+        .weight = tx_weight,
+        .res = tx_relay != relay_method::block}});
+
+    return res;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::relay_txpool_transactions()
