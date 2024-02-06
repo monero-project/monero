@@ -612,7 +612,7 @@ namespace cryptonote
       //   1) list of transaction blobs for txids in this block which are known (have_tx)
       //   2) list of transaction indices in this block where its hash is yet unkown (need_tx_indices)
       // We also remove tx entrys from extra_block_txs which we already knew about before this notification
-      for(size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
+      for (size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
       {
         const crypto::hash &tx_hash = new_block.tx_hashes[tx_idx];
 

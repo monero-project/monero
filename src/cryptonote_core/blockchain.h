@@ -1224,11 +1224,13 @@ namespace cryptonote
 
     bool m_batch_success;
 
+    TxpoolNotifyCallback m_txpool_notifier;
+    mutable std::mutex m_txpool_notifier_mutex;
+
     /* `boost::function` is used because the implementation never allocates if
        the callable object has a single `std::shared_ptr` or `std::weap_ptr`
        internally. Whereas, the libstdc++ `std::function` will allocate. */
 
-    TxpoolNotifyCallback m_txpool_notifier;
     std::vector<BlockNotifyCallback> m_block_notifiers;
     std::vector<MinerNotifyCallback> m_miner_notifiers;
     std::shared_ptr<tools::Notify> m_reorg_notify;

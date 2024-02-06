@@ -1135,7 +1135,7 @@ namespace cryptonote
       return false;
 
     /* Publish txs via ZMQ that are "just broadcasted" by the daemon. This is
-       done here in addition to `handle_incoming_tx` in order to guarantee txs
+       done here in order to guarantee txs
        are pub'd via ZMQ when we know the daemon has/will broadcast to other
        nodes & *after* the tx is visible in the pool. This should get called
        when the user submits a tx to a daemon in the "fluff" epoch relaying txs

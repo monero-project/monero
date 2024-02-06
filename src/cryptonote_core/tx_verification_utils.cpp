@@ -340,14 +340,25 @@ bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc
 }
 
 bool ver_non_input_consensus(const pool_supplement& ps, tx_verification_context& tvc,
-    std::uint8_t hf_version)
+    const std::uint8_t hf_version)
 {
+    // We already verified the pool supplement for this hard fork version! Yippee!
+    if (ps.nic_verified_hf_version == hf_version)
+        return true;
+
     const auto it_transform = [] (const decltype(ps.txs_by_txid)::value_type& in)
         -> const transaction& { return in.second.first; };
-
     const auto tx_begin = boost::make_transform_iterator(ps.txs_by_txid.cbegin(), it_transform);
     const auto tx_end = boost::make_transform_iterator(ps.txs_by_txid.cend(), it_transform);
-    return ver_non_input_consensus_templated(tx_begin, tx_end, tvc, hf_version);
+
+    // Perform the checks...
+    const bool verified = ver_non_input_consensus_templated(tx_begin, tx_end, tvc, hf_version);
+
+    // Cache the hard fork version on success
+    if (verified)
+        ps.nic_verified_hf_version = hf_version;
+
+    return verified;
 }
 
 } // namespace cryptonote

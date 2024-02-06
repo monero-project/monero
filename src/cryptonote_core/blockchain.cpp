@@ -2077,8 +2077,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       transaction& tx = extra_block_tx.second.first;
 
       tx_verification_context tvc{};
-      if (!m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version) ||
-          tvc.m_verifivation_failed)
+      if (!m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version)
+          || tvc.m_verifivation_failed)
       {
         MERROR_VER("Transaction " << txid <<
           " in pool supplement failed to enter main pool for alt block " << id);
@@ -4283,18 +4283,12 @@ leave:
 #endif
   {
     tx_verification_context tvc{};
-    // If pool supplement not verified for this HF version...
-    if (extra_block_txs.nic_verified_hf_version != hf_version)
+    // If fail non-input consensus rule checking...
+    if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
     {
-      // If fail non-input consensus rule checking...
-      if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
-      {
-        MERROR_VER("Pool supplement provided for block with id: " << id << " failed to pass validation");
-        bvc.m_verifivation_failed = true;
-        goto leave;
-      }
-      // Otherwise, mark this pool supplement as verified for this HF version
-      extra_block_txs.nic_verified_hf_version = hf_version;
+      MERROR_VER("Pool supplement provided for block with id: " << id << " failed to pass validation");
+      bvc.m_verifivation_failed = true;
+      goto leave;
     }
   }
 
@@ -4309,7 +4303,7 @@ leave:
   std::vector<txpool_event> txpool_events;
 
   // this lambda returns relevant txs back to the mempool
-  auto return_txs_to_pool = [this, &txs, &txs_meta]()
+  auto return_txs_to_pool = [this, &txs, &txs_meta, &hf_version]()
   {
     if (txs_meta.size() != txs.size())
     {
@@ -4317,7 +4311,6 @@ leave:
       return;
     }
 
-    const uint8_t version = get_current_hard_fork_version();
     for (size_t i = 0; i < txs.size(); ++i)
     {
       // if this transaction wasn't ever in the pool, don't return it back to the pool
@@ -4338,7 +4331,8 @@ leave:
       // from the mempool earlier in this function call, when the mempool has the same current fork
       // version, we can return it without re-verifying the consensus rules on it.
       cryptonote::tx_verification_context tvc{};
-      if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true, version, version))
+      if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true,
+          hf_version, hf_version))
         MERROR("Failed to return taken transaction with hash: " << txid << " to tx_pool");
     }
   };
@@ -4590,8 +4584,7 @@ leave:
   send_miner_notifications(new_height, seedhash, id, already_generated_coins);
 
   // Make sure that txpool notifications happen BEFORE block notifications
-  if (m_txpool_notifier)
-    m_txpool_notifier(std::move(txpool_events));
+  notify_txpool_event(std::move(txpool_events));
 
   for (const auto& notifier: m_block_notifiers)
     notifier(new_height - 1, {std::addressof(bl), 1});
@@ -5507,7 +5500,7 @@ void Blockchain::set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint
 
 void Blockchain::set_txpool_notify(TxpoolNotifyCallback&& notify)
 {
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  std::lock_guard<decltype(m_txpool_notifier_mutex)> lg(m_txpool_notifier_mutex);
   m_txpool_notifier = notify;
 }
 
@@ -5531,9 +5524,18 @@ void Blockchain::add_miner_notify(MinerNotifyCallback&& notify)
 
 void Blockchain::notify_txpool_event(std::vector<txpool_event>&& event)
 {
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  std::lock_guard<decltype(m_txpool_notifier_mutex)> lg(m_txpool_notifier_mutex);
   if (m_txpool_notifier)
-    m_txpool_notifier(std::forward<std::vector<txpool_event>>(event));
+  {
+    try
+    {
+      m_txpool_notifier(event);
+    }
+    catch (const std::exception &e)
+    {
+      MDEBUG("During Blockchain::notify_txpool_event(), ignored exception: " << e.what());
+    }
+  }
 }
 
 void Blockchain::safesyncmode(const bool onoff)
