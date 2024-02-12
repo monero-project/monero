@@ -99,7 +99,9 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_btc_valid(false),
   m_batch_success(true),
   m_prepare_height(0),
-  m_rct_ver_cache()
+  m_rct_ver_cache(),
+  timestamps_cache(CRYPTONOTE_BLOCKCHAIN_TIMESTAMPS_CACHE_SIZE),
+  difficulties_cache(CRYPTONOTE_BLOCKCHAIN_DIFFICULTY_CACHE_SIZE)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -933,9 +935,18 @@ start:
     ss << "Looking up " << (height - offset) << " from " << offset << std::endl;
     for (; offset < height; offset++)
     {
-      timestamps.push_back(m_db->get_block_timestamp(offset));
-      difficulties.push_back(m_db->get_block_cumulative_difficulty(offset));
-    }
+      if(!timestamps_cache.contains(offset)) {
+        uint64_t timestamp = m_db->get_block_timestamp(offset);
+        timestamps.push_back(timestamp);
+        timestamps_cache.insert(offset, timestamp);
+      } 
+      
+      if(!difficulties_cache.contains(offset)) {
+        cryptonote::difficulty_type difficulty = m_db->get_block_cumulative_difficulty(offset);
+        difficulties.push_back(difficulty);
+        difficulties_cache.insert(offset, difficulty);
+      }
+    }    
 
     if (check) if (timestamps != timestamps_from_cache || difficulties !=difficulties_from_cache)
     {

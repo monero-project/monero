@@ -63,6 +63,8 @@
 #define CRYPTONOTE_SHORT_TERM_BLOCK_WEIGHT_SURGE_FACTOR 50
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
+#define CRYPTONOTE_BLOCKCHAIN_TIMESTAMPS_CACHE_SIZE     200000
+#define CRYPTONOTE_BLOCKCHAIN_DIFFICULTY_CACHE_SIZE     200000
 // COIN - number of smallest units in one coin
 #define COIN                                            ((uint64_t)1000000000000) // pow(10, 12)
 

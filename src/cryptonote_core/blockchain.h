@@ -41,6 +41,7 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/compute/detail/lru_cache.hpp>
 #include <atomic>
 #include <functional>
 #include <unordered_map>
@@ -1134,6 +1135,8 @@ namespace cryptonote
 
     typedef std::unordered_map<crypto::hash, block_extended_info> blocks_ext_by_hash;
 
+    boost::compute::detail::lru_cache<uint64_t, uint64_t> timestamps_cache;
+    boost::compute::detail::lru_cache<uint64_t, cryptonote::difficulty_type> difficulties_cache;
 
     BlockchainDB* m_db;
 
