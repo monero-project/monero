@@ -37,6 +37,7 @@
 #include <boost/mpl/begin_end.hpp>
 #include <boost/mpl/distance.hpp>
 #include <boost/mpl/find.hpp>
+#include <boost/mpl/for_each.hpp>
 #include <boost/mpl/vector.hpp>
 #include <boost/none_t.hpp>
 #include <boost/variant/apply_visitor.hpp>
@@ -54,6 +55,18 @@
 
 namespace tools
 {
+namespace detail
+{
+template <class Variant>
+struct value_initialize_on_which
+{
+    template <typename T>
+    void operator()(T) { if (Variant::template type_index_of<T>() == target_which) v = T(); }
+
+    Variant &v;
+    const int target_which;
+};
+} // namespace detail
 
 [[noreturn]] inline void variant_static_visitor_blank_err()
 { throw std::runtime_error("variant: tried to visit an empty variant."); }
@@ -148,14 +161,24 @@ public:
 
     /// apply a visitor to the variant
     template <typename VisitorT>
-    typename VisitorT::result_type visit(VisitorT &&visitor)
+    decltype(auto) visit(VisitorT &&visitor) // decltype(auto) since it forwards the return ref type correctly
     {
         return boost::apply_visitor(std::forward<VisitorT>(visitor), m_value);
     }
     template <typename VisitorT>
-    typename VisitorT::result_type visit(VisitorT &&visitor) const
+    decltype(auto) visit(VisitorT &&visitor) const // decltype(auto) since it forwards the return ref type correctly
     {
         return boost::apply_visitor(std::forward<VisitorT>(visitor), m_value);
+    }
+
+    /// value initialize the variant based on a type index
+    void value_initialize_to_type_index(const int which)
+    {
+        if (which < 0 || which >= boost::mpl::size<typename VType::types>::type::value)
+            throw std::runtime_error("value_initialize_to_type_index: type index of out range");
+
+        detail::value_initialize_on_which<variant> viow{*this, which};
+        boost::mpl::for_each<typename VType::types>(viow);
     }
 
 private:
