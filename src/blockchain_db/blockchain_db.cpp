@@ -184,7 +184,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   const transaction &tx = txp.first;
 
   bool miner_tx = false;
-  crypto::hash tx_hash, tx_prunable_hash;
+  crypto::hash tx_hash, tx_prunable_hash = crypto::null_hash;
   if (!tx_hash_ptr)
   {
     // should only need to compute hash for miner transactions
@@ -221,7 +221,21 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
     }
   }
 
-  uint64_t tx_id = add_transaction_data(blk_hash, txp, tx_hash, tx_prunable_hash);
+  // Calculate tx unprunable size if not already cached
+  size_t unprunable_size = txp.first.unprunable_size;
+  if (0 == unprunable_size)
+  {
+    std::stringstream ss;
+    binary_archive<true> ba(ss);
+    bool r = const_cast<cryptonote::transaction&>(txp.first).serialize_base(ba);
+    if (!r)
+      throw DB_ERROR("Failed to serialize pruned tx");
+    unprunable_size = ss.str().size();
+  }
+
+  // Add transaction blobs and related hashes to DB
+  const uint64_t tx_id = add_transaction_data(blk_hash, txp.second, txp.first.unlock_time,
+    unprunable_size, tx_hash, tx_prunable_hash);
 
   std::vector<uint64_t> amount_output_indices(tx.vout.size());
 
@@ -336,6 +350,10 @@ bool BlockchainDB::is_open() const
 
 void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
 {
+  uint64_t tx_index;
+  if (!tx_exists(tx_hash, tx_index))
+    throw TX_DNE("Cannot remove transaction since it doesn't exist");
+
   transaction tx = get_pruned_tx(tx_hash);
 
   for (const txin_v& tx_input : tx.vin)
@@ -346,8 +364,19 @@ void BlockchainDB::remove_transaction(const crypto::hash& tx_hash)
     }
   }
 
-  // need tx as tx.vout has the tx outputs, and the output amounts are needed
-  remove_transaction_data(tx_hash, tx);
+  // Remove tx output information in backwards vout order
+  const auto amount_output_indices = get_tx_amount_output_indices(tx_index, 1).front();
+  if (amount_output_indices.size() != tx.vout.size())
+    throw DB_ERROR("tx has outputs, but fetched amount indices had different size");
+  const bool is_pseudo_rct = tx.version >= 2 && tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
+  for (size_t i = tx.vout.size(); i-- > 0;)
+  {
+    const uint64_t indexable_amount = is_pseudo_rct ? 0 : tx.vout[i].amount;
+    remove_output(indexable_amount, amount_output_indices[i]);
+  }
+
+  // Remove tx blobs, related hashes, and other misc tx output info
+  remove_transaction_data(tx_hash);
 }
 
 block BlockchainDB::get_block_from_height(const uint64_t& height) const
@@ -406,6 +435,20 @@ transaction BlockchainDB::get_pruned_tx(const crypto::hash& h) const
   if (!get_pruned_tx(h, tx))
     throw TX_DNE(std::string("pruned tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str());
   return tx;
+}
+
+bool BlockchainDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f, bool pruned) const
+{
+  const auto blob_ref_handler = [&f, pruned](const crypto::hash& txid, blobdata_ref tx_blob_ref) -> bool {
+    cryptonote::transaction tx;
+    if (pruned)
+      CHECK_AND_ASSERT_MES(parse_and_validate_tx_base_from_blob(tx_blob_ref, tx), false, "failed to parse tx base");
+    else
+      CHECK_AND_ASSERT_MES(parse_and_validate_tx_from_blob(tx_blob_ref, tx), false, "failed to parse tx");
+    return f(txid, tx);
+  };
+
+  return for_all_transactions(blob_ref_handler, pruned);
 }
 
 void BlockchainDB::reset_stats()

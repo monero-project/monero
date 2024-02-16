@@ -883,7 +883,9 @@ void BlockchainLMDB::remove_block()
       throw1(DB_ERROR(lmdb_error("Failed to add removal of block info to db transaction: ", result).c_str()));
 }
 
-uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash)
+uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, const blobdata_ref& tx_blob,
+    const uint64_t tx_unlock_time, const size_t unprunable_size, const crypto::hash& tx_hash,
+    const crypto::hash& tx_prunable_hash)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -909,11 +911,10 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
     throw1(DB_ERROR(lmdb_error(std::string("Error checking if tx index exists for tx hash ") + epee::string_tools::pod_to_hex(tx_hash) + ": ", result).c_str()));
   }
 
-  const cryptonote::transaction &tx = txp.first;
   txindex ti;
   ti.key = tx_hash;
   ti.data.tx_id = tx_id;
-  ti.data.unlock_time = tx.unlock_time;
+  ti.data.unlock_time = tx_unlock_time;
   ti.data.block_id = m_height;  // we don't need blk_hash since we know m_height
 
   val_h.mv_size = sizeof(ti);
@@ -923,28 +924,15 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add tx data to db transaction: ", result).c_str()));
 
-  const cryptonote::blobdata_ref &blob = txp.second;
-
-  unsigned int unprunable_size = tx.unprunable_size;
-  if (unprunable_size == 0)
-  {
-    std::stringstream ss;
-    binary_archive<true> ba(ss);
-    bool r = const_cast<cryptonote::transaction&>(tx).serialize_base(ba);
-    if (!r)
-      throw0(DB_ERROR("Failed to serialize pruned tx"));
-    unprunable_size = ss.str().size();
-  }
-
-  if (unprunable_size > blob.size())
+  if (unprunable_size > tx_blob.size())
     throw0(DB_ERROR("pruned tx size is larger than tx size"));
 
-  MDB_val pruned_blob = {unprunable_size, (void*)blob.data()};
+  MDB_val pruned_blob = {unprunable_size, (void*)tx_blob.data()};
   result = mdb_cursor_put(m_cur_txs_pruned, &val_tx_id, &pruned_blob, MDB_APPEND);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add pruned tx blob to db transaction: ", result).c_str()));
 
-  MDB_val prunable_blob = {blob.size() - unprunable_size, (void*)(blob.data() + unprunable_size)};
+  MDB_val prunable_blob = {tx_blob.size() - unprunable_size, (void*)(tx_blob.data() + unprunable_size)};
   result = mdb_cursor_put(m_cur_txs_prunable, &val_tx_id, &prunable_blob, MDB_APPEND);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add prunable tx blob to db transaction: ", result).c_str()));
@@ -957,7 +945,7 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
       throw0(DB_ERROR(lmdb_error("Failed to add prunable tx id to db transaction: ", result).c_str()));
   }
 
-  if (tx.version > 1)
+  if (tx_prunable_hash != crypto::null_hash)
   {
     MDB_val_set(val_prunable_hash, tx_prunable_hash);
     result = mdb_cursor_put(m_cur_txs_prunable_hash, &val_tx_id, &val_prunable_hash, MDB_APPEND);
@@ -970,7 +958,7 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
 
 // TODO: compare pros and cons of looking up the tx hash's tx index once and
 // passing it in to functions like this
-void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx)
+void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash)
 {
   int result;
 
@@ -1018,16 +1006,14 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
         throw1(DB_ERROR(lmdb_error("Error adding removal of tx id to db transaction", result).c_str()));
   }
 
-  if (tx.version > 1)
-  {
-    if ((result = mdb_cursor_get(m_cur_txs_prunable_hash, &val_tx_id, NULL, MDB_SET)))
-        throw1(DB_ERROR(lmdb_error("Failed to locate prunable hash tx for removal: ", result).c_str()));
-    result = mdb_cursor_del(m_cur_txs_prunable_hash, 0);
-    if (result)
-        throw1(DB_ERROR(lmdb_error("Failed to add removal of prunable hash tx to db transaction: ", result).c_str()));
-  }
-
-  remove_tx_outputs(tip->data.tx_id, tx);
+  // Remove prunable hash
+  result = mdb_cursor_get(m_cur_txs_prunable_hash, &val_tx_id, NULL, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    LOG_PRINT_L1("tx has no prunable hash to remove: " << tx_hash);
+  else if (result)
+    throw1(DB_ERROR(lmdb_error("Failed to locate prunable hash tx for removal: ", result).c_str()));
+  else if ((result = mdb_cursor_del(m_cur_txs_prunable_hash, 0)))
+      throw1(DB_ERROR(lmdb_error("Failed to add removal of prunable hash tx to db transaction: ", result).c_str()));
 
   result = mdb_cursor_get(m_cur_tx_outputs, &val_tx_id, NULL, MDB_SET);
   if (result == MDB_NOTFOUND)
@@ -1134,29 +1120,6 @@ void BlockchainLMDB::add_tx_amount_output_indices(const uint64_t tx_id,
   result = mdb_cursor_put(m_cur_tx_outputs, &k_tx_id, &v, MDB_APPEND);
   if (result)
     throw0(DB_ERROR(std::string("Failed to add <tx hash, amount output index array> to db transaction: ").append(mdb_strerror(result)).c_str()));
-}
-
-void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& tx)
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-
-  std::vector<std::vector<uint64_t>> amount_output_indices_set = get_tx_amount_output_indices(tx_id, 1);
-  const std::vector<uint64_t> &amount_output_indices = amount_output_indices_set.front();
-
-  if (amount_output_indices.empty())
-  {
-    if (tx.vout.empty())
-      LOG_PRINT_L2("tx has no outputs, so no output indices");
-    else
-      throw0(DB_ERROR("tx has outputs, but no output indices found"));
-  }
-
-  bool is_pseudo_rct = tx.version >= 2 && tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
-  for (size_t i = tx.vout.size(); i-- > 0;)
-  {
-    uint64_t amount = is_pseudo_rct ? 0 : tx.vout[i].amount;
-    remove_output(amount, amount_output_indices[i]);
-  }
 }
 
 void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_index)
@@ -3375,20 +3338,6 @@ uint64_t BlockchainLMDB::get_tx_count() const
   return db_stats.ms_entries;
 }
 
-std::vector<transaction> BlockchainLMDB::get_tx_list(const std::vector<crypto::hash>& hlist) const
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-  std::vector<transaction> v;
-
-  for (auto& h : hlist)
-  {
-    v.push_back(get_tx(h));
-  }
-
-  return v;
-}
-
 uint64_t BlockchainLMDB::get_tx_block_height(const crypto::hash& h) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -3649,7 +3598,7 @@ bool BlockchainLMDB::for_blocks_range(const uint64_t& h1, const uint64_t& h2, st
   return fret;
 }
 
-bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f, bool pruned) const
+bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&, blobdata_ref)> f, bool pruned) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3683,25 +3632,22 @@ bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&
       break;
     if (ret)
       throw0(DB_ERROR(lmdb_error("Failed to enumerate transactions: ", ret).c_str()));
-    transaction tx;
+    blobdata owned_txblob;
+    blobdata_ref bdref;
     if (pruned)
     {
-      blobdata_ref bd{reinterpret_cast<char*>(v.mv_data), v.mv_size};
-      if (!parse_and_validate_tx_base_from_blob(bd, tx))
-        throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
+      bdref = {reinterpret_cast<const char*>(v.mv_data), v.mv_size};
     }
     else
     {
-      blobdata bd;
-      bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+      owned_txblob.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
       ret = mdb_cursor_get(m_cur_txs_prunable, &k, &v, MDB_SET);
       if (ret)
         throw0(DB_ERROR(lmdb_error("Failed to get prunable tx data the db: ", ret).c_str()));
-      bd.append(reinterpret_cast<char*>(v.mv_data), v.mv_size);
-      if (!parse_and_validate_tx_from_blob(bd, tx))
-        throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
+      owned_txblob.append(reinterpret_cast<char*>(v.mv_data), v.mv_size);
+      bdref = owned_txblob;
     }
-    if (!f(hash, tx)) {
+    if (!f(hash, bdref)) {
       fret = false;
       break;
     }
