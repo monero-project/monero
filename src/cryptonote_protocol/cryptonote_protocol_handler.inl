@@ -86,6 +86,12 @@ namespace cryptonote
 
     for (const auto& tx_entry: tx_entries)
     {
+      if (tx_entry.blob.size() > get_max_tx_size())
+      {
+        MERROR("Transaction blob of length " << tx_entry.blob.size() << " is too large to unpack!");
+        return false;
+      }
+
       cryptonote::transaction tx;
       crypto::hash tx_hash;
       if (!cryptonote::parse_and_validate_tx_from_blob(tx_entry.blob, tx, tx_hash)
