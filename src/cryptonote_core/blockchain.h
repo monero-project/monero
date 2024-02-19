@@ -113,6 +113,23 @@ namespace cryptonote
     };
 
     /**
+     * @brief serialize the access to blockchain data
+    */
+   
+    bool start_write() {
+      return m_blockchain_transaction.start_write();
+    }
+    void end_write() {
+      m_blockchain_transaction.end_write();      
+    }
+    void start_read() {
+      m_blockchain_transaction.start_read();
+    }
+    void end_read() {
+      m_blockchain_transaction.end_read();
+    }
+
+    /**
      * @brief Blockchain destructor
      */
     ~Blockchain();
@@ -1139,7 +1156,7 @@ namespace cryptonote
 
     tx_memory_pool& m_tx_pool;
 
-    mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
+    mutable epee::reader_writer_lock m_blockchain_transaction;
 
     // main chain
     size_t m_current_block_cumul_weight_limit;
