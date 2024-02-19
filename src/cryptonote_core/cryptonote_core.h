@@ -69,7 +69,7 @@ namespace cryptonote
   extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
   extern const command_line::arg_descriptor<size_t> arg_block_download_max_size;
-  extern const command_line::arg_descriptor<bool> arg_sync_pruned_blocks;
+  extern const command_line::arg_descriptor<bool> arg_no_sync_pruned_blocks;
 
   /************************************************************************/
   /*                                                                      */
