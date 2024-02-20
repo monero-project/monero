@@ -175,8 +175,12 @@ download-linux:
 	@$(MAKE) -s HOST=x86_64-unknown-linux-gnu download-one
 download-win:
 	@$(MAKE) -s HOST=x86_64-w64-mingw32 download-one
-download: download-osx download-linux download-win
+download-freebsd:
+	@$(MAKE) -s HOST=x86_64-unknown-freebsd download-one
+download-android:
+	@$(MAKE) -s HOST=aarch64-linux-android download-one
+download: download-osx download-linux download-win download-freebsd download-android
 
  $(foreach package,$(all_packages),$(eval $(call ext_add_stages,$(package))))
 
-.PHONY: install cached download-one download-osx download-linux download-win download check-packages check-sources
+.PHONY: install cached download-one download-osx download-linux download-win download-freebsd download-android download check-packages check-sources
