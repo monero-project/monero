@@ -51,6 +51,11 @@
 using namespace std;
 using namespace crypto;
 
+static_assert(!std::is_trivially_copyable<std::vector<unsigned char>>(),
+  "should fail to compile when applying blob serializer");
+static_assert(!std::is_trivially_copyable<std::string>(),
+  "should fail to compile when applying blob serializer");
+
 struct Struct
 {
   int32_t a;
