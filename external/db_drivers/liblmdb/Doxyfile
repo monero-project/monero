@@ -863,7 +863,7 @@ HTML_DYNAMIC_SECTIONS  = NO
 # directory and running "make install" will install the docset in
 # ~/Library/Developer/Shared/Documentation/DocSets so that Xcode will find
 # it at startup.
-# See http://developer.apple.com/tools/creatingdocsetswithdoxygen.html
+# See https://developer.apple.com/xcode/resources/
 # for more information.
 
 GENERATE_DOCSET        = NO
