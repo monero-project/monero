@@ -35,7 +35,6 @@ extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
-#include "crypto/x25519.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
