@@ -43,7 +43,7 @@
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
-#include "randomx/src/blake2/blake2.h"
+#include "crypto/blake2b.h"
 #include "../io.h"
 
 using namespace std;
