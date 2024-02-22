@@ -136,16 +136,14 @@ rct::key invert(const rct::key &x)
 void decompose(const std::size_t val, const std::size_t base, const std::size_t size, std::vector<std::size_t> &r_out)
 {
     CHECK_AND_ASSERT_THROW_MES(base > 1, "Bad decomposition parameters!");
-    CHECK_AND_ASSERT_THROW_MES(size > 0, "Bad decomposition parameters!");
     CHECK_AND_ASSERT_THROW_MES(r_out.size() == size, "Bad decomposition result vector size!");
 
     std::size_t temp = val;
 
     for (std::size_t i = 0; i < size; ++i)
     {
-        std::size_t slot = std::pow(base, size - i - 1);
-        r_out[size - i - 1] = temp/slot;
-        temp -= slot*r_out[size - i - 1];
+        r_out[i] = temp % base;
+        temp /= base;
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
