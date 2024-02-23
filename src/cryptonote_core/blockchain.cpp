@@ -2077,6 +2077,8 @@ bool Blockchain::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NO
     e.block = std::move(bl.first);
   }
 
+  get_transactions_blobs(arg.txs, rsp.txs, rsp.missed_ids);
+
   return true;
 }
 //------------------------------------------------------------------
