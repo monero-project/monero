@@ -84,6 +84,12 @@ namespace cryptonote
   {
     pool_supplement.nic_verified_hf_version = 0;
 
+    if (tx_entries.size() > blk_tx_hashes.size())
+    {
+      MERROR("Failed to make pool supplement: Too many transaction blobs!");
+      return false;
+    }
+
     for (const auto& tx_entry: tx_entries)
     {
       if (tx_entry.blob.size() > get_max_tx_size())
@@ -101,7 +107,6 @@ namespace cryptonote
         MERROR("failed to parse and/or validate unpruned transaction as inside block: "
           << epee::string_tools::buff_to_hex_nodelimer(tx_entry.blob)
         );
-
         return false;
       }
 
@@ -111,7 +116,7 @@ namespace cryptonote
     return true;
   }
 
-  inline bool make_pool_supplement_from_block_entry(
+  inline bool make_full_pool_supplement_from_block_entry(
     const cryptonote::block_complete_entry& blk_entry,
     cryptonote::pool_supplement& pool_supplement)
   {
@@ -121,11 +126,18 @@ namespace cryptonote
       MERROR("sent bad block: failed to parse and/or validate block: "
         << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block)
       );
-
       return false;
     }
 
     const std::unordered_set<crypto::hash> blk_tx_hashes(blk.tx_hashes.cbegin(), blk.tx_hashes.cend());
+
+    if (blk_tx_hashes.size() != blk_entry.txs.size())
+    {
+      MERROR("sent bad block entry: number of hashes is not equal number of tx blobs: "
+        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block)
+      );
+      return false;
+    }
 
     return make_pool_supplement_from_block_entry(blk_entry.txs, blk_tx_hashes, pool_supplement);
   }
@@ -1441,7 +1453,7 @@ namespace cryptonote
             num_txs += block_entry.txs.size();
 
             pool_supplement block_txs;
-            if (!make_pool_supplement_from_block_entry(block_entry, block_txs))
+            if (!make_full_pool_supplement_from_block_entry(block_entry, block_txs))
             {
                 drop_connections(span_origin);
                 if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
