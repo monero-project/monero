@@ -2599,7 +2599,7 @@ skip:
       // peer_id also filters out connections before handshake
       if (peer_id && exclude_context.m_connection_id != context.m_connection_id && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
       {
-        LOG_DEBUG_CC(context, "PEER SUPPORTS FLUFFY BLOCKS - RELAYING THIN/COMPACT WHATEVER BLOCK");
+        LOG_DEBUG_CC(context, "RELAYING FLUFFY BLOCK TO PEER");
         fluffyConnections.push_back({context.m_remote_address.get_zone(), context.m_connection_id});
       }
       return true;

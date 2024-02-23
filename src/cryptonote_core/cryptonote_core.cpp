@@ -806,7 +806,7 @@ namespace cryptonote
     }
     else if (!tvc.m_added_to_pool)
     {
-      MDEBUG("Transaction " << txid << " not added not pool");
+      MDEBUG("Transaction " << txid << " not added to pool");
       return true;
     }
 
@@ -1075,13 +1075,15 @@ namespace cryptonote
     const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
 
     // If new incoming tx passed verification and entered the pool, notify ZMQ
-    if (!tvc.m_verifivation_failed && tvc.m_added_to_pool)
+    if (!tvc.m_verifivation_failed && tvc.m_added_to_pool && matches_category(tx_relay, relay_category::legacy))
+    {
       m_blockchain_storage.notify_txpool_event({txpool_event{
         .tx = tx,
         .hash = tx_hash,
         .blob_size = blob.size(),
         .weight = tx_weight,
         .res = true}});
+    }
 
     return res;
   }

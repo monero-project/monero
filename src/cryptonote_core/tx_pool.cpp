@@ -519,6 +519,7 @@ namespace cryptonote
       txpool_tx_meta_t meta;
       if (!m_blockchain.get_txpool_tx_meta(id, meta))
       {
+        MERROR("Failed to find tx_meta in txpool");
         return false;
       }
       txblob = m_blockchain.get_txpool_tx_blob(id, relay_category::all);

@@ -4383,44 +4383,52 @@ leave:
     t_exists += aa;
     TIME_MEASURE_START(bb);
 
-    // get transaction with hash <tx_id> from tx_pool or extra_block_txs
-    // other tx info we want:
+    // get transaction with hash <tx_id> from m_tx_pool or extra_block_txs
+    // tx info we want:
+    //   * tx as `cryptonote::transaction`
+    //   * blob
     //   * weight
     //   * fee
     //   * is pruned?
     txs.emplace_back();
     transaction &tx = txs.back().first;
     blobdata &txblob = txs.back().second;
-
     size_t tx_weight{};
     uint64_t fee{};
     bool pruned{};
-    bool found_tx_in_pool = true;
 
-    bool _unused1, _unused2, _unused3;
-    if(!m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, _unused1, _unused2, _unused3, pruned))
+    bool find_tx_failure = true;
+    m_tx_pool.lock(); // we lock to keep consistent state between have_tx() and take_tx()
+    const bool found_tx_in_pool = m_tx_pool.have_tx(tx_id, relay_category::all);
+    if (found_tx_in_pool) // first try searching mempool proper
     {
-      found_tx_in_pool = false;
-      const auto extra_tx_it = extra_block_txs.txs_by_txid.find(tx_id);
-      if (extra_tx_it != extra_block_txs.txs_by_txid.end()) // if txid exists in provided extra block txs
-      {
-        tx = std::move(extra_tx_it->second.first);
-        txblob = std::move(extra_tx_it->second.second);
-        tx_weight = get_transaction_weight(tx, txblob.size());
-        fee = get_tx_fee(tx);
-        pruned = tx.pruned;
-        extra_block_txs.txs_by_txid.erase(extra_tx_it);
-        txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
-      }
-      else // did not find txid in mempool or provided extra block txs
-      {
-        MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
-        txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
-        bvc.m_verifivation_failed = true;
-        bvc.m_missing_txs = true;
-        return_txs_to_pool();
-        return false;
-      }
+      bool _unused1, _unused2, _unused3;
+      find_tx_failure = !m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, _unused1, _unused2, _unused3, pruned);
+      m_tx_pool.unlock();
+      if (find_tx_failure)
+        MERROR_VER("BUG: Block with id: " << id  << " failed to take tx: " << tx_id);
+    }
+    else if (extra_block_txs.txs_by_txid.count(tx_id)) // next try looking in the block supplement
+    {
+      m_tx_pool.unlock();
+      tx = std::move(extra_block_txs.txs_by_txid[tx_id].first);
+      txblob = std::move(extra_block_txs.txs_by_txid[tx_id].second);
+      tx_weight = get_transaction_weight(tx, txblob.size());
+      fee = get_tx_fee(tx);
+      pruned = tx.pruned;
+      extra_block_txs.txs_by_txid.erase(tx_id);
+      txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
+      find_tx_failure = false;
+    }
+
+    if (find_tx_failure) // did not find txid in mempool or provided extra block txs
+    {
+      MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
+      txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
+      bvc.m_verifivation_failed = true;
+      bvc.m_missing_txs = true;
+      return_txs_to_pool();
+      return false;
     }
     if (pruned)
       ++n_pruned;
