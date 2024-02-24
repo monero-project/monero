@@ -138,6 +138,12 @@ namespace cryptonote
       );
       return false;
     }
+    else if (blk_tx_hashes.size() != blk.tx_hashes.size())
+    {
+      MERROR("sent bad block entry: there are duplicate tx hashes in parsed block: "
+        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block));
+      return false;
+    }
 
     return make_pool_supplement_from_block_entry(blk_entry.txs, blk_tx_hashes, pool_supplement);
   }
@@ -594,6 +600,14 @@ namespace cryptonote
       std::unordered_map<crypto::hash, uint64_t> blk_txids_set;
       for (size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
         blk_txids_set.emplace(new_block.tx_hashes[tx_idx], tx_idx);
+
+      // Check for duplicate txids in parsed block blob
+      if (blk_txids_set.size() != new_block.tx_hashes.size())
+      {
+        MERROR("sent bad block entry: there are duplicate tx hashes in parsed block: "
+          << epee::string_tools::buff_to_hex_nodelimer(arg.b.block));
+        return false;
+      }
 
       // Keeping a map of the full transactions provided in this payload allows us to pass them
       // directly to core::handle_incoming_block() -> Blockchain::add_block(), which means we can
