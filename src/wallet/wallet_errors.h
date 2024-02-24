@@ -85,6 +85,7 @@ namespace tools
     //         tx_too_big
     //         zero_amount
     //         zero_destination
+    //         subtract_fee_from_bad_index
     //       wallet_rpc_error *
     //         daemon_busy
     //         no_connection_to_daemon
@@ -775,6 +776,15 @@ namespace tools
     {
       explicit zero_destination(std::string&& loc)
         : transfer_error(std::move(loc), "transaction has no destination")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct subtract_fee_from_bad_index : public transfer_error
+    {
+      explicit subtract_fee_from_bad_index(std::string&& loc, long bad_index)
+        : transfer_error(std::move(loc),
+          "subtractfeefrom: bad index: " + std::to_string(bad_index) + " (indexes are 0-based)")
       {
       }
     };

@@ -63,6 +63,7 @@ class TransferTest():
         self.check_is_key_image_spent()
         self.check_multiple_submissions()
         self.check_scan_tx()
+        self.check_subtract_fee_from_outputs()
 
     def reset(self):
         print('Resetting blockchain')
@@ -1080,6 +1081,86 @@ class TransferTest():
         receiver_wallet.refresh()
         diff_transfers(receiver_wallet.get_transfers(), res)
         assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+    def check_subtract_fee_from_outputs(self):
+        daemon = Daemon()
+
+        print('Testing fee-included transfers')
+
+        def inner_test_external_transfer(dsts, subtract_fee_from_outputs):
+            # refresh wallet and get balance
+            self.wallet[0].refresh()
+            balance1 = self.wallet[0].get_balance().balance
+
+            # Check that this transaction is possible with our current balance + other preconditions
+            dst_sum = sum(map(lambda x: x['amount'], dsts))
+            assert balance1 >= dst_sum
+            if subtract_fee_from_outputs:
+                assert max(subtract_fee_from_outputs) < len(dsts)
+
+            # transfer with subtractfeefrom=all
+            transfer_res = self.wallet[0].transfer(dsts, subtract_fee_from_outputs = subtract_fee_from_outputs, get_tx_metadata = True)
+            tx_hex = transfer_res.tx_metadata
+            tx_fee = transfer_res.fee
+            amount_spent = transfer_res.amount
+            amounts_by_dest = transfer_res.amounts_by_dest.amounts
+
+            # Assert that fee and amount spent to outputs adds up
+            assert tx_fee != 0
+            if subtract_fee_from_outputs:
+                assert tx_fee + amount_spent == dst_sum
+            else:
+                assert amount_spent == dst_sum
+
+            # Check the amounts by each destination that only the destinations set as subtractable
+            # got subtracted and that the subtracted dests are approximately correct
+            assert len(amounts_by_dest) == len(dsts) # if this fails... idk
+            for i in range(len(dsts)):
+                if i in subtract_fee_from_outputs: # dest is subtractable
+                    approx_subtraction = tx_fee // len(subtract_fee_from_outputs)
+                    assert amounts_by_dest[i] < dsts[i]['amount']
+                    assert dsts[i]['amount'] - amounts_by_dest[i] - approx_subtraction <= 1
+                else:
+                    assert amounts_by_dest[i] == dsts[i]['amount']
+
+            # relay tx and generate block (not to us, to simplify balance change calculations)
+            relay_res = self.wallet[0].relay_tx(tx_hex)
+            daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+
+            # refresh and get balance again
+            self.wallet[0].refresh()
+            balance2 = self.wallet[0].get_balance().balance
+
+            # Check that the wallet balance dropped by the correct amount
+            balance_drop = balance1 - balance2
+            if subtract_fee_from_outputs:
+                assert balance_drop == dst_sum
+            else:
+                assert balance_drop == dst_sum + tx_fee
+
+        dst1 = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 1100000000001}
+        dst2 = {'address': '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 'amount': 1200000000000}
+        dst3 = {'address': '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 'amount': 1}
+
+        inner_test_external_transfer([dst1, dst2], [0, 1])
+        inner_test_external_transfer([dst1, dst2], [0])
+        inner_test_external_transfer([dst1, dst2], [1])
+        inner_test_external_transfer([dst1, dst2], [])
+        inner_test_external_transfer([dst1], [0])
+        inner_test_external_transfer([dst1], [])
+        inner_test_external_transfer([dst3], [])
+        try:
+            inner_test_external_transfer([dst1, dst3], [0, 1]) # Test subtractfeefrom if one of the outputs would underflow w/o good checks
+            raise ValueError('transfer request with tiny subtractable destination should have thrown')
+        except:
+            pass
+
+        # Check for JSONRPC error on bad index
+        try:
+            transfer_res = self.wallet[0].transfer([dst1], subtract_fee_from_outputs = [1])
+            raise ValueError('transfer request with index should have thrown')
+        except AssertionError:
+            pass
 
 if __name__ == '__main__':
     TransferTest().run_test()
