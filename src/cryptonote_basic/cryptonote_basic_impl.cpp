@@ -183,6 +183,16 @@ namespace cryptonote {
     return true;
   }
   //-----------------------------------------------------------------------
+  uint64_t get_num_coinbase_rct_outputs(const block& b)
+  {
+    if (b.miner_tx.version < 2)
+    {
+      return 0;
+    }
+
+    return b.miner_tx.vout.size();
+  }
+  //-----------------------------------------------------------------------
   bool get_account_address_from_str(
       address_parse_info& info
     , network_type nettype

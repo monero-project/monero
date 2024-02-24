@@ -47,6 +47,14 @@ struct output_distribution_data
   std::vector<std::uint64_t> distribution;
   std::uint64_t start_height;
   std::uint64_t base;
+
+  bool operator==(const output_distribution_data& other) const
+  {
+    return distribution == other.distribution
+      && start_height == other.start_height
+      && base == other.base
+    ;
+  }
 };
 
 class RpcHandler

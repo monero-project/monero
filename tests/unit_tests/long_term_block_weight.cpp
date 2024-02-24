@@ -57,6 +57,7 @@ public:
                         , const cryptonote::difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
+                        , uint64_t num_rct_outs_coinbase
                         , const crypto::hash& blk_hash
                         ) override {
     blocks.push_back({block_weight, long_term_block_weight});
