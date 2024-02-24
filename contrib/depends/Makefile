@@ -1,5 +1,9 @@
 .NOTPARALLEL :
 
+# Pattern rule to print variables, e.g. make print-all_packages
+print-%: FORCE
+	@echo '$($*)'
+
 SOURCES_PATH ?= $(BASEDIR)/sources
 BASE_CACHE ?= $(BASEDIR)/built
 FALLBACK_DOWNLOAD_PATH ?= https://downloads.getmonero.org/depends-sources
@@ -180,3 +184,4 @@ download: download-osx download-linux download-win
  $(foreach package,$(all_packages),$(eval $(call ext_add_stages,$(package))))
 
 .PHONY: install cached download-one download-osx download-linux download-win download check-packages check-sources
+.PHONY: FORCE
