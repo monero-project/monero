@@ -1013,7 +1013,7 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash)
   else if (result)
     throw1(DB_ERROR(lmdb_error("Failed to locate prunable hash tx for removal: ", result).c_str()));
   else if ((result = mdb_cursor_del(m_cur_txs_prunable_hash, 0)))
-      throw1(DB_ERROR(lmdb_error("Failed to add removal of prunable hash tx to db transaction: ", result).c_str()));
+    throw1(DB_ERROR(lmdb_error("Failed to add removal of prunable hash tx to db transaction: ", result).c_str()));
 
   result = mdb_cursor_get(m_cur_tx_outputs, &val_tx_id, NULL, MDB_SET);
   if (result == MDB_NOTFOUND)
