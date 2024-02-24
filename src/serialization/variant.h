@@ -72,7 +72,7 @@ struct variant_reader
   {
     if(variant_serialization_traits<Archive, current_type>::get_tag() == t) {
       current_type x;
-      if(!::do_serialize(ar, x))
+      if(!do_serialize(ar, x))
       {
         ar.set_fail();
         return false;
@@ -100,19 +100,13 @@ struct variant_reader<Archive, Variant, TBegin, TBegin>
   }
 };
 
-
-template <template <bool> class Archive, BOOST_VARIANT_ENUM_PARAMS(typename T)>
-struct serializer<Archive<false>, boost::variant<BOOST_VARIANT_ENUM_PARAMS(T)>>
-{
-  typedef boost::variant<BOOST_VARIANT_ENUM_PARAMS(T)> variant_type;
-  typedef typename Archive<false>::variant_tag_type variant_tag_type;
-  typedef typename variant_type::types types;
-
-  static bool serialize(Archive<false> &ar, variant_type &v) {
-    variant_tag_type t;
+template <template <bool> class Archive, typename... T>
+static bool do_serialize(Archive<false> &ar, boost::variant<T...> &v) {
+    using types = typename boost::variant<T...>::types;
+    typename Archive<false>::variant_tag_type t;
     ar.begin_variant();
     ar.read_variant_tag(t);
-    if(!variant_reader<Archive<false>, variant_type,
+    if(!variant_reader<Archive<false>, boost::variant<T...>,
        typename boost::mpl::begin<types>::type,
        typename boost::mpl::end<types>::type>::read(ar, v, t))
     {
@@ -121,27 +115,21 @@ struct serializer<Archive<false>, boost::variant<BOOST_VARIANT_ENUM_PARAMS(T)>>
     }
     ar.end_variant();
     return true;
-  }
-};
+}
 
-template <template <bool> class Archive, BOOST_VARIANT_ENUM_PARAMS(typename T)>
-struct serializer<Archive<true>, boost::variant<BOOST_VARIANT_ENUM_PARAMS(T)>>
+template <template <bool> class Archive>
+struct variant_write_visitor : public boost::static_visitor<bool>
 {
-  typedef boost::variant<BOOST_VARIANT_ENUM_PARAMS(T)> variant_type;
-  //typedef typename Archive<true>::variant_tag_type variant_tag_type;
-
-  struct visitor : public boost::static_visitor<bool>
-  {
     Archive<true> &ar;
 
-    visitor(Archive<true> &a) : ar(a) { }
+    variant_write_visitor(Archive<true> &a) : ar(a) { }
 
     template <class T>
     bool operator ()(T &rv) const
     {
       ar.begin_variant();
       ar.write_variant_tag(variant_serialization_traits<Archive<true>, T>::get_tag());
-      if(!::do_serialize(ar, rv))
+      if(!do_serialize(ar, rv))
       {
         ar.set_fail();
         return false;
@@ -149,9 +137,10 @@ struct serializer<Archive<true>, boost::variant<BOOST_VARIANT_ENUM_PARAMS(T)>>
       ar.end_variant();
       return true;
     }
-  };
-
-  static bool serialize(Archive<true> &ar, variant_type &v) {
-    return boost::apply_visitor(visitor(ar), v);
-  }
 };
+
+template <template <bool> class Archive, typename... T>
+static bool do_serialize(Archive<true> &ar, boost::variant<T...> &v)
+{
+  return boost::apply_visitor(variant_write_visitor<Archive>(ar), v);
+}
