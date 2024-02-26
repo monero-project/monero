@@ -106,5 +106,7 @@ namespace math_helper
   class once_a_time_milliseconds: public once_a_time<get_constant_interval<default_interval * (uint64_t)1000>, start_immediate> {};
   template<typename get_interval, bool start_immediate = true>
   class once_a_time_seconds_range: public once_a_time<get_interval, start_immediate> {};
+  template<typename get_interval, bool start_immediate = false>
+  class once_a_time_range: public once_a_time<get_interval, start_immediate> {};
 }
 }
