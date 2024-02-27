@@ -90,7 +90,7 @@ chain for " target " development."))
       (home-page (package-home-page xgcc))
       (license (package-license xgcc)))))
 
-(define base-gcc gcc-10)
+(define base-gcc gcc-12)
 (define base-linux-kernel-headers linux-libre-headers-6.1)
 
 (define* (make-monero-cross-toolchain  target
@@ -176,6 +176,37 @@ chain for " target " development."))
                  (("-rpath=") "-rpath-link="))
                #t))))))))
 
+
+(define (glibc-patches glibc)
+  (package-with-extra-patches glibc
+    (search-our-patches "fPIE.patch")))
+
+(define-public glibc-2.35
+  (package
+    (inherit glibc) ;; 2.35
+    (version "2.35")
+    (arguments
+      (substitute-keyword-arguments (package-arguments glibc)
+        ((#:configure-flags flags)
+          `(append ,flags
+            ;; https://www.gnu.org/software/libc/manual/html_node/Configuring-and-compiling.html
+            (list "--enable-stack-protector=all",
+                  "--enable-bind-now",
+                  "--disable-werror",
+                  "--enable-fortify-source=2", ;; Need better compiler support for 3?
+                  "--enable-crypt", ;; no-longer built by default, but used by GCC libsanitizer
+                  "--enable-cet=yes",
+                  "--enable-nscd=no",
+                  "--enable-static-nss=yes",
+                  "--enable-static-pie=yes",
+                  building-on)
+            )
+        )
+      )
+    )
+  )
+)
+
 (define-public glibc-2.27
   (package
     (inherit glibc-2.31)
@@ -250,8 +281,8 @@ chain for " target " development."))
         gettext-minimal
         cmake-minimal
         ;; Native GCC 10 toolchain
-        gcc-toolchain-10
-        (list gcc-toolchain-10 "static")
+        gcc-toolchain-12
+        (list gcc-toolchain-12 "static")
         ;; Scripting
         perl
         python-minimal
@@ -263,7 +294,9 @@ chain for " target " development."))
            ;; Windows
            (list (make-mingw-pthreads-cross-toolchain target)))
           ((string-contains target "-linux-gnu")
-           (list (make-monero-cross-toolchain target)))
+           (list (make-monero-cross-toolchain target
+                                               #:base-libc (glibc-patches glibc-2.35)
+                                               #:base-gcc linux-base-gcc)))
           ((string-contains target "freebsd")
            (list clang-toolchain-11 binutils))
           ((string-contains target "darwin")

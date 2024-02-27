@@ -1,0 +1,27 @@
+diff --git a/Makeconfig b/Makeconfig
+index 47db08d6ae..0e6edd4640 100644
+--- a/Makeconfig
++++ b/Makeconfig
+@@ -1054,7 +1054,7 @@ pic-ccflag = -fPIC
+ PIC-ccflag = -fPIC
+ endif
+ # This can be changed by a sysdep makefile
+-pie-ccflag = -fpie
++pie-ccflag = -fPIE
+ no-pie-ccflag = -fno-pie
+ # This one should always stay like this unless there is a very good reason.
+ PIE-ccflag = -fPIE
+diff --git a/sysdeps/sparc/Makefile b/sysdeps/sparc/Makefile
+index 12c2c1b085..26b4a84606 100644
+--- a/sysdeps/sparc/Makefile
++++ b/sysdeps/sparc/Makefile
+@@ -1,9 +1,6 @@
+ # The Sparc `long double' is a distinct type we support.
+ long-double-fcts = yes
+ 
+-pie-ccflag = -fPIE
+-no-pie-ccflag = -fno-PIE
+-
+ ifeq ($(subdir),gmon)
+ sysdep_routines += sparc-mcount
+ endif

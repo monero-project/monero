@@ -184,6 +184,8 @@ esac
 
 # Determine the correct value for -Wl,--dynamic-linker for the current $HOST
 case "$HOST" in
+    x86_64-linux-gnu) ;;
+    aarch64-linux-gnu) ;;
     *linux-gnu*)
         glibc_dynamic_linker=$(
             case "$HOST" in
@@ -220,6 +222,8 @@ esac
 
 # LDFLAGS
 case "$HOST" in
+    x86_64-linux-gnu) HOST_LDFLAGS="-static-libgcc -static-pie -Wl,-O2" ;;
+    aarch64-linux-gnu) HOST_LDFLAGS="-static-libgcc -static-pie -Wl,-O2" ;;
     *linux-gnu*)  HOST_LDFLAGS="-Wl,--as-needed -Wl,--dynamic-linker=$glibc_dynamic_linker -static-libstdc++ -Wl,-O2" ;;
     *mingw*)  HOST_LDFLAGS="-Wl,--no-insert-timestamp" ;;
 esac
