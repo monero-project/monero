@@ -1,10 +1,5 @@
 packages:=boost openssl zeromq expat unbound sodium
 
-# ccache is useless in gitian builds
-ifneq ($(GITIAN),1)
-native_packages := native_ccache
-endif
-
 hardware_packages := hidapi protobuf libusb
 hardware_native_packages := native_protobuf
 
@@ -29,5 +24,5 @@ mingw32_packages = $(hardware_packages)
 mingw32_native_packages = $(hardware_native_packages)
 
 ifneq ($(build_os),darwin)
-darwin_native_packages += darwin_sdk native_clang native_cctools native_libtapi
+darwin_native_packages += darwin_sdk native_cctools native_libtapi
 endif

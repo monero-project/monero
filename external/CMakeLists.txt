@@ -39,6 +39,7 @@ find_package(Miniupnpc REQUIRED)
 
 message(STATUS "Using in-tree miniupnpc")
 set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation" FORCE)
+set(UPNPC_BUILD_SHARED FALSE CACHE BOOL "Disable shared miniupnp libraries" FORCE)
 add_subdirectory(miniupnp/miniupnpc)
 set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
 set_property(TARGET libminiupnpc-static PROPERTY POSITION_INDEPENDENT_CODE ON)
