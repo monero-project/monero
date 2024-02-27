@@ -158,6 +158,41 @@ class P2PTest():
             loops -= 1
             assert loops >= 0
 
+        # create a transaction which both daemons have in their pool
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        res = self.wallet.transfer([dst])
+        txid = res.tx_hash
+        time.sleep(5)
+        for daemon in [daemon2, daemon3]:
+            res = daemon.get_transaction_pool_hashes()
+            assert len(res.tx_hashes) == 1
+            assert res.tx_hashes[0] == txid
+
+        # disconnect nodes and mine on daemon2, mining alt blocks containing that mempool tx
+        daemon2.out_peers(0)
+        daemon3.out_peers(0)
+        daemon2.pop_blocks(2)
+        daemon2.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 5)
+
+        # assert that the tx is in daemon2's blockchain now, instead of the mempool
+        res = daemon2.get_transactions([txid])
+        assert len(res.txs) == 1
+        tx_details = res.txs[0]
+        assert not tx_details.in_pool
+        #assert res.txs[0].block_height > (6 + 500 - 2), res.txs[0].block_height
+
+        # reconnect, daemon3 will now switch to daemon2's chain
+        daemon2.out_peers(8)
+        daemon3.out_peers(8)
+        time.sleep(5)
+        res = daemon2.get_info()
+        daemon2_top_block_hash = res.height
+        daemon2_height = res.top_block_hash
+        res = daemon3.get_info()
+        daemon3_top_block_hash = res.height
+        daemon3_height = res.top_block_hash
+        assert daemon2_height == daemon3_height
+        assert daemon2_top_block_hash == daemon3_top_block_hash
 
     def test_p2p_tx_propagation(self):
         print('Testing P2P tx propagation')
