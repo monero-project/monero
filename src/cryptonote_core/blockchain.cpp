@@ -2079,7 +2079,9 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       const blobdata &tx_blob = extra_block_tx.second.second;
 
       tx_verification_context tvc{};
-      if (!m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version)
+      CRITICAL_REGION_LOCAL(m_tx_pool);
+      if (!m_tx_pool.have_tx(txid, relay_category::all) &&
+          !m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version)
           || tvc.m_verifivation_failed)
       {
         MERROR_VER("Transaction " << txid <<
@@ -4398,19 +4400,20 @@ leave:
     bool pruned{};
 
     bool find_tx_failure = true;
-    m_tx_pool.lock(); // we lock to keep consistent state between have_tx() and take_tx()
+    // we lock to keep consistent state between have_tx() and take_tx()
+    epee::critical_region_t<tx_memory_pool> txpool_lock_guard(m_tx_pool);
     const bool found_tx_in_pool = m_tx_pool.have_tx(tx_id, relay_category::all);
     if (found_tx_in_pool) // first try searching mempool proper
     {
       bool _unused1, _unused2, _unused3;
       find_tx_failure = !m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, _unused1, _unused2, _unused3, pruned);
-      m_tx_pool.unlock();
+      txpool_lock_guard.unlock();
       if (find_tx_failure)
         MERROR_VER("BUG: Block with id: " << id  << " failed to take tx: " << tx_id);
     }
     else if (extra_block_txs.txs_by_txid.count(tx_id)) // next try looking in the block supplement
     {
-      m_tx_pool.unlock();
+      txpool_lock_guard.unlock();
       tx = std::move(extra_block_txs.txs_by_txid[tx_id].first);
       txblob = std::move(extra_block_txs.txs_by_txid[tx_id].second);
       tx_weight = get_transaction_weight(tx, txblob.size());
