@@ -47,7 +47,7 @@ Please reference the current merged PR list for a general subject line
 format of the current contributors. As of 2024 the subject line uses the
 following format:
 
-subdirectory under src where changes were made : description of change
+subdirectory under src where changes were made: description of change
 
 For example (PR #9189):
 cryptonote_core: early out on out of bounds scaling parameter
