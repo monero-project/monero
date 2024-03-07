@@ -2081,6 +2081,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       tx_verification_context tvc{};
       CRITICAL_REGION_LOCAL(m_tx_pool);
       if (!m_tx_pool.have_tx(txid, relay_category::all) &&
+          !m_db->tx_exists(txid) &&
           !m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version)
           || tvc.m_verifivation_failed)
       {
