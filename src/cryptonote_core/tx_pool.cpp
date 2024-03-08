@@ -1074,7 +1074,7 @@ namespace cryptonote
 
     // If the total weight is too high, choose the best paying transactions
     if (total_weight > max_backlog_weight)
-      std::sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b){ return a.fee * b.weight > b.fee * a.weight; });
+      std::stable_sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b){ return a.fee * b.weight > b.fee * a.weight; });
 
     backlog.clear();
     uint64_t w = 0;
