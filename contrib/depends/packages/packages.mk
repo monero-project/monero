@@ -1,10 +1,5 @@
 packages:=boost openssl zeromq expat unbound sodium
 
-# ccache is useless in gitian builds
-ifneq ($(GITIAN),1)
-native_packages := native_ccache
-endif
-
 hardware_packages := hidapi protobuf libusb
 hardware_native_packages := native_protobuf
 
