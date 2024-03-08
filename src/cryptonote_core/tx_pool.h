@@ -72,8 +72,7 @@ namespace cryptonote
       else if (a.first.first < b.first.first) return false;
       else if (a.first.second < b.first.second) return true;
       else if (a.first.second > b.first.second) return false;
-      else if (a.second != b.second) return true;
-      else return false;
+      else return memcmp(a.second.data, b.second.data, HASH_SIZE) < 0;
     }
   };
 
