@@ -69,11 +69,12 @@ namespace cryptonote
     {
       // sort by greatest first, not least
       if (a.first.first > b.first.first) return true;
-      else if (a.first.first < b.first.first) return false;
-      else if (a.first.second < b.first.second) return true;
-      else if (a.first.second > b.first.second) return false;
-      else if (a.second != b.second) return true;
-      else return false;
+      if (a.first.first < b.first.first) return false;
+
+      if (a.first.second < b.first.second) return true;
+      if (a.first.second > b.first.second) return false;
+
+      return memcmp(a.second.data, b.second.data, sizeof(crypto::hash)) < 0;
     }
   };
 
