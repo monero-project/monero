@@ -127,7 +127,7 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
-  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs), m_cookie(0), m_txpool_max_weight(DEFAULT_TXPOOL_MAX_WEIGHT), m_txpool_weight(0), m_mine_stem_txes(false), m_next_check(std::time(nullptr))
+  tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs), m_cookie(0), m_txpool_max_weight(DEFAULT_TXPOOL_MAX_WEIGHT), m_txpool_weight(0), m_mine_stem_txes(false), m_next_check(std::time(nullptr)), m_transactions_lock()
   {
     // class code expects unsigned values throughout
     if (m_next_check < time_t(0))
@@ -444,6 +444,8 @@ namespace cryptonote
       bytes = m_txpool_max_weight;
 
     CRITICAL_REGION_LOCAL1(m_blockchain);
+
+
     LockedTXN lock(m_blockchain.get_db());
     bool changed = false;
 

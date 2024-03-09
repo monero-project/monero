@@ -30,12 +30,23 @@
 #ifndef __WINH_OBJ_H__
 #define __WINH_OBJ_H__
 
+#include <algorithm>
 #include <boost/chrono/duration.hpp>
+#include <boost/functional/hash/hash.hpp>
 #include <boost/thread/condition_variable.hpp>
+#include <boost/thread/detail/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/thread/thread.hpp>
+#include <cstdint>
+#include <queue>
+#include <set>
+#include <utility>
+#include <functional>
+#include <vector>
+#include "misc_log_ex.h"
+#include "misc_language.h"
 
 namespace epee
 {
@@ -149,13 +160,26 @@ namespace epee
     }
   };
 
-
 #define  CRITICAL_REGION_LOCAL(x) {} epee::critical_region_t<decltype(x)>   critical_region_var(x)
 #define  CRITICAL_REGION_BEGIN(x) { boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep())); epee::critical_region_t<decltype(x)>   critical_region_var(x)
 #define  CRITICAL_REGION_LOCAL1(x) {boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep()));} epee::critical_region_t<decltype(x)>   critical_region_var1(x)
 #define  CRITICAL_REGION_BEGIN1(x) {  boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep())); epee::critical_region_t<decltype(x)>   critical_region_var1(x)
 
 #define  CRITICAL_REGION_END() }
+
+#define RWLOCK(m_lock)                                                           \
+    m_lock.lock();                                                               \
+    epee::misc_utils::auto_scope_leave_caller scope_exit_handler##m_lock =       \
+        epee::misc_utils::create_scope_leave_handler([&]() {                     \
+          m_lock.unlock();                                                       \
+        });
+
+#define RLOCK(m_lock)                                                            \
+    m_lock.lock_shared();                                                        \
+    epee::misc_utils::auto_scope_leave_caller scope_exit_handler##m_lock =       \
+        epee::misc_utils::create_scope_leave_handler([&]() {                     \
+          m_lock.unlock_shared();                                                \
+        });
 
 }
 

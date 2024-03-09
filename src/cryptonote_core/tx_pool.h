@@ -43,6 +43,7 @@
 #include "span.h"
 #include "string_tools.h"
 #include "syncobj.h"
+#include "common/recursive_shared_mutex.h"
 #include "math_helper.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/verification_context.h"
@@ -608,7 +609,7 @@ namespace cryptonote
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 public:
 #endif
-    mutable epee::critical_section m_transactions_lock;  //!< lock for the pool
+      mutable tools::recursive_shared_mutex m_transactions_lock;
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 private:
 #endif
