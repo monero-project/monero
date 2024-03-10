@@ -328,6 +328,7 @@ namespace tools
     cryptonote::COMMAND_RPC_START_MINING::request req2;
     cryptonote::COMMAND_RPC_START_MINING::response res2;
     req2.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    req2.max_weight = 0;
     req2.threads_count = 1;
     req2.do_background_mining = true;
     req2.ignore_battery = false;
@@ -3250,6 +3251,7 @@ namespace tools
 
     cryptonote::COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req); 
     daemon_req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    daemon_req.max_weight           = req.max_weight;
     daemon_req.threads_count        = req.threads_count;
     daemon_req.do_background_mining = req.do_background_mining;
     daemon_req.ignore_battery       = req.ignore_battery;

@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 27
+#define WALLET_RPC_VERSION_MINOR 28
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2085,11 +2085,13 @@ namespace wallet_rpc
       uint64_t    threads_count;
       bool        do_background_mining;
       bool        ignore_battery;
+      uint64_t    max_weight;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(do_background_mining)        
         KV_SERIALIZE(ignore_battery)        
+        KV_SERIALIZE_OPT(max_weight, (uint64_t)0)        
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

@@ -364,6 +364,7 @@ namespace cryptonote
      * @param b return-by-reference block to be filled in
      * @param from_block optional block hash to start mining from (main chain tip if NULL)
      * @param miner_address address new coins for the block will go to
+     * @param max_weight limit the maximum weight of the created block template (0 for no limit) 
      * @param di return-by-reference tells the miner what the difficulty target is
      * @param height return-by-reference tells the miner what height it's mining against
      * @param expected_reward return-by-reference the total reward awarded to the miner finding this block, including transaction fees
@@ -371,8 +372,8 @@ namespace cryptonote
      *
      * @return true if block template filled in successfully, else false
      */
-    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
-    bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+    bool create_block_template(block& b, const account_public_address& miner_address, uint64_t max_weight, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+    bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, uint64_t max_weight, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
 
     /**
      * @brief gets data required to create a block template and start mining on it
