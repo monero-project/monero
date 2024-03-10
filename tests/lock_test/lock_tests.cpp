@@ -70,6 +70,8 @@ void calculate_parameters(size_t threads) {
   number_of_readers = total_number_of_threads - number_of_writers;
 }
 
+void writer();
+
 void reader() {
   std::random_device dev;
   std::mt19937 rng(dev());
@@ -81,10 +83,16 @@ void reader() {
   for(int i = 0; i < reading_cycles; i++) {
     boost::this_thread::sleep_for(boost::chrono::milliseconds(d(rng)));
   }
-  bool recurse = !((bool) std::uniform_int_distribution<std::mt19937::result_type>(0, 10)(rng) % 4); // ~30%
+  bool recurse = !((bool) std::uniform_int_distribution<std::mt19937::result_type>(0, 10)(rng) % 4); // ~20%
   if (recurse) {
-    reader();
-  }  
+    bool which = std::uniform_int_distribution<std::mt19937::result_type>(0, 10)(rng) % 2;
+    if (which) {
+      writer();
+    }
+    else {
+      reader();
+    }
+  }   
   main_lock.unlock_shared();
 }
 
