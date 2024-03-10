@@ -1585,24 +1585,6 @@ namespace cryptonote
     return p;
   }
   //---------------------------------------------------------------
-  bool get_block_longhash(const block& b, crypto::hash& res, cn_gpu_hash &ctx)
-  {
-    // block 202612 bug workaround
-    block b_local = b; //workaround to avoid const errors with do_serialize
-  	blobdata bd = get_block_hashing_blob(b);
-
-    if(b_local.major_version < 6){
-      cn_v7l_hash ctx_v2 = cn_gpu_hash::make_borrowed(ctx);
-		  ctx_v2.hash(bd.data(), bd.size(), res.data);
-    }
-    else
-    {
-		  ctx.hash(bd.data(), bd.size(), res.data);
-    }
-
-    return true;
-  }
-  //---------------------------------------------------------------
   std::vector<uint64_t> relative_output_offsets_to_absolute(const std::vector<uint64_t>& off)
   {
     std::vector<uint64_t> res = off;

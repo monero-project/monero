@@ -38,8 +38,10 @@
 #include "syncobj.h"
 #include "cryptonote_basic_impl.h"
 #include "cryptonote_format_utils.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "file_io_utils.h"
 #include "common/command_line.h"
+#include "common/util.h"
 #include "string_coding.h"
 #include "string_tools.h"
 #include "storages/portable_storage_template_helper.h"
@@ -92,12 +94,13 @@ namespace cryptonote
   }
 
 
-  miner::miner(i_miner_handler* phandler):m_stop(1),
+  miner::miner(i_miner_handler* phandler, Blockchain* pbc):m_stop(1),
     m_template{},
     m_template_no(0),
     m_diffic(0),
     m_thread_index(0),
     m_phandler(phandler),
+    m_pbc(pbc),
     m_height(0),
     m_pausers_count(0),
     m_threads_total(0),
@@ -349,6 +352,7 @@ namespace cryptonote
   {
     boost::interprocess::ipcdetail::atomic_write32(&m_stop, 1);
   }
+  extern "C" void rx_stop_mining(void);
   //-----------------------------------------------------------------------------------------------------
   bool miner::stop()
   {
@@ -377,16 +381,17 @@ namespace cryptonote
 
     MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
+    rx_stop_mining();
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::find_nonce_for_given_block(block& bl, const difficulty_type& diffic, uint64_t height)
+  bool miner::find_nonce_for_given_block(const Blockchain *pbc, block& bl, const difficulty_type& diffic, uint64_t height)
   {
     cn_gpu_hash hash_ctx;
     for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
     {
       crypto::hash h;
-      get_block_longhash(bl, h, hash_ctx);
+      get_block_longhash(pbc, bl, h, hash_ctx, tools::get_max_concurrency());
 
       if(check_hash(h, diffic))
       {
@@ -486,7 +491,7 @@ namespace cryptonote
 
       b.nonce = nonce;
       crypto::hash h;
-      get_block_longhash(b, h, hash_ctx);
+      get_block_longhash(m_pbc, b, h, hash_ctx, tools::get_max_concurrency());
 
       if(check_hash(h, local_diff))
       {

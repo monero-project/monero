@@ -100,7 +100,8 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool, service_nodes::service_node_list
   m_service_node_list(service_node_list),
   m_deregister_vote_pool(deregister_vote_pool),
   m_btc_valid(false),
-  m_batch_success(true)
+  m_batch_success(true),
+  m_prepare_height(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -774,6 +775,13 @@ crypto::hash Blockchain::get_block_id_by_height(uint64_t height) const
   return null_hash;
 }
 //------------------------------------------------------------------
+crypto::hash Blockchain::get_pending_block_id_by_height(uint64_t height) const
+{
+  if (m_prepare_height && height >= m_prepare_height && height - m_prepare_height < m_prepare_nblocks)
+    return (*m_prepare_blocks)[height - m_prepare_height].hash;
+  return get_block_id_by_height(height);
+}
+//------------------------------------------------------------------
 bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -1095,6 +1103,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
   }
 
   m_hardfork->reorganize_from_chain_height(split_height);
+  get_block_longhash_reorg(split_height);
 
   std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
   if (reorg_notify)
@@ -1862,8 +1871,31 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     crypto::hash proof_of_work = crypto::null_hash;
     memset(proof_of_work.data, 0xff, sizeof(proof_of_work.data));
 
-    get_block_longhash(bei.bl, proof_of_work, m_pow_ctx);
-
+    if (b.major_version >= RX_BLOCK_VERSION)
+    {
+      crypto::hash seedhash = null_hash;
+      uint64_t seedheight = rx_seedheight(bei.height);
+      if (alt_chain.size() && alt_chain.front().height <= seedheight)
+      {
+        for (auto it = alt_chain.begin(); it != alt_chain.end(); it++)
+        {
+          if (it->height == seedheight + 1)
+          {
+            seedhash = it->bl.prev_id;
+            break;
+          }
+        }
+      }
+      else
+      {
+        seedhash = get_block_id_by_height(seedheight);
+      }
+      get_altblock_longhash(bei.bl, proof_of_work, get_current_blockchain_height(), m_pow_ctx, seedheight, seedhash);
+    }
+    else
+    {
+      get_block_longhash(this, bei.bl, proof_of_work, m_pow_ctx, 0);
+    }
     if(!check_hash(proof_of_work, current_diff))
     {
       MERROR_VER("Block with id: " << id << std::endl << " for alternative chain, does not have enough proof of work: " << proof_of_work << std::endl << " expected difficulty: " << current_diff);
@@ -4089,7 +4121,7 @@ leave:
       proof_of_work = it->second;
     }
     else
-      get_block_longhash(bl, proof_of_work, m_pow_ctx);
+      get_block_longhash(this, bl, proof_of_work, m_pow_ctx, 0);
 
 
     // validate proof_of_work versus difficulty target
@@ -4614,7 +4646,7 @@ void Blockchain::block_longhash_worker(cn_gpu_hash &hash_ctx, const epee::span<c
 			break;
 		crypto::hash id = get_block_hash(block);
 		crypto::hash pow;
-		get_block_longhash(block, pow, hash_ctx);
+		get_block_longhash(this, block, pow, hash_ctx, 0);
 		map.emplace(id, pow);
 	}
 
@@ -4936,6 +4968,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       m_blocks_longhash_table.clear();
       uint64_t thread_height = height;
       tools::threadpool::waiter waiter;
+      m_prepare_height = height;
+      m_prepare_nblocks = blocks_entry.size();
+      m_prepare_blocks = &blocks;
       if(m_hash_ctxes_multi.size() < threads)
 				m_hash_ctxes_multi.resize(threads);
       for (unsigned int i = 0; i < threads; i++)
@@ -4948,6 +4983,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       }
 
       waiter.wait(&tpool);
+      m_prepare_height = 0;
 
       if (m_cancel)
          return false;
