@@ -188,7 +188,7 @@ namespace
   const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
   const char* USAGE_PAYMENT_ID("payment_id");
-  const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [<payment_id>]");
+  const char* USAGE_TRANSFER("transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <address> <amount>) [subtractfeefrom=<D0>[,<D1>,all,...]] [<payment_id>]");
   const char* USAGE_LOCKED_TRANSFER("locked_transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] (<URI> | <addr> <amount>) <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_LOCKED_SWEEP_ALL("locked_sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] <address> <lockblocks> [<payment_id (obsolete)>]");
   const char* USAGE_SWEEP_ALL("sweep_all [index=<N1>[,<N2>,...] | index=all] [<priority>] [<ring_size>] [outputs=<N>] <address> [<payment_id (obsolete)>]");
@@ -520,7 +520,52 @@ namespace
       fail_msg_writer() << sw::tr("invalid format for subaddress lookahead; must be <major>:<minor>");
     return r;
   }
-}
+
+  static constexpr std::string_view SFFD_ARG_NAME{"subtractfeefrom="};
+
+  bool parse_subtract_fee_from_outputs
+  (
+    const std::string& arg,
+    tools::wallet2::unique_index_container& subtract_fee_from_outputs,
+    bool& subtract_fee_from_all,
+    bool& matches
+  )
+  {
+    matches = false;
+    if (!boost::string_ref{arg}.starts_with(SFFD_ARG_NAME.data())) // if arg doesn't match
+      return true;
+    matches = true;
+
+    const char* arg_end = arg.c_str() + arg.size();
+    for (const char* p = arg.c_str() + SFFD_ARG_NAME.size(); p < arg_end;)
+    {
+      const char* new_p = nullptr;
+      const unsigned long dest_index = strtoul(p, const_cast<char**>(&new_p), 10);
+      if (dest_index == 0 && new_p == p) // numerical conversion failed
+      {
+        if (0 != strncmp(p, "all", 3))
+        {
+          fail_msg_writer() << tr("Failed to parse subtractfeefrom list");
+          return false;
+        }
+        subtract_fee_from_all = true;
+        break;
+      }
+      else if (dest_index > std::numeric_limits<uint32_t>::max())
+      {
+        fail_msg_writer() << tr("Destination index is too large") << ": " << dest_index;
+        return false;
+      }
+      else
+      {
+        subtract_fee_from_outputs.insert(dest_index);
+        p = new_p + 1; // skip the comma
+      }
+    }
+
+    return true;
+  }
+} // anonymous namespace
 
 void simple_wallet::handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon)
 {
@@ -3080,7 +3125,7 @@ simple_wallet::simple_wallet()
                            tr("Show the blockchain height."));
   m_cmd_binder.set_handler("transfer", boost::bind(&simple_wallet::on_command, this, &simple_wallet::transfer, _1),
                            tr(USAGE_TRANSFER),
-                           tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included)"));
+                           tr("Transfer <amount> to <address>. If the parameter \"index=<N1>[,<N2>,...]\" is specified, the wallet uses outputs received by addresses of those indices. If omitted, the wallet randomly chooses address indices to be used. In any case, it tries its best not to combine outputs across multiple addresses. <priority> is the priority of the transaction. The higher the priority, the higher the transaction fee. Valid values in priority order (from lowest to highest) are: unimportant, normal, elevated, priority. If omitted, the default value (see the command \"set priority\") is used. <ring_size> is the number of inputs to include for untraceability. Multiple payments can be made at once by adding URI_2 or <address_2> <amount_2> etcetera (before the payment ID, if it's included). The \"subtractfeefrom=\" list allows you to choose which destinations to fund the tx fee from instead of the change output. The fee will be split across the chosen destinations proportionally equally. For example, to make 3 transfers where the fee is taken from the first and third destinations, one could do: \"transfer <addr1> 3 <addr2> 0.5 <addr3> 1 subtractfeefrom=0,2\". Let's say the tx fee is 0.1. The balance would drop by exactly 4.5 XMR including fees, and addr1 & addr3 would receive 2.925 & 0.975 XMR, respectively. Use \"subtractfeefrom=all\" to spread the fee across all destinations."));
   m_cmd_binder.set_handler("locked_transfer",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::locked_transfer,_1),
                            tr(USAGE_LOCKED_TRANSFER),
@@ -6268,7 +6313,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     local_args.erase(local_args.begin());
   }
 
-  uint32_t priority = 0;
+  uint32_t priority = m_wallet->get_default_priority();
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
@@ -6347,6 +6392,27 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
       return false;
     }
     local_args.pop_back();
+  }
+
+  // Parse subtractfeefrom destination list
+  tools::wallet2::unique_index_container subtract_fee_from_outputs;
+  bool subtract_fee_from_all = false;
+  for (auto it = local_args.begin(); it < local_args.end();)
+  {
+    bool matches = false;
+    if (!parse_subtract_fee_from_outputs(*it, subtract_fee_from_outputs, subtract_fee_from_all, matches))
+    {
+      return false;
+    }
+    else if (matches)
+    {
+      it = local_args.erase(it);
+      break;
+    }
+    else
+    {
+      ++it;
+    }
   }
 
   vector<cryptonote::address_parse_info> dsts_info;
@@ -6445,6 +6511,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     dsts.push_back(de);
   }
 
+  if (subtract_fee_from_all)
+  {
+    subtract_fee_from_outputs.clear();
+    for (decltype(subtract_fee_from_outputs)::value_type i = 0; i < dsts.size(); ++i)
+      subtract_fee_from_outputs.insert(i);
+  }
+
   SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return false;);
 
   try
@@ -6463,13 +6536,13 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
           return false;
         }
         unlock_block = bc_height + locked_blocks;
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, unlock_block /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, subtract_fee_from_outputs);
       break;
       default:
         LOG_ERROR("Unknown transfer method, using default");
         /* FALLTHRU */
       case Transfer:
-        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices);
+        ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */, priority, extra, m_current_subaddress_account, subaddr_indices, subtract_fee_from_outputs);
       break;
     }
 

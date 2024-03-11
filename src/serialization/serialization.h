@@ -123,6 +123,17 @@ inline bool do_serialize(Archive &ar, bool &v)
   template <bool W, template <bool> class Archive>			\
   bool member_do_serialize(Archive<W> &ar) {
 
+/*! \macro BEGIN_SERIALIZE_FN
+ *
+ * \brief Begins the environment of the DSL as a free function
+ *
+ * Inside, instead of FIELD() and VARINT_FIELD(), use FIELD_F() and
+ * VARINT_FIELD_F(). Otherwise, this macro is similar to BEGIN_SERIALIZE().
+ */
+#define BEGIN_SERIALIZE_FN(stype)                   \
+  template <bool W, template <bool> class Archive>  \
+  bool do_serialize(Archive<W> &ar, stype &v) {
+
 /*! \macro BEGIN_SERIALIZE_OBJECT
  *
  *  \brief begins the environment of the DSL
@@ -138,6 +149,27 @@ inline bool do_serialize(Archive &ar, bool &v)
   }									\
   template <bool W, template <bool> class Archive>			\
   bool do_serialize_object(Archive<W> &ar){
+
+/*! \macro BEGIN_SERIALIZE_OBJECT_FN
+ *
+ * \brief Begins the environment of the DSL as a free function in object-style
+ *
+ * Inside, instead of FIELD() and VARINT_FIELD(), use FIELD_F() and
+ * VARINT_FIELD_F(). Otherwise, this macro is similar to
+ * BEGIN_SERIALIZE_OBJECT(), as you should list only field serializations.
+ */
+#define BEGIN_SERIALIZE_OBJECT_FN(stype)               \
+  template <bool W, template <bool> class Archive>     \
+  bool do_serialize_object(Archive<W> &ar, stype &v);  \
+  template <bool W, template <bool> class Archive>     \
+  bool do_serialize(Archive<W> &ar, stype &v) {        \
+    ar.begin_object();                                 \
+    bool r = do_serialize_object(ar, v);               \
+    ar.end_object();                                   \
+    return r;                                          \
+  }                                                    \
+  template <bool W, template <bool> class Archive>     \
+  bool do_serialize_object(Archive<W> &ar, stype &v) { \
 
 /*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
@@ -173,6 +205,12 @@ inline bool do_serialize(Archive &ar, bool &v)
     if (!r || !ar.good()) return false;			\
   } while(0);
 
+/*! \macro FIELD_F(f)
+ *
+ * \brief tags the field with the variable name and then serializes it (for use in a free function)
+ */
+#define FIELD_F(f) FIELD_N(#f, v.f)
+
 /*! \macro FIELDS(f)
  *
  * \brief does not add a tag to the serialized value
@@ -203,6 +241,12 @@ inline bool do_serialize(Archive &ar, bool &v)
     ar.serialize_varint(f);			\
     if (!ar.good()) return false;		\
   } while(0);
+
+/*! \macro VARINT_FIELD_F(f)
+ *
+ * \brief tags and serializes the varint \a f (for use in a free function)
+ */
+#define VARINT_FIELD_F(f) VARINT_FIELD_N(#f, v.f)
 
 /*! \macro MAGIC_FIELD(m)
  */

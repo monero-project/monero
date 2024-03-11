@@ -71,13 +71,13 @@ type, and max connections:
 
 ```
 --anonymous-inbound 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083,127.0.0.1:28083,25
---anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000,127.0.0.1:30000
+--anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p,127.0.0.1:30000
 ```
 
 which tells `monerod` that a max of 25 inbound Tor connections are being
 received at address "5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083" and forwarded to `monerod`
 localhost port 28083, and a default max I2P connections are being received at
-address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p:5000" and
+address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p" and
 forwarded to `monerod` localhost port 30000.
 These addresses will be shared with outgoing peers, over the same network type,
 otherwise the peer will not be notified of the peer address by the proxy.

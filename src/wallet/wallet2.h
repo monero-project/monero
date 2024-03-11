@@ -591,6 +591,7 @@ private:
 
     typedef std::vector<transfer_details> transfer_container;
     typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
+    typedef std::set<uint32_t> unique_index_container;
 
     struct multisig_sig
     {
@@ -963,6 +964,12 @@ private:
     std::string path() const;
 
     /*!
+     * \brief has_proxy_option      Check the global proxy (--proxy) has been defined or not.
+     * \return                      returns bool representing the global proxy (--proxy).
+     */
+    bool has_proxy_option() const;
+
+    /*!
      * \brief verifies given password is correct for default wallet keys file
      */
     bool verify_password(const epee::wipeable_string& password);
@@ -992,7 +999,8 @@ private:
       epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
     bool set_daemon(std::string daemon_address = "http://localhost:8080",
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none, bool trusted_daemon = true,
-      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
+      const std::string &proxy = "");
     bool set_proxy(const std::string &address);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
@@ -1096,11 +1104,11 @@ private:
     bool parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsigned_tx_set &exported_txs) const;
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
     bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func);
-    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);     // pass subaddr_indices by value on purpose
+    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs = {});     // pass subaddr_indices by value on purpose
     std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
     std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra);
     std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const uint64_t unlock_time, uint32_t priority, const std::vector<uint8_t>& extra);
-    bool sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, std::vector<cryptonote::tx_destination_entry> dsts) const;
+    bool sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, const std::vector<cryptonote::tx_destination_entry>& dsts, const unique_index_container& subtract_fee_from_outputs = {}) const;
     void cold_tx_aux_import(const std::vector<pending_tx>& ptx, const std::vector<std::string>& tx_device_aux);
     void cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux);
     uint64_t cold_key_image_sync(uint64_t &spent, uint64_t &unspent);
@@ -1771,6 +1779,7 @@ private:
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
     std::string m_daemon_address;
+    std::string m_proxy;
     std::string m_wallet_file;
     std::string m_keys_file;
     std::string m_mms_file;

@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 26
+#define WALLET_RPC_VERSION_MINOR 27
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -530,11 +530,23 @@ namespace wallet_rpc
     END_KV_SERIALIZE_MAP()
   };
 
+  struct amounts_list
+  {
+    std::list<uint64_t> amounts;
+
+    bool operator==(const amounts_list& other) const { return amounts == other.amounts; }
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(amounts)
+    END_KV_SERIALIZE_MAP()
+  };
+
   struct single_transfer_response
   {
     std::string tx_hash;
     std::string tx_key;
     uint64_t amount;
+    amounts_list amounts_by_dest;
     uint64_t fee;
     uint64_t weight;
     std::string tx_blob;
@@ -547,6 +559,7 @@ namespace wallet_rpc
       KV_SERIALIZE(tx_hash)
       KV_SERIALIZE(tx_key)
       KV_SERIALIZE(amount)
+      KV_SERIALIZE_OPT(amounts_by_dest, decltype(amounts_by_dest)())
       KV_SERIALIZE(fee)
       KV_SERIALIZE(weight)
       KV_SERIALIZE(tx_blob)
@@ -564,6 +577,7 @@ namespace wallet_rpc
       std::list<transfer_destination> destinations;
       uint32_t account_index;
       std::set<uint32_t> subaddr_indices;
+      std::set<uint32_t> subtract_fee_from_outputs;
       uint32_t priority;
       uint64_t ring_size;
       uint64_t unlock_time;
@@ -577,6 +591,7 @@ namespace wallet_rpc
         KV_SERIALIZE(destinations)
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(subaddr_indices)
+        KV_SERIALIZE_OPT(subtract_fee_from_outputs, decltype(subtract_fee_from_outputs)())
         KV_SERIALIZE(priority)
         KV_SERIALIZE_OPT(ring_size, (uint64_t)0)
         KV_SERIALIZE(unlock_time)
@@ -598,6 +613,7 @@ namespace wallet_rpc
     std::list<std::string> tx_hash_list;
     std::list<std::string> tx_key_list;
     std::list<uint64_t> amount_list;
+    std::list<amounts_list> amounts_by_dest_list;
     std::list<uint64_t> fee_list;
     std::list<uint64_t> weight_list;
     std::list<std::string> tx_blob_list;
@@ -610,6 +626,7 @@ namespace wallet_rpc
       KV_SERIALIZE(tx_hash_list)
       KV_SERIALIZE(tx_key_list)
       KV_SERIALIZE(amount_list)
+      KV_SERIALIZE_OPT(amounts_by_dest_list, decltype(amounts_by_dest_list)())
       KV_SERIALIZE(fee_list)
       KV_SERIALIZE(weight_list)
       KV_SERIALIZE(tx_blob_list)
@@ -2581,6 +2598,7 @@ namespace wallet_rpc
       std::string ssl_ca_file;
       std::vector<std::string> ssl_allowed_fingerprints;
       bool ssl_allow_any_cert;
+      std::string proxy;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
@@ -2593,6 +2611,7 @@ namespace wallet_rpc
         KV_SERIALIZE(ssl_ca_file)
         KV_SERIALIZE(ssl_allowed_fingerprints)
         KV_SERIALIZE_OPT(ssl_allow_any_cert, false)
+        KV_SERIALIZE_OPT(proxy, (std::string)"")
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
