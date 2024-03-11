@@ -199,18 +199,8 @@ namespace net_utils
 					}
 				}
 
-				// This magic var determines the maximum length for when copying the body message in
-				// memory is faster/more preferable than the round-trip time for one packet
-				constexpr size_t BODY_NO_COPY_CUTOFF = 128 * 1024; // ~262 KB or ~175 packets
-
-				// Maximum expected total headers bytes
-				constexpr size_t HEADER_RESERVE_SIZE = 2048;
-
-				const bool do_copy_body = body.size() <= BODY_NO_COPY_CUTOFF;
-				const size_t req_buff_cap = HEADER_RESERVE_SIZE + (do_copy_body ? body.size() : 0);
-
 				std::string req_buff{};
-				req_buff.reserve(req_buff_cap);
+				req_buff.reserve(2048);
 				req_buff.append(method.data(), method.size()).append(" ").append(uri.data(), uri.size()).append(" HTTP/1.1\r\n");
 				add_field(req_buff, "Host", m_host_buff);
 				add_field(req_buff, "Content-Length", std::to_string(body.size()));
@@ -219,7 +209,9 @@ namespace net_utils
 				for(const auto& field : additional_params)
 					add_field(req_buff, field);
 
+				for (unsigned sends = 0; sends < 2; ++sends)
 				{
+					const std::size_t initial_size = req_buff.size();
 					const auto auth = m_auth.get_auth_field(method, uri);
 					if (auth)
 						add_field(req_buff, *auth);
@@ -227,21 +219,11 @@ namespace net_utils
 					req_buff += "\r\n";
 					//--
 
-					if (do_copy_body) // small body
-					{
-						// Copy headers + body together and potentially send one fewer packet
-						req_buff.append(body.data(), body.size());
-						const bool res = m_net_client.send(req_buff, timeout);
-						CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
-					}
-					else // large body
-					{
-						// Send headers and body seperately to avoid copying heavy body message
-						bool res = m_net_client.send(req_buff, timeout);
-						CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
+					bool res = m_net_client.send(req_buff, timeout);
+					CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
+					if(body.size())
 						res = m_net_client.send(body, timeout);
-						CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
-					}
+					CHECK_AND_ASSERT_MES(res, false, "HTTP_CLIENT: Failed to SEND");
 
 					m_response_info.clear();
 					m_state = reciev_machine_state_header;
@@ -254,11 +236,19 @@ namespace net_utils
 						return true;
 					}
 
-					if (m_auth.handle_401(m_response_info) == http_client_auth::kParseFailure)
+					switch (m_auth.handle_401(m_response_info))
 					{
+					case http_client_auth::kSuccess:
+						break;
+					case http_client_auth::kBadPassword:
+                                                sends = 2;
+						break;
+					default:
+					case http_client_auth::kParseFailure:
 						LOG_ERROR("Bad server response for authentication");
 						return false;
 					}
+					req_buff.resize(initial_size); // rollback for new auth generation
 				}
 				LOG_ERROR("Client has incorrect username/password for server requiring authentication");
 				return false;
