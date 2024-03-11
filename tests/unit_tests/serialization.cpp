@@ -59,9 +59,7 @@ struct Struct
 };
 
 template <class Archive>
-struct serializer<Archive, Struct>
-{
-  static bool serialize(Archive &ar, Struct &s) {
+static bool do_serialize(Archive &ar, Struct &s) {
     ar.begin_object();
     ar.tag("a");
     ar.serialize_int(s.a);
@@ -71,8 +69,7 @@ struct serializer<Archive, Struct>
     ar.serialize_blob(s.blob, sizeof(s.blob));
     ar.end_object();
     return true;
-  }
-};
+}
 
 struct Struct1
 {
@@ -120,6 +117,23 @@ bool try_parse(const string &blob)
 {
   Struct1 s1;
   return serialization::parse_binary(blob, s1);
+}
+
+namespace example_namespace
+{
+  struct ADLExampleStruct
+  {
+    std::string msg;
+  };
+
+  template <class Archive>
+  static bool do_serialize(Archive &ar, ADLExampleStruct &aes)
+  {
+    ar.begin_object();
+    FIELD_N("custom_fieldname", aes.msg);
+    ar.end_object();
+    return ar.good();
+  }
 }
 
 TEST(Serialization, BinaryArchiveInts) {
@@ -1177,4 +1191,19 @@ TEST(Serialization, difficulty_type)
   a2 >> v_unserialized;
 
   ASSERT_EQ(v_original, v_unserialized);
+}
+
+TEST(Serialization, adl_free_function)
+{
+  std::stringstream ss;
+  json_archive<true> ar(ss);
+
+  const std::string msg = "Howdy, World!";
+  example_namespace::ADLExampleStruct aes{msg};
+
+  ASSERT_TRUE(serialization::serialize(ar, aes));
+
+  //                                                       VVVVVVVVVVVVVVVVVVVVVVVVVV weird string serialization artifact
+  const std::string expected = "{\"custom_fieldname\": " + std::to_string(msg.size()) + '"' + epee::string_tools::buff_to_hex_nodelimer(msg) + "\"}";
+  EXPECT_EQ(expected, ss.str());
 }

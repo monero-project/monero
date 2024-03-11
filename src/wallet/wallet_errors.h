@@ -85,6 +85,7 @@ namespace tools
     //         tx_too_big
     //         zero_amount
     //         zero_destination
+    //         subtract_fee_from_bad_index
     //       wallet_rpc_error *
     //         daemon_busy
     //         no_connection_to_daemon
@@ -93,6 +94,8 @@ namespace tools
     //         get_output_distribution
     //         payment_required
     //       wallet_files_doesnt_correspond
+    //       scan_tx_error *
+    //         wont_reprocess_recent_txs_via_untrusted_daemon
     //
     // * - class with protected ctor
 
@@ -777,6 +780,15 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
+    struct subtract_fee_from_bad_index : public transfer_error
+    {
+      explicit subtract_fee_from_bad_index(std::string&& loc, long bad_index)
+        : transfer_error(std::move(loc),
+          "subtractfeefrom: bad index: " + std::to_string(bad_index) + " (indexes are 0-based)")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct wallet_rpc_error : public wallet_logic_error
     {
       const std::string& request() const { return m_request; }
@@ -911,6 +923,23 @@ namespace tools
     {
       explicit bitmessage_api_error(std::string&& loc, const std::string& error_string)
         : mms_error(std::move(loc), "PyBitmessage returned " + error_string)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct scan_tx_error : public wallet_logic_error
+    {
+    protected:
+      explicit scan_tx_error(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct wont_reprocess_recent_txs_via_untrusted_daemon : public scan_tx_error
+    {
+      explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
+        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
       {
       }
     };

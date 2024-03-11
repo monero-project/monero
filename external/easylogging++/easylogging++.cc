@@ -149,6 +149,11 @@ static el::Color colorFromLevel(el::Level level)
 
 static void setConsoleColor(el::Color color, bool bright)
 {
+  static const char *no_color_var = getenv("NO_COLOR");
+  static const bool no_color = no_color_var && *no_color_var; // apparently, NO_COLOR=0 means no color too (as per no-color.org)
+  if (no_color)
+    return;
+
 #if ELPP_OS_WINDOWS
   HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
   switch (color)

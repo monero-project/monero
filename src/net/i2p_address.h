@@ -50,11 +50,10 @@ namespace net
     //! b32 i2p address; internal format not condensed/decoded.
     class i2p_address
     {
-        std::uint16_t port_;
         char host_[61]; // null-terminated
 
         //! Keep in private, `host.size()` has no runtime check
-        i2p_address(boost::string_ref host, std::uint16_t port) noexcept;
+        i2p_address(boost::string_ref host) noexcept;
 
     public:
         //! \return Size of internal buffer for host.
@@ -74,7 +73,7 @@ namespace net
             with `default_port` being used if port is not specified in
             `address`.
         */
-        static expect<i2p_address> make(boost::string_ref address, std::uint16_t default_port = 0);
+        static expect<i2p_address> make(boost::string_ref address);
 
         //! Load from epee p2p format, and \return false if not valid tor address
         bool _load(epee::serialization::portable_storage& src, epee::serialization::section* hparent);
@@ -103,8 +102,8 @@ namespace net
         //! \return Null-terminated `x.b32.i2p` value or `unknown_str()`.
         const char* host_str() const noexcept { return host_; }
 
-        //! \return Port value or `0` if unspecified.
-        std::uint16_t port() const noexcept { return port_; }
+        //! \return `1` to work with I2P socks which considers `0` error.
+        std::uint16_t port() const noexcept { return 1; }
 
         static constexpr bool is_loopback() noexcept { return false; }
         static constexpr bool is_local() noexcept { return false; }

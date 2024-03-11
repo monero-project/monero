@@ -238,6 +238,10 @@ static char** attempted_completion(const char* text, int start, int end)
 
 static void install_line_handler()
 {
+#if RL_READLINE_VERSION >= 0x0801
+  rl_variable_bind("enable-bracketed-paste", "off");
+#endif
+
   rl_attempted_completion_function = attempted_completion;
   rl_callback_handler_install("", handle_line);
   stifle_history(500);

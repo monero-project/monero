@@ -39,7 +39,7 @@ namespace serialization
     template <typename Archive, class T>
     bool serialize_tuple_element(Archive& ar, T& e)
     {
-      return ::do_serialize(ar, e);
+      return do_serialize(ar, e);
     }
 
     template <typename Archive>

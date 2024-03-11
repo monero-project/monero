@@ -30,12 +30,21 @@
 
 from __future__ import print_function
 import json
+import pprint
+from deepdiff import DeepDiff
+pp = pprint.PrettyPrinter(indent=2)
 
 """Test simple transfers
 """
 
 from framework.daemon import Daemon
 from framework.wallet import Wallet
+
+seeds = [
+    'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
+    'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
+    'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
+]
 
 class TransferTest():
     def run_test(self):
@@ -52,6 +61,8 @@ class TransferTest():
         self.check_tx_notes()
         self.check_rescan()
         self.check_is_key_image_spent()
+        self.check_scan_tx()
+        self.check_subtract_fee_from_outputs()
 
     def reset(self):
         print('Resetting blockchain')
@@ -62,11 +73,6 @@ class TransferTest():
 
     def create(self):
         print('Creating wallets')
-        seeds = [
-          'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
-          'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
-          'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
-        ]
         self.wallet = [None] * len(seeds)
         for i in range(len(seeds)):
             self.wallet[i] = Wallet(idx = i)
@@ -829,6 +835,297 @@ class TransferTest():
         res = daemon.is_key_image_spent(ki)
         assert res.spent_status == expected
 
+    def check_scan_tx(self):
+        daemon = Daemon()
+
+        print('Testing scan_tx')
+
+        def diff_transfers(actual_transfers, expected_transfers):
+            diff = DeepDiff(actual_transfers, expected_transfers)
+            if diff != {}:
+                pp.pprint(diff)
+            assert diff == {}
+
+        # set up sender_wallet
+        sender_wallet = self.wallet[0]
+        try: sender_wallet.close_wallet()
+        except: pass
+        sender_wallet.restore_deterministic_wallet(seed = seeds[0])
+        sender_wallet.auto_refresh(enable = False)
+        sender_wallet.refresh()
+        res = sender_wallet.get_transfers()
+        out_len = 0 if 'out' not in res else len(res.out)
+        sender_starting_balance = sender_wallet.get_balance().balance
+        amount = 1000000000000
+        assert sender_starting_balance > amount
+
+        # set up receiver_wallet
+        receiver_wallet = self.wallet[1]
+        try: receiver_wallet.close_wallet()
+        except: pass
+        receiver_wallet.restore_deterministic_wallet(seed = seeds[1])
+        receiver_wallet.auto_refresh(enable = False)
+        receiver_wallet.refresh()
+        res = receiver_wallet.get_transfers()
+        in_len = 0 if 'in' not in res else len(res['in'])
+        receiver_starting_balance = receiver_wallet.get_balance().balance
+
+        # transfer from sender_wallet to receiver_wallet
+        dst = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': amount}
+        res = sender_wallet.transfer([dst])
+        assert len(res.tx_hash) == 32*2
+        txid = res.tx_hash
+        assert res.amount == amount
+        assert res.fee > 0
+        fee = res.fee
+
+        expected_sender_balance = sender_starting_balance - (amount + fee)
+        expected_receiver_balance = receiver_starting_balance + amount
+
+        test = 'Checking scan_tx on outgoing pool tx'
+        for attempt in range(2): # test re-scanning
+            print(test + ' (' + ('first attempt' if attempt == 0 else 're-scanning tx') + ')')
+            sender_wallet.scan_tx([txid])
+            res = sender_wallet.get_transfers()
+            assert 'pool' not in res or len(res.pool) == 0
+            if out_len == 0:
+                assert 'out' not in res
+            else:
+                assert len(res.out) == out_len
+            assert len(res.pending) == 1
+            tx = [x for x in res.pending if x.txid == txid]
+            assert len(tx) == 1
+            tx = tx[0]
+            assert tx.amount == amount
+            assert tx.fee == fee
+            assert len(tx.destinations) == 1
+            assert tx.destinations[0].amount == amount
+            assert tx.destinations[0].address == dst['address']
+            assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        test = 'Checking scan_tx on incoming pool tx'
+        for attempt in range(2): # test re-scanning
+            print(test + ' (' + ('first attempt' if attempt == 0 else 're-scanning tx') + ')')
+            receiver_wallet.scan_tx([txid])
+            res = receiver_wallet.get_transfers()
+            assert 'pending' not in res or len(res.pending) == 0
+            if in_len == 0:
+                assert 'in' not in res
+            else:
+                assert len(res['in']) == in_len
+            assert 'pool' in res and len(res.pool) == 1
+            tx = [x for x in res.pool if x.txid == txid]
+            assert len(tx) == 1
+            tx = tx[0]
+            assert tx.amount == amount
+            assert tx.fee == fee
+            assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        # mine the tx
+        height = daemon.generateblocks(dst['address'], 1).height
+        block_header = daemon.getblockheaderbyheight(height = height).block_header
+        miner_txid = block_header.miner_tx_hash
+        expected_receiver_balance += block_header.reward
+
+        print('Checking scan_tx on outgoing tx before refresh')
+        sender_wallet.scan_tx([txid])
+        res = sender_wallet.get_transfers()
+        assert 'pending' not in res or len(res.pending) == 0
+        assert 'pool' not in res or len (res.pool) == 0
+        assert len(res.out) == out_len + 1
+        tx = [x for x in res.out if x.txid == txid]
+        assert len(tx) == 1
+        tx = tx[0]
+        assert tx.amount == amount
+        assert tx.fee == fee
+        assert len(tx.destinations) == 1
+        assert tx.destinations[0].amount == amount
+        assert tx.destinations[0].address == dst['address']
+        assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        print('Checking scan_tx on outgoing tx after refresh')
+        sender_wallet.refresh()
+        sender_wallet.scan_tx([txid])
+        diff_transfers(sender_wallet.get_transfers(), res)
+        assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        print("Checking scan_tx on outgoing wallet's earliest tx")
+        earliest_height = height
+        earliest_txid = txid
+        for x in res['in']:
+            if x.height < earliest_height:
+                earliest_height = x.height
+                earliest_txid = x.txid
+        sender_wallet.scan_tx([earliest_txid])
+        diff_transfers(sender_wallet.get_transfers(), res)
+        assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        test = 'Checking scan_tx on outgoing wallet restored at current height'
+        for i, out_tx in enumerate(res.out):
+            if 'destinations' in out_tx:
+                del res.out[i]['destinations'] # destinations are not expected after wallet restore
+        out_txids = [x.txid for x in res.out]
+        in_txids = [x.txid for x in res['in']]
+        all_txs = out_txids + in_txids
+        for test_type in ["all txs", "incoming first", "duplicates within", "duplicates across"]:
+            print(test + ' (' + test_type + ')')
+            sender_wallet.close_wallet()
+            sender_wallet.restore_deterministic_wallet(seed = seeds[0], restore_height = height)
+            assert sender_wallet.get_transfers() == {}
+            if test_type == "all txs":
+                sender_wallet.scan_tx(all_txs)
+            elif test_type == "incoming first":
+                sender_wallet.scan_tx(in_txids)
+                sender_wallet.scan_tx(out_txids)
+            # TODO: test_type == "outgoing first"
+            elif test_type == "duplicates within":
+                sender_wallet.scan_tx(all_txs + all_txs)
+            elif test_type == "duplicates across":
+                sender_wallet.scan_tx(all_txs)
+                sender_wallet.scan_tx(all_txs)
+            else:
+                assert True == False
+            diff_transfers(sender_wallet.get_transfers(), res)
+            assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        print('Sanity check against outgoing wallet restored at height 0')
+        sender_wallet.close_wallet()
+        sender_wallet.restore_deterministic_wallet(seed = seeds[0], restore_height = 0)
+        sender_wallet.refresh()
+        diff_transfers(sender_wallet.get_transfers(), res)
+        assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        print('Checking scan_tx on incoming txs before refresh')
+        receiver_wallet.scan_tx([txid, miner_txid])
+        res = receiver_wallet.get_transfers()
+        assert 'pending' not in res or len(res.pending) == 0
+        assert 'pool' not in res or len (res.pool) == 0
+        assert len(res['in']) == in_len + 2
+        tx = [x for x in res['in'] if x.txid == txid]
+        assert len(tx) == 1
+        tx = tx[0]
+        assert tx.amount == amount
+        assert tx.fee == fee
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        print('Checking scan_tx on incoming txs after refresh')
+        receiver_wallet.refresh()
+        receiver_wallet.scan_tx([txid, miner_txid])
+        diff_transfers(receiver_wallet.get_transfers(), res)
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        print("Checking scan_tx on incoming wallet's earliest tx")
+        earliest_height = height
+        earliest_txid = txid
+        for x in res['in']:
+            if x.height < earliest_height:
+                earliest_height = x.height
+                earliest_txid = x.txid
+        receiver_wallet.scan_tx([earliest_txid])
+        diff_transfers(receiver_wallet.get_transfers(), res)
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        print('Checking scan_tx on incoming wallet restored at current height')
+        txids = [x.txid for x in res['in']]
+        if 'out' in res:
+            txids = txids + [x.txid for x in res.out]
+        receiver_wallet.close_wallet()
+        receiver_wallet.restore_deterministic_wallet(seed = seeds[1], restore_height = height)
+        assert receiver_wallet.get_transfers() == {}
+        receiver_wallet.scan_tx(txids)
+        if 'out' in res:
+            for i, out_tx in enumerate(res.out):
+                if 'destinations' in out_tx:
+                    del res.out[i]['destinations'] # destinations are not expected after wallet restore
+        diff_transfers(receiver_wallet.get_transfers(), res)
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        print('Sanity check against incoming wallet restored at height 0')
+        receiver_wallet.close_wallet()
+        receiver_wallet.restore_deterministic_wallet(seed = seeds[1], restore_height = 0)
+        receiver_wallet.refresh()
+        diff_transfers(receiver_wallet.get_transfers(), res)
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+    def check_subtract_fee_from_outputs(self):
+        daemon = Daemon()
+
+        print('Testing fee-included transfers')
+
+        def inner_test_external_transfer(dsts, subtract_fee_from_outputs):
+            # refresh wallet and get balance
+            self.wallet[0].refresh()
+            balance1 = self.wallet[0].get_balance().balance
+
+            # Check that this transaction is possible with our current balance + other preconditions
+            dst_sum = sum(map(lambda x: x['amount'], dsts))
+            assert balance1 >= dst_sum
+            if subtract_fee_from_outputs:
+                assert max(subtract_fee_from_outputs) < len(dsts)
+
+            # transfer with subtractfeefrom=all
+            transfer_res = self.wallet[0].transfer(dsts, subtract_fee_from_outputs = subtract_fee_from_outputs, get_tx_metadata = True)
+            tx_hex = transfer_res.tx_metadata
+            tx_fee = transfer_res.fee
+            amount_spent = transfer_res.amount
+            amounts_by_dest = transfer_res.amounts_by_dest.amounts
+
+            # Assert that fee and amount spent to outputs adds up
+            assert tx_fee != 0
+            if subtract_fee_from_outputs:
+                assert tx_fee + amount_spent == dst_sum
+            else:
+                assert amount_spent == dst_sum
+
+            # Check the amounts by each destination that only the destinations set as subtractable
+            # got subtracted and that the subtracted dests are approximately correct
+            assert len(amounts_by_dest) == len(dsts) # if this fails... idk
+            for i in range(len(dsts)):
+                if i in subtract_fee_from_outputs: # dest is subtractable
+                    approx_subtraction = tx_fee // len(subtract_fee_from_outputs)
+                    assert amounts_by_dest[i] < dsts[i]['amount']
+                    assert dsts[i]['amount'] - amounts_by_dest[i] - approx_subtraction <= 1
+                else:
+                    assert amounts_by_dest[i] == dsts[i]['amount']
+
+            # relay tx and generate block (not to us, to simplify balance change calculations)
+            relay_res = self.wallet[0].relay_tx(tx_hex)
+            daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+
+            # refresh and get balance again
+            self.wallet[0].refresh()
+            balance2 = self.wallet[0].get_balance().balance
+
+            # Check that the wallet balance dropped by the correct amount
+            balance_drop = balance1 - balance2
+            if subtract_fee_from_outputs:
+                assert balance_drop == dst_sum
+            else:
+                assert balance_drop == dst_sum + tx_fee
+
+        dst1 = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 1100000000001}
+        dst2 = {'address': '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 'amount': 1200000000000}
+        dst3 = {'address': '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 'amount': 1}
+
+        inner_test_external_transfer([dst1, dst2], [0, 1])
+        inner_test_external_transfer([dst1, dst2], [0])
+        inner_test_external_transfer([dst1, dst2], [1])
+        inner_test_external_transfer([dst1, dst2], [])
+        inner_test_external_transfer([dst1], [0])
+        inner_test_external_transfer([dst1], [])
+        inner_test_external_transfer([dst3], [])
+        try:
+            inner_test_external_transfer([dst1, dst3], [0, 1]) # Test subtractfeefrom if one of the outputs would underflow w/o good checks
+            raise ValueError('transfer request with tiny subtractable destination should have thrown')
+        except:
+            pass
+
+        # Check for JSONRPC error on bad index
+        try:
+            transfer_res = self.wallet[0].transfer([dst1], subtract_fee_from_outputs = [1])
+            raise ValueError('transfer request with index should have thrown')
+        except AssertionError:
+            pass
 
 if __name__ == '__main__':
     TransferTest().run_test()

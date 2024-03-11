@@ -2065,7 +2065,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       cryptonote::blobdata blob;
       if (m_tx_pool.have_tx(txid, relay_category::legacy))
       {
-        if (m_tx_pool.get_transaction_info(txid, td))
+        if (m_tx_pool.get_transaction_info(txid, td, true/*include_sensitive_data*/))
         {
           bei.block_cumulative_weight += td.weight;
         }
@@ -3710,7 +3710,7 @@ uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_b
       div128_64(hi, lo, median_block_weight, &hi, &lo, NULL, NULL);
       assert(hi == 0);
       lo -= lo / 20;
-      return lo;
+      return lo == 0 ? 1 : lo;
     }
     else
     {
@@ -3832,6 +3832,8 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
   const uint8_t version = get_current_hard_fork_version();
   const uint64_t db_height = m_db->height();
 
+  CHECK_AND_ASSERT_THROW_MES(grace_blocks <= CRYPTONOTE_REWARD_BLOCKS_WINDOW, "Grace blocks invalid In 2021 fee scaling estimate.");
+
   // we want Mlw = median of max((min(Mbw, 1.7 * Ml), Zm), Ml / 1.7)
   // Mbw: block weight for the last 99990 blocks, 0 for the next 10
   // Ml: penalty free zone (dynamic), aka long_term_median, aka median of max((min(Mb, 1.7 * Ml), Zm), Ml / 1.7)
@@ -3845,7 +3847,6 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
   const uint64_t Mlw_penalty_free_zone_for_wallet = std::max<uint64_t>(rm.median(), CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5);
 
   // Msw: median over [100 - grace blocks] past + [grace blocks] future blocks
-  CHECK_AND_ASSERT_THROW_MES(grace_blocks <= 100, "Grace blocks invalid In 2021 fee scaling estimate.");
   std::vector<uint64_t> weights;
   get_last_n_blocks_weights(weights, 100 - grace_blocks);
   weights.reserve(100);
@@ -4616,40 +4617,9 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   }
   else
   {
-    const uint64_t block_weight = m_db->get_block_weight(db_height - 1);
+    const uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
+    const uint64_t long_term_median = get_long_term_block_weight_median(db_height - nblocks, nblocks);
 
-    uint64_t long_term_median;
-    if (db_height == 1)
-    {
-      long_term_median = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
-    }
-    else
-    {
-      uint64_t nblocks = std::min<uint64_t>(m_long_term_block_weights_window, db_height);
-      if (nblocks == db_height)
-        --nblocks;
-      long_term_median = get_long_term_block_weight_median(db_height - nblocks - 1, nblocks);
-    }
-
-    m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
-
-    uint64_t short_term_constraint = m_long_term_effective_median_block_weight;
-    if (hf_version >= HF_VERSION_2021_SCALING)
-      short_term_constraint += m_long_term_effective_median_block_weight * 7 / 10;
-    else
-      short_term_constraint += m_long_term_effective_median_block_weight * 2 / 5;
-    uint64_t long_term_block_weight = std::min<uint64_t>(block_weight, short_term_constraint);
-
-    if (db_height == 1)
-    {
-      long_term_median = long_term_block_weight;
-    }
-    else
-    {
-      m_long_term_block_weights_cache_tip_hash = m_db->get_block_hash_from_height(db_height - 1);
-      m_long_term_block_weights_cache_rolling_median.insert(long_term_block_weight);
-      long_term_median = m_long_term_block_weights_cache_rolling_median.median();
-    }
     m_long_term_effective_median_block_weight = std::max<uint64_t>(CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5, long_term_median);
 
     std::vector<uint64_t> weights;
@@ -5582,7 +5552,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "2c95b5af1f3ee41893ae0c585fd59207a40f28ed4addbaad64a46a39b82955e7";
+static const char expected_block_hashes_hash[] = "374d836b26c46b9d8fdbc977da7a89a43c2eefb65659901ee4d0053d302e1468";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)

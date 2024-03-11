@@ -38,13 +38,14 @@ class Wallet(object):
         self.port = port
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
 
-    def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False):
+    def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False, subtract_fee_from_outputs = []):
         transfer = {
             'method': 'transfer',
             'params': {
                 'destinations': destinations,
                 'account_index': account_index,
                 'subaddr_indices': subaddr_indices,
+                'subtract_fee_from_outputs': subtract_fee_from_outputs,
                 'priority': priority,
                 'ring_size' : ring_size,
                 'unlock_time' : unlock_time,
@@ -297,7 +298,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(query_key)
 
-    def restore_deterministic_wallet(self, seed = '', seed_offset = '', filename = '', restore_height = 0, password = '', language = '', autosave_current = True):
+    def restore_deterministic_wallet(self, seed = '', seed_offset = '', filename = '', restore_height = 0, password = '', language = '', autosave_current = True, enable_multisig_experimental = False):
         restore_deterministic_wallet = {
             'method': 'restore_deterministic_wallet',
             'params' : {
@@ -308,6 +309,7 @@ class Wallet(object):
                 'password': password,
                 'language': language,
                 'autosave_current': autosave_current,
+                'enable_multisig_experimental': enable_multisig_experimental
             },
             'jsonrpc': '2.0', 
             'id': '0'
