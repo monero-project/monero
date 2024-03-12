@@ -31,6 +31,7 @@
 #pragma once
 #include <boost/asio/io_service.hpp>
 #include <boost/function/function_fwd.hpp>
+#include <cstdint>
 #if BOOST_VERSION >= 107400
 #include <boost/serialization/library_version_type.hpp>
 #endif
@@ -205,6 +206,16 @@ namespace cryptonote
      */
     size_t get_alternative_blocks_count() const;
 
+    /**
+     * @brief get maximum used block height and id of transaction 
+     *  
+     *  @param tx the transaction to get maximum input height
+     *  @param version version of the hardfork
+     *  @max_used_block_id return-by-reference block hash of most recent input
+     *  @max_used_block_height return-by-reference return-by-reference block hash of most recent input
+     */
+    bool get_maximum_block_id_height(transaction& tx, uint8_t version, uint64_t* pmax_used_block_height, crypto::hash* pmax_used_block_id); 
+    
     /**
      * @brief gets a block's hash given a height
      *
@@ -617,6 +628,7 @@ namespace cryptonote
      */
     bool check_tx_inputs(transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false) const;
 
+   
     /**
      * @brief get fee quantization mask
      *
