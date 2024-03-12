@@ -374,7 +374,7 @@ namespace rct {
                 memset(ecdhInfo[i].amount.bytes, 0, sizeof(ecdhInfo[i].amount.bytes));
               else // saving
                 memcpy(trunc_amount.data, ecdhInfo[i].amount.bytes, sizeof(trunc_amount));
-              FIELD(trunc_amount);
+              FIELD_N("amount", trunc_amount);
               if (!typename Archive<W>::is_saving()) // loading
                 memcpy(ecdhInfo[i].amount.bytes, trunc_amount.data, sizeof(trunc_amount));
               ar.end_object();
