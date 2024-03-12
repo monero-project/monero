@@ -12,8 +12,8 @@ import os
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
 DEFAULT_TESTS = [
   'address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution',
-  'integrated_address', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs', 'rpc_payment',
-  'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
+  'http_digest_auth', 'integrated_address', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs',
+  'rpc_payment', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
 ]
 try:
   python = sys.argv[1]
@@ -41,12 +41,12 @@ except:
 # a main offline monerod, does most of the tests
 # a restricted RPC monerod setup with RPC payment
 # two local online monerods connected to each other
-N_MONERODS = 4
+N_MONERODS = 5
 
 # 4 wallets connected to the main offline monerod
 # 1 wallet connected to the first local online monerod
 # 1 offline wallet
-N_WALLETS = 6
+N_WALLETS = 7
 
 WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 FUNCTIONAL_TESTS_DIRECTORY = builddir + "/tests/functional_tests"
@@ -58,15 +58,17 @@ monerod_extra = [
   ["--rpc-payment-address", "44SKxxLQw929wRF6BA9paQ1EWFshNnKhXM3qz6Mo3JGDE2YG3xyzVutMStEicxbQGRfrYvAAYxH6Fe8rnD56EaNwUiqhcwR", "--rpc-payment-difficulty", str(DIFFICULTY), "--rpc-payment-credits", "5000", "--offline"],
   ["--add-exclusive-node", "127.0.0.1:18283"],
   ["--add-exclusive-node", "127.0.0.1:18282"],
+  ["--rpc-login", "md5_lover:Z1ON0101", "--offline"],
 ]
-wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--disable-rpc-login", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
 wallet_extra = [
-  ["--daemon-port", "18180"],
-  ["--daemon-port", "18180"],
-  ["--daemon-port", "18180"],
-  ["--daemon-port", "18180"],
-  ["--daemon-port", "18182"],
-  ["--offline"],
+  ["--daemon-port", "18180", "--disable-rpc-login"],
+  ["--daemon-port", "18180", "--disable-rpc-login"],
+  ["--daemon-port", "18180", "--disable-rpc-login"],
+  ["--daemon-port", "18180", "--disable-rpc-login"],
+  ["--daemon-port", "18182", "--disable-rpc-login"],
+  ["--offline", "--disable-rpc-login"],
+  ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille"],
 ]
 
 command_lines = []

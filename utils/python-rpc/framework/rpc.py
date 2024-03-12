@@ -28,6 +28,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import requests
+from requests.auth import HTTPDigestAuth
 import json
 
 class Response(dict):
@@ -60,14 +61,17 @@ class Response(dict):
         return True
 
 class JSONRPC(object):
-    def __init__(self, url):
+    def __init__(self, url, username=None, password=None):
         self.url = url
+        self.username = username
+        self.password = password
 
     def send_request(self, path, inputs, result_field = None):
         res = requests.post(
             self.url + path,
             data=json.dumps(inputs),
-            headers={'content-type': 'application/json'})
+            headers={'content-type': 'application/json'},
+            auth=HTTPDigestAuth(self.username, self.password) if self.username is not None else None)
         res = res.json()
         
         assert 'error' not in res, res

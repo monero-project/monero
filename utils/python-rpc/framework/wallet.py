@@ -33,10 +33,11 @@ from .rpc import JSONRPC
 
 class Wallet(object):
 
-    def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0):
+    def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0, username=None, password=None):
         self.host = host
         self.port = port
-        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else 18090+idx))
+        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host,
+            port=port if port else 18090+idx), username, password)
 
     def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False, subtract_fee_from_outputs = []):
         transfer = {
