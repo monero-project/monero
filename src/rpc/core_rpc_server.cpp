@@ -1356,7 +1356,7 @@ namespace cryptonote
     if (!skip_validation)
     {
       tx_verification_context tvc{};
-      if(!m_core.handle_incoming_tx({tx_blob, crypto::null_hash}, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
+      if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
       {
         res.status = "Failed";
         std::string reason = "";
@@ -3546,8 +3546,6 @@ namespace cryptonote
   bool core_rpc_server::on_flush_cache(const COMMAND_RPC_FLUSH_CACHE::request& req, COMMAND_RPC_FLUSH_CACHE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
     RPC_TRACKER(flush_cache);
-    if (req.bad_txs)
-      m_core.flush_bad_txs_cache();
     if (req.bad_blocks)
       m_core.flush_invalid_blocks();
     res.status = CORE_RPC_STATUS_OK;

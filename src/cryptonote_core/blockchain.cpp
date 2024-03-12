@@ -40,6 +40,7 @@
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
+#include "cryptonote_basic/events.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"
 #include "hardforks/hardforks.h"
@@ -642,12 +643,14 @@ block Blockchain::pop_block_from_blockchain()
       // in hf_versions.
       uint8_t version = get_ideal_hard_fork_version(m_db->height());
 
-      // We assume that if they were in a block, the transactions are already
-      // known to the network as a whole. However, if we had mined that block,
-      // that might not be always true. Unlikely though, and always relaying
-      // these again might cause a spike of traffic as many nodes re-relay
-      // all the transactions in a popped block when a reorg happens.
-      bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version);
+      // We assume that if they were in a block, the transactions are already known to the network
+      // as a whole. However, if we had mined that block, that might not be always true. Unlikely
+      // though, and always relaying these again might cause a spike of traffic as many nodes
+      // re-relay all the transactions in a popped block when a reorg happens. You might notice that
+      // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
+      // from the mempool earlier in this function call, when the mempool has the same current fork
+      // version, we can return it without re-verifying the consensus rules on it.
+      const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -659,7 +662,6 @@ block Blockchain::pop_block_from_blockchain()
 
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
-  m_blocks_txs_check.clear();
 
   uint64_t top_block_height;
   crypto::hash top_block_hash = get_tail_id(top_block_height);
@@ -1143,7 +1145,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   for (auto& bl : original_chain)
   {
     block_verification_context bvc = {};
-    bool r = handle_block_to_main_chain(bl, bvc, false);
+    bool r = handle_block_to_main_chain(bl, bvc);
     CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
   }
 
@@ -1196,7 +1198,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     block_verification_context bvc = {};
 
     // add block to main chain
-    bool r = handle_block_to_main_chain(bei.bl, bvc, false);
+    bool r = handle_block_to_main_chain(bei.bl, bvc);
 
     // if adding block to main chain failed, rollback to previous state and
     // return false
@@ -1237,7 +1239,8 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     for (auto& old_ch_ent : disconnected_chain)
     {
       block_verification_context bvc = {};
-      bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc);
+      pool_supplement ps{};
+      bool r = handle_alternative_block(old_ch_ent, get_block_hash(old_ch_ent), bvc, ps);
       if(!r)
       {
         MERROR("Failed to push ex-main chain blocks to alternative chain ");
@@ -1925,7 +1928,8 @@ bool Blockchain::build_alt_chain(const crypto::hash &prev_id, std::list<block_ex
 // if that chain is long enough to become the main chain and re-org accordingly
 // if so.  If not, we need to hang on to the block in case it becomes part of
 // a long forked chain eventually.
-bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id, block_verification_context& bvc)
+bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id,
+  block_verification_context& bvc, pool_supplement& extra_block_txs)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -2056,6 +2060,48 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       bei.cumulative_difficulty = m_db->get_block_cumulative_difficulty(m_db->get_block_height(b.prev_id));
     }
     bei.cumulative_difficulty += current_diff;
+
+    // Now that we have the PoW verification out of the way, verify all pool supplement txs
+    tx_verification_context tvc{};
+    if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
+    {
+      MERROR_VER("Transaction pool supplement verification failure for alt block " << id);
+      bvc.m_verifivation_failed = true;
+      return false;
+    }
+
+    // Add pool supplement txs to the main mempool with relay_method::block
+
+    for (auto& extra_block_tx : extra_block_txs.txs_by_txid)
+    {
+      const crypto::hash& txid = extra_block_tx.first;
+      transaction& tx = extra_block_tx.second.first;
+      const blobdata &tx_blob = extra_block_tx.second.second;
+
+      tx_verification_context tvc{};
+      CRITICAL_REGION_LOCAL(m_tx_pool);
+      if (!m_tx_pool.have_tx(txid, relay_category::all) &&
+          !m_db->tx_exists(txid) &&
+          !m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version)
+          || tvc.m_verifivation_failed)
+      {
+        MERROR_VER("Transaction " << txid <<
+          " in pool supplement failed to enter main pool for alt block " << id);
+        bvc.m_verifivation_failed = true;
+        return false;
+      }
+
+      // If new incoming tx in alt block passed verification and entered the pool, notify ZMQ
+      if (!tvc.m_verifivation_failed && tvc.m_added_to_pool)
+        notify_txpool_event({txpool_event{
+          .tx = tx,
+          .hash = txid,
+          .blob_size = tx_blob.size(),
+          .weight = get_transaction_weight(tx),
+          .res = true}});
+    }
+    extra_block_txs.txs_by_txid.clear();
+    extra_block_txs.nic_verified_hf_version = 0;
 
     bei.block_cumulative_weight = cryptonote::get_transaction_weight(b.miner_tx);
     for (const crypto::hash &txid: b.tx_hashes)
@@ -2860,11 +2906,12 @@ bool Blockchain::have_block(const crypto::hash& id, int *where) const
   return have_block_unlocked(id, where);
 }
 //------------------------------------------------------------------
-bool Blockchain::handle_block_to_main_chain(const block& bl, block_verification_context& bvc, bool notify/* = true*/)
+bool Blockchain::handle_block_to_main_chain(const block& bl, block_verification_context& bvc)
 {
     LOG_PRINT_L3("Blockchain::" << __func__);
     crypto::hash id = get_block_hash(bl);
-    return handle_block_to_main_chain(bl, id, bvc, notify);
+    pool_supplement ps{};
+    return handle_block_to_main_chain(bl, id, bvc, ps);
 }
 //------------------------------------------------------------------
 size_t Blockchain::get_total_transactions() const
@@ -2975,24 +3022,6 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, std::vector<u
   return true;
 }
 //------------------------------------------------------------------
-void Blockchain::on_new_tx_from_block(const cryptonote::transaction &tx)
-{
-#if defined(PER_BLOCK_CHECKPOINT)
-  // check if we're doing per-block checkpointing
-  if (m_db->height() < m_blocks_hash_check.size())
-  {
-    TIME_MEASURE_START(a);
-    m_blocks_txs_check.push_back(get_transaction_hash(tx));
-    TIME_MEASURE_FINISH(a);
-    if(m_show_time_stats)
-    {
-      size_t ring_size = !tx.vin.empty() && tx.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(tx.vin[0]).key_offsets.size() : 0;
-      MINFO("HASH: " << "-" << " I/M/O: " << tx.vin.size() << "/" << ring_size << "/" << tx.vout.size() << " H: " << 0 << " chcktx: " << a);
-    }
-  }
-#endif
-}
-//------------------------------------------------------------------
 //FIXME: it seems this function is meant to be merely a wrapper around
 //       another function of the same name, this one adding one bit of
 //       functionality.  Should probably move anything more than that
@@ -3032,12 +3061,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, uint64_t& max_used_block_heigh
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context &tvc) const
+bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context &tvc, std::uint8_t hf_version)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
-
-  const uint8_t hf_version = m_hardfork->get_current_version();
 
   // from hard fork 2, we forbid dust and compound outputs
   if (hf_version >= 2) {
@@ -4088,26 +4114,6 @@ bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) cons
   return check_block_timestamp(timestamps, b, median_ts);
 }
 //------------------------------------------------------------------
-void Blockchain::return_tx_to_pool(std::vector<std::pair<transaction, blobdata>> &txs)
-{
-  uint8_t version = get_current_hard_fork_version();
-  for (auto& tx : txs)
-  {
-    cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-    // We assume that if they were in a block, the transactions are already
-    // known to the network as a whole. However, if we had mined that block,
-    // that might not be always true. Unlikely though, and always relaying
-    // these again might cause a spike of traffic as many nodes re-relay
-    // all the transactions in a popped block when a reorg happens.
-    const size_t weight = get_transaction_weight(tx.first, tx.second.size());
-    const crypto::hash tx_hash = get_transaction_hash(tx.first);
-    if (!m_tx_pool.add_tx(tx.first, tx_hash, tx.second, weight, tvc, relay_method::block, true, version))
-    {
-      MERROR("Failed to return taken transaction with hash: " << get_transaction_hash(tx.first) << " to tx_pool");
-    }
-  }
-}
-//------------------------------------------------------------------
 bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
 {
   CRITICAL_REGION_LOCAL(m_tx_pool);
@@ -4133,7 +4139,8 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
 //      Needs to validate the block and acquire each transaction from the
 //      transaction mem_pool, then pass the block and transactions to
 //      m_db->add_block()
-bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id, block_verification_context& bvc, bool notify/* = true*/)
+bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash& id,
+  block_verification_context& bvc, pool_supplement& extra_block_txs)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -4285,10 +4292,66 @@ leave:
     goto leave;
   }
 
+  // verify all non-input consensus rules for txs inside the pool supplement (if not inside checkpoint zone)
+#if defined(PER_BLOCK_CHECKPOINT)
+  if (!fast_check)
+#endif
+  {
+    tx_verification_context tvc{};
+    // If fail non-input consensus rule checking...
+    if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
+    {
+      MERROR_VER("Pool supplement provided for block with id: " << id << " failed to pass validation");
+      bvc.m_verifivation_failed = true;
+      goto leave;
+    }
+  }
+
   size_t coinbase_weight = get_transaction_weight(bl.miner_tx);
   size_t cumulative_block_weight = coinbase_weight;
 
   std::vector<std::pair<transaction, blobdata>> txs;
+  //                          txid     weight mempool?
+  std::vector<std::tuple<crypto::hash, size_t, bool>> txs_meta;
+
+  // This will be the data sent to the ZMQ pool listeners for txs which skipped the mempool
+  std::vector<txpool_event> txpool_events;
+
+  // this lambda returns relevant txs back to the mempool
+  auto return_txs_to_pool = [this, &txs, &txs_meta, &hf_version]()
+  {
+    if (txs_meta.size() != txs.size())
+    {
+      MERROR("BUG: txs_meta and txs not matching size!!!");
+      return;
+    }
+
+    for (size_t i = 0; i < txs.size(); ++i)
+    {
+      // if this transaction wasn't ever in the pool, don't return it back to the pool
+      const bool found_in_pool = std::get<2>(txs_meta[i]);
+      if (!found_in_pool)
+        continue;
+
+      transaction &tx = txs[i].first;
+      const crypto::hash &txid = std::get<0>(txs_meta[i]);
+      const blobdata &tx_blob = txs[i].second;
+      const size_t tx_weight = std::get<1>(txs_meta[i]);
+
+      // We assume that if they were in a block, the transactions are already known to the network
+      // as a whole. However, if we had mined that block, that might not be always true. Unlikely
+      // though, and always relaying these again might cause a spike of traffic as many nodes
+      // re-relay all the transactions in a popped block when a reorg happens. You might notice that
+      // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
+      // from the mempool earlier in this function call, when the mempool has the same current fork
+      // version, we can return it without re-verifying the consensus rules on it.
+      cryptonote::tx_verification_context tvc{};
+      if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true,
+          hf_version, hf_version))
+        MERROR("Failed to return taken transaction with hash: " << txid << " to tx_pool");
+    }
+  };
+
   key_images_container keys;
 
   uint64_t fee_summary = 0;
@@ -4301,18 +4364,14 @@ leave:
 
 // XXX old code adds miner tx here
 
-  size_t tx_index = 0;
   // Iterate over the block's transaction hashes, grabbing each
-  // from the tx_pool and validating them.  Each is then added
+  // from the tx_pool (or from extra_block_txs) and validating them.  Each is then added
   // to txs.  Keys spent in each are added to <keys> by the double spend check.
   txs.reserve(bl.tx_hashes.size());
+  txs_meta.reserve(bl.tx_hashes.size());
+  txpool_events.reserve(bl.tx_hashes.size());
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
-    transaction tx_tmp;
-    blobdata txblob;
-    size_t tx_weight = 0;
-    uint64_t fee = 0;
-    bool relayed = false, do_not_relay = false, double_spend_seen = false, pruned = false;
     TIME_MEASURE_START(aa);
 
 // XXX old code does not check whether tx exists
@@ -4320,21 +4379,61 @@ leave:
     {
       MERROR("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
       bvc.m_verifivation_failed = true;
-      return_tx_to_pool(txs);
-      goto leave;
+      return_txs_to_pool();
+      return false;
     }
 
     TIME_MEASURE_FINISH(aa);
     t_exists += aa;
     TIME_MEASURE_START(bb);
 
-    // get transaction with hash <tx_id> from tx_pool
-    if(!m_tx_pool.take_tx(tx_id, tx_tmp, txblob, tx_weight, fee, relayed, do_not_relay, double_spend_seen, pruned))
+    // get transaction with hash <tx_id> from m_tx_pool or extra_block_txs
+    // tx info we want:
+    //   * tx as `cryptonote::transaction`
+    //   * blob
+    //   * weight
+    //   * fee
+    //   * is pruned?
+    txs.emplace_back();
+    transaction &tx = txs.back().first;
+    blobdata &txblob = txs.back().second;
+    size_t tx_weight{};
+    uint64_t fee{};
+    bool pruned{};
+
+    bool find_tx_failure = true;
+    // we lock to keep consistent state between have_tx() and take_tx()
+    epee::critical_region_t<tx_memory_pool> txpool_lock_guard(m_tx_pool);
+    const bool found_tx_in_pool = m_tx_pool.have_tx(tx_id, relay_category::all);
+    if (found_tx_in_pool) // first try searching mempool proper
+    {
+      bool _unused1, _unused2, _unused3;
+      find_tx_failure = !m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, _unused1, _unused2, _unused3, pruned);
+      txpool_lock_guard.unlock();
+      if (find_tx_failure)
+        MERROR_VER("BUG: Block with id: " << id  << " failed to take tx: " << tx_id);
+    }
+    else if (extra_block_txs.txs_by_txid.count(tx_id)) // next try looking in the block supplement
+    {
+      txpool_lock_guard.unlock();
+      tx = std::move(extra_block_txs.txs_by_txid[tx_id].first);
+      txblob = std::move(extra_block_txs.txs_by_txid[tx_id].second);
+      tx_weight = get_transaction_weight(tx, txblob.size());
+      fee = get_tx_fee(tx);
+      pruned = tx.pruned;
+      extra_block_txs.txs_by_txid.erase(tx_id);
+      txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
+      find_tx_failure = false;
+    }
+
+    if (find_tx_failure) // did not find txid in mempool or provided extra block txs
     {
       MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
+      txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
       bvc.m_verifivation_failed = true;
-      return_tx_to_pool(txs);
-      goto leave;
+      bvc.m_missing_txs = true;
+      return_txs_to_pool();
+      return false;
     }
     if (pruned)
       ++n_pruned;
@@ -4344,8 +4443,7 @@ leave:
     // add the transaction to the temp list of transactions, so we can either
     // store the list of transactions all at once or return the ones we've
     // taken from the tx_pool back to it if the block fails verification.
-    txs.push_back(std::make_pair(std::move(tx_tmp), std::move(txblob)));
-    transaction &tx = txs.back().first;
+    txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool);
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
@@ -4378,30 +4476,12 @@ leave:
         //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
         add_block_as_invalid(bl, id);
         MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
-        MERROR_VER("tx_index " << tx_index << ", m_blocks_txs_check " << m_blocks_txs_check.size() << ":");
-        for (const auto &h: m_blocks_txs_check) MERROR_VER("  " << h);
         bvc.m_verifivation_failed = true;
-        return_tx_to_pool(txs);
-        goto leave;
+        return_txs_to_pool();
+        return false;
       }
     }
-#if defined(PER_BLOCK_CHECKPOINT)
-    else
-    {
-      // ND: if fast_check is enabled for blocks, there is no need to check
-      // the transaction inputs, but do some sanity checks anyway.
-      if (tx_index >= m_blocks_txs_check.size() || memcmp(&m_blocks_txs_check[tx_index++], &tx_id, sizeof(tx_id)) != 0)
-      {
-        MERROR_VER("Block with id: " << id << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
-        //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
-        add_block_as_invalid(bl, id);
-        MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
-        bvc.m_verifivation_failed = true;
-        return_tx_to_pool(txs);
-        goto leave;
-      }
-    }
-#endif
+
     TIME_MEASURE_FINISH(cc);
     t_checktx += cc;
     fee_summary += fee;
@@ -4419,8 +4499,6 @@ leave:
     cumulative_block_weight = m_blocks_hash_check[blockchain_height].second;
   }
 
-  m_blocks_txs_check.clear();
-
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
@@ -4428,8 +4506,8 @@ leave:
   {
     MERROR_VER("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
-    return_tx_to_pool(txs);
-    goto leave;
+    return_txs_to_pool();
+    return false;
   }
 
   TIME_MEASURE_FINISH(vmt);
@@ -4467,7 +4545,7 @@ leave:
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
       m_batch_success = false;
       bvc.m_verifivation_failed = true;
-      return_tx_to_pool(txs);
+      return_txs_to_pool();
       return false;
     }
     catch (const std::exception& e)
@@ -4476,7 +4554,7 @@ leave:
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
       m_batch_success = false;
       bvc.m_verifivation_failed = true;
-      return_tx_to_pool(txs);
+      return_txs_to_pool();
       return false;
     }
   }
@@ -4528,6 +4606,9 @@ leave:
 
   const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
   send_miner_notifications(new_height, seedhash, id, already_generated_coins);
+
+  // Make sure that txpool notifications happen BEFORE block notifications
+  notify_txpool_event(std::move(txpool_events));
 
   for (const auto& notifier: m_block_notifiers)
     notifier(new_height - 1, {std::addressof(bl), 1});
@@ -4656,7 +4737,14 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
+bool Blockchain::add_new_block(const block& bl_, block_verification_context& bvc)
+{
+  pool_supplement ps{};
+  return add_new_block(bl_, bvc, ps);
+}
+//------------------------------------------------------------------
+bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
+  pool_supplement& extra_block_txs)
 {
   try
   {
@@ -4670,7 +4758,6 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
-    m_blocks_txs_check.clear();
     return false;
   }
 
@@ -4680,14 +4767,12 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc)
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
     rtxn_guard.stop();
-    bool r = handle_alternative_block(bl, id, bvc);
-    m_blocks_txs_check.clear();
-    return r;
+    return handle_alternative_block(bl, id, bvc, extra_block_txs);
     //never relay alternative blocks
   }
 
   rtxn_guard.stop();
-  return handle_block_to_main_chain(bl, id, bvc);
+  return handle_block_to_main_chain(bl, id, bvc, extra_block_txs);
 
   }
   catch (const std::exception &e)
@@ -4857,7 +4942,6 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
   TIME_MEASURE_FINISH(t1);
   m_blocks_longhash_table.clear();
   m_scan_table.clear();
-  m_blocks_txs_check.clear();
 
   // when we're well clear of the precomputed hashes, free the memory
   if (!m_blocks_hash_check.empty() && m_db->height() > m_blocks_hash_check.size() + 4096)
@@ -5438,6 +5522,12 @@ void Blockchain::set_user_options(uint64_t maxthreads, bool sync_on_blocks, uint
   m_max_prepare_blocks_threads = maxthreads;
 }
 
+void Blockchain::set_txpool_notify(TxpoolNotifyCallback&& notify)
+{
+  std::lock_guard<decltype(m_txpool_notifier_mutex)> lg(m_txpool_notifier_mutex);
+  m_txpool_notifier = notify;
+}
+
 void Blockchain::add_block_notify(BlockNotifyCallback&& notify)
 {
   if (notify)
@@ -5453,6 +5543,22 @@ void Blockchain::add_miner_notify(MinerNotifyCallback&& notify)
   {
     CRITICAL_REGION_LOCAL(m_blockchain_lock);
     m_miner_notifiers.push_back(std::move(notify));
+  }
+}
+
+void Blockchain::notify_txpool_event(std::vector<txpool_event>&& event)
+{
+  std::lock_guard<decltype(m_txpool_notifier_mutex)> lg(m_txpool_notifier_mutex);
+  if (m_txpool_notifier)
+  {
+    try
+    {
+      m_txpool_notifier(event);
+    }
+    catch (const std::exception &e)
+    {
+      MDEBUG("During Blockchain::notify_txpool_event(), ignored exception: " << e.what());
+    }
   }
 }
 
