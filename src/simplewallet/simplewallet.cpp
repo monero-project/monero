@@ -182,7 +182,7 @@ namespace
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
-  const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
+  const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery] [max_weight]");
   const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted|this-is-probably-a-spy-node]");
   const char* USAGE_SHOW_BALANCE("balance [detail]");
   const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
@@ -5142,6 +5142,7 @@ void simple_wallet::start_background_mining()
     COMMAND_RPC_START_MINING::request req;
     COMMAND_RPC_START_MINING::response res;
     req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    req.max_weight = 0;
     req.threads_count = 1;
     req.do_background_mining = true;
     req.ignore_battery = false;
@@ -5265,6 +5266,10 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
 
   bool ok = true;
   size_t arg_size = args.size();
+  if(arg_size >= 4)
+  {
+    ok = ok && string_tools::get_xtype_from_string(req.max_weight, args[3]);
+  }
   if(arg_size >= 3)
   {
     if (!parse_bool_and_use(args[2], [&](bool r) { req.ignore_battery = r; }))
@@ -5278,7 +5283,7 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   if(arg_size >= 1)
   {
     uint16_t num = 1;
-    ok = string_tools::get_xtype_from_string(num, args[0]);
+    ok = ok && string_tools::get_xtype_from_string(num, args[0]);
     ok = ok && 1 <= num;
     req.threads_count = num;
   }

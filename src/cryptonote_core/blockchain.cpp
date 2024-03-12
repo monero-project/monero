@@ -1544,7 +1544,7 @@ uint64_t Blockchain::get_current_cumulative_block_weight_median() const
 // in a lot of places.  That flag is not referenced in any of the code
 // nor any of the makefiles, howeve.  Need to look into whether or not it's
 // necessary at all.
-bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, uint64_t max_weight, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t median_weight;
@@ -1687,7 +1687,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   size_t txs_weight;
   uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version))
+  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, max_weight, txs_weight, fee, expected_reward, b.major_version))
   {
     return false;
   }
@@ -1813,9 +1813,9 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   return false;
 }
 //------------------------------------------------------------------
-bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, uint64_t max_weight, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
 {
-  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
+  return create_block_template(b, NULL, miner_address, max_weight, diffic, height, expected_reward, ex_nonce, seed_height, seed_hash);
 }
 //------------------------------------------------------------------
 bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)

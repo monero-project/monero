@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 13
+#define CORE_RPC_VERSION_MINOR 14
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -665,6 +665,7 @@ namespace cryptonote
     struct request_t: public rpc_request_base
     {
       std::string miner_address;
+      uint64_t    max_weight;
       uint64_t    threads_count;
       bool        do_background_mining;
       bool        ignore_battery;
@@ -672,6 +673,7 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE(miner_address)
+        KV_SERIALIZE_OPT(max_weight, (uint64_t)0)
         KV_SERIALIZE(threads_count)
         KV_SERIALIZE(do_background_mining)        
         KV_SERIALIZE(ignore_battery)        
@@ -943,6 +945,7 @@ namespace cryptonote
     struct request_t: public rpc_request_base
     {
       uint64_t reserve_size;       //max 255 bytes
+      uint64_t max_weight;
       std::string wallet_address;
       std::string prev_block;
       std::string extra_nonce;
@@ -950,6 +953,7 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE(reserve_size)
+        KV_SERIALIZE_OPT(max_weight, (uint64_t)0)
         KV_SERIALIZE(wallet_address)
         KV_SERIALIZE(prev_block)
         KV_SERIALIZE(extra_nonce)

@@ -116,6 +116,7 @@ namespace cryptonote
     m_pausers_count(0),
     m_threads_total(0),
     m_starter_nonce(0),
+    m_max_weight(0),
     m_last_hr_merge_time(0),
     m_hashes(0),
     m_total_hashes(0),
@@ -173,7 +174,7 @@ namespace cryptonote
 
     uint64_t seed_height;
     crypto::hash seed_hash;
-    if(!m_phandler->get_block_template(bl, m_mine_address, di, height, expected_reward, extra_nonce, seed_height, seed_hash))
+    if(!m_phandler->get_block_template(bl, m_mine_address, m_max_weight, di, height, expected_reward, extra_nonce, seed_height, seed_hash))
     {
       LOG_ERROR("Failed to get_block_template(), stopping mining");
       return false;
@@ -368,10 +369,11 @@ namespace cryptonote
     return m_threads_total;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::start(const account_public_address& adr, size_t threads_count, bool do_background, bool ignore_battery)
+  bool miner::start(const account_public_address& adr, uint64_t max_weight, size_t threads_count, bool do_background, bool ignore_battery)
   {
     m_block_reward = 0;
     m_mine_address = adr;
+    m_max_weight = max_weight;
     m_threads_total = static_cast<uint32_t>(threads_count);
     if (threads_count == 0)
     {
@@ -494,7 +496,7 @@ namespace cryptonote
   {
     if(m_do_mining)
     {
-      start(m_mine_address, m_threads_total, get_is_background_mining_enabled(), get_ignore_battery());
+      start(m_mine_address, m_max_weight, m_threads_total, get_is_background_mining_enabled(), get_ignore_battery());
     }
   }
   //-----------------------------------------------------------------------------------------------------
