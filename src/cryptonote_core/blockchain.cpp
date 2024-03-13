@@ -83,8 +83,9 @@ DISABLE_VS_WARNINGS(4267)
 
 #define MERROR_VER(x) MCERROR("verify", x)
 
-// used to overestimate the block reward when estimating a per kB to use
-#define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
+// Used to overestimate the block reward when estimating fees. The maximum value that the block
+// reward can be post tail emission is the final subsidy per block (0.6 XMR)
+#define BLOCK_REWARD_OVERESTIMATE (FINAL_SUBSIDY_PER_MINUTE * DIFFICULTY_TARGET_V2)
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
