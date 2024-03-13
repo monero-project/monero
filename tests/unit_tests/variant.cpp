@@ -372,6 +372,113 @@ TEST(variant, visit)
     EXPECT_NE(test_stringify_visitor::stringify((uint16_t) 2001), v.visit(test_stringify_visitor()));
 }
 //-------------------------------------------------------------------------------------------------------------------
+TEST(variant, visit_lambda)
+{
+    const auto stringify_lambda = [](auto x) -> std::string
+    {
+        if constexpr (std::is_same_v<decltype(x), std::string>)
+            return x;
+        else if constexpr (std::is_same_v<decltype(x), boost::blank>)
+            throw std::runtime_error("boost blank cannot be stringified");
+        else
+            return std::to_string(x);
+    };
+
+    variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
+    EXPECT_THROW(v.visit(stringify_lambda), std::runtime_error);
+
+    v = "Rev";
+    EXPECT_EQ("Rev", v.visit(stringify_lambda));
+
+    v = (int16_t) 2001;
+    EXPECT_EQ("2001", v.visit(stringify_lambda));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(variant, visit_ref_passthru)
+{
+    struct A
+    {
+        int x;
+    };
+
+    struct B
+    {
+        int x;
+    };
+
+    struct x_ref_visitor: tools::variant_static_visitor<const int&>
+    {
+        using tools::variant_static_visitor<const int&>::operator();
+
+        const int& operator()(const A &a) const { return a.x; }
+        const int& operator()(const B &b) const { return b.x; }
+    };
+
+    tools::variant<A, B> v;
+    EXPECT_THROW(v.visit(x_ref_visitor{}), std::runtime_error);
+
+    // A very hairy looking test, but we're just testing that the reference returned from our static
+    // visitor is actually pointing to something in the same stack space as our variant operand.
+    // This will let us catch mistakes where we take a reference to a locally created variable if
+    // the visit() method is changed subtlely.
+    v = A { 2024 };
+    const char * const px = reinterpret_cast<const char*>(std::addressof(v.visit(x_ref_visitor{})));
+    const char * const pv = reinterpret_cast<const char*>(&v);
+    EXPECT_LT(px - pv, sizeof(v));
+}
+//-------------------------------------------------------------------------------------------------------------------
+TEST(variant, value_initialize_to_type_index)
+{
+    variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
+    for (int i = 0; i < 6; ++i)
+    {
+        v.value_initialize_to_type_index(i);
+        EXPECT_EQ(i, v.index());
+    }
+
+    v = (int8_t) 69;
+    EXPECT_EQ(1, v.index());
+    EXPECT_EQ(69, v.unwrap<int8_t>());
+    v.value_initialize_to_type_index(1);
+    EXPECT_EQ(1, v.index());
+    EXPECT_EQ(0, v.unwrap<int8_t>());
+
+    v = (uint8_t) 69;
+    EXPECT_EQ(2, v.index());
+    EXPECT_EQ(69, v.unwrap<uint8_t>());
+    v.value_initialize_to_type_index(2);
+    EXPECT_EQ(2, v.index());
+    EXPECT_EQ(0, v.unwrap<uint8_t>());
+
+    v = (int16_t) 69;
+    EXPECT_EQ(3, v.index());
+    EXPECT_EQ(69, v.unwrap<int16_t>());
+    v.value_initialize_to_type_index(3);
+    EXPECT_EQ(3, v.index());
+    EXPECT_EQ(0, v.unwrap<int16_t>());
+
+    v = (uint16_t) 69;
+    EXPECT_EQ(4, v.index());
+    EXPECT_EQ(69, v.unwrap<uint16_t>());
+    v.value_initialize_to_type_index(4);
+    EXPECT_EQ(4, v.index());
+    EXPECT_EQ(0, v.unwrap<uint16_t>());
+
+    v = std::string("69");
+    EXPECT_EQ(5, v.index());
+    EXPECT_EQ("69", v.unwrap<std::string>());
+    v.value_initialize_to_type_index(5);
+    EXPECT_EQ(5, v.index());
+    EXPECT_EQ("", v.unwrap<std::string>());
+
+    v = (int16_t) 69;
+    v.value_initialize_to_type_index(5);
+    EXPECT_EQ("", v.unwrap<std::string>());
+
+    EXPECT_THROW(v.value_initialize_to_type_index(-1), std::runtime_error);
+    EXPECT_THROW(v.value_initialize_to_type_index(6), std::runtime_error);
+}
+//-------------------------------------------------------------------------------------------------------------------
 TEST(variant, ad_hoc_recursion)
 {
     struct left_t;
