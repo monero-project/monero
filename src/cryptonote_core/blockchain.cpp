@@ -3831,6 +3831,8 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
   const uint8_t version = get_current_hard_fork_version();
   const uint64_t db_height = m_db->height();
 
+  CHECK_AND_ASSERT_THROW_MES(grace_blocks <= CRYPTONOTE_REWARD_BLOCKS_WINDOW, "Grace blocks invalid In 2021 fee scaling estimate.");
+
   // we want Mlw = median of max((min(Mbw, 1.7 * Ml), Zm), Ml / 1.7)
   // Mbw: block weight for the last 99990 blocks, 0 for the next 10
   // Ml: penalty free zone (dynamic), aka long_term_median, aka median of max((min(Mb, 1.7 * Ml), Zm), Ml / 1.7)
@@ -3844,7 +3846,6 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
   const uint64_t Mlw_penalty_free_zone_for_wallet = std::max<uint64_t>(rm.size() == 0 ? 0 : rm.median(), CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5);
 
   // Msw: median over [100 - grace blocks] past + [grace blocks] future blocks
-  CHECK_AND_ASSERT_THROW_MES(grace_blocks <= 100, "Grace blocks invalid In 2021 fee scaling estimate.");
   std::vector<uint64_t> weights;
   get_last_n_blocks_weights(weights, 100 - grace_blocks);
   weights.reserve(100);

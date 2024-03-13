@@ -83,7 +83,6 @@ else ()
   add_subdirectory(crypto)
   add_subdirectory(functional_tests)
   add_subdirectory(performance_tests)
-  add_subdirectory(core_proxy)
   add_subdirectory(unit_tests)
   add_subdirectory(difficulty)
   add_subdirectory(block_weight)
@@ -159,7 +158,6 @@ set(enabled_tests
     block_weight
     hash
     performance_tests
-    core_proxy
     fuzz
     unit_tests)
 

@@ -145,7 +145,7 @@ $(1)_build_env+=PATH="$(build_prefix)/bin:$(PATH)"
 $(1)_stage_env+=PATH="$(build_prefix)/bin:$(PATH)"
 $(1)_autoconf=./configure --host=$($($(1)_type)_host) --prefix=$($($(1)_type)_prefix) $$($(1)_config_opts) CC="$$($(1)_cc)" CXX="$$($(1)_cxx)"
 
-ifneq ($(1),libusb)
+ifeq ($(filter $(1),libusb unbound),)
 $(1)_autoconf += --disable-dependency-tracking
 endif
 ifneq ($($(1)_nm),)
