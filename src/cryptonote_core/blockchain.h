@@ -638,27 +638,24 @@ namespace cryptonote
      *
      * @param block_reward the current block reward
      * @param median_block_weight the median block weight in the past window
-     * @param version hard fork version for rules and constants to use
      *
      * @return the fee
      */
-    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight, uint8_t version);
+    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight);
 
     /**
-     * @brief get dynamic per kB or byte fee estimate for the next few blocks
+     * @brief get four levels of dynamic per byte fee estimate for the next few blocks
      *
      * The dynamic fee is based on the block weight in a past window, and
-     * the current block reward. It is expressed by kB before v8, and
-     * per byte from v8.
-     * This function calculates an estimate for a dynamic fee which will be
-     * valid for the next grace_blocks
+     * the current block reward. It is expressed per byte, and is based on
+     * https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
      *
-     * @param grace_blocks number of blocks we want the fee to be valid for
-     *
-     * @return the fee estimate
+     * @param Mnw min(Msw, 50*Mlw)
+     * @param Mlw The median over the last 99990 and future 10 blocks of max(min(Mbw, 2*Ml), Zm, Ml/2)
+     * @param[out] fees fee estimate levels [Fl, Fn, Fm, Fh]
      */
-    uint64_t get_dynamic_base_fee_estimate(uint64_t grace_blocks) const;
-    void get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, uint64_t base_reward, uint64_t Mnw, uint64_t Mlw, std::vector<uint64_t> &fees) const;
+    static void get_dynamic_base_fee_estimate_2021_scaling(uint64_t base_reward, uint64_t Mnw,
+      uint64_t Mlw, std::vector<uint64_t> &fees);
 
     /**
      * @brief get four levels of dynamic per byte fee estimate for the next few blocks
@@ -670,8 +667,7 @@ namespace cryptonote
      * valid for the next grace_blocks
      *
      * @param grace_blocks number of blocks we want the fee to be valid for
-     *
-     * @return the fee estimates (4 of them)
+     * @param[out] fees fee estimate levels [Fl, Fn, Fm, Fh]
      */
     void get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees) const;
 

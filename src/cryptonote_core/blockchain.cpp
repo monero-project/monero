@@ -3691,18 +3691,16 @@ void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const 
 }
 
 //------------------------------------------------------------------
-uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight, uint8_t version)
+uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight)
 {
-  const uint64_t min_block_weight = get_min_block_weight(version);
+  constexpr uint64_t min_block_weight = CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
   if (median_block_weight < min_block_weight)
     median_block_weight = min_block_weight;
   uint64_t hi, lo;
 
-  if (version >= HF_VERSION_PER_BYTE_FEE)
   {
     lo = mul128(block_reward, DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT, &hi);
     div128_64(hi, lo, median_block_weight, &hi, &lo, NULL, NULL);
-    if (version >= HF_VERSION_2021_SCALING)
     {
       // min_fee_per_byte = round_up( 0.95 * block_reward * ref_weight / (fee_median^2) )
       // note: since hardfork HF_VERSION_2021_SCALING, fee_median (a.k.a. median_block_weight) equals effective long term median
@@ -3711,29 +3709,7 @@ uint64_t Blockchain::get_dynamic_base_fee(uint64_t block_reward, size_t median_b
       lo -= lo / 20;
       return lo == 0 ? 1 : lo;
     }
-    else
-    {
-      // min_fee_per_byte = 0.2 * block_reward * ref_weight / (min_penalty_free_zone * fee_median)
-      div128_64(hi, lo, min_block_weight, &hi, &lo, NULL, NULL);
-      assert(hi == 0);
-      lo /= 5;
-      return lo;
-    }
   }
-
-  const uint64_t fee_base = version >= 5 ? DYNAMIC_FEE_PER_KB_BASE_FEE_V5 : DYNAMIC_FEE_PER_KB_BASE_FEE;
-
-  uint64_t unscaled_fee_base = (fee_base * min_block_weight / median_block_weight);
-  lo = mul128(unscaled_fee_base, block_reward, &hi);
-  div128_64(hi, lo, DYNAMIC_FEE_PER_KB_BASE_BLOCK_REWARD, &hi, &lo, NULL, NULL);
-  assert(hi == 0);
-
-  // quantize fee up to 8 decimals
-  uint64_t mask = get_fee_quantization_mask();
-  uint64_t qlo = (lo + mask - 1) / mask * mask;
-  MDEBUG("lo " << print_money(lo) << ", qlo " << print_money(qlo) << ", mask " << mask);
-
-  return qlo;
 }
 
 //------------------------------------------------------------------
@@ -3744,7 +3720,6 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
   uint64_t median = 0;
   uint64_t already_generated_coins = 0;
   uint64_t base_reward = 0;
-  if (version >= HF_VERSION_DYNAMIC_FEE)
   {
     median = m_current_block_cumul_weight_limit / 2;
     const uint64_t blockchain_height = m_db->height();
@@ -3754,32 +3729,14 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
   }
 
   uint64_t needed_fee;
-  if (version >= HF_VERSION_PER_BYTE_FEE)
   {
-    const bool use_long_term_median_in_fee = version >= HF_VERSION_LONG_TERM_BLOCK_WEIGHT;
-    uint64_t fee_per_byte = get_dynamic_base_fee(base_reward, use_long_term_median_in_fee ? std::min<uint64_t>(median, m_long_term_effective_median_block_weight) : median, version);
+    const uint64_t fee_per_byte = get_dynamic_base_fee(base_reward,
+      std::min<uint64_t>(median, m_long_term_effective_median_block_weight));
     MDEBUG("Using " << print_money(fee_per_byte) << "/byte fee");
     needed_fee = tx_weight * fee_per_byte;
     // quantize fee up to 8 decimals
     const uint64_t mask = get_fee_quantization_mask();
     needed_fee = (needed_fee + mask - 1) / mask * mask;
-  }
-  else
-  {
-    uint64_t fee_per_kb;
-    if (version < HF_VERSION_DYNAMIC_FEE)
-    {
-      fee_per_kb = FEE_PER_KB;
-    }
-    else
-    {
-      fee_per_kb = get_dynamic_base_fee(base_reward, median, version);
-    }
-    MDEBUG("Using " << print_money(fee_per_kb) << "/kB fee");
-
-    needed_fee = tx_weight / 1024;
-    needed_fee += (tx_weight % 1024) ? 1 : 0;
-    needed_fee *= fee_per_kb;
   }
 
   if (fee < needed_fee - needed_fee / 50) // keep a little 2% buffer on acceptance - no integer overflow
@@ -3791,7 +3748,8 @@ bool Blockchain::check_fee(size_t tx_weight, uint64_t fee) const
 }
 
 //------------------------------------------------------------------
-void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, uint64_t base_reward, uint64_t Mnw, uint64_t Mlw, std::vector<uint64_t> &fees) const
+void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t base_reward, uint64_t Mnw,
+  uint64_t Mlw, std::vector<uint64_t> &fees)
 {
   // variable names and calculations as per https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
   // from (earlier than) this fork, the base fee is per byte
@@ -3863,55 +3821,8 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_block
     base_reward = BLOCK_REWARD_OVERESTIMATE;
   }
 
-  get_dynamic_base_fee_estimate_2021_scaling(grace_blocks, base_reward, Mnw, Mlw_penalty_free_zone_for_wallet, fees);
+  get_dynamic_base_fee_estimate_2021_scaling(base_reward, Mnw, Mlw_penalty_free_zone_for_wallet, fees);
 }
-
-//------------------------------------------------------------------
-uint64_t Blockchain::get_dynamic_base_fee_estimate(uint64_t grace_blocks) const
-{
-  const uint8_t version = get_current_hard_fork_version();
-  const uint64_t db_height = m_db->height();
-
-  if (version < HF_VERSION_DYNAMIC_FEE)
-    return FEE_PER_KB;
-
-  if (grace_blocks >= CRYPTONOTE_REWARD_BLOCKS_WINDOW)
-    grace_blocks = CRYPTONOTE_REWARD_BLOCKS_WINDOW - 1;
-
-  if (version >= HF_VERSION_2021_SCALING)
-  {
-    std::vector<uint64_t> fees;
-    get_dynamic_base_fee_estimate_2021_scaling(grace_blocks, fees);
-    return fees[0];
-  }
-
-  const uint64_t min_block_weight = get_min_block_weight(version);
-  std::vector<uint64_t> weights;
-  get_last_n_blocks_weights(weights, CRYPTONOTE_REWARD_BLOCKS_WINDOW - grace_blocks);
-  weights.reserve(grace_blocks);
-  for (size_t i = 0; i < grace_blocks; ++i)
-    weights.push_back(min_block_weight);
-
-  uint64_t median = epee::misc_utils::median(weights);
-  if(median <= min_block_weight)
-    median = min_block_weight;
-
-  uint64_t already_generated_coins = db_height ? m_db->get_block_already_generated_coins(db_height - 1) : 0;
-  uint64_t base_reward;
-  if (!get_block_reward(m_current_block_cumul_weight_limit / 2, 1, already_generated_coins, base_reward, version))
-  {
-    MERROR("Failed to determine block reward, using placeholder " << print_money(BLOCK_REWARD_OVERESTIMATE) << " as a high bound");
-    base_reward = BLOCK_REWARD_OVERESTIMATE;
-  }
-
-  const bool use_long_term_median_in_fee = version >= HF_VERSION_LONG_TERM_BLOCK_WEIGHT;
-  const uint64_t use_median_value = use_long_term_median_in_fee ? std::min<uint64_t>(median, m_long_term_effective_median_block_weight) : median;
-  const uint64_t fee = get_dynamic_base_fee(base_reward, use_median_value, version);
-  const bool per_byte = version < HF_VERSION_PER_BYTE_FEE;
-  MDEBUG("Estimating " << grace_blocks << "-block fee at " << print_money(fee) << "/" << (per_byte ? "byte" : "kB"));
-  return fee;
-}
-
 //------------------------------------------------------------------
 // This function checks to see if a tx is unlocked.  unlock_time is either
 // a block index or a unix time.

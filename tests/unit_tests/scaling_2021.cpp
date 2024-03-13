@@ -30,68 +30,26 @@
 // - https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021.pdf
 // - https://github.com/monero-project/research-lab/issues/70
 
-#define IN_UNIT_TESTS
-
 #include "gtest/gtest.h"
 #include "cryptonote_core/blockchain.h"
-#include "cryptonote_core/tx_pool.h"
-#include "cryptonote_core/cryptonote_core.h"
-#include "blockchain_db/testdb.h"
-
-namespace
-{
-
-class TestDB: public cryptonote::BaseTestDB
-{
-public:
-  TestDB() { m_open = true; }
-};
-
-}
-
-#define PREFIX_WINDOW(hf_version,window) \
-  struct get_test_options { \
-    const std::pair<uint8_t, uint64_t> hard_forks[3]; \
-    const cryptonote::test_options test_options = { \
-      hard_forks, \
-      window, \
-    }; \
-    get_test_options(): hard_forks{std::make_pair(1, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)1), std::make_pair((uint8_t)0, (uint64_t)0)} {} \
-  } opts; \
-  cryptonote::BlockchainAndPool bap; \
-  cryptonote::Blockchain *blockchain = &bap.blockchain; \
-  cryptonote::Blockchain *bc = blockchain; \
-  bool r = blockchain->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL); \
-  ASSERT_TRUE(r)
-
-#define PREFIX(hf_version) PREFIX_WINDOW(hf_version, TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW)
 
 TEST(fee_2021_scaling, relay_fee_cases_from_pdf)
 {
-  PREFIX_WINDOW(HF_VERSION_2021_SCALING, CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 300000), 38000);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 1425000), 1684 /*1680*/);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 1500000), 1520);
 
-  ASSERT_EQ(bc->get_dynamic_base_fee(1200000000000, 300000, HF_VERSION_2021_SCALING-1), 8000);
-  ASSERT_EQ(bc->get_dynamic_base_fee(1200000000000, 300000, HF_VERSION_2021_SCALING), 38000);
-  ASSERT_EQ(bc->get_dynamic_base_fee(1200000000000, 1425000, HF_VERSION_2021_SCALING-1), 1684 /*1680*/);
-  ASSERT_EQ(bc->get_dynamic_base_fee(1200000000000, 1425000, HF_VERSION_2021_SCALING), 1684 /*1680*/);
-  ASSERT_EQ(bc->get_dynamic_base_fee(1200000000000, 1500000, HF_VERSION_2021_SCALING-1), 1600);
-  ASSERT_EQ(bc->get_dynamic_base_fee(1200000000000, 1500000, HF_VERSION_2021_SCALING), 1520);
-
-  ASSERT_EQ(bc->get_dynamic_base_fee(600000000000, 300000, HF_VERSION_2021_SCALING-1), 4000);
-  ASSERT_EQ(bc->get_dynamic_base_fee(600000000000, 300000, HF_VERSION_2021_SCALING), 19000);
-  ASSERT_EQ(bc->get_dynamic_base_fee(600000000000, 1425000, HF_VERSION_2021_SCALING-1), 842 /*840*/);
-  ASSERT_EQ(bc->get_dynamic_base_fee(600000000000, 1425000, HF_VERSION_2021_SCALING), 842 /*840*/);
-  ASSERT_EQ(bc->get_dynamic_base_fee(600000000000, 1500000, HF_VERSION_2021_SCALING-1), 800);
-  ASSERT_EQ(bc->get_dynamic_base_fee(600000000000, 1500000, HF_VERSION_2021_SCALING), 760);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 300000), 19000);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 1425000), 842 /*840*/);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 1500000), 760);
 }
 
 TEST(fee_2021_scaling, wallet_fee_cases_from_pdf)
 {
-  PREFIX_WINDOW(HF_VERSION_2021_SCALING, CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE);
   std::vector<uint64_t> fees;
 
   fees.clear();
-  bc->get_dynamic_base_fee_estimate_2021_scaling(10, 600000000000, 300000, 300000, fees);
+  cryptonote::Blockchain::get_dynamic_base_fee_estimate_2021_scaling(600000000000, 300000, 300000, fees);
   ASSERT_EQ(fees.size(), 4);
   ASSERT_EQ(fees[0], 20000);
   ASSERT_EQ(fees[1], 80000);
@@ -99,7 +57,7 @@ TEST(fee_2021_scaling, wallet_fee_cases_from_pdf)
   ASSERT_EQ(fees[3], 4000000);
 
   fees.clear();
-  bc->get_dynamic_base_fee_estimate_2021_scaling(10, 600000000000, 15000000, 300000, fees);
+  cryptonote::Blockchain::get_dynamic_base_fee_estimate_2021_scaling(600000000000, 15000000, 300000, fees);
   ASSERT_EQ(fees.size(), 4);
   ASSERT_EQ(fees[0], 20000);
   ASSERT_EQ(fees[1], 80000);
@@ -107,7 +65,7 @@ TEST(fee_2021_scaling, wallet_fee_cases_from_pdf)
   ASSERT_EQ(fees[3], 1300000);
 
   fees.clear();
-  bc->get_dynamic_base_fee_estimate_2021_scaling(10, 600000000000, 1425000, 1425000, fees);
+  cryptonote::Blockchain::get_dynamic_base_fee_estimate_2021_scaling(600000000000, 1425000, 1425000, fees);
   ASSERT_EQ(fees.size(), 4);
   ASSERT_EQ(fees[0], 890);
   ASSERT_EQ(fees[1], 3600);
@@ -115,7 +73,7 @@ TEST(fee_2021_scaling, wallet_fee_cases_from_pdf)
   ASSERT_EQ(fees[3], 850000 /* 842000 */);
 
   fees.clear();
-  bc->get_dynamic_base_fee_estimate_2021_scaling(10, 600000000000, 1500000, 1500000, fees);
+  cryptonote::Blockchain::get_dynamic_base_fee_estimate_2021_scaling(600000000000, 1500000, 1500000, fees);
   ASSERT_EQ(fees.size(), 4);
   ASSERT_EQ(fees[0], 800);
   ASSERT_EQ(fees[1], 3200);
@@ -123,7 +81,7 @@ TEST(fee_2021_scaling, wallet_fee_cases_from_pdf)
   ASSERT_EQ(fees[3], 800000);
 
   fees.clear();
-  bc->get_dynamic_base_fee_estimate_2021_scaling(10, 600000000000, 75000000, 1500000, fees);
+  cryptonote::Blockchain::get_dynamic_base_fee_estimate_2021_scaling(600000000000, 75000000, 1500000, fees);
   ASSERT_EQ(fees.size(), 4);
   ASSERT_EQ(fees[0], 800);
   ASSERT_EQ(fees[1], 3200);
