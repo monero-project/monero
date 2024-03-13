@@ -126,7 +126,13 @@ namespace cryptonote
   };
   const command_line::arg_descriptor<bool> arg_sync_pruned_blocks  = {
     "sync-pruned-blocks"
-  , "Allow syncing from nodes with only pruned blocks"
+  , "Allow syncing from nodes with only pruned blocks (obsolete, now default for pruned nodes)"
+  , true
+  };
+  const command_line::arg_descriptor<bool> arg_no_sync_pruned_blocks  = {
+    "no-sync-pruned-blocks"
+  , "Download the full contents of all blocks, even when pruning"
+  , false
   };
 
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
@@ -342,6 +348,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
     command_line::add_arg(desc, arg_sync_pruned_blocks);
+    command_line::add_arg(desc, arg_no_sync_pruned_blocks);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
     command_line::add_arg(desc, arg_prune_blockchain);
@@ -387,6 +394,8 @@ namespace cryptonote
     m_fluffy_blocks_enabled = !get_arg(vm, arg_no_fluffy_blocks);
     m_offline = get_arg(vm, arg_offline);
     m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
+    if (!command_line::is_arg_defaulted(vm, arg_sync_pruned_blocks))
+          MWARNING(arg_sync_pruned_blocks.name << " is obsolete, it is now default for pruned nodes");
 
     if (command_line::get_arg(vm, arg_test_drop_download) == true)
       test_drop_download();
