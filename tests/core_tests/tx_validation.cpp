@@ -212,7 +212,7 @@ bool gen_tx_unlock_time::generate(std::vector<test_event_entry>& events) const
 
   GENERATE_ACCOUNT(miner_account);
   MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
-  REWIND_BLOCKS_N(events, blk_1, blk_0, miner_account, 10);
+  REWIND_BLOCKS_N(events, blk_1, blk_0, miner_account, 20);
   REWIND_BLOCKS(events, blk_1r, blk_1, miner_account);
 
   auto make_tx_with_unlock_time = [&](uint64_t unlock_time) -> transaction
@@ -222,8 +222,33 @@ bool gen_tx_unlock_time::generate(std::vector<test_event_entry>& events) const
 
   std::list<transaction> txs_0;
 
+  // Let's make sure that non-zero unlock times fail with a normal relay method
+  SET_EVENT_VISITOR_SETT(events, 0); // set relay_method::fluff
+
   txs_0.push_back(make_tx_with_unlock_time(0));
   events.push_back(txs_0.back());
+
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(make_tx_with_unlock_time(get_block_height(blk_1r) - 1));
+
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(make_tx_with_unlock_time(get_block_height(blk_1r)));
+
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(make_tx_with_unlock_time(get_block_height(blk_1r) + 1));
+
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(make_tx_with_unlock_time(get_block_height(blk_1r) + 2));
+
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(make_tx_with_unlock_time(ts_start - 1));
+
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(make_tx_with_unlock_time(time(0) + 60 * 60));
+
+  // We want to try adding these transactions with non-zero unlock times to the pool, but relay
+  // rules enforce otherwise, so we set the relay method to block
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_keeped_by_block); // set relay_method::block
 
   txs_0.push_back(make_tx_with_unlock_time(get_block_height(blk_1r) - 1));
   events.push_back(txs_0.back());
@@ -596,6 +621,7 @@ bool gen_tx_check_input_unlock_time::generate(std::vector<test_event_entry>& eve
     events.push_back(txs_0.back());
   };
 
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_keeped_by_block); // set relay_method::block
   uint64_t blk_3_height = get_block_height(blk_1r) + 2;
   make_tx_to_acc(0, 0);
   make_tx_to_acc(1, blk_3_height - 1);
@@ -604,6 +630,7 @@ bool gen_tx_check_input_unlock_time::generate(std::vector<test_event_entry>& eve
   make_tx_to_acc(4, time(0) - 1);
   make_tx_to_acc(5, time(0) + 60 * 60);
   MAKE_NEXT_BLOCK_TX_LIST(events, blk_2, blk_1r, miner_account, txs_0);
+  SET_EVENT_VISITOR_SETT(events, 0); // set relay_method::fluff
 
   std::list<transaction> txs_1;
   auto make_tx_from_acc = [&](size_t acc_idx, bool invalid)

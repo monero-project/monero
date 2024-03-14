@@ -472,7 +472,7 @@ bool construct_tx_rct(const cryptonote::account_keys& sender_account_keys,
     std::vector<cryptonote::tx_source_entry>& sources,
     const std::vector<cryptonote::tx_destination_entry>& destinations,
     const boost::optional<cryptonote::account_public_address>& change_addr,
-    std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time,
+    std::vector<uint8_t> extra, cryptonote::transaction& tx,
     bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0);
 
 

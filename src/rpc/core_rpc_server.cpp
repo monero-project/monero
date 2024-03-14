@@ -1378,6 +1378,8 @@ namespace cryptonote
           add_reason(reason, "too few outputs");
         if ((res.tx_extra_too_big = tvc.m_tx_extra_too_big))
           add_reason(reason, "tx-extra too big");
+        if ((res.nonzero_unlock_time = tvc.m_nonzero_unlock_time))
+          add_reason(reason, "tx unlock time is not zero");
         const std::string punctuation = reason.empty() ? "" : ": ";
         if (tvc.m_verifivation_failed)
         {

@@ -820,7 +820,6 @@ tx_builder_ringct_t::~tx_builder_ringct_t()
 bool tx_builder_ringct_t::init(
   const cryptonote::account_keys& account_keys,
   const std::vector<std::uint8_t>& extra,
-  const std::uint64_t unlock_time,
   const std::uint32_t subaddr_account,
   const std::set<std::uint32_t>& subaddr_minor_indices,
   std::vector<cryptonote::tx_source_entry>& sources,
@@ -854,7 +853,7 @@ bool tx_builder_ringct_t::init(
 
   // misc. fields
   unsigned_tx.version = 2;  //rct = 2
-  unsigned_tx.unlock_time = unlock_time;
+  unsigned_tx.unlock_time = 0;
 
   // sort inputs
   sort_sources(sources);
