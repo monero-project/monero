@@ -81,7 +81,7 @@ BLOB_SERIALIZER(crypto::chacha_iv);
 BLOB_SERIALIZER(crypto::hash);
 BLOB_SERIALIZER(crypto::hash8);
 BLOB_SERIALIZER(crypto::public_key);
-BLOB_SERIALIZER(crypto::secret_key);
+BLOB_SERIALIZER_FORCED(crypto::secret_key);
 BLOB_SERIALIZER(crypto::key_derivation);
 BLOB_SERIALIZER(crypto::key_image);
 BLOB_SERIALIZER(crypto::signature);
