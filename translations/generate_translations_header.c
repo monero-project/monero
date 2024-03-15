@@ -1,5 +1,5 @@
 // Copyright (c) 2013, Sergey Lyubka
-// Copyright (c) 2017-2023, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // All rights reserved.
 // Released under the MIT license.
 
