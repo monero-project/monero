@@ -1,4 +1,4 @@
-# Portions Copyright (c) 2017-2023, The Monero Project
+# Portions Copyright (c) 2017-2024, The Monero Project
 # This file is based off of the https://code.google.com/archive/p/ios-cmake/
 # It has been altered for Monero iOS development
 #
