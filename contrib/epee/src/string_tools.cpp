@@ -38,9 +38,12 @@
 #include <cstdlib>
 #include <string>
 #include <type_traits>
+#include <system_error>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <boost/filesystem.hpp>
 #include "misc_log_ex.h"
 #include "storages/parserse_base_utils.h"
 #include "hex.h"
@@ -147,46 +150,33 @@ namespace string_tools
     return pname;
   }
 #endif
-	
-    bool set_module_name_and_folder(const std::string& path_to_process_)
-	{
-    std::string path_to_process = path_to_process_;
+
+  void set_module_name_and_folder(const std::string& path_to_process_)
+  {
+    boost::filesystem::path path_to_process = path_to_process_;
+
 #ifdef _WIN32
     path_to_process = get_current_module_path();
 #endif 
-		std::string::size_type a = path_to_process.rfind( '\\' );
-		if(a == std::string::npos )
-		{
-			a = path_to_process.rfind( '/' );
-		}
-		if ( a != std::string::npos )
-		{	
-			get_current_module_name() = path_to_process.substr(a+1, path_to_process.size());
-			get_current_module_folder() = path_to_process.substr(0, a);
-			return true;
-		}else
-			return false;
 
-	}
+    get_current_module_name() = path_to_process.filename().string();
+    get_current_module_folder() = path_to_process.parent_path().string();
+  }
 
 	//----------------------------------------------------------------------------
-	bool trim_left(std::string& str)
-	{
-		for(std::string::iterator it = str.begin(); it!= str.end() && isspace(static_cast<unsigned char>(*it));)
-			str.erase(str.begin());
-			
-		return true;
-	}
+  void trim_left(std::string& str)
+  {
+    boost::trim_left(str);
+    return;
+  }
+
 	//----------------------------------------------------------------------------
-	bool trim_right(std::string& str)
-	{
+  void trim_right(std::string& str)
+  {
+    boost::trim_right(str);
+    return;
+  }
 
-		for(std::string::reverse_iterator it = str.rbegin(); it!= str.rend() && isspace(static_cast<unsigned char>(*it));)
-			str.erase( --((it++).base()));
-
-		return true;
-	}
-  //----------------------------------------------------------------------------
   std::string pad_string(std::string s, size_t n, char c, bool prepend)
   {
     if (s.size() < n)
@@ -199,28 +189,17 @@ namespace string_tools
     return s;
   }
   
-    std::string get_extension(const std::string& str)
-	{
-		std::string res;
-		std::string::size_type pos = str.rfind('.');
-		if(std::string::npos == pos)
-			return res;
-		
-		res = str.substr(pos+1, str.size()-pos);
-		return res;
-	}
-	//----------------------------------------------------------------------------
-	std::string cut_off_extension(const std::string& str)
-	{
-		std::string res;
-		std::string::size_type pos = str.rfind('.');
-		if(std::string::npos == pos)
-			return str;
+  std::string get_extension(const std::string& str)
+  {
+    return boost::filesystem::path(str).extension().string();
+  }
 
-		res = str.substr(0, pos);
-		return res;
-	}
-  //----------------------------------------------------------------------------
+	//----------------------------------------------------------------------------
+  std::string cut_off_extension(const std::string& str)
+  {
+    return boost::filesystem::path(str).stem().string();
+  }
+
 #ifdef _WIN32
   std::wstring utf8_to_utf16(const std::string& str)
   {
