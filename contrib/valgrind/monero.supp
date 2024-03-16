@@ -26,3 +26,34 @@
    fun:_ZN2el4base7Storage7getELPPEv
    ...
 }
+
+{
+   in boost multiprecision, we don't get a pointer to the actual code causing it but if so it's only in the test itself anyway
+   Memcheck:Overlap
+   fun:__memcpy_chk
+   fun:_ZL6MKHASHmm
+   fun:_ZN26difficulty_check_hash_Test8TestBodyEv
+   fun:_ZN7testing8internal38HandleSehExceptionsInMethodIfSupportedINS_4TestEvEET0_PT_MS4_FS3_vEPKc
+   fun:_ZN7testing8internal35HandleExceptionsInMethodIfSupportedINS_4TestEvEET0_PT_MS4_FS3_vEPKc
+   fun:_ZN7testing4Test3RunEv
+   fun:_ZN7testing8TestInfo3RunEv
+   fun:_ZN7testing8TestCase3RunEv
+   fun:_ZN7testing8internal12UnitTestImpl11RunAllTestsEv
+   fun:_ZN7testing8internal38HandleSehExceptionsInMethodIfSupportedINS0_12UnitTestImplEbEET0_PT_MS4_FS3_vEPKc
+   fun:_ZN7testing8internal35HandleExceptionsInMethodIfSupportedINS0_12UnitTestImplEbEET0_PT_MS4_FS3_vEPKc
+   fun:_ZN7testing8UnitTest3RunEv
+}
+
+{
+   valgrind seems to be confusing memmove with memcpy
+   Memcheck:Overlap
+   fun:__memcpy_chk
+   fun:memmove
+   fun:left_shift_byte<boost::multiprecision::backends::cpp_int_backend<512, 512, (boost::multiprecision::cpp_integer_type)0, (boost::multiprecision::cpp_int_check_type)0, void> >
+   fun:eval_left_shift<512, 512, (boost::multiprecision::cpp_integer_type)0, (boost::multiprecision::cpp_int_check_type)0, void>
+   fun:eval_left_shift<512, 512, (boost::multiprecision::cpp_integer_type)0, (boost::multiprecision::cpp_int_check_type)0, void>
+   fun:operator<<=<int>
+   fun:_ZN10cryptonote14check_hash_128ERKN6crypto4hashEN5boost14multiprecision6numberINS5_8backends15cpp_int_backendILj128ELj128ELNS5_16cpp_integer_typeE0ELNS5_18cpp_int_check_typeE0EvEELNS5_26expression_template_optionE0EEE
+   fun:_ZN10cryptonote10check_hashERKN6crypto4hashEN5boost14multiprecision6numberINS5_8backends15cpp_int_backendILj128ELj128ELNS5_16cpp_integer_typeE0ELNS5_18cpp_int_check_typeE0EvEELNS5_26expression_template_optionE0EEE
+   fun:_ZN26difficulty_check_hash_Test8TestBodyEv
+}
