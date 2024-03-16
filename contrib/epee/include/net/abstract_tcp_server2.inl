@@ -373,7 +373,7 @@ namespace net_utils
       {  
         //_info("[sock " << socket().native_handle() << "] protocol_want_close");
         //some error in protocol, protocol handler ask to close connection
-        boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
+        m_want_close_connection = true;
         bool do_shutdown = false;
         CRITICAL_REGION_BEGIN(m_send_que_lock);
         if(!m_send_que.size())
@@ -466,7 +466,7 @@ namespace net_utils
       if (!handshake(boost::asio::ssl::stream_base::server))
       {
         MERROR("SSL handshake failed");
-        boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
+        m_want_close_connection = true;
         m_ready_to_close = true;
         bool do_shutdown = false;
         CRITICAL_REGION_BEGIN(m_send_que_lock);
@@ -815,7 +815,7 @@ namespace net_utils
     CRITICAL_REGION_BEGIN(m_send_que_lock);
     send_que_size = m_send_que.size();
     CRITICAL_REGION_END();
-    boost::interprocess::ipcdetail::atomic_write32(&m_want_close_connection, 1);
+    m_want_close_connection = true;
     if(!send_que_size)
     {
       shutdown();
@@ -870,7 +870,7 @@ namespace net_utils
     m_send_que.pop_front();
     if(m_send_que.empty())
     {
-      if(boost::interprocess::ipcdetail::atomic_read32(&m_want_close_connection))
+      if(m_want_close_connection)
       {
         do_shutdown = true;
       }
@@ -1097,7 +1097,7 @@ namespace net_utils
   bool boosted_tcp_server<t_protocol_handler>::worker_thread()
   {
     TRY_ENTRY();
-    uint32_t local_thr_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index); 
+    const uint32_t local_thr_index = m_thread_index++;
     std::string thread_name = std::string("[") + m_thread_name_prefix;
     thread_name += boost::to_string(local_thr_index) + "]";
     MLOG_SET_THREAD_NAME(thread_name);
