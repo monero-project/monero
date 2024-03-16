@@ -112,6 +112,7 @@ namespace cryptonote
     void log_connections();
     std::list<connection_info> get_connections();
     const block_queue &get_block_queue() const { return m_block_queue; }
+    bool has_more_blocks_queued() const { return m_block_queue.get_data_size() > 0; }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
     void set_max_out_peers(epee::net_utils::zone zone, unsigned int max) { CRITICAL_REGION_LOCAL(m_max_out_peers_lock); m_max_out_peers[zone] = max; }
