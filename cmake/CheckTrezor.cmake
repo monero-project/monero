@@ -76,7 +76,7 @@ if (USE_DEVICE_TREZOR)
     include(FindProtobuf OPTIONAL)
 
     # PkgConfig works better with new Protobuf
-    find_package(PkgConfig REQUIRED)
+    find_package(PkgConfig QUIET)
     pkg_check_modules(PROTOBUF protobuf)
 
     if (NOT Protobuf_FOUND)
