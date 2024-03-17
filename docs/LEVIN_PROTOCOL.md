@@ -135,6 +135,50 @@ the `Expect Response` field zeroed. When a message of this type is received, the
 contents can be safely ignored.
 
 
+## Encryption
+The Levin protocol now has optional SSL encryption. Each peer can have 4 states:
+(1) no encryption, (2) autodetect encryption, (3) mandatory encryption with no
+certificate verification, or (4) mandatory encryption with certificate
+verification.
+
+When a peerlist is shared, the encryption information is ignored (not
+trusted), and is put into `autodetect` mode by default. The node data shared
+during handshakes OR pings can change the node state to `no encryption` or
+`authenticated encryption`, based on direction information from the peer.
+
+> The server/responder must always be in autodetect SSL mode, so that it can
+handle any possible state that the client/initiator is in.
+
+> If a node changes certificates, "old" peers will be unable to connect until
+the node is completely purged from the white/gray lists OR until the node makes
+a direct connection to provide the new encryption state. Incoming connections
+from "new" peers (that never saw the old certificate) will still be possible.
+
+### No Encryption
+If a peer chooses to have no encryption, it will send `encryption_mode = 1` in
+Handshake messages. All clients/initiators can then skip an attempt to connect
+via SSL.
+
+### Autodetect Encryption
+All peers start in this state, and only move to `no encryption` or
+`authenticated encryption` when: (1) the peer is listed on the CLI explicitly
+requesting one of the other states, or (2) the peer sends a handshake or ping
+message indicating it should be in another state.
+
+When connecting to a peer of this type, the client/initiator should attempt
+SSL with no server/responder verification. If the connection fails, it should
+immediately attempt a non-SSL connection.
+
+### Authenticated Encryption
+If a peer chooses to have a persistent SSL certificate, it will send
+`encryption_ver = 2` AND `ssl_finger = <binary sha256 of cert>` in the
+Handshake messages.
+
+When connecting to a peer of this type, the client/initiator should attempt
+a SSL connection with verification of the SSL fingerprint. The connection
+should fail if the fingerprint check fails - it is treated identically to
+a invalid/old port number.
+
 ## Commands
 ### P2P (Admin) Commands
 

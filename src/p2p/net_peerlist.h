@@ -396,20 +396,30 @@ namespace nodetool
 
     //update gray list
     auto by_addr_it_gr = m_peers_gray.get<by_addr>().find(ple.adr);
+
+    peerlist_entry new_ple = ple;
+    
     if(by_addr_it_gr == m_peers_gray.get<by_addr>().end())
     {
-      //put new record into white list
-      m_peers_gray.insert(ple);
+      // Do not trust encryption information from 3rd parties
+      new_ple.encryption_mode = emode_ssl_autodetect;
+      new_ple.cert_finger.clear();
+
+      m_peers_gray.insert(new_ple);
       trim_gray_peerlist();    
     }else
     {
       //update record in gray list
-      peerlist_entry new_ple = ple;
       if (by_addr_it_gr->pruning_seed && ple.pruning_seed == 0) // guard against older nodes not passing pruning info around
         new_ple.pruning_seed = by_addr_it_gr->pruning_seed;
       if (by_addr_it_gr->rpc_port && ple.rpc_port == 0) // guard against older nodes not passing RPC port around
         new_ple.rpc_port = by_addr_it_gr->rpc_port;
       new_ple.last_seen = by_addr_it_gr->last_seen; // do not overwrite the last seen timestamp, incoming peer list are untrusted
+
+      // use existing values for encryption on replace
+      new_ple.encryption_mode = by_addr_it_gr->encryption_mode;
+      new_ple.cert_finger = by_addr_it_gr->cert_finger;
+
       m_peers_gray.replace(by_addr_it_gr, new_ple);
     }
     return true;
@@ -420,7 +430,6 @@ namespace nodetool
   bool peerlist_manager::append_with_peer_anchor(const anchor_peerlist_entry& ple)
   {
     TRY_ENTRY();
-
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
 
     auto by_addr_it_anchor = m_peers_anchor.get<by_addr>().find(ple.adr);

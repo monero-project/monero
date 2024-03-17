@@ -895,7 +895,7 @@ namespace net_utils
       boost::uuids::random_generator()(),
       *real_remote,
       is_income,
-      connection_basic::m_ssl_support == ssl_support_t::e_ssl_support_enabled
+      connection_basic::m_ssl_support
     );
     m_host = real_remote->host_str();
     try { host_count(1); } catch(...) { /* ignore */ }
@@ -1559,7 +1559,7 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  typename boosted_tcp_server<t_protocol_handler>::try_connect_result_t boosted_tcp_server<t_protocol_handler>::try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support)
+  typename boosted_tcp_server<t_protocol_handler>::try_connect_result_t boosted_tcp_server<t_protocol_handler>::try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_options_t& ssl_options)
   {
     TRY_ENTRY();
 
@@ -1635,7 +1635,7 @@ namespace net_utils
     {
       // Handshake
       MDEBUG("Handshaking SSL...");
-      if (!new_connection_l->handshake(boost::asio::ssl::stream_base::client))
+      if (!new_connection_l->client_handshake(ssl_options))
       {
         if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
         {
@@ -1649,6 +1649,7 @@ namespace net_utils
           sock_.close();
         return CONNECT_FAILURE;
       }
+      new_connection_l->set_ssl_enabled();
     }
 
     return CONNECT_SUCCESS;
@@ -1657,11 +1658,11 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip, epee::net_utils::ssl_options_t ssl_options)
   {
     TRY_ENTRY();
 
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_options.support) );
     connections_mutex.lock();
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
@@ -1746,15 +1747,16 @@ namespace net_utils
     //boost::asio::ip::tcp::endpoint remote_endpoint(boost::asio::ip::address::from_string(addr.c_str()), port);
     boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
 
-    auto try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_support);
+    auto try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_options);
     if (try_connect_result == CONNECT_FAILURE)
       return false;
-    if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect && try_connect_result == CONNECT_NO_SSL)
+    if (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect && try_connect_result == CONNECT_NO_SSL)
     {
       // we connected, but could not connect with SSL, try without
       MERROR("SSL handshake failed on an autodetect connection, reconnecting without SSL");
       new_connection_l->disable_ssl();
-      try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+      ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+      try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_options);
       if (try_connect_result != CONNECT_SUCCESS)
         return false;
     }
@@ -1783,10 +1785,10 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler> template<class t_callback>
-  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_options_t ssl_options)
   {
     TRY_ENTRY();    
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_options.support) );
     connections_mutex.lock();
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
