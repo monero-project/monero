@@ -16,7 +16,7 @@ Please, refer to [monero readme](https://github.com/trezor/trezor-firmware/blob/
 ## Dependencies
 
 Trezor uses [Protobuf](https://protobuf.dev/) library. Monero is now compiled with C++ 17 by default.
-Thus, protobuf v23 and higher has to be used. 
+Protobuf v21+ is required. Note that Protobuf v23+ requires C++ 17.
 
 If you are getting Trezor compilation errors, it may be caused by abseil (protobuf dependency) not being compiled with C++17.
 To fix this try installing protobuf from sources:
@@ -37,7 +37,7 @@ More about this limitation: [PR #8752](https://github.com/monero-project/monero/
 
 ### OSX
 
-To build with installed, but not linked protobuf:
+To build with installed, but not linked Protobuf v21:
 
 ```bash
 CMAKE_PREFIX_PATH=$(find /opt/homebrew/Cellar/protobuf@21 -maxdepth 1 -type d -name "21.*" -print -quit) \
@@ -63,7 +63,7 @@ pacman --noconfirm -U mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst mingw-
 
 ### Other systems
 
-- install protobufv21
+- install Protobuf v21
 - point `CMAKE_PREFIX_PATH` environment variable to Protobuf v21 installation.
 
 ## Troubleshooting
