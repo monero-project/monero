@@ -89,10 +89,10 @@ if (USE_DEVICE_TREZOR)
     _trezor_protobuf_fix_vars()
 
     # Early fail for optional Trezor support
-    if(${CMAKE_CXX_STANDARD} LESS 17 AND ${Protobuf_VERSION} GREATER 21)
-        trezor_fatal_msg("Trezor: Unsupported Protobuf version ${Protobuf_VERSION} with C++ ${CMAKE_CXX_STANDARD}. Please, use Protobuf v21.")
-    elseif(NOT Protobuf_FOUND AND NOT Protobuf_LIBRARY AND NOT Protobuf_PROTOC_EXECUTABLE AND NOT Protobuf_INCLUDE_DIR)
+    if(NOT Protobuf_FOUND AND NOT Protobuf_LIBRARY AND NOT Protobuf_PROTOC_EXECUTABLE AND NOT Protobuf_INCLUDE_DIR)
         trezor_fatal_msg("Trezor: Could not find Protobuf")
+    elseif(${CMAKE_CXX_STANDARD} LESS 17 AND ${Protobuf_VERSION} GREATER 21)
+        trezor_fatal_msg("Trezor: Unsupported Protobuf version ${Protobuf_VERSION} with C++ ${CMAKE_CXX_STANDARD}. Please, use Protobuf v21.")
     elseif(NOT Protobuf_LIBRARY)
         trezor_fatal_msg("Trezor: Protobuf library not found: ${Protobuf_LIBRARY}")
         unset(Protobuf_FOUND)
