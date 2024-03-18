@@ -249,7 +249,7 @@ bool run_test(const std::string &filter, ParamsT &params_shuttle, const char* te
     double stddev = runner.get_stddev();
     double npskew = runner.get_non_parametric_skew();
 
-    std::vector<TimingsDatabase::instance> prev_instances = params.td.get(test_name);
+    const TimingsDatabase::instance* prev_instance = params.td.get_most_recent(test_name);
     params.td.add(test_name, {time(NULL), runner.get_size(), min, max, mean, med, stddev, npskew, quantiles});
 
     std::cout << (params.verbose ? "  time per call: " : " ") << time_per_call << " " << unit << "/call" << (params.verbose ? "\n" : "");
@@ -260,15 +260,14 @@ bool run_test(const std::string &filter, ParamsT &params_shuttle, const char* te
       uint64_t p95s = quantiles[9] / scale;
       uint64_t stddevs = stddev / scale;
       std::string cmp;
-      if (!prev_instances.empty())
+      if (prev_instance)
       {
-        const TimingsDatabase::instance &prev_instance = prev_instances.back();
-        if (!runner.is_same_distribution(prev_instance.npoints, prev_instance.mean, prev_instance.stddev))
+        if (!runner.is_same_distribution(prev_instance->npoints, prev_instance->mean, prev_instance->stddev))
         {
-          double pc = fabs(100. * (prev_instance.mean - runner.get_mean()) / prev_instance.mean);
-          cmp = ", " + std::to_string(pc) + "% " + (mean > prev_instance.mean ? "slower" : "faster");
+          double pc = fabs(100. * (prev_instance->mean - runner.get_mean()) / prev_instance->mean);
+          cmp = ", " + std::to_string(pc) + "% " + (mean > prev_instance->mean ? "slower" : "faster");
         }
-        cmp += "  -- " + std::to_string(prev_instance.mean);
+        cmp += "  -- " + std::to_string(prev_instance->mean);
       }
       std::cout << " (min " << mins << " " << unit << ", 90th " << p95s << " " << unit << ", median " << meds << " " << unit << ", std dev " << stddevs << " " << unit << ")" << cmp;
     }

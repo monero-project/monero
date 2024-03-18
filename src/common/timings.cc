@@ -12,10 +12,11 @@ TimingsDatabase::TimingsDatabase()
 {
 }
 
-TimingsDatabase::TimingsDatabase(const std::string &filename):
+TimingsDatabase::TimingsDatabase(const std::string &filename, const bool load_previous /*=false*/):
   filename(filename)
 {
-  load();
+  if (load_previous)
+    load();
 }
 
 TimingsDatabase::~TimingsDatabase()
@@ -73,53 +74,96 @@ bool TimingsDatabase::load()
     {
       i.deciles.push_back(atoi(fields[idx++].c_str()));
     }
-    instances.insert(std::make_pair(name, i));
+    instances.emplace_back(name, i);
   }
   fclose(f);
   return true;
 }
 
-bool TimingsDatabase::save()
+bool TimingsDatabase::save(const bool save_current_time /*=true*/)
 {
-  if (filename.empty())
+  if (filename.empty() || instances.empty())
     return true;
 
-  FILE *f = fopen(filename.c_str(), "w");
+  FILE *f = fopen(filename.c_str(), "a");  // append
   if (!f)
   {
     MERROR("Failed to write to file " << filename << ": " << strerror(errno));
     return false;
   }
-  for (const auto &i: instances)
+
+  if (save_current_time)
   {
-    fprintf(f, "%s", i.first.c_str());
-    fprintf(f, "\t%lu", (unsigned long)i.second.t);
-    fprintf(f, " %zu", i.second.npoints);
-    fprintf(f, " %f", i.second.min);
-    fprintf(f, " %f", i.second.max);
-    fprintf(f, " %f", i.second.mean);
-    fprintf(f, " %f", i.second.median);
-    fprintf(f, " %f", i.second.stddev);
-    fprintf(f, " %f", i.second.npskew);
-    for (uint64_t v: i.second.deciles)
-      fprintf(f, " %lu", (unsigned long)v);
+    // save current time in readable format (UTC)
+    std::time_t sys_time{std::time(nullptr)};
+    std::tm *utc_time = std::gmtime(&sys_time);    //GMT is equivalent to UTC
+
+    // format: year-month-day : hour:minute:second
+    std::string current_time{};
+    if (utc_time && sys_time != (std::time_t)(-1))
+    {
+      char timeString[22];  //length = std::size("yyyy-mm-dd : hh:mm:ss")  (constexpr std::size is C++17)
+      std::strftime(timeString, 22, "%F : %T", utc_time);
+      current_time += timeString;
+    }
+    else
+    {
+        current_time += "TIME_ERROR_";
+    }
+    fputc('\n', f);  // add an extra line before each 'print time'
+    fprintf(f, "%s", current_time.c_str());
     fputc('\n', f);
   }
+
+  for (const auto &i: instances)
+  {
+    fprintf(f, "%s,", i.first.c_str());
+
+    if (i.second.npoints > 0)
+    {
+      fprintf(f, "%lu,", (unsigned long)i.second.t);
+      fprintf(f, "%zu,", i.second.npoints);
+      fprintf(f, "%f,", i.second.min);
+      fprintf(f, "%f,", i.second.max);
+      fprintf(f, "%f,", i.second.mean);
+      fprintf(f, "%f,", i.second.median);
+      fprintf(f, "%f,", i.second.stddev);
+      fprintf(f, "%f,", i.second.npskew);
+      for (uint64_t v: i.second.deciles)
+        fprintf(f, "%lu,", (unsigned long)v);
+
+      // note: only add a new line if there are points; assume that 'no points' means i.first is a message meant to be
+      //       prepended to the next save operation
+      fputc('\n', f);
+    }
+  }
   fclose(f);
+
+  // after saving, clear so next save does not append the same stuff over again
+  instances.clear();
+
   return true;
 }
 
-std::vector<TimingsDatabase::instance> TimingsDatabase::get(const char *name) const
+const TimingsDatabase::instance* TimingsDatabase::get_most_recent(const char *name) const
 {
-  std::vector<instance> ret;
-  auto range = instances.equal_range(name);
-  for (auto i = range.first; i != range.second; ++i)
-    ret.push_back(i->second);
-  std::sort(ret.begin(), ret.end(), [](const instance &e0, const instance &e1){ return e0.t < e1.t; });
-  return ret;
+  time_t latest_time = 0;
+  const TimingsDatabase::instance *instance_ptr = nullptr;
+
+  for (const auto &i: instances)
+  {
+    if (i.first != name)
+      continue;
+    if (i.second.t < latest_time)
+      continue;
+
+    latest_time  = i.second.t;
+    instance_ptr = &i.second;
+  }
+  return instance_ptr;
 }
 
 void TimingsDatabase::add(const char *name, const instance &i)
 {
-  instances.insert(std::make_pair(name, i));
+  instances.emplace_back(name, i);
 }
