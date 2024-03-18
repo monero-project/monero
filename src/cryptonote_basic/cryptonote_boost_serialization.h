@@ -93,14 +93,6 @@ namespace boost
   }
 
   template <class Archive>
-  inline void serialize(Archive &a, cryptonote::txout_to_script &x, const boost::serialization::version_type ver)
-  {
-    a & x.keys;
-    a & x.script;
-  }
-
-
-  template <class Archive>
   inline void serialize(Archive &a, cryptonote::txout_to_key &x, const boost::serialization::version_type ver)
   {
     a & x.key;
@@ -114,32 +106,9 @@ namespace boost
   }
 
   template <class Archive>
-  inline void serialize(Archive &a, cryptonote::txout_to_scripthash &x, const boost::serialization::version_type ver)
-  {
-    a & x.hash;
-  }
-
-  template <class Archive>
   inline void serialize(Archive &a, cryptonote::txin_gen &x, const boost::serialization::version_type ver)
   {
     a & x.height;
-  }
-
-  template <class Archive>
-  inline void serialize(Archive &a, cryptonote::txin_to_script &x, const boost::serialization::version_type ver)
-  {
-    a & x.prev;
-    a & x.prevout;
-    a & x.sigset;
-  }
-
-  template <class Archive>
-  inline void serialize(Archive &a, cryptonote::txin_to_scripthash &x, const boost::serialization::version_type ver)
-  {
-    a & x.prev;
-    a & x.prevout;
-    a & x.script;
-    a & x.sigset;
   }
 
   template <class Archive>
@@ -421,6 +390,10 @@ namespace boost
       a & v;
     }
   }
+
+  template <class Archive, int TAG>
+  inline void serialize(Archive &a, cryptonote::reserved<TAG> &x, const boost::serialization::version_type ver)
+  {}
 
 }
 }
