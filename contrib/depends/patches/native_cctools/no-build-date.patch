@@ -1,0 +1,12 @@
+diff --git a/cctools/ld64/src/ld/Options.cpp b/cctools/ld64/src/ld/Options.cpp
+index 3bb8324..033760d 100644
+--- a/cctools/ld64/src/ld/Options.cpp
++++ b/cctools/ld64/src/ld/Options.cpp
+@@ -4279,7 +4279,6 @@ void Options::buildSearchPaths(int argc, const char* argv[])
+ 			fVerbose = true;
+ 			extern const char ldVersionString[];
+ 			fprintf(stderr, "%s", ldVersionString);
+-			fprintf(stderr, "BUILD "  __TIME__ " "  __DATE__"\n");
+ 			fprintf(stderr, "configured to support archs: %s\n", ALL_SUPPORTED_ARCHS);
+ 			 // if only -v specified, exit cleanly
+ 			 if ( argc == 2 ) {
