@@ -56,6 +56,11 @@ struct Struct
   int32_t a;
   int32_t b;
   char blob[8];
+
+  bool operator==(const Struct &other) const
+  {
+    return a == other.a && b == other.b && 0 == memcmp(blob, other.blob, sizeof(blob));
+  }
 };
 
 template <class Archive>
@@ -1206,4 +1211,91 @@ TEST(Serialization, adl_free_function)
   //                                                       VVVVVVVVVVVVVVVVVVVVVVVVVV weird string serialization artifact
   const std::string expected = "{\"custom_fieldname\": " + std::to_string(msg.size()) + '"' + epee::string_tools::buff_to_hex_nodelimer(msg) + "\"}";
   EXPECT_EQ(expected, ss.str());
+}
+
+using Tuple3 = std::tuple<uint16_t, std::string, uint64_t>;
+using Tuple4 = std::tuple<int32_t, std::string, uint64_t, Struct>;
+
+TEST(Serialization, tuple_3_4_backwards_compatibility)
+{
+  std::string serialized;
+
+  ////////////////////////////////////////
+
+  Tuple3 t3{1876, "Hullabaloo", 1963};
+  EXPECT_TRUE(::serialization::dump_binary(t3, serialized));
+
+  EXPECT_EQ("0354070a48756c6c6162616c6f6fab0f",
+    epee::string_tools::buff_to_hex_nodelimer(serialized));
+
+  Tuple3 t3_recovered;
+  EXPECT_TRUE(::serialization::parse_binary(serialized, t3_recovered));
+  EXPECT_EQ(t3, t3_recovered);
+
+  /////////////////////////////////////////
+
+  Tuple4 t4{1999, "Caneck Caneck", (uint64_t)-1, {20229, 242, {1, 1, 2, 3, 5, 8, 13, 21}}};
+  EXPECT_TRUE(::serialization::dump_binary(t4, serialized));
+
+  EXPECT_EQ("04cf0700000d43616e65636b2043616e65636bffffffffffffffffff01054f0000f20000000101020305080d15",
+    epee::string_tools::buff_to_hex_nodelimer(serialized));
+
+  Tuple4 t4_recovered;
+  EXPECT_TRUE(::serialization::parse_binary(serialized, t4_recovered));
+  EXPECT_EQ(t4, t4_recovered);
+}
+
+struct Tupler
+{
+  std::tuple<> t0;
+  std::tuple<int8_t> t1;
+  std::tuple<uint8_t, int16_t> t2;
+  Tuple3 t3_backcompat;
+  Tuple3 t3_compact;
+  Tuple4 t4_backcompat;
+  Tuple4 t4_compact;
+  std::tuple<uint32_t, std::string, bool, int64_t, Struct> t5;
+
+  BEGIN_SERIALIZE_OBJECT()
+    FIELD(t0)
+    FIELD(t1)
+    FIELD(t2)
+    FIELD(t3_backcompat)
+    TUPLE_COMPACT_FIELD(t3_compact)
+    FIELD(t4_backcompat)
+    TUPLE_COMPACT_FIELD(t4_compact)
+    TUPLE_COMPACT_FIELD(t5)
+  END_SERIALIZE()
+};
+
+bool operator==(const Tupler &a, const Tupler &b)
+{
+  return a.t0 == b.t0 && a.t1 == b.t1 && a.t2 == b.t2 && a.t3_backcompat == b.t3_backcompat &&
+    a.t3_compact == b.t3_compact && a.t4_backcompat == b.t4_backcompat && a.t5 == b.t5;
+}
+
+TEST(Serialization, tuple_many_tuples)
+{
+  Tupler tupler{
+    {},
+    {69},
+    {42, 420},
+    {1876, "Hullabaloo", 1963},
+    {1876, "Hullabaloo", 1963},
+    {1999, "Caneck Caneck", (uint64_t)-1, {20229, 242, {1, 1, 2, 3, 5, 8, 13, 21}}},
+    {1999, "Caneck Caneck", (uint64_t)-1, {20229, 242, {1, 1, 2, 3, 5, 8, 13, 21}}},
+    {72982, "He is now rising from affluence to poverty.", false, 256,
+      {
+        13, 37, { 1, 1, 1, 2, 3, 7, 11, 26 }
+      }
+    }
+  };
+
+  std::string serialized;
+  EXPECT_TRUE(::serialization::dump_binary(tupler, serialized));
+
+  Tupler tupler_recovered;
+  EXPECT_TRUE(::serialization::parse_binary(serialized, tupler_recovered));
+
+  EXPECT_EQ(tupler, tupler_recovered);
 }
