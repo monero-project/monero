@@ -2490,16 +2490,20 @@ uint64_t BlockchainLMDB::get_block_timestamp(const uint64_t& height) const
   return ret;
 }
 
-std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const
+std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(uint64_t start_height, uint64_t end_height, uint64_t& base) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
   std::vector<uint64_t> res;
   int result;
 
-  if (heights.empty())
-    return {};
-  res.reserve(heights.size());
+  base = 0;
+
+  if (end_height < start_height)
+    throw0(BLOCK_DNE("Bad [start_height, end_height] range"));
+
+  const size_t num_dist_blocks = end_height - start_height + 1;
+  res.reserve(num_dist_blocks);
 
   TXN_PREFIX_RDONLY();
   RCURSOR(block_info);
@@ -2507,15 +2511,18 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
   MDB_stat db_stats;
   if ((result = mdb_stat(m_txn, m_blocks, &db_stats)))
     throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
-  for (size_t i = 0; i < heights.size(); ++i)
-    if (heights[i] >= db_stats.ms_entries)
-      throw0(BLOCK_DNE(std::string("Attempt to get rct distribution from height " + std::to_string(heights[i]) + " failed -- block size not in db").c_str()));
+  if (end_height >= db_stats.ms_entries)
+    throw0(BLOCK_DNE(std::string("Attempt to get rct distribution from height " + std::to_string(end_height) + " failed -- block size not in db").c_str()));
 
-  MDB_val v;
+  const uint64_t base_height = start_height ? start_height - 1 : 0;
+  MDB_val_set(v, base_height);
+  result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct distribution from the db: ", result).c_str()));
+  uint64_t range_begin = base_height;
+  uint64_t range_end = range_begin + 1;
 
-  uint64_t prev_height = heights[0];
-  uint64_t range_begin = 0, range_end = 0;
-  for (uint64_t height: heights)
+  for (uint64_t height = base_height; height <= end_height; ++height)
   {
     if (height >= range_begin && height < range_end)
     {
@@ -2523,7 +2530,6 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
     }
     else
     {
-      if (height == prev_height + 1)
       {
         MDB_val k2;
         result = mdb_cursor_get(m_cur_block_info, &k2, &v, MDB_NEXT_MULTIPLE);
@@ -2532,20 +2538,19 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
         if (height < range_begin || height >= range_end)
           throw0(DB_ERROR(("Height " + std::to_string(height) + " not included in multuple record range: " + std::to_string(range_begin) + "-" + std::to_string(range_end)).c_str()));
       }
-      else
-      {
-        v.mv_size = sizeof(uint64_t);
-        v.mv_data = (void*)&height;
-        result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &v, MDB_GET_BOTH);
-        range_begin = height;
-        range_end = range_begin + 1;
-      }
       if (result)
         throw0(DB_ERROR(lmdb_error("Error attempting to retrieve rct distribution from the db: ", result).c_str()));
     }
     const mdb_block_info *bi = ((const mdb_block_info *)v.mv_data) + (height - range_begin);
-    res.push_back(bi->bi_cum_rct);
-    prev_height = height;
+
+    if (height < start_height) // doing query for base
+    {
+      base = bi->bi_cum_rct;
+    }
+    else // doing normal block query
+    {
+      res.push_back(bi->bi_cum_rct);
+    }
   }
 
   TXN_POSTFIX_RDONLY();

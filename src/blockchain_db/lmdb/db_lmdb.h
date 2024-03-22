@@ -216,7 +216,7 @@ public:
 
   virtual cryptonote::blobdata get_block_blob_from_height(const uint64_t& height) const;
 
-  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const;
+  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(uint64_t start_height, uint64_t end_height, uint64_t& base) const;
 
   virtual uint64_t get_block_timestamp(const uint64_t& height) const;
 
