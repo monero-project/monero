@@ -741,9 +741,10 @@ namespace levin
   notify::status notify::get_status() const noexcept
   {
     if (!zone_)
-      return {false, false};
+      return {false, false, false};
 
-    return {!zone_->noise.empty(), CRYPTONOTE_NOISE_CHANNELS <= zone_->connection_count};
+    const std::size_t connection_count = zone_->connection_count;
+    return {!zone_->noise.empty(), CRYPTONOTE_NOISE_CHANNELS <= connection_count, connection_count != 0};
   }
 
   void notify::new_out_connection()
