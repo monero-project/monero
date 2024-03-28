@@ -76,6 +76,7 @@ namespace levin
     {
       bool has_noise;
       bool connections_filled;
+      bool has_outgoing;
     };
 
     //! Construct an instance that cannot notify.
