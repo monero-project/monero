@@ -8845,6 +8845,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
   uint64_t max_height = 0;
   uint64_t found_min_amount = std::numeric_limits<uint64_t>::max();
   uint64_t found_max_amount = 0;
+  uint64_t found_sum_amount = 0;
   uint64_t count = 0;
   for (const auto& td : transfers)
   {
@@ -8856,6 +8857,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
     if (max_height < td.m_block_height) max_height = td.m_block_height;
     if (found_min_amount > amount) found_min_amount = amount;
     if (found_max_amount < amount) found_max_amount = amount;
+    found_sum_amount += amount;
     ++count;
   }
   if (amount_to_tds.empty())
@@ -8880,6 +8882,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
     << tr("\nMax block height: ") << max_height
     << tr("\nMin amount found: ") << print_money(found_min_amount)
     << tr("\nMax amount found: ") << print_money(found_max_amount)
+    << tr("\nSum amount found: ") << print_money(found_sum_amount)
     << tr("\nTotal count: ") << count;
   const size_t histogram_height = 10;
   const size_t histogram_width  = 50;
