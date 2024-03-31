@@ -30,3 +30,4 @@ brew "libunwind-headers"
 brew "xz"
 brew "protobuf@21", link: true
 brew "libusb"
+brew "googletest"
