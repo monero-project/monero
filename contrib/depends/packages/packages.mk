@@ -1,4 +1,4 @@
-packages:=boost openssl zeromq expat unbound sodium
+packages:=boost openssl zeromq expat unbound sodium miniupnpc
 
 hardware_packages := hidapi protobuf libusb
 hardware_native_packages := native_protobuf
