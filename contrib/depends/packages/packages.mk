@@ -1,5 +1,5 @@
 native_packages :=
-packages := boost openssl zeromq unbound sodium
+packages := boost openssl zeromq unbound sodium miniupnpc
 
 ifneq ($(host_os),mingw32)
 packages += ncurses readline
