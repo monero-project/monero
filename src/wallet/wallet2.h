@@ -91,6 +91,14 @@ class wallet_accessor_test;
 
 namespace tools
 {
+  enum light_wallet_server_type : uint8_t
+  {
+    STANDARD = 0,
+    OPENMONERO,
+    MYMONERO,
+    UNDEFINED = 255
+  };
+
   class ringdb;
   class wallet2;
   class Notify;
@@ -1023,6 +1031,7 @@ private:
     */
     bool light_wallet() const { return m_light_wallet; }
     void set_light_wallet(bool light_wallet) { m_light_wallet = light_wallet; }
+    void set_light_wallet_server_type(light_wallet_server_type server_type){ m_light_wallet_server_type = server_type; };
     uint64_t get_light_wallet_scanned_block_height() const { return m_light_wallet_scanned_block_height; }
     uint64_t get_light_wallet_blockchain_height() const { return m_light_wallet_blockchain_height; }
 
@@ -1613,6 +1622,19 @@ private:
     // check if key image is ours
     bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index);
 
+    bool light_wallet_is_key_image_spent(const crypto::key_image& key_image) {
+      std::vector<crypto::key_image> key_images;
+
+      key_images.push_back(key_image);
+      std::vector<bool> spent_list = light_wallet_is_key_image_spent(key_images);
+
+      if (spent_list.empty()) return false;
+
+      return spent_list[0];
+    }
+    
+    std::vector<bool> light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images);
+
     /*
      * "attributes" are a mechanism to store an arbitrary number of string values
      * on the level of the wallet as a whole, identified by keys. Their introduction,
@@ -1823,6 +1845,7 @@ private:
     void on_device_progress(const hw::device_progress& event);
 
     std::string get_rpc_status(const std::string &s) const;
+    std::string get_rpc_status(const bool &s) const;
     void throw_on_rpc_response_error(bool r, const epee::json_rpc::error &error, const std::string &status, const char *method) const;
 
     std::string get_client_signature() const;
@@ -1940,6 +1963,7 @@ private:
 
     // Light wallet
     bool m_light_wallet; /* sends view key to daemon for scanning */
+    light_wallet_server_type m_light_wallet_server_type = STANDARD;
     uint64_t m_light_wallet_scanned_block_height;
     uint64_t m_light_wallet_blockchain_height;
     uint64_t m_light_wallet_per_kb_fee = FEE_PER_KB;
