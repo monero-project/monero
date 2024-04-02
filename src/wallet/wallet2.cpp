@@ -10353,9 +10353,9 @@ void wallet2::light_wallet_get_address_txs()
     crypto::hash payment_id = null_hash;
     crypto::hash tx_hash;
     
-    THROW_WALLET_EXCEPTION_IF(!string_tools::validate_hex(16, t.payment_id), error::wallet_internal_error, "Invalid payment_id field");
+    //THROW_WALLET_EXCEPTION_IF(!string_tools::validate_hex(16, t.payment_id), error::wallet_internal_error, "Invalid payment_id field");
     THROW_WALLET_EXCEPTION_IF(!string_tools::validate_hex(64, t.hash), error::wallet_internal_error, "Invalid hash field");
-    string_tools::hex_to_pod(t.payment_id, payment_id);
+    if(string_tools::validate_hex(64, t.payment_id)) string_tools::hex_to_pod(t.payment_id, payment_id);
     string_tools::hex_to_pod(t.hash, tx_hash);
 
     // lightwallet specific info
