@@ -29,6 +29,7 @@
 
 #include "gtest/gtest.h"
 
+#include <cstdint>
 #include "common/aligned.h"
 
 TEST(aligned, large_null) { ASSERT_TRUE(aligned_malloc((size_t)-1, 1) == NULL); }

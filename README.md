@@ -626,10 +626,10 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
     sudo pacman -S monero
     ```
 
-* Void Linux:
+* NixOS:
 
     ```bash
-    xbps-install -S monero
+    nix-shell -p monero-cli
     ```
 
 * GuixSD

@@ -12,7 +12,7 @@ on:
 
 # The below variables reduce repetitions across similar targets
 env:
-  REMOVE_BUNDLED_BOOST : rm -rf /usr/local/share/boost
+  REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   BUILD_DEFAULT_LINUX: |
         cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build -j3
   APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
@@ -31,10 +31,10 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -57,10 +57,10 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: C:\Users\runneradmin\.ccache
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -90,16 +90,16 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
-    - name: remove bundled boost
-      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: update apt
@@ -116,16 +116,16 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-libwallet-
-    - name: remove bundled boost
-      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: update apt
@@ -144,17 +144,17 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: ccache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-ubuntu-latest
-    - name: remove bundled boost
-      run: ${{env.REMOVE_BUNDLED_BOOST}}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: update apt
@@ -178,7 +178,7 @@ jobs:
   source-archive:
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         submodules: recursive
@@ -189,7 +189,7 @@ jobs:
         export OUTPUT="$VERSION.tar"
         echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
         /home/runner/.local/bin/git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT }}
         path: /home/runner/work/monero/monero/${{ env.OUTPUT }}

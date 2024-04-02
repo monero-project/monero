@@ -16,3 +16,4 @@ freebsd_debug_CXXFLAGS=$(freebsd_debug_CFLAGS)
 
 freebsd_native_toolchain=freebsd_base
 
+freebsd_cmake_system=FreeBSD

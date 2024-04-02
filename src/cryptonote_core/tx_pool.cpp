@@ -246,6 +246,7 @@ namespace cryptonote
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
         tvc.m_verifivation_failed = true;
         tvc.m_double_spend = true;
+        tvc.m_no_drop_offense = true;
         return false;
       }
     }
@@ -434,8 +435,14 @@ namespace cryptonote
   void tx_memory_pool::prune(size_t bytes)
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
+
+    // Nothing to do if already empty
+    if (m_txs_by_fee_and_receive_time.empty())
+      return;
+
     if (bytes == 0)
       bytes = m_txpool_max_weight;
+
     CRITICAL_REGION_LOCAL1(m_blockchain);
     LockedTXN lock(m_blockchain.get_db());
     bool changed = false;
@@ -480,8 +487,13 @@ namespace cryptonote
         reduce_txpool_weight(meta.weight);
         remove_transaction_keyimages(tx, txid);
         MINFO("Pruned tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << it->first.first);
+
+        auto it_prev = it;
+        --it_prev;
+
         remove_tx_from_transient_lists(it, txid, !meta.matches(relay_category::broadcasted));
-        it--;
+        it = it_prev;
+
         changed = true;
       }
       catch (const std::exception &e)
@@ -1073,7 +1085,7 @@ namespace cryptonote
 
     // If the total weight is too high, choose the best paying transactions
     if (total_weight > max_backlog_weight)
-      std::sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b){ return a.fee * b.weight > b.fee * a.weight; });
+      std::stable_sort(tmp.begin(), tmp.end(), [](const auto& a, const auto& b){ return a.fee * b.weight > b.fee * a.weight; });
 
     backlog.clear();
     uint64_t w = 0;
@@ -1826,7 +1838,7 @@ namespace cryptonote
       auto sorted_it = find_tx_in_sorted_container(txid);
       if (sorted_it == m_txs_by_fee_and_receive_time.end())
       {
-        MERROR("Re-adding tx " << txid << " to tx pool, but it was not found in the sorted txs container");
+        MDEBUG("Re-adding tx " << txid << " to tx pool, but it was not found in the sorted txs container");
       }
       else
       {
