@@ -6518,7 +6518,8 @@ uint64_t wallet2::balance(uint32_t index_major, bool strict) const
 {
   uint64_t amount = 0;
   if(m_light_wallet)
-    return m_light_wallet_balance;
+    if(index_major == 0) return m_light_wallet_balance;
+    else return 0;
   for (const auto& i : balance_per_subaddress(index_major, strict))
     amount += i.second;
   return amount;
@@ -6532,7 +6533,8 @@ uint64_t wallet2::unlocked_balance(uint32_t index_major, bool strict, uint64_t *
   if (time_to_unlock)
     *time_to_unlock = 0;
   if(m_light_wallet)
-    return m_light_wallet_unlocked_balance;
+    if(index_major == 0) return m_light_wallet_unlocked_balance;
+    else return 0;
   for (const auto& i : unlocked_balance_per_subaddress(index_major, strict))
   {
     amount += i.second.first;
@@ -11777,7 +11779,7 @@ void wallet2::device_show_address(uint32_t account_index, uint32_t address_index
 //----------------------------------------------------------------------------------------------------
 uint8_t wallet2::get_current_hard_fork()
 {
-  if (m_offline)
+  if (m_offline || m_light_wallet)
     return 0;
 
   cryptonote::COMMAND_RPC_HARD_FORK_INFO::request req_t = AUTO_VAL_INIT(req_t);
