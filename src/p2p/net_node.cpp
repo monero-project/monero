@@ -111,10 +111,10 @@ namespace
 
 namespace nodetool
 {
-    const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol (IPv4)", "0.0.0.0"};
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv4_address        = {"p2p-bind-ipv4-address", "Interface for p2p network protocol (IPv4)", "0.0.0.0"};
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address        = {"p2p-bind-ipv6-address", "Interface for p2p network protocol (IPv6)", "::"};
-    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port = {
-        "p2p-bind-port"
+    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv4 = {
+        "p2p-bind-port-ipv4"
       , "Port for p2p network protocol (IPv4)"
       , std::to_string(config::P2P_DEFAULT_PORT)
       , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
