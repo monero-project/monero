@@ -101,8 +101,11 @@ namespace nodetool
   {
     command_line::add_arg(desc, arg_p2p_bind_ipv4_address);
     command_line::add_arg(desc, arg_p2p_bind_ipv6_address);
+    command_line::add_arg(desc, arg_p2p_bind_ip); // DEPRECATED
     command_line::add_arg(desc, arg_p2p_bind_ipv4_port, false);
     command_line::add_arg(desc, arg_p2p_bind_ipv6_port, false);
+    command_line::add_arg(desc, arg_p2p_bind_port, false); // DEPRECATED
+    command_line::add_arg(desc, arg_p2p_bind_port_ipv6, false); // DEPRECATED
     command_line::add_arg(desc, arg_p2p_use_ipv6);
     command_line::add_arg(desc, arg_p2p_ignore_ipv4);
     command_line::add_arg(desc, arg_p2p_external_port);
@@ -416,6 +419,25 @@ namespace nodetool
     public_zone.m_bind_ipv6_address = command_line::get_arg(vm, arg_p2p_bind_ipv6_address);
     public_zone.m_port_ipv4 = command_line::get_arg(vm, arg_p2p_bind_ipv4_port);
     public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_ipv6_port);
+
+    // DEPRECATED --p2p-bind-ip
+    if (!command_line::get_arg(vm, arg_p2p_bind_ip).empty())
+      MWARNING("--p2p-bind-ip is now DEPRECATED, replace with --p2p-bind-ipv4-address");
+    if (public_zone.m_bind_ipv4_address.empty())
+      public_zone.m_bind_ipv4_address = command_line::get_arg(vm, arg_p2p_bind_ip);
+
+    // DEPRECATED --p2p-bind-port
+    if (!command_line::get_arg(vm, arg_p2p_bind_port).empty())
+      MWARNING("--p2p-bind-port is now DEPRECATED, replace with --p2p-bind-ipv4-port");
+    if (public_zone.m_port_ipv4.empty())
+      public_zone.m_port_ipv4 = command_line::get_arg(vm, arg_p2p_bind_port);
+
+    // DEPRECATED --p2p-bind-port-ipv6
+    if (!command_line::get_arg(vm, arg_p2p_bind_port_ipv6).empty())
+      MWARNING("--p2p-bind-port-ipv6 is now DEPRECATED, replace with --p2p-bind-ipv6-port");
+    if (public_zone.m_port_ipv6.empty())
+      public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_ipv6_port);
+
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);

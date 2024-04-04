@@ -91,8 +91,10 @@ namespace cryptonote
   rpc_args::descriptors::descriptors()
      : rpc_bind_ipv4_address({"rpc-bind-ipv4-address", rpc_args::tr("Specify IPv4 address to bind RPC server"), "127.0.0.1"})
      , rpc_bind_ipv6_address({"rpc-bind-ipv6-address", rpc_args::tr("Specify IPv6 address to bind RPC server"), "::1"})
+     , rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("DEPRECATED: replaced with --rpc-bind-ipv4-address"), ""})
      , rpc_restricted_bind_ipv4_address({"rpc-restricted-bind-ipv4-address", rpc_args::tr("Specify IPv4 address to bind restricted RPC server"), "127.0.0.1"})
      , rpc_restricted_bind_ipv6_address({"rpc-restricted-bind-ipv6-address", rpc_args::tr("Specify IPv6 address to bind restricted RPC server"), "::1"})
+     , rpc_restricted_bind_ip({"rpc-restricted-bind-ip", rpc_args::tr("DEPRECATED: replaced with --rpc-restricted-bind-ipv4-address"), ""})
      , rpc_use_ipv6({"rpc-use-ipv6", rpc_args::tr("Allow IPv6 for RPC"), false})
      , rpc_ignore_ipv4({"rpc-ignore-ipv4", rpc_args::tr("Ignore unsuccessful IPv4 bind for RPC"), false})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
@@ -115,8 +117,10 @@ namespace cryptonote
     const descriptors arg{};
     command_line::add_arg(desc, arg.rpc_bind_ipv4_address);
     command_line::add_arg(desc, arg.rpc_bind_ipv6_address);
+    command_line::add_arg(desc, arg.rpc_bind_ip); // DEPRECATED
     command_line::add_arg(desc, arg.rpc_restricted_bind_ipv4_address);
     command_line::add_arg(desc, arg.rpc_restricted_bind_ipv6_address);
+    command_line::add_arg(desc, arg.rpc_restricted_bind_ip); // DEPRECATED
     command_line::add_arg(desc, arg.rpc_use_ipv6);
     command_line::add_arg(desc, arg.rpc_ignore_ipv4);
     command_line::add_arg(desc, arg.rpc_login);
@@ -142,6 +146,19 @@ namespace cryptonote
     config.bind_ipv6_address = command_line::get_arg(vm, arg.rpc_bind_ipv6_address);
     config.restricted_bind_ipv4_address = command_line::get_arg(vm, arg.rpc_restricted_bind_ipv4_address);
     config.restricted_bind_ipv6_address = command_line::get_arg(vm, arg.rpc_restricted_bind_ipv6_address);
+
+    // DEPRECATED --rpc-bind-ip
+    if (!command_line::get_arg(vm, arg.rpc_bind_ip).empty())
+      MWARNING("--rpc-bind-ip is now DEPRECATED, replace with --rpc-bind-ipv4-address");
+    if (config.bind_ipv4_address.empty())
+      config.bind_ipv4_address = command_line::get_arg(vm, arg.rpc_bind_ip);
+
+    // DEPRECATED --rpc-restricted-bind-ip
+    if (!command_line::get_arg(vm, arg.rpc_restricted_bind_ip).empty())
+      MWARNING("--rpc-restricted-bind-ip is now DEPRECATED, replace with --rpc-restricted-bind-ipv4-address");
+    if (config.restricted_bind_ipv4_address.empty())
+      config.restricted_bind_ipv4_address = command_line::get_arg(vm, arg.rpc_restricted_bind_ip);
+
     config.use_ipv6 = command_line::get_arg(vm, arg.rpc_use_ipv6);
     config.require_ipv4 = !command_line::get_arg(vm, arg.rpc_ignore_ipv4);
     config.disable_rpc_ban = command_line::get_arg(vm, arg.disable_rpc_ban);
