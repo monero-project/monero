@@ -53,8 +53,10 @@ namespace cryptonote
 
       const command_line::arg_descriptor<std::string> rpc_bind_ipv4_address;
       const command_line::arg_descriptor<std::string> rpc_bind_ipv6_address;
+      const command_line::arg_descriptor<std::string> rpc_bind_ip; // DEPRECATED
       const command_line::arg_descriptor<std::string> rpc_restricted_bind_ipv4_address;
       const command_line::arg_descriptor<std::string> rpc_restricted_bind_ipv6_address;
+      const command_line::arg_descriptor<std::string> rpc_restricted_bind_ip; // DEPRECATED
       const command_line::arg_descriptor<bool> rpc_use_ipv6;
       const command_line::arg_descriptor<bool> rpc_ignore_ipv4;
       const command_line::arg_descriptor<std::string> rpc_login;
