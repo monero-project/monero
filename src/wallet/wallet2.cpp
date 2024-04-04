@@ -3924,12 +3924,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   if (m_offline)
   {
     blocks_fetched = 0;
-    received_money = 0;
+    received_money = false;
     return;
   }
 
   if(m_light_wallet) {
-
     // MyMonero get_address_info needs to be called occasionally to trigger wallet sync.
     // This call is not really needed for other purposes and can be removed if mymonero changes their backend.
     tools::COMMAND_RPC_GET_ADDRESS_INFO::response res;
@@ -3953,9 +3952,26 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       MDEBUG(m_light_wallet_blockchain_height-m_light_wallet_scanned_block_height << " blocks behind");
       // TODO: add wallet created block info
 
+      std::vector<crypto::hash> tx_hashes = std::vector<crypto::hash>();
+
+      for(auto kv : m_light_wallet_address_txs) {
+        tx_hashes.push_back(kv.first);
+      }
+
       light_wallet_get_address_txs();
-    } else
+
+      for(auto kv : m_light_wallet_address_txs) {
+        if(std::find(tx_hashes.begin(), tx_hashes.end(), kv.first) != tx_hashes.end()) {
+          continue;
+        }
+        
+        if(kv.second.m_incoming) received_money = true;
+      }
+    } else {
       m_light_wallet_connected = false;
+      blocks_fetched = 0;
+      received_money = false;
+    }
 
     // Lighwallet refresh done
     return;
