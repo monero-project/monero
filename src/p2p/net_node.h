@@ -522,8 +522,8 @@ namespace nodetool
     const int64_t default_limit_down = P2P_DEFAULT_LIMIT_RATE_DOWN;  // kB/s
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv4_address;
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address;
-    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv4;
-    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv6;
+    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv4_port;
+    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv6_port;
     extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6;
     extern const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv4;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
