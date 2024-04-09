@@ -320,6 +320,7 @@ namespace cryptonote
 {
   enum network_version
   {
+    network_version_0 = 0,
     network_version_1 = 1,
     network_version_2,
     network_version_3,
@@ -339,6 +340,8 @@ namespace cryptonote
     network_version_17,
     network_version_18,
     network_version_19,
+    network_version_20,
+    network_version_21,
 
     network_version_count,
   };

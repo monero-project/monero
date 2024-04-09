@@ -58,7 +58,6 @@
 #include "common/dns_utils.h"
 #include "common/base58.h"
 #include "common/scoped_message_writer.h"
-#include "crypto/pow_hash/cn_slow_hash.hpp"
 #include "crypto/crypto.h" // for crypto::secret_key definition
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
@@ -3711,8 +3710,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         if (m_restore_multisig_wallet)
         {
           crypto::secret_key key;
-          cn_gpu_hash kdf_hash;
-		      kdf_hash.hash(seed_pass.data(), seed_pass.size(), key.data);
+		      crypto::cn_slow_hash(seed_pass.data(), seed_pass.size(), (crypto::hash&)key, crypto::cn_slow_hash_type::cn_lite);
           sc_reduce32((unsigned char*)key.data);
           multisig_keys = m_wallet->decrypt<epee::wipeable_string>(std::string(multisig_keys.data(), multisig_keys.size()), key, true);
         }

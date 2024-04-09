@@ -1942,11 +1942,11 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       {
         seedhash = get_block_id_by_height(seedheight);
       }
-      get_altblock_longhash(bei.bl, proof_of_work, m_pow_ctx, seedhash);
+      get_altblock_longhash(bei.bl, proof_of_work, seedhash);
     }
     else
     {
-      get_block_longhash(this, bei.bl, proof_of_work, m_pow_ctx, bei.height, 0);
+      get_block_longhash(this, bei.bl, proof_of_work, bei.height, 0);
     }
     if(!check_hash(proof_of_work, current_diff))
     {
@@ -4173,7 +4173,7 @@ leave:
       proof_of_work = it->second;
     }
     else
-      get_block_longhash(this, bl, proof_of_work, m_pow_ctx, blockchain_height, 0);
+      proof_of_work = get_block_longhash(this, bl, blockchain_height, 0);
 
 
     // validate proof_of_work versus difficulty target
@@ -4693,7 +4693,7 @@ void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 }
 
 //------------------------------------------------------------------
-void Blockchain::block_longhash_worker(cn_gpu_hash &hash_ctx, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
+void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
 {
   TIME_MEASURE_START(t);
 
@@ -4702,9 +4702,7 @@ void Blockchain::block_longhash_worker(cn_gpu_hash &hash_ctx, const epee::span<c
 		if(m_cancel)
 			break;
 		crypto::hash id = get_block_hash(block);
-		crypto::hash pow;
-		uint64_t height = get_block_height(block);
-		get_block_longhash(this, block, pow, hash_ctx, height++, 0);
+		crypto::hash pow = get_block_longhash(this, block, height++, 0);
 		map.emplace(id, pow);
 	}
 
@@ -5029,14 +5027,12 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       m_prepare_height = height;
       m_prepare_nblocks = blocks_entry.size();
       m_prepare_blocks = &blocks;
-      if(m_hash_ctxes_multi.size() < threads)
-				m_hash_ctxes_multi.resize(threads);
       for (unsigned int i = 0; i < threads; i++)
       {
         unsigned nblocks = batches;
         if (i < extra)
           ++nblocks;
-				tpool.submit(&waiter, boost::bind(&Blockchain::block_longhash_worker, this, std::ref(m_hash_ctxes_multi[i]),  epee::span<const block>(&blocks[thread_height - height], nblocks), std::ref(maps[i])));
+				tpool.submit(&waiter, boost::bind(&Blockchain::block_longhash_worker, this, thread_height,  epee::span<const block>(&blocks[thread_height - height], nblocks), std::ref(maps[i])));
         thread_height += nblocks;
       }
 

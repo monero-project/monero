@@ -462,11 +462,10 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height, const crypto::hash *seed_hash)
   {
-    cn_gpu_hash hash_ctx;
     for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
     {
       crypto::hash h;
-      gbh(bl, height, seed_hash, tools::get_max_concurrency(), h, hash_ctx);
+      gbh(bl, height, seed_hash, tools::get_max_concurrency(), h);
 
       if(check_hash(h, diffic))
       {
@@ -525,7 +524,6 @@ namespace cryptonote
     uint32_t local_template_ver = 0;
     block b;
     rx_slow_hash_allocate_state();
-    cn_gpu_hash hash_ctx;
 
 
     while(!m_stop)
@@ -576,7 +574,7 @@ namespace cryptonote
         rx_set = true;
       }
 
-      m_gbh(b, height, NULL, tools::get_max_concurrency(), h, hash_ctx);
+      m_gbh(b, height, NULL, tools::get_max_concurrency(), h);
 
       if(check_hash(h, local_diff))
       {

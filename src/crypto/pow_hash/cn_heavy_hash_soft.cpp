@@ -30,9 +30,11 @@
 // Parts of this file are originally copyright (c) 2014-2017, The Monero Project
 // Parts of this file are originally copyright (c) 2012-2013, The Cryptonote developers
 
-#include "../keccak.h"
+#include "cn_heavy_hash.hpp"
 #include "aux_hash.h"
-#include "cn_slow_hash.hpp"
+extern "C" {
+#include "../../crypto/keccak.h"
+}
 
 /*
 AES Tables Implementation is
@@ -268,7 +270,7 @@ inline void xor_shift(aesdata& x0, aesdata& x1, aesdata& x2, aesdata& x3, aesdat
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_soft()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::implode_scratchpad_soft()
 {
 	aesdata x0, x1, x2, x3, x4, x5, x6, x7;
 	aesdata k0, k1, k2, k3, k4, k5, k6, k7, k8, k9;
@@ -331,7 +333,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_soft()
 		aes_round8(k7, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k8, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k9, x0, x1, x2, x3, x4, x5, x6, x7);
-		
+
 		xor_shift(x0, x1, x2, x3, x4, x5, x6, x7);
 	}
 
@@ -347,7 +349,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_soft()
 		aes_round8(k7, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k8, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k9, x0, x1, x2, x3, x4, x5, x6, x7);
-		
+
 		xor_shift(x0, x1, x2, x3, x4, x5, x6, x7);
 	}
 
@@ -362,7 +364,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_soft()
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::explode_scratchpad_soft()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::explode_scratchpad_soft()
 {
 	aesdata x0, x1, x2, x3, x4, x5, x6, x7;
 	aesdata k0, k1, k2, k3, k4, k5, k6, k7, k8, k9;
@@ -423,7 +425,7 @@ inline void generate_512(uint64_t idx, const uint64_t* in, uint8_t* out)
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::explode_scratchpad_3()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::explode_scratchpad_3()
 {
 	for(uint64_t i = 0; i < MEMORY / 512; i++)
 	{
@@ -482,7 +484,7 @@ inline void cryptonight_monero_tweak(uint64_t* mem_out, aesdata tmp)
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash(const void* in, size_t len, void* out)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::software_hash(const void* in, size_t len, void* out, bool prehashed)
 {
 	if(VERSION == 1 && len < 43)
 	{
@@ -490,13 +492,14 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash(const void* in, size_t l
 		return;
 	}
 
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+	if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	uint64_t mc0;
 	if(VERSION == 1)
 	{
-		mc0  =  *reinterpret_cast<const uint64_t*>(reinterpret_cast<const uint8_t*>(in) + 35);
-		mc0 ^=  *(spad.as_uqword()+24);
+		mc0 = *reinterpret_cast<const uint64_t*>(reinterpret_cast<const uint8_t*>(in) + 35);
+		mc0 ^= *(spad.as_uqword()+24);
 	}
 
 	explode_scratchpad_soft();
@@ -595,6 +598,6 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash(const void* in, size_t l
 	}
 }
 
-template class cn_v1_hash_t;
-template class cn_v7l_hash_t;
-template class cn_gpu_hash_t;
+template class cn_heavy_hash<2*1024*1024, 0x80000, 0>;
+template class cn_heavy_hash<1*1024*1024, 0x40000, 1>;
+template class cn_heavy_hash<2*1024*1024, 0xC000, 2>;

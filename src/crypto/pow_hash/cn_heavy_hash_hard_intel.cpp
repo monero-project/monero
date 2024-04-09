@@ -32,9 +32,11 @@
 
 #define CN_ADD_TARGETS_AND_HEADERS
 
-#include "../keccak.h"
+#include "cn_heavy_hash.hpp"
 #include "aux_hash.h"
-#include "cn_slow_hash.hpp"
+extern "C" {
+#include "../../crypto/keccak.h"
+}
 
 #ifdef HAS_INTEL_HW
 // sl_xor(a1 a2 a3 a4) = a1 (a2^a1) (a3^a2^a1) (a4^a3^a2^a1)
@@ -116,7 +118,7 @@ inline void xor_shift(__m128i& x0, __m128i& x1, __m128i& x2, __m128i& x3, __m128
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
 {
 	__m128i x0, x1, x2, x3, x4, x5, x6, x7;
 	__m128i k0, k1, k2, k3, k4, k5, k6, k7, k8, k9;
@@ -142,7 +144,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
 		x5 = _mm_xor_si128(_mm_load_si128(lpad.as_ptr<__m128i>() + i + 5), x5);
 		x6 = _mm_xor_si128(_mm_load_si128(lpad.as_ptr<__m128i>() + i + 6), x6);
 		x7 = _mm_xor_si128(_mm_load_si128(lpad.as_ptr<__m128i>() + i + 7), x7);
-		
+
 		aes_round8(k0, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k1, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k2, x0, x1, x2, x3, x4, x5, x6, x7);
@@ -179,7 +181,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
 		aes_round8(k7, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k8, x0, x1, x2, x3, x4, x5, x6, x7);
 		aes_round8(k9, x0, x1, x2, x3, x4, x5, x6, x7);
-		
+
 		xor_shift(x0, x1, x2, x3, x4, x5, x6, x7);
 	}
 
@@ -210,7 +212,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::explode_scratchpad_hard()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::explode_scratchpad_hard()
 {
 	__m128i x0, x1, x2, x3, x4, x5, x6, x7;
 	__m128i k0, k1, k2, k3, k4, k5, k6, k7, k8, k9;
@@ -302,20 +304,20 @@ inline uint64_t xmm_extract_64(__m128i x)
 inline void cryptonight_monero_tweak(uint64_t* mem_out, __m128i tmp)
 {
 	mem_out[0] = xmm_extract_64(tmp);
-	
+
 	tmp = (__m128i)_mm_movehl_ps((__m128)tmp, (__m128)tmp);
 	uint64_t vh = xmm_extract_64(tmp);
-	
+
 	uint8_t x = vh >> 24;
 	static const uint16_t table = 0x7531;
 	const uint8_t index = (((x >> 3) & 6) | (x & 1)) << 1;
 	vh ^= ((table >> index) & 0x3) << 28;
-	
+
 	mem_out[1] = vh;
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t len, void* out)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t len, void* out, bool prehashed)
 {
 	if(VERSION == 1 && len < 43)
 	{
@@ -323,13 +325,14 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t l
 		return;
 	}
 
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+	if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	uint64_t mc0;
 	if(VERSION == 1)
 	{
-		mc0  =  *reinterpret_cast<const uint64_t*>(reinterpret_cast<const uint8_t*>(in) + 35);
-		mc0 ^=  *(spad.as_uqword()+24);
+		mc0 = *reinterpret_cast<const uint64_t*>(reinterpret_cast<const uint8_t*>(in) + 35);
+		mc0 ^= *(spad.as_uqword()+24);
 	}
 
 	explode_scratchpad_hard();
@@ -496,7 +499,7 @@ inline void single_comupte_wrap(__m128 n0, __m128 n1, __m128 n2, __m128 n3, floa
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::inner_hash_3()
 {
 	uint32_t s = spad.as_dword(0) >> 8;
 	cn_sptr idx0 = scratchpad_ptr(s, 0);
@@ -578,9 +581,10 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3()
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t len, void* pout)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t len, void* pout, bool prehashed)
 {
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+  if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	explode_scratchpad_3();
 	if(check_avx2())
@@ -594,9 +598,10 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash_3(const void* in, size_t len, void* pout)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::software_hash_3(const void* in, size_t len, void* pout, bool prehashed)
 {
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+  if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	explode_scratchpad_3();
 	if(check_avx2())
@@ -609,8 +614,8 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash_3(const void* in, size_t
 	memcpy(pout, spad.as_byte(), 32);
 }
 
-template class cn_gpu_hash_t;
-template class cn_v1_hash_t;
-template class cn_v7l_hash_t;
+template class cn_heavy_hash<2*1024*1024, 0x80000, 0>;
+template class cn_heavy_hash<1*1024*1024, 0x40000, 1>;
+template class cn_heavy_hash<2*1024*1024, 0xC000, 2>;
 
 #endif
