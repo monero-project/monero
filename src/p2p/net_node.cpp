@@ -111,10 +111,11 @@ namespace
 
 namespace nodetool
 {
-    const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol (IPv4)", "0.0.0.0"};
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv4_address        = {"p2p-bind-ipv4-address", "Interface for p2p network protocol (IPv4)", "0.0.0.0"};
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address        = {"p2p-bind-ipv6-address", "Interface for p2p network protocol (IPv6)", "::"};
-    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port = {
-        "p2p-bind-port"
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_ip = {"p2p-bind-ip", "DEPRECATED: replaced with --p2p-bind-ipv4-address", ""};
+    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv4_port = {
+        "p2p-bind-ipv4-port"
       , "Port for p2p network protocol (IPv4)"
       , std::to_string(config::P2P_DEFAULT_PORT)
       , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
@@ -126,8 +127,8 @@ namespace nodetool
           return val;
         }
       };
-    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv6 = {
-        "p2p-bind-port-ipv6"
+    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv6_port = {
+        "p2p-bind-ipv6-port"
       , "Port for p2p network protocol (IPv6)"
       , std::to_string(config::P2P_DEFAULT_PORT)
       , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
@@ -139,6 +140,8 @@ namespace nodetool
           return val;
         }
       };
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_port = {"p2p-bind-port", "DEPRECATED: replaced with --p2p-bind-ipv4-port", ""};
+    const command_line::arg_descriptor<std::string> arg_p2p_bind_port_ipv6 = {"p2p-bind-port-ipv6", "DEPRECATED: replaced with --p2p-bind-ipv6-port", ""};
 
     const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port  = {"p2p-external-port", "External port for p2p network protocol (if port forwarding used with NAT)", 0};
     const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip = {"allow-local-ip", "Allow local ip add to peer list, mostly in debug purposes"};
@@ -156,7 +159,8 @@ namespace nodetool
 
     const command_line::arg_descriptor<bool>        arg_no_igd  = {"no-igd", "Disable UPnP port mapping"};
     const command_line::arg_descriptor<std::string> arg_igd = {"igd", "UPnP port mapping (disabled, enabled, delayed)", "delayed"};
-    const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6  = {"p2p-use-ipv6", "Enable IPv6 for p2p", false};
+    const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6 = {"p2p-use-ipv6", "DEPRECATED, ignored", false};
+    const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv6  = {"p2p-ignore-ipv6", "Ignore unsuccessful IPv6 bind for p2p", false};
     const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv4  = {"p2p-ignore-ipv4", "Ignore unsuccessful IPv4 bind for p2p", false};
     const command_line::arg_descriptor<int64_t>     arg_out_peers = {"out-peers", "set max number of out peers", -1};
     const command_line::arg_descriptor<int64_t>     arg_in_peers = {"in-peers", "set max number of in peers", -1};

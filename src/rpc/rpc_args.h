@@ -51,11 +51,14 @@ namespace cryptonote
       descriptors& operator=(const descriptors&) = delete;
       descriptors& operator=(descriptors&&) = delete;
 
-      const command_line::arg_descriptor<std::string> rpc_bind_ip;
+      const command_line::arg_descriptor<std::string> rpc_bind_ipv4_address;
       const command_line::arg_descriptor<std::string> rpc_bind_ipv6_address;
-      const command_line::arg_descriptor<std::string> rpc_restricted_bind_ip;
+      const command_line::arg_descriptor<std::string> rpc_bind_ip; // DEPRECATED
+      const command_line::arg_descriptor<std::string> rpc_restricted_bind_ipv4_address;
       const command_line::arg_descriptor<std::string> rpc_restricted_bind_ipv6_address;
-      const command_line::arg_descriptor<bool> rpc_use_ipv6;
+      const command_line::arg_descriptor<std::string> rpc_restricted_bind_ip; // DEPRECATED
+      const command_line::arg_descriptor<bool> rpc_use_ipv6; // DEPRECATED
+      const command_line::arg_descriptor<bool> rpc_ignore_ipv6;
       const command_line::arg_descriptor<bool> rpc_ignore_ipv4;
       const command_line::arg_descriptor<std::string> rpc_login;
       const command_line::arg_descriptor<bool> confirm_external_bind;
@@ -81,11 +84,11 @@ namespace cryptonote
     //! \return SSL arguments specified by user, or `boost::none` if error
     static boost::optional<epee::net_utils::ssl_options_t> process_ssl(const boost::program_options::variables_map& vm, const bool any_cert_option = false);
 
-    std::string bind_ip;
+    std::string bind_ipv4_address;
     std::string bind_ipv6_address;
-    std::string restricted_bind_ip;
+    std::string restricted_bind_ipv4_address;
     std::string restricted_bind_ipv6_address;
-    bool use_ipv6;
+    bool require_ipv6;
     bool require_ipv4;
     std::vector<std::string> access_control_origins;
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
