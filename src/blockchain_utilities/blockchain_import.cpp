@@ -193,7 +193,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
     block_verification_context bvc = {};
     pool_supplement ps{};
 
-    core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx++], bvc, ps); // <--- process block
+    core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx++], bvc, ps, false); // <--- process block
 
     if(bvc.m_verifivation_failed)
     {

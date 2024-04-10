@@ -1498,7 +1498,8 @@ namespace cryptonote
             m_core.handle_incoming_block(block_entry.block,
               pblocks.empty() ? NULL : &pblocks[blockidx],
               bvc,
-              block_txs); // <--- process block
+              block_txs,
+              false); // <--- process block
 
             if(bvc.m_verifivation_failed)
             {
