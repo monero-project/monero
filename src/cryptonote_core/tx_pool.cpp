@@ -1393,44 +1393,21 @@ namespace cryptonote
       bool parsed;
     } lazy_tx(txblob, txid, tx);
 
-    //not the best implementation at this time, sorry :(
-    //check is ring_signature already checked ?
-    if(txd.max_used_block_id == null_hash)
-    {//not checked, lets try to check
+    const std::uint64_t top_block_height{m_blockchain.get_current_blockchain_height() - 1};
+    const crypto::hash top_block_hash{m_blockchain.get_block_id_by_height(top_block_height)};
 
-      if(txd.last_failed_id != null_hash && m_blockchain.get_current_blockchain_height() > txd.last_failed_height && txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
-        return false;//we already sure that this tx is broken for this height
+    if (txd.last_failed_id == top_block_hash)
+      return false; // we are already sure that this tx isn't passing for this exact chain
 
-      tx_verification_context tvc;
-      if(!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); }, txid, txd.max_used_block_height, txd.max_used_block_id, tvc))
-      {
-        txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
-        txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);
-        return false;
-      }
-    }else
+    tx_verification_context tvc{};
+    if (!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); },
+      txid,
+      txd.max_used_block_height,
+      txd.max_used_block_id,
+      tvc))
     {
-      if(txd.max_used_block_height >= m_blockchain.get_current_blockchain_height())
-        return false;
-      if(true)
-      {
-        //if we already failed on this height and id, skip actual ring signature check
-        if(txd.last_failed_id == m_blockchain.get_block_id_by_height(txd.last_failed_height))
-          return false;
-        //check ring signature again, it is possible (with very small chance) that this transaction become again valid
-        tx_verification_context tvc;
-        if(!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); }, txid, txd.max_used_block_height, txd.max_used_block_id, tvc))
-        {
-          txd.last_failed_height = m_blockchain.get_current_blockchain_height()-1;
-          txd.last_failed_id = m_blockchain.get_block_id_by_height(txd.last_failed_height);
-          return false;
-        }
-      }
-    }
-    //if we here, transaction seems valid, but, anyway, check for key_images collisions with blockchain, just to be sure
-    if(m_blockchain.have_tx_keyimges_as_spent(lazy_tx()))
-    {
-      txd.double_spend_seen = true;
+      txd.last_failed_height = top_block_height;
+      txd.last_failed_id = top_block_hash;
       return false;
     }
 
