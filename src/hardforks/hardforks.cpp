@@ -51,8 +51,8 @@ const hardfork_t mainnet_hard_forks[] = {
   { 17, 1056414, 0, 1680070995 },
   { 18, 1238350, 0, 1704230052 },
   { 19, 1248886, 0, 1705611030 },
-  { 20, 1251600, 0, 1706055089 },
-//  { 21, , 0,  }
+  { 20, 1251600, 0, 1706055089 }
+//  { 21, 1287280, 0, 1706055099 }
 };
 const size_t num_mainnet_hard_forks = sizeof(mainnet_hard_forks) / sizeof(mainnet_hard_forks[0]);
 
@@ -77,6 +77,9 @@ const hardfork_t testnet_hard_forks[] = {
 const size_t num_testnet_hard_forks = sizeof(testnet_hard_forks) / sizeof(testnet_hard_forks[0]);
 
 const hardfork_t stagenet_hard_forks[] = {
-  { 1, 1, 0, 1341378000 }
+  { 1, 1, 0, 1341378000 },
+  { 19, 10, 0, 1705611030 },
+  { 20, 50, 0, 1706055089 },
+  { 21, 200, 0, 1706055099 }
 };
 const size_t num_stagenet_hard_forks = sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]);

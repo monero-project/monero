@@ -310,8 +310,12 @@ namespace config
        0x14 ,0x20, 0xF3, 0x71 , 0x60, 0x01 , 0x30, 0x62, 0x16, 0x35, 0x02, 0x82, 0x15, 0xA2, 0xA1, 0x14
      } }; // Bender's daydream
 
-  std::string const GOVERNANCE_WALLET_ADDRESS = "";
-  std::string const BRIDGE_WALLET_ADDRESS = "";
+  std::string const GOVERNANCE_WALLET_ADDRESS = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const BRIDGE_WALLET_ADDRESS = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ"; //stagenet wallets
+  std::string const DEV_FUND_WALLET = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const NEW_GOV_WALLET = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const NEW_DEV_WALLET = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";  
 
   }
 }
