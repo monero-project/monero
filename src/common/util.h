@@ -80,7 +80,11 @@ namespace tools
 
     /*! \return File only readable by owner and only used by this process
       OR `private_file{}` on error. */
-    static private_file create(std::string filename);
+    static private_file create(std::string filename, uint32_t extra_flags = 0);
+
+    /*! \return Drop and create file only readable by owner and only used
+      by this process OR `private_file{}` on error. */
+    static private_file drop_and_recreate(std::string filename);    
 
     private_file(private_file&&) = default;
     private_file& operator=(private_file&&) = default;
