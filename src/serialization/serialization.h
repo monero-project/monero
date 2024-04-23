@@ -50,6 +50,8 @@
 #include <boost/type_traits/integral_constant.hpp>
 #include <boost/mpl/bool.hpp>
 
+#include "common/va_args.h"
+
 /*! \struct is_blob_type 
  *
  * \brief a descriptor for dispatching serialize
@@ -87,6 +89,15 @@ inline bool do_serialize(Archive &ar, bool &v)
 {
   ar.serialize_blob(&v, sizeof(v));
   return true;
+}
+template <class Archive, class T, typename... Args>
+inline auto do_serialize(Archive &ar, T &v, Args&&... args)
+  -> decltype(do_serialize_object(ar, v, args...), true)
+{
+  ar.begin_object();
+  const bool r = do_serialize_object(ar, v, args...);
+  ar.end_object();
+  return r && ar.good();
 }
 
 /* the following add a trait to a set and define the serialization DSL*/
@@ -158,18 +169,9 @@ inline bool do_serialize(Archive &ar, bool &v)
  * VARINT_FIELD_F(). Otherwise, this macro is similar to
  * BEGIN_SERIALIZE_OBJECT(), as you should list only field serializations.
  */
-#define BEGIN_SERIALIZE_OBJECT_FN(stype)               \
-  template <bool W, template <bool> class Archive>     \
-  bool do_serialize_object(Archive<W> &ar, stype &v);  \
-  template <bool W, template <bool> class Archive>     \
-  bool do_serialize(Archive<W> &ar, stype &v) {        \
-    ar.begin_object();                                 \
-    bool r = do_serialize_object(ar, v);               \
-    ar.end_object();                                   \
-    return r;                                          \
-  }                                                    \
-  template <bool W, template <bool> class Archive>     \
-  bool do_serialize_object(Archive<W> &ar, stype &v) { \
+#define BEGIN_SERIALIZE_OBJECT_FN(stype, ...)                                           \
+  template <bool W, template <bool> class Archive>                                      \
+  bool do_serialize_object(Archive<W> &ar, stype &v VA_ARGS_COMMAPREFIX(__VA_ARGS__)) {
 
 /*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
@@ -187,10 +189,10 @@ inline bool do_serialize(Archive &ar, bool &v)
  *
  * \brief serializes a field \a f tagged \a t  
  */
-#define FIELD_N(t, f)					\
+#define FIELD_N(t, f, ...)                                    \
   do {							\
     ar.tag(t);						\
-    bool r = do_serialize(ar, f);			\
+    bool r = do_serialize(ar, f VA_ARGS_COMMAPREFIX(__VA_ARGS__)); \
     if (!r || !ar.good()) return false;			\
   } while(0);
 
@@ -209,7 +211,7 @@ inline bool do_serialize(Archive &ar, bool &v)
  *
  * \brief tags the field with the variable name and then serializes it (for use in a free function)
  */
-#define FIELD_F(f) FIELD_N(#f, v.f)
+#define FIELD_F(f, ...) FIELD_N(#f, v.f VA_ARGS_COMMAPREFIX(__VA_ARGS__))
 
 /*! \macro FIELDS(f)
  *
