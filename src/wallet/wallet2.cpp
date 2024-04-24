@@ -10423,7 +10423,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       {
         LOG_PRINT_L2("We made a tx, adjusting fee and saving it, we need " << print_money(needed_fee) << " and we have " << print_money(test_ptx.fee));
         size_t fee_tries;
-        for (fee_tries = 0; fee_tries < 10 && needed_fee > test_ptx.fee; ++fee_tries) {
+        for (fee_tries = 0; fee_tries < 10 && (use_rct ? (needed_fee != test_ptx.fee) : (needed_fee > test_ptx.fee)); ++fee_tries) {
           tx_dsts = tx.get_adjusted_dsts(needed_fee);
 
           if (use_rct)
