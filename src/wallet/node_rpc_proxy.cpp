@@ -256,16 +256,6 @@ boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate_2021_sc
   return boost::optional<std::string>();
 }
 
-boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee)
-{
-  std::vector<uint64_t> fees;
-  auto res = get_dynamic_base_fee_estimate_2021_scaling(grace_blocks, fees);
-  if (res)
-    return res;
-  fee = fees[0];
-  return boost::none;
-}
-
 boost::optional<std::string> NodeRPCProxy::get_fee_quantization_mask(uint64_t &fee_quantization_mask)
 {
   uint64_t height;
