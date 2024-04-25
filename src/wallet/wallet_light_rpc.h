@@ -49,13 +49,28 @@ namespace tools
       };
       typedef epee::misc_utils::struct_init<request_t> request;
       
+      struct address_meta {
+        uint32_t maj_i;
+        uint32_t min_i;
+
+        BEGIN_SERIALIZE_OBJECT()
+          FIELD(maj_i)
+          FIELD(min_i)
+        END_SERIALIZE()
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(maj_i)
+          KV_SERIALIZE(min_i)                                  
+        END_KV_SERIALIZE_MAP()
+      };
+
       struct spent_output {
         uint64_t amount;
         std::string key_image;
         std::string tx_pub_key;
         uint64_t out_index;
         uint32_t mixin;
-        
+        address_meta sender;
         
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(amount)
@@ -63,6 +78,7 @@ namespace tools
           KV_SERIALIZE(tx_pub_key)
           KV_SERIALIZE(out_index)
           KV_SERIALIZE(mixin)
+          KV_SERIALIZE_OPT(sender, (address_meta)({0, 0}))
         END_KV_SERIALIZE_MAP()
       };
       
@@ -136,6 +152,21 @@ namespace tools
       };
       typedef epee::misc_utils::struct_init<request_t> request;
       
+      struct address_meta {
+        uint32_t maj_i;
+        uint32_t min_i;
+
+        BEGIN_SERIALIZE_OBJECT()
+          FIELD(maj_i)
+          FIELD(min_i)
+        END_SERIALIZE()
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(maj_i)
+          KV_SERIALIZE(min_i)
+        END_KV_SERIALIZE_MAP()
+      };
+
       struct spent_output 
       {
         uint64_t amount;
@@ -143,13 +174,15 @@ namespace tools
         std::string tx_pub_key;
         uint64_t  out_index;
         uint32_t  mixin;
-        
+        address_meta sender;
+
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(amount)
           KV_SERIALIZE(key_image)
           KV_SERIALIZE(tx_pub_key)
           KV_SERIALIZE(out_index)
           KV_SERIALIZE(mixin)
+          KV_SERIALIZE_OPT(sender, (address_meta)({0, 0}))
         END_KV_SERIALIZE_MAP()
       };
  
@@ -178,7 +211,6 @@ namespace tools
       };
       typedef epee::misc_utils::struct_init<response_t> response;
   };
-  
   //-----------------------------------------------
   struct COMMAND_RPC_GET_UNSPENT_OUTS
   {
@@ -202,7 +234,21 @@ namespace tools
         END_KV_SERIALIZE_MAP()
       };
       typedef epee::misc_utils::struct_init<request_t> request;
-    
+
+      struct address_meta {
+        uint32_t maj_i;
+        uint32_t min_i;
+
+        BEGIN_SERIALIZE_OBJECT()
+          FIELD(maj_i)
+          FIELD(min_i)
+        END_SERIALIZE()
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(maj_i)
+          KV_SERIALIZE(min_i)                                  
+        END_KV_SERIALIZE_MAP()
+      };
       
       struct output {
         uint64_t amount;
@@ -215,8 +261,8 @@ namespace tools
         std::string tx_prefix_hash;
         std::vector<std::string> spend_key_images;
         uint64_t timestamp;
-        uint64_t height;                
-
+        uint64_t height;
+        address_meta recipient;             
 
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(amount)
@@ -229,7 +275,8 @@ namespace tools
           KV_SERIALIZE(tx_prefix_hash)
           KV_SERIALIZE(spend_key_images)  
           KV_SERIALIZE(timestamp)  
-          KV_SERIALIZE(height)                                    
+          KV_SERIALIZE(height)
+          KV_SERIALIZE_OPT(recipient, (address_meta)({0, 0}))                             
         END_KV_SERIALIZE_MAP()
       };
       
@@ -359,6 +406,135 @@ namespace tools
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(amount_outs)
           KV_SERIALIZE(Error)
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<response_t> response;
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_PROVISION_SUBADDRS
+  {
+      typedef std::vector<uint32_t> index_range;
+
+      struct subaddrs {
+        uint32_t key;
+        std::vector<index_range> value;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(key)
+          KV_SERIALIZE(value)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct request_t
+      {
+        std::string address;
+        std::string view_key;
+        uint32_t maj_i;
+        uint32_t min_i;
+        uint32_t n_maj;
+        uint32_t n_min;
+        bool get_all;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(address)
+          KV_SERIALIZE(view_key)
+          KV_SERIALIZE(maj_i)
+          KV_SERIALIZE(min_i)
+          KV_SERIALIZE(n_maj)
+          KV_SERIALIZE(n_min) 
+          KV_SERIALIZE(get_all) 
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<request_t> request;
+
+      struct response_t
+      {
+        std::vector<subaddrs> new_subaddrs;
+        std::vector<subaddrs> all_subaddrs;
+        
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(new_subaddrs)
+          KV_SERIALIZE(all_subaddrs)
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<response_t> response;
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_UPSERT_SUBADDRS
+  {
+      typedef std::vector<uint32_t> index_range;
+
+      struct subaddrs {
+        uint32_t key;
+        std::vector<index_range> value;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(key)
+          KV_SERIALIZE(value)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct request_t
+      {
+        std::string address;
+        std::string view_key;
+        subaddrs subaddrs;
+        bool get_all;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(address)
+          KV_SERIALIZE(view_key)
+          KV_SERIALIZE(subaddrs)
+          KV_SERIALIZE(get_all) 
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<request_t> request;
+
+      struct response_t
+      {
+        std::vector<subaddrs> new_subaddrs;
+        std::vector<subaddrs> all_subaddrs;
+        
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(new_subaddrs)
+          KV_SERIALIZE(all_subaddrs)
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<response_t> response;
+  };
+  //-----------------------------------------------
+  struct COMMAND_RPC_GET_SUBADDRS
+  {
+      struct request_t
+      {
+        std::string address;
+        std::string view_key;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(address)
+          KV_SERIALIZE(view_key) 
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<request_t> request;
+
+      typedef std::vector<uint32_t> index_range;
+
+      struct subaddrs {
+        uint32_t key;
+        std::vector<index_range> value;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(key)
+          KV_SERIALIZE(value)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      struct response_t
+      {
+        std::vector<subaddrs> all_subaddrs;
+        
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(all_subaddrs)
         END_KV_SERIALIZE_MAP()
       };
       typedef epee::misc_utils::struct_init<response_t> response;

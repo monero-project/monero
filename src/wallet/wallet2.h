@@ -1634,7 +1634,12 @@ private:
     }
     
     std::vector<bool> light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images);
-
+    std::vector<cryptonote::subaddress_index> m_light_wallet_subaddrs;
+    std::vector<uint32_t> m_light_wallet_accounts;
+    bool light_wallet_supports_subaddrs();
+    void light_wallet_get_subaddrs();
+    bool light_wallet_provision_subaddrs(uint32_t maj_i, uint32_t min_i, uint32_t n_maj, uint32_t n_min);
+    bool light_wallet_upsert_subaddrs(std::vector<cryptonote::subaddress_index> subaddrs);
     /*
      * "attributes" are a mechanism to store an arbitrary number of string values
      * on the level of the wallet as a whole, identified by keys. Their introduction,

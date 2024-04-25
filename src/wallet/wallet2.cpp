@@ -1597,6 +1597,8 @@ bool wallet2::should_expand(const cryptonote::subaddress_index &index) const
 void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
 {
   hw::device &hwdev = m_account.get_device();
+  std::vector<cryptonote::subaddress_index> subaddrs;
+
   if (m_subaddress_labels.size() <= index.major)
   {
     // add new accounts
@@ -1614,6 +1616,7 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     }
     m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
     m_subaddress_labels[index.major].resize(index.minor + 1);
+    subaddrs.push_back(index2);
     get_account_tags();
   }
   else if (m_subaddress_labels[index.major].size() <= index.minor)
@@ -1629,6 +1632,13 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
        m_subaddresses[D] = index2;
     }
     m_subaddress_labels[index.major].resize(index.minor + 1);
+    subaddrs.push_back(index2);
+  }
+
+  if (m_light_wallet && !subaddrs.empty()) {
+    if(light_wallet_upsert_subaddrs(subaddrs)) {
+      MINFO("Successfully upsert light wallet subaddresses");
+    } else throw std::runtime_error("Error while upserting light wallet subaddresses");
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -6533,9 +6543,6 @@ boost::optional<wallet2::cache_file_data> wallet2::get_cache_file_data()
 uint64_t wallet2::balance(uint32_t index_major, bool strict) const
 {
   uint64_t amount = 0;
-  if(m_light_wallet)
-    if(index_major == 0) return m_light_wallet_balance;
-    else return 0;
   for (const auto& i : balance_per_subaddress(index_major, strict))
     amount += i.second;
   return amount;
@@ -10214,7 +10221,9 @@ void wallet2::light_wallet_get_unspent_outs()
     string_tools::hex_to_pod(o.tx_pub_key, tx_pub_key);
     
     for(auto &t: m_transfers){
+      // everoddandeven: m_transfers should e empty, before of previous call of m_transfer.clear()
       if(t.get_public_key() == public_key) {
+        // update spent status
         t.m_spent = spent;
         add_transfer = false;
         break;
@@ -10243,6 +10252,8 @@ void wallet2::light_wallet_get_unspent_outs()
     td.m_internal_output_index = o.index;
     td.m_spent = spent;
     td.m_frozen = false;
+    td.m_subaddr_index.major = o.recipient.maj_i;
+    td.m_subaddr_index.minor = o.recipient.min_i;
 
     tx_out txout;
     txout.target = txout_to_key(public_key);
@@ -10388,6 +10399,7 @@ void wallet2::light_wallet_get_address_txs()
     address_tx.m_timestamp = t.timestamp;
     address_tx.m_coinbase  = t.coinbase;
     address_tx.m_mempool  = t.mempool;
+    
     m_light_wallet_address_txs.emplace(tx_hash,address_tx);
 
     // populate data needed for history (m_payments, m_unconfirmed_payments, m_confirmed_txs)
@@ -10571,9 +10583,7 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
   return key_image == calculated_key_image;
 }
 
-std::vector<bool> wallet2::light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images) {  
-  MDEBUG("Getting unspent outs");
-  
+std::vector<bool> wallet2::light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images) {    
   tools::COMMAND_RPC_GET_UNSPENT_OUTS::request oreq;
   tools::COMMAND_RPC_GET_UNSPENT_OUTS::response ores;
   oreq.amount = "0";
@@ -10592,7 +10602,7 @@ std::vector<bool> wallet2::light_wallet_is_key_image_spent(const std::vector<cry
   THROW_WALLET_EXCEPTION_IF(ores.status == "error", error::wallet_internal_error, ores.reason);
   
   m_light_wallet_per_kb_fee = ores.per_kb_fee;
-  MDEBUG("FOUND " << ores.outputs.size() <<" outputs");
+
   std:vector<bool> spent_list;
 
   for(crypto::key_image key_image : key_images) {
@@ -10610,6 +10620,119 @@ std::vector<bool> wallet2::light_wallet_is_key_image_spent(const std::vector<cry
   }
 
   return spent_list;
+}
+
+void wallet2::light_wallet_get_subaddrs() {
+  MINFO("Getting light wallet subaddresses");
+
+  tools::COMMAND_RPC_GET_SUBADDRS::request oreq;
+  tools::COMMAND_RPC_GET_SUBADDRS::response ores;
+
+  oreq.address = get_account().get_public_address_str(m_nettype);
+  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+
+  m_daemon_rpc_mutex.lock();
+  bool r = invoke_http_json("/get_subaddrs", oreq, ores, rpc_timeout, "POST");
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "get_subaddrs");
+
+  m_light_wallet_subaddrs.clear();
+  m_light_wallet_accounts.clear();
+
+  for(auto subaddr : ores.all_subaddrs) {    
+    for(auto index_range : subaddr.value) {
+      THROW_WALLET_EXCEPTION_IF(index_range.size() != 2, error::wallet_internal_error, "Invalid index range size");
+
+      uint32_t minor = index_range[0];
+      uint32_t major = index_range[1];
+
+      for(;minor <= major; minor++) {
+        m_light_wallet_subaddrs.push_back({subaddr.key,minor});
+      }
+    }
+
+    m_light_wallet_accounts.push_back(subaddr.key);
+  }
+
+  MINFO("GOT " << m_light_wallet_accounts.size() << " ACCOUNTS AND " << m_light_wallet_subaddrs.size() << " SUBADDRESSES");
+}
+
+bool wallet2::light_wallet_upsert_subaddrs(std::vector<cryptonote::subaddress_index> subaddrs) {
+  tools::COMMAND_RPC_UPSERT_SUBADDRS::request oreq;
+  tools::COMMAND_RPC_UPSERT_SUBADDRS::response ores;
+  std::vector<tools::COMMAND_RPC_UPSERT_SUBADDRS::subaddrs> all_subaddrs;
+  oreq.address = get_account().get_public_address_str(m_nettype);
+  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.get_all = true;
+
+  for (cryptonote::subaddress_index subaddr : subaddrs) {
+    oreq.subaddrs.key = subaddr.major;
+    std::vector<uint32_t> index_range;
+    index_range.push_back(0);
+    index_range.push_back(subaddr.minor);
+    oreq.subaddrs.value.push_back(index_range);
+
+    m_daemon_rpc_mutex.lock();
+    bool r = invoke_http_json("/upsert_subaddrs", oreq, ores, rpc_timeout, "POST");
+    m_daemon_rpc_mutex.unlock();
+    THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "upsert_subaddrs");
+
+    all_subaddrs = ores.all_subaddrs;    
+  }
+
+  m_light_wallet_subaddrs.clear();
+  m_light_wallet_accounts.clear();
+
+  for(auto subaddr : ores.all_subaddrs) {    
+    for(auto index_range : subaddr.value) {
+      THROW_WALLET_EXCEPTION_IF(index_range.size() != 2, error::wallet_internal_error, "Invalid index range size");
+
+      uint32_t minor = index_range[0];
+      uint32_t major = index_range[1];
+
+      for(;minor <= major; minor++) {
+        m_light_wallet_subaddrs.push_back({subaddr.key,minor});
+      }
+    }
+
+    m_light_wallet_accounts.push_back(subaddr.key);
+  }
+
+  return true;
+}
+
+bool wallet2::light_wallet_provision_subaddrs(uint32_t maj_i, uint32_t min_i, uint32_t n_maj, uint32_t n_min) {
+  tools::COMMAND_RPC_PROVISION_SUBADDRS::request oreq;
+  tools::COMMAND_RPC_PROVISION_SUBADDRS::response ores;
+  std::vector<tools::COMMAND_RPC_PROVISION_SUBADDRS::subaddrs> all_subaddrs;
+  oreq.address = get_account().get_public_address_str(m_nettype);
+  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.get_all = true;
+
+  m_daemon_rpc_mutex.lock();
+  bool r = invoke_http_json("/provision_subaddrs", oreq, ores, rpc_timeout, "POST");
+  m_daemon_rpc_mutex.unlock();
+  THROW_WALLET_EXCEPTION_IF(!r, error::no_connection_to_daemon, "provision_subaddrs");
+
+  m_light_wallet_subaddrs.clear();
+  m_light_wallet_accounts.clear();
+
+  for(auto subaddr : ores.all_subaddrs) {    
+    for(auto index_range : subaddr.value) {
+      THROW_WALLET_EXCEPTION_IF(index_range.size() != 2, error::wallet_internal_error, "Invalid index range size");
+
+      uint32_t minor = index_range[0];
+      uint32_t major = index_range[1];
+
+      for(;minor <= major; minor++) {
+        m_light_wallet_subaddrs.push_back({subaddr.key,minor});
+      }
+    }
+
+    m_light_wallet_accounts.push_back(subaddr.key);
+  }
+
+  return true;
 }
 
 // Another implementation of transaction creation that is hopefully better
