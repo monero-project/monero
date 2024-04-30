@@ -67,6 +67,8 @@ namespace tools
     }
   };
 
+  void copy_file(const std::string& from, const std::string& to);
+
   //! A file restricted to process owner AND process. Deletes file on destruction.
   class private_file {
     std::unique_ptr<std::FILE, close_file> m_handle;
