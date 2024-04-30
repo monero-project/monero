@@ -42,6 +42,7 @@
 #include <boost/serialization/version.hpp>
 
 #include "net_peerlist_boost_serialization.h"
+#include "common/util.h"
 
 
 namespace nodetool
@@ -200,7 +201,7 @@ namespace nodetool
     if (!out)
     {
       // if failed, try reading in unportable mode
-      boost::filesystem::copy_file(path, path + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+      tools::copy_file(path, path + ".unportable");
       src_file.close();
       src_file.open( path , std::ios_base::binary | std::ios_base::in);
       if(src_file.fail())

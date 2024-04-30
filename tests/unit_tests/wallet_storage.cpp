@@ -33,6 +33,7 @@
 
 #include "file_io_utils.h"
 #include "wallet/wallet2.h"
+#include "common/util.h"
 
 using namespace boost::filesystem;
 using namespace epee::file_io_utils;
@@ -52,8 +53,8 @@ TEST(wallet_storage, store_to_file2file)
     ASSERT_TRUE(is_file_exist(source_wallet_file.string()));
     ASSERT_TRUE(is_file_exist(source_wallet_file.string() + ".keys"));
 
-    copy_file(source_wallet_file, interm_wallet_file, copy_option::overwrite_if_exists);
-    copy_file(source_wallet_file.string() + ".keys", interm_wallet_file.string() + ".keys", copy_option::overwrite_if_exists);
+    tools::copy_file(source_wallet_file.string(), interm_wallet_file.string());
+    tools::copy_file(source_wallet_file.string() + ".keys", interm_wallet_file.string() + ".keys");
 
     ASSERT_TRUE(is_file_exist(interm_wallet_file.string()));
     ASSERT_TRUE(is_file_exist(interm_wallet_file.string() + ".keys"));
@@ -143,8 +144,8 @@ TEST(wallet_storage, change_password_same_file)
     ASSERT_TRUE(is_file_exist(source_wallet_file.string()));
     ASSERT_TRUE(is_file_exist(source_wallet_file.string() + ".keys"));
 
-    copy_file(source_wallet_file, interm_wallet_file, copy_option::overwrite_if_exists);
-    copy_file(source_wallet_file.string() + ".keys", interm_wallet_file.string() + ".keys", copy_option::overwrite_if_exists);
+    tools::copy_file(source_wallet_file.string(), interm_wallet_file.string());
+    tools::copy_file(source_wallet_file.string() + ".keys", interm_wallet_file.string() + ".keys");
 
     ASSERT_TRUE(is_file_exist(interm_wallet_file.string()));
     ASSERT_TRUE(is_file_exist(interm_wallet_file.string() + ".keys"));
@@ -182,8 +183,8 @@ TEST(wallet_storage, change_password_different_file)
     ASSERT_TRUE(is_file_exist(source_wallet_file.string()));
     ASSERT_TRUE(is_file_exist(source_wallet_file.string() + ".keys"));
 
-    copy_file(source_wallet_file, interm_wallet_file, copy_option::overwrite_if_exists);
-    copy_file(source_wallet_file.string() + ".keys", interm_wallet_file.string() + ".keys", copy_option::overwrite_if_exists);
+    tools::copy_file(source_wallet_file.string(), interm_wallet_file.string());
+    tools::copy_file(source_wallet_file.string() + ".keys", interm_wallet_file.string() + ".keys");
 
     ASSERT_TRUE(is_file_exist(interm_wallet_file.string()));
     ASSERT_TRUE(is_file_exist(interm_wallet_file.string() + ".keys"));
