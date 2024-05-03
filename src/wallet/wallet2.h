@@ -1620,7 +1620,11 @@ private:
     // Parse rct string
     bool light_wallet_parse_rct_str(const std::string& rct_string, const crypto::public_key& tx_pub_key, uint64_t internal_output_index, rct::key& decrypted_mask, rct::key& rct_commit, bool decrypt) const;
     // check if key image is ours
-    bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index);
+    bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index, const cryptonote::subaddress_index subaddress_index);
+
+    bool light_wallet_is_output_spent(const std::string& out_public_key, const std::string& tx_public_key, uint64_t out_index);
+
+    bool light_wallet_is_output_spent(const crypto::public_key& out_public_key, const crypto::public_key& tx_public_key, uint64_t out_index);
 
     bool light_wallet_is_key_image_spent(const crypto::key_image& key_image) {
       std::vector<crypto::key_image> key_images;
@@ -1632,14 +1636,18 @@ private:
 
       return spent_list[0];
     }
-    
+
     std::vector<bool> light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images);
     std::vector<cryptonote::subaddress_index> m_light_wallet_subaddrs;
     std::vector<uint32_t> m_light_wallet_accounts;
+    std::list<tools::COMMAND_RPC_GET_UNSPENT_OUTS::output> m_light_wallet_unspent_outputs;
     bool light_wallet_supports_subaddrs();
     void light_wallet_get_subaddrs();
     bool light_wallet_provision_subaddrs(uint32_t maj_i, uint32_t min_i, uint32_t n_maj, uint32_t n_min);
     bool light_wallet_upsert_subaddrs(std::vector<cryptonote::subaddress_index> subaddrs);
+    bool generate_output_key_image(const std::string& out_public_key, const std::string& tx_public_key, uint64_t out_index, crypto::key_image& ki) const;
+    bool generate_output_key_image(const crypto::public_key& out_public_key, const crypto::public_key& tx_public_key, uint64_t out_index, crypto::key_image& ki) const;
+
     /*
      * "attributes" are a mechanism to store an arbitrary number of string values
      * on the level of the wallet as a whole, identified by keys. Their introduction,
@@ -1877,6 +1885,7 @@ private:
     transfer_container m_transfers;
     payment_container m_payments;
     serializable_unordered_map<crypto::key_image, size_t> m_key_images;
+    std::vector<crypto::key_image> m_spent_key_images;
     serializable_unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     serializable_unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;

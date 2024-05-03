@@ -147,7 +147,7 @@ POP_WARNINGS
     {
       static void convert(const std::string& from, uint64_t& to)
       {
-        MTRACE("Converting std::string to uint64_t. Source: " << from);
+        //MTRACE("Converting std::string to uint64_t. Source: " << from);
         // String only contains digits
         if(std::all_of(from.begin(), from.end(), epee::misc_utils::parse::isdigit))
           to = boost::lexical_cast<uint64_t>(from);
