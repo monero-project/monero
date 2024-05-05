@@ -10218,10 +10218,8 @@ void wallet2::light_wallet_get_unspent_outs()
     return;
   
   // Clear old outputs
-  m_transfers.clear();
+  //m_transfers.clear();
   m_light_wallet_unspent_outputs = ores.outputs;
-
-  MINFO("m_light_wallet_unspent_outputs " << m_light_wallet_unspent_outputs.size());
 
   for (const auto &o: ores.outputs) {
     bool spent = false;
@@ -10233,10 +10231,10 @@ void wallet2::light_wallet_get_unspent_outs()
         
     for (const std::string &ski: o.spend_key_images) {
       spent = false;
-
       // Check if key image is ours
       THROW_WALLET_EXCEPTION_IF(!string_tools::validate_hex(64, ski), error::wallet_internal_error, "Invalid key image");
       string_tools::hex_to_pod(ski, unspent_key_image);
+
       if(light_wallet_key_image_is_ours(unspent_key_image, tx_public_key, o.index, {o.recipient.maj_i,o.recipient.min_i})){
         MTRACE("Spent output found. " << o.public_key);
         spent = true;
@@ -10264,7 +10262,7 @@ void wallet2::light_wallet_get_unspent_outs()
       // everoddandeven: m_transfers should e empty, before of previous call of m_transfer.clear()
       if(t.get_public_key() == public_key) {
         // update spent status
-        t.m_spent = spent;
+        if (!t.m_spent) t.m_spent = spent;
         add_transfer = false;
         break;
       }
@@ -10272,7 +10270,7 @@ void wallet2::light_wallet_get_unspent_outs()
     
     if(!add_transfer)
       continue;
-    
+
     m_transfers.push_back(transfer_details{});
     transfer_details& td = m_transfers.back();
     
@@ -13939,6 +13937,7 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent)
 {
   PERF_TIMER(import_key_images_lots);
+  std::vector<bool> spent_list;
   COMMAND_RPC_IS_KEY_IMAGE_SPENT::request req = AUTO_VAL_INIT(req);
   COMMAND_RPC_IS_KEY_IMAGE_SPENT::response daemon_resp = AUTO_VAL_INIT(daemon_resp);
 
@@ -14018,6 +14017,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       }
       else if (index_found == index_keyimage_map.end()) {
         index_keyimage_map.emplace(n + offset, signed_key_images[n].first);
+        m_key_image_cache.emplace(m_transfers[n + offset].get_public_key(), index_keyimage_map);
       }
     }
   
@@ -14027,7 +14027,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   if(check_spent)
   {
     if (m_light_wallet) {
-      std::vector<bool> spent_list = light_wallet_is_key_image_spent(s_key_images);
+      spent_list = light_wallet_is_key_image_spent(s_key_images);
 
       THROW_WALLET_EXCEPTION_IF(spent_list.size() != signed_key_images.size(), error::wallet_internal_error,
           "daemon returned wrong response for is_key_image_spent, wrong amounts count = " +
@@ -14104,20 +14104,32 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
     LOG_PRINT_L2("Transfer " << i << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
         << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[i] << ")");
 
-    if (i < daemon_resp.spent_status.size() && daemon_resp.spent_status[i] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN)
-    {
-      const std::unordered_map<crypto::key_image, crypto::hash>::const_iterator skii = spent_key_images.find(td.m_key_image);
-      if (skii == spent_key_images.end())
-        swept_transfers.push_back(i);
-      else
-        spent_txids.insert(skii->second);
+    if (m_light_wallet) {
+      if (i < spent_list.size() && spent_list[i])
+      {
+        const std::unordered_map<crypto::key_image, crypto::hash>::const_iterator skii = spent_key_images.find(td.m_key_image);
+        if (skii == spent_key_images.end())
+          swept_transfers.push_back(i);
+        else
+          spent_txids.insert(skii->second);
+      }
+    }
+    else {
+      if (i < daemon_resp.spent_status.size() && daemon_resp.spent_status[i] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN)
+      {
+        const std::unordered_map<crypto::key_image, crypto::hash>::const_iterator skii = spent_key_images.find(td.m_key_image);
+        if (skii == spent_key_images.end())
+          swept_transfers.push_back(i);
+        else
+          spent_txids.insert(skii->second);
+      }
     }
   }
   PERF_TIMER_STOP(import_key_images_D);
 
   MDEBUG("Total: " << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
 
-  if (check_spent)
+  if (check_spent && !m_light_wallet)
   {
     // query outgoing txes
     COMMAND_RPC_GET_TRANSACTIONS::request gettxs_req;
