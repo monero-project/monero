@@ -91,11 +91,13 @@ namespace tools
         uint64_t total_sent;
         uint64_t unlock_time;
         uint64_t height;
+        uint64_t fee;
         std::list<spent_output> spent_outputs;
         std::string payment_id;
         bool coinbase;
         bool mempool;
         uint32_t mixin;
+        address_meta recipient;
 
         BEGIN_KV_SERIALIZE_MAP()
           KV_SERIALIZE(id)
@@ -105,11 +107,13 @@ namespace tools
           KV_SERIALIZE(total_sent)
           KV_SERIALIZE(unlock_time)
           KV_SERIALIZE(height)
+          KV_SERIALIZE_OPT(fee, (uint64_t)0)
           KV_SERIALIZE(spent_outputs)
           KV_SERIALIZE(payment_id)
           KV_SERIALIZE(coinbase)
           KV_SERIALIZE(mempool)
           KV_SERIALIZE(mixin)
+          KV_SERIALIZE(recipient)
         END_KV_SERIALIZE_MAP()
       };
       

@@ -1637,6 +1637,12 @@ private:
       return spent_list[0];
     }
 
+    bool m_light_wallet_is_logged_in;
+    boost::optional<tools::COMMAND_RPC_GET_UNSPENT_OUTS::response> m_unspent_outputs_response;
+    boost::optional<tools::COMMAND_RPC_GET_ADDRESS_TXS::response> m_address_txs_response;
+    void light_wallet_get_tx_unspent_outs(const std::string tx_hash, std::vector<tools::COMMAND_RPC_GET_UNSPENT_OUTS::output> &outputs) const;
+    void light_wallet_refresh(uint64_t & blocks_fectched, bool& received_money);
+
     std::vector<bool> light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images);
     std::vector<cryptonote::subaddress_index> m_light_wallet_subaddrs;
     std::vector<uint32_t> m_light_wallet_accounts;
@@ -1885,7 +1891,7 @@ private:
     transfer_container m_transfers;
     payment_container m_payments;
     serializable_unordered_map<crypto::key_image, size_t> m_key_images;
-    std::vector<crypto::key_image> m_spent_key_images;
+    std::set<std::string> m_spent_key_images;
     serializable_unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     serializable_unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
