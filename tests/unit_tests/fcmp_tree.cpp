@@ -84,7 +84,7 @@ static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Sel
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer");
 
-            const fcmp::LayerExtension<fcmp::Selene> &c2_layer = c2_extensions[c2_idx]; 
+            const fcmp::LayerExtension<fcmp::Selene> &c2_layer = c2_extensions[c2_idx];
             MDEBUG("Selene tree extension start idx: " << c2_layer.start_idx);
 
             for (std::size_t j = 0; j < c2_layer.hashes.size(); ++j)
@@ -96,7 +96,7 @@ static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Sel
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_extensions.size(), "unexpected c1 layer");
 
-            const fcmp::LayerExtension<fcmp::Helios> &c1_layer = c1_extensions[c1_idx]; 
+            const fcmp::LayerExtension<fcmp::Helios> &c1_layer = c1_extensions[c1_idx];
             MDEBUG("Helios tree extension start idx: " << c1_layer.start_idx);
 
             for (std::size_t j = 0; j < c1_layer.hashes.size(); ++j)
@@ -134,7 +134,7 @@ static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < tree.c2_layers.size(), "unexpected c2 layer");
 
-            const fcmp::Layer<fcmp::Selene> &c2_layer = tree.c2_layers[c2_idx]; 
+            const fcmp::Layer<fcmp::Selene> &c2_layer = tree.c2_layers[c2_idx];
             MDEBUG("Selene layer size: " << c2_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c2_layer.size(); ++j)
@@ -146,7 +146,7 @@ static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < tree.c1_layers.size(), "unexpected c1 layer");
 
-            const fcmp::Layer<fcmp::Helios> &c1_layer = tree.c1_layers[c1_idx]; 
+            const fcmp::Layer<fcmp::Helios> &c1_layer = tree.c1_layers[c1_idx];
             MDEBUG("Helios layer size: " << c1_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c1_layer.size(); ++j)
@@ -248,7 +248,7 @@ TEST(fcmp_tree, grow_tree)
                 fcmp::extend_tree<fcmp::Helios, fcmp::Selene>(
                     tree_extension,
                     fcmp::HELIOS,
-                    fcmp::SELENE, 
+                    fcmp::SELENE,
                     global_tree);
 
                 log_tree(global_tree);
@@ -285,7 +285,7 @@ TEST(fcmp_tree, grow_tree)
                 fcmp::extend_tree<fcmp::Helios, fcmp::Selene>(
                     tree_extension,
                     fcmp::HELIOS,
-                    fcmp::SELENE, 
+                    fcmp::SELENE,
                     global_tree);
 
                 log_tree(global_tree);
