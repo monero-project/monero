@@ -39,8 +39,10 @@ extern "C"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -344,4 +346,156 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+TEST(Crypto, key_image_y)
+{
+  const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+  crypto::key_image ki;
+  crypto::generate_key_image(kp.pub, kp.sec, ki);
+
+  crypto::key_image_y ki_y;
+  bool sign = crypto::key_image_to_y(ki, ki_y);
+
+  static_assert(sizeof(crypto::key_image) == sizeof(crypto::key_image_y), "unequal key image <> key image y size");
+  if (memcmp(ki.data, ki_y.data, sizeof(crypto::key_image)) == 0)
+    ASSERT_FALSE(sign);
+  else
+    ASSERT_TRUE(sign);
+
+  // decoded y coordinate should be the same
+  fe y_from_ki;
+  fe y_from_ki_y;
+  ASSERT_EQ(fe_frombytes_vartime(y_from_ki, (unsigned char*)ki.data), 0);
+  ASSERT_EQ(fe_frombytes_vartime(y_from_ki_y, (unsigned char*)ki_y.data), 0);
+
+  ASSERT_EQ(memcmp(y_from_ki, y_from_ki_y, sizeof(fe)), 0);
+}
+
+TEST(Crypto, batch_inversion)
+{
+  const std::size_t MAX_TEST_ELEMS = 1000;
+
+  // Memory allocator
+  auto alloc = [](const std::size_t n) -> fe*
+  {
+    fe *ptr = (fe *) malloc(n * sizeof(fe));
+    if (!ptr)
+      throw std::runtime_error("failed to malloc fe *");
+    return ptr;
+  };
+
+  // Init test elems and individual inversions
+  fe *init_elems    = alloc(MAX_TEST_ELEMS);
+  fe *norm_inverted = alloc(MAX_TEST_ELEMS);
+  for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
+  {
+    const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+    ASSERT_EQ(fe_frombytes_vartime(init_elems[i], (unsigned char*)kp.pub.data), 0);
+    fe_invert(norm_inverted[i], init_elems[i]);
+  }
+
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
+  {
+    fe *batch_inverted = alloc(n_elems);
+    ASSERT_EQ(fe_batch_invert(batch_inverted, init_elems, n_elems), 0);
+    ASSERT_EQ(memcmp(batch_inverted, norm_inverted, n_elems * sizeof(fe)), 0);
+    free(batch_inverted);
+  }
+
+  free(init_elems);
+  free(norm_inverted);
+}
+
+TEST(Crypto, fe_constants)
+{
+  // D = -121665/121666
+  fe D;
+  {
+    fe fe_numer{121665, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    fe fe_denom{121666, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    fe_neg(fe_numer, fe_numer);
+    fe_invert(fe_denom, fe_denom);
+    fe_mul(D, fe_numer, fe_denom);
+  }
+
+  fe one;
+  fe_1(one);
+  fe a;
+  fe_neg(a, one);
+
+  fe a_minus_D;
+  fe_sub(a_minus_D, a, D);
+  fe_reduce(a_minus_D, a_minus_D);
+
+  // A = 2*(a+D)
+  fe A;
+  fe_add(A, a, D);
+  fe_dbl(A, A);
+
+  // B = (a-D)^2
+  fe B;
+  fe_sq(B, a_minus_D);
+
+  // Ap = -2A
+  fe Ap;
+  fe_neg(Ap, A);
+  fe_dbl(Ap, Ap);
+
+  fe Asq;
+  fe_sq(Asq, A);
+
+  // Bp = A^2-4B
+  fe Bp;
+  fe_dbl(Bp, B);
+  fe_dbl(Bp, Bp);
+  fe_sub(Bp, Asq, Bp);
+
+  fe neg_sqrt_2b;
+  fe_dbl(neg_sqrt_2b, Bp);
+  ASSERT_TRUE(fcmp_pp::sqrt(neg_sqrt_2b, neg_sqrt_2b));
+  // needs sqrt implemented to match rust const usage
+  // fe_neg(neg_sqrt_2b, neg_sqrt_2b);
+
+  fe inv_2;
+  static const fe fe_2{2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  fe_invert(inv_2, fe_2);
+
+  fe sqrtm1;
+  ASSERT_TRUE(fcmp_pp::sqrt(sqrtm1, a));
+
+  ASSERT_TRUE(memcmp(fe_d,       D,           sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_a0,      A,           sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_ap,      Ap,          sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
+}
+
+TEST(Crypto, torsion_check_pass)
+{
+  const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+  ge_p3 x;
+  ASSERT_EQ(ge_frombytes_vartime(&x, (const unsigned char*)kp.pub.data), 0);
+  const rct::key k = rct::pk2rct(kp.pub);
+  ASSERT_TRUE(rct::isInMainSubgroup(k));
+  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+  ASSERT_TRUE(fcmp_pp::torsion_check_vartime(x));
+  const rct::key cleared = fcmp_pp::clear_torsion(x);
+  ASSERT_EQ(k, cleared);
+}
+
+TEST(Crypto, torsion_check_torsioned_point)
+{
+  rct::key k;
+  epee::string_tools::hex_to_pod("b10ba13e303cbe9abf7d5d44f1d417727abcc14903a74e071abd652ce1bf76dd", k);
+  ge_p3 x;
+  ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
+  ASSERT_FALSE(rct::isInMainSubgroup(k));
+  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+  ASSERT_FALSE(fcmp_pp::torsion_check_vartime(x));
+  const rct::key cleared = fcmp_pp::clear_torsion(x);
+  ASSERT_NE(k, cleared);
 }

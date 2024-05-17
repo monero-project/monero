@@ -32,6 +32,8 @@
 
 #include <string>
 #include <exception>
+#include <map>
+#include <memory>
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
@@ -40,6 +42,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
+#include "fcmp_pp/curve_trees.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -117,6 +120,16 @@ enum class relay_category : uint8_t
 bool matches_category(relay_method method, relay_category category) noexcept;
 
 #pragma pack(push, 1)
+// This MUST be identical to output_data_t, without the extra rct data at the end
+struct pre_rct_output_data_t
+{
+  crypto::public_key pubkey;       //!< the output's public key (for spend verification)
+  uint64_t           unlock_time;  //!< the output's unlock time (or height)
+  uint64_t           height;       //!< the height of the block which created the output
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
 
 /**
  * @brief a struct containing output metadata
@@ -129,6 +142,18 @@ struct output_data_t
   rct::key           commitment;   //!< the output's amount commitment (for spend verification)
 };
 #pragma pack(pop)
+
+typedef struct pre_rct_outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    pre_rct_output_data_t data;
+} pre_rct_outkey;
+
+typedef struct outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    output_data_t data;
+} outkey;
 
 #pragma pack(push, 1)
 struct tx_data_t
@@ -186,7 +211,6 @@ struct txpool_tx_meta_t
     return matches_category(get_relay_method(), category);
   }
 };
-
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
@@ -398,6 +422,8 @@ private:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
+   * @param outs_by_last_locked_block the outputs from this block to add to the merkle tree
+   * @param timelocked_outputs the outputs from this block that are custom timelocked
    */
   virtual void add_block( const block& blk
                 , size_t block_weight
@@ -406,6 +432,8 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
+                , const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block
+                , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
                 ) = 0;
 
   /**
@@ -471,8 +499,9 @@ private:
    * future, this tracking (of the number, at least) should be moved to
    * this class, as it is necessary and the same among all BlockchainDB.
    *
-   * It returns an amount output index, which is the index of the output
-   * for its specified amount.
+   * It returns the output indexes, which contains an amount output index (the
+   * index of the output for its specified amount) and output id (the global
+   * index of the output among all outputs of any amount).
    *
    * This data should be stored in such a manner that the only thing needed to
    * reverse the process is the tx_out.
@@ -578,12 +607,14 @@ protected:
 
   HardFork* m_hardfork;
 
+  std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> m_curve_trees;
+
 public:
 
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees() { }
 
   /**
    * @brief An empty destructor.
@@ -1379,6 +1410,16 @@ public:
    */
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
 
+  // returns the total number of outputs in the chain (of all amounts)
+  /**
+   * @brief fetches the number of outputs in the chain
+   *
+   * The subclass should return a count of outputs, or zero if there are none.
+   *
+   * @return the total number of outputs in the chain (of all amounts)
+   */
+  virtual uint64_t num_outputs() const = 0;
+
   // returns the total number of outputs of amount <amount>
   /**
    * @brief fetches the number of outputs of a given amount
@@ -1418,7 +1459,7 @@ public:
    *
    * @return the requested output data
    */
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
+  virtual outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
 
   /**
    * @brief gets an output's tx hash and index
@@ -1687,7 +1728,7 @@ public:
    *
    * @return false if the function returns false for any key image, otherwise true
    */
-  virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const = 0;
+  virtual bool for_all_key_images(std::function<bool(const crypto::key_image_y&)>) const = 0;
 
   /**
    * @brief runs a function over a range of blocks
@@ -1766,6 +1807,39 @@ public:
    */
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
+  // TODO: description and make private
+  virtual void grow_tree(const uint64_t block_id, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
+
+  virtual void trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_id) = 0;
+
+  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const = 0;
+
+  // TODO: description
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
+  virtual uint64_t get_n_leaf_tuples() const = 0;
+  virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
+  virtual std::size_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const = 0;
+
+  /**
+   * @brief return custom timelocked outputs after the provided block idx
+   *
+   * @param start_block_idx
+   *
+   * @return custom timelocked outputs grouped by last locked block
+   */
+  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
+
+  /**
+   * @brief return recent timelocked outputs after the provided end_block_idx
+   *
+   * @param end_block_idx
+   *
+   * @return
+   *  - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
+   *  - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
+   *  - the outputs are grouped by last locked block idx
+   */
+  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const = 0;
 
   //
   // Hard fork related storage

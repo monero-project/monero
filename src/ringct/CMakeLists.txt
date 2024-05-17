@@ -45,6 +45,7 @@ target_link_libraries(ringct_basic
   PUBLIC
     common
     cncrypto
+    fcmp_pp # needed for fcmp_pp::proof_len
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
@@ -71,6 +72,7 @@ target_link_libraries(ringct
     cncrypto
     cryptonote_basic
     device
+    fcmp_pp
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})

@@ -283,7 +283,7 @@ static bool get_output_txid(ancestry_state_t &state, BlockchainDB *db, uint64_t 
     return true;
   }
 
-  const output_data_t od = db->get_output_key(amount, offset, false);
+  const output_data_t od = db->get_output_key(amount, offset, false).data;
   cryptonote::block b;
   if (!get_block_from_height(state, db, od.height, b))
     return false;
