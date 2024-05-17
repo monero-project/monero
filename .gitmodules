@@ -14,3 +14,6 @@
 [submodule "external/gtest"]
 	path = external/gtest
 	url = https://github.com/google/googletest.git
+[submodule "external/fcmp-plus-plus"]
+	path = external/fcmp-plus-plus
+	url = https://github.com/kayabaNerve/fcmp-plus-plus.git
