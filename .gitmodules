@@ -11,3 +11,6 @@
 	path = external/supercop
 	url = https://github.com/monero-project/supercop
 	branch = monero
+[submodule "external/fcmp-plus-plus"]
+	path = external/fcmp-plus-plus
+	url = https://github.com/kayabaNerve/fcmp-plus-plus.git

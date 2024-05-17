@@ -51,6 +51,7 @@ set(unit_tests_sources
   epee_serialization.cpp
   epee_utils.cpp
   expect.cpp
+  fcmp_tree.cpp
   json_serialization.cpp
   get_xtype_from_string.cpp
   hashchain.cpp
@@ -113,11 +114,13 @@ monero_add_minimal_executable(unit_tests
 target_link_libraries(unit_tests
   PRIVATE
     ringct
+    crypto
     cryptonote_protocol
     cryptonote_core
     daemon_messages
     daemon_rpc_server
     blockchain_db
+    fcmp
     lmdb_lib
     rpc
     net

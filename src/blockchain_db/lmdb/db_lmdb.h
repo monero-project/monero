@@ -64,6 +64,9 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
+  MDB_cursor *m_txc_leaves;
+  MDB_cursor *m_txc_branches;
+
   MDB_cursor *m_txc_txpool_meta;
   MDB_cursor *m_txc_txpool_blob;
 
@@ -87,6 +90,8 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_leaves		m_cursors->m_txc_leaves
+#define m_cur_branches		m_cursors->m_txc_branches
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_alt_blocks	m_cursors->m_txc_alt_blocks
@@ -109,6 +114,8 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
+  bool m_rf_leaves;
+  bool m_rf_branches;
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
   bool m_rf_alt_blocks;
@@ -462,6 +469,9 @@ private:
   MDB_dbi m_output_amounts;
 
   MDB_dbi m_spent_keys;
+
+  MDB_dbi m_leaves;
+  MDB_dbi m_branches;
 
   MDB_dbi m_txpool_meta;
   MDB_dbi m_txpool_blob;
