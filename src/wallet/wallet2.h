@@ -57,6 +57,8 @@
 #include "common/util.h"
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
+#include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/tree_cache.h"
 #include "multisig/multisig_account.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
@@ -362,6 +364,13 @@ private:
         THROW_WALLET_EXCEPTION_IF(!get_output_public_key(m_tx.vout[m_internal_output_index], output_public_key),
           error::wallet_internal_error, "Unable to get output public key from output");
         return output_public_key;
+      };
+
+      const fcmp_pp::curve_trees::OutputPair get_output_pair() const {
+        return {
+          .output_pubkey = get_public_key(),
+          .commitment = this->is_rct() ? rct::commit(this->amount(), m_mask) : rct::zeroCommitVartime(this->amount())
+        };
       };
 
       BEGIN_SERIALIZE_OBJECT()
@@ -896,6 +905,9 @@ private:
       tx_entry_data(): lowest_height((uint64_t)-1), highest_height(0) {}
     };
 
+    using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
+    using TreeCacheV1 = fcmp_pp::curve_trees::TreeCacheV1;
+
     /*!
      * \brief  Generates a wallet or restores one. Assumes the multisig setup
       *        has already completed for the provided multisig info.
@@ -1069,7 +1081,7 @@ private:
     void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
     bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
 
-    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth;}
+    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth; m_tree_cache.set_max_reorg_depth(depth);}
     uint64_t max_reorg_depth() const {return m_max_reorg_depth;}
 
     bool deinit();
@@ -1364,11 +1376,14 @@ private:
         return;
       }
       a & m_background_sync_data;
+      if(ver < 32)
+        return;
+      a & m_tree_cache;
     }
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
-      VERSION_FIELD(2)
+      VERSION_FIELD(3)
       FIELD(m_blockchain)
       FIELD(m_transfers)
       FIELD(m_account_public_address)
@@ -1407,6 +1422,9 @@ private:
         return true;
       }
       FIELD(m_background_sync_data)
+      if (version < 3)
+        return true;
+      FIELD(m_tree_cache)
     END_SERIALIZE()
 
     /*!
@@ -1821,7 +1839,7 @@ private:
      * that this function deletes data that is not useful for background syncing
      */
     void clear_user_data();
-    void pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs);
+    void pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data);
     void pull_hashes(uint64_t start_height, uint64_t& blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<crypto::hash> &hashes);
     void fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force = false);
     void pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, bool &last, bool &error, std::exception_ptr &exception);
@@ -1946,6 +1964,9 @@ private:
     std::vector<std::vector<rct::key>> m_multisig_rescan_k;
     std::unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
+    uint64_t m_sync_blocks_time_ms;
+    uint64_t m_outs_by_last_locked_time_ms;
+
     std::atomic<bool> m_run;
 
     boost::recursive_mutex m_daemon_rpc_mutex;
@@ -2053,9 +2074,12 @@ private:
     bool m_background_syncing;
     bool m_processing_background_cache;
     background_sync_data_t m_background_sync_data;
+
+    std::shared_ptr<CurveTreesV1> m_curve_trees;
+    TreeCacheV1 m_tree_cache;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 31)
+BOOST_CLASS_VERSION(tools::wallet2, 32)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)

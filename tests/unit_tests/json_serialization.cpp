@@ -78,7 +78,9 @@ namespace test
         std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
         subaddresses[from.m_account_address.m_spend_public_key] = {0,0};
 
-        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, tx_key, extra_keys, rct, { bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean, bulletproof ? 2 : 0 }))
+        fcmp_pp::ProofParams fcmp_pp_params = {};
+
+        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, tx_key, extra_keys, fcmp_pp_params, rct, { bulletproof ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean, bulletproof ? 2 : 0 }))
             throw std::runtime_error{"transaction construction error"};
 
         return tx;

@@ -51,6 +51,7 @@
 #include "include_base_utils.h"
 using namespace epee;
 
+#include "blockchain_db/blockchain_db_utils.h"
 #include "cryptonote_config.h"
 #include "hardforks/hardforks.h"
 #include "cryptonote_core/tx_sanity_check.h"
@@ -93,6 +94,7 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
+#include "fcmp_pp/tx_utils.h"
 
 extern "C"
 {
@@ -1251,7 +1253,9 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_enable_multisig(false),
   m_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
-  m_allow_mismatched_daemon_version(false)
+  m_allow_mismatched_daemon_version(false),
+  m_curve_trees(fcmp_pp::curve_trees::curve_trees_v1()),
+  m_tree_cache(fcmp_pp::curve_trees::TreeCacheV1(m_curve_trees, m_max_reorg_depth))
 {
 }
 
@@ -1921,6 +1925,8 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // re-request txs from daemon to re-process with all tx data needed
   tx_entry_data txs_to_reprocess = get_tx_entries(tx_hashes_to_reprocess);
 
+  // TODO: request output paths in tree for all outputs in requested txs, add the received output paths to the cache
+
   process_scan_txs(txs_to_scan, txs_to_reprocess, tx_hashes_to_reprocess, dbd);
   reattach_blockchain(m_blockchain, dbd);
 
@@ -1949,6 +1955,8 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
     catch (...) { MERROR("Failed getting block header at height " << txs_to_scan.highest_height); }
 
     // The wallet's blockchain state will now sync from the expected height correctly on next refresh loop
+
+    // TODO: be sure to initialize the right-edge of the tree at skip_to_height
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -2174,6 +2182,7 @@ static uint64_t decodeRct(const rct::rctSig & rv, const crypto::key_derivation &
     case rct::RCTTypeBulletproof2:
     case rct::RCTTypeCLSAG:
     case rct::RCTTypeBulletproofPlus:
+    case rct::RCTTypeFcmpPlusPlus:
       return rct::decodeRctSimple(rv, rct::sk2rct(scalar1), i, mask, hwdev);
     case rct::RCTTypeFull:
       return rct::decodeRct(rv, rct::sk2rct(scalar1), i, mask, hwdev);
@@ -2295,7 +2304,7 @@ bool wallet2::spends_one_of_ours(const cryptonote::transaction &tx) const
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache, bool ignore_callbacks)
 {
-  PERF_TIMER(process_new_transaction);
+  // PERF_TIMER(process_new_transaction);
   // In this function, tx (probably) only contains the base information
   // (that is, the prunable stuff may or may not be included)
   if (!miner_tx && !pool)
@@ -2490,11 +2499,18 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
 				  std::to_string(o) + ", total_outs=" + std::to_string(tx.vout.size()));
 
+  THROW_WALLET_EXCEPTION_IF(tx.vout[o].amount == 0 && tx.rct_signatures.outPk.size() <= o,
+          error::wallet_internal_error, "incorrect size of rct signatures");
+
         auto kit = m_pub_keys.find(tx_scan_info[o].in_ephemeral.pub);
 	THROW_WALLET_EXCEPTION_IF(kit != m_pub_keys.end() && kit->second >= m_transfers.size(),
             error::wallet_internal_error, std::string("Unexpected transfer index from public key: ")
             + "got " + (kit == m_pub_keys.end() ? "<none>" : boost::lexical_cast<std::string>(kit->second))
             + ", m_transfers.size() is " + boost::lexical_cast<std::string>(m_transfers.size()));
+            const fcmp_pp::curve_trees::OutputPair output_pair{
+              .output_pubkey = tx_scan_info[o].in_ephemeral.pub,
+              .commitment = tx.vout[o].amount == 0 ? tx.rct_signatures.outPk[o].mask : rct::zeroCommitVartime(tx.vout[o].amount)
+            };
         if (kit == m_pub_keys.end())
         {
           uint64_t amount = tx.vout[o].amount ? tx.vout[o].amount : tx_scan_info[o].amount;
@@ -2566,6 +2582,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+      m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
           }
           total_received_1 += amount;
           notify = true;
@@ -2644,6 +2661,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+      m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
           }
           total_received_1 += extra_amount;
           notify = true;
@@ -3015,8 +3033,9 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
       process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.major_version, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++], output_tracker_cache);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
+
     m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-    LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "/" << txs_handle_time <<")ms");
+    LOG_PRINT_L2("Processed block: " << bl_id << ", height " << height << ", " <<  miner_tx_handle_time + txs_handle_time << "(" << miner_tx_handle_time << "," << txs_handle_time << ")ms");
   }else
   {
     if (!(height % 128))
@@ -3144,17 +3163,18 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   update_pool_state_from_pool_data(res.pool_info_extent == COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL, res.removed_pool_txids, added_pool_txs, process_txs, refreshed);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs)
+void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   req.block_ids = short_chain_history;
 
-  MDEBUG("Pulling blocks: start_height " << start_height);
-
   req.prune = true;
   req.start_height = start_height;
-  req.no_miner_tx = m_refresh_type == RefreshNoCoinbase;
+  req.no_miner_tx = false; // always need the miner tx so we can grow the tree correctly
+  req.init_tree_sync = m_tree_cache.n_synced_blocks() == 0;
+
+  MDEBUG("Pulling blocks: start_height " << start_height << " , init_tree_sync: " << req.init_tree_sync);
 
   req.requested_info = (first && !m_background_syncing) ? COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_AND_POOL : COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_ONLY;
   if (try_incremental && !m_background_syncing)
@@ -3175,6 +3195,8 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
   current_height = res.current_height;
   if (res.pool_info_extent != COMMAND_RPC_GET_BLOCKS_FAST::NONE)
     m_pool_info_query_time = res.daemon_time;
+  if (res.included_init_tree_sync_data)
+    init_tree_sync_data = boost::optional<COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t>(std::move(res.init_tree_sync_data));
 
   MDEBUG("Pulled blocks: blocks_start_height " << blocks_start_height << ", count " << blocks.size()
       << ", height " << blocks_start_height + blocks.size() << ", node height " << res.current_height
@@ -3215,6 +3237,194 @@ void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, 
   hashes = std::move(res.m_block_ids);
 }
 //----------------------------------------------------------------------------------------------------
+struct TreeSyncStartParams
+{
+  uint64_t start_block_idx{0};
+  uint64_t start_parsed_block_i{0};
+  crypto::hash prev_block_hash;
+};
+
+static void assert_top_block_match(const hashchain &blockchain, const tools::wallet2::TreeCacheV1 &tree_sync)
+{
+  if (blockchain.empty())
+  {
+    THROW_WALLET_EXCEPTION_IF(tree_sync.get_output_count() != 0, tools::error::wallet_internal_error,
+      "unexpected non-zero output count in tree sync");
+    return;
+  }
+
+  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
+    "top block not in bounds");
+
+  fcmp_pp::curve_trees::BlockMeta top_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!tree_sync.get_top_block(top_synced_block), tools::error::wallet_internal_error,
+    "empty tree sync cache");
+
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_idx != m_blockchain_top_block_idx,
+    tools::error::wallet_internal_error, "m_blockchain <> m_tree_cache top block idx mismatch (m_blockchain_top_block_idx: "
+    + std::to_string(m_blockchain_top_block_idx) + " vs tree top idx: " + std::to_string(top_synced_block.blk_idx) + ")");
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
+    tools::error::wallet_internal_error,
+    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(blockchain[m_blockchain_top_block_idx]) +
+    " vs tree top hash: " + string_tools::pod_to_hex(top_synced_block.blk_hash) + ")");
+}
+
+static void reorg_depth_check(const uint64_t reorg_blk_idx, const uint64_t start_block_idx, const crypto::hash &first_parsed_hash, const hashchain &blockchain, const uint64_t max_reorg_depth)
+{
+  THROW_WALLET_EXCEPTION_IF(reorg_blk_idx == 0, tools::error::wallet_internal_error, "did not find expected reorg block");
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(reorg_blk_idx), tools::error::out_of_hashchain_bounds_error);
+  THROW_WALLET_EXCEPTION_IF(reorg_blk_idx == start_block_idx, tools::error::wallet_internal_error,
+      "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(first_parsed_hash) +
+      " (height " + std::to_string(start_block_idx) + "), local block id at this height: " +
+      string_tools::pod_to_hex(blockchain[reorg_blk_idx]));
+
+  const uint64_t reorg_depth = blockchain.size() - reorg_blk_idx;
+  THROW_WALLET_EXCEPTION_IF(reorg_depth > max_reorg_depth, tools::error::reorg_depth_error,
+    tr("reorg exceeds maximum allowed depth, use 'set max-reorg-depth N' to allow it, reorg depth: ") +
+    std::to_string(reorg_depth));
+}
+
+// Checks for a reorg and handles the reorg on the tree sync cache if so. We do
+// this separately from the main wallet's reorg handling (handle_reorg) because
+// handle_reorg executes *after* detecting receives, however, we want to build
+// the tree efficiently in parallel to detecting receives. Handling the reorg
+// first on the tree sync cache enables building the tree immediately (we extend
+// the tree from the cached tree, so the cached tree needs to be in the correct
+// state to extend the tree correctly).
+static TreeSyncStartParams tree_sync_reorg_check(const uint64_t parsed_blocks_start_idx, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const uint64_t n_blocks_already_synced, const hashchain &blockchain, const uint64_t max_reorg_depth, tools::wallet2::TreeCacheV1 &tree_cache_inout)
+{
+  const uint64_t n_downloaded_blocks = (uint64_t) parsed_blocks.size();
+  if (n_downloaded_blocks == 0)
+    return TreeSyncStartParams{};
+
+  MDEBUG("parsed_blocks_start_idx: "   << parsed_blocks_start_idx
+      << ", n_blocks_already_synced: " << n_blocks_already_synced
+      << ", n_downloaded_blocks: "     << n_downloaded_blocks);
+
+  // Make sure the tree sync cache matches wallet2's blockchain cache
+  assert_top_block_match(blockchain, tree_cache_inout);
+
+  fcmp_pp::curve_trees::BlockMeta top_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!tree_cache_inout.get_top_block(top_synced_block), tools::error::wallet_internal_error,
+    "empty tree sync cache");
+
+  // Check if the new downloaded blocks are contiguous to the tree sync cache.
+  // If not contiguous, we correct the tree sync cache and sync any new blocks.
+  uint64_t sync_start_block_idx = n_blocks_already_synced;
+  THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx > sync_start_block_idx, error::wallet_internal_error, "sync_start_block_idx is too high");
+  uint64_t start_parsed_block_i = sync_start_block_idx - parsed_blocks_start_idx;
+  THROW_WALLET_EXCEPTION_IF(start_parsed_block_i == 0, error::wallet_internal_error, "start_parsed_block_i must be > 0");
+  THROW_WALLET_EXCEPTION_IF(start_parsed_block_i > parsed_blocks.size(), error::wallet_internal_error, "start_parsed_block_i is too high");
+  crypto::hash prev_block_hash = parsed_blocks[start_parsed_block_i - 1].hash;
+
+  // Contiguity check
+  if (prev_block_hash != top_synced_block.blk_hash)
+  {
+    // Reorg detected! Find split point and make sure it's within the max reorg depth
+    uint64_t reorg_blk_idx = 0;
+    for (uint64_t i = 0; i < start_parsed_block_i; ++i)
+    {
+      const uint64_t blk_idx = i + parsed_blocks_start_idx;
+      THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(blk_idx), tools::error::out_of_hashchain_bounds_error);
+      if (blockchain[blk_idx] != parsed_blocks[i].hash)
+      {
+        reorg_blk_idx = blk_idx;
+        LOG_PRINT_L2("Reorg identified when building tree at i " << i << " , blk_idx " << reorg_blk_idx << ". "
+          << blockchain[reorg_blk_idx] << " vs " << parsed_blocks[i].hash);
+        break;
+      }
+    }
+    reorg_depth_check(reorg_blk_idx, parsed_blocks_start_idx, parsed_blocks.front().hash, blockchain, max_reorg_depth);
+  }
+
+  while (prev_block_hash != top_synced_block.blk_hash)
+  {
+    // While reorg detected, we need to pop blocks from the tree sync cache
+    // until we're back on the correct chain.
+    THROW_WALLET_EXCEPTION_IF(sync_start_block_idx == 0, error::wallet_internal_error, "sync_start_block_idx must be > 0");
+    THROW_WALLET_EXCEPTION_IF(start_parsed_block_i == 0, error::wallet_internal_error, "start_parsed_block_i must be > 0");
+
+    THROW_WALLET_EXCEPTION_IF(!tree_cache_inout.pop_block(), error::wallet_internal_error, "Failed to pop block from tree");
+
+    --sync_start_block_idx;
+    --start_parsed_block_i;
+    prev_block_hash = parsed_blocks[start_parsed_block_i].block.prev_id;
+
+    THROW_WALLET_EXCEPTION_IF(!tree_cache_inout.get_top_block(top_synced_block), error::wallet_internal_error,
+      "empty tree sync cache");
+  }
+
+  MDEBUG("sync_start_block_idx: " << sync_start_block_idx << ", start_parsed_block_i: " << start_parsed_block_i);
+
+  // Necessary reorg handling is done. We're now ready to start syncing the
+  // tree, so we return the sync start params.
+  return TreeSyncStartParams { sync_start_block_idx, start_parsed_block_i, prev_block_hash };
+}
+
+static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_params, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, tools::wallet2::TreeCacheV1 &tree_cache_inout, uint64_t &outs_by_last_locked_time_ms_inout, uint64_t &sync_blocks_time_ms_inout, std::vector<crypto::hash> &new_block_hashes_out, fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension_out, std::vector<uint64_t> &new_leaf_tuples_per_block_out)
+{
+  TIME_MEASURE_START(sync_blocks_time);
+
+  new_block_hashes_out.clear();
+  new_leaf_tuples_per_block_out.clear();
+  tree_extension_out = fcmp_pp::curve_trees::CurveTreesV1::TreeExtension{};
+
+  const uint64_t sync_start_block_idx = tree_sync_start_params.start_block_idx;
+  const uint64_t start_parsed_block_i = tree_sync_start_params.start_parsed_block_i;
+  const crypto::hash &prev_block_hash = tree_sync_start_params.prev_block_hash;
+
+  THROW_WALLET_EXCEPTION_IF(start_parsed_block_i > sync_start_block_idx, error::wallet_internal_error, "high start_parsed_block_i");
+  THROW_WALLET_EXCEPTION_IF(start_parsed_block_i >= parsed_blocks.size(), error::wallet_internal_error, "high start_parsed_block_i");
+  const uint64_t n_new_blocks = parsed_blocks.size() - start_parsed_block_i;
+
+  THROW_WALLET_EXCEPTION_IF(sync_start_block_idx == 0, error::wallet_internal_error, "sync_start_block_idx must be > 0");
+
+  // Collect all outs from all blocks by last locked block
+  TIME_MEASURE_START(collecting_outs_by_last_locked_block);
+  std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs_by_last_locked_blocks;
+
+  new_block_hashes_out.reserve(n_new_blocks);
+  outs_by_last_locked_blocks.reserve(n_new_blocks);
+
+  uint64_t first_output_id = tree_cache_inout.get_output_count();
+  for (size_t i = start_parsed_block_i; i < parsed_blocks.size(); ++i)
+  {
+    const uint64_t created_block_idx = sync_start_block_idx + (i - start_parsed_block_i);
+    new_block_hashes_out.push_back(parsed_blocks[i].block.hash);
+
+    const auto &miner_tx = std::ref(parsed_blocks[i].block.miner_tx);
+    std::vector<std::reference_wrapper<const cryptonote::transaction>> txs;
+    txs.reserve(parsed_blocks[i].txes.size());
+    for (size_t j = 0; j < parsed_blocks[i].txes.size(); ++j)
+      txs.push_back(std::ref(parsed_blocks[i].txes[j]));
+
+    // Note: this function is slow because of zeroCommitVartime
+    auto res = cryptonote::get_outs_by_last_locked_block(miner_tx, txs, first_output_id, created_block_idx);
+
+    outs_by_last_locked_blocks.emplace_back(std::move(res.outs_by_last_locked_block));
+    first_output_id = res.next_output_id;
+  }
+
+  TIME_MEASURE_FINISH(collecting_outs_by_last_locked_block);
+
+  // Get a tree extension with the outputs that will unlock in this chunk of blocks
+  tree_cache_inout.prepare_to_sync_blocks(sync_start_block_idx,
+    prev_block_hash,
+    new_block_hashes_out,
+    outs_by_last_locked_blocks,
+    tree_extension_out,
+    new_leaf_tuples_per_block_out);
+
+  TIME_MEASURE_FINISH(sync_blocks_time);
+
+  outs_by_last_locked_time_ms_inout += collecting_outs_by_last_locked_block;
+  sync_blocks_time_ms_inout += sync_blocks_time;
+
+  LOG_PRINT_L1("Total time spent building tree: " << sync_blocks_time_ms_inout / 1000
+      << " , time spent collecting outs by unlock time while building tree: " << outs_by_last_locked_time_ms_inout / 1000);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   blocks_added = 0;
@@ -3236,6 +3446,35 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   if (has_prev_block) {
     prev_block_id = m_blockchain[start_height - 1];
   }
+
+  // Use outputs to build the curve tree in a separate thread
+  tools::threadpool::waiter tree_sync_blocks_waiter(tpool);
+  const uint64_t n_blocks_already_synced = (uint64_t) m_blockchain.size();
+  THROW_WALLET_EXCEPTION_IF(n_blocks_already_synced == 0, error::wallet_internal_error, "n_blocks_already_synced == 0");
+
+  // Check for reorg and handle it on the tree sync cache if necessary. The main
+  // wallet handles reorgs separately after identifying receives.
+  const auto tree_sync_start_params = tree_sync_reorg_check(start_height, parsed_blocks, n_blocks_already_synced, m_blockchain, m_max_reorg_depth, m_tree_cache);
+
+  std::vector<crypto::hash> new_block_hashes;
+  fcmp_pp::curve_trees::CurveTreesV1::TreeExtension tree_extension;
+  std::vector<uint64_t> new_leaf_tuples_per_block;
+
+  // Get the tree extension in parallel to identifying receives in the rest of
+  // this function. After identifying receives in parallel, we'll then process
+  // the tree extension, saving any path elements we need for received outputs,
+  // and throwing away excess tree elems we won't need to continue syncing.
+  tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &tree_extension, &new_leaf_tuples_per_block, tree_sync_start_params]() {
+      tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
+    });
+
+  const auto tree_sync_post_check = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    // Check for matching top block in m_blockchain <> m_tree_cache after sync
+    assert_top_block_match(m_blockchain, m_tree_cache);
+  });
+
+  try
+  {
   for (size_t i = 0; i < blocks.size(); ++i)
   {
     if (has_prev_block) {
@@ -3401,15 +3640,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     else if(bl_id != m_blockchain[current_index])
     {
       //split detected here !!!
-      THROW_WALLET_EXCEPTION_IF(current_index == start_height, error::wallet_internal_error,
-        "wrong daemon response: split starts from the first block in response " + string_tools::pod_to_hex(bl_id) +
-        " (height " + std::to_string(start_height) + "), local block id at this height: " +
-        string_tools::pod_to_hex(m_blockchain[current_index]));
-
-      const uint64_t reorg_depth = m_blockchain.size() - current_index;
-      THROW_WALLET_EXCEPTION_IF(reorg_depth > m_max_reorg_depth, error::reorg_depth_error,
-        tr("reorg exceeds maximum allowed depth, use 'set max-reorg-depth N' to allow it, reorg depth: ") +
-        std::to_string(reorg_depth));
+      reorg_depth_check(current_index, start_height, parsed_blocks.front().hash, m_blockchain, m_max_reorg_depth);
 
       handle_reorg(current_index, output_tracker_cache);
       process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
@@ -3421,6 +3652,43 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     ++current_index;
     tx_cache_data_offset += 1 + parsed_blocks[i].txes.size();
   }
+  }
+  catch (...)
+  {
+    if (!tree_sync_blocks_waiter.wait())
+    {
+      MERROR("Failed to sync the tree, the wallet may now be in a corrupt state");
+    }
+    else
+    {
+      // Finish processing synced blocks on tree
+      m_tree_cache.process_synced_blocks(tree_sync_start_params.start_block_idx, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
+
+      // We had an error in the scanner. Next time the scanner runs, it starts
+      // from where it left off. We need to make sure the scanner state matches
+      // the tree sync state, so that they start from the same place. Thus, we
+      // pop from the tree sync cache until they've synced the same # of blocks.
+      // The reason we call process_synced_blocks above is because
+      // prepare_to_sync_blocks modifies cache state and requires the
+      // corresponding call to process_synced_blocks to complete before popping.
+      // This could be done in a simpler way.
+      while (m_tree_cache.n_synced_blocks() > m_blockchain.size())
+      {
+        THROW_WALLET_EXCEPTION_IF(!m_tree_cache.pop_block(), error::wallet_internal_error, "Failed to pop block from tree cache");
+      }
+    }
+
+    std::rethrow_exception(std::current_exception());
+    return;
+  }
+
+  // Now that we've processed all received outputs, call process_synced_blocks
+  // to save the elems we need from the tree, and get rid of the rest of the
+  // tree elems we no longer need.
+  LOG_PRINT_L3("Building the tree...");
+  THROW_WALLET_EXCEPTION_IF(!tree_sync_blocks_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+  LOG_PRINT_L3("Done waiting on tree build");
+  m_tree_cache.process_synced_blocks(tree_sync_start_params.start_block_idx, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(bool trusted_daemon)
@@ -3482,7 +3750,8 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     uint64_t current_height;
-    pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs);
+    boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> init_tree_sync_data;
+    pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs, init_tree_sync_data);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
@@ -3538,6 +3807,20 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     }
     THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
     last = !blocks.empty() && cryptonote::get_block_height(parsed_blocks.back().block) + 1 == current_height;
+
+    if (init_tree_sync_data)
+    {
+      // Initialize the tree
+      const uint64_t init_block_idx = init_tree_sync_data->init_block_idx;
+      const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
+      MINFO("Initializing wallet tree at block " << init_block_idx << " with block hash " << init_block_hash);
+
+      fcmp_pp::curve_trees::OutsByLastLockedBlock locked_outputs;
+      for (auto &lo : init_tree_sync_data->locked_outputs)
+        locked_outputs[lo.last_locked_block] = std::move(lo.outputs);
+
+      m_tree_cache.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_path, locked_outputs);
+    }
   }
   catch(...)
   {
@@ -4135,7 +4418,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
           cryptonote::block b;
           generate_genesis(b);
           m_blockchain.clear();
-          m_blockchain.push_back(get_block_hash(b));
+          const crypto::hash genesis_hash = get_block_hash(b);
+          m_blockchain.push_back(genesis_hash);
+          m_tree_cache.clear();
           short_chain_history.clear();
           get_short_chain_history(short_chain_history);
           fast_refresh(stop_height, blocks_start_height, short_chain_history, true);
@@ -4461,6 +4746,7 @@ bool wallet2::clear()
   m_pool_info_query_time = 0;
   m_skip_to_height = 0;
   m_background_sync_data = background_sync_data_t{};
+  m_tree_cache.clear();
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4483,8 +4769,10 @@ void wallet2::clear_soft(bool keep_key_images)
 
   cryptonote::block b;
   generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
+  const crypto::hash genesis_hash = get_block_hash(b);
+  m_blockchain.push_back(genesis_hash);
   m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
+  m_tree_cache.clear();
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::clear_user_data()
@@ -5475,8 +5763,10 @@ void wallet2::setup_new_blockchain()
 {
   cryptonote::block b;
   generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
+  const crypto::hash genesis_hash = get_block_hash(b);
+  m_blockchain.push_back(genesis_hash);
   m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
+  m_tree_cache.clear();
   add_subaddress_account(tr("Primary account"));
 }
 
@@ -6473,6 +6763,12 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, "failed to load keys from buffer");
   }
 
+<<<<<<< HEAD
+=======
+  // We may have loaded a max reorg depth different than the default
+  m_tree_cache.set_max_reorg_depth(m_max_reorg_depth);
+
+>>>>>>> 2e2eadb70 (fcmp++ mega commit [3/27/25])
   wallet_keys_unlocker unlocker(*this, &password);
 
   //keys loaded ok!
@@ -6496,6 +6792,13 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   cryptonote::block genesis;
   generate_genesis(genesis);
   crypto::hash genesis_hash = get_block_hash(genesis);
+
+  if (m_tree_cache.n_synced_blocks() == 0 && !m_transfers.empty() && m_has_ever_refreshed_from_node)
+  {
+    // clear the wallet so that we re-sync the tree and get received output paths
+    // TODO: may want to warn users that this is happening before doing it, esp. because it'll delete tx dests
+    this->clear_soft(true);
+  }
 
   if (m_blockchain.empty())
   {
@@ -7283,6 +7586,9 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height)
 {
+  if (use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0))
+    return get_blockchain_current_height() >= (cryptonote::get_last_locked_block_index(unlock_time, block_height)+1);
+
   if(unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
   {
     //interpret as block index
@@ -7390,6 +7696,7 @@ float wallet2::get_output_relatedness(const transfer_details &td0, const transfe
   return 0.0f;
 }
 //----------------------------------------------------------------------------------------------------
+// TODO: FCMP++ txs don't need to care about output relatedness
 size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::vector<size_t>& selected_transfers, bool smallest) const
 {
   std::vector<size_t> candidates;
@@ -7760,7 +8067,8 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     rct::RCTConfig rct_config = sd.rct_config;
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, tx_key, additional_tx_keys, sd.use_rct, rct_config, sd.use_view_tags);
+    fcmp_pp::ProofParams fcmp_pp_params = {};
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sd.sources, sd.splitted_dsts, sd.change_dts.addr, sd.extra, ptx.tx, tx_key, additional_tx_keys, fcmp_pp_params, sd.use_rct, rct_config, sd.use_view_tags);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sd.sources, sd.splitted_dsts, m_nettype);
     // we don't test tx size, because we don't know the current limit, due to not having a blockchain,
     // and it's a bit pointless to fail there anyway, since it'd be a (good) guess only. We sign anyway,
@@ -8520,6 +8828,8 @@ fee_algorithm wallet2::get_fee_algorithm()
 //------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_min_ring_size()
 {
+  if (use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0))
+    return 0;
   if (use_fork_rules(HF_VERSION_MIN_MIXIN_15, 0))
     return 16;
   if (use_fork_rules(8, 10))
@@ -8535,6 +8845,8 @@ uint64_t wallet2::get_min_ring_size()
 //------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_max_ring_size()
 {
+  if (use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0))
+    return 0;
   if (use_fork_rules(HF_VERSION_MIN_MIXIN_15, 0))
     return 16;
   if (use_fork_rules(8, 10))
@@ -8556,6 +8868,8 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin)
     MWARNING("Requested ring size " << (mixin + 1) << " too high, using " << max_ring_size);
     mixin = max_ring_size-1;
   }
+  if (min_ring_size == 0 && max_ring_size == 0)
+    return 0;
   return mixin;
 }
 //----------------------------------------------------------------------------------------------------
@@ -9503,7 +9817,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       size_t requested_outputs_count = base_requested_outputs_count + (td.is_rct() ? CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE : 0);
       outs.push_back(std::vector<get_outs_entry>());
       outs.back().reserve(fake_outputs_count + 1);
-      const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommit(td.amount());
+      const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommitVartime(td.amount());
 
       uint64_t num_outs = 0;
       const uint64_t amount = td.is_rct() ? 0 : td.amount();
@@ -9612,7 +9926,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     {
       const transfer_details &td = m_transfers[idx];
       std::vector<get_outs_entry> v;
-      const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommit(td.amount());
+      const rct::key mask = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommitVartime(td.amount());
       v.push_back(std::make_tuple(td.m_global_output_index, td.get_public_key(), mask));
       outs.push_back(v);
     }
@@ -9750,7 +10064,8 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   crypto::secret_key tx_key;
   std::vector<crypto::secret_key> additional_tx_keys;
   LOG_PRINT_L2("constructing tx");
-  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, tx_key, additional_tx_keys, false, {}, use_view_tags);
+  fcmp_pp::ProofParams fcmp_pp_params = {};
+  bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, tx_key, additional_tx_keys, fcmp_pp_params, false, {}, use_view_tags);
   LOG_PRINT_L2("constructed tx, r="<<r);
   THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, splitted_dsts, m_nettype);
   THROW_WALLET_EXCEPTION_IF(upper_transaction_weight_limit <= get_transaction_weight(tx), error::tx_too_big, tx, upper_transaction_weight_limit);
@@ -9896,8 +10211,15 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   for (auto i = ++selected_transfers.begin(); i != selected_transfers.end(); ++i)
     THROW_WALLET_EXCEPTION_IF(subaddr_account != m_transfers[*i].m_subaddr_index.major, error::wallet_internal_error, "the tx uses funds from multiple accounts");
 
-  if (outs.empty())
+  const bool use_fcmp = rct_config.bp_version >= 5;
+  if (!use_fcmp && outs.empty())
     get_outs(outs, selected_transfers, fake_outputs_count, all_rct, valid_public_keys_cache); // may throw
+
+  // prepare FCMP++ params
+  fcmp_pp::ProofParams fcmp_pp_params;
+  const uint64_t n_synced_blocks = m_tree_cache.n_synced_blocks();
+  THROW_WALLET_EXCEPTION_IF(n_synced_blocks == 0, error::wallet_internal_error, "n_synced_blocks must be > 0 to construct a tx");
+  fcmp_pp_params.reference_block = use_fcmp ? (n_synced_blocks - 1) : 0;
 
   //prepare inputs
   LOG_PRINT_L2("preparing outputs");
@@ -9910,12 +10232,38 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     const transfer_details& td = m_transfers[idx];
     src.amount = td.amount();
     src.rct = td.is_rct();
-    //paste mixin transaction
+    src.mask = td.m_mask;
+    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
+    src.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
+    src.real_output_in_tx_index = td.m_internal_output_index;
 
+    typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
+    tx_output_entry real_oe;
+    real_oe.first = td.m_global_output_index;
+    real_oe.second.dest = rct::pk2rct(td.get_public_key());
+    real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
+
+    if (use_fcmp)
+    {
+      fcmp_pp_params.proof_inputs.emplace_back();
+
+      const auto output_pair = td.get_output_pair();
+      const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
+      src.rerandomized_output = fcmp_pp::rerandomize_output(output_tuple.to_output_bytes());
+
+      const bool r = fcmp_pp::set_fcmp_pp_proof_input(output_pair, m_tree_cache, src.rerandomized_output, m_curve_trees, fcmp_pp_params.proof_inputs.back());
+      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "failed to set FCMP++ prove input");
+
+      src.outputs.emplace_back(std::move(real_oe));
+      src.real_output = 0;
+      detail::print_source_entry(src);
+      continue;
+    }
+
+    //paste mixin transaction
     THROW_WALLET_EXCEPTION_IF(outs.size() < out_index + 1 ,  error::wallet_internal_error, "outs.size() < out_index + 1"); 
     THROW_WALLET_EXCEPTION_IF(outs[out_index].size() < fake_outputs_count ,  error::wallet_internal_error, "fake_outputs_count > random outputs found");
       
-    typedef cryptonote::tx_source_entry::output_entry tx_output_entry;
     for (size_t n = 0; n < fake_outputs_count + 1; ++n)
     {
       tx_output_entry oe;
@@ -9934,16 +10282,8 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     THROW_WALLET_EXCEPTION_IF(it_to_replace == src.outputs.end(), error::wallet_internal_error,
         "real output not found");
 
-    tx_output_entry real_oe;
-    real_oe.first = td.m_global_output_index;
-    real_oe.second.dest = rct::pk2rct(td.get_public_key());
-    real_oe.second.mask = rct::commit(td.amount(), td.m_mask);
     *it_to_replace = real_oe;
-    src.real_out_tx_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
-    src.real_out_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     src.real_output = it_to_replace - src.outputs.begin();
-    src.real_output_in_tx_index = td.m_internal_output_index;
-    src.mask = td.m_mask;
     if (m_multisig)
       // note: multisig_kLRki is a legacy struct, currently only used as a key image shuttle into the multisig tx builder
       src.multisig_kLRki = {.k = {}, .L = {}, .R = {}, .ki = rct::ki2rct(td.m_key_image)};
@@ -10015,7 +10355,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   }
   else {
     // make a normal tx
-    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, tx_key, additional_tx_keys, true, rct_config, use_view_tags);
+    bool r = cryptonote::construct_tx_and_get_tx_key(m_account.get_keys(), m_subaddresses, sources, splitted_dsts, change_dts.addr, extra, tx, tx_key, additional_tx_keys, fcmp_pp_params, true, rct_config, use_view_tags);
     LOG_PRINT_L2("constructed tx, r="<<r);
     THROW_WALLET_EXCEPTION_IF(!r, error::tx_not_constructed, sources, dsts, m_nettype);
   }
@@ -10155,6 +10495,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   LOG_PRINT_L2("transfer_selected_rct done");
 }
 
+// TODO: no longer needed with FCMP++
 std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, uint32_t subaddr_account, const std::set<uint32_t> &subaddr_indices)
 {
   std::vector<size_t> picks;
@@ -10421,13 +10762,14 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   uint64_t needed_fee, available_for_fee = 0;
   uint64_t upper_transaction_weight_limit = get_upper_transaction_weight_limit();
   const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
+  const bool use_fcmp = use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0);
   const bool use_rct = use_fork_rules(4, 0);
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const bool bulletproof_plus = use_fork_rules(get_bulletproof_plus_fork(), 0);
   const bool clsag = use_fork_rules(get_clsag_fork(), 0);
   const rct::RCTConfig rct_config {
     rct::RangeProofPaddedBulletproof,
-    bulletproof_plus ? 4 : 3
+    use_fcmp ? 5 : bulletproof_plus ? 4 : 3
   };
   const bool use_view_tags = use_fork_rules(get_view_tag_fork(), 0);
   std::unordered_set<crypto::public_key> valid_public_keys_cache;
@@ -10491,6 +10833,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     LOG_PRINT_L2("Candidate subaddress index for spending: " << i);
 
   // determine threshold for fractional amount
+  // TODO: FCMP++ fee
   const size_t tx_weight_one_ring = estimate_tx_weight(use_rct, 1, fake_outs_count, 2, 0, bulletproof, clsag, bulletproof_plus, use_view_tags);
   const size_t tx_weight_two_rings = estimate_tx_weight(use_rct, 2, fake_outs_count, 2, 0, bulletproof, clsag, bulletproof_plus, use_view_tags);
   THROW_WALLET_EXCEPTION_IF(tx_weight_one_ring > tx_weight_two_rings, error::wallet_internal_error, "Estimated tx weight with 1 input is larger than with 2 inputs!");
@@ -10517,7 +10860,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       }
       const uint32_t index_minor = td.m_subaddr_index.minor;
       auto find_predicate = [&index_minor](const std::pair<uint32_t, std::vector<size_t>>& x) { return x.first == index_minor; };
-      if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
+      // TODO: make sure FCMP++ dust handling is sound
+      if (use_fcmp || (td.is_rct()) || is_valid_decomposed_amount(td.amount()))
       {
         auto found = std::find_if(unused_transfers_indices_per_subaddr.begin(), unused_transfers_indices_per_subaddr.end(), find_predicate);
         if (found == unused_transfers_indices_per_subaddr.end())
@@ -10586,6 +10930,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   {
     // this is used to build a tx that's 1 or 2 inputs, and 2 outputs, which
     // will get us a known fee.
+    // TODO: FCMP++ fee
     uint64_t estimated_fee = estimate_fee(use_per_byte_fee, use_rct, 2, fake_outs_count, 2, extra.size(), bulletproof, clsag, bulletproof_plus, use_view_tags, base_fee, fee_quantization_mask);
     total_needed_money = needed_money + (subtract_fee_from_outputs.size() ? 0 : estimated_fee);
     preferred_inputs = pick_preferred_rct_inputs(total_needed_money, subaddr_account, subaddr_indices);
@@ -10699,13 +11044,15 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
     }
     else
     {
+      const size_t max_dsts = (use_fcmp ? FCMP_PLUS_PLUS_MAX_OUTPUTS : BULLETPROOF_MAX_OUTPUTS) - 1;
+
       while (!dsts.empty() && dsts[0].amount <= available_amount && estimate_tx_weight(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size()+1, extra.size(), bulletproof, clsag, bulletproof_plus, use_view_tags) < TX_WEIGHT_TARGET(upper_transaction_weight_limit))
       {
         // we can fully pay that destination
         LOG_PRINT_L2("We can fully pay " << get_account_address_as_str(m_nettype, dsts[0].is_subaddress, dsts[0].addr) <<
           " for " << print_money(dsts[0].amount));
         const bool subtract_fee_from_this_dest = subtract_fee_from_outputs.count(destination_index);
-        if (!tx.add(dsts[0], dsts[0].amount, original_output_index, m_merge_destinations, BULLETPROOF_MAX_OUTPUTS-1, subtract_fee_from_this_dest))
+        if (!tx.add(dsts[0], dsts[0].amount, original_output_index, m_merge_destinations, max_dsts, subtract_fee_from_this_dest))
         {
           LOG_PRINT_L2("Didn't pay: ran out of output slots");
           out_slots_exhausted = true;
@@ -10724,7 +11071,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         LOG_PRINT_L2("We can partially pay " << get_account_address_as_str(m_nettype, dsts[0].is_subaddress, dsts[0].addr) <<
           " for " << print_money(available_amount) << "/" << print_money(dsts[0].amount));
         const bool subtract_fee_from_this_dest = subtract_fee_from_outputs.count(destination_index);
-        if (tx.add(dsts[0], available_amount, original_output_index, m_merge_destinations, BULLETPROOF_MAX_OUTPUTS-1, subtract_fee_from_this_dest))
+        if (tx.add(dsts[0], available_amount, original_output_index, m_merge_destinations, max_dsts, subtract_fee_from_this_dest))
         {
           dsts[0].amount -= available_amount;
           available_amount = 0;
@@ -10763,6 +11110,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
         THROW_WALLET_EXCEPTION_IF(try_tx && tx.dsts.empty(), error::tx_too_big, estimated_rct_tx_weight, upper_transaction_weight_limit);
       }
     }
+
+    try_tx |= (use_fcmp && tx.selected_transfers.size() == FCMP_PLUS_PLUS_MAX_INPUTS);
 
     if (try_tx) {
       cryptonote::transaction test_tx;
@@ -11071,6 +11420,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
+  const bool use_fcmp = use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0);
   const bool use_rct = use_fork_rules(4, 0);
 
   // determine threshold for fractional amount
@@ -11080,6 +11430,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   const bool clsag = use_fork_rules(get_clsag_fork(), 0);
   const bool use_view_tags = use_fork_rules(get_view_tag_fork(), 0);
   const uint64_t base_fee  = get_base_fee(priority);
+  // TODO: FCMP++ fee handling
   const size_t tx_weight_one_ring = estimate_tx_weight(use_rct, 1, fake_outs_count, 2, 0, bulletproof, clsag, bulletproof_plus, use_view_tags);
   const size_t tx_weight_two_rings = estimate_tx_weight(use_rct, 2, fake_outs_count, 2, 0, bulletproof, clsag, bulletproof_plus, use_view_tags);
   THROW_WALLET_EXCEPTION_IF(tx_weight_one_ring > tx_weight_two_rings, error::wallet_internal_error, "Estimated tx weight with 1 input is larger than with 2 inputs!");
@@ -11106,7 +11457,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
       fund_found = true;
       if (below == 0 || td.amount() < below)
       {
-        if ((td.is_rct()) || is_valid_decomposed_amount(td.amount()))
+        // TODO: make sure FCMP++ dust handling is sound
+        if (use_fcmp || (td.is_rct()) || is_valid_decomposed_amount(td.amount()))
           unused_transfer_dust_indices_per_subaddr[td.m_subaddr_index.minor].first.push_back(i);
         else
           unused_transfer_dust_indices_per_subaddr[td.m_subaddr_index.minor].second.push_back(i);
@@ -11144,6 +11496,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
+  const bool use_fcmp = use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0);
   const bool use_rct = use_fork_rules(4, 0);
   // find output with the given key image
   for (size_t i = 0; i < m_transfers.size(); ++i)
@@ -11151,7 +11504,8 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
     const transfer_details& td = m_transfers[i];
     if (td.m_key_image_known && td.m_key_image == ki && !is_spent(td, false) && !td.m_frozen && (use_rct ? true : !td.is_rct()) && is_transfer_unlocked(td))
     {
-      if (td.is_rct() || is_valid_decomposed_amount(td.amount()))
+      // TODO: make sure FCMP++ dust handling is sound
+      if (use_fcmp || td.is_rct() || is_valid_decomposed_amount(td.amount()))
         unused_transfers_indices.push_back(i);
       else
         unused_dust_indices.push_back(i);
@@ -11187,13 +11541,14 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
   std::vector<std::vector<get_outs_entry>> outs;
 
   const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE);
-  const bool use_rct = fake_outs_count > 0 && use_fork_rules(4, 0);
+  const bool use_fcmp = use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0);
+  const bool use_rct = use_fcmp || (fake_outs_count > 0 && use_fork_rules(4, 0));
   const bool bulletproof = use_fork_rules(get_bulletproof_fork(), 0);
   const bool bulletproof_plus = use_fork_rules(get_bulletproof_plus_fork(), 0);
   const bool clsag = use_fork_rules(get_clsag_fork(), 0);
   const rct::RCTConfig rct_config {
     rct::RangeProofPaddedBulletproof,
-    bulletproof_plus ? 4 : 3
+    use_fcmp ? 5 : bulletproof_plus ? 4 : 3
   };
   const bool use_view_tags = use_fork_rules(get_view_tag_fork(), 0);
   const uint64_t base_fee  = get_base_fee(priority);
@@ -11222,6 +11577,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
     uint64_t fee_dust_threshold;
     if (use_fork_rules(HF_VERSION_PER_BYTE_FEE))
     {
+      // TODO: fees for FCMP++
       const uint64_t estimated_tx_weight_with_one_extra_output = estimate_tx_weight(use_rct, tx.selected_transfers.size() + 1, fake_outs_count, tx.dsts.size()+1, extra.size(), bulletproof, clsag, bulletproof_plus, use_view_tags);
       fee_dust_threshold = calculate_fee_from_weight(base_fee, estimated_tx_weight_with_one_extra_output, fee_quantization_mask);
     }
@@ -11253,14 +11609,17 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
     // here, check if we need to sent tx and start a new one
     LOG_PRINT_L2("Considering whether to create a tx now, " << tx.selected_transfers.size() << " inputs, tx limit "
       << upper_transaction_weight_limit);
+    // TODO: fees for FCMP++
     const size_t estimated_rct_tx_weight = estimate_tx_weight(use_rct, tx.selected_transfers.size(), fake_outs_count, tx.dsts.size() + 2, extra.size(), bulletproof, clsag, bulletproof_plus, use_view_tags);
     bool try_tx = (unused_dust_indices.empty() && unused_transfers_indices.empty()) || ( estimated_rct_tx_weight >= TX_WEIGHT_TARGET(upper_transaction_weight_limit));
+    try_tx |= (use_fcmp && tx.selected_transfers.size() == FCMP_PLUS_PLUS_MAX_INPUTS);
 
     if (try_tx) {
       cryptonote::transaction test_tx;
       pending_tx test_ptx;
 
       const size_t num_outputs = get_num_outputs(tx.dsts, m_transfers, tx.selected_transfers);
+      // TODO: fees for FCMP++
       needed_fee = estimate_fee(use_per_byte_fee, use_rct, tx.selected_transfers.size(), fake_outs_count, num_outputs, extra.size(), bulletproof, clsag, bulletproof_plus, use_view_tags, base_fee, fee_quantization_mask);
 
       // add N - 1 outputs for correct initial fee estimation
@@ -12077,7 +12436,7 @@ void wallet2::check_tx_key_helper(const cryptonote::transaction &tx, const crypt
         crypto::secret_key scalar1;
         crypto::derivation_to_scalar(found_derivation, n, scalar1);
         rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-        rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
+        rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), rct::is_rct_short_amount(tx.rct_signatures.type));
         const rct::key C = tx.rct_signatures.outPk[n].mask;
         rct::key Ctmp;
         THROW_WALLET_EXCEPTION_IF(sc_check(ecdh_info.mask.bytes) != 0, error::wallet_internal_error, "Bad ECDH input mask");
@@ -12746,7 +13105,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
       crypto::secret_key shared_secret;
       crypto::derivation_to_scalar(derivation, proof.index_in_tx, shared_secret);
       rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[proof.index_in_tx];
-      rct::ecdhDecode(ecdh_info, rct::sk2rct(shared_secret), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
+      rct::ecdhDecode(ecdh_info, rct::sk2rct(shared_secret), rct::is_rct_short_amount(tx.rct_signatures.type));
       amount = rct::h2d(ecdh_info.amount);
     }
     total += amount;
@@ -14058,6 +14417,7 @@ void wallet2::import_blockchain(const std::tuple<size_t, crypto::hash, std::vect
   crypto::hash genesis_hash = get_block_hash(genesis);
   check_genesis(genesis_hash);
   m_last_block_reward = cryptonote::get_outs_money_amount(genesis.miner_tx);
+  // FIXME: the above is only checking genesis not syncing. This function also needs to import tree elems to work correctly
 }
 //----------------------------------------------------------------------------------------------------
 std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> wallet2::export_outputs(bool all, uint32_t start, uint32_t count) const
@@ -14692,6 +15052,12 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     const transfer_details &td = m_transfers[n];
     if (!td.m_key_image_partial)
       continue;
+    // FIXME: if we need to pop more blocks from the tree cache than the reorg depth, and the wallet has received
+    // outputs from before the detach height, then the wallet won't be able to correct those prior output paths.
+    // Some solutions:
+    // A) restart sync from the wallet's first received output height.
+    // B) re-request output paths from the daemon.
+    // C) multisig wallet should stop syncing upon identifying a receive.
     MINFO("Multisig info importing from block height " << td.m_block_height);
     handle_reorg(td.m_block_height);
     break;

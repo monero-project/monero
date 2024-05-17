@@ -142,7 +142,7 @@ static void expand_transaction_fully(cryptonote::transaction& tx, const rct::ctk
     CHECK_AND_ASSERT_THROW_MES(cryptonote::expand_transaction_1(tx, false), "expand 1 failed");
     CHECK_AND_ASSERT_THROW_MES
     (
-        cryptonote::Blockchain::expand_transaction_2(tx, tx_prefix_hash, input_pubkeys),
+        cryptonote::Blockchain::expand_transaction_2(tx, tx_prefix_hash, input_pubkeys, nullptr),
         "expand 2 failed"
     );
     CHECK_AND_ASSERT_THROW_MES(!memcmp(&tx_prefix_hash, &tx.rct_signatures.message, 32), "message check failed");
@@ -274,8 +274,10 @@ TEST(verRctNonSemanticsSimple, tx1_preconditions)
     EXPECT_TRUE(rct::verRctSemanticsSimple(rs));
     EXPECT_TRUE(rct::verRctNonSemanticsSimple(rs));
     EXPECT_TRUE(rct::verRctSimple(rs));
-    EXPECT_TRUE(cryptonote::ver_rct_non_semantics_simple_cached(tx, tx1_input_pubkeys, rct_ver_cache, rct::RCTTypeBulletproofPlus));
-    EXPECT_TRUE(cryptonote::ver_rct_non_semantics_simple_cached(tx, tx1_input_pubkeys, rct_ver_cache, rct::RCTTypeBulletproofPlus));
+    EXPECT_TRUE(cryptonote::ver_rct_non_semantics_simple_cached(tx, tx1_input_pubkeys, {}, rct_ver_cache, rct::RCTTypeBulletproofPlus));
+    EXPECT_TRUE(cryptonote::ver_rct_non_semantics_simple_cached(tx, tx1_input_pubkeys, {}, rct_ver_cache, rct::RCTTypeBulletproofPlus));
+
+    // TODO: test rct::RCTTypeFcmpPlusPlus
 }
 
 #define SERIALIZABLE_SIG_CHANGES_SUBTEST(fieldmodifyclause)                                    \

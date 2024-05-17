@@ -6436,8 +6436,11 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
   priority = m_wallet->adjust_priority(priority);
 
+  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
   const size_t min_ring_size = m_wallet->get_min_ring_size();
-  size_t fake_outs_count = min_ring_size - 1;
+  size_t fake_outs_count = 0;
+  if (min_ring_size > 0)
+  {
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -6464,6 +6467,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
     return false;
+  }
   }
 
   const size_t min_args = 1;
@@ -6731,7 +6735,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
         if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
                                                    % print_money(dust_not_in_fee);
-        if (!process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
+        if (fake_outs_count > 0 && !process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
           return false;
 
         prompt << ENDL << tr("Is this okay?");
@@ -6846,6 +6850,8 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   CHECK_IF_BACKGROUND_SYNCING("cannot sweep");
   if (!try_connect_to_daemon())
     return true;
+
+  // TODO: deprecate at FCMP++ fork
 
   SCOPED_WALLET_UNLOCK();
 
@@ -7001,7 +7007,11 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
+  const size_t min_ring_size = m_wallet->get_min_ring_size();
+  size_t fake_outs_count = 0;
+  if (min_ring_size > 0)
+  {
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7028,6 +7038,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
     return true;
+  }
   }
 
   size_t outputs = 1;
@@ -7139,7 +7150,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
       if (subaddr_indices.size() > 1)
         prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
     }
-    if (!process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
+    if (fake_outs_count > 0 && !process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
       return true;
     if (ptx_vector.size() > 1) {
       prompt << boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?")) %
@@ -7245,7 +7256,12 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
+  const size_t min_ring_size = m_wallet->get_min_ring_size();
+  size_t fake_outs_count = 0;
+  if (min_ring_size > 0)
+  {
+  fake_outs_count = min_ring_size - 1;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7272,6 +7288,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
     return true;
+  }
   }
 
   size_t outputs = 1;
@@ -7384,7 +7401,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     uint64_t total_fee = ptx_vector[0].fee;
     uint64_t total_sent = m_wallet->get_transfer_details(ptx_vector[0].selected_transfers.front()).amount();
     std::ostringstream prompt;
-    if (!process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
+    if (fake_outs_count > 0 && !process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
       return true;
     prompt << boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?")) %
       print_money(total_sent) %

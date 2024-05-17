@@ -35,6 +35,7 @@ set(core_tests_sources
   chaingen001.cpp
   chaingen_main.cpp
   double_spend.cpp
+  fcmp_pp.cpp
   integer_overflow.cpp
   multisig.cpp
   ring_signature_1.cpp
@@ -57,6 +58,7 @@ set(core_tests_headers
   chaingen_tests_list.h
   double_spend.h
   double_spend.inl
+  fcmp_pp.h
   integer_overflow.h
   multisig.h
   ring_signature_1.h
@@ -82,6 +84,8 @@ target_link_libraries(core_tests
     epee
     device
     wallet
+    blockchain_db
+    fcmp_pp
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 enable_stack_trace(core_tests)

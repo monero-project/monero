@@ -83,7 +83,7 @@ namespace cryptonote
   uint64_t get_transaction_weight_clawback(const transaction &tx, size_t n_padded_outputs)
   {
     const rct::rctSig &rv = tx.rct_signatures;
-    const bool plus = rv.type == rct::RCTTypeBulletproofPlus;
+    const bool plus = rv.type == rct::RCTTypeBulletproofPlus || rv.type == rct::RCTTypeFcmpPlusPlus;
     const uint64_t bp_base = (32 * ((plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
     const size_t n_outputs = tx.vout.size();
     if (n_padded_outputs <= 2)
@@ -462,6 +462,7 @@ namespace cryptonote
     weight += extra;
 
     // calculate deterministic CLSAG/MLSAG data size
+    // TODO: update for fcmp_pp
     const size_t ring_size = boost::get<cryptonote::txin_to_key>(tx.vin[0]).key_offsets.size();
     if (rct::is_rct_clsag(tx.rct_signatures.type))
       extra = tx.vin.size() * (ring_size + 2) * 32;
@@ -1283,7 +1284,8 @@ namespace cryptonote
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
-      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      const size_t mixin = (t.vin.empty() || t.rct_signatures.type == rct::RCTTypeFcmpPlusPlus || t.vin[0].type() != typeid(txin_to_key))
+        ? 0 : boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1;
       bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
       CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
       cryptonote::get_blob_hash(ss.str(), res);
@@ -1639,5 +1641,76 @@ namespace cryptonote
     crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_default_last_locked_block_index(const uint64_t block_included_in_chain)
+  {
+    static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "unexpected default spendable age");
+    return block_included_in_chain + (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
+  }
+  //---------------------------------------------------------------
+  // TODO: write tests for this func that match with current daemon logic
+  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
+  {
+    uint64_t last_locked_block_index = 0;
+
+    const uint64_t default_block_index = get_default_last_locked_block_index(block_included_in_chain);
+
+    if (unlock_time == 0)
+    {
+      last_locked_block_index = default_block_index;
+    }
+    else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
+    {
+      // The unlock_time in this case is supposed to be the chain height at which the output unlocks
+      // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta
+      last_locked_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
+    }
+    else
+    {
+      // Interpret the unlock_time as time
+      // TODO: hardcode correct times for each network and take in nettype
+      const auto hf_v15_time = 1656629118;
+      const auto hf_v15_height = 2689608;
+
+      // Use the last hard fork's time and block combo to convert the time-based timelock into an last locked block
+      // TODO: consider taking into account 60s block times when that was consensus
+      if (hf_v15_time > unlock_time)
+      {
+        const auto seconds_since_unlock = hf_v15_time - unlock_time;
+        const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
+
+        last_locked_block_index = hf_v15_height > blocks_since_unlock
+          ? (hf_v15_height - blocks_since_unlock)
+          : default_block_index;
+      }
+      else
+      {
+        const auto seconds_until_unlock = unlock_time - hf_v15_time;
+        const auto blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
+        last_locked_block_index = hf_v15_height + blocks_until_unlock;
+      }
+
+      /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
+          spent before it reaches the last_locked_block_index going by the old rules; this is ok. It can't be spent again b/c
+          it'll have a duplicate key image. It's also possible for an output to unlock by old rules, and then re-lock
+          again at the fork. This is also ok, we just need to be sure that the new hf rules use this last_locked_block_index
+          starting at the fork for fcmp's.
+      */
+
+      // TODO: double check the accuracy of this calculation
+      MDEBUG("unlock time: " << unlock_time << " , last_locked_block_index: " << last_locked_block_index);
+    }
+
+    // Can't unlock earlier than the default last locked block
+    return std::max(last_locked_block_index, default_block_index);
+  }
+  //---------------------------------------------------------------
+  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain)
+  {
+    if (is_coinbase)
+      return false;
+
+    return last_locked_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
   }
 }
