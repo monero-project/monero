@@ -810,22 +810,15 @@ namespace fcmp
         }
 
         // existing tree should be valid
-        // TODO: only do this in debug build
         // assert(validate_tree<C1, C2>(existing_tree_inout, c1, c2));
     }
 
-    template<typename C_PARENT, typename C_CHILD>
+    template<typename C_PARENT>
     bool validate_layer(const C_PARENT &c_parent,
-        const C_CHILD &c_child,
         const Layer<C_PARENT> &parents,
-        const Layer<C_CHILD> &children)
+        const std::vector<typename C_PARENT::Scalar> &child_scalars,
+        const std::size_t max_chunk_size)
     {
-        // Get scalar representation of children
-        std::vector<typename C_PARENT::Scalar> child_scalars;
-        extend_scalars_from_cycle_points<C_CHILD, C_PARENT>(c_child, children, child_scalars);
-
-        const std::size_t max_chunk_size = c_parent.WIDTH;
-
         // Hash chunk of children scalars, then see if the hash matches up to respective parent
         std::size_t chunk_start_idx = 0;
         for (std::size_t i = 0; i < parents.size(); ++i)
@@ -887,7 +880,10 @@ namespace fcmp
                 CHECK_AND_ASSERT_MES(!parents.empty(), false, "no parents at c2_idx " + std::to_string(c2_idx));
                 CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c1_idx " + std::to_string(c1_idx));
 
-                const bool valid = validate_layer<C2, C1>(c2, c1, parents, children);
+                std::vector<typename C2::Scalar> child_scalars;
+                extend_scalars_from_cycle_points<C1, C2>(c1, children, child_scalars);
+
+                const bool valid = validate_layer<C2>(c2, parents, child_scalars, c2.WIDTH);
 
                 CHECK_AND_ASSERT_MES(valid, false, "failed to validate c2_idx " + std::to_string(c2_idx));
 
@@ -904,7 +900,10 @@ namespace fcmp
                 CHECK_AND_ASSERT_MES(!parents.empty(), false, "no parents at c1_idx " + std::to_string(c1_idx));
                 CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c2_idx " + std::to_string(c2_idx));
 
-                const bool valid = validate_layer<C1, C2>(c1, c2, parents, children);
+                std::vector<typename C1::Scalar> child_scalars;
+                extend_scalars_from_cycle_points<C2, C1>(c2, children, child_scalars);
+
+                const bool valid = validate_layer<C1>(c1, parents, child_scalars, c1.WIDTH);
 
                 CHECK_AND_ASSERT_MES(valid, false, "failed to validate c1_idx " + std::to_string(c1_idx));
 
@@ -914,8 +913,7 @@ namespace fcmp
             parent_is_c2 = !parent_is_c2;
         }
 
-        // // Now validate leaves
-        // return validate_leaves<C2>(c2, layers[0], leaves);
-        return true;
+        // Now validate leaves
+        return validate_layer<C2>(c2, c2_layers[0], flatten_leaves(leaves), LEAF_LAYER_CHUNK_SIZE);
     }
 }
