@@ -162,7 +162,7 @@ namespace fcmp
     {
         // Starting index in the leaf layer
         std::size_t            start_idx;
-        // Contiguous leaves in a tree that start at the start_idx 
+        // Contiguous leaves in a tree that start at the start_idx
         std::vector<LeafTuple> tuples;
     };
 
@@ -179,7 +179,7 @@ namespace fcmp
     struct TreeExtension final
     {
         Leaves                          leaves;
-        std::vector<LayerExtension<C1>> c1_layer_extensions; 
+        std::vector<LayerExtension<C1>> c1_layer_extensions;
         std::vector<LayerExtension<C2>> c2_layer_extensions;
     };
 
@@ -313,7 +313,7 @@ namespace fcmp
         bool parent_is_c1 = true;
 
         // Since we started with c2, the number of c2 layers should be == c1_layers.size() || (c1_layers.size() + 1)
-        const std::size_t num_layers = c2_layers.size(); 
+        const std::size_t num_layers = c2_layers.size();
         CHECK_AND_ASSERT_THROW_MES(num_layers == c1_layers.size() || num_layers == (c1_layers.size() + 1),
             "unexpected number of curve layers");
 
@@ -405,7 +405,7 @@ namespace fcmp
 
         // There won't be any existing children when growing the leaf layer, fill priors with 0
         std::vector<typename C::Scalar> prior_children;
-        extend_zeroes(curve, new_children.size(), prior_children);     
+        extend_zeroes(curve, new_children.size(), prior_children);
 
         return curve.hash_grow(
                 curve.GENERATORS,
@@ -764,7 +764,7 @@ namespace fcmp
                 if (tree_inout.c2_layers.size() == c2_idx)
                     tree_inout.c2_layers.emplace_back(Layer<C2>{});
 
-                auto &c2_inout = tree_inout.c2_layers[c2_idx]; 
+                auto &c2_inout = tree_inout.c2_layers[c2_idx];
 
                 const bool started_after_tip = (c2_inout.size() == c2_ext.start_idx);
                 const bool started_at_tip    = (c2_inout.size() == (c2_ext.start_idx + 1));
@@ -790,7 +790,7 @@ namespace fcmp
                 if (tree_inout.c1_layers.size() == c1_idx)
                     tree_inout.c1_layers.emplace_back(Layer<C1>{});
 
-                auto &c1_inout = tree_inout.c1_layers[c1_idx]; 
+                auto &c1_inout = tree_inout.c1_layers[c1_idx];
 
                 const bool started_after_tip = (c1_inout.size() == c1_ext.start_idx);
                 const bool started_at_tip    = (c1_inout.size() == (c1_ext.start_idx + 1));
