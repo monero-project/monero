@@ -46,7 +46,7 @@ set(crypto_sources
   sha512-blocks.c
   sha512.c)
 
-include_directories(${RANDOMXEQ_INCLUDE})
+include_directories(${RANDOMARQ_INCLUDE})
 
 if(ARCH_ID STREQUAL "i386" OR ARCH_ID STREQUAL "x86_64" OR ARCH_ID STREQUAL "x86-64" OR ARCH_ID STREQUAL "amd64")
 list(APPEND crypto_sources CryptonightR_template.S)

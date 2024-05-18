@@ -234,13 +234,12 @@ namespace cryptonote
               m_miner(this, [this](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash) {
                 return cryptonote::get_block_longhash(&m_blockchain_storage, b, hash, height, seed_hash, threads);
               }),
-              m_miner_address{},
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
               m_checkpoints_path(""),
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
-              m_disable_dns_checkpoints(false),
+              m_disable_dns_checkpoints(true),
               m_update_download(0),
               m_nettype(UNDEFINED),
               m_update_available(false)

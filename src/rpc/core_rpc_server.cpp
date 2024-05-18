@@ -1479,13 +1479,6 @@ namespace cryptonote
       return false;
     }
 
-    uint64_t next_height;
-    crypto::rx_seedheights(height, &seed_height, &next_height);
-    if (next_height != seed_height)
-      next_seed_hash = m_core.get_block_id_by_height(next_height);
-    else
-      next_seed_hash = seed_hash;
-
     if (extra_nonce.empty())
     {
       reserved_offset = 0;
@@ -1590,13 +1583,12 @@ namespace cryptonote
     crypto::hash seed_hash, next_seed_hash;
     if (!get_block_template(info.address, req.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
       return false;
-    if (b.major_version >= RX_BLOCK_VERSION)
+    if (b.major_version >= 21)
     {
       res.seed_hash = string_tools::pod_to_hex(seed_hash);
       if (seed_hash != next_seed_hash)
         res.next_seed_hash = string_tools::pod_to_hex(next_seed_hash);
     }
-
     res.reserved_offset = reserved_offset;
     store_difficulty(wdiff, res.difficulty, res.wide_difficulty, res.difficulty_top64);
     blobdata block_blob = t_serializable_object_to_blob(b);
@@ -1714,7 +1706,7 @@ namespace cryptonote
       }
       b.nonce = req.starting_nonce;
       crypto::hash seed_hash = crypto::null_hash;
-      if (b.major_version >= RX_BLOCK_VERSION && !epee::string_tools::hex_to_pod(template_res.seed_hash, seed_hash))
+      if (b.major_version >= 21 && !epee::string_tools::hex_to_pod(template_res.seed_hash, seed_hash))
       {
         error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
         error_resp.message = "Error converting seed hash";

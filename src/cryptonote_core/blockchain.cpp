@@ -447,7 +447,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
       return false;
   }
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (m_hardfork->get_current_version() >= 21)
   {
     const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(m_db->height()));
     if (seedhash != crypto::null_hash)
@@ -580,7 +580,7 @@ void Blockchain::pop_blocks(uint64_t nblocks)
   if (stop_batch)
     m_db->batch_stop();
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (m_hardfork->get_current_version() >= 21)
   {
     const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(m_db->height()));
     rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
@@ -1117,20 +1117,20 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
 
   m_hardfork->reorganize_from_chain_height(split_height);
 
+  const uint64_t new_height = m_db->height();
+  const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
+
   std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
   if (reorg_notify)
     reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
         "%n", std::to_string(m_db->height() - split_height).c_str(), "%d", std::to_string(discarded_blocks).c_str(), NULL);
-
-  const uint64_t new_height = m_db->height();
-  const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
 
   std::shared_ptr<tools::Notify> block_notify = m_block_notify;
   if (block_notify)
     for (const auto &bei: alt_chain)
       block_notify->notify("%s", epee::string_tools::pod_to_hex(get_block_hash(bei.bl)).c_str(), NULL);
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (m_hardfork->get_current_version() >= 21)
     rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
 
   MGINFO_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height());
@@ -1609,7 +1609,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
       CHECK_AND_ASSERT_MES(get_block_by_hash(*from_block, prev_block), false, "From block not found"); // TODO
       uint64_t from_block_height = cryptonote::get_block_height(prev_block);
       height = from_block_height + 1;
-      if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+      if (m_hardfork->get_current_version() >= 21)
       {
         uint64_t next_height;
         crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -1624,9 +1624,9 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
       if (alt_chain.size() && alt_chain.front().height <= seed_height)
       {
-        for (auto it = alt_chain.begin(); it != alt_chain.end(); it++)
+        for (auto it=alt_chain.begin(); it != alt_chain.end(); it++)
         {
-          if (it->height == seed_height + 1)
+          if (it->height == seed_height+1)
           {
             seed_hash = it->bl.prev_id;
             break;
@@ -1671,7 +1671,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     median_weight = m_current_block_cumul_weight_limit / 2;
     diffic = get_difficulty_for_next_block();
     already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
-    if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+    if (m_hardfork->get_current_version() >= 21)
     {
       uint64_t next_height;
       crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -1923,7 +1923,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     crypto::hash proof_of_work = crypto::null_hash;
     memset(proof_of_work.data, 0xff, sizeof(proof_of_work.data));
 
-    if (b.major_version >= RX_BLOCK_VERSION)
+    if (b.major_version >= 21)
     {
       crypto::hash seedhash = null_hash;
       uint64_t seedheight = rx_seedheight(bei.height);
@@ -4130,7 +4130,7 @@ leave:
 
   TIME_MEASURE_START(longhash_calculating_time);
 
-  crypto::hash proof_of_work = crypto::null_hash;
+  crypto::hash proof_of_work;
   memset(proof_of_work.data, 0xff, sizeof(proof_of_work.data));
 
   // Formerly the code below contained an if loop with the following condition
@@ -4445,8 +4445,6 @@ leave:
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
 
-  const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
-
   if (notify)
   {
     std::shared_ptr<tools::Notify> block_notify = m_block_notify;
@@ -4454,7 +4452,8 @@ leave:
       block_notify->notify("%s", epee::string_tools::pod_to_hex(id).c_str(), NULL);
   }
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
+  if (m_hardfork->get_current_version() >= 21)
     rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
 
   return true;

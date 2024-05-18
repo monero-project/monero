@@ -41,7 +41,7 @@
 #include "hash-ops.h"
 #include "misc_log_ex.h"
 
-#define RX_LOGCAT	"RandomXEQ"
+#define RX_LOGCAT	"RandomARQ"
 
 #define alloc_err_msg(x) mdebug(RX_LOGCAT, x);
 
@@ -103,10 +103,10 @@ static inline int disabled_flags(void) {
   }
 
 #if defined(__APPLE__)
-  setenv("EQUILIBRIA_RANDOMXEQ_UMASK", "8", 1);
+  setenv("EQUILIBRIA_RandomARQ_UMASK", "8", 1);
 #endif
 
-  const char *env = getenv("EQUILIBRIA_RANDOMXEQ_UMASK");
+  const char *env = getenv("EQUILIBRIA_RandomARQ_UMASK");
   if (!env) {
     flags = 0;
   }
@@ -202,26 +202,26 @@ static void rx_alloc_dataset(randomx_flags flags, randomx_dataset** dataset, int
     static int shown = 0;
     if (!shown) {
       shown = 1;
-      minfo(RX_LOGCAT, "RandomXEQ dataset is disabled by EQUILIBRIA_RANDOMXEQ_UMASK environment variable.");
+      minfo(RX_LOGCAT, "RandomARQ dataset is disabled by EQUILIBRIA_RandomARQ_UMASK environment variable.");
     }
     return;
   }
 
-  if (!ignore_env && !getenv("EQUILIBRIA_RANDOMXEQ_FULL_MEM")) {
+  if (!ignore_env && !getenv("EQUILIBRIA_RandomARQ_FULL_MEM")) {
     static int shown = 0;
     if (!shown) {
       shown = 1;
-      minfo(RX_LOGCAT, "RandomXEQ dataset is not enabled by default. Use EQUILIBRIA_RANDOMXEQ_FULL_MEM environment variable to enable it.");
+      minfo(RX_LOGCAT, "RandomARQ dataset is not enabled by default. Use EQUILIBRIA_RandomARQ_FULL_MEM environment variable to enable it.");
     }
     return;
   }
 
   *dataset = randomx_alloc_dataset((flags | RANDOMX_FLAG_LARGE_PAGES) & ~disabled_flags());
   if (!*dataset) {
-    alloc_err_msg("Couldn't allocate RandomXEQ dataset using large pages");
+    alloc_err_msg("Couldn't allocate RandomARQ dataset using large pages");
     *dataset = randomx_alloc_dataset(flags & ~disabled_flags());
     if (!*dataset) {
-      merror(RX_LOGCAT, "Couldn't allocate RandomXEQ dataset");
+      merror(RX_LOGCAT, "Couldn't allocate RandomARQ dataset");
     }
   }
 }
@@ -234,9 +234,9 @@ static void rx_alloc_cache(randomx_flags flags, randomx_cache** cache)
 
   *cache = randomx_alloc_cache((flags | RANDOMX_FLAG_LARGE_PAGES) & ~disabled_flags());
   if (!*cache) {
-    alloc_err_msg("Couldn't allocate RandomXEQ cache using large pages");
+    alloc_err_msg("Couldn't allocate RandomARQ cache using large pages");
     *cache = randomx_alloc_cache(flags & ~disabled_flags());
-    if (!*cache) local_abort("Couldn't allocate RandomXEQ cache");
+    if (!*cache) local_abort("Couldn't allocate RandomARQ cache");
   }
 }
 
@@ -255,11 +255,11 @@ static void rx_init_full_vm(randomx_flags flags, randomx_vm** vm)
     static int shown = 0;
     if (!shown) {
       shown = 1;
-      alloc_err_msg("Couldn't allocate RandomXEQ full VM using large pages (will print only once)");
+      alloc_err_msg("Couldn't allocate RandomARQ full VM using large pages (will print only once)");
     }
     *vm = randomx_create_vm((flags | RANDOMX_FLAG_FULL_MEM) & ~disabled_flags(), NULL, main_dataset);
     if (!*vm) {
-      merror(RX_LOGCAT, "Couldn't allocate RandomXEQ full VM");
+      merror(RX_LOGCAT, "Couldn't allocate RandomARQ full VM");
     }
   }
 }
@@ -282,10 +282,10 @@ static void rx_init_light_vm(randomx_flags flags, randomx_vm** vm, randomx_cache
     static int shown = 0;
     if (!shown) {
       shown = 1;
-      alloc_err_msg("Couldn't allocate RandomXEQ light VM using large pages (will print only once)");
+      alloc_err_msg("Couldn't allocate RandomARQ light VM using large pages (will print only once)");
     }
     *vm = randomx_create_vm(flags & ~disabled_flags(), cache, NULL);
-    if (!*vm) local_abort("Couldn't allocate RandomXEQ light VM");
+    if (!*vm) local_abort("Couldn't allocate RandomARQ light VM");
   }
 }
 
@@ -309,7 +309,7 @@ static void rx_init_dataset(size_t max_threads) {
   // leave 2 CPU cores for other tasks
   const size_t num_threads = (max_threads < 4) ? 1 : (max_threads - 2);
   seedinfo* si = malloc(num_threads * sizeof(seedinfo));
-  if (!si) local_abort("Couldn't allocate RandomXEQ mining threadinfo");
+  if (!si) local_abort("Couldn't allocate RandomARQ mining threadinfo");
 
   const uint32_t delta = randomx_dataset_item_count() / num_threads;
   uint32_t start = 0;
@@ -327,12 +327,12 @@ static void rx_init_dataset(size_t max_threads) {
   si[n1].si_count = randomx_dataset_item_count() - start;
 
   CTHR_THREAD_TYPE *st = malloc(num_threads * sizeof(CTHR_THREAD_TYPE));
-  if (!st) local_abort("Couldn't allocate RandomXEQ mining threadlist");
+  if (!st) local_abort("Couldn't allocate RandomARQ mining threadlist");
 
   CTHR_RWLOCK_LOCK_READ(main_cache_lock);
   for (size_t i = 0; i < n1; ++i) {
     if (!CTHR_THREAD_CREATE(st[i], rx_seedthread, &si[i])) {
-      local_abort("Couldn't start RandomXEQ seed thread");
+      local_abort("Couldn't start RandomARQ seed thread");
     }
   }
   rx_seedthread(&si[n1]);
@@ -342,7 +342,7 @@ static void rx_init_dataset(size_t max_threads) {
   free(st);
   free(si);
 
-  minfo(RX_LOGCAT, "RandomXEQ dataset initialized");
+  minfo(RX_LOGCAT, "RandomARQ dataset initialized");
 }
 
 typedef struct thread_info {
@@ -368,14 +368,14 @@ static CTHR_THREAD_RTYPE rx_set_main_seedhash_thread(void *arg) {
 
   char buf[HASH_SIZE * 2 + 1];
   hash2hex(main_seedhash, buf);
-  minfo(RX_LOGCAT, "RandomXEQ new main seed hash is %s", buf);
+  minfo(RX_LOGCAT, "RandomARQ new main seed hash is %s", buf);
 
   const randomx_flags flags = enabled_flags() & ~disabled_flags();
   rx_alloc_dataset(flags, &main_dataset, 0);
   rx_alloc_cache(flags, &main_cache);
 
   randomx_init_cache(main_cache, info->seedhash, HASH_SIZE);
-  minfo(RX_LOGCAT, "RandomXEQ main cache initialized");
+  minfo(RX_LOGCAT, "RandomARQ main cache initialized");
 
   CTHR_RWLOCK_UNLOCK_WRITE(main_cache_lock);
 
@@ -396,14 +396,14 @@ void rx_set_main_seedhash(const char *seedhash, size_t max_dataset_init_threads)
 
   // Update main cache and dataset in the background
   thread_info* info = malloc(sizeof(thread_info));
-  if (!info) local_abort("Couldn't allocate RandomXEQ mining threadinfo");
+  if (!info) local_abort("Couldn't allocate RandomARQ mining threadinfo");
 
   memcpy(info->seedhash, seedhash, HASH_SIZE);
   info->max_threads = max_dataset_init_threads;
 
   CTHR_THREAD_TYPE t;
   if (!CTHR_THREAD_CREATE(t, rx_set_main_seedhash_thread, info)) {
-    local_abort("Couldn't start RandomXEQ seed thread");
+    local_abort("Couldn't start RandomARQ seed thread");
   }
 }
 
@@ -449,11 +449,11 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
     CTHR_RWLOCK_LOCK_WRITE(secondary_cache_lock);
     if (!secondary_cache) {
       hash2hex(seedhash, buf);
-      minfo(RX_LOGCAT, "RandomXEQ new secondary seed hash is %s", buf);
+      minfo(RX_LOGCAT, "RandomARQ new secondary seed hash is %s", buf);
 
       rx_alloc_cache(flags, &secondary_cache);
       randomx_init_cache(secondary_cache, seedhash, HASH_SIZE);
-      minfo(RX_LOGCAT, "RandomXEQ secondary cache updated");
+      minfo(RX_LOGCAT, "RandomARQ secondary cache updated");
       memcpy(secondary_seedhash, seedhash, HASH_SIZE);
       secondary_seedhash_set = 1;
     }
@@ -477,10 +477,10 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
   CTHR_RWLOCK_LOCK_WRITE(secondary_cache_lock);
   if (!is_secondary(seedhash)) {
     hash2hex(seedhash, buf);
-    minfo(RX_LOGCAT, "RandomXEQ new secondary seed hash is %s", buf);
+    minfo(RX_LOGCAT, "RandomARQ new secondary seed hash is %s", buf);
 
     randomx_init_cache(secondary_cache, seedhash, HASH_SIZE);
-    minfo(RX_LOGCAT, "RandomXEQ secondary cache updated");
+    minfo(RX_LOGCAT, "RandomARQ secondary cache updated");
     memcpy(secondary_seedhash, seedhash, HASH_SIZE);
     secondary_seedhash_set = 1;
   }
