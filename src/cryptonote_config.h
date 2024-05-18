@@ -300,9 +300,12 @@ namespace config
 
   namespace stagenet
   {
-    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
-   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 289;
-   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 289;
+   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
+   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 0x629f;
+   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 0x59a0;
+   //uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
+   //uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 289;
+   //uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 289;
    uint16_t const P2P_DEFAULT_PORT = 9430;
    uint16_t const RPC_DEFAULT_PORT = 9531;
    uint16_t const ZMQ_RPC_DEFAULT_PORT = 9332;
@@ -310,8 +313,12 @@ namespace config
        0x14 ,0x20, 0xF3, 0x71 , 0x60, 0x01 , 0x30, 0x62, 0x16, 0x35, 0x02, 0x82, 0x15, 0xA2, 0xA1, 0x14
      } }; // Bender's daydream
 
-  std::string const GOVERNANCE_WALLET_ADDRESS = "";
-  std::string const BRIDGE_WALLET_ADDRESS = "";
+  std::string const GOVERNANCE_WALLET_ADDRESS = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const BRIDGE_WALLET_ADDRESS = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ"; //stagenet wallets
+  std::string const DEV_FUND_WALLET = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const NEW_GOV_WALLET = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";
+  std::string const NEW_DEV_WALLET = "TvziFsJiaWbMvNVHhwS3dNajbvtWt4dwRd7b2pApSWw673oG5mB5yi4aGVwmeZwEvCTWM6a3Q18CiefZfcSFhhnX2o4EKv3TJ";  
 
   }
 }
