@@ -312,9 +312,8 @@ namespace fcmp
         // Next parents will be c1
         bool parent_is_c1 = true;
 
-        // Since we started with c2, the number of c2 layers should be == c1_layers.size() || (c1_layers.size() + 1)
-        const std::size_t num_layers = c2_layers.size();
-        CHECK_AND_ASSERT_THROW_MES(num_layers == c1_layers.size() || num_layers == (c1_layers.size() + 1),
+        // We started with c2 and then alternated, so c2 is the same size or 1 higher than c1
+        CHECK_AND_ASSERT_THROW_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
             "unexpected number of curve layers");
 
         // If there are no c1 layers, we're done
@@ -322,18 +321,20 @@ namespace fcmp
             return last_chunks;
 
         // Then get last chunks up until the root
-        for (std::size_t layer_idx = 0; layer_idx < num_layers; ++layer_idx)
+        std::size_t c1_idx = 0;
+        std::size_t c2_idx = 0;
+        for (std::size_t i = 0; i < c2_layers.size(); ++i)
         {
-            CHECK_AND_ASSERT_THROW_MES(c1_layers.size() > layer_idx, "missing c1 layer");
-            CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > layer_idx, "missing c2 layer");
+            CHECK_AND_ASSERT_THROW_MES(c1_layers.size() > c1_idx, "missing c1 layer");
+            CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > c2_idx, "missing c2 layer");
 
             // TODO: template the below if statement into another function
             if (parent_is_c1)
             {
-                const Layer<C2> &child_layer = c2_layers[layer_idx];
+                const Layer<C2> &child_layer = c2_layers[c2_idx];
                 CHECK_AND_ASSERT_THROW_MES(!child_layer.empty(), "child layer is empty");
 
-                const Layer<C1> &parent_layer = c1_layers[layer_idx];
+                const Layer<C1> &parent_layer = c1_layers[c1_idx];
                 CHECK_AND_ASSERT_THROW_MES(!parent_layer.empty(), "parent layer is empty");
 
                 auto last_parent_chunk = get_last_child_layer_chunk<C2, C1>(c2,
@@ -342,13 +343,15 @@ namespace fcmp
                     parent_layer);
 
                 last_chunks.c1_last_chunks.push_back(std::move(last_parent_chunk));
+
+                ++c2_idx;
             }
             else
             {
-                const Layer<C1> &child_layer = c1_layers[layer_idx];
+                const Layer<C1> &child_layer = c1_layers[c1_idx];
                 CHECK_AND_ASSERT_THROW_MES(!child_layer.empty(), "child layer is empty");
 
-                const Layer<C2> &parent_layer = c2_layers[layer_idx];
+                const Layer<C2> &parent_layer = c2_layers[c2_idx];
                 CHECK_AND_ASSERT_THROW_MES(!parent_layer.empty(), "parent layer is empty");
 
                 auto last_parent_chunk = get_last_child_layer_chunk<C1, C2>(c1,
@@ -357,6 +360,8 @@ namespace fcmp
                     parent_layer);
 
                 last_chunks.c2_last_chunks.push_back(std::move(last_parent_chunk));
+
+                ++c1_idx;
             }
 
             // Alternate curves every iteration
@@ -486,8 +491,8 @@ namespace fcmp
             --parents_out.start_idx;
         }
 
-        // If the child layer had its existing last hash updated, then we need to update the existing last parent
-        // hash in this layer as well
+        // If the child layer had its existing last hash updated, then we'll need to use the last hash's prior
+        // version in order to update the existing last parent hash in this layer
         bool child_layer_last_hash_updated = (last_parent_chunk_ptr == nullptr)
             ? false
             : last_parent_chunk_ptr->child_layer_size == (children.start_idx + 1);
@@ -499,6 +504,8 @@ namespace fcmp
         }
 
         // TODO: clean this up so I don't have to do it twice here and in get_first_non_leaf_parent
+        // The offset needs to be brought back because we're going to start with the prior hash, and so the chunk
+        // will start from there and may need 1 more to fill
         CHECK_AND_ASSERT_THROW_MES(max_chunk_size > offset, "unexpected offset");
         if (child_layer_last_hash_updated)
             offset = offset > 0 ? (offset - 1) : (max_chunk_size - 1);
@@ -508,8 +515,6 @@ namespace fcmp
         std::vector<typename C_PARENT::Scalar> child_scalars;
         if (last_child_chunk_ptr != nullptr && last_child_chunk_ptr->parent_layer_size == 1)
         {
-            MDEBUG("Here I have captured what I want to capture...  children.start_idx: " << children.start_idx
-                << " , children.hashes.size(): " << children.hashes.size() << " , max_chunk_size: " << max_chunk_size);
 
             // We should be updating the existing root, there shouldn't be a last parent chunk
             CHECK_AND_ASSERT_THROW_MES(last_parent_chunk_ptr == nullptr, "last parent chunk exists at root");
