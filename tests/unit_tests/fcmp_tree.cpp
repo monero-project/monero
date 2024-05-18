@@ -218,9 +218,9 @@ TEST(fcmp_tree, grow_tree)
         (std::size_t)std::pow(fcmp::SELENE.WIDTH, 2) - 1,
         (std::size_t)std::pow(fcmp::SELENE.WIDTH, 2),
         (std::size_t)std::pow(fcmp::SELENE.WIDTH, 2) + 1,
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 3)
-        // (std::size_t)std::pow(fcmp::SELENE.WIDTH, 4),
-        // (std::size_t)std::pow(fcmp::SELENE.WIDTH, 5)
+        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 3),
+        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 4),
+        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 5)
     };
 
     for (const auto &init_leaves : N_LEAVES)
@@ -267,7 +267,7 @@ TEST(fcmp_tree, grow_tree)
             {
                 MDEBUG("Extending tree by " << ext_leaves << " leaves");
 
-                const fcmp::LastChunks<fcmp::Helios, fcmp::Selene> &last_chunks = fcmp::get_last_chunks<fcmp::Helios, fcmp::Selene>(
+                const auto last_chunks = fcmp::get_last_chunks<fcmp::Helios, fcmp::Selene>(
                     fcmp::HELIOS,
                     fcmp::SELENE,
                     global_tree);
