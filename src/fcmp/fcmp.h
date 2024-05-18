@@ -298,23 +298,27 @@ namespace fcmp
         const auto &c1_layers = tree.c1_layers;
         const auto &c2_layers = tree.c2_layers;
 
+        // We started with c2 and then alternated, so c2 is the same size or 1 higher than c1
+        CHECK_AND_ASSERT_THROW_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
+            "unexpected number of curve layers");
+
         LastChunks<C1, C2> last_chunks;
-        last_chunks.c1_last_chunks.reserve(c1_layers.size());
-        last_chunks.c2_last_chunks.reserve(c2_layers.size());
+
+        auto &c1_last_chunks_out = last_chunks.c1_last_chunks;
+        auto &c2_last_chunks_out = last_chunks.c2_last_chunks;
+
+        c1_last_chunks_out.reserve(c1_layers.size());
+        c2_last_chunks_out.reserve(c2_layers.size());
 
         // First push the last leaf chunk data into c2 chunks
         CHECK_AND_ASSERT_THROW_MES(!c2_layers.empty(), "empty curve 2 layers");
         auto last_leaf_chunk = get_last_leaf_chunk<C2>(c2,
             leaves,
             c2_layers[0]);
-        last_chunks.c2_last_chunks.push_back(std::move(last_leaf_chunk));
+        c2_last_chunks_out.push_back(std::move(last_leaf_chunk));
 
         // Next parents will be c1
         bool parent_is_c1 = true;
-
-        // We started with c2 and then alternated, so c2 is the same size or 1 higher than c1
-        CHECK_AND_ASSERT_THROW_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
-            "unexpected number of curve layers");
 
         // If there are no c1 layers, we're done
         if (c1_layers.empty())
@@ -323,7 +327,7 @@ namespace fcmp
         // Then get last chunks up until the root
         std::size_t c1_idx = 0;
         std::size_t c2_idx = 0;
-        for (std::size_t i = 0; i < c2_layers.size(); ++i)
+        while (c1_last_chunks_out.size() < c1_layers.size() || c2_last_chunks_out.size() < c2_layers.size())
         {
             CHECK_AND_ASSERT_THROW_MES(c1_layers.size() > c1_idx, "missing c1 layer");
             CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > c2_idx, "missing c2 layer");
@@ -342,7 +346,7 @@ namespace fcmp
                     child_layer,
                     parent_layer);
 
-                last_chunks.c1_last_chunks.push_back(std::move(last_parent_chunk));
+                c1_last_chunks_out.push_back(std::move(last_parent_chunk));
 
                 ++c2_idx;
             }
@@ -359,7 +363,7 @@ namespace fcmp
                     child_layer,
                     parent_layer);
 
-                last_chunks.c2_last_chunks.push_back(std::move(last_parent_chunk));
+                c2_last_chunks_out.push_back(std::move(last_parent_chunk));
 
                 ++c1_idx;
             }
@@ -367,6 +371,9 @@ namespace fcmp
             // Alternate curves every iteration
             parent_is_c1 = !parent_is_c1;
         }
+
+        CHECK_AND_ASSERT_THROW_MES(c1_last_chunks_out.size() == c1_layers.size(), "unexepcted c1 last chunks");
+        CHECK_AND_ASSERT_THROW_MES(c2_last_chunks_out.size() == c2_layers.size(), "unexepcted c2 last chunks");
 
         return last_chunks;
     }
@@ -515,7 +522,6 @@ namespace fcmp
         std::vector<typename C_PARENT::Scalar> child_scalars;
         if (last_child_chunk_ptr != nullptr && last_child_chunk_ptr->parent_layer_size == 1)
         {
-
             // We should be updating the existing root, there shouldn't be a last parent chunk
             CHECK_AND_ASSERT_THROW_MES(last_parent_chunk_ptr == nullptr, "last parent chunk exists at root");
 
