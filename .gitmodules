@@ -12,6 +12,6 @@
 [submodule "external/trezor-common"]
 	path = external/trezor-common
 	url = https://github.com/trezor/trezor-common.git
-[submodule "external/randomarq"]
-	path = external/randomarq
-	url = https://github.com/arqma/randomarq.git
+[submodule "external/randomxeq"]
+	path = external/randomxeq
+	url = https://github.com/equilibriacc/randomxeq.git
