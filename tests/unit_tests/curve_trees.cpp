@@ -28,14 +28,15 @@
 
 #include "gtest/gtest.h"
 
-#include "fcmp/fcmp.h"
+#include "fcmp/curve_trees.h"
+#include "fcmp/tower_cycle_types.h"
 #include "misc_log_ex.h"
 
 #include <cmath>
 
-static const fcmp::Leaves generate_leaves(const std::size_t num_leaves)
+static const fcmp::curve_trees::Leaves generate_leaves(const std::size_t num_leaves)
 {
-    std::vector<fcmp::LeafTuple> tuples;
+    std::vector<fcmp::curve_trees::LeafTuple> tuples;
     tuples.reserve(num_leaves);
 
     for (std::size_t i = 0; i < num_leaves; ++i)
@@ -46,16 +47,16 @@ static const fcmp::Leaves generate_leaves(const std::size_t num_leaves)
         crypto::generate_keys(O, o, o, false);
         crypto::generate_keys(C, c, c, false);
 
-        tuples.emplace_back(fcmp::output_to_leaf_tuple(O, C));
+        tuples.emplace_back(fcmp::curve_trees::output_to_leaf_tuple(O, C));
     }
 
-    return fcmp::Leaves{
+    return fcmp::curve_trees::Leaves{
         .start_idx = 0,
         .tuples    = std::move(tuples)
     };
 }
 
-static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Selene> &tree_extension)
+static void log_tree_extension(const fcmp::curve_trees::TreeExtension<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene> &tree_extension)
 {
     const auto &c1_extensions = tree_extension.c1_layer_extensions;
     const auto &c2_extensions = tree_extension.c2_layer_extensions;
@@ -68,11 +69,12 @@ static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Sel
     {
         const auto &leaf = tree_extension.leaves.tuples[i];
 
-        const auto O_x = fcmp::SELENE.to_string(leaf.O_x);
-        const auto I_x = fcmp::SELENE.to_string(leaf.I_x);
-        const auto C_x = fcmp::SELENE.to_string(leaf.C_x);
+        const auto O_x = fcmp::tower_cycle::selene::SELENE.to_string(leaf.O_x);
+        const auto I_x = fcmp::tower_cycle::selene::SELENE.to_string(leaf.I_x);
+        const auto C_x = fcmp::tower_cycle::selene::SELENE.to_string(leaf.C_x);
 
-        MDEBUG("Leaf idx " << ((i*fcmp::LEAF_TUPLE_SIZE) + tree_extension.leaves.start_idx) << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
+        MDEBUG("Leaf idx " << ((i*fcmp::curve_trees::LEAF_TUPLE_SIZE) + tree_extension.leaves.start_idx)
+            << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
     }
 
     bool use_c2 = true;
@@ -84,11 +86,12 @@ static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Sel
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer");
 
-            const fcmp::LayerExtension<fcmp::Selene> &c2_layer = c2_extensions[c2_idx];
+            const fcmp::curve_trees::LayerExtension<fcmp::tower_cycle::selene::Selene> &c2_layer = c2_extensions[c2_idx];
             MDEBUG("Selene tree extension start idx: " << c2_layer.start_idx);
 
             for (std::size_t j = 0; j < c2_layer.hashes.size(); ++j)
-                MDEBUG("Hash idx: " << (j + c2_layer.start_idx) << " , hash: " << fcmp::SELENE.to_string(c2_layer.hashes[j]));
+                MDEBUG("Hash idx: " << (j + c2_layer.start_idx) << " , hash: "
+                    << fcmp::tower_cycle::selene::SELENE.to_string(c2_layer.hashes[j]));
 
             ++c2_idx;
         }
@@ -96,11 +99,12 @@ static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Sel
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_extensions.size(), "unexpected c1 layer");
 
-            const fcmp::LayerExtension<fcmp::Helios> &c1_layer = c1_extensions[c1_idx];
+            const fcmp::curve_trees::LayerExtension<fcmp::tower_cycle::helios::Helios> &c1_layer = c1_extensions[c1_idx];
             MDEBUG("Helios tree extension start idx: " << c1_layer.start_idx);
 
             for (std::size_t j = 0; j < c1_layer.hashes.size(); ++j)
-                MDEBUG("Hash idx: " << (j + c1_layer.start_idx) << " , hash: " << fcmp::HELIOS.to_string(c1_layer.hashes[j]));
+                MDEBUG("Hash idx: " << (j + c1_layer.start_idx) << " , hash: "
+                    << fcmp::tower_cycle::helios::HELIOS.to_string(c1_layer.hashes[j]));
 
             ++c1_idx;
         }
@@ -109,7 +113,7 @@ static void log_tree_extension(const fcmp::TreeExtension<fcmp::Helios, fcmp::Sel
     }
 }
 
-static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
+static void log_tree(const fcmp::curve_trees::Tree<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene> &tree)
 {
     MDEBUG("Tree has " << tree.leaves.size() << " leaves, "
         << tree.c1_layers.size() << " helios layers, " <<  tree.c2_layers.size() << " selene layers");
@@ -118,9 +122,9 @@ static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
     {
         const auto &leaf = tree.leaves[i];
 
-        const auto O_x = fcmp::SELENE.to_string(leaf.O_x);
-        const auto I_x = fcmp::SELENE.to_string(leaf.I_x);
-        const auto C_x = fcmp::SELENE.to_string(leaf.C_x);
+        const auto O_x = fcmp::tower_cycle::selene::SELENE.to_string(leaf.O_x);
+        const auto I_x = fcmp::tower_cycle::selene::SELENE.to_string(leaf.I_x);
+        const auto C_x = fcmp::tower_cycle::selene::SELENE.to_string(leaf.C_x);
 
         MDEBUG("Leaf idx " << i << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
     }
@@ -134,11 +138,11 @@ static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < tree.c2_layers.size(), "unexpected c2 layer");
 
-            const fcmp::Layer<fcmp::Selene> &c2_layer = tree.c2_layers[c2_idx];
+            const fcmp::curve_trees::Layer<fcmp::tower_cycle::selene::Selene> &c2_layer = tree.c2_layers[c2_idx];
             MDEBUG("Selene layer size: " << c2_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c2_layer.size(); ++j)
-                MDEBUG("Hash idx: " << j << " , hash: " << fcmp::SELENE.to_string(c2_layer[j]));
+                MDEBUG("Hash idx: " << j << " , hash: " << fcmp::tower_cycle::selene::SELENE.to_string(c2_layer[j]));
 
             ++c2_idx;
         }
@@ -146,11 +150,11 @@ static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < tree.c1_layers.size(), "unexpected c1 layer");
 
-            const fcmp::Layer<fcmp::Helios> &c1_layer = tree.c1_layers[c1_idx];
+            const fcmp::curve_trees::Layer<fcmp::tower_cycle::helios::Helios> &c1_layer = tree.c1_layers[c1_idx];
             MDEBUG("Helios layer size: " << c1_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c1_layer.size(); ++j)
-                MDEBUG("Hash idx: " << j << " , hash: " << fcmp::HELIOS.to_string(c1_layer[j]));
+                MDEBUG("Hash idx: " << j << " , hash: " << fcmp::tower_cycle::helios::HELIOS.to_string(c1_layer[j]));
 
             ++c1_idx;
         }
@@ -159,7 +163,7 @@ static void log_tree(const fcmp::Tree<fcmp::Helios, fcmp::Selene> &tree)
     }
 }
 
-static void log_last_chunks(const fcmp::LastChunks<fcmp::Helios, fcmp::Selene> &last_chunks)
+static void log_last_chunks(const fcmp::curve_trees::LastChunks<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene> &last_chunks)
 {
     const auto &c1_last_chunks = last_chunks.c1_last_chunks;
     const auto &c2_last_chunks = last_chunks.c2_last_chunks;
@@ -176,11 +180,11 @@ static void log_last_chunks(const fcmp::LastChunks<fcmp::Helios, fcmp::Selene> &
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_last_chunks.size(), "unexpected c2 layer");
 
-            const fcmp::LastChunkData<fcmp::Selene> &last_chunk = c2_last_chunks[c2_idx];
+            const fcmp::curve_trees::LastChunkData<fcmp::tower_cycle::selene::Selene> &last_chunk = c2_last_chunks[c2_idx];
 
             MDEBUG("child_offset: "         << last_chunk.child_offset
-                << " , last_child: "        << fcmp::SELENE.to_string(last_chunk.last_child)
-                << " , last_parent: "       << fcmp::SELENE.to_string(last_chunk.last_parent)
+                << " , last_child: "        << fcmp::tower_cycle::selene::SELENE.to_string(last_chunk.last_child)
+                << " , last_parent: "       << fcmp::tower_cycle::selene::SELENE.to_string(last_chunk.last_parent)
                 << " , child_layer_size: "  << last_chunk.child_layer_size
                 << " , parent_layer_size: " << last_chunk.parent_layer_size);
 
@@ -190,11 +194,11 @@ static void log_last_chunks(const fcmp::LastChunks<fcmp::Helios, fcmp::Selene> &
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_last_chunks.size(), "unexpected c1 layer");
 
-            const fcmp::LastChunkData<fcmp::Helios> &last_chunk = c1_last_chunks[c1_idx];
+            const fcmp::curve_trees::LastChunkData<fcmp::tower_cycle::helios::Helios> &last_chunk = c1_last_chunks[c1_idx];
 
             MDEBUG("child_offset: "         << last_chunk.child_offset
-                << " , last_child: "        << fcmp::HELIOS.to_string(last_chunk.last_child)
-                << " , last_parent: "       << fcmp::HELIOS.to_string(last_chunk.last_parent)
+                << " , last_child: "        << fcmp::tower_cycle::helios::HELIOS.to_string(last_chunk.last_child)
+                << " , last_parent: "       << fcmp::tower_cycle::helios::HELIOS.to_string(last_chunk.last_parent)
                 << " , child_layer_size: "  << last_chunk.child_layer_size
                 << " , parent_layer_size: " << last_chunk.parent_layer_size);
 
@@ -207,29 +211,27 @@ static void log_last_chunks(const fcmp::LastChunks<fcmp::Helios, fcmp::Selene> &
 
 TEST(fcmp_tree, grow_tree)
 {
-    // TODO: 1 .. std::pow(fcmp::SELENE.WIDTH, 5)+2
     const std::vector<std::size_t> N_LEAVES{
         1,
         2,
         3,
-        fcmp::SELENE.WIDTH - 1,
-        fcmp::SELENE.WIDTH,
-        fcmp::SELENE.WIDTH + 1,
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 2) - 1,
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 2),
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 2) + 1,
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 3),
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 4),
-        (std::size_t)std::pow(fcmp::SELENE.WIDTH, 5)
+        fcmp::tower_cycle::selene::SELENE.WIDTH - 1,
+        fcmp::tower_cycle::selene::SELENE.WIDTH,
+        fcmp::tower_cycle::selene::SELENE.WIDTH + 1,
+        (std::size_t)std::pow(fcmp::tower_cycle::selene::SELENE.WIDTH, 2) - 1,
+        (std::size_t)std::pow(fcmp::tower_cycle::selene::SELENE.WIDTH, 2),
+        (std::size_t)std::pow(fcmp::tower_cycle::selene::SELENE.WIDTH, 2) + 1,
+        (std::size_t)std::pow(fcmp::tower_cycle::selene::SELENE.WIDTH, 3),
+        (std::size_t)std::pow(fcmp::tower_cycle::selene::SELENE.WIDTH, 4)
     };
 
-    for (const auto &init_leaves : N_LEAVES)
+    for (const std::size_t init_leaves : N_LEAVES)
     {
-        for (const auto &ext_leaves : N_LEAVES)
+        for (const std::size_t ext_leaves : N_LEAVES)
         {
             MDEBUG("Adding " << init_leaves << " leaves to tree, then extending by " << ext_leaves << " leaves");
 
-            fcmp::Tree<fcmp::Helios, fcmp::Selene> global_tree;
+            fcmp::curve_trees::Tree<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene> global_tree;
 
             // TODO: use a class that's initialized with the curve cycle and don't need to call templated functions with curve instances every time
 
@@ -237,26 +239,26 @@ TEST(fcmp_tree, grow_tree)
             {
                 MDEBUG("Adding " << init_leaves << " leaves to tree");
 
-                const auto tree_extension = fcmp::get_tree_extension<fcmp::Helios, fcmp::Selene>(
-                    fcmp::LastChunks<fcmp::Helios, fcmp::Selene>{},
+                const auto tree_extension = fcmp::curve_trees::get_tree_extension<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
+                    fcmp::curve_trees::LastChunks<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>{},
                     generate_leaves(init_leaves),
-                    fcmp::HELIOS,
-                    fcmp::SELENE);
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE);
 
                 log_tree_extension(tree_extension);
 
-                fcmp::extend_tree<fcmp::Helios, fcmp::Selene>(
+                fcmp::curve_trees::extend_tree<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     tree_extension,
-                    fcmp::HELIOS,
-                    fcmp::SELENE,
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE,
                     global_tree);
 
                 log_tree(global_tree);
 
-                const bool validated = fcmp::validate_tree<fcmp::Helios, fcmp::Selene>(
+                const bool validated = fcmp::curve_trees::validate_tree<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     global_tree,
-                    fcmp::HELIOS,
-                    fcmp::SELENE);
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE);
 
                 ASSERT_TRUE(validated);
 
@@ -267,33 +269,33 @@ TEST(fcmp_tree, grow_tree)
             {
                 MDEBUG("Extending tree by " << ext_leaves << " leaves");
 
-                const auto last_chunks = fcmp::get_last_chunks<fcmp::Helios, fcmp::Selene>(
-                    fcmp::HELIOS,
-                    fcmp::SELENE,
+                const auto last_chunks = fcmp::curve_trees::get_last_chunks<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE,
                     global_tree);
 
                 log_last_chunks(last_chunks);
 
-                const auto tree_extension = fcmp::get_tree_extension<fcmp::Helios, fcmp::Selene>(
+                const auto tree_extension = fcmp::curve_trees::get_tree_extension<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     last_chunks,
                     generate_leaves(ext_leaves),
-                    fcmp::HELIOS,
-                    fcmp::SELENE);
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE);
 
                 log_tree_extension(tree_extension);
 
-                fcmp::extend_tree<fcmp::Helios, fcmp::Selene>(
+                fcmp::curve_trees::extend_tree<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     tree_extension,
-                    fcmp::HELIOS,
-                    fcmp::SELENE,
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE,
                     global_tree);
 
                 log_tree(global_tree);
 
-                const bool validated = fcmp::validate_tree<fcmp::Helios, fcmp::Selene>(
+                const bool validated = fcmp::curve_trees::validate_tree<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     global_tree,
-                    fcmp::HELIOS,
-                    fcmp::SELENE);
+                    fcmp::tower_cycle::helios::HELIOS,
+                    fcmp::tower_cycle::selene::SELENE);
 
                 ASSERT_TRUE(validated);
 

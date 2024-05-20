@@ -26,61 +26,41 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "fcmp.h"
-#include "misc_log_ex.h"
+#include "curve_trees.h"
 
 namespace fcmp
 {
-
-// TODO: move into its own fcmp_crypto file
-static SeleneScalar ed_25519_point_to_selene_scalar(const crypto::ec_point &point)
+namespace curve_trees
 {
-    static_assert(sizeof(fcmp::RustEd25519Point) == sizeof(crypto::ec_point),
-        "expected same size ed25519 point to rust representation");
 
-    // TODO: implement reading just the x coordinate of ed25519 point in C/C++
-    fcmp::RustEd25519Point rust_point;
-    memcpy(&rust_point, &point, sizeof(fcmp::RustEd25519Point));
-    return fcmp_rust::ed25519_point_to_selene_scalar(rust_point);
-};
-
-// TODO: move into its own fcmp_crypto file
 LeafTuple output_to_leaf_tuple(const crypto::public_key &O, const crypto::public_key &C)
 {
     crypto::ec_point I;
     crypto::derive_key_image_generator(O, I);
 
     return LeafTuple{
-        .O_x = ed_25519_point_to_selene_scalar(O),
-        .I_x = ed_25519_point_to_selene_scalar(I),
-        .C_x = ed_25519_point_to_selene_scalar(C)
+        .O_x = tower_cycle::selene::SELENE.ed_25519_point_to_scalar(O),
+        .I_x = tower_cycle::selene::SELENE.ed_25519_point_to_scalar(I),
+        .C_x = tower_cycle::selene::SELENE.ed_25519_point_to_scalar(C)
     };
 }
 
-// TODO: move into its own fcmp_crypto file
-std::vector<SeleneScalar> flatten_leaves(const std::vector<LeafTuple> &leaves)
+// TODO: move into curves tree file
+std::vector<tower_cycle::selene::Selene::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves)
 {
-    std::vector<SeleneScalar> flattened_leaves;
+    std::vector<tower_cycle::selene::Selene::Scalar> flattened_leaves;
     flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
 
     for (const auto &l : leaves)
     {
         // TODO: implement without cloning
-        flattened_leaves.emplace_back(fcmp_rust::clone_selene_scalar(l.O_x));
-        flattened_leaves.emplace_back(fcmp_rust::clone_selene_scalar(l.I_x));
-        flattened_leaves.emplace_back(fcmp_rust::clone_selene_scalar(l.C_x));
+        flattened_leaves.emplace_back(tower_cycle::selene::SELENE.clone(l.O_x));
+        flattened_leaves.emplace_back(tower_cycle::selene::SELENE.clone(l.I_x));
+        flattened_leaves.emplace_back(tower_cycle::selene::SELENE.clone(l.C_x));
     }
 
     return flattened_leaves;
 };
 
-SeleneScalar Helios::point_to_cycle_scalar(const Helios::Point &point) const
-{
-    return fcmp_rust::helios_point_to_selene_scalar(point);
-};
-
-HeliosScalar Selene::point_to_cycle_scalar(const Selene::Point &point) const
-{
-    return fcmp_rust::selene_point_to_helios_scalar(point);
-};
+} //namespace curve_trees
 } //namespace fcmp
