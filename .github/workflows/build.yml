@@ -55,7 +55,7 @@ jobs:
     - name: Boost 1.77.0 and ICU 71
       run: |
         curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst
-        curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-21.10-1-any.pkg.tar.zst
+        pacman --noconfirm -U https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-23.4-1-any.pkg.tar.zst
         pacman --noconfirm -U mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
         pacman --noconfirm -U https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-icu-71.1-1-any.pkg.tar.zst
         pacman --noconfirm -U https://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-boost-1.79.0-4-any.pkg.tar.zst
