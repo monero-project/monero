@@ -148,6 +148,7 @@ public:
     std::string getMultisigInfo() const override;
     std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
     std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution = false) override;
+    std::string getMultisigKeyExchangeBooster(const std::vector<std::string> &info, const uint32_t threshold, const uint32_t num_signers) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     bool hasMultisigPartialKeyImages() const override;

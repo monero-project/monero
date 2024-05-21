@@ -149,6 +149,7 @@ static void check_results(const std::vector<std::string> &intermediate_infos,
   std::unordered_set<crypto::secret_key> unique_privkeys;
   rct::key composite_pubkey = rct::identity();
 
+  ASSERT_TRUE(wallets.size() > 0);
   wallets[0].decrypt_keys("");
   crypto::public_key spend_pubkey = wallets[0].get_account().get_keys().m_account_address.m_spend_public_key;
   crypto::secret_key view_privkey = wallets[0].get_account().get_keys().m_view_secret_key;
@@ -156,32 +157,48 @@ static void check_results(const std::vector<std::string> &intermediate_infos,
   EXPECT_TRUE(crypto::secret_key_to_public_key(view_privkey, view_pubkey));
   wallets[0].encrypt_keys("");
 
-  for (size_t i = 0; i < wallets.size(); ++i)
+  // at the end of multisig kex, all wallets should emit a post-kex message with the same two pubkeys
+  std::vector<crypto::public_key> post_kex_msg_pubkeys;
+  ASSERT_TRUE(intermediate_infos.size() == wallets.size());
+  for (const std::string &intermediate_info : intermediate_infos)
   {
-    EXPECT_TRUE(!intermediate_infos[i].empty());
-    const multisig::multisig_account_status ms_status{wallets[i].get_multisig_status()};
+    multisig::multisig_kex_msg post_kex_msg;
+    EXPECT_TRUE(!intermediate_info.empty());
+    EXPECT_NO_THROW(post_kex_msg = intermediate_info);
+
+    if (post_kex_msg_pubkeys.size() != 0)
+      EXPECT_TRUE(post_kex_msg_pubkeys == post_kex_msg.get_msg_pubkeys());  //assumes sorting is always the same
+    else
+      post_kex_msg_pubkeys = post_kex_msg.get_msg_pubkeys();
+
+    EXPECT_TRUE(post_kex_msg_pubkeys.size() == 2);
+  }
+
+  // the post-kex pubkeys should equal the account's public view and spend keys
+  EXPECT_TRUE(std::find(post_kex_msg_pubkeys.begin(), post_kex_msg_pubkeys.end(), spend_pubkey) != post_kex_msg_pubkeys.end());
+  EXPECT_TRUE(std::find(post_kex_msg_pubkeys.begin(), post_kex_msg_pubkeys.end(), view_pubkey) != post_kex_msg_pubkeys.end());
+
+  // each wallet should have the same state (private view key, public spend key), and the public spend key should be
+  //   reproducible from the private spend keys found in each account
+  for (tools::wallet2 &wallet : wallets)
+  {
+    wallet.decrypt_keys("");
+    const multisig::multisig_account_status ms_status{wallet.get_multisig_status()};
     EXPECT_TRUE(ms_status.multisig_is_active);
     EXPECT_TRUE(ms_status.kex_is_done);
     EXPECT_TRUE(ms_status.is_ready);
     EXPECT_TRUE(ms_status.threshold == M);
     EXPECT_TRUE(ms_status.total == wallets.size());
 
-    wallets[i].decrypt_keys("");
-
-    if (i != 0)
-    {
-      // "equals" is transitive relation so we need only to compare first wallet's address to each others' addresses.
-      // no need to compare 0's address with itself.
-      EXPECT_TRUE(wallets[0].get_account().get_public_address_str(cryptonote::TESTNET) ==
-        wallets[i].get_account().get_public_address_str(cryptonote::TESTNET));
-      
-      EXPECT_EQ(spend_pubkey, wallets[i].get_account().get_keys().m_account_address.m_spend_public_key);
-      EXPECT_EQ(view_privkey, wallets[i].get_account().get_keys().m_view_secret_key);
-      EXPECT_EQ(view_pubkey, wallets[i].get_account().get_keys().m_account_address.m_view_public_key);
-    }
+    EXPECT_TRUE(wallets[0].get_account().get_public_address_str(cryptonote::TESTNET) ==
+      wallet.get_account().get_public_address_str(cryptonote::TESTNET));
+    
+    EXPECT_EQ(spend_pubkey, wallet.get_account().get_keys().m_account_address.m_spend_public_key);
+    EXPECT_EQ(view_privkey, wallet.get_account().get_keys().m_view_secret_key);
+    EXPECT_EQ(view_pubkey, wallet.get_account().get_keys().m_account_address.m_view_public_key);
 
     // sum together unique multisig keys
-    for (const auto &privkey : wallets[i].get_account().get_keys().m_multisig_keys)
+    for (const auto &privkey : wallet.get_account().get_keys().m_multisig_keys)
     {
       EXPECT_NE(privkey, crypto::null_skey);
 
@@ -189,17 +206,17 @@ static void check_results(const std::vector<std::string> &intermediate_infos,
       {
         unique_privkeys.insert(privkey);
         crypto::public_key pubkey;
-        crypto::secret_key_to_public_key(privkey, pubkey);
+        EXPECT_TRUE(crypto::secret_key_to_public_key(privkey, pubkey));
         EXPECT_NE(privkey, crypto::null_skey);
         EXPECT_NE(pubkey, crypto::null_pkey);
         EXPECT_NE(pubkey, rct::rct2pk(rct::identity()));
         rct::addKeys(composite_pubkey, composite_pubkey, rct::pk2rct(pubkey));
       }
     }
-    wallets[i].encrypt_keys("");
+    wallet.encrypt_keys("");
   }
 
-  // final key via sums should equal the wallets' public spend key
+  // final key via sum of privkeys should equal the wallets' public spend key
   wallets[0].decrypt_keys("");
   EXPECT_EQ(wallets[0].get_account().get_keys().m_account_address.m_spend_public_key, rct::rct2pk(composite_pubkey));
   wallets[0].encrypt_keys("");
@@ -257,6 +274,104 @@ static void make_wallets(const unsigned int M, const unsigned int N, const bool 
   check_results(intermediate_infos, wallets, M);
 }
 
+static void make_wallets_boosting(std::vector<tools::wallet2>& wallets, unsigned int M)
+{
+  ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
+  ASSERT_TRUE(M <= wallets.size());
+  std::uint32_t kex_rounds_required = multisig::multisig_kex_rounds_required(wallets.size(), M);
+  std::uint32_t rounds_required = multisig::multisig_setup_rounds_required(wallets.size(), M);
+  std::uint32_t rounds_complete{0};
+
+  // initialize wallets, get first round multisig kex msgs
+  std::vector<std::string> initial_infos(wallets.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    make_wallet(i, wallets[i]);
+
+    wallets[i].decrypt_keys("");
+    initial_infos[i] = wallets[i].get_multisig_first_kex_msg();
+    wallets[i].encrypt_keys("");
+  }
+
+  // wallets should not be multisig yet
+  for (const auto &wallet: wallets)
+  {
+    const multisig::multisig_account_status ms_status{wallet.get_multisig_status()};
+    ASSERT_FALSE(ms_status.multisig_is_active);
+  }
+
+  // get round 2 booster messages for wallet0 (if appropriate)
+  auto initial_infos_truncated = initial_infos;
+  initial_infos_truncated.erase(initial_infos_truncated.begin());
+
+  std::vector<std::string> wallet0_booster_infos;
+  wallet0_booster_infos.reserve(wallets.size() - 1);
+
+  if (rounds_complete + 1 < kex_rounds_required)
+  {
+    for (size_t i = 1; i < wallets.size(); ++i)
+    {
+      wallet0_booster_infos.push_back(
+          wallets[i].get_multisig_key_exchange_booster("", initial_infos_truncated, M, wallets.size())
+        );
+    }
+  }
+
+  // make wallets multisig
+  std::vector<std::string> intermediate_infos(wallets.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+    intermediate_infos[i] = wallets[i].make_multisig("", initial_infos, M);
+
+  ++rounds_complete;
+
+  // perform all kex rounds
+  // boost wallet0 each round, so wallet0 is always 1 round ahead
+  std::string wallet0_intermediate_info;
+  std::vector<std::string> new_infos(intermediate_infos.size());
+  multisig::multisig_account_status ms_status{wallets[0].get_multisig_status()};
+  while (!ms_status.is_ready)
+  {
+    // use booster infos to update wallet0 'early'
+    if (rounds_complete < kex_rounds_required)
+      new_infos[0] = wallets[0].exchange_multisig_keys("", wallet0_booster_infos);
+    else
+    {
+      // force update the post-kex round with wallet0's post-kex message since wallet0 is 'ahead' of the other wallets
+      wallet0_booster_infos = {wallets[0].exchange_multisig_keys("", {})};
+      new_infos[0] = wallets[0].exchange_multisig_keys("", wallet0_booster_infos, true);
+    }
+
+    // get wallet0 booster infos for next round
+    if (rounds_complete + 1 < kex_rounds_required)
+    {
+      // remove wallet0 info for this round (so boosters have incomplete kex message set)
+      auto intermediate_infos_truncated = intermediate_infos;
+      intermediate_infos_truncated.erase(intermediate_infos_truncated.begin());
+
+      // obtain booster messages from all other wallets
+      for (size_t i = 1; i < wallets.size(); ++i)
+      {
+        wallet0_booster_infos[i-1] =
+          wallets[i].get_multisig_key_exchange_booster("", intermediate_infos_truncated, M, wallets.size());
+      }
+    }
+
+    // update other wallets
+    for (size_t i = 1; i < wallets.size(); ++i)
+        new_infos[i] = wallets[i].exchange_multisig_keys("", intermediate_infos);
+
+    intermediate_infos = new_infos;
+    ++rounds_complete;
+    ms_status = wallets[0].get_multisig_status();
+  }
+
+  EXPECT_EQ(rounds_required, rounds_complete);
+
+  check_results(intermediate_infos, wallets, M);
+}
+
 TEST(multisig, make_1_2)
 {
   make_wallets(1, 2, false);
@@ -291,6 +406,12 @@ TEST(multisig, make_2_4)
 {
   make_wallets(2, 4, false);
   make_wallets(2, 4, true);
+}
+
+TEST(multisig, make_2_4_boosting)
+{
+  std::vector<tools::wallet2> wallets(4);
+  make_wallets_boosting(wallets, 2);
 }
 
 TEST(multisig, multisig_kex_msg)

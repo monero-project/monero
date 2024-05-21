@@ -540,6 +540,20 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(exchange_multisig_keys)
 
+    def get_multisig_key_exchange_booster(self, multisig_info, threshold, num_signers, password = ''):
+        exchange_multisig_keys = {
+            'method': 'get_multisig_key_exchange_booster',
+            'params' : {
+                'multisig_info': multisig_info,
+                'threshold': threshold,
+                'num_signers': num_signers,
+                'password': password,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_multisig_key_exchange_booster)
+
     def export_multisig_info(self):
         export_multisig_info = {
             'method': 'export_multisig_info',
