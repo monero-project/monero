@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "tower_cycle_types.h"
+#include "tower_cycle.h"
 
 namespace fcmp
 {
@@ -47,7 +47,7 @@ SeleneScalar Helios::point_to_cycle_scalar(const Helios::Point &point) const
 namespace selene
 {
 //----------------------------------------------------------------------------------------------------------------------
-SeleneScalar Selene::ed_25519_point_to_scalar(const crypto::ec_point &point)
+SeleneScalar Selene::ed_25519_point_to_scalar(const crypto::ec_point &point) const
 {
     static_assert(sizeof(RustEd25519Point) == sizeof(crypto::ec_point),
         "expected same size ed25519 point to rust representation");
