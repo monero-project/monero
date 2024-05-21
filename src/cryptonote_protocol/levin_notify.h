@@ -75,7 +75,8 @@ namespace levin
     struct status
     {
       bool has_noise;
-      bool connections_filled;
+      bool connections_filled; //!< True when has zone has `CRYPTONOTE_NOISE_CHANNELS` outgoing noise channels
+      bool has_outgoing; //!< True when zone has outgoing connections
     };
 
     //! Construct an instance that cannot notify.
