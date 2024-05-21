@@ -1456,7 +1456,7 @@ bool wallet2::get_multisig_seed(epee::wipeable_string& seed, const epee::wipeabl
     return false;
   }
 
-  const uint64_t num_expected_ms_keys = num_priv_multisig_keys_post_setup(threshold, total);
+  const uint64_t num_expected_ms_keys = num_priv_multisig_keys_post_setup(ms_status.threshold, ms_status.total);
 
   crypto::secret_key skey;
   crypto::public_key pkey;
