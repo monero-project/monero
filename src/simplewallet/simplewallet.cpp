@@ -819,7 +819,6 @@ bool simple_wallet::print_seed(bool encrypted)
 {
   bool success =  false;
   epee::wipeable_string seed;
-  bool ready, multisig;
 
   if (m_wallet->key_on_device())
   {
@@ -832,10 +831,10 @@ bool simple_wallet::print_seed(bool encrypted)
     return true;
   }
 
-  multisig = m_wallet->multisig(&ready);
-  if (multisig)
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+  if (ms_status.multisig_is_active)
   {
-    if (!ready)
+    if (!ms_status.is_ready)
     {
       fail_msg_writer() << tr("wallet is multisig but not yet finalized");
       return true;
@@ -844,7 +843,7 @@ bool simple_wallet::print_seed(bool encrypted)
 
   SCOPED_WALLET_UNLOCK();
 
-  if (!multisig && !m_wallet->is_deterministic())
+  if (!ms_status.multisig_is_active && !m_wallet->is_deterministic())
   {
     fail_msg_writer() << tr("wallet is non-deterministic and has no seed");
     return true;
@@ -859,7 +858,7 @@ bool simple_wallet::print_seed(bool encrypted)
     seed_pass = pwd_container->password();
   }
 
-  if (multisig)
+  if (ms_status.multisig_is_active)
     success = m_wallet->get_multisig_seed(seed, seed_pass);
   else if (m_wallet->is_deterministic())
     success = m_wallet->get_seed(seed, seed_pass);
@@ -898,7 +897,7 @@ bool simple_wallet::seed_set_language(const std::vector<std::string> &args/* = s
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if (m_wallet->multisig())
+  if (m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("wallet is multisig and has no seed");
     return true;
@@ -1044,7 +1043,7 @@ bool simple_wallet::prepare_multisig_main(const std::vector<std::string> &args, 
     fail_msg_writer() << tr("command not supported by HW wallet");
     return false;
   }
-  if (m_wallet->multisig())
+  if (m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("This wallet is already multisig");
     return false;
@@ -1091,7 +1090,7 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     fail_msg_writer() << tr("command not supported by HW wallet");
     return false;
   }
-  if (m_wallet->multisig())
+  if (m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("This wallet is already multisig");
     return false;
@@ -1136,9 +1135,7 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     auto local_args = args;
     local_args.erase(local_args.begin());
     std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), local_args, threshold);
-    bool ready;
-    m_wallet->multisig(&ready);
-    if (!ready)
+    if (!m_wallet->get_multisig_status().is_ready)
     {
       success_msg_writer() << tr("Another step is needed");
       success_msg_writer() << multisig_extra_info;
@@ -1156,13 +1153,13 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     return false;
   }
 
-  uint32_t total;
-  if (!m_wallet->multisig(NULL, &threshold, &total))
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+  if (!ms_status.multisig_is_active)
   {
     fail_msg_writer() << tr("Error creating multisig: new wallet is not multisig");
     return false;
   }
-  success_msg_writer() << std::to_string(threshold) << "/" << total << tr(" multisig address: ")
+  success_msg_writer() << std::to_string(ms_status.threshold) << "/" << ms_status.total << tr(" multisig address: ")
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
 
   return true;
@@ -1188,18 +1185,18 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
   const bool force_update_use_with_caution,
   const bool called_by_mms) {
     CHECK_MULTISIG_ENABLED();
-    bool ready;
+    const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
     if (m_wallet->key_on_device())
     {
       fail_msg_writer() << tr("command not supported by HW wallet");
       return false;
     }
-    if (!m_wallet->multisig(&ready))
+    if (!ms_status.multisig_is_active)
     {
       fail_msg_writer() << tr("This wallet is not multisig");
       return false;
     }
-    if (ready)
+    if (ms_status.is_ready)
     {
       fail_msg_writer() << tr("This wallet is already finalized");
       return false;
@@ -1215,9 +1212,7 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
     try
     {
       std::string multisig_extra_info = m_wallet->exchange_multisig_keys(orig_pwd_container->password(), args, force_update_use_with_caution);
-      bool ready;
-      m_wallet->multisig(&ready);
-      if (!ready)
+      if (!m_wallet->get_multisig_status().is_ready)
       {
         message_writer() << tr("Another step is needed");
         message_writer() << multisig_extra_info;
@@ -1228,9 +1223,8 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
         }
         return true;
       } else {
-        uint32_t threshold, total;
-        m_wallet->multisig(NULL, &threshold, &total);
-        success_msg_writer() << tr("Multisig wallet has been successfully created. Current wallet type: ") << threshold << "/" << total;
+        const multisig::multisig_account_status ms_status_new{m_wallet->get_multisig_status()};
+        success_msg_writer() << tr("Multisig wallet has been successfully created. Current wallet type: ") << ms_status_new.threshold << "/" << ms_status_new.total;
         success_msg_writer() << tr("Multisig address: ") << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
       }
     }
@@ -1253,18 +1247,18 @@ bool simple_wallet::export_multisig(const std::vector<std::string> &args)
 bool simple_wallet::export_multisig_main(const std::vector<std::string> &args, bool called_by_mms)
 {
   CHECK_MULTISIG_ENABLED();
-  bool ready;
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return false;
   }
-  if (!m_wallet->multisig(&ready))
+  if (!ms_status.multisig_is_active)
   {
     fail_msg_writer() << tr("This wallet is not multisig");
     return false;
   }
-  if (!ready)
+  if (!ms_status.is_ready)
   {
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
@@ -1320,24 +1314,24 @@ bool simple_wallet::import_multisig(const std::vector<std::string> &args)
 bool simple_wallet::import_multisig_main(const std::vector<std::string> &args, bool called_by_mms)
 {
   CHECK_MULTISIG_ENABLED();
-  bool ready;
-  uint32_t threshold, total;
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return false;
   }
-  if (!m_wallet->multisig(&ready, &threshold, &total))
+  if (!ms_status.multisig_is_active)
   {
     fail_msg_writer() << tr("This wallet is not multisig");
     return false;
   }
-  if (!ready)
+  if (!ms_status.is_ready)
   {
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
   }
-  if (args.size() < threshold - 1)
+  if (args.size() + 1 < ms_status.threshold)
   {
     PRINT_USAGE(USAGE_IMPORT_MULTISIG_INFO);
     return false;
@@ -1417,18 +1411,19 @@ bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
 bool simple_wallet::sign_multisig_main(const std::vector<std::string> &args, bool called_by_mms)
 {
   CHECK_MULTISIG_ENABLED();
-  bool ready;
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};\
+
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return false;
   }
-  if(!m_wallet->multisig(&ready))
+  if (!ms_status.multisig_is_active)
   {
     fail_msg_writer() << tr("This is not a multisig wallet");
     return false;
   }
-  if (!ready)
+  if (!ms_status.is_ready)
   {
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
@@ -1502,9 +1497,7 @@ bool simple_wallet::sign_multisig_main(const std::vector<std::string> &args, boo
 
   if (txids.empty())
   {
-    uint32_t threshold;
-    m_wallet->multisig(NULL, &threshold);
-    uint32_t signers_needed = threshold - signers - 1;
+    uint32_t signers_needed = ms_status.threshold - signers - 1;
     success_msg_writer(true) << tr("Transaction successfully signed to file ") << filename << ", "
         << signers_needed << " more signer(s) needed";
     return true;
@@ -1534,19 +1527,19 @@ bool simple_wallet::submit_multisig(const std::vector<std::string> &args)
 bool simple_wallet::submit_multisig_main(const std::vector<std::string> &args, bool called_by_mms)
 {
   CHECK_MULTISIG_ENABLED();
-  bool ready;
-  uint32_t threshold;
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return false;
   }
-  if (!m_wallet->multisig(&ready, &threshold))
+  if (!ms_status.multisig_is_active)
   {
     fail_msg_writer() << tr("This is not a multisig wallet");
     return false;
   }
-  if (!ready)
+  if (!ms_status.is_ready)
   {
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
@@ -1584,10 +1577,10 @@ bool simple_wallet::submit_multisig_main(const std::vector<std::string> &args, b
         return false;
       }
     }
-    if (txs.m_signers.size() < threshold)
+    if (txs.m_signers.size() < ms_status.threshold)
     {
       fail_msg_writer() << (boost::format(tr("Multisig transaction signed by only %u signers, needs %u more signatures"))
-          % txs.m_signers.size() % (threshold - txs.m_signers.size())).str();
+          % txs.m_signers.size() % (ms_status.threshold - txs.m_signers.size())).str();
       return false;
     }
 
@@ -1616,19 +1609,19 @@ bool simple_wallet::submit_multisig_main(const std::vector<std::string> &args, b
 bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
 {
   CHECK_MULTISIG_ENABLED();
-  bool ready;
-  uint32_t threshold;
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+
   if (m_wallet->key_on_device())
   {
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if (!m_wallet->multisig(&ready, &threshold))
+  if (!ms_status.multisig_is_active)
   {
     fail_msg_writer() << tr("This is not a multisig wallet");
     return true;
   }
-  if (!ready)
+  if (!ms_status.is_ready)
   {
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return true;
@@ -1654,10 +1647,10 @@ bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
       fail_msg_writer() << tr("Failed to load multisig transaction from file");
       return true;
     }
-    if (txs.m_signers.size() < threshold)
+    if (txs.m_signers.size() < ms_status.threshold)
     {
       fail_msg_writer() << (boost::format(tr("Multisig transaction signed by only %u signers, needs %u more signatures"))
-          % txs.m_signers.size() % (threshold - txs.m_signers.size())).str();
+          % txs.m_signers.size() % (ms_status.threshold - txs.m_signers.size())).str();
       return true;
     }
 
@@ -3870,7 +3863,7 @@ void simple_wallet::print_seed(const epee::wipeable_string &seed)
 {
   success_msg_writer(true) << "\n" << boost::format(tr("NOTE: the following %s can be used to recover access to your wallet. "
     "Write them down and store them somewhere safe and secure. Please do not store them in "
-    "your email or on file storage services outside of your immediate control.\n")) % (m_wallet->multisig() ? tr("string") : tr("25 words"));
+    "your email or on file storage services outside of your immediate control.\n")) % (m_wallet->get_multisig_status().multisig_is_active ? tr("string") : tr("25 words"));
   // don't log
   int space_index = 0;
   size_t len  = seed.size();
@@ -4922,14 +4915,14 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
       const epee::wipeable_string &msig_keys = m_wallet->decrypt<epee::wipeable_string>(std::string(multisig_keys.data(), multisig_keys.size()), key, true);
       m_wallet->generate(m_wallet_file, std::move(rc.second).password(), msig_keys, create_address_file);
     }
-    bool ready;
-    uint32_t threshold, total;
-    if (!m_wallet->multisig(&ready, &threshold, &total) || !ready)
+    const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+
+    if (!ms_status.multisig_is_active || !ms_status.is_ready)
     {
       fail_msg_writer() << tr("failed to generate new mutlisig wallet");
       return {};
     }
-    message_writer(console_color_white, true) << boost::format(tr("Generated new %u/%u multisig wallet: ")) % threshold % total
+    message_writer(console_color_white, true) << boost::format(tr("Generated new %u/%u multisig wallet: ")) % ms_status.threshold % ms_status.total
       << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   }
   catch (const std::exception& e)
@@ -4973,12 +4966,11 @@ boost::optional<epee::wipeable_string> simple_wallet::open_wallet(const boost::p
     m_wallet->callback(this);
     m_wallet->load(m_wallet_file, password);
     std::string prefix;
-    bool ready;
-    uint32_t threshold, total;
+    const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
     if (m_wallet->watch_only())
       prefix = tr("Opened watch-only wallet");
-    else if (m_wallet->multisig(&ready, &threshold, &total))
-      prefix = (boost::format(tr("Opened %u/%u multisig wallet%s")) % threshold % total % (ready ? "" : " (not yet finalized)")).str();
+    else if (ms_status.multisig_is_active)
+      prefix = (boost::format(tr("Opened %u/%u multisig wallet%s")) % ms_status.threshold % ms_status.total % (ms_status.is_ready ? "" : " (not yet finalized)")).str();
     else
       prefix = tr("Opened wallet");
     message_writer(console_color_white, true) <<
@@ -5096,7 +5088,7 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
-  if (m_wallet->multisig())
+  if (m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("wallet is multisig and cannot save a watch-only version");
     return true;
@@ -6676,7 +6668,8 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
     }
 
     // actually commit the transactions
-    if (m_wallet->multisig() && called_by_mms)
+    const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+    if (ms_status.multisig_is_active && called_by_mms)
     {
       std::string ciphertext = m_wallet->save_multisig_tx(ptx_vector);
       if (!ciphertext.empty())
@@ -6685,7 +6678,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
         success_msg_writer(true) << tr("Unsigned transaction(s) successfully written to MMS");
       }
     }
-    else if (m_wallet->multisig())
+    else if (ms_status.multisig_is_active)
     {
       bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
       if (!r)
@@ -6839,7 +6832,7 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
     }
 
     // actually commit the transactions
-    if (m_wallet->multisig())
+    if (m_wallet->get_multisig_status().multisig_is_active)
     {
       CHECK_MULTISIG_ENABLED();
       bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
@@ -7144,7 +7137,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, bool locked, co
     }
 
     // actually commit the transactions
-    if (m_wallet->multisig())
+    if (m_wallet->get_multisig_status().multisig_is_active)
     {
       CHECK_MULTISIG_ENABLED();
       bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
@@ -7379,7 +7372,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     }
 
     // actually commit the transactions
-    if (m_wallet->multisig())
+    if (m_wallet->get_multisig_status().multisig_is_active)
     {
       CHECK_MULTISIG_ENABLED();
       bool r = m_wallet->save_multisig_tx(ptx_vector, "multisig_monero_tx");
@@ -7727,7 +7720,7 @@ bool simple_wallet::sign_transfer(const std::vector<std::string> &args_)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if(m_wallet->multisig())
+  if(m_wallet->get_multisig_status().multisig_is_active)
   {
      fail_msg_writer() << tr("This is a multisig wallet, it can only sign with sign_multisig");
      return true;
@@ -8260,7 +8253,7 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
     return true;
   }
 
-  if (m_wallet->watch_only() || m_wallet->multisig())
+  if (m_wallet->watch_only() || m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("The reserve proof can be generated only by a full wallet");
     return true;
@@ -9748,8 +9741,8 @@ bool simple_wallet::status(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::wallet_info(const std::vector<std::string> &args)
 {
-  bool ready;
-  uint32_t threshold, total;
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+
   std::string description = m_wallet->get_description();
   if (description.empty())
   {
@@ -9761,8 +9754,8 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   std::string type;
   if (m_wallet->watch_only())
     type = tr("Watch only");
-  else if (m_wallet->multisig(&ready, &threshold, &total))
-    type = (boost::format(tr("%u/%u multisig%s")) % threshold % total % (ready ? "" : " (not yet finalized)")).str();
+  else if (ms_status.multisig_is_active)
+    type = (boost::format(tr("%u/%u multisig%s")) % ms_status.threshold % ms_status.total % (ms_status.is_ready ? "" : " (not yet finalized)")).str();
   else
     type = tr("Normal");
   message_writer() << tr("Type: ") << type;
@@ -9789,7 +9782,7 @@ bool simple_wallet::sign(const std::vector<std::string> &args)
     fail_msg_writer() << tr("wallet is watch-only and cannot sign");
     return true;
   }
-  if (m_wallet->multisig())
+  if (m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("This wallet is multisig and cannot sign");
     return true;

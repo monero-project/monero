@@ -245,18 +245,23 @@ namespace mms
     crypto::secret_key view_secret_key;
     bool multisig;
     bool multisig_is_ready;
+    bool multisig_kex_is_done;
     bool has_multisig_partial_key_images;
     uint32_t multisig_rounds_passed;
     size_t num_transfer_details;
     std::string mms_file;
 
     BEGIN_SERIALIZE_OBJECT()
-      VERSION_FIELD(0)
+      VERSION_FIELD(1)
       FIELD(address)
       VARINT_FIELD(nettype)
       FIELD(view_secret_key)
       FIELD(multisig)
       FIELD(multisig_is_ready)
+      if (version > 0)
+        FIELD(multisig_kex_is_done)
+      else
+        multisig_kex_is_done = multisig_is_ready;
       FIELD(has_multisig_partial_key_images)
       VARINT_FIELD(multisig_rounds_passed)
       VARINT_FIELD(num_transfer_details)
