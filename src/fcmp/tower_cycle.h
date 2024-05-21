@@ -64,9 +64,6 @@ static struct Helios final
     const Generators GENERATORS = fcmp_rust::random_helios_generators();
     const Point HASH_INIT_POINT = fcmp_rust::random_helios_hash_init_point();
 
-    // TODO: use correct value
-    static const std::size_t WIDTH = 5;
-
     // Helios point x-coordinates are Selene scalars
     SeleneScalar point_to_cycle_scalar(const Point &point) const;
 
@@ -118,9 +115,6 @@ static struct Selene final
     const Generators GENERATORS = fcmp_rust::random_selene_generators();
     const Point HASH_INIT_POINT = fcmp_rust::random_selene_hash_init_point();
 
-    // TODO: use correct value
-    static const std::size_t WIDTH = 5;
-
     // Ed25519 point x-coordinates are Selene scalars
     SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point) const;
 
@@ -158,6 +152,33 @@ static struct Selene final
         { return epee::string_tools::pod_to_hex(to_bytes(point)); }
 } SELENE;
 }// namespace selene
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+template <typename C>
+static void extend_zeroes(const C &curve,
+    const std::size_t num_zeroes,
+    std::vector<typename C::Scalar> &zeroes_inout)
+{
+    zeroes_inout.reserve(zeroes_inout.size() + num_zeroes);
+
+    for (std::size_t i = 0; i < num_zeroes; ++i)
+        zeroes_inout.emplace_back(curve.zero_scalar());
+}
+//----------------------------------------------------------------------------------------------------------------------
+template <typename C_POINTS, typename C_SCALARS>
+static void extend_scalars_from_cycle_points(const C_POINTS &curve,
+    const std::vector<typename C_POINTS::Point> &points,
+    std::vector<typename C_SCALARS::Scalar> &scalars_out)
+{
+    scalars_out.reserve(scalars_out.size() + points.size());
+
+    for (const auto &point : points)
+    {
+        // TODO: implement reading just the x coordinate of points on curves in curve cycle in C/C++
+        typename C_SCALARS::Scalar scalar = curve.point_to_cycle_scalar(point);
+        scalars_out.push_back(std::move(scalar));
+    }
+}
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace curves
