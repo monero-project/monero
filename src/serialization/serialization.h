@@ -50,12 +50,15 @@
 #include <boost/type_traits/integral_constant.hpp>
 #include <boost/mpl/bool.hpp>
 
-/*! \struct is_blob_type 
+/*! \struct is_blob_type / is_blob_forced
  *
- * \brief a descriptor for dispatching serialize
+ * \brief descriptors for dispatching serialize: whether to take byte-wise copy/store to type
  */
 template <class T>
 struct is_blob_type { typedef boost::false_type type; };
+
+template <class T>
+struct is_blob_forced: std::false_type {};
 
 /*! \fn do_serialize(Archive &ar, T &v)
  *
@@ -68,6 +71,8 @@ struct is_blob_type { typedef boost::false_type type; };
 template <class Archive, class T>
 inline std::enable_if_t<is_blob_type<T>::type::value, bool> do_serialize(Archive &ar, T &v)
 {
+  static_assert(std::is_trivially_copyable<T>() || is_blob_forced<T>(),
+    "sanity check: types that can't be trivially copied shouldn't be using the blob serializer");
   ar.serialize_blob(&v, sizeof(v));
   return true;
 }
@@ -94,12 +99,29 @@ inline bool do_serialize(Archive &ar, bool &v)
 /*! \macro BLOB_SERIALIZER
  *
  * \brief makes the type have a blob serializer trait defined
+ *
+ * In case your type is not a good candidate to be blob serialized, a static assertion may be thrown
+ * at compile-time.
  */
 #define BLOB_SERIALIZER(T)						\
   template<>								\
   struct is_blob_type<T> {						\
     typedef boost::true_type type;					\
   }
+
+/*! \macro BLOB_SERIALIZER_FORCED
+ *
+ * \brief makes the type have a blob serializer trait defined, even if it isn't trivially copyable
+ *
+ * Caution: do NOT use this macro for your type <T>, unless you are absolutely sure that moving raw
+ * bytes in/out of this type will not cause undefined behavior. Any types with managed memory
+ * (e.g. vector, string, etc) will segfault and/or cause memory errors if you use this macro with
+ * that type.
+ */
+#define BLOB_SERIALIZER_FORCED(T) \
+  BLOB_SERIALIZER(T);             \
+  template<>                      \
+  struct is_blob_forced<T>: std::true_type {};
 
 /*! \macro VARIANT_TAG
  *
