@@ -33,11 +33,12 @@ from .rpc import JSONRPC
 
 class Daemon(object):
 
-    def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0, restricted_rpc = False):
+    def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0, restricted_rpc = False, username=None, password=None):
         base = 18480 if restricted_rpc else 18180
         self.host = host
         self.port = port
-        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else base+idx))
+        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else base+idx),
+            username, password)
 
     def getblocktemplate(self, address, prev_block = "", client = ""):
         getblocktemplate = {
