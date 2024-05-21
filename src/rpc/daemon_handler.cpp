@@ -422,6 +422,16 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details += "too few outputs";
       }
+      if (tvc.m_tx_extra_too_big)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details += "tx_extra too long";
+      }
+      if (tvc.m_nonzero_unlock_time)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details += "non-zero unlock time";
+      }
       if (res.error_details.empty())
       {
         res.error_details = "an unknown issue was found with the transaction";

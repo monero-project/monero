@@ -93,5 +93,5 @@ bool construct_tx_rct(tools::wallet2 * sender_wallet,
                       std::vector<cryptonote::tx_source_entry>& sources,
                       const std::vector<cryptonote::tx_destination_entry>& destinations,
                       const boost::optional<cryptonote::account_public_address>& change_addr,
-                      std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time,
+                      std::vector<uint8_t> extra, cryptonote::transaction& tx,
                       bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0);
