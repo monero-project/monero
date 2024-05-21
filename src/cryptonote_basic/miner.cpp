@@ -514,7 +514,7 @@ namespace cryptonote
   bool miner::worker_thread()
   {
     const uint32_t th_local_index = m_thread_index++;
-    crypto::rx_set_miner_thread(th_local_index, tools::get_max_concurrency());
+    bool rx_set = false;
 
     MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(th_local_index) + "]");
     MGINFO("Miner thread was started ["<< th_local_index << "]");
@@ -567,6 +567,13 @@ namespace cryptonote
 
       b.nonce = nonce;
       crypto::hash h;
+
+      if ((b.major_version >= 21) && !rx_set)
+      {
+        crypto::rx_set_miner_thread(th_local_index, tools::get_max_concurrency());
+        rx_set = true;
+      }
+
       m_gbh(b, height, NULL, tools::get_max_concurrency(), h);
 
       if(check_hash(h, local_diff))
