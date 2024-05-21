@@ -245,7 +245,7 @@ namespace tools
         );
 
         std::string temp = "monero-wallet-rpc." + bind_port + ".login";
-        rpc_login_file = tools::private_file::create(temp);
+        rpc_login_file = tools::private_file::drop_and_recreate(temp);
         if (!rpc_login_file.handle())
         {
           LOG_ERROR(tr("Failed to create file ") << temp << tr(". Check permissions or remove file"));
