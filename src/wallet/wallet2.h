@@ -1437,7 +1437,6 @@ private:
     uint8_t get_current_hard_fork();
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
     bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);
-    int get_fee_algorithm();
 
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
@@ -1547,12 +1546,9 @@ private:
     bool is_synced();
 
     std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(const std::vector<std::pair<double, double>> &fee_levels);
-    std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees);
 
-    uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags, uint64_t base_fee, uint64_t fee_quantization_mask) const;
-    uint64_t get_fee_multiplier(uint32_t priority, int fee_algorithm = -1);
+    uint64_t estimate_fee(bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags, uint64_t base_fee, uint64_t fee_quantization_mask) const;
     uint64_t get_base_fee(uint32_t priority);
-    uint64_t get_base_fee();
     uint64_t get_fee_quantization_mask();
     uint64_t get_min_ring_size();
     uint64_t get_max_ring_size();
@@ -1720,7 +1716,6 @@ private:
     void parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const;
     uint64_t get_upper_transaction_weight_limit();
     std::vector<uint64_t> get_unspent_amounts_vector(bool strict);
-    uint64_t get_dynamic_base_fee_estimate();
     float get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const;
     std::vector<size_t> pick_preferred_rct_inputs(uint64_t needed_money, uint32_t subaddr_account, const std::set<uint32_t> &subaddr_indices);
     void set_spent(size_t idx, uint64_t height);
