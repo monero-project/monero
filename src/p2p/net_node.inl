@@ -702,18 +702,18 @@ namespace nodetool
     if (m_nettype == cryptonote::TESTNET)
     {
       full_addrs.insert("176.9.0.187:28080");
-      full_addrs.insert("88.99.173.38:28080");
       full_addrs.insert("51.79.173.165:28080");
       full_addrs.insert("192.99.8.110:28080");
       full_addrs.insert("37.187.74.171:28080");
+      full_addrs.insert("77.172.183.193:28080");
     }
     else if (m_nettype == cryptonote::STAGENET)
     {
       full_addrs.insert("176.9.0.187:38080");
-      full_addrs.insert("88.99.173.38:38080");
       full_addrs.insert("51.79.173.165:38080");
       full_addrs.insert("192.99.8.110:38080");
       full_addrs.insert("37.187.74.171:38080");
+      full_addrs.insert("77.172.183.193:38080");
     }
     else if (m_nettype == cryptonote::FAKECHAIN)
     {
@@ -723,10 +723,10 @@ namespace nodetool
       full_addrs.insert("176.9.0.187:18080");
       full_addrs.insert("88.198.163.90:18080");
       full_addrs.insert("66.85.74.134:18080");
-      full_addrs.insert("88.99.173.38:18080");
       full_addrs.insert("51.79.173.165:18080");
       full_addrs.insert("192.99.8.110:18080");
       full_addrs.insert("37.187.74.171:18080");
+      full_addrs.insert("77.172.183.193:18080");
     }
     return full_addrs;
   }
@@ -857,12 +857,12 @@ namespace nodetool
       if (m_nettype == cryptonote::MAINNET)
       {
         return {
-          "xwvz3ekocr3dkyxfkmgm2hvbpzx2ysqmaxgter7znnqrhoicygkfswid.onion:18083",
-          "4pixvbejrvihnkxmduo2agsnmc3rrulrqc7s3cbwwrep6h6hrzsibeqd.onion:18083",
           "zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083",
           "qz43zul2x56jexzoqgkx2trzwcfnr6l3hbtfcfx54g4r3eahy3bssjyd.onion:18083",
           "plowsof3t5hogddwabaeiyrno25efmzfxyro2vligremt7sxpsclfaid.onion:18083",
           "plowsoffjexmxalw73tkjmf422gq6575fc7vicuu4javzn2ynnte6tyd.onion:18083",
+          "plowsofe6cleftfmk2raiw5h2x66atrik3nja4bfd3zrfa2hdlgworad.onion:18083",
+          "aclc4e2jhhtr44guufbnwk5bzwhaecinax4yip4wr4tjn27sjsfg6zqd.onion:18083",
         };
       }
       return {};
@@ -870,10 +870,9 @@ namespace nodetool
       if (m_nettype == cryptonote::MAINNET)
       {
         return {
-          "s3l6ke4ed3df466khuebb4poienoingwof7oxtbo6j4n56sghe3a.b32.i2p:18080",
-          "sel36x6fibfzujwvt4hf5gxolz6kd3jpvbjqg6o3ud2xtionyl2q.b32.i2p:18080",
-          "uqj3aphckqtjsitz7kxx5flqpwjlq5ppr3chazfued7xucv3nheq.b32.i2p:18080",
-          "vdmnehdjkpkg57nthgnjfuaqgku673r5bpbqg56ix6fyqoywgqrq.b32.i2p:18080",
+          "uqj3aphckqtjsitz7kxx5flqpwjlq5ppr3chazfued7xucv3nheq.b32.i2p",
+          "vdmnehdjkpkg57nthgnjfuaqgku673r5bpbqg56ix6fyqoywgqrq.b32.i2p",
+          "ugnlcdciyhghh2zert7c3kl4biwkirc43ke33jiy5slnd3mv2trq.b32.i2p",
         };
       }
       return {};
