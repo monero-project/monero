@@ -89,14 +89,16 @@ namespace cryptonote
   } // anonymous
 
   rpc_args::descriptors::descriptors()
-     : rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("Specify IP to bind RPC server"), "127.0.0.1"})
+     : rpc_bind_ipv4_address({"rpc-bind-ipv4-address", rpc_args::tr("Specify IPv4 address to bind RPC server"), "127.0.0.1"})
      , rpc_bind_ipv6_address({"rpc-bind-ipv6-address", rpc_args::tr("Specify IPv6 address to bind RPC server"), "::1"})
-     , rpc_restricted_bind_ip({"rpc-restricted-bind-ip", rpc_args::tr("Specify IP to bind restricted RPC server"), "127.0.0.1"})
+     , rpc_bind_ip({"rpc-bind-ip", rpc_args::tr("DEPRECATED: replaced with --rpc-bind-ipv4-address"), ""})
+     , rpc_restricted_bind_ipv4_address({"rpc-restricted-bind-ipv4-address", rpc_args::tr("Specify IPv4 address to bind restricted RPC server"), "127.0.0.1"})
      , rpc_restricted_bind_ipv6_address({"rpc-restricted-bind-ipv6-address", rpc_args::tr("Specify IPv6 address to bind restricted RPC server"), "::1"})
+     , rpc_restricted_bind_ip({"rpc-restricted-bind-ip", rpc_args::tr("DEPRECATED: replaced with --rpc-restricted-bind-ipv4-address"), ""})
      , rpc_use_ipv6({"rpc-use-ipv6", rpc_args::tr("Allow IPv6 for RPC"), false})
      , rpc_ignore_ipv4({"rpc-ignore-ipv4", rpc_args::tr("Ignore unsuccessful IPv4 bind for RPC"), false})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
-     , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
+     , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ipv4-address value is NOT a loopback (local) IP")})
      , rpc_access_control_origins({"rpc-access-control-origins", rpc_args::tr("Specify a comma separated list of origins to allow cross origin resource sharing"), ""})
      , rpc_ssl({"rpc-ssl", rpc_args::tr("Enable SSL on RPC connections: enabled|disabled|autodetect"), "autodetect"})
      , rpc_ssl_private_key({"rpc-ssl-private-key", rpc_args::tr("Path to a PEM format private key"), ""})
@@ -113,10 +115,12 @@ namespace cryptonote
   void rpc_args::init_options(boost::program_options::options_description& desc, const bool any_cert_option)
   {
     const descriptors arg{};
-    command_line::add_arg(desc, arg.rpc_bind_ip);
+    command_line::add_arg(desc, arg.rpc_bind_ipv4_address);
     command_line::add_arg(desc, arg.rpc_bind_ipv6_address);
-    command_line::add_arg(desc, arg.rpc_restricted_bind_ip);
+    command_line::add_arg(desc, arg.rpc_bind_ip); // DEPRECATED
+    command_line::add_arg(desc, arg.rpc_restricted_bind_ipv4_address);
     command_line::add_arg(desc, arg.rpc_restricted_bind_ipv6_address);
+    command_line::add_arg(desc, arg.rpc_restricted_bind_ip); // DEPRECATED
     command_line::add_arg(desc, arg.rpc_use_ipv6);
     command_line::add_arg(desc, arg.rpc_ignore_ipv4);
     command_line::add_arg(desc, arg.rpc_login);
@@ -138,28 +142,41 @@ namespace cryptonote
     const descriptors arg{};
     rpc_args config{};
     
-    config.bind_ip = command_line::get_arg(vm, arg.rpc_bind_ip);
+    config.bind_ipv4_address = command_line::get_arg(vm, arg.rpc_bind_ipv4_address);
     config.bind_ipv6_address = command_line::get_arg(vm, arg.rpc_bind_ipv6_address);
-    config.restricted_bind_ip = command_line::get_arg(vm, arg.rpc_restricted_bind_ip);
+    config.restricted_bind_ipv4_address = command_line::get_arg(vm, arg.rpc_restricted_bind_ipv4_address);
     config.restricted_bind_ipv6_address = command_line::get_arg(vm, arg.rpc_restricted_bind_ipv6_address);
+
+    // DEPRECATED --rpc-bind-ip
+    if (!command_line::get_arg(vm, arg.rpc_bind_ip).empty())
+      MWARNING("--rpc-bind-ip is now DEPRECATED, replace with --rpc-bind-ipv4-address");
+    if (config.bind_ipv4_address.empty())
+      config.bind_ipv4_address = command_line::get_arg(vm, arg.rpc_bind_ip);
+
+    // DEPRECATED --rpc-restricted-bind-ip
+    if (!command_line::get_arg(vm, arg.rpc_restricted_bind_ip).empty())
+      MWARNING("--rpc-restricted-bind-ip is now DEPRECATED, replace with --rpc-restricted-bind-ipv4-address");
+    if (config.restricted_bind_ipv4_address.empty())
+      config.restricted_bind_ipv4_address = command_line::get_arg(vm, arg.rpc_restricted_bind_ip);
+
     config.use_ipv6 = command_line::get_arg(vm, arg.rpc_use_ipv6);
     config.require_ipv4 = !command_line::get_arg(vm, arg.rpc_ignore_ipv4);
     config.disable_rpc_ban = command_line::get_arg(vm, arg.disable_rpc_ban);
-    if (!config.bind_ip.empty())
+    if (!config.bind_ipv4_address.empty())
     {
-      // always parse IP here for error consistency
+      // always parse IPv4 here for error consistency
       boost::system::error_code ec{};
-      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ip, ec);
+      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ipv4_address, ec);
       if (ec)
       {
-        LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ip.name);
+        LOG_ERROR(tr("Invalid IPv4 address given for --") << arg.rpc_bind_ipv4_address.name);
         return boost::none;
       }
 
       if (!parsed_ip.is_loopback() && !command_line::get_arg(vm, arg.confirm_external_bind))
       {
         LOG_ERROR(
-          "--" << arg.rpc_bind_ip.name <<
+          "--" << arg.rpc_bind_ipv4_address.name <<
           tr(" permits inbound unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --") <<
           arg.confirm_external_bind.name
         );
@@ -175,12 +192,12 @@ namespace cryptonote
       }
 
 
-      // always parse IP here for error consistency
+      // always parse IPv6 here for error consistency
       boost::system::error_code ec{};
       const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ipv6_address, ec);
       if (ec)
       {
-        LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ipv6_address.name);
+        LOG_ERROR(tr("Invalid IPv6 address given for --") << arg.rpc_bind_ipv6_address.name);
         return boost::none;
       }
 
@@ -194,14 +211,14 @@ namespace cryptonote
         return boost::none;
       }
     }
-    if (!config.restricted_bind_ip.empty())
+    if (!config.restricted_bind_ipv4_address.empty())
     {
-      // always parse IP here for error consistency
+      // always parse IPv4 here for error consistency
       boost::system::error_code ec{};
-      boost::asio::ip::address::from_string(config.restricted_bind_ip, ec);
+      boost::asio::ip::address::from_string(config.restricted_bind_ipv4_address, ec);
       if (ec)
       {
-        LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_restricted_bind_ip.name);
+        LOG_ERROR(tr("Invalid IPv4 address given for --") << arg.rpc_restricted_bind_ipv4_address.name);
         return boost::none;
       }
     }
@@ -213,12 +230,12 @@ namespace cryptonote
         config.restricted_bind_ipv6_address = config.restricted_bind_ipv6_address.substr(1, config.restricted_bind_ipv6_address.size() - 2);
       }
 
-      // always parse IP here for error consistency
+      // always parse IPv6 here for error consistency
       boost::system::error_code ec{};
       boost::asio::ip::address::from_string(config.restricted_bind_ipv6_address, ec);
       if (ec)
       {
-        LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_restricted_bind_ipv6_address.name);
+        LOG_ERROR(tr("Invalid IPv6 address given for --") << arg.rpc_restricted_bind_ipv6_address.name);
         return boost::none;
       }
     }

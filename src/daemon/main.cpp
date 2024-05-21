@@ -66,12 +66,12 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
   }
 
   std::string rpc_port_str;
-  std::string rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_bind_ip);
+  std::string rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_bind_ipv4_address);
   const auto &restricted_rpc_port = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
   if (!command_line::is_arg_defaulted(vm, restricted_rpc_port))
   {
     rpc_port_str = command_line::get_arg(vm, restricted_rpc_port);
-    rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_restricted_bind_ip);
+    rpc_bind_address = command_line::get_arg(vm, cryptonote::rpc_args::descriptors().rpc_restricted_bind_ipv4_address);
   }
   else if (command_line::get_arg(vm, cryptonote::core_rpc_server::arg_restricted_rpc))
   {
@@ -308,7 +308,7 @@ int main(int argc, char const * argv[])
       if (command.size())
       {
         const cryptonote::rpc_args::descriptors arg{};
-        auto rpc_ip_str = command_line::get_arg(vm, arg.rpc_bind_ip);
+        auto rpc_ip_str = command_line::get_arg(vm, arg.rpc_bind_ipv4_address);
         auto rpc_port_str = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
 
         uint32_t rpc_ip;
