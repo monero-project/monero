@@ -53,6 +53,7 @@ class wallet_accessor_test
 {
 public:
   static void set_account(tools::wallet2 * wallet, cryptonote::account_base& account);
+  static void set_password(tools::wallet2 * wallet, const epee::wipeable_string & password) { wallet->setup_keys(password); }
   static tools::wallet2::transfer_container & get_transfers(tools::wallet2 * wallet) { return wallet->m_transfers; }
   static subaddresses_t & get_subaddresses(tools::wallet2 * wallet) { return wallet->m_subaddresses; }
   static void process_parsed_blocks(tools::wallet2 * wallet, uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, uint64_t& blocks_added);
