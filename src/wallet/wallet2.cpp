@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <numeric>
+#include <string>
 #include <tuple>
 #include <queue>
 #include <boost/format.hpp>
@@ -1359,6 +1360,10 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options, const std::string& proxy)
 {
   boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
+
+  if(daemon_address.empty()) {
+    daemon_address.append("http://localhost:" + std::to_string(get_config(m_nettype).RPC_DEFAULT_PORT));
+  }
 
   if(m_http_client->is_connected())
     m_http_client->disconnect();
