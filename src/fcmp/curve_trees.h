@@ -30,7 +30,7 @@
 
 #include "crypto/crypto.h"
 #include "misc_log_ex.h"
-#include "tower_cycle_types.h"
+#include "tower_cycle.h"
 
 #include <vector>
 
@@ -40,16 +40,16 @@ namespace curve_trees
 {
 
 
-// TODO: template all the curve things
 // TODO: CurveTree class instantiated with the curves and widths
 // TODO: move "TEST" functions
 
-// TODO: template
+// TODO: make part of CurveTrees class
+template<typename C>
 struct LeafTuple final
 {
-    tower_cycle::selene::Selene::Scalar O_x;
-    tower_cycle::selene::Selene::Scalar I_x;
-    tower_cycle::selene::Selene::Scalar C_x;
+    typename C::Scalar O_x;
+    typename C::Scalar I_x;
+    typename C::Scalar C_x;
 };
 
 static const std::size_t LEAF_TUPLE_SIZE = 3;
@@ -57,15 +57,18 @@ static const std::size_t LEAF_TUPLE_SIZE = 3;
 // TODO: make this a const class member that's set on initialization
 static const std::size_t LEAF_LAYER_CHUNK_WIDTH = LEAF_TUPLE_SIZE * tower_cycle::selene::SELENE.WIDTH;
 
+// TODO: make part of CurveTrees class
 // Tree structure
+template<typename C>
 struct Leaves final
 {
     // Starting index in the leaf layer
-    std::size_t            start_idx;
+    std::size_t               start_idx;
     // Contiguous leaves in a tree that start at the start_idx
-    std::vector<LeafTuple> tuples;
+    std::vector<LeafTuple<C>> tuples;
 };
 
+// TODO: make part of CurveTrees class
 // A layer of contiguous hashes starting from a specific start_idx in the tree
 template<typename C>
 struct LayerExtension final
@@ -74,15 +77,17 @@ struct LayerExtension final
     std::vector<typename C::Point> hashes;
 };
 
+// TODO: make part of CurveTrees class
 // A struct useful to extend an existing tree, layers alternate between C1 and C2
 template<typename C1, typename C2>
 struct TreeExtension final
 {
-    Leaves                          leaves;
+    Leaves<C2>                      leaves;
     std::vector<LayerExtension<C1>> c1_layer_extensions;
     std::vector<LayerExtension<C2>> c2_layer_extensions;
 };
 
+// TODO: make part of CurveTrees class
 // Useful data from the last chunk in a layer
 template<typename C>
 struct LastChunkData final
@@ -99,6 +104,7 @@ struct LastChunkData final
     /*TODO: const*/ std::size_t                     parent_layer_size;
 };
 
+// TODO: make part of CurveTrees class
 template<typename C1, typename C2>
 struct LastChunks final
 {
@@ -106,9 +112,40 @@ struct LastChunks final
     std::vector<LastChunkData<C2>> c2_last_chunks;
 };
 
-// TODO: template
-LeafTuple output_to_leaf_tuple(const crypto::public_key &O, const crypto::public_key &C);
-std::vector<tower_cycle::selene::Selene::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves);
+// TODO: make part of CurveTrees class
+template<typename C2>
+LeafTuple<C2> output_to_leaf_tuple(const C2 &curve,
+    const crypto::public_key &O,
+    const crypto::public_key &C)
+{
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(O, I);
+
+    return LeafTuple<C2>{
+        .O_x = curve.ed_25519_point_to_scalar(O),
+        .I_x = curve.ed_25519_point_to_scalar(I),
+        .C_x = curve.ed_25519_point_to_scalar(C)
+    };
+};
+
+// TODO: make part of CurveTrees class
+template<typename C>
+std::vector<typename C::Scalar> flatten_leaves(const C &curve,
+    const std::vector<LeafTuple<C>> &leaves)
+{
+    std::vector<typename C::Scalar> flattened_leaves;
+    flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
+
+    for (const auto &l : leaves)
+    {
+        // TODO: implement without cloning
+        flattened_leaves.emplace_back(curve.clone(l.O_x));
+        flattened_leaves.emplace_back(curve.clone(l.I_x));
+        flattened_leaves.emplace_back(curve.clone(l.C_x));
+    }
+
+    return flattened_leaves;
+};
 
 template <typename C_POINTS, typename C_SCALARS>
 static void extend_scalars_from_cycle_points(const C_POINTS &curve,
@@ -125,7 +162,7 @@ static void extend_scalars_from_cycle_points(const C_POINTS &curve,
     }
 }
 
-// TODO: move to tower_cycle_types
+// TODO: move to tower_cycle
 template <typename C>
 static void extend_zeroes(const C &curve,
     const std::size_t num_zeroes,
@@ -154,6 +191,7 @@ static typename C::Point get_new_parent(const C &curve,
         );
 }
 
+// TODO: make part of CurveTrees class
 template <typename C>
 static typename C::Point get_first_leaf_parent(const C &curve,
     const typename C::Chunk &new_children,
@@ -176,6 +214,7 @@ static typename C::Point get_first_leaf_parent(const C &curve,
         );
 }
 
+// TODO: make part of CurveTrees class
 template <typename C>
 static typename C::Point get_first_non_leaf_parent(const C &curve,
     const typename C::Chunk &new_children,
@@ -222,6 +261,7 @@ static typename C::Point get_first_non_leaf_parent(const C &curve,
 }
 
 // TODO: look into consolidating hash_layer and hash_leaf_layer into 1 function
+// TODO: make part of CurveTrees class
 template<typename C_CHILD, typename C_PARENT>
 void hash_layer(const C_CHILD &c_child,
     const C_PARENT &c_parent,
@@ -322,10 +362,11 @@ void hash_layer(const C_CHILD &c_child,
     }
 }
 
+// TODO: make part of CurveTrees class
 template<typename C2>
 void hash_leaf_layer(const C2 &c2,
     const LastChunkData<C2> *last_chunk_ptr,
-    const Leaves &leaves,
+    const Leaves<C2> &leaves,
     LayerExtension<C2> &parents_out)
 {
     parents_out.start_idx = (last_chunk_ptr == nullptr) ? 0 : last_chunk_ptr->parent_layer_size;
@@ -335,7 +376,7 @@ void hash_leaf_layer(const C2 &c2,
         return;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar, scalar, scalar, scalar, scalar, scalar,...]
-    const std::vector<typename C2::Scalar> children = flatten_leaves(leaves.tuples);
+    const std::vector<typename C2::Scalar> children = flatten_leaves<C2>(c2, leaves.tuples);
 
     const std::size_t max_chunk_size = LEAF_LAYER_CHUNK_WIDTH;
     const std::size_t offset         = (last_chunk_ptr == nullptr) ? 0 : last_chunk_ptr->child_offset;
@@ -385,9 +426,10 @@ void hash_leaf_layer(const C2 &c2,
     }
 }
 
+// TODO: make part of CurveTrees class
 template<typename C1, typename C2>
 TreeExtension<C1, C2> get_tree_extension(const LastChunks<C1, C2> &existing_last_chunks,
-    const Leaves &new_leaves,
+    const Leaves<C2> &new_leaves,
     const C1 &c1,
     const C2 &c2)
 {
@@ -409,7 +451,7 @@ TreeExtension<C1, C2> get_tree_extension(const LastChunks<C1, C2> &existing_last
     tree_extension.leaves.tuples.reserve(new_leaves.tuples.size());
     for (const auto &leaf : new_leaves.tuples)
     {
-        tree_extension.leaves.tuples.emplace_back(LeafTuple{
+        tree_extension.leaves.tuples.emplace_back(LeafTuple<C2>{
             .O_x = c2.clone(leaf.O_x),
             .I_x = c2.clone(leaf.I_x),
             .C_x = c2.clone(leaf.C_x)
@@ -494,7 +536,7 @@ using Layer = std::vector<typename C::Point>;
 template<typename C1, typename C2>
 struct Tree final
 {
-    std::vector<LeafTuple> leaves;
+    std::vector<LeafTuple<C2>> leaves;
     std::vector<Layer<C1>> c1_layers;
     std::vector<Layer<C2>> c2_layers;
 };
@@ -502,7 +544,7 @@ struct Tree final
 // TEST
 template<typename C2>
 LastChunkData<C2> get_last_leaf_chunk(const C2 &c2,
-    const std::vector<LeafTuple> &leaves,
+    const std::vector<LeafTuple<C2>> &leaves,
     const std::vector<typename C2::Point> &parent_layer)
 {
     CHECK_AND_ASSERT_THROW_MES(!leaves.empty(), "empty leaf layer");
@@ -654,7 +696,7 @@ void extend_tree(const TreeExtension<C1, C2> &tree_extension,
     tree_inout.leaves.reserve(tree_inout.leaves.size() + tree_extension.leaves.tuples.size());
     for (const auto &leaf : tree_extension.leaves.tuples)
     {
-        tree_inout.leaves.emplace_back(LeafTuple{
+        tree_inout.leaves.emplace_back(LeafTuple<C2>{
             .O_x = c2.clone(leaf.O_x),
             .I_x = c2.clone(leaf.I_x),
             .C_x = c2.clone(leaf.C_x)
@@ -832,7 +874,7 @@ bool validate_tree(const Tree<C1, C2> &tree, const C1 &c1, const C2 &c2)
     }
 
     // Now validate leaves
-    return validate_layer<C2>(c2, c2_layers[0], flatten_leaves(leaves), LEAF_LAYER_CHUNK_WIDTH);
+    return validate_layer<C2>(c2, c2_layers[0], flatten_leaves<C2>(c2, leaves), LEAF_LAYER_CHUNK_WIDTH);
 }
 
 } //namespace curve_trees

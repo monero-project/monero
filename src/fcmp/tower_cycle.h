@@ -122,7 +122,7 @@ static struct Selene final
     static const std::size_t WIDTH = 5;
 
     // Ed25519 point x-coordinates are Selene scalars
-    SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point);
+    SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point) const;
 
     // Selene point x-coordinates are Helios scalars
     HeliosScalar point_to_cycle_scalar(const Point &point) const;

@@ -29,14 +29,15 @@
 #include "gtest/gtest.h"
 
 #include "fcmp/curve_trees.h"
-#include "fcmp/tower_cycle_types.h"
+#include "fcmp/tower_cycle.h"
 #include "misc_log_ex.h"
 
 #include <cmath>
 
-static const fcmp::curve_trees::Leaves generate_leaves(const std::size_t num_leaves)
+template<typename C2>
+static const fcmp::curve_trees::Leaves<C2> generate_leaves(const C2 &curve, const std::size_t num_leaves)
 {
-    std::vector<fcmp::curve_trees::LeafTuple> tuples;
+    std::vector<fcmp::curve_trees::LeafTuple<C2>> tuples;
     tuples.reserve(num_leaves);
 
     for (std::size_t i = 0; i < num_leaves; ++i)
@@ -47,10 +48,12 @@ static const fcmp::curve_trees::Leaves generate_leaves(const std::size_t num_lea
         crypto::generate_keys(O, o, o, false);
         crypto::generate_keys(C, c, c, false);
 
-        tuples.emplace_back(fcmp::curve_trees::output_to_leaf_tuple(O, C));
+        auto leaf_tuple = fcmp::curve_trees::output_to_leaf_tuple<C2>(curve, O, C);
+
+        tuples.emplace_back(std::move(leaf_tuple));
     }
 
-    return fcmp::curve_trees::Leaves{
+    return fcmp::curve_trees::Leaves<C2>{
         .start_idx = 0,
         .tuples    = std::move(tuples)
     };
@@ -209,7 +212,7 @@ static void log_last_chunks(const fcmp::curve_trees::LastChunks<fcmp::tower_cycl
     }
 }
 
-TEST(fcmp_tree, grow_tree)
+TEST(curve_trees, grow_tree)
 {
     const std::vector<std::size_t> N_LEAVES{
         1,
@@ -241,7 +244,7 @@ TEST(fcmp_tree, grow_tree)
 
                 const auto tree_extension = fcmp::curve_trees::get_tree_extension<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     fcmp::curve_trees::LastChunks<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>{},
-                    generate_leaves(init_leaves),
+                    generate_leaves<fcmp::tower_cycle::selene::Selene>(fcmp::tower_cycle::selene::SELENE, init_leaves),
                     fcmp::tower_cycle::helios::HELIOS,
                     fcmp::tower_cycle::selene::SELENE);
 
@@ -278,7 +281,7 @@ TEST(fcmp_tree, grow_tree)
 
                 const auto tree_extension = fcmp::curve_trees::get_tree_extension<fcmp::tower_cycle::helios::Helios, fcmp::tower_cycle::selene::Selene>(
                     last_chunks,
-                    generate_leaves(ext_leaves),
+                    generate_leaves<fcmp::tower_cycle::selene::Selene>(fcmp::tower_cycle::selene::SELENE, ext_leaves),
                     fcmp::tower_cycle::helios::HELIOS,
                     fcmp::tower_cycle::selene::SELENE);
 
