@@ -298,21 +298,19 @@ private:
         const typename C::Chunk &new_children,
         const std::size_t chunk_width,
         const bool child_layer_last_hash_updated,
-        const LastChunkData<C> *last_chunk_ptr) const
+        const LastChunkData<C> *last_chunk_ptr,
+        const std::size_t offset) const
     {
         // If no last chunk exists, we can get a new parent
         if (last_chunk_ptr == nullptr)
             return get_new_parent<C>(curve, new_children);
 
         std::vector<typename C::Scalar> prior_children;
-        std::size_t offset = last_chunk_ptr->child_offset;
 
         if (child_layer_last_hash_updated)
         {
-            // If the last chunk has updated children in it, then we need to get the delta to the old children, and
-            // subtract the offset by 1 since we're updating the prior last hash
+            // If the last chunk has updated children in it, then we need to get the delta to the old children
             prior_children.emplace_back(curve.clone(last_chunk_ptr->last_child));
-            offset = offset > 0 ? (offset - 1) : (chunk_width - 1);
 
             // Extend prior children by zeroes for any additional new children, since they must be new
             if (new_children.size() > 1)
@@ -354,35 +352,28 @@ private:
 
         CHECK_AND_ASSERT_THROW_MES(!children.hashes.empty(), "empty children hashes");
 
-        std::size_t offset = (last_parent_chunk_ptr == nullptr) ? 0 : last_parent_chunk_ptr->child_offset;
-
-        // TODO: try to simplify the approach to avoid edge cases
-        // If we're adding new children to an existing last chunk, then we need to pull the parent start idx back 1
-        // since we'll be updating the existing parent hash of the last chunk
-        if (offset > 0)
-        {
-            CHECK_AND_ASSERT_THROW_MES(parents_out.start_idx > 0, "parent start idx should be > 0");
-            --parents_out.start_idx;
-        }
-
-        // If the child layer had its existing last hash updated, then we'll need to use the last hash's prior
-        // version in order to update the existing last parent hash in this layer
+        // If the child layer had its existing last hash updated (if the new children start at the last element in
+        // the child layer), then we'll need to use the last hash's prior version in order to update the existing
+        // last parent hash in this layer
         bool child_layer_last_hash_updated = (last_parent_chunk_ptr == nullptr)
             ? false
             : last_parent_chunk_ptr->child_layer_size == (children.start_idx + 1);
 
-        if (offset == 0 && child_layer_last_hash_updated)
-        {
-            CHECK_AND_ASSERT_THROW_MES(parents_out.start_idx > 0, "parent start idx should be > 0");
-            --parents_out.start_idx;
-        }
+        std::size_t offset = (last_parent_chunk_ptr == nullptr) ? 0 : last_parent_chunk_ptr->child_offset;
 
-        // TODO: clean this up so I don't have to do it twice here and in get_first_non_leaf_parent
         // The offset needs to be brought back because we're going to start with the prior hash, and so the chunk
         // will start from there and may need 1 more to fill
         CHECK_AND_ASSERT_THROW_MES(chunk_width > offset, "unexpected offset");
         if (child_layer_last_hash_updated)
             offset = offset > 0 ? (offset - 1) : (chunk_width - 1);
+
+        // If we're adding new children to an existing last chunk, then we need to pull the parent start idx back 1
+        // since we'll be updating the existing parent hash of the last chunk
+        if (offset > 0 || child_layer_last_hash_updated)
+        {
+            CHECK_AND_ASSERT_THROW_MES(parents_out.start_idx > 0, "parent start idx should be > 0");
+            --parents_out.start_idx;
+        }
 
         // If we're creating a *new* root at the existing root layer, we may need to include the *existing* root when
         // hashing the *existing* root layer
@@ -418,7 +409,12 @@ private:
 
             // Hash the chunk of children
             typename C_PARENT::Point chunk_hash = chunk_start_idx == 0
-                ? get_first_non_leaf_parent<C_PARENT>(c_parent, chunk, chunk_width, child_layer_last_hash_updated, last_parent_chunk_ptr)
+                ? get_first_non_leaf_parent<C_PARENT>(c_parent,
+                    chunk,
+                    chunk_width,
+                    child_layer_last_hash_updated,
+                    last_parent_chunk_ptr,
+                    offset)
                 : get_new_parent<C_PARENT>(c_parent, chunk);
 
             MDEBUG("Hash chunk_start_idx " << chunk_start_idx << " result: " << c_parent.to_string(chunk_hash)
@@ -451,9 +447,6 @@ private:
         if (leaves.tuples.empty())
             return;
 
-        // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar, scalar, scalar, scalar, scalar, scalar,...]
-        const std::vector<typename C2::Scalar> children = flatten_leaves(leaves.tuples);
-
         const std::size_t max_chunk_size = m_leaf_layer_chunk_width;
         const std::size_t offset         = (last_chunk_ptr == nullptr) ? 0 : last_chunk_ptr->child_offset;
 
@@ -464,6 +457,9 @@ private:
             CHECK_AND_ASSERT_THROW_MES(parents_out.start_idx > 0, "parent start idx should be > 0");
             --parents_out.start_idx;
         }
+
+        // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar, scalar, scalar, scalar, scalar, scalar,...]
+        const std::vector<typename C2::Scalar> children = flatten_leaves(leaves.tuples);
 
         // See how many new children are needed to fill up the existing last chunk
         CHECK_AND_ASSERT_THROW_MES(max_chunk_size > offset, "unexpected offset");
