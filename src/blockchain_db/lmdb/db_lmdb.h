@@ -202,10 +202,6 @@ public:
 
   virtual std::string get_db_name() const;
 
-  virtual bool lock();
-
-  virtual void unlock();
-
   virtual bool block_exists(const crypto::hash& h, uint64_t *height = NULL) const;
 
   virtual uint64_t get_block_height(const crypto::hash& h) const;
