@@ -67,7 +67,7 @@ struct SeleneT final
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// Parent curve class that curves in a curve cycle must implement
+// Parent curve class that curves in a cycle must implement
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
 class Curve
@@ -188,9 +188,10 @@ public:
 // Ed25519 point x-coordinates are Selene scalars
 SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point);
 //----------------------------------------------------------------------------------------------------------------------
-// TODO: use static constants and get rid of the below functions
-Helios::Generators random_helios_generators();
-Selene::Generators random_selene_generators();
+// TODO: use static constants and get rid of the below functions (WARNING: number of generators must be >= curve's
+// width, and also need to account for selene leaf layer 3x)
+Helios::Generators random_helios_generators(std::size_t n);
+Selene::Generators random_selene_generators(std::size_t n);
 Helios::Point random_helios_hash_init_point();
 Selene::Point random_selene_hash_init_point();
 //----------------------------------------------------------------------------------------------------------------------

@@ -155,14 +155,14 @@ SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
     return fcmp_rust::ed25519_point_to_selene_scalar(rust_point);
 }
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Generators random_helios_generators()
+Helios::Generators random_helios_generators(std::size_t n)
 {
-    return fcmp_rust::random_helios_generators();
+    return fcmp_rust::random_helios_generators(n);
 }
 //----------------------------------------------------------------------------------------------------------------------
-Selene::Generators random_selene_generators()
+Selene::Generators random_selene_generators(std::size_t n)
 {
-    return fcmp_rust::random_selene_generators();
+    return fcmp_rust::random_selene_generators(n);
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Point random_helios_hash_init_point()
