@@ -58,9 +58,11 @@
 namespace
 {
   constexpr const char txpool_signal[] = "tx_signal";
+  constexpr const char sync_signal[] = "sync_signal";
 
   using chain_writer =  void(epee::byte_stream&, std::uint64_t, epee::span<const cryptonote::block>);
   using miner_writer =  void(epee::byte_stream&, uint8_t, uint64_t, const crypto::hash&, const crypto::hash&, cryptonote::difficulty_type, uint64_t, uint64_t, const std::vector<cryptonote::tx_block_template_backlog_entry>&);
+  using sync_writer =  void(epee::byte_stream&, bool, std::uint64_t, std::uint64_t);
   using txpool_writer = void(epee::byte_stream&, epee::span<const cryptonote::txpool_event>);
 
   template<typename F>
@@ -133,6 +135,14 @@ namespace
     const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog;
   };
 
+  //! Object for sync notification serialization
+  struct minimal_sync
+  {
+    const bool syncing;
+    const std::uint64_t height;
+    const std::uint64_t target;
+  };
+
   //! Object for "minimal" tx serialization
   struct minimal_txpool
   {
@@ -188,6 +198,17 @@ namespace
     dest.EndObject();
   }
 
+  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const minimal_sync self)
+  {
+    namespace adapt = boost::adaptors;
+
+    dest.StartObject();
+    INSERT_INTO_JSON_OBJECT(dest, syncing, self.syncing);
+    INSERT_INTO_JSON_OBJECT(dest, height, self.height);
+    INSERT_INTO_JSON_OBJECT(dest, target, self.target);
+    dest.EndObject();
+  }
+
   void json_full_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
     json_pub(buf, blocks);
@@ -201,6 +222,11 @@ namespace
   void json_miner_data(epee::byte_stream& buf, uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::hash& seed_hash, cryptonote::difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog)
   {
     json_pub(buf, miner_data{major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog});
+  }
+
+  void json_minimal_sync(epee::byte_stream& buf, bool syncing, const std::uint64_t height, const std::uint64_t target)
+  {
+    json_pub(buf, minimal_sync{syncing, height, target});
   }
 
   // boost::adaptors are in place "views" - no copy/move takes place
@@ -235,6 +261,12 @@ namespace
   constexpr const std::array<context<miner_writer>, 1> miner_contexts =
   {{
     {u8"json-full-miner_data", json_miner_data},
+  }};
+
+  constexpr const std::array<context<sync_writer>, 2> sync_contexts =
+  {{
+    {u8"json-full-sync", json_minimal_sync},
+    {u8"json-minimal-sync", json_minimal_sync},
   }};
 
   constexpr const std::array<context<txpool_writer>, 2> txpool_contexts =
@@ -337,7 +369,7 @@ namespace
       zmq_msg_size(std::addressof(msg))
     };
 
-    if (payload == txpool_signal)
+    if (payload == txpool_signal || payload == sync_signal)
     {
       zmq_msg_close(std::addressof(msg));
       return false;
@@ -361,6 +393,7 @@ zmq_pub::zmq_pub(void* context)
   : relay_(),
     chain_subs_{{0}},
     miner_subs_{{0}},
+    sync_subs_({0}),
     txpool_subs_{{0}},
     sync_()
 {
@@ -369,6 +402,7 @@ zmq_pub::zmq_pub(void* context)
 
   verify_sorted(chain_contexts, "chain_contexts");
   verify_sorted(miner_contexts, "miner_contexts");
+  verify_sorted(sync_contexts, "sync_contexts");
   verify_sorted(txpool_contexts, "txpool_contexts");
 
   relay_.reset(zmq_socket(context, ZMQ_PAIR));
@@ -390,12 +424,13 @@ bool zmq_pub::sub_request(boost::string_ref message)
 
     const auto chain_range = get_range(chain_contexts, message);
     const auto miner_range = get_range(miner_contexts, message);
+    const auto sync_range = get_range(sync_contexts, message);
     const auto txpool_range = get_range(txpool_contexts, message);
 
-    if (!chain_range.empty() || !miner_range.empty() || !txpool_range.empty())
+    if (!chain_range.empty() || !miner_range.empty() || !sync_range.empty() || !txpool_range.empty())
     {
       MDEBUG("Client " << (tag ? "subscribed" : "unsubscribed") << " to " <<
-             chain_range.size() << " chain topic(s), " << miner_range.size() << " miner topic(s) and " << txpool_range.size() << " txpool topic(s)");
+             chain_range.size() << " chain topic(s), " << miner_range.size() << " miner topic(s), " << sync_range.size() << " sync topic(s) and " << txpool_range.size() << " txpool topic(s)");
 
       const boost::lock_guard<boost::mutex> lock{sync_};
       switch (tag)
@@ -403,11 +438,13 @@ bool zmq_pub::sub_request(boost::string_ref message)
       case 0:
         remove_subscriptions(chain_subs_, chain_range, chain_contexts.begin());
         remove_subscriptions(miner_subs_, miner_range, miner_contexts.begin());
+        remove_subscriptions(sync_subs_, sync_range, sync_contexts.begin());
         remove_subscriptions(txpool_subs_, txpool_range, txpool_contexts.begin());
         return true;
       case 1:
         add_subscriptions(chain_subs_, chain_range, chain_contexts.begin());
         add_subscriptions(miner_subs_, miner_range, miner_contexts.begin());
+        add_subscriptions(sync_subs_, sync_range, sync_contexts.begin());
         add_subscriptions(txpool_subs_, txpool_range, txpool_contexts.begin());
         return true;
       default:
@@ -499,6 +536,20 @@ std::size_t zmq_pub::send_miner_data(uint8_t major_version, uint64_t height, con
   return 0;
 }
 
+std::size_t zmq_pub::send_sync(bool syncing, std::uint64_t height, std::uint64_t target)
+{
+  const boost::lock_guard<boost::mutex> lock{sync_};
+  for (const std::size_t sub : sync_subs_)
+  {
+    if (sub)
+    {
+        auto messages = make_pubs(sync_subs_, sync_contexts, syncing, height, target);
+        return send_messages(relay_.get(), messages);
+    }
+  }
+  return 0;
+}
+
 std::size_t zmq_pub::send_txpool_add(std::vector<txpool_event> txes)
 {
   if (txes.empty())
@@ -534,6 +585,15 @@ void zmq_pub::miner_data::operator()(uint8_t major_version, uint64_t height, con
   const std::shared_ptr<zmq_pub> self = self_.lock();
   if (self)
     self->send_miner_data(major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog);
+  else
+    MERROR("Unable to send ZMQ/Pub - ZMQ server destroyed");
+}
+
+void zmq_pub::sync::operator()(bool syncing, std::uint64_t height, std::uint64_t target) const
+{
+  const std::shared_ptr<zmq_pub> self = self_.lock();
+  if (self)
+    self->send_sync(syncing, height, target);
   else
     MERROR("Unable to send ZMQ/Pub - ZMQ server destroyed");
 }
