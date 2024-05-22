@@ -32,8 +32,8 @@
 #include "fcmp/tower_cycle.h"
 #include "misc_log_ex.h"
 
-using Helios = fcmp::tower_cycle::helios::Helios;
-using Selene = fcmp::tower_cycle::selene::Selene;
+using Helios = fcmp::tower_cycle::Helios;
+using Selene = fcmp::tower_cycle::Selene;
 
 // TODO: make this the instantiation in curve_trees.h/.cpp
 using CurveTreesV1 = fcmp::CurveTrees<Helios, Selene>;
@@ -66,6 +66,11 @@ public:
 
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
     bool validate_tree(const Tree &tree);
+
+    // logging helpers
+    void log_last_chunks(const CurveTreesV1::LastChunks &last_chunks);
+    void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
+    void log_tree(const CurveTreesUnitTest::Tree &tree);
 
 //private member functions
 private:
