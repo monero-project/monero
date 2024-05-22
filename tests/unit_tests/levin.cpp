@@ -358,7 +358,7 @@ namespace
                 noise = epee::levin::make_noise_notify(noise_size);
             epee::net_utils::zone zone = is_public ? epee::net_utils::zone::public_ : epee::net_utils::zone::i2p;
             receiver_.notifier.reset(
-              new cryptonote::levin::notify{io_service_, connections_, std::move(noise), zone, pad_txs, events_}
+              new cryptonote::levin::notify{io_service_, connections_, std::move(noise), zone, pad_txs, events_, false}
             );
             return receiver_.notifier;
         }
