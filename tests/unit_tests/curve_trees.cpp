@@ -30,8 +30,6 @@
 
 #include "curve_trees.h"
 
-#include <cmath>
-
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTreesUnitTest helpers
@@ -472,7 +470,7 @@ void CurveTreesUnitTest::log_tree_extension(const CurveTreesV1::TreeExtension &t
 //----------------------------------------------------------------------------------------------------------------------
 void CurveTreesUnitTest::log_tree(const CurveTreesUnitTest::Tree &tree)
 {
-    MDEBUG("Tree has " << tree.leaves.size() << " leaves, "
+    LOG_PRINT_L1("Tree has " << tree.leaves.size() << " leaves, "
         << tree.c1_layers.size() << " helios layers, " <<  tree.c2_layers.size() << " selene layers");
 
     for (std::size_t i = 0; i < tree.leaves.size(); ++i)
@@ -547,7 +545,7 @@ static const CurveTreesV1::Leaves generate_random_leaves(const CurveTreesV1 &cur
     };
 }
 //----------------------------------------------------------------------------------------------------------------------
-static void grow_tree_test(CurveTreesV1 &curve_trees,
+static void grow_tree(CurveTreesV1 &curve_trees,
     CurveTreesUnitTest &curve_trees_accessor,
     const std::size_t num_leaves,
     CurveTreesUnitTest::Tree &tree_inout)
@@ -574,14 +572,105 @@ static void grow_tree_test(CurveTreesV1 &curve_trees,
     ASSERT_TRUE(curve_trees_accessor.validate_tree(tree_inout));
 }
 //----------------------------------------------------------------------------------------------------------------------
+static void grow_tree_test(Helios &helios,
+    Selene &selene,
+    const std::size_t helios_width,
+    const std::size_t selene_width)
+{
+    LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_width << ", selene chunk width " << selene_width);
+
+    auto curve_trees = CurveTreesV1(
+        helios,
+        selene,
+        helios_width,
+        selene_width);
+
+    CurveTreesUnitTest curve_trees_accesor{curve_trees};
+
+    CHECK_AND_ASSERT_THROW_MES(helios_width > 1, "helios width must be > 1");
+    CHECK_AND_ASSERT_THROW_MES(selene_width > 1, "selene width must be > 1");
+
+    // Number of leaves for which x number of layers is required
+    const std::size_t NEED_1_LAYER  = selene_width;
+    const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * helios_width;
+    const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * selene_width;
+
+    const std::vector<std::size_t> N_LEAVES{
+        // Basic tests
+        1,
+        2,
+
+        // Test with number of leaves {-1,0,+1} relative to chunk width boundaries
+        NEED_1_LAYER-1,
+        NEED_1_LAYER,
+        NEED_1_LAYER+1,
+
+        NEED_2_LAYERS-1,
+        NEED_2_LAYERS,
+        NEED_2_LAYERS+1,
+
+        NEED_3_LAYERS,
+    };
+
+    for (const std::size_t init_leaves : N_LEAVES)
+    {
+        for (const std::size_t ext_leaves : N_LEAVES)
+        {
+            // Tested reverse order already
+            if (ext_leaves < init_leaves)
+                continue;
+
+            // Only test 3rd layer once because it's a huge test
+            if (init_leaves > 1 && ext_leaves == NEED_3_LAYERS)
+                continue;
+
+            LOG_PRINT_L1("Adding " << init_leaves << " leaves to tree, then extending by " << ext_leaves << " leaves");
+
+            CurveTreesUnitTest::Tree global_tree;
+
+            // Initialize global tree with `init_leaves`
+            MDEBUG("Adding " << init_leaves << " leaves to tree");
+
+            grow_tree(curve_trees,
+                curve_trees_accesor,
+                init_leaves,
+                global_tree);
+
+            MDEBUG("Successfully added initial " << init_leaves << " leaves to tree");
+
+            // Then extend the global tree by `ext_leaves`
+            MDEBUG("Extending tree by " << ext_leaves << " leaves");
+
+            grow_tree(curve_trees,
+                curve_trees_accesor,
+                ext_leaves,
+                global_tree);
+
+            MDEBUG("Successfully extended by " << ext_leaves << " leaves");
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Test
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, grow_tree)
 {
     // TODO: use static constant generators and hash init points
-    const Helios::Generators HELIOS_GENERATORS = fcmp::tower_cycle::random_helios_generators();
-    const Selene::Generators SELENE_GENERATORS = fcmp::tower_cycle::random_selene_generators();
+    const std::size_t HELIOS_GENERATORS_LEN = 128;
+    const std::size_t SELENE_GENERATORS_LEN = 256;
+
+    // https://github.com/kayabaNerve/fcmp-plus-plus/blob
+    //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
+    const std::size_t HELIOS_CHUNK_WIDTH = 38;
+    const std::size_t SELENE_CHUNK_WIDTH = 18;
+
+    CHECK_AND_ASSERT_THROW_MES(HELIOS_GENERATORS_LEN >= HELIOS_CHUNK_WIDTH, "helios generators < chunk width");
+    CHECK_AND_ASSERT_THROW_MES(SELENE_GENERATORS_LEN >= (SELENE_CHUNK_WIDTH * CurveTreesV1::LEAF_TUPLE_SIZE),
+        "selene generators < max chunk width");
+
+    const Helios::Generators HELIOS_GENERATORS = fcmp::tower_cycle::random_helios_generators(HELIOS_GENERATORS_LEN);
+    const Selene::Generators SELENE_GENERATORS = fcmp::tower_cycle::random_selene_generators(SELENE_GENERATORS_LEN);
 
     const Helios::Point HELIOS_HASH_INIT_POINT = fcmp::tower_cycle::random_helios_hash_init_point();
     const Selene::Point SELENE_HASH_INIT_POINT = fcmp::tower_cycle::random_selene_hash_init_point();
@@ -589,63 +678,5 @@ TEST(curve_trees, grow_tree)
     Helios helios(HELIOS_GENERATORS, HELIOS_HASH_INIT_POINT);
     Selene selene(SELENE_GENERATORS, SELENE_HASH_INIT_POINT);
 
-    // TODO: test varying widths
-    const std::size_t HELIOS_CHUNK_WIDTH = 5;
-    const std::size_t SELENE_CHUNK_WIDTH = 5;
-
-    auto curve_trees = CurveTreesV1(
-        helios,
-        selene,
-        HELIOS_CHUNK_WIDTH,
-        SELENE_CHUNK_WIDTH);
-
-    CurveTreesUnitTest curve_trees_accesor{curve_trees};
-
-    const std::vector<std::size_t> N_LEAVES{
-        1,
-        2,
-        3,
-        SELENE_CHUNK_WIDTH - 1,
-        SELENE_CHUNK_WIDTH,
-        SELENE_CHUNK_WIDTH + 1,
-        (std::size_t)std::pow(SELENE_CHUNK_WIDTH, 2) - 1,
-        (std::size_t)std::pow(SELENE_CHUNK_WIDTH, 2),
-        (std::size_t)std::pow(SELENE_CHUNK_WIDTH, 2) + 1,
-        (std::size_t)std::pow(SELENE_CHUNK_WIDTH, 3),
-        (std::size_t)std::pow(SELENE_CHUNK_WIDTH, 4)
-    };
-
-    for (const std::size_t init_leaves : N_LEAVES)
-    {
-        for (const std::size_t ext_leaves : N_LEAVES)
-        {
-            MDEBUG("Adding " << init_leaves << " leaves to tree, then extending by " << ext_leaves << " leaves");
-
-            CurveTreesUnitTest::Tree global_tree;
-
-            // Initialize global tree with `init_leaves`
-            {
-                MDEBUG("Adding " << init_leaves << " leaves to tree");
-
-                grow_tree_test(curve_trees,
-                    curve_trees_accesor,
-                    init_leaves,
-                    global_tree);
-
-                MDEBUG("Successfully added initial " << init_leaves << " leaves to tree");
-            }
-
-            // Then extend the global tree by `ext_leaves`
-            {
-                MDEBUG("Extending tree by " << ext_leaves << " leaves");
-
-                grow_tree_test(curve_trees,
-                    curve_trees_accesor,
-                    ext_leaves,
-                    global_tree);
-
-                MDEBUG("Successfully extended by " << ext_leaves << " leaves");
-            }
-        }
-    }
+    grow_tree_test(helios, selene, HELIOS_CHUNK_WIDTH, SELENE_CHUNK_WIDTH);
 }

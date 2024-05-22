@@ -27,10 +27,10 @@ mod ffi {
       type SelenePoint;
       type SeleneScalar;
 
-      fn random_helios_generators() -> Box<HeliosGenerators>;
+      fn random_helios_generators(n: usize) -> Box<HeliosGenerators>;
       fn random_helios_hash_init_point() -> Box<HeliosPoint>;
 
-      fn random_selene_generators() -> Box<SeleneGenerators>;
+      fn random_selene_generators(n: usize) -> Box<SeleneGenerators>;
       fn random_selene_hash_init_point() -> Box<SelenePoint>;
 
       fn clone_helios_scalar(helios_scalar: &Box<HeliosScalar>) -> Box<HeliosScalar>;
@@ -80,14 +80,14 @@ pub struct SelenePoint(<Selene as Ciphersuite>::G);
 pub struct SeleneScalar(<Selene as Ciphersuite>::F);
 
 #[allow(non_snake_case)]
-pub fn random_helios_generators() -> Box<HeliosGenerators> {
-  let helios_generators = generalized_bulletproofs::tests::generators::<Helios>(512);
+pub fn random_helios_generators(n: usize) -> Box<HeliosGenerators> {
+  let helios_generators = generalized_bulletproofs::tests::generators::<Helios>(n);
   Box::new(HeliosGenerators(helios_generators))
 }
 
 #[allow(non_snake_case)]
-pub fn random_selene_generators() -> Box<SeleneGenerators> {
-  let selene_generators = generalized_bulletproofs::tests::generators::<Selene>(512);
+pub fn random_selene_generators(n: usize) -> Box<SeleneGenerators> {
+  let selene_generators = generalized_bulletproofs::tests::generators::<Selene>(n);
   Box::new(SeleneGenerators(selene_generators))
 }
 
