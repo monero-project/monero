@@ -1,4 +1,4 @@
-packages:=boost openssl zeromq libiconv
+packages:=boost openssl zeromq
 
 native_packages :=
 
