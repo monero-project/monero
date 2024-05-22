@@ -31,7 +31,6 @@
 #include "crypto/crypto.h"
 #include "fcmp_rust/cxx.h"
 #include "fcmp_rust/fcmp_rust.h"
-#include "string_tools.h"
 
 #include <string>
 
@@ -41,119 +40,162 @@ namespace tower_cycle
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+// Rust types
+//----------------------------------------------------------------------------------------------------------------------
 using RustEd25519Point = std::array<uint8_t, 32UL>;
 
 // Need to forward declare Scalar types for point_to_cycle_scalar below
 using SeleneScalar = rust::Box<fcmp_rust::SeleneScalar>;
 using HeliosScalar = rust::Box<fcmp_rust::HeliosScalar>;
 //----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-namespace helios
+struct HeliosT final
 {
+    using Generators  = rust::Box<fcmp_rust::HeliosGenerators>;
+    using Scalar      = HeliosScalar;
+    using Point       = rust::Box<fcmp_rust::HeliosPoint>;
+    using Chunk       = rust::Slice<const Scalar>;
+    using CycleScalar = SeleneScalar;
+};
 //----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-// TODO: Curve classes that inherit from a parent
-static struct Helios final
+struct SeleneT final
 {
-    using Generators = rust::Box<fcmp_rust::HeliosGenerators>;
-    using Scalar     = HeliosScalar;
-    using Point      = rust::Box<fcmp_rust::HeliosPoint>;
-    using Chunk      = rust::Slice<const Scalar>;
+    using Generators  = rust::Box<fcmp_rust::SeleneGenerators>;
+    using Scalar      = SeleneScalar;
+    using Point       = rust::Box<fcmp_rust::SelenePoint>;
+    using Chunk       = rust::Slice<const Scalar>;
+    using CycleScalar = HeliosScalar;
+};
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Parent curve class that curves in a curve cycle must implement
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C>
+class Curve
+{
+//constructor
+public:
+    Curve(const typename C::Generators &generators, const typename C::Point &hash_init_point):
+        m_generators{generators},
+        m_hash_init_point{hash_init_point}
+    {};
 
-    // TODO: static constants
-    const Generators GENERATORS = fcmp_rust::random_helios_generators();
-    const Point HASH_INIT_POINT = fcmp_rust::random_helios_hash_init_point();
+//member functions
+public:
+    // Read the x-coordinate from this curve's point to get this curve's cycle scalar
+    virtual typename C::CycleScalar point_to_cycle_scalar(const typename C::Point &point) const = 0;
 
-    // Helios point x-coordinates are Selene scalars
-    SeleneScalar point_to_cycle_scalar(const Point &point) const;
+    virtual typename C::Point hash_grow(
+        const typename C::Point &existing_hash,
+        const std::size_t offset,
+        const typename C::Chunk &prior_children,
+        const typename C::Chunk &new_children) const = 0;
+
+    virtual typename C::Scalar clone(const typename C::Scalar &scalar) const = 0;
+    virtual typename C::Point clone(const typename C::Point &point) const = 0;
+
+    virtual typename C::Scalar zero_scalar() const = 0;
+
+    virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Scalar &scalar) const = 0;
+    virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Point &point) const = 0;
+
+    virtual std::string to_string(const typename C::Scalar &scalar) const = 0;
+    virtual std::string to_string(const typename C::Point &point) const = 0;
+
+//member variables
+public:
+    // TODO: make these static constants
+    const typename C::Generators &m_generators;
+    const typename C::Point &m_hash_init_point;
+};
+//----------------------------------------------------------------------------------------------------------------------
+class Helios final : public Curve<HeliosT>
+{
+//typedefs
+public:
+    using Generators  = HeliosT::Generators;
+    using Scalar      = HeliosT::Scalar;
+    using Point       = HeliosT::Point;
+    using Chunk       = HeliosT::Chunk;
+    using CycleScalar = HeliosT::CycleScalar;
+
+//constructor
+public:
+    Helios(const Generators &generators, const Point &hash_init_point)
+    : Curve<HeliosT>(generators, hash_init_point)
+    {};
+
+//member functions
+public:
+    CycleScalar point_to_cycle_scalar(const Point &point) const override;
 
     Point hash_grow(
-        const Generators &generators,
         const Point &existing_hash,
         const std::size_t offset,
         const Chunk &prior_children,
-        const Chunk &new_children) const
-    {
-        return fcmp_rust::hash_grow_helios(
-            generators,
-            existing_hash,
-            offset,
-            prior_children,
-            new_children);
-    }
+        const Chunk &new_children) const override;
 
-    Scalar clone(const Scalar &scalar) const { return fcmp_rust::clone_helios_scalar(scalar); }
-    Point clone(const Point &point) const { return fcmp_rust::clone_helios_point(point); }
+    Scalar clone(const Scalar &scalar) const override;
+    Point clone(const Point &point) const override;
 
-    Scalar zero_scalar() const { return fcmp_rust::helios_zero_scalar(); }
+    Scalar zero_scalar() const override;
 
-    std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const
-        { return fcmp_rust::helios_scalar_to_bytes(scalar); }
-    std::array<uint8_t, 32UL> to_bytes(const Point &point) const
-        { return fcmp_rust::helios_point_to_bytes(point); }
+    std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
+    std::array<uint8_t, 32UL> to_bytes(const Point &point) const override;
 
-    std::string to_string(const Scalar &scalar) const
-        { return epee::string_tools::pod_to_hex(to_bytes(scalar)); }
-    std::string to_string(const Point &point) const
-        { return epee::string_tools::pod_to_hex(to_bytes(point)); }
-} HELIOS;
-}//namespace helios
+    std::string to_string(const Scalar &scalar) const override;
+    std::string to_string(const Point &point) const override;
+};
 //----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-namespace selene
+class Selene final : public Curve<SeleneT>
 {
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-static struct Selene final
-{
-    using Generators = rust::Box<fcmp_rust::SeleneGenerators>;
-    using Scalar     = SeleneScalar;
-    using Point      = rust::Box<fcmp_rust::SelenePoint>;
-    using Chunk      = rust::Slice<const Scalar>;
+//typedefs
+public:
+    using Generators  = SeleneT::Generators;
+    using Scalar      = SeleneT::Scalar;
+    using Point       = SeleneT::Point;
+    using Chunk       = SeleneT::Chunk;
+    using CycleScalar = SeleneT::CycleScalar;
 
-    // TODO: static constants
-    const Generators GENERATORS = fcmp_rust::random_selene_generators();
-    const Point HASH_INIT_POINT = fcmp_rust::random_selene_hash_init_point();
+//constructor
+public:
+    Selene(const Generators &generators, const Point &hash_init_point)
+    : Curve<SeleneT>(generators, hash_init_point)
+    {};
 
-    // Ed25519 point x-coordinates are Selene scalars
-    SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point) const;
-
-    // Selene point x-coordinates are Helios scalars
-    HeliosScalar point_to_cycle_scalar(const Point &point) const;
+//member functions
+public:
+    CycleScalar point_to_cycle_scalar(const Point &point) const override;
 
     Point hash_grow(
-        const Generators &generators,
         const Point &existing_hash,
         const std::size_t offset,
         const Chunk &prior_children,
-        const Chunk &new_children) const
-    {
-        return fcmp_rust::hash_grow_selene(
-            generators,
-            existing_hash,
-            offset,
-            prior_children,
-            new_children);
-    };
+        const Chunk &new_children) const override;
 
-    Scalar clone(const Scalar &scalar) const { return fcmp_rust::clone_selene_scalar(scalar); }
-    Point clone(const Point &point) const { return fcmp_rust::clone_selene_point(point); }
+    Scalar clone(const Scalar &scalar) const override;
+    Point clone(const Point &point) const override;
 
-    Scalar zero_scalar() const { return fcmp_rust::selene_zero_scalar(); }
+    Scalar zero_scalar() const override;
 
-    std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const
-        { return fcmp_rust::selene_scalar_to_bytes(scalar); }
-    std::array<uint8_t, 32UL> to_bytes(const Point &point) const
-        { return fcmp_rust::selene_point_to_bytes(point); }
+    std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
+    std::array<uint8_t, 32UL> to_bytes(const Point &point) const override;
 
-    std::string to_string(const Scalar &scalar) const
-        { return epee::string_tools::pod_to_hex(to_bytes(scalar)); }
-    std::string to_string(const Point &point) const
-        { return epee::string_tools::pod_to_hex(to_bytes(point)); }
-} SELENE;
-}// namespace selene
+    std::string to_string(const Scalar &scalar) const override;
+    std::string to_string(const Point &point) const override;
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+// Ed25519 point x-coordinates are Selene scalars
+SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point);
+//----------------------------------------------------------------------------------------------------------------------
+// TODO: use static constants and get rid of the below functions
+Helios::Generators random_helios_generators();
+Selene::Generators random_selene_generators();
+Helios::Point random_helios_hash_init_point();
+Selene::Point random_selene_hash_init_point();
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// TODO: implement in cpp file
 template <typename C>
 static void extend_zeroes(const C &curve,
     const std::size_t num_zeroes,
@@ -165,6 +207,7 @@ static void extend_zeroes(const C &curve,
         zeroes_inout.emplace_back(curve.zero_scalar());
 }
 //----------------------------------------------------------------------------------------------------------------------
+// TODO: move impl into cpp
 template <typename C_POINTS, typename C_SCALARS>
 static void extend_scalars_from_cycle_points(const C_POINTS &curve,
     const std::vector<typename C_POINTS::Point> &points,

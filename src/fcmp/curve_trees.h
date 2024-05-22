@@ -133,9 +133,9 @@ public:
         crypto::derive_key_image_generator(O, I);
 
         return LeafTuple{
-            .O_x = m_c2.ed_25519_point_to_scalar(O),
-            .I_x = m_c2.ed_25519_point_to_scalar(I),
-            .C_x = m_c2.ed_25519_point_to_scalar(C)
+            .O_x = fcmp::tower_cycle::ed_25519_point_to_scalar(O),
+            .I_x = fcmp::tower_cycle::ed_25519_point_to_scalar(I),
+            .C_x = fcmp::tower_cycle::ed_25519_point_to_scalar(C)
         };
     };
 
@@ -265,8 +265,7 @@ private:
         fcmp::tower_cycle::extend_zeroes(curve, new_children.size(), prior_children);
 
         return curve.hash_grow(
-                curve.GENERATORS,
-                curve.HASH_INIT_POINT,
+                curve.m_hash_init_point,
                 0,/*offset*/
                 typename C::Chunk{prior_children.data(), prior_children.size()},
                 new_children
@@ -286,7 +285,6 @@ private:
         fcmp::tower_cycle::extend_zeroes(m_c2, new_children.size(), prior_children);
 
         return m_c2.hash_grow(
-                m_c2.GENERATORS,
                 last_chunk_ptr->last_parent,
                 last_chunk_ptr->child_offset,
                 typename C2::Chunk{prior_children.data(), prior_children.size()},
@@ -333,7 +331,6 @@ private:
         }
 
         return curve.hash_grow(
-                curve.GENERATORS,
                 last_chunk_ptr->last_parent,
                 offset,
                 typename C::Chunk{prior_children.data(), prior_children.size()},
@@ -505,6 +502,7 @@ private:
         }
     }
 
+//member variables
 private:
     const C1 &m_c1;
     const C2 &m_c2;
