@@ -35,7 +35,6 @@
 using Helios = fcmp::tower_cycle::Helios;
 using Selene = fcmp::tower_cycle::Selene;
 
-// TODO: make this the instantiation in curve_trees.h/.cpp
 using CurveTreesV1 = fcmp::CurveTrees<Helios, Selene>;
 
 class CurveTreesUnitTest
