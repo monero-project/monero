@@ -140,28 +140,12 @@ public:
     };
 
     // TODO: move impl into cpp
-    std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const
-    {
-        std::vector<typename C2::Scalar> flattened_leaves;
-        flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
-
-        for (const auto &l : leaves)
-        {
-            // TODO: implement without cloning
-            flattened_leaves.emplace_back(m_c2.clone(l.O_x));
-            flattened_leaves.emplace_back(m_c2.clone(l.I_x));
-            flattened_leaves.emplace_back(m_c2.clone(l.C_x));
-        }
-
-        return flattened_leaves;
-    };
-
-    // TODO: move impl into cpp
-    TreeExtension get_tree_extension(const LastChunks &existing_last_chunks, const Leaves &new_leaves)
+    TreeExtension get_tree_extension(const LastChunks &existing_last_chunks,
+        const std::vector<LeafTuple> &new_leaf_tuples)
     {
         TreeExtension tree_extension;
 
-        if (new_leaves.tuples.empty())
+        if (new_leaf_tuples.empty())
             return tree_extension;
 
         const auto &c1_last_chunks = existing_last_chunks.c1_last_chunks;
@@ -174,8 +158,8 @@ public:
 
         // Copy the leaves
         // TODO: don't copy here
-        tree_extension.leaves.tuples.reserve(new_leaves.tuples.size());
-        for (const auto &leaf : new_leaves.tuples)
+        tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
+        for (const auto &leaf : new_leaf_tuples)
         {
             tree_extension.leaves.tuples.emplace_back(LeafTuple{
                 .O_x = m_c2.clone(leaf.O_x),
@@ -187,13 +171,19 @@ public:
         auto &c1_layer_extensions_out = tree_extension.c1_layer_extensions;
         auto &c2_layer_extensions_out = tree_extension.c2_layer_extensions;
 
-        // Hash the leaf layer
-        LayerExtension<C2> parents;
-        this->hash_leaf_layer(c2_last_chunks.empty() ? nullptr : &c2_last_chunks[0],
-            new_leaves,
-            parents);
+        // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
+        const std::vector<typename C2::Scalar> flattened_leaves = this->flatten_leaves(new_leaf_tuples);
 
-        c2_layer_extensions_out.emplace_back(std::move(parents));
+        // Hash the leaf layer
+        LayerExtension<C2> leaf_parents;
+        this->hash_layer(m_c2,
+            c2_last_chunks.empty() ? nullptr : &c2_last_chunks[0],
+            flattened_leaves,
+            tree_extension.leaves.start_idx,
+            m_leaf_layer_chunk_width,
+            leaf_parents);
+
+        c2_layer_extensions_out.emplace_back(std::move(leaf_parents));
 
         // Check if we just added the root
         if (c2_layer_extensions_out.back().hashes.size() == 1 && c2_layer_extensions_out.back().start_idx == 0)
@@ -207,16 +197,31 @@ public:
         // TODO: calculate max number of layers it should take to add all leaves (existing leaves + new leaves)
         while (true)
         {
+            const LastChunkData<C1> *c1_last_chunk_ptr = (c1_last_chunks.size() <= c1_last_idx)
+                ? nullptr
+                : &c1_last_chunks[c1_last_idx];
+
+            const LastChunkData<C2> *c2_last_chunk_ptr = (c2_last_chunks.size() <= c2_last_idx)
+                ? nullptr
+                : &c2_last_chunks[c2_last_idx];
+
+            // TODO: templated function
             if (parent_is_c1)
             {
                 CHECK_AND_ASSERT_THROW_MES(c2_layer_extensions_out.size() > c2_last_idx, "missing c2 layer");
 
+                const auto &c2_child_extension = c2_layer_extensions_out[c2_last_idx];
+
+                const auto c1_child_scalars = this->next_child_scalars_from_children<C2, C1>(m_c2,
+                    c2_last_chunk_ptr,
+                    c1_last_chunk_ptr,
+                    c2_child_extension);
+
                 LayerExtension<C1> c1_layer_extension;
-                this->hash_layer<C2, C1>(m_c2,
-                    m_c1,
-                    (c2_last_chunks.size() <= c2_last_idx) ? nullptr : &c2_last_chunks[c2_last_idx],
-                    (c1_last_chunks.size() <= c1_last_idx) ? nullptr : &c1_last_chunks[c1_last_idx],
-                    c2_layer_extensions_out[c2_last_idx],
+                this->hash_layer<C1>(m_c1,
+                    c1_last_chunk_ptr,
+                    c1_child_scalars,
+                    c2_child_extension.start_idx,
                     m_c1_width,
                     c1_layer_extension);
 
@@ -232,12 +237,18 @@ public:
             {
                 CHECK_AND_ASSERT_THROW_MES(c1_layer_extensions_out.size() > c1_last_idx, "missing c1 layer");
 
+                const auto &c1_child_extension = c1_layer_extensions_out[c1_last_idx];
+
+                const auto c2_child_scalars = this->next_child_scalars_from_children<C1, C2>(m_c1,
+                    c1_last_chunk_ptr,
+                    c2_last_chunk_ptr,
+                    c1_child_extension);
+
                 LayerExtension<C2> c2_layer_extension;
-                this->hash_layer<C1, C2>(m_c1,
-                    m_c2,
-                    (c1_last_chunks.size() <= c1_last_idx) ? nullptr : &c1_last_chunks[c1_last_idx],
-                    (c2_last_chunks.size() <= c2_last_idx) ? nullptr : &c2_last_chunks[c2_last_idx],
-                    c1_layer_extensions_out[c1_last_idx],
+                this->hash_layer<C2>(m_c2,
+                    c2_last_chunk_ptr,
+                    c2_child_scalars,
+                    c1_child_extension.start_idx,
                     m_c2_width,
                     c2_layer_extension);
 
@@ -273,28 +284,8 @@ private:
     }
 
     // TODO: move impl into cpp
-    typename C2::Point get_first_leaf_parent(const typename C2::Chunk &new_children,
-        const LastChunkData<C2> *last_chunk_ptr) const
-    {
-        // If no last chunk exists, or if the last chunk is already full, then we can get a new parent
-        if (last_chunk_ptr == nullptr || last_chunk_ptr->child_offset == 0)
-            return get_new_parent<C2>(m_c2, new_children);
-
-        // There won't be any existing children when growing the leaf layer, fill priors with 0
-        std::vector<typename C2::Scalar> prior_children;
-        fcmp::tower_cycle::extend_zeroes(m_c2, new_children.size(), prior_children);
-
-        return m_c2.hash_grow(
-                last_chunk_ptr->last_parent,
-                last_chunk_ptr->child_offset,
-                typename C2::Chunk{prior_children.data(), prior_children.size()},
-                new_children
-            );
-    }
-
-    // TODO: move impl into cpp
     template <typename C>
-    typename C::Point get_first_non_leaf_parent(const C &curve,
+    typename C::Point get_first_parent(const C &curve,
         const typename C::Chunk &new_children,
         const std::size_t chunk_width,
         const bool child_layer_last_hash_updated,
@@ -336,28 +327,60 @@ private:
             );
     }
 
-    // TODO: look into consolidating hash_layer and hash_leaf_layer into 1 function
     // TODO: move impl into cpp
-    template<typename C_CHILD, typename C_PARENT>
-    void hash_layer(const C_CHILD &c_child,
-        const C_PARENT &c_parent,
+    template<typename C_CHILD, typename C_PARENT>  
+    std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(const C_CHILD &c_child,
         const LastChunkData<C_CHILD> *last_child_chunk_ptr,
         const LastChunkData<C_PARENT> *last_parent_chunk_ptr,
-        const LayerExtension<C_CHILD> &children,
+        const LayerExtension<C_CHILD> &children)
+    {
+        std::vector<typename C_PARENT::Scalar> child_scalars;
+
+        // The existing root would have a size of 1
+        const bool updating_root_layer = last_child_chunk_ptr != nullptr
+            && last_child_chunk_ptr->parent_layer_size == 1;
+
+        // If we're creating a *new* root at the existing root layer, we may need to include the *existing* root when
+        // hashing the *existing* root layer
+        if (updating_root_layer)
+        {
+            // We should be updating the existing root, there shouldn't be a last parent chunk
+            CHECK_AND_ASSERT_THROW_MES(last_parent_chunk_ptr == nullptr, "last parent chunk exists at root");
+
+            // If the children don't already include the existing root, then we need to include it to be hashed
+            // - the children would include the existing root already if the existing root was updated in the child
+            // layer (the start_idx would be 0)
+            if (children.start_idx > 0)
+                child_scalars.emplace_back(c_child.point_to_cycle_scalar(last_child_chunk_ptr->last_parent));
+        }
+
+        // Convert child points to scalars
+        tower_cycle::extend_scalars_from_cycle_points<C_CHILD, C_PARENT>(c_child, children.hashes, child_scalars);
+
+        return child_scalars;
+    }
+
+    // TODO: move impl into cpp
+    template<typename C>
+    void hash_layer(const C &curve,
+        const LastChunkData<C> *last_parent_chunk_ptr,
+        const std::vector<typename C::Scalar> &child_scalars,
+        const std::size_t children_start_idx,
         const std::size_t chunk_width,
-        LayerExtension<C_PARENT> &parents_out)
+        LayerExtension<C> &parents_out)
     {
         parents_out.start_idx = (last_parent_chunk_ptr == nullptr) ? 0 : last_parent_chunk_ptr->parent_layer_size;
         parents_out.hashes.clear();
 
-        CHECK_AND_ASSERT_THROW_MES(!children.hashes.empty(), "empty children hashes");
+        CHECK_AND_ASSERT_THROW_MES(!child_scalars.empty(), "empty child scalars");
 
-        // If the child layer had its existing last hash updated (if the new children start at the last element in
+        // If the child layer had its existing last hash updated (if the new children include the last element in
         // the child layer), then we'll need to use the last hash's prior version in order to update the existing
         // last parent hash in this layer
-        bool child_layer_last_hash_updated = (last_parent_chunk_ptr == nullptr)
+        // - Note: the leaf layer is strictly append-only, so this cannot be true for the leaf layer
+        const bool child_layer_last_hash_updated = (last_parent_chunk_ptr == nullptr)
             ? false
-            : last_parent_chunk_ptr->child_layer_size == (children.start_idx + 1);
+            : last_parent_chunk_ptr->child_layer_size == (children_start_idx + 1);
 
         std::size_t offset = (last_parent_chunk_ptr == nullptr) ? 0 : last_parent_chunk_ptr->child_offset;
 
@@ -365,7 +388,10 @@ private:
         // will start from there and may need 1 more to fill
         CHECK_AND_ASSERT_THROW_MES(chunk_width > offset, "unexpected offset");
         if (child_layer_last_hash_updated)
+        {
+            MDEBUG("child_layer_last_hash_updated, updating offset: " << offset);
             offset = offset > 0 ? (offset - 1) : (chunk_width - 1);
+        }
 
         // If we're adding new children to an existing last chunk, then we need to pull the parent start idx back 1
         // since we'll be updating the existing parent hash of the last chunk
@@ -375,25 +401,9 @@ private:
             --parents_out.start_idx;
         }
 
-        // If we're creating a *new* root at the existing root layer, we may need to include the *existing* root when
-        // hashing the *existing* root layer
-        std::vector<typename C_PARENT::Scalar> child_scalars;
-        if (last_child_chunk_ptr != nullptr && last_child_chunk_ptr->parent_layer_size == 1)
-        {
-            // We should be updating the existing root, there shouldn't be a last parent chunk
-            CHECK_AND_ASSERT_THROW_MES(last_parent_chunk_ptr == nullptr, "last parent chunk exists at root");
-
-            // If the children don't already include the existing root at start_idx 0 (they would if the existing
-            // root was updated in the child layer), then we need to add it to the first chunk to be hashed
-            if (children.start_idx > 0)
-                child_scalars.emplace_back(c_child.point_to_cycle_scalar(last_child_chunk_ptr->last_parent));
-        }
-
-        // Convert child points to scalars
-        tower_cycle::extend_scalars_from_cycle_points<C_CHILD, C_PARENT>(c_child, children.hashes, child_scalars);
-
         // See how many children we need to fill up the existing last chunk
         std::size_t chunk_size = std::min(child_scalars.size(), chunk_width - offset);
+
         MDEBUG("Starting chunk_size: " << chunk_size << " , num child scalars: " << child_scalars.size()
             << " , offset: " << offset);
 
@@ -402,22 +412,22 @@ private:
         while (chunk_start_idx < child_scalars.size())
         {
             const auto chunk_start = child_scalars.data() + chunk_start_idx;
-            const typename C_PARENT::Chunk chunk{chunk_start, chunk_size};
+            const typename C::Chunk chunk{chunk_start, chunk_size};
 
             for (const auto &c : chunk)
-                MDEBUG("Hashing " << c_parent.to_string(c));
+                MDEBUG("Hashing " << curve.to_string(c));
 
             // Hash the chunk of children
-            typename C_PARENT::Point chunk_hash = chunk_start_idx == 0
-                ? get_first_non_leaf_parent<C_PARENT>(c_parent,
+            typename C::Point chunk_hash = chunk_start_idx == 0
+                ? get_first_parent<C>(curve,
                     chunk,
                     chunk_width,
                     child_layer_last_hash_updated,
                     last_parent_chunk_ptr,
                     offset)
-                : get_new_parent<C_PARENT>(c_parent, chunk);
+                : get_new_parent<C>(curve, chunk);
 
-            MDEBUG("Hash chunk_start_idx " << chunk_start_idx << " result: " << c_parent.to_string(chunk_hash)
+            MDEBUG("Hash chunk_start_idx " << chunk_start_idx << " result: " << curve.to_string(chunk_hash)
                 << " , chunk_size: " << chunk_size);
 
             // We've got our hash
@@ -437,66 +447,21 @@ private:
     }
 
     // TODO: move impl into cpp
-    void hash_leaf_layer(const LastChunkData<C2> *last_chunk_ptr,
-        const Leaves &leaves,
-        LayerExtension<C2> &parents_out)
+    std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const
     {
-        parents_out.start_idx = (last_chunk_ptr == nullptr) ? 0 : last_chunk_ptr->parent_layer_size;
-        parents_out.hashes.clear();
+        std::vector<typename C2::Scalar> flattened_leaves;
+        flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
 
-        if (leaves.tuples.empty())
-            return;
-
-        const std::size_t max_chunk_size = m_leaf_layer_chunk_width;
-        const std::size_t offset         = (last_chunk_ptr == nullptr) ? 0 : last_chunk_ptr->child_offset;
-
-        // If we're adding new children to an existing last chunk, then we need to pull the parent start idx back 1
-        // since we'll be updating the existing parent hash of the last chunk
-        if (offset > 0)
+        for (const auto &l : leaves)
         {
-            CHECK_AND_ASSERT_THROW_MES(parents_out.start_idx > 0, "parent start idx should be > 0");
-            --parents_out.start_idx;
+            // TODO: implement without cloning
+            flattened_leaves.emplace_back(m_c2.clone(l.O_x));
+            flattened_leaves.emplace_back(m_c2.clone(l.I_x));
+            flattened_leaves.emplace_back(m_c2.clone(l.C_x));
         }
 
-        // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar, scalar, scalar, scalar, scalar, scalar,...]
-        const std::vector<typename C2::Scalar> children = flatten_leaves(leaves.tuples);
-
-        // See how many new children are needed to fill up the existing last chunk
-        CHECK_AND_ASSERT_THROW_MES(max_chunk_size > offset, "unexpected offset");
-        std::size_t chunk_size = std::min(children.size(), max_chunk_size - offset);
-
-        std::size_t chunk_start_idx = 0;
-        while (chunk_start_idx < children.size())
-        {
-            const auto chunk_start = children.data() + chunk_start_idx;
-            const typename C2::Chunk chunk{chunk_start, chunk_size};
-
-            for (const auto &c : chunk)
-                MDEBUG("Hashing " << m_c2.to_string(c));
-
-            // Hash the chunk of children
-            typename C2::Point chunk_hash = chunk_start_idx == 0
-                ? get_first_leaf_parent(chunk, last_chunk_ptr)
-                : get_new_parent<C2>(m_c2, chunk);
-
-            MDEBUG("Hash chunk_start_idx " << chunk_start_idx << " result: " << m_c2.to_string(chunk_hash)
-                << " , chunk_size: " << chunk_size);
-
-            // We've got our hash
-            parents_out.hashes.emplace_back(std::move(chunk_hash));
-
-            // Advance to the next chunk
-            chunk_start_idx += chunk_size;
-
-            // Prepare for next loop if there should be one
-            if (chunk_start_idx == children.size())
-                break;
-
-            // Fill a complete chunk, or add the remaining new children to the last chunk
-            CHECK_AND_ASSERT_THROW_MES(chunk_start_idx < children.size(), "unexpected chunk start idx");
-            chunk_size = std::min(max_chunk_size, children.size() - chunk_start_idx);
-        }
-    }
+        return flattened_leaves;
+    };
 
 //member variables
 private:
