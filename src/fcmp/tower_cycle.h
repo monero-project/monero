@@ -67,8 +67,7 @@ struct SeleneT final
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// Parent curve class that curves in a cycle must implement
-//----------------------------------------------------------------------------------------------------------------------
+// Abstract parent curve class that curves in a cycle must implement
 template<typename C>
 class Curve
 {
@@ -185,9 +184,6 @@ public:
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// Ed25519 point x-coordinates are Selene scalars
-SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point);
-//----------------------------------------------------------------------------------------------------------------------
 // TODO: use static constants and get rid of the below functions (WARNING: number of generators must be >= curve's
 // width, and also need to account for selene leaf layer 3x)
 Helios::Generators random_helios_generators(std::size_t n);
@@ -195,35 +191,19 @@ Selene::Generators random_selene_generators(std::size_t n);
 Helios::Point random_helios_hash_init_point();
 Selene::Point random_selene_hash_init_point();
 //----------------------------------------------------------------------------------------------------------------------
+// Ed25519 point x-coordinates are Selene scalars
+SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point);
 //----------------------------------------------------------------------------------------------------------------------
-// TODO: implement in cpp file
-template <typename C>
-static void extend_zeroes(const C &curve,
+template<typename C>
+void extend_zeroes(const C &curve,
     const std::size_t num_zeroes,
-    std::vector<typename C::Scalar> &zeroes_inout)
-{
-    zeroes_inout.reserve(zeroes_inout.size() + num_zeroes);
-
-    for (std::size_t i = 0; i < num_zeroes; ++i)
-        zeroes_inout.emplace_back(curve.zero_scalar());
-}
+    std::vector<typename C::Scalar> &zeroes_inout);
 //----------------------------------------------------------------------------------------------------------------------
-// TODO: move impl into cpp
-template <typename C_POINTS, typename C_SCALARS>
-static void extend_scalars_from_cycle_points(const C_POINTS &curve,
+template<typename C_POINTS, typename C_SCALARS>
+void extend_scalars_from_cycle_points(const C_POINTS &curve,
     const std::vector<typename C_POINTS::Point> &points,
-    std::vector<typename C_SCALARS::Scalar> &scalars_out)
-{
-    scalars_out.reserve(scalars_out.size() + points.size());
-
-    for (const auto &point : points)
-    {
-        // TODO: implement reading just the x coordinate of points on curves in curve cycle in C/C++
-        typename C_SCALARS::Scalar scalar = curve.point_to_cycle_scalar(point);
-        scalars_out.push_back(std::move(scalar));
-    }
-}
+    std::vector<typename C_SCALARS::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-}//namespace curves
+}//namespace tower_cycle
 }//namespace fcmp
