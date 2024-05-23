@@ -146,26 +146,6 @@ std::string Selene::to_string(const typename Selene::Point &point) const
 //----------------------------------------------------------------------------------------------------------------------
 // Exposed helper functions
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Generators random_helios_generators(std::size_t n)
-{
-    return fcmp_rust::random_helios_generators(n);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Selene::Generators random_selene_generators(std::size_t n)
-{
-    return fcmp_rust::random_selene_generators(n);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Helios::Point random_helios_hash_init_point()
-{
-    return fcmp_rust::random_helios_hash_init_point();
-}
-//----------------------------------------------------------------------------------------------------------------------
-Selene::Point random_selene_hash_init_point()
-{
-    return fcmp_rust::random_selene_hash_init_point();
-}
-//----------------------------------------------------------------------------------------------------------------------
 SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
 {
     static_assert(sizeof(RustEd25519Point) == sizeof(crypto::ec_point),
@@ -220,6 +200,26 @@ template void extend_scalars_from_cycle_points<Helios, Selene>(const Helios &cur
 template void extend_scalars_from_cycle_points<Selene, Helios>(const Selene &curve,
     const std::vector<Selene::Point> &points,
     std::vector<Helios::Scalar> &scalars_out);
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Generators random_helios_generators(std::size_t n)
+{
+    return fcmp_rust::random_helios_generators(n);
+}
+//----------------------------------------------------------------------------------------------------------------------
+Selene::Generators random_selene_generators(std::size_t n)
+{
+    return fcmp_rust::random_selene_generators(n);
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Point random_helios_hash_init_point()
+{
+    return fcmp_rust::random_helios_hash_init_point();
+}
+//----------------------------------------------------------------------------------------------------------------------
+Selene::Point random_selene_hash_init_point()
+{
+    return fcmp_rust::random_selene_hash_init_point();
+}
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle
