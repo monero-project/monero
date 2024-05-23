@@ -34,22 +34,19 @@ set(crypto_sources
   hash.c
   hmac-keccak.c
   keccak.c
-  tree-hash.c
   groestl.c
-  hash-extra-blake.c
-  hash-extra-groestl.c
-  hash-extra-jh.c
-  hash-extra-skein.c
-  oaes_lib.c
   pow_hash/aux_hash.c
-  pow_hash/cn_slow_hash_soft.cpp
-  pow_hash/cn_slow_hash_hard_intel.cpp
-  pow_hash/cn_slow_hash_intel_avx2.cpp
-  pow_hash/cn_slow_hash_hard_arm.cpp
+  pow_hash/cn_heavy_hash_soft.cpp
+  pow_hash/cn_heavy_hash_hard_intel.cpp
+  pow_hash/cn_heavy_hash_intel_avx2.cpp
+  pow_hash/cn_heavy_hash_hard_arm.cpp
   random.c
+  rx-slow-hash.c
   tree-hash.c
   sha512-blocks.c
   sha512.c)
+
+include_directories(${RANDOMXEQ_INCLUDE})
 
 if(ARCH_ID STREQUAL "i386" OR ARCH_ID STREQUAL "x86_64" OR ARCH_ID STREQUAL "x86-64" OR ARCH_ID STREQUAL "amd64")
 list(APPEND crypto_sources CryptonightR_template.S)
@@ -57,10 +54,10 @@ endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
 	if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
-		set_source_files_properties(pow_hash/cn_slow_hash_intel_avx2.cpp PROPERTIES COMPILE_FLAGS "-mavx2")
-		set_source_files_properties(pow_hash/cn_slow_hard_intel.cpp PROPERTIES COMPILE_FLAGS "-msse2 -maes")
+		set_source_files_properties(pow_hash/cn_heavy_hash_intel_avx2.cpp PROPERTIES COMPILE_FLAGS "-mavx2")
+		set_source_files_properties(pow_hash/cn_heavy_hash_hard_intel.cpp PROPERTIES COMPILE_FLAGS "-msse2 -maes")
 	elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "aarch64" AND NOT APPLE)
-		set_source_files_properties(pow_hash/cn_slow_hash_hard_arm.cpp PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto")
+		set_source_files_properties(pow_hash/cn_heavy_hash_hard_arm.cpp PROPERTIES COMPILE_FLAGS "-march=armv8-a+crypto")
 	endif()
 endif()
 
@@ -82,9 +79,7 @@ set(crypto_private_headers
   initializer.h
   keccak.h
   skein_port.h
-  oaes_config.h
-  oaes_lib.h
-  pow_hash/cn_slow_hash.hpp
+  pow_hash/cn_heavy_hash.hpp
   random.h
   sha512.h)
 
@@ -97,19 +92,11 @@ monero_add_library(cncrypto
 target_link_libraries(cncrypto
   PUBLIC
     epee
+    randomx
     ${Boost_SYSTEM_LIBRARY}
     ${SODIUM_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})
-
-# Because of the way Qt works on android with JNI, the code does not live in the main android thread
-# So this code runs with a 1 MB default stack size. 
-# This will force the use of the heap for the allocation of the scratchpad
-if (ANDROID OR IOS)
-  if( BUILD_GUI_DEPS )
-    add_definitions(-DFORCE_USE_HEAP=1)
-  endif()
-endif()
 
 # cheat because cmake and ccache hate each other
 set_property(SOURCE CryptonightR_template.S PROPERTY LANGUAGE C)

@@ -10,7 +10,7 @@ namespace service_nodes
 {
 	uint64_t get_staking_requirement(cryptonote::network_type m_nettype, uint64_t height)
 	{
-		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106950 : 581 /* stagenet */;
+		uint64_t hardfork_height = m_nettype == cryptonote::MAINNET ? 106950 : cryptonote::STAGENET ? 1 : 581 /* stagenet */;
 		if (height < hardfork_height) height = hardfork_height;
 
 		uint64_t height_adjusted = height - hardfork_height;
@@ -29,6 +29,12 @@ namespace service_nodes
 				variable = (30000.0 * COIN) / equilibria::exp2(height_adjusted / 129600.0);
 				return base + variable;
 			}
+		}
+
+		if (m_nettype == cryptonote::STAGENET)
+		{
+		  base = 100000 * COIN;
+		  variable = 0;
 		}
 
 		if(height >= 841197)

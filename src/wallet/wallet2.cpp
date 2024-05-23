@@ -28,7 +28,6 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "crypto/pow_hash/cn_slow_hash.hpp"
 #include <numeric>
 #include <tuple>
 #include <boost/format.hpp>
@@ -1399,8 +1398,7 @@ wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const boost::optional<too
     if (!passphrase.empty())
     {
       crypto::secret_key key;
-      cn_gpu_hash kdf_hash;
-      kdf_hash.hash(passphrase.data(), passphrase.size(), key.data);
+      crypto::cn_slow_hash(passphrase.data(), passphrase.size(), (crypto::hash&)key, crypto::cn_slow_hash_type::cn_lite);
       sc_reduce32((unsigned char*)key.data);
       data = encrypt(data, key, true);
     }
@@ -5609,7 +5607,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
           catch (...)
           {
             LOG_PRINT_L0("Failed to open portable binary, trying unportable");
-            if (use_fs) boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+            if (use_fs) tools::copy_file(m_wallet_file, m_wallet_file + ".unportable");
             std::stringstream iss;
             iss.str("");
             iss << cache_data;
@@ -5631,7 +5629,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
       catch (...)
       {
         LOG_PRINT_L0("Failed to open portable binary, trying unportable");
-        if (use_fs) boost::filesystem::copy_file(m_wallet_file, m_wallet_file + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+        if (use_fs) tools::copy_file(m_wallet_file, m_wallet_file + ".unportable");
         std::stringstream iss;
         iss.str("");
         iss << cache_file_buf;
