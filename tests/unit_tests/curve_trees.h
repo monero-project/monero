@@ -32,11 +32,11 @@
 #include "fcmp/tower_cycle.h"
 #include "misc_log_ex.h"
 
-using Helios = fcmp::tower_cycle::Helios;
-using Selene = fcmp::tower_cycle::Selene;
+using Helios       = fcmp::curve_trees::Helios;
+using Selene       = fcmp::curve_trees::Selene;
+using CurveTreesV1 = fcmp::curve_trees::CurveTreesV1;
 
-using CurveTreesV1 = fcmp::CurveTrees<Helios, Selene>;
-
+// Helper class that can access the private members of the CurveTrees class
 class CurveTreesUnitTest
 {
 public:
@@ -70,14 +70,6 @@ public:
     void log_last_chunks(const CurveTreesV1::LastChunks &last_chunks);
     void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
     void log_tree(const CurveTreesUnitTest::Tree &tree);
-
-//private member functions
-private:
-    template<typename C_PARENT>
-    bool validate_layer(const C_PARENT &c_parent,
-        const Layer<C_PARENT> &parents,
-        const std::vector<typename C_PARENT::Scalar> &child_scalars,
-        const std::size_t max_chunk_size);
 
 private:
     CurveTreesV1 &m_curve_trees;

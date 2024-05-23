@@ -37,10 +37,45 @@
 // forward declarations
 class CurveTreesUnitTest;
 
+
 namespace fcmp
 {
+namespace curve_trees
+{
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Hash a chunk of new children
+template<typename C>
+typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_children);
+//----------------------------------------------------------------------------------------------------------------------
+// A layer of contiguous hashes starting from a specific start_idx in the tree
+template<typename C>
+struct LayerExtension final
+{
+    std::size_t                    start_idx;
+    std::vector<typename C::Point> hashes;
+};
 
-// TODO: longer descriptions
+// Useful data from the last chunk in a layer
+template<typename C>
+struct LastChunkData final
+{
+    // The total number of children % child layer chunk width
+    const std::size_t        child_offset;
+    // The last child in the chunk (and therefore the last child in the child layer)
+    /* TODO: const */ typename C::Scalar last_child;
+    // The hash of the last chunk of child scalars
+    /* TODO: const */ typename C::Point  last_parent;
+    // Total number of children in the child layer
+    const std::size_t        child_layer_size;
+    // Total number of hashes in the parent layer
+    const std::size_t        parent_layer_size;
+};
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// This class is useful help update the curve trees tree without needing to keep the entire tree in memory
+// - It requires instantiation with the C1 and C2 curve classes and widths, hardening the tree structure
+// - It ties the C2 curve in the tree to the leaf layer
 template<typename C1, typename C2>
 class CurveTrees
 {
@@ -72,21 +107,13 @@ public:
     static const std::size_t LEAF_TUPLE_SIZE = 3;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
-    // Leaves in the tree
+    // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
     struct Leaves final
     {
         // Starting index in the leaf layer
         std::size_t            start_idx;
         // Contiguous leaves in a tree that start at the start_idx
         std::vector<LeafTuple> tuples;
-    };
-
-    // A layer of contiguous hashes starting from a specific start_idx in the tree
-    template<typename C>
-    struct LayerExtension final
-    {
-        std::size_t                    start_idx;
-        std::vector<typename C::Point> hashes;
     };
 
     // A struct useful to extend an existing tree
@@ -97,22 +124,6 @@ public:
         Leaves                          leaves;
         std::vector<LayerExtension<C1>> c1_layer_extensions;
         std::vector<LayerExtension<C2>> c2_layer_extensions;
-    };
-
-    // Useful data from the last chunk in a layer
-    template<typename C>
-    struct LastChunkData final
-    {
-        // The total number of children % child layer chunk width
-        /*TODO: const*/ std::size_t                     child_offset;
-        // The last child in the chunk (and therefore the last child in the child layer)
-        /*TODO: const*/ typename C::Scalar              last_child;
-        // The hash of the last chunk of child scalars
-        /*TODO: const*/ typename C::Point               last_parent;
-        // Total number of children in the child layer
-        /*TODO: const*/ std::size_t                     child_layer_size;
-        // Total number of hashes in the parent layer
-        /*TODO: const*/ std::size_t                     parent_layer_size;
     };
 
     // Last chunk data from each layer in the tree
@@ -139,46 +150,24 @@ private:
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
     std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
 
-    // TODO: make below functions static functions inside curve_trees.cpp
-    // Hash a chunk of new children
-    template <typename C>
-    typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_children) const;
-
-    // Hash the first chunk of children being added to a layer
-    template <typename C>
-    typename C::Point get_first_parent(const C &curve,
-        const typename C::Chunk &new_children,
-        const std::size_t chunk_width,
-        const bool child_layer_last_hash_updated,
-        const LastChunkData<C> *last_chunk_ptr,
-        const std::size_t offset) const;
-
-    // After hashing a layer of children points, convert those children x-coordinates into their respective cycle
-    // scalars, and prepare them to be hashed for the next layer
-    template<typename C_CHILD, typename C_PARENT>  
-    std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(const C_CHILD &c_child,
-        const LastChunkData<C_CHILD> *last_child_chunk_ptr,
-        const LastChunkData<C_PARENT> *last_parent_chunk_ptr,
-        const LayerExtension<C_CHILD> &children);
-
-    // Hash chunks of a layer of new children, outputting the next layer's parents
-    template<typename C>
-    void hash_layer(const C &curve,
-        const LastChunkData<C> *last_parent_chunk_ptr,
-        const std::vector<typename C::Scalar> &child_scalars,
-        const std::size_t children_start_idx,
-        const std::size_t chunk_width,
-        LayerExtension<C> &parents_out);
-
 //member variables
 private:
+    // The curves
     const C1 &m_c1;
     const C2 &m_c2;
 
+    // The chunk widths of the layers in the tree tied to each curve
     const std::size_t m_c1_width;
     const std::size_t m_c2_width;
 
+    // The leaf layer has a distinct chunk width than the other layers
     const std::size_t m_leaf_layer_chunk_width;
 };
-
+//----------------------------------------------------------------------------------------------------------------------
+using Helios       = tower_cycle::Helios;
+using Selene       = tower_cycle::Selene;
+using CurveTreesV1 = CurveTrees<Helios, Selene>;
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+} //namespace curve_trees
 } //namespace fcmp

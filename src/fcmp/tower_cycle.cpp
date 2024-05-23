@@ -144,16 +144,7 @@ std::string Selene::to_string(const typename Selene::Point &point) const
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
-{
-    static_assert(sizeof(RustEd25519Point) == sizeof(crypto::ec_point),
-        "expected same size ed25519 point to rust representation");
-
-    // TODO: implement reading just the x coordinate of ed25519 point in C/C++
-    fcmp::tower_cycle::RustEd25519Point rust_point;
-    memcpy(&rust_point, &point, sizeof(fcmp::tower_cycle::RustEd25519Point));
-    return fcmp_rust::ed25519_point_to_selene_scalar(rust_point);
-}
+// Exposed helper functions
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Generators random_helios_generators(std::size_t n)
 {
@@ -174,6 +165,61 @@ Selene::Point random_selene_hash_init_point()
 {
     return fcmp_rust::random_selene_hash_init_point();
 }
+//----------------------------------------------------------------------------------------------------------------------
+SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
+{
+    static_assert(sizeof(RustEd25519Point) == sizeof(crypto::ec_point),
+        "expected same size ed25519 point to rust representation");
+
+    // TODO: implement reading just the x coordinate of ed25519 point in C/C++
+    fcmp::tower_cycle::RustEd25519Point rust_point;
+    memcpy(&rust_point, &point, sizeof(fcmp::tower_cycle::RustEd25519Point));
+    return fcmp_rust::ed25519_point_to_selene_scalar(rust_point);
+}
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C>
+void extend_zeroes(const C &curve,
+    const std::size_t num_zeroes,
+    std::vector<typename C::Scalar> &zeroes_inout)
+{
+    zeroes_inout.reserve(zeroes_inout.size() + num_zeroes);
+
+    for (std::size_t i = 0; i < num_zeroes; ++i)
+        zeroes_inout.emplace_back(curve.zero_scalar());
+}
+
+// Explicit instantiations
+template void extend_zeroes<Helios>(const Helios &curve,
+    const std::size_t num_zeroes,
+    std::vector<Helios::Scalar> &zeroes_inout);
+
+template void extend_zeroes<Selene>(const Selene &curve,
+    const std::size_t num_zeroes,
+    std::vector<Selene::Scalar> &zeroes_inout);
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C_POINTS, typename C_SCALARS>
+void extend_scalars_from_cycle_points(const C_POINTS &curve,
+    const std::vector<typename C_POINTS::Point> &points,
+    std::vector<typename C_SCALARS::Scalar> &scalars_out)
+{
+    scalars_out.reserve(scalars_out.size() + points.size());
+
+    for (const auto &point : points)
+    {
+        // TODO: implement reading just the x coordinate of points on curves in curve cycle in C/C++
+        typename C_SCALARS::Scalar scalar = curve.point_to_cycle_scalar(point);
+        scalars_out.push_back(std::move(scalar));
+    }
+}
+
+// Explicit instantiations
+template void extend_scalars_from_cycle_points<Helios, Selene>(const Helios &curve,
+    const std::vector<Helios::Point> &points,
+    std::vector<Selene::Scalar> &scalars_out);
+
+template void extend_scalars_from_cycle_points<Selene, Helios>(const Selene &curve,
+    const std::vector<Selene::Point> &points,
+    std::vector<Helios::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle
