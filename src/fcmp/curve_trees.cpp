@@ -73,7 +73,6 @@ static typename C::Point get_first_parent(const C &curve,
         return get_new_parent<C>(curve, new_children);
 
     std::vector<typename C::Scalar> prior_children;
-
     if (child_layer_last_hash_updated)
     {
         // If the last chunk has updated children in it, then we need to get the delta to the old children
@@ -299,18 +298,18 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     // TODO: calculate max number of layers it should take to add all leaves (existing leaves + new leaves)
     while (true)
     {
-        const LastChunkData<C1> *c1_last_chunk_ptr = (c1_last_chunks.size() <= c1_last_idx)
+        const LastChunkData<C1> *c1_last_chunk_ptr = (c1_last_idx >= c1_last_chunks.size())
             ? nullptr
             : &c1_last_chunks[c1_last_idx];
 
-        const LastChunkData<C2> *c2_last_chunk_ptr = (c2_last_chunks.size() <= c2_last_idx)
+        const LastChunkData<C2> *c2_last_chunk_ptr = (c2_last_idx >= c2_last_chunks.size())
             ? nullptr
             : &c2_last_chunks[c2_last_idx];
 
         // TODO: templated function
         if (parent_is_c1)
         {
-            CHECK_AND_ASSERT_THROW_MES(c2_layer_extensions_out.size() > c2_last_idx, "missing c2 layer");
+            CHECK_AND_ASSERT_THROW_MES(c2_last_idx < c2_layer_extensions_out.size(), "missing c2 layer");
 
             const auto &c2_child_extension = c2_layer_extensions_out[c2_last_idx];
 
@@ -337,7 +336,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
         }
         else
         {
-            CHECK_AND_ASSERT_THROW_MES(c1_layer_extensions_out.size() > c1_last_idx, "missing c1 layer");
+            CHECK_AND_ASSERT_THROW_MES(c1_last_idx < c1_layer_extensions_out.size(), "missing c1 layer");
 
             const auto &c1_child_extension = c1_layer_extensions_out[c1_last_idx];
 
