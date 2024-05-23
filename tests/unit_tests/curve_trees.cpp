@@ -521,7 +521,8 @@ void CurveTreesUnitTest::log_tree(const CurveTreesUnitTest::Tree &tree)
 //----------------------------------------------------------------------------------------------------------------------
 // Test helpers
 //----------------------------------------------------------------------------------------------------------------------
-static const CurveTreesV1::Leaves generate_random_leaves(const CurveTreesV1 &curve_trees, const std::size_t num_leaves)
+static const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTreesV1 &curve_trees,
+    const std::size_t num_leaves)
 {
     std::vector<CurveTreesV1::LeafTuple> tuples;
     tuples.reserve(num_leaves);
@@ -539,10 +540,7 @@ static const CurveTreesV1::Leaves generate_random_leaves(const CurveTreesV1 &cur
         tuples.emplace_back(std::move(leaf_tuple));
     }
 
-    return CurveTreesV1::Leaves{
-        .start_idx = 0,
-        .tuples    = std::move(tuples)
-    };
+    return tuples;
 }
 //----------------------------------------------------------------------------------------------------------------------
 static void grow_tree(CurveTreesV1 &curve_trees,
@@ -557,8 +555,7 @@ static void grow_tree(CurveTreesV1 &curve_trees,
 
     // Get a tree extension object to the existing tree using randomly generated leaves
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
-    const auto tree_extension = curve_trees.get_tree_extension(
-        last_chunks,
+    const auto tree_extension = curve_trees.get_tree_extension(last_chunks,
         generate_random_leaves(curve_trees, num_leaves));
 
     curve_trees_accessor.log_tree_extension(tree_extension);
