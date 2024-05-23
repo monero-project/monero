@@ -296,7 +296,15 @@ namespace cryptonote
     }
     else if (nettype == STAGENET)
     {
-      fork_height = 12000;
+      fork_height = 400;
+      if (height == fork_height)
+      {
+        return 100000 * COIN;
+      }
+      else if (height > (fork_height + 100) && (height % 100 == 0) && height < 1900)
+      {
+        return 100000 * COIN;
+      }
     }
 
     return 0;
