@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(fcmp_sources
+  curve_trees.cpp
   tower_cycle.cpp)
 
 monero_find_all_headers(fcmp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
