@@ -36,7 +36,7 @@ add_subdirectory(fcmp_rust)
 
 monero_add_library_with_deps(
   NAME fcmp
-  DEPENDS rust_cxx
+  DEPENDS fcmp_rust
   SOURCES
     ${fcmp_sources}
     ${fcmp_headers})
@@ -46,5 +46,5 @@ target_link_libraries(fcmp
     crypto
     epee
   PRIVATE
-    fcmp_rust
+    ${CMAKE_CURRENT_BINARY_DIR}/fcmp_rust/libfcmp_rust.a
     ${EXTRA_LIBRARIES})

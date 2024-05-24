@@ -34,37 +34,28 @@ else ()
   set(TARGET_DIR "release")
 endif ()
 
-set(FCMP_RUST_CXX "${CMAKE_CURRENT_BINARY_DIR}/fcmp_rust.cc")
 set(FCMP_RUST_HEADER_DIR "${MONERO_GENERATED_HEADERS_DIR}/fcmp_rust")
-set(FCMP_RUST_HEADER "${FCMP_RUST_HEADER_DIR}/fcmp_rust.h")
-set(CXX_HEADER "${FCMP_RUST_HEADER_DIR}/cxx.h")
+set(FCMP_RUST_HEADER "${FCMP_RUST_HEADER_DIR}/fcmp++.h")
+set(FCMP_RUST_LIB "${CMAKE_CURRENT_BINARY_DIR}/libfcmp_rust.a")
 
 # Removing OUTPUT files makes sure custom command runs every time
-file(REMOVE_RECURSE "${FCMP_RUST_CXX}")
 file(REMOVE_RECURSE "${FCMP_RUST_HEADER_DIR}")
 file(MAKE_DIRECTORY "${FCMP_RUST_HEADER_DIR}")
 
+file(REMOVE "${FCMP_RUST_LIB}")
+
 add_custom_command(
   COMMENT "Building rust fcmp lib"
-  OUTPUT ${FCMP_RUST_CXX} ${FCMP_RUST_HEADER} ${CXX_HEADER}
+  OUTPUT ${FCMP_RUST_HEADER}
+  OUTPUT ${FCMP_RUST_LIB}
   COMMAND CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} ${CARGO_CMD}
-  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/fcmp_rust/src/lib.rs.cc ${FCMP_RUST_CXX}
-  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/fcmp_rust/src/lib.rs.h ${FCMP_RUST_HEADER}
-  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/cxxbridge/rust/cxx.h ${CXX_HEADER}
+  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fcmp++.h ${FCMP_RUST_HEADER}
+  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/libfcmp_rust.a ${FCMP_RUST_LIB}
   COMMAND echo "Finished copying fcmp rust targets"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   VERBATIM
 )
 
-add_custom_target(rust_cxx ALL DEPENDS ${CXX_HEADER})
-
-set(fcmp_rust_sources ${FCMP_RUST_CXX})
-
-monero_find_all_headers(fcmp_rust_headers "${FCMP_RUST_HEAfDER_DIR}")
-
-monero_add_library(fcmp_rust
-  ${fcmp_rust_sources}
-  ${fcmp_rust_headers})
-
-set(FCMP_RUST_LIB "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_DIR}/libfcmp_rust.a")
-target_link_libraries(fcmp_rust dl ${FCMP_RUST_LIB})
+#monero_find_all_headers(fcmp_rust_headers "${FCMP_RUST_HEADER_DIR}")
+add_custom_target(fcmp_rust DEPENDS ${FCMP_RUST_LIB})
+#target_link_libraries(fcmp ${FCMP_RUST_LIB})

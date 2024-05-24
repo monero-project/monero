@@ -1,21 +1,21 @@
 // Copyright (c) 2024, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -46,7 +46,7 @@ typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_ch
 {
     // New parent means no prior children, fill priors with 0
     std::vector<typename C::Scalar> prior_children;
-    tower_cycle::extend_zeroes(curve, new_children.size(), prior_children);
+    tower_cycle::extend_zeroes(curve, new_children.len, prior_children);
 
     return curve.hash_grow(
             curve.m_hash_init_point,
@@ -76,17 +76,17 @@ static typename C::Point get_first_parent(const C &curve,
     if (child_layer_last_hash_updated)
     {
         // If the last chunk has updated children in it, then we need to get the delta to the old children
-        prior_children.emplace_back(curve.clone(last_chunk_ptr->last_child));
+        prior_children.emplace_back(last_chunk_ptr->last_child);
 
         // Extend prior children by zeroes for any additional new children, since they must be new
-        if (new_children.size() > 1)
-            tower_cycle::extend_zeroes(curve, new_children.size() - 1, prior_children);
+        if (new_children.len > 1)
+            tower_cycle::extend_zeroes(curve, new_children.len - 1, prior_children);
     }
     else if (offset > 0)
     {
         // If we're updating the parent hash and no children were updated, then we're just adding new children
         // to the existing last chunk and can fill priors with 0
-        tower_cycle::extend_zeroes(curve, new_children.size(), prior_children);
+        tower_cycle::extend_zeroes(curve, new_children.len, prior_children);
     }
     else
     {
@@ -190,8 +190,9 @@ static void hash_layer(const C &curve,
         const auto chunk_start = child_scalars.data() + chunk_start_idx;
         const typename C::Chunk chunk{chunk_start, chunk_size};
 
-        for (const auto &c : chunk)
-            MDEBUG("Hashing " << curve.to_string(c));
+        for (uint c = 0; c < chunk_size; ++c) {
+            MDEBUG("Hashing " << curve.to_string(chunk_start[c]));
+        }
 
         // Hash the chunk of children
         typename C::Point chunk_hash = chunk_start_idx == 0
@@ -264,9 +265,9 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     for (const auto &leaf : new_leaf_tuples)
     {
         tree_extension.leaves.tuples.emplace_back(LeafTuple{
-            .O_x = m_c2.clone(leaf.O_x),
-            .I_x = m_c2.clone(leaf.I_x),
-            .C_x = m_c2.clone(leaf.C_x)
+            .O_x = leaf.O_x,
+            .I_x = leaf.I_x,
+            .C_x = leaf.C_x
         });
     }
 
@@ -378,9 +379,9 @@ std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(const std::v
     for (const auto &l : leaves)
     {
         // TODO: implement without cloning
-        flattened_leaves.emplace_back(m_c2.clone(l.O_x));
-        flattened_leaves.emplace_back(m_c2.clone(l.I_x));
-        flattened_leaves.emplace_back(m_c2.clone(l.C_x));
+        flattened_leaves.emplace_back(l.O_x);
+        flattened_leaves.emplace_back(l.I_x);
+        flattened_leaves.emplace_back(l.C_x);
     }
 
     return flattened_leaves;
