@@ -44,22 +44,20 @@ template class CurveTrees<Helios, Selene>;
 template<typename C>
 typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_children)
 {
-    // New parent means no prior children, fill priors with 0
-    std::vector<typename C::Scalar> prior_children;
-    tower_cycle::extend_zeroes(curve, new_children.len, prior_children);
-
     return curve.hash_grow(
             curve.m_hash_init_point,
             0,/*offset*/
-            typename C::Chunk{prior_children.data(), prior_children.size()},
+            curve.zero_scalar(),
             new_children
         );
 };
+template Helios::Point get_new_parent<Helios>(const Helios &curve, const typename Helios::Chunk &new_children);
+template Selene::Point get_new_parent<Selene>(const Selene &curve, const typename Selene::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Static functions
 //----------------------------------------------------------------------------------------------------------------------
-// Hash the first chunk of children being added to a layer
+// Hash the first chunk of the children now being added to a layer
 template<typename C>
 static typename C::Point get_first_parent(const C &curve,
     const typename C::Chunk &new_children,
@@ -72,21 +70,17 @@ static typename C::Point get_first_parent(const C &curve,
     if (last_chunk_ptr == nullptr)
         return get_new_parent<C>(curve, new_children);
 
-    std::vector<typename C::Scalar> prior_children;
+    typename C::Scalar first_child_after_offset = curve.zero_scalar();
+
     if (child_layer_last_hash_updated)
     {
         // If the last chunk has updated children in it, then we need to get the delta to the old children
-        prior_children.emplace_back(last_chunk_ptr->last_child);
-
-        // Extend prior children by zeroes for any additional new children, since they must be new
-        if (new_children.len > 1)
-            tower_cycle::extend_zeroes(curve, new_children.len - 1, prior_children);
+        first_child_after_offset = last_chunk_ptr->last_child;
     }
     else if (offset > 0)
     {
         // If we're updating the parent hash and no children were updated, then we're just adding new children
-        // to the existing last chunk and can fill priors with 0
-        tower_cycle::extend_zeroes(curve, new_children.len, prior_children);
+        // to the existing last chunk and can leave first_child_after_offset as zero
     }
     else
     {
@@ -97,7 +91,7 @@ static typename C::Point get_first_parent(const C &curve,
     return curve.hash_grow(
             last_chunk_ptr->last_parent,
             offset,
-            typename C::Chunk{prior_children.data(), prior_children.size()},
+            first_child_after_offset,
             new_children
         );
 };

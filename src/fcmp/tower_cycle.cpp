@@ -48,13 +48,13 @@ Selene::CycleScalar Selene::point_to_cycle_scalar(const Selene::Point &point) co
 Helios::Point Helios::hash_grow(
     const Helios::Point &existing_hash,
     const std::size_t offset,
-    const Helios::Chunk &prior_children,
+    const Helios::Scalar &first_child_after_offset,
     const Helios::Chunk &new_children) const
 {
     auto res = fcmp_rust::hash_grow_helios(
         existing_hash,
         offset,
-        prior_children,
+        first_child_after_offset,
         new_children);
     if (res.err != 0) {
       throw std::runtime_error("failed to hash grow");
@@ -65,13 +65,13 @@ Helios::Point Helios::hash_grow(
 Selene::Point Selene::hash_grow(
     const Selene::Point &existing_hash,
     const std::size_t offset,
-    const Selene::Chunk &prior_children,
+    const Selene::Scalar &first_child_after_offset,
     const Selene::Chunk &new_children) const
 {
     auto res = fcmp_rust::hash_grow_selene(
         existing_hash,
         offset,
-        prior_children,
+        first_child_after_offset,
         new_children);
     if (res.err != 0) {
       throw std::runtime_error("failed to hash grow");
@@ -150,6 +150,10 @@ std::string Selene::to_string(const typename Selene::Point &point) const
 //----------------------------------------------------------------------------------------------------------------------
 SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
 {
+    // If this function receives the ec_point, this is fine
+    // If this function can receive a decompressed point, it'd be notably faster
+    // to extract the Wei25519 x coordinate from the C side of things and then
+    // pass that
     return fcmp_rust::ed25519_point_to_selene_scalar((uint8_t*) &point.data);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -182,7 +186,6 @@ void extend_scalars_from_cycle_points(const C_POINTS &curve,
 
     for (const auto &point : points)
     {
-        // TODO: implement reading just the x coordinate of points on curves in curve cycle in C/C++
         typename C_SCALARS::Scalar scalar = curve.point_to_cycle_scalar(point);
         scalars_out.push_back(std::move(scalar));
     }
