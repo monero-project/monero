@@ -243,7 +243,7 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::output_to_leaf
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const LastChunks &existing_last_chunks,
-    const std::vector<LeafTuple> &new_leaf_tuples)
+    const std::vector<LeafTuple> &new_leaf_tuples) const
 {
     TreeExtension tree_extension;
 

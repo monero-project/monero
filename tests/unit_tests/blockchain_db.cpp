@@ -39,6 +39,7 @@
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "curve_trees.h"
 
 using namespace cryptonote;
 using epee::string_tools::pod_to_hex;
@@ -339,6 +340,39 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
 
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0].first), hashes[0]);
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1].first), hashes[1]);
+}
+
+TYPED_TEST(BlockchainDBTest, GrowCurveTrees)
+{
+  boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+  std::string dirPath = tempPath.string();
+
+  this->set_prefix(dirPath);
+
+  // make sure open does not throw
+  ASSERT_NO_THROW(this->m_db->open(dirPath));
+  this->get_filenames();
+  this->init_hard_fork();
+
+  db_wtxn_guard guard(this->m_db);
+
+  CHECK_AND_ASSERT_THROW_MES(HELIOS_GENERATORS_LEN >= HELIOS_CHUNK_WIDTH, "helios generators < chunk width");
+  CHECK_AND_ASSERT_THROW_MES(SELENE_GENERATORS_LEN >= (SELENE_CHUNK_WIDTH * CurveTreesV1::LEAF_TUPLE_SIZE),
+      "selene generators < max chunk width");
+
+  Helios helios(HELIOS_GENERATORS, HELIOS_HASH_INIT_POINT);
+  Selene selene(SELENE_GENERATORS, SELENE_HASH_INIT_POINT);
+
+  auto curve_trees = CurveTreesV1(
+      helios,
+      selene,
+      HELIOS_CHUNK_WIDTH,
+      SELENE_CHUNK_WIDTH);
+
+  // Grow tree by 1 leaf
+  ASSERT_NO_THROW(this->m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, 1)));
+
+  // TODO: Validate the tree
 }
 
 }  // anonymous namespace
