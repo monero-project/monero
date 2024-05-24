@@ -113,12 +113,12 @@ SeleneScalar selene_zero_scalar();
 
 CResult<HeliosPoint> hash_grow_helios(HeliosPoint existing_hash,
                                              uintptr_t offset,
-                                             HeliosScalarSlice prior_children,
+                                             HeliosScalar first_child_after_offset,
                                              HeliosScalarSlice new_children);
 
 CResult<SelenePoint> hash_grow_selene(SelenePoint existing_hash,
                                              uintptr_t offset,
-                                             SeleneScalarSlice prior_children,
+                                             SeleneScalar first_child_after_offset,
                                              SeleneScalarSlice new_children);
 
 } // extern "C"

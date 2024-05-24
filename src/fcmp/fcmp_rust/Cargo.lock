@@ -71,7 +71,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "ciphersuite"
 version = "0.4.1"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "blake2",
  "dalek-ff-group",
@@ -161,7 +161,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -198,7 +198,7 @@ dependencies = [
 [[package]]
 name = "ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "dalek-ff-group",
  "group",
@@ -272,7 +272,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "blake2",
  "digest",
@@ -285,7 +285,7 @@ dependencies = [
 [[package]]
 name = "full-chain-membership-proofs"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "ciphersuite",
  "ec-divisors",
@@ -305,7 +305,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "generalized-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "ciphersuite",
  "flexible-transcript",
@@ -368,7 +368,7 @@ dependencies = [
 [[package]]
 name = "helioselene"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "crypto-bigint",
  "dalek-ff-group",
@@ -429,7 +429,7 @@ dependencies = [
 [[package]]
 name = "minimal-ed448"
 version = "0.4.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "crypto-bigint",
  "ff",
@@ -444,7 +444,7 @@ dependencies = [
 [[package]]
 name = "multiexp"
 version = "0.4.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "ff",
  "group",
@@ -613,7 +613,7 @@ dependencies = [
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a17500708f5c6d79ec9cc33d53c771149db152c3"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#a11db094aac0384b9e62930f6f9f0d062d436897"
 dependencies = [
  "hashbrown",
  "spin",
@@ -627,9 +627,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "syn"
-version = "2.0.65"
+version = "2.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2863d96a84c6439701d7a38f9de935ec562c8832cc55d1dde0f513b52fad106"
+checksum = "c42f3f41a2de00b01c0aaad383c5a45241efc8b2d1eda5661812fda5f3cdcff5"
 dependencies = [
  "proc-macro2",
  "quote",

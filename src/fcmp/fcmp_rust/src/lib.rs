@@ -79,12 +79,11 @@ pub extern "C" fn selene_point_to_bytes(selene_point: SelenePoint) -> *const u8 
 }
 
 // Get the x coordinate of the ed25519 point
-// TODO: Move this to C++
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn ed25519_point_to_selene_scalar(ed25519_point: *const u8) -> SeleneScalar {
     let mut ed25519_point = unsafe { core::slice::from_raw_parts(ed25519_point, 32) };
-    // TODO: If not moved to C++, at least return an error here (instead of unwrapping)
+    // TODO: Return an error here (instead of unwrapping)
     let ed25519_point = <Ed25519>::read_G(&mut ed25519_point).unwrap();
 
     let xy_coords = <Ed25519 as Ciphersuite>::G::to_xy(ed25519_point);
@@ -153,14 +152,14 @@ impl<T, E> CResult<T, E> {
 pub extern "C" fn hash_grow_helios(
     existing_hash: HeliosPoint,
     offset: usize,
-    prior_children: HeliosScalarSlice,
+    first_child_after_offset: HeliosScalar,
     new_children: HeliosScalarSlice,
 ) -> CResult<HeliosPoint, io::Error> {
     let hash = hash_grow(
         helios_generators(),
         existing_hash,
         offset,
-        prior_children.into(),
+        first_child_after_offset,
         new_children.into(),
     );
 
@@ -178,14 +177,14 @@ pub extern "C" fn hash_grow_helios(
 pub extern "C" fn hash_grow_selene(
     existing_hash: SelenePoint,
     offset: usize,
-    prior_children: SeleneScalarSlice,
+    first_child_after_offset: SeleneScalar,
     new_children: SeleneScalarSlice,
 ) -> CResult<SelenePoint, io::Error> {
     let hash = hash_grow(
         selene_generators(),
         existing_hash,
         offset,
-        prior_children.into(),
+        first_child_after_offset,
         new_children.into(),
     );
 
