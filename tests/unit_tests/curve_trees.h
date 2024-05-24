@@ -78,17 +78,7 @@ private:
 const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTreesV1 &curve_trees,
     const std::size_t num_leaves);
 
-// TODO: use static constant generators and hash init points
-const std::size_t HELIOS_GENERATORS_LEN = 128;
-const std::size_t SELENE_GENERATORS_LEN = 256;
-
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob
 //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
 const std::size_t HELIOS_CHUNK_WIDTH = 38;
 const std::size_t SELENE_CHUNK_WIDTH = 18;
-
-const Helios::Generators HELIOS_GENERATORS = fcmp::tower_cycle::random_helios_generators(HELIOS_GENERATORS_LEN);
-const Selene::Generators SELENE_GENERATORS = fcmp::tower_cycle::random_selene_generators(SELENE_GENERATORS_LEN);
-
-const Helios::Point HELIOS_HASH_INIT_POINT = fcmp::tower_cycle::random_helios_hash_init_point();
-const Selene::Point SELENE_HASH_INIT_POINT = fcmp::tower_cycle::random_selene_hash_init_point();

@@ -356,12 +356,8 @@ TYPED_TEST(BlockchainDBTest, GrowCurveTrees)
 
   db_wtxn_guard guard(this->m_db);
 
-  CHECK_AND_ASSERT_THROW_MES(HELIOS_GENERATORS_LEN >= HELIOS_CHUNK_WIDTH, "helios generators < chunk width");
-  CHECK_AND_ASSERT_THROW_MES(SELENE_GENERATORS_LEN >= (SELENE_CHUNK_WIDTH * CurveTreesV1::LEAF_TUPLE_SIZE),
-      "selene generators < max chunk width");
-
-  Helios helios(HELIOS_GENERATORS, HELIOS_HASH_INIT_POINT);
-  Selene selene(SELENE_GENERATORS, SELENE_HASH_INIT_POINT);
+  Helios helios;
+  Selene selene;
 
   auto curve_trees = CurveTreesV1(
       helios,

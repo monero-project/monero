@@ -569,28 +569,32 @@ static void grow_tree(CurveTreesV1 &curve_trees,
     ASSERT_TRUE(curve_trees_accessor.validate_tree(tree_inout));
 }
 //----------------------------------------------------------------------------------------------------------------------
-static void grow_tree_test(Helios &helios,
-    Selene &selene,
-    const std::size_t helios_width,
-    const std::size_t selene_width)
+//----------------------------------------------------------------------------------------------------------------------
+// Test
+//----------------------------------------------------------------------------------------------------------------------
+TEST(curve_trees, grow_tree)
 {
-    LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_width << ", selene chunk width " << selene_width);
+    Helios helios;
+    Selene selene;
+
+    LOG_PRINT_L1("Test grow tree with helios chunk width " << HELIOS_CHUNK_WIDTH
+        << ", selene chunk width " << SELENE_CHUNK_WIDTH);
 
     auto curve_trees = CurveTreesV1(
         helios,
         selene,
-        helios_width,
-        selene_width);
+        HELIOS_CHUNK_WIDTH,
+        SELENE_CHUNK_WIDTH);
 
     CurveTreesUnitTest curve_trees_accessor{curve_trees};
 
-    CHECK_AND_ASSERT_THROW_MES(helios_width > 1, "helios width must be > 1");
-    CHECK_AND_ASSERT_THROW_MES(selene_width > 1, "selene width must be > 1");
+    CHECK_AND_ASSERT_THROW_MES(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
+    CHECK_AND_ASSERT_THROW_MES(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
 
     // Number of leaves for which x number of layers is required
-    const std::size_t NEED_1_LAYER  = selene_width;
-    const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * helios_width;
-    const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * selene_width;
+    const std::size_t NEED_1_LAYER  = SELENE_CHUNK_WIDTH;
+    const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * HELIOS_CHUNK_WIDTH;
+    const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * SELENE_CHUNK_WIDTH;
 
     const std::vector<std::size_t> N_LEAVES{
         // Basic tests
@@ -646,19 +650,4 @@ static void grow_tree_test(Helios &helios,
             MDEBUG("Successfully extended by " << ext_leaves << " leaves");
         }
     }
-}
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-// Test
-//----------------------------------------------------------------------------------------------------------------------
-TEST(curve_trees, grow_tree)
-{
-    CHECK_AND_ASSERT_THROW_MES(HELIOS_GENERATORS_LEN >= HELIOS_CHUNK_WIDTH, "helios generators < chunk width");
-    CHECK_AND_ASSERT_THROW_MES(SELENE_GENERATORS_LEN >= (SELENE_CHUNK_WIDTH * CurveTreesV1::LEAF_TUPLE_SIZE),
-        "selene generators < max chunk width");
-
-    Helios helios(HELIOS_GENERATORS, HELIOS_HASH_INIT_POINT);
-    Selene selene(SELENE_GENERATORS, SELENE_HASH_INIT_POINT);
-
-    grow_tree_test(helios, selene, HELIOS_CHUNK_WIDTH, SELENE_CHUNK_WIDTH);
 }
