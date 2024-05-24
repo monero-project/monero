@@ -51,7 +51,7 @@ Helios::Point Helios::hash_grow(
     const Helios::Scalar &first_child_after_offset,
     const Helios::Chunk &new_children) const
 {
-    auto res = fcmp_rust::hash_grow_helios(
+    fcmp_rust::CResult<Helios::Point> res = fcmp_rust::hash_grow_helios(
         existing_hash,
         offset,
         first_child_after_offset,
@@ -68,7 +68,7 @@ Selene::Point Selene::hash_grow(
     const Selene::Scalar &first_child_after_offset,
     const Selene::Chunk &new_children) const
 {
-    auto res = fcmp_rust::hash_grow_selene(
+    fcmp_rust::CResult<Selene::Point> res = fcmp_rust::hash_grow_selene(
         existing_hash,
         offset,
         first_child_after_offset,
