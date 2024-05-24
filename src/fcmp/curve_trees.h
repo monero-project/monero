@@ -143,7 +143,7 @@ public:
     // Take in the existing last chunks of each layer in the tree, as well as new leaves to add to the tree,
     // and return a tree extension struct that can be used to extend a global tree
     TreeExtension get_tree_extension(const LastChunks &existing_last_chunks,
-        const std::vector<LeafTuple> &new_leaf_tuples);
+        const std::vector<LeafTuple> &new_leaf_tuples) const;
 
 //private member functions
 private:

@@ -204,7 +204,7 @@ namespace
  * spent_keys       input hash   -
  *
  * leaves           leaf_idx     {O.x, I.x, C.x}
- * branches         layer_idx    [{branch_idx, branch_hash}...]
+ * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  *
  * txpool_meta      txn hash     txn metadata
  * txpool_blob      txn hash     txn blob
@@ -217,7 +217,7 @@ namespace
  * attached as a prefix on the Data to serve as the DUPSORT key.
  * (DUPFIXED saves 8 bytes per record.)
  *
- * The output_amounts and branches tables don't use a dummy key, but use DUPSORT
+ * The output_amounts and layers tables don't use a dummy key, but use DUPSORT
  */
 const char* const LMDB_BLOCKS = "blocks";
 const char* const LMDB_BLOCK_HEIGHTS = "block_heights";
@@ -237,7 +237,7 @@ const char* const LMDB_SPENT_KEYS = "spent_keys";
 
 // Curve trees tree types
 const char* const LMDB_LEAVES = "leaves";
-const char* const LMDB_BRANCHES = "branches";
+const char* const LMDB_LAYERS = "layers";
 
 const char* const LMDB_TXPOOL_META = "txpool_meta";
 const char* const LMDB_TXPOOL_BLOB = "txpool_blob";
@@ -361,6 +361,11 @@ typedef struct outtx {
     crypto::hash tx_hash;
     uint64_t local_index;
 } outtx;
+
+typedef struct layer_val {
+    uint64_t child_chunk_idx;
+    std::array<uint8_t, 32UL> child_chunk_hash;
+} layer_val;
 
 std::atomic<uint64_t> mdb_txn_safe::num_active_txns{0};
 std::atomic_flag mdb_txn_safe::creation_gate = ATOMIC_FLAG_INIT;
@@ -1299,6 +1304,135 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
+template<typename C>
+void BlockchainLMDB::grow_layer(const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
+  const std::size_t ext_idx,
+  const std::size_t layer_idx,
+  const fcmp::curve_trees::LastChunkData<C> *last_chunk_ptr)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(layers)
+
+  CHECK_AND_ASSERT_THROW_MES(ext_idx < layer_extensions.size(), "unexpected layer extension");
+  const auto &ext = layer_extensions[ext_idx];
+
+  CHECK_AND_ASSERT_THROW_MES(!ext.hashes.empty(), "empty layer extension");
+
+  // TODO: make sure last_chunk_ptr->parent_layer_size is correct
+
+  // Check if we started at 0 if fresh layer, or if started 1 after the last element in the layer
+  const bool started_after_tip = (ext.start_idx == 0 && last_chunk_ptr == nullptr)
+      || (last_chunk_ptr != nullptr && ext.start_idx == last_chunk_ptr->parent_layer_size);
+
+  // Check if we updated the last element in the layer
+  const bool started_at_tip = (last_chunk_ptr != nullptr
+      && (ext.start_idx + 1) == last_chunk_ptr->parent_layer_size);
+
+  CHECK_AND_ASSERT_THROW_MES(started_after_tip || started_at_tip, "unexpected layer start");
+
+  MDB_val_copy<uint64_t> k(layer_idx);
+
+  if (started_at_tip)
+  {
+    // We updated the last hash, so update it
+    layer_val lv;
+    lv.child_chunk_idx  = ext.start_idx;
+    lv.child_chunk_hash = std::array<uint8_t, 32UL>(); // ext.hashes.front(); // TODO
+    MDB_val_set(v, lv);
+
+    // We expect to overwrite the existing hash
+    // TODO: make sure the hash already exists
+    int result = mdb_cursor_put(m_cur_layers, &k, &v, 0);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to update chunk hash: ", result).c_str()));
+  }
+
+  // Now add all the new hashes found in the extension
+  for (std::size_t i = started_at_tip ? 1 : 0; i < ext.hashes.size(); ++i)
+  {
+    layer_val lv;
+    lv.child_chunk_idx  = i + ext.start_idx;
+    lv.child_chunk_hash = std::array<uint8_t, 32UL>(); // ext.hashes[i]; // TODO
+    MDB_val_set(v, lv);
+
+    // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
+    // Adding MDB_NODUPDATA I assume re-introduces a key comparison. Benchmark MDB_NODUPDATA here
+    // MDB_NODUPDATA makes sure key/data pair doesn't already exist
+    int result = mdb_cursor_put(m_cur_layers, &k, &v, MDB_APPENDDUP | MDB_NODUPDATA);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to add hash: ", result).c_str()));
+  }
+}
+
+void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
+  const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(leaves)
+
+  // TODO: read every layer's last chunks
+  const auto last_chunks = fcmp::curve_trees::CurveTreesV1::LastChunks{};
+
+  const auto tree_extension = curve_trees.get_tree_extension(last_chunks, new_leaves);
+
+  // Insert the leaves
+  const auto &leaves = tree_extension.leaves;
+  for (std::size_t i = 0; i < leaves.tuples.size(); ++i)
+  {
+    MDB_val_copy<uint64_t> k(i + leaves.start_idx);
+    MDB_val_set(v, leaves.tuples[i]);
+
+    // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
+    // Adding MDB_NOOVERWRITE I assume re-introduces a key comparison. Benchmark NOOVERWRITE here
+    // MDB_NOOVERWRITE makes sure key doesn't already exist
+    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPENDDUP | MDB_NOOVERWRITE);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
+  }
+
+  // Grow the layers
+  const auto &c2_extensions = tree_extension.c2_layer_extensions;
+  const auto &c1_extensions = tree_extension.c1_layer_extensions;
+  CHECK_AND_ASSERT_THROW_MES(!c2_extensions.empty(), "empty c2 extensions");
+
+  bool use_c2 = true;
+  std::size_t c2_idx = 0;
+  std::size_t c1_idx = 0;
+  for (std::size_t i = 0; i < (c2_extensions.size() + c1_extensions.size()); ++i)
+  {
+    const std::size_t layer_idx = c2_idx + c1_idx;
+
+    if (use_c2)
+    {
+      const auto *c2_last_chunk_ptr = (c2_idx >= last_chunks.c2_last_chunks.size())
+          ? nullptr
+          : &last_chunks.c2_last_chunks[c2_idx];
+
+      this->grow_layer<fcmp::curve_trees::Selene>(c2_extensions, c2_idx, layer_idx, c2_last_chunk_ptr);
+
+      ++c2_idx;
+    }
+    else
+    {
+      const auto *c1_last_chunk_ptr = (c1_idx >= last_chunks.c1_last_chunks.size())
+          ? nullptr
+          : &last_chunks.c1_last_chunks[c1_idx];
+
+      this->grow_layer<fcmp::curve_trees::Helios>(c1_extensions, c1_idx, layer_idx, c1_last_chunk_ptr);
+
+      ++c1_idx;
+    }
+
+    use_c2 = !use_c2;
+  }
+}
+
 BlockchainLMDB::~BlockchainLMDB()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1508,7 +1642,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
   lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
-  lmdb_db_open(txn, LMDB_BRANCHES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_branches, "Failed to open db handle for m_branches");
+  lmdb_db_open(txn, LMDB_LAYERS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_layers, "Failed to open db handle for m_layers");
 
   lmdb_db_open(txn, LMDB_TXPOOL_META, MDB_CREATE, m_txpool_meta, "Failed to open db handle for m_txpool_meta");
   lmdb_db_open(txn, LMDB_TXPOOL_BLOB, MDB_CREATE, m_txpool_blob, "Failed to open db handle for m_txpool_blob");
@@ -1530,7 +1664,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_tx_indices, compare_hash32);
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
   mdb_set_dupsort(txn, m_leaves, compare_uint64);
-  mdb_set_dupsort(txn, m_branches, compare_uint64);
+  mdb_set_dupsort(txn, m_layers, compare_uint64);
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
   mdb_set_dupsort(txn, m_block_info, compare_uint64);
   if (!(mdb_flags & MDB_RDONLY))
@@ -1710,8 +1844,8 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_spent_keys: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_leaves, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_leaves: ", result).c_str()));
-  if (auto result = mdb_drop(txn, m_branches, 0))
-    throw0(DB_ERROR(lmdb_error("Failed to drop m_branches: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_layers, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_layers: ", result).c_str()));
   (void)mdb_drop(txn, m_hf_starting_heights, 0); // this one is dropped in new code
   if (auto result = mdb_drop(txn, m_hf_versions, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
