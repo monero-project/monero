@@ -70,7 +70,9 @@ class Curve
 {
 //constructor
 public:
-    Curve(const typename C::Point &hash_init_point):
+    // This doesn't have a reference as doing so delays initialization and borks
+    // it
+    Curve(const typename C::Point hash_init_point):
         m_hash_init_point{hash_init_point}
     {};
 
@@ -95,7 +97,7 @@ public:
 
 //member variables
 public:
-    const typename C::Point &m_hash_init_point;
+    const typename C::Point m_hash_init_point;
 };
 //----------------------------------------------------------------------------------------------------------------------
 class Helios final : public Curve<HeliosT>
