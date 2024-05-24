@@ -49,7 +49,6 @@ using HeliosScalar = fcmp_rust::HeliosScalar;
 //----------------------------------------------------------------------------------------------------------------------
 struct HeliosT final
 {
-    using Generators  = fcmp_rust::HeliosGenerators;
     using Scalar      = HeliosScalar;
     using Point       = fcmp_rust::HeliosPoint;
     using Chunk       = fcmp_rust::HeliosScalarSlice;
@@ -58,7 +57,6 @@ struct HeliosT final
 //----------------------------------------------------------------------------------------------------------------------
 struct SeleneT final
 {
-    using Generators  = fcmp_rust::SeleneGenerators;
     using Scalar      = SeleneScalar;
     using Point       = fcmp_rust::SelenePoint;
     using Chunk       = fcmp_rust::SeleneScalarSlice;
@@ -72,8 +70,7 @@ class Curve
 {
 //constructor
 public:
-    Curve(const typename C::Generators &generators, const typename C::Point &hash_init_point):
-        m_generators{generators},
+    Curve(const typename C::Point &hash_init_point):
         m_hash_init_point{hash_init_point}
     {};
 
@@ -98,8 +95,6 @@ public:
 
 //member variables
 public:
-    // TODO: make these static constants
-    const typename C::Generators &m_generators;
     const typename C::Point &m_hash_init_point;
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -107,7 +102,6 @@ class Helios final : public Curve<HeliosT>
 {
 //typedefs
 public:
-    using Generators  = HeliosT::Generators;
     using Scalar      = HeliosT::Scalar;
     using Point       = HeliosT::Point;
     using Chunk       = HeliosT::Chunk;
@@ -115,8 +109,8 @@ public:
 
 //constructor
 public:
-    Helios(const Generators &generators, const Point &hash_init_point)
-    : Curve<HeliosT>(generators, hash_init_point)
+    Helios()
+    : Curve<HeliosT>(fcmp_rust::helios_hash_init_point())
     {};
 
 //member functions
@@ -142,7 +136,6 @@ class Selene final : public Curve<SeleneT>
 {
 //typedefs
 public:
-    using Generators  = SeleneT::Generators;
     using Scalar      = SeleneT::Scalar;
     using Point       = SeleneT::Point;
     using Chunk       = SeleneT::Chunk;
@@ -150,8 +143,8 @@ public:
 
 //constructor
 public:
-    Selene(const Generators &generators, const Point &hash_init_point)
-    : Curve<SeleneT>(generators, hash_init_point)
+    Selene()
+    : Curve<SeleneT>(fcmp_rust::selene_hash_init_point())
     {};
 
 //member functions
@@ -186,13 +179,6 @@ template<typename C_POINTS, typename C_SCALARS>
 void extend_scalars_from_cycle_points(const C_POINTS &curve,
     const std::vector<typename C_POINTS::Point> &points,
     std::vector<typename C_SCALARS::Scalar> &scalars_out);
-//----------------------------------------------------------------------------------------------------------------------
-// TODO: use static constants and get rid of the below functions (WARNING: number of generators must be >= curve's
-// width, and also need to account for selene leaf layer 3x)
-Helios::Generators random_helios_generators(std::size_t n);
-Selene::Generators random_selene_generators(std::size_t n);
-Helios::Point random_helios_hash_init_point();
-Selene::Point random_selene_hash_init_point();
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace tower_cycle

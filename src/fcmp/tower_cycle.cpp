@@ -52,7 +52,6 @@ Helios::Point Helios::hash_grow(
     const Helios::Chunk &new_children) const
 {
     auto res = fcmp_rust::hash_grow_helios(
-        &m_generators,
         existing_hash,
         offset,
         prior_children,
@@ -70,7 +69,6 @@ Selene::Point Selene::hash_grow(
     const Selene::Chunk &new_children) const
 {
     auto res = fcmp_rust::hash_grow_selene(
-        &m_generators,
         existing_hash,
         offset,
         prior_children,
@@ -198,26 +196,6 @@ template void extend_scalars_from_cycle_points<Helios, Selene>(const Helios &cur
 template void extend_scalars_from_cycle_points<Selene, Helios>(const Selene &curve,
     const std::vector<Selene::Point> &points,
     std::vector<Helios::Scalar> &scalars_out);
-//----------------------------------------------------------------------------------------------------------------------
-Helios::Generators random_helios_generators(std::size_t n)
-{
-    return fcmp_rust::random_helios_generators(n);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Selene::Generators random_selene_generators(std::size_t n)
-{
-    return fcmp_rust::random_selene_generators(n);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Helios::Point random_helios_hash_init_point()
-{
-    return fcmp_rust::random_helios_hash_init_point();
-}
-//----------------------------------------------------------------------------------------------------------------------
-Selene::Point random_selene_hash_init_point()
-{
-    return fcmp_rust::random_selene_hash_init_point();
-}
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle

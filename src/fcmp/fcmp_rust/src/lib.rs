@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, sync::OnceLock};
 
 use rand_core::OsRng;
 
@@ -21,39 +21,36 @@ use full_chain_membership_proofs::tree::hash_grow;
 
 // TODO: Use a macro to de-duplicate some of of this code
 
-#[repr(C)]
-pub struct HeliosGenerators {
-    generators: Box<Generators<RecommendedTranscript, Helios>>,
+pub const HELIOS_GENERATORS_LENGTH: usize = 128;
+pub const SELENE_GENERATORS_LENGTH: usize = 256;
+
+static HELIOS_GENERATORS: OnceLock<Generators<RecommendedTranscript, Helios>> = OnceLock::new();
+static SELENE_GENERATORS: OnceLock<Generators<RecommendedTranscript, Selene>> = OnceLock::new();
+
+static HELIOS_HASH_INIT: OnceLock<HeliosPoint> = OnceLock::new();
+static SELENE_HASH_INIT: OnceLock<SelenePoint> = OnceLock::new();
+
+// TODO: Don't use random generators
+fn helios_generators() -> &'static Generators<RecommendedTranscript, Helios> {
+    HELIOS_GENERATORS.get_or_init(|| {
+        generalized_bulletproofs::tests::generators::<Helios>(HELIOS_GENERATORS_LENGTH)
+    })
 }
-#[repr(C)]
-pub struct SeleneGenerators {
-    generators: Box<Generators<RecommendedTranscript, Selene>>,
+
+fn selene_generators() -> &'static Generators<RecommendedTranscript, Selene> {
+    SELENE_GENERATORS.get_or_init(|| {
+        generalized_bulletproofs::tests::generators::<Selene>(SELENE_GENERATORS_LENGTH)
+    })
 }
 
 #[no_mangle]
-pub extern "C" fn random_helios_generators(n: usize) -> HeliosGenerators {
-    let helios_generators = generalized_bulletproofs::tests::generators::<Helios>(n);
-    HeliosGenerators {
-        generators: Box::new(helios_generators),
-    }
+pub extern "C" fn helios_hash_init_point() -> HeliosPoint {
+    *HELIOS_HASH_INIT.get_or_init(|| HeliosPoint::random(&mut OsRng))
 }
 
 #[no_mangle]
-pub extern "C" fn random_selene_generators(n: usize) -> SeleneGenerators {
-    let selene_generators = generalized_bulletproofs::tests::generators::<Selene>(n);
-    SeleneGenerators {
-        generators: Box::new(selene_generators),
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn random_helios_hash_init_point() -> HeliosPoint {
-    HeliosPoint::random(&mut OsRng)
-}
-
-#[no_mangle]
-pub extern "C" fn random_selene_hash_init_point() -> SelenePoint {
-    SelenePoint::random(&mut OsRng)
+pub extern "C" fn selene_hash_init_point() -> SelenePoint {
+    *SELENE_HASH_INIT.get_or_init(|| SelenePoint::random(&mut OsRng))
 }
 
 fn c_u8_32(bytes: [u8; 32]) -> *const u8 {
@@ -154,14 +151,13 @@ impl<T, E> CResult<T, E> {
 
 #[no_mangle]
 pub extern "C" fn hash_grow_helios(
-    helios_generators: &HeliosGenerators,
     existing_hash: HeliosPoint,
     offset: usize,
     prior_children: HeliosScalarSlice,
     new_children: HeliosScalarSlice,
 ) -> CResult<HeliosPoint, io::Error> {
     let hash = hash_grow(
-        &helios_generators.generators,
+        helios_generators(),
         existing_hash,
         offset,
         prior_children.into(),
@@ -180,14 +176,13 @@ pub extern "C" fn hash_grow_helios(
 
 #[no_mangle]
 pub extern "C" fn hash_grow_selene(
-    selene_generators: &SeleneGenerators,
     existing_hash: SelenePoint,
     offset: usize,
     prior_children: SeleneScalarSlice,
     new_children: SeleneScalarSlice,
 ) -> CResult<SelenePoint, io::Error> {
     let hash = hash_grow(
-        &selene_generators.generators,
+        selene_generators(),
         existing_hash,
         offset,
         prior_children.into(),
