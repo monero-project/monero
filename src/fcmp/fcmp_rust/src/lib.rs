@@ -21,8 +21,8 @@ use full_chain_membership_proofs::tree::hash_grow;
 
 // TODO: Use a macro to de-duplicate some of of this code
 
-pub const HELIOS_GENERATORS_LENGTH: usize = 128;
-pub const SELENE_GENERATORS_LENGTH: usize = 256;
+const HELIOS_GENERATORS_LENGTH: usize = 128;
+const SELENE_GENERATORS_LENGTH: usize = 256;
 
 static HELIOS_GENERATORS: OnceLock<Generators<RecommendedTranscript, Helios>> = OnceLock::new();
 static SELENE_GENERATORS: OnceLock<Generators<RecommendedTranscript, Selene>> = OnceLock::new();
