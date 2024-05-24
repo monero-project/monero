@@ -1,21 +1,21 @@
 // Copyright (c) 2024, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -29,8 +29,7 @@
 #pragma once
 
 #include "crypto/crypto.h"
-#include "fcmp_rust/cxx.h"
-#include "fcmp_rust/fcmp_rust.h"
+#include "fcmp_rust/fcmp++.h"
 
 #include <string>
 
@@ -45,24 +44,24 @@ namespace tower_cycle
 using RustEd25519Point = std::array<uint8_t, 32UL>;
 
 // Need to forward declare Scalar types for point_to_cycle_scalar below
-using SeleneScalar = rust::Box<fcmp_rust::SeleneScalar>;
-using HeliosScalar = rust::Box<fcmp_rust::HeliosScalar>;
+using SeleneScalar = fcmp_rust::SeleneScalar;
+using HeliosScalar = fcmp_rust::HeliosScalar;
 //----------------------------------------------------------------------------------------------------------------------
 struct HeliosT final
 {
-    using Generators  = rust::Box<fcmp_rust::HeliosGenerators>;
+    using Generators  = fcmp_rust::HeliosGenerators;
     using Scalar      = HeliosScalar;
-    using Point       = rust::Box<fcmp_rust::HeliosPoint>;
-    using Chunk       = rust::Slice<const Scalar>;
+    using Point       = fcmp_rust::HeliosPoint;
+    using Chunk       = fcmp_rust::HeliosScalarSlice;
     using CycleScalar = SeleneScalar;
 };
 //----------------------------------------------------------------------------------------------------------------------
 struct SeleneT final
 {
-    using Generators  = rust::Box<fcmp_rust::SeleneGenerators>;
+    using Generators  = fcmp_rust::SeleneGenerators;
     using Scalar      = SeleneScalar;
-    using Point       = rust::Box<fcmp_rust::SelenePoint>;
-    using Chunk       = rust::Slice<const Scalar>;
+    using Point       = fcmp_rust::SelenePoint;
+    using Chunk       = fcmp_rust::SeleneScalarSlice;
     using CycleScalar = HeliosScalar;
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -88,9 +87,6 @@ public:
         const std::size_t offset,
         const typename C::Chunk &prior_children,
         const typename C::Chunk &new_children) const = 0;
-
-    virtual typename C::Scalar clone(const typename C::Scalar &scalar) const = 0;
-    virtual typename C::Point clone(const typename C::Point &point) const = 0;
 
     virtual typename C::Scalar zero_scalar() const = 0;
 
@@ -133,9 +129,6 @@ public:
         const Chunk &prior_children,
         const Chunk &new_children) const override;
 
-    Scalar clone(const Scalar &scalar) const override;
-    Point clone(const Point &point) const override;
-
     Scalar zero_scalar() const override;
 
     std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
@@ -170,9 +163,6 @@ public:
         const std::size_t offset,
         const Chunk &prior_children,
         const Chunk &new_children) const override;
-
-    Scalar clone(const Scalar &scalar) const override;
-    Point clone(const Point &point) const override;
 
     Scalar zero_scalar() const override;
 

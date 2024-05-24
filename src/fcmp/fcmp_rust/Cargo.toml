@@ -8,14 +8,16 @@ name = "fcmp_rust"
 crate-type = ["staticlib"]
 
 [dependencies]
-cxx = "1.0"
-full-chain-membership-proofs = { path = "../../../external/fcmp-plus-plus/crypto/fcmps" }
-ciphersuite = { path = "../../../external/fcmp-plus-plus/crypto/ciphersuite", features = ["helioselene", "ed25519"] }
-
-ec-divisors = { path = "../../../external/fcmp-plus-plus/crypto/divisors", features = ["ed25519"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
-transcript = { package = "flexible-transcript", path = "../../../external/fcmp-plus-plus/crypto/transcript", features = ["recommended"] }
-generalized-bulletproofs = { path = "../../../external/fcmp-plus-plus/crypto/generalized-bulletproofs", features = ["tests"] }
 
-[build-dependencies]
-cxx-build = "1.0"
+transcript = { package = "flexible-transcript", git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["recommended"] }
+helioselene = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
+ciphersuite = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["ed25519", "helioselene"] }
+
+generalized-bulletproofs = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["tests"] }
+
+ec-divisors = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["ed25519"] }
+full-chain-membership-proofs = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
+
+[patch.crates-io]
+crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }

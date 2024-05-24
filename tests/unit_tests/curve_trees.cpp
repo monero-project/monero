@@ -1,21 +1,21 @@
 // Copyright (c) 2014, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -49,8 +49,8 @@ static fcmp::curve_trees::LastChunkData<C> get_last_child_layer_chunk(const C &c
 
     return fcmp::curve_trees::LastChunkData<C>{
         .child_offset      = child_offset,
-        .last_child        = curve.clone(last_child),
-        .last_parent       = curve.clone(last_parent),
+        .last_child        = last_child,
+        .last_parent       = last_parent,
         .child_layer_size  = child_layer_size,
         .parent_layer_size = parent_layer_size
     };
@@ -204,9 +204,9 @@ void CurveTreesUnitTest::extend_tree(const CurveTreesV1::TreeExtension &tree_ext
     for (const auto &leaf : tree_extension.leaves.tuples)
     {
         tree_inout.leaves.emplace_back(CurveTreesV1::LeafTuple{
-            .O_x = m_curve_trees.m_c2.clone(leaf.O_x),
-            .I_x = m_curve_trees.m_c2.clone(leaf.I_x),
-            .C_x = m_curve_trees.m_c2.clone(leaf.C_x)
+            .O_x = leaf.O_x,
+            .I_x = leaf.I_x,
+            .C_x = leaf.C_x
         });
     }
 
@@ -240,10 +240,10 @@ void CurveTreesUnitTest::extend_tree(const CurveTreesV1::TreeExtension &tree_ext
 
             // We updated the last hash
             if (started_at_tip)
-                c2_inout.back() = m_curve_trees.m_c2.clone(c2_ext.hashes.front());
+                c2_inout.back() = c2_ext.hashes.front();
 
             for (std::size_t i = started_at_tip ? 1 : 0; i < c2_ext.hashes.size(); ++i)
-                c2_inout.emplace_back(m_curve_trees.m_c2.clone(c2_ext.hashes[i]));
+                c2_inout.emplace_back(c2_ext.hashes[i]);
 
             ++c2_idx;
         }
@@ -266,10 +266,10 @@ void CurveTreesUnitTest::extend_tree(const CurveTreesV1::TreeExtension &tree_ext
 
             // We updated the last hash
             if (started_at_tip)
-                c1_inout.back() = m_curve_trees.m_c1.clone(c1_ext.hashes.front());
+                c1_inout.back() = c1_ext.hashes.front();
 
             for (std::size_t i = started_at_tip ? 1 : 0; i < c1_ext.hashes.size(); ++i)
-                c1_inout.emplace_back(m_curve_trees.m_c1.clone(c1_ext.hashes[i]));
+                c1_inout.emplace_back(c1_ext.hashes[i]);
 
             ++c1_idx;
         }

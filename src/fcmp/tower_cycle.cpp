@@ -1,21 +1,21 @@
 // Copyright (c) 2024, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -51,12 +51,16 @@ Helios::Point Helios::hash_grow(
     const Helios::Chunk &prior_children,
     const Helios::Chunk &new_children) const
 {
-    return fcmp_rust::hash_grow_helios(
-        m_generators,
+    auto res = fcmp_rust::hash_grow_helios(
+        &m_generators,
         existing_hash,
         offset,
         prior_children,
         new_children);
+    if (res.err != 0) {
+      throw std::runtime_error("failed to hash grow");
+    }
+    return res.value;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_grow(
@@ -65,32 +69,16 @@ Selene::Point Selene::hash_grow(
     const Selene::Chunk &prior_children,
     const Selene::Chunk &new_children) const
 {
-    return fcmp_rust::hash_grow_selene(
-        m_generators,
+    auto res = fcmp_rust::hash_grow_selene(
+        &m_generators,
         existing_hash,
         offset,
         prior_children,
         new_children);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Helios::Scalar Helios::clone(const Helios::Scalar &scalar) const
-{
-    return fcmp_rust::clone_helios_scalar(scalar);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Selene::Scalar Selene::clone(const Selene::Scalar &scalar) const
-{
-    return fcmp_rust::clone_selene_scalar(scalar);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Helios::Point Helios::clone(const Helios::Point &point) const
-{
-    return fcmp_rust::clone_helios_point(point);
-}
-//----------------------------------------------------------------------------------------------------------------------
-Selene::Point Selene::clone(const Selene::Point &point) const
-{
-    return fcmp_rust::clone_selene_point(point);
+    if (res.err != 0) {
+      throw std::runtime_error("failed to hash grow");
+    }
+    return res.value;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Scalar Helios::zero_scalar() const
@@ -105,22 +93,38 @@ Selene::Scalar Selene::zero_scalar() const
 //----------------------------------------------------------------------------------------------------------------------
 std::array<uint8_t, 32UL> Helios::to_bytes(const Helios::Scalar &scalar) const
 {
-    return fcmp_rust::helios_scalar_to_bytes(scalar);
+    auto bytes = fcmp_rust::helios_scalar_to_bytes(scalar);
+    std::array<uint8_t, 32UL> res;
+    memcpy(&res, bytes, 32);
+    free(bytes);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::array<uint8_t, 32UL> Selene::to_bytes(const Selene::Scalar &scalar) const
 {
-    return fcmp_rust::selene_scalar_to_bytes(scalar);
+    auto bytes = fcmp_rust::selene_scalar_to_bytes(scalar);
+    std::array<uint8_t, 32UL> res;
+    memcpy(&res, bytes, 32);
+    free(bytes);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::array<uint8_t, 32UL> Helios::to_bytes(const Helios::Point &point) const
 {
-    return fcmp_rust::helios_point_to_bytes(point);
+    auto bytes = fcmp_rust::helios_point_to_bytes(point);
+    std::array<uint8_t, 32UL> res;
+    memcpy(&res, bytes, 32);
+    free(bytes);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::array<uint8_t, 32UL> Selene::to_bytes(const Selene::Point &point) const
 {
-    return fcmp_rust::selene_point_to_bytes(point);
+    auto bytes = fcmp_rust::selene_point_to_bytes(point);
+    std::array<uint8_t, 32UL> res;
+    memcpy(&res, bytes, 32);
+    free(bytes);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::string Helios::to_string(const typename Helios::Scalar &scalar) const
@@ -148,13 +152,7 @@ std::string Selene::to_string(const typename Selene::Point &point) const
 //----------------------------------------------------------------------------------------------------------------------
 SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
 {
-    static_assert(sizeof(RustEd25519Point) == sizeof(crypto::ec_point),
-        "expected same size ed25519 point to rust representation");
-
-    // TODO: implement reading just the x coordinate of ed25519 point in C/C++
-    fcmp::tower_cycle::RustEd25519Point rust_point;
-    memcpy(&rust_point, &point, sizeof(fcmp::tower_cycle::RustEd25519Point));
-    return fcmp_rust::ed25519_point_to_selene_scalar(rust_point);
+    return fcmp_rust::ed25519_point_to_selene_scalar((uint8_t*) &point.data);
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
