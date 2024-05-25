@@ -32,31 +32,44 @@ jobs:
           - name: "RISCV 64bit"
             host: "riscv64-linux-gnu"
             packages: "g++-riscv64-linux-gnu"
+            rust_host: "riscv64gc-unknown-linux-gnu"
           - name: "ARM v7"
             host: "arm-linux-gnueabihf"
             packages: "g++-arm-linux-gnueabihf"
+            rust_host: "armv7-unknown-linux-gnueabihf"
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
             packages: "g++-aarch64-linux-gnu"
+            rust_host: "aarch64-unknown-linux-gnu"
+          - name: "i686 Win"
+            host: "i686-w64-mingw32"
+            rust_host: "i686-pc-windows-gnu"
           - name: "i686 Linux"
             host: "i686-pc-linux-gnu"
             packages: "g++-multilib"
+            rust_host: "i686-unknown-linux-gnu"
           - name: "Win64"
             host: "x86_64-w64-mingw32"
             packages: "g++-mingw-w64-x86-64"
+            rust_host: "x86_64-pc-windows-gnu"
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
+            rust_host: "x86_64-unknown-linux-gnu"
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
+            rust_host: "x86_64-apple-darwin"
           - name: "Cross-Mac aarch64"
             host: "aarch64-apple-darwin"
+            rust_host: "aarch64-apple-darwin"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
             packages: "clang-8"
           - name: "ARMv7 Android"
             host: "arm-linux-android"
+            rust_host: "x86_64-unknown-freebsd"
           - name: "ARMv8 Android"
             host: "aarch64-linux-android"
+            rust_host: "aarch64-linux-android"
     name: ${{ matrix.toolchain.name }}
     steps:
     - uses: actions/checkout@v4
@@ -83,6 +96,8 @@ jobs:
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
       run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config python3 gperf bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+    - name: install rust target
+      run: rustup update stable; rustup target add ${{ matrix.toolchain.rust_host }}
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
       run: |
