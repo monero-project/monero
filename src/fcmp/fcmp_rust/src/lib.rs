@@ -130,19 +130,19 @@ impl<'a, T> From<Slice<T>> for &'a [T] {
 
 #[repr(C)]
 pub struct CResult<T, E> {
-    value: T,
+    value: *const T,
     err: *const E,
 }
 impl<T, E> CResult<T, E> {
     fn ok(value: T) -> Self {
         CResult {
-            value,
+            value: Box::into_raw(Box::new(value)),
             err: core::ptr::null(),
         }
     }
-    fn err(default: T, err: E) -> Self {
+    fn err(err: E) -> Self {
         CResult {
-            value: default,
+            value: core::ptr::null(),
             err: Box::into_raw(Box::new(err)),
         }
     }
@@ -166,10 +166,7 @@ pub extern "C" fn hash_grow_helios(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
-        CResult::err(
-            HeliosPoint::identity(),
-            io::Error::new(io::ErrorKind::Other, "failed to grow hash"),
-        )
+        CResult::err(io::Error::new(io::ErrorKind::Other, "failed to grow hash"))
     }
 }
 
@@ -216,10 +213,7 @@ pub extern "C" fn hash_grow_selene(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
-        CResult::err(
-            SelenePoint::identity(),
-            io::Error::new(io::ErrorKind::Other, "failed to grow hash"),
-        )
+        CResult::err(io::Error::new(io::ErrorKind::Other, "failed to grow hash"))
     }
 }
 
