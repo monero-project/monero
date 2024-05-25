@@ -7,36 +7,38 @@
 #include <random>
 
 namespace service_nodes {
-  constexpr size_t QUORUM_SIZE                      = 10;
-  constexpr size_t MIN_VOTES_TO_KICK_SERVICE_NODE   = 7;
-  constexpr size_t NTH_OF_THE_NETWORK_TO_TEST       = 100;
-  constexpr size_t MIN_NODES_TO_TEST                = 50;
-  constexpr size_t MAX_SWARM_SIZE                   = 10;
-  constexpr size_t SWARM_BUFFER                     = 5;
-  constexpr size_t MIN_SWARM_SIZE                   = 5;
-  constexpr size_t IDEAL_SWARM_MARGIN               = 2;
-  constexpr size_t IDEAL_SWARM_SIZE                 = MIN_SWARM_SIZE + IDEAL_SWARM_MARGIN;
-  constexpr size_t EXCESS_BASE                      = MIN_SWARM_SIZE;
-  constexpr size_t NEW_SWARM_SIZE                   = IDEAL_SWARM_SIZE;
-  constexpr size_t FILL_SWARM_LOWER_PERCENTILE      = 25;
-  constexpr size_t DECOMMISSIONED_REDISTRIBUTION_LOWER_PERCENTILE = 0;
-  constexpr size_t STEALING_SWARM_UPPER_PERCENTILE  = 75;
+  constexpr size_t   QUORUM_SIZE                                    = 10;
+  constexpr size_t   MIN_VOTES_TO_KICK_SERVICE_NODE                 = 7;
+  constexpr size_t   NTH_OF_THE_NETWORK_TO_TEST                     = 100;
+  constexpr size_t   MIN_NODES_TO_TEST                              = 50;
+  constexpr size_t   MAX_SWARM_SIZE                                 = 10;
+  constexpr size_t   SWARM_BUFFER                                   = 5;
+  constexpr size_t   MIN_SWARM_SIZE                                 = 5;
+  constexpr size_t   IDEAL_SWARM_MARGIN                             = 2;
+  constexpr size_t   IDEAL_SWARM_SIZE                               = MIN_SWARM_SIZE + IDEAL_SWARM_MARGIN;
+  constexpr size_t   EXCESS_BASE                                    = MIN_SWARM_SIZE;
+  constexpr size_t   NEW_SWARM_SIZE                                 = IDEAL_SWARM_SIZE;
+  constexpr size_t   FILL_SWARM_LOWER_PERCENTILE                    = 25;
+  constexpr size_t   DECOMMISSIONED_REDISTRIBUTION_LOWER_PERCENTILE = 0;
+  constexpr size_t   STEALING_SWARM_UPPER_PERCENTILE                = 75;
+  constexpr uint64_t QUEUE_SWARM_ID                                 = 0;
 
   using swarm_id_t = uint64_t;
   constexpr swarm_id_t UNASSIGNED_SWARM_ID          = UINT64_MAX;
 
-inline uint64_t get_staking_requirement_lock_blocks(cryptonote::network_type nettype)
+inline uint64_t staking_num_lock_blocks(cryptonote::network_type nettype)
 {
-switch(nettype) {
+  switch(nettype)
+  {
     case cryptonote::TESTNET: return 1440;
     case cryptonote::FAKECHAIN: return 30;
     default: return 20160;
-}
+  }
 }
 
-inline uint64_t get_min_node_contribution(size_t hf_version, uint64_t staking_requirement, uint64_t total_reserved)
+inline uint64_t get_min_node_contribution(uint8_t hard_fork_version, uint64_t staking_requirement, uint64_t total_reserved)
 {
-  return hf_version >= 12 ? MIN_POOL_STAKERS_V12 * COIN : hf_version > 9 ? std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
+  return hard_fork_version >= 12 ? MIN_POOL_STAKERS_V12 * COIN : hard_fork_version > 9 ? std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS_V2) : std::min(staking_requirement - total_reserved, staking_requirement / MAX_NUMBER_OF_CONTRIBUTORS);
 }
 
 uint64_t get_staking_requirement(cryptonote::network_type nettype, uint64_t height);
@@ -45,6 +47,7 @@ uint64_t portions_to_amount(uint64_t portions, uint64_t staking_requirement);
 
 /// Check if portions are sufficiently large (except for the last) and add up to the required amount
 bool check_service_node_portions(const std::vector<uint64_t>& portions, const uint64_t min_portions = MIN_PORTIONS);
+
 // Returns lowest x such that (staking_requirement * x/STAKING_PORTIONS) >= amount
 uint64_t get_portions_to_make_amount(uint64_t staking_requirement, uint64_t amount);
 

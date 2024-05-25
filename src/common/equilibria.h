@@ -1,4 +1,5 @@
-// Copyright (c) 2014-2019, The Monero Project
+// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c)      2018, The Loki Project
 // 
 // All rights reserved.
 // 
@@ -25,18 +26,41 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
-// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <assert.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
+#ifndef EQUILIBRIA_H
+#define EQUILIBRIA_H
 
-#include "jh.h"
-#include "hash-ops.h"
+#include <string>
 
-void hash_extra_jh(const void *data, size_t length, char *hash) {
-  int r = jh_hash(HASH_SIZE * 8, data, 8 * length, (uint8_t*)hash);
-  assert(SUCCESS == r);
-}
+namespace equilibria
+{
+	double      round (double);
+	double      exp2 (double);
+	std::string hex64_to_base32z(std::string const& src);
+
+	template<typename lambda_t>
+	struct defer
+	{
+	  lambda_t lambda;
+	  defer(lambda_t lambda) : lambda(lambda) {}
+	  ~defer() { lambda(); }
+	};
+
+	struct defer_helper
+	{
+	  template<typename lambda_t>
+	  defer<lambda_t> operator+(lambda_t lambda)
+	  {
+	    return defer<lambda_t>(lambda);
+	  }
+	};
+
+	#define XEQ_TOKEN_COMBINE2(x, y) x ## y
+	#define XEQ_TOKEN_COMBINE(x, y) XEQ_TOKEN_COMBINE2(x, y)
+	#define XEQ_DEFER auto const XEQ_TOKEN_COMBINE(xeq_defer_, __LINE__) = equilibria::defer_helper() + [&]()
+
+	template<typename T, size_t N>
+	constexpr size_t array_count(T (&)[N]) { return N; }
+}; // namespace equilibria
+
+#endif // EQUILIBRIA_H

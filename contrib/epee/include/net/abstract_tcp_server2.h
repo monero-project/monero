@@ -51,7 +51,6 @@
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp> //! \TODO Convert to std::shared_ptr
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/interprocess/detail/atomic.hpp>
 #include <boost/thread/thread.hpp>
 #include <memory>
 #include "byte_slice.h"
@@ -390,7 +389,7 @@ namespace net_utils
     std::vector<boost::shared_ptr<boost::thread> > m_threads;
     boost::thread::id m_main_thread_id;
     critical_section m_threads_lock;
-    volatile uint32_t m_thread_index; // TODO change to std::atomic
+    std::atomic<uint32_t> m_thread_index;
 
     t_connection_type m_connection_type;
 

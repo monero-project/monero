@@ -28,7 +28,6 @@
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/unordered_map.hpp>
-#include <boost/interprocess/detail/atomic.hpp>
 #include <boost/smart_ptr/make_shared.hpp>
 
 #include <atomic>
@@ -147,7 +146,7 @@ public:
 
   std::atomic<bool> m_deletion_initiated;
   std::atomic<bool> m_protocol_released;
-  volatile uint32_t m_invoke_buf_ready;
+  std::atomic<bool> m_invoke_buf_ready;
 
   volatile int m_invoke_result_code;
 
@@ -156,10 +155,10 @@ public:
 
   critical_section m_call_lock;
 
-  volatile uint32_t m_wait_count;
-  volatile uint32_t m_close_called;
+  std::atomic<uint32_t> m_wait_count;
+  std::atomic<uint32_t> m_close_called;
   bucket_head2 m_current_head;
-  net_utils::i_service_endpoint* m_pservice_endpoint; 
+  net_utils::i_service_endpoint* m_pservice_endpoint;
   config_type& m_config;
   t_connection_context& m_connection_context;
 
@@ -299,7 +298,7 @@ public:
     m_wait_count = 0;
     m_oponent_protocol_ver = 0;
     m_connection_initialized = false;
-    m_invoke_buf_ready = 0;
+    m_invoke_buf_ready = false;
     m_invoke_result_code = LEVIN_ERROR_CONNECTION;
   }
   virtual ~async_protocol_handler()
@@ -313,11 +312,11 @@ public:
       m_config.del_connection(this);
     }
 
-    for (size_t i = 0; i < 60 * 1000 / 100 && 0 != boost::interprocess::ipcdetail::atomic_read32(&m_wait_count); ++i)
+    for (size_t i = 0; i < 60 * 1000 / 100 && 0 != m_wait_count; ++i)
     {
       misc_utils::sleep_no_w(100);
     }
-    CHECK_AND_ASSERT_MES_NO_RET(0 == boost::interprocess::ipcdetail::atomic_read32(&m_wait_count), "Failed to wait for operation completion. m_wait_count = " << m_wait_count);
+    CHECK_AND_ASSERT_MES_NO_RET(0 == m_wait_count, "Failed to wait for operation completion. m_wait_count = " << m_wait_count.load());
 
     MTRACE(m_connection_context << "~async_protocol_handler()");
 
@@ -333,13 +332,13 @@ public:
       MERROR(m_connection_context << "[levin_protocol] -->> start_outer_call failed");
       return false;
     }
-    boost::interprocess::ipcdetail::atomic_inc32(&m_wait_count);
+    ++m_wait_count;
     return true;
   }
   bool finish_outer_call()
   {
     MTRACE(m_connection_context << "[levin_protocol] <<-- finish_outer_call");
-    boost::interprocess::ipcdetail::atomic_dec32(&m_wait_count);
+    --m_wait_count;
     m_pservice_endpoint->release();
     return true;
   }
@@ -360,10 +359,10 @@ public:
 
     return true;
   }
-  
+
   bool close()
-  {    
-    boost::interprocess::ipcdetail::atomic_inc32(&m_close_called);
+  {
+    ++m_close_called;
 
     m_pservice_endpoint->close();
     return true;
@@ -382,14 +381,14 @@ public:
     m_pservice_endpoint->request_callback();
   }
 
-  void handle_qued_callback()   
+  void handle_qued_callback()
   {
     m_config.m_pcommands_handler->callback(m_connection_context);
   }
 
   virtual bool handle_recv(const void* ptr, size_t cb)
   {
-    if(boost::interprocess::ipcdetail::atomic_read32(&m_close_called))
+    if(m_close_called)
       return false; //closing connections
 
     if(!m_config.m_pcommands_handler)
@@ -496,7 +495,7 @@ public:
             {
               invoke_response_handlers_guard.unlock();
               //use sync call scenario
-              if(!boost::interprocess::ipcdetail::atomic_read32(&m_wait_count) && !boost::interprocess::ipcdetail::atomic_read32(&m_close_called))
+              if(!m_wait_count && !m_close_called)
               {
                 MERROR(m_connection_context << "no active invoke when response came, wtf?");
                 return false;
@@ -507,7 +506,7 @@ public:
                 buff_to_invoke = epee::span<const uint8_t>((const uint8_t*)NULL, 0);
                 m_invoke_result_code = m_current_head.m_return_code;
                 CRITICAL_REGION_END();
-                boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 1);
+                m_invoke_buf_ready = true;
               }
             }
           }else
@@ -631,7 +630,7 @@ public:
         break;
       }
 
-      boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
+      m_invoke_buf_ready = false;
       CRITICAL_REGION_BEGIN(m_invoke_response_handlers_lock);
 
       if(!send_message(command, in_buff, LEVIN_PACKET_REQUEST, true))
@@ -673,7 +672,7 @@ public:
     if(m_deletion_initiated)
       return LEVIN_ERROR_CONNECTION_DESTROYED;
 
-    boost::interprocess::ipcdetail::atomic_write32(&m_invoke_buf_ready, 0);
+    m_invoke_buf_ready = false;
 
     if (!send_message(command, in_buff, LEVIN_PACKET_REQUEST, true))
     {
@@ -684,7 +683,7 @@ public:
     uint64_t ticks_start = misc_utils::get_tick_count();
     size_t prev_size = 0;
 
-    while(!boost::interprocess::ipcdetail::atomic_read32(&m_invoke_buf_ready) && !m_deletion_initiated && !m_protocol_released)
+    while(!m_invoke_buf_ready && !m_deletion_initiated && !m_protocol_released)
     {
       if(m_cache_in_buffer.size() - prev_size >= MIN_BYTES_WANTED)
       {
@@ -949,12 +948,12 @@ bool async_protocol_handler_config<t_connection_context>::close(boost::uuids::uu
 {
   CRITICAL_REGION_LOCAL(m_connects_lock);
   async_protocol_handler<t_connection_context>* aph = find_connection(connection_id);
-  if (!aph)
-    return false;
-  if (!aph->close())
-    return false;
-  m_connects.erase(connection_id);
-  return true;
+  if (aph)
+  {
+    del_connection(aph);
+    return aph->close();
+  }
+  return false;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>

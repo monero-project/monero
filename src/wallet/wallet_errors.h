@@ -91,7 +91,6 @@ namespace tools
     //         is_key_image_spent_error
     //         get_histogram_error
     //         get_output_distribution
-    //         payment_required
     //       wallet_files_doesnt_correspond
     //
     // * - class with protected ctor
@@ -124,8 +123,9 @@ namespace tools
       "failed to get blocks",
       "failed to get hashes",
       "failed to get out indices",
-	  "failed to get random outs",
-	  "failed to get service_node_list",
+      "failed to get random outs",
+      "failed to get service node data",
+      "failed to get hard fork version",
     };
     enum failed_rpc_request_message_indices
     {
@@ -133,8 +133,9 @@ namespace tools
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
       get_outs_error_message_index,
-	  get_service_nodes_error_message_index
-	};
+      get_service_nodes_error_message_index,
+      get_hard_fork_version_error_message_index,
+    };
 
     template<typename Base, int msg_index>
     struct failed_rpc_request : public Base
@@ -449,6 +450,8 @@ namespace tools
       {
       }
     };
+    //----------------------------------------------------------------------------------------------------
+    typedef failed_rpc_request<transfer_error, get_hard_fork_version_error_message_index> get_hard_fork_version_error;
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<transfer_error, get_outs_error_message_index> get_outs_error;
     //----------------------------------------------------------------------------------------------------
@@ -819,7 +822,7 @@ namespace tools
     {
       explicit wallet_coded_rpc_error(std::string&& loc, const std::string& request, int code, const std::string& status)
         : wallet_rpc_error(std::move(loc), std::string("error ") + std::to_string(code) + (" in ") + request + " RPC: " + status, request),
-        m_code(code), m_status(status)
+          m_code(code), m_status(status)
       {
       }
       int code() const { return m_code; }
@@ -865,14 +868,6 @@ namespace tools
     {
       explicit get_output_distribution(std::string&& loc, const std::string& request)
         : wallet_rpc_error(std::move(loc), "failed to get output distribution", request)
-      {
-      }
-    };
-    //----------------------------------------------------------------------------------------------------
-    struct payment_required: public wallet_rpc_error
-    {
-      explicit payment_required(std::string&& loc, const std::string& request)
-        : wallet_rpc_error(std::move(loc), "payment required", request)
       {
       }
     };

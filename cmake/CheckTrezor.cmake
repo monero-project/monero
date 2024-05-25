@@ -1,5 +1,5 @@
-OPTION(USE_DEVICE_TREZOR "Trezor support compilation" ON)
-OPTION(USE_DEVICE_TREZOR_LIBUSB "Trezor LibUSB compilation" ON)
+OPTION(USE_DEVICE_TREZOR "Trezor support compilation" OFF)
+OPTION(USE_DEVICE_TREZOR_LIBUSB "Trezor LibUSB compilation" OFF)
 OPTION(USE_DEVICE_TREZOR_UDP_RELEASE "Trezor UdpTransport in release mode" OFF)
 OPTION(USE_DEVICE_TREZOR_DEBUG "Trezor Debugging enabled" OFF)
 OPTION(TREZOR_DEBUG "Main trezor debugging switch" OFF)
@@ -33,8 +33,11 @@ endfunction()
 # Use Trezor master switch
 if (USE_DEVICE_TREZOR)
     # Protobuf is required to build protobuf messages for Trezor
-    include(FindProtobuf OPTIONAL)
-    find_package(Protobuf)
+    include(FindProtobuf)
+    find_package(Protobuf CONFIG)
+    if(NOT Protobuf_FOUND)
+      find_package(Protobuf REQUIRED)
+    endif()
     _trezor_protobuf_fix_vars()
 
     # Protobuf handling the cache variables set in docker.
@@ -103,7 +106,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
         "${CMAKE_SOURCE_DIR}/cmake/test-protobuf.cpp"
         CMAKE_FLAGS
         "-DINCLUDE_DIRECTORIES=${Protobuf_INCLUDE_DIR};${CMAKE_BINARY_DIR}"
-        "-DCMAKE_CXX_STANDARD=11"
+        "-DCMAKE_CXX_STANDARD=17"
         LINK_LIBRARIES ${Protobuf_LIBRARY}
         OUTPUT_VARIABLE OUTPUT
     )

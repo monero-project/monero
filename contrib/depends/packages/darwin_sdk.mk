@@ -1,11 +1,10 @@
 package=darwin_sdk
-$(package)_version=12.3
-$(package)_download_path=https://github.com/joseluisq/macosx-sdks/releases/download/$($(package)_version)/
-$(package)_file_name=MacOSX$($(package)_version).sdk.tar.xz
-$(package)_sha256_hash=3abd261ceb483c44295a6623fdffe5d44fc4ac2c872526576ec5ab5ad0f6e26c
+$(package)_version=12.2
+$(package)_download_path=https://bitcoincore.org/depends-sources/sdks
+$(package)_file_name=Xcode-12.2-12B45b-extracted-SDK-with-libcxx-headers.tar.gz
+$(package)_sha256_hash=df75d30ecafc429e905134333aeae56ac65fac67cb4182622398fd717df77619
 
 define $(package)_stage_cmds
   mkdir -p $($(package)_staging_dir)/$(host_prefix)/native/SDK &&\
-  mv * $($(package)_staging_dir)/$(host_prefix)/native/SDK &&\
-  export SDKROOT=$($($(package)_staging_dir)/$(host_prefix)/native/SDK)
+  mv * $($(package)_staging_dir)/$(host_prefix)/native/SDK
 endef

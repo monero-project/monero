@@ -43,11 +43,6 @@
 #define CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC       -11
 #define CORE_RPC_ERROR_CODE_MINING_TO_SUBADDRESS  -12
 #define CORE_RPC_ERROR_CODE_REGTEST_REQUIRED      -13
-#define CORE_RPC_ERROR_CODE_PAYMENT_REQUIRED      -14
-#define CORE_RPC_ERROR_CODE_INVALID_CLIENT        -15
-#define CORE_RPC_ERROR_CODE_PAYMENT_TOO_LOW       -16
-#define CORE_RPC_ERROR_CODE_DUPLICATE_PAYMENT     -17
-#define CORE_RPC_ERROR_CODE_STALE_PAYMENT         -18
 #define CORE_RPC_ERROR_CODE_RESTRICTED            -19
 
 static inline const char *get_rpc_server_error_message(int64_t code)
@@ -66,11 +61,6 @@ static inline const char *get_rpc_server_error_message(int64_t code)
     case CORE_RPC_ERROR_CODE_UNSUPPORTED_RPC: return "Unsupported RPC";
     case CORE_RPC_ERROR_CODE_MINING_TO_SUBADDRESS: return "Mining to subaddress is not supported";
     case CORE_RPC_ERROR_CODE_REGTEST_REQUIRED: return "Regtest mode required";
-    case CORE_RPC_ERROR_CODE_PAYMENT_REQUIRED: return "Payment required";
-    case CORE_RPC_ERROR_CODE_INVALID_CLIENT: return "Invalid client";
-    case CORE_RPC_ERROR_CODE_PAYMENT_TOO_LOW: return "Payment too low";
-    case CORE_RPC_ERROR_CODE_DUPLICATE_PAYMENT: return "Duplicate payment";
-    case CORE_RPC_ERROR_CODE_STALE_PAYMENT: return "Stale payment";
     case CORE_RPC_ERROR_CODE_RESTRICTED: return "Parameters beyond restricted allowance";
     default: MERROR("Unknown error: " << code); return "Unknown error";
   }

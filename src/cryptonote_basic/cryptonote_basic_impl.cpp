@@ -46,8 +46,6 @@ using namespace epee;
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "cn"
 
-double triton_exp2(double);
-
 namespace cryptonote {
 
   struct integrated_address {
@@ -100,7 +98,7 @@ namespace cryptonote {
 		   reward = 0;
 		   return true;
 	   }
-     
+
 	   const uint64_t premine = TRITON_SWAP;
 	   if (median_weight > 0 && already_generated_coins < premine && hard_fork_version < 2) {
 		   reward = premine / 7;
@@ -110,20 +108,21 @@ namespace cryptonote {
      static_assert(DIFFICULTY_TARGET_V2 % 60 == 0 && DIFFICULTY_TARGET_V1 % 60 == 0, "difficulty targets must be a multiple of 60");
      int target;
 
-      if(hard_fork_version < 6)
-      {
-        target = DIFFICULTY_TARGET_V2;
-      }else if(hard_fork_version >= 6){
-        target = DIFFICULTY_TARGET_V3;
-      }
-      
+     if(hard_fork_version < 6)
+     {
+       target = DIFFICULTY_TARGET_V2;
+     }
+     else if(hard_fork_version >= 6)
+     {
+       target = DIFFICULTY_TARGET_V3;
+     }
+
 	   const int emission_speed_factor = get_emission_speed_factor(hard_fork_version);
 
-
-     //Adds the burn amount to emission effectively burning the amount added.  
+     //Adds the burn amount to emission effectively burning the amount added.
      if (hard_fork_version > 10 && hard_fork_version < 12) {
       already_generated_coins -= MINT_BRIDGE; //subtracts from already_generated_coins as we already burned ~10M
-      already_generated_coins += BURN_1; //adds in the burn 
+      already_generated_coins += BURN_1; //adds in the burn
      }
 
      if (hard_fork_version > 11)
@@ -161,7 +160,6 @@ namespace cryptonote {
      }
 
      uint64_t base_reward = (money_sup - already_generated_coins) >> emission_speed_factor;
-
 
     //emissions will be seperate from now on. A better system is needed in the future.
     if (hard_fork_version >= 9 && hard_fork_version <= 10) {

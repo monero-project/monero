@@ -62,7 +62,7 @@ namespace cryptonote
 {
    struct test_options {
      const std::pair<uint8_t, uint64_t> *hard_forks;
-      const size_t long_term_block_weight_window;
+     const size_t long_term_block_weight_window;
    };
 
 
@@ -73,7 +73,6 @@ namespace cryptonote
   extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
   extern const command_line::arg_descriptor<size_t> arg_block_download_max_size;
-  extern const command_line::arg_descriptor<bool> arg_sync_pruned_blocks;
 
   /************************************************************************/
   /*                                                                      */
@@ -139,7 +138,7 @@ namespace cryptonote
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
 
      /**
       * @brief handles a list of incoming transactions
@@ -156,7 +155,7 @@ namespace cryptonote
       *
       * @return true if the transactions were accepted, false otherwise
       */
-     bool handle_incoming_txs(epee::span<const tx_blob_entry> tx_blobs, epee::span<tx_verification_context> tvc, relay_method tx_relay, bool relayed);
+     bool handle_incoming_txs(epee::span<const blobdata> tx_blobs, epee::span<tx_verification_context> tvc, relay_method tx_relay, bool relayed);
 
      /**
       * @brief handles a list of incoming transactions
@@ -171,7 +170,7 @@ namespace cryptonote
       *
       * @return true if the transactions were accepted, false otherwise
       */
-     bool handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, relay_method tx_relay, bool relayed)
+     bool handle_incoming_txs(const std::vector<blobdata>& tx_blobs, std::vector<tx_verification_context>& tvc, relay_method tx_relay, bool relayed)
      {
        tvc.resize(tx_blobs.size());
        return handle_incoming_txs(epee::to_span(tx_blobs), epee::to_mut_span(tvc), tx_relay, relayed);
@@ -245,8 +244,8 @@ namespace cryptonote
       *
       * @note see Blockchain::create_block_template
       */
-     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce);
-     virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce);
+     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
 
      /**
       * @brief called when a transaction is relayed.
@@ -582,7 +581,7 @@ namespace cryptonote
       *
       * @note see Blockchain::find_blockchain_supplement(const std::list<crypto::hash>&, NOTIFY_RESPONSE_CHAIN_ENTRY::request&) const
       */
-     bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const;
+     bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const;
 
      /**
       * @copydoc Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<cryptonote::blobdata> > >&, uint64_t&, uint64_t&, size_t) const
@@ -803,7 +802,7 @@ namespace cryptonote
       *
       * @return the number of blocks to sync in one go
       */
-     std::tuple<uint64_t, uint64_t, uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
+     std::tuple<uint64_t, uint64_t, uint64_t> get_coinbase_tx_sum(const uint64_t start_offset, const size_t count);
 
      /**
       * @brief get the network type we're on
@@ -822,11 +821,6 @@ namespace cryptonote
       */
      bool is_update_available() const { return m_update_available; }
 
-     /**
-      * @brief get whether fluffy blocks are enabled
-      *
-      * @return whether fluffy blocks are enabled
-      */
      bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
 
      /**
@@ -834,7 +828,7 @@ namespace cryptonote
       *
       * @return number of usable blocks
       */
-     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes, const std::vector<uint64_t> &weights);
+     uint64_t prevalidate_block_hashes(uint64_t height, const std::vector<crypto::hash> &hashes);
 
      /**
       * @brief get free disk space on the blockchain partition
@@ -856,7 +850,8 @@ namespace cryptonote
      * @return Null shared ptr if quorum has not been determined yet for height
      */
 	 const std::shared_ptr<const service_nodes::quorum_state> get_quorum_state(uint64_t height) const;
-	/**
+
+  /**
 	* @brief Get a snapshot of the service node list state at the time of the call.
 	*
 	* @param service_node_pubkeys pubkeys to search, if empty this indicates get all the pubkeys
@@ -886,7 +881,7 @@ namespace cryptonote
     * @param sec_key The secret key for the service node, unmodified if not a service node
     * @return True if we are a service node
     */
-	bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
+	 bool get_service_node_keys(crypto::public_key &pub_key, crypto::secret_key &sec_key) const;
 
    /**
     * @brief attempts to submit an uptime proof to the network, if this is running in service node mode
@@ -952,18 +947,6 @@ namespace cryptonote
       * @return true iff success, false otherwise
       */
      bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
-
-     /**
-      * @brief checks whether a given block height is included in the precompiled block hash area
-      *
-      * @param height the height to check for
-      */
-     bool is_within_compiled_block_hash_area(uint64_t height) const;
-
-     /**
-      * @brief checks whether block weights are known for the given range
-      */
-     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
    private:
 
@@ -1049,8 +1032,8 @@ namespace cryptonote
      bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
      void set_semantics_failed(const crypto::hash &tx_hash);
 
-     bool handle_incoming_tx_pre(const tx_blob_entry& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash);
-     bool handle_incoming_tx_post(const tx_blob_entry& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash);
+     bool handle_incoming_tx_pre(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash);
+     bool handle_incoming_tx_post(const blobdata& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash);
      struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
      bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
 
@@ -1151,7 +1134,6 @@ namespace cryptonote
 
      //m_miner and m_miner_addres are probably temporary here
      miner m_miner; //!< miner instance
-     account_public_address m_miner_address; //!< address to mine to (for miner instance)
 
      std::string m_config_folder; //!< folder to look in for configs and other files
 

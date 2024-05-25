@@ -68,7 +68,7 @@ namespace epee
     template<class serializible_type, class t_storage>
     static bool serialize_t_obj(const serializible_type& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, true);
+      typename t_storage::hsection hchild_section = stg.open_section(pname, hparent_section, true);
       CHECK_AND_ASSERT_MES(hchild_section, false, "serialize_t_obj: failed to open/create section " << pname);
       return obj.store(stg, hchild_section);
     }
@@ -76,31 +76,13 @@ namespace epee
     template<class serializible_type, class t_storage>
     static bool unserialize_t_obj(serializible_type& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
-      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, false);
+      typename t_storage::hsection hchild_section = stg.open_section(pname, hparent_section, false);
       if(!hchild_section) return false;
       return obj._load(stg, hchild_section);
     }
     //-------------------------------------------------------------------------------------------------------------------
-    template<class serializible_type, class t_storage>
-    static bool serialize_t_obj(enableable<serializible_type>& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
-    {
-      if(!obj.enabled)
-        return true;
-      return serialize_t_obj(obj.v, stg, hparent_section, pname);
-    }
-    //-------------------------------------------------------------------------------------------------------------------
-    template<class serializible_type, class t_storage>
-    static bool unserialize_t_obj(enableable<serializible_type>& obj, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
-    {
-      obj.enabled = false;
-      typename t_storage::hsection	hchild_section = stg.open_section(pname, hparent_section, false);
-      if(!hchild_section) return false;
-      obj.enabled = true;
-      return obj.v._load(stg, hchild_section);
-    }
-    //-------------------------------------------------------------------------------------------------------------------
     template<class stl_container, class t_storage>
-    static bool serialize_stl_container_t_val  (const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
+    static bool serialize_stl_container_t_val (const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
       using value_type = typename stl_container::value_type;
 
@@ -134,7 +116,7 @@ namespace epee
       std::string mb;
       mb.resize(sizeof(typename stl_container::value_type)*container.size());
       typename stl_container::value_type* p_elem = (typename stl_container::value_type*)mb.data();
-      BOOST_FOREACH(const typename stl_container::value_type& v, container)
+      for (const auto &v : container)
       {
         *p_elem = v;
         p_elem++;
@@ -151,9 +133,9 @@ namespace epee
       if(res)
       {
         size_t loaded_size = buff.size();
-        typename stl_container::value_type* pelem =  (typename stl_container::value_type*)buff.data();
-        CHECK_AND_ASSERT_MES(!(loaded_size%sizeof(typename stl_container::value_type)), 
-          false, 
+        typename stl_container::value_type* pelem = (typename stl_container::value_type*)buff.data();
+        CHECK_AND_ASSERT_MES(!(loaded_size%sizeof(typename stl_container::value_type)),
+          false,
           "size in blob " << loaded_size << " not have not zero modulo for sizeof(value_type) = " << sizeof(typename stl_container::value_type) << ", type " << typeid(typename stl_container::value_type).name());
         size_t count = (loaded_size/sizeof(typename stl_container::value_type));
         hint_resize(container, count);
@@ -164,7 +146,7 @@ namespace epee
     }
     //--------------------------------------------------------------------------------------------------------------------
     template<class stl_container, class t_storage>
-    static bool serialize_stl_container_t_obj  (const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
+    static bool serialize_stl_container_t_obj (const stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
       bool res = false;
       if(!container.size()) return true;

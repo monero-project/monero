@@ -51,8 +51,8 @@ namespace service_nodes
 	struct quorum_state;
 	struct deregister_vote
 	{
-		static const uint64_t VOTE_LIFETIME_BY_HEIGHT = (60 * 60 * 24) / DIFFICULTY_TARGET_V2;
-		static const uint64_t VOTE_LIFETIME_BY_HEIGHT_V2 = (60 * 60 * 24) / DIFFICULTY_TARGET_V3;
+		static const uint64_t VOTE_LIFETIME_BY_HEIGHT = 86400 / DIFFICULTY_TARGET_V2;
+		static const uint64_t VOTE_LIFETIME_BY_HEIGHT_V2 = 86400 / DIFFICULTY_TARGET_V3;
 		static const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT = VOTE_LIFETIME_BY_HEIGHT;
 		static const uint64_t DEREGISTER_LIFETIME_BY_HEIGHT_V2 = VOTE_LIFETIME_BY_HEIGHT_V2;
 
@@ -78,7 +78,7 @@ namespace service_nodes
 		/**
 		*  @return True if vote was valid and in the pool already or just added (check vote verfication for specific case).
 		*/
-		bool add_vote(const deregister_vote& new_vote,
+		bool add_vote(const uint8_t hard_fork_version, const deregister_vote& new_vote,
 			cryptonote::vote_verification_context& vvc,
 			const service_nodes::quorum_state &quorum_state,
 			cryptonote::transaction &tx);

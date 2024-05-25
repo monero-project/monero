@@ -84,7 +84,7 @@ inline void throw1(const T &e)
   throw e;
 }
 
-#define MDB_val_set(var, val)   MDB_val var = {sizeof(val), (void *)&val}
+#define MDB_val_set(var, val) MDB_val var = {sizeof(val), (void *)&val}
 
 #define MDB_val_sized(var, val) MDB_val var = {val.size(), (void *)val.data()}
 
@@ -926,7 +926,7 @@ uint64_t BlockchainLMDB::add_transaction_data(const crypto::hash& blk_hash, cons
       throw0(DB_ERROR(lmdb_error("Failed to add prunable tx id to db transaction: ", result).c_str()));
   }
 
-  if (tx.version > 1)
+  if (tx.version >= cryptonote::txversion::v2)
   {
     MDB_val_set(val_prunable_hash, tx_prunable_hash);
     result = mdb_cursor_put(m_cur_txs_prunable_hash, &val_tx_id, &val_prunable_hash, MDB_APPEND);
@@ -987,7 +987,7 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
         throw1(DB_ERROR(lmdb_error("Error adding removal of tx id to db transaction", result).c_str()));
   }
 
-  if (tx.version > 1)
+  if (tx.version >= cryptonote::txversion::v2)
   {
     if ((result = mdb_cursor_get(m_cur_txs_prunable_hash, &val_tx_id, NULL, MDB_SET)))
         throw1(DB_ERROR(lmdb_error("Failed to locate prunable hash tx for removal: ", result).c_str()));
@@ -1119,7 +1119,7 @@ void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& 
       throw0(DB_ERROR("tx has outputs, but no output indices found"));
   }
 
-  bool is_pseudo_rct = tx.version >= 2 && tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
+  bool is_pseudo_rct = tx.version >= cryptonote::txversion::v2 && tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
   for (size_t i = tx.vout.size(); i-- > 0;)
   {
     uint64_t amount = is_pseudo_rct ? 0 : tx.vout[i].amount;
@@ -5148,7 +5148,7 @@ void BlockchainLMDB::migrate_1_2()
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to put a record into txs_prunable: ", result).c_str()));
 
-      if (tx.version > 1)
+      if (tx.version >= cryptonote::txversion::v2)
       {
         crypto::hash prunable_hash = get_transaction_prunable_hash(tx);
         MDB_val_set(val_prunable_hash, prunable_hash);
@@ -5638,16 +5638,15 @@ void BlockchainLMDB::migrate_4_5()
 
 void BlockchainLMDB::migrate(const uint32_t oldversion)
 {
-  if (oldversion < 1)
-    migrate_0_1();
-  if (oldversion < 2)
-    migrate_1_2();
-  if (oldversion < 3)
-    migrate_2_3();
-  if (oldversion < 4)
-    migrate_3_4();
-  if (oldversion < 5)
-    migrate_4_5();
+  switch(oldversion)
+  {
+    case 0: migrate_0_1();
+    case 1: migrate_1_2();
+    case 2: migrate_2_3();
+    case 3: migrate_3_4();
+    case 4: migrate_4_5();
+    default: ;
+  }
 }
 
 void BlockchainLMDB::set_service_node_data(const std::string& data)
@@ -5681,7 +5680,7 @@ bool BlockchainLMDB::get_service_node_data(std::string& data)
 	MDB_val_set(k, key);
 	MDB_val v;
 
-	int result;
+  int result;
 	result = mdb_cursor_get(m_cur_service_node_data, &k, &v, MDB_FIRST);
 
 	if (result == MDB_NOTFOUND)

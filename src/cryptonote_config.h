@@ -59,8 +59,6 @@
 #define SERVICE_NODE_VERSION                            5
 
 #define STAKING_REQUIREMENT_LOCK_BLOCKS_EXCESS          20
-#define STAKING_REQUIREMENT_LOCK_BLOCKS                 (20160)
-#define STAKING_REQUIREMENT_LOCK_BLOCKS_TESTNET         (30*24*2)
 #define STAKING_RELOCK_WINDOW_BLOCKS                    (30*6)
 #define STAKING_PORTIONS                                UINT64_C(0xfffffffffffffffc)
 #define STAKING_AUTHORIZATION_EXPIRATION_WINDOW         (60*60*24*7*2)  // 2 weeks
@@ -209,15 +207,12 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_BLOCKCHAINDATA_FILENAME      "data.mdb"
 #define CRYPTONOTE_BLOCKCHAINDATA_LOCK_FILENAME "lock.mdb"
 #define P2P_NET_DATA_FILENAME                   "p2pstate.bin"
-#define RPC_PAYMENTS_DATA_FILENAME              "rpcpayments.bin"
 #define MINER_CONFIG_FILE_NAME                  "miner_conf.json"
 
 #define THREAD_STACK_SIZE                       10 * 1024 * 1024
 
 #define HF_VERSION_DYNAMIC_FEE                  100
 #define HF_VERSION_MIN_MIXIN_4                  4
-#define HF_VERSION_MIN_MIXIN_6                  100
-#define HF_VERSION_MIN_MIXIN_10                 100
 #define HF_VERSION_MIN_MIXIN_15                 6
 #define HF_VERSION_ENFORCE_RCT                  4
 #define HF_VERSION_PER_BYTE_FEE                 100
@@ -231,12 +226,11 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define HF_VERSION_ENFORCE_MIN_AGE              100
 #define HF_VERSION_EFFECTIVE_SHORT_TERM_MEDIAN_IN_PENALTY 100
 
-
 #define HF_VERSION_FEE_BURNING                  9
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        4
 
-#define HASH_OF_HASHES_STEP                     512
+#define HASH_OF_HASHES_STEP                     256
 
 #define DEFAULT_TXPOOL_MAX_WEIGHT               648000000ull // 3 days at 300000, in bytes
 
@@ -246,8 +240,6 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define CRYPTONOTE_PRUNING_LOG_STRIPES          3 // the higher, the more space saved
 #define CRYPTONOTE_PRUNING_TIP_BLOCKS           5500 // the smaller, the more space saved
 //#define CRYPTONOTE_PRUNING_DEBUG_SPOOF_SEED
-
-#define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
 // New constants are intended to go here
 namespace config
@@ -285,6 +277,8 @@ namespace config
   std::string const BRIDGE_WALLET_ADDRESS = "Tw16wVGVwjqY2sSKx11UNjQ8NAosTSwzzitYZfVrXt3iP3DgL5beLz55quDcqpqUvoQTvjyNyRb7mUXf3JKDAyLd36AtDf2ei";
   std::string const NEW_BRIDGE_WALLET_ADDRESS = "TvyjwByVHjgCqNKrngt4TQRDgJL7cazWnTXYHXmbFewsKMuN6ozKNcBVkgcpyQwVPRYZCyaAe1W7xN8SdgxqnT4S1UMStejYx";
   std::string const DEV_FUND_WALLET = "TvzdbKGga5fSr7fgCTuvR1GY4g9v3No28a6QrcdnnwBkFtisk4MKPLnARAunWBxQJ82L96nGS3ET7BQMhzM788Kp1pweuUfPD";
+  std::string const NEW_GOV_WALLET = "TvzXGov4tNr6jYG2gdox7bcuEBwwSTpQYAb6w7qgSxuu4hsxY9CMgMgaL6EeqVcQ6hS7Cppn73W8ZSMU8gLMi4N42yTShfkP9";
+  std::string const NEW_DEV_WALLET = "Tw1XDEVkfVsRFhvjPQJgTjFi4uXDBiMomYeaaaj43SHPSTyLj8nBkdv2KBV8t9CzuCUy1fgYkk9tse6xA3B5oPJZ1jLfHLDrh";
 
   namespace testnet
   {
@@ -306,24 +300,59 @@ namespace config
 
   namespace stagenet
   {
-    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
-   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 289;
-   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 289;
+   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 0x95f34;
+   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 0x1ddf34;
+   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 0x229f34;
+   //uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
+   //uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 289;
+   //uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 289;
    uint16_t const P2P_DEFAULT_PORT = 9430;
-   uint16_t const RPC_DEFAULT_PORT = 9531;
-   uint16_t const ZMQ_RPC_DEFAULT_PORT = 9332;
+   uint16_t const RPC_DEFAULT_PORT = 9431;
+   uint16_t const ZMQ_RPC_DEFAULT_PORT = 9432;
    boost::uuids::uuid const NETWORK_ID = { {
        0x14 ,0x20, 0xF3, 0x71 , 0x60, 0x01 , 0x30, 0x62, 0x16, 0x35, 0x02, 0x82, 0x15, 0xA2, 0xA1, 0x14
      } }; // Bender's daydream
 
-  std::string const GOVERNANCE_WALLET_ADDRESS = "";
-  std::string const BRIDGE_WALLET_ADDRESS = "";
+  std::string const GOVERNANCE_WALLET_ADDRESS = "XES1cnvrXNh5fkRvwKPijaBbsHJEnDwS949VHpZEa4DtB3jduSbDjDVZ6tb7ct9PDY6kJTFc1TAEtYF2Dacun4Hw5aVTo2s99z";
+  std::string const BRIDGE_WALLET_ADDRESS = "XES1aQWz3JVhPdXynQUBL21tbHR8Kxi7tehFbeThzPAEeApqqmy1XKBR4mimvrMJSeJpYm8VHN3bkK22nmm9dsnB2GydcWBSjd";
+  std::string const NEW_BRIDGE_WALLET_ADDRESS = "XES1PcUnsFZHR42hgfW3qoZV8hUaQkBXoaWHF3mhqNmeZRLLqPFX5pELQWtJnrUAWfUVN96yRdbVK8i48dC3r1pY9v4dugs8Nu";
+  std::string const DEV_FUND_WALLET = "XES1TLv45CSe2ufGVvUF3U3FBr6vmz7hNX2pEns7U3HQ4PbTEJ4o1f2XyAf3DTbx8Y1BWvdSfrbQL4EVbfzcU1uz7na8yAk6Yi";
+  std::string const NEW_GOV_WALLET = "XES1Qh2ErQHiYRSNdjbhK2YYU3vfGFGj298SwYBQVvb5eiymct5EmXcFJD2pGuVY2c1TLtDnwpicBhP2i9VatN8e6AqcYzeUHq";
+  std::string const NEW_DEV_WALLET = "XES1McEbjv3gZhBwhFaYDqF7fmkcFA9sg4zEuv9wpJwgHHh6iZ891Qu1kcn2TUGHZSGBf4shzYuBndDRf1DAtsq23X4L1Enmpz";
 
   }
 }
 
 namespace cryptonote
 {
+  enum network_version
+  {
+    network_version_0 = 0,
+    network_version_1 = 1,
+    network_version_2,
+    network_version_3,
+    network_version_4,
+    network_version_5,
+    network_version_6,
+    network_version_7,
+    network_version_8,
+    network_version_9,
+    network_version_10,
+    network_version_11,
+    network_version_12,
+    network_version_13,
+    network_version_14,
+    network_version_15,
+    network_version_16,
+    network_version_17,
+    network_version_18,
+    network_version_19,
+    network_version_20,
+    network_version_21,
+
+    network_version_count,
+  };
+
   enum network_type : uint8_t
   {
     MAINNET = 0,
@@ -334,19 +363,21 @@ namespace cryptonote
   };
   struct config_t
   {
-    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
-    uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX;
-    uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX;
-    uint16_t const P2P_DEFAULT_PORT;
-    uint16_t const RPC_DEFAULT_PORT;
-    uint16_t const ZMQ_RPC_DEFAULT_PORT;
-    boost::uuids::uuid const NETWORK_ID;
-    std::string const GENESIS_TX;
-    uint32_t const GENESIS_NONCE;
+    uint64_t CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX;
+    uint64_t CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX;
+    uint64_t CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX;
+    uint16_t P2P_DEFAULT_PORT;
+    uint16_t RPC_DEFAULT_PORT;
+    uint16_t ZMQ_RPC_DEFAULT_PORT;
+    boost::uuids::uuid NETWORK_ID;
+    std::string GENESIS_TX;
+    uint32_t GENESIS_NONCE;
     std::string const *GOVERNANCE_WALLET_ADDRESS;
     std::string const *BRIDGE_WALLET_ADDRESS;
     std::string const *NEW_BRIDGE_WALLET_ADDRESS;
     std::string const *DEV_FUND_WALLET;
+    std::string const *NEW_GOV_WALLET;
+    std::string const *NEW_DEV_WALLET;
 
   };
   inline const config_t& get_config(network_type nettype)
@@ -365,6 +396,8 @@ namespace cryptonote
       &::config::BRIDGE_WALLET_ADDRESS,
       &::config::NEW_BRIDGE_WALLET_ADDRESS,
       &::config::DEV_FUND_WALLET,
+      &::config::NEW_GOV_WALLET,
+      &::config::NEW_DEV_WALLET,
     };
     static config_t testnet = {
       ::config::testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -379,7 +412,6 @@ namespace cryptonote
       &::config::testnet::GOVERNANCE_WALLET_ADDRESS,
       &::config::testnet::BRIDGE_WALLET_ADDRESS,
       &::config::testnet::NEW_BRIDGE_WALLET_ADDRESS,
-
     };
     static config_t stagenet = {
       ::config::stagenet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
@@ -393,6 +425,10 @@ namespace cryptonote
       ::config::GENESIS_NONCE,
       &::config::stagenet::GOVERNANCE_WALLET_ADDRESS,
       &::config::stagenet::BRIDGE_WALLET_ADDRESS,
+      &::config::stagenet::NEW_BRIDGE_WALLET_ADDRESS,
+      &::config::stagenet::DEV_FUND_WALLET,
+      &::config::stagenet::NEW_GOV_WALLET,
+      &::config::stagenet::NEW_DEV_WALLET,
     };
     switch (nettype)
     {

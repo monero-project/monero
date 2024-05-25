@@ -154,23 +154,6 @@ static inline uint64_t div128_64(uint64_t dividend_hi, uint64_t dividend_lo, uin
   return remainder;
 }
 
-static inline void add64clamp(uint64_t *value, uint64_t add)
-{
-  static const uint64_t maxval = (uint64_t)-1;
-  if (*value > maxval - add)
-    *value = maxval;
-  else
-    *value += add;
-}
-
-static inline void sub64clamp(uint64_t *value, uint64_t sub)
-{
-  if (*value < sub)
-    *value = 0;
-  else
-    *value -= sub;
-}
-
 #define IDENT16(x) ((uint16_t) (x))
 #define IDENT32(x) ((uint32_t) (x))
 #define IDENT64(x) ((uint64_t) (x))

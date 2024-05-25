@@ -86,6 +86,7 @@ using namespace epee;
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <openssl/sha.h>
+#include "i18n.h"
 
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "util"
@@ -115,6 +116,22 @@ static int flock_exnb(int fd)
 
 namespace tools
 {
+  void copy_file(const std::string& from, const std::string& to)
+  {
+    using boost::filesystem::path;
+  #if BOOST_VERSION < 107400
+    boost::filesystem::copy_file(
+      path(from),
+      path(to),
+      boost::filesystem::copy_option::overwrite_if_exists);
+  #else
+    boost::filesystem::copy_file(
+      path(from),
+      path(to),
+      boost::filesystem::copy_options::overwrite_existing);
+  #endif
+  }
+
   std::function<void(int)> signal_handler::m_handler;
 
   private_file::private_file() noexcept : m_handle(), m_filename() {}
@@ -1069,38 +1086,20 @@ std::string get_nix_version_display_string()
     return std::string(buffer);
   }
 
-  std::string get_human_readable_timespan(uint64_t seconds)
+  std::string get_human_readable_timespan(std::chrono::seconds seconds)
   {
-    if (seconds < 60)
-      return std::to_string(seconds) + " seconds";
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(1);
-    if (seconds < 3600)
-    {
-      ss << seconds / 60.f;
-      return ss.str() + " minutes";
-    }
-    if (seconds < 3600 * 24)
-    {
-      ss << seconds / 3600.f;
-      return ss.str() + " hours";
-    }
-    if (seconds < 3600 * 24 * 30.5f)
-    {
-      ss << seconds / (3600 * 24.f);
-      return ss.str() + " days";
-    }
-    if (seconds < 3600 * 24 * 365.25f)
-    {
-      ss << seconds / (3600 * 24 * 30.5f);
-      return ss.str() + " months";
-    }
-    if (seconds < 3600 * 24 * 365.25f * 100)
-    {
-      ss << seconds / (3600 * 24 * 365.25f);
-      return ss.str() + " years";
-    }
-    return "a long time";
+    uint64_t ts = seconds.count();
+    if (ts < 60)
+      return std::to_string(ts) + tr(" seconds");
+    if (ts < 3600)
+      return std::to_string((uint64_t)(ts / 60)) + tr(" minutes");
+    if (ts < 3600 * 24)
+      return std::to_string((uint64_t)(ts / 3600)) + tr(" hours");
+    if (ts < 3600 * 24 * 30.5)
+      return std::to_string((uint64_t)(ts / (3600 * 24))) + tr(" days");
+    if (ts < 3600 * 24 * 365.25)
+      return std::to_string((uint64_t)(ts / (3600 * 24 * 30.5))) + tr(" months");
+    return tr("a long time");
   }
 
   std::string get_human_readable_bytes(uint64_t bytes)

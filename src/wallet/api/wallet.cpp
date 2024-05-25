@@ -46,10 +46,8 @@
 #include <sstream>
 #include <unordered_map>
 
-#ifdef WIN32
 #include <boost/locale.hpp>
 #include <boost/filesystem.hpp>
-#endif
 
 using namespace std;
 using namespace cryptonote;
@@ -1504,6 +1502,15 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
         }
         try {
             if (amount) {
+                cryptonote::xeq_construct_tx_params tx_params;
+
+                boost::optional<uint8_t> hard_fork_version = m_wallet->get_hard_fork_version();
+                if (!hard_fork_version)
+                {
+                  setStatusError(tools::ERR_MSG_NETWORK_VERSION_QUERY_FAILED);
+                  return transaction;
+                }
+                xeq_construct_tx_params tx_params = tools::wallet2::construct_params(*hard_fork_version, txtype::standard);
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count, 0 /* unlock_time */,
                                                                             adjusted_priority,
                                                                             extra, subaddr_account, subaddr_indices);
@@ -2499,7 +2506,7 @@ void WalletImpl::deviceShowAddress(uint32_t accountIndex, uint32_t addressIndex,
 
     m_wallet->device_show_address(accountIndex, addressIndex, payment_id_param);
 }
-PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str)
+PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, const std::string& address_str, const std::string& amount_str, std::string& error_msg)
 {
   crypto::public_key sn_key;
   if (!epee::string_tools::hex_to_pod(sn_key_str, sn_key)) {
@@ -2508,8 +2515,10 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   }
 
   cryptonote::address_parse_info addr_info;
-  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str)) {
-    LOG_ERROR("failed to parse address");
+  if (!cryptonote::get_account_address_from_str_or_url(addr_info, m_wallet->nettype(), address_str))
+  {
+    error_msg = "Failed to parse the contributor's address";
+    LOG_ERROR(error_msg);
     return nullptr;
   }
 
@@ -2523,8 +2532,14 @@ PendingTransaction* WalletImpl::stakePending(const std::string& sn_key_str, cons
   /// Note(maxim): need to be careful to call `WalletImpl::disposeTransaction` when it is no longer needed
   PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
-  transaction->m_pending_tx = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+  tools::wallet2::stake_result stake_result = m_wallet->create_stake_tx(sn_key, addr_info, amount);
+  if (stake_result.status != tools::wallet2::stake_result_status::success)
+  {
+    error_msg = "Failed to create stake transaction: " + stake_result.msg;
+    return nullptr;
+  }
 
+  transaction->m_pending_tx = {stake_result.ptx};
   return transaction;
 }
 

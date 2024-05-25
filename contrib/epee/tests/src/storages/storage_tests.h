@@ -75,7 +75,7 @@ namespace epee
 
     inline test_struct get_test_struct()
     {
-      test_struct t = boost::value_initialized<test_struct>();
+      test_struct t{};
       t.m_bool = true;
       t.m_str = "ackamdc'kmecemcececmacmecmcm[aicm[oeicm[oeicm[qaicm[qoe";
       t.m_uint = 233242;

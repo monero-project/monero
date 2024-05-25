@@ -31,21 +31,23 @@
 #pragma once
 
 
-#define TX_EXTRA_PADDING_MAX_COUNT          255
-#define TX_EXTRA_NONCE_MAX_COUNT            255
-#define TX_EXTRA_MEMO_MAX_COUNT             255
- 
+#define TX_EXTRA_PADDING_MAX_COUNT             255
+#define TX_EXTRA_NONCE_MAX_COUNT               255
+#define TX_EXTRA_MEMO_MAX_COUNT                255
+
 #define TX_EXTRA_TAG_PADDING                  0x00
 #define TX_EXTRA_TAG_PUBKEY                   0x01
 #define TX_EXTRA_NONCE                        0x02
 #define TX_EXTRA_MERGE_MINING_TAG             0x03
 #define TX_EXTRA_TAG_ADDITIONAL_PUBKEYS       0x04
+
 #define TX_EXTRA_TAG_SERVICE_NODE_REGISTER    0x70
 #define TX_EXTRA_TAG_SERVICE_NODE_DEREGISTER  0x71
 #define TX_EXTRA_TAG_SERVICE_NODE_WINNER      0x72
 #define TX_EXTRA_TAG_SERVICE_NODE_CONTRIBUTOR 0x73
 #define TX_EXTRA_TAG_SERVICE_NODE_PUBKEY      0x74
 #define TX_EXTRA_TAG_TX_SECRET_KEY            0x75
+
 #define TX_EXTRA_TAG_MEMO                     0x81
 #define TX_EXTRA_MYSTERIOUS_MINERGATE_TAG     0xDE
 
@@ -254,7 +256,8 @@ struct tx_extra_service_node_deregister
 		FIELD(votes)
 		END_SERIALIZE()
 };
- struct tx_extra_tx_secret_key
+
+struct tx_extra_tx_secret_key
 {
   crypto::secret_key key;
 
@@ -263,23 +266,22 @@ struct tx_extra_service_node_deregister
   END_SERIALIZE()
 };
 
-  struct tx_extra_burn
-  {
-    uint64_t amount;
+struct tx_extra_burn
+{
+  uint64_t amount;
+  BEGIN_SERIALIZE()
+    FIELD(amount)
+  END_SERIALIZE()
+};
 
-    BEGIN_SERIALIZE()
-      FIELD(amount)
-    END_SERIALIZE()
-  };
+struct tx_extra_contract_info
+{
+  std::string contract_json;
 
-  struct tx_extra_contract_info
-  {
-    std::string contract_json;
-
-    BEGIN_SERIALIZE()
-      FIELD(contract_json)
-    END_SERIALIZE()
-  };
+  BEGIN_SERIALIZE()
+    FIELD(contract_json)
+  END_SERIALIZE()
+};
 
   struct tx_extra_memo
   {
@@ -296,21 +298,23 @@ struct tx_extra_service_node_deregister
   //   varint size;
   //   varint data[];
  typedef boost::variant<tx_extra_padding,
-	 tx_extra_pub_key,
-	 tx_extra_nonce,
-	 tx_extra_merge_mining_tag,
-	 tx_extra_additional_pub_keys,
-	 tx_extra_mysterious_minergate,
-	 tx_extra_service_node_pubkey,
-	 tx_extra_service_node_register,
-	 tx_extra_service_node_contributor,
-	 tx_extra_service_node_winner,
-	 tx_extra_service_node_deregister,
-	 tx_extra_tx_secret_key,
-   tx_extra_burn,
-   tx_extra_contract_info,
-   tx_extra_memo> tx_extra_field;
+                        tx_extra_pub_key,
+                        tx_extra_nonce,
+                        tx_extra_merge_mining_tag,
+                        tx_extra_additional_pub_keys,
+                        tx_extra_mysterious_minergate,
+                        tx_extra_service_node_pubkey,
+                        tx_extra_service_node_register,
+                        tx_extra_service_node_contributor,
+                        tx_extra_service_node_winner,
+                        tx_extra_service_node_deregister,
+                        tx_extra_tx_secret_key,
+                        tx_extra_burn,
+                        tx_extra_contract_info,
+                        tx_extra_memo
+                       > tx_extra_field;
   }
+
   BLOB_SERIALIZER(cryptonote::tx_extra_service_node_deregister::vote);
 
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_padding, TX_EXTRA_TAG_PADDING);
@@ -325,6 +329,6 @@ struct tx_extra_service_node_deregister
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_winner, TX_EXTRA_TAG_SERVICE_NODE_WINNER);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_service_node_pubkey, TX_EXTRA_TAG_SERVICE_NODE_PUBKEY);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_tx_secret_key, TX_EXTRA_TAG_TX_SECRET_KEY);
-  VARIANT_TAG(binary_archive, cryptonote::tx_extra_burn,                        TX_EXTRA_TAG_BURN);
-  VARIANT_TAG(binary_archive, cryptonote::tx_extra_contract_info,                        TX_EXTRA_CONTRACT_INFO);
+  VARIANT_TAG(binary_archive, cryptonote::tx_extra_burn, TX_EXTRA_TAG_BURN);
+  VARIANT_TAG(binary_archive, cryptonote::tx_extra_contract_info, TX_EXTRA_CONTRACT_INFO);
   VARIANT_TAG(binary_archive, cryptonote::tx_extra_memo, TX_EXTRA_TAG_MEMO);

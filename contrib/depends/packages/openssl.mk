@@ -1,21 +1,19 @@
 package=openssl
-$(package)_version=1.1.1l
+$(package)_version=3.0.11
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=0b7a3e5e59c34827fe0c3a74b7ec8baef302b98fa80088d7f9153aa16fa76bd1
-$(package)_patches=fix_darwin.patch
+$(package)_sha256_hash=b3425d3bb4a2218d0697eb41f7fc0cdede016ed19ca49d168b78e8d947887f55
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" ARFLAGS=$($(package)_arflags) RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
-$(package)_config_env_android=ANDROID_NDK_HOME="$(host_prefix)/native" PATH="$(host_prefix)/native/bin" CC=clang AR=ar RANLIB=ranlib
-$(package)_build_env_android=ANDROID_NDK_HOME="$(host_prefix)/native"
-$(package)_config_opts=--prefix=$(host_prefix) --openssldir=$(host_prefix)/etc/openssl
+$(package)_config_env_android=ANDROID_NDK_ROOT="$(host_prefix)/native" PATH="$(host_prefix)/native/bin" CC=clang AR=ar RANLIB=ranlib
+$(package)_build_env_android=ANDROID_NDK_ROOT="$(host_prefix)/native"
+$(package)_config_opts=--prefix=$(host_prefix) --openssldir=$(host_prefix)/etc/openssl --libdir=$(host_prefix)/lib
 $(package)_config_opts+=no-capieng
 $(package)_config_opts+=no-dso
 $(package)_config_opts+=no-dtls1
 $(package)_config_opts+=no-ec_nistp_64_gcc_128
 $(package)_config_opts+=no-gost
-$(package)_config_opts+=no-heartbeats
 $(package)_config_opts+=no-md2
 $(package)_config_opts+=no-rc5
 $(package)_config_opts+=no-rdrand
@@ -23,8 +21,8 @@ $(package)_config_opts+=no-rfc3779
 $(package)_config_opts+=no-sctp
 $(package)_config_opts+=no-shared
 $(package)_config_opts+=no-ssl-trace
-$(package)_config_opts+=no-ssl2
 $(package)_config_opts+=no-ssl3
+$(package)_config_opts+=no-tests
 $(package)_config_opts+=no-unit-test
 $(package)_config_opts+=no-weak-ssl-ciphers
 $(package)_config_opts+=no-zlib
@@ -50,8 +48,7 @@ $(package)_config_opts_x86_64_freebsd=BSD-x86_64
 endef
 
 define $(package)_preprocess_cmds
-  sed -i.old 's|"engines", "apps", "test", "util", "tools", "fuzz"|"engines", "tools"|' Configure && \
-  patch -p1 < $($(package)_patch_dir)/fix_darwin.patch
+  sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info
 endef
 
 define $(package)_config_cmds
@@ -59,11 +56,11 @@ define $(package)_config_cmds
 endef
 
 define $(package)_build_cmds
-  $(MAKE) -j1 build_libs
+  $(MAKE) build_libs
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) -j1 install_sw
+  $(MAKE) DESTDIR=$($(package)_staging_dir) install_sw
 endef
 
 define $(package)_postprocess_cmds
