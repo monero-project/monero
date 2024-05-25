@@ -74,7 +74,7 @@ struct SelenePoint {
 
 template<typename T>
 struct CResult {
-  T value;
+  T* value;
   void* err;
 };
 

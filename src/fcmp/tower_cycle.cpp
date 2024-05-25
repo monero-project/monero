@@ -51,15 +51,18 @@ Helios::Point Helios::hash_grow(
     const Helios::Scalar &existing_child_at_offset,
     const Helios::Chunk &new_children) const
 {
-    fcmp_rust::CResult<Helios::Point> res = fcmp_rust::hash_grow_helios(
+    fcmp_rust::CResult<Helios::Point> result = fcmp_rust::hash_grow_helios(
         existing_hash,
         offset,
         existing_child_at_offset,
         new_children);
-    if (res.err != 0) {
+    if (result.err != nullptr) {
       throw std::runtime_error("failed to hash grow");
     }
-    return res.value;
+    typename Helios::Point res;
+    memcpy(&res, result.value, sizeof(typename Selene::Point));
+    free(result.value);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Point Helios::hash_trim(
@@ -85,15 +88,18 @@ Selene::Point Selene::hash_grow(
     const Selene::Scalar &existing_child_at_offset,
     const Selene::Chunk &new_children) const
 {
-    fcmp_rust::CResult<Selene::Point> res = fcmp_rust::hash_grow_selene(
+    fcmp_rust::CResult<Selene::Point> result = fcmp_rust::hash_grow_selene(
         existing_hash,
         offset,
         existing_child_at_offset,
         new_children);
-    if (res.err != 0) {
+    if (result.err != nullptr) {
       throw std::runtime_error("failed to hash grow");
     }
-    return res.value;
+    typename Selene::Point res;
+    memcpy(&res, result.value, sizeof(typename Selene::Point));
+    free(result.value);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_trim(
