@@ -60,16 +60,23 @@ struct LayerExtension final
 template<typename C>
 struct LastChunkData final
 {
-    // The total number of children % child layer chunk width
-    const std::size_t        child_offset;
-    // The last child in the chunk (and therefore the last child in the child layer)
-    /* TODO: const */ typename C::Scalar last_child;
-    // The hash of the last chunk of child scalars
-    /* TODO: const */ typename C::Point  last_parent;
-    // Total number of children in the child layer
-    const std::size_t        child_layer_size;
-    // Total number of hashes in the parent layer
-    const std::size_t        parent_layer_size;
+    // The next starting index in the layer (referencing the "next" child chunk)
+    const std::size_t        next_start_child_chunk_index;
+    // The existing hash of the last chunk of child scalars
+    // - Used to grow the existing last chunk in the layer
+    // - Only must be set if the existing last chunk isn't full
+    const typename C::Point  last_parent;
+    // Whether or not the existing last parent in the layer needs to be updated
+    // - True if the last leaf layer chunk is not yet full
+    // - If true, next_start_child_chunk_index == existing layer size
+    // - If false, next_start_child_chunk_index == (existing layer size - 1), since updating existing last parent
+    const bool               update_last_parent;
+    // The last child in the last chunk (and therefore the last child in the child layer)
+    // - Used to get the delta from the existing last child to the new last child
+    // - Only needs to be set if update_last_parent is true
+    // - Since the leaf layer is append-only, the layer above leaf layer does not actually need this value since the
+    //   last leaf will never change (and therefore, we'll never need the delta to a prior leaf)
+    const typename C::Scalar last_child;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -111,7 +118,7 @@ public:
     struct Leaves final
     {
         // Starting index in the leaf layer
-        std::size_t            start_idx;
+        std::size_t            start_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
         std::vector<LeafTuple> tuples;
     };
@@ -131,6 +138,7 @@ public:
     // - c2_last_chunks[0] is first layer after leaves, then c1_last_chunks[0], then c2_last_chunks[1], etc
     struct LastChunks final
     {
+        std::size_t                    next_start_leaf_index{0};
         std::vector<LastChunkData<C1>> c1_last_chunks;
         std::vector<LastChunkData<C2>> c2_last_chunks;
     };
@@ -150,12 +158,14 @@ private:
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
     std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
 
-//member variables
-private:
-    // The curves
+//public member variables
+public:
+    // The curve interfaces
     const C1 &m_c1;
     const C2 &m_c2;
 
+//member variables
+private:
     // The chunk widths of the layers in the tree tied to each curve
     const std::size_t m_c1_width;
     const std::size_t m_c2_width;
