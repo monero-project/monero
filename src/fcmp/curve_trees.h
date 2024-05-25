@@ -164,14 +164,15 @@ public:
     const C1 &m_c1;
     const C2 &m_c2;
 
+    // The leaf layer has a distinct chunk width than the other layers
+    // TODO: public function for update_last_parent, and make this private
+    const std::size_t m_leaf_layer_chunk_width;
+
 //member variables
 private:
     // The chunk widths of the layers in the tree tied to each curve
     const std::size_t m_c1_width;
     const std::size_t m_c2_width;
-
-    // The leaf layer has a distinct chunk width than the other layers
-    const std::size_t m_leaf_layer_chunk_width;
 };
 //----------------------------------------------------------------------------------------------------------------------
 using Helios       = tower_cycle::Helios;

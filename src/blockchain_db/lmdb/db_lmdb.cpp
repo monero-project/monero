@@ -362,10 +362,11 @@ typedef struct outtx {
     uint64_t local_index;
 } outtx;
 
-typedef struct layer_val {
+template<typename C>
+struct layer_val {
     uint64_t child_chunk_idx;
-    std::array<uint8_t, 32UL> child_chunk_hash;
-} layer_val;
+    typename C::Point child_chunk_hash;
+};
 
 std::atomic<uint64_t> mdb_txn_safe::num_active_txns{0};
 std::atomic_flag mdb_txn_safe::creation_gate = ATOMIC_FLAG_INIT;
@@ -1304,6 +1305,90 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
+void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
+  const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves)
+{
+  // TODO: block_wtxn_start like pop_block, then call BlockchainDB::grow_tree
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(leaves)
+
+  // Read every layer's last chunk data
+  const auto last_chunks = this->get_tree_last_chunks(curve_trees);
+
+  // Using the last chunk data and new leaves, get a struct we can use to extend the tree
+  const auto tree_extension = curve_trees.get_tree_extension(last_chunks, new_leaves);
+
+  // Insert the leaves
+  // TODO: grow_leaves
+  const auto &leaves = tree_extension.leaves;
+  for (std::size_t i = 0; i < leaves.tuples.size(); ++i)
+  {
+    MDB_val_copy<std::size_t> k(i + leaves.start_idx);
+    MDB_val_set(v, leaves.tuples[i]);
+
+    // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
+    // Adding MDB_NOOVERWRITE I assume re-introduces a key comparison. Benchmark NOOVERWRITE here
+    // MDB_NOOVERWRITE makes sure key doesn't already exist
+    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPENDDUP | MDB_NOOVERWRITE);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
+  }
+
+  // Grow the layers
+  // TODO: grow_layers
+  const auto &c2_extensions = tree_extension.c2_layer_extensions;
+  const auto &c1_extensions = tree_extension.c1_layer_extensions;
+  CHECK_AND_ASSERT_THROW_MES(!c2_extensions.empty(), "empty c2 extensions");
+
+  bool use_c2 = true;
+  std::size_t c2_idx = 0;
+  std::size_t c1_idx = 0;
+  for (std::size_t i = 0; i < (c2_extensions.size() + c1_extensions.size()); ++i)
+  {
+    const std::size_t layer_idx = c2_idx + c1_idx;
+
+    if (use_c2)
+    {
+      if (layer_idx % 2 != 0)
+        throw0(DB_ERROR(lmdb_error("Growing odd c2 layer, expected even layer idx for c2: ", layer_idx).c_str()));
+
+      const auto *c2_last_chunk_ptr = (c2_idx >= last_chunks.c2_last_chunks.size())
+          ? nullptr
+          : &last_chunks.c2_last_chunks[c2_idx];
+
+      this->grow_layer<fcmp::curve_trees::Selene>(curve_trees.m_c2,
+        c2_extensions,
+        c2_idx,
+        layer_idx,
+        c2_last_chunk_ptr);
+
+      ++c2_idx;
+    }
+    else
+    {
+      if (layer_idx % 2 == 0)
+        throw0(DB_ERROR(lmdb_error("Growing even c1 layer, expected odd layer idx for c2: ", layer_idx).c_str()));
+
+      const auto *c1_last_chunk_ptr = (c1_idx >= last_chunks.c1_last_chunks.size())
+          ? nullptr
+          : &last_chunks.c1_last_chunks[c1_idx];
+
+      this->grow_layer<fcmp::curve_trees::Helios>(curve_trees.m_c1,
+        c1_extensions,
+        c1_idx,
+        layer_idx,
+        c1_last_chunk_ptr);
+
+      ++c1_idx;
+    }
+
+    use_c2 = !use_c2;
+  }
+}
+
 template<typename C>
 void BlockchainLMDB::grow_layer(const C &curve,
   const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
@@ -1322,17 +1407,17 @@ void BlockchainLMDB::grow_layer(const C &curve,
 
   CHECK_AND_ASSERT_THROW_MES(!ext.hashes.empty(), "empty layer extension");
 
-  // TODO: make sure last_chunk_ptr->next_start_child_chunk_index lines up
+  // TODO: make sure last_chunk_ptr->next_start_child_chunk_idx lines up
 
-  MDB_val_copy<uint64_t> k(layer_idx);
+  MDB_val_copy<std::size_t> k(layer_idx);
 
   const bool update_last_parent = last_chunk_ptr != nullptr && last_chunk_ptr->update_last_parent;
   if (update_last_parent)
   {
     // We updated the last hash, so update it
-    layer_val lv;
+    layer_val<C> lv;
     lv.child_chunk_idx  = ext.start_idx;
-    lv.child_chunk_hash = curve.to_bytes(ext.hashes.front());
+    lv.child_chunk_hash = ext.hashes.front();
     MDB_val_set(v, lv);
 
     // We expect to overwrite the existing hash
@@ -1345,9 +1430,9 @@ void BlockchainLMDB::grow_layer(const C &curve,
   // Now add all the new hashes found in the extension
   for (std::size_t i = update_last_parent ? 1 : 0; i < ext.hashes.size(); ++i)
   {
-    layer_val lv;
+    layer_val<C> lv;
     lv.child_chunk_idx  = i + ext.start_idx;
-    lv.child_chunk_hash = curve.to_bytes(ext.hashes[i]);
+    lv.child_chunk_hash = ext.hashes[i];
     MDB_val_set(v, lv);
 
     // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
@@ -1359,78 +1444,141 @@ void BlockchainLMDB::grow_layer(const C &curve,
   }
 }
 
-void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-  const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves)
+template<typename C>
+static fcmp::curve_trees::LastChunkData<C> get_last_child_layer_chunk(const bool update_last_parent,
+    const std::size_t parent_layer_size,
+    const typename C::Point &last_parent,
+    const typename C::Scalar &last_child)
+{
+    if (update_last_parent)
+        CHECK_AND_ASSERT_THROW_MES(parent_layer_size > 0, "empty parent layer");
+
+    // If updating last parent, the next start will be the last parent's index, else we start at the tip
+    const std::size_t next_start_child_chunk_index = update_last_parent
+        ? (parent_layer_size - 1)
+        : parent_layer_size;
+
+    return fcmp::curve_trees::LastChunkData<C>{
+        .next_start_child_chunk_index = next_start_child_chunk_index,
+        .last_parent                  = last_parent,
+        .update_last_parent           = update_last_parent,
+        .last_child                   = last_child
+    };
+}
+
+fcmp::curve_trees::CurveTreesV1::LastChunks BlockchainLMDB::get_tree_last_chunks(
+    const fcmp::curve_trees::CurveTreesV1 &curve_trees) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
-  mdb_txn_cursors *m_cursors = &m_wcursors;
 
-  CURSOR(leaves)
+  TXN_PREFIX_RDONLY();
+  RCURSOR(leaves)
+  RCURSOR(layers)
 
-  // TODO: read every layer's last chunks
-  const auto last_chunks = fcmp::curve_trees::CurveTreesV1::LastChunks{};
+  fcmp::curve_trees::CurveTreesV1::LastChunks last_chunks;
 
-  const auto tree_extension = curve_trees.get_tree_extension(last_chunks, new_leaves);
-
-  // Insert the leaves
-  const auto &leaves = tree_extension.leaves;
-  for (std::size_t i = 0; i < leaves.tuples.size(); ++i)
+  // Get the number of leaves in the tree
+  std::uint64_t num_leaf_tuples = 0;
   {
-    MDB_val_copy<uint64_t> k(i + leaves.start_idx);
-    MDB_val_set(v, leaves.tuples[i]);
-
-    // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
-    // Adding MDB_NOOVERWRITE I assume re-introduces a key comparison. Benchmark NOOVERWRITE here
-    // MDB_NOOVERWRITE makes sure key doesn't already exist
-    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPENDDUP | MDB_NOOVERWRITE);
-    if (result != MDB_SUCCESS)
-      throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
+    MDB_val k, v;
+    int result = mdb_cursor_get(m_cur_leaves, &k, &v, MDB_LAST);
+    if (result == MDB_NOTFOUND)
+      num_leaf_tuples = 0;
+    else if (result == MDB_SUCCESS)
+      num_leaf_tuples = (1 + (*(const std::size_t*)k.mv_data)) * fcmp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE;
+    else
+      throw0(DB_ERROR(lmdb_error("Failed to get last leaf: ", result).c_str()));
   }
+  last_chunks.next_start_leaf_index = num_leaf_tuples;
 
-  // Grow the layers
-  const auto &c2_extensions = tree_extension.c2_layer_extensions;
-  const auto &c1_extensions = tree_extension.c1_layer_extensions;
-  CHECK_AND_ASSERT_THROW_MES(!c2_extensions.empty(), "empty c2 extensions");
+  MDEBUG(num_leaf_tuples << " total leaves in the tree");
 
-  bool use_c2 = true;
-  std::size_t c2_idx = 0;
-  std::size_t c1_idx = 0;
-  for (std::size_t i = 0; i < (c2_extensions.size() + c1_extensions.size()); ++i)
+  // Now set the last chunk data from each layer
+  auto &c1_last_chunks_out = last_chunks.c1_last_chunks;
+  auto &c2_last_chunks_out = last_chunks.c2_last_chunks;
+
+  // Check if we'll need to update the last parent in each layer
+  const bool update_last_parent = (num_leaf_tuples % curve_trees.m_leaf_layer_chunk_width) > 0;
+
+  // Traverse the tree layer-by-layer starting at the layer closest to leaf layer
+  std::size_t layer_idx = 0;
+  while (1)
   {
-    const std::size_t layer_idx = c2_idx + c1_idx;
+    MDB_val_copy<std::size_t> k(layer_idx);
+    MDB_val v;
 
+    // Get the first record in a layer so we can then get the last record
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_SET);
+    if (result == MDB_NOTFOUND)
+      break;
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get first record in layer: ", result).c_str()));
+
+    // TODO: why can't I just use MDB_LAST_DUP once and get the last record?
+
+    // Get the last record in a layer
+    result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_LAST_DUP);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get last record in layer: ", result).c_str()));
+
+    // First push the last leaf chunk data into c2 chunks
+    if (layer_idx == 0)
+    {
+      const auto *lv = (layer_val<fcmp::curve_trees::Selene> *)v.mv_data;
+      MDEBUG("Selene, layer_idx: " << layer_idx << " , lv->child_chunk_idx: " << lv->child_chunk_idx);
+
+      auto last_leaf_chunk = get_last_child_layer_chunk<fcmp::curve_trees::Selene>(
+          /*update_last_parent*/ update_last_parent,
+          /*parent_layer_size */ lv->child_chunk_idx + 1,
+          /*last_parent       */ lv->child_chunk_hash,
+          // Since the leaf layer is append-only, we'll never need access to the last child
+          /*last_child        */ curve_trees.m_c2.zero_scalar());
+
+      c2_last_chunks_out.push_back(std::move(last_leaf_chunk));
+
+      ++layer_idx;
+      continue;
+    }
+
+    // Then push last chunk data from subsequent layers, alternating c1 -> c2 -> c1 -> ...
+    // TODO: template below if statement
+    const bool use_c2 = (layer_idx % 2) == 0;
     if (use_c2)
     {
-      const auto *c2_last_chunk_ptr = (c2_idx >= last_chunks.c2_last_chunks.size())
-          ? nullptr
-          : &last_chunks.c2_last_chunks[c2_idx];
+      const auto *lv = (layer_val<fcmp::curve_trees::Selene> *)v.mv_data;
+      MDEBUG("Selene, layer_idx: " << layer_idx << " , lv->child_chunk_idx: " << lv->child_chunk_idx);
 
-      this->grow_layer<fcmp::curve_trees::Selene>(curve_trees.m_c2,
-        c2_extensions,
-        c2_idx,
-        layer_idx,
-        c2_last_chunk_ptr);
+      const auto &last_child = curve_trees.m_c1.point_to_cycle_scalar(c1_last_chunks_out.back().last_parent);
 
-      ++c2_idx;
+      auto last_parent_chunk = get_last_child_layer_chunk<fcmp::curve_trees::Selene>(
+          update_last_parent,
+          lv->child_chunk_idx + 1,
+          lv->child_chunk_hash,
+          last_child);
+
+      c2_last_chunks_out.push_back(std::move(last_parent_chunk));
     }
     else
     {
-      const auto *c1_last_chunk_ptr = (c1_idx >= last_chunks.c1_last_chunks.size())
-          ? nullptr
-          : &last_chunks.c1_last_chunks[c1_idx];
+      const auto *lv = (layer_val<fcmp::curve_trees::Helios> *)v.mv_data;
+      MDEBUG("Helios, layer_idx: " << layer_idx << " , lv->child_chunk_idx: " << lv->child_chunk_idx);
 
-      this->grow_layer<fcmp::curve_trees::Helios>(curve_trees.m_c1,
-        c1_extensions,
-        c1_idx,
-        layer_idx,
-        c1_last_chunk_ptr);
+      const auto &last_child = curve_trees.m_c2.point_to_cycle_scalar(c2_last_chunks_out.back().last_parent);
 
-      ++c1_idx;
+      auto last_parent_chunk = get_last_child_layer_chunk<fcmp::curve_trees::Helios>(
+          update_last_parent,
+          lv->child_chunk_idx + 1,
+          lv->child_chunk_hash,
+          last_child);
+
+      c1_last_chunks_out.push_back(std::move(last_parent_chunk));
     }
 
-    use_c2 = !use_c2;
+    ++layer_idx;
   }
+
+  return last_chunks;
 }
 
 BlockchainLMDB::~BlockchainLMDB()
