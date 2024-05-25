@@ -41,8 +41,6 @@ namespace tower_cycle
 //----------------------------------------------------------------------------------------------------------------------
 // Rust types
 //----------------------------------------------------------------------------------------------------------------------
-using RustEd25519Point = std::array<uint8_t, 32UL>;
-
 // Need to forward declare Scalar types for point_to_cycle_scalar below
 using SeleneScalar = fcmp_rust::SeleneScalar;
 using HeliosScalar = fcmp_rust::HeliosScalar;
@@ -70,9 +68,7 @@ class Curve
 {
 //constructor
 public:
-    // This doesn't have a reference as doing so delays initialization and borks
-    // it
-    Curve(const typename C::Point hash_init_point):
+    Curve(const typename C::Point &hash_init_point):
         m_hash_init_point{hash_init_point}
     {};
 
@@ -97,6 +93,7 @@ public:
 
 //member variables
 public:
+    // kayabaNerve: this doesn't have a reference as doing so delays initialization and borks it
     const typename C::Point m_hash_init_point;
 };
 //----------------------------------------------------------------------------------------------------------------------

@@ -411,7 +411,8 @@ private:
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
   template<typename C>
-  void grow_layer(const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
+  void grow_layer(const C &curve,
+    const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
     const std::size_t c_idx,
     const std::size_t layer_idx,
     const fcmp::curve_trees::LastChunkData<C> *last_chunk_data);
