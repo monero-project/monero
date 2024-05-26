@@ -115,6 +115,4 @@ add_custom_command(
   VERBATIM
 )
 
-#monero_find_all_headers(fcmp_rust_headers "${FCMP_RUST_HEADER_DIR}")
 add_custom_target(fcmp_rust DEPENDS ${FCMP_RUST_LIB})
-#target_link_libraries(fcmp ${FCMP_RUST_LIB})
