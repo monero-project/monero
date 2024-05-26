@@ -21,3 +21,9 @@ full-chain-membership-proofs = { git = "https://github.com/kayabaNerve/fcmp-plus
 
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }
+
+[profile.dev]
+lto = "off"
+
+[profile.release]
+lto = "off"
