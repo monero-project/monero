@@ -99,7 +99,8 @@ jobs:
     - name: install rust target
       # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
       # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
-      run: rustup toolchain install 1.72; rustup default 1.72; rustup target add ${{ matrix.toolchain.rust_host }}
+      # We can't use Rust 1.70 due to LLVM 16 requiring ld >= 2.40 when building for Windows
+      run: rustup toolchain install 1.69; rustup default 1.69; rustup target add ${{ matrix.toolchain.rust_host }}
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
       run: |
