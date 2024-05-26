@@ -26,6 +26,8 @@ crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch =
 
 [profile.dev]
 lto = "off"
+panic = "abort"
 
 [profile.release]
 lto = "off"
+panic = "abort"

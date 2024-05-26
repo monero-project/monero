@@ -241,3 +241,7 @@ pub extern "C" fn hash_trim_selene(
         )
     }
 }
+
+// https://github.com/rust-lang/rust/issues/79609
+#[no_mangle]
+pub extern "C" fn _Unwind_Resume() {}
