@@ -41,6 +41,10 @@ monero_add_library_with_deps(
     ${fcmp_sources}
     ${fcmp_headers})
 
+if(WIN32)
+  target_link_libraries(fcmp ws2_32 ntdll userenv)
+endif()
+
 target_link_libraries(fcmp
   PUBLIC
     crypto
