@@ -22,7 +22,7 @@ env:
 
 jobs:
   build-cross:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
