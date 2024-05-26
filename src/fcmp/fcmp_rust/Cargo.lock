@@ -249,6 +249,7 @@ dependencies = [
  "generalized-bulletproofs",
  "helioselene",
  "rand_core",
+ "std-shims",
 ]
 
 [[package]]
