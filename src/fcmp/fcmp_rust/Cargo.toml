@@ -8,6 +8,8 @@ name = "fcmp_rust"
 crate-type = ["staticlib"]
 
 [dependencies]
+std-shims = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
+
 rand_core = { version = "0.6", features = ["getrandom"] }
 
 transcript = { package = "flexible-transcript", git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["recommended"] }
