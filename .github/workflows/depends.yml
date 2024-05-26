@@ -22,7 +22,7 @@ env:
 
 jobs:
   build-cross:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
@@ -97,7 +97,9 @@ jobs:
     - name: install dependencies
       run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config python3 gperf bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
     - name: install rust target
-      run: rustup update stable; rustup target add ${{ matrix.toolchain.rust_host }}
+      # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
+      # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
+      run: rustup toolchain install 1.72; rustup default 1.72; rustup target add ${{ matrix.toolchain.rust_host }}
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
       run: |
