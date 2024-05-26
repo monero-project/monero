@@ -42,7 +42,9 @@ monero_add_library_with_deps(
     ${fcmp_headers})
 
 if(WIN32)
-  target_link_libraries(fcmp ws2_32 ntdll userenv)
+  set(EXTRA_RUST_LIBRARIES ws2_32 ntdll userenv)
+else()
+  set(EXTRA_RUST_LIBRARIES )
 endif()
 
 target_link_libraries(fcmp
@@ -53,4 +55,5 @@ target_link_libraries(fcmp
     ringct
   PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/fcmp_rust/libfcmp_rust.a
-    ${EXTRA_LIBRARIES})
+    ${EXTRA_LIBRARIES}
+    ${EXTRA_RUST_LIBRARIES})
