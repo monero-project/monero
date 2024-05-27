@@ -153,8 +153,6 @@ public:
     TreeExtension get_tree_extension(const LastChunks &existing_last_chunks,
         const std::vector<LeafTuple> &new_leaf_tuples) const;
 
-//private member functions
-private:
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
     std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
 
@@ -168,8 +166,6 @@ public:
     // TODO: public function for update_last_parent, and make this private
     const std::size_t m_leaf_layer_chunk_width;
 
-//member variables
-private:
     // The chunk widths of the layers in the tree tied to each curve
     const std::size_t m_c1_width;
     const std::size_t m_c2_width;

@@ -365,6 +365,7 @@ typedef struct outtx {
 template<typename C>
 struct layer_val {
     uint64_t child_chunk_idx;
+    // TODO: use compressed 32 byte point; also need a from_bytes implemented on rust side
     typename C::Point child_chunk_hash;
 };
 
@@ -1349,11 +1350,13 @@ void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_tree
   for (std::size_t i = 0; i < (c2_extensions.size() + c1_extensions.size()); ++i)
   {
     const std::size_t layer_idx = c2_idx + c1_idx;
+    MDEBUG("Growing layer " << layer_idx);
 
     if (use_c2)
     {
       if (layer_idx % 2 != 0)
-        throw0(DB_ERROR(lmdb_error("Growing odd c2 layer, expected even layer idx for c2: ", layer_idx).c_str()));
+        throw0(DB_ERROR(("Growing odd c2 layer, expected even layer idx for c1: "
+          + std::to_string(layer_idx)).c_str()));
 
       const auto *c2_last_chunk_ptr = (c2_idx >= last_chunks.c2_last_chunks.size())
           ? nullptr
@@ -1370,7 +1373,8 @@ void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_tree
     else
     {
       if (layer_idx % 2 == 0)
-        throw0(DB_ERROR(lmdb_error("Growing even c1 layer, expected odd layer idx for c2: ", layer_idx).c_str()));
+        throw0(DB_ERROR(("Growing even c1 layer, expected odd layer idx for c2: "
+          + std::to_string(layer_idx)).c_str()));
 
       const auto *c1_last_chunk_ptr = (c1_idx >= last_chunks.c1_last_chunks.size())
           ? nullptr
@@ -1492,7 +1496,7 @@ fcmp::curve_trees::CurveTreesV1::LastChunks BlockchainLMDB::get_tree_last_chunks
   }
   last_chunks.next_start_leaf_index = num_leaf_tuples;
 
-  MDEBUG(num_leaf_tuples << " total leaves in the tree");
+  MDEBUG(num_leaf_tuples << " total leaf tuples in the tree");
 
   // Now set the last chunk data from each layer
   auto &c1_last_chunks_out = last_chunks.c1_last_chunks;
@@ -1578,7 +1582,234 @@ fcmp::curve_trees::CurveTreesV1::LastChunks BlockchainLMDB::get_tree_last_chunks
     ++layer_idx;
   }
 
+  TXN_POSTFIX_RDONLY();
+
   return last_chunks;
+}
+
+bool BlockchainLMDB::audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(leaves)
+  RCURSOR(layers)
+
+  // Check chunks of leaves hash into first layer as expected
+  std::size_t layer_idx = 0;
+  std::size_t child_chunk_idx = 0;
+  MDB_cursor_op leaf_op = MDB_FIRST;
+  while (1)
+  {
+    // Get next leaf chunk
+    std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples_chunk;
+    leaf_tuples_chunk.reserve(curve_trees.m_c2_width);
+
+    // Iterate until chunk is full or we get to the end of all leaves
+    while (1)
+    {
+      MDB_val k, v;
+      int result = mdb_cursor_get(m_cur_leaves, &k, &v, leaf_op);
+      leaf_op = MDB_NEXT;
+      if (result == MDB_NOTFOUND)
+        break;
+      if (result != MDB_SUCCESS)
+        throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
+
+      const auto leaf = *(fcmp::curve_trees::CurveTreesV1::LeafTuple *)v.mv_data;
+      leaf_tuples_chunk.push_back(leaf);
+
+      if (leaf_tuples_chunk.size() == curve_trees.m_c2_width)
+        break;
+    }
+
+    // Get the actual leaf chunk hash from the db
+    MDB_val_copy<std::size_t> k_parent(layer_idx);
+    MDB_val_set(v_parent, child_chunk_idx);
+
+    MDEBUG("Getting leaf chunk hash starting at child_chunk_idx " << child_chunk_idx);
+    int result = mdb_cursor_get(m_cur_layers, &k_parent, &v_parent, MDB_GET_BOTH);
+
+    // Check end condition: no more leaf tuples in the leaf layer
+    if (leaf_tuples_chunk.empty())
+    {
+      // No more leaves, expect to be done with parent chunks as well
+      if (result != MDB_NOTFOUND)
+        throw0(DB_ERROR(lmdb_error("unexpected leaf chunk parent result found at child_chunk_idx "
+          + std::to_string(child_chunk_idx), result).c_str()));
+
+      MDEBUG("Successfully audited leaf layer");
+      break;
+    }
+
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get parent in first layer: ", result).c_str()));
+
+    // Get the expected leaf chunk hash
+    const auto leaves = curve_trees.flatten_leaves(leaf_tuples_chunk);
+    const fcmp::curve_trees::Selene::Chunk chunk{leaves.data(), leaves.size()};
+
+    // Hash the chunk of leaves
+    for (std::size_t i = 0; i < leaves.size(); ++i)
+      MDEBUG("Hashing " << curve_trees.m_c2.to_string(leaves[i]));
+
+    const fcmp::curve_trees::Selene::Point chunk_hash = fcmp::curve_trees::get_new_parent(curve_trees.m_c2, chunk);
+    MDEBUG("chunk_hash " << curve_trees.m_c2.to_string(chunk_hash)  << " (" << leaves.size() << " leaves)");
+
+    // Now compare to value from the db
+    const auto *lv = (layer_val<fcmp::curve_trees::Selene> *)v_parent.mv_data;
+    MDEBUG("Actual leaf chunk hash " << curve_trees.m_c2.to_string(lv->child_chunk_hash));
+
+    const auto expected_bytes = curve_trees.m_c2.to_bytes(chunk_hash);
+    const auto actual_bytes   = curve_trees.m_c2.to_bytes(lv->child_chunk_hash);
+    CHECK_AND_ASSERT_MES(expected_bytes == actual_bytes, false, "unexpected leaf chunk hash");
+
+    ++child_chunk_idx;
+  }
+
+  // Traverse up the tree auditing each layer until we've audited every layer in the tree
+  while (1)
+  {
+    // Alternate starting with c1 as parent (we already audited c2 leaf parents), then c2 as parent, then c1, etc.
+    const bool parent_is_c1 = layer_idx % 2 == 0;
+    if (parent_is_c1)
+    {
+      if (this->audit_layer(
+          /*c_child*/         curve_trees.m_c2,
+          /*c_parent*/        curve_trees.m_c1,
+          layer_idx,
+          /*child_start_idx*/ 0,
+          /*child_chunk_idx*/ 0,
+          /*chunk_width*/     curve_trees.m_c1_width))
+      {
+        break;
+      }
+    }
+    else
+    {
+      if (this->audit_layer(
+          /*c_child*/         curve_trees.m_c1,
+          /*c_parent*/        curve_trees.m_c2,
+          layer_idx,
+          /*child_start_idx*/ 0,
+          /*child_chunk_idx*/ 0,
+          /*chunk_width*/     curve_trees.m_c2_width))
+      {
+        break;
+      }
+    }
+
+    ++layer_idx;
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return true;
+}
+
+template<typename C_CHILD, typename C_PARENT>
+bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
+  const C_PARENT &c_parent,
+  const std::size_t layer_idx,
+  const std::size_t child_start_idx,
+  const std::size_t child_chunk_idx,
+  const std::size_t chunk_width) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(layers)
+
+  MDEBUG("Auditing layer " << layer_idx << " at child_start_idx " << child_start_idx
+    << " and child_chunk_idx " << child_chunk_idx);
+
+  // Get next child chunk
+  std::vector<typename C_CHILD::Point> child_chunk;
+  child_chunk.reserve(chunk_width);
+
+  MDB_val_copy<std::size_t> k_child(layer_idx);
+  MDB_val_set(v_child, child_start_idx);
+  MDB_cursor_op op_child = MDB_GET_BOTH;
+  while (1)
+  {
+    int result = mdb_cursor_get(m_cur_layers, &k_child, &v_child, op_child);
+    op_child = MDB_NEXT_DUP;
+    if (result == MDB_NOTFOUND)
+      break;
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get child: ", result).c_str()));
+
+    const auto *child = (layer_val<C_CHILD>*)v_child.mv_data;
+    child_chunk.push_back(child->child_chunk_hash);
+
+    if (child_chunk.size() == chunk_width)
+      break;
+  }
+
+  // Get the actual chunk hash from the db
+  const std::size_t parent_layer_idx = layer_idx + 1;
+  MDB_val_copy<std::size_t> k_parent(parent_layer_idx);
+  MDB_val_set(v_parent, child_chunk_idx);
+
+  // Check for end conditions
+  // End condition A (return false): finished auditing layer and ready to move up a layer
+  // End condition B (return true):  finished auditing the tree, no more layers remaining
+  int result = mdb_cursor_get(m_cur_layers, &k_parent, &v_parent, MDB_GET_BOTH);
+
+  // End condition A: check if finished auditing this layer
+  if (child_chunk.empty())
+  {
+    // No more children, expect to be done auditing layer and ready to move up a layer
+    if (result != MDB_NOTFOUND)
+      throw0(DB_ERROR(lmdb_error("unexpected parent result at parent_layer_idx " + std::to_string(parent_layer_idx)
+        + " , child_chunk_idx " + std::to_string(child_chunk_idx), result).c_str()));
+
+    MDEBUG("Finished auditing layer " << layer_idx);
+    TXN_POSTFIX_RDONLY();
+    return false;
+  }
+
+  // End condition B: check if finished auditing the tree
+  if (child_chunk_idx == 0 && child_chunk.size() == 1 && result == MDB_NOTFOUND)
+  {
+    MDEBUG("Encountered root at layer_idx " << layer_idx);
+    TXN_POSTFIX_RDONLY();
+    return true;
+  }
+
+  if (result != MDB_SUCCESS)
+    throw0(DB_ERROR(lmdb_error("Failed to get parent: ", result).c_str()));
+
+  // Get the expected chunk hash
+  std::vector<typename C_PARENT::Scalar> child_scalars;
+  child_scalars.reserve(child_chunk.size());
+  for (const auto &child : child_chunk)
+    child_scalars.emplace_back(c_child.point_to_cycle_scalar(child));
+  const typename C_PARENT::Chunk chunk{child_scalars.data(), child_scalars.size()};
+
+  for (std::size_t i = 0; i < child_scalars.size(); ++i)
+    MDEBUG("Hashing " << c_parent.to_string(child_scalars[i]));
+
+  const auto chunk_hash = fcmp::curve_trees::get_new_parent(c_parent, chunk);
+  MDEBUG("chunk_hash " << c_parent.to_string(chunk_hash)  << " (" << child_scalars.size() << " children)");
+
+  const auto *lv = (layer_val<C_PARENT> *)v_parent.mv_data;
+  MDEBUG("Actual chunk hash " << c_parent.to_string(lv->child_chunk_hash));
+
+  const auto actual_bytes   = c_parent.to_bytes(lv->child_chunk_hash);
+  const auto expected_bytes = c_parent.to_bytes(chunk_hash);
+  if (actual_bytes != expected_bytes)
+    throw0(DB_ERROR(("unexpected hash at child_chunk_idx " + std::to_string(child_chunk_idx)).c_str()));
+
+  // TODO: use while (1) for iterative pattern, don't use recursion
+  return this->audit_layer(c_child,
+    c_parent,
+    layer_idx,
+    child_start_idx + child_chunk.size(),
+    child_chunk_idx + 1,
+    chunk_width);
 }
 
 BlockchainLMDB::~BlockchainLMDB()
