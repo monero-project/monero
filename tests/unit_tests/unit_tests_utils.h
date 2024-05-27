@@ -30,6 +30,12 @@
 
 #pragma once
 
+#include "gtest/gtest.h"
+
+#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/lmdb/db_lmdb.h"
+#include "misc_log_ex.h"
+
 #include <atomic>
 #include <boost/filesystem.hpp>
 
@@ -64,7 +70,56 @@ namespace unit_test
   private:
     std::atomic<size_t> m_counter;
   };
+
+  class BlockchainLMDBTest
+  {
+  public:
+    BlockchainLMDBTest() : m_temp_db_dir(boost::filesystem::temp_directory_path().string() + "/monero-lmdb-tests/")
+    {}
+
+    ~BlockchainLMDBTest()
+    {
+      delete m_db;
+      remove_files();
+    }
+
+    void init_new_db()
+    {
+      CHECK_AND_ASSERT_THROW_MES(this->m_db == nullptr, "expected nullptr m_db");
+      this->m_db = new cryptonote::BlockchainLMDB();
+
+      const auto temp_db_path = boost::filesystem::unique_path();
+      const std::string dir_path = m_temp_db_dir + temp_db_path.string();
+
+      MDEBUG("Creating test db at path " << dir_path);
+      ASSERT_NO_THROW(this->m_db->open(dir_path));
+    }
+
+    void init_hardfork(cryptonote::HardFork *hardfork)
+    {
+      hardfork->init();
+      this->m_db->set_hard_fork(hardfork);
+    }
+
+    void remove_files()
+    {
+      boost::filesystem::remove_all(m_temp_db_dir);
+    }
+
+    cryptonote::BlockchainDB* m_db{nullptr};
+    const std::string m_temp_db_dir;
+  };
 }
+
+#define INIT_BLOCKCHAIN_LMDB_TEST_DB() \
+  test_db.init_new_db(); \
+  auto hardfork = cryptonote::HardFork(*test_db.m_db, 1, 0); \
+  test_db.init_hardfork(&hardfork); \
+  auto scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
+    ASSERT_NO_THROW(test_db.m_db->close()); \
+    delete test_db.m_db; \
+    test_db.m_db = nullptr; \
+  })
 
 # define ASSERT_EQ_MAP(val, map, key) \
   do { \
