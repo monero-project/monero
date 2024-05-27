@@ -30,11 +30,18 @@
 
 #include "fcmp/curve_trees.h"
 #include "fcmp/tower_cycle.h"
-#include "misc_log_ex.h"
 
 using Helios       = fcmp::curve_trees::Helios;
 using Selene       = fcmp::curve_trees::Selene;
 using CurveTreesV1 = fcmp::curve_trees::CurveTreesV1;
+
+const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTreesV1 &curve_trees,
+    const std::size_t num_leaves);
+
+// https://github.com/kayabaNerve/fcmp-plus-plus/blob
+//  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
+const std::size_t HELIOS_CHUNK_WIDTH = 38;
+const std::size_t SELENE_CHUNK_WIDTH = 18;
 
 // Helper class that can access the private members of the CurveTrees class
 class CurveTreesUnitTest
@@ -75,10 +82,3 @@ private:
     CurveTreesV1 &m_curve_trees;
 };
 
-const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTreesV1 &curve_trees,
-    const std::size_t num_leaves);
-
-// https://github.com/kayabaNerve/fcmp-plus-plus/blob
-//  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
-const std::size_t HELIOS_CHUNK_WIDTH = 38;
-const std::size_t SELENE_CHUNK_WIDTH = 18;

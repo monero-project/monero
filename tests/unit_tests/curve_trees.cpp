@@ -28,7 +28,10 @@
 
 #include "gtest/gtest.h"
 
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
+#include "misc_log_ex.h"
+#include "unit_tests_utils.h"
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -579,6 +582,68 @@ static bool grow_tree(CurveTreesV1 &curve_trees,
     return curve_trees_accessor.validate_tree(tree_inout);
 }
 //----------------------------------------------------------------------------------------------------------------------
+static bool grow_tree_in_memory(const std::size_t init_leaves,
+    const std::size_t ext_leaves,
+    CurveTreesV1 &curve_trees,
+    CurveTreesUnitTest &curve_trees_accessor)
+{
+    LOG_PRINT_L1("Adding " << init_leaves << " leaves to tree, then extending by " << ext_leaves << " leaves");
+
+    CurveTreesUnitTest::Tree global_tree;
+
+    // Initialize global tree with `init_leaves`
+    MDEBUG("Adding " << init_leaves << " leaves to tree");
+
+    bool res = grow_tree(curve_trees,
+        curve_trees_accessor,
+        init_leaves,
+        global_tree);
+
+    CHECK_AND_ASSERT_MES(res, false, "failed to add inital leaves to tree in memory");
+
+    MDEBUG("Successfully added initial " << init_leaves << " leaves to tree in memory");
+
+    // Then extend the global tree by `ext_leaves`
+    MDEBUG("Extending tree by " << ext_leaves << " leaves");
+
+    res = grow_tree(curve_trees,
+        curve_trees_accessor,
+        ext_leaves,
+        global_tree);
+
+    CHECK_AND_ASSERT_MES(res, false, "failed to extend tree in memory");
+
+    MDEBUG("Successfully extended by " << ext_leaves << " leaves in memory");
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+static bool grow_tree_db(const std::size_t init_leaves,
+    const std::size_t ext_leaves,
+    CurveTreesV1 &curve_trees,
+    unit_test::BlockchainLMDBTest &test_db)
+{
+    INIT_BLOCKCHAIN_LMDB_TEST_DB();
+
+    {
+        cryptonote::db_wtxn_guard guard(test_db.m_db);
+
+        LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then extending by " << ext_leaves << " leaves");
+
+        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, init_leaves));
+        CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees), false, "failed to add initial leaves to db");
+
+        MDEBUG("Successfully added initial " << init_leaves << " leaves to db, extending by "
+            << ext_leaves << " leaves");
+
+        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, ext_leaves));
+        CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees), false, "failed to extend tree in db");
+
+        MDEBUG("Successfully extended tree in db by " << ext_leaves << " leaves");
+    }
+
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Test
 //----------------------------------------------------------------------------------------------------------------------
@@ -597,6 +662,7 @@ TEST(curve_trees, grow_tree)
         SELENE_CHUNK_WIDTH);
 
     CurveTreesUnitTest curve_trees_accessor{curve_trees};
+    unit_test::BlockchainLMDBTest test_db;
 
     CHECK_AND_ASSERT_THROW_MES(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
     CHECK_AND_ASSERT_THROW_MES(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
@@ -633,33 +699,8 @@ TEST(curve_trees, grow_tree)
             if (ext_leaves > 1 && init_leaves == NEED_3_LAYERS)
                 continue;
 
-            LOG_PRINT_L1("Adding " << init_leaves << " leaves to tree, then extending by " << ext_leaves << " leaves");
-
-            CurveTreesUnitTest::Tree global_tree;
-
-            // Initialize global tree with `init_leaves`
-            MDEBUG("Adding " << init_leaves << " leaves to tree");
-
-            bool res = grow_tree(curve_trees,
-                curve_trees_accessor,
-                init_leaves,
-                global_tree);
-
-            ASSERT_TRUE(res);
-
-            MDEBUG("Successfully added initial " << init_leaves << " leaves to tree");
-
-            // Then extend the global tree by `ext_leaves`
-            MDEBUG("Extending tree by " << ext_leaves << " leaves");
-
-            res = grow_tree(curve_trees,
-                curve_trees_accessor,
-                ext_leaves,
-                global_tree);
-
-            ASSERT_TRUE(res);
-
-            MDEBUG("Successfully extended by " << ext_leaves << " leaves");
+            ASSERT_TRUE(grow_tree_in_memory(init_leaves, ext_leaves, curve_trees, curve_trees_accessor));
+            ASSERT_TRUE(grow_tree_db(init_leaves, ext_leaves, curve_trees, test_db));
         }
     }
 }

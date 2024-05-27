@@ -39,7 +39,6 @@
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include "curve_trees.h"
 
 using namespace cryptonote;
 using epee::string_tools::pod_to_hex;
@@ -340,87 +339,6 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
 
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0].first), hashes[0]);
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1].first), hashes[1]);
-}
-
-// TODO: implement this in curve_trees.cpp, consider removing CurveTreesUnitTest class
-TYPED_TEST(BlockchainDBTest, GrowCurveTrees)
-{
-  Helios helios;
-  Selene selene;
-
-  auto curve_trees = CurveTreesV1(
-      helios,
-      selene,
-      HELIOS_CHUNK_WIDTH,
-      SELENE_CHUNK_WIDTH);
-
-  // Number of leaves for which x number of layers is required
-  const std::size_t NEED_1_LAYER  = SELENE_CHUNK_WIDTH;
-  const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * HELIOS_CHUNK_WIDTH;
-  const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * SELENE_CHUNK_WIDTH;
-
-  const std::vector<std::size_t> N_LEAVES{
-    // Basic tests
-    1,
-    2,
-
-    // Test with number of leaves {-1,0,+1} relative to chunk width boundaries
-    NEED_1_LAYER-1,
-    NEED_1_LAYER,
-    NEED_1_LAYER+1,
-
-    NEED_2_LAYERS-1,
-    NEED_2_LAYERS,
-    NEED_2_LAYERS+1,
-
-    NEED_3_LAYERS,
-  };
-
-  for (const std::size_t init_leaves : N_LEAVES)
-  {
-    for (const std::size_t ext_leaves : N_LEAVES)
-    {
-      // Only test 3rd layer once because it's a huge test
-      if (init_leaves > 1 && ext_leaves == NEED_3_LAYERS)
-        continue;
-      if (ext_leaves > 1 && init_leaves == NEED_3_LAYERS)
-        continue;
-
-      boost::filesystem::path tempPath = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
-      std::string dirPath = tempPath.string();
-
-      this->set_prefix(dirPath);
-
-      ASSERT_NO_THROW(this->m_db->open(dirPath));
-
-      this->get_filenames();
-      auto hardfork = HardFork(*this->m_db, 1, 0);
-      this->m_db->set_hard_fork(&hardfork);
-
-      {
-        db_wtxn_guard guard(this->m_db);
-
-        LOG_PRINT_L0("Adding " << init_leaves << " leaves to tree, then extending by " << ext_leaves << " leaves");
-
-        ASSERT_NO_THROW(this->m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, init_leaves)));
-        ASSERT_TRUE(this->m_db->audit_tree(curve_trees));
-
-        MDEBUG("Successfully added initial " << init_leaves << " leaves to tree, extending tree by "
-          << ext_leaves << " leaves");
-
-        ASSERT_NO_THROW(this->m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, ext_leaves)));
-        ASSERT_TRUE(this->m_db->audit_tree(curve_trees));
-
-        MDEBUG("Successfully extended by " << ext_leaves << " leaves");
-      }
-
-      ASSERT_NO_THROW(this->m_db->close());
-      this->remove_files();
-      this->m_db = new BlockchainLMDB();
-      // WARNING: this->m_hardfork is now referencing a freed m_db
-      // TODO: make a cleaner test in curve_trees.cpp
-    }
-  }
 }
 
 }  // anonymous namespace
