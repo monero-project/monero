@@ -367,6 +367,8 @@ public:
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves);
 
+  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees) const;
+
 private:
   void do_resize(uint64_t size_increase=0);
 
@@ -419,6 +421,14 @@ private:
 
   fcmp::curve_trees::CurveTreesV1::LastChunks get_tree_last_chunks(
     const fcmp::curve_trees::CurveTreesV1 &curve_trees) const;
+
+  template<typename C_CHILD, typename C_PARENT>
+  bool audit_layer(const C_CHILD &c_child,
+    const C_PARENT &c_parent,
+    const std::size_t layer_idx,
+    const std::size_t child_start_idx,
+    const std::size_t child_chunk_idx,
+    const std::size_t chunk_width) const;
 
   uint64_t num_outputs() const;
 

@@ -1769,6 +1769,9 @@ public:
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves) = 0;
 
+  // TODO: description
+  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees) const = 0;
+
   //
   // Hard fork related storage
   //
