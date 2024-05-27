@@ -34,8 +34,6 @@
 
 #include <vector>
 
-// forward declarations
-class CurveTreesUnitTest;
 
 
 namespace fcmp
@@ -52,7 +50,7 @@ typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_ch
 template<typename C>
 struct LayerExtension final
 {
-    std::size_t                    start_idx;
+    std::size_t                    start_idx{0};
     std::vector<typename C::Point> hashes;
 };
 
@@ -86,7 +84,6 @@ struct LastChunkData final
 template<typename C1, typename C2>
 class CurveTrees
 {
-    friend class ::CurveTreesUnitTest;
 public:
     CurveTrees(const C1 &c1, const C2 &c2, const std::size_t c1_width, const std::size_t c2_width):
         m_c1{c1},
@@ -105,11 +102,11 @@ public:
     struct LeafTuple final
     {
         // Output ed25519 point x-coordinate
-        typename C2::Scalar O_x;
+        const typename C2::Scalar O_x;
         // Key image generator x-coordinate
-        typename C2::Scalar I_x;
+        const typename C2::Scalar I_x;
         // Commitment x-coordinate
-        typename C2::Scalar C_x;
+        const typename C2::Scalar C_x;
     };
     static const std::size_t LEAF_TUPLE_SIZE = 3;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");

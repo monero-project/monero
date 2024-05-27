@@ -43,11 +43,12 @@ const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTre
 const std::size_t HELIOS_CHUNK_WIDTH = 38;
 const std::size_t SELENE_CHUNK_WIDTH = 18;
 
-// Helper class that can access the private members of the CurveTrees class
-class CurveTreesUnitTest
+// Helper class to read/write a global tree in memory. It's only used in testing because normally the tree isn't kept
+// in memory (it's stored in the db)
+class CurveTreesGlobalTree
 {
 public:
-    CurveTreesUnitTest(CurveTreesV1 &curve_trees): m_curve_trees(curve_trees) {};
+    CurveTreesGlobalTree(CurveTreesV1 &curve_trees): m_curve_trees(curve_trees) {};
 
 //member structs
 public:
@@ -65,20 +66,21 @@ public:
 //public member functions
 public:
     // Read the in-memory tree and get data from last chunks from each layer
-    CurveTreesV1::LastChunks get_last_chunks(const Tree &tree);
+    CurveTreesV1::LastChunks get_last_chunks();
 
     // Use the tree extension to extend the in-memory tree
-    void extend_tree(const CurveTreesV1::TreeExtension &tree_extension, Tree &tree_inout);
+    void extend_tree(const CurveTreesV1::TreeExtension &tree_extension);
 
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
-    bool validate_tree(const Tree &tree);
+    bool audit_tree();
 
     // logging helpers
     void log_last_chunks(const CurveTreesV1::LastChunks &last_chunks);
     void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
-    void log_tree(const CurveTreesUnitTest::Tree &tree);
+    void log_tree();
 
 private:
     CurveTreesV1 &m_curve_trees;
+    Tree m_tree = Tree{};
 };
 
