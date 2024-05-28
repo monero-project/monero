@@ -3598,6 +3598,7 @@ void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, 
 
     req.requested_info = COMMAND_RPC_GET_BLOCKS_FAST::POOL_ONLY;
     req.pool_info_since = m_pool_info_query_time;
+    req.prune = true;
 
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
