@@ -174,19 +174,6 @@ namespace string_tools
   }
 
 	//----------------------------------------------------------------------------
-  void trim_left(std::string& str)
-  {
-    boost::trim_left(str);
-    return;
-  }
-
-	//----------------------------------------------------------------------------
-  void trim_right(std::string& str)
-  {
-    boost::trim_right(str);
-    return;
-  }
-
   std::string pad_string(std::string s, size_t n, char c, bool prepend)
   {
     if (s.size() < n)
