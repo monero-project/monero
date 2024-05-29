@@ -57,6 +57,12 @@ namespace net_utils
 			boost::optional<login> m_user;
 			size_t m_max_content_length{std::numeric_limits<size_t>::max()};
 			critical_section m_lock;
+
+			template<typename T>
+			static constexpr bool after_init_connection(const std::shared_ptr<T>&) noexcept
+			{
+				return true;
+			}
 		};
 
 		/************************************************************************/
@@ -83,10 +89,6 @@ namespace net_utils
 			}
 
 			virtual bool thread_deinit()
-			{
-				return true;
-			}
-			bool after_init_connection()
 			{
 				return true;
 			}
