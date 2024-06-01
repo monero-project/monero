@@ -1805,6 +1805,12 @@ namespace cryptonote
         return m_bootstrap_daemon->handle_result(false);
       }
 
+      if (bootstrap_daemon_height < m_core.get_checkpoints().get_max_height())
+      {
+        MINFO("Bootstrap daemon height is lower than the latest checkpoint");
+        return m_bootstrap_daemon->handle_result(false, {});
+      }
+
       uint64_t top_height = m_core.get_current_blockchain_height();
       m_should_use_bootstrap_daemon = top_height + 10 < *bootstrap_daemon_height;
       MINFO((m_should_use_bootstrap_daemon ? "Using" : "Not using") << " the bootstrap daemon (our height: " << top_height << ", bootstrap daemon's height: " << *bootstrap_daemon_height << ")");
