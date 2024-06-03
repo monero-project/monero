@@ -192,4 +192,4 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: ${{ env.OUTPUT }}
-        path: /home/runner/work/monero/monero/${{ env.OUTPUT }}
+        path: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/${{ env.OUTPUT }}
