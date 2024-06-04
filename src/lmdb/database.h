@@ -123,10 +123,13 @@ namespace lmdb
                 const auto wrote = f(*(*txn));
                 if (wrote)
                 {
-                    MONERO_CHECK(commit(std::move(*txn)));
-                    return wrote;
+                    const auto committed = commit(std::move(*txn));
+                    if (committed)
+                      return wrote;
+                    if (committed != lmdb::error(MDB_MAP_FULL))
+                      return committed.error();
                 }
-                if (wrote != lmdb::error(MDB_MAP_FULL))
+                else if (wrote != lmdb::error(MDB_MAP_FULL))
                     return wrote;
 
                 txn->reset();
