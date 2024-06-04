@@ -580,6 +580,13 @@ static bool grow_tree(CurveTreesV1 &curve_trees,
     return global_tree.audit_tree();
 }
 //----------------------------------------------------------------------------------------------------------------------
+static bool trim_tree(CurveTreesV1 &curve_trees,
+    CurveTreesGlobalTree &global_tree,
+    const std::size_t num_leaves)
+{
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
 static bool grow_tree_in_memory(const std::size_t init_leaves,
     const std::size_t ext_leaves,
     CurveTreesV1 &curve_trees)
@@ -592,9 +599,7 @@ static bool grow_tree_in_memory(const std::size_t init_leaves,
     // Initialize global tree with `init_leaves`
     MDEBUG("Adding " << init_leaves << " leaves to tree");
 
-    bool res = grow_tree(curve_trees,
-        global_tree,
-        init_leaves);
+    bool res = grow_tree(curve_trees, global_tree, init_leaves);
 
     CHECK_AND_ASSERT_MES(res, false, "failed to add inital leaves to tree in memory");
 
@@ -603,13 +608,39 @@ static bool grow_tree_in_memory(const std::size_t init_leaves,
     // Then extend the global tree by `ext_leaves`
     MDEBUG("Extending tree by " << ext_leaves << " leaves");
 
-    res = grow_tree(curve_trees,
-        global_tree,
-        ext_leaves);
+    res = grow_tree(curve_trees, global_tree, ext_leaves);
 
     CHECK_AND_ASSERT_MES(res, false, "failed to extend tree in memory");
 
     MDEBUG("Successfully extended by " << ext_leaves << " leaves in memory");
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+static bool trim_tree_in_memory(const std::size_t init_leaves,
+    const std::size_t trim_leaves,
+    CurveTreesV1 &curve_trees)
+{
+    LOG_PRINT_L1("Adding " << init_leaves << " leaves to tree in memory then trimming " << trim_leaves << " leaves");
+
+    CurveTreesGlobalTree global_tree(curve_trees);
+
+    // Initialize global tree with `init_leaves`
+    MDEBUG("Adding " << init_leaves << " leaves to tree");
+
+    bool res = grow_tree(curve_trees, global_tree, init_leaves);
+
+    CHECK_AND_ASSERT_MES(res, false, "failed to add inital leaves to tree in memory");
+
+    MDEBUG("Successfully added initial " << init_leaves << " leaves to tree in memory");
+
+    // Then tim the global tree by `trim_leaves`
+    MDEBUG("Trimming " << trim_leaves << " leaves from tree");
+
+    res = trim_tree(curve_trees, global_tree, trim_leaves);
+
+    CHECK_AND_ASSERT_MES(res, false, "failed to trim tree in memory");
+
+    MDEBUG("Successfully trimmed " << trim_leaves << " leaves in memory");
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -659,8 +690,8 @@ TEST(curve_trees, grow_tree)
 
     unit_test::BlockchainLMDBTest test_db;
 
-    CHECK_AND_ASSERT_THROW_MES(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
-    CHECK_AND_ASSERT_THROW_MES(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
+    static_assert(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
+    static_assert(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
 
     // Number of leaves for which x number of layers is required
     const std::size_t NEED_1_LAYER  = SELENE_CHUNK_WIDTH;
@@ -696,6 +727,64 @@ TEST(curve_trees, grow_tree)
 
             ASSERT_TRUE(grow_tree_in_memory(init_leaves, ext_leaves, curve_trees));
             ASSERT_TRUE(grow_tree_db(init_leaves, ext_leaves, curve_trees, test_db));
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(curve_trees, trim_tree)
+{
+    Helios helios;
+    Selene selene;
+
+    LOG_PRINT_L1("Test trim tree with helios chunk width " << HELIOS_CHUNK_WIDTH
+        << ", selene chunk width " << SELENE_CHUNK_WIDTH);
+
+    auto curve_trees = CurveTreesV1(
+        helios,
+        selene,
+        HELIOS_CHUNK_WIDTH,
+        SELENE_CHUNK_WIDTH);
+
+    unit_test::BlockchainLMDBTest test_db;
+
+    static_assert(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
+    static_assert(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
+
+    // Number of leaves for which x number of layers is required
+    const std::size_t NEED_1_LAYER  = SELENE_CHUNK_WIDTH;
+    const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * HELIOS_CHUNK_WIDTH;
+    const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * SELENE_CHUNK_WIDTH;
+
+    const std::vector<std::size_t> N_LEAVES{
+        // Basic tests
+        1,
+        2,
+
+        // Test with number of leaves {-1,0,+1} relative to chunk width boundaries
+        NEED_1_LAYER-1,
+        NEED_1_LAYER,
+        NEED_1_LAYER+1,
+
+        NEED_2_LAYERS-1,
+        NEED_2_LAYERS,
+        NEED_2_LAYERS+1,
+
+        NEED_3_LAYERS,
+    };
+
+    for (const std::size_t init_leaves : N_LEAVES)
+    {
+        for (const std::size_t trim_leaves : N_LEAVES)
+        {
+            // Can't trim more leaves than exist in tree
+            if (trim_leaves > init_leaves)
+                continue;
+
+            // Only test 3rd layer once because it's a huge test
+            if (init_leaves == NEED_3_LAYERS && trim_leaves > 1)
+                continue;
+
+            ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, curve_trees));
         }
     }
 }
