@@ -396,6 +396,8 @@ namespace levin
         for (auto& connection : connections)
         {
           std::sort(connection.first.begin(), connection.first.end()); // don't leak receive order
+          connection.first.erase(std::unique(connection.first.begin(), connection.first.end()),
+                                  connection.first.end());
           make_payload_send_txs(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs, true);
         }
 
