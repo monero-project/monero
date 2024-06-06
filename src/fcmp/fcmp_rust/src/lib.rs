@@ -17,7 +17,7 @@ use transcript::RecommendedTranscript;
 use generalized_bulletproofs::Generators;
 
 use ec_divisors::DivisorCurve;
-use full_chain_membership_proofs::tree::hash_grow;
+use full_chain_membership_proofs::tree::{hash_grow, hash_trim};
 
 // TODO: Use a macro to de-duplicate some of of this code
 
@@ -174,6 +174,29 @@ pub extern "C" fn hash_grow_helios(
 }
 
 #[no_mangle]
+pub extern "C" fn hash_trim_helios(
+    existing_hash: HeliosPoint,
+    offset: usize,
+    children: HeliosScalarSlice,
+) -> CResult<HeliosPoint, io::Error> {
+    let hash = hash_trim(
+        helios_generators(),
+        existing_hash,
+        offset,
+        children.into(),
+    );
+
+    if let Some(hash) = hash {
+        CResult::ok(hash)
+    } else {
+        CResult::err(
+            HeliosPoint::identity(),
+            io::Error::new(io::ErrorKind::Other, "failed to trim hash"),
+        )
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn hash_grow_selene(
     existing_hash: SelenePoint,
     offset: usize,
@@ -194,6 +217,29 @@ pub extern "C" fn hash_grow_selene(
         CResult::err(
             SelenePoint::identity(),
             io::Error::new(io::ErrorKind::Other, "failed to grow hash"),
+        )
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn hash_trim_selene(
+    existing_hash: SelenePoint,
+    offset: usize,
+    children: SeleneScalarSlice,
+) -> CResult<SelenePoint, io::Error> {
+    let hash = hash_trim(
+        selene_generators(),
+        existing_hash,
+        offset,
+        children.into(),
+    );
+
+    if let Some(hash) = hash {
+        CResult::ok(hash)
+    } else {
+        CResult::err(
+            SelenePoint::identity(),
+            io::Error::new(io::ErrorKind::Other, "failed to trim hash"),
         )
     }
 }

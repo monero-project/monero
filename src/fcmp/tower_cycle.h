@@ -83,6 +83,11 @@ public:
         const typename C::Scalar &first_child_after_offset,
         const typename C::Chunk &new_children) const = 0;
 
+    virtual typename C::Point hash_trim(
+        const typename C::Point &existing_hash,
+        const std::size_t offset,
+        const typename C::Chunk &children) const = 0;
+
     virtual typename C::Scalar zero_scalar() const = 0;
 
     virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Scalar &scalar) const = 0;
@@ -122,6 +127,11 @@ public:
         const Scalar &first_child_after_offset,
         const Chunk &new_children) const override;
 
+    Point hash_trim(
+        const Point &existing_hash,
+        const std::size_t offset,
+        const Chunk &children) const override;
+
     Scalar zero_scalar() const override;
 
     std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
@@ -155,6 +165,11 @@ public:
         const std::size_t offset,
         const Scalar &first_child_after_offset,
         const Chunk &new_children) const override;
+
+    Point hash_trim(
+        const Point &existing_hash,
+        const std::size_t offset,
+        const Chunk &children) const override;
 
     Scalar zero_scalar() const override;
 

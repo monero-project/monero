@@ -116,10 +116,18 @@ CResult<HeliosPoint> hash_grow_helios(HeliosPoint existing_hash,
                                              HeliosScalar first_child_after_offset,
                                              HeliosScalarSlice new_children);
 
+CResult<HeliosPoint> hash_trim_helios(HeliosPoint existing_hash,
+                                             uintptr_t offset,
+                                             HeliosScalarSlice children);
+
 CResult<SelenePoint> hash_grow_selene(SelenePoint existing_hash,
                                              uintptr_t offset,
                                              SeleneScalar first_child_after_offset,
                                              SeleneScalarSlice new_children);
+
+CResult<SelenePoint> hash_trim_selene(SelenePoint existing_hash,
+                                             uintptr_t offset,
+                                             SeleneScalarSlice children);
 
 } // extern "C"
 

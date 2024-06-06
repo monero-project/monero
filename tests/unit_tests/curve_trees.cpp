@@ -788,3 +788,84 @@ TEST(curve_trees, trim_tree)
         }
     }
 }
+//----------------------------------------------------------------------------------------------------------------------
+// Make sure the result of hash_trim is the same as the equivalent hash_grow excluding the trimmed children
+TEST(curve_trees, hash_trim)
+{
+    Helios helios;
+    Selene selene;
+    auto curve_trees = CurveTreesV1(
+        helios,
+        selene,
+        HELIOS_CHUNK_WIDTH,
+        SELENE_CHUNK_WIDTH);
+
+    // Selene
+    // Generate 3 random leaf tuples
+    const std::size_t NUM_LEAF_TUPLES = 3;
+    const std::size_t NUM_LEAVES = NUM_LEAF_TUPLES * CurveTreesV1::LEAF_TUPLE_SIZE;
+    const auto grow_leaves = generate_random_leaves(curve_trees, NUM_LEAF_TUPLES);
+    const auto grow_children = curve_trees.flatten_leaves(grow_leaves);
+    const auto &grow_chunk = Selene::Chunk{grow_children.data(), grow_children.size()};
+
+    // Hash the leaves
+    const auto init_grow_result = curve_trees.m_c2.hash_grow(
+        /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+        /*offset*/                   0,
+        /*first_child_after_offset*/ curve_trees.m_c2.zero_scalar(),
+        /*children*/                 grow_chunk);
+
+    // Trim the initial result
+    const std::size_t trim_offset = NUM_LEAVES - CurveTreesV1::LEAF_TUPLE_SIZE;
+    const auto &trimmed_child = Selene::Chunk{grow_children.data() + trim_offset, CurveTreesV1::LEAF_TUPLE_SIZE};
+    const auto trim_result = curve_trees.m_c2.hash_trim(
+        init_grow_result,
+        trim_offset,
+        trimmed_child);
+    const auto trim_res_bytes = curve_trees.m_c2.to_bytes(trim_result);
+
+    // Now compare to calling hash_grow with the remaining children, excluding the trimmed child
+    const auto &remaining_children = Selene::Chunk{grow_children.data(), trim_offset};
+    const auto remaining_children_hash = curve_trees.m_c2.hash_grow(
+        /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+        /*offset*/                   0,
+        /*first_child_after_offset*/ curve_trees.m_c2.zero_scalar(),
+        /*children*/                 remaining_children);
+    const auto grow_res_bytes = curve_trees.m_c2.to_bytes(remaining_children_hash);
+
+    ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+
+    // Helios
+    // Get 2 helios scalars
+    std::vector<Helios::Scalar> grow_helios_scalars;
+    fcmp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(curve_trees.m_c2,
+        {init_grow_result, trim_result},
+        grow_helios_scalars);
+    const auto &grow_helios_chunk = Helios::Chunk{grow_helios_scalars.data(), grow_helios_scalars.size()};
+
+    // Get the initial hash of the 2 helios scalars
+    const auto helios_grow_result = curve_trees.m_c1.hash_grow(
+        /*existing_hash*/            curve_trees.m_c1.m_hash_init_point,
+        /*offset*/                   0,
+        /*first_child_after_offset*/ curve_trees.m_c1.zero_scalar(),
+        /*children*/                 grow_helios_chunk);
+
+    // Trim the initial result by 1 child
+    const auto &trimmed_helios_child = Helios::Chunk{grow_helios_scalars.data() + 1, 1};
+    const auto trim_helios_result = curve_trees.m_c1.hash_trim(
+        helios_grow_result,
+        1,
+        trimmed_helios_child);
+    const auto trim_helios_res_bytes = curve_trees.m_c1.to_bytes(trim_helios_result);
+
+    // Now compare to calling hash_grow with the remaining children, excluding the trimmed child
+    const auto &remaining_helios_children = Helios::Chunk{grow_helios_scalars.data(), 1};
+    const auto remaining_helios_children_hash = curve_trees.m_c1.hash_grow(
+        /*existing_hash*/            curve_trees.m_c1.m_hash_init_point,
+        /*offset*/                   0,
+        /*first_child_after_offset*/ curve_trees.m_c1.zero_scalar(),
+        /*children*/                 remaining_helios_children);
+    const auto grow_helios_res_bytes = curve_trees.m_c1.to_bytes(remaining_helios_children_hash);
+
+    ASSERT_EQ(trim_helios_res_bytes, grow_helios_res_bytes);
+}
