@@ -71,6 +71,9 @@ public:
     // Use the tree extension to extend the in-memory tree
     void extend_tree(const CurveTreesV1::TreeExtension &tree_extension);
 
+    // Trim tree to the provided number of leaves
+    void trim_tree(const std::size_t new_num_leaves);
+
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
     bool audit_tree();
 
