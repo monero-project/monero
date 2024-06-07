@@ -1124,22 +1124,10 @@ static bool grow_tree_in_memory(const std::size_t init_leaves,
 //----------------------------------------------------------------------------------------------------------------------
 static bool trim_tree_in_memory(const std::size_t init_leaves,
     const std::size_t trim_leaves,
-    CurveTreesV1 &curve_trees)
+    CurveTreesGlobalTree &&global_tree)
 {
-    LOG_PRINT_L1("Adding " << init_leaves << " leaves to tree in memory then trimming " << trim_leaves << " leaves");
-
-    CurveTreesGlobalTree global_tree(curve_trees);
-
-    // Initialize global tree with `init_leaves`
-    MDEBUG("Adding " << init_leaves << " leaves to tree");
-
-    bool res = grow_tree(curve_trees, global_tree, init_leaves);
-    CHECK_AND_ASSERT_MES(res, false, "failed to add inital leaves to tree in memory");
-
-    MDEBUG("Successfully added initial " << init_leaves << " leaves to tree in memory");
-
-    // Then trim the global tree by `trim_leaves`
-    MDEBUG("Trimming " << trim_leaves << " leaves from tree");
+    // Trim the global tree by `trim_leaves`
+    LOG_PRINT_L1("Trimming " << trim_leaves << " leaves from tree");
 
     CHECK_AND_ASSERT_MES(init_leaves > trim_leaves, false, "trimming too many leaves");
     const std::size_t new_num_leaves = init_leaves - trim_leaves;
@@ -1149,7 +1137,7 @@ static bool trim_tree_in_memory(const std::size_t init_leaves,
 
     global_tree.log_tree();
 
-    res = global_tree.audit_tree();
+    bool res = global_tree.audit_tree();
     CHECK_AND_ASSERT_MES(res, false, "failed to trim tree in memory");
 
     MDEBUG("Successfully trimmed " << trim_leaves << " leaves in memory");
@@ -1229,6 +1217,8 @@ TEST(curve_trees, grow_tree)
 
     for (const std::size_t init_leaves : N_LEAVES)
     {
+        // TODO: init tree once, then extend a copy of that tree
+
         for (const std::size_t ext_leaves : N_LEAVES)
         {
             // Only test 3rd layer once because it's a huge test
@@ -1281,25 +1271,36 @@ TEST(curve_trees, trim_tree)
         NEED_2_LAYERS,
         NEED_2_LAYERS+1,
 
+        NEED_3_LAYERS-1,
         NEED_3_LAYERS,
+        NEED_3_LAYERS+1,
     };
 
     for (const std::size_t init_leaves : N_LEAVES)
     {
+        if (init_leaves == 1)
+            continue;
+
+        CurveTreesGlobalTree global_tree(curve_trees);
+
+        // Initialize global tree with `init_leaves`
+        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
+        ASSERT_TRUE(grow_tree(curve_trees, global_tree, init_leaves));
+        MDEBUG("Successfully added initial " << init_leaves << " leaves to tree in memory");
+
         for (const std::size_t trim_leaves : N_LEAVES)
         {
-            // Can't trim more leaves than exist in tree
-            if (trim_leaves > init_leaves)
+            // Can't trim more leaves than exist in tree, and tree must always have at least 1 leaf in it
+            if (trim_leaves >= init_leaves)
                 continue;
 
-            // Only test 3rd layer once because it's a huge test
-            if (init_leaves == NEED_3_LAYERS && trim_leaves > 1)
-                continue;
-
-            ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, curve_trees));
+            // Copy the already initialized tree
+            CurveTreesGlobalTree tree_copy(global_tree);
+            ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, std::move(tree_copy)));
         }
     }
 }
+// TODO: write tests with more layers, but smaller widths so the tests run in a reasonable amount of time
 //----------------------------------------------------------------------------------------------------------------------
 // Make sure the result of hash_trim is the same as the equivalent hash_grow excluding the trimmed children
 TEST(curve_trees, hash_trim)
