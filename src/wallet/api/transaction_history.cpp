@@ -92,17 +92,6 @@ std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
     return m_history;
 }
 
-void TransactionHistoryImpl::setTxNote(const std::string &txid, const std::string &note)
-{
-    cryptonote::blobdata txid_data;
-    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
-        return;
-    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
-
-    m_wallet->m_wallet->set_tx_note(htxid, note);
-    refresh();
-}
-
 void TransactionHistoryImpl::refresh()
 {
     // multithreaded access:
@@ -263,6 +252,17 @@ void TransactionHistoryImpl::refresh()
         LOG_PRINT_L1(__FUNCTION__ << ": Unconfirmed payment found " << pd.m_amount);
     }
      
+}
+
+void TransactionHistoryImpl::setTxNote(const std::string &txid, const std::string &note)
+{
+    cryptonote::blobdata txid_data;
+    if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
+        return;
+    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+
+    m_wallet->m_wallet->set_tx_note(htxid, note);
+    refresh();
 }
 
 } // namespace

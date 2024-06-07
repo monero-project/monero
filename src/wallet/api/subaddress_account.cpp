@@ -41,6 +41,16 @@ SubaddressAccount::~SubaddressAccount() {}
 SubaddressAccountImpl::SubaddressAccountImpl(WalletImpl *wallet)
     : m_wallet(wallet) {}
 
+SubaddressAccountImpl::~SubaddressAccountImpl()
+{
+  clearRows();
+}
+
+std::vector<SubaddressAccountRow*> SubaddressAccountImpl::getAll() const
+{
+  return m_rows;
+}
+
 void SubaddressAccountImpl::addRow(const std::string &label)
 {
   m_wallet->m_wallet->add_subaddress_account(label);
@@ -75,16 +85,6 @@ void SubaddressAccountImpl::clearRows() {
      delete r;
    }
    m_rows.clear();
-}
-
-std::vector<SubaddressAccountRow*> SubaddressAccountImpl::getAll() const
-{
-  return m_rows;
-}
-
-SubaddressAccountImpl::~SubaddressAccountImpl()
-{
-  clearRows();
 }
 
 } // namespace

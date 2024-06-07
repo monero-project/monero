@@ -48,13 +48,12 @@ public:
     std::vector<uint64_t> amount() const override;
     std::vector<uint64_t> fee() const override;
     std::vector<uint64_t> mixin() const override;
+    std::string confirmationMessage() const override {return m_confirmationMessage;}
     std::vector<std::string> paymentId() const override;
     std::vector<std::string> recipientAddress() const override;
-    uint64_t txCount() const override;
-    // sign txs and save to file
-    bool sign(const std::string &signedFileName) override;
-    std::string confirmationMessage() const override {return m_confirmationMessage;}
     uint64_t minMixinCount() const override;
+    uint64_t txCount() const override;
+    bool sign(const std::string &signedFileName) override;
 
 private:
     // Callback function to check all loaded tx's and generate confirmationMessage

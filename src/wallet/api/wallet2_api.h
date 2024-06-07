@@ -222,20 +222,21 @@ public:
     AddressBookRow(std::size_t _rowId, const std::string &_address, const std::string &_paymentId, const std::string &_description):
         m_rowId(_rowId),
         m_address(_address),
-        m_paymentId(_paymentId), 
+        m_paymentId(_paymentId),
         m_description(_description) {}
- 
+
+    std::size_t getRowId() const {return m_rowId;}
+    std::string getAddress() const {return m_address;}
+    std::string getPaymentId() const {return m_paymentId;}
+    std::string getDescription() const {return m_description;}
+
+public:
+    std::string extra;
 private:
     std::size_t m_rowId;
     std::string m_address;
     std::string m_paymentId;
     std::string m_description;
-public:
-    std::string extra;
-    std::string getAddress() const {return m_address;} 
-    std::string getDescription() const {return m_description;} 
-    std::string getPaymentId() const {return m_paymentId;} 
-    std::size_t getRowId() const {return m_rowId;}
 };
 
 /**
@@ -267,16 +268,17 @@ public:
         m_rowId(_rowId),
         m_address(_address),
         m_label(_label) {}
- 
+
+    std::size_t getRowId() const {return m_rowId;}
+    std::string getAddress() const {return m_address;}
+    std::string getLabel() const {return m_label;}
+
+public:
+    std::string extra;
 private:
     std::size_t m_rowId;
     std::string m_address;
     std::string m_label;
-public:
-    std::string extra;
-    std::string getAddress() const {return m_address;}
-    std::string getLabel() const {return m_label;}
-    std::size_t getRowId() const {return m_rowId;}
 };
 
 struct Subaddress
@@ -297,19 +299,20 @@ public:
         m_balance(_balance),
         m_unlockedBalance(_unlockedBalance) {}
 
+    std::size_t getRowId() const {return m_rowId;}
+    std::string getAddress() const {return m_address;}
+    std::string getLabel() const {return m_label;}
+    std::string getBalance() const {return m_balance;}
+    std::string getUnlockedBalance() const {return m_unlockedBalance;}
+
+public:
+    std::string extra;
 private:
     std::size_t m_rowId;
     std::string m_address;
     std::string m_label;
     std::string m_balance;
     std::string m_unlockedBalance;
-public:
-    std::string extra;
-    std::string getAddress() const {return m_address;}
-    std::string getLabel() const {return m_label;}
-    std::string getBalance() const {return m_balance;}
-    std::string getUnlockedBalance() const {return m_unlockedBalance;}
-    std::size_t getRowId() const {return m_rowId;}
 };
 
 struct SubaddressAccount
@@ -672,35 +675,6 @@ struct Wallet
      */
     virtual bool synchronized() const = 0;
 
-    static std::string displayAmount(uint64_t amount);
-    static uint64_t amountFromString(const std::string &amount);
-    static uint64_t amountFromDouble(double amount);
-    static std::string genPaymentId();
-    static bool paymentIdValid(const std::string &paiment_id);
-    static bool addressValid(const std::string &str, NetworkType nettype);
-    static bool addressValid(const std::string &str, bool testnet)          // deprecated
-    {
-        return addressValid(str, testnet ? TESTNET : MAINNET);
-    }
-    static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, NetworkType nettype, std::string &error);
-    static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)     // deprecated
-    {
-        return keyValid(secret_key_string, address_string, isViewKey, testnet ? TESTNET : MAINNET, error);
-    }
-    static std::string paymentIdFromAddress(const std::string &str, NetworkType nettype);
-    static std::string paymentIdFromAddress(const std::string &str, bool testnet)       // deprecated
-    {
-        return paymentIdFromAddress(str, testnet ? TESTNET : MAINNET);
-    }
-    static uint64_t maximumAllowedAmount();
-    // Easylogger wrapper
-    static void init(const char *argv0, const char *default_log_base_name) { init(argv0, default_log_base_name, "", true); }
-    static void init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console);
-    static void debug(const std::string &category, const std::string &str);
-    static void info(const std::string &category, const std::string &str);
-    static void warning(const std::string &category, const std::string &str);
-    static void error(const std::string &category, const std::string &str);
-
    /**
     * @brief StartRefresh - Start/resume refresh thread (refresh every 10 seconds)
     */
@@ -777,56 +751,6 @@ struct Wallet
      * @param label - the new label for the specified subaddress
      */
     virtual void setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label) = 0;
-
-    /**
-     * @brief multisig - returns current state of multisig wallet creation process
-     * @return MultisigState struct
-     */
-    virtual MultisigState multisig() const = 0;
-    /**
-     * @brief getMultisigInfo
-     * @return serialized and signed multisig info string
-     */
-    virtual std::string getMultisigInfo() const = 0;
-    /**
-     * @brief makeMultisig - switches wallet in multisig state. The one and only creation phase for N / N wallets
-     * @param info - vector of multisig infos from other participants obtained with getMulitisInfo call
-     * @param threshold - number of required signers to make valid transaction. Must be <= number of participants
-     * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
-     */
-    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
-    /**
-     * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
-     * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
-     * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages
-     * @return new info string if more rounds required or an empty string if wallet creation is done
-     */
-    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution) = 0;
-    /**
-     * @brief exportMultisigImages - exports transfers' key images
-     * @param images - output paramter for hex encoded array of images
-     * @return true if success
-     */
-    virtual bool exportMultisigImages(std::string& images) = 0;
-    /**
-     * @brief importMultisigImages - imports other participants' multisig images
-     * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
-     * @return number of imported images
-     */
-    virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
-    /**
-     * @brief hasMultisigPartialKeyImages - checks if wallet needs to import multisig key images from other participants
-     * @return true if there are partial key images
-     */
-    virtual bool hasMultisigPartialKeyImages() const = 0;
-
-    /**
-     * @brief restoreMultisigTransaction creates PendingTransaction from signData
-     * @param signData encrypted unsigned transaction. Obtained with PendingTransaction::multisigSignData
-     * @return PendingTransaction
-     */
-    virtual PendingTransaction*  restoreMultisigTransaction(const std::string& signData) = 0;
-
     /*!
      * \brief createTransactionMultDest creates transaction with multiple destinations. if dst_addr is an integrated address, payment_id is ignored
      * \param dst_addr                  vector of destination address as string
@@ -1006,22 +930,6 @@ struct Wallet
      * \return true if the signature verified, false otherwise
      */
     virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
-
-    /*!
-     * \brief signMultisigParticipant   signs given message with the multisig public signer key
-     * \param message                   message to sign
-     * \return                          signature in case of success. Sets status to Error and return empty string in case of error
-     */
-    virtual std::string signMultisigParticipant(const std::string &message) const = 0;
-    /*!
-     * \brief verifyMessageWithPublicKey verifies that message was signed with the given public key
-     * \param message                    message
-     * \param publicKey                  hex encoded public key
-     * \param signature                  signature of the message
-     * \return                           true if the signature is correct. false and sets error state in case of error
-     */
-    virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const = 0;
-
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error) = 0;
     virtual std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const = 0;
 
@@ -1093,6 +1001,102 @@ struct Wallet
 
     //! get bytes sent
     virtual uint64_t getBytesSent() = 0;
+
+
+    /**
+     * @brief multisig - returns current state of multisig wallet creation process
+     * @return MultisigState struct
+     */
+    virtual MultisigState multisig() const = 0;
+    /**
+     * @brief getMultisigInfo
+     * @return serialized and signed multisig info string
+     */
+    virtual std::string getMultisigInfo() const = 0;
+    /**
+     * @brief makeMultisig - switches wallet in multisig state. The one and only creation phase for N / N wallets
+     * @param info - vector of multisig infos from other participants obtained with getMulitisInfo call
+     * @param threshold - number of required signers to make valid transaction. Must be <= number of participants
+     * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
+     */
+    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
+    /**
+     * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
+     * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
+     * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages
+     * @return new info string if more rounds required or an empty string if wallet creation is done
+     */
+    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution) = 0;
+    /**
+     * @brief exportMultisigImages - exports transfers' key images
+     * @param images - output paramter for hex encoded array of images
+     * @return true if success
+     */
+    virtual bool exportMultisigImages(std::string& images) = 0;
+    /**
+     * @brief importMultisigImages - imports other participants' multisig images
+     * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
+     * @return number of imported images
+     */
+    virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
+    /**
+     * @brief hasMultisigPartialKeyImages - checks if wallet needs to import multisig key images from other participants
+     * @return true if there are partial key images
+     */
+    virtual bool hasMultisigPartialKeyImages() const = 0;
+
+    /**
+     * @brief restoreMultisigTransaction creates PendingTransaction from signData
+     * @param signData encrypted unsigned transaction. Obtained with PendingTransaction::multisigSignData
+     * @return PendingTransaction
+     */
+    virtual PendingTransaction*  restoreMultisigTransaction(const std::string& signData) = 0;
+
+    /*!
+     * \brief signMultisigParticipant   signs given message with the multisig public signer key
+     * \param message                   message to sign
+     * \return                          signature in case of success. Sets status to Error and return empty string in case of error
+     */
+    virtual std::string signMultisigParticipant(const std::string &message) const = 0;
+    /*!
+     * \brief verifyMessageWithPublicKey verifies that message was signed with the given public key
+     * \param message                    message
+     * \param publicKey                  hex encoded public key
+     * \param signature                  signature of the message
+     * \return                           true if the signature is correct. false and sets error state in case of error
+     */
+    virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const = 0;
+
+    // Static
+    static std::string displayAmount(uint64_t amount);
+    static uint64_t amountFromString(const std::string &amount);
+    static uint64_t amountFromDouble(double amount);
+    static std::string genPaymentId();
+    static bool paymentIdValid(const std::string &paiment_id);
+    static bool addressValid(const std::string &str, NetworkType nettype);
+    static bool addressValid(const std::string &str, bool testnet)          // deprecated
+    {
+        return addressValid(str, testnet ? TESTNET : MAINNET);
+    }
+    static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, NetworkType nettype, std::string &error);
+    static bool keyValid(const std::string &secret_key_string, const std::string &address_string, bool isViewKey, bool testnet, std::string &error)     // deprecated
+    {
+        return keyValid(secret_key_string, address_string, isViewKey, testnet ? TESTNET : MAINNET, error);
+    }
+    static std::string paymentIdFromAddress(const std::string &str, NetworkType nettype);
+    static std::string paymentIdFromAddress(const std::string &str, bool testnet)       // deprecated
+    {
+        return paymentIdFromAddress(str, testnet ? TESTNET : MAINNET);
+    }
+    static uint64_t maximumAllowedAmount();
+
+    // Easylogger wrapper
+    static void init(const char *argv0, const char *default_log_base_name) { init(argv0, default_log_base_name, "", true); }
+    static void init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console);
+    static void debug(const std::string &category, const std::string &str);
+    static void info(const std::string &category, const std::string &str);
+    static void warning(const std::string &category, const std::string &str);
+    static void error(const std::string &category, const std::string &str);
 };
 
 /**
@@ -1338,15 +1342,16 @@ struct WalletManager
     //! resolves an OpenAlias address to a monero address
     virtual std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const = 0;
 
+    //! sets proxy address, empty string to disable
+    virtual bool setProxy(const std::string &address) = 0;
+
+    // Static
     //! checks for an update and returns version, hash and url
     static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(
         const std::string &software,
         std::string subdir,
         const char *buildtag = nullptr,
         const char *current_version = nullptr);
-
-    //! sets proxy address, empty string to disable
-    virtual bool setProxy(const std::string &address) = 0;
 };
 
 

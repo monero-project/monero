@@ -47,6 +47,7 @@ public:
                                        NetworkType nettype,
                                        uint64_t restoreHeight,
                                        uint64_t kdf_rounds = 1,
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
                                        const std::string &seed_offset = {}) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
@@ -57,9 +58,6 @@ public:
                                              const std::string &viewKeyString,
                                              const std::string &spendKeyString = "",
                                              uint64_t kdf_rounds = 1) override;
-    // next two methods are deprecated - use the above version which allow setting of a password
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
-    // deprecated: use createWalletFromKeys(..., password, ...) instead
     virtual Wallet * createWalletFromKeys(const std::string &path, 
                                                     const std::string &language,
                                                     NetworkType nettype, 

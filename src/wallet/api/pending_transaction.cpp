@@ -70,14 +70,6 @@ string PendingTransactionImpl::errorString() const
     return m_errorString;
 }
 
-std::vector<std::string> PendingTransactionImpl::txid() const
-{
-    std::vector<std::string> txid;
-    for (const auto &pt: m_pending_tx)
-        txid.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(pt.tx)));
-    return txid;
-}
-
 bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
 {
 
@@ -189,6 +181,14 @@ uint64_t PendingTransactionImpl::fee() const
         result += ptx.fee;
     }
     return result;
+}
+
+std::vector<std::string> PendingTransactionImpl::txid() const
+{
+    std::vector<std::string> txid;
+    for (const auto &pt: m_pending_tx)
+        txid.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(pt.tx)));
+    return txid;
 }
 
 uint64_t PendingTransactionImpl::txCount() const

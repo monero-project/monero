@@ -68,6 +68,106 @@ string UnsignedTransactionImpl::errorString() const
     return m_errorString;
 }
 
+std::vector<uint64_t> UnsignedTransactionImpl::amount() const
+{
+    std::vector<uint64_t> result;
+    for (const auto &utx : m_unsigned_tx_set.txes)   {
+        for (const auto &unsigned_dest : utx.dests) {
+            result.push_back(unsigned_dest.amount);
+        }
+    }
+    return result;
+}
+
+std::vector<uint64_t> UnsignedTransactionImpl::fee() const
+{
+    std::vector<uint64_t> result;
+    for (const auto &utx : m_unsigned_tx_set.txes) {
+        uint64_t fee = 0;
+        for (const auto &i: utx.sources) fee += i.amount;
+        for (const auto &i: utx.splitted_dsts) fee -= i.amount;
+        result.push_back(fee);
+    }
+    return result;
+}
+
+std::vector<uint64_t> UnsignedTransactionImpl::mixin() const
+{
+    std::vector<uint64_t> result;
+    for (const auto &utx: m_unsigned_tx_set.txes) {
+        size_t min_mixin = ~0;
+        // TODO: Is this loop needed or is sources[0] ?
+        for (size_t s = 0; s < utx.sources.size(); ++s) {
+            size_t mixin = utx.sources[s].outputs.size() - 1;
+                if (mixin < min_mixin)
+                    min_mixin = mixin;
+        }
+        result.push_back(min_mixin);
+    }
+    return result;
+}
+
+std::vector<std::string> UnsignedTransactionImpl::paymentId() const
+{
+    std::vector<string> result;
+    for (const auto &utx: m_unsigned_tx_set.txes) {
+        crypto::hash payment_id = crypto::null_hash;
+        cryptonote::tx_extra_nonce extra_nonce;
+        std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+        cryptonote::parse_tx_extra(utx.extra, tx_extra_fields);
+        if (cryptonote::find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+        {
+          crypto::hash8 payment_id8 = crypto::null_hash8;
+          if(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+          {
+              // We can't decrypt short pid without recipient key.
+              memcpy(payment_id.data, payment_id8.data, 8);
+          }
+          else if (!cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+          {
+            payment_id = crypto::null_hash;
+          }
+        }
+        if(payment_id != crypto::null_hash)
+            result.push_back(epee::string_tools::pod_to_hex(payment_id));
+        else
+            result.push_back("");
+    }
+    return result;
+}
+
+std::vector<std::string> UnsignedTransactionImpl::recipientAddress() const
+{
+    // TODO: return integrated address if short payment ID exists
+    std::vector<string> result;
+    for (const auto &utx: m_unsigned_tx_set.txes) {
+        if (utx.dests.empty()) {
+          MERROR("empty destinations, skipped");
+          continue;
+        }
+        result.push_back(cryptonote::get_account_address_as_str(m_wallet.m_wallet->nettype(), utx.dests[0].is_subaddress, utx.dests[0].addr));
+    }
+    return result;
+}
+
+uint64_t UnsignedTransactionImpl::minMixinCount() const
+{
+    uint64_t min_mixin = ~0;
+    for (const auto &utx: m_unsigned_tx_set.txes) {
+        for (size_t s = 0; s < utx.sources.size(); ++s) {
+            size_t mixin = utx.sources[s].outputs.size() - 1;
+                if (mixin < min_mixin)
+                    min_mixin = mixin;
+        }
+    }
+    return min_mixin;
+}
+
+uint64_t UnsignedTransactionImpl::txCount() const
+{
+    return m_unsigned_tx_set.txes.size();
+}
+
 bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
 {
   if(m_wallet.watchOnly())
@@ -95,6 +195,7 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
   }
   return true;
 }
+
 
 //----------------------------------------------------------------------------------------------------
 bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message)
@@ -213,106 +314,6 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
   uint64_t fee = amount - amount_to_dests;
   m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu. %s")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % extra_message).str();
   return true;
-}
-
-std::vector<uint64_t> UnsignedTransactionImpl::amount() const
-{
-    std::vector<uint64_t> result;
-    for (const auto &utx : m_unsigned_tx_set.txes)   {
-        for (const auto &unsigned_dest : utx.dests) {
-            result.push_back(unsigned_dest.amount);
-        }
-    }
-    return result;
-}
-
-std::vector<uint64_t> UnsignedTransactionImpl::fee() const
-{
-    std::vector<uint64_t> result;
-    for (const auto &utx : m_unsigned_tx_set.txes) {
-        uint64_t fee = 0;
-        for (const auto &i: utx.sources) fee += i.amount;
-        for (const auto &i: utx.splitted_dsts) fee -= i.amount;
-        result.push_back(fee);
-    }   
-    return result;
-} 
-
-std::vector<uint64_t> UnsignedTransactionImpl::mixin() const
-{
-    std::vector<uint64_t> result;    
-    for (const auto &utx: m_unsigned_tx_set.txes) {
-        size_t min_mixin = ~0;
-        // TODO: Is this loop needed or is sources[0] ?
-        for (size_t s = 0; s < utx.sources.size(); ++s) {
-            size_t mixin = utx.sources[s].outputs.size() - 1;
-                if (mixin < min_mixin)
-                    min_mixin = mixin;
-        }
-        result.push_back(min_mixin);
-    }
-    return result;
-}    
-
-uint64_t UnsignedTransactionImpl::txCount() const
-{
-    return m_unsigned_tx_set.txes.size();
-}
-
-std::vector<std::string> UnsignedTransactionImpl::paymentId() const 
-{
-    std::vector<string> result;
-    for (const auto &utx: m_unsigned_tx_set.txes) {     
-        crypto::hash payment_id = crypto::null_hash;
-        cryptonote::tx_extra_nonce extra_nonce;
-        std::vector<cryptonote::tx_extra_field> tx_extra_fields;
-        cryptonote::parse_tx_extra(utx.extra, tx_extra_fields);
-        if (cryptonote::find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-        {
-          crypto::hash8 payment_id8 = crypto::null_hash8;
-          if(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-          {
-              // We can't decrypt short pid without recipient key.
-              memcpy(payment_id.data, payment_id8.data, 8);
-          }
-          else if (!cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-          {
-            payment_id = crypto::null_hash;
-          }      
-        }
-        if(payment_id != crypto::null_hash)
-            result.push_back(epee::string_tools::pod_to_hex(payment_id));
-        else
-            result.push_back("");
-    }
-    return result;
-}
-
-std::vector<std::string> UnsignedTransactionImpl::recipientAddress() const 
-{
-    // TODO: return integrated address if short payment ID exists
-    std::vector<string> result;
-    for (const auto &utx: m_unsigned_tx_set.txes) {
-        if (utx.dests.empty()) {
-          MERROR("empty destinations, skipped");
-          continue;
-        }
-        result.push_back(cryptonote::get_account_address_as_str(m_wallet.m_wallet->nettype(), utx.dests[0].is_subaddress, utx.dests[0].addr));
-    }
-    return result;
-}
-
-uint64_t UnsignedTransactionImpl::minMixinCount() const
-{    
-    uint64_t min_mixin = ~0;  
-    for (const auto &utx: m_unsigned_tx_set.txes) {
-        for (size_t s = 0; s < utx.sources.size(); ++s) {
-            size_t mixin = utx.sources[s].outputs.size() - 1;
-                if (mixin < min_mixin)
-                    min_mixin = mixin;
-        }
-    }
-    return min_mixin;
 }
 
 } // namespace

@@ -44,6 +44,16 @@ AddressBook::~AddressBook() {}
 AddressBookImpl::AddressBookImpl(WalletImpl *wallet)
     : m_wallet(wallet), m_errorCode(Status_Ok) {}
 
+AddressBookImpl::~AddressBookImpl()
+{
+  clearRows();
+}
+
+std::vector<AddressBookRow*> AddressBookImpl::getAll() const
+{
+  return m_rows;
+}
+
 bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &payment_id_str, const std::string &description)
 {
   clearStatus();
@@ -67,6 +77,15 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
     refresh();
   else
     m_errorCode = General_Error;
+  return r;
+}
+
+bool AddressBookImpl::deleteRow(std::size_t rowId)
+{
+  LOG_PRINT_L2("Deleting address book row " << rowId);
+  bool r = m_wallet->m_wallet->delete_address_book_row(rowId);
+  if (r)
+    refresh();
   return r;
 }
 
@@ -111,15 +130,6 @@ void AddressBookImpl::refresh()
   
 }
 
-bool AddressBookImpl::deleteRow(std::size_t rowId)
-{
-  LOG_PRINT_L2("Deleting address book row " << rowId);
-  bool r = m_wallet->m_wallet->delete_address_book_row(rowId);
-  if (r)
-    refresh();
-  return r;
-} 
-
 int AddressBookImpl::lookupPaymentID(const std::string &payment_id) const
 {
     // turn short ones into long ones for comparison
@@ -152,17 +162,6 @@ void AddressBookImpl::clearRows() {
 void AddressBookImpl::clearStatus(){
   m_errorString = "";
   m_errorCode = 0;
-}
-
-std::vector<AddressBookRow*> AddressBookImpl::getAll() const
-{
-  return m_rows;
-}
-
-
-AddressBookImpl::~AddressBookImpl()
-{
-  clearRows();
 }
 
 } // namespace
