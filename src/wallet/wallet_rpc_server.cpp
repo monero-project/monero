@@ -2146,6 +2146,21 @@ namespace tools
           epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_spend_secret_key);
           res.key = std::string(key.data(), key.size());
       }
+      else if(req.key_type.compare("public_view_key") == 0)
+      {
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_account_address.m_view_public_key);
+          res.key = std::string(key.data(), key.size());
+      }
+      else if(req.key_type.compare("public_spend_key") == 0) {
+          if (m_wallet->watch_only())
+          {
+            er.code = WALLET_RPC_ERROR_CODE_WATCH_ONLY;
+            er.message = "The wallet is watch-only. Cannot retrieve public spend key.";
+            return false;
+          }
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key);
+          res.key = std::string(key.data(), key.size());
+      }
       else
       {
           er.message = "key_type " + req.key_type + " not found";
