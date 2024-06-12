@@ -64,7 +64,7 @@ namespace socks
         {
             std::uint16_t port = 0;
             if (!epee::string_tools::get_xtype_from_string(port, remote_port))
-                throw std::system_error{net::error::invalid_port, "Remote port for socks proxy"};
+                throw monero::system_error{net::error::invalid_port, "Remote port for socks proxy"};
 
             bool is_set = false;
             std::uint32_t ip_address = 0;
@@ -80,7 +80,7 @@ namespace socks
                 is_set = proxy->set_connect_command(remote_host, port);
 
             if (!is_set || !net::socks::client::connect_and_send(proxy, proxy_address))
-                throw std::system_error{net::error::invalid_host, "Address for socks proxy"};
+                throw monero::system_error{net::error::invalid_host, "Address for socks proxy"};
 
             timeout.async_wait(net::socks::client::async_close{std::move(proxy)});
         }
