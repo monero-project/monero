@@ -96,12 +96,31 @@ monero_private_headers(daemon_rpc_server
 monero_add_library(rpc_base
   ${rpc_base_sources}
   ${rpc_base_headers}
-  ${rpc_base_private_headers})
+  ${rpc_base_private_headers}
+  LINKS
+    common
+    epee
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+  PRIVATE_LINKS
+    ${EXTRA_LIBRARIES})
 
 monero_add_library(rpc
   ${rpc_sources}
   ${rpc_headers}
-  ${rpc_private_headers})
+  ${rpc_private_headers}
+  LINKS
+    rpc_base
+    common
+    cryptonote_core
+    cryptonote_protocol
+    net
+    version
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_THREAD_LIBRARY}
+  PRIVATE_LINKS
+    ${EXTRA_LIBRARIES})
 
 monero_add_library(rpc_pub
   ${rpc_pub_sources}
@@ -117,30 +136,6 @@ monero_add_library(daemon_rpc_server
   ${daemon_rpc_server_sources}
   ${daemon_rpc_server_headers}
   ${daemon_rpc_server_private_headers})
-
-
-target_link_libraries(rpc_base
-  PUBLIC
-    common
-    epee
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-  PRIVATE
-    ${EXTRA_LIBRARIES})
-
-target_link_libraries(rpc
-  PUBLIC
-    rpc_base
-    common
-    cryptonote_core
-    cryptonote_protocol
-    net
-    version
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-  PRIVATE
-    ${EXTRA_LIBRARIES})
 
 target_link_libraries(rpc_pub
   PUBLIC
