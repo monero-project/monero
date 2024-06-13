@@ -69,6 +69,12 @@ update-alternatives --set x86_64-w64-mingw32-g++ x86_64-w64-mingw32-g++-posix
 update-alternatives --set x86_64-w64-mingw32-gcc x86_64-w64-mingw32-gcc-posix
 ```
 
+or simply:
+
+```bash
+sudo contrib/depends/util/mingw32-update-gcc-posix.sh x86_64-w64-mingw32
+```
+
 ### Other documentation
 
 - [description.md](description.md): General description of the depends system
