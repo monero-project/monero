@@ -971,11 +971,13 @@ public:
    *
    * If the block does not exist, the subclass should throw BLOCK_DNE
    *
-   * @param height the height requested
+   * @param start_height the first height to start accumulating (inclusive)
+   * @param end_height the last height to accumulatate (inclusive)
+   * @param[out] base the cumulative number of rct outputs for all blocks with height < start_height
    *
    * @return the cumulative number of rct outputs
    */
-  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(const std::vector<uint64_t> &heights) const = 0;
+  virtual std::vector<uint64_t> get_block_cumulative_rct_outputs(uint64_t start_height, uint64_t end_height, uint64_t& base) const = 0;
 
   /**
    * @brief fetch the top block's timestamp
