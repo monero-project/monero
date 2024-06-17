@@ -42,6 +42,7 @@ using namespace epee;
 #include "common/download.h"
 #include "common/threadpool.h"
 #include "common/command_line.h"
+#include "cryptonote_basic/events.h"
 #include "common/equilibria.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
@@ -53,6 +54,7 @@ using namespace epee;
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
 #include "ringct/rctSigs.h"
+#include "rpc/zmq_pub.h"
 #include "common/notify.h"
 #include "hardforks/hardforks.h"
 #include "version.h"
@@ -255,6 +257,11 @@ namespace cryptonote
       m_pprotocol = &m_protocol_stub;
   }
   //-----------------------------------------------------------------------------------
+  const checkpoints& core::get_checkpoints() const
+  {
+    return m_blockchain_storage.get_checkpoints();
+  }
+  //-----------------------------------------------------------------------------------
   void core::set_checkpoints(checkpoints&& chk_pts)
   {
     m_blockchain_storage.set_checkpoints(std::move(chk_pts));
@@ -268,6 +275,12 @@ namespace cryptonote
   void core::set_enforce_dns_checkpoints(bool enforce_dns)
   {
     m_blockchain_storage.set_enforce_dns_checkpoints(enforce_dns);
+  }
+  //-----------------------------------------------------------------------------------
+  void core::set_txpool_listener(boost::function<void(std::vector<txpool_event>)> zmq_pub)
+  {
+    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
+    m_zmq_pub = std::move(zmq_pub);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints(const bool skip_dns /* = false */)
@@ -636,7 +649,20 @@ namespace cryptonote
     try
     {
       if (!command_line::is_arg_defaulted(vm, arg_block_notify))
-        m_blockchain_storage.set_block_notify(std::shared_ptr<tools::Notify>(new tools::Notify(command_line::get_arg(vm, arg_block_notify).c_str())));
+      {
+        struct hash_notify
+        {
+          tools::Notify cmdline;
+
+          void operator()(std::uint64_t, epee::span<const block> blocks) const
+          {
+            for (const block bl : blocks)
+              cmdline.notify("%s", epee::string_tools::pod_to_hex(get_block_hash(bl)).c_str(), NULL);
+          }
+        };
+
+        m_blockchain_storage.add_block_notify(hash_notify{{command_line::get_arg(vm, arg_block_notify).c_str()}});
+      }
     }
     catch (const std::exception &e)
     {
@@ -1004,8 +1030,7 @@ namespace cryptonote
       return false;
     }
 
-    struct result { bool res; cryptonote::transaction tx; crypto::hash hash; };
-    std::vector<result> results(tx_blobs.size());
+    std::vector<txpool_event> results(tx_blobs.size());
 
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
 
@@ -1070,6 +1095,7 @@ namespace cryptonote
     if (!tx_info.empty())
       handle_incoming_tx_accumulated_batch(tx_info, tx_relay == relay_method::block);
 
+    bool valid_events = false;
     bool ok = true;
     it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it)
@@ -1096,8 +1122,17 @@ namespace cryptonote
       }
 
       if(tvc[i].m_added_to_pool)
+      {
         MDEBUG("tx added: " << results[i].hash);
+        valid_events = true;
+      }
+      else
+        results[i].res = false;
     }
+    
+    if (valid_events && m_zmq_pub && matches_category(tx_relay, relay_category::legacy))
+      m_zmq_pub(std::move(results));
+
     return ok;
 
     CATCH_ENTRY_L0("core::handle_incoming_txs()", false);

@@ -1,5 +1,5 @@
 // Copyright (c) 2014-2019, The Monero Project
-// 
+//
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -1227,7 +1227,7 @@ namespace cryptonote
     const bool success = on_get_peer_list(COMMAND_RPC_GET_PEER_LIST::request(), peer_list_res, ctx);
     res.status = peer_list_res.status;
     if (!success)
-    {      
+    {
       return false;
     }
     if (res.status != CORE_RPC_STATUS_OK)
@@ -1802,6 +1802,12 @@ namespace cryptonote
       if (*bootstrap_daemon_height < target_height)
       {
         MINFO("Bootstrap daemon is out of sync");
+        return m_bootstrap_daemon->handle_result(false);
+      }
+
+      if (bootstrap_daemon_height < m_core.get_checkpoints().get_max_height())
+      {
+        MINFO("Bootstrap daemon height is lower than the latest checkpoint");
         return m_bootstrap_daemon->handle_result(false);
       }
 
@@ -3049,8 +3055,8 @@ namespace cryptonote
 		// crypto::public_key my_pubkey;
 		// crypto::secret_key my_seckey;
 		// if (!m_core.get_service_node_keys(my_pubkey, my_seckey))
-		// 	return false;    
-      
+		// 	return false;
+
     // // crypto::hash data_hash = karai::make_data_hash(my_pubkey, req.message);
 
     // crypto::signature signature;

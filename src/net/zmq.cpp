@@ -158,20 +158,6 @@ namespace zmq
                 return unsigned(max_out) < added ? max_out : int(added);
             }
         };
-
-        template<typename F, typename... T>
-        expect<void> retry_op(F op, T&&... args) noexcept(noexcept(op(args...)))
-        {
-            for (;;)
-            {
-                if (0 <= op(args...))
-                    return success();
-
-                const int error = zmq_errno();
-                if (error != EINTR)
-                    return make_error_code(error);
-            }
-        }
     } // anonymous
 
     expect<std::string> receive(void* const socket, const int flags)
