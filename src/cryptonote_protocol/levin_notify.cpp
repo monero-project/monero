@@ -159,39 +159,11 @@ namespace levin
       return get_out_connections(p2p, get_blockchain_height(p2p, core));
     }
 
-    epee::levin::message_writer make_tx_message(std::vector<blobdata>&& txs, const bool pad, const bool fluff)
+    epee::levin::message_writer make_tx_message(std::vector<blobdata>&& txs, const bool fluff)
     {
       NOTIFY_NEW_TRANSACTIONS::request request{};
       request.txs = std::move(txs);
       request.dandelionpp_fluff = fluff;
-
-      if (pad)
-      {
-        size_t bytes = 9 /* header */ + 4 /* 1 + 'txs' */ + tools::get_varint_data(request.txs.size()).size();
-        for(auto tx_blob_it = request.txs.begin(); tx_blob_it!=request.txs.end(); ++tx_blob_it)
-          bytes += tools::get_varint_data(tx_blob_it->size()).size() + tx_blob_it->size();
-
-        // stuff some dummy bytes in to stay safe from traffic volume analysis
-        static constexpr const size_t granularity = 1024;
-        size_t padding = granularity - bytes % granularity;
-        const size_t overhead = 2 /* 1 + '_' */ + tools::get_varint_data(padding).size();
-        if (overhead > padding)
-          padding = 0;
-        else
-          padding -= overhead;
-        request._ = std::string(padding, ' ');
-
-        epee::byte_slice arg_buff;
-        epee::serialization::store_t_to_binary(request, arg_buff);
-
-        // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
-        size_t remove = arg_buff.size() % granularity;
-        if (remove > request._.size())
-          request._.clear();
-        else
-          request._.resize(request._.size() - remove);
-        // if the size of _ moved enough, we might lose byte in size encoding, we don't care
-      }
 
       epee::levin::message_writer out;
       if (!epee::serialization::store_t_to_binary(request, out.buffer))
@@ -202,7 +174,7 @@ namespace levin
 
     bool make_payload_send_txs(connections& p2p, std::vector<blobdata>&& txs, const boost::uuids::uuid& destination, const bool pad, const bool fluff)
     {
-      epee::byte_slice blob = make_tx_message(std::move(txs), pad, fluff).finalize_notify(NOTIFY_NEW_TRANSACTIONS::ID);
+      epee::byte_slice blob = make_tx_message(std::move(txs), fluff).finalize_notify(NOTIFY_NEW_TRANSACTIONS::ID, pad);
       return p2p.send(std::move(blob), destination);
     }
 
@@ -847,7 +819,7 @@ namespace levin
       // Padding is not useful when using noise mode. Send as stem so receiver
       // forwards in Dandelion++ mode.
       epee::byte_slice message = epee::levin::make_fragmented_notify(
-        zone_->noise.size(), NOTIFY_NEW_TRANSACTIONS::ID, make_tx_message(std::move(txs), false, false)
+        zone_->noise.size(), NOTIFY_NEW_TRANSACTIONS::ID, make_tx_message(std::move(txs), false)
       );
       if (CRYPTONOTE_MAX_FRAGMENTS * zone_->noise.size() < message.size())
       {

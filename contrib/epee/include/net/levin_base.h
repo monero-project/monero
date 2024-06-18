@@ -130,7 +130,7 @@ namespace levin
   //! Provides space for levin (p2p) header, so that payload can be sent without copy
   class message_writer
   {
-    byte_slice finalize(uint32_t command, uint32_t flags, uint32_t return_code, bool expect_response);
+    byte_slice finalize(uint32_t command, uint32_t flags, uint32_t return_code, bool expect_response, bool pad);
   public:
     using header = bucket_head2;
 
@@ -147,12 +147,13 @@ namespace levin
     {
       return buffer.size() < sizeof(header) ? 0 : buffer.size() - sizeof(header);
     }
-
-    byte_slice finalize_invoke(uint32_t command) { return finalize(command, LEVIN_PACKET_REQUEST, 0, true); }
-    byte_slice finalize_notify(uint32_t command) { return finalize(command, LEVIN_PACKET_REQUEST, 0, false); }
-    byte_slice finalize_response(uint32_t command, uint32_t return_code)
+    
+    // `pad == true` will add 0-8192 of zero bytes (actual amount randomized)
+    byte_slice finalize_invoke(uint32_t command, bool pad) { return finalize(command, LEVIN_PACKET_REQUEST, 0, true, pad); }
+    byte_slice finalize_notify(uint32_t command, bool pad) { return finalize(command, LEVIN_PACKET_REQUEST, 0, false, pad); }
+    byte_slice finalize_response(uint32_t command, uint32_t return_code, bool pad)
     {
-      return finalize(command, LEVIN_PACKET_RESPONSE, return_code, false);
+      return finalize(command, LEVIN_PACKET_RESPONSE, return_code, false, pad);
     }
 
     //! Has space for levin header until a finalize method is used

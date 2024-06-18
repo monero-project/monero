@@ -111,13 +111,13 @@ TEST(peerlist_storage, store)
   std::string buffer{};
   {
     nodetool::peerlist_types types{};
-    types.white.push_back({epee::net_utils::ipv4_network_address{1000, 10}, 44, 55});
-    types.white.push_back({net::tor_address::unknown(), 64, 75});
-    types.gray.push_back({net::tor_address::unknown(), 99, 88});
-    types.gray.push_back({epee::net_utils::ipv4_network_address{2000, 20}, 84, 45});
-    types.anchor.push_back({epee::net_utils::ipv4_network_address{999, 654}, 444, 555});
-    types.anchor.push_back({net::tor_address::unknown(), 14, 33});
-    types.anchor.push_back({net::tor_address::unknown(), 24, 22});
+    types.white.push_back({epee::net_utils::ipv4_network_address{1000, 10}, {}, 44, 55});
+    types.white.push_back({net::tor_address::unknown(), {}, 64, 75});
+    types.gray.push_back({net::tor_address::unknown(), {}, 99, 88});
+    types.gray.push_back({epee::net_utils::ipv4_network_address{2000, 20}, {}, 84, 45});
+    types.anchor.push_back({epee::net_utils::ipv4_network_address{999, 654}, {}, 444, 555});
+    types.anchor.push_back({net::tor_address::unknown(), {}, 14, 33});
+    types.anchor.push_back({net::tor_address::unknown(), {}, 24, 22});
 
     std::ostringstream stream{};
     EXPECT_TRUE(peers.store(stream, types));
