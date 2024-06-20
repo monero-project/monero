@@ -93,6 +93,7 @@ namespace wire
     struct key_map
     {
       const char* name;
+      unsigned id; //<! For integer key formats;
     };
 
     //! \return Maximum read depth for both objects and arrays before erroring
@@ -382,16 +383,16 @@ namespace wire_read
     array_unchecked(source, dest, min_element_size, max_element_count);
   }
 
-  template<typename T>
-  inline void reset_field(wire::field_<T, true>& dest)
+  template<typename T, unsigned I>
+  inline void reset_field(wire::field_<T, true, I>& dest)
   {
     // array fields are always optional, see `wire/field.h`
     if (dest.optional_on_empty())
       wire::clear(dest.get_value());
   }
 
-  template<typename T>
-  inline void reset_field(wire::field_<T, false>& dest)
+  template<typename T, unsigned I>
+  inline void reset_field(wire::field_<T, false, I>& dest)
   {
     dest.get_value().reset();
   }
@@ -437,6 +438,7 @@ namespace wire_read
     std::size_t set_mapping(std::size_t index, wire::reader::key_map (&map)[N]) noexcept
     {
       our_index_ = index;
+      map[index].id = field_.id();
       map[index].name = field_.name;
       return index + count();
     }
