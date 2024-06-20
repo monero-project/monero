@@ -47,8 +47,8 @@ public:
                                        NetworkType nettype,
                                        uint64_t restoreHeight,
                                        uint64_t kdf_rounds = 1,
-    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
                                        const std::string &seed_offset = {}) override;
+    virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
                                              const std::string &language,
