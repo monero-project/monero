@@ -91,29 +91,17 @@ namespace
   bool find_seed_language(const std::vector<epee::wipeable_string> &seed,
     bool has_checksum, std::vector<uint32_t> &matched_indices, Language::Base **language)
   {
-    // If there's a new language added, add an instance of it here.
-    std::vector<Language::Base*> language_instances({
-      Language::Singleton<Language::Chinese_Simplified>::instance(),
-      Language::Singleton<Language::English>::instance(),
-      Language::Singleton<Language::Dutch>::instance(),
-      Language::Singleton<Language::French>::instance(),
-      Language::Singleton<Language::Spanish>::instance(),
-      Language::Singleton<Language::German>::instance(),
-      Language::Singleton<Language::Italian>::instance(),
-      Language::Singleton<Language::Portuguese>::instance(),
-      Language::Singleton<Language::Japanese>::instance(),
-      Language::Singleton<Language::Russian>::instance(),
-      Language::Singleton<Language::Esperanto>::instance(),
-      Language::Singleton<Language::Lojban>::instance(),
-      Language::Singleton<Language::EnglishOld>::instance()
-    });
+    std::vector<const Language::Base*> language_instances = crypto::ElectrumWords::get_language_list();
     Language::Base *fallback = NULL;
 
+    // Add the deprecated OldEnglish language to ensure backwards compatibility 
+    language_instances.push_back(Language::Singleton<Language::EnglishOld>::instance());
+    
     std::vector<epee::wipeable_string>::const_iterator it2;
     matched_indices.reserve(seed.size());
 
     // Iterate through all the languages and find a match
-    for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
+    for (std::vector<const Language::Base*>::iterator it1 = language_instances.begin();
       it1 != language_instances.end(); it1++)
     {
       const std::unordered_map<epee::wipeable_string, uint32_t, Language::WordHash, Language::WordEqual> &word_map = (*it1)->get_word_map();
@@ -153,13 +141,13 @@ namespace
         if (has_checksum)
           if (!checksum_test(seed, *it1))
           {
-            fallback = *it1;
+            fallback = const_cast<Language::Base*>(*it1);
             full_match = false;
           }
       }
       if (full_match)
       {
-        *language = *it1;
+        *language = const_cast<Language::Base*>(*it1);
         MINFO("Full match for language " << (*language)->get_english_language_name());
         return true;
       }
@@ -436,19 +424,20 @@ namespace crypto
 
     std::vector<const Language::Base*> get_language_list()
     {
+      // If there's a new language added, add an instance of it here. 
       static const std::vector<const Language::Base*> language_instances({
-        Language::Singleton<Language::German>::instance(),
-        Language::Singleton<Language::English>::instance(),
-        Language::Singleton<Language::Spanish>::instance(),
-        Language::Singleton<Language::French>::instance(),
-        Language::Singleton<Language::Italian>::instance(),
-        Language::Singleton<Language::Dutch>::instance(),
-        Language::Singleton<Language::Portuguese>::instance(),
-        Language::Singleton<Language::Russian>::instance(),
-        Language::Singleton<Language::Japanese>::instance(),
         Language::Singleton<Language::Chinese_Simplified>::instance(),
+        Language::Singleton<Language::English>::instance(),
+        Language::Singleton<Language::Dutch>::instance(),
+        Language::Singleton<Language::French>::instance(),
+        Language::Singleton<Language::Spanish>::instance(),
+        Language::Singleton<Language::German>::instance(),
+        Language::Singleton<Language::Italian>::instance(),
+        Language::Singleton<Language::Portuguese>::instance(),
+        Language::Singleton<Language::Japanese>::instance(),
+        Language::Singleton<Language::Russian>::instance(),
         Language::Singleton<Language::Esperanto>::instance(),
-        Language::Singleton<Language::Lojban>::instance()
+        Language::Singleton<Language::Lojban>::instance(),
       });
       return language_instances;
     }
