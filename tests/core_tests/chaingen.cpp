@@ -87,6 +87,7 @@ namespace
         , const cryptonote::difficulty_type& cumulative_difficulty
         , const uint64_t& coins_generated
         , uint64_t num_rct_outs
+        , uint64_t num_rct_outs_coinbase
         , const crypto::hash& blk_hash
     ) override
     {
@@ -171,7 +172,7 @@ static std::unique_ptr<cryptonote::BlockchainAndPool> init_blockchain(const std:
 
     const block *blk = &boost::get<block>(ev);
     auto blk_hash = get_block_hash(*blk);
-    bdb->add_block(*blk, 1, 1, 1, 0, 0, blk_hash);
+    bdb->add_block(*blk, 1, 1, 1, 0, 0, 0, blk_hash);
   }
 
   bool r = bap->blockchain.init(bdb, nettype, true, test_options, 2, nullptr);

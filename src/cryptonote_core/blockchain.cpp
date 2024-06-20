@@ -2410,6 +2410,39 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   }
 }
 //------------------------------------------------------------------
+bool Blockchain::get_rct_coinbase_output_distribution(uint64_t from_height, uint64_t to_height, uint64_t &start_height, std::vector<uint64_t> &distribution, uint64_t &base) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+
+  CHECK_AND_ASSERT_MES(to_height >= from_height, false, "to_height < from_height");
+
+  // rct outputs don't exist before v4
+  switch (m_nettype)
+  {
+    case STAGENET: start_height = stagenet_hard_forks[3].height; break;
+    case TESTNET: start_height = testnet_hard_forks[3].height; break;
+    case MAINNET: start_height = mainnet_hard_forks[3].height; break;
+    case FAKECHAIN: start_height = 0; break;
+    default: MERROR("network type not recognized: " << m_nettype); return false;
+  }
+
+  start_height = from_height = std::max(from_height, start_height);
+  to_height = std::max(to_height, from_height);
+
+  const uint64_t db_height = m_db->height();
+  CHECK_AND_ASSERT_MES(db_height, false, "No block data");
+  CHECK_AND_ASSERT_MES(from_height < db_height, false, "from_height is too high");
+  CHECK_AND_ASSERT_MES(to_height < db_height, false, "to_height is too high");
+
+  if (from_height)
+    base = m_db->get_block_cumulative_rct_coinbase_outputs(from_height - 1, from_height)[0];
+  else
+    base = 0;
+
+  distribution = m_db->get_block_cumulative_rct_coinbase_outputs(from_height, to_height + 1);
+  return true;
+}
+//------------------------------------------------------------------
 // This function takes a list of block hashes from another node
 // on the network to find where the split point is between us and them.
 // This is used to see what to send another node that needs to sync.
