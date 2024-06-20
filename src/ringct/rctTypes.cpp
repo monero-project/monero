@@ -457,14 +457,14 @@ namespace rct {
         }
 
         template<typename F, typename T, typename U, typename V>
-        void rct_sig_map(F& format, T& self, boost::optional<U>& fee, boost::optional<V>& prunable)
+        void rct_sig_map(F& format, const prune_wrapper_<T> self, boost::optional<U>& fee, boost::optional<V>& prunable)
         {
             using min_commitment_size = wire::min_element_sizeof<rct::key>;
             using min_ecdh_size = wire::min_element_sizeof<key, key>;
             wire::object(format,
-                WIRE_FIELD(type),
-                wire::optional_field("encrypted", wire::array<min_ecdh_size>(std::ref(self.ecdhInfo))),
-                wire::optional_field("commitments", wire::array<min_commitment_size>(std::ref(self.outPk))),
+                wire::field("type", std::ref(self.p.get().type)),
+                wire::optional_field("encrypted", wire::array<min_ecdh_size>(std::ref(self.p.get().ecdhInfo))),
+                wire::optional_field("commitments", wire::array<min_commitment_size>(std::ref(self.p.get().outPk))),
                 wire::optional_field("fee", std::ref(fee)),
                 wire::optional_field("prunable", std::ref(prunable))
             );
@@ -520,45 +520,45 @@ namespace rct {
     WIRE_DEFINE_OBJECT(BulletproofPlus, bulletproof_plus_map)
     WIRE_DEFINE_OBJECT(mgSig, mg_sig_map)
     WIRE_DEFINE_OBJECT(clsag, clsag_map);
-    void read_bytes(wire::reader& source, rctSig& dest)
+    void read_bytes(wire::reader& source, prune_wrapper_<rctSig> dest)
     {
         boost::optional<rct::xmr_amount> fee;
         boost::optional<prunable_read> prunable;
         rct_sig_map(source, dest, fee, prunable);
 
-        if (dest.type == rct::RCTTypeNull && (fee || !dest.ecdhInfo.empty()))
+        if (dest.p.get().type == rct::RCTTypeNull && (fee || !dest.p.get().ecdhInfo.empty()))
             WIRE_DLOG_THROW(wire::error::schema::missing_key, "unexpected keys");
-        if (dest.type != rct::RCTTypeNull && (!fee || dest.ecdhInfo.empty()))
+        if (dest.p.get().type != rct::RCTTypeNull && (!fee || dest.p.get().ecdhInfo.empty()))
             WIRE_DLOG_THROW(wire::error::schema::missing_key, "expected keys");
 
         if (fee)
-            dest.txnFee = *fee;
+            dest.p.get().txnFee = *fee;
 
         if (prunable)
         {
-            dest.p = std::move(prunable->p);
-            dest.get_pseudo_outs() = std::move(prunable->pseudo_outs);
+            dest.p.get().p = std::move(prunable->p);
+            dest.p.get().get_pseudo_outs() = std::move(prunable->pseudo_outs);
         }
         else
         {
-            dest.p.rangeSigs.clear();
-            dest.p.bulletproofs.clear();
-            dest.p.bulletproofs_plus.clear();
-            dest.p.MGs.clear();
-            dest.p.CLSAGs.clear();
-            dest.get_pseudo_outs().clear();
+            dest.p.get().p.rangeSigs.clear();
+            dest.p.get().p.bulletproofs.clear();
+            dest.p.get().p.bulletproofs_plus.clear();
+            dest.p.get().p.MGs.clear();
+            dest.p.get().p.CLSAGs.clear();
+            dest.p.get().get_pseudo_outs().clear();
         }
     }
-    void write_bytes(wire::writer& dest, const rctSig& source, const bool prune)
+    void write_bytes(wire::writer& dest, const prune_wrapper_<const rctSig> source)
     {
         boost::optional<rct::xmr_amount> fee;
         boost::optional<prunable_write> prunable;
 
-        if (source.type != rct::RCTTypeNull)
-            fee.emplace(source.txnFee);
+        if (source.p.get().type != rct::RCTTypeNull)
+            fee.emplace(source.p.get().txnFee);
 
-        if (!prune && (!source.p.bulletproofs.empty() || !source.p.bulletproofs_plus.empty() || !source.p.rangeSigs.empty() || !source.get_pseudo_outs().empty()))
-            prunable.emplace(source.get_pseudo_outs(), source.p);
+        if (!source.prune && (!source.p.get().p.bulletproofs.empty() || !source.p.get().p.bulletproofs_plus.empty() || !source.p.get().p.rangeSigs.empty() || !source.p.get().get_pseudo_outs().empty()))
+            prunable.emplace(source.p.get().get_pseudo_outs(), source.p.get().p);
 
         rct_sig_map(dest, source, fee, prunable);
     }

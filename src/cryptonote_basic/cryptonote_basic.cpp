@@ -149,7 +149,7 @@ namespace cryptonote
         wire::field("outputs", wire::array<max_outputs_per_tx>(std::ref(self.vout))),
         WIRE_FIELD(extra),
         wire::optional_field("signatures", wire::array<max_inputs_per_tx>(wire::array<signature_min>(std::ref(self.signatures)))),
-        wire::field("ringct", make_extended(self.rct_signatures, self.pruned))
+        wire::field("ringct", prune_wrapper(std::ref(self.rct_signatures), self.pruned))
       );
     }
 
