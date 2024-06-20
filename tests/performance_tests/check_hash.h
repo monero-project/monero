@@ -32,11 +32,12 @@
 #include "int-util.h"
 #include "cryptonote_basic/difficulty.h"
 
-template<uint64_t hash_target_high, uint64_t hash_target_low, uint64_t difficulty_high, uint64_t difficulty_low>
+template<uint64_t hash_target_high, uint64_t hash_target_low, uint64_t difficulty_high, uint64_t difficulty_low, bool FORCE_128>
 class test_check_hash
 {
 public:
-  static const size_t loop_count = 100000;
+  static const size_t loop_count = 2;
+  static const size_t inner_loop_count = 300000;
 
   bool init()
   {
@@ -62,7 +63,17 @@ public:
 
   bool test()
   {
-    cryptonote::check_hash_128(hash, difficulty);
+    for (size_t j = 0; j < inner_loop_count; ++j)
+    {
+      if constexpr (FORCE_128)
+      {
+        cryptonote::check_hash_128(hash, difficulty);
+      }
+      else
+      {
+        cryptonote::check_hash(hash, difficulty);
+      }
+    }
     return true;
   }
 
