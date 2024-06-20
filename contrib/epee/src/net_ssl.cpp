@@ -544,7 +544,7 @@ void ssl_options_t::configure(
   }
 }
 
-bool ssl_options_t::handshake(
+boost::system::error_code ssl_options_t::handshake(
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
   boost::asio::ssl::stream_base::handshake_type type,
   boost::asio::const_buffer buffer,
@@ -636,12 +636,10 @@ bool ssl_options_t::handshake(
   const auto ec = start_handshake();
 
   if (ec)
-  {
     MERROR("SSL handshake failed, connection dropped: " << ec.message());
-    return false;
-  }
-  MDEBUG("SSL handshake success");
-  return true;
+  else
+    MDEBUG("SSL handshake success");
+  return ec;
 }
 
 std::string get_hr_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig)
