@@ -214,6 +214,7 @@ namespace cryptonote
     bool refresh_main(uint64_t start_height, ResetType reset, bool is_init = false);
     bool set_tx_note(const std::vector<std::string> &args);
     bool get_tx_note(const std::vector<std::string> &args);
+    bool get_tx_memo(const std::vector<std::string> &args);
     bool set_description(const std::vector<std::string> &args);
     bool get_description(const std::vector<std::string> &args);
     bool status(const std::vector<std::string> &args);
@@ -316,6 +317,7 @@ namespace cryptonote
       std::vector<dest_output> outputs;
       std::set<uint32_t> index;
       std::string note;
+      std::string memo;
       std::string lock_msg;
     };
     bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers);
@@ -380,7 +382,7 @@ namespace cryptonote
       void update(uint64_t height, bool force = false)
       {
         auto current_time = std::chrono::system_clock::now();
-        const auto node_update_threshold = std::chrono::seconds(DIFFICULTY_TARGET_V1 / 2); // use min of V1/V2
+        const auto node_update_threshold = std::chrono::seconds(DIFFICULTY_TARGET_V3 / 2); // use min of V1/V2
         if (node_update_threshold < current_time - m_blockchain_height_update_time || m_blockchain_height <= height)
         {
           update_blockchain_height();

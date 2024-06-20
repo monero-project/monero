@@ -12239,6 +12239,15 @@ std::string wallet2::get_tx_note(const crypto::hash &txid) const
   return i->second;
 }
 
+std::string wallet2::get_tx_memo(const crypto::hash &txid) const
+{
+//  cryptonote::transaction tx = m_blockchain_storage->get_db().get_tx(txid);
+  std::vector<uint8_t> extra;
+  cryptonote::tx_extra_memo memo;
+  cryptonote::get_memo_from_tx_extra(extra, memo);
+  return memo.data;
+}
+
 void wallet2::set_tx_device_aux(const crypto::hash &txid, const std::string &aux)
 {
   m_tx_device[txid] = aux;
