@@ -266,8 +266,6 @@ public:
 
   virtual uint64_t get_tx_count() const;
 
-  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const;
-
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
@@ -309,7 +307,7 @@ public:
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
   virtual bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;
-  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const;
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, blobdata_ref)>, bool pruned) const override;
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const;
   virtual bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const;
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const;
@@ -378,9 +376,11 @@ private:
 
   virtual void remove_block();
 
-  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash);
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const blobdata_ref& tx_blob,
+    const uint64_t tx_unlock_time, const size_t unprunable_size, const crypto::hash& tx_hash,
+    const crypto::hash& tx_prunable_hash);
 
-  virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
+  virtual void remove_transaction_data(const crypto::hash& tx_hash);
 
   virtual uint64_t add_output(const crypto::hash& tx_hash,
       const tx_out& tx_output,
@@ -392,8 +392,6 @@ private:
   virtual void add_tx_amount_output_indices(const uint64_t tx_id,
       const std::vector<uint64_t>& amount_output_indices
       );
-
-  void remove_tx_outputs(const uint64_t tx_id, const transaction& tx);
 
   void remove_output(const uint64_t amount, const uint64_t& out_index);
 

@@ -435,30 +435,30 @@ private:
    * subclass of DB_EXCEPTION
    *
    * @param blk_hash the hash of the block containing the transaction
-   * @param tx the transaction to be added
+   * @param tx_blob the transaction blob to be added
+   * @param tx_unlock_time the unlock time of the transaction
+   * @param unprunable_size the length of the unprunable part of the transaction blob
    * @param tx_hash the hash of the transaction
-   * @param tx_prunable_hash the hash of the prunable part of the transaction
+   * @param tx_prunable_hash the hash of prunable part of the tx (if is null, don't add prunable data to store)
    * @return the transaction ID
    */
-  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) = 0;
+  virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const blobdata_ref& tx_blob,
+    const uint64_t tx_unlock_time, const size_t unprunable_size, const crypto::hash& tx_hash,
+    const crypto::hash& tx_prunable_hash) = 0;
 
   /**
    * @brief remove data about a transaction
    *
    * The subclass implementing this will remove the transaction data 
    * for the passed transaction.  The data to be removed was added in
-   * add_transaction_data().  Additionally, current subclasses have behavior
-   * which requires the transaction itself as a parameter here.  Future
-   * implementations should note that this parameter is subject to be removed
-   * at a later time.
+   * add_transaction_data() and add_tx_amount_output_indices().
    *
    * If any of this cannot be done, the subclass should throw the corresponding
    * subclass of DB_EXCEPTION
    *
    * @param tx_hash the hash of the transaction to be removed
-   * @param tx the transaction
    */
-  virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx) = 0;
+  virtual void remove_transaction_data(const crypto::hash& tx_hash) = 0;
 
   /**
    * @brief store an output
@@ -487,6 +487,21 @@ private:
    * @return amount output index
    */
   virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
+
+  /**
+   * @brief remove data about an output
+   *
+   * The subclass implementing this will remove the output data
+   * for the passed transaction.  The data to be removed was added in
+   * add_output().
+   *
+   * If any of this cannot be done, the subclass should throw the corresponding
+   * subclass of DB_EXCEPTION
+   *
+   * @param indexable_amount the amount of the set that the output is apart of
+   * @param out_index global output index returned from add_output()
+   */
+  virtual void remove_output(const uint64_t indexable_amount, const uint64_t& out_index) = 0;
 
   /**
    * @brief store amount output indices for a tx's outputs
@@ -1380,23 +1395,6 @@ public:
    */
   virtual uint64_t get_tx_count() const = 0;
 
-  /**
-   * @brief fetches a list of transactions based on their hashes
-   *
-   * The subclass should attempt to fetch each transaction referred to by
-   * the hashes passed.
-   *
-   * Currently, if any of the transactions is not in BlockchainDB, the call
-   * to get_tx in the implementation will throw TX_DNE.
-   *
-   * <!-- TODO: decide if this behavior is correct for missing transactions -->
-   *
-   * @param hlist a list of hashes
-   *
-   * @return the list of transactions
-   */
-  virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const = 0;
-
   // returns height of block that contains transaction with hash <h>
   /**
    * @brief fetches the height of a transaction's block
@@ -1427,13 +1425,6 @@ public:
    * @return the number of outputs of the given amount
    */
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
-
-  /**
-   * @brief return index of the first element (should be hidden, but isn't)
-   *
-   * @return the index
-   */
-  virtual uint64_t get_indexing_base() const { return 0; }
 
   /**
    * @brief get some of an output's data
@@ -1759,7 +1750,26 @@ public:
    *
    * @return false if the function returns false for any transaction, otherwise true
    */
-  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const = 0;
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, blobdata_ref)>, bool pruned) const = 0;
+
+  /**
+   * @brief runs a function over all transactions stored
+   *
+   * The subclass should run the passed function for each transaction it has
+   * stored, passing (transaction_hash, transaction) as its parameters.
+   *
+   * If any call to the function returns false, the subclass should return
+   * false.  Otherwise, the subclass returns true.
+   *
+   * The subclass should throw DB_ERROR if any of the expected values are
+   * not found.  Current implementations simply return false.
+   *
+   * @param std::function fn the function to run
+   * @param bool pruned whether to only get pruned tx data, or the whole
+   *
+   * @return false if the function returns false for any transaction, otherwise true
+   */
+  virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const;
 
   /**
    * @brief runs a function over all outputs stored
