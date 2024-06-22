@@ -273,7 +273,10 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
   {
     INSERT_INTO_JSON_OBJECT(dest, signatures, tx.signatures);
   }
-  INSERT_INTO_JSON_OBJECT(dest, ringct, tx.rct_signatures);
+  {
+    dest.Key("ringct");
+    toJsonValue(dest, tx.rct_signatures, tx.pruned);
+  }
 
   dest.EndObject();
 }
@@ -1111,7 +1114,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::BlockHeaderResp
   GET_FROM_JSON_OBJECT(val, response.reward, reward);
 }
 
-void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& sig)
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& sig, const bool prune)
 {
   using boost::adaptors::transform;
 
@@ -1131,7 +1134,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& 
   }
 
   // prunable
-  if (!sig.p.bulletproofs.empty() || !sig.p.bulletproofs_plus.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty())
+  if (!prune && (!sig.p.bulletproofs.empty() || !sig.p.bulletproofs_plus.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty()))
   {
     dest.Key("prunable");
     dest.StartObject();
