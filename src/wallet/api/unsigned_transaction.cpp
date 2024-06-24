@@ -196,7 +196,6 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
   return true;
 }
 
-
 //----------------------------------------------------------------------------------------------------
 bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message)
 {

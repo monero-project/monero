@@ -1067,7 +1067,6 @@ struct Wallet
      */
     virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const = 0;
 
-    // Static
     static std::string displayAmount(uint64_t amount);
     static uint64_t amountFromString(const std::string &amount);
     static uint64_t amountFromDouble(double amount);
@@ -1345,7 +1344,6 @@ struct WalletManager
     //! sets proxy address, empty string to disable
     virtual bool setProxy(const std::string &address) = 0;
 
-    // Static
     //! checks for an update and returns version, hash and url
     static std::tuple<bool, std::string, std::string, std::string, std::string> checkUpdates(
         const std::string &software,

@@ -352,7 +352,6 @@ bool WalletManagerImpl::setProxy(const std::string &address)
     return m_http_client.set_proxy(address);
 }
 
-// Static
 std::tuple<bool, std::string, std::string, std::string, std::string> WalletManager::checkUpdates(
     const std::string &software,
     std::string subdir,
