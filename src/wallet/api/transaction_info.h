@@ -55,13 +55,12 @@ public:
     virtual std::set<uint32_t> subaddrIndex() const override;
     virtual uint32_t subaddrAccount() const override;
     virtual std::string label() const override;
-
+    virtual uint64_t confirmations() const override;
+    virtual uint64_t unlockTime() const override;
     virtual std::string hash() const override;
     virtual std::time_t timestamp() const override;
     virtual std::string paymentId() const override;
     virtual const std::vector<Transfer> &transfers() const override;
-    virtual uint64_t confirmations() const override;
-    virtual uint64_t unlockTime() const override;
 
 private:
     int         m_direction;

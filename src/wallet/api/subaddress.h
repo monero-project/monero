@@ -39,11 +39,10 @@ public:
     SubaddressImpl(WalletImpl * wallet);
     ~SubaddressImpl();
     
-    // Fetches addresses from Wallet2
-    void refresh(uint32_t accountIndex) override;
     std::vector<SubaddressRow*> getAll() const override;
     void addRow(uint32_t accountIndex, const std::string &label) override;
     void setLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label) override;
+    void refresh(uint32_t accountIndex) override;
 
 private:
     void clearRows();

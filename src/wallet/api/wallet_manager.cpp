@@ -347,6 +347,11 @@ std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool
     return addresses.front();
 }
 
+bool WalletManagerImpl::setProxy(const std::string &address)
+{
+    return m_http_client.set_proxy(address);
+}
+
 std::tuple<bool, std::string, std::string, std::string, std::string> WalletManager::checkUpdates(
     const std::string &software,
     std::string subdir,
@@ -378,11 +383,6 @@ std::tuple<bool, std::string, std::string, std::string, std::string> WalletManag
       return std::make_tuple(true, version, hash, user_url, auto_url);
     }
     return std::make_tuple(false, "", "", "", "");
-}
-
-bool WalletManagerImpl::setProxy(const std::string &address)
-{
-    return m_http_client.set_proxy(address);
 }
 
 ///////////////////// WalletManagerFactory implementation //////////////////////

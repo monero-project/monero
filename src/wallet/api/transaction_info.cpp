@@ -118,6 +118,15 @@ string TransactionInfoImpl::label() const
     return m_label;
 }
 
+uint64_t TransactionInfoImpl::confirmations() const
+{
+    return m_confirmations;
+}
+
+uint64_t TransactionInfoImpl::unlockTime() const
+{
+    return m_unlock_time;
+}
 
 string TransactionInfoImpl::hash() const
 {
@@ -137,16 +146,6 @@ string TransactionInfoImpl::paymentId() const
 const std::vector<TransactionInfo::Transfer> &TransactionInfoImpl::transfers() const
 {
     return m_transfers;
-}
-
-uint64_t TransactionInfoImpl::confirmations() const
-{
-    return m_confirmations;
-}
-
-uint64_t TransactionInfoImpl::unlockTime() const
-{
-    return m_unlock_time;
 }
 
 } // namespace
