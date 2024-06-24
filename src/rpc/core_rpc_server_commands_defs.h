@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 14
+#define CORE_RPC_VERSION_MINOR 15
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -177,6 +177,8 @@ namespace cryptonote
       bool        prune;
       bool        no_miner_tx;
       uint64_t    pool_info_since;
+      uint64_t    max_block_count;
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE_OPT(requested_info, (uint8_t)0)
@@ -185,6 +187,7 @@ namespace cryptonote
         KV_SERIALIZE(prune)
         KV_SERIALIZE_OPT(no_miner_tx, false)
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
+        KV_SERIALIZE_OPT(max_block_count, (uint64_t)0)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
