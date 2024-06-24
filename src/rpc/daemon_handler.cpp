@@ -520,6 +520,8 @@ namespace rpc
       res.info.target_height = res.info.height;
     }
 
+    m_core.get_blockchain_top(res.info.top_block_height, res.info.top_block_hash);
+
     auto& chain = m_core.get_blockchain_storage();
 
     res.info.wide_difficulty = chain.get_difficulty_for_next_block();
