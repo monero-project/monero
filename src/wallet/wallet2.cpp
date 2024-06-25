@@ -14391,21 +14391,6 @@ std::string wallet2::get_rpc_status(const std::string &s) const
   return "<error>";
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::throw_on_rpc_response_error(bool r, const epee::json_rpc::error &error, const std::string &status, const char *method) const
-{
-  // Treat all RPC payment access errors the same, whether payment is actually required or not
-  THROW_WALLET_EXCEPTION_IF(error.code == CORE_RPC_ERROR_CODE_INVALID_CLIENT, tools::error::deprecated_rpc_access, method);
-  THROW_WALLET_EXCEPTION_IF(error.code, tools::error::wallet_coded_rpc_error, method, error.code, get_rpc_server_error_message(error.code));
-  THROW_WALLET_EXCEPTION_IF(!r, tools::error::no_connection_to_daemon, method);
-  // empty string -> not connection
-  THROW_WALLET_EXCEPTION_IF(status.empty(), tools::error::no_connection_to_daemon, method);
-
-  THROW_WALLET_EXCEPTION_IF(status == CORE_RPC_STATUS_BUSY, tools::error::daemon_busy, method);
-  THROW_WALLET_EXCEPTION_IF(status == CORE_RPC_STATUS_PAYMENT_REQUIRED, tools::error::deprecated_rpc_access, method);
-  // Deprecated RPC payment access endpoints would set status to "Client signature does not verify for <method>"
-  THROW_WALLET_EXCEPTION_IF(status.compare(0, 16, "Client signature") == 0, tools::error::deprecated_rpc_access, method);
-}
-//----------------------------------------------------------------------------------------------------
 
 bool wallet2::save_to_file(const std::string& path_to_file, const std::string& raw, bool is_printable) const
 {
