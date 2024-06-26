@@ -236,7 +236,7 @@ TEST(select_outputs, exact_unlock_block)
   const uint64_t exact_block_offsets_stop_exclusive = *(first_block_too_young - 1);
 
   // if too low we may fail by not picking exact block
-  // if too high test is not as senstive as it could be
+  // if too high test is not as sensitive as it could be
   constexpr size_t NUM_PICK_TESTS = 1 << 20;
 
   bool picked_exact_unlock_block = false;

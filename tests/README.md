@@ -104,7 +104,7 @@ ctest
 
 To run the same tests on a release build, replace `debug` with `release`.
 
-To run specific hash test, you can use `ctest` `-R` parameter. For exmaple to run only `blake2b` hash tests:
+To run specific hash test, you can use `ctest` `-R` parameter. For example to run only `blake2b` hash tests:
 
 ```
 ctest -R hash-blake2b
