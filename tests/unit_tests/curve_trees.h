@@ -65,8 +65,11 @@ public:
 
 //public member functions
 public:
-    // Read the in-memory tree and get data from last chunks from each layer
-    CurveTreesV1::LastChunks get_last_chunks();
+    // Read the in-memory tree and get the number of leaf tuples
+    std::size_t get_num_leaf_tuples() const;
+
+    // Read the in-memory tree and get the last hashes from each layer in the tree
+    CurveTreesV1::LastHashes get_last_hashes() const;
 
     // Use the tree extension to extend the in-memory tree
     void extend_tree(const CurveTreesV1::TreeExtension &tree_extension);
@@ -78,7 +81,7 @@ public:
     bool audit_tree();
 
     // logging helpers
-    void log_last_chunks(const CurveTreesV1::LastChunks &last_chunks);
+    void log_last_hashes(const CurveTreesV1::LastHashes &last_hashes);
     void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
     void log_tree();
 

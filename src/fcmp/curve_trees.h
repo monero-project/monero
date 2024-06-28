@@ -51,30 +51,37 @@ template<typename C>
 struct LayerExtension final
 {
     std::size_t                    start_idx{0};
+    bool                           update_existing_last_hash;
     std::vector<typename C::Point> hashes;
 };
 
-// Useful data from the last chunk in a layer
-template<typename C>
-struct LastChunkData final
+// Useful metadata for updating a layer
+struct UpdateLayerMetadata final
 {
-    // The next starting index in the layer (referencing the "next" child chunk)
-    const std::size_t        next_start_child_chunk_index;
-    // The existing hash of the last chunk of child scalars
-    // - Used to grow the existing last chunk in the layer
-    // - Only must be set if the existing last chunk isn't full
-    const typename C::Point  last_parent;
-    // Whether or not the existing last parent in the layer needs to be updated
-    // - True if the last leaf layer chunk is not yet full
-    // - If true, next_start_child_chunk_index == existing layer size
-    // - If false, next_start_child_chunk_index == (existing layer size - 1), since updating existing last parent
-    const bool               update_last_parent;
-    // The last child in the last chunk (and therefore the last child in the child layer)
-    // - Used to get the delta from the existing last child to the new last child
-    // - Only needs to be set if update_last_parent is true
-    // - Since the leaf layer is append-only, the layer above leaf layer does not actually need this value since the
-    //   last leaf will never change (and therefore, we'll never need the delta to a prior leaf)
-    const typename C::Scalar last_child;
+    // The max chunk width of children used to hash into a parent
+    std::size_t parent_chunk_width;
+
+    // Total children refers to the total number of elements in a layer
+    std::size_t old_total_children;
+    std::size_t new_total_children;
+
+    // Total parents refers to the total number of hashes of chunks of children
+    std::size_t old_total_parents;
+    std::size_t new_total_parents;
+
+    // When updating the tree, we use this boolean to know when we'll need to use the tree's existing old root in order
+    // to set a new layer after that root
+    // - We'll need to be sure the old root gets hashed when setting the next layer
+    bool setting_next_layer_after_old_root;
+    // When the last child in the child layer changes, we'll need to use its old value to update its parent hash
+    bool need_old_last_child;
+    // When the last parent in the layer changes, we'll need to use its old value to update itself
+    bool need_old_last_parent;
+
+    // The first chunk that needs to be updated's first child's offset within that chunk
+    std::size_t start_offset;
+    // The parent's starting index in the layer
+    std::size_t next_parent_start_index;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -130,14 +137,13 @@ public:
         std::vector<LayerExtension<C2>> c2_layer_extensions;
     };
 
-    // Last chunk data from each layer in the tree
+    // Last hashes from each layer in the tree
     // - layers alternate between C1 and C2
-    // - c2_last_chunks[0] is first layer after leaves, then c1_last_chunks[0], then c2_last_chunks[1], etc
-    struct LastChunks final
+    // - c2_last_hashes[0] refers to the layer after leaves, then c1_last_hashes[0], then c2_last_hashes[1], etc
+    struct LastHashes final
     {
-        std::size_t                    next_start_leaf_index{0};
-        std::vector<LastChunkData<C1>> c1_last_chunks;
-        std::vector<LastChunkData<C2>> c2_last_chunks;
+        std::vector<typename C1::Point> c1_last_hashes;
+        std::vector<typename C2::Point> c2_last_hashes;
     };
 
 //member functions
@@ -145,13 +151,26 @@ public:
     // Convert cryptonote output pub key and commitment to a leaf tuple for the curve trees tree
     LeafTuple output_to_leaf_tuple(const crypto::public_key &O, const crypto::public_key &C) const;
 
-    // Take in the existing last chunks of each layer in the tree, as well as new leaves to add to the tree,
-    // and return a tree extension struct that can be used to extend a global tree
-    TreeExtension get_tree_extension(const LastChunks &existing_last_chunks,
+    // Take in the existing number of leaf tuples and the existing last hashes of each layer in the tree, as well as new
+    // leaves to add to the tree, and return a tree extension struct that can be used to extend a global tree
+    TreeExtension get_tree_extension(const std::size_t old_n_leaf_tuples,
+        const LastHashes &existing_last_hashes,
         const std::vector<LeafTuple> &new_leaf_tuples) const;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
     std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
+
+private:
+    // Helper function used to set the next layer extension used to grow the next layer in the tree
+    // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
+    //   layer of the leaf layer
+    UpdateLayerMetadata set_next_layer_extension(
+        const UpdateLayerMetadata &prev_layer_metadata,
+        const bool parent_is_c1,
+        const LastHashes &last_hashes,
+        std::size_t &c1_last_idx_inout,
+        std::size_t &c2_last_idx_inout,
+        TreeExtension &tree_extension_inout) const;
 
 //public member variables
 public:

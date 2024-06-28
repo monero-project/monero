@@ -40,28 +40,6 @@
 // CurveTreesGlobalTree helpers
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
-static fcmp::curve_trees::LastChunkData<C> get_last_child_layer_chunk(const bool update_last_parent,
-    const std::size_t parent_layer_size,
-    const typename C::Point &last_parent,
-    const typename C::Scalar &last_child)
-{
-    if (update_last_parent)
-        CHECK_AND_ASSERT_THROW_MES(parent_layer_size > 0, "empty parent layer");
-
-    // If updating last parent, the next start will be the last parent's index, else we start at the tip
-    const std::size_t next_start_child_chunk_index = update_last_parent
-        ? (parent_layer_size - 1)
-        : parent_layer_size;
-
-    return fcmp::curve_trees::LastChunkData<C>{
-        .next_start_child_chunk_index = next_start_child_chunk_index,
-        .last_parent                  = last_parent,
-        .update_last_parent           = update_last_parent,
-        .last_child                   = last_child
-    };
-}
-//----------------------------------------------------------------------------------------------------------------------
-template<typename C>
 static bool validate_layer(const C &curve,
     const CurveTreesGlobalTree::Layer<C> &parents,
     const std::vector<typename C::Scalar> &child_scalars,
@@ -102,9 +80,17 @@ static bool validate_layer(const C &curve,
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTreesGlobalTree implementations
 //----------------------------------------------------------------------------------------------------------------------
-CurveTreesV1::LastChunks CurveTreesGlobalTree::get_last_chunks()
+std::size_t CurveTreesGlobalTree::get_num_leaf_tuples() const
 {
-    const auto &leaves    = m_tree.leaves;
+    return m_tree.leaves.size();
+}
+//----------------------------------------------------------------------------------------------------------------------
+CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes() const
+{
+    CurveTreesV1::LastHashes last_hashes_out;
+    auto &c1_last_hashes_out = last_hashes_out.c1_last_hashes;
+    auto &c2_last_hashes_out = last_hashes_out.c2_last_hashes;
+
     const auto &c1_layers = m_tree.c1_layers;
     const auto &c2_layers = m_tree.c2_layers;
 
@@ -112,95 +98,37 @@ CurveTreesV1::LastChunks CurveTreesGlobalTree::get_last_chunks()
     CHECK_AND_ASSERT_THROW_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
         "unexpected number of curve layers");
 
-    CurveTreesV1::LastChunks last_chunks;
-
-    // Since leaf layer is append-only, we know the next start will be right after all existing leaf tuple
-    const std::size_t num_leaf_tuples = leaves.size() * CurveTreesV1::LEAF_TUPLE_SIZE;
-    last_chunks.next_start_leaf_index = num_leaf_tuples;
+    c1_last_hashes_out.reserve(c1_layers.size());
+    c2_last_hashes_out.reserve(c2_layers.size());
 
     if (c2_layers.empty())
-        return last_chunks;
+        return last_hashes_out;
 
-    auto &c1_last_chunks_out = last_chunks.c1_last_chunks;
-    auto &c2_last_chunks_out = last_chunks.c2_last_chunks;
-
-    c1_last_chunks_out.reserve(c1_layers.size());
-    c2_last_chunks_out.reserve(c2_layers.size());
-
-    // First push the last leaf chunk data into c2 chunks
-    const bool update_last_parent = (num_leaf_tuples % m_curve_trees.m_leaf_layer_chunk_width) > 0;
-    auto last_leaf_chunk = get_last_child_layer_chunk<Selene>(
-        /*update_last_parent*/ update_last_parent,
-        /*parent_layer_size */ c2_layers[0].size(),
-        /*last_parent       */ c2_layers[0].back(),
-        // Since the leaf layer is append-only, we'll never need access to the last child
-        /*last_child        */ m_curve_trees.m_c2.zero_scalar());
-
-    c2_last_chunks_out.push_back(std::move(last_leaf_chunk));
-
-    // If there are no c1 layers, we're done
-    if (c1_layers.empty())
-        return last_chunks;
-
-    // Next parents will be c1
-    bool parent_is_c1 = true;
+    // Next parents will be c2
+    bool use_c2 = true;
 
     // Then get last chunks up until the root
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
-    while (c1_last_chunks_out.size() < c1_layers.size() || c2_last_chunks_out.size() < c2_layers.size())
+    while (c1_last_hashes_out.size() < c1_layers.size() || c2_last_hashes_out.size() < c2_layers.size())
     {
-        CHECK_AND_ASSERT_THROW_MES(c1_layers.size() > c1_idx, "missing c1 layer");
-        CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > c2_idx, "missing c2 layer");
-
-        // TODO: template the below if statement into another function
-        if (parent_is_c1)
+        if (use_c2)
         {
-            const Layer<Selene> &child_layer = c2_layers[c2_idx];
-            CHECK_AND_ASSERT_THROW_MES(!child_layer.empty(), "child layer is empty");
-
-            const Layer<Helios> &parent_layer = c1_layers[c1_idx];
-            CHECK_AND_ASSERT_THROW_MES(!parent_layer.empty(), "parent layer is empty");
-
-            const auto &last_child = m_curve_trees.m_c2.point_to_cycle_scalar(child_layer.back());
-
-            auto last_parent_chunk = get_last_child_layer_chunk<Helios>(update_last_parent,
-                parent_layer.size(),
-                parent_layer.back(),
-                last_child);
-
-            c1_last_chunks_out.push_back(std::move(last_parent_chunk));
-
+            CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > c2_idx, "missing c2 layer");
+            c2_last_hashes_out.push_back(c2_layers[c2_idx].back());
             ++c2_idx;
         }
         else
         {
-            const Layer<Helios> &child_layer = c1_layers[c1_idx];
-            CHECK_AND_ASSERT_THROW_MES(!child_layer.empty(), "child layer is empty");
-
-            const Layer<Selene> &parent_layer = c2_layers[c2_idx];
-            CHECK_AND_ASSERT_THROW_MES(!parent_layer.empty(), "parent layer is empty");
-
-            const auto &last_child = m_curve_trees.m_c1.point_to_cycle_scalar(child_layer.back());
-
-            auto last_parent_chunk = get_last_child_layer_chunk<Selene>(update_last_parent,
-                parent_layer.size(),
-                parent_layer.back(),
-                last_child);
-
-            c2_last_chunks_out.push_back(std::move(last_parent_chunk));
-
+            CHECK_AND_ASSERT_THROW_MES(c1_layers.size() > c1_idx, "missing c1 layer");
+            c1_last_hashes_out.push_back(c1_layers[c1_idx].back());
             ++c1_idx;
         }
 
-        // Alternate curves every iteration
-        parent_is_c1 = !parent_is_c1;
+        use_c2 = !use_c2;
     }
 
-    CHECK_AND_ASSERT_THROW_MES(c1_last_chunks_out.size() == c1_layers.size(), "unexpected c1 last chunks");
-    CHECK_AND_ASSERT_THROW_MES(c2_last_chunks_out.size() == c2_layers.size(), "unexpected c2 last chunks");
-
-    return last_chunks;
+    return last_hashes_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_extension)
@@ -250,7 +178,14 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
 
             // We updated the last hash
             if (started_at_tip)
+            {
+                CHECK_AND_ASSERT_THROW_MES(c2_ext.update_existing_last_hash, "expect to be updating last hash");
                 c2_inout.back() = c2_ext.hashes.front();
+            }
+            else
+            {
+                CHECK_AND_ASSERT_THROW_MES(!c2_ext.update_existing_last_hash, "unexpected last hash update");
+            }
 
             for (std::size_t i = started_at_tip ? 1 : 0; i < c2_ext.hashes.size(); ++i)
                 c2_inout.emplace_back(c2_ext.hashes[i]);
@@ -276,7 +211,14 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
 
             // We updated the last hash
             if (started_at_tip)
+            {
+                CHECK_AND_ASSERT_THROW_MES(c1_ext.update_existing_last_hash, "expect to be updating last hash");
                 c1_inout.back() = c1_ext.hashes.front();
+            }
+            else
+            {
+                CHECK_AND_ASSERT_THROW_MES(!c1_ext.update_existing_last_hash, "unexpected last hash update");
+            }
 
             for (std::size_t i = started_at_tip ? 1 : 0; i < c1_ext.hashes.size(); ++i)
                 c1_inout.emplace_back(c1_ext.hashes[i]);
@@ -803,6 +745,8 @@ void CurveTreesGlobalTree::trim_tree(const std::size_t new_num_leaves)
 //----------------------------------------------------------------------------------------------------------------------
 bool CurveTreesGlobalTree::audit_tree()
 {
+    MDEBUG("Auditing global tree");
+
     const auto &leaves = m_tree.leaves;
     const auto &c1_layers = m_tree.c1_layers;
     const auto &c2_layers = m_tree.c2_layers;
@@ -894,42 +838,33 @@ bool CurveTreesGlobalTree::audit_tree()
 //----------------------------------------------------------------------------------------------------------------------
 // Logging helpers
 //----------------------------------------------------------------------------------------------------------------------
-void CurveTreesGlobalTree::log_last_chunks(const CurveTreesV1::LastChunks &last_chunks)
+void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_hashes)
 {
-    const auto &c1_last_chunks = last_chunks.c1_last_chunks;
-    const auto &c2_last_chunks = last_chunks.c2_last_chunks;
+    const auto &c1_last_hashes = last_hashes.c1_last_hashes;
+    const auto &c2_last_hashes = last_hashes.c2_last_hashes;
 
-    MDEBUG("Total of " << c1_last_chunks.size() << " Helios last chunks and "
-        << c2_last_chunks.size() << " Selene last chunks");
+    MDEBUG("Total of " << c1_last_hashes.size() << " Helios layers and " << c2_last_hashes.size() << " Selene layers");
 
     bool use_c2 = true;
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
-    for (std::size_t i = 0; i < (c1_last_chunks.size() + c2_last_chunks.size()); ++i)
+    for (std::size_t i = 0; i < (c1_last_hashes.size() + c2_last_hashes.size()); ++i)
     {
         if (use_c2)
         {
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_last_chunks.size(), "unexpected c2 layer");
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_last_hashes.size(), "unexpected c2 layer");
 
-            const fcmp::curve_trees::LastChunkData<Selene> &last_chunk = c2_last_chunks[c2_idx];
-
-            MDEBUG("next_start_child_chunk_index: " << last_chunk.next_start_child_chunk_index
-                << " , last_parent: "               << m_curve_trees.m_c2.to_string(last_chunk.last_parent)
-                << " , update_last_parent: "        << last_chunk.update_last_parent
-                << " , last_child: "                << m_curve_trees.m_c2.to_string(last_chunk.last_child));
+            const auto &last_hash = c2_last_hashes[c2_idx];
+            MDEBUG("c2_idx: " << c2_idx << " , last_hash: " << m_curve_trees.m_c2.to_string(last_hash));
 
             ++c2_idx;
         }
         else
         {
-            CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_last_chunks.size(), "unexpected c1 layer");
+            CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_last_hashes.size(), "unexpected c1 layer");
 
-            const fcmp::curve_trees::LastChunkData<Helios> &last_chunk = c1_last_chunks[c1_idx];
-
-            MDEBUG("next_start_child_chunk_index: " << last_chunk.next_start_child_chunk_index
-                << " , last_parent: "               << m_curve_trees.m_c1.to_string(last_chunk.last_parent)
-                << " , update_last_parent: "        << last_chunk.update_last_parent
-                << " , last_child: "                << m_curve_trees.m_c1.to_string(last_chunk.last_child));
+            const auto &last_hash = c1_last_hashes[c1_idx];
+            MDEBUG("c1_idx: " << c1_idx << " , last_hash: " << m_curve_trees.m_c1.to_string(last_hash));
 
             ++c1_idx;
         }
@@ -1074,14 +1009,16 @@ static bool grow_tree(CurveTreesV1 &curve_trees,
     CurveTreesGlobalTree &global_tree,
     const std::size_t num_leaves)
 {
-    // Get the last chunk from each layer in the tree; empty if tree is empty
-    const auto last_chunks = global_tree.get_last_chunks();
+    // Do initial tree reads
+    const std::size_t old_n_leaf_tuples = global_tree.get_num_leaf_tuples();
+    const CurveTreesV1::LastHashes last_hashes = global_tree.get_last_hashes();
 
-    global_tree.log_last_chunks(last_chunks);
+    global_tree.log_last_hashes(last_hashes);
 
     // Get a tree extension object to the existing tree using randomly generated leaves
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
-    const auto tree_extension = curve_trees.get_tree_extension(last_chunks,
+    const auto tree_extension = curve_trees.get_tree_extension(old_n_leaf_tuples,
+        last_hashes,
         generate_random_leaves(curve_trees, num_leaves));
 
     global_tree.log_tree_extension(tree_extension);
@@ -1179,54 +1116,45 @@ TEST(curve_trees, grow_tree)
     Helios helios;
     Selene selene;
 
-    LOG_PRINT_L1("Test grow tree with helios chunk width " << HELIOS_CHUNK_WIDTH
-        << ", selene chunk width " << SELENE_CHUNK_WIDTH);
+    // Constant for how deep we want the tree
+    const std::size_t TEST_N_LAYERS = 4;
+
+    // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
+    const std::size_t helios_chunk_width = 3;
+    const std::size_t selene_chunk_width = 2;
+
+    static_assert(helios_chunk_width > 1, "helios width must be > 1");
+    static_assert(selene_chunk_width > 1, "selene width must be > 1");
+
+    LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_chunk_width
+        << ", selene chunk width " << selene_chunk_width);
+
+    // Number of leaves for which x number of layers is required
+    std::size_t leaves_needed_for_n_layers = selene_chunk_width;
+    for (std::size_t i = 1; i < TEST_N_LAYERS; ++i)
+    {
+        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
+        leaves_needed_for_n_layers *= width;
+    }
 
     auto curve_trees = CurveTreesV1(
         helios,
         selene,
-        HELIOS_CHUNK_WIDTH,
-        SELENE_CHUNK_WIDTH);
+        helios_chunk_width,
+        selene_chunk_width);
 
     unit_test::BlockchainLMDBTest test_db;
 
-    static_assert(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
-    static_assert(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
+    // Increment to test for off-by-1
+    ++leaves_needed_for_n_layers;
 
-    // Number of leaves for which x number of layers is required
-    const std::size_t NEED_1_LAYER  = SELENE_CHUNK_WIDTH;
-    const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * HELIOS_CHUNK_WIDTH;
-    const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * SELENE_CHUNK_WIDTH;
-
-    const std::vector<std::size_t> N_LEAVES{
-        // Basic tests
-        1,
-        2,
-
-        // Test with number of leaves {-1,0,+1} relative to chunk width boundaries
-        NEED_1_LAYER-1,
-        NEED_1_LAYER,
-        NEED_1_LAYER+1,
-
-        NEED_2_LAYERS-1,
-        NEED_2_LAYERS,
-        NEED_2_LAYERS+1,
-
-        NEED_3_LAYERS,
-    };
-
-    for (const std::size_t init_leaves : N_LEAVES)
+    // First initialize the tree with init_leaves
+    for (std::size_t init_leaves = 1; init_leaves < leaves_needed_for_n_layers; ++init_leaves)
     {
         // TODO: init tree once, then extend a copy of that tree
-
-        for (const std::size_t ext_leaves : N_LEAVES)
+        // Then extend the tree with ext_leaves
+        for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) < leaves_needed_for_n_layers; ++ext_leaves)
         {
-            // Only test 3rd layer once because it's a huge test
-            if (init_leaves > 1 && ext_leaves == NEED_3_LAYERS)
-                continue;
-            if (ext_leaves > 1 && init_leaves == NEED_3_LAYERS)
-                continue;
-
             ASSERT_TRUE(grow_tree_in_memory(init_leaves, ext_leaves, curve_trees));
             ASSERT_TRUE(grow_tree_db(init_leaves, ext_leaves, curve_trees, test_db));
         }

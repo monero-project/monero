@@ -416,11 +416,11 @@ private:
   void grow_layer(const C &curve,
     const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
     const std::size_t c_idx,
-    const std::size_t layer_idx,
-    const fcmp::curve_trees::LastChunkData<C> *last_chunk_data);
+    const std::size_t layer_idx);
 
-  fcmp::curve_trees::CurveTreesV1::LastChunks get_tree_last_chunks(
-    const fcmp::curve_trees::CurveTreesV1 &curve_trees) const;
+  std::size_t get_num_leaf_tuples() const;
+
+  fcmp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
   template<typename C_CHILD, typename C_PARENT>
   bool audit_layer(const C_CHILD &c_child,
