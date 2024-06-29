@@ -1871,7 +1871,7 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // TODO: handle this sweep case
   detached_blockchain_data dbd;
   dbd.original_chain_size = m_blockchain.size();
-  if (m_blockchain.size() > txs_to_scan.lowest_height)
+  if (txs_to_scan.highest_height > 0)
   {
     // When connected to an untrusted daemon, if we will need to re-process 1+
     // tx that the user did not request to scan, then we fail out because
@@ -1910,7 +1910,7 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   if (skip_to_height > m_blockchain.size())
   {
     m_skip_to_height = skip_to_height;
-    LOG_PRINT_L0("Skipping refresh to height " << skip_to_height);
+    LOG_PRINT_L0("Next refresh will skip to height " << skip_to_height);
 
     // update last block reward here because the refresh loop won't necessarily set it
     try
@@ -1922,9 +1922,7 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
     }
     catch (...) { MERROR("Failed getting block header at height " << txs_to_scan.highest_height); }
 
-    // TODO: use fast_refresh instead of refresh to update m_blockchain. It needs refactoring to work correctly here.
-    // Or don't refresh at all, and let it update on the next refresh loop.
-    refresh(is_trusted_daemon());
+    // The wallet's blockchain state will now sync from the expected height correctly on next refresh loop
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -4234,7 +4232,7 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
 
   uint64_t blocks_detached = 0;
   dbd.original_chain_size = m_blockchain.size();
-  if (height >= m_blockchain.offset())
+  if (height <= m_blockchain.size() && height >= m_blockchain.offset())
   {
     for (uint64_t i = height; i < m_blockchain.size(); ++i)
       dbd.detached_blockchain.push_back(m_blockchain[i]);
