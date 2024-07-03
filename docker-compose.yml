@@ -1,0 +1,36 @@
+services:
+  monero:
+    container_name: monero
+    build:
+      context: .
+    restart: always
+    ports:
+      - 18080:18080
+      - 18081:18081
+      - 18082:18082
+      - 18083:18083
+      - 18084:18084
+    command:
+      - --p2p-bind-ip=0.0.0.0
+      - --p2p-bind-port=18080
+      - --rpc-bind-ip=0.0.0.0
+      - --rpc-bind-port=18081
+      - --non-interactive
+      - --rpc-ssl=disabled
+      - --disable-rpc-ban
+      - --confirm-external-bind
+      - --zmq-pub=tcp://0.0.0.0:18084
+      - --zmq-rpc-bind-port=1882
+      - --zmq-rpc-bind-ip=0.0.0.0
+      - --log-level=4
+    volumes:
+      - bitmonero:/root/.bitmonero
+    networks:
+      - monero
+
+volumes:
+  bitmonero: {}
+
+networks:
+  monero:
+    driver: bridge
