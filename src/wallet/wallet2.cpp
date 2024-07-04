@@ -3108,13 +3108,12 @@ void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, 
   hashes = std::move(res.m_block_ids);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
+void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
-  size_t current_index = start_height;
   blocks_added = 0;
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
-  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(current_index), error::out_of_hashchain_bounds_error);
+  THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(start_height), error::out_of_hashchain_bounds_error);
 
   tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
   tools::threadpool::waiter waiter(tpool);
@@ -3266,6 +3265,7 @@ void wallet2::process_parsed_blocks(uint64_t start_height, const std::vector<cry
 
   hwdev.set_mode(hw::device::NONE);
 
+  size_t current_index = start_height;
   size_t tx_cache_data_offset = 0;
   for (size_t i = 0; i < blocks.size(); ++i)
   {
