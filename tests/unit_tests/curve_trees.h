@@ -35,14 +35,6 @@ using Helios       = fcmp::curve_trees::Helios;
 using Selene       = fcmp::curve_trees::Selene;
 using CurveTreesV1 = fcmp::curve_trees::CurveTreesV1;
 
-const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTreesV1 &curve_trees,
-    const std::size_t num_leaves);
-
-// https://github.com/kayabaNerve/fcmp-plus-plus/blob
-//  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
-const std::size_t HELIOS_CHUNK_WIDTH = 38;
-const std::size_t SELENE_CHUNK_WIDTH = 18;
-
 // Helper class to read/write a global tree in memory. It's only used in testing because normally the tree isn't kept
 // in memory (it's stored in the db)
 class CurveTreesGlobalTree
@@ -74,16 +66,29 @@ public:
     // Use the tree extension to extend the in-memory tree
     void extend_tree(const CurveTreesV1::TreeExtension &tree_extension);
 
-    // Trim tree to the provided number of leaves
-    void trim_tree(const std::size_t new_num_leaves);
+    // Use the tree reduction to reduce the in-memory tree
+    void reduce_tree(const CurveTreesV1::TreeReduction &tree_reduction);
+
+    // Trim the provided number of leaf tuples from the tree
+    void trim_tree(const std::size_t trim_n_leaf_tuples);
 
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
-    bool audit_tree();
+    bool audit_tree(const std::size_t expected_n_leaf_tuples);
 
     // logging helpers
     void log_last_hashes(const CurveTreesV1::LastHashes &last_hashes);
     void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
     void log_tree();
+
+    // Read the in-memory tree and get data from what will be the last chunks after trimming the tree to the provided
+    // number of leaves
+    // - This function is useful to collect all tree data necessary to perform the actual trim operation
+    // - This function can return elems from each last chunk that will need to be trimmed
+    CurveTreesV1::LastHashes get_last_hashes_to_trim(
+        const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+
+    CurveTreesV1::LastChunkChildrenToTrim get_all_last_chunk_children_to_trim(
+        const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions);
 
 private:
     CurveTreesV1 &m_curve_trees;

@@ -48,13 +48,13 @@ Selene::CycleScalar Selene::point_to_cycle_scalar(const Selene::Point &point) co
 Helios::Point Helios::hash_grow(
     const Helios::Point &existing_hash,
     const std::size_t offset,
-    const Helios::Scalar &first_child_after_offset,
+    const Helios::Scalar &existing_child_at_offset,
     const Helios::Chunk &new_children) const
 {
     fcmp_rust::CResult<Helios::Point> res = fcmp_rust::hash_grow_helios(
         existing_hash,
         offset,
-        first_child_after_offset,
+        existing_child_at_offset,
         new_children);
     if (res.err != 0) {
       throw std::runtime_error("failed to hash grow");
@@ -65,12 +65,14 @@ Helios::Point Helios::hash_grow(
 Helios::Point Helios::hash_trim(
     const Helios::Point &existing_hash,
     const std::size_t offset,
-    const Helios::Chunk &children) const
+    const Helios::Chunk &children,
+    const Helios::Scalar &child_to_grow_back) const
 {
     fcmp_rust::CResult<Helios::Point> res = fcmp_rust::hash_trim_helios(
         existing_hash,
         offset,
-        children);
+        children,
+        child_to_grow_back);
     if (res.err != 0) {
       throw std::runtime_error("failed to hash trim");
     }
@@ -80,13 +82,13 @@ Helios::Point Helios::hash_trim(
 Selene::Point Selene::hash_grow(
     const Selene::Point &existing_hash,
     const std::size_t offset,
-    const Selene::Scalar &first_child_after_offset,
+    const Selene::Scalar &existing_child_at_offset,
     const Selene::Chunk &new_children) const
 {
     fcmp_rust::CResult<Selene::Point> res = fcmp_rust::hash_grow_selene(
         existing_hash,
         offset,
-        first_child_after_offset,
+        existing_child_at_offset,
         new_children);
     if (res.err != 0) {
       throw std::runtime_error("failed to hash grow");
@@ -97,12 +99,14 @@ Selene::Point Selene::hash_grow(
 Selene::Point Selene::hash_trim(
     const Selene::Point &existing_hash,
     const std::size_t offset,
-    const Selene::Chunk &children) const
+    const Selene::Chunk &children,
+    const Selene::Scalar &child_to_grow_back) const
 {
     fcmp_rust::CResult<Selene::Point> res = fcmp_rust::hash_trim_selene(
         existing_hash,
         offset,
-        children);
+        children,
+        child_to_grow_back);
     if (res.err != 0) {
       throw std::runtime_error("failed to hash trim");
     }

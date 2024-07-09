@@ -80,13 +80,14 @@ public:
     virtual typename C::Point hash_grow(
         const typename C::Point &existing_hash,
         const std::size_t offset,
-        const typename C::Scalar &first_child_after_offset,
+        const typename C::Scalar &existing_child_at_offset,
         const typename C::Chunk &new_children) const = 0;
 
     virtual typename C::Point hash_trim(
         const typename C::Point &existing_hash,
         const std::size_t offset,
-        const typename C::Chunk &children) const = 0;
+        const typename C::Chunk &children,
+        const typename C::Scalar &child_to_grow_back) const = 0;
 
     virtual typename C::Scalar zero_scalar() const = 0;
 
@@ -124,13 +125,14 @@ public:
     Point hash_grow(
         const Point &existing_hash,
         const std::size_t offset,
-        const Scalar &first_child_after_offset,
+        const Scalar &existing_child_at_offset,
         const Chunk &new_children) const override;
 
     Point hash_trim(
         const Point &existing_hash,
         const std::size_t offset,
-        const Chunk &children) const override;
+        const Chunk &children,
+        const Scalar &child_to_grow_back) const override;
 
     Scalar zero_scalar() const override;
 
@@ -163,13 +165,14 @@ public:
     Point hash_grow(
         const Point &existing_hash,
         const std::size_t offset,
-        const Scalar &first_child_after_offset,
+        const Scalar &existing_child_at_offset,
         const Chunk &new_children) const override;
 
     Point hash_trim(
         const Point &existing_hash,
         const std::size_t offset,
-        const Chunk &children) const override;
+        const Chunk &children,
+        const Scalar &child_to_grow_back) const override;
 
     Scalar zero_scalar() const override;
 

@@ -152,14 +152,14 @@ impl<T, E> CResult<T, E> {
 pub extern "C" fn hash_grow_helios(
     existing_hash: HeliosPoint,
     offset: usize,
-    first_child_after_offset: HeliosScalar,
+    existing_child_at_offset: HeliosScalar,
     new_children: HeliosScalarSlice,
 ) -> CResult<HeliosPoint, io::Error> {
     let hash = hash_grow(
         helios_generators(),
         existing_hash,
         offset,
-        first_child_after_offset,
+        existing_child_at_offset,
         new_children.into(),
     );
 
@@ -178,12 +178,14 @@ pub extern "C" fn hash_trim_helios(
     existing_hash: HeliosPoint,
     offset: usize,
     children: HeliosScalarSlice,
+    child_to_grow_back: HeliosScalar,
 ) -> CResult<HeliosPoint, io::Error> {
     let hash = hash_trim(
         helios_generators(),
         existing_hash,
         offset,
         children.into(),
+        child_to_grow_back,
     );
 
     if let Some(hash) = hash {
@@ -200,14 +202,14 @@ pub extern "C" fn hash_trim_helios(
 pub extern "C" fn hash_grow_selene(
     existing_hash: SelenePoint,
     offset: usize,
-    first_child_after_offset: SeleneScalar,
+    existing_child_at_offset: SeleneScalar,
     new_children: SeleneScalarSlice,
 ) -> CResult<SelenePoint, io::Error> {
     let hash = hash_grow(
         selene_generators(),
         existing_hash,
         offset,
-        first_child_after_offset,
+        existing_child_at_offset,
         new_children.into(),
     );
 
@@ -226,12 +228,14 @@ pub extern "C" fn hash_trim_selene(
     existing_hash: SelenePoint,
     offset: usize,
     children: SeleneScalarSlice,
+    child_to_grow_back: SeleneScalar,
 ) -> CResult<SelenePoint, io::Error> {
     let hash = hash_trim(
         selene_generators(),
         existing_hash,
         offset,
         children.into(),
+        child_to_grow_back,
     );
 
     if let Some(hash) = hash {

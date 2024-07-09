@@ -177,7 +177,7 @@ static LayerExtension<C> hash_children_chunks(const C &curve,
     return parents_out;
 };
 //----------------------------------------------------------------------------------------------------------------------
-static UpdateLayerMetadata get_update_layer_metadata(const std::size_t old_total_children,
+static GrowLayerInstructions get_grow_layer_instructions(const std::size_t old_total_children,
     const std::size_t new_total_children,
     const std::size_t parent_chunk_width,
     const bool last_child_will_change)
@@ -265,7 +265,7 @@ static UpdateLayerMetadata get_update_layer_metadata(const std::size_t old_total
         << " , start_offset: "                      << offset
         << " , next_parent_start_index: "           << next_parent_start_index);
 
-    return UpdateLayerMetadata{
+    return GrowLayerInstructions{
             .parent_chunk_width                = parent_chunk_width,
             .old_total_children                = old_total_children,
             .new_total_children                = new_total_children,
@@ -280,7 +280,7 @@ static UpdateLayerMetadata get_update_layer_metadata(const std::size_t old_total
 
 };
 //----------------------------------------------------------------------------------------------------------------------
-static UpdateLayerMetadata get_update_leaf_layer_metadata(const std::size_t old_n_leaf_tuples,
+static GrowLayerInstructions get_leaf_layer_grow_instructions(const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples,
     const std::size_t leaf_tuple_size,
     const std::size_t leaf_layer_chunk_width)
@@ -332,7 +332,7 @@ static UpdateLayerMetadata get_update_leaf_layer_metadata(const std::size_t old_
         << " , start_offset: "                      << offset
         << " , next_parent_start_index: "           << next_parent_start_index);
 
-    return UpdateLayerMetadata{
+    return GrowLayerInstructions{
             .parent_chunk_width                = leaf_layer_chunk_width,
             .old_total_children                = old_total_children,
             .new_total_children                = new_total_children,
@@ -352,7 +352,7 @@ static UpdateLayerMetadata get_update_leaf_layer_metadata(const std::size_t old_
 template<typename C_CHILD, typename C_PARENT>
 static LayerExtension<C_PARENT> get_next_layer_extension(const C_CHILD &c_child,
     const C_PARENT &c_parent,
-    const UpdateLayerMetadata &update_layer_metadata,
+    const GrowLayerInstructions &grow_layer_instructions,
     const std::vector<typename C_CHILD::Point> &child_last_hashes,
     const std::vector<typename C_PARENT::Point> &parent_last_hashes,
     const std::vector<LayerExtension<C_CHILD>> child_layer_extensions,
@@ -372,7 +372,7 @@ static LayerExtension<C_PARENT> get_next_layer_extension(const C_CHILD &c_child,
     CHECK_AND_ASSERT_THROW_MES(last_updated_child_idx < child_layer_extensions.size(), "missing child layer");
     const auto &child_extension = child_layer_extensions[last_updated_child_idx];
 
-    if (update_layer_metadata.setting_next_layer_after_old_root)
+    if (grow_layer_instructions.setting_next_layer_after_old_root)
     {
         CHECK_AND_ASSERT_THROW_MES((last_updated_child_idx + 1) == child_last_hashes.size(),
             "unexpected last updated child idx");
@@ -380,14 +380,14 @@ static LayerExtension<C_PARENT> get_next_layer_extension(const C_CHILD &c_child,
     }
 
     const auto child_scalars = next_child_scalars_from_children<C_CHILD, C_PARENT>(c_child,
-        update_layer_metadata.setting_next_layer_after_old_root ? child_last_hash : nullptr,
+        grow_layer_instructions.setting_next_layer_after_old_root ? child_last_hash : nullptr,
         child_extension);
 
-    if (update_layer_metadata.need_old_last_parent)
+    if (grow_layer_instructions.need_old_last_parent)
         CHECK_AND_ASSERT_THROW_MES(parent_last_hash != nullptr, "missing last parent");
 
     typename C_PARENT::Scalar last_child_scalar;
-    if (update_layer_metadata.need_old_last_child)
+    if (grow_layer_instructions.need_old_last_child)
     {
         CHECK_AND_ASSERT_THROW_MES(child_last_hash != nullptr, "missing last child");
         last_child_scalar = c_child.point_to_cycle_scalar(*child_last_hash);
@@ -396,19 +396,206 @@ static LayerExtension<C_PARENT> get_next_layer_extension(const C_CHILD &c_child,
     // Do the hashing
     LayerExtension<C_PARENT> layer_extension = hash_children_chunks(
             c_parent,
-            update_layer_metadata.need_old_last_child ? &last_child_scalar : nullptr,
-            update_layer_metadata.need_old_last_parent ? parent_last_hash : nullptr,
-            update_layer_metadata.start_offset,
-            update_layer_metadata.next_parent_start_index,
+            grow_layer_instructions.need_old_last_child ? &last_child_scalar : nullptr,
+            grow_layer_instructions.need_old_last_parent ? parent_last_hash : nullptr,
+            grow_layer_instructions.start_offset,
+            grow_layer_instructions.next_parent_start_index,
             child_scalars,
-            update_layer_metadata.parent_chunk_width
+            grow_layer_instructions.parent_chunk_width
         );
 
     CHECK_AND_ASSERT_THROW_MES((layer_extension.start_idx + layer_extension.hashes.size()) ==
-        update_layer_metadata.new_total_parents,
+        grow_layer_instructions.new_total_parents,
         "unexpected num parents extended");
 
     return layer_extension;
+}
+//----------------------------------------------------------------------------------------------------------------------
+static TrimLayerInstructions get_trim_layer_instructions(
+    const std::size_t old_total_children,
+    const std::size_t new_total_children,
+    const std::size_t parent_chunk_width,
+    const bool last_child_will_change)
+{
+    CHECK_AND_ASSERT_THROW_MES(new_total_children > 0, "new total children must be > 0");
+    CHECK_AND_ASSERT_THROW_MES(old_total_children >= new_total_children,
+        "old_total_children must be >= new_total_children");
+
+    // Calculate old and new total number of parents using totals for children
+    const std::size_t old_total_parents = 1 + ((old_total_children - 1) / parent_chunk_width);
+    const std::size_t new_total_parents = 1 + ((new_total_children - 1) / parent_chunk_width);
+
+    CHECK_AND_ASSERT_THROW_MES(old_total_parents >= new_total_parents,
+        "old_total_parents must be >= new_total_parents");
+    CHECK_AND_ASSERT_THROW_MES(new_total_children > new_total_parents,
+        "new_total_children must be > new_total_parents");
+
+    const std::size_t old_offset = old_total_children % parent_chunk_width;
+    std::size_t new_offset = new_total_children % parent_chunk_width;
+
+    // Get the number of existing children in what will become the new last chunk after trimming
+    const std::size_t new_last_chunk_old_num_children = (old_total_parents > new_total_parents || old_offset == 0)
+        ? parent_chunk_width
+        : old_offset;
+
+    MDEBUG("new_last_chunk_old_num_children: " << new_last_chunk_old_num_children << ", new_offset: " << new_offset);
+
+    CHECK_AND_ASSERT_THROW_MES(new_last_chunk_old_num_children >= new_offset,
+        "unexpected new_last_chunk_old_num_children");
+
+    // Get the number of children we'll be trimming from the new last chunk
+    const std::size_t trim_n_children = new_offset == 0
+        ? 0 // The last chunk wil remain full when the new_offset == 0
+        : new_last_chunk_old_num_children - new_offset;
+
+    // We use hash trim if we're trimming fewer elems in the last chunk than the number of elems remaining
+    const bool need_last_chunk_children_to_trim = trim_n_children > 0 && trim_n_children <= new_offset;
+
+    // Otherwise we use hash_grow
+    const bool need_last_chunk_remaining_children = trim_n_children > 0 && trim_n_children > new_offset;
+
+    CHECK_AND_ASSERT_THROW_MES(!(need_last_chunk_children_to_trim && need_last_chunk_remaining_children),
+        "cannot both need last children to trim and need the remaining children");
+
+    // TODO: cleaner conditional approach
+    // TODO: comments
+    const bool need_last_chunk_parent = !need_last_chunk_remaining_children &&
+        (need_last_chunk_children_to_trim || last_child_will_change);
+
+    const bool update_existing_last_hash = need_last_chunk_remaining_children || need_last_chunk_parent;
+
+    std::size_t hash_offset = new_offset;
+    if (last_child_will_change)
+    {
+        hash_offset = hash_offset == 0 ? (parent_chunk_width - 1) : (hash_offset - 1);
+
+        if (need_last_chunk_children_to_trim || need_last_chunk_remaining_children)
+            --new_offset;
+    }
+
+    if (need_last_chunk_remaining_children)
+    {
+        hash_offset = 0;
+    }
+
+    MDEBUG("parent_chunk_width: "                    << parent_chunk_width
+        << " , old_total_children: "                 << old_total_children
+        << " , new_total_children: "                 << new_total_children
+        << " , old_total_parents: "                  << old_total_parents
+        << " , new_total_parents: "                  << new_total_parents
+        << " , need_last_chunk_children_to_trim: "   << need_last_chunk_children_to_trim
+        << " , need_last_chunk_remaining_children: " << need_last_chunk_remaining_children
+        << " , need_last_chunk_parent: "             << need_last_chunk_parent
+        << " , need_new_last_child: "                << last_child_will_change
+        << " , update_existing_last_hash: "          << update_existing_last_hash
+        << " , new_offset: "                         << new_offset
+        << " , hash_offset: "                        << hash_offset);
+
+    return TrimLayerInstructions{
+            .parent_chunk_width                 = parent_chunk_width,
+            .old_total_children                 = old_total_children,
+            .new_total_children                 = new_total_children,
+            .old_total_parents                  = old_total_parents,
+            .new_total_parents                  = new_total_parents,
+            .need_last_chunk_children_to_trim   = need_last_chunk_children_to_trim,
+            .need_last_chunk_remaining_children = need_last_chunk_remaining_children,
+            .need_last_chunk_parent             = need_last_chunk_parent,
+            .need_new_last_child                = last_child_will_change,
+            .update_existing_last_hash          = update_existing_last_hash,
+            .new_offset                         = new_offset,
+            .hash_offset                        = hash_offset,
+        };
+}
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C_CHILD, typename C_PARENT>
+static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduction(
+    const C_CHILD &c_child,
+    const C_PARENT &c_parent,
+    const TrimLayerInstructions &trim_layer_instructions,
+    const std::vector<typename C_PARENT::Point> &parent_last_hashes,
+    const std::vector<std::vector<typename C_PARENT::Scalar>> &children_to_trim,
+    const std::vector<typename C_CHILD::Point> &child_last_hashes,
+    const std::size_t parent_layer_idx,
+    const std::size_t child_layer_idx,
+    const std::vector<LayerReduction<C_CHILD>> &child_reductions)
+{
+    LayerReduction<C_PARENT> layer_reduction_out;
+
+    layer_reduction_out.new_total_parents         = trim_layer_instructions.new_total_parents;
+    layer_reduction_out.update_existing_last_hash = trim_layer_instructions.update_existing_last_hash;
+
+    typename C_PARENT::Point existing_hash = c_parent.m_hash_init_point;
+    if (trim_layer_instructions.need_last_chunk_parent)
+    {
+        CHECK_AND_ASSERT_THROW_MES(parent_last_hashes.size() > parent_layer_idx, "missing last parent hash");
+        existing_hash = parent_last_hashes[parent_layer_idx];
+    }
+
+    std::vector<typename C_PARENT::Scalar> child_scalars;
+    if (trim_layer_instructions.need_last_chunk_children_to_trim
+        || trim_layer_instructions.need_last_chunk_remaining_children)
+    {
+        // TODO: a clean way to do this without copying
+        CHECK_AND_ASSERT_THROW_MES(children_to_trim.size() > parent_layer_idx, "missing children to trim");
+        child_scalars = children_to_trim[parent_layer_idx];
+    }
+
+    typename C_PARENT::Scalar new_last_child_scalar = c_parent.zero_scalar();
+    if (trim_layer_instructions.need_new_last_child)
+    {
+        CHECK_AND_ASSERT_THROW_MES(child_layer_idx > 0, "child index cannot be 0 here");
+        CHECK_AND_ASSERT_THROW_MES(child_reductions.size() == child_layer_idx, "unexpected child layer idx");
+        const std::size_t last_child_layer_idx = child_layer_idx - 1;
+        const typename C_CHILD::Point &new_last_child = child_reductions.back().new_last_hash;
+
+        new_last_child_scalar = c_child.point_to_cycle_scalar(new_last_child);
+
+        if (trim_layer_instructions.need_last_chunk_remaining_children)
+        {
+            child_scalars.emplace_back(std::move(new_last_child_scalar));
+        }
+        else if (!trim_layer_instructions.need_last_chunk_children_to_trim)
+        {
+            // TODO: cleaner conditional for this case
+            CHECK_AND_ASSERT_THROW_MES(child_last_hashes.size() > last_child_layer_idx, "missing last child hash");
+
+            const typename C_CHILD::Point &old_last_child = child_last_hashes[last_child_layer_idx];
+            auto old_last_child_scalar = c_child.point_to_cycle_scalar(old_last_child);
+
+            child_scalars.emplace_back(std::move(old_last_child_scalar));
+        }
+    }
+
+    for (std::size_t i = 0; i < child_scalars.size(); ++i)
+        MDEBUG("Hashing child " << c_parent.to_string(child_scalars[i]));
+
+    if (trim_layer_instructions.need_last_chunk_remaining_children)
+    {
+        MDEBUG("hash_grow: existing_hash: " << c_parent.to_string(existing_hash)
+            << " , hash_offset: " << trim_layer_instructions.hash_offset);
+
+        layer_reduction_out.new_last_hash = c_parent.hash_grow(
+            existing_hash,
+            trim_layer_instructions.hash_offset,
+            c_parent.zero_scalar(),
+            typename C_PARENT::Chunk{child_scalars.data(), child_scalars.size()});
+    }
+    else
+    {
+        MDEBUG("hash_trim: existing_hash: " << c_parent.to_string(existing_hash)
+            << " , hash_offset: " << trim_layer_instructions.hash_offset
+            << " , new_last_child_scalar: " <<  c_parent.to_string(new_last_child_scalar));
+
+        layer_reduction_out.new_last_hash = c_parent.hash_trim(
+            existing_hash,
+            trim_layer_instructions.hash_offset,
+            typename C_PARENT::Chunk{child_scalars.data(), child_scalars.size()},
+            new_last_child_scalar);
+    }
+
+    MDEBUG("Result hash: " << c_parent.to_string(layer_reduction_out.new_last_hash));
+
+    return layer_reduction_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -430,8 +617,212 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::output_to_leaf
 };
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-UpdateLayerMetadata CurveTrees<C1, C2>::set_next_layer_extension(
-    const UpdateLayerMetadata &prev_layer_metadata,
+std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(const std::vector<LeafTuple> &leaves) const
+{
+    std::vector<typename C2::Scalar> flattened_leaves;
+    flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
+
+    for (const auto &l : leaves)
+    {
+        // TODO: implement without cloning
+        flattened_leaves.emplace_back(l.O_x);
+        flattened_leaves.emplace_back(l.I_x);
+        flattened_leaves.emplace_back(l.C_x);
+    }
+
+    return flattened_leaves;
+};
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
+    const std::size_t old_n_leaf_tuples,
+    const LastHashes &existing_last_hashes,
+    const std::vector<LeafTuple> &new_leaf_tuples) const
+{
+    TreeExtension tree_extension;
+
+    if (new_leaf_tuples.empty())
+        return tree_extension;
+
+    auto grow_layer_instructions = get_leaf_layer_grow_instructions(
+        old_n_leaf_tuples,
+        new_leaf_tuples.size(),
+        LEAF_TUPLE_SIZE,
+        m_leaf_layer_chunk_width);
+
+    tree_extension.leaves.start_idx = grow_layer_instructions.old_total_children;
+
+    // Copy the leaves
+    // TODO: don't copy here
+    tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
+    for (const auto &leaf : new_leaf_tuples)
+    {
+        tree_extension.leaves.tuples.emplace_back(LeafTuple{
+            .O_x = leaf.O_x,
+            .I_x = leaf.I_x,
+            .C_x = leaf.C_x
+        });
+    }
+
+    if (grow_layer_instructions.need_old_last_parent)
+        CHECK_AND_ASSERT_THROW_MES(!existing_last_hashes.c2_last_hashes.empty(), "missing last c2 parent");
+
+    // Hash the leaf layer
+    auto leaf_parents = hash_children_chunks(m_c2,
+            nullptr, // We never need the old last child from leaf layer because the leaf layer is always append-only
+            grow_layer_instructions.need_old_last_parent ? &existing_last_hashes.c2_last_hashes[0] : nullptr,
+            grow_layer_instructions.start_offset,
+            grow_layer_instructions.next_parent_start_index,
+            this->flatten_leaves(new_leaf_tuples),
+            m_leaf_layer_chunk_width
+        );
+
+    CHECK_AND_ASSERT_THROW_MES(
+        (leaf_parents.start_idx + leaf_parents.hashes.size()) == grow_layer_instructions.new_total_parents,
+        "unexpected num leaf parents extended");
+
+    tree_extension.c2_layer_extensions.emplace_back(std::move(leaf_parents));
+
+    // Alternate between hashing c2 children, c1 children, c2, c1, ...
+    bool parent_is_c1 = true;
+
+    std::size_t c1_last_idx = 0;
+    std::size_t c2_last_idx = 0;
+    while (grow_layer_instructions.new_total_parents > 1)
+    {
+        MDEBUG("Getting extension for layer " << (c1_last_idx + c2_last_idx + 1));
+
+        const std::size_t new_total_children = grow_layer_instructions.new_total_parents;
+
+        grow_layer_instructions = this->set_next_layer_extension(
+                grow_layer_instructions,
+                parent_is_c1,
+                existing_last_hashes,
+                c1_last_idx,
+                c2_last_idx,
+                tree_extension
+            );
+
+        // Sanity check to make sure we're making progress to exit the while loop
+        CHECK_AND_ASSERT_THROW_MES(grow_layer_instructions.new_total_parents < new_total_children,
+            "expect fewer parents than children in every layer");
+
+        parent_is_c1 = !parent_is_c1;
+    }
+
+    return tree_extension;
+};
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
+    const std::size_t old_n_leaf_tuples,
+    const std::size_t trim_n_leaf_tuples)
+{
+    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples > trim_n_leaf_tuples, "cannot trim more leaves than exist");
+    CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
+
+    std::vector<TrimLayerInstructions> trim_instructions;
+
+    // Get trim instructions for the leaf layer
+    {
+        const std::size_t old_total_leaves = old_n_leaf_tuples * LEAF_TUPLE_SIZE;
+        const std::size_t new_total_leaves = (old_n_leaf_tuples - trim_n_leaf_tuples) * LEAF_TUPLE_SIZE;
+
+        const std::size_t parent_chunk_width = m_leaf_layer_chunk_width;
+
+        // Leaf layer's last child never changes since leaf layer is pop-/append-only
+        const bool last_child_will_change = false;
+
+        auto trim_leaf_layer_instructions = get_trim_layer_instructions(
+            old_total_leaves,
+            new_total_leaves,
+            parent_chunk_width,
+            last_child_will_change);
+
+        trim_instructions.emplace_back(std::move(trim_leaf_layer_instructions));
+    }
+
+    bool use_c2 = false;
+    while (trim_instructions.back().new_total_parents > 1)
+    {
+        auto trim_layer_instructions = get_trim_layer_instructions(
+            trim_instructions.back().old_total_parents,
+            trim_instructions.back().new_total_parents,
+            use_c2 ? m_c2_width : m_c1_width,
+            trim_instructions.back().update_existing_last_hash);
+
+        trim_instructions.emplace_back(std::move(trim_layer_instructions));
+        use_c2 = !use_c2;
+    }
+
+    return trim_instructions;
+}
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reduction(
+    const std::vector<TrimLayerInstructions> &trim_instructions,
+    const LastChunkChildrenToTrim &children_to_trim,
+    const LastHashes &last_hashes) const
+{
+    TreeReduction tree_reduction_out; 
+    tree_reduction_out.new_total_leaves = trim_instructions[0].new_total_children;
+
+    bool use_c2 = true;
+    std::size_t c1_idx = 0;
+    std::size_t c2_idx = 0;
+
+    for (const auto &trim_layer_instructions : trim_instructions)
+    {
+        MDEBUG("Trimming layer " << (c1_idx + c2_idx) << " (c1_idx: " << c1_idx << " , c2_idx: " << c2_idx << ")");
+
+        if (use_c2)
+        {
+            auto c2_layer_reduction_out = get_next_layer_reduction(
+                    m_c1,
+                    m_c2,
+                    trim_layer_instructions,
+                    last_hashes.c2_last_hashes,
+                    children_to_trim.c2_children,
+                    last_hashes.c1_last_hashes,
+                    c2_idx,
+                    c1_idx,
+                    tree_reduction_out.c1_layer_reductions
+                );
+
+            tree_reduction_out.c2_layer_reductions.emplace_back(std::move(c2_layer_reduction_out));
+            ++c2_idx;
+        }
+        else
+        {
+            auto c1_layer_reduction_out = get_next_layer_reduction(
+                    m_c2,
+                    m_c1,
+                    trim_layer_instructions,
+                    last_hashes.c1_last_hashes,
+                    children_to_trim.c1_children,
+                    last_hashes.c2_last_hashes,
+                    c1_idx,
+                    c2_idx,
+                    tree_reduction_out.c2_layer_reductions
+                );
+
+            tree_reduction_out.c1_layer_reductions.emplace_back(std::move(c1_layer_reduction_out));
+            ++c1_idx;
+        }
+
+
+        use_c2 = !use_c2;
+    }
+
+    return tree_reduction_out;
+};
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// CurveTrees private member functions
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+GrowLayerInstructions CurveTrees<C1, C2>::set_next_layer_extension(
+    const GrowLayerInstructions &prev_layer_instructions,
     const bool parent_is_c1,
     const LastHashes &last_hashes,
     std::size_t &c1_last_idx_inout,
@@ -446,11 +837,11 @@ UpdateLayerMetadata CurveTrees<C1, C2>::set_next_layer_extension(
 
     const std::size_t parent_chunk_width = parent_is_c1 ? m_c1_width : m_c2_width;
 
-    const auto update_layer_metadata = get_update_layer_metadata(
-            prev_layer_metadata.old_total_parents,
-            prev_layer_metadata.new_total_parents,
+    const auto grow_layer_instructions = get_grow_layer_instructions(
+            prev_layer_instructions.old_total_parents,
+            prev_layer_instructions.new_total_parents,
             parent_chunk_width,
-            prev_layer_metadata.need_old_last_parent
+            prev_layer_instructions.need_old_last_parent
         );
 
     if (parent_is_c1)
@@ -458,7 +849,7 @@ UpdateLayerMetadata CurveTrees<C1, C2>::set_next_layer_extension(
         auto c1_layer_extension = get_next_layer_extension<C2, C1>(
                 m_c2,
                 m_c1,
-                update_layer_metadata,
+                grow_layer_instructions,
                 c2_last_hashes,
                 c1_last_hashes,
                 c2_layer_extensions_out,
@@ -474,7 +865,7 @@ UpdateLayerMetadata CurveTrees<C1, C2>::set_next_layer_extension(
         auto c2_layer_extension = get_next_layer_extension<C1, C2>(
                 m_c1,
                 m_c2,
-                update_layer_metadata,
+                grow_layer_instructions,
                 c1_last_hashes,
                 c2_last_hashes,
                 c1_layer_extensions_out,
@@ -486,107 +877,7 @@ UpdateLayerMetadata CurveTrees<C1, C2>::set_next_layer_extension(
         ++c1_last_idx_inout;
     }
 
-    return update_layer_metadata;
-};
-//----------------------------------------------------------------------------------------------------------------------
-template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
-    const std::size_t old_n_leaf_tuples,
-    const LastHashes &existing_last_hashes,
-    const std::vector<LeafTuple> &new_leaf_tuples) const
-{
-    TreeExtension tree_extension;
-
-    if (new_leaf_tuples.empty())
-        return tree_extension;
-
-    auto update_layer_metadata = get_update_leaf_layer_metadata(
-        old_n_leaf_tuples,
-        new_leaf_tuples.size(),
-        LEAF_TUPLE_SIZE,
-        m_leaf_layer_chunk_width);
-
-    tree_extension.leaves.start_idx = update_layer_metadata.old_total_children;
-
-    // Copy the leaves
-    // TODO: don't copy here
-    tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
-    for (const auto &leaf : new_leaf_tuples)
-    {
-        tree_extension.leaves.tuples.emplace_back(LeafTuple{
-            .O_x = leaf.O_x,
-            .I_x = leaf.I_x,
-            .C_x = leaf.C_x
-        });
-    }
-
-    if (update_layer_metadata.need_old_last_parent)
-        CHECK_AND_ASSERT_THROW_MES(!existing_last_hashes.c2_last_hashes.empty(), "missing last c2 parent");
-
-    // Hash the leaf layer
-    auto leaf_parents = hash_children_chunks(m_c2,
-            nullptr, // We never need the old last child from leaf layer because the leaf layer is always append-only
-            update_layer_metadata.need_old_last_parent ? &existing_last_hashes.c2_last_hashes[0] : nullptr,
-            update_layer_metadata.start_offset,
-            update_layer_metadata.next_parent_start_index,
-            this->flatten_leaves(new_leaf_tuples),
-            m_leaf_layer_chunk_width
-        );
-
-    CHECK_AND_ASSERT_THROW_MES(
-        (leaf_parents.start_idx + leaf_parents.hashes.size()) == update_layer_metadata.new_total_parents,
-        "unexpected num leaf parents extended");
-
-    tree_extension.c2_layer_extensions.emplace_back(std::move(leaf_parents));
-
-    // Alternate between hashing c2 children, c1 children, c2, c1, ...
-    bool parent_is_c1 = true;
-
-    std::size_t c1_last_idx = 0;
-    std::size_t c2_last_idx = 0;
-    while (update_layer_metadata.new_total_parents > 1)
-    {
-        MDEBUG("Getting extension for layer " << (c1_last_idx + c2_last_idx + 1));
-
-        const std::size_t new_total_children = update_layer_metadata.new_total_parents;
-
-        update_layer_metadata = this->set_next_layer_extension(
-                update_layer_metadata,
-                parent_is_c1,
-                existing_last_hashes,
-                c1_last_idx,
-                c2_last_idx,
-                tree_extension
-            );
-
-        // Sanity check to make sure we're making progress to exit the while loop
-        CHECK_AND_ASSERT_THROW_MES(update_layer_metadata.new_total_parents < new_total_children,
-            "expect fewer parents than children in every layer");
-
-        parent_is_c1 = !parent_is_c1;
-    }
-
-    return tree_extension;
-};
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-// CurveTrees private member functions
-//----------------------------------------------------------------------------------------------------------------------
-template<typename C1, typename C2>
-std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(const std::vector<LeafTuple> &leaves) const
-{
-    std::vector<typename C2::Scalar> flattened_leaves;
-    flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
-
-    for (const auto &l : leaves)
-    {
-        // TODO: implement without cloning
-        flattened_leaves.emplace_back(l.O_x);
-        flattened_leaves.emplace_back(l.I_x);
-        flattened_leaves.emplace_back(l.C_x);
-    }
-
-    return flattened_leaves;
+    return grow_layer_instructions;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
