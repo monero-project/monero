@@ -396,7 +396,7 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
             const std::size_t leaf_tuple_idx = idx / CurveTreesV1::LEAF_TUPLE_SIZE;
 
             CHECK_AND_ASSERT_THROW_MES(m_tree.leaves.size() > leaf_tuple_idx, "leaf_tuple_idx too high");
-            const auto &leaf_tuple = m_tree.leaves[leaf_tuple_idx]; 
+            const auto &leaf_tuple = m_tree.leaves[leaf_tuple_idx];
 
             leaves_to_trim.push_back(leaf_tuple.O_x);
             leaves_to_trim.push_back(leaf_tuple.I_x);
@@ -415,7 +415,7 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
             const std::size_t leaf_tuple_idx = idx / CurveTreesV1::LEAF_TUPLE_SIZE;
 
             CHECK_AND_ASSERT_THROW_MES(m_tree.leaves.size() > leaf_tuple_idx, "leaf_tuple_idx too high");
-            const auto &leaf_tuple = m_tree.leaves[leaf_tuple_idx]; 
+            const auto &leaf_tuple = m_tree.leaves[leaf_tuple_idx];
 
             leaves_to_trim.push_back(leaf_tuple.O_x);
             leaves_to_trim.push_back(leaf_tuple.I_x);
@@ -512,7 +512,7 @@ void CurveTreesGlobalTree::trim_tree(const std::size_t trim_n_leaf_tuples)
     const std::size_t old_n_leaf_tuples = this->get_num_leaf_tuples();
     MDEBUG(old_n_leaf_tuples << " leaves in the tree, trimming " << trim_n_leaf_tuples);
 
-    // Get trim instructions 
+    // Get trim instructions
     const auto trim_instructions = m_curve_trees.get_trim_instructions(old_n_leaf_tuples, trim_n_leaf_tuples);
     MDEBUG("Acquired trim instructions for " << trim_instructions.size() << " layers");
 
@@ -520,7 +520,7 @@ void CurveTreesGlobalTree::trim_tree(const std::size_t trim_n_leaf_tuples)
     const auto last_chunk_children_to_trim = this->get_all_last_chunk_children_to_trim(trim_instructions);
     const auto last_hashes_to_trim = this->get_last_hashes_to_trim(trim_instructions);
 
-    // Get the new hashes, wrapped in a simple struct we can use to trim the tree 
+    // Get the new hashes, wrapped in a simple struct we can use to trim the tree
     const auto tree_reduction = m_curve_trees.get_tree_reduction(
         trim_instructions,
         last_chunk_children_to_trim,
