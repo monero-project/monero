@@ -55,8 +55,17 @@ struct LayerExtension final
     std::vector<typename C::Point> hashes;
 };
 
-// Useful metadata for updating a layer
-struct UpdateLayerMetadata final
+// A struct useful to trim a layer and update its last hash if necessary
+template<typename C>
+struct LayerReduction final
+{
+    std::size_t       new_total_parents{0};
+    bool              update_existing_last_hash;
+    typename C::Point new_last_hash;
+};
+
+// Useful metadata for growing a layer
+struct GrowLayerInstructions final
 {
     // The max chunk width of children used to hash into a parent
     std::size_t parent_chunk_width;
@@ -83,6 +92,32 @@ struct UpdateLayerMetadata final
     // The parent's starting index in the layer
     std::size_t next_parent_start_index;
 };
+
+// Useful metadata for trimming a layer
+struct TrimLayerInstructions final
+{
+    // The max chunk width of children used to hash into a parent
+    std::size_t parent_chunk_width;
+
+    // Total children refers to the total number of elements in a layer
+    std::size_t old_total_children;
+    std::size_t new_total_children;
+
+    // Total parents refers to the total number of hashes of chunks of children
+    std::size_t old_total_parents;
+    std::size_t new_total_parents;
+
+    bool need_last_chunk_children_to_trim;
+    bool need_last_chunk_remaining_children;
+    bool need_last_chunk_parent;
+    bool need_new_last_child;
+
+    bool update_existing_last_hash;
+
+    std::size_t new_offset;
+    std::size_t hash_offset;
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // This class is useful help update the curve trees tree without needing to keep the entire tree in memory
@@ -137,6 +172,16 @@ public:
         std::vector<LayerExtension<C2>> c2_layer_extensions;
     };
 
+    // A struct useful to reduce the number of leaves in an existing tree
+    // - layers alternate between C1 and C2
+    // - c2_layer_reductions[0] is first layer after leaves, then c1_layer_reductions[0], c2_layer_reductions[1], etc
+    struct TreeReduction final
+    {
+        std::size_t                     new_total_leaves;
+        std::vector<LayerReduction<C1>> c1_layer_reductions;
+        std::vector<LayerReduction<C2>> c2_layer_reductions;
+    };
+
     // Last hashes from each layer in the tree
     // - layers alternate between C1 and C2
     // - c2_last_hashes[0] refers to the layer after leaves, then c1_last_hashes[0], then c2_last_hashes[1], etc
@@ -146,26 +191,48 @@ public:
         std::vector<typename C2::Point> c2_last_hashes;
     };
 
+    // The children we'll trim from each last chunk in the tree
+    // - layers alternate between C1 and C2
+    // - c2_children[0] refers to the layer after leaves, then c1_children[0], then c2_children[1], etc
+    struct LastChunkChildrenToTrim final
+    {
+        std::vector<std::vector<typename C1::Scalar>> c1_children;
+        std::vector<std::vector<typename C2::Scalar>> c2_children;
+    };
+
 //member functions
 public:
     // Convert cryptonote output pub key and commitment to a leaf tuple for the curve trees tree
     LeafTuple output_to_leaf_tuple(const crypto::public_key &O, const crypto::public_key &C) const;
 
+    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
+    std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
+
     // Take in the existing number of leaf tuples and the existing last hashes of each layer in the tree, as well as new
-    // leaves to add to the tree, and return a tree extension struct that can be used to extend a global tree
+    // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const std::size_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
         const std::vector<LeafTuple> &new_leaf_tuples) const;
 
-    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
-    std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
+    // Get instructions useful for trimming all existing layers in the tree
+    std::vector<TrimLayerInstructions> get_trim_instructions(
+        const std::size_t old_n_leaf_tuples,
+        const std::size_t trim_n_leaf_tuples);
+
+    // Take in the instructions useful for trimming all existing layers in the tree, all children to be trimmed from
+    // each last chunk, and the existing last hashes in what will become the new last parent of each layer, and return
+    // a tree reduction struct that can be used to trim a tree
+    TreeReduction get_tree_reduction(
+        const std::vector<TrimLayerInstructions> &trim_instructions,
+        const LastChunkChildrenToTrim &children_to_trim,
+        const LastHashes &last_hashes) const;
 
 private:
     // Helper function used to set the next layer extension used to grow the next layer in the tree
     // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
     //   layer of the leaf layer
-    UpdateLayerMetadata set_next_layer_extension(
-        const UpdateLayerMetadata &prev_layer_metadata,
+    GrowLayerInstructions set_next_layer_extension(
+        const GrowLayerInstructions &prev_layer_instructions,
         const bool parent_is_c1,
         const LastHashes &last_hashes,
         std::size_t &c1_last_idx_inout,
