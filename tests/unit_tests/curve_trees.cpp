@@ -77,6 +77,60 @@ static bool validate_layer(const C &curve,
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
+template<typename C_CHILD, typename C_PARENT>
+static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(const C_CHILD &c_child,
+    const fcmp::curve_trees::TrimLayerInstructions &trim_instructions,
+    const CurveTreesGlobalTree::Layer<C_CHILD> &child_layer)
+{
+    std::vector<typename C_PARENT::Scalar> children_to_trim_out;
+
+    const std::size_t new_total_children = trim_instructions.new_total_children;
+    const std::size_t old_total_children = trim_instructions.old_total_children;
+    const std::size_t new_total_parents  = trim_instructions.new_total_parents;
+    const std::size_t parent_chunk_width = trim_instructions.parent_chunk_width;
+    const std::size_t new_offset         = trim_instructions.new_offset;
+
+    CHECK_AND_ASSERT_THROW_MES(new_total_children > 0, "expected some new children");
+    CHECK_AND_ASSERT_THROW_MES(new_total_children >= new_offset, "expected more children than offset");
+    CHECK_AND_ASSERT_THROW_MES(new_total_parents > 0, "expected some new parents");
+
+    if (trim_instructions.need_last_chunk_children_to_trim)
+    {
+        std::size_t idx = ((new_total_parents - 1) * parent_chunk_width) + new_offset;
+        MDEBUG("Start trim from idx: " << idx);
+        do
+        {
+            // TODO: consolidate do while inner logic with below
+            CHECK_AND_ASSERT_THROW_MES(child_layer.size() > idx, "idx too high");
+            const auto &child_point = child_layer[idx];
+
+            auto child_scalar = c_child.point_to_cycle_scalar(child_point);
+            children_to_trim_out.push_back(std::move(child_scalar));
+
+            ++idx;
+        }
+        while ((idx < old_total_children) && (idx % parent_chunk_width != 0));
+    }
+    else if (trim_instructions.need_last_chunk_remaining_children && new_offset > 0)
+    {
+        std::size_t idx = new_total_children - new_offset;
+        MDEBUG("Start grow remaining from idx: " << idx);
+        do
+        {
+            CHECK_AND_ASSERT_THROW_MES(child_layer.size() > idx, "idx too high");
+            const auto &child_point = child_layer[idx];
+
+            auto child_scalar = c_child.point_to_cycle_scalar(child_point);
+            children_to_trim_out.push_back(std::move(child_scalar));
+
+            ++idx;
+        }
+        while ((idx < new_total_children) && (idx % parent_chunk_width != 0));
+    }
+
+    return children_to_trim_out;
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTreesGlobalTree implementations
 //----------------------------------------------------------------------------------------------------------------------
@@ -306,60 +360,6 @@ void CurveTreesGlobalTree::reduce_tree(const CurveTreesV1::TreeReduction &tree_r
 
     m_tree.c1_layers.shrink_to_fit();
     m_tree.c2_layers.shrink_to_fit();
-}
-//----------------------------------------------------------------------------------------------------------------------
-template<typename C_CHILD, typename C_PARENT>
-static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(const C_CHILD &c_child,
-    const fcmp::curve_trees::TrimLayerInstructions &trim_instructions,
-    const CurveTreesGlobalTree::Layer<C_CHILD> &child_layer)
-{
-    std::vector<typename C_PARENT::Scalar> children_to_trim_out;
-
-    const std::size_t new_total_children = trim_instructions.new_total_children;
-    const std::size_t old_total_children = trim_instructions.old_total_children;
-    const std::size_t new_total_parents  = trim_instructions.new_total_parents;
-    const std::size_t parent_chunk_width = trim_instructions.parent_chunk_width;
-    const std::size_t new_offset         = trim_instructions.new_offset;
-
-    CHECK_AND_ASSERT_THROW_MES(new_total_children > 0, "expected some new children");
-    CHECK_AND_ASSERT_THROW_MES(new_total_children >= new_offset, "expected more children than offset");
-    CHECK_AND_ASSERT_THROW_MES(new_total_parents > 0, "expected some new parents");
-
-    if (trim_instructions.need_last_chunk_children_to_trim)
-    {
-        std::size_t idx = ((new_total_parents - 1) * parent_chunk_width) + new_offset;
-        MDEBUG("Start trim from idx: " << idx);
-        do
-        {
-            // TODO: consolidate do while inner logic with below
-            CHECK_AND_ASSERT_THROW_MES(child_layer.size() > idx, "idx too high");
-            const auto &child_point = child_layer[idx];
-
-            auto child_scalar = c_child.point_to_cycle_scalar(child_point);
-            children_to_trim_out.push_back(std::move(child_scalar));
-
-            ++idx;
-        }
-        while ((idx < old_total_children) && (idx % parent_chunk_width != 0));
-    }
-    else if (trim_instructions.need_last_chunk_remaining_children && new_offset > 0)
-    {
-        std::size_t idx = new_total_children - new_offset;
-        MDEBUG("Start grow remaining from idx: " << idx);
-        do
-        {
-            CHECK_AND_ASSERT_THROW_MES(child_layer.size() > idx, "idx too high");
-            const auto &child_point = child_layer[idx];
-
-            auto child_scalar = c_child.point_to_cycle_scalar(child_point);
-            children_to_trim_out.push_back(std::move(child_scalar));
-
-            ++idx;
-        }
-        while ((idx < new_total_children) && (idx % parent_chunk_width != 0));
-    }
-
-    return children_to_trim_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: template
