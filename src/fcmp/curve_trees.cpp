@@ -716,7 +716,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
     const std::size_t old_n_leaf_tuples,
-    const std::size_t trim_n_leaf_tuples)
+    const std::size_t trim_n_leaf_tuples) const
 {
     CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples > trim_n_leaf_tuples, "cannot trim more leaves than exist");
     CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");

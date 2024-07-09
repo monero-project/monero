@@ -217,7 +217,7 @@ public:
     // Get instructions useful for trimming all existing layers in the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(
         const std::size_t old_n_leaf_tuples,
-        const std::size_t trim_n_leaf_tuples);
+        const std::size_t trim_n_leaf_tuples) const;
 
     // Take in the instructions useful for trimming all existing layers in the tree, all children to be trimmed from
     // each last chunk, and the existing last hashes in what will become the new last parent of each layer, and return
