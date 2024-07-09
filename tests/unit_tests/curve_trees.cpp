@@ -968,150 +968,225 @@ TEST(curve_trees, grow_tree)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, trim_tree)
 {
+    // TODO: consolidate code from grow_tree test
     Helios helios;
     Selene selene;
 
-    LOG_PRINT_L1("Test trim tree with helios chunk width " << HELIOS_CHUNK_WIDTH
-        << ", selene chunk width " << SELENE_CHUNK_WIDTH);
+    // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
+    static const std::size_t helios_chunk_width = 3;
+    static const std::size_t selene_chunk_width = 3;
+
+    static_assert(helios_chunk_width > 1, "helios width must be > 1");
+    static_assert(selene_chunk_width > 1, "selene width must be > 1");
+
+    LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
+        << ", selene chunk width " << selene_chunk_width);
+
+    // Constant for how deep we want the tree
+    static const std::size_t TEST_N_LAYERS = 4;
+
+    // Number of leaves for which x number of layers is required
+    std::size_t leaves_needed_for_n_layers = selene_chunk_width;
+    for (std::size_t i = 1; i < TEST_N_LAYERS; ++i)
+    {
+        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
+        leaves_needed_for_n_layers *= width;
+    }
 
     auto curve_trees = CurveTreesV1(
         helios,
         selene,
-        HELIOS_CHUNK_WIDTH,
-        SELENE_CHUNK_WIDTH);
+        helios_chunk_width,
+        selene_chunk_width);
 
-    unit_test::BlockchainLMDBTest test_db;
+    // Increment to test for off-by-1
+    ++leaves_needed_for_n_layers;
 
-    static_assert(HELIOS_CHUNK_WIDTH > 1, "helios width must be > 1");
-    static_assert(SELENE_CHUNK_WIDTH > 1, "selene width must be > 1");
-
-    // Number of leaves for which x number of layers is required
-    const std::size_t NEED_1_LAYER  = SELENE_CHUNK_WIDTH;
-    const std::size_t NEED_2_LAYERS = NEED_1_LAYER  * HELIOS_CHUNK_WIDTH;
-    const std::size_t NEED_3_LAYERS = NEED_2_LAYERS * SELENE_CHUNK_WIDTH;
-
-    const std::vector<std::size_t> N_LEAVES{
-        // Basic tests
-        1,
-        2,
-
-        // Test with number of leaves {-1,0,+1} relative to chunk width boundaries
-        NEED_1_LAYER-1,
-        NEED_1_LAYER,
-        NEED_1_LAYER+1,
-
-        NEED_2_LAYERS-1,
-        NEED_2_LAYERS,
-        NEED_2_LAYERS+1,
-
-        NEED_3_LAYERS-1,
-        NEED_3_LAYERS,
-        NEED_3_LAYERS+1,
-    };
-
-    for (const std::size_t init_leaves : N_LEAVES)
-    {
-        if (init_leaves == 1)
-            continue;
-
+    // First initialize the tree with init_leaves
+    for (std::size_t init_leaves = 2; init_leaves <= leaves_needed_for_n_layers; ++init_leaves)
+{
+        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
         CurveTreesGlobalTree global_tree(curve_trees);
 
-        // Initialize global tree with `init_leaves`
-        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
         ASSERT_TRUE(grow_tree(curve_trees, global_tree, init_leaves));
-        MDEBUG("Successfully added initial " << init_leaves << " leaves to tree in memory");
 
-        for (const std::size_t trim_leaves : N_LEAVES)
+        // Then extend the tree with ext_leaves
+        for (std::size_t trim_leaves = 1; trim_leaves < leaves_needed_for_n_layers; ++trim_leaves)
         {
-            // Can't trim more leaves than exist in tree, and tree must always have at least 1 leaf in it
             if (trim_leaves >= init_leaves)
                 continue;
 
-            // Copy the already initialized tree
+            // Copy the already existing global tree
             CurveTreesGlobalTree tree_copy(global_tree);
-            ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, std::move(tree_copy)));
+
+            ASSERT_TRUE(trim_tree_in_memory(trim_leaves, std::move(tree_copy)));
         }
     }
 }
-// TODO: write tests with more layers, but smaller widths so the tests run in a reasonable amount of time
 //----------------------------------------------------------------------------------------------------------------------
 // Make sure the result of hash_trim is the same as the equivalent hash_grow excluding the trimmed children
 TEST(curve_trees, hash_trim)
 {
+    // https://github.com/kayabaNerve/fcmp-plus-plus/blob
+    //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
+    const std::size_t helios_chunk_width = 38;
+    const std::size_t selene_chunk_width = 18;
+
     Helios helios;
     Selene selene;
     auto curve_trees = CurveTreesV1(
         helios,
         selene,
-        HELIOS_CHUNK_WIDTH,
-        SELENE_CHUNK_WIDTH);
+        helios_chunk_width,
+        selene_chunk_width);
 
-    // Selene
-    // Generate 3 random leaf tuples
-    const std::size_t NUM_LEAF_TUPLES = 3;
-    const std::size_t NUM_LEAVES = NUM_LEAF_TUPLES * CurveTreesV1::LEAF_TUPLE_SIZE;
-    const auto grow_leaves = generate_random_leaves(curve_trees, NUM_LEAF_TUPLES);
-    const auto grow_children = curve_trees.flatten_leaves(grow_leaves);
-    const auto &grow_chunk = Selene::Chunk{grow_children.data(), grow_children.size()};
+    // 1. Trim 1
+    {
+        // Start by hashing: {selene_scalar_0, selene_scalar_1}
+        // Then trim to:     {selene_scalar_0}
+        const auto selene_scalar_0 = generate_random_selene_scalar();
+        const auto selene_scalar_1 = generate_random_selene_scalar();
 
-    // Hash the leaves
-    const auto init_grow_result = curve_trees.m_c2.hash_grow(
-        /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
-        /*offset*/                   0,
-        /*first_child_after_offset*/ curve_trees.m_c2.zero_scalar(),
-        /*children*/                 grow_chunk);
+        // Get the initial hash of the 2 scalars
+        std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1};
+        const auto init_hash = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
-    // Trim the initial result
-    const std::size_t trim_offset = NUM_LEAVES - CurveTreesV1::LEAF_TUPLE_SIZE;
-    const auto &trimmed_child = Selene::Chunk{grow_children.data() + trim_offset, CurveTreesV1::LEAF_TUPLE_SIZE};
-    const auto trim_result = curve_trees.m_c2.hash_trim(
-        init_grow_result,
-        trim_offset,
-        trimmed_child);
-    const auto trim_res_bytes = curve_trees.m_c2.to_bytes(trim_result);
+        // Trim selene_scalar_1
+        const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 1};
+        const auto trim_res = curve_trees.m_c2.hash_trim(
+            init_hash,
+            1,
+            trimmed_children,
+            curve_trees.m_c2.zero_scalar());
+        const auto trim_res_bytes = curve_trees.m_c2.to_bytes(trim_res);
 
-    // Now compare to calling hash_grow with the remaining children, excluding the trimmed child
-    const auto &remaining_children = Selene::Chunk{grow_children.data(), trim_offset};
-    const auto remaining_children_hash = curve_trees.m_c2.hash_grow(
-        /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
-        /*offset*/                   0,
-        /*first_child_after_offset*/ curve_trees.m_c2.zero_scalar(),
-        /*children*/                 remaining_children);
-    const auto grow_res_bytes = curve_trees.m_c2.to_bytes(remaining_children_hash);
+        // Now compare to calling hash_grow{selene_scalar_0}
+        std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
+        const auto grow_res = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
+        const auto grow_res_bytes = curve_trees.m_c2.to_bytes(grow_res);
 
-    ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+    }
 
-    // Helios
-    // Get 2 helios scalars
-    std::vector<Helios::Scalar> grow_helios_scalars;
-    fcmp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(curve_trees.m_c2,
-        {init_grow_result, trim_result},
-        grow_helios_scalars);
-    const auto &grow_helios_chunk = Helios::Chunk{grow_helios_scalars.data(), grow_helios_scalars.size()};
+    // 3. Trim 2
+    {
+        // Start by hashing: {selene_scalar_0, selene_scalar_1, selene_scalar_2}
+        // Then trim to:     {selene_scalar_0}
+        const auto selene_scalar_0 = generate_random_selene_scalar();
+        const auto selene_scalar_1 = generate_random_selene_scalar();
+        const auto selene_scalar_2 = generate_random_selene_scalar();
 
-    // Get the initial hash of the 2 helios scalars
-    const auto helios_grow_result = curve_trees.m_c1.hash_grow(
-        /*existing_hash*/            curve_trees.m_c1.m_hash_init_point,
-        /*offset*/                   0,
-        /*first_child_after_offset*/ curve_trees.m_c1.zero_scalar(),
-        /*children*/                 grow_helios_chunk);
+        // Get the initial hash of the 3 selene scalars
+        std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1, selene_scalar_2};
+        const auto init_hash = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
-    // Trim the initial result by 1 child
-    const auto &trimmed_helios_child = Helios::Chunk{grow_helios_scalars.data() + 1, 1};
-    const auto trim_helios_result = curve_trees.m_c1.hash_trim(
-        helios_grow_result,
-        1,
-        trimmed_helios_child);
-    const auto trim_helios_res_bytes = curve_trees.m_c1.to_bytes(trim_helios_result);
+        // Trim the initial result by 2 children
+        const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 2};
+        const auto trim_res = curve_trees.m_c2.hash_trim(
+            init_hash,
+            1,
+            trimmed_children,
+            curve_trees.m_c2.zero_scalar());
+        const auto trim_res_bytes = curve_trees.m_c2.to_bytes(trim_res);
 
-    // Now compare to calling hash_grow with the remaining children, excluding the trimmed child
-    const auto &remaining_helios_children = Helios::Chunk{grow_helios_scalars.data(), 1};
-    const auto remaining_helios_children_hash = curve_trees.m_c1.hash_grow(
-        /*existing_hash*/            curve_trees.m_c1.m_hash_init_point,
-        /*offset*/                   0,
-        /*first_child_after_offset*/ curve_trees.m_c1.zero_scalar(),
-        /*children*/                 remaining_helios_children);
-    const auto grow_helios_res_bytes = curve_trees.m_c1.to_bytes(remaining_helios_children_hash);
+        // Now compare to calling hash_grow{selene_scalar_0}
+        std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
+        const auto grow_res = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
+        const auto grow_res_bytes = curve_trees.m_c2.to_bytes(grow_res);
 
-    ASSERT_EQ(trim_helios_res_bytes, grow_helios_res_bytes);
+        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+    }
+
+    // 3. Change 1
+    {
+        // Start by hashing:  {selene_scalar_0, selene_scalar_1}
+        // Then change to:    {selene_scalar_0, selene_scalar_2}
+        const auto selene_scalar_0 = generate_random_selene_scalar();
+        const auto selene_scalar_1 = generate_random_selene_scalar();
+
+        // Get the initial hash of the 3 selene scalars
+        std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1};
+        const auto init_hash = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
+
+        const auto selene_scalar_2 = generate_random_selene_scalar();
+
+        // Trim the 2nd child and grow with new child
+        const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 1};
+        const auto trim_res = curve_trees.m_c2.hash_trim(
+            init_hash,
+            1,
+            trimmed_children,
+            selene_scalar_2);
+        const auto trim_res_bytes = curve_trees.m_c2.to_bytes(trim_res);
+
+        // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_2}
+        std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_2};
+        const auto grow_res = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
+        const auto grow_res_bytes = curve_trees.m_c2.to_bytes(grow_res);
+
+        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+    }
+
+    // 4. Trim 2 then grow by 1
+    {
+        // Start by hashing:  {selene_scalar_0, selene_scalar_1, selene_scalar_2}
+        // Then trim+grow to: {selene_scalar_0, selene_scalar_3}
+        const auto selene_scalar_0 = generate_random_selene_scalar();
+        const auto selene_scalar_1 = generate_random_selene_scalar();
+        const auto selene_scalar_2 = generate_random_selene_scalar();
+
+        // Get the initial hash of the 3 selene scalars
+        std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1, selene_scalar_2};
+        const auto init_hash = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
+
+        const auto selene_scalar_3 = generate_random_selene_scalar();
+
+        // Trim the initial result by 2 children+grow by 1
+        const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 2};
+        const auto trim_res = curve_trees.m_c2.hash_trim(
+            init_hash,
+            1,
+            trimmed_children,
+            selene_scalar_3);
+        const auto trim_res_bytes = curve_trees.m_c2.to_bytes(trim_res);
+
+        // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_3}
+        std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_3};
+        const auto grow_res = curve_trees.m_c2.hash_grow(
+            /*existing_hash*/            curve_trees.m_c2.m_hash_init_point,
+            /*offset*/                   0,
+            /*existing_child_at_offset*/ curve_trees.m_c2.zero_scalar(),
+            /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
+        const auto grow_res_bytes = curve_trees.m_c2.to_bytes(grow_res);
+
+        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+    }
 }
