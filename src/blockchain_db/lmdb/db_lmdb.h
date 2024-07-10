@@ -367,7 +367,10 @@ public:
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves);
 
-  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees) const;
+  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t trim_n_leaf_tuples);
+
+  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
+    const std::size_t expected_n_leaf_tuples) const;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -418,9 +421,19 @@ private:
     const std::size_t c_idx,
     const std::size_t layer_idx);
 
+  template<typename C>
+  void trim_layer(const fcmp::curve_trees::LayerReduction<C> &layer_reduction, const std::size_t layer_idx);
+
   std::size_t get_num_leaf_tuples() const;
 
   fcmp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
+
+  fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
+    const fcmp::curve_trees::CurveTreesV1 &curve_trees,
+    const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+
+  fcmp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(
+    const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
   template<typename C_CHILD, typename C_PARENT>
   bool audit_layer(const C_CHILD &c_child,
