@@ -116,6 +116,9 @@ struct TrimLayerInstructions final
 
     std::size_t new_offset;
     std::size_t hash_offset;
+
+    std::size_t start_trim_idx;
+    std::size_t end_trim_idx;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -156,8 +159,8 @@ public:
     // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
     struct Leaves final
     {
-        // Starting index in the leaf layer
-        std::size_t            start_idx{0};
+        // Starting leaf tuple index in the leaf layer
+        std::size_t            start_leaf_tuple_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
         std::vector<LeafTuple> tuples;
     };
@@ -177,7 +180,7 @@ public:
     // - c2_layer_reductions[0] is first layer after leaves, then c1_layer_reductions[0], c2_layer_reductions[1], etc
     struct TreeReduction final
     {
-        std::size_t                     new_total_leaves;
+        std::size_t                     new_total_leaf_tuples;
         std::vector<LayerReduction<C1>> c1_layer_reductions;
         std::vector<LayerReduction<C2>> c2_layer_reductions;
     };

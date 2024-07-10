@@ -1330,7 +1330,7 @@ void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_tree
   const auto &leaves = tree_extension.leaves;
   for (std::size_t i = 0; i < leaves.tuples.size(); ++i)
   {
-    MDB_val_copy<std::size_t> k(i + leaves.start_idx);
+    MDB_val_copy<std::size_t> k(i + leaves.start_leaf_tuple_idx);
     MDB_val_set(v, leaves.tuples[i]);
 
     // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
@@ -1439,6 +1439,189 @@ void BlockchainLMDB::grow_layer(const C &curve,
   }
 }
 
+void BlockchainLMDB::trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t trim_n_leaf_tuples)
+{
+  // TODO: block_wtxn_start like pop_block, then call BlockchainDB::trim_tree
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(leaves)
+  CURSOR(layers)
+
+  CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
+
+  const std::size_t old_n_leaf_tuples = this->get_num_leaf_tuples();
+  CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples > trim_n_leaf_tuples, "cannot trim more leaves than exist");
+
+  const auto trim_instructions = curve_trees.get_trim_instructions(old_n_leaf_tuples, trim_n_leaf_tuples);
+
+  // Do initial tree reads
+  const auto last_chunk_children_to_trim = this->get_last_chunk_children_to_trim(curve_trees, trim_instructions);
+  const auto last_hashes_to_trim = this->get_last_hashes_to_trim(trim_instructions);
+
+  // Get the new hashes, wrapped in a simple struct we can use to trim the tree
+  const auto tree_reduction = curve_trees.get_tree_reduction(
+    trim_instructions,
+    last_chunk_children_to_trim,
+    last_hashes_to_trim);
+
+  // Use tree reduction to trim tree
+  CHECK_AND_ASSERT_THROW_MES((tree_reduction.new_total_leaf_tuples + trim_n_leaf_tuples) == old_n_leaf_tuples,
+    "unexpected new total leaves");
+
+  MDEBUG("Trimming " << trim_n_leaf_tuples << " leaf tuples");
+
+  // Trim the leaves
+  // TODO: trim_leaves
+  for (std::size_t i = 0; i < trim_n_leaf_tuples; ++i)
+  {
+    std::size_t last_leaf_tuple_idx = (old_n_leaf_tuples - 1 - i);
+
+    MDB_val_copy<std::size_t> k(last_leaf_tuple_idx);
+    MDB_val v;
+    int result = mdb_cursor_get(m_cur_leaves, &k, &v, MDB_SET);
+    if (result == MDB_NOTFOUND)
+      throw0(DB_ERROR("leaf not found")); // TODO: specific error type instead of DB_ERROR
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
+
+    result = mdb_cursor_del(m_cur_leaves, 0);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Error removing leaf: ", result).c_str()));
+
+    MDEBUG("Successfully removed leaf at last_leaf_tuple_idx: " << last_leaf_tuple_idx);
+  }
+
+  // Trim the layers
+  // TODO: trim_layers
+  const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
+  const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
+  CHECK_AND_ASSERT_THROW_MES(!c2_layer_reductions.empty(), "empty c2 layer reductions");
+
+  bool use_c2 = true;
+  std::size_t c2_idx = 0;
+  std::size_t c1_idx = 0;
+  for (std::size_t i = 0; i < (c2_layer_reductions.size() + c1_layer_reductions.size()); ++i)
+  {
+    if (use_c2)
+    {
+      CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layer_reductions.size(), "unexpected c2 layer reduction");
+      const auto &c2_reduction = c2_layer_reductions[c2_idx];
+      trim_layer(c2_reduction, i);
+      ++c2_idx;
+    }
+    else
+    {
+      CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layer_reductions.size(), "unexpected c1 layer reduction");
+      const auto &c1_reduction = c1_layer_reductions[c1_idx];
+      trim_layer(c1_reduction, i);
+      ++c1_idx;
+    }
+
+    use_c2 = !use_c2;
+  }
+
+  // Trim any remaining layers in layers after the root
+  // TODO: trim_leftovers_after_root
+  const std::size_t expected_root_idx = c2_layer_reductions.size() + c1_layer_reductions.size() - 1;
+  while (1)
+  {
+    MDB_val k, v;
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_LAST);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get last elem: ", result).c_str()));
+
+    const std::size_t last_layer_idx = *(std::size_t *)k.mv_data;
+
+    if (last_layer_idx > expected_root_idx)
+    {
+      // Delete all elements in layers after the root
+      result = mdb_cursor_del(m_cur_layers, MDB_NODUPDATA);
+    }
+    else if (last_layer_idx < expected_root_idx)
+    {
+      throw0(DB_ERROR("Encountered unexpected last elem in tree before the root"));
+    }
+    else // last_layer_idx == expected_root_idx
+    {
+      // We've trimmed all layers past the root, we're done
+      break;
+    }
+  }
+}
+
+template<typename C>
+void BlockchainLMDB::trim_layer(const fcmp::curve_trees::LayerReduction<C> &layer_reduction,
+  const std::size_t layer_idx)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(layers)
+
+  MDB_val_copy<std::size_t> k(layer_idx);
+
+  // Get the number of existing elements in the layer
+  // TODO: get_num_elems_in_layer
+  std::size_t old_n_elems_in_layer = 0;
+  {
+    // Get the first record in a layer so we can then get the last record
+    MDB_val v;
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_SET);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get first record in layer: ", result).c_str()));
+
+    // TODO: why can't I just use MDB_LAST_DUP once and get the last record?
+
+    result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_LAST_DUP);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get last elem: ", result).c_str()));
+
+    const auto *lv = (layer_val<C> *)v.mv_data;
+    old_n_elems_in_layer = (1 + lv->child_chunk_idx);
+  }
+
+  CHECK_AND_ASSERT_THROW_MES(old_n_elems_in_layer >= layer_reduction.new_total_parents,
+    "unexpected old n elems in layer");
+  const std::size_t trim_n_elems_in_layer = old_n_elems_in_layer - layer_reduction.new_total_parents;
+
+  // Delete the elements
+  for (std::size_t i = 0; i < trim_n_elems_in_layer; ++i)
+  {
+    std::size_t last_elem_idx = (old_n_elems_in_layer - 1 - i);
+    MDB_val_set(v, last_elem_idx);
+
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_GET_BOTH);
+    if (result == MDB_NOTFOUND)
+      throw0(DB_ERROR("leaf not found")); // TODO: specific error type instead of DB_ERROR
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get elem: ", result).c_str()));
+
+    result = mdb_cursor_del(m_cur_layers, 0);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Error removing elem: ", result).c_str()));
+
+    MDEBUG("Successfully removed elem at layer_idx: " << layer_idx << " , last_elem_idx: " << last_elem_idx);
+  }
+
+  // Update the last element if needed
+  if (layer_reduction.update_existing_last_hash)
+  {
+    layer_val<C> lv;
+    lv.child_chunk_idx  = layer_reduction.new_total_parents - 1;
+    lv.child_chunk_hash = layer_reduction.new_last_hash;
+    MDB_val_set(v, lv);
+
+    // We expect to overwrite the existing hash
+    // TODO: make sure the hash already exists and is the existing last hash
+    int result = mdb_cursor_put(m_cur_layers, &k, &v, 0);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to update chunk hash: ", result).c_str()));
+  }
+}
+
 std::size_t BlockchainLMDB::get_num_leaf_tuples() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1446,8 +1629,6 @@ std::size_t BlockchainLMDB::get_num_leaf_tuples() const
 
   TXN_PREFIX_RDONLY();
   RCURSOR(leaves)
-
-  fcmp::curve_trees::CurveTreesV1::LastHashes last_hashes;
 
   // Get the number of leaf tuples in the tree
   std::uint64_t n_leaf_tuples = 0;
@@ -1523,7 +1704,171 @@ fcmp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_tree_last_hashes
   return last_hashes;
 }
 
-bool BlockchainLMDB::audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees) const
+fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_last_chunk_children_to_trim(
+  const fcmp::curve_trees::CurveTreesV1 &curve_trees,
+  const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(layers)
+
+  fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim last_chunk_children_to_trim;
+  auto &c1_last_children_out = last_chunk_children_to_trim.c1_children;
+  auto &c2_last_children_out = last_chunk_children_to_trim.c2_children;
+
+  // Get the leaves to trim
+  // TODO: separate function for leaves
+  {
+    CHECK_AND_ASSERT_THROW_MES(!trim_instructions.empty(), "no instructions");
+    const auto &trim_leaf_layer_instructions = trim_instructions[0];
+
+    std::vector<fcmp::curve_trees::Selene::Scalar> leaves_to_trim;
+
+    if (trim_leaf_layer_instructions.need_last_chunk_children_to_trim ||
+      (trim_leaf_layer_instructions.need_last_chunk_remaining_children && trim_leaf_layer_instructions.new_offset > 0))
+    {
+      std::size_t idx = trim_leaf_layer_instructions.start_trim_idx;
+      CHECK_AND_ASSERT_THROW_MES(idx % fcmp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE == 0,
+        "expected divisble by leaf tuple size");
+
+      const std::size_t leaf_tuple_idx = idx / fcmp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE;
+      MDB_val_copy<std::size_t> k(leaf_tuple_idx);
+
+      MDB_cursor_op leaf_op = MDB_SET;
+      do
+      {
+        MDB_val v;
+        int result = mdb_cursor_get(m_cur_leaves, &k, &v, leaf_op);
+        leaf_op = MDB_NEXT;
+        if (result == MDB_NOTFOUND)
+          throw0(DB_ERROR("leaf not found")); // TODO: specific error type instead of DB_ERROR
+        if (result != MDB_SUCCESS)
+          throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
+
+        const auto leaf = *(fcmp::curve_trees::CurveTreesV1::LeafTuple *)v.mv_data;
+
+        leaves_to_trim.push_back(leaf.O_x);
+        leaves_to_trim.push_back(leaf.I_x);
+        leaves_to_trim.push_back(leaf.C_x);
+
+        idx += fcmp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE;
+      }
+      while (idx < trim_leaf_layer_instructions.end_trim_idx);
+    }
+
+    c2_last_children_out.emplace_back(std::move(leaves_to_trim));
+  }
+
+  // Traverse the tree layer-by-layer starting at the layer closest to leaf layer, getting children to trim
+  // TODO: separate function for layers
+  bool parent_is_c1 = true;
+  for (std::size_t i = 1; i < trim_instructions.size(); ++i)
+  {
+    const auto &trim_layer_instructions = trim_instructions[i];
+
+    std::vector<fcmp::curve_trees::Helios::Scalar> c1_children;
+    std::vector<fcmp::curve_trees::Selene::Scalar> c2_children;
+
+    if (trim_layer_instructions.need_last_chunk_children_to_trim ||
+        (trim_layer_instructions.need_last_chunk_remaining_children && trim_layer_instructions.new_offset > 0))
+    {
+      const std::size_t layer_idx = (i - 1);
+      std::size_t idx = trim_layer_instructions.start_trim_idx;
+
+      MDB_val_set(k, layer_idx);
+      MDB_val_set(v, idx);
+      MDB_cursor_op op = MDB_GET_BOTH;
+      do
+      {
+        MDEBUG("Getting child to trim at layer_idx: " << layer_idx << " , idx: " << idx);
+
+        int result = mdb_cursor_get(m_cur_layers, &k, &v, op);
+        op = MDB_NEXT_DUP;
+        if (result == MDB_NOTFOUND)
+          throw0(DB_ERROR("layer elem not found")); // TODO: specific error type instead of DB_ERROR
+        if (result != MDB_SUCCESS)
+          throw0(DB_ERROR(lmdb_error("Failed to get layer elem: ", result).c_str()));
+
+        if (parent_is_c1)
+        {
+          const auto *lv = (layer_val<fcmp::curve_trees::Selene> *)v.mv_data;
+          auto child_scalar = curve_trees.m_c2.point_to_cycle_scalar(lv->child_chunk_hash);
+          c1_children.emplace_back(std::move(child_scalar));
+        }
+        else
+        {
+          const auto *lv = (layer_val<fcmp::curve_trees::Helios> *)v.mv_data;
+          auto child_scalar = curve_trees.m_c1.point_to_cycle_scalar(lv->child_chunk_hash);
+          c2_children.emplace_back(std::move(child_scalar));
+        }
+
+        ++idx;
+      }
+      while (idx < trim_layer_instructions.end_trim_idx);
+    }
+
+    if (parent_is_c1)
+      c1_last_children_out.emplace_back(std::move(c1_children));
+    else
+      c2_last_children_out.emplace_back(std::move(c2_children));
+
+    parent_is_c1 = !parent_is_c1;
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return last_chunk_children_to_trim;
+}
+
+fcmp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_last_hashes_to_trim(
+  const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(layers)
+
+  fcmp::curve_trees::CurveTreesV1::LastHashes last_hashes_out;
+
+  // Traverse the tree layer-by-layer starting at the layer closest to leaf layer
+  std::size_t layer_idx = 0;
+  for (const auto &trim_layer_instructions : trim_instructions)
+  {
+    const std::size_t new_last_idx = trim_layer_instructions.new_total_parents - 1;
+
+    MDB_val_copy<std::size_t> k(layer_idx);
+    MDB_val_set(v, new_last_idx);
+
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_GET_BOTH);
+    if (result == MDB_NOTFOUND)
+      throw0(DB_ERROR("layer elem not found")); // TODO: specific error type instead of DB_ERROR
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get layer elem: ", result).c_str()));
+
+    if ((layer_idx % 2) == 0)
+    {
+      const auto *lv = (layer_val<fcmp::curve_trees::Selene> *)v.mv_data;
+      last_hashes_out.c2_last_hashes.push_back(lv->child_chunk_hash);
+    }
+    else
+    {
+      const auto *lv = (layer_val<fcmp::curve_trees::Helios> *)v.mv_data;
+      last_hashes_out.c1_last_hashes.push_back(lv->child_chunk_hash);
+    }
+
+    ++layer_idx;
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return last_hashes_out;
+}
+
+bool BlockchainLMDB::audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
+  const std::size_t expected_n_leaf_tuples) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1531,6 +1876,9 @@ bool BlockchainLMDB::audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_tre
   TXN_PREFIX_RDONLY();
   RCURSOR(leaves)
   RCURSOR(layers)
+
+  const std::size_t actual_n_leaf_tuples = this->get_num_leaf_tuples();
+  CHECK_AND_ASSERT_MES(actual_n_leaf_tuples == expected_n_leaf_tuples, false, "unexpected num leaf tuples");
 
   // Check chunks of leaves hash into first layer as expected
   std::size_t layer_idx = 0;
@@ -1700,7 +2048,7 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
     // No more children, expect to be done auditing layer and ready to move up a layer
     if (result != MDB_NOTFOUND)
       throw0(DB_ERROR(lmdb_error("unexpected parent result at parent_layer_idx " + std::to_string(parent_layer_idx)
-        + " , child_chunk_idx " + std::to_string(child_chunk_idx), result).c_str()));
+        + " , child_chunk_idx " + std::to_string(child_chunk_idx) + " : ", result).c_str()));
 
     MDEBUG("Finished auditing layer " << layer_idx);
     TXN_POSTFIX_RDONLY();
@@ -1708,8 +2056,12 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
   }
 
   // End condition B: check if finished auditing the tree
-  if (child_chunk_idx == 0 && child_chunk.size() == 1 && result == MDB_NOTFOUND)
+  if (child_chunk_idx == 0 && child_chunk.size() == 1)
   {
+    if (result != MDB_NOTFOUND)
+      throw0(DB_ERROR(lmdb_error("unexpected parent of root at parent_layer_idx " + std::to_string(parent_layer_idx)
+        + " , child_chunk_idx " + std::to_string(child_chunk_idx) + " : ", result).c_str()));
+
     MDEBUG("Encountered root at layer_idx " << layer_idx);
     TXN_POSTFIX_RDONLY();
     return true;

@@ -118,7 +118,8 @@ public:
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves) override {};
-  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees) const override { return false; };
+  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t trim_n_leaf_tuples) override {};
+  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t expected_n_leaf_tuples) const override { return false; };
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override { return true; }
   virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override { return true; }
