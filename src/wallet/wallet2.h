@@ -1651,8 +1651,8 @@ private:
     void light_wallet_get_subaddrs();
     bool light_wallet_provision_subaddrs(uint32_t maj_i, uint32_t min_i, uint32_t n_maj, uint32_t n_min);
     bool light_wallet_upsert_subaddrs(std::vector<cryptonote::subaddress_index> subaddrs);
-    bool generate_output_key_image(const std::string& out_public_key, const std::string& tx_public_key, uint64_t out_index, crypto::key_image& ki) const;
-    bool generate_output_key_image(const crypto::public_key& out_public_key, const crypto::public_key& tx_public_key, uint64_t out_index, crypto::key_image& ki) const;
+    bool generate_output_key_image(const std::string& out_public_key, const std::string& tx_public_key, uint64_t out_index, const cryptonote::subaddress_index subaddress, crypto::key_image& ki) const;
+    bool generate_output_key_image(const crypto::public_key& out_public_key, const crypto::public_key& tx_public_key, uint64_t out_index, const cryptonote::subaddress_index subaddress, crypto::key_image& ki) const;
 
     /*
      * "attributes" are a mechanism to store an arbitrary number of string values
