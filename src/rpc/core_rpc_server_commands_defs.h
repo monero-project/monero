@@ -247,6 +247,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<block_complete_entry> blocks;
       uint64_t    start_height;
       uint64_t    current_height;
+      crypto::hash top_block_hash;
       std::vector<block_output_indices> output_indices;
       uint64_t    daemon_time;
       uint8_t     pool_info_extent;
@@ -259,6 +260,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(blocks)
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(current_height)
+        KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(top_block_hash, crypto::null_hash)
         KV_SERIALIZE(output_indices)
         KV_SERIALIZE_OPT(daemon_time, (uint64_t) 0)
         KV_SERIALIZE_OPT(pool_info_extent, (uint8_t) 0)

@@ -719,6 +719,7 @@ namespace cryptonote
         {
           res.start_height = 0;
           res.current_height = last_block_height + 1;
+          res.top_block_hash = last_block_hash;
           res.status = CORE_RPC_STATUS_OK;
           return true;
         }
@@ -738,7 +739,7 @@ namespace cryptonote
       }
 
       std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
-      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
       {
         res.status = "Failed";
         add_host_fail(ctx);
