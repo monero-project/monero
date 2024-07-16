@@ -1688,22 +1688,6 @@ std::string BlockchainLMDB::get_db_name() const
   return std::string("lmdb");
 }
 
-// TODO: this?
-bool BlockchainLMDB::lock()
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-  return false;
-}
-
-// TODO: this?
-void BlockchainLMDB::unlock()
-{
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  check_open();
-}
-
-
 // The below two macros are for DB access within block add/remove, whether
 // regular batch txn is in use or not. m_write_txn is used as a batch txn, even
 // if it's only within block add/remove.
