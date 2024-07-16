@@ -1598,7 +1598,6 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
 {
   hw::device &hwdev = m_account.get_device();
   std::vector<cryptonote::subaddress_index> subaddrs;
-  uint32_t maj_i = 0;
   
   if (m_subaddress_labels.size() <= index.major)
   {
@@ -1629,7 +1628,6 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     const uint32_t end = get_subaddress_clamped_sum(index.minor, m_subaddress_lookahead_minor);
     const uint32_t begin = m_subaddress_labels[index.major].size();
     cryptonote::subaddress_index index2 = {index.major, begin};
-    uint32_t min_i = index2.minor;
     const std::vector<crypto::public_key> pkeys = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, index2.minor, end);
     for (; index2.minor < end; ++index2.minor)
     {
@@ -1637,17 +1635,8 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
        m_subaddresses[D] = index2;
     }
     m_subaddress_labels[index.major].resize(index.minor + 1);
-    //light_wallet_provision_subaddrs(0, begin, 1, end);    
     subaddrs.push_back(index2);
   }
-
-  /*
-  if (m_light_wallet && !subaddrs.empty()) {
-    if(light_wallet_upsert_subaddrs(subaddrs)) {
-      MINFO("Successfully upsert light wallet subaddresses");
-    } else throw std::runtime_error("Error while upserting light wallet subaddresses");
-  }
-  */
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::create_one_off_subaddress(const cryptonote::subaddress_index& index)
@@ -4068,7 +4057,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   uint64_t blocks_start_height;
   std::vector<cryptonote::block_complete_entry> blocks;
   std::vector<parsed_block> parsed_blocks;
-  bool refreshed = false;
   std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> output_tracker_cache;
   hw::device &hwdev = m_account.get_device();
 
@@ -10533,7 +10521,7 @@ void wallet2::light_wallet_get_address_txs()
     // populate data needed for history (m_payments, m_unconfirmed_payments, m_confirmed_txs)
     // INCOMING transfers
 
-    if(incoming) {
+    if(incoming && !change) {
       if (change && !outgoing)
       {
         uint64_t input_sum = 0;
@@ -10567,8 +10555,6 @@ void wallet2::light_wallet_get_address_txs()
 
       for(auto &uout : uouts) {
         payment_details payment;
-        MINFO("wallet2::light_wallet_get_address_txs(): checking unspent out tx " << string_tools::pod_to_hex(tx_hash) << ", amount: " << uout.amount);
-
         payment.m_tx_hash = tx_hash;
         //payment.m_amount       = total_received;
         //payment.m_amount = (total_sent > total_received) ? total_sent - received - t.fee : received;
@@ -10611,16 +10597,26 @@ void wallet2::light_wallet_get_address_txs()
         sender_account = tout.sender.maj_i;
         break;
       }
+      std::vector<cryptonote::tx_destination_entry> dests;
       // e filtrare come segue
       for(auto &uout : uouts) {
         // se l'output è di un'altro account, allora è uscente per il sender
         // se indirizzo stesso account allora è un change
+        
+        cryptonote::subaddress_index index;
+        index.major = uout.recipient.maj_i;
+        index.minor = uout.recipient.min_i;
+        cryptonote::account_public_address address = get_subaddress(index);
+        bool is_subaddress = uout.recipient.maj_i != 0 || uout.recipient.min_i != 0;
+        cryptonote::tx_destination_entry dest(uout.amount, address, is_subaddress);
+
+        //dests.push_back(dest);
 
         if (sender_account != uout.recipient.maj_i) {
           total_received -= uout.amount;
         }
       }
-      int64_t amount_sent = (total_sent > total_received) ? total_sent - total_received : total_sent;
+      uint64_t amount_sent = (total_sent > total_received) ? total_sent - total_received : total_sent;
       if (amount_sent == 0) amount_sent += t.fee;
       uint64_t amount_out = amount_sent - t.fee;
       cryptonote::transaction dummy_tx; // not used by light wallet
@@ -10663,12 +10659,14 @@ void wallet2::light_wallet_get_address_txs()
             ctd.m_block_height = t.height;
             ctd.m_timestamp = t.timestamp;
             ctd.m_subaddr_account = sender_account;
+            ctd.m_dests = dests;
 
             for(auto out : spent_outputs) {
               ctd.m_subaddr_indices.insert({out.sender.maj_i, out.sender.min_i});
             }
 
-            m_confirmed_txs.emplace(tx_hash,ctd);
+            //m_confirmed_txs.emplace(tx_hash,ctd);
+            m_confirmed_txs.insert(std::make_pair(tx_hash, ctd));
           }
           if (0 != m_callback)
           {
@@ -10690,6 +10688,8 @@ void wallet2::light_wallet_get_address_txs()
       }
     }    
   }
+  
+  
   // TODO: purge old unconfirmed_txs
   remove_obsolete_pool_txs(pool_txs, false);
 
