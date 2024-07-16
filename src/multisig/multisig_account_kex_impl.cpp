@@ -395,7 +395,7 @@ namespace multisig
   *    - Sanitizes input msgs.
   *    - Require uniqueness in: 'exclude_pubkeys'.
   *    - Requires each input pubkey be recommended by 'num_recommendations = expected_round' msg signers.
-  *      - For a final multisig key to be truly 'M-of-N', each of the the private key's components must be
+  *      - For a final multisig key to be truly 'M-of-N', each of the private key's components must be
   *        shared by (N - M + 1) signers.
   *    - Requires that msgs are signed by only keys in 'signers'.
   *    - Requires that each key in 'signers' recommends [num_signers - 2 CHOOSE (expected_round - 1)] pubkeys.
