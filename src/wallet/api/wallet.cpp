@@ -1354,6 +1354,21 @@ std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &inf
     return string();
 }
 
+std::string WalletImpl::getMultisigKeyExchangeBooster(const std::vector<std::string> &info,
+    const std::uint32_t threshold,
+    const std::uint32_t num_signers) {
+    try {
+        clearStatus();
+
+        return m_wallet->get_multisig_key_exchange_booster(epee::wipeable_string(m_password), info, threshold, num_signers);
+    } catch (const exception& e) {
+        LOG_ERROR("Error on boosting multisig key exchange: " << e.what());
+        setStatusError(string(tr("Failed to boost multisig key exchange: ")) + e.what());
+    }
+
+    return string();
+}
+
 bool WalletImpl::exportMultisigImages(string& images) {
     try {
         clearStatus();

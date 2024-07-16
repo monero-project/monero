@@ -567,7 +567,7 @@ namespace multisig
 
     // note: do NOT remove the local signer from the pubkey origins map, since the post-kex round can be force-updated with
     //       just the local signer's post-kex message (if the local signer were removed, then the post-kex message's pubkeys
-    //       would be completely lost)
+    //       would be completely deleted)
 
     // evaluate pubkeys collected
 
@@ -608,7 +608,7 @@ namespace multisig
   * INTERNAL
   *
   * brief: multisig_kex_process_round_msgs - Process kex messages for the active kex round.
-  *    - A wrapper around evaluate_multisig_kex_round_msgs() -> multisig_kex_make_next_msg().
+  *    - A wrapper around evaluate_multisig_kex_round_msgs() -> multisig_kex_make_round_keys().
   *      - In other words, evaluate the input messages and try to make a message for the next round.
   *    - Note: Must be called on the final round's msgs to evaluate the final key components
   *            recommended by other participants.
@@ -623,7 +623,7 @@ namespace multisig
   * outparam: keys_to_origins_map_out - map between round keys and identity keys
   *    - If in the final round, these are key shares recommended by other signers for the final aggregate key.
   *    - Otherwise, these are the local account's DH derivations for the next round.
-  *      - See multisig_kex_make_next_msg() for an explanation.
+  *      - See multisig_kex_make_round_keys() for an explanation.
   * return: multisig kex message for next round, or empty message if 'current_round' is the final round
   */
   //----------------------------------------------------------------------------------------------------------------------
@@ -684,59 +684,67 @@ namespace multisig
   //----------------------------------------------------------------------------------------------------------------------
   // multisig_account: INTERNAL
   //----------------------------------------------------------------------------------------------------------------------
-  void multisig_account::initialize_kex_update(const std::vector<multisig_kex_msg> &expanded_msgs,
-    const std::uint32_t kex_rounds_required,
-    std::vector<crypto::public_key> &exclude_pubkeys_out)
+  std::vector<crypto::public_key> multisig_account::get_kex_exclude_pubkeys() const
   {
+    // exclude all keys the local account recommends
+    std::vector<crypto::public_key> exclude_pubkeys;
+
     if (m_kex_rounds_complete == 0)
     {
-      // the first round of kex msgs will contain each participant's base pubkeys and ancillary privkeys
-
-      // collect participants' base common privkey shares
-      // note: duplicate privkeys are acceptable, and duplicates due to duplicate signers
-      //       will be blocked by duplicate-signer errors after this function is called
-      std::vector<crypto::secret_key> participant_base_common_privkeys;
-      participant_base_common_privkeys.reserve(expanded_msgs.size() + 1);
-
-      // add local ancillary base privkey
-      participant_base_common_privkeys.emplace_back(m_base_common_privkey);
-
-      // add other signers' base common privkeys
-      for (const auto &expanded_msg : expanded_msgs)
-      {
-        if (expanded_msg.get_signing_pubkey() != m_base_pubkey)
-        {
-          participant_base_common_privkeys.emplace_back(expanded_msg.get_msg_privkey());
-        }
-      }
-
-      // make common privkey
-      make_multisig_common_privkey(std::move(participant_base_common_privkeys), m_common_privkey);
-
-      // set common pubkey
-      CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(m_common_privkey, m_common_pubkey),
-        "Failed to derive public key");
-
-      // if N-of-N, then the base privkey will be used directly to make the account's share of the final key
-      if (kex_rounds_required == 1)
-      {
-        m_multisig_privkeys.clear();
-        m_multisig_privkeys.emplace_back(m_base_privkey);
-      }
-
-      // exclude all keys the local account recommends
-      // - in the first round, only the local pubkey is recommended by the local signer
-      exclude_pubkeys_out.emplace_back(m_base_pubkey);
+      // in the first round, only the local pubkey is recommended by the local signer
+      exclude_pubkeys.emplace_back(m_base_pubkey);
     }
     else
     {
-      // in other rounds, kex msgs will contain participants' shared keys
-
-      // ignore shared keys the account helped create for this round
+      // in other rounds, kex msgs will contain participants' shared keys, so ignore shared keys the account helped
+      //     create for this round
       for (const auto &shared_key_with_origins : m_kex_keys_to_origins_map)
-      {
-        exclude_pubkeys_out.emplace_back(shared_key_with_origins.first);
-      }
+        exclude_pubkeys.emplace_back(shared_key_with_origins.first);
+    }
+
+    return exclude_pubkeys;
+  }
+  //----------------------------------------------------------------------------------------------------------------------
+  // multisig_account: INTERNAL
+  //----------------------------------------------------------------------------------------------------------------------
+  void multisig_account::initialize_kex_update(const std::vector<multisig_kex_msg> &expanded_msgs,
+    const std::uint32_t kex_rounds_required)
+  {
+    // initialization is only needed during the first round
+    if (m_kex_rounds_complete > 0)
+      return;
+
+    // the first round of kex msgs will contain each participant's base pubkeys and ancillary privkeys, so we prepare
+    //    them here
+
+    // collect participants' base common privkey shares
+    // note: duplicate privkeys are acceptable, and duplicates due to duplicate signers
+    //       will be blocked by duplicate-signer errors after this function is called
+    std::vector<crypto::secret_key> participant_base_common_privkeys;
+    participant_base_common_privkeys.reserve(expanded_msgs.size() + 1);
+
+    // add local ancillary base privkey
+    participant_base_common_privkeys.emplace_back(m_base_common_privkey);
+
+    // add other signers' base common privkeys
+    for (const multisig_kex_msg &expanded_msg : expanded_msgs)
+    {
+      if (expanded_msg.get_signing_pubkey() != m_base_pubkey)
+        participant_base_common_privkeys.emplace_back(expanded_msg.get_msg_privkey());
+    }
+
+    // make common privkey
+    make_multisig_common_privkey(std::move(participant_base_common_privkeys), m_common_privkey);
+
+    // set common pubkey
+    CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(m_common_privkey, m_common_pubkey),
+      "Failed to derive public key");
+
+    // if N-of-N, then the base privkey will be used directly to make the account's share of the final key
+    if (kex_rounds_required == 1)
+    {
+      m_multisig_privkeys.clear();
+      m_multisig_privkeys.emplace_back(m_base_privkey);
     }
   }
   //----------------------------------------------------------------------------------------------------------------------
@@ -771,9 +779,7 @@ namespace multisig
       result_keys.reserve(result_keys_to_origins_map.size());
 
       for (const auto &result_key_and_origins : result_keys_to_origins_map)
-      {
         result_keys.emplace_back(result_key_and_origins.first);
-      }
 
       // compute final aggregate key, update local multisig privkeys with aggregation coefficients applied
       m_multisig_pubkey = generate_multisig_aggregate_key(std::move(result_keys), m_multisig_privkeys);
@@ -811,7 +817,8 @@ namespace multisig
         // derived pubkey = multisig_key * G
         crypto::public_key_memsafe derived_pubkey;
         m_multisig_privkeys.push_back(
-          calculate_multisig_keypair_from_derivation(derivation_and_origins.first, derived_pubkey));
+            calculate_multisig_keypair_from_derivation(derivation_and_origins.first, derived_pubkey)
+          );
 
         // save the account's kex key mappings for this round [derived pubkey : other signers who will have the same key]
         m_kex_keys_to_origins_map[derived_pubkey] = std::move(derivation_and_origins.second);
@@ -863,8 +870,7 @@ namespace multisig
       "Multisig kex has already completed all required rounds (including post-kex verification).");
 
     // initialize account update
-    std::vector<crypto::public_key> exclude_pubkeys;
-    initialize_kex_update(expanded_msgs, kex_rounds_required, exclude_pubkeys);
+    this->initialize_kex_update(expanded_msgs, kex_rounds_required);
 
     // process messages into a [pubkey : {origins}] map
     multisig_keyset_map_memsafe_t result_keys_to_origins_map;
@@ -875,12 +881,75 @@ namespace multisig
       m_threshold,
       m_signers,
       expanded_msgs,
-      exclude_pubkeys,
+      this->get_kex_exclude_pubkeys(),
       incomplete_signer_set,
       result_keys_to_origins_map);
 
     // finish account update
-    finalize_kex_update(kex_rounds_required, std::move(result_keys_to_origins_map));
+    this->finalize_kex_update(kex_rounds_required, std::move(result_keys_to_origins_map));
+  }
+  //-----------------------------------------------------------------
+  // multisig_account: EXTERNAL
+  //-----------------------------------------------------------------
+  multisig_kex_msg multisig_account::get_multisig_kex_round_booster(const std::uint32_t threshold,
+    const std::uint32_t num_signers,
+    const std::vector<multisig_kex_msg> &expanded_msgs) const
+  {
+    // the messages passed in should be required for the next kex round of this account (the round it is currently
+    //   working on)
+    const std::uint32_t expected_msgs_round{m_kex_rounds_complete + 1};
+    const std::uint32_t kex_rounds_required{multisig_kex_rounds_required(num_signers, threshold)};
+
+    CHECK_AND_ASSERT_THROW_MES(num_signers > 1, "Must be at least one other multisig signer.");
+    CHECK_AND_ASSERT_THROW_MES(num_signers <= config::MULTISIG_MAX_SIGNERS, "Too many multisig signers specified.");
+    CHECK_AND_ASSERT_THROW_MES(expected_msgs_round < kex_rounds_required,
+      "Multisig kex booster: this account has already completed all intermediate kex rounds so it can't make a kex "
+      "booster (there is no round available to boost).");
+    CHECK_AND_ASSERT_THROW_MES(expanded_msgs.size() > 0, "At least one input kex message expected.");
+
+    // sanitize pubkeys from input msgs
+    multisig_keyset_map_memsafe_t pubkey_origins_map;
+    const std::uint32_t msgs_round{
+        multisig_kex_msgs_sanitize_pubkeys(expanded_msgs, this->get_kex_exclude_pubkeys(), pubkey_origins_map)
+      };
+    CHECK_AND_ASSERT_THROW_MES(msgs_round == expected_msgs_round, "Kex messages were not for expected round.");
+
+    // remove the local signer from sanitized messages
+    remove_key_from_mapped_sets(m_base_pubkey, pubkey_origins_map);
+
+    // make DH derivations for booster message
+    multisig_keyset_map_memsafe_t derivation_to_origins_map;
+    multisig_kex_make_round_keys(m_base_privkey, std::move(pubkey_origins_map), derivation_to_origins_map);
+
+    // collect keys for booster message
+    std::vector<crypto::public_key> next_msg_keys;
+    next_msg_keys.reserve(derivation_to_origins_map.size());
+
+    if (msgs_round + 1 == kex_rounds_required)
+    {
+      // final kex round: send DH derivation pubkeys in the message
+      for (const auto &derivation_and_origins : derivation_to_origins_map)
+      {
+        // multisig_privkey = H(derivation)
+        // derived pubkey = multisig_key * G
+        crypto::public_key_memsafe derived_pubkey;
+        calculate_multisig_keypair_from_derivation(derivation_and_origins.first, derived_pubkey);
+
+        // save keys that should be recommended to other signers
+        // - The keys multisig_key*G are sent to other participants in the message, so they can be used to produce the final
+        //   multisig key via generate_multisig_spend_public_key().
+        next_msg_keys.push_back(derived_pubkey);
+      }
+    }
+    else //(msgs_round + 1 < kex_rounds_required)
+    {
+      // intermediate kex round: send DH derivations directly in the message
+      for (const auto &derivation_and_origins : derivation_to_origins_map)
+        next_msg_keys.push_back(derivation_and_origins.first);
+    }
+
+    // produce a kex message for the round after the round this account is currently working on
+    return multisig_kex_msg{msgs_round + 1, m_base_privkey, std::move(next_msg_keys)}.get_msg();
   }
   //----------------------------------------------------------------------------------------------------------------------
 } //namespace multisig
