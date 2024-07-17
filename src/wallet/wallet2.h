@@ -1231,7 +1231,7 @@ private:
 
     void set_tx_note(const crypto::hash &txid, const std::string &note);
     std::string get_tx_note(const crypto::hash &txid) const;
-    std::string get_tx_memo(const crypto::hash &txid) const;
+    std::string get_tx_memo(const crypto::hash &txid);
 
     void set_tx_device_aux(const crypto::hash &txid, const std::string &aux);
     std::string get_tx_device_aux(const crypto::hash &txid) const;
