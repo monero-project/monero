@@ -38,7 +38,8 @@
 #include "net/i2p_address.h"
 #include "p2p/p2p_protocol_defs.h"
 
-BOOST_CLASS_VERSION(nodetool::peerlist_entry, 3)
+BOOST_CLASS_VERSION(nodetool::peerlist_entry, 4)
+BOOST_CLASS_VERSION(nodetool::anchor_peerlist_entry, 1)
 
 namespace boost
 {
@@ -238,6 +239,18 @@ namespace boost
         return;
       }
       a & pl.rpc_credits_per_hash;
+
+      if (ver < 4)
+      {
+        if (!typename Archive::is_saving())
+        {
+          pl.encryption_mode = nodetool::emode_ssl_autodetect;
+          pl.cert_finger.clear();
+        }
+        return;
+      }
+      a & pl.encryption_mode;
+      a & pl.cert_finger;
     }
 
     template <class Archive, class ver_type>
@@ -246,6 +259,17 @@ namespace boost
       a & pl.adr;
       a & pl.id;
       a & pl.first_seen;
+      if (ver < 1)
+      {
+        if (!typename Archive::is_saving())
+        {
+          pl.encryption_mode = nodetool::emode_ssl_autodetect;
+          pl.cert_finger.clear();
+        }
+        return;
+      }
+      a & pl.encryption_mode;
+      a & pl.cert_finger;
     }
   }
 }

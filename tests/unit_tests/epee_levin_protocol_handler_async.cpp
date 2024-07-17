@@ -372,14 +372,14 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   epee::levin::bucket_head2 resp_head;
   ASSERT_LT(sizeof(resp_head), send_data.size());
   std::memcpy(std::addressof(resp_head), send_data.data(), sizeof(resp_head));
-  std::string out_data = send_data.substr(sizeof(resp_head));
+  std::string out_data = send_data.substr(sizeof(resp_head), expected_out_data.size());
 
   // Check sent response
   ASSERT_EQ(expected_out_data, out_data);
   ASSERT_EQ(LEVIN_SIGNATURE, SWAP64LE(resp_head.m_signature));
   ASSERT_EQ(expected_command, SWAP32LE(resp_head.m_command));
   ASSERT_EQ(expected_return_code, SWAP32LE(resp_head.m_return_code));
-  ASSERT_EQ(expected_out_data.size(), SWAP64LE(resp_head.m_cb));
+  ASSERT_LE(expected_out_data.size(), SWAP64LE(resp_head.m_cb));
   ASSERT_FALSE(resp_head.m_have_to_return_data);
   ASSERT_EQ(SWAP32LE(LEVIN_PROTOCOL_VER_1), resp_head.m_protocol_version);
   ASSERT_TRUE(0 != (SWAP32LE(resp_head.m_flags) & LEVIN_PACKET_RESPONSE));
@@ -438,7 +438,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   message.buffer.write(epee::to_span(in_data));
 
   const epee::byte_slice noise = epee::levin::make_noise_notify(1024);
-  const epee::byte_slice notify = message.finalize_notify(expected_command);
+  const epee::byte_slice notify = message.finalize_notify(expected_command, false);
 
   test_connection_ptr conn = create_connection();
 
@@ -479,7 +479,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   in_fragmented_data.buffer.put_n('c', 1024 * 4);
 
   const epee::byte_slice noise = epee::levin::make_noise_notify(1024);
-  const epee::byte_slice notify = message.finalize_notify(expected_command);
+  const epee::byte_slice notify = message.finalize_notify(expected_command, false);
   epee::byte_slice fragmented = epee::levin::make_fragmented_notify(noise.size(), expected_fragmented_command, std::move(in_fragmented_data));
 
   EXPECT_EQ(5u, fragmented.size() / 1024);
