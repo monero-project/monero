@@ -561,7 +561,7 @@
     <name>cryptonote::rpc_args</name>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="92"/>
-        <source>Specify IP to bind RPC server</source>
+        <source>Specify IPv4 address to bind RPC server</source>
         <translation>Spécifier l&apos;IP à laquelle lier le serveur RPC</translation>
     </message>
     <message>
@@ -586,8 +586,8 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="97"/>
-        <source>Confirm rpc-bind-ip value is NOT a loopback (local) IP</source>
-        <translation>Confirmer que la valeur de rpc-bind-ip n&apos;est PAS une IP de bouclage (locale)</translation>
+        <source>Confirm rpc-bind-ipv4-address value is NOT a loopback (local) IP</source>
+        <translation>Confirmer que la valeur de rpc-bind-ipv4-address n&apos;est PAS une IP de bouclage (locale)</translation>
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="98"/>
@@ -632,7 +632,7 @@
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="146"/>
         <location filename="../src/rpc/rpc_args.cpp" line="174"/>
-        <source>Invalid IP address given for --</source>
+        <source>Invalid IPv4 address given for --</source>
         <translation>Adresse IP invalide fournie pour --</translation>
     </message>
     <message>

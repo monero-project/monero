@@ -66,7 +66,7 @@ public:
     {
       throw std::runtime_error("Failed to initialize " + m_description + " RPC server.");
     }
-    MGINFO(m_description << " RPC server initialized OK on port: " << m_server.get_binded_port());
+    MGINFO(m_description << " RPC server initialized OK on port: " << m_server.get_binded_port_ipv4());
   }
 
   void run()

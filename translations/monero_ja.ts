@@ -561,7 +561,7 @@
     <name>cryptonote::rpc_args</name>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="92"/>
-        <source>Specify IP to bind RPC server</source>
+        <source>Specify IPv4 address to bind RPC server</source>
         <translation>RPCサーバに接続するIPを指定してください</translation>
     </message>
     <message>
@@ -586,8 +586,8 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="97"/>
-        <source>Confirm rpc-bind-ip value is NOT a loopback (local) IP</source>
-        <translation>rpc-bind-ipの価はループバック(ローカル)IPじゃないことを確認してください</translation>
+        <source>Confirm rpc-bind-ipv4-address value is NOT a loopback (local) IP</source>
+        <translation>rpc-bind-ipv4-addressの価はループバック(ローカル)IPじゃないことを確認してください</translation>
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="98"/>
@@ -632,7 +632,7 @@
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="146"/>
         <location filename="../src/rpc/rpc_args.cpp" line="174"/>
-        <source>Invalid IP address given for --</source>
+        <source>Invalid IPv4 address given for --</source>
         <translation>このRPCサーバーのIPはだめです --</translation>
     </message>
     <message>
