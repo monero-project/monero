@@ -1,0 +1,37 @@
+services:
+  monero:
+    container_name: monero
+    build:
+      context: .
+    restart: always
+    ports:
+      - 18080:18080
+      - 18081:18081
+      - 18082:18082
+      - 18084:18084
+    command:
+      # Check "monerod --help" and change based on your needs
+
+      - --p2p-bind-ip=0.0.0.0 # (=0.0.0.0) Interface for p2p network protocol (IPv4)
+      - --p2p-bind-port=18080 # (=18080, 28080 if 'testnet', 38080 if 'stagenet') Port for p2p network protocol (IPv4)
+      - --rpc-bind-ip=0.0.0.0 # (=127.0.0.1) Specify IP to bind RPC server
+      - --rpc-bind-port=18081 # (=18081, 28081 if 'testnet', 38081 if 'stagenet')
+      - --non-interactive #  Run non-interactive
+      - --rpc-ssl=autodetect # (=autodetect) Enable SSL on RPC connections: enabled|disabled|autodetect.
+      - --disable-rpc-ban # Do not ban hosts on RPC errors
+      - --confirm-external-bind # Confirm rpc-bind-ip value is NOT a loopback (local) IP
+      - --zmq-pub=tcp://0.0.0.0:18084 # Address for ZMQ pub - tcp://ip:port or ipc://path
+      - --zmq-rpc-bind-ip=0.0.0.0 # (=127.0.0.1) IP for ZMQ RPC server to listen on
+      - --zmq-rpc-bind-port=18082 # (=18082, 28082 if 'testnet', 38082 if 'stagenet')Port for ZMQ RPC server to listen on
+      # - --log-level=0 # integer; daemon log level to set from 0 (less verbose) to 4 (most verbose).
+    volumes:
+      - bitmonero:/root/.bitmonero
+    networks:
+      - monero
+
+volumes:
+  bitmonero: {}
+
+networks:
+  monero:
+    driver: bridge
