@@ -3014,14 +3014,24 @@ bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND
   try
   {
     std::string data;
-    if (!epee::string_tools::hex_to_pod(req.encrypted_key_images_blob, data))
+    if (!epee::string_tools::parse_hexstr_to_binbuff(req.encrypted_key_images_blob, data))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
       er.message = "Failed to parse encrypted key images blob";
       return false;
     }
 
+
+    // Debug: Print the first few bytes of the decoded data
+    std::cout << "First 32 bytes of decoded data: ";
+    for (size_t i = 0; i < std::min(data.size(), size_t(32)); ++i) {
+      std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)(unsigned char)data[i];
+    }
+    std::cout << std::endl;
+
     const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
+    std::cout << "Magic length: " << magiclen << std::endl;
+    std::cout << "Expected magic: ";
     if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
