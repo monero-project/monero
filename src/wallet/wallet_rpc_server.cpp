@@ -2952,6 +2952,102 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_export_encrypted_key_images(const wallet_rpc::COMMAND_RPC_EXPORT_ENCRYPTED_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_EXPORT_ENCRYPTED_KEY_IMAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    try
+    {
+      std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = m_wallet->export_key_images(req.all);
+      res.offset = ski.first;
+
+      // Serialize the key images and signatures into a single blob
+      std::string data;
+      data.reserve(ski.second.size() * (sizeof(crypto::key_image) + sizeof(crypto::signature)));
+      for (const auto &item : ski.second)
+      {
+	data += std::string((const char *)&item.first, sizeof(crypto::key_image));
+	data += std::string((const char *)&item.second, sizeof(crypto::signature));
+      }
+
+      // Encrypt the serialized data
+      std::string ciphertext = m_wallet->encrypt_with_view_secret_key(data);
+
+      // Encode the encrypted data as hex
+      res.encrypted_key_images_blob = epee::string_tools::buff_to_hex_nodelimer(ciphertext);
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (!m_wallet->is_trusted_daemon())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "This command requires a trusted daemon.";
+      return false;
+    }
+    try
+    {
+      // Decode the hex-encoded encrypted blob
+      std::string ciphertext;
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.encrypted_key_images_blob, ciphertext))
+      {
+	er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+	er.message = "Failed to parse encrypted key images blob";
+	return false;
+      }
+
+      // Decrypt the ciphertext
+      std::string decrypted_data = m_wallet->decrypt_with_view_secret_key(ciphertext);
+
+      // Deserialize the decrypted data into key images and signatures
+      std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
+      const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
+      if (decrypted_data.size() % record_size != 0)
+      {
+	er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
+	er.message = "Decrypted data size is not a multiple of the record size";
+	return false;
+      }
+      size_t num_records = decrypted_data.size() / record_size;
+      ski.reserve(num_records);
+      for (size_t i = 0; i < num_records; ++i)
+      {
+	crypto::key_image ki;
+	crypto::signature sig;
+	memcpy(&ki, &decrypted_data[i * record_size], sizeof(crypto::key_image));
+	memcpy(&sig, &decrypted_data[i * record_size + sizeof(crypto::key_image)], sizeof(crypto::signature));
+	ski.emplace_back(ki, sig);
+      }
+
+      uint64_t spent = 0, unspent = 0;
+      uint64_t height = m_wallet->import_key_images(ski, req.offset, spent, unspent);
+      res.height = height;
+      res.spent = spent;
+      res.unspent = unspent;
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_make_uri(const wallet_rpc::COMMAND_RPC_MAKE_URI::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
