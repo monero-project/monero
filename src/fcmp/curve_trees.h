@@ -260,6 +260,14 @@ public:
 using Helios       = tower_cycle::Helios;
 using Selene       = tower_cycle::Selene;
 using CurveTreesV1 = CurveTrees<Helios, Selene>;
+
+// https://github.com/kayabaNerve/fcmp-plus-plus/blob
+//  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
+static const std::size_t HELIOS_CHUNK_WIDTH = 38;
+static const std::size_t SELENE_CHUNK_WIDTH = 18;
+static const Helios HELIOS;
+static const Selene SELENE;
+static const CurveTreesV1 curve_trees_v1(HELIOS, SELENE, HELIOS_CHUNK_WIDTH, SELENE_CHUNK_WIDTH);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
