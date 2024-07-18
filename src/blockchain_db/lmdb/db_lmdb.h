@@ -64,6 +64,7 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
+  MDB_cursor *m_txc_locked_outputs;
   MDB_cursor *m_txc_leaves;
   MDB_cursor *m_txc_layers;
 
@@ -90,6 +91,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_locked_outputs	m_cursors->m_txc_locked_outputs
 #define m_cur_leaves		m_cursors->m_txc_leaves
 #define m_cur_layers		m_cursors->m_txc_layers
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
@@ -114,6 +116,7 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
+  bool m_rf_locked_outputs;
   bool m_rf_leaves;
   bool m_rf_layers;
   bool m_rf_txpool_meta;
@@ -426,6 +429,8 @@ private:
 
   std::size_t get_num_leaf_tuples() const;
 
+  std::array<uint8_t, 32UL> get_tree_root() const;
+
   fcmp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
   fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
@@ -485,6 +490,9 @@ private:
   // migrate from DB version 4 to 5
   void migrate_4_5();
 
+  // migrate from DB version 5 to 6
+  void migrate_5_6();
+
   void cleanup_batch();
 
 private:
@@ -507,6 +515,7 @@ private:
 
   MDB_dbi m_spent_keys;
 
+  MDB_dbi m_locked_outputs;
   MDB_dbi m_leaves;
   MDB_dbi m_layers;
 
