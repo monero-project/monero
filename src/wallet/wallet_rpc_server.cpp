@@ -2993,8 +2993,9 @@ namespace tools
   }
 
   return true;
-}/------------------------------------------------------------------------------------------------------------------------------
-  /bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+}
+//------------------------------------------------------------------------------------------------------------------------------
+bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES::request& req, wallet_rpc::COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx)
 {
   if (!m_wallet) return not_open(er);
   if (m_restricted)
@@ -3096,7 +3097,7 @@ namespace tools
   }
 
   return true;
-}/------------------------------------------------------------------------------------------------------------------------------
+}
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_make_uri(const wallet_rpc::COMMAND_RPC_MAKE_URI::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
