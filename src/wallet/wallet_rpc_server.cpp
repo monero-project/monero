@@ -3014,7 +3014,7 @@ bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND
   try
   {
     std::string data;
-    if (!epee::string_tools::parse_hexstr_to_binbuff(req.encrypted_key_images_blob, data))
+    if (!epee::string_tools::hex_to_pod(req.encrypted_key_images_blob, data))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_KEY_IMAGE;
       er.message = "Failed to parse encrypted key images blob";
