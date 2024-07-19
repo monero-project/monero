@@ -1858,7 +1858,7 @@ namespace tools
 
 	BEGIN_KV_SERIALIZE_MAP()
 	  KV_SERIALIZE_OPT(offset, (uint32_t)0)
-	  KV_SERIALIZE(encrypted_key_images_blob)
+	  KV_SERIALIZE_OPT(encrypted_key_images_blob, "WTF")
 	  END_KV_SERIALIZE_MAP()
       };
       typedef epee::misc_utils::struct_init<request_t> request;

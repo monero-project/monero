@@ -3022,8 +3022,8 @@ bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND
     }
 
 
-    std::cout << "encrypted_key_images_blob: " << req.encrypted_key_images_blob;
-    std::cout << "data: " << data;
+    std::cout << "encrypted_key_images_blob: " << req.encrypted_key_images_blob << std::endl;
+    std::cout << "data: " << data << std::endl;
     // Debug: Print the first few bytes of the decoded data
     std::cout << "First 32 bytes of decoded data: ";
     for (size_t i = 0; i < std::min(data.size(), size_t(32)); ++i) {
