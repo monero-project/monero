@@ -1,0 +1,181 @@
+{
+    "definitions": {
+        "binary": {
+            "type": "string",
+            "description": "0+ bytes binary data as hex",
+            "pattern": "^([0-9A-Fa-f]{2})*$"
+        },
+        "binary1": {
+            "type": "string",
+            "description": "1-byte binary data as hex",
+            "minLength": 2,
+            "maxLength": 2,
+            "pattern": "^[0-9A-Fa-f]{2}$"
+        },
+        "binary32": {
+            "type": "string",
+            "description": "32-bytes binary data as hex",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+        },
+        "miner_tx": {
+            "type": "object",
+            "properties": {
+                "extra": { "$ref": "#/definitions/binary" },
+                "inputs": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "gen": {
+                                "type": "object",
+                                "properties": {
+                                    "height": { "$ref": "#/definitions/uint64" }
+                                },
+                                "required": ["height"]
+                            }
+                        },
+                        "required": ["gen"]
+                    }
+                },
+                "outputs": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/tx_output" }
+                },
+                "ringct": {
+                    "type": "object",
+                    "properties": {
+                        "type": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 0
+                        }
+                    },
+                    "required": ["type"]
+                },
+                "signatures": { "type": "array" }, 
+                "unlock_time": { "$ref": "#/definitions/uint64" },
+                "version": { "$ref": "#/definitions/uint64" }
+            },
+            "required": [
+                "extra",
+                "inputs",
+                "outputs",
+                "ringct",
+                "unlock_time",
+                "version"
+            ]
+        },
+        "tx_output": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "properties": {
+                         "amount": { "$ref": "#/definitions/uint64" },
+                         "to_key": { "$ref": "#/definitions/tx_output_to_key"}
+                    },
+                    "required": ["amount", "to_key"]
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                         "amount": { "$ref": "#/definitions/uint64" },
+                         "to_script": { "$ref": "#/definitions/tx_output_to_script"}
+                    },
+                    "required": ["amount", "to_script"]
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                         "amount": { "$ref": "#/definitions/uint64" },
+                         "to_scripthash": { "$ref": "#/definitions/tx_output_to_scripthash"}
+                    },
+                    "required": ["amount", "to_scripthash"]
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                         "amount": { "$ref": "#/definitions/uint64" },
+                         "to_tagged_key": { "$ref": "#/definitions/tx_output_to_tagged_key"}
+                    },
+                    "required": ["amount", "to_tagged_key"]
+                }
+            ]
+        },
+        "tx_output_to_key": {
+            "type": "object",
+            "properties": { "key": { "$ref": "#/definitions/binary32" } },
+            "required": ["key"]
+        },
+        "tx_output_to_script": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/binary32" }
+                },
+                "script": { "$ref": "#/definitions/binary" }
+            },
+            "required": ["keys", "script"]
+        },
+        "tx_output_to_scripthash": {
+            "type": "object",
+            "properties": { "hash": { "$ref": "#/definitions/binary32" } },
+            "required": ["hash"]
+         },
+        "tx_output_to_tagged_key": {
+            "type": "object",
+            "properties": {
+                "key": { "$ref": "#/definitions/binary32" },
+                "view_tag": { "$ref": "#/definitions/binary1" }
+            },
+            "required": ["key", "view_tag"]
+        },
+        "uint8": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+        },
+        "uint32": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+        },
+        "uint64": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+        }
+    },
+    "type": "array",
+    "title": "json-full-chain_main",
+    "description": "Notification of new blocks added to main chain",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "properties": {
+            "major_version": { "$ref": "#/definitions/uint8" },
+            "miner_tx": { "$ref": "#/definitions/miner_tx" },
+            "minor_version": { "$ref": "#/definitions/uint8" },
+            "nonce": { "$ref": "#/definitions/uint32" },
+            "prev_id": {
+                "description": "Cryptographic hash of previous block",
+                "$ref": "#/definitions/binary32"
+            },
+            "timestamp": { "$ref": "#/definitions/uint64" },
+            "tx_hashes": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/binary32" }
+            }
+        },
+        "required": [
+            "major_version",
+            "miner_tx",
+            "minor_version",
+            "nonce",
+            "prev_id",
+            "timestamp"
+        ]
+    }
+}
