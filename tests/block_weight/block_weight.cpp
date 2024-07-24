@@ -32,6 +32,7 @@
 #include <math.h>
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/testdb.h"
+#include "fcmp/curve_trees.h"
 
 #define LONG_TERM_BLOCK_WEIGHT_WINDOW 5000
 
@@ -64,6 +65,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
+                        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
                         ) override {
     blocks.push_back({block_weight, long_term_block_weight});
   }

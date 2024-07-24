@@ -1626,4 +1626,57 @@ namespace cryptonote
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
   }
+  //---------------------------------------------------------------
+  // TODO: write tests for this func
+  uint64_t get_unlock_height(uint64_t unlock_time, uint64_t height_included_in_chain)
+  {
+    uint64_t unlock_height = 0;
+    const uint64_t default_unlock_height = height_included_in_chain + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+
+    // TODO: double triple check off by 1
+    if (unlock_time == 0)
+    {
+      unlock_height = default_unlock_height;
+    }
+    else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
+    {
+      unlock_height = unlock_time;
+    }
+    else
+    {
+      // Interpret the unlock_time as time
+      // TODO: hardcode correct times for each network and take in nettype
+      const auto hf_v15_time = 1656629118;
+      const auto hf_v15_height = 2689608;
+
+      // Use the last hard fork's time and block combo to convert the time-based timelock into an unlock block
+      // TODO: consider taking into account 60s block times when that was consensus
+      if (hf_v15_time > unlock_time)
+      {
+        const auto seconds_since_unlock = hf_v15_time - unlock_time;
+        const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
+        CHECK_AND_ASSERT_THROW_MES(hf_v15_height > blocks_since_unlock, "unexpected blocks since unlock");
+        unlock_height = hf_v15_height - blocks_since_unlock;
+      }
+      else
+      {
+        const auto seconds_until_unlock = unlock_time - hf_v15_time;
+        const auto blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
+        unlock_height = hf_v15_height + blocks_until_unlock;
+      }
+
+      /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
+          spent before it reaches the unlock_height going by the old rules; this is ok. It can't be spent again because
+          it'll have a duplicate key image. It's also possible for an output to unlock by old rules, and then re-lock
+          again at the fork. This is also ok, we just need to be sure that the new hf rules use this unlock_height
+          starting at the fork for fcmp's.
+      */
+
+      // TODO: double check the accuracy of this calculation
+      MDEBUG("unlock time: " << unlock_time << " , unlock_height: " << unlock_height);
+    }
+
+    // Can't unlock earlier than the default unlock height
+    return std::max(unlock_height, default_unlock_height);
+  }
 }

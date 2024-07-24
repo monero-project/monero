@@ -27,6 +27,7 @@
 #pragma once
 
 #include <atomic>
+#include <map>
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
@@ -64,7 +65,7 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
-  MDB_cursor *m_txc_locked_outputs;
+  MDB_cursor *m_txc_locked_leaves;
   MDB_cursor *m_txc_leaves;
   MDB_cursor *m_txc_layers;
 
@@ -91,7 +92,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
-#define m_cur_locked_outputs	m_cursors->m_txc_locked_outputs
+#define m_cur_locked_leaves	m_cursors->m_txc_locked_leaves
 #define m_cur_leaves		m_cursors->m_txc_leaves
 #define m_cur_layers		m_cursors->m_txc_layers
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
@@ -116,7 +117,7 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
-  bool m_rf_locked_outputs;
+  bool m_rf_locked_leaves;
   bool m_rf_leaves;
   bool m_rf_layers;
   bool m_rf_txpool_meta;
@@ -277,6 +278,7 @@ public:
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
+  virtual uint64_t get_num_global_outputs() const;
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const;
@@ -370,10 +372,10 @@ public:
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves);
 
-  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t trim_n_leaf_tuples);
+  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples);
 
   virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const std::size_t expected_n_leaf_tuples) const;
+    const uint64_t expected_n_leaf_tuples) const;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -389,6 +391,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
+                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
                 );
 
   virtual void remove_block();
@@ -421,13 +424,13 @@ private:
   template<typename C>
   void grow_layer(const C &curve,
     const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
-    const std::size_t c_idx,
-    const std::size_t layer_idx);
+    const uint64_t c_idx,
+    const uint64_t layer_idx);
 
   template<typename C>
-  void trim_layer(const fcmp::curve_trees::LayerReduction<C> &layer_reduction, const std::size_t layer_idx);
+  void trim_layer(const fcmp::curve_trees::LayerReduction<C> &layer_reduction, const uint64_t layer_idx);
 
-  std::size_t get_num_leaf_tuples() const;
+  uint64_t get_num_leaf_tuples() const;
 
   std::array<uint8_t, 32UL> get_tree_root() const;
 
@@ -443,10 +446,12 @@ private:
   template<typename C_CHILD, typename C_PARENT>
   bool audit_layer(const C_CHILD &c_child,
     const C_PARENT &c_parent,
-    const std::size_t layer_idx,
-    const std::size_t child_start_idx,
-    const std::size_t child_chunk_idx,
-    const std::size_t chunk_width) const;
+    const uint64_t layer_idx,
+    const uint64_t child_start_idx,
+    const uint64_t child_chunk_idx,
+    const uint64_t chunk_width) const;
+
+  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> get_locked_leaf_tuples_at_height(const uint64_t height);
 
   uint64_t num_outputs() const;
 
@@ -515,7 +520,7 @@ private:
 
   MDB_dbi m_spent_keys;
 
-  MDB_dbi m_locked_outputs;
+  MDB_dbi m_locked_leaves;
   MDB_dbi m_leaves;
   MDB_dbi m_layers;
 
