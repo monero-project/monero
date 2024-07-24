@@ -294,9 +294,31 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
 
+  // When adding a block, we also need to add all the leaf tuples included in
+  // the block to a table keeping track of locked leaf tuples. Once those leaf
+  // tuples unlock, we use them to grow the tree.
+  std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples_by_unlock_height;
+
+  // Get miner tx's leaf tuples
+  fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
+    blk.miner_tx,
+    prev_height,
+    true/*miner_tx*/,
+    leaf_tuples_by_unlock_height);
+
+  // Get all other txs' leaf tuples
+  for (const auto &txp : txs)
+  {
+    fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
+      txp.first,
+      prev_height,
+      false/*miner_tx*/,
+      leaf_tuples_by_unlock_height);
+  }
+
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
+  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, leaf_tuples_by_unlock_height);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 

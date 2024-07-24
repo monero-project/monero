@@ -399,6 +399,7 @@ private:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
+   * @param leaf_tuples_by_unlock_height the leaves from this block to add to the merkle tree
    */
   virtual void add_block( const block& blk
                 , size_t block_weight
@@ -407,6 +408,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
+                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
                 ) = 0;
 
   /**
@@ -1394,6 +1396,17 @@ public:
    */
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
+  // returns the total number of global outputs
+  /**
+   * @brief fetches the total number of global outputs
+   *
+   * The subclass should return a count of all outputs,
+   * or zero if there are none.
+   *   *
+   * @return the number of global outputs
+   */
+  virtual uint64_t get_num_global_outputs() const = 0;
+
   /**
    * @brief return index of the first element (should be hidden, but isn't)
    *
@@ -1769,10 +1782,10 @@ public:
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves) = 0;
 
-  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t trim_n_leaf_tuples) = 0;
+  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples) = 0;
 
   // TODO: description
-  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const std::size_t expected_n_leaf_tuples) const = 0;
+  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t expected_n_leaf_tuples) const = 0;
 
   //
   // Hard fork related storage

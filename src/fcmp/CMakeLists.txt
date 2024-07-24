@@ -44,7 +44,9 @@ monero_add_library_with_deps(
 target_link_libraries(fcmp
   PUBLIC
     crypto
+    cryptonote_basic
     epee
+    ringct
   PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/fcmp_rust/libfcmp_rust.a
     ${EXTRA_LIBRARIES})

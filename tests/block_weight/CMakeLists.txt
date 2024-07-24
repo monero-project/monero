@@ -38,6 +38,7 @@ target_link_libraries(block_weight
   PRIVATE
     cryptonote_core
     blockchain_db
+    fcmp
     ${EXTRA_LIBRARIES})
 
 add_test(

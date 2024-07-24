@@ -28,10 +28,12 @@
 
 #pragma once
 
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "crypto/crypto.h"
 #include "misc_log_ex.h"
 #include "tower_cycle.h"
 
+#include <map>
 #include <vector>
 
 
@@ -50,7 +52,7 @@ typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_ch
 template<typename C>
 struct LayerExtension final
 {
-    std::size_t                    start_idx{0};
+    uint64_t                       start_idx{0};
     bool                           update_existing_last_hash;
     std::vector<typename C::Point> hashes;
 };
@@ -59,7 +61,7 @@ struct LayerExtension final
 template<typename C>
 struct LayerReduction final
 {
-    std::size_t       new_total_parents{0};
+    uint64_t          new_total_parents{0};
     bool              update_existing_last_hash;
     typename C::Point new_last_hash;
 };
@@ -68,15 +70,15 @@ struct LayerReduction final
 struct GrowLayerInstructions final
 {
     // The max chunk width of children used to hash into a parent
-    std::size_t parent_chunk_width;
+    uint64_t parent_chunk_width;
 
     // Total children refers to the total number of elements in a layer
-    std::size_t old_total_children;
-    std::size_t new_total_children;
+    uint64_t old_total_children;
+    uint64_t new_total_children;
 
     // Total parents refers to the total number of hashes of chunks of children
-    std::size_t old_total_parents;
-    std::size_t new_total_parents;
+    uint64_t old_total_parents;
+    uint64_t new_total_parents;
 
     // When updating the tree, we use this boolean to know when we'll need to use the tree's existing old root in order
     // to set a new layer after that root
@@ -88,37 +90,43 @@ struct GrowLayerInstructions final
     bool need_old_last_parent;
 
     // The first chunk that needs to be updated's first child's offset within that chunk
-    std::size_t start_offset;
+    uint64_t start_offset;
     // The parent's starting index in the layer
-    std::size_t next_parent_start_index;
+    uint64_t next_parent_start_index;
 };
 
 // Useful metadata for trimming a layer
 struct TrimLayerInstructions final
 {
     // The max chunk width of children used to hash into a parent
-    std::size_t parent_chunk_width;
+    uint64_t parent_chunk_width;
 
     // Total children refers to the total number of elements in a layer
-    std::size_t old_total_children;
-    std::size_t new_total_children;
+    uint64_t old_total_children;
+    uint64_t new_total_children;
 
     // Total parents refers to the total number of hashes of chunks of children
-    std::size_t old_total_parents;
-    std::size_t new_total_parents;
+    uint64_t old_total_parents;
+    uint64_t new_total_parents;
 
-    bool need_last_chunk_children_to_trim;
-    bool need_last_chunk_remaining_children;
-    bool need_last_chunk_parent;
-    bool need_new_last_child;
-
+    // True if the new last chunk's existing parent hash will need to be updated
     bool update_existing_last_hash;
 
-    std::size_t new_offset;
-    std::size_t hash_offset;
+    // Whether we need to explicitly trim children from the new last chunk
+    bool need_last_chunk_children_to_trim;
+    // Whether we need to trim by growing using the remaining children from the new last chunk
+    bool need_last_chunk_remaining_children;
+    // Whether we need the new last chunk's existing parent hash in order to complete the trim
+    bool need_existing_last_hash;
+    // Whether we need the new last child from the new last chunk in order to complete the trim
+    bool need_new_last_child;
 
-    std::size_t start_trim_idx;
-    std::size_t end_trim_idx;
+    // The offset to use when hashing the last chunk
+    uint64_t hash_offset;
+
+    // The starting and ending indexes of the children we're going to need to trim the last chunk
+    uint64_t start_trim_idx;
+    uint64_t end_trim_idx;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -130,7 +138,7 @@ template<typename C1, typename C2>
 class CurveTrees
 {
 public:
-    CurveTrees(const C1 &c1, const C2 &c2, const std::size_t c1_width, const std::size_t c2_width):
+    CurveTrees(const C1 &c1, const C2 &c2, const uint64_t c1_width, const uint64_t c2_width):
         m_c1{c1},
         m_c2{c2},
         m_c1_width{c1_width},
@@ -147,20 +155,20 @@ public:
     struct LeafTuple final
     {
         // Output ed25519 point x-coordinate
-        const typename C2::Scalar O_x;
+        typename C2::Scalar O_x;
         // Key image generator x-coordinate
-        const typename C2::Scalar I_x;
+        typename C2::Scalar I_x;
         // Commitment x-coordinate
-        const typename C2::Scalar C_x;
+        typename C2::Scalar C_x;
     };
-    static const std::size_t LEAF_TUPLE_SIZE = 3;
+    static const uint64_t LEAF_TUPLE_SIZE = 3;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
     // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
     struct Leaves final
     {
         // Starting leaf tuple index in the leaf layer
-        std::size_t            start_leaf_tuple_idx{0};
+        uint64_t               start_leaf_tuple_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
         std::vector<LeafTuple> tuples;
     };
@@ -180,7 +188,7 @@ public:
     // - c2_layer_reductions[0] is first layer after leaves, then c1_layer_reductions[0], c2_layer_reductions[1], etc
     struct TreeReduction final
     {
-        std::size_t                     new_total_leaf_tuples;
+        uint64_t                        new_total_leaf_tuples;
         std::vector<LayerReduction<C1>> c1_layer_reductions;
         std::vector<LayerReduction<C2>> c2_layer_reductions;
     };
@@ -206,21 +214,27 @@ public:
 //member functions
 public:
     // Convert cryptonote output pub key and commitment to a leaf tuple for the curve trees tree
-    LeafTuple output_to_leaf_tuple(const crypto::public_key &O, const crypto::public_key &C) const;
+    LeafTuple output_to_leaf_tuple(const crypto::public_key &output_pubkey, const crypto::public_key &C) const;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
     std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
 
+    // Convert cryptonote tx outs to leaf tuples, grouped by the leaf tuple unlock height
+    void tx_outs_to_leaf_tuples(const cryptonote::transaction &tx,
+        const uint64_t tx_height,
+        const bool miner_tx,
+        std::multimap<uint64_t, LeafTuple> &leaf_tuples_by_unlock_height_inout) const;
+
     // Take in the existing number of leaf tuples and the existing last hashes of each layer in the tree, as well as new
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
-    TreeExtension get_tree_extension(const std::size_t old_n_leaf_tuples,
+    TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
         const std::vector<LeafTuple> &new_leaf_tuples) const;
 
     // Get instructions useful for trimming all existing layers in the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(
-        const std::size_t old_n_leaf_tuples,
-        const std::size_t trim_n_leaf_tuples) const;
+        const uint64_t old_n_leaf_tuples,
+        const uint64_t trim_n_leaf_tuples) const;
 
     // Take in the instructions useful for trimming all existing layers in the tree, all children to be trimmed from
     // each last chunk, and the existing last hashes in what will become the new last parent of each layer, and return
@@ -238,8 +252,8 @@ private:
         const GrowLayerInstructions &prev_layer_instructions,
         const bool parent_is_c1,
         const LastHashes &last_hashes,
-        std::size_t &c1_last_idx_inout,
-        std::size_t &c2_last_idx_inout,
+        uint64_t &c1_last_idx_inout,
+        uint64_t &c2_last_idx_inout,
         TreeExtension &tree_extension_inout) const;
 
 //public member variables
@@ -249,12 +263,11 @@ public:
     const C2 &m_c2;
 
     // The leaf layer has a distinct chunk width than the other layers
-    // TODO: public function for update_last_parent, and make this private
-    const std::size_t m_leaf_layer_chunk_width;
+    const uint64_t m_leaf_layer_chunk_width;
 
     // The chunk widths of the layers in the tree tied to each curve
-    const std::size_t m_c1_width;
-    const std::size_t m_c2_width;
+    const uint64_t m_c1_width;
+    const uint64_t m_c2_width;
 };
 //----------------------------------------------------------------------------------------------------------------------
 using Helios       = tower_cycle::Helios;
@@ -263,8 +276,8 @@ using CurveTreesV1 = CurveTrees<Helios, Selene>;
 
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob
 //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
-static const std::size_t HELIOS_CHUNK_WIDTH = 38;
-static const std::size_t SELENE_CHUNK_WIDTH = 18;
+static const uint64_t HELIOS_CHUNK_WIDTH = 38;
+static const uint64_t SELENE_CHUNK_WIDTH = 18;
 static const Helios HELIOS;
 static const Selene SELENE;
 static const CurveTreesV1 curve_trees_v1(HELIOS, SELENE, HELIOS_CHUNK_WIDTH, SELENE_CHUNK_WIDTH);
