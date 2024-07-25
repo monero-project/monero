@@ -732,7 +732,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    const std::vector<LeafTupleContext> &new_leaf_tuples) const
+    std::vector<LeafTupleContext> &&new_leaf_tuples) const
 {
     TreeExtension tree_extension;
 
@@ -748,15 +748,13 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     tree_extension.leaves.start_leaf_tuple_idx = grow_layer_instructions.old_total_children / LEAF_TUPLE_SIZE;
 
     // Sort the leaves by order they appear in the chain
-    // TODO: don't copy here
-    std::vector<LeafTupleContext> sorted_leaf_tuples = new_leaf_tuples;
     const auto sort_fn = [](const LeafTupleContext &a, const LeafTupleContext &b) { return a.output_id < b.output_id; };
-    std::sort(sorted_leaf_tuples.begin(), sorted_leaf_tuples.end(), sort_fn);
+    std::sort(new_leaf_tuples.begin(), new_leaf_tuples.end(), sort_fn);
 
     // Copy the sorted leaves into the tree extension struct
     // TODO: don't copy here
     tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
-    for (const auto &leaf : sorted_leaf_tuples)
+    for (const auto &leaf : new_leaf_tuples)
     {
         tree_extension.leaves.tuples.emplace_back(LeafTuple{
             .O_x = leaf.leaf_tuple.O_x,

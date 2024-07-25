@@ -238,7 +238,7 @@ public:
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        const std::vector<LeafTupleContext> &new_leaf_tuples) const;
+        std::vector<LeafTupleContext> &&new_leaf_tuples) const;
 
     // Get instructions useful for trimming all existing layers in the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(

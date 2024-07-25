@@ -850,8 +850,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   }
 
   // Grow the tree with outputs that unlock at this block height
-  const auto unlocked_leaf_tuples = this->get_locked_leaf_tuples_at_block_id(m_height);
-  this->grow_tree(fcmp::curve_trees::curve_trees_v1, unlocked_leaf_tuples);
+  auto unlocked_leaf_tuples = this->get_leaf_tuples_at_unlock_block_id(m_height);
+  this->grow_tree(fcmp::curve_trees::curve_trees_v1, std::move(unlocked_leaf_tuples));
 
   // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
   this->del_locked_leaf_tuples_at_block_id(m_height);
@@ -1368,7 +1368,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
 }
 
 void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-  const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &new_leaves)
+  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves)
 {
   if (new_leaves.empty())
     return;
@@ -1388,7 +1388,7 @@ void BlockchainLMDB::grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_tree
   const auto last_hashes = this->get_tree_last_hashes();
 
   // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
-  const auto tree_extension = curve_trees.get_tree_extension(old_n_leaf_tuples, last_hashes, new_leaves);
+  const auto tree_extension = curve_trees.get_tree_extension(old_n_leaf_tuples, last_hashes, std::move(new_leaves));
 
   // Insert the leaves
   // TODO: grow_leaves
@@ -2210,7 +2210,7 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
     chunk_width);
 }
 
-std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::get_locked_leaf_tuples_at_block_id(
+std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::get_leaf_tuples_at_unlock_block_id(
   uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -6947,9 +6947,9 @@ void BlockchainLMDB::migrate_5_6()
           }
         }
 
-        // Get all the locked outputs at that height
-        const auto leaf_tuples = this->get_locked_leaf_tuples_at_block_id(i);
-        this->grow_tree(fcmp::curve_trees::curve_trees_v1, leaf_tuples);
+        // Get the leaf tuples that unlock at the given block
+        auto unlocked_leaf_tuples = this->get_leaf_tuples_at_unlock_block_id(i);
+        this->grow_tree(fcmp::curve_trees::curve_trees_v1, std::move(unlocked_leaf_tuples));
 
         // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
         this->del_locked_leaf_tuples_at_block_id(i);
