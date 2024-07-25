@@ -710,7 +710,7 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
 
         CurveTrees<Helios, Selene>::LeafTupleContext tuple_context;
         tuple_context.output_id = output_ids[i];
-    
+
         try
         {
             // Convert output to leaf tuple; throws if output is invalid

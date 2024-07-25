@@ -851,10 +851,10 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
 
   // Grow the tree with outputs that unlock at this block height
   const auto unlocked_leaf_tuples = this->get_locked_leaf_tuples_at_block_id(m_height);
-
   this->grow_tree(fcmp::curve_trees::curve_trees_v1, unlocked_leaf_tuples);
 
-  // TODO: remove locked from the locked outputs table
+  // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
+  this->del_locked_leaf_tuples_at_block_id(m_height);
 
   int result = 0;
 
@@ -903,7 +903,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
 
   CURSOR(locked_leaves)
 
-  // Add the locked leaf tuples from this block to the locked outputs table
+  // Add the locked leaf tuples from this block to the locked leaves table
   for (const auto &locked_tuple : leaf_tuples_by_unlock_block)
   {
     MDB_val_set(k_block_id, locked_tuple.first);
@@ -2222,10 +2222,9 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
   MDB_val_set(k_block_id, block_id);
   MDB_val v_tuple;
 
-  // Get all the locked outputs at that height
+  // Get all the locked outputs at the provided block id
   std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples;
 
-  // TODO: double check this gets all leaf tuples when it does multiple iters
   MDB_cursor_op op = MDB_SET;
   while (1)
   {
@@ -2238,7 +2237,7 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
 
     const uint64_t blk_id = *(const uint64_t*)k_block_id.mv_data;
     if (blk_id != block_id)
-      throw0(DB_ERROR(("Height " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
+      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
 
     const auto range_begin = ((const fcmp::curve_trees::CurveTreesV1::LeafTupleContext*)v_tuple.mv_data);
     const auto range_end = range_begin + v_tuple.mv_size / sizeof(fcmp::curve_trees::CurveTreesV1::LeafTupleContext);
@@ -2259,6 +2258,27 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
   TXN_POSTFIX_RDONLY();
 
   return leaf_tuples;
+}
+
+void BlockchainLMDB::del_locked_leaf_tuples_at_block_id(uint64_t block_id)
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+  mdb_txn_cursors *m_cursors = &m_wcursors;
+
+  CURSOR(locked_leaves)
+
+  MDB_val_set(k_block_id, block_id);
+
+  int result = mdb_cursor_get(m_cur_locked_leaves, &k_block_id, NULL, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    return;
+  if (result != MDB_SUCCESS)
+    throw1(DB_ERROR(lmdb_error("Error finding locked leaf tuples to remove: ", result).c_str()));
+
+  result = mdb_cursor_del(m_cur_locked_leaves, MDB_NODUPDATA);
+  if (result)
+    throw1(DB_ERROR(lmdb_error("Error removing locked leaf tuples: ", result).c_str()));
 }
 
 BlockchainLMDB::~BlockchainLMDB()
@@ -6931,7 +6951,8 @@ void BlockchainLMDB::migrate_5_6()
         const auto leaf_tuples = this->get_locked_leaf_tuples_at_block_id(i);
         this->grow_tree(fcmp::curve_trees::curve_trees_v1, leaf_tuples);
 
-        // TODO: Remove locked outputs from the locked outputs table after adding them to tree
+        // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
+        this->del_locked_leaf_tuples_at_block_id(i);
 
         // Get old block_info and use it to set the new one with new values
         result = mdb_cursor_get(c_old_block_info, &k_blk, &v_blk, MDB_NEXT);
@@ -6950,8 +6971,6 @@ void BlockchainLMDB::migrate_5_6()
         bi.bi_long_term_block_weight = bi_old->bi_long_term_block_weight;
         bi.bi_n_leaf_tuples = this->get_num_leaf_tuples();
         bi.bi_tree_root = this->get_tree_root();
-
-        MDEBUG("Height: " << i << " , n_leaf_tuples: " << bi.bi_n_leaf_tuples);
 
         MDB_val_set(nv, bi);
         result = mdb_cursor_put(c_new_block_info, (MDB_val *)&zerokval, &nv, MDB_APPENDDUP);

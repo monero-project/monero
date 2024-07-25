@@ -452,6 +452,8 @@ private:
 
   std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_locked_leaf_tuples_at_block_id(uint64_t block_id);
 
+  void del_locked_leaf_tuples_at_block_id(uint64_t block_id);
+
   uint64_t num_outputs() const;
 
   // Hard fork
