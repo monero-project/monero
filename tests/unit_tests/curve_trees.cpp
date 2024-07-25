@@ -775,11 +775,13 @@ static bool grow_tree(CurveTreesV1 &curve_trees,
 
     global_tree.log_last_hashes(last_hashes);
 
+    auto new_leaf_tuples = generate_random_leaves(curve_trees, old_n_leaf_tuples, new_n_leaf_tuples);
+
     // Get a tree extension object to the existing tree using randomly generated leaves
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
     const auto tree_extension = curve_trees.get_tree_extension(old_n_leaf_tuples,
         last_hashes,
-        generate_random_leaves(curve_trees, old_n_leaf_tuples, new_n_leaf_tuples));
+        std::move(new_leaf_tuples));
 
     global_tree.log_tree_extension(tree_extension);
 
@@ -857,14 +859,18 @@ static bool grow_tree_db(const std::size_t init_leaves,
 
         LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then extending by " << ext_leaves << " leaves");
 
-        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, 0, init_leaves));
+        auto init_leaf_tuples = generate_random_leaves(curve_trees, 0, init_leaves);
+
+        test_db.m_db->grow_tree(curve_trees, std::move(init_leaf_tuples));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees, init_leaves), false,
             "failed to add initial leaves to db");
 
         MDEBUG("Successfully added initial " << init_leaves << " leaves to db, extending by "
             << ext_leaves << " leaves");
 
-        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, init_leaves, ext_leaves));
+        auto ext_leaf_tuples = generate_random_leaves(curve_trees, init_leaves, ext_leaves);
+
+        test_db.m_db->grow_tree(curve_trees, std::move(ext_leaf_tuples));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees, init_leaves + ext_leaves), false,
             "failed to extend tree in db");
 
@@ -886,7 +892,9 @@ static bool trim_tree_db(const std::size_t init_leaves,
 
         LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then trimming by " << trim_leaves << " leaves");
 
-        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, 0, init_leaves));
+        auto init_leaf_tuples = generate_random_leaves(curve_trees, 0, init_leaves);
+
+        test_db.m_db->grow_tree(curve_trees, std::move(init_leaf_tuples));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees, init_leaves), false,
             "failed to add initial leaves to db");
 

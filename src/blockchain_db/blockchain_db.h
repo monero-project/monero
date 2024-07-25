@@ -1780,7 +1780,7 @@ public:
 
   // TODO: description and make private
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &new_leaves) = 0;
+    std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves) = 0;
 
   virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples) = 0;
 

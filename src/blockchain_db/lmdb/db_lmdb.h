@@ -369,7 +369,7 @@ public:
 
   // make private
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &new_leaves);
+    std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves);
 
   virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples);
 
@@ -450,7 +450,7 @@ private:
     const uint64_t child_chunk_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_locked_leaf_tuples_at_block_id(uint64_t block_id);
+  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
 
   void del_locked_leaf_tuples_at_block_id(uint64_t block_id);
 
