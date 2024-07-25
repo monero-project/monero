@@ -821,7 +821,7 @@ estim:
 }
 
 void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-    uint64_t num_rct_outs, const crypto::hash& blk_hash, const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &leaf_tuples_by_unlock_height)
+    uint64_t num_rct_outs, const crypto::hash& blk_hash, const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &leaf_tuples_by_unlock_block)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -850,7 +850,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   }
 
   // Grow the tree with outputs that unlock at this block height
-  const auto unlocked_leaf_tuples = this->get_locked_leaf_tuples_at_height(m_height);
+  const auto unlocked_leaf_tuples = this->get_locked_leaf_tuples_at_block_id(m_height);
 
   this->grow_tree(fcmp::curve_trees::curve_trees_v1, unlocked_leaf_tuples);
 
@@ -904,14 +904,14 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   CURSOR(locked_leaves)
 
   // Add the locked leaf tuples from this block to the locked outputs table
-  for (const auto &locked_tuple : leaf_tuples_by_unlock_height)
+  for (const auto &locked_tuple : leaf_tuples_by_unlock_block)
   {
-    MDB_val_set(k_height, locked_tuple.first);
+    MDB_val_set(k_block_id, locked_tuple.first);
     MDB_val_set(v_tuple, locked_tuple.second);
 
     // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
     // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-    result = mdb_cursor_put(m_cur_locked_leaves, &k_height, &v_tuple, MDB_NODUPDATA);
+    result = mdb_cursor_put(m_cur_locked_leaves, &k_block_id, &v_tuple, MDB_NODUPDATA);
     if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
       throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
   }
@@ -2210,8 +2210,8 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
     chunk_width);
 }
 
-std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::get_locked_leaf_tuples_at_height(
-  const uint64_t height)
+std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::get_locked_leaf_tuples_at_block_id(
+  uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2219,7 +2219,7 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
   TXN_PREFIX_RDONLY();
   RCURSOR(locked_leaves)
 
-  MDB_val_set(k_height, height);
+  MDB_val_set(k_block_id, block_id);
   MDB_val v_tuple;
 
   // Get all the locked outputs at that height
@@ -2229,16 +2229,16 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
   MDB_cursor_op op = MDB_SET;
   while (1)
   {
-    int result = mdb_cursor_get(m_cur_locked_leaves, &k_height, &v_tuple, op);
+    int result = mdb_cursor_get(m_cur_locked_leaves, &k_block_id, &v_tuple, op);
     if (result == MDB_NOTFOUND)
       break;
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get next locked outputs: ", result).c_str()));
     op = MDB_NEXT_MULTIPLE;
 
-    const uint64_t h = *(const uint64_t*)k_height.mv_data;
-    if (h != height)
-      throw0(DB_ERROR(("Height " + std::to_string(h) + " not the expected" + std::to_string(height)).c_str()));
+    const uint64_t blk_id = *(const uint64_t*)k_block_id.mv_data;
+    if (blk_id != block_id)
+      throw0(DB_ERROR(("Height " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
 
     const auto range_begin = ((const fcmp::curve_trees::CurveTreesV1::LeafTupleContext*)v_tuple.mv_data);
     const auto range_end = range_begin + v_tuple.mv_size / sizeof(fcmp::curve_trees::CurveTreesV1::LeafTupleContext);
@@ -6839,15 +6839,15 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Get the block in which the output will unlock
-        const uint64_t unlock_height = cryptonote::get_unlock_height(output_data.unlock_time, output_data.height);
+        const uint64_t unlock_block = cryptonote::get_unlock_block_index(output_data.unlock_time, output_data.height);
 
         // Now add the leaf tuple to the locked leaves table
-        MDB_val_set(k_height, unlock_height);
+        MDB_val_set(k_block_id, unlock_block);
         MDB_val_set(v_tuple, tuple_context);
 
         // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-        result = mdb_cursor_put(c_locked_leaves, &k_height, &v_tuple, MDB_NODUPDATA);
+        result = mdb_cursor_put(c_locked_leaves, &k_block_id, &v_tuple, MDB_NODUPDATA);
         if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
         if (result == MDB_KEYEXIST)
@@ -6928,7 +6928,7 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Get all the locked outputs at that height
-        const auto leaf_tuples = this->get_locked_leaf_tuples_at_height(i);
+        const auto leaf_tuples = this->get_locked_leaf_tuples_at_block_id(i);
         this->grow_tree(fcmp::curve_trees::curve_trees_v1, leaf_tuples);
 
         // TODO: Remove locked outputs from the locked outputs table after adding them to tree

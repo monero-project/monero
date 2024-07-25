@@ -390,7 +390,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
-                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_height
+                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_block
                 );
 
   virtual void remove_block();
@@ -450,7 +450,7 @@ private:
     const uint64_t child_chunk_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_locked_leaf_tuples_at_height(const uint64_t height);
+  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_locked_leaf_tuples_at_block_id(uint64_t block_id);
 
   uint64_t num_outputs() const;
 

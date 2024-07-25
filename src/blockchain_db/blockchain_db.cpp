@@ -288,11 +288,11 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   time1 = epee::misc_utils::get_tick_count();
 
   std::vector<std::vector<uint64_t>> output_ids;
-  output_ids.reserve(1 + txs.size());
+  output_ids.reserve(txs.size());
 
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  output_ids.push_back(add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd))));
+  std::vector<uint64_t> miner_output_ids = add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
@@ -314,30 +314,30 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // When adding a block, we also need to add all the leaf tuples included in
   // the block to a table keeping track of locked leaf tuples. Once those leaf
   // tuples unlock, we use them to grow the tree.
-  std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples_by_unlock_height;
+  std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples_by_unlock_block;
 
   // Get miner tx's leaf tuples
   fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
     blk.miner_tx,
-    output_ids[0],
+    miner_output_ids,
     prev_height,
     true/*miner_tx*/,
-    leaf_tuples_by_unlock_height);
+    leaf_tuples_by_unlock_block);
 
   // Get all other txs' leaf tuples
   for (std::size_t i = 0; i < txs.size(); ++i)
   {
     fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
       txs[i].first,
-      output_ids[i+1],
+      output_ids[i],
       prev_height,
       false/*miner_tx*/,
-      leaf_tuples_by_unlock_height);
+      leaf_tuples_by_unlock_block);
   }
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, leaf_tuples_by_unlock_height);
+  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, leaf_tuples_by_unlock_block);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
