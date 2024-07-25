@@ -1643,7 +1643,7 @@ namespace cryptonote
     {
       // The unlock_time in this case is supposed to be the chain height at which the output unlocks
       // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta
-      unlock_block_index = unlock_time > 1 ? (unlock_time - 1) : 0;
+      unlock_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
     }
     else
     {
