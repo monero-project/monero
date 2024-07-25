@@ -105,7 +105,9 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      */
-    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
+      size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+      uint8_t version, uint8_t nic_verified_hf_version = 0);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -120,10 +122,18 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param relayed was this transaction from the network or a local client?
      * @param version the version used to create the transaction
+     * @param nic_verified_hf_version hard fork which "tx" is known to pass non-input consensus test
+     *
+     * If "nic_verified_hf_version" parameter is equal to "version" parameter, then we skip the
+     * asserting `ver_non_input_consensus(tx)`, which greatly speeds up block popping and returning
+     * txs to mempool for txs which we know will pass the test. If nothing is known about how "tx"
+     * passes the non-input consensus tests (e.g. for newly received relayed txs), then leave
+     * "nic_verified_hf_version" as its default value of 0 (there is no v0 fork).
      *
      * @return true if the transaction passes validations, otherwise false
      */
-    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+      uint8_t version, uint8_t nic_verified_hf_version = 0);
 
     /**
      * @brief takes a transaction with the given hash from the pool
