@@ -88,7 +88,7 @@ namespace
         , const uint64_t& coins_generated
         , uint64_t num_rct_outs
         , const crypto::hash& blk_hash
-        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
+        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_height
     ) override
     {
       blocks.push_back({blk, blk_hash});

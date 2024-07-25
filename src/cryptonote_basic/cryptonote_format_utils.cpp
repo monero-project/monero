@@ -1655,8 +1655,10 @@ namespace cryptonote
       {
         const auto seconds_since_unlock = hf_v15_time - unlock_time;
         const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
-        CHECK_AND_ASSERT_THROW_MES(hf_v15_height > blocks_since_unlock, "unexpected blocks since unlock");
-        unlock_height = hf_v15_height - blocks_since_unlock;
+
+        unlock_height = hf_v15_height >= blocks_since_unlock
+          ? (hf_v15_height - blocks_since_unlock)
+          : default_unlock_height;
       }
       else
       {

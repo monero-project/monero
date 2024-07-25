@@ -188,6 +188,14 @@ struct txpool_tx_meta_t
   }
 };
 
+/**
+ * @brief a struct containing output indexes for convenience
+ */
+struct output_indexes_t
+{
+  uint64_t amount_index;
+  uint64_t output_id;
+};
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
@@ -408,7 +416,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
-                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
+                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_height
                 ) = 0;
 
   /**
@@ -473,8 +481,9 @@ private:
    * future, this tracking (of the number, at least) should be moved to
    * this class, as it is necessary and the same among all BlockchainDB.
    *
-   * It returns an amount output index, which is the index of the output
-   * for its specified amount.
+   * It returns the output indexes, which contains an amount output index (the
+   * index of the output for its specified amount) and output id (the global
+   * index of the output among all outputs of any amount).
    *
    * This data should be stored in such a manner that the only thing needed to
    * reverse the process is the tx_out.
@@ -487,9 +496,9 @@ private:
    * @param local_index index of the output in its transaction
    * @param unlock_time unlock time/height of the output
    * @param commitment the rct commitment to the output amount
-   * @return amount output index
+   * @return output indexes
    */
-  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
+  virtual output_indexes_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
 
   /**
    * @brief store amount output indices for a tx's outputs
@@ -570,8 +579,10 @@ protected:
    * @param tx the transaction to add
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
+   *
+   * @return the global output ids of all outputs inserted
    */
-  void add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  std::vector<uint64_t> add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -1396,17 +1407,6 @@ public:
    */
   virtual uint64_t get_num_outputs(const uint64_t& amount) const = 0;
 
-  // returns the total number of global outputs
-  /**
-   * @brief fetches the total number of global outputs
-   *
-   * The subclass should return a count of all outputs,
-   * or zero if there are none.
-   *   *
-   * @return the number of global outputs
-   */
-  virtual uint64_t get_num_global_outputs() const = 0;
-
   /**
    * @brief return index of the first element (should be hidden, but isn't)
    *
@@ -1780,7 +1780,7 @@ public:
 
   // TODO: description and make private
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves) = 0;
+    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &new_leaves) = 0;
 
   virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples) = 0;
 

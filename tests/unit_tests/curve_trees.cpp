@@ -730,13 +730,14 @@ void CurveTreesGlobalTree::log_tree()
 //----------------------------------------------------------------------------------------------------------------------
 // Test helpers
 //----------------------------------------------------------------------------------------------------------------------
-static const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const CurveTreesV1 &curve_trees,
-    const std::size_t num_leaves)
+static const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
+    const std::size_t old_n_leaf_tuples,
+    const std::size_t new_n_leaf_tuples)
 {
-    std::vector<CurveTreesV1::LeafTuple> tuples;
-    tuples.reserve(num_leaves);
+    std::vector<CurveTreesV1::LeafTupleContext> tuples;
+    tuples.reserve(new_n_leaf_tuples);
 
-    for (std::size_t i = 0; i < num_leaves; ++i)
+    for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
     {
         // Generate random output tuple
         crypto::secret_key o,c;
@@ -746,7 +747,10 @@ static const std::vector<CurveTreesV1::LeafTuple> generate_random_leaves(const C
 
         auto leaf_tuple = curve_trees.output_to_leaf_tuple(O, C);
 
-        tuples.emplace_back(std::move(leaf_tuple));
+        tuples.emplace_back(fcmp::curve_trees::CurveTreesV1::LeafTupleContext{
+                .output_id  = old_n_leaf_tuples + i,
+                .leaf_tuple = std::move(leaf_tuple),
+            });
     }
 
     return tuples;
@@ -775,7 +779,7 @@ static bool grow_tree(CurveTreesV1 &curve_trees,
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
     const auto tree_extension = curve_trees.get_tree_extension(old_n_leaf_tuples,
         last_hashes,
-        generate_random_leaves(curve_trees, new_n_leaf_tuples));
+        generate_random_leaves(curve_trees, old_n_leaf_tuples, new_n_leaf_tuples));
 
     global_tree.log_tree_extension(tree_extension);
 
@@ -852,14 +856,14 @@ static bool grow_tree_db(const std::size_t init_leaves,
 
         LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then extending by " << ext_leaves << " leaves");
 
-        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, init_leaves));
+        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, 0, init_leaves));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees, init_leaves), false,
             "failed to add initial leaves to db");
 
         MDEBUG("Successfully added initial " << init_leaves << " leaves to db, extending by "
             << ext_leaves << " leaves");
 
-        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, ext_leaves));
+        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, init_leaves, ext_leaves));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees, init_leaves + ext_leaves), false,
             "failed to extend tree in db");
 
@@ -881,7 +885,7 @@ static bool trim_tree_db(const std::size_t init_leaves,
 
         LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then trimming by " << trim_leaves << " leaves");
 
-        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, init_leaves));
+        test_db.m_db->grow_tree(curve_trees, generate_random_leaves(curve_trees, 0, init_leaves));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(curve_trees, init_leaves), false,
             "failed to add initial leaves to db");
 

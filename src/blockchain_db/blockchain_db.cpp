@@ -179,7 +179,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+std::vector<uint64_t> BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   const transaction &tx = txp.first;
 
@@ -223,7 +223,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
 
   uint64_t tx_id = add_transaction_data(blk_hash, txp, tx_hash, tx_prunable_hash);
 
-  std::vector<uint64_t> amount_output_indices(tx.vout.size());
+  std::vector<output_indexes_t> output_indices(tx.vout.size());
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
   // we need the index
@@ -231,21 +231,35 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
   {
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
+    // note: tx_outs_to_leaf_tuples in curve_trees.cpp mirrors this logic
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
       rct::key commitment = rct::zeroCommit(vout.amount);
       vout.amount = 0;
-      amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
+      output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
         &commitment);
     }
     else
     {
-      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
+      output_indices[i] = add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
+
+  std::vector<uint64_t> amount_output_indices;
+  std::vector<uint64_t> output_ids;
+  amount_output_indices.reserve(output_indices.size());
+  output_ids.reserve(output_indices.size());
+  for (const auto &o_idx : output_indices)
+  {
+    amount_output_indices.push_back(o_idx.amount_index);
+    output_ids.push_back(o_idx.output_id);
+  }
+
   add_tx_amount_output_indices(tx_id, amount_output_indices);
+
+  return output_ids;
 }
 
 uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
@@ -273,9 +287,12 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   time1 = epee::misc_utils::get_tick_count();
 
+  std::vector<std::vector<uint64_t>> output_ids;
+  output_ids.reserve(1 + txs.size());
+
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
+  output_ids.push_back(add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd))));
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
@@ -283,7 +300,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    add_transaction(blk_hash, tx, &tx_hash);
+    output_ids.push_back(add_transaction(blk_hash, tx, &tx_hash));
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
@@ -297,20 +314,22 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // When adding a block, we also need to add all the leaf tuples included in
   // the block to a table keeping track of locked leaf tuples. Once those leaf
   // tuples unlock, we use them to grow the tree.
-  std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples_by_unlock_height;
+  std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples_by_unlock_height;
 
   // Get miner tx's leaf tuples
   fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
     blk.miner_tx,
+    output_ids[0],
     prev_height,
     true/*miner_tx*/,
     leaf_tuples_by_unlock_height);
 
   // Get all other txs' leaf tuples
-  for (const auto &txp : txs)
+  for (std::size_t i = 0; i < txs.size(); ++i)
   {
     fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
-      txp.first,
+      txs[i].first,
+      output_ids[i+1],
       prev_height,
       false/*miner_tx*/,
       leaf_tuples_by_unlock_height);
