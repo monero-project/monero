@@ -278,7 +278,6 @@ public:
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
-  virtual uint64_t get_num_global_outputs() const;
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const;
@@ -370,7 +369,7 @@ public:
 
   // make private
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves);
+    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &new_leaves);
 
   virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples);
 
@@ -391,7 +390,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
-                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
+                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_height
                 );
 
   virtual void remove_block();
@@ -400,7 +399,7 @@ private:
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
-  virtual uint64_t add_output(const crypto::hash& tx_hash,
+  virtual output_indexes_t add_output(const crypto::hash& tx_hash,
       const tx_out& tx_output,
       const uint64_t& local_index,
       const uint64_t unlock_time,
@@ -451,7 +450,7 @@ private:
     const uint64_t child_chunk_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> get_locked_leaf_tuples_at_height(const uint64_t height);
+  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_locked_leaf_tuples_at_height(const uint64_t height);
 
   uint64_t num_outputs() const;
 
@@ -546,6 +545,8 @@ private:
 
   mdb_txn_cursors m_wcursors;
   mutable boost::thread_specific_ptr<mdb_threadinfo> m_tinfo;
+
+  // TODO: m_curve_trees
 
 #if defined(__arm__)
   // force a value so it can compile with 32-bit ARM

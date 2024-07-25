@@ -164,6 +164,14 @@ public:
     static const uint64_t LEAF_TUPLE_SIZE = 3;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
+    // Contextual wrapper for leaf tuple
+    struct LeafTupleContext final
+    {
+        // Global output ID useful to order the leaf tuple for insertion into the tree
+        uint64_t output_id;
+        LeafTuple leaf_tuple;
+    };
+
     // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
     struct Leaves final
     {
@@ -221,15 +229,16 @@ public:
 
     // Convert cryptonote tx outs to leaf tuples, grouped by the leaf tuple unlock height
     void tx_outs_to_leaf_tuples(const cryptonote::transaction &tx,
+        const std::vector<uint64_t> &output_ids,
         const uint64_t tx_height,
         const bool miner_tx,
-        std::multimap<uint64_t, LeafTuple> &leaf_tuples_by_unlock_height_inout) const;
+        std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_height_inout) const;
 
     // Take in the existing number of leaf tuples and the existing last hashes of each layer in the tree, as well as new
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        const std::vector<LeafTuple> &new_leaf_tuples) const;
+        const std::vector<LeafTupleContext> &new_leaf_tuples) const;
 
     // Get instructions useful for trimming all existing layers in the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(

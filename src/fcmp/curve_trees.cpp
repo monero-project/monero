@@ -630,25 +630,27 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::output_to_leaf
     const crypto::public_key &output_pubkey,
     const crypto::public_key &commitment) const
 {
-    CHECK_AND_ASSERT_THROW_MES(crypto::check_key(output_pubkey), "invalid output pub key");
+    if (!crypto::check_key(output_pubkey))
+        throw std::runtime_error("invalid output pub key");
 
-    const auto clear_torsion = [](const crypto::public_key &key)
+    const auto clear_torsion = [](const crypto::public_key &key, const std::string &s)
     {
         // TODO: don't need to decompress and recompress points, can be optimized
         rct::key torsion_cleared_key = rct::scalarmultKey(rct::pk2rct(key), rct::INV_EIGHT);
         torsion_cleared_key = rct::scalarmult8(torsion_cleared_key);
 
-        CHECK_AND_ASSERT_THROW_MES(torsion_cleared_key != rct::I, "cannot equal identity");
+        if (torsion_cleared_key == rct::I)
+            throw std::runtime_error(s + " cannot equal identity");
 
         return torsion_cleared_key;
     };
 
     // Torsion clear the output pub key and commitment
-    const rct::key rct_O = clear_torsion(output_pubkey);
-    const rct::key rct_C = clear_torsion(commitment);
+    const rct::key rct_O = clear_torsion(output_pubkey, "output pub key");
+    const rct::key rct_C = clear_torsion(commitment, "commitment");
 
-    const crypto::public_key O = rct::rct2pk(rct_O);
-    const crypto::public_key C = rct::rct2pk(rct_C);
+    const crypto::public_key &O = rct::rct2pk(rct_O);
+    const crypto::public_key &C = rct::rct2pk(rct_C);
 
     crypto::ec_point I;
     crypto::derive_key_image_generator(O, I);
@@ -679,11 +681,14 @@ std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(const std::v
 //----------------------------------------------------------------------------------------------------------------------
 template <>
 void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transaction &tx,
+    const std::vector<uint64_t> &output_ids,
     const uint64_t tx_height,
     const bool miner_tx,
-    std::multimap<uint64_t, CurveTrees<Helios, Selene>::LeafTuple> &leaf_tuples_by_unlock_height_inout) const
+    std::multimap<uint64_t, CurveTrees<Helios, Selene>::LeafTupleContext> &leaf_tuples_by_unlock_height_inout) const
 {
     const uint64_t unlock_height = cryptonote::get_unlock_height(tx.unlock_time, tx_height);
+
+    CHECK_AND_ASSERT_THROW_MES(tx.vout.size() == output_ids.size(), "unexpected size of output ids");
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
@@ -693,7 +698,13 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
         if (!cryptonote::get_output_public_key(out, output_public_key))
             throw std::runtime_error("Could not get an output public key from a tx output.");
 
-        const rct::key commitment = (miner_tx || tx.version < 2)
+        static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
+            "Revisit this section and update for the new tx version.");
+
+        if (!miner_tx && tx.version == 2)
+            CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
+
+        const rct::key commitment = (miner_tx || tx.version != 2)
             ? rct::zeroCommit(out.amount)
             : tx.rct_signatures.outPk[i].mask;
 
@@ -704,7 +715,12 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
                 output_public_key,
                 rct::rct2pk(commitment));
 
-            leaf_tuples_by_unlock_height_inout.emplace(unlock_height, std::move(leaf_tuple));
+            auto tuple_context = CurveTrees<Helios, Selene>::LeafTupleContext{
+                    .output_id  = output_ids[i],
+                    .leaf_tuple = std::move(leaf_tuple),
+                };
+
+            leaf_tuples_by_unlock_height_inout.emplace(unlock_height, std::move(tuple_context));
         }
         catch (...)
         { /*continue*/ };
@@ -715,7 +731,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    const std::vector<LeafTuple> &new_leaf_tuples) const
+    const std::vector<LeafTupleContext> &new_leaf_tuples) const
 {
     TreeExtension tree_extension;
 
@@ -730,15 +746,21 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
     tree_extension.leaves.start_leaf_tuple_idx = grow_layer_instructions.old_total_children / LEAF_TUPLE_SIZE;
 
-    // Copy the leaves
+    // Sort the leaves by order they appear in the chain
+    // TODO: don't copy here
+    std::vector<LeafTupleContext> sorted_leaf_tuples = new_leaf_tuples;
+    const auto sort_fn = [](const LeafTupleContext &a, const LeafTupleContext &b) { return a.output_id < b.output_id; };
+    std::sort(sorted_leaf_tuples.begin(), sorted_leaf_tuples.end(), sort_fn);
+
+    // Copy the sorted leaves into the tree extension struct
     // TODO: don't copy here
     tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
-    for (const auto &leaf : new_leaf_tuples)
+    for (const auto &leaf : sorted_leaf_tuples)
     {
         tree_extension.leaves.tuples.emplace_back(LeafTuple{
-            .O_x = leaf.O_x,
-            .I_x = leaf.I_x,
-            .C_x = leaf.C_x
+            .O_x = leaf.leaf_tuple.O_x,
+            .I_x = leaf.leaf_tuple.I_x,
+            .C_x = leaf.leaf_tuple.C_x
         });
     }
 
@@ -751,7 +773,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
             grow_layer_instructions.need_old_last_parent ? &existing_last_hashes.c2_last_hashes[0] : nullptr,
             grow_layer_instructions.start_offset,
             grow_layer_instructions.next_parent_start_index,
-            this->flatten_leaves(new_leaf_tuples),
+            this->flatten_leaves(tree_extension.leaves.tuples),
             m_leaf_layer_chunk_width
         );
 

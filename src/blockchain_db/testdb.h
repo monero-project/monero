@@ -100,7 +100,6 @@ public:
   virtual std::vector<cryptonote::transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const override { return std::vector<cryptonote::transaction>(); }
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const override { return 0; }
   virtual uint64_t get_num_outputs(const uint64_t& amount) const override { return 1; }
-  virtual uint64_t get_num_global_outputs() const override { return 1; }
   virtual uint64_t get_indexing_base() const override { return 0; }
   virtual cryptonote::output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const override { return cryptonote::output_data_t(); }
   virtual cryptonote::tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const override { return cryptonote::tx_out_index(); }
@@ -113,12 +112,12 @@ public:
   virtual void remove_block() override { }
   virtual uint64_t add_transaction_data(const crypto::hash& blk_hash, const std::pair<cryptonote::transaction, cryptonote::blobdata_ref>& tx, const crypto::hash& tx_hash, const crypto::hash& tx_prunable_hash) override {return 0;}
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const cryptonote::transaction& tx) override {}
-  virtual uint64_t add_output(const crypto::hash& tx_hash, const cryptonote::tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) override {return 0;}
+  virtual output_indexes_t add_output(const crypto::hash& tx_hash, const cryptonote::tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) override {return {0, 0};}
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) override {}
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
   virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTuple> &new_leaves) override {};
+    const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &new_leaves) override {};
   virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples) override {};
   virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t expected_n_leaf_tuples) const override { return false; };
 
@@ -149,7 +148,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTuple>& leaf_tuples_by_unlock_height
+                        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_height
                         ) override { }
   virtual cryptonote::block get_block_from_height(const uint64_t& height) const override { return cryptonote::block(); }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {}
