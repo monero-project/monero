@@ -148,7 +148,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_height
+                        , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_block
                         ) override { }
   virtual cryptonote::block get_block_from_height(const uint64_t& height) const override { return cryptonote::block(); }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {}

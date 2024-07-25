@@ -232,7 +232,7 @@ public:
         const std::vector<uint64_t> &output_ids,
         const uint64_t tx_height,
         const bool miner_tx,
-        std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_height_inout) const;
+        std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const;
 
     // Take in the existing number of leaf tuples and the existing last hashes of each layer in the tree, as well as new
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree

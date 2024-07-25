@@ -684,9 +684,9 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
     const std::vector<uint64_t> &output_ids,
     const uint64_t tx_height,
     const bool miner_tx,
-    std::multimap<uint64_t, CurveTrees<Helios, Selene>::LeafTupleContext> &leaf_tuples_by_unlock_height_inout) const
+    std::multimap<uint64_t, CurveTrees<Helios, Selene>::LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const
 {
-    const uint64_t unlock_height = cryptonote::get_unlock_height(tx.unlock_time, tx_height);
+    const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, tx_height);
 
     CHECK_AND_ASSERT_THROW_MES(tx.vout.size() == output_ids.size(), "unexpected size of output ids");
 
@@ -708,22 +708,23 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
             ? rct::zeroCommit(out.amount)
             : tx.rct_signatures.outPk[i].mask;
 
+        CurveTrees<Helios, Selene>::LeafTupleContext tuple_context;
+        tuple_context.output_id = output_ids[i];
+    
         try
         {
-            // Throws an error if output is invalid; we don't want leaf tuples from invalid outputs
-            auto leaf_tuple = output_to_leaf_tuple(
+            // Convert output to leaf tuple; throws if output is invalid
+            tuple_context.leaf_tuple = output_to_leaf_tuple(
                 output_public_key,
                 rct::rct2pk(commitment));
-
-            auto tuple_context = CurveTrees<Helios, Selene>::LeafTupleContext{
-                    .output_id  = output_ids[i],
-                    .leaf_tuple = std::move(leaf_tuple),
-                };
-
-            leaf_tuples_by_unlock_height_inout.emplace(unlock_height, std::move(tuple_context));
         }
         catch (...)
-        { /*continue*/ };
+        {
+            // We don't want leaf tuples from invalid outputs in the tree
+            continue;
+        };
+
+        leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(tuple_context));
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

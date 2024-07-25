@@ -828,7 +828,8 @@ static bool trim_tree_in_memory(const std::size_t trim_n_leaf_tuples,
     CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
 
     // Trim the global tree by `trim_n_leaf_tuples`
-    LOG_PRINT_L1("Trimming " << trim_n_leaf_tuples << " leaf tuples from tree");
+    LOG_PRINT_L1("Trimming " << trim_n_leaf_tuples << " leaf tuples from tree with "
+        << old_n_leaf_tuples << " leaves in memory");
 
     global_tree.trim_tree(trim_n_leaf_tuples);
 
