@@ -176,7 +176,7 @@ pub extern "C" fn hash_trim_helios(
     offset: usize,
     children: HeliosScalarSlice,
     child_to_grow_back: HeliosScalar,
-) -> CResult<HeliosPoint, io::Error> {
+) -> CResult<HeliosPoint, ()> {
     let hash = hash_trim(
         helios_generators(),
         existing_hash,
@@ -188,10 +188,7 @@ pub extern "C" fn hash_trim_helios(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
-        CResult::err(
-            HeliosPoint::identity(),
-            io::Error::new(io::ErrorKind::Other, "failed to trim hash"),
-        )
+        CResult::err(())
     }
 }
 
@@ -223,7 +220,7 @@ pub extern "C" fn hash_trim_selene(
     offset: usize,
     children: SeleneScalarSlice,
     child_to_grow_back: SeleneScalar,
-) -> CResult<SelenePoint, io::Error> {
+) -> CResult<SelenePoint, ()> {
     let hash = hash_trim(
         selene_generators(),
         existing_hash,
@@ -235,10 +232,7 @@ pub extern "C" fn hash_trim_selene(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
-        CResult::err(
-            SelenePoint::identity(),
-            io::Error::new(io::ErrorKind::Other, "failed to trim hash"),
-        )
+        CResult::err(())
     }
 }
 
