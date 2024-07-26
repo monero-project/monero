@@ -591,12 +591,14 @@ protected:
 
   HardFork* m_hardfork;
 
+  fcmp::curve_trees::CurveTreesV1* m_curve_trees;
+
 public:
 
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees(NULL) { }
 
   /**
    * @brief An empty destructor.
@@ -1780,13 +1782,12 @@ public:
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
   // TODO: description and make private
-  virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves) = 0;
+  virtual void grow_tree(std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves) = 0;
 
-  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples) = 0;
+  virtual void trim_tree(const uint64_t trim_n_leaf_tuples) = 0;
 
   // TODO: description
-  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t expected_n_leaf_tuples) const = 0;
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
 
   //
   // Hard fork related storage

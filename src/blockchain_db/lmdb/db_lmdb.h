@@ -193,7 +193,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=true);
+  BlockchainLMDB(bool batch_transactions=true, fcmp::curve_trees::CurveTreesV1 *curve_trees=&fcmp::curve_trees::CURVE_TREES_V1);
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -367,13 +367,11 @@ public:
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
   // make private
-  virtual void grow_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves);
+  virtual void grow_tree(std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves);
 
-  virtual void trim_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees, const uint64_t trim_n_leaf_tuples);
+  virtual void trim_tree(const uint64_t trim_n_leaf_tuples);
 
-  virtual bool audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_trees,
-    const uint64_t expected_n_leaf_tuples) const;
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -435,7 +433,6 @@ private:
   fcmp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
   fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
-    const fcmp::curve_trees::CurveTreesV1 &curve_trees,
     const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
   fcmp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(
@@ -546,8 +543,6 @@ private:
 
   mdb_txn_cursors m_wcursors;
   mutable boost::thread_specific_ptr<mdb_threadinfo> m_tinfo;
-
-  // TODO: m_curve_trees
 
 #if defined(__arm__)
   // force a value so it can compile with 32-bit ARM
