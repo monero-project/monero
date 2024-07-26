@@ -34,6 +34,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "fcmp/curve_trees.h"
 #include "misc_log_ex.h"
 
 #include <atomic>
@@ -83,10 +84,10 @@ namespace unit_test
       remove_files();
     }
 
-    void init_new_db()
+    void init_new_db(fcmp::curve_trees::CurveTreesV1 *curve_trees)
     {
       CHECK_AND_ASSERT_THROW_MES(this->m_db == nullptr, "expected nullptr m_db");
-      this->m_db = new cryptonote::BlockchainLMDB();
+      this->m_db = new cryptonote::BlockchainLMDB(true/*batch_transactions*/, curve_trees);
 
       const auto temp_db_path = boost::filesystem::unique_path();
       const std::string dir_path = m_temp_db_dir + temp_db_path.string();
@@ -111,8 +112,8 @@ namespace unit_test
   };
 }
 
-#define INIT_BLOCKCHAIN_LMDB_TEST_DB() \
-  test_db.init_new_db(); \
+#define INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees) \
+  test_db.init_new_db(curve_trees); \
   auto hardfork = cryptonote::HardFork(*test_db.m_db, 1, 0); \
   test_db.init_hardfork(&hardfork); \
   auto scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \

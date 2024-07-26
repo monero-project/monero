@@ -317,7 +317,8 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples_by_unlock_block;
 
   // Get miner tx's leaf tuples
-  fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
+  CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");
+  m_curve_trees->tx_outs_to_leaf_tuples(
     blk.miner_tx,
     miner_output_ids,
     prev_height,
@@ -327,7 +328,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // Get all other txs' leaf tuples
   for (std::size_t i = 0; i < txs.size(); ++i)
   {
-    fcmp::curve_trees::curve_trees_v1.tx_outs_to_leaf_tuples(
+    m_curve_trees->tx_outs_to_leaf_tuples(
       txs[i].first,
       output_ids[i],
       prev_height,
