@@ -115,12 +115,17 @@ CResult hash_grow_helios(HeliosPoint existing_hash,
                                              HeliosScalar existing_child_at_offset,
                                              HeliosScalarSlice new_children);
 
+CResult hash_trim_helios(HeliosPoint existing_hash,
+                                             uintptr_t offset,
+                                             HeliosScalarSlice children,
+                                             HeliosScalar child_to_grow_back);
+
 CResult hash_grow_selene(SelenePoint existing_hash,
                                              uintptr_t offset,
                                              SeleneScalar existing_child_at_offset,
                                              SeleneScalarSlice new_children);
 
-CResult<SelenePoint> hash_trim_selene(SelenePoint existing_hash,
+CResult hash_trim_selene(SelenePoint existing_hash,
                                              uintptr_t offset,
                                              SeleneScalarSlice children,
                                              SeleneScalar child_to_grow_back);
