@@ -64,7 +64,7 @@ Helios::Point Helios::hash_grow(
     }
 
     typename Helios::Point res;
-    memcpy(&res, result.value, sizeof(typename Selene::Point));
+    memcpy(&res, result.value, sizeof(typename Helios::Point));
     free(result.value);
     return res;
 }
@@ -75,15 +75,22 @@ Helios::Point Helios::hash_trim(
     const Helios::Chunk &children,
     const Helios::Scalar &child_to_grow_back) const
 {
-    fcmp_rust::CResult<Helios::Point> res = fcmp_rust::hash_trim_helios(
+    auto result = fcmp_rust::hash_trim_helios(
         existing_hash,
         offset,
         children,
         child_to_grow_back);
-    if (res.err != 0) {
-      throw std::runtime_error("failed to hash trim");
+
+    if (result.err != nullptr)
+    {
+        free(result.err);
+        throw std::runtime_error("failed to hash trim");
     }
-    return res.value;
+
+    typename Helios::Point res;
+    memcpy(&res, result.value, sizeof(typename Helios::Point));
+    free(result.value);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_grow(
@@ -116,15 +123,22 @@ Selene::Point Selene::hash_trim(
     const Selene::Chunk &children,
     const Selene::Scalar &child_to_grow_back) const
 {
-    fcmp_rust::CResult<Selene::Point> res = fcmp_rust::hash_trim_selene(
+    auto result = fcmp_rust::hash_trim_selene(
         existing_hash,
         offset,
         children,
         child_to_grow_back);
-    if (res.err != 0) {
-      throw std::runtime_error("failed to hash trim");
+
+    if (result.err != nullptr)
+    {
+        free(result.err);
+        throw std::runtime_error("failed to hash trim");
     }
-    return res.value;
+
+    typename Selene::Point res;
+    memcpy(&res, result.value, sizeof(typename Selene::Point));
+    free(result.value);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Scalar Helios::zero_scalar() const
