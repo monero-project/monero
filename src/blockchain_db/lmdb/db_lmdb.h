@@ -27,7 +27,6 @@
 #pragma once
 
 #include <atomic>
-#include <map>
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata

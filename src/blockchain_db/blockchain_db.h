@@ -32,6 +32,7 @@
 
 #include <string>
 #include <exception>
+#include <map>
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
