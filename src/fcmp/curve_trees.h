@@ -70,7 +70,7 @@ struct LayerReduction final
 struct GrowLayerInstructions final
 {
     // The max chunk width of children used to hash into a parent
-    uint64_t parent_chunk_width;
+    std::size_t parent_chunk_width;
 
     // Total children refers to the total number of elements in a layer
     uint64_t old_total_children;
@@ -90,7 +90,7 @@ struct GrowLayerInstructions final
     bool need_old_last_parent;
 
     // The first chunk that needs to be updated's first child's offset within that chunk
-    uint64_t start_offset;
+    std::size_t start_offset;
     // The parent's starting index in the layer
     uint64_t next_parent_start_index;
 };
@@ -99,7 +99,7 @@ struct GrowLayerInstructions final
 struct TrimLayerInstructions final
 {
     // The max chunk width of children used to hash into a parent
-    uint64_t parent_chunk_width;
+    std::size_t parent_chunk_width;
 
     // Total children refers to the total number of elements in a layer
     uint64_t old_total_children;
@@ -122,7 +122,7 @@ struct TrimLayerInstructions final
     bool need_new_last_child;
 
     // The offset to use when hashing the last chunk
-    uint64_t hash_offset;
+    std::size_t hash_offset;
 
     // The starting and ending indexes of the children we're going to need to trim the last chunk
     uint64_t start_trim_idx;
@@ -161,7 +161,7 @@ public:
         // Commitment x-coordinate
         typename C2::Scalar C_x;
     };
-    static const uint64_t LEAF_TUPLE_SIZE = 3;
+    static const std::size_t LEAF_TUPLE_SIZE = 3;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
     // Contextual wrapper for leaf tuple
@@ -261,8 +261,8 @@ private:
         const GrowLayerInstructions &prev_layer_instructions,
         const bool parent_is_c1,
         const LastHashes &last_hashes,
-        uint64_t &c1_last_idx_inout,
-        uint64_t &c2_last_idx_inout,
+        std::size_t &c1_last_idx_inout,
+        std::size_t &c2_last_idx_inout,
         TreeExtension &tree_extension_inout) const;
 
 //public member variables
@@ -272,11 +272,11 @@ public:
     const C2 &m_c2;
 
     // The leaf layer has a distinct chunk width than the other layers
-    const uint64_t m_leaf_layer_chunk_width;
+    const std::size_t m_leaf_layer_chunk_width;
 
     // The chunk widths of the layers in the tree tied to each curve
-    const uint64_t m_c1_width;
-    const uint64_t m_c2_width;
+    const std::size_t m_c1_width;
+    const std::size_t m_c2_width;
 };
 //----------------------------------------------------------------------------------------------------------------------
 using Helios       = tower_cycle::Helios;
@@ -285,8 +285,8 @@ using CurveTreesV1 = CurveTrees<Helios, Selene>;
 
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob
 //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
-static const uint64_t HELIOS_CHUNK_WIDTH = 38;
-static const uint64_t SELENE_CHUNK_WIDTH = 18;
+static const std::size_t HELIOS_CHUNK_WIDTH = 38;
+static const std::size_t SELENE_CHUNK_WIDTH = 18;
 static const Helios HELIOS;
 static const Selene SELENE;
 static const CurveTreesV1 curve_trees_v1(HELIOS, SELENE, HELIOS_CHUNK_WIDTH, SELENE_CHUNK_WIDTH);

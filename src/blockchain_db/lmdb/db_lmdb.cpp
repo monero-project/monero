@@ -2039,7 +2039,7 @@ bool BlockchainLMDB::audit_tree(const fcmp::curve_trees::CurveTreesV1 &curve_tre
       throw0(DB_ERROR(lmdb_error("Failed to get parent in first layer: ", result).c_str()));
 
     // Get the expected leaf chunk hash
-    const auto leaves = curve_trees.flatten_leaves(leaf_tuples_chunk);
+    const std::vector<fcmp::curve_trees::Selene::Scalar> leaves = curve_trees.flatten_leaves(leaf_tuples_chunk);
     const fcmp::curve_trees::Selene::Chunk chunk{leaves.data(), leaves.size()};
 
     // Hash the chunk of leaves
@@ -6828,6 +6828,7 @@ void BlockchainLMDB::migrate_5_6()
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to get a record from output amounts: ", result).c_str()));
 
+        // Read the output data
         uint64_t amount = *(const uint64_t*)k.mv_data;
         output_data_t output_data;
         fcmp::curve_trees::CurveTreesV1::LeafTupleContext tuple_context;
