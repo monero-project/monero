@@ -78,6 +78,22 @@ pub extern "C" fn selene_point_to_bytes(selene_point: SelenePoint) -> *const u8 
     c_u8_32(selene_point.to_bytes())
 }
 
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn helios_point_from_bytes(helios_point: *const u8) -> HeliosPoint {
+    let mut helios_point = unsafe { core::slice::from_raw_parts(helios_point, 32) };
+    // TODO: Return an error here (instead of unwrapping)
+    <Helios>::read_G(&mut helios_point).unwrap()
+}
+
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[no_mangle]
+pub extern "C" fn selene_point_from_bytes(selene_point: *const u8) -> SelenePoint {
+    let mut selene_point = unsafe { core::slice::from_raw_parts(selene_point, 32) };
+    // TODO: Return an error here (instead of unwrapping)
+    <Selene>::read_G(&mut selene_point).unwrap()
+}
+
 // Get the x coordinate of the ed25519 point
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
