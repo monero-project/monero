@@ -346,7 +346,7 @@ endif()
 if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
   set(OPT_FLAGS_RELEASE "-O2")
 else()
-  set(OPT_FLAGS_RELEASE "-O3")
+  set(OPT_FLAGS_RELEASE "-O3 -ffast-math")
 endif()
 
 # BUILD_TAG is used to select the build type to check for a new version
