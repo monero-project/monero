@@ -37,7 +37,6 @@
 #include <vector>
 
 
-
 namespace fcmp
 {
 namespace curve_trees
