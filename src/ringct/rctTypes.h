@@ -501,8 +501,8 @@ namespace rct {
 
           if (type == RCTTypeFcmpPlusPlus)
           {
-            ar.begin_object();
             ar.tag("fcmp_pp");
+            ar.begin_object();
             const std::size_t proof_len = fcmp::get_fcmp_pp_len_from_n_inputs(inputs);
             PREPARE_CUSTOM_VECTOR_SERIALIZATION(proof_len, fcmp_pp);
             if (fcmp_pp.size() != proof_len)
