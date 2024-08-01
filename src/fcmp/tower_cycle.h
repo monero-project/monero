@@ -94,6 +94,8 @@ public:
     virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Scalar &scalar) const = 0;
     virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Point &point) const = 0;
 
+    virtual typename C::Point from_bytes(const std::array<uint8_t, 32UL> &bytes) const = 0;
+
     virtual std::string to_string(const typename C::Scalar &scalar) const = 0;
     virtual std::string to_string(const typename C::Point &point) const = 0;
 
@@ -139,6 +141,8 @@ public:
     std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
     std::array<uint8_t, 32UL> to_bytes(const Point &point) const override;
 
+    Point from_bytes(const std::array<uint8_t, 32UL> &bytes) const override;
+
     std::string to_string(const Scalar &scalar) const override;
     std::string to_string(const Point &point) const override;
 };
@@ -178,6 +182,8 @@ public:
 
     std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
     std::array<uint8_t, 32UL> to_bytes(const Point &point) const override;
+
+    Point from_bytes(const std::array<uint8_t, 32UL> &bytes) const override;
 
     std::string to_string(const Scalar &scalar) const override;
     std::string to_string(const Point &point) const override;

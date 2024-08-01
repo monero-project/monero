@@ -100,6 +100,10 @@ uint8_t *helios_point_to_bytes(HeliosPoint helios_point);
 
 uint8_t *selene_point_to_bytes(SelenePoint selene_point);
 
+HeliosPoint helios_point_from_bytes(const uint8_t *helios_point_bytes);
+
+SelenePoint selene_point_from_bytes(const uint8_t *selene_point_bytes);
+
 SeleneScalar ed25519_point_to_selene_scalar(const uint8_t *ed25519_point);
 
 HeliosScalar selene_point_to_helios_scalar(SelenePoint selene_point);

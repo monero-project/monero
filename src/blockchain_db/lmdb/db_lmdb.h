@@ -425,7 +425,9 @@ private:
     const uint64_t layer_idx);
 
   template<typename C>
-  void trim_layer(const fcmp::curve_trees::LayerReduction<C> &layer_reduction, const uint64_t layer_idx);
+  void trim_layer(const C &curve,
+    const fcmp::curve_trees::LayerReduction<C> &layer_reduction,
+    const uint64_t layer_idx);
 
   uint64_t get_num_leaf_tuples() const;
 

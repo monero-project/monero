@@ -187,6 +187,16 @@ std::array<uint8_t, 32UL> Selene::to_bytes(const Selene::Point &point) const
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
+Helios::Point Helios::from_bytes(const std::array<uint8_t, 32UL> &bytes) const
+{
+    return fcmp_rust::helios_point_from_bytes(bytes.data());
+}
+//----------------------------------------------------------------------------------------------------------------------
+Selene::Point Selene::from_bytes(const std::array<uint8_t, 32UL> &bytes) const
+{
+    return fcmp_rust::selene_point_from_bytes(bytes.data());
+}
+//----------------------------------------------------------------------------------------------------------------------
 std::string Helios::to_string(const typename Helios::Scalar &scalar) const
 {
     return epee::string_tools::pod_to_hex(this->to_bytes(scalar));

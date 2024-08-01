@@ -913,7 +913,6 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
             ++c1_idx;
         }
 
-
         use_c2 = !use_c2;
     }
 
