@@ -504,7 +504,8 @@ namespace rct {
             ar.tag("fcmp_pp");
             ar.begin_object();
             const std::size_t proof_len = fcmp::get_fcmp_pp_len_from_n_inputs(inputs);
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(proof_len, fcmp_pp);
+            if (!typename Archive<W>::is_saving())
+              fcmp_pp.resize(proof_len);
             if (fcmp_pp.size() != proof_len)
               return false;
             ar.serialize_blob(fcmp_pp.data(), proof_len);
