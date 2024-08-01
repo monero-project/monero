@@ -101,7 +101,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 15
+#define CORE_RPC_VERSION_MINOR 16
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -984,6 +984,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t height;
       uint64_t reserved_offset;
       uint64_t expected_reward;
+      uint64_t cumulative_weight;
       std::string prev_hash;
       uint64_t seed_height;
       std::string seed_hash;
@@ -999,6 +1000,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(height)
         KV_SERIALIZE(reserved_offset)
         KV_SERIALIZE(expected_reward)
+        KV_SERIALIZE_OPT(cumulative_weight, static_cast<uint64_t>(0))
         KV_SERIALIZE(prev_hash)
         KV_SERIALIZE(seed_height)
         KV_SERIALIZE(blocktemplate_blob)
