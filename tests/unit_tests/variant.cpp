@@ -38,6 +38,7 @@
 #include <type_traits>
 #include <vector>
 
+using tools::optional_variant;
 using tools::variant;
 using tools::variant_static_visitor;
 
@@ -239,7 +240,7 @@ struct test_stringify_visitor: public variant_static_visitor<std::string>
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, operatorbool)
 {
-    variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
+    optional_variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
     EXPECT_FALSE(v);
     v = (int16_t) 2023;
     EXPECT_TRUE(v);
@@ -251,7 +252,7 @@ TEST(variant, operatorbool)
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, is_empty)
 {
-    variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
+    optional_variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
     EXPECT_TRUE(v.is_empty());
     v = (int16_t) 2023;
     EXPECT_FALSE(v.is_empty());
@@ -260,7 +261,7 @@ TEST(variant, is_empty)
     v = boost::blank{};
     EXPECT_TRUE(v.is_empty());
 
-    variant<> v2;
+    optional_variant<> v2;
     EXPECT_TRUE(v2.is_empty());
     v2 = boost::blank{};
     EXPECT_TRUE(v2.is_empty());
@@ -269,7 +270,7 @@ TEST(variant, is_empty)
 TEST(variant, is_type)
 {
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
-    EXPECT_TRUE(v.is_type<boost::blank>());
+    EXPECT_TRUE(v.is_type<int8_t>());
     v = (int16_t) 2023;
     EXPECT_TRUE(v.is_type<int16_t>());
 
@@ -279,7 +280,7 @@ TEST(variant, is_type)
 TEST(variant, try_unwrap)
 {
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
-    EXPECT_FALSE(v.try_unwrap<int8_t>());
+    EXPECT_TRUE(v.try_unwrap<int8_t>());
     v = (int16_t) 5252;
     ASSERT_TRUE(v.try_unwrap<int16_t>());
     EXPECT_EQ(5252, *v.try_unwrap<int16_t>());
@@ -290,7 +291,7 @@ TEST(variant, try_unwrap)
 TEST(variant, unwrap)
 {
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
-    EXPECT_THROW(v.unwrap<int8_t>(), std::runtime_error);
+    EXPECT_EQ(0, v.unwrap<int8_t>());
     v = (int16_t) 5252;
     EXPECT_EQ(5252, v.unwrap<int16_t>());
     EXPECT_THROW(v.unwrap<uint16_t>(), std::runtime_error);
@@ -321,35 +322,55 @@ TEST(variant, index)
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
     EXPECT_EQ(0, v.index());
     v = (int8_t) 7;
-    EXPECT_EQ(1, v.index());
+    EXPECT_EQ(0, v.index());
     v = (uint8_t) 7;
-    EXPECT_EQ(2, v.index());
+    EXPECT_EQ(1, v.index());
     v = (int16_t) 7;
-    EXPECT_EQ(3, v.index());
+    EXPECT_EQ(2, v.index());
     v = (uint16_t) 7;
-    EXPECT_EQ(4, v.index());
+    EXPECT_EQ(3, v.index());
     v = "verifiable variant vying for vengence versus visa";
-    EXPECT_EQ(5, v.index());
+    EXPECT_EQ(4, v.index());
+
+    optional_variant<int8_t, uint8_t, int16_t, uint16_t, std::string> vo;
+    EXPECT_EQ(0, vo.index());
+    vo = (int8_t) 7;
+    EXPECT_EQ(1, vo.index());
+    vo = (uint8_t) 7;
+    EXPECT_EQ(2, vo.index());
+    vo = (int16_t) 7;
+    EXPECT_EQ(3, vo.index());
+    vo = (uint16_t) 7;
+    EXPECT_EQ(4, vo.index());
+    vo = "verifiable variant vying for vengence versus visa";
+    EXPECT_EQ(5, vo.index());
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, type_index_of)
 {
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
-    EXPECT_EQ(0, decltype(v)::type_index_of<boost::blank>());
-    EXPECT_EQ(1, decltype(v)::type_index_of<int8_t>());
-    EXPECT_EQ(2, decltype(v)::type_index_of<uint8_t>());
-    EXPECT_EQ(3, decltype(v)::type_index_of<int16_t>());
-    EXPECT_EQ(4, decltype(v)::type_index_of<uint16_t>());
-    EXPECT_EQ(5, decltype(v)::type_index_of<std::string>());
+    EXPECT_EQ(0, decltype(v)::type_index_of<int8_t>());
+    EXPECT_EQ(1, decltype(v)::type_index_of<uint8_t>());
+    EXPECT_EQ(2, decltype(v)::type_index_of<int16_t>());
+    EXPECT_EQ(3, decltype(v)::type_index_of<uint16_t>());
+    EXPECT_EQ(4, decltype(v)::type_index_of<std::string>());
+
+    optional_variant<int8_t, uint8_t, int16_t, uint16_t, std::string> vo;
+    EXPECT_EQ(0, decltype(vo)::type_index_of<boost::blank>()); 
+    EXPECT_EQ(1, decltype(vo)::type_index_of<int8_t>());
+    EXPECT_EQ(2, decltype(vo)::type_index_of<uint8_t>());
+    EXPECT_EQ(3, decltype(vo)::type_index_of<int16_t>());
+    EXPECT_EQ(4, decltype(vo)::type_index_of<uint16_t>());
+    EXPECT_EQ(5, decltype(vo)::type_index_of<std::string>());
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, constexpr_type_index_of)
 {
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
-    constexpr int TINDEX0 = decltype(v)::type_index_of<boost::blank>();
-    EXPECT_EQ(0, TINDEX0);
-    constexpr int TINDEX5 = decltype(v)::type_index_of<std::string>();
-    EXPECT_EQ(5, TINDEX5);
+    constexpr int TINDEX2 = decltype(v)::type_index_of<int16_t>();
+    EXPECT_EQ(2, TINDEX2);
+    constexpr int TINDEX4 = decltype(v)::type_index_of<std::string>();
+    EXPECT_EQ(4, TINDEX4);
 }
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, same_type)
@@ -362,7 +383,6 @@ TEST(variant, same_type)
 TEST(variant, visit)
 {
     variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
-    EXPECT_THROW(v.visit(test_stringify_visitor()), std::runtime_error);
 
     v = "Rev";
     test_stringify_visitor::test_visitation(v, std::string("Rev"));
@@ -377,7 +397,7 @@ TEST(variant, ad_hoc_recursion)
     struct left_t;
     struct right_t;
 
-    using twisty = variant<boost::recursive_wrapper<left_t>, boost::recursive_wrapper<right_t>>;
+    using twisty = optional_variant<boost::recursive_wrapper<left_t>, boost::recursive_wrapper<right_t>>;
 
     struct left_t
     {
