@@ -128,9 +128,27 @@ struct TrimLayerInstructions final
     uint64_t end_trim_idx;
 };
 
+// Output pub key and commitment, ready to be converted into a leaf tuple (from {O,C} -> {O.x, I.x, C.x})
+struct PreprocessedLeafTuple final
+{
+    // Output pubkey that has been checked valid and torsion cleared
+    rct::key O;
+    // Commitment that has been torsion cleared
+    rct::key C;
+};
+static_assert(sizeof(PreprocessedLeafTuple) == (32+32), "db expects 64 bytes for pre-processed leaf tuples");
+
+// Contextual wrapper for a pre-processed leaf tuple
+struct LeafTupleContext final
+{
+    // Global output ID useful to order the leaf tuple for insertion into the tree
+    uint64_t              output_id;
+    PreprocessedLeafTuple preprocessed_leaf_tuple;
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// This class is useful help update the curve trees tree without needing to keep the entire tree in memory
+// This class is useful to help update the curve trees merkle tree without needing to keep the entire tree in memory
 // - It requires instantiation with the C1 and C2 curve classes and widths, hardening the tree structure
 // - It ties the C2 curve in the tree to the leaf layer
 template<typename C1, typename C2>
@@ -163,21 +181,13 @@ public:
     static const std::size_t LEAF_TUPLE_SIZE = 3;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
-    // Contextual wrapper for leaf tuple
-    struct LeafTupleContext final
-    {
-        // Global output ID useful to order the leaf tuple for insertion into the tree
-        uint64_t output_id;
-        LeafTuple leaf_tuple;
-    };
-
     // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
     struct Leaves final
     {
         // Starting leaf tuple index in the leaf layer
-        uint64_t               start_leaf_tuple_idx{0};
+        uint64_t                           start_leaf_tuple_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
-        std::vector<LeafTuple> tuples;
+        std::vector<PreprocessedLeafTuple> tuples;
     };
 
     // A struct useful to extend an existing tree
@@ -221,13 +231,17 @@ public:
 //member functions
 public:
     // Convert cryptonote output pub key and commitment to a leaf tuple for the curve trees tree
-    LeafTuple output_to_leaf_tuple(const crypto::public_key &output_pubkey, const crypto::public_key &C) const;
+    LeafTupleContext output_to_leaf_context(const std::uint64_t output_id,
+        const crypto::public_key &output_pubkey,
+        const crypto::public_key &C) const;
+
+    LeafTuple leaf_tuple(const PreprocessedLeafTuple &preprocessed_leaf_tuple) const;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
     std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
 
-    // Convert cryptonote tx outs to leaf tuples, grouped by the leaf tuple unlock height
-    void tx_outs_to_leaf_tuples(const cryptonote::transaction &tx,
+    // Convert cryptonote tx outs to contexts ready to be converted to leaf tuples, grouped by unlock height
+    void tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
         const std::vector<uint64_t> &output_ids,
         const uint64_t tx_height,
         const bool miner_tx,

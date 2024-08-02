@@ -231,7 +231,7 @@ std::vector<uint64_t> BlockchainDB::add_transaction(const crypto::hash& blk_hash
   {
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
-    // note: tx_outs_to_leaf_tuples in curve_trees.cpp mirrors this logic
+    // note: tx_outs_to_leaf_tuple_contexts in curve_trees.cpp mirrors this logic
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
@@ -314,11 +314,11 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // When adding a block, we also need to add all the leaf tuples included in
   // the block to a table keeping track of locked leaf tuples. Once those leaf
   // tuples unlock, we use them to grow the tree.
-  std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples_by_unlock_block;
+  std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext> leaf_tuples_by_unlock_block;
 
   // Get miner tx's leaf tuples
   CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");
-  m_curve_trees->tx_outs_to_leaf_tuples(
+  m_curve_trees->tx_outs_to_leaf_tuple_contexts(
     blk.miner_tx,
     miner_output_ids,
     prev_height,
@@ -328,7 +328,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // Get all other txs' leaf tuples
   for (std::size_t i = 0; i < txs.size(); ++i)
   {
-    m_curve_trees->tx_outs_to_leaf_tuples(
+    m_curve_trees->tx_outs_to_leaf_tuple_contexts(
       txs[i].first,
       output_ids[i],
       prev_height,
