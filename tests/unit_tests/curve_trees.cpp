@@ -167,12 +167,14 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
         "unexpected leaf start idx");
 
     m_tree.leaves.reserve(m_tree.leaves.size() + tree_extension.leaves.tuples.size());
-    for (const auto &leaf : tree_extension.leaves.tuples)
+    for (const auto &preprocessed_leaf_tuple : tree_extension.leaves.tuples)
     {
+        auto leaf = m_curve_trees.leaf_tuple(preprocessed_leaf_tuple);
+
         m_tree.leaves.emplace_back(CurveTreesV1::LeafTuple{
-            .O_x = leaf.O_x,
-            .I_x = leaf.I_x,
-            .C_x = leaf.C_x
+            .O_x = std::move(leaf.O_x),
+            .I_x = std::move(leaf.I_x),
+            .C_x = std::move(leaf.C_x)
         });
     }
 
@@ -587,6 +589,9 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples)
 //----------------------------------------------------------------------------------------------------------------------
 void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_hashes)
 {
+    if (!el::Loggers::allowed(el::Level::Debug, "serialization"))
+        return;
+
     const auto &c1_last_hashes = last_hashes.c1_last_hashes;
     const auto &c2_last_hashes = last_hashes.c2_last_hashes;
 
@@ -622,6 +627,9 @@ void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_
 //----------------------------------------------------------------------------------------------------------------------
 void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension)
 {
+    if (!el::Loggers::allowed(el::Level::Debug, "serialization"))
+        return;
+
     const auto &c1_extensions = tree_extension.c1_layer_extensions;
     const auto &c2_extensions = tree_extension.c2_layer_extensions;
 
@@ -631,7 +639,8 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
     MDEBUG("Leaf start idx: " << tree_extension.leaves.start_leaf_tuple_idx);
     for (std::size_t i = 0; i < tree_extension.leaves.tuples.size(); ++i)
     {
-        const auto &leaf = tree_extension.leaves.tuples[i];
+        const auto &preprocessed_leaf_tuple = tree_extension.leaves.tuples[i];
+        const auto leaf = m_curve_trees.leaf_tuple(preprocessed_leaf_tuple);
 
         const auto O_x = m_curve_trees.m_c2.to_string(leaf.O_x);
         const auto I_x = m_curve_trees.m_c2.to_string(leaf.I_x);
@@ -679,6 +688,9 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
 //----------------------------------------------------------------------------------------------------------------------
 void CurveTreesGlobalTree::log_tree()
 {
+    if (!el::Loggers::allowed(el::Level::Debug, "serialization"))
+        return;
+
     MDEBUG("Tree has " << m_tree.leaves.size() << " leaves, "
         << m_tree.c1_layers.size() << " helios layers, " <<  m_tree.c2_layers.size() << " selene layers");
 
@@ -730,27 +742,26 @@ void CurveTreesGlobalTree::log_tree()
 //----------------------------------------------------------------------------------------------------------------------
 // Test helpers
 //----------------------------------------------------------------------------------------------------------------------
-static const std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
+static const std::vector<fcmp::curve_trees::LeafTupleContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    std::vector<CurveTreesV1::LeafTupleContext> tuples;
+    std::vector<fcmp::curve_trees::LeafTupleContext> tuples;
     tuples.reserve(new_n_leaf_tuples);
 
     for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
     {
+        const std::uint64_t output_id = old_n_leaf_tuples + i;
+
         // Generate random output tuple
         crypto::secret_key o,c;
         crypto::public_key O,C;
         crypto::generate_keys(O, o, o, false);
         crypto::generate_keys(C, c, c, false);
 
-        auto leaf_tuple = curve_trees.output_to_leaf_tuple(O, C);
+        auto tuple_context = curve_trees.output_to_leaf_context(output_id, O, C);
 
-        tuples.emplace_back(fcmp::curve_trees::CurveTreesV1::LeafTupleContext{
-                .output_id  = old_n_leaf_tuples + i,
-                .leaf_tuple = std::move(leaf_tuple),
-            });
+        tuples.emplace_back(std::move(tuple_context));
     }
 
     return tuples;

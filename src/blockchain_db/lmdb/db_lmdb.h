@@ -368,7 +368,7 @@ public:
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
   // make private
-  virtual void grow_tree(std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves);
+  virtual void grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> &&new_leaves);
 
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples);
 
@@ -388,7 +388,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
-                , const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext>& leaf_tuples_by_unlock_block
+                , const std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
                 );
 
   virtual void remove_block();
@@ -449,7 +449,7 @@ private:
     const uint64_t child_chunk_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
+  std::vector<fcmp::curve_trees::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
 
   void del_locked_leaf_tuples_at_block_id(uint64_t block_id);
 

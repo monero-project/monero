@@ -220,7 +220,6 @@ namespace
  *
  * spent_keys       input hash   -
  *
- * TODO: don't store leaf tuples, store reference to outputs
  * locked_leaves    block ID     [{output ID, leaf tuple}...]
  * leaves           leaf_idx     {leaf tuple}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
@@ -820,7 +819,7 @@ estim:
 }
 
 void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-    uint64_t num_rct_outs, const crypto::hash& blk_hash, const std::multimap<uint64_t, fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &leaf_tuples_by_unlock_block)
+    uint64_t num_rct_outs, const crypto::hash& blk_hash, const std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext> &leaf_tuples_by_unlock_block)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -849,8 +848,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   }
 
   // Grow the tree with outputs that unlock at this block height
-  auto unlocked_leaf_tuples = this->get_leaf_tuples_at_unlock_block_id(m_height);
-  this->grow_tree(std::move(unlocked_leaf_tuples));
+  auto unlocked_leaves = this->get_leaf_tuples_at_unlock_block_id(m_height);
+  this->grow_tree(std::move(unlocked_leaves));
 
   // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
   this->del_locked_leaf_tuples_at_block_id(m_height);
@@ -1366,7 +1365,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-void BlockchainLMDB::grow_tree(std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> &&new_leaves)
+void BlockchainLMDB::grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> &&new_leaves)
 {
   if (new_leaves.empty())
     return;
@@ -1819,6 +1818,8 @@ fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_las
 
     if (trim_leaf_layer_instructions.end_trim_idx > trim_leaf_layer_instructions.start_trim_idx)
     {
+      leaves_to_trim.reserve(trim_leaf_layer_instructions.end_trim_idx - trim_leaf_layer_instructions.start_trim_idx);
+
       uint64_t idx = trim_leaf_layer_instructions.start_trim_idx;
       CHECK_AND_ASSERT_THROW_MES(idx % fcmp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE == 0,
         "expected divisble by leaf tuple size");
@@ -1837,11 +1838,14 @@ fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_las
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
 
-        const auto leaf = *(fcmp::curve_trees::CurveTreesV1::LeafTuple *)v.mv_data;
+        const auto preprocessed_leaf_tuple = *(fcmp::curve_trees::PreprocessedLeafTuple *)v.mv_data;
 
-        leaves_to_trim.push_back(leaf.O_x);
-        leaves_to_trim.push_back(leaf.I_x);
-        leaves_to_trim.push_back(leaf.C_x);
+        // TODO: parallelize calls to this function
+        auto leaf = m_curve_trees->leaf_tuple(preprocessed_leaf_tuple);
+
+        leaves_to_trim.emplace_back(std::move(leaf.O_x));
+        leaves_to_trim.emplace_back(std::move(leaf.I_x));
+        leaves_to_trim.emplace_back(std::move(leaf.C_x));
 
         idx += fcmp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE;
       }
@@ -2006,8 +2010,10 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
 
-      const auto leaf = *(fcmp::curve_trees::CurveTreesV1::LeafTuple *)v.mv_data;
-      leaf_tuples_chunk.push_back(leaf);
+      const auto preprocessed_leaf_tuple = *(fcmp::curve_trees::PreprocessedLeafTuple *)v.mv_data;
+      auto leaf = m_curve_trees->leaf_tuple(preprocessed_leaf_tuple);
+
+      leaf_tuples_chunk.emplace_back(std::move(leaf));
 
       if (leaf_tuples_chunk.size() == m_curve_trees->m_c2_width)
         break;
@@ -2209,7 +2215,7 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
     chunk_width);
 }
 
-std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::get_leaf_tuples_at_unlock_block_id(
+std::vector<fcmp::curve_trees::LeafTupleContext> BlockchainLMDB::get_leaf_tuples_at_unlock_block_id(
   uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -2222,7 +2228,7 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
   MDB_val v_tuple;
 
   // Get all the locked outputs at the provided block id
-  std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> leaf_tuples;
+  std::vector<fcmp::curve_trees::LeafTupleContext> leaf_tuples;
 
   MDB_cursor_op op = MDB_SET;
   while (1)
@@ -2238,8 +2244,8 @@ std::vector<fcmp::curve_trees::CurveTreesV1::LeafTupleContext> BlockchainLMDB::g
     if (blk_id != block_id)
       throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
 
-    const auto range_begin = ((const fcmp::curve_trees::CurveTreesV1::LeafTupleContext*)v_tuple.mv_data);
-    const auto range_end = range_begin + v_tuple.mv_size / sizeof(fcmp::curve_trees::CurveTreesV1::LeafTupleContext);
+    const auto range_begin = ((const fcmp::curve_trees::LeafTupleContext*)v_tuple.mv_data);
+    const auto range_end = range_begin + v_tuple.mv_size / sizeof(fcmp::curve_trees::LeafTupleContext);
 
     auto it = range_begin;
 
@@ -6834,25 +6840,27 @@ void BlockchainLMDB::migrate_5_6()
         // Read the output data
         uint64_t amount = *(const uint64_t*)k.mv_data;
         output_data_t output_data;
-        fcmp::curve_trees::CurveTreesV1::LeafTupleContext tuple_context;
+        uint64_t output_id;
         if (amount == 0)
         {
           const outkey *okp = (const outkey *)v.mv_data;
           output_data = okp->data;
-          tuple_context.output_id = okp->output_id;
+          output_id = okp->output_id;
         }
         else
         {
           const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
           memcpy(&output_data, &okp->data, sizeof(pre_rct_output_data_t));
           output_data.commitment = rct::zeroCommit(amount);
-          tuple_context.output_id = okp->output_id;
+          output_id = okp->output_id;
         }
 
-        // Convert the output into a leaf tuple
+        // Convert the output into a leaf tuple context
+        fcmp::curve_trees::LeafTupleContext tuple_context;
         try
         {
-          tuple_context.leaf_tuple = m_curve_trees->output_to_leaf_tuple(
+          tuple_context = m_curve_trees->output_to_leaf_context(
+            output_id,
             output_data.pubkey,
             rct::rct2pk(output_data.commitment));
         }
@@ -6952,8 +6960,8 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Get the leaf tuples that unlock at the given block
-        auto unlocked_leaf_tuples = this->get_leaf_tuples_at_unlock_block_id(i);
-        this->grow_tree(std::move(unlocked_leaf_tuples));
+        auto unlocked_leaves = this->get_leaf_tuples_at_unlock_block_id(i);
+        this->grow_tree(std::move(unlocked_leaves));
 
         // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
         this->del_locked_leaf_tuples_at_block_id(i);

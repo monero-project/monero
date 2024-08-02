@@ -153,6 +153,7 @@ static LayerExtension<C> hash_children_chunks(const C &curve,
     std::size_t chunk_start_idx = chunk_size;
     while (chunk_start_idx < new_child_scalars.size())
     {
+        // TODO: this loop can be parallelized
         chunk_size = std::min(chunk_width, new_child_scalars.size() - chunk_start_idx);
 
         const auto chunk_start = new_child_scalars.data() + chunk_start_idx;
@@ -626,7 +627,8 @@ static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduc
 // CurveTrees public member functions
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::output_to_leaf_tuple(
+LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(
+    const std::uint64_t output_id,
     const crypto::public_key &output_pubkey,
     const crypto::public_key &commitment) const
 {
@@ -646,11 +648,26 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::output_to_leaf
     };
 
     // Torsion clear the output pub key and commitment
-    const rct::key rct_O = clear_torsion(output_pubkey, "output pub key");
-    const rct::key rct_C = clear_torsion(commitment, "commitment");
+    rct::key O = clear_torsion(output_pubkey, "output pub key");
+    rct::key C = clear_torsion(commitment, "commitment");
 
-    const crypto::public_key &O = rct::rct2pk(rct_O);
-    const crypto::public_key &C = rct::rct2pk(rct_C);
+    PreprocessedLeafTuple o_c{
+            .O = std::move(O),
+            .C = std::move(C)
+        };
+
+    return LeafTupleContext{
+            .output_id               = output_id,
+            .preprocessed_leaf_tuple = std::move(o_c)
+        };
+};
+//----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
+    const PreprocessedLeafTuple &preprocessed_leaf_tuple) const
+{
+    const crypto::public_key &O = rct::rct2pk(preprocessed_leaf_tuple.O);
+    const crypto::public_key &C = rct::rct2pk(preprocessed_leaf_tuple.C);
 
     crypto::ec_point I;
     crypto::derive_key_image_generator(O, I);
@@ -680,11 +697,11 @@ std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(const std::v
 };
 //----------------------------------------------------------------------------------------------------------------------
 template <>
-void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transaction &tx,
+void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
     const std::vector<uint64_t> &output_ids,
     const uint64_t tx_height,
     const bool miner_tx,
-    std::multimap<uint64_t, CurveTrees<Helios, Selene>::LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const
+    std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const
 {
     const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, tx_height);
 
@@ -692,6 +709,7 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
+        // TODO: this loop can be parallelized
         const auto &out = tx.vout[i];
 
         crypto::public_key output_public_key;
@@ -708,13 +726,11 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
             ? rct::zeroCommit(out.amount)
             : tx.rct_signatures.outPk[i].mask;
 
-        CurveTrees<Helios, Selene>::LeafTupleContext tuple_context;
-        tuple_context.output_id = output_ids[i];
-
+        LeafTupleContext leaf_tuple_context;
         try
         {
-            // Convert output to leaf tuple; throws if output is invalid
-            tuple_context.leaf_tuple = output_to_leaf_tuple(
+            // Convert output to leaf tuple context; throws if output is invalid
+            leaf_tuple_context = output_to_leaf_context(output_ids[i],
                 output_public_key,
                 rct::rct2pk(commitment));
         }
@@ -724,7 +740,7 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuples(const cryptonote::transa
             continue;
         };
 
-        leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(tuple_context));
+        leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(leaf_tuple_context));
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -751,16 +767,25 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     const auto sort_fn = [](const LeafTupleContext &a, const LeafTupleContext &b) { return a.output_id < b.output_id; };
     std::sort(new_leaf_tuples.begin(), new_leaf_tuples.end(), sort_fn);
 
-    // Copy the sorted leaves into the tree extension struct
-    // TODO: don't copy here
+    // Convert sorted pre-processed tuples into leaf tuples, place each element of each leaf tuple in a flat vector to
+    // be hashed, and place the pre-processed tuples in tree extension struct for insertion into the db
+    std::vector<typename C2::Scalar> flattened_leaves;
+    flattened_leaves.reserve(new_leaf_tuples.size() * LEAF_TUPLE_SIZE);
     tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
-    for (const auto &leaf : new_leaf_tuples)
+    for (auto &l : new_leaf_tuples)
     {
-        tree_extension.leaves.tuples.emplace_back(LeafTuple{
-            .O_x = leaf.leaf_tuple.O_x,
-            .I_x = leaf.leaf_tuple.I_x,
-            .C_x = leaf.leaf_tuple.C_x
-        });
+        // TODO: this loop can be parallelized
+        auto leaf = leaf_tuple(l.preprocessed_leaf_tuple);
+
+        flattened_leaves.emplace_back(std::move(leaf.O_x));
+        flattened_leaves.emplace_back(std::move(leaf.I_x));
+        flattened_leaves.emplace_back(std::move(leaf.C_x));
+
+        // We only need to store O and C in the db, the leaf tuple can be derived from O and C
+        tree_extension.leaves.tuples.emplace_back(PreprocessedLeafTuple{
+                .O = std::move(l.preprocessed_leaf_tuple.O),
+                .C = std::move(l.preprocessed_leaf_tuple.C)
+            });
     }
 
     if (grow_layer_instructions.need_old_last_parent)
@@ -772,7 +797,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
             grow_layer_instructions.need_old_last_parent ? &existing_last_hashes.c2_last_hashes[0] : nullptr,
             grow_layer_instructions.start_offset,
             grow_layer_instructions.next_parent_start_index,
-            this->flatten_leaves(tree_extension.leaves.tuples),
+            flattened_leaves,
             m_leaf_layer_chunk_width
         );
 
@@ -865,6 +890,7 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
 {
     TreeReduction tree_reduction_out;
 
+    CHECK_AND_ASSERT_THROW_MES(!trim_instructions.empty(), "missing trim instructions");
     CHECK_AND_ASSERT_THROW_MES((trim_instructions[0].new_total_children % LEAF_TUPLE_SIZE) == 0,
         "unexpected new total leaves");
     const uint64_t new_total_leaf_tuples = trim_instructions[0].new_total_children / LEAF_TUPLE_SIZE;
