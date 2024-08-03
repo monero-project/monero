@@ -738,16 +738,16 @@ namespace rct {
         ge_p3 torsion_cleared_point;
         ge_p1p1_to_p3(&torsion_cleared_point, &point_inv_8_mul_8);
         ge_p3_tobytes(k_out.bytes, &torsion_cleared_point);
-        if (k_out == I)
-            return false;
         return true;
     }
 
     bool point_to_wei_x(const key &pub, key &wei_x) {
-        fe y;
-        if (fe_y_frombytes_vartime(y, pub.bytes) != 0)
+        if (pub == I)
             return false;
-        fe_y_to_wei_x(wei_x.bytes, y);
+        fe y;
+        if (fe_frombytes_vartime(y, pub.bytes) != 0)
+            return false;
+        fe_ed_y_to_wei_x(wei_x.bytes, y);
         return true;
     }
 }
