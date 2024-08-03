@@ -2042,7 +2042,7 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
       throw0(DB_ERROR(lmdb_error("Failed to get parent in first layer: ", result).c_str()));
 
     // Get the expected leaf chunk hash
-    const auto leaves = m_curve_trees->flatten_leaves(leaf_tuples_chunk);
+    const auto leaves = m_curve_trees->flatten_leaves(std::move(leaf_tuples_chunk));
     const fcmp::curve_trees::Selene::Chunk chunk{leaves.data(), leaves.size()};
 
     // Hash the chunk of leaves

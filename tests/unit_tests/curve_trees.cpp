@@ -495,7 +495,7 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples)
 {
     MDEBUG("Auditing global tree");
 
-    const auto &leaves = m_tree.leaves;
+    auto leaves = m_tree.leaves;
     const auto &c1_layers = m_tree.c1_layers;
     const auto &c2_layers = m_tree.c2_layers;
 
@@ -582,7 +582,7 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples)
     // Now validate leaves
     return validate_layer<Selene>(m_curve_trees.m_c2,
         c2_layers[0],
-        m_curve_trees.flatten_leaves(leaves),
+        m_curve_trees.flatten_leaves(std::move(leaves)),
         m_curve_trees.m_leaf_layer_chunk_width);
 }
 //----------------------------------------------------------------------------------------------------------------------
