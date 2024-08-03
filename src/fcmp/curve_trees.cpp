@@ -635,9 +635,14 @@ LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(
     rct::key O, C;
 
     if (!rct::clear_torsion(rct::pk2rct(output_pubkey), O))
-        throw std::runtime_error("output pub key is invalid, failed to clear torsion");
+        throw std::runtime_error("output pub key is invalid");
     if (!rct::clear_torsion(commitment, C))
-        throw std::runtime_error("commitment is invalid, failed to clear torsion");
+        throw std::runtime_error("commitment is invalid");
+
+    if (O == rct::I)
+        throw std::runtime_error("O cannot equal identity");
+    if (C == rct::I)
+        throw std::runtime_error("C cannot equal identity");
 
     PreprocessedLeafTuple o_c{
             .O = std::move(O),

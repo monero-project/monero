@@ -133,7 +133,7 @@ struct PreprocessedLeafTuple final
 {
     // Output pubkey that has been checked valid and torsion cleared
     rct::key O;
-    // Commitment that has been torsion cleared
+    // Commitment that has been checked valid and torsion cleared
     rct::key C;
 };
 static_assert(sizeof(PreprocessedLeafTuple) == (32+32), "db expects 64 bytes for pre-processed leaf tuples");

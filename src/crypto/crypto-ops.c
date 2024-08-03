@@ -1330,7 +1330,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
 
 /* From fe_frombytes.c */
 
-int fe_y_frombytes_vartime(fe y, const unsigned char *s) {
+int fe_frombytes_vartime(fe y, const unsigned char *s) {
 
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
@@ -1394,7 +1394,7 @@ int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
   fe vxx;
   fe check;
 
-  if (fe_y_frombytes_vartime(h->Y, s) != 0) {
+  if (fe_frombytes_vartime(h->Y, s) != 0) {
     return -1;
   }
 
@@ -3886,16 +3886,16 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
 }
 
 // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
-void fe_y_to_wei_x(unsigned char *wei_x, const fe y)
+void fe_ed_y_to_wei_x(unsigned char *wei_x, const fe ed_y)
 {
   fe one;
   fe_1(one);
 
   // (1+y),(1-y)
   fe one_plus_y;
-  fe_add(one_plus_y, one, y);
+  fe_add(one_plus_y, one, ed_y);
   fe one_minus_y;
-  fe_sub(one_minus_y, one, y);
+  fe_sub(one_minus_y, one, ed_y);
 
   // (1/(1-y))*(1+y)
   fe inv_one_minus_y;
