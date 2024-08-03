@@ -188,5 +188,8 @@ namespace rct {
     key genCommitmentMask(const key &sk);
     void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, bool v2);
     void ecdhDecode(ecdhTuple & masked, const key & sharedSec, bool v2);
+
+    bool clear_torsion(const key &k, key &k_out);
+    bool point_to_wei_x(const key &pub, key &wei_x);
 }
 #endif  /* RCTOPS_H */

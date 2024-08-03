@@ -630,26 +630,14 @@ template<>
 LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(
     const std::uint64_t output_id,
     const crypto::public_key &output_pubkey,
-    const crypto::public_key &commitment) const
+    const rct::key &commitment) const
 {
-    if (!crypto::check_key(output_pubkey))
-        throw std::runtime_error("invalid output pub key");
+    rct::key O, C;
 
-    const auto clear_torsion = [](const crypto::public_key &key, const std::string &s)
-    {
-        // TODO: don't need to decompress and recompress points, can be optimized
-        rct::key torsion_cleared_key = rct::scalarmultKey(rct::pk2rct(key), rct::INV_EIGHT);
-        torsion_cleared_key = rct::scalarmult8(torsion_cleared_key);
-
-        if (torsion_cleared_key == rct::I)
-            throw std::runtime_error(s + " cannot equal identity");
-
-        return torsion_cleared_key;
-    };
-
-    // Torsion clear the output pub key and commitment
-    rct::key O = clear_torsion(output_pubkey, "output pub key");
-    rct::key C = clear_torsion(commitment, "commitment");
+    if (!rct::clear_torsion(rct::pk2rct(output_pubkey), O))
+        throw std::runtime_error("output pub key is invalid, failed to clear torsion");
+    if (!rct::clear_torsion(commitment, C))
+        throw std::runtime_error("commitment is invalid, failed to clear torsion");
 
     PreprocessedLeafTuple o_c{
             .O = std::move(O),
@@ -666,16 +654,25 @@ template<>
 CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
     const PreprocessedLeafTuple &preprocessed_leaf_tuple) const
 {
-    const crypto::public_key &O = rct::rct2pk(preprocessed_leaf_tuple.O);
-    const crypto::public_key &C = rct::rct2pk(preprocessed_leaf_tuple.C);
+    const rct::key &O = preprocessed_leaf_tuple.O;
+    const rct::key &C = preprocessed_leaf_tuple.C;
 
     crypto::ec_point I;
-    crypto::derive_key_image_generator(O, I);
+    crypto::derive_key_image_generator(rct::rct2pk(O), I);
+
+    rct::key O_x, I_x, C_x;
+
+    if (!rct::point_to_wei_x(O, O_x))
+        throw std::runtime_error("failed to get wei x scalar from O");
+    if (!rct::point_to_wei_x(rct::pt2rct(I), I_x))
+        throw std::runtime_error("failed to get wei x scalar from I");
+    if (!rct::point_to_wei_x(C, C_x))
+        throw std::runtime_error("failed to get wei x scalar from C");
 
     return LeafTuple{
-        .O_x = tower_cycle::ed_25519_point_to_scalar(O),
-        .I_x = tower_cycle::ed_25519_point_to_scalar(I),
-        .C_x = tower_cycle::ed_25519_point_to_scalar(C)
+        .O_x = tower_cycle::selene_scalar_from_bytes(O_x),
+        .I_x = tower_cycle::selene_scalar_from_bytes(I_x),
+        .C_x = tower_cycle::selene_scalar_from_bytes(C_x)
     };
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -732,7 +729,7 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuple_contexts(const cryptonote
             // Convert output to leaf tuple context; throws if output is invalid
             leaf_tuple_context = output_to_leaf_context(output_ids[i],
                 output_public_key,
-                rct::rct2pk(commitment));
+                commitment);
         }
         catch (...)
         {

@@ -88,6 +88,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *, const unsigned char *, const 
 
 extern const fe fe_sqrtm1;
 extern const fe fe_d;
+int fe_y_frombytes_vartime(fe, const unsigned char *);
 int ge_frombytes_vartime(ge_p3 *, const unsigned char *);
 
 /* From ge_p1p1_to_p2.c */
@@ -143,6 +144,7 @@ extern const fe fe_fffb1;
 extern const fe fe_fffb2;
 extern const fe fe_fffb3;
 extern const fe fe_fffb4;
+extern const fe fe_a_inv_3;
 extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
@@ -167,3 +169,5 @@ void fe_mul(fe out, const fe, const fe);
 void fe_0(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
+
+void fe_y_to_wei_x(unsigned char *wei_x, const fe y);

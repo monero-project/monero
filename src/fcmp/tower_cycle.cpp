@@ -220,15 +220,9 @@ std::string Selene::to_string(const typename Selene::Point &point) const
 //----------------------------------------------------------------------------------------------------------------------
 // Exposed helper functions
 //----------------------------------------------------------------------------------------------------------------------
-SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point)
+SeleneScalar selene_scalar_from_bytes(const rct::key &scalar)
 {
-    static_assert(sizeof(SeleneScalar) == sizeof(point), "size of selene scalar != size of ed25519 point");
-
-    // If this function receives the ec_point, this is fine
-    // If this function can receive a decompressed point, it'd be notably faster
-    // to extract the Wei25519 x coordinate from the C side of things and then
-    // pass that
-    return fcmp_rust::ed25519_point_to_selene_scalar((uint8_t*) &point.data);
+    return fcmp_rust::selene_scalar_from_bytes(scalar.bytes);
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
