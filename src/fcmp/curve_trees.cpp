@@ -677,17 +677,16 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
 };
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(const std::vector<LeafTuple> &leaves) const
+std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(std::vector<LeafTuple> &&leaves) const
 {
     std::vector<typename C2::Scalar> flattened_leaves;
     flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
 
-    for (const auto &l : leaves)
+    for (auto &l : leaves)
     {
-        // TODO: implement without cloning
-        flattened_leaves.emplace_back(l.O_x);
-        flattened_leaves.emplace_back(l.I_x);
-        flattened_leaves.emplace_back(l.C_x);
+        flattened_leaves.emplace_back(std::move(l.O_x));
+        flattened_leaves.emplace_back(std::move(l.I_x));
+        flattened_leaves.emplace_back(std::move(l.C_x));
     }
 
     return flattened_leaves;

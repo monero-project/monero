@@ -237,8 +237,8 @@ public:
 
     LeafTuple leaf_tuple(const PreprocessedLeafTuple &preprocessed_leaf_tuple) const;
 
-    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [scalar,scalar,scalar,scalar,scalar,scalar,...]
-    std::vector<typename C2::Scalar> flatten_leaves(const std::vector<LeafTuple> &leaves) const;
+    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
+    std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
 
     // Convert cryptonote tx outs to contexts ready to be converted to leaf tuples, grouped by unlock height
     void tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
