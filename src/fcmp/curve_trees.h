@@ -233,7 +233,7 @@ public:
     // Convert cryptonote output pub key and commitment to a leaf tuple for the curve trees tree
     LeafTupleContext output_to_leaf_context(const std::uint64_t output_id,
         const crypto::public_key &output_pubkey,
-        const crypto::public_key &C) const;
+        const rct::key &C) const;
 
     LeafTuple leaf_tuple(const PreprocessedLeafTuple &preprocessed_leaf_tuple) const;
 

@@ -30,6 +30,7 @@
 
 #include "crypto/crypto.h"
 #include "fcmp_rust/fcmp++.h"
+#include "ringct/rctTypes.h"
 
 #include <string>
 
@@ -190,8 +191,7 @@ public:
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// Ed25519 point x-coordinates are Selene scalars
-SeleneScalar ed_25519_point_to_scalar(const crypto::ec_point &point);
+SeleneScalar selene_scalar_from_bytes(const rct::key &scalar);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
 void extend_zeroes(const C &curve,

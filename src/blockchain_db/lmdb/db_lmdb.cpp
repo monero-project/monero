@@ -6862,7 +6862,7 @@ void BlockchainLMDB::migrate_5_6()
           tuple_context = m_curve_trees->output_to_leaf_context(
             output_id,
             output_data.pubkey,
-            rct::rct2pk(output_data.commitment));
+            output_data.commitment);
         }
         catch(...)
         {

@@ -725,4 +725,29 @@ namespace rct {
           sc_sub(masked.amount.bytes, masked.amount.bytes, sharedSec2.bytes);
         }
     }
+
+    bool clear_torsion(const key &k, key &k_out) {
+        ge_p3 point;
+        if (ge_frombytes_vartime(&point, k.bytes) != 0)
+            return false;
+        // mul by inv 8, then mul by 8
+        ge_p2 point_inv_8;
+        ge_scalarmult(&point_inv_8, INV_EIGHT.bytes, &point);
+        ge_p1p1 point_inv_8_mul_8;
+        ge_mul8(&point_inv_8_mul_8, &point_inv_8);
+        ge_p3 torsion_cleared_point;
+        ge_p1p1_to_p3(&torsion_cleared_point, &point_inv_8_mul_8);
+        ge_p3_tobytes(k_out.bytes, &torsion_cleared_point);
+        if (k_out == I)
+            return false;
+        return true;
+    }
+
+    bool point_to_wei_x(const key &pub, key &wei_x) {
+        fe y;
+        if (fe_y_frombytes_vartime(y, pub.bytes) != 0)
+            return false;
+        fe_y_to_wei_x(wei_x.bytes, y);
+        return true;
+    }
 }

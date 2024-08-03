@@ -31,6 +31,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
 #include "misc_log_ex.h"
+#include "ringct/rctOps.h"
 #include "unit_tests_utils.h"
 
 #include <algorithm>
@@ -759,7 +760,7 @@ static const std::vector<fcmp::curve_trees::LeafTupleContext> generate_random_le
         crypto::generate_keys(O, o, o, false);
         crypto::generate_keys(C, c, c, false);
 
-        auto tuple_context = curve_trees.output_to_leaf_context(output_id, O, C);
+        auto tuple_context = curve_trees.output_to_leaf_context(output_id, O, rct::pk2rct(C));
 
         tuples.emplace_back(std::move(tuple_context));
     }
@@ -773,7 +774,10 @@ static const Selene::Scalar generate_random_selene_scalar()
     crypto::public_key S;
 
     crypto::generate_keys(S, s, s, false);
-    return fcmp::tower_cycle::ed_25519_point_to_scalar(S);
+
+    rct::key S_x;
+    CHECK_AND_ASSERT_THROW_MES(rct::point_to_wei_x(rct::pk2rct(S), S_x), "failed to convert to wei x");
+    return fcmp::tower_cycle::selene_scalar_from_bytes(S_x);
 }
 //----------------------------------------------------------------------------------------------------------------------
 static bool grow_tree(CurveTreesV1 &curve_trees,

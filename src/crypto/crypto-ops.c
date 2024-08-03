@@ -1328,15 +1328,9 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
   }
 }
 
-/* From ge_frombytes.c, modified */
+/* From fe_frombytes.c */
 
-int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
-  fe u;
-  fe v;
-  fe vxx;
-  fe check;
-
-  /* From fe_frombytes.c */
+int fe_y_frombytes_vartime(fe y, const unsigned char *s) {
 
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
@@ -1378,18 +1372,31 @@ int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
   carry6 = (h6 + (int64_t) (1<<25)) >> 26; h7 += carry6; h6 -= carry6 << 26;
   carry8 = (h8 + (int64_t) (1<<25)) >> 26; h9 += carry8; h8 -= carry8 << 26;
 
-  h->Y[0] = h0;
-  h->Y[1] = h1;
-  h->Y[2] = h2;
-  h->Y[3] = h3;
-  h->Y[4] = h4;
-  h->Y[5] = h5;
-  h->Y[6] = h6;
-  h->Y[7] = h7;
-  h->Y[8] = h8;
-  h->Y[9] = h9;
+  y[0] = h0;
+  y[1] = h1;
+  y[2] = h2;
+  y[3] = h3;
+  y[4] = h4;
+  y[5] = h5;
+  y[6] = h6;
+  y[7] = h7;
+  y[8] = h8;
+  y[9] = h9;
 
-  /* End fe_frombytes.c */
+  return 0;
+}
+
+/* From ge_frombytes.c, modified */
+
+int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
+  fe u;
+  fe v;
+  fe vxx;
+  fe check;
+
+  if (fe_y_frombytes_vartime(h->Y, s) != 0) {
+    return -1;
+  }
 
   fe_1(h->Z);
   fe_sq(u, h->Y);
@@ -3876,4 +3883,28 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
 
   // Y/Z = 0/0
   return 0;
+}
+
+// https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
+void fe_y_to_wei_x(unsigned char *wei_x, const fe y)
+{
+  fe one;
+  fe_1(one);
+
+  // (1+y),(1-y)
+  fe one_plus_y;
+  fe_add(one_plus_y, one, y);
+  fe one_minus_y;
+  fe_sub(one_minus_y, one, y);
+
+  // (1/(1-y))*(1+y)
+  fe inv_one_minus_y;
+  fe_invert(inv_one_minus_y, one_minus_y);
+  fe inv_one_minus_y_mul_one_plus_y;
+  fe_mul(inv_one_minus_y_mul_one_plus_y, inv_one_minus_y, one_plus_y);
+
+  // wei x = (1/(1-y))*(1+y) + (A/3)
+  fe wei_x_fe;
+  fe_add(wei_x_fe, inv_one_minus_y_mul_one_plus_y, fe_a_inv_3);
+  fe_tobytes(wei_x, wei_x_fe);
 }

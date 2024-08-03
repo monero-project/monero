@@ -762,6 +762,7 @@ namespace rct {
     static inline const rct::key &sk2rct(const crypto::secret_key &sk) { return (const rct::key&)sk; }
     static inline const rct::key &ki2rct(const crypto::key_image &ki) { return (const rct::key&)ki; }
     static inline const rct::key &hash2rct(const crypto::hash &h) { return (const rct::key&)h; }
+    static inline const rct::key &pt2rct(const crypto::ec_point &pt) { return (const rct::key&)pt; }
     static inline const crypto::public_key &rct2pk(const rct::key &k) { return (const crypto::public_key&)k; }
     static inline const crypto::secret_key &rct2sk(const rct::key &k) { return (const crypto::secret_key&)k; }
     static inline const crypto::key_image &rct2ki(const rct::key &k) { return (const crypto::key_image&)k; }

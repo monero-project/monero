@@ -10,9 +10,6 @@ crate-type = ["staticlib"]
 [dependencies]
 std-shims = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
 
-rand_core = { version = "0.6", features = ["getrandom"] }
-
-transcript = { package = "flexible-transcript", git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["recommended"] }
 helioselene = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
 ciphersuite = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["ed25519", "helioselene"] }
 
@@ -20,6 +17,8 @@ generalized-bulletproofs = { git = "https://github.com/kayabaNerve/fcmp-plus-plu
 
 ec-divisors = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["ed25519"] }
 full-chain-membership-proofs = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
+
+monero-fcmp-plus-plus = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
 
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }
