@@ -30,6 +30,7 @@
 
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
+#include <boost/uuid/random_generator.hpp>
 
 #include "gtest/gtest.h"
 
@@ -126,19 +127,22 @@ namespace
     std::string m_last_in_buf;
   };
 
-  class test_connection : public epee::net_utils::i_service_endpoint
+  class test_connection : public epee::net_utils::service_endpoint<test_levin_protocol_handler>, public std::enable_shared_from_this<test_connection>
   {
   public:
     test_connection(boost::asio::io_service& io_service, test_levin_protocol_handler_config& protocol_config)
-      : m_io_service(io_service)
-      , m_protocol_handler(this, protocol_config, m_context)
+      : epee::net_utils::service_endpoint<test_levin_protocol_handler>(protocol_config)
+      , std::enable_shared_from_this<test_connection>()
+      , m_io_service(io_service)
       , m_send_return(true)
     {
     }
 
     void start()
     {
-      ASSERT_TRUE(m_protocol_handler.after_init_connection());
+      using base_type = epee::net_utils::connection_context_base;
+      static_cast<base_type&>(context) = base_type{boost::uuids::random_generator{}(), {}, true, false};
+      ASSERT_TRUE(m_protocol_handler.m_config.after_init_connection(shared_from_this()));
     }
 
     // Implement epee::net_utils::i_service_endpoint interface
@@ -156,8 +160,6 @@ namespace
     virtual bool call_run_once_service_io()           { std::cout << "test_connection::call_run_once_service_io()" << std::endl; return true; }
     virtual bool request_callback()                   { std::cout << "test_connection::request_callback()" << std::endl; return true; }
     virtual boost::asio::io_service& get_io_service() { std::cout << "test_connection::get_io_service()" << std::endl; return m_io_service; }
-    virtual bool add_ref()                            { std::cout << "test_connection::add_ref()" << std::endl; return true; }
-    virtual bool release()                            { std::cout << "test_connection::release()" << std::endl; return true; }
 
     size_t send_counter() const { return m_send_counter.get(); }
 
@@ -167,12 +169,8 @@ namespace
     bool send_return() const { return m_send_return; }
     void send_return(bool v) { m_send_return = v; }
 
-  public:
-    test_levin_protocol_handler m_protocol_handler;
-
   private:
     boost::asio::io_service& m_io_service;
-    test_levin_connection_context m_context;
 
     unit_test::call_counter m_send_counter;
     boost::mutex m_mutex;
@@ -188,7 +186,7 @@ namespace
     const static uint64_t invoke_timeout = 5 * 1000;
     const static size_t max_packet_size = 10 * 1024 * 1024;
 
-    typedef std::unique_ptr<test_connection> test_connection_ptr;
+    typedef std::shared_ptr<test_connection> test_connection_ptr;
 
     async_protocol_handler_test():
       m_pcommands_handler(new test_levin_commands_handler()),
