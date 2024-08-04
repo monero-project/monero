@@ -161,6 +161,12 @@ namespace net_utils
 				return m_net_client.is_connected(ssl);
 			}
 			//---------------------------------------------------------------------------
+			boost::system::error_code last_error() override final
+			{
+				CRITICAL_REGION_LOCAL(m_lock);
+				return m_net_client.last_error();
+			}
+			//---------------------------------------------------------------------------
 			virtual bool handle_target_data(std::string& piece_of_transfer) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
