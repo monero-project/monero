@@ -2915,6 +2915,19 @@ bool simple_wallet::set_show_wallet_name_when_locked(const std::vector<std::stri
   return true;
 }
 
+bool simple_wallet::set_show_detailed_prompt(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    parse_bool_and_use(args[1], [&](bool r) {
+      m_wallet->show_detailed_prompt(r);
+      m_wallet->rewrite(m_wallet_file, pwd_container->password());
+    });
+  }
+  return true;
+}
+
 bool simple_wallet::set_inactivity_lock_timeout(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
 #ifdef _WIN32
@@ -3364,6 +3377,8 @@ simple_wallet::simple_wallet()
                                   "  Whether to enable importing data in deprecated formats.\n "
                                   "show-wallet-name-when-locked <1|0>\n "
                                   "  Set this if you would like to display the wallet name when locked.\n "
+                                  "show-detailed-prompt <1|0>\n "
+                                  "  Set this if you would like to display the account, wallet name, and block in the prompt.\n "
                                   "enable-multisig-experimental <1|0>\n "
                                   "  Set this to allow multisig commands. Multisig may currently be exploitable if parties do not trust each other.\n "
                                   "inactivity-lock-timeout <unsigned int>\n "
@@ -3761,6 +3776,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "device-name = " << m_wallet->device_name();
     success_msg_writer() << "export-format = " << (m_wallet->export_format() == tools::wallet2::ExportFormat::Ascii ? "ascii" : "binary");
     success_msg_writer() << "show-wallet-name-when-locked = " << m_wallet->show_wallet_name_when_locked();
+    success_msg_writer() << "show-detailed-prompt = " << m_wallet->show_detailed_prompt();
     success_msg_writer() << "inactivity-lock-timeout = " << m_wallet->inactivity_lock_timeout()
 #ifdef _WIN32
         << " (disabled on Windows)"
@@ -3828,6 +3844,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("track-uses", set_track_uses, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("background-sync", setup_background_sync, tr("off (default); reuse-wallet-password (reuse the wallet password to encrypt the background cache); custom-background-password (use a custom background password to encrypt the background cache)"));
     CHECK_SIMPLE_VARIABLE("show-wallet-name-when-locked", set_show_wallet_name_when_locked, tr("1 or 0"));
+    CHECK_SIMPLE_VARIABLE("show-detailed-prompt", set_show_detailed_prompt, tr("1 or 0"));
     CHECK_SIMPLE_VARIABLE("inactivity-lock-timeout", set_inactivity_lock_timeout, tr("unsigned integer (seconds, 0 to disable)"));
     CHECK_SIMPLE_VARIABLE("setup-background-mining", set_setup_background_mining, tr("1/yes or 0/no"));
     CHECK_SIMPLE_VARIABLE("device-name", set_device_name, tr("<device_name[:device_spec]>"));
@@ -9156,12 +9173,25 @@ std::string simple_wallet::get_prompt() const
   if (m_locked)
     return std::string("[") + tr("locked due to inactivity") + "]";
   std::string addr_start = m_wallet->get_subaddress_as_str({m_current_subaddress_account, 0}).substr(0, 6);
-  std::string prompt = std::string("[") + tr("wallet") + " " + addr_start;
+  std::string prompt = std::string("[") + tr("account: ") + addr_start;
+  // Detailed prompt: [account: 4......] [wallet: <file_basename>] [block: xxx]:
+  const bool show_detailed_prompt = m_wallet->show_detailed_prompt();
+  if (show_detailed_prompt)
+  {
+    std::string path = m_wallet->get_wallet_file();
+    std::string wallet = path.substr(path.find_last_of("/\\") + 1);
+    std::string block = std::to_string(m_wallet->get_blockchain_current_height());
+    prompt += std::string("] [") + tr("wallet: ") + wallet;
+    prompt += std::string("] [") + tr("block: ") + block;
+  }
   if (!m_wallet->check_connection(NULL))
-    prompt += tr(" (no daemon)");
-  else if (!m_wallet->is_synced())
-    prompt += tr(" (out of sync)");
-  prompt += "]: ";
+  {
+    prompt += tr("] (no daemon): ");
+  } else if (!m_wallet->is_synced()) {
+    prompt += tr("] (out of sync): ");
+  } else {
+    prompt += "]: ";
+  }
   return prompt;
 }
 //----------------------------------------------------------------------------------------------------

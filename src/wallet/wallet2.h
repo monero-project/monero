@@ -1480,6 +1480,8 @@ private:
     bool is_background_syncing() const { return m_background_syncing; }
     bool show_wallet_name_when_locked() const { return m_show_wallet_name_when_locked; }
     void show_wallet_name_when_locked(bool value) { m_show_wallet_name_when_locked = value; }
+    bool show_detailed_prompt() const { return m_show_detailed_prompt; }
+    void show_detailed_prompt(bool value) { m_show_detailed_prompt = value; }
     BackgroundMiningSetupType setup_background_mining() const { return m_setup_background_mining; }
     void setup_background_mining(BackgroundMiningSetupType value) { m_setup_background_mining = value; }
     uint32_t inactivity_lock_timeout() const { return m_inactivity_lock_timeout; }
@@ -2002,6 +2004,7 @@ private:
     bool m_is_background_wallet;
     BackgroundSyncType m_background_sync_type;
     bool m_show_wallet_name_when_locked;
+    bool m_show_detailed_prompt;
     uint32_t m_inactivity_lock_timeout;
     BackgroundMiningSetupType m_setup_background_mining;
     float m_auto_mine_for_rpc_payment_threshold;

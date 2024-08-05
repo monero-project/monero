@@ -1227,6 +1227,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_processing_background_cache(false),
   m_custom_background_key(boost::none),
   m_show_wallet_name_when_locked(false),
+  m_show_detailed_prompt(false),
   m_inactivity_lock_timeout(DEFAULT_INACTIVITY_LOCK_TIMEOUT),
   m_setup_background_mining(BackgroundMiningMaybe),
   m_is_initialized(false),
@@ -4684,6 +4685,9 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetInt(m_show_wallet_name_when_locked ? 1 : 0);
   json.AddMember("show_wallet_name_when_locked", value2, json.GetAllocator());
 
+  value2.SetInt(m_show_detailed_prompt ? 1 : 0);
+  json.AddMember("show_detailed_prompt", value2, json.GetAllocator());
+
   value2.SetInt(m_inactivity_lock_timeout);
   json.AddMember("inactivity_lock_timeout", value2, json.GetAllocator());
 
@@ -4962,6 +4966,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_track_uses = false;
     m_background_sync_type = BackgroundSyncOff;
     m_show_wallet_name_when_locked = false;
+    m_show_detailed_prompt = false;
     m_inactivity_lock_timeout = DEFAULT_INACTIVITY_LOCK_TIMEOUT;
     m_setup_background_mining = BackgroundMiningMaybe;
     m_subaddress_lookahead_major = SUBADDRESS_LOOKAHEAD_MAJOR;
@@ -5138,6 +5143,8 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_track_uses = field_track_uses;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, show_wallet_name_when_locked, int, Int, false, false);
     m_show_wallet_name_when_locked = field_show_wallet_name_when_locked;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, show_detailed_prompt, int, Int, false, false);
+    m_show_detailed_prompt = field_show_detailed_prompt;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, inactivity_lock_timeout, uint32_t, Uint, false, DEFAULT_INACTIVITY_LOCK_TIMEOUT);
     m_inactivity_lock_timeout = field_inactivity_lock_timeout;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, setup_background_mining, BackgroundMiningSetupType, Int, false, BackgroundMiningMaybe);
