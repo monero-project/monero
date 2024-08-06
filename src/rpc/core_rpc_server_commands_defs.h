@@ -1847,25 +1847,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     typedef epee::misc_utils::struct_init<response_t> response;
   };
   
-  struct COMMAND_RPC_FAST_EXIT
-  {
-    struct request_t: public rpc_request_base
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_request_base)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-    
-    struct response_t: public rpc_response_base
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE_PARENT(rpc_response_base)
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-  
   struct COMMAND_RPC_GET_LIMIT
   {
     struct request_t: public rpc_request_base
