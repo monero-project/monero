@@ -1,5 +1,4 @@
 # Copyright (c) 2018-2024, The Monero Project
-
 # 
 # All rights reserved.
 # 
@@ -33,56 +32,52 @@ import json
 
 class Response(dict):
     def __init__(self, d):
-        for k in d.keys():
-            if type(d[k]) == dict:
-                self[k] = Response(d[k])
-            elif type(d[k]) == list:
-                self[k] = []
-                for i in range(len(d[k])):
-                    if type(d[k][i]) == dict:
-                        self[k].append(Response(d[k][i]))
-                    else:
-                        self[k].append(d[k][i])
+        for k, v in d.items():
+            if isinstance(v, dict):
+                self[k] = Response(v)
+            elif isinstance(v, list):
+                self[k] = [Response(i) if isinstance(i, dict) else i for i in v]
             else:
-                self[k] = d[k]
+                self[k] = v
 
     def __getattr__(self, key):
-        return self[key]
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(f"'Response' object has no attribute '{key}'")
+
     def __setattr__(self, key, value):
         self[key] = value
-    def __eq__(self, other):
-        if type(other) == dict:
-            return self == Response(other)
-        if self.keys() != other.keys():
-            return False
-        for k in self.keys():
-            if self[k] != other[k]:
-                return False
-        return True
 
-class JSONRPC(object):
-    def __init__(self, url, username=None, password=None):
+class JSONRPC:
+    def __init__(self, url, username=None, password=None, timeout=10):
         self.url = url
         self.username = username
         self.password = password
+        self.timeout = timeout
 
-    def send_request(self, path, inputs, result_field = None):
-        res = requests.post(
-            self.url + path,
-            data=json.dumps(inputs),
-            headers={'content-type': 'application/json'},
-            auth=HTTPDigestAuth(self.username, self.password) if self.username is not None else None)
-        res = res.json()
-        
-        assert 'error' not in res, res
+    def send_request(self, path, inputs, result_field=None):
+        try:
+            response = requests.post(
+                f"{self.url}{path}",
+                data=json.dumps(inputs),
+                headers={'content-type': 'application/json'},
+                auth=HTTPDigestAuth(self.username, self.password) if self.username else None,
+                timeout=self.timeout
+            )
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            raise SystemExit(f"Request failed: {e}")
+
+        res = response.json()
+
+        if 'error' in res:
+            raise ValueError(f"Error in response: {res['error']}")
 
         if result_field:
-            res = res[result_field]
+            return Response(res.get(result_field, {}))
 
         return Response(res)
 
     def send_json_rpc_request(self, inputs):
         return self.send_request("/json_rpc", inputs, 'result')
-
-
-
