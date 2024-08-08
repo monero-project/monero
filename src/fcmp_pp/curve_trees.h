@@ -38,7 +38,7 @@
 #include <vector>
 
 
-namespace fcmp
+namespace fcmp_pp
 {
 namespace curve_trees
 {
@@ -309,4 +309,4 @@ std::shared_ptr<CurveTreesV1> curve_trees_v1(
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
-} //namespace fcmp
+} //namespace fcmp_pp

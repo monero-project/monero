@@ -34,7 +34,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
-#include "fcmp/curve_trees.h"
+#include "fcmp_pp/curve_trees.h"
 #include "misc_log_ex.h"
 
 #include <atomic>
@@ -84,7 +84,7 @@ namespace unit_test
       remove_files();
     }
 
-    void init_new_db(std::shared_ptr<fcmp::curve_trees::CurveTreesV1> curve_trees)
+    void init_new_db(std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> curve_trees)
     {
       CHECK_AND_ASSERT_THROW_MES(this->m_db == nullptr, "expected nullptr m_db");
       this->m_db = new cryptonote::BlockchainLMDB(true/*batch_transactions*/, curve_trees);

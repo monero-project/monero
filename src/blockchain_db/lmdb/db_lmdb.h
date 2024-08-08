@@ -30,7 +30,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
-#include "fcmp/curve_trees.h"
+#include "fcmp_pp/curve_trees.h"
 #include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
 
@@ -194,7 +194,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=true, std::shared_ptr<fcmp::curve_trees::CurveTreesV1> curve_trees = fcmp::curve_trees::curve_trees_v1());
+  BlockchainLMDB(bool batch_transactions=true, std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> curve_trees = fcmp_pp::curve_trees::curve_trees_v1());
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -368,7 +368,7 @@ public:
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
   // make private
-  virtual void grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> &&new_leaves);
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContext> &&new_leaves);
 
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples);
 
@@ -388,7 +388,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
-                , const std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
+                , const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
                 );
 
   virtual void remove_block();
@@ -420,26 +420,26 @@ private:
 
   template<typename C>
   void grow_layer(const std::unique_ptr<C> &curve,
-    const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
+    const std::vector<fcmp_pp::curve_trees::LayerExtension<C>> &layer_extensions,
     const uint64_t c_idx,
     const uint64_t layer_idx);
 
   template<typename C>
   void trim_layer(const std::unique_ptr<C> &curve,
-    const fcmp::curve_trees::LayerReduction<C> &layer_reduction,
+    const fcmp_pp::curve_trees::LayerReduction<C> &layer_reduction,
     const uint64_t layer_idx);
 
   virtual uint64_t get_num_leaf_tuples() const;
 
   virtual std::array<uint8_t, 32UL> get_tree_root() const;
 
-  fcmp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
+  fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
-  fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
-    const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+  fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
-  fcmp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(
-    const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+  fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
   template<typename C_CHILD, typename C_PARENT>
   bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
@@ -449,7 +449,7 @@ private:
     const uint64_t child_chunk_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp::curve_trees::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
+  std::vector<fcmp_pp::curve_trees::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
 
   void del_locked_leaf_tuples_at_block_id(uint64_t block_id);
 

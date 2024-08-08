@@ -42,7 +42,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
-#include "fcmp/curve_trees.h"
+#include "fcmp_pp/curve_trees.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -418,7 +418,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
-                , const std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
+                , const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
                 ) = 0;
 
   /**
@@ -592,7 +592,7 @@ protected:
 
   HardFork* m_hardfork;
 
-  std::shared_ptr<fcmp::curve_trees::CurveTreesV1> m_curve_trees;
+  std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> m_curve_trees;
 
 public:
 
@@ -1783,7 +1783,7 @@ public:
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
   // TODO: description and make private
-  virtual void grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> &&new_leaves) = 0;
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContext> &&new_leaves) = 0;
 
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples) = 0;
 

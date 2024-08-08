@@ -28,12 +28,12 @@
 
 #pragma once
 
-#include "fcmp/curve_trees.h"
-#include "fcmp/tower_cycle.h"
+#include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/tower_cycle.h"
 
-using Helios       = fcmp::curve_trees::Helios;
-using Selene       = fcmp::curve_trees::Selene;
-using CurveTreesV1 = fcmp::curve_trees::CurveTreesV1;
+using Helios       = fcmp_pp::curve_trees::Helios;
+using Selene       = fcmp_pp::curve_trees::Selene;
+using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
 
 // Helper class to read/write a global tree in memory. It's only used in testing because normally the tree isn't kept
 // in memory (it's stored in the db)
@@ -85,10 +85,10 @@ public:
     // - This function is useful to collect all tree data necessary to perform the actual trim operation
     // - This function can return elems from each last chunk that will need to be trimmed
     CurveTreesV1::LastHashes get_last_hashes_to_trim(
-        const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+        const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
     CurveTreesV1::LastChunkChildrenToTrim get_all_last_chunk_children_to_trim(
-        const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions);
+        const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions);
 
 private:
     CurveTreesV1 &m_curve_trees;

@@ -35,7 +35,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/testdb.h"
-#include "fcmp/curve_trees.h"
+#include "fcmp_pp/curve_trees.h"
 
 using namespace cryptonote;
 
@@ -55,7 +55,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
+                        , const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
                         ) override {
     blocks.push_back(blk);
   }
