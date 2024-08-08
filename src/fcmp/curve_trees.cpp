@@ -719,6 +719,7 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuple_contexts(const cryptonote
 
         static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
             "Revisit this section and update for the new tx version.");
+        CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
 
         if (!miner_tx && tx.version == 2)
             CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");

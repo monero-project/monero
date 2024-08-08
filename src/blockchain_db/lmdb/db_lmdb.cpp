@@ -221,7 +221,7 @@ namespace
  * spent_keys       input hash   -
  *
  * locked_leaves    block ID     [{output ID, leaf tuple}...]
- * leaves           leaf_idx     {leaf tuple}
+ * leaves           leaf_idx     leaf tuple
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  *
  * txpool_meta      txn hash     txn metadata
@@ -6749,58 +6749,58 @@ void BlockchainLMDB::migrate_5_6()
 
   MGINFO_YELLOW("Migrating blockchain from DB version 5 to 6 - this may take a while:");
 
-  // Reset all updated tables from migration since not sure of a simple and efficient way to continue if the migration
-  // stops before it's finished (outputs aren't inserted in order)
-  MDB_dbi dbi;
-  DELETE_DB("locked_leaves");
-  DELETE_DB("leaves");
-  DELETE_DB("layers");
-  DELETE_DB("block_infn");
-
-  // TODO: if I instead iterate over every block's outputs and go in order that way, I'd know where to leave off based on
-  // the new block_infn table. Problem is that's less efficient (read block tx hashes, use tx hashes to read output ID's, read outputs)
-  // ... Could also require outputs be inserted all-or-nothing first, and then can pick up where left off for the tree
-  // if any of leaves, layers, or block_infn tables exist, then locked_leaves migration should be complete
-
-  // TODO: I can keep track of the contiguous output_id inserted in a separate table used strictly for this migration
-  // On next run, read all outputs until we reach the highest contiguous output_id, then continue from there
-
+  MDB_dbi m_tmp_last_output;
   do
   {
-    // 1. Set up locked outputs table
+    // 1. Prepare all valid outputs to be inserted into the merkle tree and
+    //    place them in a locked leaves table. The key to this new table is the
+    //    block id in which the outputs unlock.
     {
-      LOG_PRINT_L1("Setting up a locked outputs table (step 1/2 of full-chain membership proof migration)");
+      MINFO("Setting up a locked outputs table (step 1/2 of full-chain membership proof migration)");
 
       result = mdb_txn_begin(m_env, NULL, 0, txn);
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
       lmdb_db_open(txn, LMDB_LOCKED_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_leaves, "Failed to open db handle for m_locked_leaves");
       mdb_set_dupsort(txn, m_locked_leaves, compare_uint64);
+      lmdb_db_open(txn, "tmp_last_output", MDB_INTEGERKEY | MDB_CREATE, m_tmp_last_output, "Failed to open db handle for m_tmp_last_output");
       txn.commit();
 
       if (!m_batch_transactions)
         set_batch_transactions(true);
-      batch_start(1000);
+      const std::size_t BATCH_SIZE = 1000;
+      batch_start(BATCH_SIZE);
       txn.m_txn = m_write_txn->m_txn;
 
-      MDB_cursor *c_output_amounts, *c_locked_leaves;
+      // Use this cache to know how to restart the migration if the process is killed
+      struct tmp_output_cache { uint64_t n_outputs_read; uint64_t amount; outkey ok; };
+      tmp_output_cache last_output;
+
+      MDB_cursor *c_output_amounts, *c_locked_leaves, *c_tmp_last_output;
       MDB_val k, v;
 
-      MDB_cursor_op op = MDB_FIRST;
-
-      const uint64_t n_outputs = this->num_outputs();
-
       i = 0;
+      const uint64_t n_outputs = this->num_outputs();
+      MDB_cursor_op op = MDB_FIRST;
       while (1)
       {
-        if (!(i % 1000))
+        if (!(i % BATCH_SIZE))
         {
           if (i)
           {
             LOGIF(el::Level::Info)
             {
-              std::cout << i << " / " << n_outputs << " \r" << std::flush;
+              const uint64_t percent = std::min((i * 100) / n_outputs, (uint64_t)99);
+              std::cout << i << " / " << n_outputs << " outputs (" << percent << "% of step 1/2)  \r" << std::flush;
             }
+
+            // Update last output read
+            MDB_val_set(v_last_output, last_output);
+            result = mdb_cursor_put(c_tmp_last_output, (MDB_val*)&zerokval, &v_last_output, 0);
+            if (result)
+              throw0(DB_ERROR(lmdb_error("Failed to update max output id: ", result).c_str()));
+
+            // Commit and start a new txn
             txn.commit();
             result = mdb_txn_begin(m_env, NULL, 0, txn);
             if (result)
@@ -6810,16 +6810,47 @@ void BlockchainLMDB::migrate_5_6()
             memset(&m_wcursors, 0, sizeof(m_wcursors));
           }
 
+          // Open all cursors
           result = mdb_cursor_open(txn, m_output_amounts, &c_output_amounts);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for output amounts: ", result).c_str()));
-
           result = mdb_cursor_open(txn, m_locked_leaves, &c_locked_leaves);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for locked outputs: ", result).c_str()));
+          result = mdb_cursor_open(txn, m_tmp_last_output, &c_tmp_last_output);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for temp last output: ", result).c_str()));
 
-          // Advance the output_amounts cursor to the current
-          if (i)
+          // Get the cached last output from the db
+          bool found_cached_output = false;
+          tmp_output_cache cached_last_o;
+          if (i == 0)
+          {
+            MDB_val v_last_output;
+            result = mdb_cursor_get(c_tmp_last_output, (MDB_val*)&zerokval, &v_last_output, MDB_SET);
+            if (result != MDB_SUCCESS && result != MDB_NOTFOUND)
+              throw0(DB_ERROR(lmdb_error("Failed to get max output id: ", result).c_str()));
+            if (result != MDB_NOTFOUND)
+            {
+              cached_last_o = *(const tmp_output_cache*)v_last_output.mv_data;
+              MDEBUG("Found cached output " << cached_last_o.ok.output_id);
+              found_cached_output = true;
+
+              // Set k and v so we can continue the migration from that output
+              k = {sizeof(cached_last_o.amount), (void *)&cached_last_o.amount};
+
+              const std::size_t outkey_size = (cached_last_o.amount == 0) ? sizeof(outkey) : sizeof(pre_rct_outkey);
+              v = {outkey_size, (void *)&cached_last_o.ok};
+
+              if (n_outputs < cached_last_o.n_outputs_read)
+                throw0(DB_ERROR("Unexpected n_outputs_read on cached last output"));
+              i = cached_last_o.n_outputs_read;
+              op = MDB_NEXT;
+            }
+          }
+
+          // Advance the output_amounts cursor to the last output read
+          if (i || found_cached_output)
           {
             result = mdb_cursor_get(c_output_amounts, &k, &v, MDB_GET_BOTH);
             if (result)
@@ -6827,6 +6858,7 @@ void BlockchainLMDB::migrate_5_6()
           }
         }
 
+        // Get the next output from the db
         result = mdb_cursor_get(c_output_amounts, &k, &v, op);
         op = MDB_NEXT;
         if (result == MDB_NOTFOUND)
@@ -6837,6 +6869,9 @@ void BlockchainLMDB::migrate_5_6()
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to get a record from output amounts: ", result).c_str()));
 
+        ++i;
+        const bool commit_next_iter = i && !(i % BATCH_SIZE);
+
         // Read the output data
         uint64_t amount = *(const uint64_t*)k.mv_data;
         output_data_t output_data;
@@ -6846,6 +6881,8 @@ void BlockchainLMDB::migrate_5_6()
           const outkey *okp = (const outkey *)v.mv_data;
           output_data = okp->data;
           output_id = okp->output_id;
+          if (commit_next_iter)
+            memcpy(&last_output.ok, okp, sizeof(outkey));
         }
         else
         {
@@ -6853,6 +6890,15 @@ void BlockchainLMDB::migrate_5_6()
           memcpy(&output_data, &okp->data, sizeof(pre_rct_output_data_t));
           output_data.commitment = rct::zeroCommit(amount);
           output_id = okp->output_id;
+          if (commit_next_iter)
+            memcpy(&last_output.ok, okp, sizeof(pre_rct_outkey));
+        }
+
+        if (commit_next_iter)
+        {
+          // Set last output metadata
+          last_output.amount = amount;
+          last_output.n_outputs_read = i;
         }
 
         // Convert the output into a leaf tuple context
@@ -6883,19 +6929,19 @@ void BlockchainLMDB::migrate_5_6()
         if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
         if (result == MDB_KEYEXIST)
-          MDEBUG("Duplicate output pub key encountered: " << output_data.pubkey);
-
-        ++i;
+          MDEBUG("Duplicate output pub key encountered: " << output_data.pubkey << " , output_id: " << output_id);
       }
     }
 
-    // 2. Set up the curve trees merkle tree
+    // 2. Set up the curve trees merkle tree by growing the tree block by block,
+    //    with leaves that unlock in each respective block
     {
-      LOG_PRINT_L1("Setting up a merkle tree using existing cryptonote outputs (step 2/2 of full-chain membership proof migration)");
+      MINFO("Setting up a merkle tree using existing cryptonote outputs (step 2/2 of full-chain membership proof migration)");
 
       if (!m_batch_transactions)
         set_batch_transactions(true);
-      batch_start(1000);
+      const std::size_t BATCH_SIZE = 50;
+      batch_start(BATCH_SIZE);
       txn.m_txn = m_write_txn->m_txn;
 
       /* the block_info table name is the same but the old version and new version
@@ -6906,30 +6952,23 @@ void BlockchainLMDB::migrate_5_6()
       lmdb_db_open(txn, "block_infn", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_block_info, "Failed to open db handle for block_infn");
       mdb_set_dupsort(txn, m_block_info, compare_uint64);
 
-      // Open new leaves and layers tables
-      lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
-      lmdb_db_open(txn, LMDB_LAYERS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_layers, "Failed to open db handle for m_layers");
-
-      mdb_set_dupsort(txn, m_leaves, compare_uint64);
-      mdb_set_dupsort(txn, m_layers, compare_uint64);
-
       MDB_cursor *c_locked_leaves, *c_new_block_info, *c_old_block_info;
-
       MDB_val k_blk, v_blk;
 
-      const uint64_t n_blocks = height();
-
       i = 0;
+      const uint64_t n_blocks = height();
       while (i < n_blocks)
       {
-        if (!(i % 1000))
+        if (!(i % BATCH_SIZE))
         {
           if (i)
           {
             LOGIF(el::Level::Info)
             {
-              std::cout << i << " / " << n_blocks << " blocks \r" << std::flush;
+              const uint64_t percent = std::min((i * 100) / n_blocks, (uint64_t)99);
+              std::cout << i << " / " << n_blocks << " blocks (" << percent << "% of step 2/2)  \r" << std::flush;
             }
+
             txn.commit();
             result = mdb_txn_begin(m_env, NULL, 0, txn);
             if (result)
@@ -6939,10 +6978,10 @@ void BlockchainLMDB::migrate_5_6()
             memset(&m_wcursors, 0, sizeof(m_wcursors));
           }
 
+          // Open all cursors
           result = mdb_cursor_open(txn, m_locked_leaves, &c_locked_leaves);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for locked outputs: ", result).c_str()));
-
           result = mdb_cursor_open(txn, m_block_info, &c_new_block_info);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_infn: ", result).c_str()));
@@ -6950,12 +6989,16 @@ void BlockchainLMDB::migrate_5_6()
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_info: ", result).c_str()));
 
-          // Advance the c_old_block_info cursor to the current
-          if (i)
+          // See what the last block inserted into the new table was
+          if (i == 0)
           {
-            result = mdb_cursor_get(c_old_block_info, &k_blk, &v_blk, MDB_GET_BOTH);
+            MDB_stat db_stats;
+            result = mdb_stat(txn, m_block_info, &db_stats);
             if (result)
-              throw0(DB_ERROR(lmdb_error("Failed to advance cursor for old block infos: ", result).c_str()));
+              throw0(DB_ERROR(lmdb_error("Failed to query m_block_info: ", result).c_str()));
+            i = db_stats.ms_entries;
+            if (i == n_blocks)
+              break;
           }
         }
 
@@ -6963,7 +7006,7 @@ void BlockchainLMDB::migrate_5_6()
         auto unlocked_leaves = this->get_leaf_tuples_at_unlock_block_id(i);
         this->grow_tree(std::move(unlocked_leaves));
 
-        // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
+        // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked leaves table
         this->del_locked_leaf_tuples_at_block_id(i);
 
         // Get old block_info and use it to set the new one with new values
@@ -6971,6 +7014,8 @@ void BlockchainLMDB::migrate_5_6()
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to get a record from block_info: ", result).c_str()));
         const mdb_block_info_4 *bi_old = (const mdb_block_info_4*)v_blk.mv_data;
+        if (i != bi_old->bi_height)
+          throw0(DB_ERROR(std::string("Unexpected block retrieved, retrieved: " + std::to_string(bi_old->bi_height) + " , expected: " + std::to_string(i)).c_str()));
         mdb_block_info_5 bi;
         bi.bi_height = bi_old->bi_height;
         bi.bi_timestamp = bi_old->bi_timestamp;
@@ -6984,19 +7029,28 @@ void BlockchainLMDB::migrate_5_6()
         bi.bi_n_leaf_tuples = this->get_num_leaf_tuples();
         bi.bi_tree_root = this->get_tree_root();
 
+        LOGIF(el::Level::Info)
+        {
+          if ((bi.bi_height % 1000) == 0)
+          {
+            const std::string tree_root = epee::string_tools::pod_to_hex(bi.bi_tree_root);
+            MINFO("Height: " << i << ", block: " << bi.bi_hash << ", tree root: " << tree_root << ", leaves: " << bi.bi_n_leaf_tuples);
+          }
+        }
+
         MDB_val_set(nv, bi);
         result = mdb_cursor_put(c_new_block_info, (MDB_val *)&zerokval, &nv, MDB_APPENDDUP);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to put a record into block_infn: ", result).c_str()));
 
-        // TODO: delete old block info records
-        // /* we delete the old records immediately, so the overall DB and mapsize should not grow.
-        // * This is a little slower than just letting mdb_drop() delete it all at the end, but
-        // * it saves a significant amount of disk space.
-        // */
-        // result = mdb_cursor_del(c_old_block_info, 0);
-        // if (result)
-        //   throw0(DB_ERROR(lmdb_error("Failed to delete a record from block_info: ", result).c_str()));
+        /* we delete the old records immediately, so the overall DB and mapsize should not be
+        * larger than it needs to be.
+        * This is a little slower than just letting mdb_drop() delete it all at the end, but
+        * it saves a significant amount of disk space.
+        */
+        result = mdb_cursor_del(c_old_block_info, 0);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Failed to delete a record from block_info: ", result).c_str()));
 
         ++i;
       }
@@ -7031,6 +7085,12 @@ void BlockchainLMDB::migrate_5_6()
   result = mdb_put(txn, m_properties, &vk, &v, 0);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to update version for the db: ", result).c_str()));
+
+  // We only needed the temp last output table for this migration, drop it
+  result = mdb_drop(txn, m_tmp_last_output, 1);
+  if (result)
+    throw0(DB_ERROR(lmdb_error("Failed to drop temp last output table: ", result).c_str()));
+
   txn.commit();
 }
 
