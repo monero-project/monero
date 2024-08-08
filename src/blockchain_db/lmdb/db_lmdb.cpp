@@ -93,23 +93,6 @@ inline void throw1(const T &e)
 
 #define MDB_val_str(var, val) MDB_val var = {strlen(val) + 1, (void *)val}
 
-#define DELETE_DB(x) do {   \
-    result = mdb_txn_begin(m_env, NULL, 0, txn); \
-    if (result) \
-      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str())); \
-    result = mdb_dbi_open(txn, x, 0, &dbi); \
-    if (!result) { \
-      result = mdb_drop(txn, dbi, 1); \
-      if (result) \
-        throw0(DB_ERROR(lmdb_error("Failed to delete " x ": ", result).c_str())); \
-      txn.commit(); \
-    } \
-    else \
-    { \
-      txn.abort(); \
-    }; \
-  } while(0)
-
 template<typename T>
 struct MDB_val_copy: public MDB_val
 {
@@ -6003,6 +5986,19 @@ void BlockchainLMDB::migrate_0_1()
         break;
     }
     txn.abort();
+
+#define DELETE_DB(x) do {   \
+    LOG_PRINT_L1("  " x ":"); \
+    result = mdb_txn_begin(m_env, NULL, 0, txn); \
+    if (result) \
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str())); \
+    result = mdb_dbi_open(txn, x, 0, &dbi); \
+    if (!result) { \
+      result = mdb_drop(txn, dbi, 1); \
+      if (result) \
+        throw0(DB_ERROR(lmdb_error("Failed to delete " x ": ", result).c_str())); \
+    txn.commit(); \
+    } } while(0)
 
     DELETE_DB("tx_heights");
     DELETE_DB("output_txs");
