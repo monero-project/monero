@@ -1312,7 +1312,7 @@ TEST(Serialization, tx_fcmp_pp)
   const std::size_t n_inputs = 2;
   const std::size_t n_outputs = 3;
 
-  const auto make_dummy_fcmp_pp_tx = [n_inputs, n_outputs]() -> transaction
+  const auto make_dummy_fcmp_pp_tx = []() -> transaction
   {
     transaction tx;
 
