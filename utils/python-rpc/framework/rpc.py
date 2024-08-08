@@ -50,24 +50,21 @@ class Response(dict):
         self[key] = value
 
 class JSONRPC:
-    def __init__(self, url, username=None, password=None, timeout=20):
+    def __init__(self, url, username=None, password=None, timeout=10):
         self.url = url
         self.username = username
         self.password = password
         self.timeout = timeout
 
     def send_request(self, path, inputs, result_field=None):
-        try:
-            response = requests.post(
-                f"{self.url}{path}",
-                data=json.dumps(inputs),
-                headers={'content-type': 'application/json'},
-                auth=HTTPDigestAuth(self.username, self.password) if self.username else None,
-                timeout=self.timeout
-            )
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            raise SystemExit(f"Request failed: {e}")
+        response = requests.post(
+            f"{self.url}{path}",
+            data=json.dumps(inputs),
+            headers={'content-type': 'application/json'},
+            auth=HTTPDigestAuth(self.username, self.password) if self.username else None,
+            timeout=self.timeout
+        )
+        response.raise_for_status()
 
         res = response.json()
 
