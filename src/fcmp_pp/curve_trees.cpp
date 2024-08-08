@@ -761,6 +761,10 @@ std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(std::vector<
 
     return flattened_leaves;
 };
+
+// Explicit instantiation
+template std::vector<Selene::Scalar> CurveTrees<Helios, Selene>::flatten_leaves(
+    std::vector<LeafTuple> &&leaves) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
@@ -854,6 +858,12 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
     return tree_extension;
 };
+
+// Explicit instantiation
+template CurveTrees<Helios, Selene>::TreeExtension CurveTrees<Helios, Selene>::get_tree_extension(
+    const uint64_t old_n_leaf_tuples,
+    const LastHashes &existing_last_hashes,
+    std::vector<LeafTupleContext> &&new_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
@@ -899,6 +909,11 @@ std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
 
     return trim_instructions;
 }
+
+// Explicit instantiation
+template std::vector<TrimLayerInstructions> CurveTrees<Helios, Selene>::get_trim_instructions(
+    const uint64_t old_n_leaf_tuples,
+    const uint64_t trim_n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reduction(
@@ -962,6 +977,12 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
 
     return tree_reduction_out;
 };
+
+// Explicit instantiation
+template CurveTrees<Helios, Selene>::TreeReduction CurveTrees<Helios, Selene>::get_tree_reduction(
+    const std::vector<TrimLayerInstructions> &trim_instructions,
+    const LastChunkChildrenToTrim &children_to_trim,
+    const LastHashes &last_hashes) const;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTrees private member functions
