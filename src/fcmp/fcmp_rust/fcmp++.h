@@ -8,8 +8,8 @@ namespace fcmp_pp_rust {
 // ----- deps C bindings -----
 
 /// Inner integer type that the [`Limb`] newtype wraps.
-// TODO: This is only valid for 64-bit platforms
-using Word = uint64_t;
+// TODO: test 32-bit platforms
+using Word = uintptr_t;
 
 /// Big integers are represented as an array of smaller CPU word-size integers
 /// called "limbs".
@@ -49,14 +49,16 @@ struct Residue {
 
 /// A constant-time implementation of the Ed25519 field.
 struct SeleneScalar {
-  Residue<4> _0;
+  Residue<32 / sizeof(uintptr_t)> _0;
 };
+static_assert(sizeof(SeleneScalar) == 32, "unexpected size of selene scalar");
 
 
 /// The field novel to Helios/Selene.
 struct HeliosScalar {
-  Residue<4> _0;
+  Residue<32 / sizeof(uintptr_t)> _0;
 };
+static_assert(sizeof(HeliosScalar) == 32, "unexpected size of helios scalar");
 
 struct HeliosPoint {
   SeleneScalar x;
