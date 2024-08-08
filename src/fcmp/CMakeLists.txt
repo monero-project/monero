@@ -26,20 +26,20 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(fcmp_sources
+set(fcmp_pp_sources
   curve_trees.cpp
   tower_cycle.cpp)
 
-monero_find_all_headers(fcmp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
+monero_find_all_headers(fcmp_pp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_subdirectory(fcmp_rust)
 
 monero_add_library_with_deps(
-  NAME fcmp
+  NAME fcmp_pp
   DEPENDS fcmp_rust
   SOURCES
-    ${fcmp_sources}
-    ${fcmp_headers})
+    ${fcmp_pp_sources}
+    ${fcmp_pp_headers})
 
 if(WIN32)
   set(EXTRA_RUST_LIBRARIES ws2_32 ntdll userenv)
@@ -47,7 +47,7 @@ else()
   set(EXTRA_RUST_LIBRARIES )
 endif()
 
-target_link_libraries(fcmp
+target_link_libraries(fcmp_pp
   PUBLIC
     crypto
     cryptonote_basic

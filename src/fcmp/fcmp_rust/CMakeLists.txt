@@ -93,26 +93,26 @@ else ()
   set(TARGET_DIR "release")
 endif ()
 
-set(FCMP_RUST_HEADER_DIR "${MONERO_GENERATED_HEADERS_DIR}/fcmp_rust")
-set(FCMP_RUST_HEADER "${FCMP_RUST_HEADER_DIR}/fcmp++.h")
-set(FCMP_RUST_LIB "${CMAKE_CURRENT_BINARY_DIR}/libfcmp_rust.a")
+set(FCMP_PP_RUST_HEADER_DIR "${MONERO_GENERATED_HEADERS_DIR}/fcmp_rust")
+set(FCMP_PP_RUST_HEADER "${FCMP_PP_RUST_HEADER_DIR}/fcmp++.h")
+set(FCMP_PP_RUST_LIB "${CMAKE_CURRENT_BINARY_DIR}/libfcmp_rust.a")
 
 # Removing OUTPUT files makes sure custom command runs every time
-file(REMOVE_RECURSE "${FCMP_RUST_HEADER_DIR}")
-file(MAKE_DIRECTORY "${FCMP_RUST_HEADER_DIR}")
+file(REMOVE_RECURSE "${FCMP_PP_RUST_HEADER_DIR}")
+file(MAKE_DIRECTORY "${FCMP_PP_RUST_HEADER_DIR}")
 
-file(REMOVE "${FCMP_RUST_LIB}")
+file(REMOVE "${FCMP_PP_RUST_LIB}")
 
 add_custom_command(
-  COMMENT "Building rust fcmp lib"
-  OUTPUT ${FCMP_RUST_HEADER}
-  OUTPUT ${FCMP_RUST_LIB}
+  COMMENT "Building fcmp++ rust lib"
+  OUTPUT ${FCMP_PP_RUST_HEADER}
+  OUTPUT ${FCMP_PP_RUST_LIB}
   COMMAND CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} ${CARGO_CMD}
-  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fcmp++.h ${FCMP_RUST_HEADER}
-  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${RUST_TARGET}/${TARGET_DIR}/libfcmp_rust.a ${FCMP_RUST_LIB}
-  COMMAND echo "Finished copying fcmp rust targets"
+  COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fcmp++.h ${FCMP_PP_RUST_HEADER}
+  COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${RUST_TARGET}/${TARGET_DIR}/libfcmp_rust.a ${FCMP_PP_RUST_LIB}
+  COMMAND echo "Finished copying fcmp++ rust targets"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   VERBATIM
 )
 
-add_custom_target(fcmp_rust DEPENDS ${FCMP_RUST_LIB})
+add_custom_target(fcmp_rust DEPENDS ${FCMP_PP_RUST_LIB})

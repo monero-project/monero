@@ -28,12 +28,13 @@
 
 #pragma once
 
-#include "cryptonote_basic/cryptonote_basic.h"
 #include "crypto/crypto.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "misc_log_ex.h"
 #include "tower_cycle.h"
 
 #include <map>
+#include <memory>
 #include <vector>
 
 
@@ -45,7 +46,7 @@ namespace curve_trees
 //----------------------------------------------------------------------------------------------------------------------
 // Hash a chunk of new children
 template<typename C>
-typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_children);
+typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
 // A layer of contiguous hashes starting from a specific start_idx in the tree
 template<typename C>
@@ -150,14 +151,14 @@ struct LeafTupleContext final
 //----------------------------------------------------------------------------------------------------------------------
 // This class is useful to help update the curve trees merkle tree without needing to keep the entire tree in memory
 // - It requires instantiation with the C1 and C2 curve classes and widths, hardening the tree structure
-// - It ties the C2 curve in the tree to the leaf layer
+// - It ties the C2 curve in the tree to the leaf layer (the leaf layer is composed of C2 scalars)
 template<typename C1, typename C2>
 class CurveTrees
 {
 public:
-    CurveTrees(const C1 &c1, const C2 &c2, const uint64_t c1_width, const uint64_t c2_width):
-        m_c1{c1},
-        m_c2{c2},
+    CurveTrees(std::unique_ptr<C1> &&c1, std::unique_ptr<C2> &&c2, const uint64_t c1_width, const uint64_t c2_width):
+        m_c1{std::move(c1)},
+        m_c2{std::move(c2)},
         m_c1_width{c1_width},
         m_c2_width{c2_width},
         m_leaf_layer_chunk_width{LEAF_TUPLE_SIZE * c2_width}
@@ -230,15 +231,10 @@ public:
 
 //member functions
 public:
-    // Convert cryptonote output pub key and commitment to a leaf tuple for the curve trees tree
+    // Convert cryptonote output pub key and commitment to a pre-processed leaf tuple ready for insertion to the tree
     LeafTupleContext output_to_leaf_context(const std::uint64_t output_id,
         const crypto::public_key &output_pubkey,
         const rct::key &C) const;
-
-    LeafTuple leaf_tuple(const PreprocessedLeafTuple &preprocessed_leaf_tuple) const;
-
-    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
-    std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
 
     // Convert cryptonote tx outs to contexts ready to be converted to leaf tuples, grouped by unlock height
     void tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
@@ -247,7 +243,13 @@ public:
         const bool miner_tx,
         std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const;
 
-    // Take in the existing number of leaf tuples and the existing last hashes of each layer in the tree, as well as new
+    // Derive a leaf tuple from a pre-processed leaf tuple {O,C} -> {O.x,I.x,C.x}
+    LeafTuple leaf_tuple(const PreprocessedLeafTuple &preprocessed_leaf_tuple) const;
+
+    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
+    std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
+
+    // Take in the existing number of leaf tuples and the existing last hash in each layer in the tree, as well as new
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
@@ -259,7 +261,7 @@ public:
         const uint64_t trim_n_leaf_tuples) const;
 
     // Take in the instructions useful for trimming all existing layers in the tree, all children to be trimmed from
-    // each last chunk, and the existing last hashes in what will become the new last parent of each layer, and return
+    // each last chunk, and the existing last hash in what will become the new last parent of each layer, and return
     // a tree reduction struct that can be used to trim a tree
     TreeReduction get_tree_reduction(
         const std::vector<TrimLayerInstructions> &trim_instructions,
@@ -281,8 +283,8 @@ private:
 //public member variables
 public:
     // The curve interfaces
-    const C1 &m_c1;
-    const C2 &m_c2;
+    const std::unique_ptr<C1> m_c1;
+    const std::unique_ptr<C2> m_c2;
 
     // The leaf layer has a distinct chunk width than the other layers
     const std::size_t m_leaf_layer_chunk_width;
@@ -300,9 +302,10 @@ using CurveTreesV1 = CurveTrees<Helios, Selene>;
 //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
 const std::size_t HELIOS_CHUNK_WIDTH = 38;
 const std::size_t SELENE_CHUNK_WIDTH = 18;
-const Helios HELIOS;
-const Selene SELENE;
-static CurveTreesV1 CURVE_TREES_V1(HELIOS, SELENE, HELIOS_CHUNK_WIDTH, SELENE_CHUNK_WIDTH);
+
+std::shared_ptr<CurveTreesV1> curve_trees_v1(
+    const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH,
+    const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees

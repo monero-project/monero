@@ -1367,10 +1367,10 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
 
 void BlockchainLMDB::grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> &&new_leaves)
 {
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (new_leaves.empty())
     return;
 
-  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
   mdb_txn_cursors *m_cursors = &m_wcursors;
 
@@ -1381,7 +1381,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> 
   // Get the number of leaf tuples that exist in the tree
   const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
 
-  // Read every layer's last hashes
+  // Read every layer's last hash
   const auto last_hashes = this->get_tree_last_hashes();
 
   // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
@@ -1396,10 +1396,10 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> 
     MDB_val_copy<uint64_t> k(i + leaves.start_leaf_tuple_idx);
     MDB_val_set(v, leaves.tuples[i]);
 
-    // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
+    // TODO: according to the docs, MDB_APPEND isn't supposed to perform any key comparisons to maximize efficiency.
     // Adding MDB_NOOVERWRITE I assume re-introduces a key comparison. Benchmark NOOVERWRITE here
     // MDB_NOOVERWRITE makes sure key doesn't already exist
-    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPENDDUP | MDB_NOOVERWRITE);
+    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPEND | MDB_NOOVERWRITE);
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
   }
@@ -1450,7 +1450,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp::curve_trees::LeafTupleContext> 
 }
 
 template<typename C>
-void BlockchainLMDB::grow_layer(const C &curve,
+void BlockchainLMDB::grow_layer(const std::unique_ptr<C> &curve,
   const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
   const uint64_t ext_idx,
   const uint64_t layer_idx)
@@ -1475,7 +1475,7 @@ void BlockchainLMDB::grow_layer(const C &curve,
     // We updated the last hash, so update it
     layer_val lv;
     lv.child_chunk_idx  = ext.start_idx;
-    lv.child_chunk_hash = curve.to_bytes(ext.hashes.front());
+    lv.child_chunk_hash = curve->to_bytes(ext.hashes.front());
     MDB_val_set(v, lv);
 
     // We expect to overwrite the existing hash
@@ -1490,7 +1490,7 @@ void BlockchainLMDB::grow_layer(const C &curve,
   {
     layer_val lv;
     lv.child_chunk_idx  = i + ext.start_idx;
-    lv.child_chunk_hash = curve.to_bytes(ext.hashes[i]);
+    lv.child_chunk_hash = curve->to_bytes(ext.hashes[i]);
     MDB_val_set(v, lv);
 
     // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
@@ -1504,15 +1504,15 @@ void BlockchainLMDB::grow_layer(const C &curve,
 
 void BlockchainLMDB::trim_tree(const uint64_t trim_n_leaf_tuples)
 {
-  // TODO: block_wtxn_start like pop_block, then call BlockchainDB::trim_tree
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  if (trim_n_leaf_tuples == 0)
+    return;
+
   check_open();
   mdb_txn_cursors *m_cursors = &m_wcursors;
 
   CURSOR(leaves)
   CURSOR(layers)
-
-  CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
 
   const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
   CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples > trim_n_leaf_tuples, "cannot trim more leaves than exist");
@@ -1616,7 +1616,7 @@ void BlockchainLMDB::trim_tree(const uint64_t trim_n_leaf_tuples)
 }
 
 template<typename C>
-void BlockchainLMDB::trim_layer(const C &curve,
+void BlockchainLMDB::trim_layer(const std::unique_ptr<C> &curve,
   const fcmp::curve_trees::LayerReduction<C> &layer_reduction,
   const uint64_t layer_idx)
 {
@@ -1674,7 +1674,7 @@ void BlockchainLMDB::trim_layer(const C &curve,
   {
     layer_val lv;
     lv.child_chunk_idx  = layer_reduction.new_total_parents - 1;
-    lv.child_chunk_hash = curve.to_bytes(layer_reduction.new_last_hash);
+    lv.child_chunk_hash = curve->to_bytes(layer_reduction.new_last_hash);
     MDB_val_set(v, lv);
 
     // We expect to overwrite the existing hash
@@ -1776,12 +1776,12 @@ fcmp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_tree_last_hashes
     const bool use_c2 = (layer_idx % 2) == 0;
     if (use_c2)
     {
-      auto point = m_curve_trees->m_c2.from_bytes(lv->child_chunk_hash);
+      auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
       c2_last_hashes.emplace_back(std::move(point));
     }
     else
     {
-      auto point = m_curve_trees->m_c1.from_bytes(lv->child_chunk_hash);
+      auto point = m_curve_trees->m_c1->from_bytes(lv->child_chunk_hash);
       c1_last_hashes.emplace_back(std::move(point));
     }
 
@@ -1887,14 +1887,14 @@ fcmp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_las
         const auto *lv = (layer_val *)v.mv_data;
         if (parent_is_c1)
         {
-          const auto point = m_curve_trees->m_c2.from_bytes(lv->child_chunk_hash);
-          auto child_scalar = m_curve_trees->m_c2.point_to_cycle_scalar(point);
+          const auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
+          auto child_scalar = m_curve_trees->m_c2->point_to_cycle_scalar(point);
           c1_children.emplace_back(std::move(child_scalar));
         }
         else
         {
-          const auto point = m_curve_trees->m_c1.from_bytes(lv->child_chunk_hash);
-          auto child_scalar = m_curve_trees->m_c1.point_to_cycle_scalar(point);
+          const auto point = m_curve_trees->m_c1->from_bytes(lv->child_chunk_hash);
+          auto child_scalar = m_curve_trees->m_c1->point_to_cycle_scalar(point);
           c2_children.emplace_back(std::move(child_scalar));
         }
 
@@ -1945,12 +1945,12 @@ fcmp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_last_hashes_to_t
     const auto *lv = (layer_val *)v.mv_data;
     if ((layer_idx % 2) == 0)
     {
-      auto point = m_curve_trees->m_c2.from_bytes(lv->child_chunk_hash);
+      auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
       last_hashes_out.c2_last_hashes.emplace_back(std::move(point));
     }
     else
     {
-      auto point = m_curve_trees->m_c1.from_bytes(lv->child_chunk_hash);
+      auto point = m_curve_trees->m_c1->from_bytes(lv->child_chunk_hash);
       last_hashes_out.c1_last_hashes.emplace_back(std::move(point));
     }
 
@@ -2047,17 +2047,17 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
 
     // Hash the chunk of leaves
     for (uint64_t i = 0; i < leaves.size(); ++i)
-      MDEBUG("Hashing " << m_curve_trees->m_c2.to_string(leaves[i]));
+      MDEBUG("Hashing " << m_curve_trees->m_c2->to_string(leaves[i]));
 
     const fcmp::curve_trees::Selene::Point chunk_hash = fcmp::curve_trees::get_new_parent(m_curve_trees->m_c2, chunk);
-    MDEBUG("chunk_hash " << m_curve_trees->m_c2.to_string(chunk_hash) << " , hash init point: "
-      << m_curve_trees->m_c2.to_string(m_curve_trees->m_c2.m_hash_init_point) << " (" << leaves.size() << " leaves)");
+    MDEBUG("chunk_hash " << m_curve_trees->m_c2->to_string(chunk_hash) << " , hash init point: "
+      << m_curve_trees->m_c2->to_string(m_curve_trees->m_c2->hash_init_point()) << " (" << leaves.size() << " leaves)");
 
     // Now compare to value from the db
     const auto *lv = (layer_val *)v_parent.mv_data;
     MDEBUG("Actual leaf chunk hash " << epee::string_tools::pod_to_hex(lv->child_chunk_hash));
 
-    const auto expected_bytes = m_curve_trees->m_c2.to_bytes(chunk_hash);
+    const auto expected_bytes = m_curve_trees->m_c2->to_bytes(chunk_hash);
     const auto actual_bytes   = lv->child_chunk_hash;
     CHECK_AND_ASSERT_MES(expected_bytes == actual_bytes, false, "unexpected leaf chunk hash");
 
@@ -2105,8 +2105,8 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
 }
 
 template<typename C_CHILD, typename C_PARENT>
-bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
-  const C_PARENT &c_parent,
+bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
+  const std::unique_ptr<C_PARENT> &c_parent,
   const uint64_t layer_idx,
   const uint64_t child_start_idx,
   const uint64_t child_chunk_idx,
@@ -2138,7 +2138,7 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
       throw0(DB_ERROR(lmdb_error("Failed to get child: ", result).c_str()));
 
     const auto *lv = (layer_val *)v_child.mv_data;
-    auto child_point = c_child.from_bytes(lv->child_chunk_hash);
+    auto child_point = c_child->from_bytes(lv->child_chunk_hash);
 
     child_chunk.emplace_back(std::move(child_point));
 
@@ -2188,21 +2188,21 @@ bool BlockchainLMDB::audit_layer(const C_CHILD &c_child,
   std::vector<typename C_PARENT::Scalar> child_scalars;
   child_scalars.reserve(child_chunk.size());
   for (const auto &child : child_chunk)
-    child_scalars.emplace_back(c_child.point_to_cycle_scalar(child));
+    child_scalars.emplace_back(c_child->point_to_cycle_scalar(child));
   const typename C_PARENT::Chunk chunk{child_scalars.data(), child_scalars.size()};
 
   for (uint64_t i = 0; i < child_scalars.size(); ++i)
-    MDEBUG("Hashing " << c_parent.to_string(child_scalars[i]));
+    MDEBUG("Hashing " << c_parent->to_string(child_scalars[i]));
 
   const auto chunk_hash = fcmp::curve_trees::get_new_parent(c_parent, chunk);
-  MDEBUG("chunk_hash " << c_parent.to_string(chunk_hash) << " , hash init point: "
-    << c_parent.to_string(c_parent.m_hash_init_point) << " (" << child_scalars.size() << " children)");
+  MDEBUG("chunk_hash " << c_parent->to_string(chunk_hash) << " , hash init point: "
+    << c_parent->to_string(c_parent->hash_init_point()) << " (" << child_scalars.size() << " children)");
 
   const auto *lv = (layer_val *)v_parent.mv_data;
   MDEBUG("Actual chunk hash " << epee::string_tools::pod_to_hex(lv->child_chunk_hash));
 
   const auto actual_bytes   = lv->child_chunk_hash;
-  const auto expected_bytes = c_parent.to_bytes(chunk_hash);
+  const auto expected_bytes = c_parent->to_bytes(chunk_hash);
   if (actual_bytes != expected_bytes)
     throw0(DB_ERROR(("unexpected hash at child_chunk_idx " + std::to_string(child_chunk_idx)).c_str()));
 
@@ -2300,7 +2300,7 @@ BlockchainLMDB::~BlockchainLMDB()
     BlockchainLMDB::close();
 }
 
-BlockchainLMDB::BlockchainLMDB(bool batch_transactions, fcmp::curve_trees::CurveTreesV1 *curve_trees): BlockchainDB()
+BlockchainLMDB::BlockchainLMDB(bool batch_transactions, std::shared_ptr<fcmp::curve_trees::CurveTreesV1> curve_trees): BlockchainDB()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   // initialize folder to something "safe" just in case
@@ -2500,7 +2500,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
   lmdb_db_open(txn, LMDB_LOCKED_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_leaves, "Failed to open db handle for m_locked_leaves");
-  lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
+  lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
   lmdb_db_open(txn, LMDB_LAYERS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_layers, "Failed to open db handle for m_layers");
 
   lmdb_db_open(txn, LMDB_TXPOOL_META, MDB_CREATE, m_txpool_meta, "Failed to open db handle for m_txpool_meta");

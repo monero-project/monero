@@ -33,6 +33,7 @@
 #include <string>
 #include <exception>
 #include <map>
+#include <memory>
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
@@ -591,14 +592,14 @@ protected:
 
   HardFork* m_hardfork;
 
-  fcmp::curve_trees::CurveTreesV1* m_curve_trees;
+  std::shared_ptr<fcmp::curve_trees::CurveTreesV1> m_curve_trees;
 
 public:
 
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees(NULL) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees() { }
 
   /**
    * @brief An empty destructor.
@@ -1788,6 +1789,8 @@ public:
 
   // TODO: description
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
+  virtual uint64_t get_num_leaf_tuples() const = 0;
+  virtual std::array<uint8_t, 32UL> get_tree_root() const = 0;
 
   //
   // Hard fork related storage

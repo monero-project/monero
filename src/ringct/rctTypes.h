@@ -326,7 +326,7 @@ namespace rct {
         std::vector<ecdhTuple> ecdhInfo;
         ctkeyV outPk;
         xmr_amount txnFee; // contains b
-        crypto::hash referenceBlock; // block containing the merkle tree root used for fcmp's
+        crypto::hash referenceBlock; // block containing the merkle tree root used for fcmp++
 
         rctSigBase() :
           type(RCTTypeNull), message{}, mixRing{}, pseudoOuts{}, ecdhInfo{}, outPk{}, txnFee(0), referenceBlock{}
@@ -503,7 +503,7 @@ namespace rct {
           {
             ar.tag("fcmp_pp");
             ar.begin_object();
-            const std::size_t proof_len = fcmp::get_fcmp_pp_len_from_n_inputs(inputs);
+            const std::size_t proof_len = fcmp::fcmp_pp_len(inputs);
             if (!typename Archive<W>::is_saving())
               fcmp_pp.resize(proof_len);
             if (fcmp_pp.size() != proof_len)

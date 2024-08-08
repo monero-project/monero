@@ -44,17 +44,33 @@ template class CurveTrees<Helios, Selene>;
 // Public helper functions
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
-typename C::Point get_new_parent(const C &curve, const typename C::Chunk &new_children)
+typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children)
 {
-    return curve.hash_grow(
-            curve.m_hash_init_point,
+    return curve->hash_grow(
+            curve->hash_init_point(),
             0,/*offset*/
-            curve.zero_scalar(),
+            curve->zero_scalar(),
             new_children
         );
 };
-template Helios::Point get_new_parent<Helios>(const Helios &curve, const typename Helios::Chunk &new_children);
-template Selene::Point get_new_parent<Selene>(const Selene &curve, const typename Selene::Chunk &new_children);
+template Helios::Point get_new_parent<Helios>(const std::unique_ptr<Helios> &curve,
+    const typename Helios::Chunk &new_children);
+template Selene::Point get_new_parent<Selene>(const std::unique_ptr<Selene> &curve,
+    const typename Selene::Chunk &new_children);
+//----------------------------------------------------------------------------------------------------------------------
+std::shared_ptr<CurveTreesV1> curve_trees_v1(const std::size_t helios_chunk_width, const std::size_t selene_chunk_width)
+{
+    std::unique_ptr<Helios> helios(new Helios());
+    std::unique_ptr<Selene> selene(new Selene());
+    return std::shared_ptr<CurveTreesV1>(
+            new CurveTreesV1(
+                std::move(helios),
+                std::move(selene),
+                helios_chunk_width,
+                selene_chunk_width
+            )
+        );
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Static functions
@@ -62,7 +78,7 @@ template Selene::Point get_new_parent<Selene>(const Selene &curve, const typenam
 // After hashing a layer of children points, convert those children x-coordinates into their respective cycle
 // scalars, and prepare them to be hashed for the next layer
 template<typename C_CHILD, typename C_PARENT>
-static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(const C_CHILD &c_child,
+static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(const std::unique_ptr<C_CHILD> &c_child,
     const typename C_CHILD::Point *last_root,
     const LayerExtension<C_CHILD> &children)
 {
@@ -79,7 +95,7 @@ static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(c
         if (children.start_idx > 0)
         {
             MDEBUG("Updating root layer and including the existing root in next children");
-            child_scalars_out.emplace_back(c_child.point_to_cycle_scalar(*last_root));
+            child_scalars_out.emplace_back(c_child->point_to_cycle_scalar(*last_root));
         }
     }
 
@@ -91,7 +107,7 @@ static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(c
 //----------------------------------------------------------------------------------------------------------------------
 // Hash chunks of a layer of new children, outputting the next layer's parents
 template<typename C>
-static LayerExtension<C> hash_children_chunks(const C &curve,
+static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
     const typename C::Scalar *old_last_child,
     const typename C::Point *old_last_parent,
     const std::size_t start_offset,
@@ -119,30 +135,30 @@ static LayerExtension<C> hash_children_chunks(const C &curve,
         // Prepare to hash
         const auto &existing_hash = old_last_parent != nullptr
             ? *old_last_parent
-            : curve.m_hash_init_point;
+            : curve->hash_init_point();
 
         const auto &prior_child_after_offset = old_last_child != nullptr
             ? *old_last_child
-            : curve.zero_scalar();
+            : curve->zero_scalar();
 
         const auto chunk_start = new_child_scalars.data();
         const typename C::Chunk chunk{chunk_start, chunk_size};
 
-        MDEBUG("existing_hash: " << curve.to_string(existing_hash) << " , start_offset: " << start_offset
-            << " , prior_child_after_offset: " << curve.to_string(prior_child_after_offset));
+        MDEBUG("existing_hash: " << curve->to_string(existing_hash) << " , start_offset: " << start_offset
+            << " , prior_child_after_offset: " << curve->to_string(prior_child_after_offset));
 
         for (std::size_t i = 0; i < chunk_size; ++i)
-            MDEBUG("Hashing child " << curve.to_string(chunk_start[i]));
+            MDEBUG("Hashing child " << curve->to_string(chunk_start[i]));
 
         // Do the hash
-        auto chunk_hash = curve.hash_grow(
+        auto chunk_hash = curve->hash_grow(
                 existing_hash,
                 start_offset,
                 prior_child_after_offset,
                 chunk
             );
 
-        MDEBUG("Child chunk_start_idx " << 0 << " result: " << curve.to_string(chunk_hash)
+        MDEBUG("Child chunk_start_idx " << 0 << " result: " << curve->to_string(chunk_hash)
             << " , chunk_size: " << chunk_size);
 
         // We've got our hash
@@ -154,17 +170,18 @@ static LayerExtension<C> hash_children_chunks(const C &curve,
     while (chunk_start_idx < new_child_scalars.size())
     {
         // TODO: this loop can be parallelized
+        // Fill a complete chunk, or add the remaining new children to the last chunk
         chunk_size = std::min(chunk_width, new_child_scalars.size() - chunk_start_idx);
 
         const auto chunk_start = new_child_scalars.data() + chunk_start_idx;
         const typename C::Chunk chunk{chunk_start, chunk_size};
 
         for (std::size_t i = 0; i < chunk_size; ++i)
-            MDEBUG("Hashing child " << curve.to_string(chunk_start[i]));
+            MDEBUG("Hashing child " << curve->to_string(chunk_start[i]));
 
         auto chunk_hash = get_new_parent(curve, chunk);
 
-        MDEBUG("Child chunk_start_idx " << chunk_start_idx << " result: " << curve.to_string(chunk_hash)
+        MDEBUG("Child chunk_start_idx " << chunk_start_idx << " result: " << curve->to_string(chunk_hash)
             << " , chunk_size: " << chunk_size);
 
         // We've got our hash
@@ -173,7 +190,6 @@ static LayerExtension<C> hash_children_chunks(const C &curve,
         // Advance to the next chunk
         chunk_start_idx += chunk_size;
 
-        // Fill a complete chunk, or add the remaining new children to the last chunk
         CHECK_AND_ASSERT_THROW_MES(chunk_start_idx <= new_child_scalars.size(), "unexpected chunk start idx");
     }
 
@@ -351,8 +367,8 @@ static GrowLayerInstructions get_leaf_layer_grow_instructions(const uint64_t old
 // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
 //   layer of the leaf layer
 template<typename C_CHILD, typename C_PARENT>
-static LayerExtension<C_PARENT> get_next_layer_extension(const C_CHILD &c_child,
-    const C_PARENT &c_parent,
+static LayerExtension<C_PARENT> get_next_layer_extension(const std::unique_ptr<C_CHILD> &c_child,
+    const std::unique_ptr<C_PARENT> &c_parent,
     const GrowLayerInstructions &grow_layer_instructions,
     const std::vector<typename C_CHILD::Point> &child_last_hashes,
     const std::vector<typename C_PARENT::Point> &parent_last_hashes,
@@ -391,7 +407,7 @@ static LayerExtension<C_PARENT> get_next_layer_extension(const C_CHILD &c_child,
     if (grow_layer_instructions.need_old_last_child)
     {
         CHECK_AND_ASSERT_THROW_MES(child_last_hash != nullptr, "missing last child");
-        last_child_scalar = c_child.point_to_cycle_scalar(*child_last_hash);
+        last_child_scalar = c_child->point_to_cycle_scalar(*child_last_hash);
     }
 
     // Do the hashing
@@ -534,8 +550,8 @@ static TrimLayerInstructions get_trim_layer_instructions(
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C_CHILD, typename C_PARENT>
 static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduction(
-    const C_CHILD &c_child,
-    const C_PARENT &c_parent,
+    const std::unique_ptr<C_CHILD> &c_child,
+    const std::unique_ptr<C_PARENT> &c_parent,
     const TrimLayerInstructions &trim_layer_instructions,
     const std::vector<typename C_PARENT::Point> &parent_last_hashes,
     const std::vector<std::vector<typename C_PARENT::Scalar>> &children_to_trim,
@@ -554,7 +570,7 @@ static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduc
 
     const typename C_PARENT::Point &existing_hash = trim_layer_instructions.need_existing_last_hash
         ? parent_last_hashes[parent_layer_idx]
-        : c_parent.m_hash_init_point;
+        : c_parent->hash_init_point();
 
     std::vector<typename C_PARENT::Scalar> child_scalars;
     if (trim_layer_instructions.need_last_chunk_children_to_trim
@@ -564,7 +580,7 @@ static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduc
         child_scalars = children_to_trim[parent_layer_idx];
     }
 
-    typename C_PARENT::Scalar new_last_child_scalar = c_parent.zero_scalar();
+    typename C_PARENT::Scalar new_last_child_scalar = c_parent->zero_scalar();
     if (trim_layer_instructions.need_new_last_child)
     {
         CHECK_AND_ASSERT_THROW_MES(child_layer_idx > 0, "child index cannot be 0 here");
@@ -572,7 +588,7 @@ static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduc
         CHECK_AND_ASSERT_THROW_MES(child_reductions.back().update_existing_last_hash, "expected new last child");
 
         const typename C_CHILD::Point &new_last_child = child_reductions.back().new_last_hash;
-        new_last_child_scalar = c_child.point_to_cycle_scalar(new_last_child);
+        new_last_child_scalar = c_child->point_to_cycle_scalar(new_last_child);
 
         if (trim_layer_instructions.need_last_chunk_remaining_children)
         {
@@ -585,40 +601,40 @@ static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduc
             CHECK_AND_ASSERT_THROW_MES(child_last_hashes.size() > last_child_layer_idx, "missing last child hash");
 
             const typename C_CHILD::Point &old_last_child = child_last_hashes[last_child_layer_idx];
-            auto old_last_child_scalar = c_child.point_to_cycle_scalar(old_last_child);
+            auto old_last_child_scalar = c_child->point_to_cycle_scalar(old_last_child);
 
             child_scalars.emplace_back(std::move(old_last_child_scalar));
         }
     }
 
     for (std::size_t i = 0; i < child_scalars.size(); ++i)
-        MDEBUG("Hashing child " << c_parent.to_string(child_scalars[i]));
+        MDEBUG("Hashing child " << c_parent->to_string(child_scalars[i]));
 
     if (trim_layer_instructions.need_last_chunk_remaining_children)
     {
-        MDEBUG("hash_grow: existing_hash: " << c_parent.to_string(existing_hash)
+        MDEBUG("hash_grow: existing_hash: " << c_parent->to_string(existing_hash)
             << " , hash_offset: " << trim_layer_instructions.hash_offset);
 
-        layer_reduction_out.new_last_hash = c_parent.hash_grow(
+        layer_reduction_out.new_last_hash = c_parent->hash_grow(
             existing_hash,
             trim_layer_instructions.hash_offset,
-            c_parent.zero_scalar(),
+            c_parent->zero_scalar(),
             typename C_PARENT::Chunk{child_scalars.data(), child_scalars.size()});
     }
     else
     {
-        MDEBUG("hash_trim: existing_hash: " << c_parent.to_string(existing_hash)
+        MDEBUG("hash_trim: existing_hash: " << c_parent->to_string(existing_hash)
             << " , hash_offset: "           << trim_layer_instructions.hash_offset
-            << " , child_to_grow_back: "    << c_parent.to_string(new_last_child_scalar));
+            << " , child_to_grow_back: "    << c_parent->to_string(new_last_child_scalar));
 
-        layer_reduction_out.new_last_hash = c_parent.hash_trim(
+        layer_reduction_out.new_last_hash = c_parent->hash_trim(
             existing_hash,
             trim_layer_instructions.hash_offset,
             typename C_PARENT::Chunk{child_scalars.data(), child_scalars.size()},
             new_last_child_scalar);
     }
 
-    MDEBUG("Result hash: " << c_parent.to_string(layer_reduction_out.new_last_hash));
+    MDEBUG("Result hash: " << c_parent->to_string(layer_reduction_out.new_last_hash));
 
     return layer_reduction_out;
 }
@@ -653,48 +669,6 @@ LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(
             .output_id               = output_id,
             .preprocessed_leaf_tuple = std::move(o_c)
         };
-};
-//----------------------------------------------------------------------------------------------------------------------
-template<>
-CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
-    const PreprocessedLeafTuple &preprocessed_leaf_tuple) const
-{
-    const rct::key &O = preprocessed_leaf_tuple.O;
-    const rct::key &C = preprocessed_leaf_tuple.C;
-
-    crypto::ec_point I;
-    crypto::derive_key_image_generator(rct::rct2pk(O), I);
-
-    rct::key O_x, I_x, C_x;
-
-    if (!rct::point_to_wei_x(O, O_x))
-        throw std::runtime_error("failed to get wei x scalar from O");
-    if (!rct::point_to_wei_x(rct::pt2rct(I), I_x))
-        throw std::runtime_error("failed to get wei x scalar from I");
-    if (!rct::point_to_wei_x(C, C_x))
-        throw std::runtime_error("failed to get wei x scalar from C");
-
-    return LeafTuple{
-        .O_x = tower_cycle::selene_scalar_from_bytes(O_x),
-        .I_x = tower_cycle::selene_scalar_from_bytes(I_x),
-        .C_x = tower_cycle::selene_scalar_from_bytes(C_x)
-    };
-};
-//----------------------------------------------------------------------------------------------------------------------
-template<typename C1, typename C2>
-std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(std::vector<LeafTuple> &&leaves) const
-{
-    std::vector<typename C2::Scalar> flattened_leaves;
-    flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
-
-    for (auto &l : leaves)
-    {
-        flattened_leaves.emplace_back(std::move(l.O_x));
-        flattened_leaves.emplace_back(std::move(l.I_x));
-        flattened_leaves.emplace_back(std::move(l.C_x));
-    }
-
-    return flattened_leaves;
 };
 //----------------------------------------------------------------------------------------------------------------------
 template <>
@@ -745,6 +719,48 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuple_contexts(const cryptonote
         leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(leaf_tuple_context));
     }
 }
+//----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
+    const PreprocessedLeafTuple &preprocessed_leaf_tuple) const
+{
+    const rct::key &O = preprocessed_leaf_tuple.O;
+    const rct::key &C = preprocessed_leaf_tuple.C;
+
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(rct::rct2pk(O), I);
+
+    rct::key O_x, I_x, C_x;
+
+    if (!rct::point_to_wei_x(O, O_x))
+        throw std::runtime_error("failed to get wei x scalar from O");
+    if (!rct::point_to_wei_x(rct::pt2rct(I), I_x))
+        throw std::runtime_error("failed to get wei x scalar from I");
+    if (!rct::point_to_wei_x(C, C_x))
+        throw std::runtime_error("failed to get wei x scalar from C");
+
+    return LeafTuple{
+        .O_x = tower_cycle::selene_scalar_from_bytes(O_x),
+        .I_x = tower_cycle::selene_scalar_from_bytes(I_x),
+        .C_x = tower_cycle::selene_scalar_from_bytes(C_x)
+    };
+};
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+std::vector<typename C2::Scalar> CurveTrees<C1, C2>::flatten_leaves(std::vector<LeafTuple> &&leaves) const
+{
+    std::vector<typename C2::Scalar> flattened_leaves;
+    flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
+
+    for (auto &l : leaves)
+    {
+        flattened_leaves.emplace_back(std::move(l.O_x));
+        flattened_leaves.emplace_back(std::move(l.I_x));
+        flattened_leaves.emplace_back(std::move(l.C_x));
+    }
+
+    return flattened_leaves;
+};
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(

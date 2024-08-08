@@ -1,4 +1,4 @@
-namespace fcmp_rust {
+namespace fcmp_pp_rust {
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>

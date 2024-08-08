@@ -35,6 +35,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/testdb.h"
+#include "fcmp/curve_trees.h"
 
 using namespace cryptonote;
 
