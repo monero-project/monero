@@ -112,13 +112,15 @@ namespace nodetool
     p2p_connection_context_t()
       : peer_id(0),
         support_flags(0),
-        m_in_timedsync(false)
+        m_in_timedsync(false),
+        can_broadcast_txs_to_peer(true)
     {}
 
     peerid_type peer_id;
     uint32_t support_flags;
     bool m_in_timedsync;
     std::set<epee::net_utils::network_address> sent_addresses;
+    bool can_broadcast_txs_to_peer;
   };
 
   template<class t_payload_net_handler>
@@ -146,12 +148,14 @@ namespace nodetool
       config_t()
         : m_net_config(),
           m_peer_id(1),
-          m_support_flags(0)
+          m_support_flags(0),
+          can_broadcast_txs_to_peer(true)
       {}
 
       network_config m_net_config;
       uint64_t m_peer_id;
       uint32_t m_support_flags;
+      bool can_broadcast_txs_to_peer;
     };
     typedef epee::misc_utils::struct_init<config_t> config;
 
@@ -255,7 +259,8 @@ namespace nodetool
         is_closing(false),
         m_network_id(),
         m_enable_dns_seed_nodes(true),
-        max_connections(1)
+        max_connections(1),
+        m_make_next_tor_connection_after(0)
     {}
     virtual ~node_server();
 
@@ -280,6 +285,8 @@ namespace nodetool
     size_t get_public_gray_peers_count();
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
+
+    bool extend_make_next_connection_after(epee::net_utils::zone zone, bool acquire_peers);
 
     void change_max_out_public_peers(size_t count);
     uint32_t get_max_out_public_peers() const;
@@ -419,6 +426,8 @@ namespace nodetool
     bool gray_peerlist_housekeeping();
     bool check_incoming_connections();
 
+    bool drop_random_outgoing_tor_connection();
+
     void kill() { ///< will be called e.g. from deinit()
       _info("Killing the net_node");
       is_closing = true;
@@ -474,6 +483,10 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<3600, false> m_incoming_connections_interval;
     epee::math_helper::once_a_time_seconds<7000> m_dns_blocklist_interval;
 
+    template<uint64_t mini, uint64_t maxi> struct get_random_interval { public: uint64_t operator()() const { return crypto::rand_range(mini, maxi); } };
+    epee::math_helper::once_a_time_range<get_random_interval<::config::RANDOM_CONNECTION_DROP_LOWER, ::config::RANDOM_CONNECTION_DROP_UPPER>> m_drop_random_outgoing_tor_connection_interval;
+    time_t m_make_next_tor_connection_after;
+
     std::list<epee::net_utils::network_address>   m_priority_peers;
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
     std::atomic_flag m_fallback_seed_nodes_added;
@@ -516,6 +529,7 @@ namespace nodetool
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;
+
   };
 
     const int64_t default_limit_up = P2P_DEFAULT_LIMIT_RATE_UP;      // kB/s
