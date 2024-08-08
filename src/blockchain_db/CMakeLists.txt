@@ -45,7 +45,7 @@ target_link_libraries(blockchain_db
   PUBLIC
     common
     cncrypto
-    fcmp
+    fcmp_pp
     ringct
     ${LMDB_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

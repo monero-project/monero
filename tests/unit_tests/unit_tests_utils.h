@@ -84,7 +84,7 @@ namespace unit_test
       remove_files();
     }
 
-    void init_new_db(fcmp::curve_trees::CurveTreesV1 *curve_trees)
+    void init_new_db(std::shared_ptr<fcmp::curve_trees::CurveTreesV1> curve_trees)
     {
       CHECK_AND_ASSERT_THROW_MES(this->m_db == nullptr, "expected nullptr m_db");
       this->m_db = new cryptonote::BlockchainLMDB(true/*batch_transactions*/, curve_trees);

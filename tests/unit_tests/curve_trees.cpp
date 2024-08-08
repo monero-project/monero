@@ -41,7 +41,7 @@
 // CurveTreesGlobalTree helpers
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
-static bool validate_layer(const C &curve,
+static bool validate_layer(const std::unique_ptr<C> &curve,
     const CurveTreesGlobalTree::Layer<C> &parents,
     const std::vector<typename C::Scalar> &child_scalars,
     const std::size_t max_chunk_size)
@@ -60,14 +60,14 @@ static bool validate_layer(const C &curve,
         const typename C::Chunk chunk{chunk_start, chunk_size};
 
         for (std::size_t i = 0; i < chunk_size; ++i)
-            MDEBUG("Hashing " << curve.to_string(chunk_start[i]));
+            MDEBUG("Hashing " << curve->to_string(chunk_start[i]));
 
         const typename C::Point chunk_hash = fcmp::curve_trees::get_new_parent(curve, chunk);
 
-        MDEBUG("chunk_start_idx: " << chunk_start_idx << " , chunk_size: " << chunk_size << " , chunk_hash: " << curve.to_string(chunk_hash));
+        MDEBUG("chunk_start_idx: " << chunk_start_idx << " , chunk_size: " << chunk_size << " , chunk_hash: " << curve->to_string(chunk_hash));
 
-        const auto actual_bytes = curve.to_bytes(parent);
-        const auto expected_bytes = curve.to_bytes(chunk_hash);
+        const auto actual_bytes = curve->to_bytes(parent);
+        const auto expected_bytes = curve->to_bytes(chunk_hash);
         CHECK_AND_ASSERT_MES(actual_bytes == expected_bytes, false, "unexpected hash");
 
         chunk_start_idx += chunk_size;
@@ -79,7 +79,7 @@ static bool validate_layer(const C &curve,
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C_CHILD, typename C_PARENT>
-static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(const C_CHILD &c_child,
+static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(const std::unique_ptr<C_CHILD> &c_child,
     const CurveTreesGlobalTree::Layer<C_CHILD> &child_layer,
     const bool need_last_chunk_children_to_trim,
     const bool need_last_chunk_remaining_children,
@@ -96,7 +96,7 @@ static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(co
             CHECK_AND_ASSERT_THROW_MES(child_layer.size() > idx, "idx too high");
             const auto &child_point = child_layer[idx];
 
-            auto child_scalar = c_child.point_to_cycle_scalar(child_point);
+            auto child_scalar = c_child->point_to_cycle_scalar(child_point);
             children_to_trim_out.push_back(std::move(child_scalar));
 
             ++idx;
@@ -608,7 +608,7 @@ void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_last_hashes.size(), "unexpected c2 layer");
 
             const auto &last_hash = c2_last_hashes[c2_idx];
-            MDEBUG("c2_idx: " << c2_idx << " , last_hash: " << m_curve_trees.m_c2.to_string(last_hash));
+            MDEBUG("c2_idx: " << c2_idx << " , last_hash: " << m_curve_trees.m_c2->to_string(last_hash));
 
             ++c2_idx;
         }
@@ -617,7 +617,7 @@ void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_last_hashes.size(), "unexpected c1 layer");
 
             const auto &last_hash = c1_last_hashes[c1_idx];
-            MDEBUG("c1_idx: " << c1_idx << " , last_hash: " << m_curve_trees.m_c1.to_string(last_hash));
+            MDEBUG("c1_idx: " << c1_idx << " , last_hash: " << m_curve_trees.m_c1->to_string(last_hash));
 
             ++c1_idx;
         }
@@ -643,9 +643,9 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
         const auto &preprocessed_leaf_tuple = tree_extension.leaves.tuples[i];
         const auto leaf = m_curve_trees.leaf_tuple(preprocessed_leaf_tuple);
 
-        const auto O_x = m_curve_trees.m_c2.to_string(leaf.O_x);
-        const auto I_x = m_curve_trees.m_c2.to_string(leaf.I_x);
-        const auto C_x = m_curve_trees.m_c2.to_string(leaf.C_x);
+        const auto O_x = m_curve_trees.m_c2->to_string(leaf.O_x);
+        const auto I_x = m_curve_trees.m_c2->to_string(leaf.I_x);
+        const auto C_x = m_curve_trees.m_c2->to_string(leaf.C_x);
 
         MDEBUG("Leaf tuple idx " << (tree_extension.leaves.start_leaf_tuple_idx)
             << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
@@ -665,7 +665,7 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
 
             for (std::size_t j = 0; j < c2_layer.hashes.size(); ++j)
                 MDEBUG("Child chunk start idx: " << (j + c2_layer.start_idx) << " , hash: "
-                    << m_curve_trees.m_c2.to_string(c2_layer.hashes[j]));
+                    << m_curve_trees.m_c2->to_string(c2_layer.hashes[j]));
 
             ++c2_idx;
         }
@@ -678,7 +678,7 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
 
             for (std::size_t j = 0; j < c1_layer.hashes.size(); ++j)
                 MDEBUG("Child chunk start idx: " << (j + c1_layer.start_idx) << " , hash: "
-                    << m_curve_trees.m_c1.to_string(c1_layer.hashes[j]));
+                    << m_curve_trees.m_c1->to_string(c1_layer.hashes[j]));
 
             ++c1_idx;
         }
@@ -699,9 +699,9 @@ void CurveTreesGlobalTree::log_tree()
     {
         const auto &leaf = m_tree.leaves[i];
 
-        const auto O_x = m_curve_trees.m_c2.to_string(leaf.O_x);
-        const auto I_x = m_curve_trees.m_c2.to_string(leaf.I_x);
-        const auto C_x = m_curve_trees.m_c2.to_string(leaf.C_x);
+        const auto O_x = m_curve_trees.m_c2->to_string(leaf.O_x);
+        const auto I_x = m_curve_trees.m_c2->to_string(leaf.I_x);
+        const auto C_x = m_curve_trees.m_c2->to_string(leaf.C_x);
 
         MDEBUG("Leaf idx " << i << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
     }
@@ -719,7 +719,7 @@ void CurveTreesGlobalTree::log_tree()
             MDEBUG("Selene layer size: " << c2_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c2_layer.size(); ++j)
-                MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c2.to_string(c2_layer[j]));
+                MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c2->to_string(c2_layer[j]));
 
             ++c2_idx;
         }
@@ -731,7 +731,7 @@ void CurveTreesGlobalTree::log_tree()
             MDEBUG("Helios layer size: " << c1_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c1_layer.size(); ++j)
-                MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c1.to_string(c1_layer[j]));
+                MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c1->to_string(c1_layer[j]));
 
             ++c1_idx;
         }
@@ -864,17 +864,17 @@ static bool trim_tree_in_memory(const std::size_t trim_n_leaf_tuples,
 //----------------------------------------------------------------------------------------------------------------------
 static bool grow_tree_db(const std::size_t init_leaves,
     const std::size_t ext_leaves,
-    CurveTreesV1 &curve_trees,
+    std::shared_ptr<CurveTreesV1> curve_trees,
     unit_test::BlockchainLMDBTest &test_db)
 {
-    INIT_BLOCKCHAIN_LMDB_TEST_DB(&curve_trees);
+    INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
 
     {
         cryptonote::db_wtxn_guard guard(test_db.m_db);
 
         LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then extending by " << ext_leaves << " leaves");
 
-        auto init_leaf_tuples = generate_random_leaves(curve_trees, 0, init_leaves);
+        auto init_leaf_tuples = generate_random_leaves(*curve_trees, 0, init_leaves);
 
         test_db.m_db->grow_tree(std::move(init_leaf_tuples));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(init_leaves), false,
@@ -883,7 +883,7 @@ static bool grow_tree_db(const std::size_t init_leaves,
         MDEBUG("Successfully added initial " << init_leaves << " leaves to db, extending by "
             << ext_leaves << " leaves");
 
-        auto ext_leaf_tuples = generate_random_leaves(curve_trees, init_leaves, ext_leaves);
+        auto ext_leaf_tuples = generate_random_leaves(*curve_trees, init_leaves, ext_leaves);
 
         test_db.m_db->grow_tree(std::move(ext_leaf_tuples));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(init_leaves + ext_leaves), false,
@@ -897,17 +897,17 @@ static bool grow_tree_db(const std::size_t init_leaves,
 //----------------------------------------------------------------------------------------------------------------------
 static bool trim_tree_db(const std::size_t init_leaves,
     const std::size_t trim_leaves,
-    CurveTreesV1 &curve_trees,
+    std::shared_ptr<CurveTreesV1> curve_trees,
     unit_test::BlockchainLMDBTest &test_db)
 {
-    INIT_BLOCKCHAIN_LMDB_TEST_DB(&curve_trees);
+    INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
 
     {
         cryptonote::db_wtxn_guard guard(test_db.m_db);
 
         LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then trimming by " << trim_leaves << " leaves");
 
-        auto init_leaf_tuples = generate_random_leaves(curve_trees, 0, init_leaves);
+        auto init_leaf_tuples = generate_random_leaves(*curve_trees, 0, init_leaves);
 
         test_db.m_db->grow_tree(std::move(init_leaf_tuples));
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(init_leaves), false,
@@ -931,9 +931,6 @@ static bool trim_tree_db(const std::size_t init_leaves,
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, grow_tree)
 {
-    Helios helios;
-    Selene selene;
-
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
     static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 2;
@@ -943,6 +940,8 @@ TEST(curve_trees, grow_tree)
 
     LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_chunk_width
         << ", selene chunk width " << selene_chunk_width);
+
+    const auto curve_trees = fcmp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
 
     // Constant for how deep we want the tree
     static const std::size_t TEST_N_LAYERS = 4;
@@ -954,12 +953,6 @@ TEST(curve_trees, grow_tree)
         const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
         leaves_needed_for_n_layers *= width;
     }
-
-    auto curve_trees = CurveTreesV1(
-        helios,
-        selene,
-        helios_chunk_width,
-        selene_chunk_width);
 
     unit_test::BlockchainLMDBTest test_db;
 
@@ -973,7 +966,7 @@ TEST(curve_trees, grow_tree)
         // Then extend the tree with ext_leaves
         for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) <= leaves_needed_for_n_layers; ++ext_leaves)
         {
-            ASSERT_TRUE(grow_tree_in_memory(init_leaves, ext_leaves, curve_trees));
+            ASSERT_TRUE(grow_tree_in_memory(init_leaves, ext_leaves, *curve_trees));
             ASSERT_TRUE(grow_tree_db(init_leaves, ext_leaves, curve_trees, test_db));
         }
     }
@@ -981,10 +974,6 @@ TEST(curve_trees, grow_tree)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, trim_tree)
 {
-    // TODO: consolidate code from grow_tree test
-    Helios helios;
-    Selene selene;
-
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
     static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 3;
@@ -994,6 +983,8 @@ TEST(curve_trees, trim_tree)
 
     LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
         << ", selene chunk width " << selene_chunk_width);
+
+    const auto curve_trees = fcmp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
 
     // Constant for how deep we want the tree
     static const std::size_t TEST_N_LAYERS = 4;
@@ -1006,12 +997,6 @@ TEST(curve_trees, trim_tree)
         leaves_needed_for_n_layers *= width;
     }
 
-    auto curve_trees = CurveTreesV1(
-        helios,
-        selene,
-        helios_chunk_width,
-        selene_chunk_width);
-
     unit_test::BlockchainLMDBTest test_db;
 
     // Increment to test for off-by-1
@@ -1021,9 +1006,9 @@ TEST(curve_trees, trim_tree)
     for (std::size_t init_leaves = 2; init_leaves <= leaves_needed_for_n_layers; ++init_leaves)
     {
         LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
-        CurveTreesGlobalTree global_tree(curve_trees);
+        CurveTreesGlobalTree global_tree(*curve_trees);
 
-        ASSERT_TRUE(grow_tree(curve_trees, global_tree, init_leaves));
+        ASSERT_TRUE(grow_tree(*curve_trees, global_tree, init_leaves));
 
         // Then extend the tree with ext_leaves
         for (std::size_t trim_leaves = 1; trim_leaves < leaves_needed_for_n_layers; ++trim_leaves)
@@ -1043,6 +1028,8 @@ TEST(curve_trees, trim_tree)
 // Make sure the result of hash_trim is the same as the equivalent hash_grow excluding the trimmed children
 TEST(curve_trees, hash_trim)
 {
+    const auto curve_trees = fcmp::curve_trees::curve_trees_v1();
+
     // 1. Trim 1
     {
         // Start by hashing: {selene_scalar_0, selene_scalar_1}
@@ -1052,29 +1039,29 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 2 scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1};
-        const auto init_hash = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto init_hash = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         // Trim selene_scalar_1
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 1};
-        const auto trim_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_trim(
+        const auto trim_res = curve_trees->m_c2->hash_trim(
             init_hash,
             1,
             trimmed_children,
-            fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar());
-        const auto trim_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(trim_res);
+            curve_trees->m_c2->zero_scalar());
+        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
-        const auto grow_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto grow_res = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(grow_res);
+        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
 
         ASSERT_EQ(trim_res_bytes, grow_res_bytes);
     }
@@ -1089,29 +1076,29 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 3 selene scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1, selene_scalar_2};
-        const auto init_hash = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto init_hash = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         // Trim the initial result by 2 children
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 2};
-        const auto trim_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_trim(
+        const auto trim_res = curve_trees->m_c2->hash_trim(
             init_hash,
             1,
             trimmed_children,
-            fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar());
-        const auto trim_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(trim_res);
+            curve_trees->m_c2->zero_scalar());
+        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
-        const auto grow_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto grow_res = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(grow_res);
+        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
 
         ASSERT_EQ(trim_res_bytes, grow_res_bytes);
     }
@@ -1125,31 +1112,31 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 2 selene scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1};
-        const auto init_hash = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto init_hash = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         const auto selene_scalar_2 = generate_random_selene_scalar();
 
         // Trim the 2nd child and grow with new child
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 1};
-        const auto trim_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_trim(
+        const auto trim_res = curve_trees->m_c2->hash_trim(
             init_hash,
             1,
             trimmed_children,
             selene_scalar_2);
-        const auto trim_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(trim_res);
+        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_2}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_2};
-        const auto grow_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto grow_res = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(grow_res);
+        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
 
         ASSERT_EQ(trim_res_bytes, grow_res_bytes);
     }
@@ -1164,31 +1151,31 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 3 selene scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1, selene_scalar_2};
-        const auto init_hash = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto init_hash = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         const auto selene_scalar_3 = generate_random_selene_scalar();
 
         // Trim the initial result by 2 children+grow by 1
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 2};
-        const auto trim_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_trim(
+        const auto trim_res = curve_trees->m_c2->hash_trim(
             init_hash,
             1,
             trimmed_children,
             selene_scalar_3);
-        const auto trim_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(trim_res);
+        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_3}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_3};
-        const auto grow_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-            /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+        const auto grow_res = curve_trees->m_c2->hash_grow(
+            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(grow_res);
+        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
 
         ASSERT_EQ(trim_res_bytes, grow_res_bytes);
     }
@@ -1196,6 +1183,8 @@ TEST(curve_trees, hash_trim)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, hash_grow)
 {
+    const auto curve_trees = fcmp::curve_trees::curve_trees_v1();
+
     // Start by hashing: {selene_scalar_0, selene_scalar_1}
     // Then grow 1:      {selene_scalar_0, selene_scalar_1, selene_scalar_2}
     // Then grow 1:      {selene_scalar_0, selene_scalar_1, selene_scalar_2, selene_scalar_3}
@@ -1204,30 +1193,30 @@ TEST(curve_trees, hash_grow)
 
     // Get the initial hash of the 2 selene scalars
     std::vector<Selene::Scalar> all_children{selene_scalar_0, selene_scalar_1};
-    const auto init_hash = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-        /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+    const auto init_hash = curve_trees->m_c2->hash_grow(
+        /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
         /*offset*/                   0,
-        /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+        /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
 
     // Extend with a new child
     const auto selene_scalar_2 = generate_random_selene_scalar();
     std::vector<Selene::Scalar> new_children{selene_scalar_2};
-    const auto ext_hash = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
+    const auto ext_hash = curve_trees->m_c2->hash_grow(
         init_hash,
         all_children.size(),
-        fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+        curve_trees->m_c2->zero_scalar(),
         Selene::Chunk{new_children.data(), new_children.size()});
-    const auto ext_hash_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(ext_hash);
+    const auto ext_hash_bytes = curve_trees->m_c2->to_bytes(ext_hash);
 
     // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_1, selene_scalar_2}
     all_children.push_back(selene_scalar_2);
-    const auto grow_res = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-        /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+    const auto grow_res = curve_trees->m_c2->hash_grow(
+        /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
         /*offset*/                   0,
-        /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+        /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
-    const auto grow_res_bytes = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(grow_res);
+    const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
 
     ASSERT_EQ(ext_hash_bytes, grow_res_bytes);
 
@@ -1235,21 +1224,21 @@ TEST(curve_trees, hash_grow)
     const auto selene_scalar_3 = generate_random_selene_scalar();
     new_children.clear();
     new_children = {selene_scalar_3};
-    const auto ext_hash2 = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
+    const auto ext_hash2 = curve_trees->m_c2->hash_grow(
         ext_hash,
         all_children.size(),
-        fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+        curve_trees->m_c2->zero_scalar(),
         Selene::Chunk{new_children.data(), new_children.size()});
-    const auto ext_hash_bytes2 = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(ext_hash2);
+    const auto ext_hash_bytes2 = curve_trees->m_c2->to_bytes(ext_hash2);
 
     // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_1, selene_scalar_2, selene_scalar_3}
     all_children.push_back(selene_scalar_3);
-    const auto grow_res2 = fcmp::curve_trees::CURVE_TREES_V1.m_c2.hash_grow(
-        /*existing_hash*/            fcmp::curve_trees::CURVE_TREES_V1.m_c2.m_hash_init_point,
+    const auto grow_res2 = curve_trees->m_c2->hash_grow(
+        /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
         /*offset*/                   0,
-        /*existing_child_at_offset*/ fcmp::curve_trees::CURVE_TREES_V1.m_c2.zero_scalar(),
+        /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
-    const auto grow_res_bytes2 = fcmp::curve_trees::CURVE_TREES_V1.m_c2.to_bytes(grow_res2);
+    const auto grow_res_bytes2 = curve_trees->m_c2->to_bytes(grow_res2);
 
     ASSERT_EQ(ext_hash_bytes2, grow_res_bytes2);
 }

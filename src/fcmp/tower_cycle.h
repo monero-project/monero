@@ -43,22 +43,22 @@ namespace tower_cycle
 // Rust types
 //----------------------------------------------------------------------------------------------------------------------
 // Need to forward declare Scalar types for point_to_cycle_scalar below
-using SeleneScalar = fcmp_rust::SeleneScalar;
-using HeliosScalar = fcmp_rust::HeliosScalar;
+using SeleneScalar = fcmp_pp_rust::SeleneScalar;
+using HeliosScalar = fcmp_pp_rust::HeliosScalar;
 //----------------------------------------------------------------------------------------------------------------------
 struct HeliosT final
 {
     using Scalar      = HeliosScalar;
-    using Point       = fcmp_rust::HeliosPoint;
-    using Chunk       = fcmp_rust::HeliosScalarSlice;
+    using Point       = fcmp_pp_rust::HeliosPoint;
+    using Chunk       = fcmp_pp_rust::HeliosScalarSlice;
     using CycleScalar = SeleneScalar;
 };
 //----------------------------------------------------------------------------------------------------------------------
 struct SeleneT final
 {
     using Scalar      = SeleneScalar;
-    using Point       = fcmp_rust::SelenePoint;
-    using Chunk       = fcmp_rust::SeleneScalarSlice;
+    using Point       = fcmp_pp_rust::SelenePoint;
+    using Chunk       = fcmp_pp_rust::SeleneScalarSlice;
     using CycleScalar = HeliosScalar;
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -67,14 +67,10 @@ struct SeleneT final
 template<typename C>
 class Curve
 {
-//constructor
-public:
-    Curve(const typename C::Point &hash_init_point):
-        m_hash_init_point{hash_init_point}
-    {};
-
 //member functions
 public:
+    virtual typename C::Point hash_init_point() const = 0;
+
     // Read the x-coordinate from this curve's point to get this curve's cycle scalar
     virtual typename C::CycleScalar point_to_cycle_scalar(const typename C::Point &point) const = 0;
 
@@ -99,11 +95,6 @@ public:
 
     virtual std::string to_string(const typename C::Scalar &scalar) const = 0;
     virtual std::string to_string(const typename C::Point &point) const = 0;
-
-//member variables
-public:
-    // kayabaNerve: this doesn't have a reference as doing so delays initialization and borks it
-    const typename C::Point m_hash_init_point;
 };
 //----------------------------------------------------------------------------------------------------------------------
 class Helios final : public Curve<HeliosT>
@@ -115,14 +106,10 @@ public:
     using Chunk       = HeliosT::Chunk;
     using CycleScalar = HeliosT::CycleScalar;
 
-//constructor
-public:
-    Helios()
-    : Curve<HeliosT>(fcmp_rust::helios_hash_init_point())
-    {};
-
 //member functions
 public:
+    Point hash_init_point() const override;
+
     CycleScalar point_to_cycle_scalar(const Point &point) const override;
 
     Point hash_grow(
@@ -157,14 +144,10 @@ public:
     using Chunk       = SeleneT::Chunk;
     using CycleScalar = SeleneT::CycleScalar;
 
-//constructor
-public:
-    Selene()
-    : Curve<SeleneT>(fcmp_rust::selene_hash_init_point())
-    {};
-
 //member functions
 public:
+    Point hash_init_point() const override;
+
     CycleScalar point_to_cycle_scalar(const Point &point) const override;
 
     Point hash_grow(
@@ -194,12 +177,12 @@ public:
 SeleneScalar selene_scalar_from_bytes(const rct::key &scalar);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
-void extend_zeroes(const C &curve,
+void extend_zeroes(const std::unique_ptr<C> &curve,
     const std::size_t num_zeroes,
     std::vector<typename C::Scalar> &zeroes_inout);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C_POINTS, typename C_SCALARS>
-void extend_scalars_from_cycle_points(const C_POINTS &curve,
+void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
     const std::vector<typename C_POINTS::Point> &points,
     std::vector<typename C_SCALARS::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------

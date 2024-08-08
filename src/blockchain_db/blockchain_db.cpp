@@ -328,6 +328,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // Get all other txs' leaf tuples
   for (std::size_t i = 0; i < txs.size(); ++i)
   {
+    // TODO: this loop can be parallelized
     m_curve_trees->tx_outs_to_leaf_tuple_contexts(
       txs[i].first,
       output_ids[i],

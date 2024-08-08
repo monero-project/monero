@@ -194,7 +194,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=true, fcmp::curve_trees::CurveTreesV1 *curve_trees=&fcmp::curve_trees::CURVE_TREES_V1);
+  BlockchainLMDB(bool batch_transactions=true, std::shared_ptr<fcmp::curve_trees::CurveTreesV1> curve_trees = fcmp::curve_trees::curve_trees_v1());
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -419,19 +419,19 @@ private:
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
   template<typename C>
-  void grow_layer(const C &curve,
+  void grow_layer(const std::unique_ptr<C> &curve,
     const std::vector<fcmp::curve_trees::LayerExtension<C>> &layer_extensions,
     const uint64_t c_idx,
     const uint64_t layer_idx);
 
   template<typename C>
-  void trim_layer(const C &curve,
+  void trim_layer(const std::unique_ptr<C> &curve,
     const fcmp::curve_trees::LayerReduction<C> &layer_reduction,
     const uint64_t layer_idx);
 
-  uint64_t get_num_leaf_tuples() const;
+  virtual uint64_t get_num_leaf_tuples() const;
 
-  std::array<uint8_t, 32UL> get_tree_root() const;
+  virtual std::array<uint8_t, 32UL> get_tree_root() const;
 
   fcmp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
@@ -442,8 +442,8 @@ private:
     const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
   template<typename C_CHILD, typename C_PARENT>
-  bool audit_layer(const C_CHILD &c_child,
-    const C_PARENT &c_parent,
+  bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
+    const std::unique_ptr<C_PARENT> &c_parent,
     const uint64_t layer_idx,
     const uint64_t child_start_idx,
     const uint64_t child_chunk_idx,

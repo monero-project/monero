@@ -36,7 +36,7 @@ namespace fcmp
 // Byte buffer containing the fcmp++ proof
 using FcmpPpProof = std::vector<uint8_t>;
 
-static inline std::size_t get_fcmp_pp_len_from_n_inputs(const std::size_t n_inputs)
+static inline std::size_t fcmp_pp_len(const std::size_t n_inputs)
 {
     // TODO: implement
     return n_inputs * 4;

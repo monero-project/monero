@@ -1371,7 +1371,7 @@ TEST(Serialization, tx_fcmp_pp)
 
     // 1 fcmp++ proof
     fcmp::FcmpPpProof fcmp_pp;
-    const std::size_t proof_len = fcmp::get_fcmp_pp_len_from_n_inputs(n_inputs);
+    const std::size_t proof_len = fcmp::fcmp_pp_len(n_inputs);
     fcmp_pp.reserve(proof_len);
     for (std::size_t i = 0; i < proof_len; ++i)
       fcmp_pp.push_back(i);
@@ -1400,7 +1400,7 @@ TEST(Serialization, tx_fcmp_pp)
     string blob;
 
     // Extend fcmp++ proof
-    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp::get_fcmp_pp_len_from_n_inputs(n_inputs));
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp::fcmp_pp_len(n_inputs));
     tx.rct_signatures.p.fcmp_pp.push_back(0x01);
 
     ASSERT_FALSE(serialization::dump_binary(tx, blob));
@@ -1411,7 +1411,7 @@ TEST(Serialization, tx_fcmp_pp)
     transaction tx = make_dummy_fcmp_pp_tx();
 
     // Shorten the fcmp++ proof
-    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp::get_fcmp_pp_len_from_n_inputs(n_inputs));
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp::fcmp_pp_len(n_inputs));
     ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() > 1);
     tx.rct_signatures.p.fcmp_pp.pop_back();
 
