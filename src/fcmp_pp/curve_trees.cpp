@@ -31,7 +31,7 @@
 #include "ringct/rctOps.h"
 
 
-namespace fcmp
+namespace fcmp_pp
 {
 namespace curve_trees
 {
@@ -549,7 +549,7 @@ static TrimLayerInstructions get_trim_layer_instructions(
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C_CHILD, typename C_PARENT>
-static typename fcmp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduction(
+static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_reduction(
     const std::unique_ptr<C_CHILD> &c_child,
     const std::unique_ptr<C_PARENT> &c_parent,
     const TrimLayerInstructions &trim_layer_instructions,
@@ -1028,4 +1028,4 @@ GrowLayerInstructions CurveTrees<C1, C2>::set_next_layer_extension(
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
-} //namespace fcmp
+} //namespace fcmp_pp

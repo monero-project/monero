@@ -29,7 +29,7 @@
 #include "string_tools.h"
 #include "tower_cycle.h"
 
-namespace fcmp
+namespace fcmp_pp
 {
 namespace tower_cycle
 {
@@ -280,4 +280,4 @@ template void extend_scalars_from_cycle_points<Selene, Helios>(const std::unique
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle
-} //namespace fcmp
+} //namespace fcmp_pp

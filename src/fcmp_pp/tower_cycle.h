@@ -29,12 +29,12 @@
 #pragma once
 
 #include "crypto/crypto.h"
-#include "fcmp_rust/fcmp++.h"
+#include "fcmp_pp_rust/fcmp++.h"
 #include "ringct/rctTypes.h"
 
 #include <string>
 
-namespace fcmp
+namespace fcmp_pp
 {
 namespace tower_cycle
 {
@@ -188,4 +188,4 @@ void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace tower_cycle
-}//namespace fcmp
+}//namespace fcmp_pp

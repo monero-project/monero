@@ -314,7 +314,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // When adding a block, we also need to add all the leaf tuples included in
   // the block to a table keeping track of locked leaf tuples. Once those leaf
   // tuples unlock, we use them to grow the tree.
-  std::multimap<uint64_t, fcmp::curve_trees::LeafTupleContext> leaf_tuples_by_unlock_block;
+  std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext> leaf_tuples_by_unlock_block;
 
   // Get miner tx's leaf tuples
   CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");

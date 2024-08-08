@@ -1,10 +1,10 @@
 [package]
-name = "fcmp_rust"
+name = "fcmp_pp_rust"
 version = "0.0.0"
 edition = "2021"
 
 [lib]
-name = "fcmp_rust"
+name = "fcmp_pp_rust"
 crate-type = ["staticlib"]
 
 [dependencies]

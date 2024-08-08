@@ -45,7 +45,7 @@ extern "C" {
 }
 #include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
-#include "fcmp/proof.h"
+#include "fcmp_pp/proof.h"
 #include "hex.h"
 #include "span.h"
 #include "memwipe.h"
@@ -426,7 +426,7 @@ namespace rct {
         std::vector<mgSig> MGs; // simple rct has N, full has 1
         std::vector<clsag> CLSAGs;
         keyV pseudoOuts; //C - for simple rct
-        fcmp::FcmpPpProof fcmp_pp;
+        fcmp_pp::FcmpPpProof fcmp_pp;
 
         // when changing this function, update cryptonote::get_pruned_transaction_weight
         template<bool W, template <bool> class Archive>
@@ -503,7 +503,7 @@ namespace rct {
           {
             ar.tag("fcmp_pp");
             ar.begin_object();
-            const std::size_t proof_len = fcmp::fcmp_pp_len(inputs);
+            const std::size_t proof_len = fcmp_pp::proof_len(inputs);
             if (!typename Archive<W>::is_saving())
               fcmp_pp.resize(proof_len);
             if (fcmp_pp.size() != proof_len)

@@ -141,6 +141,7 @@ target_link_libraries(blockchain_import
   PRIVATE
     cryptonote_core
     blockchain_db
+    fcmp_pp
     version
     epee
     ${Boost_FILESYSTEM_LIBRARY}

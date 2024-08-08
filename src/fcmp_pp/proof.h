@@ -30,16 +30,16 @@
 
 #include <cstdint>
 
-namespace fcmp
+namespace fcmp_pp
 {
 
 // Byte buffer containing the fcmp++ proof
 using FcmpPpProof = std::vector<uint8_t>;
 
-static inline std::size_t fcmp_pp_len(const std::size_t n_inputs)
+static inline std::size_t proof_len(const std::size_t n_inputs)
 {
     // TODO: implement
     return n_inputs * 4;
 };
 
-}//namespace fcmp
+}//namespace fcmp_pp

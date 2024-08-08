@@ -62,7 +62,7 @@ static bool validate_layer(const std::unique_ptr<C> &curve,
         for (std::size_t i = 0; i < chunk_size; ++i)
             MDEBUG("Hashing " << curve->to_string(chunk_start[i]));
 
-        const typename C::Point chunk_hash = fcmp::curve_trees::get_new_parent(curve, chunk);
+        const typename C::Point chunk_hash = fcmp_pp::curve_trees::get_new_parent(curve, chunk);
 
         MDEBUG("chunk_start_idx: " << chunk_start_idx << " , chunk_size: " << chunk_size << " , chunk_hash: " << curve->to_string(chunk_hash));
 
@@ -193,7 +193,7 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
         if (use_c2)
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer extension");
-            const fcmp::curve_trees::LayerExtension<Selene> &c2_ext = c2_extensions[c2_idx];
+            const fcmp_pp::curve_trees::LayerExtension<Selene> &c2_ext = c2_extensions[c2_idx];
 
             CHECK_AND_ASSERT_THROW_MES(!c2_ext.hashes.empty(), "empty c2 layer extension");
 
@@ -226,7 +226,7 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
         else
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_extensions.size(), "unexpected c1 layer extension");
-            const fcmp::curve_trees::LayerExtension<Helios> &c1_ext = c1_extensions[c1_idx];
+            const fcmp_pp::curve_trees::LayerExtension<Helios> &c1_ext = c1_extensions[c1_idx];
 
             CHECK_AND_ASSERT_THROW_MES(!c1_ext.hashes.empty(), "empty c1 layer extension");
 
@@ -338,7 +338,7 @@ void CurveTreesGlobalTree::reduce_tree(const CurveTreesV1::TreeReduction &tree_r
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: template
 CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_children_to_trim(
-    const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions)
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions)
 {
     CurveTreesV1::LastChunkChildrenToTrim all_children_to_trim;
 
@@ -424,7 +424,7 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
 }
 //----------------------------------------------------------------------------------------------------------------------
 CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_to_trim(
-    const std::vector<fcmp::curve_trees::TrimLayerInstructions> &trim_instructions) const
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const
 {
     CurveTreesV1::LastHashes last_hashes;
     CHECK_AND_ASSERT_THROW_MES(!trim_instructions.empty(), "no instructions");
@@ -532,7 +532,7 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples)
             CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c1_idx " + std::to_string(c1_idx));
 
             std::vector<Selene::Scalar> child_scalars;
-            fcmp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_curve_trees.m_c1,
+            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_curve_trees.m_c1,
                 children,
                 child_scalars);
 
@@ -559,7 +559,7 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples)
             CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c2_idx " + std::to_string(c2_idx));
 
             std::vector<Helios::Scalar> child_scalars;
-            fcmp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_curve_trees.m_c2,
+            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_curve_trees.m_c2,
                 children,
                 child_scalars);
 
@@ -660,7 +660,7 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
         {
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer");
 
-            const fcmp::curve_trees::LayerExtension<Selene> &c2_layer = c2_extensions[c2_idx];
+            const fcmp_pp::curve_trees::LayerExtension<Selene> &c2_layer = c2_extensions[c2_idx];
             MDEBUG("Selene tree extension start idx: " << c2_layer.start_idx);
 
             for (std::size_t j = 0; j < c2_layer.hashes.size(); ++j)
@@ -673,7 +673,7 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_extensions.size(), "unexpected c1 layer");
 
-            const fcmp::curve_trees::LayerExtension<Helios> &c1_layer = c1_extensions[c1_idx];
+            const fcmp_pp::curve_trees::LayerExtension<Helios> &c1_layer = c1_extensions[c1_idx];
             MDEBUG("Helios tree extension start idx: " << c1_layer.start_idx);
 
             for (std::size_t j = 0; j < c1_layer.hashes.size(); ++j)
@@ -743,11 +743,11 @@ void CurveTreesGlobalTree::log_tree()
 //----------------------------------------------------------------------------------------------------------------------
 // Test helpers
 //----------------------------------------------------------------------------------------------------------------------
-static const std::vector<fcmp::curve_trees::LeafTupleContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
+static const std::vector<fcmp_pp::curve_trees::LeafTupleContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    std::vector<fcmp::curve_trees::LeafTupleContext> tuples;
+    std::vector<fcmp_pp::curve_trees::LeafTupleContext> tuples;
     tuples.reserve(new_n_leaf_tuples);
 
     for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
@@ -777,7 +777,7 @@ static const Selene::Scalar generate_random_selene_scalar()
 
     rct::key S_x;
     CHECK_AND_ASSERT_THROW_MES(rct::point_to_wei_x(rct::pk2rct(S), S_x), "failed to convert to wei x");
-    return fcmp::tower_cycle::selene_scalar_from_bytes(S_x);
+    return fcmp_pp::tower_cycle::selene_scalar_from_bytes(S_x);
 }
 //----------------------------------------------------------------------------------------------------------------------
 static bool grow_tree(CurveTreesV1 &curve_trees,
@@ -941,7 +941,7 @@ TEST(curve_trees, grow_tree)
     LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_chunk_width
         << ", selene chunk width " << selene_chunk_width);
 
-    const auto curve_trees = fcmp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
 
     // Constant for how deep we want the tree
     static const std::size_t TEST_N_LAYERS = 4;
@@ -984,7 +984,7 @@ TEST(curve_trees, trim_tree)
     LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
         << ", selene chunk width " << selene_chunk_width);
 
-    const auto curve_trees = fcmp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
 
     // Constant for how deep we want the tree
     static const std::size_t TEST_N_LAYERS = 4;
@@ -1028,7 +1028,7 @@ TEST(curve_trees, trim_tree)
 // Make sure the result of hash_trim is the same as the equivalent hash_grow excluding the trimmed children
 TEST(curve_trees, hash_trim)
 {
-    const auto curve_trees = fcmp::curve_trees::curve_trees_v1();
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
 
     // 1. Trim 1
     {
@@ -1183,7 +1183,7 @@ TEST(curve_trees, hash_trim)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, hash_grow)
 {
-    const auto curve_trees = fcmp::curve_trees::curve_trees_v1();
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
 
     // Start by hashing: {selene_scalar_0, selene_scalar_1}
     // Then grow 1:      {selene_scalar_0, selene_scalar_1, selene_scalar_2}

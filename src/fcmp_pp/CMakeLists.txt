@@ -32,11 +32,11 @@ set(fcmp_pp_sources
 
 monero_find_all_headers(fcmp_pp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_subdirectory(fcmp_rust)
+add_subdirectory(fcmp_pp_rust)
 
 monero_add_library_with_deps(
   NAME fcmp_pp
-  DEPENDS fcmp_rust
+  DEPENDS fcmp_pp_rust
   SOURCES
     ${fcmp_pp_sources}
     ${fcmp_pp_headers})
@@ -54,6 +54,6 @@ target_link_libraries(fcmp_pp
     epee
     ringct
   PRIVATE
-    ${CMAKE_CURRENT_BINARY_DIR}/fcmp_rust/libfcmp_rust.a
+    ${CMAKE_CURRENT_BINARY_DIR}/fcmp_pp_rust/libfcmp_pp_rust.a
     ${EXTRA_LIBRARIES}
     ${EXTRA_RUST_LIBRARIES})
