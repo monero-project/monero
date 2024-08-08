@@ -50,7 +50,7 @@ class Response(dict):
         self[key] = value
 
 class JSONRPC:
-    def __init__(self, url, username=None, password=None, timeout=10):
+    def __init__(self, url, username=None, password=None, timeout=20):
         self.url = url
         self.username = username
         self.password = password
