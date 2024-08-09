@@ -65,7 +65,7 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
-  MDB_cursor *m_txc_locked_leaves;
+  MDB_cursor *m_txc_locked_outputs;
   MDB_cursor *m_txc_leaves;
   MDB_cursor *m_txc_layers;
 
@@ -92,7 +92,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
-#define m_cur_locked_leaves	m_cursors->m_txc_locked_leaves
+#define m_cur_locked_outputs	m_cursors->m_txc_locked_outputs
 #define m_cur_leaves		m_cursors->m_txc_leaves
 #define m_cur_layers		m_cursors->m_txc_layers
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
@@ -117,7 +117,7 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
-  bool m_rf_locked_leaves;
+  bool m_rf_locked_outputs;
   bool m_rf_leaves;
   bool m_rf_layers;
   bool m_rf_txpool_meta;
@@ -444,12 +444,12 @@ private:
   template<typename C_CHILD, typename C_PARENT>
   bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
     const std::unique_ptr<C_PARENT> &c_parent,
-    const uint64_t layer_idx,
+    const uint64_t child_layer_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp_pp::curve_trees::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
+  std::vector<fcmp_pp::curve_trees::LeafTupleContext> get_outs_at_unlock_block_id(uint64_t block_id);
 
-  void del_locked_leaf_tuples_at_block_id(uint64_t block_id);
+  void del_locked_outs_at_block_id(uint64_t block_id);
 
   uint64_t num_outputs() const;
 
@@ -518,7 +518,7 @@ private:
 
   MDB_dbi m_spent_keys;
 
-  MDB_dbi m_locked_leaves;
+  MDB_dbi m_locked_outputs;
   MDB_dbi m_leaves;
   MDB_dbi m_layers;
 

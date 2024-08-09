@@ -643,31 +643,18 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
 // CurveTrees public member functions
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(
-    const std::uint64_t output_id,
-    const crypto::public_key &output_pubkey,
-    const rct::key &commitment) const
+LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(const std::uint64_t output_id,
+    crypto::public_key &&output_pubkey,
+    rct::key &&commitment) const
 {
-    rct::key O, C;
-
-    if (!rct::clear_torsion(rct::pk2rct(output_pubkey), O))
-        throw std::runtime_error("output pub key is invalid");
-    if (!rct::clear_torsion(commitment, C))
-        throw std::runtime_error("commitment is invalid");
-
-    if (O == rct::I)
-        throw std::runtime_error("O cannot equal identity");
-    if (C == rct::I)
-        throw std::runtime_error("C cannot equal identity");
-
-    PreprocessedLeafTuple o_c{
-            .O = std::move(O),
-            .C = std::move(C)
+    auto output_pair = OutputPair{
+            .output_pubkey = std::move(output_pubkey),
+            .commitment    = std::move(commitment)
         };
 
     return LeafTupleContext{
-            .output_id               = output_id,
-            .preprocessed_leaf_tuple = std::move(o_c)
+            .output_id   = output_id,
+            .output_pair = std::move(output_pair)
         };
 };
 //----------------------------------------------------------------------------------------------------------------------
@@ -698,40 +685,43 @@ void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuple_contexts(const cryptonote
         if (!miner_tx && tx.version == 2)
             CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
 
-        const rct::key commitment = (miner_tx || tx.version != 2)
+        rct::key commitment = (miner_tx || tx.version != 2)
             ? rct::zeroCommit(out.amount)
             : tx.rct_signatures.outPk[i].mask;
 
-        LeafTupleContext leaf_tuple_context;
-        try
-        {
-            // Convert output to leaf tuple context; throws if output is invalid
-            leaf_tuple_context = output_to_leaf_context(output_ids[i],
-                output_public_key,
-                commitment);
-        }
-        catch (...)
-        {
-            // We don't want leaf tuples from invalid outputs in the tree
-            continue;
-        };
+        auto tuple_context = output_to_leaf_context(output_ids[i],
+            std::move(output_public_key),
+            std::move(commitment));
 
-        leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(leaf_tuple_context));
+        leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(tuple_context));
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<>
 CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
-    const PreprocessedLeafTuple &preprocessed_leaf_tuple) const
+    const OutputPair &output_pair) const
 {
-    const rct::key &O = preprocessed_leaf_tuple.O;
-    const rct::key &C = preprocessed_leaf_tuple.C;
+    const crypto::public_key &output_pubkey = output_pair.output_pubkey;
+    const rct::key &commitment              = output_pair.commitment;
 
+    rct::key O, C;
+    if (!rct::clear_torsion(rct::pk2rct(output_pubkey), O))
+        throw std::runtime_error("output pubkey is invalid");
+    if (!rct::clear_torsion(commitment, C))
+        throw std::runtime_error("commitment is invalid");
+
+    if (O == rct::I)
+        throw std::runtime_error("O cannot equal identity");
+    if (C == rct::I)
+        throw std::runtime_error("C cannot equal identity");
+
+    // Must use the original output pubkey to derive I to prevent double spends, since torsioned outputs yield a
+    // a distinct I and key image from their respective torsion cleared output (and torsioned outputs are spendable
+    // before fcmp++)
     crypto::ec_point I;
-    crypto::derive_key_image_generator(rct::rct2pk(O), I);
+    crypto::derive_key_image_generator(output_pubkey, I);
 
     rct::key O_x, I_x, C_x;
-
     if (!rct::point_to_wei_x(O, O_x))
         throw std::runtime_error("failed to get wei x scalar from O");
     if (!rct::point_to_wei_x(rct::pt2rct(I), I_x))
@@ -773,42 +763,49 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     std::vector<LeafTupleContext> &&new_leaf_tuples) const
 {
     TreeExtension tree_extension;
+    tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
 
     if (new_leaf_tuples.empty())
         return tree_extension;
-
-    auto grow_layer_instructions = get_leaf_layer_grow_instructions(
-        old_n_leaf_tuples,
-        new_leaf_tuples.size(),
-        LEAF_TUPLE_SIZE,
-        m_leaf_layer_chunk_width);
-
-    tree_extension.leaves.start_leaf_tuple_idx = grow_layer_instructions.old_total_children / LEAF_TUPLE_SIZE;
 
     // Sort the leaves by order they appear in the chain
     const auto sort_fn = [](const LeafTupleContext &a, const LeafTupleContext &b) { return a.output_id < b.output_id; };
     std::sort(new_leaf_tuples.begin(), new_leaf_tuples.end(), sort_fn);
 
-    // Convert sorted pre-processed tuples into leaf tuples, place each element of each leaf tuple in a flat vector to
-    // be hashed, and place the pre-processed tuples in tree extension struct for insertion into the db
+    // Convert sorted outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed,
+    // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
+    // they cannot be inserted to the tree.
     std::vector<typename C2::Scalar> flattened_leaves;
     flattened_leaves.reserve(new_leaf_tuples.size() * LEAF_TUPLE_SIZE);
     tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
     for (auto &l : new_leaf_tuples)
     {
         // TODO: this loop can be parallelized
-        auto leaf = leaf_tuple(l.preprocessed_leaf_tuple);
+        LeafTuple leaf;
+        try { leaf = leaf_tuple(l.output_pair); }
+        catch(...)
+        {
+          // Invalid outputs can't be added to the tree
+          continue;
+        }
 
+        // We use O.x, I.x, C.x to grow the tree
         flattened_leaves.emplace_back(std::move(leaf.O_x));
         flattened_leaves.emplace_back(std::move(leaf.I_x));
         flattened_leaves.emplace_back(std::move(leaf.C_x));
 
-        // We only need to store O and C in the db, the leaf tuple can be derived from O and C
-        tree_extension.leaves.tuples.emplace_back(PreprocessedLeafTuple{
-                .O = std::move(l.preprocessed_leaf_tuple.O),
-                .C = std::move(l.preprocessed_leaf_tuple.C)
-            });
+        // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output pair in the db to save 32 bytes
+        tree_extension.leaves.tuples.emplace_back(std::move(l.output_pair));
     }
+
+    if (flattened_leaves.empty())
+        return tree_extension;
+
+    auto grow_layer_instructions = get_leaf_layer_grow_instructions(
+        old_n_leaf_tuples,
+        tree_extension.leaves.tuples.size(),
+        LEAF_TUPLE_SIZE,
+        m_leaf_layer_chunk_width);
 
     if (grow_layer_instructions.need_old_last_parent)
         CHECK_AND_ASSERT_THROW_MES(!existing_last_hashes.c2_last_hashes.empty(), "missing last c2 parent");

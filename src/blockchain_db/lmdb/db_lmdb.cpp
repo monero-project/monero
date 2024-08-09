@@ -203,8 +203,8 @@ namespace
  *
  * spent_keys       input hash   -
  *
- * locked_leaves    block ID     [{output ID, leaf tuple}...]
- * leaves           leaf_idx     leaf tuple
+ * locked_outputs   block ID     [{output ID, output pubkey, commitment}...]
+ * leaves           leaf_idx     {output pubkey, commitment}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  *
  * txpool_meta      txn hash     txn metadata
@@ -237,7 +237,7 @@ const char* const LMDB_OUTPUT_AMOUNTS = "output_amounts";
 const char* const LMDB_SPENT_KEYS = "spent_keys";
 
 // Curve trees merkle tree tables
-const char* const LMDB_LOCKED_LEAVES = "locked_leaves";
+const char* const LMDB_LOCKED_OUTPUTS = "locked_outputs";
 const char* const LMDB_LEAVES = "leaves";
 const char* const LMDB_LAYERS = "layers";
 
@@ -831,11 +831,11 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   }
 
   // Grow the tree with outputs that unlock at this block height
-  auto unlocked_leaves = this->get_leaf_tuples_at_unlock_block_id(m_height);
-  this->grow_tree(std::move(unlocked_leaves));
+  auto unlocked_outputs = this->get_outs_at_unlock_block_id(m_height);
+  this->grow_tree(std::move(unlocked_outputs));
 
-  // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked leaves table
-  this->del_locked_leaf_tuples_at_block_id(m_height);
+  // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked outputs table
+  this->del_locked_outs_at_block_id(m_height);
 
   int result = 0;
 
@@ -882,17 +882,17 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to add block height by hash to db transaction: ", result).c_str()));
 
-  CURSOR(locked_leaves)
+  CURSOR(locked_outputs)
 
-  // Add the locked leaf tuples from this block to the locked leaves table
-  for (const auto &locked_tuple : leaf_tuples_by_unlock_block)
+  // Add the locked outputs from this block to the locked outputs table
+  for (const auto &locked_output : leaf_tuples_by_unlock_block)
   {
-    MDB_val_set(k_block_id, locked_tuple.first);
-    MDB_val_set(v_tuple, locked_tuple.second);
+    MDB_val_set(k_block_id, locked_output.first);
+    MDB_val_set(v_output, locked_output.second);
 
     // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
     // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-    result = mdb_cursor_put(m_cur_locked_leaves, &k_block_id, &v_tuple, MDB_NODUPDATA);
+    result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
     if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
       throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
   }
@@ -1391,7 +1391,6 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContex
   // TODO: grow_layers
   const auto &c2_extensions = tree_extension.c2_layer_extensions;
   const auto &c1_extensions = tree_extension.c1_layer_extensions;
-  CHECK_AND_ASSERT_THROW_MES(!c2_extensions.empty(), "empty c2 extensions");
 
   bool use_c2 = true;
   uint64_t c2_idx = 0;
@@ -1404,7 +1403,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContex
     if (use_c2)
     {
       if (layer_idx % 2 != 0)
-        throw0(DB_ERROR(("Growing odd c2 layer, expected even layer idx for c1: "
+        throw0(DB_ERROR(("Growing odd c2 layer, expected even layer idx for c2: "
           + std::to_string(layer_idx)).c_str()));
 
       this->grow_layer<fcmp_pp::curve_trees::Selene>(m_curve_trees->m_c2,
@@ -1417,7 +1416,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContex
     else
     {
       if (layer_idx % 2 == 0)
-        throw0(DB_ERROR(("Growing even c1 layer, expected odd layer idx for c2: "
+        throw0(DB_ERROR(("Growing even c1 layer, expected odd layer idx for c1: "
           + std::to_string(layer_idx)).c_str()));
 
       this->grow_layer<fcmp_pp::curve_trees::Helios>(m_curve_trees->m_c1,
@@ -1821,10 +1820,10 @@ fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
 
-        const auto preprocessed_leaf_tuple = *(fcmp_pp::curve_trees::PreprocessedLeafTuple *)v.mv_data;
+        const auto output_pair = *(fcmp_pp::curve_trees::OutputPair *)v.mv_data;
 
         // TODO: parallelize calls to this function
-        auto leaf = m_curve_trees->leaf_tuple(preprocessed_leaf_tuple);
+        auto leaf = m_curve_trees->leaf_tuple(output_pair);
 
         leaves_to_trim.emplace_back(std::move(leaf.O_x));
         leaves_to_trim.emplace_back(std::move(leaf.I_x));
@@ -1997,8 +1996,8 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
 
-      const auto preprocessed_leaf_tuple = *(fcmp_pp::curve_trees::PreprocessedLeafTuple *)v.mv_data;
-      auto leaf = m_curve_trees->leaf_tuple(preprocessed_leaf_tuple);
+      const auto output_pair = *(fcmp_pp::curve_trees::OutputPair *)v.mv_data;
+      auto leaf = m_curve_trees->leaf_tuple(output_pair);
 
       leaf_tuples_chunk.emplace_back(std::move(leaf));
 
@@ -2230,17 +2229,17 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_leaf_tuples_at_unlock_block_id(
+std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_outs_at_unlock_block_id(
   uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
   TXN_PREFIX_RDONLY();
-  RCURSOR(locked_leaves)
+  RCURSOR(locked_outputs)
 
   MDB_val_set(k_block_id, block_id);
-  MDB_val v_tuple;
+  MDB_val v_output;
 
   // Get all the locked outputs at the provided block id
   std::vector<fcmp_pp::curve_trees::LeafTupleContext> leaf_tuples;
@@ -2248,7 +2247,7 @@ std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_leaf_tup
   MDB_cursor_op op = MDB_SET;
   while (1)
   {
-    int result = mdb_cursor_get(m_cur_locked_leaves, &k_block_id, &v_tuple, op);
+    int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, op);
     if (result == MDB_NOTFOUND)
       break;
     if (result != MDB_SUCCESS)
@@ -2259,8 +2258,8 @@ std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_leaf_tup
     if (blk_id != block_id)
       throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
 
-    const auto range_begin = ((const fcmp_pp::curve_trees::LeafTupleContext*)v_tuple.mv_data);
-    const auto range_end = range_begin + v_tuple.mv_size / sizeof(fcmp_pp::curve_trees::LeafTupleContext);
+    const auto range_begin = ((const fcmp_pp::curve_trees::LeafTupleContext*)v_output.mv_data);
+    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::LeafTupleContext);
 
     auto it = range_begin;
 
@@ -2280,25 +2279,25 @@ std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_leaf_tup
   return leaf_tuples;
 }
 
-void BlockchainLMDB::del_locked_leaf_tuples_at_block_id(uint64_t block_id)
+void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
   mdb_txn_cursors *m_cursors = &m_wcursors;
 
-  CURSOR(locked_leaves)
+  CURSOR(locked_outputs)
 
   MDB_val_set(k_block_id, block_id);
 
-  int result = mdb_cursor_get(m_cur_locked_leaves, &k_block_id, NULL, MDB_SET);
+  int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, NULL, MDB_SET);
   if (result == MDB_NOTFOUND)
     return;
   if (result != MDB_SUCCESS)
-    throw1(DB_ERROR(lmdb_error("Error finding locked leaf tuples to remove: ", result).c_str()));
+    throw1(DB_ERROR(lmdb_error("Error finding locked outputs to remove: ", result).c_str()));
 
-  result = mdb_cursor_del(m_cur_locked_leaves, MDB_NODUPDATA);
+  result = mdb_cursor_del(m_cur_locked_outputs, MDB_NODUPDATA);
   if (result)
-    throw1(DB_ERROR(lmdb_error("Error removing locked leaf tuples: ", result).c_str()));
+    throw1(DB_ERROR(lmdb_error("Error removing locked outputs: ", result).c_str()));
 }
 
 BlockchainLMDB::~BlockchainLMDB()
@@ -2514,7 +2513,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
-  lmdb_db_open(txn, LMDB_LOCKED_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_leaves, "Failed to open db handle for m_locked_leaves");
+  lmdb_db_open(txn, LMDB_LOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_outputs, "Failed to open db handle for m_locked_outputs");
   lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
   lmdb_db_open(txn, LMDB_LAYERS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_layers, "Failed to open db handle for m_layers");
 
@@ -2537,7 +2536,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_block_heights, compare_hash32);
   mdb_set_dupsort(txn, m_tx_indices, compare_hash32);
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
-  mdb_set_dupsort(txn, m_locked_leaves, compare_uint64);
+  mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
   mdb_set_dupsort(txn, m_leaves, compare_uint64);
   mdb_set_dupsort(txn, m_layers, compare_uint64);
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
@@ -2717,8 +2716,8 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_output_amounts: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_spent_keys, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_spent_keys: ", result).c_str()));
-  if (auto result = mdb_drop(txn, m_locked_leaves, 0))
-    throw0(DB_ERROR(lmdb_error("Failed to drop m_locked_leaves: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_locked_outputs, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_locked_outputs: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_leaves, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_leaves: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_layers, 0))
@@ -6781,7 +6780,7 @@ void BlockchainLMDB::migrate_5_6()
   do
   {
     // 1. Prepare all valid outputs to be inserted into the merkle tree and
-    //    place them in a locked leaves table. The key to this new table is the
+    //    place them in a locked outputs table. The key to this new table is the
     //    block id in which the outputs unlock.
     {
       MINFO("Setting up a locked outputs table (step 1/2 of full-chain membership proof migration)");
@@ -6789,8 +6788,8 @@ void BlockchainLMDB::migrate_5_6()
       result = mdb_txn_begin(m_env, NULL, 0, txn);
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-      lmdb_db_open(txn, LMDB_LOCKED_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_leaves, "Failed to open db handle for m_locked_leaves");
-      mdb_set_dupsort(txn, m_locked_leaves, compare_uint64);
+      lmdb_db_open(txn, LMDB_LOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_outputs, "Failed to open db handle for m_locked_outputs");
+      mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
       lmdb_db_open(txn, "tmp_last_output", MDB_INTEGERKEY | MDB_CREATE, m_tmp_last_output, "Failed to open db handle for m_tmp_last_output");
       txn.commit();
 
@@ -6804,7 +6803,7 @@ void BlockchainLMDB::migrate_5_6()
       struct tmp_output_cache { uint64_t n_outputs_read; uint64_t amount; outkey ok; };
       tmp_output_cache last_output;
 
-      MDB_cursor *c_output_amounts, *c_locked_leaves, *c_tmp_last_output;
+      MDB_cursor *c_output_amounts, *c_locked_outputs, *c_tmp_last_output;
       MDB_val k, v;
 
       i = 0;
@@ -6842,7 +6841,7 @@ void BlockchainLMDB::migrate_5_6()
           result = mdb_cursor_open(txn, m_output_amounts, &c_output_amounts);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for output amounts: ", result).c_str()));
-          result = mdb_cursor_open(txn, m_locked_leaves, &c_locked_leaves);
+          result = mdb_cursor_open(txn, m_locked_outputs, &c_locked_outputs);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for locked outputs: ", result).c_str()));
           result = mdb_cursor_open(txn, m_tmp_last_output, &c_tmp_last_output);
@@ -6929,35 +6928,25 @@ void BlockchainLMDB::migrate_5_6()
           last_output.n_outputs_read = i;
         }
 
-        // Convert the output into a leaf tuple context
-        fcmp_pp::curve_trees::LeafTupleContext tuple_context;
-        try
-        {
-          tuple_context = m_curve_trees->output_to_leaf_context(
-            output_id,
-            output_data.pubkey,
-            output_data.commitment);
-        }
-        catch(...)
-        {
-          // Invalid outputs can't be added to the tree
-          continue;
-        }
+        // Prepare the output for insertion to the tree
+        const auto tuple_context = m_curve_trees->output_to_leaf_context(output_id,
+          std::move(output_data.pubkey),
+          std::move(output_data.commitment));
 
         // Get the block in which the output will unlock
         const uint64_t unlock_block = cryptonote::get_unlock_block_index(output_data.unlock_time, output_data.height);
 
-        // Now add the leaf tuple to the locked leaves table
+        // Now add the output to the locked outputs table
         MDB_val_set(k_block_id, unlock_block);
-        MDB_val_set(v_tuple, tuple_context);
+        MDB_val_set(v_output, tuple_context);
 
         // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-        result = mdb_cursor_put(c_locked_leaves, &k_block_id, &v_tuple, MDB_NODUPDATA);
+        result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
         if (result == MDB_KEYEXIST)
-          MDEBUG("Duplicate output pub key encountered: " << output_data.pubkey << " , output_id: " << output_id);
+          MDEBUG("Dup output pubkey: " << tuple_context.output_pair.output_pubkey << " , output_id: " << output_id);
       }
     }
 
@@ -6980,7 +6969,7 @@ void BlockchainLMDB::migrate_5_6()
       lmdb_db_open(txn, "block_infn", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_block_info, "Failed to open db handle for block_infn");
       mdb_set_dupsort(txn, m_block_info, compare_uint64);
 
-      MDB_cursor *c_locked_leaves, *c_new_block_info, *c_old_block_info;
+      MDB_cursor *c_locked_outputs, *c_new_block_info, *c_old_block_info;
       MDB_val k_blk, v_blk;
 
       i = 0;
@@ -7007,7 +6996,7 @@ void BlockchainLMDB::migrate_5_6()
           }
 
           // Open all cursors
-          result = mdb_cursor_open(txn, m_locked_leaves, &c_locked_leaves);
+          result = mdb_cursor_open(txn, m_locked_outputs, &c_locked_outputs);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for locked outputs: ", result).c_str()));
           result = mdb_cursor_open(txn, m_block_info, &c_new_block_info);
@@ -7031,11 +7020,11 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Get the leaf tuples that unlock at the given block
-        auto unlocked_leaves = this->get_leaf_tuples_at_unlock_block_id(i);
-        this->grow_tree(std::move(unlocked_leaves));
+        auto unlocked_outputs = this->get_outs_at_unlock_block_id(i);
+        this->grow_tree(std::move(unlocked_outputs));
 
-        // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked leaves table
-        this->del_locked_leaf_tuples_at_block_id(i);
+        // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table
+        this->del_locked_outs_at_block_id(i);
 
         // Get old block_info and use it to set the new one with new values
         result = mdb_cursor_get(c_old_block_info, &k_blk, &v_blk, MDB_NEXT);
