@@ -30,6 +30,7 @@
 
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 #include "unit_tests_utils.h"
@@ -777,7 +778,7 @@ static const Selene::Scalar generate_random_selene_scalar()
     crypto::generate_keys(S, s, s, false);
 
     rct::key S_x;
-    CHECK_AND_ASSERT_THROW_MES(rct::point_to_wei_x(rct::pk2rct(S), S_x), "failed to convert to wei x");
+    CHECK_AND_ASSERT_THROW_MES(fcmp_pp::point_to_wei_x(rct::pk2rct(S), S_x), "failed to convert to wei x");
     return fcmp_pp::tower_cycle::selene_scalar_from_bytes(S_x);
 }
 //----------------------------------------------------------------------------------------------------------------------

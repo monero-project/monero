@@ -26,8 +26,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
+
+#include "cryptonote_basic/cryptonote_format_utils.h"
+#include "fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 
 
@@ -705,9 +707,9 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
     const rct::key &commitment              = output_pair.commitment;
 
     rct::key O, C;
-    if (!rct::clear_torsion(rct::pk2rct(output_pubkey), O))
+    if (!fcmp_pp::clear_torsion(rct::pk2rct(output_pubkey), O))
         throw std::runtime_error("output pubkey is invalid");
-    if (!rct::clear_torsion(commitment, C))
+    if (!fcmp_pp::clear_torsion(commitment, C))
         throw std::runtime_error("commitment is invalid");
 
     if (O == rct::I)
@@ -722,11 +724,11 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
     crypto::derive_key_image_generator(output_pubkey, I);
 
     rct::key O_x, I_x, C_x;
-    if (!rct::point_to_wei_x(O, O_x))
+    if (!fcmp_pp::point_to_wei_x(O, O_x))
         throw std::runtime_error("failed to get wei x scalar from O");
-    if (!rct::point_to_wei_x(rct::pt2rct(I), I_x))
+    if (!fcmp_pp::point_to_wei_x(rct::pt2rct(I), I_x))
         throw std::runtime_error("failed to get wei x scalar from I");
-    if (!rct::point_to_wei_x(C, C_x))
+    if (!fcmp_pp::point_to_wei_x(C, C_x))
         throw std::runtime_error("failed to get wei x scalar from C");
 
     return LeafTuple{
