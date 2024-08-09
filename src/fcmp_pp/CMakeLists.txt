@@ -49,10 +49,10 @@ endif()
 
 target_link_libraries(fcmp_pp
   PUBLIC
-    crypto
+    cncrypto
     cryptonote_basic
     epee
-    ringct
+    ringct_basic
   PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/fcmp_pp_rust/libfcmp_pp_rust.a
     ${EXTRA_LIBRARIES}
