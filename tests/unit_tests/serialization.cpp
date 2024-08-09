@@ -1397,12 +1397,12 @@ TEST(Serialization, tx_fcmp_pp)
   // 2. fcmp++ proof is longer than expected when serializing
   {
     transaction tx = make_dummy_fcmp_pp_tx();
-    string blob;
 
     // Extend fcmp++ proof
     ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp_pp::proof_len(n_inputs));
     tx.rct_signatures.p.fcmp_pp.push_back(0x01);
 
+    string blob;
     ASSERT_FALSE(serialization::dump_binary(tx, blob));
   }
 

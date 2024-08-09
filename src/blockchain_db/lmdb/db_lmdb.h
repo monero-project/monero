@@ -445,8 +445,6 @@ private:
   bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
     const std::unique_ptr<C_PARENT> &c_parent,
     const uint64_t layer_idx,
-    const uint64_t child_start_idx,
-    const uint64_t child_chunk_idx,
     const uint64_t chunk_width) const;
 
   std::vector<fcmp_pp::curve_trees::LeafTupleContext> get_leaf_tuples_at_unlock_block_id(uint64_t block_id);
