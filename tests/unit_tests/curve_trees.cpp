@@ -168,9 +168,9 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
         "unexpected leaf start idx");
 
     m_tree.leaves.reserve(m_tree.leaves.size() + tree_extension.leaves.tuples.size());
-    for (const auto &preprocessed_leaf_tuple : tree_extension.leaves.tuples)
+    for (const auto &output_pair : tree_extension.leaves.tuples)
     {
-        auto leaf = m_curve_trees.leaf_tuple(preprocessed_leaf_tuple);
+        auto leaf = m_curve_trees.leaf_tuple(output_pair);
 
         m_tree.leaves.emplace_back(CurveTreesV1::LeafTuple{
             .O_x = std::move(leaf.O_x),
@@ -640,8 +640,8 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
     MDEBUG("Leaf start idx: " << tree_extension.leaves.start_leaf_tuple_idx);
     for (std::size_t i = 0; i < tree_extension.leaves.tuples.size(); ++i)
     {
-        const auto &preprocessed_leaf_tuple = tree_extension.leaves.tuples[i];
-        const auto leaf = m_curve_trees.leaf_tuple(preprocessed_leaf_tuple);
+        const auto &output_pair = tree_extension.leaves.tuples[i];
+        const auto leaf = m_curve_trees.leaf_tuple(output_pair);
 
         const auto O_x = m_curve_trees.m_c2->to_string(leaf.O_x);
         const auto I_x = m_curve_trees.m_c2->to_string(leaf.I_x);
@@ -760,7 +760,8 @@ static const std::vector<fcmp_pp::curve_trees::LeafTupleContext> generate_random
         crypto::generate_keys(O, o, o, false);
         crypto::generate_keys(C, c, c, false);
 
-        auto tuple_context = curve_trees.output_to_leaf_context(output_id, O, rct::pk2rct(C));
+        rct::key C_key = rct::pk2rct(C);
+        auto tuple_context = curve_trees.output_to_leaf_context(output_id, std::move(O), std::move(C_key));
 
         tuples.emplace_back(std::move(tuple_context));
     }

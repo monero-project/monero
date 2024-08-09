@@ -129,22 +129,24 @@ struct TrimLayerInstructions final
     uint64_t end_trim_idx;
 };
 
-// Output pub key and commitment, ready to be converted into a leaf tuple (from {O,C} -> {O.x, I.x, C.x})
-struct PreprocessedLeafTuple final
+// Output pub key and commitment, ready to be converted to a leaf tuple
+// - From {output_pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
+// - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
+//   to derive the correct I (when deriving {O.x, I.x, C.x}). Torsion clearing O before deriving I from O would enable
+//   spending a torsioned output once before the fcmp++ fork and again with a different key image via fcmp++.
+struct OutputPair final
 {
-    // Output pubkey that has been checked valid and torsion cleared
-    rct::key O;
-    // Commitment that has been checked valid and torsion cleared
-    rct::key C;
+    crypto::public_key output_pubkey;
+    rct::key           commitment;
 };
-static_assert(sizeof(PreprocessedLeafTuple) == (32+32), "db expects 64 bytes for pre-processed leaf tuples");
+static_assert(sizeof(OutputPair) == (32+32), "db expects 64 bytes for output pairs");
 
-// Contextual wrapper for a pre-processed leaf tuple
+// Contextual wrapper for output pairs, ready to be conerted into leaf tuples
 struct LeafTupleContext final
 {
     // Global output ID useful to order the leaf tuple for insertion into the tree
-    uint64_t              output_id;
-    PreprocessedLeafTuple preprocessed_leaf_tuple;
+    uint64_t   output_id;
+    OutputPair output_pair;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -186,9 +188,9 @@ public:
     struct Leaves final
     {
         // Starting leaf tuple index in the leaf layer
-        uint64_t                           start_leaf_tuple_idx{0};
+        uint64_t                start_leaf_tuple_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
-        std::vector<PreprocessedLeafTuple> tuples;
+        std::vector<OutputPair> tuples;
     };
 
     // A struct useful to extend an existing tree
@@ -231,10 +233,10 @@ public:
 
 //member functions
 public:
-    // Convert cryptonote output pub key and commitment to a pre-processed leaf tuple ready for insertion to the tree
+    // Prepare output pubkey and commitment for insertion into the tree
     LeafTupleContext output_to_leaf_context(const std::uint64_t output_id,
-        const crypto::public_key &output_pubkey,
-        const rct::key &C) const;
+        crypto::public_key &&output_pubkey,
+        rct::key &&commitment) const;
 
     // Convert cryptonote tx outs to contexts ready to be converted to leaf tuples, grouped by unlock height
     void tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
@@ -243,8 +245,8 @@ public:
         const bool miner_tx,
         std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const;
 
-    // Derive a leaf tuple from a pre-processed leaf tuple {O,C} -> {O.x,I.x,C.x}
-    LeafTuple leaf_tuple(const PreprocessedLeafTuple &preprocessed_leaf_tuple) const;
+    // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
+    LeafTuple leaf_tuple(const OutputPair &outpout_pair) const;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
     std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
