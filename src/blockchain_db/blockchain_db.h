@@ -409,7 +409,7 @@ private:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
-   * @param leaf_tuples_by_unlock_block the leaves from this block to add to the merkle tree
+   * @param outs_by_unlock_block the outputs from this block to add to the merkle tree
    */
   virtual void add_block( const block& blk
                 , size_t block_weight
@@ -418,7 +418,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
-                , const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
+                , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
                 ) = 0;
 
   /**
@@ -1783,7 +1783,7 @@ public:
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
   // TODO: description and make private
-  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContext> &&new_leaves) = 0;
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputPair> &&new_leaves) = 0;
 
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples) = 0;
 

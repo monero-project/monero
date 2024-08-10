@@ -141,13 +141,7 @@ struct OutputPair final
 };
 static_assert(sizeof(OutputPair) == (32+32), "db expects 64 bytes for output pairs");
 
-// Contextual wrapper for output pairs, ready to be conerted into leaf tuples
-struct LeafTupleContext final
-{
-    // Global output ID useful to order the leaf tuple for insertion into the tree
-    uint64_t   output_id;
-    OutputPair output_pair;
-};
+using OutputsByUnlockBlock = std::map<uint64_t, std::vector<OutputPair>>;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -233,18 +227,6 @@ public:
 
 //member functions
 public:
-    // Prepare output pubkey and commitment for insertion into the tree
-    LeafTupleContext output_to_leaf_context(const std::uint64_t output_id,
-        crypto::public_key &&output_pubkey,
-        rct::key &&commitment) const;
-
-    // Convert cryptonote tx outs to contexts ready to be converted to leaf tuples, grouped by unlock height
-    void tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
-        const std::vector<uint64_t> &output_ids,
-        const uint64_t tx_height,
-        const bool miner_tx,
-        std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const;
-
     // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
     LeafTuple leaf_tuple(const OutputPair &outpout_pair) const;
 
@@ -255,7 +237,7 @@ public:
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        std::vector<LeafTupleContext> &&new_leaf_tuples) const;
+        std::vector<OutputPair> &&new_leaf_tuples) const;
 
     // Get instructions useful for trimming all existing layers in the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(

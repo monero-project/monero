@@ -37,6 +37,7 @@
 #include "include_base_utils.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "fcmp_pp/curve_trees.h"
 #include <unordered_map>
 #include <boost/multiprecision/cpp_int.hpp>
 

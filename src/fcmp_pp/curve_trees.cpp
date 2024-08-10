@@ -28,7 +28,6 @@
 
 #include "curve_trees.h"
 
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 
@@ -645,61 +644,6 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
 // CurveTrees public member functions
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-LeafTupleContext CurveTrees<Helios, Selene>::output_to_leaf_context(const std::uint64_t output_id,
-    crypto::public_key &&output_pubkey,
-    rct::key &&commitment) const
-{
-    auto output_pair = OutputPair{
-            .output_pubkey = std::move(output_pubkey),
-            .commitment    = std::move(commitment)
-        };
-
-    return LeafTupleContext{
-            .output_id   = output_id,
-            .output_pair = std::move(output_pair)
-        };
-};
-//----------------------------------------------------------------------------------------------------------------------
-template <>
-void CurveTrees<Helios, Selene>::tx_outs_to_leaf_tuple_contexts(const cryptonote::transaction &tx,
-    const std::vector<uint64_t> &output_ids,
-    const uint64_t tx_height,
-    const bool miner_tx,
-    std::multimap<uint64_t, LeafTupleContext> &leaf_tuples_by_unlock_block_inout) const
-{
-    const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, tx_height);
-
-    CHECK_AND_ASSERT_THROW_MES(tx.vout.size() == output_ids.size(), "unexpected size of output ids");
-
-    for (std::size_t i = 0; i < tx.vout.size(); ++i)
-    {
-        // TODO: this loop can be parallelized
-        const auto &out = tx.vout[i];
-
-        crypto::public_key output_public_key;
-        if (!cryptonote::get_output_public_key(out, output_public_key))
-            throw std::runtime_error("Could not get an output public key from a tx output.");
-
-        static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
-            "Revisit this section and update for the new tx version.");
-        CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
-
-        if (!miner_tx && tx.version == 2)
-            CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
-
-        rct::key commitment = (miner_tx || tx.version != 2)
-            ? rct::zeroCommit(out.amount)
-            : tx.rct_signatures.outPk[i].mask;
-
-        auto tuple_context = output_to_leaf_context(output_ids[i],
-            std::move(output_public_key),
-            std::move(commitment));
-
-        leaf_tuples_by_unlock_block_inout.emplace(unlock_block, std::move(tuple_context));
-    }
-}
-//----------------------------------------------------------------------------------------------------------------------
-template<>
 CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
     const OutputPair &output_pair) const
 {
@@ -762,7 +706,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<LeafTupleContext> &&new_leaf_tuples) const
+    std::vector<OutputPair> &&new_leaf_tuples) const
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
@@ -770,21 +714,17 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     if (new_leaf_tuples.empty())
         return tree_extension;
 
-    // Sort the leaves by order they appear in the chain
-    const auto sort_fn = [](const LeafTupleContext &a, const LeafTupleContext &b) { return a.output_id < b.output_id; };
-    std::sort(new_leaf_tuples.begin(), new_leaf_tuples.end(), sort_fn);
-
-    // Convert sorted outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed,
-    // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
-    // they cannot be inserted to the tree.
+    // Convert outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed, and place
+    // the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since they cannot be
+    // inserted to the tree.
     std::vector<typename C2::Scalar> flattened_leaves;
     flattened_leaves.reserve(new_leaf_tuples.size() * LEAF_TUPLE_SIZE);
     tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
-    for (auto &l : new_leaf_tuples)
+    for (auto &o : new_leaf_tuples)
     {
         // TODO: this loop can be parallelized
         LeafTuple leaf;
-        try { leaf = leaf_tuple(l.output_pair); }
+        try { leaf = leaf_tuple(o); }
         catch(...)
         {
           // Invalid outputs can't be added to the tree
@@ -797,7 +737,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
         flattened_leaves.emplace_back(std::move(leaf.C_x));
 
         // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output pair in the db to save 32 bytes
-        tree_extension.leaves.tuples.emplace_back(std::move(l.output_pair));
+        tree_extension.leaves.tuples.emplace_back(std::move(o));
     }
 
     if (flattened_leaves.empty())
@@ -862,7 +802,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Helios, Selene>::TreeExtension CurveTrees<Helios, Selene>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<LeafTupleContext> &&new_leaf_tuples) const;
+    std::vector<OutputPair> &&new_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(

@@ -203,7 +203,7 @@ namespace
  *
  * spent_keys       input hash   -
  *
- * locked_outputs   block ID     [{output ID, output pubkey, commitment}...]
+ * locked_outputs   block ID     [{output pubkey, commitment}...]
  * leaves           leaf_idx     {output pubkey, commitment}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  *
@@ -802,7 +802,7 @@ estim:
 }
 
 void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-    uint64_t num_rct_outs, const crypto::hash& blk_hash, const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext> &leaf_tuples_by_unlock_block)
+    uint64_t num_rct_outs, const crypto::hash& blk_hash, const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -832,7 +832,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
 
   // Grow the tree with outputs that unlock at this block height
   auto unlocked_outputs = this->get_outs_at_unlock_block_id(m_height);
-  this->grow_tree(std::move(unlocked_outputs));
+  if (!unlocked_outputs.empty())
+    this->grow_tree(std::move(unlocked_outputs));
 
   // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked outputs table
   this->del_locked_outs_at_block_id(m_height);
@@ -885,14 +886,13 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   CURSOR(locked_outputs)
 
   // Add the locked outputs from this block to the locked outputs table
-  for (const auto &locked_output : leaf_tuples_by_unlock_block)
+  for (const auto &locked_output : outs_by_unlock_block)
   {
     MDB_val_set(k_block_id, locked_output.first);
     MDB_val_set(v_output, locked_output.second);
 
     // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
-    // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-    result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
+    result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP | MDB_NODUPDATA);
     if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
       throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
   }
@@ -1348,7 +1348,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContext> &&new_leaves)
+void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputPair> &&new_leaves)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (new_leaves.empty())
@@ -2229,7 +2229,7 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_outs_at_unlock_block_id(
+std::vector<fcmp_pp::curve_trees::OutputPair> BlockchainLMDB::get_outs_at_unlock_block_id(
   uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -2242,7 +2242,7 @@ std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_outs_at_
   MDB_val v_output;
 
   // Get all the locked outputs at the provided block id
-  std::vector<fcmp_pp::curve_trees::LeafTupleContext> leaf_tuples;
+  std::vector<fcmp_pp::curve_trees::OutputPair> outs;
 
   MDB_cursor_op op = MDB_SET;
   while (1)
@@ -2258,25 +2258,25 @@ std::vector<fcmp_pp::curve_trees::LeafTupleContext> BlockchainLMDB::get_outs_at_
     if (blk_id != block_id)
       throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
 
-    const auto range_begin = ((const fcmp_pp::curve_trees::LeafTupleContext*)v_output.mv_data);
-    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::LeafTupleContext);
+    const auto range_begin = ((const fcmp_pp::curve_trees::OutputPair*)v_output.mv_data);
+    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputPair);
 
     auto it = range_begin;
 
     // The first MDB_NEXT_MULTIPLE includes the val from MDB_SET, so skip it
-    if (leaf_tuples.size() == 1)
+    if (outs.size() == 1)
       ++it;
 
     while (it < range_end)
     {
-      leaf_tuples.push_back(*it);
+      outs.push_back(*it);
       ++it;
     }
   }
 
   TXN_POSTFIX_RDONLY();
 
-  return leaf_tuples;
+  return outs;
 }
 
 void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
@@ -6929,16 +6929,17 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Prepare the output for insertion to the tree
-        const auto tuple_context = m_curve_trees->output_to_leaf_context(output_id,
-          std::move(output_data.pubkey),
-          std::move(output_data.commitment));
+        const auto output_pair = fcmp_pp::curve_trees::OutputPair{
+            .output_pubkey = std::move(output_data.pubkey),
+            .commitment =    std::move(output_data.commitment)
+          };
 
         // Get the block in which the output will unlock
         const uint64_t unlock_block = cryptonote::get_unlock_block_index(output_data.unlock_time, output_data.height);
 
         // Now add the output to the locked outputs table
         MDB_val_set(k_block_id, unlock_block);
-        MDB_val_set(v_output, tuple_context);
+        MDB_val_set(v_output, output_pair);
 
         // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
@@ -6946,7 +6947,7 @@ void BlockchainLMDB::migrate_5_6()
         if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
         if (result == MDB_KEYEXIST)
-          MDEBUG("Dup output pubkey: " << tuple_context.output_pair.output_pubkey << " , output_id: " << output_id);
+          MDEBUG("Duplicate output pubkey: " << output_pair.output_pubkey << " , output_id: " << output_id);
       }
     }
 
