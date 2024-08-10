@@ -706,7 +706,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputPair> &&new_leaf_tuples) const
+    std::vector<OutputContext> &&new_leaf_tuples) const
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
@@ -714,9 +714,13 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     if (new_leaf_tuples.empty())
         return tree_extension;
 
-    // Convert outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed, and place
-    // the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since they cannot be
-    // inserted to the tree.
+    // Sort the leaves by order they appear in the chain
+    const auto sort_fn = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
+    std::sort(new_leaf_tuples.begin(), new_leaf_tuples.end(), sort_fn);
+
+    // Convert sorted outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed,
+    // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
+    // they cannot be inserted to the tree.
     std::vector<typename C2::Scalar> flattened_leaves;
     flattened_leaves.reserve(new_leaf_tuples.size() * LEAF_TUPLE_SIZE);
     tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
@@ -724,7 +728,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     {
         // TODO: this loop can be parallelized
         LeafTuple leaf;
-        try { leaf = leaf_tuple(o); }
+        try { leaf = leaf_tuple(o.output_pair); }
         catch(...)
         {
           // Invalid outputs can't be added to the tree
@@ -737,7 +741,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
         flattened_leaves.emplace_back(std::move(leaf.C_x));
 
         // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output pair in the db to save 32 bytes
-        tree_extension.leaves.tuples.emplace_back(std::move(o));
+        tree_extension.leaves.tuples.emplace_back(std::move(o.output_pair));
     }
 
     if (flattened_leaves.empty())
@@ -802,7 +806,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Helios, Selene>::TreeExtension CurveTrees<Helios, Selene>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputPair> &&new_leaf_tuples) const;
+    std::vector<OutputContext> &&new_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(

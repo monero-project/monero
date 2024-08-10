@@ -74,17 +74,22 @@ static void get_outs_by_unlock_block(const cryptonote::transaction &tx,
 
     auto output_pair = fcmp_pp::curve_trees::OutputPair{
         .output_pubkey = std::move(output_public_key),
-        .commitment =    std::move(commitment)
+        .commitment    = std::move(commitment)
+      };
+
+    auto output_context = fcmp_pp::curve_trees::OutputContext{
+        .output_id   = output_ids[i],
+        .output_pair = std::move(output_pair)
       };
 
     if (outs_by_unlock_block_inout.find(unlock_block) == outs_by_unlock_block_inout.end())
     {
-      auto new_vec = std::vector<fcmp_pp::curve_trees::OutputPair>{std::move(output_pair)};
+      auto new_vec = std::vector<fcmp_pp::curve_trees::OutputContext>{std::move(output_context)};
       outs_by_unlock_block_inout[unlock_block] = std::move(new_vec);
     }
     else
     {
-      outs_by_unlock_block_inout[unlock_block].emplace_back(std::move(output_pair));
+      outs_by_unlock_block_inout[unlock_block].emplace_back(std::move(output_context));
     }
   }
 }
