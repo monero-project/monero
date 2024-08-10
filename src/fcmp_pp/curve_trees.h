@@ -134,14 +134,26 @@ struct TrimLayerInstructions final
 // - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
 //   to derive the correct I (when deriving {O.x, I.x, C.x}). Torsion clearing O before deriving I from O would enable
 //   spending a torsioned output once before the fcmp++ fork and again with a different key image via fcmp++.
+#pragma pack(push, 1)
 struct OutputPair final
 {
     crypto::public_key output_pubkey;
     rct::key           commitment;
 };
-static_assert(sizeof(OutputPair) == (32+32), "db expects 64 bytes for output pairs");
 
-using OutputsByUnlockBlock = std::map<uint64_t, std::vector<OutputPair>>;
+// Contextual wrapper for the output
+struct OutputContext final
+{
+    // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
+    uint64_t output_id;
+    OutputPair output_pair;
+};
+#pragma pack(pop)
+
+static_assert(sizeof(OutputPair)    == (32+32),   "db expects 64 bytes for output pairs");
+static_assert(sizeof(OutputContext) == (8+32+32), "db expects 72 bytes for output context");
+
+using OutputsByUnlockBlock = std::map<uint64_t, std::vector<OutputContext>>;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -237,7 +249,7 @@ public:
     // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        std::vector<OutputPair> &&new_leaf_tuples) const;
+        std::vector<OutputContext> &&new_leaf_tuples) const;
 
     // Get instructions useful for trimming all existing layers in the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(

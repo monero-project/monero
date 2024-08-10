@@ -744,15 +744,17 @@ void CurveTreesGlobalTree::log_tree()
 //----------------------------------------------------------------------------------------------------------------------
 // Test helpers
 //----------------------------------------------------------------------------------------------------------------------
-static const std::vector<fcmp_pp::curve_trees::OutputPair> generate_random_leaves(const CurveTreesV1 &curve_trees,
+static const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
-    std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
-    output_pairs.reserve(new_n_leaf_tuples);
+    std::vector<fcmp_pp::curve_trees::OutputContext> outs;
+    outs.reserve(new_n_leaf_tuples);
 
     for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
     {
+        const std::uint64_t output_id = old_n_leaf_tuples + i;
+
         // Generate random output tuple
         crypto::secret_key o,c;
         crypto::public_key O,C;
@@ -765,10 +767,15 @@ static const std::vector<fcmp_pp::curve_trees::OutputPair> generate_random_leave
                 .commitment    = std::move(C_key)
             };
 
-        output_pairs.emplace_back(std::move(output_pair));
+        auto output_context = fcmp_pp::curve_trees::OutputContext{
+                .output_id   = output_id,
+                .output_pair = std::move(output_pair)
+            };
+
+        outs.emplace_back(std::move(output_context));
     }
 
-    return output_pairs;
+    return outs;
 }
 //----------------------------------------------------------------------------------------------------------------------
 static const Selene::Scalar generate_random_selene_scalar()

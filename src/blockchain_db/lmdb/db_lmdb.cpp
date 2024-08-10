@@ -203,7 +203,7 @@ namespace
  *
  * spent_keys       input hash   -
  *
- * locked_outputs   block ID     [{output pubkey, commitment}...]
+ * locked_outputs   block ID     [{output ID, output pubkey, commitment}...]
  * leaves           leaf_idx     {output pubkey, commitment}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  *
@@ -891,9 +891,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
     MDB_val_set(k_block_id, locked_output.first);
     MDB_val_set(v_output, locked_output.second);
 
-    // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
-    result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP | MDB_NODUPDATA);
-    if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
+    result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
+    if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
   }
 
@@ -1348,7 +1347,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputPair> &&new_leaves)
+void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_leaves)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   if (new_leaves.empty())
@@ -1379,10 +1378,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputPair> &&n
     MDB_val_copy<uint64_t> k(i + leaves.start_leaf_tuple_idx);
     MDB_val_set(v, leaves.tuples[i]);
 
-    // TODO: according to the docs, MDB_APPEND isn't supposed to perform any key comparisons to maximize efficiency.
-    // Adding MDB_NOOVERWRITE I assume re-introduces a key comparison. Benchmark NOOVERWRITE here
-    // MDB_NOOVERWRITE makes sure key doesn't already exist
-    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPEND | MDB_NOOVERWRITE);
+    int result = mdb_cursor_put(m_cur_leaves, &k, &v, MDB_APPEND);
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
   }
@@ -1475,10 +1471,7 @@ void BlockchainLMDB::grow_layer(const std::unique_ptr<C> &curve,
     lv.child_chunk_hash = curve->to_bytes(ext.hashes[i]);
     MDB_val_set(v, lv);
 
-    // TODO: according to the docs, MDB_APPENDDUP isn't supposed to perform any key comparisons to maximize efficiency.
-    // Adding MDB_NODUPDATA I assume re-introduces a key comparison. Benchmark MDB_NODUPDATA here
-    // MDB_NODUPDATA makes sure key/data pair doesn't already exist
-    int result = mdb_cursor_put(m_cur_layers, &k, &v, MDB_APPENDDUP | MDB_NODUPDATA);
+    int result = mdb_cursor_put(m_cur_layers, &k, &v, MDB_APPENDDUP);
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to add hash: ", result).c_str()));
   }
@@ -2229,7 +2222,7 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::OutputPair> BlockchainLMDB::get_outs_at_unlock_block_id(
+std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_unlock_block_id(
   uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -2242,7 +2235,7 @@ std::vector<fcmp_pp::curve_trees::OutputPair> BlockchainLMDB::get_outs_at_unlock
   MDB_val v_output;
 
   // Get all the locked outputs at the provided block id
-  std::vector<fcmp_pp::curve_trees::OutputPair> outs;
+  std::vector<fcmp_pp::curve_trees::OutputContext> outs;
 
   MDB_cursor_op op = MDB_SET;
   while (1)
@@ -2258,8 +2251,8 @@ std::vector<fcmp_pp::curve_trees::OutputPair> BlockchainLMDB::get_outs_at_unlock
     if (blk_id != block_id)
       throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
 
-    const auto range_begin = ((const fcmp_pp::curve_trees::OutputPair*)v_output.mv_data);
-    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputPair);
+    const auto range_begin = ((const fcmp_pp::curve_trees::OutputContext*)v_output.mv_data);
+    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputContext);
 
     auto it = range_begin;
 
@@ -2537,7 +2530,6 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_tx_indices, compare_hash32);
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
   mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
-  mdb_set_dupsort(txn, m_leaves, compare_uint64);
   mdb_set_dupsort(txn, m_layers, compare_uint64);
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
   mdb_set_dupsort(txn, m_block_info, compare_uint64);
@@ -6929,9 +6921,14 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         // Prepare the output for insertion to the tree
-        const auto output_pair = fcmp_pp::curve_trees::OutputPair{
+        auto output_pair = fcmp_pp::curve_trees::OutputPair{
             .output_pubkey = std::move(output_data.pubkey),
-            .commitment =    std::move(output_data.commitment)
+            .commitment    = std::move(output_data.commitment)
+          };
+
+        auto output_context = fcmp_pp::curve_trees::OutputContext{
+            .output_id   = output_id,
+            .output_pair = std::move(output_pair)
           };
 
         // Get the block in which the output will unlock
@@ -6939,15 +6936,12 @@ void BlockchainLMDB::migrate_5_6()
 
         // Now add the output to the locked outputs table
         MDB_val_set(k_block_id, unlock_block);
-        MDB_val_set(v_output, output_pair);
+        MDB_val_set(v_output, output_context);
 
-        // MDB_NODUPDATA because no benefit to having duplicate outputs in the tree, only 1 can be spent
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-        result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
-        if (result != MDB_SUCCESS && result != MDB_KEYEXIST)
+        result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, 0);
+        if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
-        if (result == MDB_KEYEXIST)
-          MDEBUG("Duplicate output pubkey: " << output_pair.output_pubkey << " , output_id: " << output_id);
       }
     }
 
