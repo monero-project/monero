@@ -55,7 +55,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
+                        , const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block
                         ) override {
     blocks.push_back(blk);
   }

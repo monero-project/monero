@@ -51,7 +51,6 @@ endif()
 target_link_libraries(fcmp_pp
   PUBLIC
     cncrypto
-    cryptonote_basic
     epee
   PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/fcmp_pp_rust/libfcmp_pp_rust.a

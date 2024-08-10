@@ -116,7 +116,7 @@ public:
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) override {}
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
-  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::LeafTupleContext> &&new_leaves) override {};
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputPair> &&new_leaves) override {};
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples) override {};
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const override { return false; };
   virtual std::array<uint8_t, 32UL> get_tree_root() const override { return {}; };
@@ -149,7 +149,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext>& leaf_tuples_by_unlock_block
+                        , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
                         ) override { }
   virtual cryptonote::block get_block_from_height(const uint64_t& height) const override { return cryptonote::block(); }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {}

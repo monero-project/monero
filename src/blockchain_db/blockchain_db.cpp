@@ -41,6 +41,55 @@
 
 using epee::string_tools::pod_to_hex;
 
+//---------------------------------------------------------------
+// Helper function to group outputs by unlock block
+static void get_outs_by_unlock_block(const cryptonote::transaction &tx,
+  const std::vector<uint64_t> &output_ids,
+  const uint64_t tx_height,
+  const bool miner_tx,
+  fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block_inout)
+{
+  const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, tx_height);
+
+  CHECK_AND_ASSERT_THROW_MES(tx.vout.size() == output_ids.size(), "unexpected size of output ids");
+
+  for (std::size_t i = 0; i < tx.vout.size(); ++i)
+  {
+    const auto &out = tx.vout[i];
+
+    crypto::public_key output_public_key;
+    if (!cryptonote::get_output_public_key(out, output_public_key))
+      throw std::runtime_error("Could not get an output public key from a tx output.");
+
+    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
+      "Revisit this section and update for the new tx version.");
+    CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
+
+    if (!miner_tx && tx.version == 2)
+      CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
+
+    rct::key commitment = (miner_tx || tx.version != 2)
+      ? rct::zeroCommit(out.amount) // Needs ringct
+      : tx.rct_signatures.outPk[i].mask;
+
+    auto output_pair = fcmp_pp::curve_trees::OutputPair{
+        .output_pubkey = std::move(output_public_key),
+        .commitment =    std::move(commitment)
+      };
+
+    if (outs_by_unlock_block_inout.find(unlock_block) == outs_by_unlock_block_inout.end())
+    {
+      auto new_vec = std::vector<fcmp_pp::curve_trees::OutputPair>{std::move(output_pair)};
+      outs_by_unlock_block_inout[unlock_block] = std::move(new_vec);
+    }
+    else
+    {
+      outs_by_unlock_block_inout[unlock_block].emplace_back(std::move(output_pair));
+    }
+  }
+}
+//---------------------------------------------------------------
+
 namespace cryptonote
 {
 
@@ -231,7 +280,7 @@ std::vector<uint64_t> BlockchainDB::add_transaction(const crypto::hash& blk_hash
   {
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
-    // note: tx_outs_to_leaf_tuple_contexts in curve_trees.cpp mirrors this logic
+    // note: get_outs_by_unlock_block mirrors this logic
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
@@ -311,35 +360,32 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
 
-  // When adding a block, we also need to add all the leaf tuples included in
-  // the block to a table keeping track of locked leaf tuples. Once those leaf
-  // tuples unlock, we use them to grow the tree.
-  std::multimap<uint64_t, fcmp_pp::curve_trees::LeafTupleContext> leaf_tuples_by_unlock_block;
+  // When adding a block, we also need to keep track of when outputs unlock, so
+  // we can use them to grow the merkle tree used in fcmp's at that point.
+  fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block;
 
   // Get miner tx's leaf tuples
-  CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");
-  m_curve_trees->tx_outs_to_leaf_tuple_contexts(
+  get_outs_by_unlock_block(
     blk.miner_tx,
     miner_output_ids,
     prev_height,
     true/*miner_tx*/,
-    leaf_tuples_by_unlock_block);
+    outs_by_unlock_block);
 
   // Get all other txs' leaf tuples
   for (std::size_t i = 0; i < txs.size(); ++i)
   {
-    // TODO: this loop can be parallelized
-    m_curve_trees->tx_outs_to_leaf_tuple_contexts(
+    get_outs_by_unlock_block(
       txs[i].first,
       output_ids[i],
       prev_height,
       false/*miner_tx*/,
-      leaf_tuples_by_unlock_block);
+      outs_by_unlock_block);
   }
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, leaf_tuples_by_unlock_block);
+  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, outs_by_unlock_block);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
