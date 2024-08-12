@@ -226,18 +226,14 @@ namespace rct {
     //second is columns
     keyM keyMInit(size_t rows, size_t cols) {
         keyM rv(cols);
-        size_t i = 0;
-        for (i = 0 ; i < cols ; i++) {
+        for (size_t iter = 0 ; iter < cols ; iter++) {
             rv[i] = keyV(rows);
         }
         return rv;
     }
 
 
-
-
     //Various key generation functions
-
     bool toPointCheckOrder(ge_p3 *P, const unsigned char *data)
     {
         if (ge_frombytes_vartime(P, data))
