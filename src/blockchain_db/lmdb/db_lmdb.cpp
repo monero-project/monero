@@ -886,14 +886,16 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   CURSOR(locked_outputs)
 
   // Add the locked outputs from this block to the locked outputs table
-  for (const auto &locked_output : outs_by_unlock_block)
+  for (const auto &unlock_block : outs_by_unlock_block)
   {
-    MDB_val_set(k_block_id, locked_output.first);
-    MDB_val_set(v_output, locked_output.second);
-
-    result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
-    if (result != MDB_SUCCESS)
-      throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
+    MDB_val_set(k_block_id, unlock_block.first);
+    for (const auto &locked_output : unlock_block.second)
+    {
+      MDB_val_set(v_output, locked_output);
+      result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
+      if (result != MDB_SUCCESS)
+        throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
+    }
   }
 
   // we use weight as a proxy for size, since we don't have size but weight is >= size
@@ -6780,14 +6782,12 @@ void BlockchainLMDB::migrate_5_6()
       result = mdb_txn_begin(m_env, NULL, 0, txn);
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-      lmdb_db_open(txn, LMDB_LOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_outputs, "Failed to open db handle for m_locked_outputs");
-      mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
       lmdb_db_open(txn, "tmp_last_output", MDB_INTEGERKEY | MDB_CREATE, m_tmp_last_output, "Failed to open db handle for m_tmp_last_output");
       txn.commit();
 
       if (!m_batch_transactions)
         set_batch_transactions(true);
-      const std::size_t BATCH_SIZE = 1000;
+      const std::size_t BATCH_SIZE = 10000;
       batch_start(BATCH_SIZE);
       txn.m_txn = m_write_txn->m_txn;
 
@@ -6852,7 +6852,8 @@ void BlockchainLMDB::migrate_5_6()
             if (result != MDB_NOTFOUND)
             {
               cached_last_o = *(const tmp_output_cache*)v_last_output.mv_data;
-              MDEBUG("Found cached output " << cached_last_o.ok.output_id);
+              MDEBUG("Found cached output " << cached_last_o.ok.output_id
+                << ", migrated " << cached_last_o.n_outputs_read << " outputs already");
               found_cached_output = true;
 
               // Set k and v so we can continue the migration from that output
@@ -6938,8 +6939,9 @@ void BlockchainLMDB::migrate_5_6()
         MDB_val_set(k_block_id, unlock_block);
         MDB_val_set(v_output, output_context);
 
-        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unlock height
-        result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, 0);
+        // MDB_NODUPDATA because all output id's should be unique
+        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by output_id
+        result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
       }
