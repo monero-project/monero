@@ -1783,7 +1783,7 @@ public:
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
   // TODO: description and make private
-  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_leaves) = 0;
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
 
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples) = 0;
 

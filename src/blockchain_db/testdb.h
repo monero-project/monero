@@ -116,7 +116,7 @@ public:
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) override {}
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
-  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_leaves) override {};
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) override {};
   virtual void trim_tree(const uint64_t trim_n_leaf_tuples) override {};
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const override { return false; };
   virtual std::array<uint8_t, 32UL> get_tree_root() const override { return {}; };
