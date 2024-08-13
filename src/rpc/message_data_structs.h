@@ -176,6 +176,7 @@ namespace rpc
   {
     uint64_t height;
     uint64_t target_height;
+    uint64_t top_block_height;
     cryptonote::difficulty_type wide_difficulty;
     uint64_t difficulty;
     uint64_t target;
