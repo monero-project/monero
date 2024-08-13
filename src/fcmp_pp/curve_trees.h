@@ -153,7 +153,7 @@ struct OutputContext final
 static_assert(sizeof(OutputPair)    == (32+32),   "db expects 64 bytes for output pairs");
 static_assert(sizeof(OutputContext) == (8+32+32), "db expects 72 bytes for output context");
 
-using OutputsByUnlockBlock = std::map<uint64_t, std::vector<OutputContext>>;
+using OutputsByUnlockBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
