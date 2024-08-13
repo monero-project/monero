@@ -1426,9 +1426,14 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::r
 {
   dest.StartObject();
 
+  const uint64_t difficulty_top64 = (info.wide_difficulty >> 64).convert_to<std::uint64_t>();
+  const uint64_t cumulative_difficulty_top64 = (info.wide_cumulative_difficulty >> 64).convert_to<std::uint64_t>();
+
   INSERT_INTO_JSON_OBJECT(dest, height, info.height);
   INSERT_INTO_JSON_OBJECT(dest, target_height, info.target_height);
+  INSERT_INTO_JSON_OBJECT(dest, top_block_height, info.top_block_height);
   INSERT_INTO_JSON_OBJECT(dest, difficulty, info.difficulty);
+  INSERT_INTO_JSON_OBJECT(dest, difficulty_top64, difficulty_top64);
   INSERT_INTO_JSON_OBJECT(dest, target, info.target);
   INSERT_INTO_JSON_OBJECT(dest, tx_count, info.tx_count);
   INSERT_INTO_JSON_OBJECT(dest, tx_pool_size, info.tx_pool_size);
@@ -1443,12 +1448,14 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::r
   INSERT_INTO_JSON_OBJECT(dest, nettype, info.nettype);
   INSERT_INTO_JSON_OBJECT(dest, top_block_hash, info.top_block_hash);
   INSERT_INTO_JSON_OBJECT(dest, cumulative_difficulty, info.cumulative_difficulty);
+  INSERT_INTO_JSON_OBJECT(dest, cumulative_difficulty_top64, cumulative_difficulty_top64);
   INSERT_INTO_JSON_OBJECT(dest, block_size_limit, info.block_size_limit);
   INSERT_INTO_JSON_OBJECT(dest, block_weight_limit, info.block_weight_limit);
   INSERT_INTO_JSON_OBJECT(dest, block_size_median, info.block_size_median);
   INSERT_INTO_JSON_OBJECT(dest, block_weight_median, info.block_weight_median);
   INSERT_INTO_JSON_OBJECT(dest, adjusted_time, info.adjusted_time);
   INSERT_INTO_JSON_OBJECT(dest, start_time, info.start_time);
+  INSERT_INTO_JSON_OBJECT(dest, version, info.version);
 
   dest.EndObject();
 }
@@ -1460,9 +1467,14 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& inf
     throw WRONG_TYPE("json object");
   }
 
+  uint64_t difficulty_top64 = 0;
+  uint64_t cumulative_difficulty_top64 = 0;
+
   GET_FROM_JSON_OBJECT(val, info.height, height);
   GET_FROM_JSON_OBJECT(val, info.target_height, target_height);
+  GET_FROM_JSON_OBJECT(val, info.top_block_height, top_block_height);
   GET_FROM_JSON_OBJECT(val, info.difficulty, difficulty);
+  GET_FROM_JSON_OBJECT(val, difficulty_top64, difficulty_top64);
   GET_FROM_JSON_OBJECT(val, info.target, target);
   GET_FROM_JSON_OBJECT(val, info.tx_count, tx_count);
   GET_FROM_JSON_OBJECT(val, info.tx_pool_size, tx_pool_size);
@@ -1477,12 +1489,22 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& inf
   GET_FROM_JSON_OBJECT(val, info.nettype, nettype);
   GET_FROM_JSON_OBJECT(val, info.top_block_hash, top_block_hash);
   GET_FROM_JSON_OBJECT(val, info.cumulative_difficulty, cumulative_difficulty);
+  GET_FROM_JSON_OBJECT(val, cumulative_difficulty_top64, cumulative_difficulty_top64);
   GET_FROM_JSON_OBJECT(val, info.block_size_limit, block_size_limit);
   GET_FROM_JSON_OBJECT(val, info.block_weight_limit, block_weight_limit);
   GET_FROM_JSON_OBJECT(val, info.block_size_median, block_size_median);
   GET_FROM_JSON_OBJECT(val, info.block_weight_median, block_weight_median);
   GET_FROM_JSON_OBJECT(val, info.adjusted_time, adjusted_time);
   GET_FROM_JSON_OBJECT(val, info.start_time, start_time);
+  GET_FROM_JSON_OBJECT(val, info.version, version);
+
+  info.wide_difficulty = difficulty_top64;
+  info.wide_difficulty <<= 64;
+  info.wide_difficulty += info.difficulty;
+
+  info.wide_cumulative_difficulty = cumulative_difficulty_top64;
+  info.wide_cumulative_difficulty <<= 64;
+  info.wide_cumulative_difficulty += info.cumulative_difficulty;
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::rpc::output_distribution& dist)
