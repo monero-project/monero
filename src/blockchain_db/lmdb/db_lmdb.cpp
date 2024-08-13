@@ -1349,10 +1349,10 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_leaves)
+void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
-  if (new_leaves.empty())
+  if (new_outputs.empty())
     return;
 
   check_open();
@@ -1370,7 +1370,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> 
 
   // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
   CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");
-  const auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, std::move(new_leaves));
+  const auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, std::move(new_outputs));
 
   // Insert the leaves
   // TODO: grow_leaves

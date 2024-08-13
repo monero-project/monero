@@ -706,25 +706,25 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputContext> &&new_leaf_tuples) const
+    std::vector<OutputContext> &&new_outputs) const
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
 
-    if (new_leaf_tuples.empty())
+    if (new_outputs.empty())
         return tree_extension;
 
-    // Sort the leaves by order they appear in the chain
+    // Sort the outputs by order they appear in the chain
     const auto sort_fn = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
-    std::sort(new_leaf_tuples.begin(), new_leaf_tuples.end(), sort_fn);
+    std::sort(new_outputs.begin(), new_outputs.end(), sort_fn);
 
     // Convert sorted outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed,
     // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
     // they cannot be inserted to the tree.
     std::vector<typename C2::Scalar> flattened_leaves;
-    flattened_leaves.reserve(new_leaf_tuples.size() * LEAF_TUPLE_SIZE);
-    tree_extension.leaves.tuples.reserve(new_leaf_tuples.size());
-    for (auto &o : new_leaf_tuples)
+    flattened_leaves.reserve(new_outputs.size() * LEAF_TUPLE_SIZE);
+    tree_extension.leaves.tuples.reserve(new_outputs.size());
+    for (auto &o : new_outputs)
     {
         // TODO: this loop can be parallelized
         LeafTuple leaf;
@@ -806,7 +806,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Helios, Selene>::TreeExtension CurveTrees<Helios, Selene>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputContext> &&new_leaf_tuples) const;
+    std::vector<OutputContext> &&new_outputs) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(

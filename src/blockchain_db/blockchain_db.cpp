@@ -69,7 +69,7 @@ static void get_outs_by_unlock_block(const cryptonote::transaction &tx,
       CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
 
     rct::key commitment = (miner_tx || tx.version != 2)
-      ? rct::zeroCommit(out.amount) // Needs ringct
+      ? rct::zeroCommit(out.amount)
       : tx.rct_signatures.outPk[i].mask;
 
     auto output_pair = fcmp_pp::curve_trees::OutputPair{

@@ -246,7 +246,7 @@ public:
     std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
 
     // Take in the existing number of leaf tuples and the existing last hash in each layer in the tree, as well as new
-    // leaves to add to the tree, and return a tree extension struct that can be used to extend a tree
+    // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
         std::vector<OutputContext> &&new_leaf_tuples) const;
