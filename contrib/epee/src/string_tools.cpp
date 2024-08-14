@@ -201,7 +201,12 @@ namespace string_tools
   
   std::string get_extension(const std::string& str)
   {
-    return boost::filesystem::path(str).extension().string();
+    std::string ext_with_dot = boost::filesystem::path(str).extension().string();
+
+    if (ext_with_dot.empty())
+      return {};
+
+    return ext_with_dot.erase(0, 1);
   }
 
 	//----------------------------------------------------------------------------

@@ -1427,6 +1427,14 @@ TEST(StringTools, GetIpInt32)
   EXPECT_EQ(htonl(0xff0aff00), ip);
 }
 
+TEST(StringTools, GetExtension)
+{
+  EXPECT_EQ(std::string{}, epee::string_tools::get_extension(""));
+  EXPECT_EQ(std::string{}, epee::string_tools::get_extension("."));
+  EXPECT_EQ(std::string{"keys"}, epee::string_tools::get_extension("wallet.keys"));
+  EXPECT_EQ(std::string{"3"}, epee::string_tools::get_extension("1.2.3"));
+}
+
 TEST(NetUtils, IPv4NetworkAddress)
 {
   static_assert(epee::net_utils::ipv4_network_address::get_type_id() == epee::net_utils::address_type::ipv4, "bad ipv4 type id");
