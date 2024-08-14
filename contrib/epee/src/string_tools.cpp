@@ -212,7 +212,7 @@ namespace string_tools
 	//----------------------------------------------------------------------------
   std::string cut_off_extension(const std::string& str)
   {
-    return boost::filesystem::path(str).stem().string();
+    return boost::filesystem::path(str).replace_extension("").string();
   }
 
 #ifdef _WIN32

@@ -1435,6 +1435,13 @@ TEST(StringTools, GetExtension)
   EXPECT_EQ(std::string{"3"}, epee::string_tools::get_extension("1.2.3"));
 }
 
+TEST(StringTools, CutOffExtension)
+{
+  EXPECT_EQ(std::string{}, epee::string_tools::cut_off_extension(""));
+  EXPECT_EQ(std::string{"/home/user/Monero/wallets/wallet"}, epee::string_tools::cut_off_extension("/home/user/Monero/wallets/wallet"));
+  EXPECT_EQ(std::string{"/home/user/Monero/wallets/wallet"}, epee::string_tools::cut_off_extension("/home/user/Monero/wallets/wallet.keys"));
+}
+
 TEST(NetUtils, IPv4NetworkAddress)
 {
   static_assert(epee::net_utils::ipv4_network_address::get_type_id() == epee::net_utils::address_type::ipv4, "bad ipv4 type id");
