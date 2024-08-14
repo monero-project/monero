@@ -1311,8 +1311,11 @@ TEST(Serialization, tx_fcmp_pp)
 
   const std::size_t n_inputs = 2;
   const std::size_t n_outputs = 3;
+  const uint8_t curve_trees_tree_depth = 3;
 
-  const auto make_dummy_fcmp_pp_tx = []() -> transaction
+  const std::size_t proof_len = fcmp_pp::proof_len(n_inputs, curve_trees_tree_depth);
+
+  const auto make_dummy_fcmp_pp_tx = [curve_trees_tree_depth, proof_len]() -> transaction
   {
     transaction tx;
 
@@ -1369,9 +1372,11 @@ TEST(Serialization, tx_fcmp_pp)
     const crypto::hash referenceBlock{0x01};
     tx.rct_signatures.referenceBlock = referenceBlock;
 
+    // Set the curve trees merkle tree depth
+    tx.rct_signatures.p.curve_trees_tree_depth = curve_trees_tree_depth;
+
     // 1 fcmp++ proof
     fcmp_pp::FcmpPpProof fcmp_pp;
-    const std::size_t proof_len = fcmp_pp::proof_len(n_inputs);
     fcmp_pp.reserve(proof_len);
     for (std::size_t i = 0; i < proof_len; ++i)
       fcmp_pp.push_back(i);
@@ -1399,7 +1404,7 @@ TEST(Serialization, tx_fcmp_pp)
     transaction tx = make_dummy_fcmp_pp_tx();
 
     // Extend fcmp++ proof
-    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp_pp::proof_len(n_inputs));
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == proof_len);
     tx.rct_signatures.p.fcmp_pp.push_back(0x01);
 
     string blob;
@@ -1411,7 +1416,7 @@ TEST(Serialization, tx_fcmp_pp)
     transaction tx = make_dummy_fcmp_pp_tx();
 
     // Shorten the fcmp++ proof
-    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == fcmp_pp::proof_len(n_inputs));
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == proof_len);
     ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() > 1);
     tx.rct_signatures.p.fcmp_pp.pop_back();
 

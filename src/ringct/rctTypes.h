@@ -426,6 +426,7 @@ namespace rct {
         std::vector<mgSig> MGs; // simple rct has N, full has 1
         std::vector<clsag> CLSAGs;
         keyV pseudoOuts; //C - for simple rct
+        uint8_t curve_trees_tree_depth; // for fcmp++
         fcmp_pp::FcmpPpProof fcmp_pp;
 
         // when changing this function, update cryptonote::get_pruned_transaction_weight
@@ -501,9 +502,10 @@ namespace rct {
 
           if (type == RCTTypeFcmpPlusPlus)
           {
+            FIELD(curve_trees_tree_depth)
             ar.tag("fcmp_pp");
             ar.begin_object();
-            const std::size_t proof_len = fcmp_pp::proof_len(inputs);
+            const std::size_t proof_len = fcmp_pp::proof_len(inputs, curve_trees_tree_depth);
             if (!typename Archive<W>::is_saving())
               fcmp_pp.resize(proof_len);
             if (fcmp_pp.size() != proof_len)
@@ -628,6 +630,7 @@ namespace rct {
           FIELD(bulletproofs_plus)
           FIELD(MGs)
           FIELD(CLSAGs)
+          FIELD(curve_trees_tree_depth)
           FIELD(fcmp_pp)
           FIELD(pseudoOuts)
         END_SERIALIZE()
