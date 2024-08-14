@@ -36,10 +36,11 @@ namespace fcmp_pp
 // Byte buffer containing the fcmp++ proof
 using FcmpPpProof = std::vector<uint8_t>;
 
-static inline std::size_t proof_len(const std::size_t n_inputs)
+static inline std::size_t proof_len(const std::size_t n_inputs, const uint8_t curve_trees_tree_depth)
 {
     // TODO: implement
-    return n_inputs * 4;
+    static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
+    return n_inputs * (std::size_t)curve_trees_tree_depth * 2;
 };
 
 }//namespace fcmp_pp
