@@ -846,6 +846,26 @@ namespace tools
     }
     return true;
   }
+    //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_getinfo(const wallet_rpc::COMMAND_RPC_GET_INFO::request& req, wallet_rpc::COMMAND_RPC_GET_INFO::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+     try
+    {
+      cryptonote::network_type net_type = nettype();
+      
+      res.mainnet = net_type == cryptonote::MAINNET;
+      res.testnet = net_type == cryptonote::TESTNET;
+      res.stagenet = net_type == cryptonote::STAGENET;
+      res.nettype = net_type == cryptonote::MAINNET ? "mainnet" : net_type == cryptonote::TESTNET ? "testnet" : net_type == cryptonote::STAGENET ? "stagenet" : "fakechain";
+      res.daemon_address = get_daemon_address();
+    }
+    catch (const std::exception& e)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
+    return true;
+  }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_freeze(const wallet_rpc::COMMAND_RPC_FREEZE::request& req, wallet_rpc::COMMAND_RPC_FREEZE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
