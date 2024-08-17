@@ -38,9 +38,6 @@ jobs:
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
             packages: "g++-aarch64-linux-gnu"
-          - name: "i686 Win"
-            host: "i686-w64-mingw32"
-            packages: "g++-mingw-w64-i686"
           - name: "i686 Linux"
             host: "i686-pc-linux-gnu"
             packages: "g++-multilib"
@@ -85,7 +82,7 @@ jobs:
     - name: install dependencies
       run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config python3 gperf bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
     - name: prepare w64-mingw32
-      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'i686-w64-mingw32' }}
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
       run: |
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
         sudo update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
