@@ -46,7 +46,7 @@ namespace epee
 namespace net_utils
 {
 	enum class ssl_support_t: uint8_t {
-		e_ssl_support_disabled,
+		e_ssl_support_disabled = 0,
 		e_ssl_support_enabled,
 		e_ssl_support_autodetect,
 	};
@@ -107,6 +107,9 @@ namespace net_utils
     //! \return True if `host` can be verified using `this` configuration WITHOUT system "root" CAs.
     bool has_strong_verification(boost::string_ref host) const noexcept;
 
+    //! \return All fingerprints
+    const std::vector<std::vector<std::uint8_t>>& fingerprints() const noexcept { return fingerprints_; }
+
     //! Search against internal fingerprints. Always false if `behavior() != user_certificate_check`.
     bool has_fingerprint(boost::asio::ssl::verify_context &ctx) const;
 
@@ -150,6 +153,30 @@ namespace net_utils
 
 	bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 	bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
+
+  std::vector<std::uint8_t> convert_fingerprint(const boost::string_ref id);
+
+  /**
+   * @brief Create a binary X509 certificate fingerprint
+   *
+   * @param[in] cert The certificate which will be used to create the fingerprint
+   * @param[in] fdig The digest algorithm to use, defaults to SHA-256 b/c that is what ssl_options_t uses
+   * @return The binary fingerprint string
+   *
+   * @throw boost::system_error if there is an OpenSSL error
+   */
+  std::string get_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig = EVP_sha256());
+
+  /**
+   * @brief Create a binary X509 certificate fingerprint
+   *
+   * @param[in] context The context for the current certificate.
+   * @param[in] fdig The digest algorithm to use, defaults to SHA-256 b/c that is what ssl_options_t uses
+   * @return The binary fingerprint string
+   *
+   * @throw boost::system_error if there is an OpenSSL error
+   */
+  std::string get_ssl_fingerprint(boost::asio::ssl::context& context, const EVP_MD *fdig = EVP_sha256());
 
   /**
    * @brief Create a human-readable X509 certificate fingerprint

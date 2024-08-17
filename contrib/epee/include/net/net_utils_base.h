@@ -32,11 +32,13 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <boost/optional/optional.hpp>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
 #include "enums.h"
 #include "misc_log_ex.h"
+#include "net_ssl.h"
 #include "serialization/keyvalue_serialization.h"
 #include "int-util.h"
 
@@ -367,7 +369,7 @@ namespace net_utils
     const network_address m_remote_address;
     const bool     m_is_income;
     const time_t   m_started;
-    const bool      m_ssl;
+    const ssl_support_t m_ssl;
     time_t   m_last_recv;
     time_t   m_last_send;
     uint64_t m_recv_cnt;
@@ -378,7 +380,7 @@ namespace net_utils
     double m_max_speed_up;
 
     connection_context_base(boost::uuids::uuid connection_id,
-                            const network_address &remote_address, bool is_income, bool ssl,
+                            const network_address &remote_address, bool is_income, ssl_support_t ssl,
                             time_t last_recv = 0, time_t last_send = 0,
                             uint64_t recv_cnt = 0, uint64_t send_cnt = 0):
                                             m_connection_id(connection_id),
@@ -400,7 +402,7 @@ namespace net_utils
                                m_remote_address(),
                                m_is_income(false),
                                m_started(time(NULL)),
-                               m_ssl(false),
+			       m_ssl(ssl_support_t::e_ssl_support_disabled),
                                m_last_recv(0),
                                m_last_send(0),
                                m_recv_cnt(0),
@@ -421,11 +423,18 @@ namespace net_utils
       set_details(a.m_connection_id, a.m_remote_address, a.m_is_income, a.m_ssl);
       return *this;
     }
+
+    bool should_pad() const
+    {
+      if (m_remote_address.get_zone() == zone::public_)
+        return m_ssl != ssl_support_t::e_ssl_support_disabled;
+      return true; // all other zones use encryption by default
+    }
     
   private:
     template<class t_protocol_handler>
     friend class connection;
-    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income, bool ssl)
+    void set_details(boost::uuids::uuid connection_id, const network_address &remote_address, bool is_income, ssl_support_t ssl)
     {
       this->~connection_context_base();
       new(this) connection_context_base(connection_id, remote_address, is_income, ssl);
