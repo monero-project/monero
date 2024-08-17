@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -46,6 +47,7 @@ namespace epee
 namespace net_utils
 {
     class ipv4_network_address;
+    class ipv6_network_address;
 }
 }
 
@@ -58,19 +60,30 @@ namespace socks
     {
         v4 = 0,
         v4a,
-        v4a_tor  //!< Extensions defined in Tor codebase
+        v4a_tor, //!< Extensions defined in Tor codebase
+        v5
     };
 
     //! Possible errors with socks communication. Defined in https://www.openssh.com/txt/socks4.protocol
     enum class error : int
     {
         // 0 is reserved for success value
-        // 1-256 -> reserved for error values from socks server (+1 from wire value).
+        // v5 errors
+        general_failure = 1,
+        not_allowed,
+        network_unreachable,
+        host_unreachable,
+        connection_refused,
+        ttl_expired,
+        command_not_supported,
+        address_type_not_supported,
+        // v4 errors
         rejected = 92,
         identd_connection,
         identd_user,
         // Specific to application
-        bad_read = 257,
+        auth_failure = 257,
+        bad_read,
         bad_write,
         unexpected_version
     };
@@ -94,7 +107,7 @@ namespace socks
     {
         boost::asio::ip::tcp::socket proxy_;
         boost::asio::strand<boost::asio::ip::tcp::socket::executor_type> strand_;
-        std::uint16_t buffer_size_;
+        std::array<std::uint16_t, 3> buffer_size_;
         std::uint8_t buffer_[1024];
         socks::version ver_;
 
@@ -109,7 +122,7 @@ namespace socks
             \param error when processing last command (if any).
             \param self `shared_ptr<client>` handle to `this`.
          */
-        virtual void done(boost::system::error_code error, std::shared_ptr<client> self) = 0;
+        virtual void done(boost::system::error_code error, const std::shared_ptr<client>& self) = 0;
 
     public:
         using stream_type = boost::asio::ip::tcp;
@@ -118,6 +131,7 @@ namespace socks
         struct write;
         struct read;
         struct completed;
+        struct process_v5;
 
         /*!
             \param proxy ownership is passed into `this`. Does not have to be
@@ -139,33 +153,45 @@ namespace socks
         //! \return Socks version.
         socks::version socks_version() const noexcept { return ver_; }
 
-        //! \return Contents of internal buffer.
+        //! \return Contents of first internal buffer
         epee::span<const std::uint8_t> buffer() const noexcept
         {
-            return {buffer_, buffer_size_};
+            return {buffer_, std::get<0>(buffer_size_)};
         }
 
-        //! \post `buffer.empty()`.
-        void clear_command() noexcept { buffer_size_ = 0; }
+        //! \post `buffer_[0] = 0, buffer_[1] = 0`.
+        void clear_command() noexcept { buffer_size_ = {}; }
 
         //! Try to set `address` as remote connection request.
-        bool set_connect_command(const epee::net_utils::ipv4_network_address& address);
+        bool set_connect_command(
+            const epee::net_utils::ipv4_network_address& address,
+            const user_and_pass* userinfo = nullptr);
+
+        //! Try to set `address` as remote connection request.
+        bool set_connect_command(
+            const epee::net_utils::ipv6_network_address& address,
+            const user_and_pass* userinfo = nullptr);
 
         //! Try to set `domain` + `port` as remote connection request.
-        bool set_connect_command(boost::string_ref domain, std::uint16_t port);
+        bool set_connect_command(
+            boost::string_ref domain,
+            std::uint16_t port,
+            const user_and_pass* userinfo = nullptr);
 
         //! Try to set `address` as remote Tor hidden service connection request.
         bool set_connect_command(const net::tor_address& address);
 
         //! Try to set `address` as remote i2p hidden service connection request.
-        bool set_connect_command(const net::i2p_address& address);
+        bool set_connect_command(
+            const net::i2p_address& address,
+            const user_and_pass* userinfo = nullptr);
 
         //! Try to set `domain` as remote DNS A record lookup request.
         bool set_resolve_command(boost::string_ref domain);
 
         /*!
-            Asynchronously connect to `proxy_address` then issue command in
-            `buffer()`. The `done(...)` method will be invoked upon completion
+            Asynchronously connect to `proxy_address` then issue command(s) in
+            `buffer_`. The `done(...)` method will be invoked upon completion
             with `self` and potential `error`s.
 
             \note Must use one of the `self->set_*_command` calls before using
@@ -181,7 +207,7 @@ namespace socks
 
         /*!
             Assume existing connection to proxy server; asynchronously issue
-            command in `buffer()`. The `done(...)` method will be invoked
+            command in `buffer_`. The `done(...)` method will be invoked
             upon completion with `self` and potential `error`s.
 
             \note Must use one of the `self->set_*_command` calls before using
@@ -215,7 +241,7 @@ namespace socks
     {
         Handler handler_;
 
-        virtual void done(boost::system::error_code error, std::shared_ptr<client>) override
+        virtual void done(boost::system::error_code error, const std::shared_ptr<client>&) override
         {
             handler_(error, take_socket());
         }

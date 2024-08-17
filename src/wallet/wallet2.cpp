@@ -435,7 +435,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   {
     proxy = command_line::get_arg(vm, opts.proxy);
     THROW_WALLET_EXCEPTION_IF(
-      !net::get_tcp_endpoint(proxy),
+      !net::socks::endpoint::get(proxy),
       tools::error::wallet_internal_error,
       std::string{"Invalid address specified for --"} + opts.proxy.name);
   }

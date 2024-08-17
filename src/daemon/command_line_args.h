@@ -94,7 +94,7 @@ namespace daemon_args
 
   const command_line::arg_descriptor<std::string> arg_proxy = {
     "proxy",
-    "Network communication through proxy: <socks-ip:port> i.e. \"127.0.0.1:9050\"",
+    "Network communication through proxy: [socks5://[user:pass@]]<socks-ip:port> i.e. \"127.0.0.1:9050\"",
     "",
   };
   const command_line::arg_descriptor<bool> arg_proxy_allow_dns_leaks = {
