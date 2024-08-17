@@ -45,15 +45,17 @@ bool client::set_proxy(const std::string &address)
   }
   else
   {
-    const auto endpoint = get_tcp_endpoint(address);
+    auto endpoint = socks::endpoint::get(address);
     if (!endpoint)
     {
-      auto always_fail = net::socks::connector{boost::asio::ip::tcp::endpoint()};
+      auto always_fail = net::socks::connector{};
       set_connector(always_fail);
     }
     else
     {
-      set_connector(net::socks::connector{*endpoint});
+      set_connector(
+        net::socks::connector{std::make_shared<socks::endpoint>(std::move(*endpoint))}
+      );
     }
   }
 
