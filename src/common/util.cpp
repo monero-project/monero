@@ -360,8 +360,9 @@ namespace tools
   }
 #endif
   
-  std::string get_default_data_dir()
+  std::string DEPRECATED_get_default_data_dir()
   {
+    // Kept for backward compatibility
     /* Please for the love of god refactor  the ifdefs out of this */
 
     // namespace fs = boost::filesystem;
@@ -383,6 +384,62 @@ namespace tools
 #endif
 
     return config_folder;
+  }
+
+  std::string get_default_data_dir()
+  {
+    /* Please for the love of god refactor  the ifdefs out of this */
+
+    // namespace fs = boost::filesystem;
+    // Windows < Vista: C:\Documents and Settings\Username\Application Data\CRYPTONOTE_NAME
+    // Windows >= Vista: C:\Users\Username\AppData\Roaming\CRYPTONOTE_NAME
+    // Linux: XDG_DATA_HOME or ~/.local/share/CRYPTONOTE_NAME
+    // Mac:   ~/Library/Application Support/CRYPTONOTE_NAME
+    std::string data_folder;
+
+#ifdef WIN32
+    data_folder = get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME;
+#else // Posix
+    std::string pathRet;
+    const std::string dirSep = "/";
+    const char* pszHomeXGD = getenv("XDG_DATA_HOME");
+    const char* pszHome = getenv("HOME");
+    const char* pszFallback = "/";
+
+    if (pszHomeXGD != NULL && strlen(pszHomeXGD) > 0)
+    {
+        pathRet = pszHomeXGD; // Preferred. Doesn't need any suffixes. See: XDG Base Directory Specification
+    }
+    else if (pszHome != NULL && strlen(pszHome) > 0)
+    {
+        #ifdef __APPLE__
+            const std::string suffixData = "Library/Application Support";
+        #else // Linux
+            const std::string suffixData = ".local/share";
+        #endif // __APPLE__
+
+        pathRet = pszHome + dirSep + suffixData; // $HOME Needs an OS specific suffix.
+    }
+    else
+    {
+        pathRet = pszFallback;
+    }
+    data_folder = (pathRet + dirSep + CRYPTONOTE_NAME);
+#endif
+
+    const std::string & data_folder_deprecated = DEPRECATED_get_default_data_dir();
+    if (boost::filesystem::exists(data_folder_deprecated))
+    {
+        MWARNING("Your data are still located in the deprecated folder: '" << data_folder_deprecated << "'. "
+                 << "Please consider moving the data to the new folder: '" << data_folder << "'. "
+                 << "Until then, the deprecated folder shall be used."
+                 );
+        return data_folder_deprecated;
+    }
+    else
+    {
+        return data_folder;
+    }
   }
 
   bool create_directories_if_necessary(const std::string& path)
