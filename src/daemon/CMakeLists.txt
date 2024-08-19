@@ -72,4 +72,4 @@ target_link_libraries(daemon
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "monerod")
-install(TARGETS daemon DESTINATION bin)
+install(TARGETS daemon DESTINATION ${CMAKE_INSTALL_BINDIR})

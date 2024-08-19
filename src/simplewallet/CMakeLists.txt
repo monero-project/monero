@@ -62,4 +62,4 @@ target_link_libraries(simplewallet
 set_property(TARGET simplewallet
   PROPERTY
     OUTPUT_NAME "monero-wallet-cli")
-install(TARGETS simplewallet DESTINATION bin)
+install(TARGETS simplewallet DESTINATION ${CMAKE_INSTALL_BINDIR})
