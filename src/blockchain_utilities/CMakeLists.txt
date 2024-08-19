@@ -158,7 +158,7 @@ endif()
 set_property(TARGET blockchain_import
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-import")
-install(TARGETS blockchain_import DESTINATION bin)
+install(TARGETS blockchain_import DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_export
   ${blockchain_export_sources}
@@ -179,7 +179,7 @@ target_link_libraries(blockchain_export
 set_property(TARGET blockchain_export
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-export")
-install(TARGETS blockchain_export DESTINATION bin)
+install(TARGETS blockchain_export DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_blackball
   ${blockchain_blackball_sources}
@@ -201,7 +201,7 @@ target_link_libraries(blockchain_blackball
 set_property(TARGET blockchain_blackball
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-mark-spent-outputs")
-install(TARGETS blockchain_blackball DESTINATION bin)
+install(TARGETS blockchain_blackball DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 
 monero_add_executable(blockchain_usage
@@ -223,7 +223,7 @@ target_link_libraries(blockchain_usage
 set_property(TARGET blockchain_usage
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-usage")
-install(TARGETS blockchain_usage DESTINATION bin)
+install(TARGETS blockchain_usage DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_ancestry
   ${blockchain_ancestry_sources}
@@ -244,7 +244,7 @@ target_link_libraries(blockchain_ancestry
 set_property(TARGET blockchain_ancestry
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-ancestry")
-install(TARGETS blockchain_ancestry DESTINATION bin)
+install(TARGETS blockchain_ancestry DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_depth
   ${blockchain_depth_sources}
@@ -265,7 +265,7 @@ target_link_libraries(blockchain_depth
 set_property(TARGET blockchain_depth
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-depth")
-install(TARGETS blockchain_depth DESTINATION bin)
+install(TARGETS blockchain_depth DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_stats
   ${blockchain_stats_sources}
@@ -286,7 +286,7 @@ target_link_libraries(blockchain_stats
 set_property(TARGET blockchain_stats
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-stats")
-install(TARGETS blockchain_stats DESTINATION bin)
+install(TARGETS blockchain_stats DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_prune_known_spent_data
   ${blockchain_prune_known_spent_data_sources}
@@ -308,7 +308,7 @@ target_link_libraries(blockchain_prune_known_spent_data
 set_property(TARGET blockchain_prune_known_spent_data
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-prune-known-spent-data")
-install(TARGETS blockchain_prune_known_spent_data DESTINATION bin)
+install(TARGETS blockchain_prune_known_spent_data DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 monero_add_executable(blockchain_prune
   ${blockchain_prune_sources}
@@ -317,7 +317,7 @@ monero_add_executable(blockchain_prune
 set_property(TARGET blockchain_prune
 	PROPERTY
 	OUTPUT_NAME "monero-blockchain-prune")
-install(TARGETS blockchain_prune DESTINATION bin)
+install(TARGETS blockchain_prune DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 target_link_libraries(blockchain_prune
   PRIVATE

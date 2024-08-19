@@ -100,7 +100,7 @@ if(NOT IOS)
   set_property(TARGET wallet_rpc_server
     PROPERTY
       OUTPUT_NAME "monero-wallet-rpc")
-  install(TARGETS wallet_rpc_server DESTINATION bin)
+  install(TARGETS wallet_rpc_server DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 add_subdirectory(api)
