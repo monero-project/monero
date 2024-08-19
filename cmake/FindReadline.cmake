@@ -23,8 +23,7 @@
 
 find_path(Readline_ROOT_DIR
     NAMES include/readline/readline.h
-    PATHS /usr/local/opt/readline/ /opt/homebrew/opt/readline/ /opt/local/ /usr/local/ /usr/
-    NO_DEFAULT_PATH
+    HINTS /usr/local/opt/readline/ /opt/homebrew/opt/readline/ /opt/local/ /usr/local/ /usr/
 )
 
 find_path(Readline_INCLUDE_DIR
