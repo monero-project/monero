@@ -108,7 +108,7 @@ namespace wallet_args
     const command_line::arg_descriptor<std::size_t> arg_max_log_files = {"max-log-files", "Specify maximum number of rotated log files to be saved (no limit by setting to 0)", MAX_LOG_FILES};
     const command_line::arg_descriptor<uint32_t> arg_max_concurrency = {"max-concurrency", wallet_args::tr("Max number of threads to use for a parallel job"), DEFAULT_MAX_CONCURRENCY};
     const command_line::arg_descriptor<std::string> arg_log_file = {"log-file", wallet_args::tr("Specify log file"), ""};
-    const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", wallet_args::tr("Config file"), "", true};
+    const command_line::arg_descriptor<std::string> arg_config_file = {"config-file", wallet_args::tr("Config file"), "~/.bitmonero/monero-wallet-cli.conf", true};
 
 
     std::string lang = i18n_get_language();
