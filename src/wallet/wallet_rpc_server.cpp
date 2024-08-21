@@ -3117,9 +3117,9 @@ namespace tools
 
     std::string data;
     const cryptonote::account_public_address &keys = m_wallet->get_account().get_keys().m_account_address;
-    
+
     data.reserve(4 + sizeof(crypto::public_key) * 2 + ski.second.size() * (sizeof(crypto::key_image) + sizeof(crypto::signature)));
-    
+
     data.resize(4);
     data[0] = res.offset & 0xff;
     data[1] = (res.offset >> 8) & 0xff;
@@ -3237,7 +3237,7 @@ bool wallet_rpc_server::on_import_encrypted_key_images(const wallet_rpc::COMMAND
 
       ski.push_back(std::make_pair(key_image, signature));
     }
-    
+
     uint64_t spent = 0, unspent = 0;
     uint64_t height = m_wallet->import_key_images(ski, offset, spent, unspent);
     res.height = height;
