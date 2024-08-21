@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2023, The Monero Project
+# Copyright (c) 2018-2024, The Monero Project
 
 # 
 # All rights reserved.
@@ -539,6 +539,20 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(exchange_multisig_keys)
+
+    def get_multisig_key_exchange_booster(self, multisig_info, threshold, num_signers, password = ''):
+        exchange_multisig_keys = {
+            'method': 'get_multisig_key_exchange_booster',
+            'params' : {
+                'multisig_info': multisig_info,
+                'threshold': threshold,
+                'num_signers': num_signers,
+                'password': password,
+            },
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_multisig_key_exchange_booster)
 
     def export_multisig_info(self):
         export_multisig_info = {
@@ -1139,3 +1153,45 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(frozen)
+
+    class BackgroundSyncOptions(object):
+        def __init__(self):
+            self.off = 'off'
+            self.reuse_password = 'reuse-wallet-password'
+            self.custom_password = 'custom-background-password'
+    background_sync_options = BackgroundSyncOptions()
+
+    def setup_background_sync(self, background_sync_type = background_sync_options.off, wallet_password = '', background_cache_password = ''):
+        setup_background_sync = {
+            'method': 'setup_background_sync',
+            'jsonrpc': '2.0',
+            'params' : {
+                'background_sync_type': background_sync_type,
+                'wallet_password': wallet_password,
+                'background_cache_password': background_cache_password,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(setup_background_sync)
+
+    def start_background_sync(self):
+        start_background_sync = {
+            'method': 'start_background_sync',
+            'jsonrpc': '2.0',
+            'params' : {},
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(start_background_sync)
+
+    def stop_background_sync(self, wallet_password = '', seed = '', seed_offset = ''):
+        stop_background_sync = {
+            'method': 'stop_background_sync',
+            'jsonrpc': '2.0',
+            'params' : {
+                'wallet_password': wallet_password,
+                'seed': seed,
+                'seed_offset': seed_offset,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(stop_background_sync)

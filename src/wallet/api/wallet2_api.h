@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -446,6 +446,12 @@ struct Wallet
         ConnectionStatus_WrongVersion
     };
 
+    enum BackgroundSyncType {
+        BackgroundSync_Off = 0,
+        BackgroundSync_ReusePassword = 1,
+        BackgroundSync_CustomPassword = 2
+    };
+
     virtual ~Wallet() = 0;
     virtual std::string seed(const std::string& seed_offset = "") const = 0;
     virtual std::string getSeedLanguage() const = 0;
@@ -803,6 +809,15 @@ struct Wallet
      */
     virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution) = 0;
     /**
+     * @brief getMultisigKeyExchangeBooster - obtain partial information for the key exchange round after the in-progress round,
+     *                                        to speed up another signer's key exchange process
+     * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
+     * @param threshold - number of required signers to make valid transaction. Must be <= number of participants.
+     * @param num_signers - total number of multisig participants.
+     * @return new info string if more rounds required or exception if no more rounds (i.e. no rounds to boost)
+     */
+    virtual std::string getMultisigKeyExchangeBooster(const std::vector<std::string> &info, const uint32_t threshold, const uint32_t num_signers) = 0;
+    /**
      * @brief exportMultisigImages - exports transfers' key images
      * @param images - output paramter for hex encoded array of images
      * @return true if success
@@ -936,6 +951,42 @@ struct Wallet
      * \return                 - true on success
      */
     virtual bool scanTransactions(const std::vector<std::string> &txids) = 0;
+
+    /*!
+     * \brief setupBackgroundSync       - setup background sync mode with just a view key
+     * \param background_sync_type      - the mode the wallet background syncs in
+     * \param wallet_password
+     * \param background_cache_password - custom password to encrypt background cache, only needed for custom password background sync type
+     * \return                          - true on success
+     */
+    virtual bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password) = 0;
+
+    /*!
+     * \brief getBackgroundSyncType     - get mode the wallet background syncs in
+     * \return                          - the type, or off if type is unknown
+     */
+    virtual BackgroundSyncType getBackgroundSyncType() const = 0;
+
+    /**
+     * @brief startBackgroundSync - sync the chain in the background with just view key
+     */
+    virtual bool startBackgroundSync() = 0;
+
+    /**
+     * @brief stopBackgroundSync  - bring back spend key and process background synced txs
+     * \param wallet_password
+     */
+    virtual bool stopBackgroundSync(const std::string &wallet_password) = 0;
+
+    /**
+     * @brief isBackgroundSyncing - returns true if the wallet is background syncing
+     */
+    virtual bool isBackgroundSyncing() const = 0;
+
+    /**
+     * @brief isBackgroundWallet - returns true if the wallet is a background wallet
+     */
+    virtual bool isBackgroundWallet() const = 0;
 
     virtual TransactionHistory * history() = 0;
     virtual AddressBook * addressBook() = 0;

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -81,3 +81,5 @@
 #define WALLET_RPC_ERROR_CODE_DISABLED               -48
 #define WALLET_RPC_ERROR_CODE_PROXY_ALREADY_DEFINED  -49
 #define WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME    -50
+#define WALLET_RPC_ERROR_CODE_IS_BACKGROUND_WALLET   -51
+#define WALLET_RPC_ERROR_CODE_IS_BACKGROUND_SYNCING  -52

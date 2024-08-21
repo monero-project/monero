@@ -71,8 +71,6 @@ namespace string_tools
    std::string get_current_module_path();
 #endif
   void set_module_name_and_folder(const std::string& path_to_process_);
-  void trim_left(std::string& str);
-  void trim_right(std::string& str);
   //----------------------------------------------------------------------------
   inline std::string& trim(std::string& str)
   {

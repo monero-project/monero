@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2023, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
 
 // 
 // All rights reserved.
@@ -210,4 +210,16 @@ TEST(wipeable_string, to_hex)
 {
   ASSERT_TRUE(epee::to_hex::wipeable_string(epee::span<const uint8_t>((const uint8_t*)"", 0)) == epee::wipeable_string(""));
   ASSERT_TRUE(epee::to_hex::wipeable_string(epee::span<const uint8_t>((const uint8_t*)"abc", 3)) == epee::wipeable_string("616263"));
+}
+
+TEST(wipeable_string, to_string)
+{
+  // Converting a wipeable_string to a string defeats the purpose of wipeable_string,
+  // but nice to know this works
+  std::string str;
+  {
+    epee::wipeable_string wipeable_str("foo");
+    str = std::string(wipeable_str.data(), wipeable_str.size());
+  }
+  ASSERT_TRUE(str == std::string("foo"));
 }

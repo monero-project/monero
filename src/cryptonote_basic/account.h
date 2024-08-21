@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -95,6 +95,7 @@ namespace cryptonote
     bool store(const std::string& file_path);
 
     void forget_spend_key();
+    void set_spend_key(const crypto::secret_key& spend_secret_key);
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }
 
     void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt(key); }
