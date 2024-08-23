@@ -1103,7 +1103,7 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(ptx.selected_transfers.front() == 2);
   // ptx.{key_images, tx_key}
   ASSERT_TRUE(ptx.key_images == "<6c3cd6af97c4070a7aef9b1344e7463e29c7cd245076fdb65da447a34da3ca76> ");
-  ASSERT_TRUE(epee::string_tools::pod_to_hex(ptx.tx_key) == "0100000000000000000000000000000000000000000000000000000000000000");
+  ASSERT_TRUE(epee::string_tools::pod_to_hex(unwrap(unwrap(ptx.tx_key))) == "0100000000000000000000000000000000000000000000000000000000000000");
   // ptx.dests
   ASSERT_TRUE(ptx.dests.size() == 1);
   ASSERT_TRUE(ptx.dests[0].amount == 1400000000000);

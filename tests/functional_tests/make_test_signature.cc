@@ -48,7 +48,7 @@ int main(int argc, const char **argv)
     crypto::public_key pkey;
     crypto::random32_unbiased((unsigned char*)skey.data);
     crypto::secret_key_to_public_key(skey, pkey);
-    printf("%s %s\n", epee::string_tools::pod_to_hex(skey).c_str(), epee::string_tools::pod_to_hex(pkey).c_str());
+    printf("%s %s\n", epee::string_tools::pod_to_hex(unwrap(unwrap(skey))).c_str(), epee::string_tools::pod_to_hex(pkey).c_str());
     return 0;
   }
 
