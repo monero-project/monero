@@ -1979,7 +1979,7 @@ bool simple_wallet::rpc_payment_info(const std::vector<std::string> &args)
     crypto::public_key pkey;
     crypto::secret_key_to_public_key(m_wallet->get_rpc_client_secret_key(), pkey);
     message_writer() << tr("RPC client ID: ") << pkey;
-    message_writer() << tr("RPC client secret key: ") << m_wallet->get_rpc_client_secret_key();
+    message_writer() << tr("RPC client secret key: ") << crypto::secret_key_explicit_print_ref{m_wallet->get_rpc_client_secret_key()};
     if (!m_wallet->get_rpc_payment_info(false, payment_required, credits, diff, credits_per_hash_found, hashing_blob, height, seed_height, seed_hash, next_seed_hash, cookie))
     {
       fail_msg_writer() << tr("Failed to query daemon");
@@ -8026,9 +8026,9 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
 std::string get_tx_key_stream(crypto::secret_key tx_key, std::vector<crypto::secret_key> additional_tx_keys)
 {
   ostringstream oss;
-  oss << epee::string_tools::pod_to_hex(tx_key);
+  oss << epee::string_tools::pod_to_hex(unwrap(unwrap(tx_key)));
   for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-    oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+    oss << epee::string_tools::pod_to_hex(unwrap(unwrap(additional_tx_keys[i])));
   return oss.str();
 }
 
