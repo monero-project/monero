@@ -1,0 +1,27 @@
+OpenSSL's build system tries to be helpful by constructing the compiler name
+for us. This doesn't work with our setup. Instead, we want it to use
+$($(package)_cc), to ensure certain environment flags are unset.
+
+diff --git a/Configurations/15-android.conf b/Configurations/15-android.conf
+index 41ad9223e0..ea27a3bbba 100644
+--- a/Configurations/15-android.conf
++++ b/Configurations/15-android.conf
+@@ -124,17 +124,7 @@
+                     $user{RANLIB} = ":";
+                 }
+             } elsif ($is_standalone_toolchain) {
+-                my $cc = $user{CC} // "clang";
+-                # One can probably argue that both clang and gcc should be
+-                # probed, but support for "standalone toolchain" was added
+-                # *after* announcement that gcc is being phased out, so
+-                # favouring clang is considered adequate. Those who insist
+-                # have option to enforce test for gcc with CC=gcc.
+-                if (which("$triarch-$cc") !~ m|^$ndk|) {
+-                    die "no NDK $triarch-$cc on \$PATH";
+-                }
+-                $user{CC} = $cc;
+-                $user{CROSS_COMPILE} = "$triarch-";
++
+             } elsif ($user{CC} eq "clang") {
+                 die "no NDK clang on \$PATH";
+             } else {
