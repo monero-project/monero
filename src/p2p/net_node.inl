@@ -228,6 +228,26 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_host_limit(const epee::net_utils::network_address &address)
+  {
+    const network_zone& zone = m_network_zones.at(address.get_zone());
+    if (zone.m_current_number_of_in_peers >= zone.m_config.m_net_config.max_in_connection_count) // in peers limit
+    {
+      MWARNING("Exceeded max incoming connections, so dropping this one.");
+      return true;
+    }
+
+    if(has_too_many_connections(address))
+    {
+      MWARNING("CONNECTION FROM " << address.host_str() << " REFUSED, too many connections from the same address");
+      return true;
+    }
+
+    return false;
+  }
+
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::block_host(epee::net_utils::network_address addr, time_t seconds, bool add_only)
   {
     if(!addr.is_blockable())
@@ -971,6 +991,7 @@ namespace nodetool
         std::string ipv6_addr = "";
         std::string ipv6_port = "";
         zone.second.m_net_server.set_connection_filter(this);
+        zone.second.m_net_server.set_connection_limit(this);
         MINFO("Binding (IPv4) on " << zone.second.m_bind_ip << ":" << zone.second.m_port);
         if (!zone.second.m_bind_ipv6_address.empty() && m_use_ipv6)
         {
@@ -2547,13 +2568,6 @@ namespace nodetool
       return 1;
     }
 
-    if (zone.m_current_number_of_in_peers >= zone.m_config.m_net_config.max_in_connection_count) // in peers limit
-    {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but already have max incoming connections, so dropping this one.");
-      drop_connection(context);
-      return 1;
-    }
-
     if(!m_payload_handler.process_payload_sync_data(arg.payload_data, context, true))
     {
       LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but process_payload_sync_data returned false, dropping connection.");
@@ -2562,13 +2576,6 @@ namespace nodetool
     }
 
     zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income);
-
-    if(has_too_many_connections(context.m_remote_address))
-    {
-      LOG_PRINT_CCONTEXT_L1("CONNECTION FROM " << context.m_remote_address.host_str() << " REFUSED, too many connections from the same address");
-      drop_connection(context);
-      return 1;
-    }
 
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;
@@ -2889,15 +2896,16 @@ namespace nodetool
       if (cntxt.m_is_income && cntxt.m_remote_address.is_same_host(address)) {
         count++;
 
-        if (count > max_connections) {
+        // the only call location happens BEFORE foreach_connection list is updated
+        if (count >= max_connections) {
           return false;
         }
       }
 
       return true;
     });
-
-    return count > max_connections;
+    // the only call location happens BEFORE foreach_connection list is updated
+    return count >= max_connections;
   }
 
   template<class t_payload_net_handler>
