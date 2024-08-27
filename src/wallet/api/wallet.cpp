@@ -2297,14 +2297,15 @@ bool WalletImpl::verifyMessageWithPublicKey(const std::string &message, const st
 
 bool WalletImpl::connectToDaemon()
 {
-    bool result = m_wallet->check_connection(NULL, NULL, DEFAULT_CONNECTION_TIMEOUT_MILLIS);
+    boost::system::error_code err{};
+    bool result = m_wallet->check_connection(NULL, NULL, DEFAULT_CONNECTION_TIMEOUT_MILLIS, NULL, NULL, std::addressof(err));
     if (!result) {
-        setStatusError("Error connecting to daemon at " + m_wallet->get_daemon_address());
+        setStatusError("Error connecting to daemon at " + m_wallet->get_daemon_address() + " : " + err.message());
     } else {
         clearStatus();
         // start refreshing here
     }
-    return result;
+    return !err;
 }
 
 Wallet::ConnectionStatus WalletImpl::connected() const

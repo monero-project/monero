@@ -6280,7 +6280,7 @@ bool wallet2::prepare_file_names(const std::string& file_path)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout, bool *wallet_is_outdated, bool *daemon_is_outdated)
+bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout, bool *wallet_is_outdated, bool *daemon_is_outdated, boost::system::error_code* error)
 {
   THROW_WALLET_EXCEPTION_IF(!m_is_initialized, error::wallet_not_initialized);
 
@@ -6291,6 +6291,8 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout, b
       *version = 0;
     if (ssl)
       *ssl = false;
+    if (error)
+      *error = make_error_code(boost::system::errc::not_connected);
     return false;
   }
 
@@ -6300,18 +6302,26 @@ bool wallet2::check_connection(uint32_t *version, bool *ssl, uint32_t timeout, b
     {
       m_rpc_version = 0;
       m_node_rpc_proxy.invalidate();
-      if (!m_http_client->connect(std::chrono::milliseconds(timeout)))
+      if (!m_http_client->connect(std::chrono::milliseconds(timeout)) || !m_http_client->is_connected(ssl))
+      {
+        if (error)
+          *error = m_http_client->last_error();
         return false;
-      if(!m_http_client->is_connected(ssl))
-        return false;
+      }
     }
   }
 
   if (!m_rpc_version && !check_version(version, wallet_is_outdated, daemon_is_outdated))
+  {
+    if (error)
+      *error = make_error_code(boost::system::errc::protocol_error);
     return false;
+  }
   if (version)
     *version = m_rpc_version;
 
+  if (error)
+    *error = boost::system::error_code{};
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -12212,7 +12222,8 @@ void wallet2::check_tx_key_helper(const cryptonote::transaction &tx, const crypt
 void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_derivation &derivation, const std::vector<crypto::key_derivation> &additional_derivations, const cryptonote::account_public_address &address, uint64_t &received, bool &in_pool, uint64_t &confirmations)
 {
   uint32_t rpc_version;
-  THROW_WALLET_EXCEPTION_IF(!check_connection(&rpc_version), error::wallet_internal_error, "Failed to connect to daemon: " + get_daemon_address());
+  boost::system::error_code error{};
+  THROW_WALLET_EXCEPTION_IF(!check_connection(&rpc_version, nullptr, 200000, nullptr, nullptr, std::addressof(error)), error::wallet_internal_error, "Failed to connect to daemon (" + get_daemon_address() + "): " + error.message());
 
   COMMAND_RPC_GET_TRANSACTIONS::request req;
   COMMAND_RPC_GET_TRANSACTIONS::response res;
@@ -12737,7 +12748,8 @@ std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t,
 bool wallet2::check_reserve_proof(const cryptonote::account_public_address &address, const std::string &message, const std::string &sig_str, uint64_t &total, uint64_t &spent)
 {
   uint32_t rpc_version;
-  THROW_WALLET_EXCEPTION_IF(!check_connection(&rpc_version), error::wallet_internal_error, "Failed to connect to daemon: " + get_daemon_address());
+  boost::system::error_code error{};
+  THROW_WALLET_EXCEPTION_IF(!check_connection(&rpc_version, nullptr, 200000, nullptr, nullptr, std::addressof(error)), error::wallet_internal_error, "Failed to connect to daemon (" + get_daemon_address() + "): " + error.message());
   THROW_WALLET_EXCEPTION_IF(rpc_version < MAKE_CORE_RPC_VERSION(1, 0), error::wallet_internal_error, "Daemon RPC version is too old");
 
   static constexpr char header_v1[] = "ReserveProofV1";
@@ -15072,9 +15084,10 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
 uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day)
 {
   uint32_t version;
-  if (!check_connection(&version))
+  boost::system::error_code error{};
+  if (!check_connection(&version, nullptr, 200000, nullptr, nullptr, std::addressof(error)))
   {
-    throw std::runtime_error("failed to connect to daemon: " + get_daemon_address());
+    throw std::runtime_error("failed to connect to daemon (" + get_daemon_address() + "): " + error.message());
   }
   if (version < MAKE_CORE_RPC_VERSION(1, 6))
   {

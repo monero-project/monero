@@ -133,6 +133,13 @@ namespace http
   {
     return false;
   }
+
+  boost::system::error_code epee::net_utils::http::abstract_http_client::last_error()
+  {
+    if (is_connected())
+      return boost::system::error_code{};
+    return make_error_code(boost::system::errc::not_connected);
+  }
 }
 }
 }
