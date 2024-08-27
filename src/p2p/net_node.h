@@ -124,7 +124,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   class node_server: public epee::levin::levin_commands_handler<p2p_connection_context_t<typename t_payload_net_handler::connection_context> >,
                      public i_p2p_endpoint<typename t_payload_net_handler::connection_context>,
-                     public epee::net_utils::i_connection_filter
+                     public epee::net_utils::i_connection_filter,
+                     public epee::net_utils::i_connection_limit
   {
     struct by_conn_id{};
     struct by_peer_id{};
@@ -350,7 +351,10 @@ namespace nodetool
     virtual bool add_host_fail(const epee::net_utils::network_address &address, unsigned int score = 1);
     //----------------- i_connection_filter  --------------------------------------------------------
     virtual bool is_remote_host_allowed(const epee::net_utils::network_address &address, time_t *t = NULL);
+    //----------------- i_connection_limit  ---------------------------------------------------------
+    virtual bool is_host_limit(const epee::net_utils::network_address &address);
     //-----------------------------------------------------------------------------------------------
+
     bool parse_peer_from_string(epee::net_utils::network_address& pe, const std::string& node_addr, uint16_t default_port = 0);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
