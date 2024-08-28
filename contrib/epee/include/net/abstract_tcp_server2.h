@@ -342,10 +342,10 @@ namespace net_utils
     std::map<std::string, t_connection_type> server_type_map;
     void create_server_type_map();
 
-    bool init_server(uint32_t port, const std::string& address = "0.0.0.0",
+    bool init_server(uint32_t port_ipv4, const std::string& address_ipv4 = "0.0.0.0",
 	uint32_t port_ipv6 = 0, const std::string& address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
 	ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
-    bool init_server(const std::string port,  const std::string& address = "0.0.0.0",
+    bool init_server(const std::string port_ipv4, const std::string& address_ipv4 = "0.0.0.0",
 	const std::string port_ipv6 = "", const std::string address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
 	ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
 
@@ -399,7 +399,7 @@ namespace net_utils
       return {m_state};
     }
 
-    int get_binded_port(){return m_port;}
+    int get_binded_port_ipv4(){return m_port_ipv4;}
     int get_binded_port_ipv6(){return m_port_ipv6;}
 
     long get_connections_count() const
@@ -498,9 +498,9 @@ namespace net_utils
     epee::net_utils::network_address default_remote;
 
     std::atomic<bool> m_stop_signal_sent;
-    uint32_t m_port;
+    uint32_t m_port_ipv4;
     uint32_t m_port_ipv6;
-    std::string m_address;
+    std::string m_address_ipv4;
     std::string m_address_ipv6;
     bool m_use_ipv6;
     bool m_require_ipv4;
@@ -514,7 +514,7 @@ namespace net_utils
     t_connection_type m_connection_type;
 
     /// The next connection to be accepted
-    connection_ptr new_connection_;
+    connection_ptr new_connection_ipv4;
     connection_ptr new_connection_ipv6;
 
 
