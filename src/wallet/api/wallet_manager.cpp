@@ -231,6 +231,7 @@ std::string WalletManagerImpl::errorString() const
     return m_errorString;
 }
 
+// TODO : figure out if this is a sufficient replacement for wallet2::set_daemon()
 void WalletManagerImpl::setDaemonAddress(const std::string &address)
 {
     m_http_client.set_server(address, boost::none);
