@@ -194,7 +194,8 @@ chain for " target " development."))
                 "0azpb9cvnbv25zg8019rqz48h8i2257ngyjg566dlnp74ivrs9vq"))
               (patches (search-our-patches "glibc-2.27-riscv64-Use-__has_include-to-include-asm-syscalls.h.patch"
                                            "glibc-2.27-guix-prefix.patch"
-                                           "glibc-2.27-no-librt.patch"))))
+                                           "glibc-2.27-no-librt.patch"
+                                           "glibc-2.27-riscv64-fix-incorrect-jal-with-HIDDEN_JUMPTARGET.patch"))))
     (arguments
       (substitute-keyword-arguments (package-arguments glibc)
         ((#:configure-flags flags)
@@ -300,7 +301,7 @@ chain for " target " development."))
            (list
              gcc-toolchain-12
              (list gcc-toolchain-12 "static")
-             clang-toolchain-11 binutils))
+             clang-toolchain-17 binutils))
           ((string-contains target "android")
             (list
               gcc-toolchain-12

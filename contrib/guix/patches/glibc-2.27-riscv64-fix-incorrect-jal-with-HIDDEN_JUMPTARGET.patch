@@ -1,0 +1,41 @@
+Backported from: https://sourceware.org/git/?p=glibc.git;a=commit;h=68389203832ab39dd0dbaabbc4059e7fff51c29b
+Context: https://sourceware.org/bugzilla/show_bug.cgi?id=28509
+
+Resolves a build failure with glibc 2.27 + binutils >=2.40.
+Patch can be removed if we update glibc to >= 2.35.
+
+diff --git a/sysdeps/riscv/setjmp.S b/sysdeps/riscv/setjmp.S
+index cfbd276fc3..e2f8088a6e 100644
+--- a/sysdeps/riscv/setjmp.S
++++ b/sysdeps/riscv/setjmp.S
+@@ -21,7 +21,7 @@
+ 
+ ENTRY (_setjmp)
+   li	a1, 0
+-  j	__sigsetjmp
++  j	HIDDEN_JUMPTARGET (__sigsetjmp)
+ END (_setjmp)
+ ENTRY (setjmp)
+   li	a1, 1
+diff --git a/sysdeps/unix/sysv/linux/riscv/setcontext.S b/sysdeps/unix/sysv/linux/riscv/setcontext.S
+index 9f1c7b41fd..a0d9575a08 100644
+--- a/sysdeps/unix/sysv/linux/riscv/setcontext.S
++++ b/sysdeps/unix/sysv/linux/riscv/setcontext.S
+@@ -95,6 +95,7 @@ LEAF (__setcontext)
+ 99:	j	__syscall_error
+ 
+ PSEUDO_END (__setcontext)
++libc_hidden_def (__setcontext)
+ weak_alias (__setcontext, setcontext)
+ 
+ LEAF (__start_context)
+@@ -108,7 +109,7 @@ LEAF (__start_context)
+ 	/* Invoke subsequent context if present, else exit(0).  */
+ 	mv	a0, s2
+ 	beqz	s2, 1f
+-	jal	__setcontext
+-1:	j	exit
++	jal	HIDDEN_JUMPTARGET (__setcontext)
++1:	j	HIDDEN_JUMPTARGET (exit)
+ 
+ PSEUDO_END (__start_context)
