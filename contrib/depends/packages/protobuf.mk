@@ -21,12 +21,7 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) -C src install-libLTLIBRARIES install-nobase_includeHEADERS &&\
-  $(MAKE) DESTDIR=$($(package)_staging_dir) install-pkgconfigDATA
+  $(MAKE) DESTDIR=$($(package)_staging_dir) -C src install-nobase_includeHEADERS &&\
+  $(MAKE) DESTDIR=$($(package)_staging_dir) install-pkgconfigDATA &&\
+  cp src/.libs/libprotobuf.a $($(package)_staging_prefix_dir)/lib/
 endef
-
-define $(package)_postprocess_cmds
-  rm lib/libprotoc.a &&\
-  rm lib/*.la
-endef
-

@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2023, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -29,6 +29,7 @@
 set(crypto_sources
   aesb.c
   blake256.c
+  blake2b.c
   chacha.c
   crypto-ops-data.c
   crypto-ops.c

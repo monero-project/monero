@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -231,6 +231,15 @@ namespace cryptonote
       LOG_PRINT_L1("transaction tx-extra is too big: " << tx_extra_size << " bytes, the limit is: " << MAX_TX_EXTRA_SIZE);
       tvc.m_verifivation_failed = true;
       tvc.m_tx_extra_too_big = true;
+      tvc.m_no_drop_offense = true;
+      return false;
+    }
+
+    if (!kept_by_block && tx.unlock_time)
+    {
+      LOG_PRINT_L1("transaction unlock time is not zero: " << tx.unlock_time);
+      tvc.m_verifivation_failed = true;
+      tvc.m_nonzero_unlock_time = true;
       tvc.m_no_drop_offense = true;
       return false;
     }

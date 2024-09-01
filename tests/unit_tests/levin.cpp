@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2023, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -591,6 +591,7 @@ TEST_F(levin_notify, defaulted)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_FALSE(status.has_outgoing);
     }
     EXPECT_TRUE(notifier.send_txs({}, random_generator_(), cryptonote::relay_method::local));
 
@@ -611,6 +612,7 @@ TEST_F(levin_notify, fluff_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -658,6 +660,7 @@ TEST_F(levin_notify, stem_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -731,6 +734,7 @@ TEST_F(levin_notify, stem_no_outs_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_FALSE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -788,6 +792,7 @@ TEST_F(levin_notify, local_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -897,6 +902,7 @@ TEST_F(levin_notify, forward_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -970,6 +976,7 @@ TEST_F(levin_notify, block_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1000,6 +1007,7 @@ TEST_F(levin_notify, none_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1030,6 +1038,7 @@ TEST_F(levin_notify, fluff_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1077,6 +1086,7 @@ TEST_F(levin_notify, stem_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1145,6 +1155,7 @@ TEST_F(levin_notify, stem_no_outs_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_FALSE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1202,6 +1213,7 @@ TEST_F(levin_notify, local_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1303,6 +1315,7 @@ TEST_F(levin_notify, forward_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1371,6 +1384,7 @@ TEST_F(levin_notify, block_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1401,6 +1415,7 @@ TEST_F(levin_notify, none_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1431,6 +1446,7 @@ TEST_F(levin_notify, private_fluff_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1483,6 +1499,7 @@ TEST_F(levin_notify, private_stem_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1535,6 +1552,7 @@ TEST_F(levin_notify, private_local_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1587,6 +1605,7 @@ TEST_F(levin_notify, private_forward_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1639,6 +1658,7 @@ TEST_F(levin_notify, private_block_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1670,6 +1690,7 @@ TEST_F(levin_notify, private_none_without_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1700,6 +1721,7 @@ TEST_F(levin_notify, private_fluff_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1751,6 +1773,7 @@ TEST_F(levin_notify, private_stem_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1802,6 +1825,7 @@ TEST_F(levin_notify, private_local_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1853,6 +1877,7 @@ TEST_F(levin_notify, private_forward_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1904,6 +1929,7 @@ TEST_F(levin_notify, private_block_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1934,6 +1960,7 @@ TEST_F(levin_notify, private_none_with_padding)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -1966,6 +1993,7 @@ TEST_F(levin_notify, stem_mappings)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -2090,6 +2118,7 @@ TEST_F(levin_notify, fluff_multiple)
         const auto status = notifier.get_status();
         EXPECT_FALSE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
     notifier.new_out_connection();
     io_service_.poll();
@@ -2190,6 +2219,63 @@ TEST_F(levin_notify, fluff_multiple)
     }
 }
 
+TEST_F(levin_notify, fluff_with_duplicate)
+{
+    std::shared_ptr<cryptonote::levin::notify> notifier_ptr = make_notifier(0, true, false);
+    auto &notifier = *notifier_ptr;
+
+    for (unsigned count = 0; count < 10; ++count)
+        add_connection(count % 2 == 0);
+
+    {
+        const auto status = notifier.get_status();
+        EXPECT_FALSE(status.has_noise);
+        EXPECT_FALSE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
+    }
+    notifier.new_out_connection();
+    io_service_.poll();
+
+    std::vector<cryptonote::blobdata> txs(9);
+    txs[0].resize(100, 'e');
+    txs[1].resize(100, 'e');
+    txs[2].resize(100, 'e');
+    txs[3].resize(100, 'e');
+    txs[4].resize(200, 'f');
+    txs[5].resize(200, 'f');
+    txs[6].resize(200, 'f');
+    txs[7].resize(200, 'f');
+    txs[8].resize(200, 'f');
+
+    ASSERT_EQ(10u, contexts_.size());
+    {
+        auto context = contexts_.begin();
+        EXPECT_TRUE(notifier.send_txs(txs, context->get_id(), cryptonote::relay_method::fluff));
+
+        io_service_.reset();
+        ASSERT_LT(0u, io_service_.poll());
+        notifier.run_fluff();
+        ASSERT_LT(0u, io_service_.poll());
+
+        EXPECT_EQ(0u, context->process_send_queue());
+        for (++context; context != contexts_.end(); ++context)
+            EXPECT_EQ(1u, context->process_send_queue());
+
+        EXPECT_EQ(txs, events_.take_relayed(cryptonote::relay_method::fluff));
+        std::sort(txs.begin(), txs.end());
+        ASSERT_EQ(9u, receiver_.notified_size());
+        for (unsigned count = 0; count < 9; ++count)
+        {
+            auto notification = receiver_.get_notification<cryptonote::NOTIFY_NEW_TRANSACTIONS>().second;
+            EXPECT_NE(txs, notification.txs);
+            EXPECT_EQ(notification.txs.size(), 2);
+            EXPECT_TRUE(notification._.empty());
+            EXPECT_TRUE(notification.dandelionpp_fluff);
+        }
+    }
+
+}
+
 TEST_F(levin_notify, noise)
 {
     for (unsigned count = 0; count < 10; ++count)
@@ -2206,12 +2292,14 @@ TEST_F(levin_notify, noise)
         const auto status = notifier.get_status();
         EXPECT_TRUE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_FALSE(status.has_outgoing);
     }
     ASSERT_LT(0u, io_service_.poll());
     {
         const auto status = notifier.get_status();
         EXPECT_TRUE(status.has_noise);
         EXPECT_TRUE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
 
     notifier.run_stems();
@@ -2298,12 +2386,14 @@ TEST_F(levin_notify, noise_stem)
         const auto status = notifier.get_status();
         EXPECT_TRUE(status.has_noise);
         EXPECT_FALSE(status.connections_filled);
+        EXPECT_FALSE(status.has_outgoing);
     }
     ASSERT_LT(0u, io_service_.poll());
     {
         const auto status = notifier.get_status();
         EXPECT_TRUE(status.has_noise);
         EXPECT_TRUE(status.connections_filled);
+        EXPECT_TRUE(status.has_outgoing);
     }
 
     notifier.run_stems();

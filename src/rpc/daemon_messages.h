@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2023, The Monero Project
+// Copyright (c) 2016-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -97,6 +97,7 @@ BEGIN_RPC_MESSAGE_CLASS(GetBlocksFast);
     RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::block_with_transactions>, blocks);
     RPC_MESSAGE_MEMBER(uint64_t, start_height);
     RPC_MESSAGE_MEMBER(uint64_t, current_height);
+    RPC_MESSAGE_MEMBER(crypto::hash, top_block_hash);
     RPC_MESSAGE_MEMBER(std::vector<cryptonote::rpc::block_output_indices>, output_indices);
   END_RPC_MESSAGE_RESPONSE;
 END_RPC_MESSAGE_CLASS;

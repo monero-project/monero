@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -201,10 +201,6 @@ public:
   virtual bool remove_data_file(const std::string& folder) const;
 
   virtual std::string get_db_name() const;
-
-  virtual bool lock();
-
-  virtual void unlock();
 
   virtual bool block_exists(const crypto::hash& h, uint64_t *height = NULL) const;
 

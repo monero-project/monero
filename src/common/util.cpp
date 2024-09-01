@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -114,6 +114,24 @@ static int flock_exnb(int fd)
 
 namespace tools
 {
+
+  void copy_file(const std::string& from, const std::string& to)
+  {
+    using boost::filesystem::path;
+  #if BOOST_VERSION < 107400
+    // Remove this preprocessor if/else when we are bumping the boost version.
+    boost::filesystem::copy_file(
+        path(from),
+        path(to),
+        boost::filesystem::copy_option::overwrite_if_exists);
+  #else
+    boost::filesystem::copy_file(
+        path(from),
+        path(to),
+        boost::filesystem::copy_options::overwrite_existing);
+  #endif
+  }
+
   std::function<void(int)> signal_handler::m_handler;
 
   private_file::private_file() noexcept : m_handle(), m_filename() {}
@@ -121,7 +139,7 @@ namespace tools
   private_file::private_file(std::FILE* handle, std::string&& filename) noexcept
     : m_handle(handle), m_filename(std::move(filename)) {}
 
-  private_file private_file::create(std::string name)
+  private_file private_file::create(std::string name, uint32_t extra_flags)
   {
 #ifdef WIN32
     struct close_handle
@@ -174,7 +192,7 @@ namespace tools
         name.c_str(),
         GENERIC_WRITE, FILE_SHARE_READ,
         std::addressof(attributes),
-        CREATE_NEW, (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE),
+        CREATE_NEW, (FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE | extra_flags),
         nullptr
       )
     };
@@ -193,7 +211,7 @@ namespace tools
       }
     }
 #else
-    const int fdr = open(name.c_str(), (O_RDONLY | O_CREAT), S_IRUSR);
+    const int fdr = open(name.c_str(), (O_RDONLY | O_CREAT | extra_flags), S_IRUSR);
     if (0 <= fdr)
     {
       struct stat rstats = {};
@@ -222,6 +240,23 @@ namespace tools
     }
 #endif
     return {};
+  }
+
+  private_file private_file::drop_and_recreate(std::string filename)
+  {
+    if (epee::file_io_utils::is_file_exist(filename)) {
+      boost::system::error_code ec{};
+      boost::filesystem::remove(filename, ec);
+      if (ec) {
+        MERROR("Failed to remove " << filename << ": " << ec.message());
+        return {};
+      }
+    }
+#ifdef WIN32
+    return create(filename);
+#else
+    return create(filename, O_EXCL);
+#endif
   }
 
   private_file::~private_file() noexcept

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -43,7 +43,7 @@
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "crypto/variant2_int_sqrt.h"
-#include "randomx/src/blake2/blake2.h"
+#include "crypto/blake2b.h"
 #include "../io.h"
 
 using namespace std;

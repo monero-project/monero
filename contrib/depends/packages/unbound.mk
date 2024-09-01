@@ -24,7 +24,7 @@ define $(package)_preprocess_cmds
 endef
 
 define $(package)_config_cmds
-  $($(package)_autoconf) ac_cv_func_getentropy=no
+  $($(package)_autoconf) ac_cv_func_getentropy=no AR_FLAGS=$($(package)_arflags)
 endef
 
 define $(package)_build_cmds

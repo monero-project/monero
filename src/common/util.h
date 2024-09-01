@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -67,6 +67,8 @@ namespace tools
     }
   };
 
+  void copy_file(const std::string& from, const std::string& to);
+
   //! A file restricted to process owner AND process. Deletes file on destruction.
   class private_file {
     std::unique_ptr<std::FILE, close_file> m_handle;
@@ -80,7 +82,11 @@ namespace tools
 
     /*! \return File only readable by owner and only used by this process
       OR `private_file{}` on error. */
-    static private_file create(std::string filename);
+    static private_file create(std::string filename, uint32_t extra_flags = 0);
+
+    /*! \return Drop and create file only readable by owner and only used
+      by this process OR `private_file{}` on error. */
+    static private_file drop_and_recreate(std::string filename);    
 
     private_file(private_file&&) = default;
     private_file& operator=(private_file&&) = default;

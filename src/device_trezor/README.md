@@ -15,19 +15,29 @@ Please, refer to [monero readme](https://github.com/trezor/trezor-firmware/blob/
 
 ## Dependencies
 
-Trezor uses [Protobuf](https://protobuf.dev/) library. As Monero is compiled with C++14, the newest Protobuf library version cannot be compiled because it requires C++17 (through its dependency Abseil library).
-This can result in a compilation failure.
+Trezor uses [Protobuf](https://protobuf.dev/) library. Monero is now compiled with C++ 17 by default.
+Protobuf v21 is tested, older versions are not guaranteed to work. Note that Protobuf v23+ requires C++ 17.
 
-Protobuf v21 is the latest compatible protobuf version.
+If you are getting Trezor compilation errors, it may be caused by abseil (protobuf dependency) not being compiled with C++17.
+To fix this try installing protobuf from sources:
 
-If you want to compile Monero with Trezor support, please make sure the Protobuf v21 is installed.
+```shell
+git clone --recursive git@github.com:protocolbuffers/protobuf.git
+cd protobuf
+cmake -DABSL_PROPAGATE_CXX_STD=TRUE -DCMAKE_CXX_STANDARD=17 -Dprotobuf_BUILD_SHARED_LIBS=ON -Dprotobuf_BUILD_TESTS=OFF .
+cmake --build .
+sudo make install
+```
+
+If Monero is compiled with C++14, Protobuf v21 is the latest compatible protobuf version for C++ 14.
+If you want to compile Monero with Trezor support with C++14, please make sure the Protobuf v21 is installed.
 
 More about this limitation: [PR #8752](https://github.com/monero-project/monero/pull/8752), 
 [1](https://github.com/monero-project/monero/pull/8752#discussion_r1246174755), [2](https://github.com/monero-project/monero/pull/8752#discussion_r1246480393)
 
 ### OSX
 
-To build with installed, but not linked protobuf:
+To build with installed, but not linked Protobuf v21:
 
 ```bash
 CMAKE_PREFIX_PATH=$(find /opt/homebrew/Cellar/protobuf@21 -maxdepth 1 -type d -name "21.*" -print -quit) \
@@ -53,7 +63,7 @@ pacman --noconfirm -U mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst mingw-
 
 ### Other systems
 
-- install protobufv21
+- install Protobuf v21
 - point `CMAKE_PREFIX_PATH` environment variable to Protobuf v21 installation.
 
 ## Troubleshooting

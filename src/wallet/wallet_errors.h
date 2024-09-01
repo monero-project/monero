@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -63,6 +63,7 @@ namespace tools
     //       invalid_password
     //       invalid_priority
     //       invalid_multisig_seed
+    //       invalid_spend_key
     //       refresh_error *
     //         acc_outs_lookup_error
     //         block_parse_error
@@ -86,6 +87,7 @@ namespace tools
     //         zero_amount
     //         zero_destination
     //         subtract_fee_from_bad_index
+    //         nonzero_unlock_time
     //       wallet_rpc_error *
     //         daemon_busy
     //         no_connection_to_daemon
@@ -96,6 +98,9 @@ namespace tools
     //       wallet_files_doesnt_correspond
     //       scan_tx_error *
     //         wont_reprocess_recent_txs_via_untrusted_daemon
+    //       background_sync_error *
+    //         background_wallet_already_open
+    //         background_custom_password_same_as_wallet_password
     //
     // * - class with protected ctor
 
@@ -297,6 +302,16 @@ namespace tools
     {
       explicit invalid_multisig_seed(std::string&& loc)
         : wallet_logic_error(std::move(loc), "invalid multisig seed")
+      {
+      }
+
+      std::string to_string() const { return wallet_logic_error::to_string(); }
+    };
+
+    struct invalid_spend_key : public wallet_logic_error
+    {
+      explicit invalid_spend_key(std::string&& loc)
+        : wallet_logic_error(std::move(loc), "invalid spend key")
       {
       }
 
@@ -592,20 +607,17 @@ namespace tools
           std::string && loc
         , sources_t const & sources
         , destinations_t const & destinations
-        , uint64_t unlock_time
         , cryptonote::network_type nettype
         )
         : transfer_error(std::move(loc), "transaction was not constructed")
         , m_sources(sources)
         , m_destinations(destinations)
-        , m_unlock_time(unlock_time)
         , m_nettype(nettype)
       {
       }
 
       const sources_t& sources() const { return m_sources; }
       const destinations_t& destinations() const { return m_destinations; }
-      uint64_t unlock_time() const { return m_unlock_time; }
 
       std::string to_string() const
       {
@@ -637,15 +649,12 @@ namespace tools
             cryptonote::print_money(dst.amount);
         }
 
-        ss << "\nunlock_time: " << m_unlock_time;
-
         return ss.str();
       }
 
     private:
       sources_t m_sources;
       destinations_t m_destinations;
-      uint64_t m_unlock_time;
       cryptonote::network_type m_nettype;
     };
     //----------------------------------------------------------------------------------------------------
@@ -785,6 +794,14 @@ namespace tools
       explicit subtract_fee_from_bad_index(std::string&& loc, long bad_index)
         : transfer_error(std::move(loc),
           "subtractfeefrom: bad index: " + std::to_string(bad_index) + " (indexes are 0-based)")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct nonzero_unlock_time : public transfer_error
+    {
+      explicit nonzero_unlock_time(std::string&& loc)
+        : transfer_error(std::move(loc), "transaction cannot have non-zero unlock time")
       {
       }
     };
@@ -941,6 +958,31 @@ namespace tools
     {
       explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
         : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct background_sync_error : public wallet_logic_error
+    {
+    protected:
+      explicit background_sync_error(std::string&& loc, const std::string& message)
+        : wallet_logic_error(std::move(loc), message)
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct background_wallet_already_open : public background_sync_error
+    {
+      explicit background_wallet_already_open(std::string&& loc, const std::string& background_wallet_file)
+        : background_sync_error(std::move(loc), "background wallet " + background_wallet_file + " is already opened by another wallet program")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct background_custom_password_same_as_wallet_password : public background_sync_error
+    {
+      explicit background_custom_password_same_as_wallet_password(std::string&& loc)
+        : background_sync_error(std::move(loc), "custom background password must be different than wallet password")
       {
       }
     };

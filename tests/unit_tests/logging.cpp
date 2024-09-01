@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2023, The Monero Project
+// Copyright (c) 2016-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -166,7 +166,7 @@ TEST(logging, glob_prefix)
 TEST(logging, last_precedence)
 {
   init();
-  mlog_set_categories("gobal:FATAL,glo*:DEBUG");
+  mlog_set_categories("global:FATAL,glo*:DEBUG");
   log();
   std::string str;
   ASSERT_TRUE(load_log_to_string(log_filename, str));

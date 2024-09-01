@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2023, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -53,6 +53,7 @@ class wallet_accessor_test
 {
 public:
   static void set_account(tools::wallet2 * wallet, cryptonote::account_base& account);
+  static void set_password(tools::wallet2 * wallet, const epee::wipeable_string & password) { wallet->setup_keys(password); }
   static tools::wallet2::transfer_container & get_transfers(tools::wallet2 * wallet) { return wallet->m_transfers; }
   static subaddresses_t & get_subaddresses(tools::wallet2 * wallet) { return wallet->m_subaddresses; }
   static void process_parsed_blocks(tools::wallet2 * wallet, uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, uint64_t& blocks_added);
@@ -92,5 +93,5 @@ bool construct_tx_rct(tools::wallet2 * sender_wallet,
                       std::vector<cryptonote::tx_source_entry>& sources,
                       const std::vector<cryptonote::tx_destination_entry>& destinations,
                       const boost::optional<cryptonote::account_public_address>& change_addr,
-                      std::vector<uint8_t> extra, cryptonote::transaction& tx, uint64_t unlock_time,
+                      std::vector<uint8_t> extra, cryptonote::transaction& tx,
                       bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0);
