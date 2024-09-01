@@ -17,24 +17,19 @@ RUN set -ex && \
         git \
         libtool \
         pkg-config \
-        gperf \
-        python3 \
-        python3-pip
+        gperf
 
 WORKDIR /src
 COPY . .
 
 ARG NPROC
-ARG USE_DEVICE_TREZOR=OFF
 RUN set -ex && \
     git submodule init && git submodule update && \
     rm -rf build && \
     if [ -z "$NPROC" ] ; \
     then make -j$(nproc) depends target=x86_64-linux-gnu ; \
     else make -j$NPROC depends target=x86_64-linux-gnu ; \
-    fi && \
-    cmake -DUSE_DEVICE_TREZOR=${USE_DEVICE_TREZOR} . && \
-    make
+    fi
 
 # runtime stage
 FROM ubuntu:20.04
@@ -43,14 +38,14 @@ RUN set -ex && \
     apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt
 COPY --from=builder /src/build/x86_64-linux-gnu/release/bin /usr/local/bin/
 
 # Create monero user
 RUN adduser --system --group --disabled-password monero && \
-    mkdir -p /wallet /home/monero/.bitmonero && \
-    chown -R monero:monero /home/monero/.bitmonero && \
-    chown -R monero:monero /wallet
+	mkdir -p /wallet /home/monero/.bitmonero && \
+	chown -R monero:monero /home/monero/.bitmonero && \
+	chown -R monero:monero /wallet
 
 # Contains the blockchain
 VOLUME /home/monero/.bitmonero
