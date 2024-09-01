@@ -26,7 +26,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t ${{ env.LATEST_TAG }} .
+          docker build --build-arg USE_DEVICE_TREZOR=OFF -t ${{ env.LATEST_TAG }} .
           docker tag  ${{ env.LATEST_TAG }}  nyancod3r/monero_cli:${{ github.sha }}
           inspect_output=$(docker inspect "${{ env.LATEST_TAG }}")
           echo "Docker Inspect Output: $inspect_output"
