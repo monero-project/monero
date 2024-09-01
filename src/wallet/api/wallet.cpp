@@ -61,7 +61,7 @@ using namespace cryptonote;
 #define LOCK_REFRESH() \
     bool refresh_enabled = m_refreshEnabled; \
     m_refreshEnabled = false; \
-    m_wallet->stop(); \
+    stop(); \
     m_refreshCV.notify_one(); \
     boost::mutex::scoped_lock lock(m_refreshMutex); \
     boost::mutex::scoped_lock lock2(m_refreshMutex2); \
@@ -80,7 +80,7 @@ using namespace cryptonote;
         setStatusError(tr("HW wallet cannot use background sync")); \
         return false; \
     } \
-    if (m_wallet->watch_only()) \
+    if (watchOnly()) \
     { \
         setStatusError(tr("View only wallet cannot use background sync")); \
         return false; \
@@ -485,6 +485,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     m_recoveringFromDevice = false;
     bool keys_file_exists;
     bool wallet_file_exists;
+    // QUESTION : I think we can change `WalletManagerImpl::walletExists()` which returns true if `key_file_exists` is true, to take the same outparams as `tools::wallet2::wallet_exists()` (but make them optional) and make the method static. Or do you think it's easier/cleaner to add `WalletImpl::walletExists()` with the described behaviour and leave the one in `WalletManagerImpl` as is?
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
     LOG_PRINT_L3("wallet_path: " << path << "");
     LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
@@ -524,6 +525,7 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
 
     bool keys_file_exists;
     bool wallet_file_exists;
+    // QUESTION / TODO : same as above
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
     LOG_PRINT_L3("wallet_path: " << path << "");
     LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
@@ -724,12 +726,14 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
         // Check if wallet cache exists
         bool keys_file_exists;
         bool wallet_file_exists;
+        // QUESTION / TODO : same as above, actually here we could just do:
+//        if(!WalletManagerImpl::walletExists(path)){
+        // even though we check if `wallet_file_exists`, the comment states that we're actually interested in the .keys file.
         tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
         if(!wallet_file_exists){
             // Rebuilding wallet cache, using refresh height from .keys file
             m_rebuildWalletCache = true;
         }
-        // TODO NOW : CONTINUE HERE
         m_wallet->set_ring_database(get_default_ringdb_path(m_wallet->nettype()));
         m_wallet->load(path, password);
 
@@ -798,7 +802,7 @@ bool WalletImpl::close(bool store)
             LOG_PRINT_L1("wallet::store done");
         }
         LOG_PRINT_L1("Calling wallet::stop...");
-        m_wallet->stop();
+        stop();
         LOG_PRINT_L1("wallet::stop done");
         m_wallet->deinit();
         result = true;
@@ -832,6 +836,7 @@ void WalletImpl::setSeedLanguage(const std::string &arg)
 
     // QUESTION : We have some ~8year old TODOs stating we should validate the seed language. Will this suffice or should I make another PR for that?
     //            IMO it'd make sense now to add `setStatusError()` to this so it doesn't just silently do nothing. If this can stay, remove old TODOs.
+    // Update : Actually after rebasing we now already set the status in the `checkBackgroundSync()` call above.
     if (crypto::ElectrumWords::is_valid_language(arg))
         m_wallet->set_seed_language(arg);
 }
@@ -1082,8 +1087,6 @@ bool WalletImpl::synchronized() const
 bool WalletImpl::refresh()
 {
     clearStatus();
-    //TODO: make doRefresh return bool to know whether the error occured during refresh or not
-    //otherwise one may try, say, to send transaction, transfer fails and this method returns false
     doRefresh();
     return status() == Status_Ok;
 }
@@ -1156,6 +1159,7 @@ bool WalletImpl::submitTransaction(const string &fileName) {
     return false;
   std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
 
+  // TODO : use WalletImpl::loadTx() if ready
   bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx);
   if (!r) {
     setStatus(Status_Ok, tr("Failed to load transaction from file"));
@@ -1172,7 +1176,7 @@ bool WalletImpl::submitTransaction(const string &fileName) {
 
 bool WalletImpl::exportKeyImages(const string &filename, bool all) 
 {
-  if (m_wallet->watch_only())
+  if (watchOnly())
   {
     setStatusError(tr("Wallet is view only"));
     return false;
@@ -1235,7 +1239,7 @@ bool WalletImpl::exportOutputs(const string &filename, bool all)
     try
     {
         std::string data = exportOutputsToStr(all);
-        bool r = m_wallet->save_to_file(filename, data);
+        bool r = saveToFile(filename, data);
         if (!r)
         {
             LOG_ERROR("Failed to save file " << filename);
@@ -1265,7 +1269,7 @@ bool WalletImpl::importOutputs(const string &filename)
     }
 
     std::string data;
-    bool r = m_wallet->load_from_file(filename, data);
+    bool r = loadFromFile(filename, data);
     if (!r)
     {
         LOG_ERROR("Failed to read file: " << filename);
@@ -1275,7 +1279,9 @@ bool WalletImpl::importOutputs(const string &filename)
 
     try
     {
-        size_t n_outputs = m_wallet->import_outputs_from_str(data);
+        size_t n_outputs = importOutputsFromStr(data);
+        if (status() != Status_Ok)
+            throw runtime_error(errorString());
         LOG_PRINT_L2(std::to_string(n_outputs) << " outputs imported");
     }
     catch (const std::exception &e)
@@ -1492,7 +1498,7 @@ string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t thres
     try {
         clearStatus();
 
-        if (m_wallet->get_multisig_status().multisig_is_active) {
+        if (multisig().isMultisig) {
             throw runtime_error("Wallet is already multisig");
         }
 
@@ -1639,9 +1645,15 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
       
     cryptonote::address_parse_info info;
 
-    uint32_t adjusted_priority = m_wallet->adjust_priority(static_cast<uint32_t>(priority));
-
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
+
+    uint32_t adjusted_priority = adjustPriority(static_cast<uint32_t>(priority));
+    // TODO : Consider adding a function that returns `status() == Status_Ok`:
+//    if (!isStatusOk())
+    if (status() != Status_Ok)
+    {
+        return transaction;
+    }
 
     do {
         if (checkBackgroundSync("cannot create transactions"))
@@ -1694,7 +1706,7 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
                 dsts.push_back(de);
             } else {
                 if (subaddr_indices.empty()) {
-                    for (uint32_t index = 0; index < m_wallet->get_num_subaddresses(subaddr_account); ++index)
+                    for (uint32_t index = 0; index < numSubaddresses(subaddr_account); ++index)
                         subaddr_indices.insert(index);
                 }
             }
@@ -1707,8 +1719,8 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
             break;
         }
         try {
-            size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
-            fake_outs_count = m_wallet->adjust_mixin(mixin_count);
+            size_t fake_outs_count = mixin_count > 0 ? mixin_count : defaultMixin();
+            fake_outs_count = adjustMixin(mixin_count);
 
             if (amount) {
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count,
@@ -1722,9 +1734,7 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
             pendingTxPostProcess(transaction);
 
             if (multisig().isMultisig) {
-                auto tx_set = m_wallet->make_multisig_tx_set(transaction->m_pending_tx);
-                transaction->m_pending_tx = tx_set.m_ptx;
-                transaction->m_signers = tx_set.m_signers;
+                makeMultisigTxSet(transaction);
             }
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -1902,17 +1912,17 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
     const size_t extra_size = pubkey_size + encrypted_paymentid_size;
 
     return m_wallet->estimate_fee(
-        m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0),
-        m_wallet->use_fork_rules(4, 0),
+        useForkRules(HF_VERSION_PER_BYTE_FEE, 0),
+        useForkRules(4, 0),
         1,
-        m_wallet->get_min_ring_size() - 1,
+        getMinRingSize() - 1,
         destinations.size() + 1,
         extra_size,
-        m_wallet->use_fork_rules(8, 0),
-        m_wallet->use_fork_rules(HF_VERSION_CLSAG, 0),
-        m_wallet->use_fork_rules(HF_VERSION_BULLETPROOF_PLUS, 0),
-        m_wallet->use_fork_rules(HF_VERSION_VIEW_TAGS, 0),
-        m_wallet->get_base_fee(priority),
+        useForkRules(8, 0),
+        useForkRules(HF_VERSION_CLSAG, 0),
+        useForkRules(HF_VERSION_BULLETPROOF_PLUS, 0),
+        useForkRules(HF_VERSION_VIEW_TAGS, 0),
+        getBaseFee(priority),
         m_wallet->get_fee_quantization_mask());
 }
 
@@ -2539,7 +2549,7 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     }
 
     if (m_rebuildWalletCache)
-      LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << m_wallet->get_refresh_from_block_height());
+      LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << getRefreshFromBlockHeight());
 
     if (Utils::isAddressLocal(daemon_address)) {
         this->setTrustedDaemon(true);
@@ -2852,10 +2862,17 @@ std::string WalletImpl::getMultisigSeed(const std::string &seed_offset)
     }
 
     epee::wipeable_string seed;
-    if (m_wallet)
-        m_wallet->get_multisig_seed(seed, seed_offset);
-
-    return std::string(seed.data(), seed.size());
+    try
+    {
+        if (m_wallet->get_multisig_seed(seed, seed_offset))
+            return std::string(seed.data(), seed.size());
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError(string(tr("Failed to get multisig seed: ")) + e.what());
+    }
+    return "";
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::pair<std::uint32_t, std::uint32_t> WalletImpl::getSubaddressIndex(const std::string &address)
@@ -3294,9 +3311,9 @@ std::uint32_t WalletImpl::adjustPriority(std::uint32_t priority)
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
-        return m_wallet->adjust_priority(priority);
+        setStatusError(string(tr("Failed to adjust priority: ")) + e.what());
     }
+    return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::unsetRing(const std::vector<std::string> &key_images)
@@ -3461,7 +3478,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
 
     try
     {
-        m_wallet->setTxKey(txid_pod, tx_key_pod, additional_tx_keys_pod, info.address);
+        m_wallet->set_tx_key(txid_pod, tx_key_pod, additional_tx_keys_pod, info.address);
     }
     catch (const std::exception &e)
     {
@@ -3725,7 +3742,7 @@ std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::stri
 
     try
     {
-        return m_wallet->importKeyImages(signed_key_images_pod, offset, spent, unspent, check_spent);
+        return m_wallet->import_key_images(signed_key_images_pod, offset, spent, unspent, check_spent);
     }
     catch (const std::exception &e)
     {
@@ -3753,7 +3770,7 @@ bool importKeyImages(std::vector<std::string> key_images, size_t offset, boost::
 
     try
     {
-        return m_wallet->importKeyImages(key_images_pod, offset, selected_transfers);
+        return m_wallet->import_key_images(key_images_pod, offset, selected_transfers);
     }
     catch (const std::exception &e)
     {
@@ -3782,7 +3799,6 @@ void WalletImpl::makeMultisigTxSet(PendingTransaction &ptx)
 
     auto multisig_tx = m_wallet->make_multisig_tx_set(ptx.m_pending_tx);
     ptx.m_signers = multisig_tx.m_signers;
-    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 
