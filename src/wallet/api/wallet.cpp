@@ -3040,9 +3040,12 @@ void WalletImpl::createOneOffSubaddress(std::uint32_t account_index, std::uint32
 //    m_subaddressAccount->refresh();
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::isDeprecated()
+WalletState WalletImpl::getWalletState()
 {
-    return m_wallet->is_deprecated();
+    WalletState wallet_state{};
+    wallet_state.is_deprecated = m_wallet->is_deprecated();
+
+    return wallet_state;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::hasUnknownKeyImages()
@@ -3151,7 +3154,7 @@ void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::trans
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string dumpMultisigTxToStr(const PendingTransaction &multisig_ptx)
+std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx)
 {
     clearStatus();
 
@@ -3167,7 +3170,7 @@ std::string dumpMultisigTxToStr(const PendingTransaction &multisig_ptx)
     }
     catch (const exception &e)
     {
-        setStatusError(e.what());
+        setStatusError(string(tr("Failed to convert pending multisig tx to string: ")) + e.what());
     }
 
     return "";
@@ -3195,14 +3198,14 @@ bool saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string dumpTxToStr(const PendingTransaction &ptxs)
+std::string convertTxToStr(const PendingTransaction &ptxs)
 {
     clearStatus();
 
     std::string tx_dump = m_wallet->dump_tx_to_str(ptxs.m_pending_tx);
     if (tx_dump.empty())
     {
-        setStatusError("Failed to dump pending tx to string");
+        setStatusError("Failed to convert pending tx to string");
     }
 
     return tx_dump;

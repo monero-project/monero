@@ -245,7 +245,7 @@ public:
     bool isFrozen(const PendingTransaction &multisig_ptxs) const override;
     bool isFrozen(const std::string multisig_sign_data) const override;
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
-    bool isDeprecated() const override;
+    virtual WalletState getWalletState() const = 0;
     bool hasUnknownKeyImages() const override;
     void rewrite(const std::string &wallet_name, const std::string &password) override;
     void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) override;
@@ -254,9 +254,9 @@ public:
     bool isTransferUnlocked(std::uint64_t unlock_time, std::uint64_t block_height) const override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
     void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) override;
-    std::string dumpMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
+    std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
-    std::string dumpTxToStr(const PendingTransaction &ptxs) const override;
+    std::string convertTxToStr(const PendingTransaction &ptxs) const override;
     bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const override;
     bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const override;
 //    bool loadMultisigTxFromFile(const std::string &filename, PendingTransaction &exported_txs, std::function<bool(const PendingTransaction&)> accept_func) const override;

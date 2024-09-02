@@ -454,6 +454,10 @@ struct Wallet
         BackgroundSync_CustomPassword = 2
     };
 
+    struct WalletState {
+        bool is_deprecated;
+    };
+
     virtual ~Wallet() = 0;
     virtual std::string seed(const std::string& seed_offset = "") const = 0;
     virtual std::string getSeedLanguage() const = 0;
@@ -1173,8 +1177,6 @@ struct Wallet
     */
     virtual void freeze(std::size_t idx) = 0;
     virtual void freeze(const std::string &key_image) = 0;
-    // QUESTION : Should we add the option to freeze by tx_id? Meaning: freeze all enotes that we received by a single transaction.
-//    virtual void freeze(const std::string &tx_id) = 0;
     /**
     * brief: thaw - thaw enote that is frozen, so it appears in balance and can be spent in a transaction
     * param: idx - index of enote in `m_transfers`
@@ -1183,12 +1185,11 @@ struct Wallet
     */
     virtual void thaw(std::size_t idx) = 0;
     virtual void thaw(const std::string &key_image) = 0;
-    // QUESTION : Should we add the option to thaw by tx_id? Meaning: thaw all enotes that we received by a single transaction.
-//    virtual void thaw(const std::string &tx_id) = 0;
     /**
     * brief: isFrozen - check if enote is frozen
     * param: idx - index of enote in `m_transfers`
     * param: key_image - key image of enote
+    // TODO : Investigate if this can get dropped too. On first sight I thought someone who uses the API can just loop over `PendingTransaction.m_key_images` and call `isFrozen(key_image)`, but it seems `wallet2::frozen(const multisig_tx_set txs)` does more than that.
     * QUESTION : Which approach should we use? We probably don't need both. Or are there other suggestions? (See WalletImpl::isFrozen for implementation)
     *   Approach 1 : Use PendingTransaction, which just like tools::wallet2::multisig_tx_set has a vector of pending txs and an unordered set of signers pub keys.
     *   Approach 2 : Use the encrypted hex string generated with tools::wallet2::save_multisig_tx(). This approach is already used in WalletImpl::restoreMultisigTransaction.
@@ -1204,9 +1205,10 @@ struct Wallet
     virtual bool isFrozen(const std::string &key_image) const = 0;
     virtual bool isFrozen(const PendingTransaction &multisig_ptxs) const = 0;
     virtual bool isFrozen(const std::string multisig_sign_data) const = 0;
-    // QUESTION : Should we add the following function, which returns strings containing the key image for every frozen enote? I think it can be useful
-//    virtual std::vector<std::string> getAllFrozenEnotes() const = 0;
-    // TODO : Would this better fit in one of `Subaddress`/`SubaddressAccount` classes?
+    // QUESTION : Should we add a note/warning that this should only be used in special cases? (Also addSubaddress & addSubaddressAccount do not refresh the known account/subaddress, if that's not for a good reason (that I don't see) I would either add refresh or at least give the same warning like the second line from the comment below. Seems the GUI only uses the addRow functions: https://github.com/search?q=repo%3Amonero-project/monero-gui%20addRow&type=code not the addSubaddress* ones https://github.com/search?q=repo%3Amonero-project/monero-gui%20addSubaddress&type=code ) e.g. something like:
+    // brief: createOneOffSubaddress - create a new account or subaddress for given index without adding it to known accounts and subaddresses.
+    //                                 use `SubaddressAccount::addRow()` or `Subaddress::addRow()` instead to make sure the wallet keeps track of accounts and subaddresses
+
     /**
     * brief: createOneOffSubaddress - create a subaddress for given index
     * param: account_index - major index
@@ -1214,10 +1216,11 @@ struct Wallet
     */
     virtual void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) = 0;
     /**
-    * brief: isDeprecated - check if wallet file format is deprecated
-    * return: true if wallet file is old format (before becoming JSON), else false
+    * brief: getWalletState - get information about the wallet
+    *                         - is wallet file format deprecated
+    * return: WalletState object
     */
-    virtual bool isDeprecated() const = 0;
+    virtual WalletState getWalletState() const = 0;
     /**
     * brief: hasUnknownKeyImages - check if any enotes have missing key images
     * return: true if any stored enote is missing its key image, else false
@@ -1333,12 +1336,12 @@ struct Wallet
     */
 //    virtual void getUnconfirmedPayments(std::list<std::pair<std::string, wallet2::pool_payment_details>> &unconfirmed_payments, const boost::optional<std::uint32_t> &subaddr_account, const std::set<std::uint32_t> &subaddr_indices) const = 0;
     /**
-    * brief: dumpMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
+    * brief: convertMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
     * param: multisig_ptx - multisig pending transaction
     * return: encrypted tx data as hex string if succeeded, else empty string
     * note: sets status error on fail
     */
-    virtual std::string dumpMultisigTxToStr(const PendingTransaction &multisig_ptx) const = 0;
+    virtual std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const = 0;
     /**
     * brief: saveMultisigTx - save a multisig pending transaction to file
     * param: multisig_ptx - multisig pending transaction
@@ -1348,11 +1351,11 @@ struct Wallet
     */
     virtual bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const = 0;
     /**
-    * brief: dumpTxToStr - get the encrypted data from a vector of pending transactions as hex string
+    * brief: convertTxToStr - get the encrypted data from a vector of pending transactions as hex string
     * param: ptxs -
     * return: unsigned tx data as encrypted hex string if succeeded, else empty string
     */
-    virtual std::string dumpTxToStr(const PendingTransaction &ptxs) const = 0;
+    virtual std::string convertTxToStr(const PendingTransaction &ptxs) const = 0;
     /**
     * brief: parseUnsignedTxFromStr - get an unsigned transaction set from encrypted unsigned transaction as hex string
     * param: unsigned_tx_str - encrypted hex string
