@@ -152,6 +152,7 @@ pub extern "C" fn hash_grow_helios(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
+        // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
         CResult::err(())
     }
 }
@@ -174,6 +175,7 @@ pub extern "C" fn hash_trim_helios(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
+        // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
         CResult::err(())
     }
 }
@@ -196,6 +198,7 @@ pub extern "C" fn hash_grow_selene(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
+        // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
         CResult::err(())
     }
 }
@@ -218,6 +221,7 @@ pub extern "C" fn hash_trim_selene(
     if let Some(hash) = hash {
         CResult::ok(hash)
     } else {
+        // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
         CResult::err(())
     }
 }

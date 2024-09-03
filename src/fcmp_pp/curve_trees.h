@@ -164,12 +164,15 @@ template<typename C1, typename C2>
 class CurveTrees
 {
 public:
-    CurveTrees(std::unique_ptr<C1> &&c1, std::unique_ptr<C2> &&c2, const uint64_t c1_width, const uint64_t c2_width):
-        m_c1{std::move(c1)},
-        m_c2{std::move(c2)},
-        m_c1_width{c1_width},
-        m_c2_width{c2_width},
-        m_leaf_layer_chunk_width{LEAF_TUPLE_SIZE * c2_width}
+    CurveTrees(std::unique_ptr<C1> &&c1,
+        std::unique_ptr<C2> &&c2,
+        const std::size_t c1_width,
+        const std::size_t c2_width):
+            m_c1{std::move(c1)},
+            m_c2{std::move(c2)},
+            m_c1_width{c1_width},
+            m_c2_width{c2_width},
+            m_leaf_layer_chunk_width{LEAF_TUPLE_SIZE * c2_width}
     {
         assert(c1_width > 0);
         assert(c2_width > 0);
@@ -240,7 +243,7 @@ public:
 //member functions
 public:
     // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
-    LeafTuple leaf_tuple(const OutputPair &outpout_pair) const;
+    LeafTuple leaf_tuple(const OutputPair &output_pair) const;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
     std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
