@@ -1290,6 +1290,12 @@ namespace cryptonote
       burnt_xeq += b_xeq;
       return true;
       });
+
+      const uint8_t hf_ver = m_blockchain_storage.get_current_hard_fork_version();
+      if (hf_ver > 20)
+      {
+        emission_amount += (uint64_t)0xd18c2e2800;
+      }
     }
 
     return std::tuple<uint64_t, uint64_t, uint64_t>(burnt_xeq, emission_amount, total_fee_amount);

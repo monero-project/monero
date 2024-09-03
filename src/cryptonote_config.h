@@ -99,7 +99,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define NEW_XEQ_BRIDGE                                  ((uint64_t)20000000000)
 
 #define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)
-#define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)0)
+#define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)208207)
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2    80000 //size of block (bytes) after which reward for block calculated using block size
