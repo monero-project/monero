@@ -84,6 +84,7 @@ using namespace epee;
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
 #include "common/equilibria.h"
+#include "cryptonote_basic/tx_extra.h"
 
 extern "C"
 {
@@ -12237,6 +12238,47 @@ std::string wallet2::get_tx_note(const crypto::hash &txid) const
   if (i == m_tx_notes.end())
     return std::string();
   return i->second;
+}
+
+std::string wallet2::get_tx_memo(const crypto::hash &txid)
+{
+  COMMAND_RPC_GET_TRANSACTIONS::request req{};
+  COMMAND_RPC_GET_TRANSACTIONS::response res{};
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  req.decode_as_json = false;
+  req.prune = true;
+
+  bool ok;
+  {
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    ok = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
+    THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1), error::wallet_internal_error, "Failed to get transaction from daemon");
+  }
+
+  cryptonote::transaction tx;
+  crypto::hash tx_hash;
+  if (res.txs.size() == 1)
+  {
+    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+  }
+  else
+  {
+    cryptonote::blobdata tx_data;
+    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx), error::wallet_internal_error, "Failed to validate transaction from daemon");
+    tx_hash = cryptonote::get_transaction_hash(tx);
+  }
+
+  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+
+  //std::vector<uint8_t> extra;
+  cryptonote::tx_extra_memo memo;
+  cryptonote::get_memo_from_tx_extra(tx.extra, memo);
+  std::string memo_data = memo.data;
+
+  return memo_data;
 }
 
 void wallet2::set_tx_device_aux(const crypto::hash &txid, const std::string &aux)
