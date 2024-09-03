@@ -644,8 +644,7 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
 // CurveTrees public member functions
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(
-    const OutputPair &output_pair) const
+CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(const OutputPair &output_pair) const
 {
     const crypto::public_key &output_pubkey = output_pair.output_pubkey;
     const rct::key &commitment              = output_pair.commitment;
