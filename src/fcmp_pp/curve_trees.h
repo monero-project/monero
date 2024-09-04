@@ -197,9 +197,9 @@ public:
     struct Leaves final
     {
         // Starting leaf tuple index in the leaf layer
-        uint64_t                start_leaf_tuple_idx{0};
+        uint64_t                   start_leaf_tuple_idx{0};
         // Contiguous leaves in a tree that start at the start_idx
-        std::vector<OutputPair> tuples;
+        std::vector<OutputContext> tuples;
     };
 
     // A struct useful to extend an existing tree

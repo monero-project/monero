@@ -139,4 +139,4 @@ CResult hash_trim_selene(SelenePoint existing_hash,
                                              SeleneScalar child_to_grow_back);
 
 } // extern "C"
-}//namespace fcmp_pp
+}//namespace fcmp_pp_rust

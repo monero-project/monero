@@ -740,7 +740,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
         flattened_leaves.emplace_back(std::move(leaf.C_x));
 
         // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output pair in the db to save 32 bytes
-        tree_extension.leaves.tuples.emplace_back(std::move(o.output_pair));
+        tree_extension.leaves.tuples.emplace_back(std::move(o));
     }
 
     if (flattened_leaves.empty())

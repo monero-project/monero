@@ -169,9 +169,9 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
         "unexpected leaf start idx");
 
     m_tree.leaves.reserve(m_tree.leaves.size() + tree_extension.leaves.tuples.size());
-    for (const auto &output_pair : tree_extension.leaves.tuples)
+    for (const auto &o : tree_extension.leaves.tuples)
     {
-        auto leaf = m_curve_trees.leaf_tuple(output_pair);
+        auto leaf = m_curve_trees.leaf_tuple(o.output_pair);
 
         m_tree.leaves.emplace_back(CurveTreesV1::LeafTuple{
             .O_x = std::move(leaf.O_x),
@@ -641,14 +641,14 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
     MDEBUG("Leaf start idx: " << tree_extension.leaves.start_leaf_tuple_idx);
     for (std::size_t i = 0; i < tree_extension.leaves.tuples.size(); ++i)
     {
-        const auto &output_pair = tree_extension.leaves.tuples[i];
+        const auto &output_pair = tree_extension.leaves.tuples[i].output_pair;
         const auto leaf = m_curve_trees.leaf_tuple(output_pair);
 
         const auto O_x = m_curve_trees.m_c2->to_string(leaf.O_x);
         const auto I_x = m_curve_trees.m_c2->to_string(leaf.I_x);
         const auto C_x = m_curve_trees.m_c2->to_string(leaf.C_x);
 
-        MDEBUG("Leaf tuple idx " << (tree_extension.leaves.start_leaf_tuple_idx)
+        MDEBUG("Leaf tuple idx " << (tree_extension.leaves.start_leaf_tuple_idx + (i * CurveTreesV1::LEAF_TUPLE_SIZE))
             << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
     }
 
@@ -926,7 +926,8 @@ static bool trim_tree_db(const std::size_t init_leaves,
         MDEBUG("Successfully added initial " << init_leaves << " leaves to db, trimming by "
             << trim_leaves << " leaves");
 
-        test_db.m_db->trim_tree(trim_leaves);
+        // Can use 0 from trim_block_id since it's unused in tests
+        test_db.m_db->trim_tree(trim_leaves, 0);
         CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(init_leaves - trim_leaves), false,
             "failed to trim tree in db");
 
