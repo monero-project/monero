@@ -370,7 +370,7 @@ public:
   // make private
   virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
 
-  virtual void trim_tree(const uint64_t trim_n_leaf_tuples);
+  virtual void trim_tree(const uint64_t trim_n_leaf_tuples, const uint64_t trim_block_id);
 
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
 
@@ -430,6 +430,8 @@ private:
     const uint64_t layer_idx);
 
   virtual uint64_t get_num_leaf_tuples() const;
+
+  uint64_t get_top_block_n_leaf_tuples() const;
 
   virtual std::array<uint8_t, 32UL> get_tree_root() const;
 

@@ -1785,7 +1785,7 @@ public:
   // TODO: description and make private
   virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
 
-  virtual void trim_tree(const uint64_t trim_n_leaf_tuples) = 0;
+  virtual void trim_tree(const uint64_t trim_n_leaf_tuples, const uint64_t trim_block_id) = 0;
 
   // TODO: description
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
