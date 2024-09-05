@@ -514,7 +514,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_pool_transactions_info
       */
-     bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false) const;
+     bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false, size_t limit_size = 0) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_info
@@ -523,7 +523,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_pool_info
       */
-     bool get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+     bool get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t limit_size = 0) const;
 
     /**
       * @copydoc tx_memory_pool::get_transactions
