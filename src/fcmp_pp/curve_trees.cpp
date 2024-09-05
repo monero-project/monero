@@ -812,10 +812,13 @@ std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
     const uint64_t old_n_leaf_tuples,
     const uint64_t trim_n_leaf_tuples) const
 {
-    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples > trim_n_leaf_tuples, "cannot trim more leaves than exist");
+    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= trim_n_leaf_tuples, "cannot trim more leaves than exist");
     CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
 
     std::vector<TrimLayerInstructions> trim_instructions;
+
+    if (old_n_leaf_tuples == trim_n_leaf_tuples)
+        return trim_instructions;
 
     // Get trim instructions for the leaf layer
     {
@@ -865,7 +868,12 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
 {
     TreeReduction tree_reduction_out;
 
-    CHECK_AND_ASSERT_THROW_MES(!trim_instructions.empty(), "missing trim instructions");
+    if (trim_instructions.empty())
+    {
+        tree_reduction_out.new_total_leaf_tuples = 0;
+        return tree_reduction_out;
+    }
+
     CHECK_AND_ASSERT_THROW_MES((trim_instructions[0].new_total_children % LEAF_TUPLE_SIZE) == 0,
         "unexpected new total leaves");
     const uint64_t new_total_leaf_tuples = trim_instructions[0].new_total_children / LEAF_TUPLE_SIZE;
