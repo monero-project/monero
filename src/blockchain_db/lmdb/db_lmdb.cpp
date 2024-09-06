@@ -1533,6 +1533,8 @@ void BlockchainLMDB::trim_tree(const uint64_t trim_n_leaf_tuples, const uint64_t
   CURSOR(locked_outputs)
   CURSOR(layers)
 
+  CHECK_AND_ASSERT_THROW_MES(m_write_txn != nullptr, "Must have m_write_txn set to trim tree");
+
   const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
   CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= trim_n_leaf_tuples, "cannot trim more leaves than exist");
 
@@ -1649,20 +1651,10 @@ void BlockchainLMDB::trim_tree(const uint64_t trim_n_leaf_tuples, const uint64_t
   }
   else // n_layers == 0
   {
-    // We're removing everything
-    while (1)
-    {
-      MDB_val k, v;
-      int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_LAST);
-      if (result == MDB_NOTFOUND)
-        break;
-      if (result != MDB_SUCCESS)
-        throw0(DB_ERROR(lmdb_error("Failed to get last elem: ", result).c_str()));
-
-      result = mdb_cursor_del(m_cur_layers, MDB_NODUPDATA);
-        if (result != MDB_SUCCESS)
-          throw0(DB_ERROR(lmdb_error("Error removing elems after root: ", result).c_str()));
-    }
+    // Empty the layers table, no elems should remain
+    int result = mdb_drop(*m_write_txn, m_layers, 0);
+    if (result != MDB_SUCCESS)
+        throw0(DB_ERROR(lmdb_error("Error emptying layers table: ", result).c_str()));
   }
 }
 
@@ -1907,13 +1899,13 @@ fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_
         "expected divisble by leaf tuple size");
 
       const uint64_t leaf_tuple_idx = idx / fcmp_pp::curve_trees::CurveTreesV1::LEAF_TUPLE_SIZE;
-      MDB_val_copy<uint64_t> k(leaf_tuple_idx);
-      MDB_val v = k;
+      MDB_val k = zerokval;
+      MDB_val_copy<uint64_t> v(leaf_tuple_idx);
 
       MDB_cursor_op leaf_op = MDB_GET_BOTH;
       do
       {
-        int result = mdb_cursor_get(m_cur_leaves, (MDB_val *)&zerokval, &v, leaf_op);
+        int result = mdb_cursor_get(m_cur_leaves, &k, &v, leaf_op);
         leaf_op = MDB_NEXT;
         if (result == MDB_NOTFOUND)
           throw0(DB_ERROR("leaf not found")); // TODO: specific error type instead of DB_ERROR
@@ -2080,6 +2072,10 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
   uint64_t child_chunk_idx = 0;
   MDB_cursor_op leaf_op = MDB_FIRST;
   MDB_cursor_op parent_op = MDB_FIRST;
+
+  MDB_val_copy<uint64_t> k_parent(layer_idx);
+  MDB_val_set(v_parent, child_chunk_idx);
+
   while (1)
   {
     // Get next leaf chunk
@@ -2090,17 +2086,17 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
       MINFO("Auditing layer " << layer_idx << ", child_chunk_idx " << child_chunk_idx);
 
     // Iterate until chunk is full or we get to the end of all leaves
+    MDB_val k_leaf, v_leaf;
     while (1)
     {
-      MDB_val k, v;
-      int result = mdb_cursor_get(m_cur_leaves, &k, &v, leaf_op);
+      int result = mdb_cursor_get(m_cur_leaves, &k_leaf, &v_leaf, leaf_op);
       leaf_op = MDB_NEXT;
       if (result == MDB_NOTFOUND)
         break;
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
 
-      const auto *o = (mdb_leaf *)v.mv_data;
+      const auto *o = (mdb_leaf *)v_leaf.mv_data;
       auto leaf = m_curve_trees->leaf_tuple(o->output_context.output_pair);
 
       leaf_tuples_chunk.emplace_back(std::move(leaf));
@@ -2110,9 +2106,6 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
     }
 
     // Get the actual leaf chunk hash from the db
-    MDB_val_copy<uint64_t> k_parent(layer_idx);
-    MDB_val_set(v_parent, child_chunk_idx);
-
     MDEBUG("Getting leaf chunk hash starting at child_chunk_idx " << child_chunk_idx);
     int result = mdb_cursor_get(m_cur_layers, &k_parent, &v_parent, parent_op);
     parent_op = MDB_NEXT_DUP;
@@ -2131,7 +2124,7 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
 
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get parent in first layer: ", result).c_str()));
-    if (layer_idx != *(uint64_t*)k_parent.mv_data)
+    if (layer_idx != *(uint64_t*)k_parent.mv_data || child_chunk_idx != ((layer_val *)v_parent.mv_data)->child_chunk_idx)
       throw0(DB_ERROR("unexpected parent encountered"));
 
     // Get the expected leaf chunk hash
@@ -2204,7 +2197,7 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
 
   TXN_PREFIX_RDONLY();
 
-  // Open separate cursors for child and parent layer
+  // Open two separate cursors for child and parent layer
   MDB_cursor *child_layer_cursor, *parent_layer_cursor;
 
   int c_result = mdb_cursor_open(m_txn, m_layers, &child_layer_cursor);
