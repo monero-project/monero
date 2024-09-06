@@ -265,10 +265,6 @@ public:
     std::uint64_t getMinRingSize() const override;
     std::uint64_t adjustMixin(std::uint64_t mixin) const override;
     std::uint32_t adjustPriority(std::uint32_t priority) const override;
-    bool unsetRing(const std::vector<std::string> &key_images) override;
-    bool unsetRing(const std::string &tx_id) override;
-    bool findAndSaveRings(bool force = true) override;
-    bool isOutputBlackballed(const std::pair<std::uint64_t, std::uint64_t> &output) const override;
     void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const override;
 //    void coldSignTx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux) const override;
 //    const wallet2::transfer_details &getTransferDetails(std::size_t idx) const override;

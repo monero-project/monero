@@ -1100,6 +1100,7 @@ struct Wallet
     virtual void setOffline(bool offline) = 0;
     virtual bool isOffline() const = 0;
     
+    // QUESTION : Removing these three functions should be done in a separate PR?
     //! blackballs a set of outputs
     virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) = 0;
 
@@ -1446,32 +1447,7 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual std::uint32_t adjustPriority(std::uint32_t priority) const = 0;
-    // QUESTION : Can anyone help with these comments? I looked at the command descriptions in `simplewallet::simplewallet()`, but I think they're too vague and imo they don't really help understand what these functions do.
-    /**
-    * brief: unsetRing -
-    * param: key_images -
-    * param: tx_id -
-    * return: true if succeeded
-    * note: sets status error on fail
-    */
-    virtual bool unsetRing(const std::vector<std::string> &key_images) = 0;
-    virtual bool unsetRing(const std::string &tx_id) = 0;
-    /**
-    * brief: findAndSaveRings -
-    * param: force - force save (default: true)
-    * return: true if succeeded
-    * note: sets status error on fail
-    */
-    virtual bool findAndSaveRings(bool force = true) = 0;
-    // QUESTION : Other "blackball" functions that were implemented before this PR use std::string for the output index, should we stay consistent with that? Else I'd prefer using a pair of uint64_t.
-    /**
-    * brief: isOutputBlackballed -
-    * param: output - [amount, offset] for ringdb index
-    * return: true if succeeded
-    * note: sets status error on fail
-    */
-    virtual bool isOutputBlackballed(const std::pair<std::uint64_t, std::uint64_t> &output) const = 0;
-    // QUESTION : Any suggestion for the two comments below?
+    // QUESTION : Any suggestion for the function description below?
     /**
     * brief: coldTxAuxImport -
     * param: ptx -
