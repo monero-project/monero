@@ -831,7 +831,7 @@ static bool grow_tree(CurveTreesV1 &curve_trees,
     return global_tree.audit_tree(expected_n_leaf_tuples);
 }
 //----------------------------------------------------------------------------------------------------------------------
-static bool grow_tree_in_memory(const std::size_t init_leaves,
+static bool grow_and_extend_tree_in_memory(const std::size_t init_leaves,
     const std::size_t ext_leaves,
     CurveTreesV1 &curve_trees)
 {
@@ -990,7 +990,7 @@ TEST(curve_trees, grow_tree)
         // Then extend the tree with ext_leaves
         for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) <= leaves_needed_for_n_layers; ++ext_leaves)
         {
-            ASSERT_TRUE(grow_tree_in_memory(init_leaves, ext_leaves, *curve_trees));
+            ASSERT_TRUE(grow_and_extend_tree_in_memory(init_leaves, ext_leaves, *curve_trees));
 
             INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
             ASSERT_TRUE(grow_and_extend_tree_db(init_leaves, ext_leaves, curve_trees, test_db));
