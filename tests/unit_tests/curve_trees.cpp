@@ -273,7 +273,9 @@ void CurveTreesGlobalTree::reduce_tree(const CurveTreesV1::TreeReduction &tree_r
     // Trim the layers
     const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
     const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
-    CHECK_AND_ASSERT_THROW_MES(!c2_layer_reductions.empty(), "empty c2 layer reductions");
+    CHECK_AND_ASSERT_THROW_MES(c2_layer_reductions.size() == c1_layer_reductions.size()
+        || c2_layer_reductions.size() == (c1_layer_reductions.size() + 1),
+        "unexpected mismatch of c2 and c1 layer reductions");
 
     bool use_c2 = true;
     std::size_t c2_idx = 0;
@@ -343,8 +345,10 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
 {
     CurveTreesV1::LastChunkChildrenToTrim all_children_to_trim;
 
+    if (trim_instructions.empty())
+        return all_children_to_trim;
+
     // Leaf layer
-    CHECK_AND_ASSERT_THROW_MES(!trim_instructions.empty(), "no instructions");
     const auto &trim_leaf_layer_instructions = trim_instructions[0];
 
     std::vector<Selene::Scalar> leaves_to_trim;
@@ -428,7 +432,9 @@ CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_to_trim(
     const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const
 {
     CurveTreesV1::LastHashes last_hashes;
-    CHECK_AND_ASSERT_THROW_MES(!trim_instructions.empty(), "no instructions");
+
+    if (trim_instructions.empty())
+        return last_hashes;
 
     bool parent_is_c2 = true;
     std::size_t c1_idx = 0;
@@ -500,8 +506,13 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples)
     const auto &c1_layers = m_tree.c1_layers;
     const auto &c2_layers = m_tree.c2_layers;
 
-    CHECK_AND_ASSERT_MES(!leaves.empty(), false, "must have at least 1 leaf in tree");
     CHECK_AND_ASSERT_MES(leaves.size() == expected_n_leaf_tuples, false, "unexpected num leaves");
+
+    if (leaves.empty())
+    {
+        CHECK_AND_ASSERT_MES(c2_layers.empty() && c1_layers.empty(), false, "expected empty tree");
+        return true;
+    }
 
     CHECK_AND_ASSERT_MES(!c2_layers.empty(), false, "must have at least 1 c2 layer in tree");
     CHECK_AND_ASSERT_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
@@ -851,7 +862,7 @@ static bool trim_tree_in_memory(const std::size_t trim_n_leaf_tuples,
     CurveTreesGlobalTree &&global_tree)
 {
     const std::size_t old_n_leaf_tuples = global_tree.get_num_leaf_tuples();
-    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples > trim_n_leaf_tuples, "cannot trim more leaves than exist");
+    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= trim_n_leaf_tuples, "cannot trim more leaves than exist");
     CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
 
     // Trim the global tree by `trim_n_leaf_tuples`
@@ -1014,17 +1025,17 @@ TEST(curve_trees, trim_tree)
     ++leaves_needed_for_n_layers;
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 2; init_leaves <= leaves_needed_for_n_layers; ++init_leaves)
+    for (std::size_t init_leaves = 1; init_leaves <= leaves_needed_for_n_layers; ++init_leaves)
     {
         LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
         CurveTreesGlobalTree global_tree(*curve_trees);
 
         ASSERT_TRUE(grow_tree(*curve_trees, global_tree, init_leaves));
 
-        // Then extend the tree with ext_leaves
+        // Then trim by trim_leaves
         for (std::size_t trim_leaves = 1; trim_leaves < leaves_needed_for_n_layers; ++trim_leaves)
         {
-            if (trim_leaves >= init_leaves)
+            if (trim_leaves > init_leaves)
                 continue;
 
             // Copy the already existing global tree
