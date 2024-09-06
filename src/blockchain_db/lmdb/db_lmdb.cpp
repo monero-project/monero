@@ -1266,7 +1266,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   // Remove output from locked outputs table. We expect the output to be in the
   // locked outputs table because remove_output is called when removing the
   // top block from the chain, and all outputs from the top block are expected
-  // to be locked until they are at least 10 blocks old.
+  // to be locked until they are at least 10 blocks old (10 is the lower bound).
   CURSOR(locked_outputs);
 
   const uint64_t unlock_block = cryptonote::get_unlock_block_index(ok->data.unlock_time, ok->data.height);
@@ -1630,7 +1630,6 @@ void BlockchainLMDB::trim_tree(const uint64_t trim_n_leaf_tuples, const uint64_t
         throw0(DB_ERROR(lmdb_error("Failed to get last elem: ", result).c_str()));
 
       const uint64_t last_layer_idx = *(uint64_t *)k.mv_data;
-
       if (last_layer_idx > expected_root_idx)
       {
         // Delete all elements in layers after the root

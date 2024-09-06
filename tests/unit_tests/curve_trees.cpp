@@ -801,7 +801,7 @@ static const Selene::Scalar generate_random_selene_scalar()
     return fcmp_pp::tower_cycle::selene_scalar_from_bytes(S_x);
 }
 //----------------------------------------------------------------------------------------------------------------------
-static bool grow_tree(CurveTreesV1 &curve_trees,
+static bool grow_tree_in_memory(CurveTreesV1 &curve_trees,
     CurveTreesGlobalTree &global_tree,
     const std::size_t new_n_leaf_tuples)
 {
@@ -843,7 +843,7 @@ static bool grow_and_extend_tree_in_memory(const std::size_t init_leaves,
     // Initialize global tree with `init_leaves`
     MDEBUG("Adding " << init_leaves << " leaves to tree");
 
-    bool res = grow_tree(curve_trees, global_tree, init_leaves);
+    bool res = grow_tree_in_memory(curve_trees, global_tree, init_leaves);
     CHECK_AND_ASSERT_MES(res, false, "failed to add inital leaves to tree in memory");
 
     MDEBUG("Successfully added initial " << init_leaves << " leaves to tree in memory");
@@ -851,7 +851,7 @@ static bool grow_and_extend_tree_in_memory(const std::size_t init_leaves,
     // Then extend the global tree by `ext_leaves`
     MDEBUG("Extending tree by " << ext_leaves << " leaves");
 
-    res = grow_tree(curve_trees, global_tree, ext_leaves);
+    res = grow_tree_in_memory(curve_trees, global_tree, ext_leaves);
     CHECK_AND_ASSERT_MES(res, false, "failed to extend tree in memory");
 
     MDEBUG("Successfully extended by " << ext_leaves << " leaves in memory");
@@ -950,6 +950,24 @@ static bool trim_tree_db(const std::size_t init_leaves,
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
+#define INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth)                          \
+    static_assert(helios_chunk_width > 1, "helios width must be > 1");                                     \
+    static_assert(selene_chunk_width > 1, "selene width must be > 1");                                     \
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width); \
+                                                                                                           \
+    /* Number of leaves required for tree to reach given depth */                                          \
+    std::size_t min_leaves_needed_for_tree_depth = selene_chunk_width;                                     \
+    for (std::size_t i = 1; i < tree_depth; ++i)                                                           \
+    {                                                                                                      \
+        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;                    \
+        min_leaves_needed_for_tree_depth *= width;                                                         \
+    }                                                                                                      \
+                                                                                                           \
+    /* Increment to test for off-by-1 */                                                                   \
+    ++min_leaves_needed_for_tree_depth;                                                                    \
+                                                                                                           \
+    unit_test::BlockchainLMDBTest test_db;                                                                 \
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Test
 //----------------------------------------------------------------------------------------------------------------------
@@ -959,36 +977,19 @@ TEST(curve_trees, grow_tree)
     static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 2;
 
-    static_assert(helios_chunk_width > 1, "helios width must be > 1");
-    static_assert(selene_chunk_width > 1, "selene width must be > 1");
+    static const std::size_t tree_depth = 4;
 
     LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width);
+        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth);
 
-    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
-
-    // Constant for how deep we want the tree
-    static const std::size_t TEST_N_LAYERS = 4;
-
-    // Number of leaves for which x number of layers is required
-    std::size_t leaves_needed_for_n_layers = selene_chunk_width;
-    for (std::size_t i = 1; i < TEST_N_LAYERS; ++i)
-    {
-        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
-        leaves_needed_for_n_layers *= width;
-    }
-
-    unit_test::BlockchainLMDBTest test_db;
-
-    // Increment to test for off-by-1
-    ++leaves_needed_for_n_layers;
+    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 1; init_leaves < leaves_needed_for_n_layers; ++init_leaves)
+    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves)
     {
         // TODO: init tree once, then extend a copy of that tree
         // Then extend the tree with ext_leaves
-        for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) <= leaves_needed_for_n_layers; ++ext_leaves)
+        for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) <= min_leaves_needed_for_tree_depth; ++ext_leaves)
         {
             ASSERT_TRUE(grow_and_extend_tree_in_memory(init_leaves, ext_leaves, *curve_trees));
 
@@ -1004,40 +1005,22 @@ TEST(curve_trees, trim_tree)
     static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 3;
 
-    static_assert(helios_chunk_width > 1, "helios width must be > 1");
-    static_assert(selene_chunk_width > 1, "selene width must be > 1");
+    static const std::size_t tree_depth = 4;
 
     LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width);
+        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth);
 
-    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
-
-    // Constant for how deep we want the tree
-    static const std::size_t TEST_N_LAYERS = 4;
-
-    // Number of leaves for which x number of layers is required
-    std::size_t leaves_needed_for_n_layers = selene_chunk_width;
-    for (std::size_t i = 1; i < TEST_N_LAYERS; ++i)
-    {
-        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
-        leaves_needed_for_n_layers *= width;
-    }
-
-    unit_test::BlockchainLMDBTest test_db;
-
-    // Increment to test for off-by-1
-    ++leaves_needed_for_n_layers;
+    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 1; init_leaves <= leaves_needed_for_n_layers; ++init_leaves)
+    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves)
     {
         LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
         CurveTreesGlobalTree global_tree(*curve_trees);
-
-        ASSERT_TRUE(grow_tree(*curve_trees, global_tree, init_leaves));
+        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, global_tree, init_leaves));
 
         // Then trim by trim_leaves
-        for (std::size_t trim_leaves = 1; trim_leaves < leaves_needed_for_n_layers; ++trim_leaves)
+        for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
         {
             if (trim_leaves > init_leaves)
                 continue;
@@ -1054,46 +1037,29 @@ TEST(curve_trees, trim_tree)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, trim_tree_then_grow)
 {
-    static const std::size_t grow_after_trim = 1;
-
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
     static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 3;
 
-    static_assert(helios_chunk_width > 1, "helios width must be > 1");
-    static_assert(selene_chunk_width > 1, "selene width must be > 1");
+    static const std::size_t tree_depth = 2;
+
+    static const std::size_t grow_after_trim = 1;
 
     LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width);
+        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth
+        << ", then grow " << grow_after_trim << " leaf/leaves");
 
-    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
-
-    // Constant for how deep we want the tree
-    static const std::size_t TEST_N_LAYERS = 2;
-
-    // Number of leaves for which x number of layers is required
-    std::size_t leaves_needed_for_n_layers = selene_chunk_width;
-    for (std::size_t i = 1; i < TEST_N_LAYERS; ++i)
-    {
-        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
-        leaves_needed_for_n_layers *= width;
-    }
-
-    unit_test::BlockchainLMDBTest test_db;
-
-    // Increment to test for off-by-1
-    ++leaves_needed_for_n_layers;
+    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 1; init_leaves <= leaves_needed_for_n_layers; ++init_leaves)
+    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves)
     {
         LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
         CurveTreesGlobalTree global_tree(*curve_trees);
-
-        ASSERT_TRUE(grow_tree(*curve_trees, global_tree, init_leaves));
+        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, global_tree, init_leaves));
 
         // Then trim by trim_leaves
-        for (std::size_t trim_leaves = 1; trim_leaves < leaves_needed_for_n_layers; ++trim_leaves)
+        for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
         {
             if (trim_leaves > init_leaves)
                 continue;
@@ -1102,12 +1068,12 @@ TEST(curve_trees, trim_tree_then_grow)
             CurveTreesGlobalTree tree_copy(global_tree);
 
             ASSERT_TRUE(trim_tree_in_memory(trim_leaves, tree_copy));
-            ASSERT_TRUE(grow_tree(*curve_trees, tree_copy, grow_after_trim));
+            ASSERT_TRUE(grow_tree_in_memory(*curve_trees, tree_copy, grow_after_trim));
 
             INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
             ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, curve_trees, test_db));
             cryptonote::db_wtxn_guard guard(test_db.m_db);
-            const std::size_t expected_n_leaves = init_leaves - trim_leaves + grow_after_trim;
+            const std::size_t expected_n_leaves = grow_after_trim + init_leaves - trim_leaves;
             ASSERT_TRUE(grow_tree_db(grow_after_trim, expected_n_leaves, curve_trees, test_db));
         }
     }
