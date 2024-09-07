@@ -82,6 +82,26 @@ private:
     uint64_t    m_confirmations;
     uint64_t    m_unlock_time;
 
+// TODO : If it's certain that we need these, then add getter functions (to `TransactionInfo` in wallet2_api.h and `TransactionInfoImpl` in transaction_info.*) and add values to new members where applicable (e.g. in `TransactionHistoryImpl`)
+
+// from unconfirmed_transfer_details
+    uint64_t m_change;
+    // QUESTION : Can someone confirm that we don't need m_dests, because we have:
+    //              - amount        = m_transfers[i].amount
+    //              - address       = m_transfers[i].address
+    //              - is_subaddress = m_subaddrIndex[i] != 0
+    //            I'm especially unsure about this assumption, wasn't able to verify it:
+    //              - is_integrated = WalletImpl::integratedAddress(m_paymentid) == m_transfers[i].address
+    //            And I haven't figured this one out yet
+    //              - original      =
+    std::vector<cryptonote::tx_destination_entry> m_dests;
+    enum { pending, pending_in_pool, failed, confirmed } m_tx_state;
+    // QUESTION : Any comments if we need this? Haven't investigated yet.
+    std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
+
+// from unconfirmed_payments
+    bool m_double_spend_seen;
+
     friend class TransactionHistoryImpl;
 
 };

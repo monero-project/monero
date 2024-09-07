@@ -247,11 +247,10 @@ public:
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
     virtual WalletState getWalletState() const = 0;
     bool hasUnknownKeyImages() const override;
-    void rewrite(const std::string &wallet_name, const std::string &password) override;
+    void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
     void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) override;
     std::map<std::uint32_t, std::uint64_t> balancePerSubaddress(std::uint32_t index_major, bool strict) const override;
     std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict) const override;
-    bool isTransferUnlocked(std::uint64_t unlock_time, std::uint64_t block_height) const override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
     void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) override;
     std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
@@ -262,15 +261,12 @@ public:
 //    bool loadMultisigTxFromFile(const std::string &filename, PendingTransaction &exported_txs, std::function<bool(const PendingTransaction&)> accept_func) const override;
     std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;
     std::uint64_t getBaseFee() const override;
-    std::uint64_t getMinRingSize() const override;
-    std::uint64_t adjustMixin(std::uint64_t mixin) const override;
     std::uint32_t adjustPriority(std::uint32_t priority) const override;
     void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const override;
 //    void coldSignTx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux) const override;
 //    const wallet2::transfer_details &getTransferDetails(std::size_t idx) const override;
     void discardUnmixableOutputs() override;
     void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress) override;
-    std::string getDaemonAddress() const override;
     std::uint64_t getDaemonAdjustedTime() const override;
     void setCacheDescription(const std::string &description) override;
     std::string getCacheDescription() const override;
@@ -280,7 +276,6 @@ public:
     std::string exportOutputsToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const override;
     std::size_t importOutputsFromStr(const std::string &outputs_str) override;
     std::uint64_t getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const override;
-    bool isSynced() const override;
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels) const override;
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees) const override;
     bool saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const override;

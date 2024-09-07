@@ -70,6 +70,51 @@ enum NetworkType : uint8_t {
     };
 
 /**
+* brief: EnoteDetails - Container for all the necessary information that belongs to an enote
+*/
+struct EnoteDetails
+{
+// from seraphis legacy enote types
+    // Ko
+    rct::key onetime_address;
+    /// a
+    rct::xmr_amount amount;
+    /// C
+    rct::key amount_commitment;
+    /// enc(x)
+    rct::key encoded_amount_blinding_factor;
+    /// enc(a)
+    rct::key encoded_amount;
+    /// view_tag
+    crypto::view_tag view_tag;
+
+    // TODO : figure out if we need other members from transfer_details too, these are the ones that are not part of `TransactionInfo`, but my first impression is we could have an overlap so we can find TransactionInfo from EnoteDetails and vice versa.
+// from transfer_details:
+    cryptonote::transaction_prefix m_tx;
+    // index in m_tx.vout
+    uint64_t m_internal_output_index;
+    uint64_t m_global_output_index;
+    bool m_spent;
+    bool m_frozen;
+    uint64_t m_spent_height;
+    crypto::key_image m_key_image;
+    rct::key m_mask;
+    bool m_rct;
+    bool m_key_image_known;
+    bool m_key_image_request; // view wallets: we want to request it; cold wallets: it was requested
+    // TODO : fwiw so far this only is used for get_tx_pub_key_from_extra, figure out if actually needed.
+    uint64_t m_pk_index;
+    // TODO : This gets only filled by `wallet2::process_new_transaction` and only if `wallet2::m_track_uses` is true (default is false). Figure out if it's "too exotic" or do we need it.
+    std::vector<std::pair<uint64_t, crypto::hash>> m_uses;
+
+// QUESTION : Any input on these multisig members?
+    // Multisig
+    bool m_key_image_partial;
+    std::vector<rct::key> m_multisig_k;
+    std::vector<multisig_info> m_multisig_info; // one per other participant
+};
+
+/**
  * @brief Transaction-like interface for sending money
  */
 struct PendingTransaction
@@ -456,6 +501,8 @@ struct Wallet
 
     struct WalletState {
         bool is_deprecated;
+        std::uint64_t ring_rize;
+        std::string daemon_address;
     };
 
     virtual ~Wallet() = 0;
@@ -1162,7 +1209,6 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual std::string getMultisigSeed(const std::string &seed_offset) const = 0;
-    // TODO : Would this better fit in one of `Subaddress`/`SubaddressAccount` classes?
     /**
     * brief: getSubaddressIndex - get major and minor index of provided subaddress
     * param: address - main- or sub-address to get the index from
@@ -1206,10 +1252,6 @@ struct Wallet
     virtual bool isFrozen(const std::string &key_image) const = 0;
     virtual bool isFrozen(const PendingTransaction &multisig_ptxs) const = 0;
     virtual bool isFrozen(const std::string multisig_sign_data) const = 0;
-    // QUESTION : Should we add a note/warning that this should only be used in special cases? (Also addSubaddress & addSubaddressAccount do not refresh the known account/subaddress, if that's not for a good reason (that I don't see) I would either add refresh or at least give the same warning like the second line from the comment below. Seems the GUI only uses the addRow functions: https://github.com/search?q=repo%3Amonero-project/monero-gui%20addRow&type=code not the addSubaddress* ones https://github.com/search?q=repo%3Amonero-project/monero-gui%20addSubaddress&type=code ) e.g. something like:
-    // brief: createOneOffSubaddress - create a new account or subaddress for given index without adding it to known accounts and subaddresses.
-    //                                 use `SubaddressAccount::addRow()` or `Subaddress::addRow()` instead to make sure the wallet keeps track of accounts and subaddresses
-
     /**
     * brief: createOneOffSubaddress - create a subaddress for given index
     * param: account_index - major index
@@ -1228,12 +1270,12 @@ struct Wallet
     */
     virtual bool hasUnknownKeyImages() const = 0;
     /**
-    * brief: rewrite - rewrite the wallet file for wallet update
+    * brief: rewriteWalletFile - rewrite the wallet file for wallet update
     * param: wallet_name - name of the wallet file (should exist)
     * param: password - wallet password
     * note: sets status error on fail
     */
-    virtual void rewrite(const std::string &wallet_name, const std::string &password) = 0;
+    virtual void rewriteWalletFile(const std::string &wallet_name, const std::string &password) = 0;
     // QUESTION : Should we change this function from the current behavior in wallet2, so `wallet_name` is just the name of the new wallet instead of changing the `m_wallet_file` for the current wallet?
     /**
     * brief: writeWatchOnlyWallet -  create a new watch-only wallet file with view keys from current wallet
@@ -1257,14 +1299,6 @@ struct Wallet
     * return: [minor subaddress index: {amount, {blocks to unlock, time to unlock} }, ... ]
     */
     virtual std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict) const = 0;
-    // QUESTION : Can anyone help with this comment? There are other ones I'm not satisfied with, so if you have a better suggestion I'll change them.
-    /**
-    * brief: isTransferUnlocked - check if transfer is unlocked
-    * param: unlock_time -
-    * param: block_height -
-    * return: true if transfer is unlocked, else false
-    */
-    virtual bool isTransferUnlocked(std::uint64_t unlock_time, std::uint64_t block_height) const = 0;
     /**
     * brief: updatePoolState -
     * outparam: process_txs - [ [tx, tx_id, double_spend_seen], ... ]
@@ -1429,18 +1463,6 @@ struct Wallet
     */
     virtual std::uint64_t getBaseFee() const = 0;
     /**
-    * brief: getMinRingSize - get the minimum allowed ring size
-    * return: min ring size
-    */
-    virtual std::uint64_t getMinRingSize() const = 0;
-    // TODO : Should we make this static?
-    /**
-    * brief: adjustMixin - adjust mixin to fit into min and max ring size
-    * param: mixin -
-    * return: adjusted mixin
-    */
-    virtual std::uint64_t adjustMixin(std::uint64_t mixin) const = 0;
-    /**
     * brief: adjustPriority - adjust priority depending on how "full" last N blocks are
     * param: priority -
     * return: adjusted priority
@@ -1497,11 +1519,6 @@ struct Wallet
     // QUESTION : There were some cases already where I wished to have boost::optional in here. I have no explicit example, but in general e.g. for functions that return a bool, but have to return early on error, it would be cleaner to return boost::none instead of true/false, because the API user could forget to check the error status and may use an incorrect value. Similar for uint*_t, where we can't use e.g. -1 on error.
     //            If we add access to boost::optional revisit all new functions to see which would benefit from it.
     virtual void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress) = 0;
-    /**
-    * brief: getDaemonAddress -
-    * return: daemon address
-    */
-    virtual std::string getDaemonAddress() const = 0;
     /**
     * brief: getDaemonAdjustedTime -
     * return: daemon adjusted time
@@ -1562,12 +1579,6 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual std::uint64_t getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const = 0;
-    /**
-    * brief: isSynced -
-    * return: true if wallet is synced with daemon, else false
-    * note: sets status error on fail
-    */
-    virtual bool isSynced() const = 0;
     // QUESTION : Can anyone help with these comments?
     /**
     * brief: estimateBacklog -

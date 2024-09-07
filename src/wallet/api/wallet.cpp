@@ -1087,6 +1087,8 @@ bool WalletImpl::synchronized() const
 bool WalletImpl::refresh()
 {
     clearStatus();
+    //TODO: make doRefresh return bool to know whether the error occured during refresh or not
+    //otherwise one may try, say, to send transaction, transfer fails and this method returns false
     doRefresh();
     return status() == Status_Ok;
 }
@@ -3043,7 +3045,10 @@ void WalletImpl::createOneOffSubaddress(std::uint32_t account_index, std::uint32
 WalletState WalletImpl::getWalletState()
 {
     WalletState wallet_state{};
+
     wallet_state.is_deprecated = m_wallet->is_deprecated();
+    wallet_state.ring_size = 16;
+    wallet_state.daemon_address = m_wallet->get_daemon_address();
 
     return wallet_state;
 }
@@ -3053,7 +3058,7 @@ bool WalletImpl::hasUnknownKeyImages()
     return m_wallet->has_unknown_key_images();
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::rewrite(const std::string &wallet_name, const std::string &password)
+void WalletImpl::rewriteWalletFile(const std::string &wallet_name, const std::string &password)
 {
     clearStatus();
 
@@ -3091,11 +3096,6 @@ std::map<std::uint32_t, std::uint64_t> WalletImpl::balancePerSubaddress(std::uin
 std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> WalletImpl::unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict)
 {
     return m_wallet->unlocked_balance_per_subaddress(index_major, strict);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::isTransferUnlocked(std::uint64_t unlock_time, std::uint64_t block_height)
-{
-    return m_wallet->is_transfer_unlocked(unlock_time, block_height);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed, bool try_incremental)
@@ -3283,26 +3283,6 @@ std::uint64_t WalletImpl::getBaseFee()
     return m_wallet->get_dynamic_base_fee_estimate();
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::getMinRingSize()
-{
-    if (useForkRules(HF_VERSION_MIN_MIXIN_15, 0))
-        return 16;
-    if (useForkRules(8, 10))
-        return 11;
-    if (useForkRules(7, 10))
-        return 7;
-    if (useForkRules(6, 10))
-        return 5;
-    if (useForkRules(2, 10))
-        return 3;
-    return 0;
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::adjustMixin(std::uint64_t mixin)
-{
-    return m_wallet->adjust_mixin(mixin);
-}
-//-------------------------------------------------------------------------------------------------------------------
 std::uint32_t WalletImpl::adjustPriority(std::uint32_t priority)
 {
     clearStatus();
@@ -3416,11 +3396,6 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::getDaemonAddress()
-{
-    return m_wallet->get_daemon_address();
-}
-//-------------------------------------------------------------------------------------------------------------------
 std::uint64_t WalletImpl::getDaemonAdjustedTime()
 {
     clearStatus();
@@ -3524,21 +3499,6 @@ std::uint64_t WalletImpl::getBlockchainHeightByDate(std::uint16_t year, std::uin
     catch (const std::exception &e)
     {
         setStatusError((boost::format(tr("Failed to get blockchain height by date. Error: %s")) % e.what()).str());
-    }
-    return 0;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool isSynced()
-{
-    clearStatus();
-
-    try
-    {
-        return m_wallet->is_synced();
-    }
-    catch (const std::exception &e)
-    {
-        setStatusError((boost::format(tr("Failed to check if wallet is synced. Error: %s")) % e.what()).str());
     }
     return 0;
 }
