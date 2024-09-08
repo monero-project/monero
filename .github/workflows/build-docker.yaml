@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Ensure submodules are checked out
 
       - name: Install Dependencies
         run: |
