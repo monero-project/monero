@@ -1,0 +1,113 @@
+name: ci/gh-actions/depends
+
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+
+env:
+  APT_SET_CONF: |
+        echo "Acquire::Retries \"3\";"         | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::ftp::Timeout \"120\";"  | sudo tee -a /etc/apt/apt.conf.d/80-custom
+  CCACHE_SETTINGS: |
+        ccache --max-size=150M
+        ccache --set-config=compression=true
+  USE_DEVICE_TREZOR_MANDATORY: ON
+
+jobs:
+  build-cross:
+    runs-on: ubuntu-20.04
+    env:
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - name: "RISCV 64bit"
+            host: "riscv64-linux-gnu"
+            packages: "python3 gperf g++-riscv64-linux-gnu"
+          - name: "ARM v7"
+            host: "arm-linux-gnueabihf"
+            packages: "python3 gperf g++-arm-linux-gnueabihf"
+          - name: "ARM v8"
+            host: "aarch64-linux-gnu"
+            packages: "python3 gperf g++-aarch64-linux-gnu"
+          - name: "i686 Win"
+            host: "i686-w64-mingw32"
+            packages: "python3 g++-mingw-w64-i686"
+          - name: "i686 Linux"
+            host: "i686-pc-linux-gnu"
+            packages: "gperf cmake g++-multilib python3-zmq"
+          - name: "Win64"
+            host: "x86_64-w64-mingw32"
+            packages: "cmake python3 g++-mingw-w64-x86-64"
+          - name: "x86_64 Linux"
+            host: "x86_64-unknown-linux-gnu"
+            packages: "gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
+          - name: "Cross-Mac x86_64"
+            host: "x86_64-apple-darwin"
+            packages: "cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
+          - name: "Cross-Mac aarch64"
+            host: "aarch64-apple-darwin"
+            packages: "cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
+          - name: "x86_64 Freebsd"
+            host: "x86_64-unknown-freebsd"
+            packages: "clang-8 gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
+          - name: "ARMv8 Android"
+            host: "aarch64-linux-android"
+            packages: "gperf cmake python3"
+    name: ${{ matrix.toolchain.name }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+# Most volatile cache
+    - name: ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
+        restore-keys: ccache-${{ matrix.toolchain.host }}-
+# Less volatile cache
+    - name: depends cache
+      uses: actions/cache@v4
+      with:
+        path: contrib/depends/built
+        key: depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+        restore-keys: |
+          depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+          depends-${{ matrix.toolchain.host }}-
+# Static cache
+    - name: OSX SDK cache
+      uses: actions/cache@v4
+      with:
+        path: contrib/depends/sdk-sources
+        key: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
+        restore-keys: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: install dependencies
+      run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+    - name: prepare w64-mingw32
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'i686-w64-mingw32' }}
+      run: |
+        sudo update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
+        sudo update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
+    - name: build
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        make depends target=${{ matrix.toolchain.host }} -j2
+    - uses: actions/upload-artifact@v4
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'aarch64-apple-darwin' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
+      with:
+        name: ${{ matrix.toolchain.name }}
+        path: |
+          /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/build/${{ matrix.toolchain.host }}/release/bin/monero-wallet-cli*
+          /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/build/${{ matrix.toolchain.host }}/release/bin/monerod*

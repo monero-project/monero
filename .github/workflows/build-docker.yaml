@@ -1,0 +1,84 @@
+name: Build Docker Image
+
+on:
+  release:
+    types:
+      - published
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+
+env:
+  LATEST_TAG: nyancod3r/monero_cli:${{ github.event.release.tag_name }}
+  REMOVE_BUNDLED_PACKAGES: sudo rm -rf /usr/local
+  BUILD_DEFAULT_LINUX: |
+    cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build -j3
+  APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
+  APT_SET_CONF: |
+    echo "Acquire::Retries \"3\";"         | sudo tee -a /etc/apt/apt.conf.d/80-custom
+    echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+    echo "Acquire::ftp::Timeout \"120\";"  | sudo tee -a /etc/apt/apt.conf.d/80-custom
+  CCACHE_SETTINGS: |
+    ccache --max-size=150M
+    ccache --set-config=compression=true
+  USE_DEVICE_TREZOR_MANDATORY: ON
+
+jobs:
+  build-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache
+
+      - name: Remove Bundled Packages
+        run: ${{ env.REMOVE_BUNDLED_PACKAGES }}
+
+      - name: Set APT Conf
+        run: ${{ env.APT_SET_CONF }}
+
+      - name: Build Project
+        run: |
+          ${{ env.CCACHE_SETTINGS }}
+          ${{ env.BUILD_DEFAULT_LINUX }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker Image
+        run: |
+          docker build --build-arg USE_DEVICE_TREZOR=OFF -t ${{ env.LATEST_TAG }} .
+          docker tag ${{ env.LATEST_TAG }} nyancod3r/monero_cli:${{ github.sha }}
+          inspect_output=$(docker inspect "${{ env.LATEST_TAG }}")
+          echo "Docker Inspect Output: $inspect_output"
+
+      - name: Extract Hash from Logs
+        run: |
+          image_sha256=$(echo "$inspect_output" | jq -r '.[0].Id')
+          echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
+
+      - name: Push Docker Image
+        run: docker push ${{ env.LATEST_TAG }}
+
+      - name: Update Release Description
+        run: |
+          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/tags/${{ github.ref }}" | jq -r '.id')
+          current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/$release_id" | jq -r '.body')
+
+          # Append the SHA256 hash to the existing release description
+          updated_description="${current_description}"$'\n'"$(cat image_description.txt)"
+
+          # Update the release with the new description
+          curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" -X PATCH --data "{\"body\":\"${updated_description}\"}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/$release_id"

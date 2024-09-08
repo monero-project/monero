@@ -1,0 +1,195 @@
+name: ci/gh-actions/cli
+
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+
+# The below variables reduce repetitions across similar targets
+env:
+  REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
+  BUILD_DEFAULT_LINUX: |
+        cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build -j3
+  APT_INSTALL_LINUX: 'sudo apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache'
+  APT_SET_CONF: |
+        echo "Acquire::Retries \"3\";"         | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::http::Timeout \"120\";" | sudo tee -a /etc/apt/apt.conf.d/80-custom
+        echo "Acquire::ftp::Timeout \"120\";"  | sudo tee -a /etc/apt/apt.conf.d/80-custom
+  CCACHE_SETTINGS: |
+        ccache --max-size=150M
+        ccache --set-config=compression=true
+  USE_DEVICE_TREZOR_MANDATORY: ON
+
+jobs:
+  build-macos:
+    runs-on: macOS-latest
+    env:
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/cache@v4
+      with:
+        path: /Users/runner/Library/Caches/ccache
+        key: ccache-${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-
+    - name: install dependencies
+      run: |
+        HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf@21 ccache
+        brew link protobuf@21
+    - name: build
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        make -j3
+
+  build-windows:
+    runs-on: windows-latest
+    env:
+      CCACHE_TEMPDIR: C:\Users\runneradmin\.ccache-temp
+      CCACHE_DIR: C:\Users\runneradmin\.ccache
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/cache@v4
+      with:
+        path: C:\Users\runneradmin\.ccache
+        key: ccache-${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-
+    - uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
+    - shell: msys2 {0}
+      run: |
+           curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst
+           curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
+           pacman --noconfirm -U mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
+    - name: build
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        make release-static-win64 -j2
+
+# See the OS labels and monitor deprecations here:
+# https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
+
+  build-ubuntu:
+    runs-on: ${{ matrix.os }}
+    env:
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: ${{env.APT_INSTALL_LINUX}}
+    - name: build
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        ${{env.BUILD_DEFAULT_LINUX}}
+
+  libwallet-ubuntu:
+    runs-on: ubuntu-20.04
+    env:
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-libwallet-
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: ${{env.APT_INSTALL_LINUX}}
+    - name: build
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        cmake .
+        make wallet_api -j3
+
+  test-ubuntu:
+    needs: build-ubuntu
+    runs-on: ubuntu-20.04
+    env:
+      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-ubuntu-latest
+    - name: remove bundled packages
+      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
+    - name: set apt conf
+      run: ${{env.APT_SET_CONF}}
+    - name: update apt
+      run: sudo apt update
+    - name: install monero dependencies
+      run: ${{env.APT_INSTALL_LINUX}}
+    - name: install Python dependencies
+      run: pip install requests psutil monotonic zmq deepdiff
+    - name: tests
+      env:
+        CTEST_OUTPUT_ON_FAILURE: ON
+        DNS_PUBLIC: tcp://9.9.9.9
+      run: |
+        ${{env.CCACHE_SETTINGS}}
+        ${{env.BUILD_DEFAULT_LINUX}}
+        cmake --build build --target test
+
+# ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
+# BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
+
+  source-archive:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
+    - name: archive
+      run: |
+        pip install git-archive-all
+        export VERSION="monero-$(git describe)"
+        export OUTPUT="$VERSION.tar"
+        echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
+        /home/runner/.local/bin/git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.OUTPUT }}
+        path: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/${{ env.OUTPUT }}
