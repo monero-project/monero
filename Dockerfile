@@ -5,6 +5,7 @@ FROM ubuntu:20.04 as builder
 
 RUN set -ex && \
     apt-get update && \
+    apt-get install -y python3 \
     DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends --yes install \
         automake \
         autotools-dev \
