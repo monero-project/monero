@@ -35,23 +35,25 @@
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
 
-find_package(Miniupnpc REQUIRED)
+find_package(Miniupnpc)
 
-message(STATUS "Using in-tree miniupnpc")
-set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation" FORCE)
-add_subdirectory(miniupnp/miniupnpc)
-set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
-set_property(TARGET libminiupnpc-static PROPERTY POSITION_INDEPENDENT_CODE ON)
-if(MSVC)
-  set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -wd4244 -wd4267")
-elseif(NOT MSVC)
-  set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
-endif()
-if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
-	set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -D_NETBSD_SOURCE")
-endif()
+if(NOT MINIUPNP_FOUND)
+  message(STATUS "Using in-tree miniupnpc")
+  set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation" FORCE)
+  add_subdirectory(miniupnp/miniupnpc)
+  set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
+  set_property(TARGET libminiupnpc-static PROPERTY POSITION_INDEPENDENT_CODE ON)
+  if(MSVC)
+    set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -wd4244 -wd4267")
+  elseif(NOT MSVC)
+    set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
+  endif()
+  if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
+    set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -D_NETBSD_SOURCE")
+  endif()
 
-set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
+  set(MINIUPNP_LIBRARY "libminiupnpc-static" PARENT_SCOPE)
+endif()
 
 find_package(Unbound)
 
