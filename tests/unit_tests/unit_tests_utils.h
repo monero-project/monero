@@ -125,8 +125,7 @@ namespace unit_test
       const std::string dest_path = m_temp_db_dir + temp_db_path.string();
       CHECK_AND_ASSERT_THROW_MES(boost::filesystem::create_directories(dest_path),
         "failed to create new db dirs");
-      CHECK_AND_ASSERT_THROW_MES(boost::filesystem::copy_file(lmdb_data_path, dest_path + "/data.mdb"),
-        "failed to copy db data");
+      boost::filesystem::copy_file(lmdb_data_path, dest_path + "/data.mdb");
 
       // Open db copy
       BlockchainLMDBTest *copy_db = new BlockchainLMDBTest(true/*is_copy*/);
