@@ -865,6 +865,8 @@ static bool grow_tree_db(const std::size_t expected_old_n_leaf_tuples,
     std::shared_ptr<CurveTreesV1> curve_trees,
     unit_test::BlockchainLMDBTest &test_db)
 {
+    cryptonote::db_wtxn_guard guard(test_db.m_db);
+
     CHECK_AND_ASSERT_MES(test_db.m_db->get_num_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
         false, "unexpected starting n leaf tuples in db");
 
@@ -875,50 +877,24 @@ static bool grow_tree_db(const std::size_t expected_old_n_leaf_tuples,
     return test_db.m_db->audit_tree(expected_old_n_leaf_tuples + n_leaves);
 }
 //----------------------------------------------------------------------------------------------------------------------
-static bool grow_and_extend_tree_db(const std::size_t init_leaves,
-    const std::size_t ext_leaves,
-    std::shared_ptr<CurveTreesV1> curve_trees,
-    unit_test::BlockchainLMDBTest &test_db)
-{
-    cryptonote::db_wtxn_guard guard(test_db.m_db);
-
-    LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then extending by " << ext_leaves << " leaves");
-
-    CHECK_AND_ASSERT_MES(grow_tree_db(0, init_leaves, curve_trees, test_db), false,
-        "failed to add initial leaves to db");
-
-    MDEBUG("Successfully added initial " << init_leaves << " leaves to db, extending by "
-        << ext_leaves << " leaves");
-
-    CHECK_AND_ASSERT_MES(grow_tree_db(init_leaves, ext_leaves, curve_trees, test_db), false,
-        "failed to extend tree in db");
-
-    MDEBUG("Successfully extended tree in db by " << ext_leaves << " leaves");
-
-    return true;
-}
-//----------------------------------------------------------------------------------------------------------------------
-static bool trim_tree_db(const std::size_t init_leaves,
+static bool trim_tree_db(const std::size_t expected_old_n_leaf_tuples,
     const std::size_t trim_leaves,
-    std::shared_ptr<CurveTreesV1> curve_trees,
     unit_test::BlockchainLMDBTest &test_db)
 {
     cryptonote::db_wtxn_guard guard(test_db.m_db);
 
-    LOG_PRINT_L1("Adding " << init_leaves << " leaves to db, then trimming by " << trim_leaves << " leaves");
+    CHECK_AND_ASSERT_THROW_MES(expected_old_n_leaf_tuples >= trim_leaves, "cannot trim more leaves than exist");
+    CHECK_AND_ASSERT_THROW_MES(trim_leaves > 0, "must be trimming some leaves");
 
-    auto init_outputs = generate_random_leaves(*curve_trees, 0, init_leaves);
+    LOG_PRINT_L1("Trimming " << trim_leaves << " leaf tuples from tree with "
+        << expected_old_n_leaf_tuples << " leaves in db");
 
-    test_db.m_db->grow_tree(std::move(init_outputs));
-    CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(init_leaves), false,
-        "failed to add initial leaves to db");
+    CHECK_AND_ASSERT_MES(test_db.m_db->get_num_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
+        false, "trimming unexpected starting n leaf tuples in db");
 
-    MDEBUG("Successfully added initial " << init_leaves << " leaves to db, trimming by "
-        << trim_leaves << " leaves");
-
-    // Can use 0 from trim_block_id since it's unused in tests
+    // Can use 0 for trim_block_id since it's unused in tests
     test_db.m_db->trim_tree(trim_leaves, 0);
-    CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(init_leaves - trim_leaves), false,
+    CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(expected_old_n_leaf_tuples - trim_leaves), false,
         "failed to trim tree in db");
 
     MDEBUG("Successfully trimmed tree in db by " << trim_leaves << " leaves");
@@ -944,10 +920,25 @@ static bool trim_tree_db(const std::size_t init_leaves,
                                                                                                            \
     unit_test::BlockchainLMDBTest test_db;                                                                 \
 //----------------------------------------------------------------------------------------------------------------------
+#define BEGIN_INIT_TREE_ITER(curve_trees)                                                             \
+    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves) \
+    {                                                                                                 \
+        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves");                          \
+                                                                                                      \
+        /* Init tree in memory */                                                                     \
+        CurveTreesGlobalTree global_tree(*curve_trees);                                               \
+        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, global_tree, 0, init_leaves));                  \
+                                                                                                      \
+        /* Init tree in db */                                                                         \
+        INIT_BLOCKCHAIN_LMDB_TEST_DB(test_db, curve_trees);                                           \
+        ASSERT_TRUE(grow_tree_db(0, init_leaves, curve_trees, test_db));                              \
+//----------------------------------------------------------------------------------------------------------------------
+#define END_INIT_TREE_ITER(curve_trees) \
+    };                                  \
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Test
 //----------------------------------------------------------------------------------------------------------------------
-// TODO: init tree in db once, then extend a copy of that db
 TEST(curve_trees, grow_tree)
 {
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
@@ -962,25 +953,24 @@ TEST(curve_trees, grow_tree)
     INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves)
+    BEGIN_INIT_TREE_ITER(curve_trees)
+
+    // Then extend the tree with ext_leaves
+    for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) <= min_leaves_needed_for_tree_depth; ++ext_leaves)
     {
-        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
-        CurveTreesGlobalTree global_tree(*curve_trees);
-        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, global_tree, 0, init_leaves));
+        // Tree in memory
+        // Copy the already existing global tree
+        CurveTreesGlobalTree tree_copy(global_tree);
+        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, tree_copy, init_leaves, ext_leaves));
 
-        // Then extend the tree with ext_leaves
-        for (std::size_t ext_leaves = 1; (init_leaves + ext_leaves) <= min_leaves_needed_for_tree_depth; ++ext_leaves)
-        {
-            // Tree in memory
-            // Copy the already existing global tree
-            CurveTreesGlobalTree tree_copy(global_tree);
-            ASSERT_TRUE(grow_tree_in_memory(*curve_trees, tree_copy, init_leaves, ext_leaves));
-
-            // Tree in db
-            INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
-            ASSERT_TRUE(grow_and_extend_tree_db(init_leaves, ext_leaves, curve_trees, test_db));
-        }
+        // Tree in db
+        // Copy the already existing db
+        unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
+        INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
+        ASSERT_TRUE(grow_tree_db(init_leaves, ext_leaves, curve_trees, copy_db));
     }
+
+    END_INIT_TREE_ITER()
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, trim_tree)
@@ -997,28 +987,27 @@ TEST(curve_trees, trim_tree)
     INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves)
+    BEGIN_INIT_TREE_ITER(curve_trees)
+
+    // Then trim by trim_leaves
+    for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
     {
-        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
-        CurveTreesGlobalTree global_tree(*curve_trees);
-        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, global_tree, 0, init_leaves));
+        if (trim_leaves > init_leaves)
+            continue;
 
-        // Then trim by trim_leaves
-        for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
-        {
-            if (trim_leaves > init_leaves)
-                continue;
+        // Tree in memory
+        // Copy the already existing global tree
+        CurveTreesGlobalTree tree_copy(global_tree);
+        ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, tree_copy));
 
-            // Tree in memory
-            // Copy the already existing global tree
-            CurveTreesGlobalTree tree_copy(global_tree);
-            ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, tree_copy));
-
-            // Tree in db
-            INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
-            ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, curve_trees, test_db));
-        }
+        // Tree in db
+        // Copy the already existing db
+        unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
+        INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
+        ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
     }
+
+    END_INIT_TREE_ITER()
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(curve_trees, trim_tree_then_grow)
@@ -1038,32 +1027,29 @@ TEST(curve_trees, trim_tree_then_grow)
     INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
 
     // First initialize the tree with init_leaves
-    for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves)
+    BEGIN_INIT_TREE_ITER(curve_trees)
+
+    // Then trim by trim_leaves
+    for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
     {
-        LOG_PRINT_L1("Initializing tree with " << init_leaves << " leaves in memory");
-        CurveTreesGlobalTree global_tree(*curve_trees);
-        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, global_tree, 0, init_leaves));
+        if (trim_leaves > init_leaves)
+            continue;
 
-        // Then trim by trim_leaves
-        for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
-        {
-            if (trim_leaves > init_leaves)
-                continue;
+        // Tree in memory
+        // Copy the already existing global tree
+        CurveTreesGlobalTree tree_copy(global_tree);
+        ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, tree_copy));
+        ASSERT_TRUE(grow_tree_in_memory(*curve_trees, tree_copy, init_leaves - trim_leaves, grow_after_trim));
 
-            // Tree in memory
-            // Copy the already existing global tree
-            CurveTreesGlobalTree tree_copy(global_tree);
-            ASSERT_TRUE(trim_tree_in_memory(init_leaves, trim_leaves, tree_copy));
-            ASSERT_TRUE(grow_tree_in_memory(*curve_trees, tree_copy, init_leaves - trim_leaves, grow_after_trim));
-
-            // Tree in db
-            INIT_BLOCKCHAIN_LMDB_TEST_DB(curve_trees);
-            ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, curve_trees, test_db));
-            cryptonote::db_wtxn_guard guard(test_db.m_db);
-            const std::size_t expected_n_leaves = init_leaves - trim_leaves + grow_after_trim;
-            ASSERT_TRUE(grow_tree_db(grow_after_trim, expected_n_leaves, curve_trees, test_db));
-        }
+        // Tree in db
+        // Copy the already existing db
+        unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
+        INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
+        ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
+        ASSERT_TRUE(grow_tree_db(init_leaves - trim_leaves, grow_after_trim, curve_trees, copy_db));
     }
+
+    END_INIT_TREE_ITER()
 }
 //----------------------------------------------------------------------------------------------------------------------
 // Make sure the result of hash_trim is the same as the equivalent hash_grow excluding the trimmed children
