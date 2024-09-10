@@ -35,49 +35,66 @@
 
 #include "byte_slice.h"
 
+namespace
+{
+    struct category final : monero::error_category
+    {
+        category() noexcept
+          : monero::error_category()
+        {}
+
+        virtual const char* name() const noexcept override final
+        {
+            return "net::zmq::error_category()";
+        }
+
+        virtual std::string message(int value) const override final
+        {
+            char const* const msg = zmq_strerror(value);
+            if (msg)
+                return msg;
+            return "zmq_strerror failure";
+        }
+
+        virtual monero::error_condition default_error_condition(int value) const noexcept override final
+        {
+            // maps specific errors to generic `std::errc` cases.
+            switch (value)
+            {
+            case EFSM:
+            case ETERM:
+                break;
+            default:
+                /* zmq is using cerrno errors. C++ spec indicates that
+                   `std::errc` values must be identical to the cerrno value. So
+                   just map every zmq specific error to the generic errc
+                   equivalent. zmq extensions must be in the switch or they map
+                   to a non-existent errc enum value. */
+                return monero::errc::errc_t(value);
+            }
+            return monero::error_condition{value, *this};
+        }
+    };
+    //! function in anonymous namespace allows compiler to optimize `error_category::failed` call
+    const category& category_instance() noexcept
+    {
+        static const category instance{};
+        return instance;
+    }
+}
+
 namespace net
 {
 namespace zmq
 {
-    const std::error_category& error_category() noexcept
+    const monero::error_category& error_category() noexcept
     {
-        struct category final : std::error_category
-        {
-            virtual const char* name() const noexcept override final
-            {
-                return "error::error_category()";
-            }
+        return category_instance();
+    }
 
-            virtual std::string message(int value) const override final
-            {
-                char const* const msg = zmq_strerror(value);
-                if (msg)
-                    return msg;
-                return "zmq_strerror failure";
-            }
-
-            virtual std::error_condition default_error_condition(int value) const noexcept override final
-            {
-                // maps specific errors to generic `std::errc` cases.
-                switch (value)
-                {
-                case EFSM:
-                case ETERM:
-                    break;
-                default:
-                    /* zmq is using cerrno errors. C++ spec indicates that
-                       `std::errc` values must be identical to the cerrno value.
-                       So just map every zmq specific error to the generic errc
-                       equivalent. zmq extensions must be in the switch or they
-                       map to a non-existent errc enum value. */
-                    return std::errc(value);
-                }
-                return std::error_condition{value, *this};
-            }
-
-        };
-        static const category instance{};
-        return instance;
+    monero::error_code make_error_code(int code) noexcept
+    {
+        return {code, category_instance()};
     }
 
     void terminate::call(void* ptr) noexcept

@@ -61,10 +61,10 @@ namespace detail
         }
     }
 
-    void expect::throw_(std::error_code ec, const char* msg, const char* file, unsigned line)
+    void expect::throw_(monero::error_code ec, const char* msg, const char* file, unsigned line)
     {
         if (msg || file)
-            throw std::system_error{ec, generate_error(msg, file, line)};
-        throw std::system_error{ec};
+            throw monero::system_error{ec, generate_error(msg, file, line)};
+        throw monero::system_error{ec};
     }
 } // detail
