@@ -794,27 +794,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
     // they cannot be inserted to the tree.
     std::vector<typename C2::Scalar> flattened_leaves;
-    flattened_leaves.reserve(new_outputs.size() * LEAF_TUPLE_SIZE);
-    tree_extension.leaves.tuples.reserve(new_outputs.size());
-    for (auto &o : new_outputs)
-    {
-        // TODO: this loop can be parallelized
-        LeafTuple leaf;
-        try { leaf = leaf_tuple(o.output_pair); }
-        catch(...)
-        {
-          // Invalid outputs can't be added to the tree
-          continue;
-        }
-
-        // We use O.x, I.x, C.x to grow the tree
-        flattened_leaves.emplace_back(std::move(leaf.O_x));
-        flattened_leaves.emplace_back(std::move(leaf.I_x));
-        flattened_leaves.emplace_back(std::move(leaf.C_x));
-
-        // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output pair in the db to save 32 bytes
-        tree_extension.leaves.tuples.emplace_back(std::move(o));
-    }
+    this->set_valid_leaves(flattened_leaves, tree_extension.leaves.tuples, std::move(new_outputs));
 
     if (flattened_leaves.empty())
         return tree_extension;
@@ -1009,6 +989,75 @@ template CurveTrees<Helios, Selene>::TreeReduction CurveTrees<Helios, Selene>::g
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTrees private member functions
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+void CurveTrees<C1, C2>::set_valid_leaves(
+    std::vector<typename C2::Scalar> &flattened_leaves_out,
+    std::vector<OutputContext> &tuples_out,
+    std::vector<OutputContext> &&new_outputs) const
+{
+    flattened_leaves_out.reserve(new_outputs.size() * LEAF_TUPLE_SIZE);
+    tuples_out.reserve(new_outputs.size());
+
+    std::vector<LeafTuple> leaves;
+    leaves.resize(new_outputs.size());
+
+    // Keep track of valid outputs to make sure we only use leaves from valid outputs. Can't use std::vector<bool>
+    // because std::vector<bool> concurrent access is not thread safe.
+    enum Boolean : uint8_t {
+        False = 0,
+        True = 1,
+    };
+    std::vector<Boolean> valid_outputs(new_outputs.size(), False);
+
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    tools::threadpool::waiter waiter(tpool);
+
+    // Multithreaded conversion of valid outputs into leaf tuples
+    for (std::size_t i = 0; i < new_outputs.size(); ++i)
+    {
+        tpool.submit(&waiter,
+                [
+                    this,
+                    &new_outputs,
+                    &leaves,
+                    &valid_outputs,
+                    i
+                ]()
+                {
+                    CHECK_AND_ASSERT_THROW_MES(leaves.size() > i, "unexpected leaves size");
+                    CHECK_AND_ASSERT_THROW_MES(valid_outputs.size() > i, "unexpected valid outputs size");
+                    CHECK_AND_ASSERT_THROW_MES(!valid_outputs[i], "unexpected valid output");
+
+                    try { leaves[i] = this->leaf_tuple(new_outputs[i].output_pair); }
+                    catch(...) { /* Invalid outputs can't be added to the tree */ return; }
+
+                    valid_outputs[i] = True;
+                },
+                true
+            );
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to tuples");
+
+    // Collect valid outputs into expected objects
+    for (std::size_t i = 0; i < valid_outputs.size(); ++i)
+    {
+        if (!valid_outputs[i])
+            continue;
+
+        CHECK_AND_ASSERT_THROW_MES(leaves.size() > i, "unexpected size of leaves");
+        CHECK_AND_ASSERT_THROW_MES(new_outputs.size() > i, "unexpected size of valid outputs");
+
+        // We use O.x, I.x, C.x to grow the tree
+        flattened_leaves_out.emplace_back(std::move(leaves[i].O_x));
+        flattened_leaves_out.emplace_back(std::move(leaves[i].I_x));
+        flattened_leaves_out.emplace_back(std::move(leaves[i].C_x));
+
+        // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output context in the db to save 32 bytes
+        tuples_out.emplace_back(std::move(new_outputs[i]));
+    }
+}
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 GrowLayerInstructions CurveTrees<C1, C2>::set_next_layer_extension(
