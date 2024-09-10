@@ -268,6 +268,12 @@ public:
         const LastHashes &last_hashes) const;
 
 private:
+    // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
+    void set_valid_leaves(
+        std::vector<typename C2::Scalar> &flattened_leaves_out,
+        std::vector<OutputContext> &tuples_out,
+        std::vector<OutputContext> &&new_outputs) const;
+
     // Helper function used to set the next layer extension used to grow the next layer in the tree
     // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
     //   layer of the leaf layer
