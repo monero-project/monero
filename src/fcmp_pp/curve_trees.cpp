@@ -28,6 +28,7 @@
 
 #include "curve_trees.h"
 
+#include "common/threadpool.h"
 #include "fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 
@@ -106,6 +107,70 @@ static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(c
     return child_scalars_out;
 };
 //----------------------------------------------------------------------------------------------------------------------
+template<typename C>
+static void hash_first_chunk(const std::unique_ptr<C> &curve,
+    const typename C::Scalar *old_last_child,
+    const typename C::Point *old_last_parent,
+    const std::size_t start_offset,
+    const std::vector<typename C::Scalar> &new_child_scalars,
+    const std::size_t chunk_size,
+    typename C::Point &hash_out)
+{
+    // Prepare to hash
+    const auto &existing_hash = old_last_parent != nullptr
+        ? *old_last_parent
+        : curve->hash_init_point();
+
+    const auto &prior_child_after_offset = old_last_child != nullptr
+        ? *old_last_child
+        : curve->zero_scalar();
+
+    const auto chunk_start = new_child_scalars.data();
+    const typename C::Chunk chunk{chunk_start, chunk_size};
+
+    MDEBUG("existing_hash: " << curve->to_string(existing_hash) << " , start_offset: " << start_offset
+        << " , prior_child_after_offset: " << curve->to_string(prior_child_after_offset));
+
+    for (std::size_t i = 0; i < chunk_size; ++i)
+        MDEBUG("Hashing child in first chunk " << curve->to_string(chunk_start[i]));
+
+    // Do the hash
+    auto chunk_hash = curve->hash_grow(
+            existing_hash,
+            start_offset,
+            prior_child_after_offset,
+            chunk
+        );
+
+    MDEBUG("Child chunk_start_idx " << 0 << " result: " << curve->to_string(chunk_hash)
+        << " , chunk_size: " << chunk_size);
+
+    // We've got our hash
+    hash_out = std::move(chunk_hash);
+}
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C>
+static void hash_next_chunk(const std::unique_ptr<C> &curve,
+    const std::size_t chunk_start_idx,
+    const std::vector<typename C::Scalar> &new_child_scalars,
+    const std::size_t chunk_size,
+    typename C::Point &hash_out)
+{
+    const auto chunk_start = new_child_scalars.data() + chunk_start_idx;
+    const typename C::Chunk chunk{chunk_start, chunk_size};
+
+    for (std::size_t i = 0; i < chunk_size; ++i)
+        MDEBUG("Child chunk_start_idx " << chunk_start_idx << " hashing child " << curve->to_string(chunk_start[i]));
+
+    auto chunk_hash = get_new_parent(curve, chunk);
+
+    MDEBUG("Child chunk_start_idx " << chunk_start_idx << " result: " << curve->to_string(chunk_hash)
+        << " , chunk_size: " << chunk_size);
+
+    // We've got our hash
+    hash_out = std::move(chunk_hash);
+}
+//----------------------------------------------------------------------------------------------------------------------
 // Hash chunks of a layer of new children, outputting the next layer's parents
 template<typename C>
 static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
@@ -119,7 +184,6 @@ static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
     LayerExtension<C> parents_out;
     parents_out.start_idx                 = next_parent_start_index;
     parents_out.update_existing_last_hash = old_last_parent != nullptr;
-    parents_out.hashes.reserve(1 + (new_child_scalars.size() / chunk_width));
 
     CHECK_AND_ASSERT_THROW_MES(!new_child_scalars.empty(), "empty child scalars");
     CHECK_AND_ASSERT_THROW_MES(chunk_width > start_offset, "start_offset must be smaller than chunk_width");
@@ -127,72 +191,81 @@ static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
     // See how many children we need to fill up the existing last chunk
     std::size_t chunk_size = std::min(new_child_scalars.size(), chunk_width - start_offset);
 
+    CHECK_AND_ASSERT_THROW_MES(new_child_scalars.size() >= chunk_size, "unexpected size of new child scalars");
+
+    const std::size_t n_chunks = 1 // first chunk
+        + (new_child_scalars.size() - chunk_size) / chunk_width // middle chunks
+        + (((new_child_scalars.size() - chunk_size) % chunk_width > 0) ? 1 : 0); // final chunk
+
+    parents_out.hashes.resize(n_chunks);
+
     MDEBUG("First chunk_size: " << chunk_size << " , num new child scalars: " << new_child_scalars.size()
         << " , start_offset: " << start_offset << " , parent layer start idx: " << parents_out.start_idx);
 
+    // Hash all chunks in parallel
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    tools::threadpool::waiter waiter(tpool);
+
     // Hash the first chunk
-    // TODO: separate function
-    {
-        // Prepare to hash
-        const auto &existing_hash = old_last_parent != nullptr
-            ? *old_last_parent
-            : curve->hash_init_point();
-
-        const auto &prior_child_after_offset = old_last_child != nullptr
-            ? *old_last_child
-            : curve->zero_scalar();
-
-        const auto chunk_start = new_child_scalars.data();
-        const typename C::Chunk chunk{chunk_start, chunk_size};
-
-        MDEBUG("existing_hash: " << curve->to_string(existing_hash) << " , start_offset: " << start_offset
-            << " , prior_child_after_offset: " << curve->to_string(prior_child_after_offset));
-
-        for (std::size_t i = 0; i < chunk_size; ++i)
-            MDEBUG("Hashing child " << curve->to_string(chunk_start[i]));
-
-        // Do the hash
-        auto chunk_hash = curve->hash_grow(
-                existing_hash,
+    tpool.submit(&waiter,
+            [
+                &curve,
+                &old_last_child,
+                &old_last_parent,
+                &new_child_scalars,
+                &parents_out,
                 start_offset,
-                prior_child_after_offset,
-                chunk
-            );
-
-        MDEBUG("Child chunk_start_idx " << 0 << " result: " << curve->to_string(chunk_hash)
-            << " , chunk_size: " << chunk_size);
-
-        // We've got our hash
-        parents_out.hashes.emplace_back(std::move(chunk_hash));
-    }
+                chunk_size
+            ]()
+            {
+                auto &hash_out = parents_out.hashes[0];
+                hash_first_chunk(curve,
+                    old_last_child,
+                    old_last_parent,
+                    start_offset,
+                    new_child_scalars,
+                    chunk_size,
+                    hash_out);
+            },
+            true
+        );
 
     // Hash chunks of child scalars to create the parent hashes
     std::size_t chunk_start_idx = chunk_size;
+    std::size_t chunk_idx = 1;
     while (chunk_start_idx < new_child_scalars.size())
     {
-        // TODO: this loop can be parallelized
         // Fill a complete chunk, or add the remaining new children to the last chunk
         chunk_size = std::min(chunk_width, new_child_scalars.size() - chunk_start_idx);
 
-        const auto chunk_start = new_child_scalars.data() + chunk_start_idx;
-        const typename C::Chunk chunk{chunk_start, chunk_size};
+        CHECK_AND_ASSERT_THROW_MES(chunk_idx < parents_out.hashes.size(), "unexpected chunk_idx");
 
-        for (std::size_t i = 0; i < chunk_size; ++i)
-            MDEBUG("Hashing child " << curve->to_string(chunk_start[i]));
-
-        auto chunk_hash = get_new_parent(curve, chunk);
-
-        MDEBUG("Child chunk_start_idx " << chunk_start_idx << " result: " << curve->to_string(chunk_hash)
-            << " , chunk_size: " << chunk_size);
-
-        // We've got our hash
-        parents_out.hashes.emplace_back(std::move(chunk_hash));
+        tpool.submit(&waiter,
+                [
+                    &curve,
+                    &new_child_scalars,
+                    &parents_out,
+                    chunk_start_idx,
+                    chunk_size,
+                    chunk_idx
+                ]()
+                {
+                    auto &hash_out = parents_out.hashes[chunk_idx];
+                    hash_next_chunk(curve, chunk_start_idx, new_child_scalars, chunk_size, hash_out);
+                },
+                true
+            );
 
         // Advance to the next chunk
         chunk_start_idx += chunk_size;
 
         CHECK_AND_ASSERT_THROW_MES(chunk_start_idx <= new_child_scalars.size(), "unexpected chunk start idx");
+
+        ++chunk_idx;
     }
+
+    CHECK_AND_ASSERT_THROW_MES(chunk_idx == n_chunks, "unexpected n chunks");
+    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to hash chunks");
 
     return parents_out;
 };
