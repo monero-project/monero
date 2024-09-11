@@ -191,7 +191,7 @@ static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
     // See how many children we need to fill up the existing last chunk
     std::size_t chunk_size = std::min(new_child_scalars.size(), chunk_width - start_offset);
 
-    CHECK_AND_ASSERT_THROW_MES(new_child_scalars.size() >= chunk_size, "unexpected size of new child scalars");
+    CHECK_AND_ASSERT_THROW_MES(new_child_scalars.size() >= chunk_size, "unexpected first chunk size");
 
     const std::size_t n_chunks = 1 // first chunk
         + (new_child_scalars.size() - chunk_size) / chunk_width // middle chunks
