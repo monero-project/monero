@@ -1263,10 +1263,16 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
     throw1(DB_ERROR(lmdb_error("Error adding removal of output tx to db transaction", result).c_str()));
   }
 
-  // Remove output from locked outputs table. We expect the output to be in the
-  // locked outputs table because remove_output is called when removing the
-  // top block from the chain, and all outputs from the top block are expected
-  // to be locked until they are at least 10 blocks old (10 is the lower bound).
+  // Remove output from locked outputs table if present. We expect all valid
+  // outputs to be in the locked outputs table because remove_output is called
+  // when removing the top block from the chain, and all outputs from the top
+  // block are expected to be locked until they are at least 10 blocks old (10
+  // is the lower bound). An output might not be in the locked outputs table if
+  // it is invalid, then gets removed from the locked outputs table upon growing
+  // the tree.
+  // TODO: test case where we add an invalid output to the chain, grow the tree
+  // in the block in which that output unlocks, pop blocks to remove that output
+  // from the chain, then progress the chain again.
   CURSOR(locked_outputs);
 
   const uint64_t unlock_block = cryptonote::get_unlock_block_index(ok->data.unlock_time, ok->data.height);
@@ -1277,16 +1283,18 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
   {
-    throw0(DB_ERROR("Unexpected: output not found in m_cur_locked_outputs"));
+    // We expect this output is invalid
   }
   else if (result)
   {
     throw1(DB_ERROR(lmdb_error("Error adding removal of locked output to db transaction", result).c_str()));
   }
-
-  result = mdb_cursor_del(m_cur_locked_outputs, 0);
-  if (result)
-    throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
+  else
+  {
+    result = mdb_cursor_del(m_cur_locked_outputs, 0);
+    if (result)
+      throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
+  }
 
   result = mdb_cursor_del(m_cur_output_txs, 0);
   if (result)
