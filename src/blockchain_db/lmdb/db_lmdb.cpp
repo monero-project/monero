@@ -6962,6 +6962,12 @@ void BlockchainLMDB::migrate_5_6()
             if (result != MDB_NOTFOUND)
             {
               cached_last_o = *(const tmp_output_cache*)v_last_output.mv_data;
+
+              if (n_outputs < cached_last_o.n_outputs_read)
+                throw0(DB_ERROR("Unexpected n_outputs_read on cached last output"));
+              if (n_outputs == cached_last_o.n_outputs_read)
+                break;
+
               MDEBUG("Found cached output " << cached_last_o.ok.output_id
                 << ", migrated " << cached_last_o.n_outputs_read << " outputs already");
               found_cached_output = true;
@@ -6972,8 +6978,6 @@ void BlockchainLMDB::migrate_5_6()
               const std::size_t outkey_size = (cached_last_o.amount == 0) ? sizeof(outkey) : sizeof(pre_rct_outkey);
               v = {outkey_size, (void *)&cached_last_o.ok};
 
-              if (n_outputs < cached_last_o.n_outputs_read)
-                throw0(DB_ERROR("Unexpected n_outputs_read on cached last output"));
               i = cached_last_o.n_outputs_read;
               op = MDB_NEXT;
             }
@@ -6993,6 +6997,13 @@ void BlockchainLMDB::migrate_5_6()
         op = MDB_NEXT;
         if (result == MDB_NOTFOUND)
         {
+          // Indicate we've read all outputs so we know the migration step is complete
+          last_output.n_outputs_read = n_outputs;
+          MDB_val_set(v_last_output, last_output);
+          result = mdb_cursor_put(c_tmp_last_output, (MDB_val*)&zerokval, &v_last_output, 0);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to update max output id: ", result).c_str()));
+
           batch_stop();
           break;
         }
@@ -7188,7 +7199,10 @@ void BlockchainLMDB::migrate_5_6()
       if (result)
         throw0(DB_ERROR(lmdb_error("Failed to delete old block_info table: ", result).c_str()));
 
-      MDB_cursor *c_cur = c_new_block_info;
+      MDB_cursor *c_cur;
+      result = mdb_cursor_open(txn, m_block_info, &c_cur);
+      if (result)
+        throw0(DB_ERROR(lmdb_error("Failed to open a cursor for block_infn: ", result).c_str()));
       RENAME_DB("block_infn");
       mdb_dbi_close(m_env, m_block_info);
 
@@ -7199,6 +7213,7 @@ void BlockchainLMDB::migrate_5_6()
     }
   } while(0);
 
+  // Update db version
   uint32_t version = 6;
   v.mv_data = (void *)&version;
   v.mv_size = sizeof(version);
