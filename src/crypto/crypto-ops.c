@@ -1331,7 +1331,6 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
 /* From fe_frombytes.c */
 
 int fe_frombytes_vartime(fe y, const unsigned char *s) {
-
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
   int64_t h2 = load_3(s + 7) << 5;
