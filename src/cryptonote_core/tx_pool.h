@@ -57,6 +57,29 @@
 
 namespace cryptonote
 {
+  //! key image's contextual data
+  struct ki_context_t
+  {
+    crypto::hash tx_hash;
+    bool sign; // original key image had sign bit set
+    bool operator==(const ki_context_t rhs) const { return rhs.tx_hash == tx_hash && rhs.sign == sign; };
+  };
+}//cryptonote
+
+namespace std
+{
+  template<> struct hash<cryptonote::ki_context_t>
+  {
+    std::size_t operator()(const cryptonote::ki_context_t &_ki_context) const
+    {
+      const std::size_t h = reinterpret_cast<const std::size_t &>(_ki_context.tx_hash);
+      return h + (_ki_context.sign ? 1 : 0);
+    }
+  };
+}//std
+
+namespace cryptonote
+{
   class Blockchain;
   /************************************************************************/
   /*                                                                      */
@@ -92,14 +115,6 @@ namespace cryptonote
   typedef boost::bimap<boost::bimaps::multiset_of<std::pair<double, std::time_t>, txFeeCompare>,
                        boost::bimaps::set_of<crypto::hash, hashCompare>> sorted_tx_container;
   
-
-  //! key image's contextual data
-  struct ki_context_t
-  {
-    crypto::hash tx_hash;
-    bool sign; // original key image had sign bit set
-    bool operator==(const ki_context_t rhs) const { return rhs.tx_hash == tx_hash && rhs.sign == sign; };
-  };
 
   /**
    * @brief Transaction pool, handles transactions which are not part of a block
@@ -737,17 +752,5 @@ namespace boost
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool, CURRENT_MEMPOOL_ARCHIVE_VER)
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool::tx_details, CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER)
 
-namespace std
-{
-  template<> struct hash<cryptonote::ki_context_t>
-  {
-    std::size_t operator()(const cryptonote::ki_context_t &_ki_context) const
-    {
-      std::size_t res = reinterpret_cast<const std::size_t &>(_ki_context.tx_hash);
-      res += _ki_context.sign ? 1 : 0;
-      return res;
-    }
-  };
-} // std
 
 
