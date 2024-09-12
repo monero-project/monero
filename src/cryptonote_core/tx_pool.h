@@ -93,6 +93,14 @@ namespace cryptonote
                        boost::bimaps::set_of<crypto::hash, hashCompare>> sorted_tx_container;
   
 
+  //! key image's contextual data
+  struct ki_context_t
+  {
+    crypto::hash tx_hash;
+    bool sign; // original key image had sign bit set
+    bool operator==(const ki_context_t rhs) const { return rhs.tx_hash == tx_hash && rhs.sign == sign; };
+  };
+
   /**
    * @brief Transaction pool, handles transactions which are not part of a block
    *
@@ -565,7 +573,7 @@ namespace cryptonote
      *
      * @return true if any key images present in the set, otherwise false
      */
-    static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
+    static bool have_key_images(const std::unordered_set<crypto::key_image_y>& kic, const transaction_prefix& tx);
 
     /**
      * @brief append the key images from a transaction to the given set
@@ -575,7 +583,7 @@ namespace cryptonote
      *
      * @return false if any append fails, otherwise true
      */
-    static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
+    static bool append_key_images(std::unordered_set<crypto::key_image_y>& kic, const transaction_prefix& tx);
 
     /**
      * @brief check if a transaction is a valid candidate for inclusion in a block
@@ -614,8 +622,12 @@ namespace cryptonote
      *  in the event of a reorg where someone creates a new/different
      *  transaction on the assumption that the original will not be in a
      *  block again.
+     *! we use key_image_y as the key since we need to prevent double spends of
+     *  key image y coordinates (fcmp's enables constructing key images with
+     *  sign bit cleared for key images which may already exist in the chain
+     *  with sign bit set)
      */
-    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash>> key_images_container;
+    typedef std::unordered_map<crypto::key_image_y, std::unordered_set<ki_context_t>> key_images_container;
 
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 public:
@@ -725,5 +737,17 @@ namespace boost
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool, CURRENT_MEMPOOL_ARCHIVE_VER)
 BOOST_CLASS_VERSION(cryptonote::tx_memory_pool::tx_details, CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER)
 
+namespace std
+{
+  template<> struct hash<cryptonote::ki_context_t>
+  {
+    std::size_t operator()(const cryptonote::ki_context_t &_ki_context) const
+    {
+      std::size_t res = reinterpret_cast<const std::size_t &>(_ki_context.tx_hash);
+      res += _ki_context.sign ? 1 : 0;
+      return res;
+    }
+  };
+} // std
 
 
