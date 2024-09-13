@@ -5,8 +5,8 @@ ifneq ($(host_os),mingw32)
 packages += ncurses readline
 endif
 
-wallet_native_packages := native_protobuf
-wallet_packages = protobuf
+wallet_native_packages := native_abseil native_protobuf
+wallet_packages = abseil protobuf
 
 ifneq ($(host_os),android)
 wallet_packages += libusb
