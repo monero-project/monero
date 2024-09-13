@@ -1,0 +1,12 @@
+diff --git a/absl/base/CMakeLists.txt b/absl/base/CMakeLists.txt
+index 97994fc6..06ab426c 100644
+--- a/absl/base/CMakeLists.txt
++++ b/absl/base/CMakeLists.txt
+@@ -240,7 +240,6 @@ absl_cc_library(
+     ${ABSL_DEFAULT_COPTS}
+   LINKOPTS
+     ${ABSL_DEFAULT_LINKOPTS}
+-    $<$<BOOL:${LIBRT}>:-lrt>
+     $<$<BOOL:${MINGW}>:-ladvapi32>
+   DEPS
+     absl::atomic_hook
