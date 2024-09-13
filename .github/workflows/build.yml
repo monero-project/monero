@@ -68,12 +68,7 @@ jobs:
     - uses: msys2/setup-msys2@v2
       with:
         update: true
-        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
-    - shell: msys2 {0}
-      run: |
-           curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst
-           curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
-           pacman --noconfirm -U mingw-w64-x86_64-protobuf-c-1.4.1-1-any.pkg.tar.zst mingw-w64-x86_64-protobuf-21.9-1-any.pkg.tar.zst
+        install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git pkg-config
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
