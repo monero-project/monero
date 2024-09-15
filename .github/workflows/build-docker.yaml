@@ -52,7 +52,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build --build-arg USE_DEVICE_TREZOR=OFF -t nyancod3r/monero_cli:${{ github.event.release.tag_name }} -f ../../Dockerfile ../../
+          docker build --build-arg USE_DEVICE_TREZOR=OFF -t nyancod3r/monero_cli:${{ github.event.release.tag_name }}
           docker tag nyancod3r/monero_cli:${{ github.event.release.tag_name }} nyancod3r/monero_cli:${{ github.sha }}
           inspect_output=$(docker inspect "nyancod3r/monero_cli:${{ github.event.release.tag_name }}")
           echo "Docker Inspect Output: $inspect_output"
