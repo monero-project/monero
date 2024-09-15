@@ -18,7 +18,7 @@ env:
   CCACHE_SETTINGS: |
     ccache --max-size=150M
     ccache --set-config=compression=true
-  USE_DEVICE_TREZOR_MANDATORY: ON
+  USE_DEVICE_TREZOR_MANDATORY: OFF
 
 jobs:
   build-docker:
@@ -68,7 +68,7 @@ jobs:
 
       - name: Update Release Description
         run: |
-          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/tags/0.18.3.4" | jq -r '.id')
+          release_id=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/tags/${{ github.ref }}" | jq -r '.id')
           current_description=$(curl -sSL -H "Authorization: Bearer ${{ secrets.GH_TOKEN }}" "https://api.github.com/repos/nyancod3r/monero-to-docker/releases/$release_id" | jq -r '.body')
 
           # Append the SHA256 hash to the existing release description
