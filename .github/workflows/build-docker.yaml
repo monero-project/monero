@@ -35,6 +35,7 @@ jobs:
       - name: Build Docker Image
         run: |
           docker build -t nyancod3r/monero_cli:${{ github.event.release.tag_name }} .
+          docker tag nyancod3r/monero_cli:${{ github.event.release.tag_name }} nyancod3r/monero_cli:latest
           docker tag nyancod3r/monero_cli:${{ github.event.release.tag_name }} nyancod3r/monero_cli:${{ github.sha }}
           inspect_output=$(docker inspect "nyancod3r/monero_cli:${{ github.event.release.tag_name }}")
           echo "Docker Inspect Output: $inspect_output"
@@ -44,8 +45,11 @@ jobs:
           image_sha256=$(echo "$inspect_output" | jq -r '.[0].Id')
           echo "Image SHA256 Hash: $image_sha256" >> image_description.txt
 
-      - name: Push Docker Image
+      - name: Push Docker Image with Version Tag
         run: docker push nyancod3r/monero_cli:${{ github.event.release.tag_name }}
+
+      - name: Push Docker Image with Latest Tag
+        run: docker push nyancod3r/monero_cli:latest
 
       - name: Update Release Description
         run: |
