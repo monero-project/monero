@@ -17,7 +17,9 @@ RUN set -ex && \
         git \
         libtool \
         pkg-config \
-        gperf
+        gperf && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 COPY . .
@@ -38,14 +40,15 @@ RUN set -ex && \
     apt-get update && \
     apt-get --no-install-recommends --yes install ca-certificates && \
     apt-get clean && \
-    rm -rf /var/lib/apt
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /src/build/x86_64-linux-gnu/release/bin /usr/local/bin/
 
 # Create monero user
 RUN adduser --system --group --disabled-password monero && \
-	mkdir -p /wallet /home/monero/.bitmonero && \
-	chown -R monero:monero /home/monero/.bitmonero && \
-	chown -R monero:monero /wallet
+    mkdir -p /wallet /home/monero/.bitmonero && \
+    chown -R monero:monero /home/monero/.bitmonero && \
+    chown -R monero:monero /wallet
 
 # Contains the blockchain
 VOLUME /home/monero/.bitmonero
