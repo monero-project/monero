@@ -17,7 +17,11 @@ RUN set -ex && \
         git \
         libtool \
         pkg-config \
-        gperf && \
+        gperf \
+        libusb-1.0-0-dev \
+        libhidapi-dev \
+        libprotobuf-dev \
+        protobuf-compiler && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -28,9 +32,12 @@ ARG NPROC
 RUN set -ex && \
     git submodule init && git submodule update && \
     rm -rf build && \
+    mkdir build && \
+    cd build && \
+    cmake .. -DARCH="default" -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release && \
     if [ -z "$NPROC" ] ; \
-    then make -j$(nproc) depends target=x86_64-linux-gnu ; \
-    else make -j$NPROC depends target=x86_64-linux-gnu ; \
+    then make -j$(nproc) ; \
+    else make -j$NPROC ; \
     fi
 
 # runtime stage
@@ -42,7 +49,7 @@ RUN set -ex && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /src/build/x86_64-linux-gnu/release/bin /usr/local/bin/
+COPY --from=builder /src/build /usr/local/bin/
 
 # Create monero user
 RUN adduser --system --group --disabled-password monero && \
