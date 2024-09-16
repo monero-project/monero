@@ -28,13 +28,28 @@
 
 #pragma once
 
+extern "C"
+{
+#include "crypto/crypto-ops.h"
+}
 #include "ringct/rctTypes.h"
 
 namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
+// Field elems needed to get wei x coord
+struct PreWeiX final
+{
+    fe one_plus_y;
+    fe one_minus_y;
+};
+//----------------------------------------------------------------------------------------------------------------------
 // TODO: tests for these functions
 bool clear_torsion(const rct::key &k, rct::key &k_out);
+bool batch_invert(const std::vector<fe> &elems, std::vector<fe> &inv_elems);
+bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x);
+void to_wei_x(const fe inv_one_minus_y, const fe one_plus_y, rct::key &wei_x);
+void pre_wei_x_to_wei_x(const PreWeiX pre_wei_x, rct::key &wei_x);
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

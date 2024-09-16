@@ -30,6 +30,7 @@
 
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
 #include "tower_cycle.h"
 
@@ -154,6 +155,14 @@ static_assert(sizeof(OutputPair)    == (32+32),   "db expects 64 bytes for outpu
 static_assert(sizeof(OutputContext) == (8+32+32), "db expects 72 bytes for output context");
 
 using OutputsByUnlockBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
+
+// Struct composed of ec elems needed to get a full-fledged leaf tuple
+struct PreLeafTuple final
+{
+    fcmp_pp::PreWeiX O_pre_x;
+    fcmp_pp::PreWeiX I_pre_x;
+    fcmp_pp::PreWeiX C_pre_x;
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

@@ -167,8 +167,10 @@ void fe_tobytes(unsigned char *, const fe);
 void fe_invert(fe out, const fe z);
 int fe_batch_invert(fe *out, const fe *in, const int n);
 void fe_mul(fe out, const fe, const fe);
+void fe_sub(fe h, const fe f, const fe g);
 void fe_0(fe h);
+void fe_1(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
 
-void fe_ed_y_to_wei_x(unsigned char *wei_x, const fe ed_y);
+void fe_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y);
