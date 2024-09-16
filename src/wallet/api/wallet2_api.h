@@ -74,44 +74,50 @@ enum NetworkType : uint8_t {
 */
 struct EnoteDetails
 {
-// from seraphis legacy enote types
     // Ko
-    rct::key onetime_address;
-    /// a
-    rct::xmr_amount amount;
-    /// C
-    rct::key amount_commitment;
-    /// enc(x)
-    rct::key encoded_amount_blinding_factor;
-    /// enc(a)
-    rct::key encoded_amount;
-    /// view_tag
-    crypto::view_tag view_tag;
-
-    // TODO : figure out if we need other members from transfer_details too, these are the ones that are not part of `TransactionInfo`, but my first impression is we could have an overlap so we can find TransactionInfo from EnoteDetails and vice versa.
-// from transfer_details:
-    cryptonote::transaction_prefix m_tx;
-    // index in m_tx.vout
-    uint64_t m_internal_output_index;
-    uint64_t m_global_output_index;
+    std::string m_onetime_address;
+    // view_tag
+    std::string m_view_tag;
+    // QUESTION : I'd argue block height for enote is redundant, you can get this information from TransactionHistory. Or any different opinions?
+//    std::uint64_t m_block_height;
+    // relative index in tx
+    std::uint64_t m_internal_output_index;
+    // absolute index from `cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry.output_indices`
+    std::uint64_t m_global_output_index;
+    // is spent
     bool m_spent;
+    // is frozen
     bool m_frozen;
-    uint64_t m_spent_height;
-    crypto::key_image m_key_image;
-    rct::key m_mask;
+    // blockchain height, set if spent
+    std::uint64_t m_spent_height;
+    // key image
+    std::string m_key_image;
+    // QUESTION : Is this comment correct?
+    // x, blinding factor in amount commitment C = x G + a H
+    std::string m_mask;
+    // a
+    std::uint64_t m_amount;
+    // QUESTION : Should we change m_rct to this enum to be prepared for the future? We could also add CryptoNote as cn before rct if that would make sense!?
+//    enum { rct, fcmp } m_protocol_version;
+    // or
+//    enum { cn, rct, fcmp } m_protocol_version;
+    // is ring confidential transaction
     bool m_rct;
+    // is key image known
     bool m_key_image_known;
-    bool m_key_image_request; // view wallets: we want to request it; cold wallets: it was requested
-    // TODO : fwiw so far this only is used for get_tx_pub_key_from_extra, figure out if actually needed.
+    // view wallets: we want to request it; cold wallets: it was requested
+    bool m_key_image_request;
+    // public key index in tx_extra
     uint64_t m_pk_index;
-    // TODO : This gets only filled by `wallet2::process_new_transaction` and only if `wallet2::m_track_uses` is true (default is false). Figure out if it's "too exotic" or do we need it.
-    std::vector<std::pair<uint64_t, crypto::hash>> m_uses;
-
-// QUESTION : Any input on these multisig members?
+    // track uses of this enote in the blockchain in the format [ [block_height, tx_id], ... ] if `wallet2::m_track_uses` is true (default is false)
+    std::vector<std::pair<std::uint64_t, std::string>> m_uses;
+// QUESTION : Any input on these multisig members? I'd ignore them for now.
     // Multisig
+    /*
     bool m_key_image_partial;
     std::vector<rct::key> m_multisig_k;
     std::vector<multisig_info> m_multisig_info; // one per other participant
+    */
 };
 
 /**
@@ -220,6 +226,15 @@ struct TransactionInfo
         Direction_Out
     };
 
+    // QUESTION : We already have a bool for "pending" and "failed", but should we rather add two more bools (`m_pending_in_pool` & `m_confirmed`) or switch to an enum like this? I'd prefer the enum, but I guess removing `m_pending` and `m_failed` is not an option?
+    //              If there is justificatin to keep this, any suggestions for a better name? E.g. TxTransmissionState?
+    enum TxState {
+       pending,
+       pending_in_pool,
+       failed,
+       confirmed
+    };
+
     struct Transfer {
         Transfer(uint64_t _amount, const std::string &address);
         const uint64_t amount;
@@ -246,6 +261,10 @@ struct TransactionInfo
     virtual std::string paymentId() const = 0;
     //! only applicable for output transactions
     virtual const std::vector<Transfer> & transfers() const = 0;
+
+    virtual std::uint64_t receivedChangeAmount() const = 0;
+    virtual int txState() const = 0;
+    virtual bool isDoubleSpendSeen() const = 0;
 };
 /**
  * @brief The TransactionHistory - interface for displaying transaction history
@@ -1323,53 +1342,15 @@ struct Wallet
     */
     virtual void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) = 0;
     // TODO / QUESTION : How to translate the following types to a standard type for the API?
-    // - tools::wallet2::transfer_details & tools::wallet2::transfer_container (vector of tools::wallet2::transfer_details)
-    // - tools::wallet2::payment_details
-    // - tools::wallet2::confirmed_transfer_details
-    // - tools::wallet2::pool_payment_details
     // - tools::wallet2::signed_tx
     // - cryptonote::address_parse_info
-// TODO : wallet2::transfer_container
+
     /**
-    * brief: getTransfers - get all transfers
-    * outparam: transfers -
+    * brief: getEnoteDetails - get information about all enotes
+    * outparam: enote_details -
     */
-//    virtual void getTransfers(wallet2::transfer_container& transfers) const = 0;
-// TODO : wallet2::payment_details
-    /**
-    * brief: getPayments - get incoming transfers
-    * param: payment_id -
-    * param: payments -
-    * param: min_height -
-    * param: subaddr_account -
-    * param: subaddr_indices -
-    */
-//    virtual void getPayments(const std::string &payment_id, std::list<wallet2::payment_details> &payments, std::uint64_t min_height, const boost::optional<uint32_t> &subaddr_account, const std::set<std::uint32_t> &subaddr_indices) const = 0;
-// TODO : wallet2::payment_details
-    /**
-    * brief: getPayments - get incoming transfers
-    * param: payments -
-    * param: max_height -
-    */
-//    virtual void getPayments(std::list<std::pair<std::string, wallet2::payment_details>> &payments, std::uint64_t min_height, std::uint64_t max_height, const boost::optional<uint32_t> &subaddr_account, const std::set<std::uint32_t> &subaddr_indices) const = 0;
-// TODO : wallet2::confirmed_transfer_details
-    /**
-    * brief: getPaymentsOut - get outgoing transfers
-    * param: confirmed_payments -
-    */
-//    virtual void getPaymentsOut(std::list<std::pair<std::string, wallet2::confirmed_transfer_details>> &confirmed_payments, std::uint64_t min_height, std::uint64_t max_height, const boost::optional<std::uint32_t> &subaddr_account, const std::set<std::uint32_t> &subaddr_indices) const = 0;
-// TODO : wallet2::unconfirmed_transfer_details
-    /**
-    * brief: getUnconfirmedPaymentsOut - get unconfirmed transfers
-    * param: unconfirmed_payments -
-    */
-//    virtual void getUnconfirmedPaymentsOut(std::list<std::pair<std::string, wallet2::unconfirmed_transfer_details>> &unconfirmed_payments, const boost::optional<std::uint32_t> &subaddr_account, const std::set<std::uint32_t> &subaddr_indices) const = 0;
-// TODO : wallet2::pool_payment_details
-    /**
-    * brief: getUnconfirmedPayments - get pending transfers, currently in pool
-    * param: unconfirmed_payments -
-    */
-//    virtual void getUnconfirmedPayments(std::list<std::pair<std::string, wallet2::pool_payment_details>> &unconfirmed_payments, const boost::optional<std::uint32_t> &subaddr_account, const std::set<std::uint32_t> &subaddr_indices) const = 0;
+    virtual void getEnoteDetails(std::vector<EnoteDetails> enote_details) const = 0;
+
     /**
     * brief: convertMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
     * param: multisig_ptx - multisig pending transaction

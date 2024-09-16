@@ -193,6 +193,10 @@ void TransactionHistoryImpl::refresh()
         ti->m_label = pd.m_subaddr_indices.size() == 1 ? m_wallet->m_wallet->get_subaddress_label({pd.m_subaddr_account, *pd.m_subaddr_indices.begin()}) : "";
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
+        // QUESTION : Don't we want the unlock time?
+        ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_change = pd->m_change;
+        ti->m_tx_state = TransactionInfo::confirmed;
 
         // single output transaction might contain multiple transfers
         for (const auto &d: pd.m_dests) {
@@ -229,6 +233,10 @@ void TransactionHistoryImpl::refresh()
         ti->m_label = pd.m_subaddr_indices.size() == 1 ? m_wallet->m_wallet->get_subaddress_label({pd.m_subaddr_account, *pd.m_subaddr_indices.begin()}) : "";
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
+        // QUESTION : Don't we want the unlock time?
+        ti->m_unlock_time = pd.m_tx.unlock_time;
+        ti->m_change = pd->m_change;
+        ti->m_tx_state = pd->m_state;
         for (const auto &d : pd.m_dests)
         {
             ti->m_transfers.push_back({d.amount, d.address(m_wallet->m_wallet->nettype(), pd.m_payment_id)});
@@ -258,6 +266,10 @@ void TransactionHistoryImpl::refresh()
         ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
+        // QUESTION : Don't we want the unlock time?
+        ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_tx_state = TransactionInfo::pending_in_pool;
+        ti->m_double_spend_seen = i->second.m_double_spend_seen;
         m_history.push_back(ti);
         
         LOG_PRINT_L1(__FUNCTION__ << ": Unconfirmed payment found " << pd.m_amount);

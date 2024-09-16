@@ -253,6 +253,7 @@ public:
     std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict) const override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
     void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) override;
+    void getEnoteDetails(std::vector<EnoteDetails> enote_details) const override;
     std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
     std::string convertTxToStr(const PendingTransaction &ptxs) const override;

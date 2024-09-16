@@ -3154,7 +3154,47 @@ void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::trans
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx)
+void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> enote_details) const
+{
+    wallet2::transfer_container tc;
+    m_wallet->get_transfers(tc);
+    enote_details.reserve(tc.size());
+
+    for (auto &td : tc)
+    {
+        EnoteDetails ed{};
+
+        cryptonote::txout_target_v txout_v = td.m_tx.vout[tx.m_internal_output_index];
+        crypto::public_key pub_key_pod;
+        if (txout_v.type() == typeid(cryptonote::txout_to_key))
+            ed.m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_key>(txout_v).key);
+        else if (txout_v.type() == typeid(cryptonote::txout_to_tagged_key))
+        {
+            ed.m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).key);
+            ed.m_view_tag = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).view_tag);
+        }
+
+        ed.m_tx_id = td.m_txid;
+        ed.m_internal_output_index = td.m_internal_output_index;
+        ed.m_global_output_index = td.m_global_output_index;
+        ed.m_spent = td.m_spent;
+        ed.m_frozen = td.m_frozen;
+        ed.m_spent_height = td.m_spent_height;
+        ed.m_key_image = td.m_key_image;
+        ed.m_mask = td.m_mask;
+        ed.m_amount = td.m_mask;
+        ed.m_rct = td.m_rct;
+//        ed.m_protocol_version = td.m_rct ? EnoteDetails::rct : EnoteDetails::cn;
+        ed.m_key_image_known = td.m_key_image_known;
+        ed.m_key_image_request = td.m_key_image_request;
+        ed.m_pk_index = td.m_pk_index;
+        ed.m_uses = td.m_uses;
+
+        enote_details.push_back(ed);
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisig_ptx)
 {
     clearStatus();
 
@@ -3176,7 +3216,7 @@ std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx)
     return "";
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &filename)
+bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &filename)
 {
     clearStatus();
 
@@ -3198,7 +3238,7 @@ bool saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string convertTxToStr(const PendingTransaction &ptxs)
+std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs)
 {
     clearStatus();
 
@@ -3211,12 +3251,12 @@ std::string convertTxToStr(const PendingTransaction &ptxs)
     return tx_dump;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs)
+bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs)
 {
     return m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, exported_txs.m_unsigned_tx_set);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs)
+bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs)
 {
     clearStatus();
 
