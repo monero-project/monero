@@ -38,6 +38,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "byte_slice.h"
 #include "math_helper.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "warnings.h"
@@ -46,6 +47,8 @@
 #include "block_queue.h"
 #include "common/perf_timer.h"
 #include "cryptonote_basic/connection_context.h"
+#include "net/levin_base.h"
+#include "p2p/net_node_common.h"
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
@@ -104,7 +107,7 @@ namespace cryptonote
     void set_p2p_endpoint(nodetool::i_p2p_endpoint<connection_context>* p2p);
     //bool process_handshake_data(const blobdata& data, cryptonote_connection_context& context);
     bool process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital);
-    bool get_payload_sync_data(blobdata& data);
+    bool get_payload_sync_data(epee::byte_slice& data);
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
     bool on_callback(cryptonote_connection_context& context);
     t_core& get_core(){return m_core;}
@@ -152,9 +155,9 @@ namespace cryptonote
 
       if (connections.size())
       {
-        std::string arg_buff;
-        epee::serialization::store_t_to_binary(arg, arg_buff);
-        return m_p2p->relay_notify_to_list(T::ID, epee::strspan<uint8_t>(arg_buff), std::move(connections));
+        epee::levin::message_writer out{256 * 1024};
+        epee::serialization::store_t_to_binary(arg, out.buffer);
+        return m_p2p->relay_notify_to_list(T::ID, std::move(out), std::move(connections));
       }
 
       return true;
@@ -220,10 +223,10 @@ namespace cryptonote
       bool post_notify(typename t_parameter::request& arg, cryptonote_connection_context& context)
       {
         LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(context) << "] post " << typeid(t_parameter).name() << " -->");
-        std::string blob;
-        epee::serialization::store_t_to_binary(arg, blob);
+        epee::levin::message_writer out{256 * 1024};
+        epee::serialization::store_t_to_binary(arg, out.buffer);
         //handler_response_blocks_now(blob.size()); // XXX
-        return m_p2p->invoke_notify_to_peer(t_parameter::ID, epee::strspan<uint8_t>(blob), context);
+        return m_p2p->invoke_notify_to_peer(t_parameter::ID, std::move(out), context);
       }
   };
 

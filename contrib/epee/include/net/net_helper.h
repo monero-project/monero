@@ -43,6 +43,7 @@
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/utility/string_ref.hpp>
 #include <functional>
 #include "net/net_utils_base.h"
 #include "net/net_ssl.h"
@@ -175,7 +176,7 @@ namespace net_utils
 					// SSL Options
 					if (m_ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || m_ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
 					{
-						if (!m_ssl_options.handshake(*m_ssl_socket, boost::asio::ssl::stream_base::client, addr, timeout))
+						if (!m_ssl_options.handshake(*m_ssl_socket, boost::asio::ssl::stream_base::client, {}, addr, timeout))
 						{
 							if (m_ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
 							{
@@ -277,7 +278,7 @@ namespace net_utils
 
 
 		inline 
-		bool send(const std::string& buff, std::chrono::milliseconds timeout)
+		bool send(const boost::string_ref buff, std::chrono::milliseconds timeout)
 		{
 
 			try
@@ -295,7 +296,7 @@ namespace net_utils
 				// object is used as a callback and will update the ec variable when the
 				// operation completes. The blocking_udp_client.cpp example shows how you
 				// can use boost::bind rather than boost::lambda.
-				async_write(buff.c_str(), buff.size(), ec);
+				async_write(buff.data(), buff.size(), ec);
 
 				// Block until the asynchronous operation has completed.
 				while (ec == boost::asio::error::would_block)

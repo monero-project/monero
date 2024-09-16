@@ -28,6 +28,7 @@
 
 #include <string>
 
+#include "byte_slice.h"
 #include "parserse_base_utils.h"
 #include "portable_storage.h"
 #include "file_io_utils.h"
@@ -35,6 +36,8 @@
 
 namespace epee
 {
+  class byte_stream;
+
   namespace serialization
   {
     //-----------------------------------------------------------------------------------------------------------
@@ -112,19 +115,27 @@ namespace epee
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
-    bool store_t_to_binary(t_struct& str_in, std::string& binary_buff, size_t indent = 0)
+    bool store_t_to_binary(t_struct& str_in, byte_slice& binary_buff, size_t initial_buffer_size = 8192)
+    {
+      portable_storage ps;
+      str_in.store(ps);
+      return ps.store_to_binary(binary_buff, initial_buffer_size);
+    }
+    //-----------------------------------------------------------------------------------------------------------
+    template<class t_struct>
+    byte_slice store_t_to_binary(t_struct& str_in, size_t initial_buffer_size = 8192)
+    {
+      byte_slice binary_buff;
+      store_t_to_binary(str_in, binary_buff, initial_buffer_size);
+      return binary_buff;
+    }
+    //-----------------------------------------------------------------------------------------------------------
+    template<class t_struct>
+    bool store_t_to_binary(t_struct& str_in, byte_stream& binary_buff)
     {
       portable_storage ps;
       str_in.store(ps);
       return ps.store_to_binary(binary_buff);
-    }
-    //-----------------------------------------------------------------------------------------------------------
-    template<class t_struct>
-    std::string store_t_to_binary(t_struct& str_in, size_t indent = 0)
-    {
-      std::string binary_buff;
-      store_t_to_binary(str_in, binary_buff, indent);
-      return binary_buff;
     }
   }
 }

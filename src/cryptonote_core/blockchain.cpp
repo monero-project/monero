@@ -60,6 +60,7 @@
 #include "service_node_list.h"
 #include "common/varint.h"
 #include "common/pruning.h"
+#include "time_helper.h"
 
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "blockchain"
