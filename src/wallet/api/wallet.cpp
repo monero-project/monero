@@ -3053,11 +3053,6 @@ WalletState WalletImpl::getWalletState()
     return wallet_state;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::hasUnknownKeyImages()
-{
-    return m_wallet->has_unknown_key_images();
-}
-//-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::rewriteWalletFile(const std::string &wallet_name, const std::string &password)
 {
     clearStatus();
@@ -3086,16 +3081,6 @@ void WalletImpl::writeWatchOnlyWallet(const std::string &wallet_name, const std:
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
         setStatusError(e.what());
     }
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::map<std::uint32_t, std::uint64_t> WalletImpl::balancePerSubaddress(std::uint32_t index_major, bool strict)
-{
-    return m_wallet->balance_per_subaddress(index_major, strict);
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> WalletImpl::unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict)
-{
-    return m_wallet->unlocked_balance_per_subaddress(index_major, strict);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed, bool try_incremental)
@@ -3434,35 +3419,6 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     {
         setStatusError((boost::format(tr("Failed to set tx key. Error: %s")) % e.what()).str());
     }
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::getDaemonAdjustedTime()
-{
-    clearStatus();
-
-    try
-    {
-        return m_wallet->get_daemon_adjusted_time();
-    }
-    catch (const std::exception &e)
-    {
-        setStatusError((boost::format(tr("Failed to get daemon adjusted time. Error: %s")) % e.what()).str());
-    }
-    return 0;
-}
-//-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::setCacheDescription(const std::string &description)
-{
-    m_wallet->set_description(description);
-    // TODO : Add ATTRIBUTE_DESCRIPTION to API and then call
-//    setCacheAttribute(ATTRIBUTE_DESCRIPTION, description);
-}
-//-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::getCacheDescription()
-{
-    return m_wallet->get_description();
-    // TODO : Add ATTRIBUTE_DESCRIPTION to API and then call
-//    return getCacheAttribute(ATTRIBUTE_DESCRIPTION);
 }
 //-------------------------------------------------------------------------------------------------------------------
 const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& WalletImpl::getAccountTags()

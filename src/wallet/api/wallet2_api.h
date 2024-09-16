@@ -1284,11 +1284,6 @@ struct Wallet
     */
     virtual WalletState getWalletState() const = 0;
     /**
-    * brief: hasUnknownKeyImages - check if any enotes have missing key images
-    * return: true if any stored enote is missing its key image, else false
-    */
-    virtual bool hasUnknownKeyImages() const = 0;
-    /**
     * brief: rewriteWalletFile - rewrite the wallet file for wallet update
     * param: wallet_name - name of the wallet file (should exist)
     * param: password - wallet password
@@ -1304,20 +1299,6 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) = 0;
-    /**
-    * brief: balancePerSubaddress - get balance for each subaddress in given account
-    * param: index_major - account index
-    * param: strict -
-    * return: [minor subaddress index: amount, ... ]
-    */
-    virtual std::map<std::uint32_t, std::uint64_t> balancePerSubaddress(std::uint32_t index_major, bool strict) const = 0;
-    /**
-    * brief: unlockedBalancePerSubaddress - get unlocked balance for each subaddresses in given account
-    * param: index_major - account index
-    * param: strict -
-    * return: [minor subaddress index: {amount, {blocks to unlock, time to unlock} }, ... ]
-    */
-    virtual std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict) const = 0;
     /**
     * brief: updatePoolState -
     * outparam: process_txs - [ [tx, tx_id, double_spend_seen], ... ]
@@ -1341,16 +1322,11 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) = 0;
-    // TODO / QUESTION : How to translate the following types to a standard type for the API?
-    // - tools::wallet2::signed_tx
-    // - cryptonote::address_parse_info
-
     /**
     * brief: getEnoteDetails - get information about all enotes
     * outparam: enote_details -
     */
     virtual void getEnoteDetails(std::vector<EnoteDetails> enote_details) const = 0;
-
     /**
     * brief: convertMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
     * param: multisig_ptx - multisig pending transaction
@@ -1379,6 +1355,9 @@ struct Wallet
     * return: true if succeeded
     */
     virtual bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const = 0;
+    // TODO / QUESTION : How to translate the following types to a standard type for the API?
+    // - tools::wallet2::signed_tx
+    // - cryptonote::address_parse_info
 // TODO : wallet2::signed_tx_set
     /**
     * brief: signTxDumpToStr - get a signed transaction set from unsigned transaction set
@@ -1476,14 +1455,6 @@ struct Wallet
     * note: sets status error on fail
     */
 //    virtual bool useForkRules(std::uint8_t version, std::int64_t early_blocks) const = 0;
-// TODO : wallet2::transfer_details
-    /**
-    * brief: getTransferDetails -
-    * param: idx - index in transfer storage
-    * return: transfer details for given index
-    * note: sets status error on fail
-    */
-//    virtual const wallet2::transfer_details &getTransferDetails(std::size_t idx) const = 0;
     /**
     * brief: discardUnmixableOutputs - freeze all unmixable outputs
     * note: sets status error on fail
@@ -1500,22 +1471,6 @@ struct Wallet
     // QUESTION : There were some cases already where I wished to have boost::optional in here. I have no explicit example, but in general e.g. for functions that return a bool, but have to return early on error, it would be cleaner to return boost::none instead of true/false, because the API user could forget to check the error status and may use an incorrect value. Similar for uint*_t, where we can't use e.g. -1 on error.
     //            If we add access to boost::optional revisit all new functions to see which would benefit from it.
     virtual void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress) = 0;
-    /**
-    * brief: getDaemonAdjustedTime -
-    * return: daemon adjusted time
-    * note: sets status error on fail
-    */
-    virtual std::uint64_t getDaemonAdjustedTime() const = 0;
-    /**
-    * brief: setCacheDescription - set wallet cache attribute with key ATTRIBUTE_DESCRIPTION
-    * param: description -
-    */
-    virtual void setCacheDescription(const std::string &description) = 0;
-    /**
-    * brief: getCacheDescription - get wallet cache attribute with key ATTRIBUTE_DESCRIPTION
-    * return: description
-    */
-    virtual std::string getCacheDescription() const = 0;
     /**
     * brief: getAccountTags - get the list of registered account tags
     * return: first.Key=(tag's name), first.Value=(tag's label), second[i]=(i-th account's tag)

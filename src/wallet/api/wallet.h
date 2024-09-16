@@ -246,11 +246,8 @@ public:
     bool isFrozen(const std::string multisig_sign_data) const override;
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
     virtual WalletState getWalletState() const = 0;
-    bool hasUnknownKeyImages() const override;
     void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
     void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) override;
-    std::map<std::uint32_t, std::uint64_t> balancePerSubaddress(std::uint32_t index_major, bool strict) const override;
-    std::map<std::uint32_t, std::pair<std::uint64_t, std::pair<std::uint64_t, std::uint64_t>>> unlockedBalancePerSubaddress(std::uint32_t index_major, bool strict) const override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
     void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) override;
     void getEnoteDetails(std::vector<EnoteDetails> enote_details) const override;
@@ -268,9 +265,6 @@ public:
 //    const wallet2::transfer_details &getTransferDetails(std::size_t idx) const override;
     void discardUnmixableOutputs() override;
     void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress) override;
-    std::uint64_t getDaemonAdjustedTime() const override;
-    void setCacheDescription(const std::string &description) override;
-    std::string getCacheDescription() const override;
     const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() override;
     void setAccountTag(const std::set<uint32_t> &account_indices, const std::string &tag) override;
     void setAccountTagDescription(const std::string &tag, const std::string &description) override;
