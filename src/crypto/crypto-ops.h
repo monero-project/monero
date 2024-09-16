@@ -165,6 +165,7 @@ void ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q);
 void fe_add(fe h, const fe f, const fe g);
 void fe_tobytes(unsigned char *, const fe);
 void fe_invert(fe out, const fe z);
+int fe_batch_invert(fe *out, const fe *in, const int n);
 void fe_mul(fe out, const fe, const fe);
 void fe_0(fe h);
 
