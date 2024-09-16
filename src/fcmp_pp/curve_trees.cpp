@@ -29,7 +29,6 @@
 #include "curve_trees.h"
 
 #include "common/threadpool.h"
-#include "fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 
 
@@ -713,11 +712,7 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
     return layer_reduction_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-// CurveTrees public member functions
-//----------------------------------------------------------------------------------------------------------------------
-template<>
-CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(const OutputPair &output_pair) const
+static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair)
 {
     const crypto::public_key &output_pubkey = output_pair.output_pubkey;
     const rct::key &commitment              = output_pair.commitment;
@@ -739,13 +734,29 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(con
     crypto::ec_point I;
     crypto::derive_key_image_generator(output_pubkey, I);
 
+    PreLeafTuple plt;
+    if (!fcmp_pp::point_to_pre_wei_x(O, plt.O_pre_x))
+        throw std::runtime_error("failed to get pre wei x scalar from O");
+    if (!fcmp_pp::point_to_pre_wei_x(rct::pt2rct(I), plt.I_pre_x))
+        throw std::runtime_error("failed to get pre wei x scalar from I");
+    if (!fcmp_pp::point_to_pre_wei_x(C, plt.C_pre_x))
+        throw std::runtime_error("failed to get pre wei x scalar from C");
+
+    return plt;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// CurveTrees public member functions
+//----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(const OutputPair &output_pair) const
+{
+    const auto plt = output_to_pre_leaf_tuple(output_pair);
+
     rct::key O_x, I_x, C_x;
-    if (!fcmp_pp::point_to_wei_x(O, O_x))
-        throw std::runtime_error("failed to get wei x scalar from O");
-    if (!fcmp_pp::point_to_wei_x(rct::pt2rct(I), I_x))
-        throw std::runtime_error("failed to get wei x scalar from I");
-    if (!fcmp_pp::point_to_wei_x(C, C_x))
-        throw std::runtime_error("failed to get wei x scalar from C");
+    fcmp_pp::pre_wei_x_to_wei_x(plt.O_pre_x, O_x);
+    fcmp_pp::pre_wei_x_to_wei_x(plt.I_pre_x, I_x);
+    fcmp_pp::pre_wei_x_to_wei_x(plt.C_pre_x, C_x);
 
     return LeafTuple{
         .O_x = tower_cycle::selene_scalar_from_bytes(O_x),
@@ -996,11 +1007,8 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     std::vector<OutputContext> &tuples_out,
     std::vector<OutputContext> &&new_outputs) const
 {
-    flattened_leaves_out.reserve(new_outputs.size() * LEAF_TUPLE_SIZE);
-    tuples_out.reserve(new_outputs.size());
-
-    std::vector<LeafTuple> leaves;
-    leaves.resize(new_outputs.size());
+    flattened_leaves_out.clear();
+    tuples_out.clear();
 
     // Keep track of valid outputs to make sure we only use leaves from valid outputs. Can't use std::vector<bool>
     // because std::vector<bool> concurrent access is not thread safe.
@@ -1013,23 +1021,27 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
 
-    // Multithreaded conversion of valid outputs into leaf tuples
+    // Step 1. Multithreaded convert valid outputs into pre-Wei x coords
+    std::vector<PreLeafTuple> pre_leaves;
+    pre_leaves.resize(new_outputs.size());
     for (std::size_t i = 0; i < new_outputs.size(); ++i)
     {
         tpool.submit(&waiter,
                 [
                     this,
                     &new_outputs,
-                    &leaves,
                     &valid_outputs,
+                    &pre_leaves,
                     i
                 ]()
                 {
-                    CHECK_AND_ASSERT_THROW_MES(leaves.size() > i, "unexpected leaves size");
                     CHECK_AND_ASSERT_THROW_MES(valid_outputs.size() > i, "unexpected valid outputs size");
                     CHECK_AND_ASSERT_THROW_MES(!valid_outputs[i], "unexpected valid output");
+                    CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > i, "unexpected pre_leaves size");
 
-                    try { leaves[i] = this->leaf_tuple(new_outputs[i].output_pair); }
+                    const auto &output_pair = new_outputs[i].output_pair;
+
+                    try { pre_leaves[i] = output_to_pre_leaf_tuple(output_pair); }
                     catch(...) { /* Invalid outputs can't be added to the tree */ return; }
 
                     valid_outputs[i] = True;
@@ -1038,21 +1050,87 @@ void CurveTrees<C1, C2>::set_valid_leaves(
             );
     }
 
-    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to tuples");
+    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to pre wei x coords");
 
-    // Collect valid outputs into expected objects
+    // Step 2. Collect valid pre-Wei x coords
+    const std::size_t n_valid_outputs = std::count(valid_outputs.begin(), valid_outputs.end(), True);
+    const std::size_t n_valid_leaf_elems = n_valid_outputs * LEAF_TUPLE_SIZE;
+
+    std::vector<fe> one_plus_y_vec(n_valid_leaf_elems), one_minus_y_vec(n_valid_leaf_elems);
+
+    std::size_t valid_i = 0;
     for (std::size_t i = 0; i < valid_outputs.size(); ++i)
     {
         if (!valid_outputs[i])
             continue;
 
-        CHECK_AND_ASSERT_THROW_MES(leaves.size() > i, "unexpected size of leaves");
-        CHECK_AND_ASSERT_THROW_MES(new_outputs.size() > i, "unexpected size of valid outputs");
+        CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > i, "unexpected size of pre_leaves");
+        CHECK_AND_ASSERT_THROW_MES(n_valid_leaf_elems > valid_i, "unexpected valid_i");
 
-        // We use O.x, I.x, C.x to grow the tree
-        flattened_leaves_out.emplace_back(std::move(leaves[i].O_x));
-        flattened_leaves_out.emplace_back(std::move(leaves[i].I_x));
-        flattened_leaves_out.emplace_back(std::move(leaves[i].C_x));
+        static_assert(LEAF_TUPLE_SIZE == 3, "unexpected leaf tuple size");
+        CHECK_AND_ASSERT_THROW_MES(one_plus_y_vec.size() > (valid_i+2), "unexpected size of one_plus_y_vec");
+        CHECK_AND_ASSERT_THROW_MES(one_minus_y_vec.size() > (valid_i+2), "unexpected size of one_minus_y_vec");
+
+        auto &pl = pre_leaves[i];
+
+        auto &O_pre_x = pl.O_pre_x;
+        auto &I_pre_x = pl.I_pre_x;
+        auto &C_pre_x = pl.C_pre_x;
+
+        // TODO: avoid copying underlying (tried using pointer to pointers, but wasn't clean)
+        memcpy(&one_plus_y_vec[valid_i], &O_pre_x.one_plus_y, sizeof(fe));
+        memcpy(&one_plus_y_vec[valid_i+1], &I_pre_x.one_plus_y, sizeof(fe));
+        memcpy(&one_plus_y_vec[valid_i+2], &C_pre_x.one_plus_y, sizeof(fe));
+
+        memcpy(&one_minus_y_vec[valid_i], &O_pre_x.one_minus_y, sizeof(fe));
+        memcpy(&one_minus_y_vec[valid_i+1], &I_pre_x.one_minus_y, sizeof(fe));
+        memcpy(&one_minus_y_vec[valid_i+2], &C_pre_x.one_minus_y, sizeof(fe));
+
+        valid_i += LEAF_TUPLE_SIZE;
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(n_valid_leaf_elems == valid_i, "unexpected end valid_i");
+
+    // Step 3. Get batch inverse of valid pre-Wei x (1-y)'s
+    // - Batch inversion is significantly faster than inverting 1 at a time
+    std::vector<fe> inv_one_minus_y_vec(n_valid_leaf_elems);
+    CHECK_AND_ASSERT_THROW_MES(batch_invert(one_minus_y_vec, inv_one_minus_y_vec), "failed to batch invert");
+
+    // Step 4. Multithreaded get Wei x coords and convert to Selene scalars
+    CHECK_AND_ASSERT_THROW_MES(inv_one_minus_y_vec.size() == n_valid_leaf_elems,
+        "unexpected size of inv_one_minus_y_vec");
+    CHECK_AND_ASSERT_THROW_MES(one_plus_y_vec.size() == n_valid_leaf_elems,
+        "unexpected size of one_plus_y_vec");
+
+    flattened_leaves_out.resize(n_valid_leaf_elems);
+    for (std::size_t i = 0; i < n_valid_leaf_elems; ++i)
+    {
+        tpool.submit(&waiter,
+                [
+                    &inv_one_minus_y_vec,
+                    &one_plus_y_vec,
+                    &flattened_leaves_out,
+                    i
+                ]()
+                {
+                    rct::key wei_x;
+                    fcmp_pp::to_wei_x(inv_one_minus_y_vec[i], one_plus_y_vec[i], wei_x);
+                    flattened_leaves_out[i] = tower_cycle::selene_scalar_from_bytes(wei_x);
+                },
+                true
+            );
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to wei x coords");
+
+    // Step 5. Set valid tuples
+    tuples_out.reserve(n_valid_outputs);
+    for (std::size_t i = 0; i < valid_outputs.size(); ++i)
+    {
+        if (!valid_outputs[i])
+            continue;
+
+        CHECK_AND_ASSERT_THROW_MES(new_outputs.size() > i, "unexpected size of valid outputs");
 
         // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output context in the db to save 32 bytes
         tuples_out.emplace_back(std::move(new_outputs[i]));

@@ -28,10 +28,6 @@
 
 #include "fcmp_pp_crypto.h"
 
-extern "C"
-{
-#include "crypto/crypto-ops.h"
-}
 #include "ringct/rctOps.h"
 
 namespace fcmp_pp
@@ -51,14 +47,44 @@ bool clear_torsion(const rct::key &k, rct::key &k_out) {
     ge_p3_tobytes(k_out.bytes, &torsion_cleared_point);
     return true;
 }
-
-bool point_to_wei_x(const rct::key &pub, rct::key &wei_x) {
+//----------------------------------------------------------------------------------------------------------------------
+bool batch_invert(const std::vector<fe> &elems, std::vector<fe> &inv_elems) {
+    if (elems.size() != inv_elems.size())
+        return false;
+    fe_batch_invert(inv_elems.data(), elems.data(), elems.size());
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x) {
     if (pub == rct::I)
         return false;
     fe y;
     if (fe_frombytes_vartime(y, pub.bytes) != 0)
         return false;
-    fe_ed_y_to_wei_x(wei_x.bytes, y);
+    fe one;
+    fe_1(one);
+
+    // (1+y),(1-y)
+    fe_add(pre_wei_x.one_plus_y, one, y);
+    fe_sub(pre_wei_x.one_minus_y, one, y);
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+void to_wei_x(const fe inv_one_minus_y, const fe one_plus_y, rct::key &wei_x) {
+    fe_to_wei_x(wei_x.bytes, inv_one_minus_y, one_plus_y);
+}
+//----------------------------------------------------------------------------------------------------------------------
+void pre_wei_x_to_wei_x(const PreWeiX pre_wei_x, rct::key &wei_x) {
+    fe inv_one_minus_y;
+    fe_invert(inv_one_minus_y, pre_wei_x.one_minus_y);
+    to_wei_x(inv_one_minus_y, pre_wei_x.one_plus_y, wei_x);
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool point_to_wei_x(const rct::key &pub, rct::key &wei_x) {
+    PreWeiX pre_wei_x;
+    if (!point_to_pre_wei_x(pub, pre_wei_x))
+        return false;
+    pre_wei_x_to_wei_x(pre_wei_x, wei_x);
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------

@@ -92,7 +92,7 @@ void fe_0(fe h) {
 h = 1
 */
 
-static void fe_1(fe h) {
+void fe_1(fe h) {
   h[0] = 1;
   h[1] = 0;
   h[2] = 0;
@@ -993,7 +993,7 @@ Postconditions:
    |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
 */
 
-static void fe_sub(fe h, const fe f, const fe g) {
+void fe_sub(fe h, const fe f, const fe g) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -3920,20 +3920,9 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
 }
 
 // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
-void fe_ed_y_to_wei_x(unsigned char *wei_x, const fe ed_y)
+void fe_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y)
 {
-  fe one;
-  fe_1(one);
-
-  // (1+y),(1-y)
-  fe one_plus_y;
-  fe_add(one_plus_y, one, ed_y);
-  fe one_minus_y;
-  fe_sub(one_minus_y, one, ed_y);
-
   // (1/(1-y))*(1+y)
-  fe inv_one_minus_y;
-  fe_invert(inv_one_minus_y, one_minus_y);
   fe inv_one_minus_y_mul_one_plus_y;
   fe_mul(inv_one_minus_y_mul_one_plus_y, inv_one_minus_y, one_plus_y);
 
