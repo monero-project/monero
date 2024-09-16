@@ -369,3 +369,27 @@ TEST(Crypto, key_image_y)
 
   ASSERT_EQ(memcmp(y_from_ki, y_from_ki_y, sizeof(fe)), 0);
 }
+
+TEST(Crypto, batch_inversion)
+{
+  const std::size_t n_elems = 1000;
+  std::vector<fe> field_elems(n_elems), batch_inverted(n_elems), norm_inverted(n_elems);
+
+  // Populate random field elems
+  for (std::size_t i = 0; i < n_elems; ++i)
+  {
+    const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+    ASSERT_EQ(fe_frombytes_vartime(field_elems[i], (unsigned char*)kp.pub.data), 0);
+  }
+
+  // Do batch inversion
+  fe_batch_invert(batch_inverted.data(), field_elems.data(), n_elems);
+
+  // Invert every elem individually
+  for (std::size_t i = 0; i < n_elems; ++i)
+  {
+    fe_invert(norm_inverted[i], field_elems[i]);
+  }
+
+  ASSERT_EQ(memcmp(batch_inverted.data(), norm_inverted.data(), n_elems * sizeof(fe)), 0);
+}

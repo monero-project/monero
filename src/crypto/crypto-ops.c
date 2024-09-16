@@ -30,6 +30,8 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "warnings.h"
 #include "crypto-ops.h"
@@ -311,6 +313,39 @@ void fe_invert(fe out, const fe z) {
   fe_mul(out, t1, t0);
 
   return;
+}
+
+// Montgomery's trick
+// https://iacr.org/archive/pkc2004/29470042/29470042.pdf 2.2
+int fe_batch_invert(fe *out, const fe *in, const int n) {
+  if (n == 0) {
+    return 0;
+  }
+
+  // Step 1: collect initial muls
+  fe *init_muls = (fe *) malloc(n * sizeof(fe));
+  if (!init_muls) {
+    return 1;
+  }
+  memcpy(&init_muls[0], &in[0], sizeof(fe));
+  for (int i = 1; i < n; ++i) {
+    fe_mul(init_muls[i], init_muls[i-1], in[i]);
+  }
+
+  // Step 2: get the inverse of all elems multiplied together
+  fe a;
+  fe_invert(a, init_muls[n-1]);
+
+  // Step 3: get each inverse
+  for (int i = n; i > 1; --i) {
+    fe_mul(out[i-1], a, init_muls[i-2]);
+    fe_mul(a, a, in[i-1]);
+  }
+  memcpy(&out[0], &a, sizeof(fe));
+
+  free(init_muls);
+
+  return 0;
 }
 
 /* From fe_isnegative.c */
@@ -1612,7 +1647,7 @@ static void ge_precomp_cmov(ge_precomp *t, const ge_precomp *u, unsigned char b)
   fe_cmov(t->xy2d, u->xy2d, b);
 }
 
-static void select(ge_precomp *t, int pos, signed char b) {
+static void _select(ge_precomp *t, int pos, signed char b) {
   ge_precomp minust;
   unsigned char bnegative = negative(b);
   unsigned char babs = b - (((-bnegative) & b) << 1);
@@ -1668,7 +1703,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
 
   ge_p3_0(h);
   for (i = 1; i < 64; i += 2) {
-    select(&t, i / 2, e[i]);
+    _select(&t, i / 2, e[i]);
     ge_madd(&r, h, &t); ge_p1p1_to_p3(h, &r);
   }
 
@@ -1678,7 +1713,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
   ge_p2_dbl(&r, &s); ge_p1p1_to_p3(h, &r);
 
   for (i = 0; i < 64; i += 2) {
-    select(&t, i / 2, e[i]);
+    _select(&t, i / 2, e[i]);
     ge_madd(&r, h, &t); ge_p1p1_to_p3(h, &r);
   }
 }
