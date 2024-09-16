@@ -2253,7 +2253,7 @@ std::vector<uint64_t> Blockchain::get_random_outputs(uint64_t amount, uint64_t c
 	if (num_outs <= count)
 	{
 		for (uint64_t i = 0; i < num_outs; i++)
-		{ 
+		{
 			// if tx is unlocked, add output to indices
 			if (is_output_spendtime_unlocked(m_db->get_output_unlock_time(amount, i)))
 			{
@@ -5415,7 +5415,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "1b3af83e834975d9cc66bf54f07ff0059febcd559074354ead29fdb497d89d0e";
+static const char expected_block_hashes_hash[] = "97cc8a9664758dad24b4a3afd633bb56a9d1bf60b7692d0c0459942d2ddf9cab";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)
