@@ -372,7 +372,7 @@ TEST(Crypto, key_image_y)
 
 TEST(Crypto, batch_inversion)
 {
-  const std::vector<std::size_t> test_n_elems{1, 100, 1000};
+  std::size_t MAX_TEST_ELEMS = 1000;
 
   // Memory allocator
   auto alloc = [](const std::size_t n) -> fe*
@@ -383,35 +383,25 @@ TEST(Crypto, batch_inversion)
     return ptr;
   };
 
-  // Init test elems
-  fe *init_elems = alloc(test_n_elems.back());
-  for (std::size_t i = 0; i < test_n_elems.back(); ++i)
+  // Init test elems and individual inversions
+  fe *init_elems     = alloc(MAX_TEST_ELEMS);
+  fe *norm_inverted  = alloc(MAX_TEST_ELEMS);
+  for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
   {
     const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
     ASSERT_EQ(fe_frombytes_vartime(init_elems[i], (unsigned char*)kp.pub.data), 0);
+    fe_invert(norm_inverted[i], init_elems[i]);
   }
 
-  for (const std::size_t n_elems : test_n_elems)
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
   {
-    // Memory allocations
     fe *batch_inverted = alloc(n_elems);
-    fe *norm_inverted  = alloc(n_elems);
-
-    // Do batch inversion
     ASSERT_EQ(fe_batch_invert(batch_inverted, init_elems, n_elems), 0);
-
-    // Invert every elem individually
-    for (std::size_t i = 0; i < n_elems; ++i)
-    {
-      fe_invert(norm_inverted[i], init_elems[i]);
-    }
-
     ASSERT_EQ(memcmp(batch_inverted, norm_inverted, n_elems * sizeof(fe)), 0);
-
-    // Clean up
     free(batch_inverted);
-    free(norm_inverted);
   }
 
   free(init_elems);
+  free(norm_inverted);
 }
