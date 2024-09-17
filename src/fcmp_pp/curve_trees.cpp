@@ -736,12 +736,12 @@ static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair)
     crypto::derive_key_image_generator(output_pubkey, I);
 
     PreLeafTuple plt;
-    if (!fcmp_pp::point_to_pre_wei_x(O, plt.O_pre_x))
-        throw std::runtime_error("failed to get pre wei x from O");
-    if (!fcmp_pp::point_to_pre_wei_x(rct::pt2rct(I), plt.I_pre_x))
-        throw std::runtime_error("failed to get pre wei x from I");
-    if (!fcmp_pp::point_to_pre_wei_x(C, plt.C_pre_x))
-        throw std::runtime_error("failed to get pre wei x from C");
+    if (!fcmp_pp::point_to_ed_y_derivatives(O, plt.O_pre_x))
+        throw std::runtime_error("failed to get ed y derivatives from O");
+    if (!fcmp_pp::point_to_ed_y_derivatives(rct::pt2rct(I), plt.I_pre_x))
+        throw std::runtime_error("failed to get ed y derivatives from I");
+    if (!fcmp_pp::point_to_ed_y_derivatives(C, plt.C_pre_x))
+        throw std::runtime_error("failed to get ed y derivatives from C");
 
     return plt;
 }
@@ -755,9 +755,9 @@ CurveTrees<Helios, Selene>::LeafTuple CurveTrees<Helios, Selene>::leaf_tuple(con
     const auto plt = output_to_pre_leaf_tuple(output_pair);
 
     rct::key O_x, I_x, C_x;
-    fcmp_pp::pre_wei_x_to_wei_x(plt.O_pre_x, O_x);
-    fcmp_pp::pre_wei_x_to_wei_x(plt.I_pre_x, I_x);
-    fcmp_pp::pre_wei_x_to_wei_x(plt.C_pre_x, C_x);
+    fcmp_pp::ed_y_derivatives_to_wei_x(plt.O_pre_x, O_x);
+    fcmp_pp::ed_y_derivatives_to_wei_x(plt.I_pre_x, I_x);
+    fcmp_pp::ed_y_derivatives_to_wei_x(plt.C_pre_x, C_x);
 
     return LeafTuple{
         .O_x = tower_cycle::selene_scalar_from_bytes(O_x),
@@ -1019,7 +1019,8 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
 
-    // Step 1. Multithreaded convert valid outputs into pre-Wei x coords
+    // Step 1. Multithreaded convert valid outputs into Edwards y derivatives needed to get Wei x coordinates
+    // TODO: investigate batched threading (as opposed to small tasks)
     std::vector<PreLeafTuple> pre_leaves;
     pre_leaves.resize(new_outputs.size());
     for (std::size_t i = 0; i < new_outputs.size(); ++i)
@@ -1047,15 +1048,17 @@ void CurveTrees<C1, C2>::set_valid_leaves(
             );
     }
 
-    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to pre wei x coords");
+    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to ed y derivatives");
 
-    // Step 2. Collect valid pre-Wei x coords
+    // Step 2. Collect valid Edwards y derivatives
     const std::size_t n_valid_outputs = std::count(valid_outputs.begin(), valid_outputs.end(), True);
     const std::size_t n_valid_leaf_elems = n_valid_outputs * LEAF_TUPLE_SIZE;
 
+    // Collecting (1+y)'s
     fe *one_plus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
     CHECK_AND_ASSERT_THROW_MES(one_plus_y_vec, "failed malloc one_plus_y_vec");
 
+    // Collecting (1-y)'s
     fe *one_minus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
     CHECK_AND_ASSERT_THROW_MES(one_minus_y_vec, "failed malloc one_minus_y_vec");
 
@@ -1090,14 +1093,15 @@ void CurveTrees<C1, C2>::set_valid_leaves(
 
     CHECK_AND_ASSERT_THROW_MES(n_valid_leaf_elems == valid_i, "unexpected end valid_i");
 
-    // Step 3. Get batch inverse of valid pre-Wei x (1-y)'s
+    // Step 3. Get batch inverse of all valid (1-y)'s
     // - Batch inversion is significantly faster than inverting 1 at a time
     fe *inv_one_minus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
     CHECK_AND_ASSERT_THROW_MES(inv_one_minus_y_vec, "failed malloc inv_one_minus_y_vec");
     CHECK_AND_ASSERT_THROW_MES(fe_batch_invert(inv_one_minus_y_vec, one_minus_y_vec, n_valid_leaf_elems) == 0,
         "failed to batch invert");
 
-    // Step 4. Multithreaded get Wei x coords and convert to Selene scalars
+    // Step 4. Multithreaded get Wei x's and convert to Selene scalars
+    // TODO: investigate batched threading (as opposed to small tasks)
     flattened_leaves_out.resize(n_valid_leaf_elems);
     for (std::size_t i = 0; i < n_valid_leaf_elems; ++i)
     {
@@ -1110,7 +1114,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                 ]()
                 {
                     rct::key wei_x;
-                    fe_to_wei_x(wei_x.bytes, inv_one_minus_y_vec[i], one_plus_y_vec[i]);
+                    fe_ed_y_derivatives_to_wei_x(wei_x.bytes, inv_one_minus_y_vec[i], one_plus_y_vec[i]);
                     flattened_leaves_out[i] = tower_cycle::selene_scalar_from_bytes(wei_x);
                 },
                 true
@@ -1119,7 +1123,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
 
     CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to wei x coords");
 
-    // Step 5. Set valid tuples
+    // Step 5. Set valid tuples to be stored in the db
     tuples_out.clear();
     tuples_out.reserve(n_valid_outputs);
     for (std::size_t i = 0; i < valid_outputs.size(); ++i)

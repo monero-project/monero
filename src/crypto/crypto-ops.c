@@ -3920,7 +3920,7 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
 }
 
 // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
-void fe_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y)
+void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y)
 {
   // (1/(1-y))*(1+y)
   fe inv_one_minus_y_mul_one_plus_y;
