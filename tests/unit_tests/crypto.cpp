@@ -372,7 +372,7 @@ TEST(Crypto, key_image_y)
 
 TEST(Crypto, batch_inversion)
 {
-  std::size_t MAX_TEST_ELEMS = 1000;
+  const std::size_t MAX_TEST_ELEMS = 1000;
 
   // Memory allocator
   auto alloc = [](const std::size_t n) -> fe*
@@ -384,8 +384,8 @@ TEST(Crypto, batch_inversion)
   };
 
   // Init test elems and individual inversions
-  fe *init_elems     = alloc(MAX_TEST_ELEMS);
-  fe *norm_inverted  = alloc(MAX_TEST_ELEMS);
+  fe *init_elems    = alloc(MAX_TEST_ELEMS);
+  fe *norm_inverted = alloc(MAX_TEST_ELEMS);
   for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
   {
     const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));

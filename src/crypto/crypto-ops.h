@@ -173,4 +173,4 @@ void fe_1(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
 
-void fe_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y);
+void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y);

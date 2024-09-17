@@ -38,7 +38,7 @@ namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
 // Field elems needed to get wei x coord
-struct PreWeiX final
+struct EdYDerivatives final
 {
     fe one_plus_y;
     fe one_minus_y;
@@ -46,8 +46,8 @@ struct PreWeiX final
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: tests for these functions
 bool clear_torsion(const rct::key &k, rct::key &k_out);
-bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x);
-void pre_wei_x_to_wei_x(const PreWeiX pre_wei_x, rct::key &wei_x);
+bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives);
+void ed_y_derivatives_to_wei_x(const EdYDerivatives ed_y_derivatives, rct::key &wei_x);
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

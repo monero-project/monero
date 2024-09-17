@@ -48,7 +48,7 @@ bool clear_torsion(const rct::key &k, rct::key &k_out) {
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x) {
+bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives) {
     if (pub == rct::I)
         return false;
     fe y;
@@ -57,22 +57,22 @@ bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x) {
     fe one;
     fe_1(one);
     // (1+y),(1-y)
-    fe_add(pre_wei_x.one_plus_y, one, y);
-    fe_sub(pre_wei_x.one_minus_y, one, y);
+    fe_add(ed_y_derivatives.one_plus_y, one, y);
+    fe_sub(ed_y_derivatives.one_minus_y, one, y);
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-void pre_wei_x_to_wei_x(const PreWeiX pre_wei_x, rct::key &wei_x) {
+void ed_y_derivatives_to_wei_x(const EdYDerivatives pre_wei_x, rct::key &wei_x) {
     fe inv_one_minus_y;
     fe_invert(inv_one_minus_y, pre_wei_x.one_minus_y);
-    fe_to_wei_x(wei_x.bytes, inv_one_minus_y, pre_wei_x.one_plus_y);
+    fe_ed_y_derivatives_to_wei_x(wei_x.bytes, inv_one_minus_y, pre_wei_x.one_plus_y);
 }
 //----------------------------------------------------------------------------------------------------------------------
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x) {
-    PreWeiX pre_wei_x;
-    if (!point_to_pre_wei_x(pub, pre_wei_x))
+    EdYDerivatives ed_y_derivatives;
+    if (!point_to_ed_y_derivatives(pub, ed_y_derivatives))
         return false;
-    pre_wei_x_to_wei_x(pre_wei_x, wei_x);
+    ed_y_derivatives_to_wei_x(ed_y_derivatives, wei_x);
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------

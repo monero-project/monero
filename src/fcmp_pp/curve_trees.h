@@ -159,9 +159,9 @@ using OutputsByUnlockBlock = std::unordered_map<uint64_t, std::vector<OutputCont
 // Struct composed of ec elems needed to get a full-fledged leaf tuple
 struct PreLeafTuple final
 {
-    fcmp_pp::PreWeiX O_pre_x;
-    fcmp_pp::PreWeiX I_pre_x;
-    fcmp_pp::PreWeiX C_pre_x;
+    fcmp_pp::EdYDerivatives O_pre_x;
+    fcmp_pp::EdYDerivatives I_pre_x;
+    fcmp_pp::EdYDerivatives C_pre_x;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
