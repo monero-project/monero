@@ -47,7 +47,7 @@ struct EdYDerivatives final
 // TODO: tests for these functions
 bool clear_torsion(const rct::key &k, rct::key &k_out);
 bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives);
-void ed_y_derivatives_to_wei_x(const EdYDerivatives ed_y_derivatives, rct::key &wei_x);
+void ed_y_derivatives_to_wei_x(const EdYDerivatives &ed_y_derivatives, rct::key &wei_x);
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

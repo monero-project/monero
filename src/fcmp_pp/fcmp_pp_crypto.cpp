@@ -62,7 +62,7 @@ bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivat
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-void ed_y_derivatives_to_wei_x(const EdYDerivatives pre_wei_x, rct::key &wei_x) {
+void ed_y_derivatives_to_wei_x(const EdYDerivatives &pre_wei_x, rct::key &wei_x) {
     fe inv_one_minus_y;
     fe_invert(inv_one_minus_y, pre_wei_x.one_minus_y);
     fe_ed_y_derivatives_to_wei_x(wei_x.bytes, inv_one_minus_y, pre_wei_x.one_plus_y);
