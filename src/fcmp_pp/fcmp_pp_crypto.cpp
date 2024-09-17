@@ -48,13 +48,6 @@ bool clear_torsion(const rct::key &k, rct::key &k_out) {
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool batch_invert(const std::vector<fe> &elems, std::vector<fe> &inv_elems) {
-    if (elems.size() != inv_elems.size())
-        return false;
-    fe_batch_invert(inv_elems.data(), elems.data(), elems.size());
-    return true;
-}
-//----------------------------------------------------------------------------------------------------------------------
 bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x) {
     if (pub == rct::I)
         return false;
@@ -70,14 +63,10 @@ bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x) {
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-void to_wei_x(const fe inv_one_minus_y, const fe one_plus_y, rct::key &wei_x) {
-    fe_to_wei_x(wei_x.bytes, inv_one_minus_y, one_plus_y);
-}
-//----------------------------------------------------------------------------------------------------------------------
 void pre_wei_x_to_wei_x(const PreWeiX pre_wei_x, rct::key &wei_x) {
     fe inv_one_minus_y;
     fe_invert(inv_one_minus_y, pre_wei_x.one_minus_y);
-    to_wei_x(inv_one_minus_y, pre_wei_x.one_plus_y, wei_x);
+    fe_to_wei_x(wei_x.bytes, inv_one_minus_y, pre_wei_x.one_plus_y);
 }
 //----------------------------------------------------------------------------------------------------------------------
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x) {
