@@ -377,7 +377,7 @@ TEST(Crypto, batch_inversion)
   // Memory allocator
   auto alloc = [](const std::size_t n) -> fe*
   {
-    fe * ptr = (fe *) malloc(n * sizeof(fe));
+    fe *ptr = (fe *) malloc(n * sizeof(fe));
     if (!ptr)
       throw std::runtime_error("failed to malloc fe *");
     return ptr;
@@ -391,7 +391,7 @@ TEST(Crypto, batch_inversion)
     ASSERT_EQ(fe_frombytes_vartime(init_elems[i], (unsigned char*)kp.pub.data), 0);
   }
 
-  for (std::size_t n_elems : {1, 100, 1000})
+  for (const std::size_t n_elems : test_n_elems)
   {
     // Memory allocations
     fe *batch_inverted = alloc(n_elems);

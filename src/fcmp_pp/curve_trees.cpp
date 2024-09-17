@@ -737,11 +737,11 @@ static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair)
 
     PreLeafTuple plt;
     if (!fcmp_pp::point_to_pre_wei_x(O, plt.O_pre_x))
-        throw std::runtime_error("failed to get pre wei x scalar from O");
+        throw std::runtime_error("failed to get pre wei x from O");
     if (!fcmp_pp::point_to_pre_wei_x(rct::pt2rct(I), plt.I_pre_x))
-        throw std::runtime_error("failed to get pre wei x scalar from I");
+        throw std::runtime_error("failed to get pre wei x from I");
     if (!fcmp_pp::point_to_pre_wei_x(C, plt.C_pre_x))
-        throw std::runtime_error("failed to get pre wei x scalar from C");
+        throw std::runtime_error("failed to get pre wei x from C");
 
     return plt;
 }

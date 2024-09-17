@@ -56,7 +56,6 @@ bool point_to_pre_wei_x(const rct::key &pub, PreWeiX &pre_wei_x) {
         return false;
     fe one;
     fe_1(one);
-
     // (1+y),(1-y)
     fe_add(pre_wei_x.one_plus_y, one, y);
     fe_sub(pre_wei_x.one_minus_y, one, y);
