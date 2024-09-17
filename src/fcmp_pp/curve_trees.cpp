@@ -31,6 +31,7 @@
 #include "common/threadpool.h"
 #include "ringct/rctOps.h"
 
+#include <stdlib.h>
 
 namespace fcmp_pp
 {
@@ -1052,7 +1053,11 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     const std::size_t n_valid_outputs = std::count(valid_outputs.begin(), valid_outputs.end(), True);
     const std::size_t n_valid_leaf_elems = n_valid_outputs * LEAF_TUPLE_SIZE;
 
-    std::vector<fe> one_plus_y_vec(n_valid_leaf_elems), one_minus_y_vec(n_valid_leaf_elems);
+    fe *one_plus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
+    CHECK_AND_ASSERT_THROW_MES(one_plus_y_vec, "failed malloc one_plus_y_vec");
+
+    fe *one_minus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
+    CHECK_AND_ASSERT_THROW_MES(one_minus_y_vec, "failed malloc one_minus_y_vec");
 
     std::size_t valid_i = 0;
     for (std::size_t i = 0; i < valid_outputs.size(); ++i)
@@ -1063,15 +1068,13 @@ void CurveTrees<C1, C2>::set_valid_leaves(
         CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > i, "unexpected size of pre_leaves");
         CHECK_AND_ASSERT_THROW_MES(n_valid_leaf_elems > valid_i, "unexpected valid_i");
 
-        static_assert(LEAF_TUPLE_SIZE == 3, "unexpected leaf tuple size");
-        CHECK_AND_ASSERT_THROW_MES(one_plus_y_vec.size() > (valid_i+2), "unexpected size of one_plus_y_vec");
-        CHECK_AND_ASSERT_THROW_MES(one_minus_y_vec.size() > (valid_i+2), "unexpected size of one_minus_y_vec");
-
         auto &pl = pre_leaves[i];
 
         auto &O_pre_x = pl.O_pre_x;
         auto &I_pre_x = pl.I_pre_x;
         auto &C_pre_x = pl.C_pre_x;
+
+        static_assert(LEAF_TUPLE_SIZE == 3, "unexpected leaf tuple size");
 
         // TODO: avoid copying underlying (tried using pointer to pointers, but wasn't clean)
         memcpy(&one_plus_y_vec[valid_i], &O_pre_x.one_plus_y, sizeof(fe));
@@ -1089,15 +1092,12 @@ void CurveTrees<C1, C2>::set_valid_leaves(
 
     // Step 3. Get batch inverse of valid pre-Wei x (1-y)'s
     // - Batch inversion is significantly faster than inverting 1 at a time
-    std::vector<fe> inv_one_minus_y_vec(n_valid_leaf_elems);
-    CHECK_AND_ASSERT_THROW_MES(batch_invert(one_minus_y_vec, inv_one_minus_y_vec), "failed to batch invert");
+    fe *inv_one_minus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
+    CHECK_AND_ASSERT_THROW_MES(inv_one_minus_y_vec, "failed malloc inv_one_minus_y_vec");
+    CHECK_AND_ASSERT_THROW_MES(fe_batch_invert(inv_one_minus_y_vec, one_minus_y_vec, n_valid_leaf_elems) == 0,
+        "failed to batch invert");
 
     // Step 4. Multithreaded get Wei x coords and convert to Selene scalars
-    CHECK_AND_ASSERT_THROW_MES(inv_one_minus_y_vec.size() == n_valid_leaf_elems,
-        "unexpected size of inv_one_minus_y_vec");
-    CHECK_AND_ASSERT_THROW_MES(one_plus_y_vec.size() == n_valid_leaf_elems,
-        "unexpected size of one_plus_y_vec");
-
     flattened_leaves_out.resize(n_valid_leaf_elems);
     for (std::size_t i = 0; i < n_valid_leaf_elems; ++i)
     {
@@ -1110,7 +1110,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                 ]()
                 {
                     rct::key wei_x;
-                    fcmp_pp::to_wei_x(inv_one_minus_y_vec[i], one_plus_y_vec[i], wei_x);
+                    fe_to_wei_x(wei_x.bytes, inv_one_minus_y_vec[i], one_plus_y_vec[i]);
                     flattened_leaves_out[i] = tower_cycle::selene_scalar_from_bytes(wei_x);
                 },
                 true
@@ -1132,6 +1132,11 @@ void CurveTrees<C1, C2>::set_valid_leaves(
         // We can derive {O.x,I.x,C.x} from output pairs, so we store just the output context in the db to save 32 bytes
         tuples_out.emplace_back(std::move(new_outputs[i]));
     }
+
+    // Step 6. Clean up
+    free(one_plus_y_vec);
+    free(one_minus_y_vec);
+    free(inv_one_minus_y_vec);
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
