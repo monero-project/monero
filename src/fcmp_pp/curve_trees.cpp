@@ -1007,9 +1007,6 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     std::vector<OutputContext> &tuples_out,
     std::vector<OutputContext> &&new_outputs) const
 {
-    flattened_leaves_out.clear();
-    tuples_out.clear();
-
     // Keep track of valid outputs to make sure we only use leaves from valid outputs. Can't use std::vector<bool>
     // because std::vector<bool> concurrent access is not thread safe.
     enum Boolean : uint8_t {
@@ -1028,7 +1025,6 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     {
         tpool.submit(&waiter,
                 [
-                    this,
                     &new_outputs,
                     &valid_outputs,
                     &pre_leaves,
@@ -1124,6 +1120,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to wei x coords");
 
     // Step 5. Set valid tuples
+    tuples_out.clear();
     tuples_out.reserve(n_valid_outputs);
     for (std::size_t i = 0; i < valid_outputs.size(); ++i)
     {
