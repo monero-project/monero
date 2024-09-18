@@ -156,6 +156,14 @@ static_assert(sizeof(OutputContext) == (8+32+32), "db expects 72 bytes for outpu
 
 using OutputsByUnlockBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
 
+// Ed25519 points (can go from OutputTuple -> LeafTuple)
+struct OutputTuple final
+{
+    rct::key O;
+    rct::key I;
+    rct::key C;
+};
+
 // Struct composed of ec elems needed to get a full-fledged leaf tuple
 struct PreLeafTuple final
 {
@@ -320,6 +328,22 @@ const std::size_t SELENE_CHUNK_WIDTH = 18;
 std::shared_ptr<CurveTreesV1> curve_trees_v1(
     const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH,
     const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH);
+
+// A path in the tree containing whole chunks at each layer
+// - leaves contain a complete chunk of leaves, encoded as compressed ed25519 points
+// - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The hash of the chunk of
+//   leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
+// - layers alternate between C1 and C2
+// - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The hash of the chunk
+//   of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems that hash
+//   is in.
+// - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
+struct PathV1 final
+{
+    std::vector<OutputTuple> leaves;
+    std::vector<std::vector<Helios::Point>> c1_layers;
+    std::vector<std::vector<Selene::Point>> c2_layers;
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
