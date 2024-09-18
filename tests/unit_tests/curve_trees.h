@@ -30,10 +30,31 @@
 
 #include "fcmp_pp/curve_trees.h"
 #include "fcmp_pp/tower_cycle.h"
+#include "unit_tests_utils.h"
 
 using Helios       = fcmp_pp::curve_trees::Helios;
 using Selene       = fcmp_pp::curve_trees::Selene;
 using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
+
+//----------------------------------------------------------------------------------------------------------------------
+#define INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth)                          \
+    static_assert(helios_chunk_width > 1, "helios width must be > 1");                                     \
+    static_assert(selene_chunk_width > 1, "selene width must be > 1");                                     \
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width); \
+                                                                                                           \
+    /* Number of leaves required for tree to reach given depth */                                          \
+    std::size_t min_leaves_needed_for_tree_depth = selene_chunk_width;                                     \
+    for (std::size_t i = 1; i < tree_depth; ++i)                                                           \
+    {                                                                                                      \
+        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;                    \
+        min_leaves_needed_for_tree_depth *= width;                                                         \
+    }                                                                                                      \
+                                                                                                           \
+    /* Increment to test for off-by-1 */                                                                   \
+    ++min_leaves_needed_for_tree_depth;                                                                    \
+                                                                                                           \
+    unit_test::BlockchainLMDBTest test_db;                                                                 \
+//----------------------------------------------------------------------------------------------------------------------
 
 // Helper class to read/write a global tree in memory. It's only used in testing because normally the tree isn't kept
 // in memory (it's stored in the db)
@@ -50,7 +71,7 @@ public:
     // A complete tree, useful for testing (don't want to keep the whole tree in memory during normal operation)
     struct Tree final
     {
-        std::vector<CurveTreesV1::LeafTuple> leaves;
+        std::vector<fcmp_pp::curve_trees::OutputPair> leaves;
         std::vector<Layer<Helios>> c1_layers;
         std::vector<Layer<Selene>> c2_layers;
     };
@@ -60,25 +81,30 @@ public:
     // Read the in-memory tree and get the number of leaf tuples
     std::size_t get_num_leaf_tuples() const;
 
-    // Read the in-memory tree and get the last hashes from each layer in the tree
-    CurveTreesV1::LastHashes get_last_hashes() const;
+    // Grow tree by provided new_n_leaf_tuples
+    bool grow_tree(const std::size_t expected_old_n_leaf_tuples, const std::size_t new_n_leaf_tuples);
 
+    // Trim the provided number of leaf tuples from the tree
+    bool trim_tree(const std::size_t expected_old_n_leaf_tuples, const std::size_t trim_n_leaf_tuples);
+
+    // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
+    bool audit_tree(const std::size_t expected_n_leaf_tuples) const;
+
+    // Get the path in the tree of the provided leaf idx
+    fcmp_pp::curve_trees::PathV1 get_path_at_leaf_idx(const std::size_t leaf_idx) const;
+
+    // Hint: use num leaf tuples in the tree to determine the type
+    std::array<uint8_t, 32UL> get_tree_root() const;
+
+private:
     // Use the tree extension to extend the in-memory tree
     void extend_tree(const CurveTreesV1::TreeExtension &tree_extension);
 
     // Use the tree reduction to reduce the in-memory tree
     void reduce_tree(const CurveTreesV1::TreeReduction &tree_reduction);
 
-    // Trim the provided number of leaf tuples from the tree
-    void trim_tree(const std::size_t trim_n_leaf_tuples);
-
-    // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
-    bool audit_tree(const std::size_t expected_n_leaf_tuples);
-
-    // logging helpers
-    void log_last_hashes(const CurveTreesV1::LastHashes &last_hashes);
-    void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
-    void log_tree();
+    // Read the in-memory tree and get the last hashes from each layer in the tree
+    CurveTreesV1::LastHashes get_last_hashes() const;
 
     // Read the in-memory tree and get data from what will be the last chunks after trimming the tree to the provided
     // number of leaves
@@ -89,6 +115,11 @@ public:
 
     CurveTreesV1::LastChunkChildrenToTrim get_all_last_chunk_children_to_trim(
         const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions);
+
+    // logging helpers
+    void log_last_hashes(const CurveTreesV1::LastHashes &last_hashes);
+    void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
+    void log_tree();
 
 private:
     CurveTreesV1 &m_curve_trees;
