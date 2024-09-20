@@ -85,12 +85,14 @@ public: \
   epee::serialization::selector<is_store>::serialize_t_val_as_blob(this_ref.variable, stg, hparent_section, val_name);
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_N(variable, val_name) \
-  static_assert(std::is_pod<decltype(this_ref.variable)>::value, "t_type must be a POD type."); \
+  static_assert(std::is_trivially_copyable_v<decltype(this_ref.variable)>, "t_type must be a trivially copyable type."); \
+  static_assert(std::is_standard_layout_v<decltype(this_ref.variable)>, "t_type must be a standard layout type."); \
   KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(variable, val_name)
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT_N(variable, val_name, default_value) \
   do { \
-    static_assert(std::is_pod<decltype(this_ref.variable)>::value, "t_type must be a POD type."); \
+    static_assert(std::is_trivially_copyable_v<decltype(this_ref.variable)>, "t_type must be a trivially copyable type."); \
+    static_assert(std::is_standard_layout_v<decltype(this_ref.variable)>, "t_type must be a standard layout type."); \
     bool ret = KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(variable, val_name); \
     if (!ret) \
       epee::serialize_default(this_ref.variable, default_value); \
@@ -104,7 +106,7 @@ public: \
 #define KV_SERIALIZE(variable)                           KV_SERIALIZE_N(variable, #variable)
 #define KV_SERIALIZE_VAL_POD_AS_BLOB(variable)           KV_SERIALIZE_VAL_POD_AS_BLOB_N(variable, #variable)
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(variable, def)  KV_SERIALIZE_VAL_POD_AS_BLOB_OPT_N(variable, #variable, def)
-#define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(variable)     KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(variable, #variable) //skip is_pod compile time check
+#define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(variable)     KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE_N(variable, #variable) //skip is_trivially_copyable and is_standard_layout compile time check
 #define KV_SERIALIZE_CONTAINER_POD_AS_BLOB(variable)     KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(variable, #variable)
 #define KV_SERIALIZE_OPT(variable, default_value)        KV_SERIALIZE_OPT_N(variable, #variable, default_value)
 

@@ -1335,9 +1335,9 @@ namespace tools
       res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(cryptonote::get_transaction_hash(ptx.tx)));
       if (req.get_tx_keys)
       {
-        res.tx_key_list.push_back(epee::string_tools::pod_to_hex(ptx.tx_key));
+        res.tx_key_list.push_back(epee::string_tools::pod_to_hex(unwrap(unwrap(ptx.tx_key))));
         for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
-          res.tx_key_list.back() += epee::string_tools::pod_to_hex(additional_tx_key);
+          res.tx_key_list.back() += epee::string_tools::pod_to_hex(unwrap(unwrap(additional_tx_key)));
       }
     }
 

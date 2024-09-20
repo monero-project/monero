@@ -280,7 +280,7 @@ namespace cryptonote
     bool r = hwdev.generate_key_derivation(tx_public_key, ack.m_view_secret_key, recv_derivation);
     if (!r)
     {
-      MWARNING("key image helper: failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
+      MWARNING("key image helper: failed to generate_key_derivation(" << tx_public_key << ", <viewkey>)");
       memcpy(&recv_derivation, rct::identity().bytes, sizeof(recv_derivation));
     }
 
@@ -291,7 +291,7 @@ namespace cryptonote
       r = hwdev.generate_key_derivation(additional_tx_public_keys[i], ack.m_view_secret_key, additional_recv_derivation);
       if (!r)
       {
-        MWARNING("key image helper: failed to generate_key_derivation(" << additional_tx_public_keys[i] << ", " << ack.m_view_secret_key << ")");
+        MWARNING("key image helper: failed to generate_key_derivation(" << additional_tx_public_keys[i] << ", <viewkey>)");
       }
       else
       {

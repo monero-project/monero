@@ -7455,9 +7455,9 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   if (found_tx_key)
   {
     ostringstream oss;
-    oss << epee::string_tools::pod_to_hex(tx_key);
+    oss << epee::string_tools::pod_to_hex(unwrap(unwrap(tx_key)));
     for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-      oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+      oss << epee::string_tools::pod_to_hex(unwrap(unwrap(additional_tx_keys[i])));
     success_msg_writer() << tr("Tx key: ") << oss.str();
     return true;
   }

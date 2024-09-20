@@ -275,6 +275,7 @@ POP_WARNINGS
   std::string pod_to_hex(const t_pod_type& s)
   {
     static_assert(std::is_standard_layout<t_pod_type>(), "expected standard layout type");
+    static_assert(std::has_unique_object_representations_v<t_pod_type>, "type may have padding");
     return to_hex::string(as_byte_span(s));
   }
   //----------------------------------------------------------------------------
@@ -282,6 +283,7 @@ POP_WARNINGS
   bool hex_to_pod(const boost::string_ref hex_str, t_pod_type& s)
   {
     static_assert(std::is_standard_layout<t_pod_type>(), "expected standard layout type");
+    static_assert(std::has_unique_object_representations_v<t_pod_type>, "type may have padding");
     return from_hex::to_buffer(as_mut_byte_span(s), hex_str);
   }
   //----------------------------------------------------------------------------
