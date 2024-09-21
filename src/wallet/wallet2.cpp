@@ -3930,7 +3930,7 @@ void wallet2::light_wallet_refresh(uint64_t & blocks_fetched, bool& received_mon
   MDEBUG("light_wallet_refresh()");
 
   std::string address = get_account().get_public_address_str(m_nettype);
-  std::string view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  std::string view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
 
   MDEBUG("light_wallet_refresh(): get_unspent_outs");
 
@@ -10960,7 +10960,7 @@ void wallet2::light_wallet_get_subaddrs() {
   tools::COMMAND_RPC_GET_SUBADDRS::response ores;
 
   oreq.address = get_account().get_public_address_str(m_nettype);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
 
   m_daemon_rpc_mutex.lock();
   bool r = invoke_http_json("/get_subaddrs", oreq, ores, rpc_timeout, "POST");
@@ -10991,7 +10991,7 @@ bool wallet2::light_wallet_upsert_subaddrs(std::vector<cryptonote::subaddress_in
   tools::COMMAND_RPC_UPSERT_SUBADDRS::response ores;
   std::vector<tools::COMMAND_RPC_UPSERT_SUBADDRS::subaddrs_obj> all_subaddrs;
   oreq.address = get_account().get_public_address_str(m_nettype);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   oreq.get_all = true;
 
   for (cryptonote::subaddress_index subaddr : subaddrs) {
@@ -11035,7 +11035,7 @@ bool wallet2::light_wallet_provision_subaddrs(uint32_t maj_i, uint32_t min_i, ui
   tools::COMMAND_RPC_PROVISION_SUBADDRS::response ores;
   std::vector<tools::COMMAND_RPC_PROVISION_SUBADDRS::subaddrs> all_subaddrs;
   oreq.address = get_account().get_public_address_str(m_nettype);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   oreq.get_all = true;
 
   m_daemon_rpc_mutex.lock();
