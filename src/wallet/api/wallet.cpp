@@ -3135,8 +3135,7 @@ void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> enote_details) const
         ed.m_key_image = td.m_key_image;
         ed.m_mask = td.m_mask;
         ed.m_amount = td.m_mask;
-        ed.m_rct = td.m_rct;
-//        ed.m_protocol_version = td.m_rct ? EnoteDetails::rct : EnoteDetails::cn;
+        ed.m_protocol_version = td.m_rct ? EnoteDetails::rct : EnoteDetails::cn;
         ed.m_key_image_known = td.m_key_image_known;
         ed.m_key_image_request = td.m_key_image_request;
         ed.m_pk_index = td.m_pk_index;

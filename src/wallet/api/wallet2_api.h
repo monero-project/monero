@@ -97,12 +97,8 @@ struct EnoteDetails
     std::string m_mask;
     // a
     std::uint64_t m_amount;
-    // QUESTION : Should we change m_rct to this enum to be prepared for the future? We could also add CryptoNote as cn before rct if that would make sense!?
-//    enum { rct, fcmp } m_protocol_version;
-    // or
-//    enum { cn, rct, fcmp } m_protocol_version;
-    // is ring confidential transaction
-    bool m_rct;
+    // protocol version : cn = CryptoNote, rct = RingCT
+    enum { cn, rct } m_protocol_version;
     // is key image known
     bool m_key_image_known;
     // view wallets: we want to request it; cold wallets: it was requested
@@ -226,8 +222,6 @@ struct TransactionInfo
         Direction_Out
     };
 
-    // QUESTION : We already have a bool for "pending" and "failed", but should we rather add two more bools (`m_pending_in_pool` & `m_confirmed`) or switch to an enum like this? I'd prefer the enum, but I guess removing `m_pending` and `m_failed` is not an option?
-    //              If there is justificatin to keep this, any suggestions for a better name? E.g. TxTransmissionState?
     enum TxState {
        pending,
        pending_in_pool,
@@ -243,7 +237,9 @@ struct TransactionInfo
 
     virtual ~TransactionInfo() = 0;
     virtual int  direction() const = 0;
+    // legacy : use txState() instead
     virtual bool isPending() const = 0;
+    // legacy : use txState() instead
     virtual bool isFailed() const = 0;
     virtual bool isCoinbase() const = 0;
     virtual uint64_t amount() const = 0;
