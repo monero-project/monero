@@ -78,8 +78,8 @@ struct EnoteDetails
     std::string m_onetime_address;
     // view_tag
     std::string m_view_tag;
-    // QUESTION : I'd argue block height for enote is redundant, you can get this information from TransactionHistory. Or any different opinions?
-//    std::uint64_t m_block_height;
+    // this enote was received at block height
+    std::uint64_t m_block_height;
     // relative index in tx
     std::uint64_t m_internal_output_index;
     // absolute index from `cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry.output_indices`
@@ -92,7 +92,7 @@ struct EnoteDetails
     std::uint64_t m_spent_height;
     // key image
     std::string m_key_image;
-    // QUESTION : Is this comment correct?
+    // QUESTION : Is this comment correct? (This is the `rct::key m_mask` from wallet2::transfer_details)
     // x, blinding factor in amount commitment C = x G + a H
     std::string m_mask;
     // a
@@ -370,6 +370,7 @@ private:
     std::string m_balance;
     std::string m_unlockedBalance;
 public:
+    // QUESTION : afaik this is unused, can we remove it?
     std::string extra;
     std::string getAddress() const {return m_address;}
     std::string getLabel() const {return m_label;}
@@ -519,6 +520,7 @@ struct Wallet
     };
 
     struct WalletState {
+        // is wallet file format deprecated
         bool is_deprecated;
         std::uint64_t ring_rize;
         std::string daemon_address;
@@ -1255,22 +1257,11 @@ struct Wallet
     * brief: isFrozen - check if enote is frozen
     * param: idx - index of enote in `m_transfers`
     * param: key_image - key image of enote
-    // TODO : Investigate if this can get dropped too. On first sight I thought someone who uses the API can just loop over `PendingTransaction.m_key_images` and call `isFrozen(key_image)`, but it seems `wallet2::frozen(const multisig_tx_set txs)` does more than that.
-    * QUESTION : Which approach should we use? We probably don't need both. Or are there other suggestions? (See WalletImpl::isFrozen for implementation)
-    *   Approach 1 : Use PendingTransaction, which just like tools::wallet2::multisig_tx_set has a vector of pending txs and an unordered set of signers pub keys.
-    *   Approach 2 : Use the encrypted hex string generated with tools::wallet2::save_multisig_tx(). This approach is already used in WalletImpl::restoreMultisigTransaction.
-    * __________ Approach 1 __________
-    * param: multisig_ptxs -
-    * __________ Approach 2 __________
-    * param: multisig_sign_data -
-    * ________________________________
     * return : true if enote is frozen, else false
     * note: sets status error on fail
     */
     virtual bool isFrozen(std::size_t idx) const = 0;
     virtual bool isFrozen(const std::string &key_image) const = 0;
-    virtual bool isFrozen(const PendingTransaction &multisig_ptxs) const = 0;
-    virtual bool isFrozen(const std::string multisig_sign_data) const = 0;
     /**
     * brief: createOneOffSubaddress - create a subaddress for given index
     * param: account_index - major index
@@ -1279,7 +1270,6 @@ struct Wallet
     virtual void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) = 0;
     /**
     * brief: getWalletState - get information about the wallet
-    *                         - is wallet file format deprecated
     * return: WalletState object
     */
     virtual WalletState getWalletState() const = 0;
@@ -1356,17 +1346,15 @@ struct Wallet
     */
     virtual bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const = 0;
     // TODO / QUESTION : How to translate the following types to a standard type for the API?
-    // - tools::wallet2::signed_tx
     // - cryptonote::address_parse_info
-// TODO : wallet2::signed_tx_set
     /**
-    * brief: signTxDumpToStr - get a signed transaction set from unsigned transaction set
-    * param: exported_txs -
-    * outparam: ptx -
-    * outparam: signed_txes -
+    * brief: signTxToStr - get a signed pending transaction from an unsigned transaction
+    * param: exported_txs - unsigned transaction
+    * outparam: ptx - signed pending transaction
     * return: signed tx data as encrypted hex string
+    * note: sets status error on fail
     */
-//    virtual std::string signTxDumpToStr(UnsignedTransaction &exported_txs, PendingTransaction &ptx, signed_tx_set &signed_txes) const = 0;
+    virtual std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const = 0;
 // TODO : accept_func with wallet2::signed_tx_set
     /**
     * brief: loadTx - load pending transactions from a file
@@ -1446,15 +1434,6 @@ struct Wallet
     * param: tx_device_aux -
     */
 //    virtual void coldSignTx(const PendingTransaction &ptx, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux) const = 0;
-    // TODO : this already exists, remove after checking
-    /**
-    * brief: useForkRules - check if the wallet uses the rules for hard fork version at current block height - early_blocks
-    * param: version - hard fork version
-    * param: early_blocks -
-    * return: true if fork rules are used
-    * note: sets status error on fail
-    */
-//    virtual bool useForkRules(std::uint8_t version, std::int64_t early_blocks) const = 0;
     /**
     * brief: discardUnmixableOutputs - freeze all unmixable outputs
     * note: sets status error on fail
@@ -1468,9 +1447,7 @@ struct Wallet
     * param: single_destination_subaddress -
     * note: sets status error on fail
     */
-    // QUESTION : There were some cases already where I wished to have boost::optional in here. I have no explicit example, but in general e.g. for functions that return a bool, but have to return early on error, it would be cleaner to return boost::none instead of true/false, because the API user could forget to check the error status and may use an incorrect value. Similar for uint*_t, where we can't use e.g. -1 on error.
-    //            If we add access to boost::optional revisit all new functions to see which would benefit from it.
-    virtual void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress) = 0;
+    virtual void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress) = 0;
     /**
     * brief: getAccountTags - get the list of registered account tags
     * return: first.Key=(tag's name), first.Value=(tag's label), second[i]=(i-th account's tag)
@@ -1556,7 +1533,7 @@ struct Wallet
     * return: amount of hashed transfers
     * note: sets status error on fail
     */
-    virtual std::uint64_t hashTransfers(boost::optional<std::uint64_t> transfer_height, std::string &hash) const = 0;
+    virtual std::uint64_t hashTransfers(std::uint64_t transfer_height, std::string &hash) const = 0;
     /**
     * brief: finishRescanBcKeepKeyImages  -
     * param: transfer_height -
@@ -1594,7 +1571,7 @@ struct Wallet
     * return: blockchain height of last signed key image, can be 0 if height unknown
     * note: sets status error on fail
     */
-    virtual std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) = 0;
+    virtual std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) = 0;
     /**
     * brief: importKeyImages -
     * param: key_images -
@@ -1603,7 +1580,7 @@ struct Wallet
     * return: true if succeeded
     * note: sets status error on fail
     */
-    virtual bool importKeyImages(std::vector<std::string> key_images, size_t offset=0, boost::optional<std::unordered_set<size_t>> selected_transfers = boost::none) = 0;
+    virtual bool importKeyImages(std::vector<std::string> key_images, std::size_t offset=0, std::unordered_set<std::size_t> selected_transfers = {}) = 0;
 // TODO : wallet2::signed_tx_set
     /**
     * brief: importKeyImages -

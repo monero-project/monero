@@ -242,8 +242,6 @@ public:
     void thaw(const std::string &key_image) override;
     bool isFrozen(std::size_t idx) const override;
     bool isFrozen(const std::string &key_image) const override;
-    bool isFrozen(const PendingTransaction &multisig_ptxs) const override;
-    bool isFrozen(const std::string multisig_sign_data) const override;
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
     virtual WalletState getWalletState() const = 0;
     void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
@@ -255,6 +253,7 @@ public:
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
     std::string convertTxToStr(const PendingTransaction &ptxs) const override;
     bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const override;
+    std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const override;
     bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const override;
 //    bool loadMultisigTxFromFile(const std::string &filename, PendingTransaction &exported_txs, std::function<bool(const PendingTransaction&)> accept_func) const override;
     std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;
@@ -264,7 +263,7 @@ public:
 //    void coldSignTx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux) const override;
 //    const wallet2::transfer_details &getTransferDetails(std::size_t idx) const override;
     void discardUnmixableOutputs() override;
-    void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress) override;
+    void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress) override;
     const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() override;
     void setAccountTag(const std::set<uint32_t> &account_indices, const std::string &tag) override;
     void setAccountTagDescription(const std::string &tag, const std::string &description) override;
@@ -275,11 +274,11 @@ public:
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees) const override;
     bool saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const override;
     bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const override;
-    std::uint64_t hashTransfers(boost::optional<std::uint64_t> transfer_height, std::string &hash) const override;
+    std::uint64_t hashTransfers(std::uint64_t transfer_height, std::string &hash) const override;
     void finishRescanBcKeepKeyImages(std::uint64_t transfer_height, const std::string &hash) override;
     std::pair<std::size_t, std::uint64_t> estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size) const override;
-    std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) override;
-    bool importKeyImages(std::vector<std::string> key_images, size_t offset = 0, boost::optional<std::unordered_set<size_t>> selected_transfers = boost::none) override;
+    std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) override;
+    bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_transfers = {}) override;
 
 private:
     void clearStatus() const;

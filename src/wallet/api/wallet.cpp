@@ -2634,6 +2634,21 @@ bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const
 {
     return m_wallet->use_fork_rules(version,early_blocks);
 }
+// QUESTION : The method above doesn't handle error, can I replace the body with the following in this PR?
+//{
+//    clearStatus();
+//
+//    try
+//    {
+//        return m_wallet->use_fork_rules(version, early_blocks);
+//    }
+//    catch (const std::exception &e)
+//    {
+//        setStatusError((boost::format(tr("Failed to check if we use fork rules for version `%u` with `%d` early blocks. Error: %s")) % version % early_blocks % e.what()).str());
+//    }
+//    return false;
+//}
+//-------------------------------------------------------------------------------------------------------------------
 
 bool WalletImpl::blackballOutputs(const std::vector<std::string> &outputs, bool add)
 {
@@ -2986,54 +3001,6 @@ bool WalletImpl::isFrozen(const std::string &key_image)
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool isFrozen(const PendingTransaction &multisig_ptxs)
-{
-    clearStatus();
-
-    try
-    {
-        checkMultisigWalletReady(m_wallet);
-
-        tools::wallet2::multisig_tx_set multisig_tx_set;
-        multisig_tx_set.m_ptx = multisig_ptxs->m_pending_tx;
-        multisig_tx_set.m_signers = multisig_ptxs->m_signers;
-
-        return m_wallet->frozen(multisig_tx_set);
-    }
-    catch (const exception &e)
-    {
-        setStatusError(e.what());
-    }
-
-    return false;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool isFrozen(const std::string multisig_sign_data)
-{
-    clearStatus();
-
-    try
-    {
-        checkMultisigWalletReady(m_wallet);
-
-        string multisig_sign_data_bin;
-        if (!epee::string_tools::parse_hexstr_to_binbuff(multisig_sign_data, multisig_sign_data_bin))
-            throw runtime_error(tr("Failed to deserialize multisig transaction"));
-
-        tools::wallet2::multisig_tx_set multisig_txs;
-        if (!m_wallet->load_multisig_tx(multisig_sign_data_bin, multisig_txs, {}))
-            throw runtime_error(tr("Failed to load multisig transaction"));
-
-        return m_wallet->frozen(multisig_txs);
-    }
-    catch (const exception &e)
-    {
-        setStatusError(e.what());
-    }
-
-    return false;
-}
-//-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index)
 {
     m_wallet->create_one_off_subaddress({account_index, address_index});
@@ -3241,6 +3208,27 @@ bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, Unsi
     return m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, exported_txs.m_unsigned_tx_set);
 }
 //-------------------------------------------------------------------------------------------------------------------
+std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const
+{
+    clearStatus();
+
+    std::string signed_tx_data;
+
+    try
+    {
+        tools::wallet2::signed_tx_set signed_txes;
+        signed_tx_data = m_wallet->sign_tx_dump_to_str(exported_txs.m_unsigned_tx_set, ptx.m_pending_tx, signed_txes);
+    }
+    catch (const exception &e)
+    {
+        setStatusError(string(tr("Failed to sign tx: ")) + e.what());
+        return {};
+    }
+
+    ptx.m_key_images = signed_txs.key_images;
+    return signed_tx_data;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs)
 {
     clearStatus();
@@ -3338,22 +3326,6 @@ void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::strin
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-// TODO : Somehow missed that we already had this in the API. Imo this should replace the old one because it handles error.
-//bool WalletImpl::useForkRules(std::uint8_t version, std::int64_t early_blocks)
-//{
-//    clearStatus();
-//
-//    try
-//    {
-//        return m_wallet->use_fork_rules(version, early_blocks);
-//    }
-//    catch (const std::exception &e)
-//    {
-//        setStatusError((boost::format(tr("Failed to check if we use fork rules for version `%u` with `%d` early blocks. Error: %s")) % version % early_blocks % e.what()).str());
-//    }
-//    return false;
-//}
-//-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::discardUnmixableOutputs()
 {
     clearStatus();
@@ -3368,7 +3340,7 @@ void WalletImpl::discardUnmixableOutputs()
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const boost::optional<std::string> &single_destination_subaddress)
+void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress)
 {
     clearStatus();
 
@@ -3401,11 +3373,11 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
 
     boost::optional<cryptonote::account_public_address> single_destination_subaddress_pod = boost::none;
     cryptonote::address_parse_info info;
-    if (single_destination_subaddress != boost::none)
+    if (!single_destination_subaddress.empty())
     {
         if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), single_destination_subaddress))
         {
-            setStatusError((boost::format(tr("Failed to parse subaddress: %s")) % single_destination_subaddress).str());
+            setStatusError((boost::format(tr("Failed to get account address from string: %s")) % single_destination_subaddress).str());
             return;
         }
         single_destination_subaddress_pod = info.address;
@@ -3551,13 +3523,14 @@ bool WalletImpl::loadFromFile(const std::string &path_to_file, std::string &targ
     return m_wallet->load_from_file(path_to_file, target_str, max_size);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::hashTransfers(boost::optional<std::uint64_t> transfer_height, std::string &hash)
+std::uint64_t WalletImpl::hashTransfers(std::uint64_t transfer_height, std::string &hash)
 {
     clearStatus();
 
     try
     {
-        return m_wallet->hash_m_transfers(transfer_height, hash);
+        boost::optional<std::uint64_t> _transfer_height = transfer_height == 0 ? boost::none : transfer_height;
+        return m_wallet->hash_m_transfers(_transfer_height, hash);
     }
     catch (const std::exception &e)
     {
@@ -3595,7 +3568,7 @@ std::pair<std::size_t, std::uint64_t> WalletImpl::estimateTxSizeAndWeight(bool u
     return std::make_pair(0, 0);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent)
+std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent)
 {
     clearStatus();
 
@@ -3637,7 +3610,7 @@ std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::stri
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool importKeyImages(std::vector<std::string> key_images, size_t offset, boost::optional<std::unordered_set<size_t>> selected_transfers = boost::none)
+bool importKeyImages(std::vector<std::string> key_images, std::size_t offset, std::unordered_set<std::size_t> selected_transfers)
 {
     clearStatus();
 
@@ -3656,7 +3629,8 @@ bool importKeyImages(std::vector<std::string> key_images, size_t offset, boost::
 
     try
     {
-        return m_wallet->import_key_images(key_images_pod, offset, selected_transfers);
+        boost::optional<std::unordered_set<std::size_t>> _selected_transfers = selected_transfers.empty() ? boost::none : selected_transfers;
+        return m_wallet->import_key_images(key_images_pod, offset, _selected_transfers);
     }
     catch (const std::exception &e)
     {
