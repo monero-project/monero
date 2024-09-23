@@ -1,3 +1,5 @@
+#include "byte_slice.h"
+#include "byte_stream.h"
 #include "misc_log_ex.h"
 #include "span.h"
 #include "storages/portable_storage.h"
@@ -15,6 +17,30 @@ namespace epee
 {
 namespace serialization
 {
+    bool portable_storage::store_to_binary(byte_slice& target, const std::size_t initial_buffer_size)
+    {
+      TRY_ENTRY();
+      byte_stream ss;
+      ss.reserve(initial_buffer_size);
+      store_to_binary(ss);
+      target = epee::byte_slice{std::move(ss)};
+      return true;
+      CATCH_ENTRY("portable_storage::store_to_binary", false);
+    }
+
+    bool portable_storage::store_to_binary(byte_stream& ss)
+    {
+      TRY_ENTRY();
+      storage_block_header sbh{};
+      sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
+      sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
+      sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
+      ss.write(epee::as_byte_span(sbh));
+      pack_entry_to_buff(ss, m_root);
+      return true;
+      CATCH_ENTRY("portable_storage::store_to_binary", false);
+    }
+
     bool portable_storage::dump_as_json(std::string& buff, size_t indent, bool insert_newlines)
     {
       TRY_ENTRY();
@@ -30,11 +56,6 @@ namespace serialization
       TRY_ENTRY();
       return json::load_from_json(source, *this);
       CATCH_ENTRY("portable_storage::load_from_json", false)
-    }
-
-    bool portable_storage::load_from_binary(const std::string& target)
-    {
-         return load_from_binary(epee::strspan<uint8_t>(target));
     }
 
     bool portable_storage::load_from_binary(const epee::span<const uint8_t> source)

@@ -116,7 +116,7 @@ namespace {
     time_t dt = t > now ? t - now : now - t;
     std::string s;
     if (dt < 90)
-      s = boost::lexical_cast<std::string>(dt) + " seconds";
+      s = boost::lexical_cast<std::string>(dt) + (dt == 1 ? " second" : " seconds");
     else if (dt < 90 * 60)
       s = boost::lexical_cast<std::string>(dt/60) + " minutes";
     else if (dt < 36 * 3600)

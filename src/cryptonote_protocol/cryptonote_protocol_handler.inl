@@ -411,7 +411,7 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::get_payload_sync_data(blobdata& data)
+  bool t_cryptonote_protocol_handler<t_core>::get_payload_sync_data(epee::byte_slice& data)
   {
     CORE_SYNC_DATA hsd{};
     get_payload_sync_data(hsd);
@@ -2452,15 +2452,15 @@ skip:
 
     if (!fluffyConnections.empty())
     {
-      std::string fluffyBlob;
-      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, epee::strspan<uint8_t>(fluffyBlob), std::move(fluffyConnections));
+      epee::levin::message_writer fluffyBlob{32 * 1024};
+      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob.buffer);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
     }
     if (!fullConnections.empty())
     {
-      std::string fullBlob;
-      epee::serialization::store_t_to_binary(arg, fullBlob);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, epee::strspan<uint8_t>(fullBlob), std::move(fullConnections));
+      epee::levin::message_writer fullBlob{128 * 1024};
+      epee::serialization::store_t_to_binary(arg, fullBlob.buffer);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, std::move(fullBlob), std::move(fullConnections));
     }
 
     return true;

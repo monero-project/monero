@@ -3734,7 +3734,7 @@ bool wallet2::store_keys(const std::string& keys_file_name, const epee::wipeable
 //----------------------------------------------------------------------------------------------------
 boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee::wipeable_string& password, bool watch_only)
 {
-  std::string account_data;
+  epee::byte_slice account_data;
   std::string multisig_signers;
   std::string multisig_derivations;
   cryptonote::account_base account = m_account;
@@ -3761,7 +3761,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
   rapidjson::Document json;
   json.SetObject();
   rapidjson::Value value(rapidjson::kStringType);
-  value.SetString(account_data.c_str(), account_data.length());
+  value.SetString(reinterpret_cast<const char*>(account_data.data()), account_data.size());
   json.AddMember("key_data", value, json.GetAllocator());
   if (!seed_language.empty())
   {
@@ -3911,7 +3911,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
     original_address = get_account_address_as_str(m_nettype, false, m_original_address);
     value.SetString(original_address.c_str(), original_address.length());
     json.AddMember("original_address", value, json.GetAllocator());
-    original_view_secret_key = epee::string_tools::pod_to_hex(m_original_view_secret_key);
+    original_view_secret_key = epee::string_tools::pod_to_hex(unwrap(unwrap(m_original_view_secret_key)));
     value.SetString(original_view_secret_key.c_str(), original_view_secret_key.length());
     json.AddMember("original_view_secret_key", value, json.GetAllocator());
   }
@@ -3920,13 +3920,12 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
   rapidjson::StringBuffer buffer;
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
   json.Accept(writer);
-  account_data = buffer.GetString();
 
   // Encrypt the entire JSON object.
   std::string cipher;
-  cipher.resize(account_data.size());
+  cipher.resize(buffer.GetSize());
   keys_file_data.get().iv = crypto::rand<crypto::chacha_iv>();
-  crypto::chacha20(account_data.data(), account_data.size(), key, keys_file_data.get().iv, &cipher[0]);
+  crypto::chacha20(buffer.GetString(), buffer.GetSize(), key, keys_file_data.get().iv, &cipher[0]);
   keys_file_data.get().account_data = cipher;
   return keys_file_data;
 }
@@ -6395,7 +6394,7 @@ void wallet2::commit_tx(pending_tx& ptx)
     cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::request oreq;
     cryptonote::COMMAND_RPC_SUBMIT_RAW_TX::response ores;
     oreq.address = get_account().get_public_address_str(m_nettype);
-    oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+    oreq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
     oreq.tx = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
@@ -9444,7 +9443,7 @@ bool wallet2::light_wallet_login(bool &new_address)
   tools::COMMAND_RPC_LOGIN::request request;
   tools::COMMAND_RPC_LOGIN::response response;
   request.address = get_account().get_public_address_str(m_nettype);
-  request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  request.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   // Always create account if it doesn't exist.
   request.create_account = true;
   m_daemon_rpc_mutex.lock();
@@ -9471,7 +9470,7 @@ bool wallet2::light_wallet_import_wallet_request(tools::COMMAND_RPC_IMPORT_WALLE
   MDEBUG("Light wallet import wallet request");
   tools::COMMAND_RPC_IMPORT_WALLET_REQUEST::request oreq;
   oreq.address = get_account().get_public_address_str(m_nettype);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   m_daemon_rpc_mutex.lock();
   bool r = invoke_http_json("/import_wallet_request", oreq, response, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
@@ -9489,7 +9488,7 @@ void wallet2::light_wallet_get_unspent_outs()
 
   oreq.amount = "0";
   oreq.address = get_account().get_public_address_str(m_nettype);
-  oreq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  oreq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   // openMonero specific
   oreq.dust_threshold = boost::lexical_cast<std::string>(::config::DEFAULT_DUST_THRESHOLD);
   // below are required by openMonero api - but are not used.
@@ -9643,7 +9642,7 @@ bool wallet2::light_wallet_get_address_info(tools::COMMAND_RPC_GET_ADDRESS_INFO:
   tools::COMMAND_RPC_GET_ADDRESS_INFO::request request;
 
   request.address = get_account().get_public_address_str(m_nettype);
-  request.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  request.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   m_daemon_rpc_mutex.lock();
   bool r = invoke_http_json("/get_address_info", request, response, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
@@ -9660,7 +9659,7 @@ void wallet2::light_wallet_get_address_txs()
   tools::COMMAND_RPC_GET_ADDRESS_TXS::response ires;
   
   ireq.address = get_account().get_public_address_str(m_nettype);
-  ireq.view_key = string_tools::pod_to_hex(get_account().get_keys().m_view_secret_key);
+  ireq.view_key = string_tools::pod_to_hex(unwrap(unwrap(get_account().get_keys().m_view_secret_key)));
   m_daemon_rpc_mutex.lock();
   bool r = invoke_http_json("/get_address_txs", ireq, ires, rpc_timeout, "POST");
   m_daemon_rpc_mutex.unlock();
@@ -9890,7 +9889,7 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
   const account_keys& ack = get_account().get_keys();
   crypto::key_derivation derivation;
   bool r = crypto::generate_key_derivation(tx_public_key, ack.m_view_secret_key, derivation);
-  CHECK_AND_ASSERT_MES(r, false, "failed to generate_key_derivation(" << tx_public_key << ", " << ack.m_view_secret_key << ")");
+  CHECK_AND_ASSERT_MES(r, false, "failed to generate_key_derivation(" << tx_public_key << ", " << crypto::secret_key_explicit_print_ref{ack.m_view_secret_key} << ")");
 
   r = crypto::derive_public_key(derivation, out_index, ack.m_account_address.m_spend_public_key, in_ephemeral.pub);
   CHECK_AND_ASSERT_MES(r, false, "failed to derive_public_key (" << derivation << ", " << out_index << ", " << ack.m_account_address.m_spend_public_key << ")");
@@ -9898,7 +9897,7 @@ bool wallet2::light_wallet_key_image_is_ours(const crypto::key_image& key_image,
   crypto::derive_secret_key(derivation, out_index, ack.m_spend_secret_key, in_ephemeral.sec);
   crypto::public_key out_pkey_test;
   r = crypto::secret_key_to_public_key(in_ephemeral.sec, out_pkey_test);
-  CHECK_AND_ASSERT_MES(r, false, "failed to secret_key_to_public_key(" << in_ephemeral.sec << ")");
+  CHECK_AND_ASSERT_MES(r, false, "failed to secret_key_to_public_key(" << crypto::secret_key_explicit_print_ref{in_ephemeral.sec} << ")");
   CHECK_AND_ASSERT_MES(in_ephemeral.pub == out_pkey_test, false, "derived secret key doesn't match derived public key");
 
   crypto::generate_key_image(in_ephemeral.pub, in_ephemeral.sec, calculated_key_image);

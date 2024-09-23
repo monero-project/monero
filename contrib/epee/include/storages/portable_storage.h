@@ -27,7 +27,6 @@
 #pragma once
 
 #include "portable_storage_base.h"
-#include "portable_storage_to_bin.h"
 #include "portable_storage_val_converters.h"
 #include "misc_log_ex.h"
 #include "span.h"
@@ -36,6 +35,8 @@
 
 namespace epee
 {
+  class byte_slice;
+  class byte_stream;
   namespace serialization
   {
     /************************************************************************/
@@ -77,9 +78,14 @@ namespace epee
       bool        delete_entry(const std::string& pentry_name, hsection hparent_section = nullptr);
 
       //-------------------------------------------------------------------------------
-      bool		store_to_binary(binarybuffer& target);
+      bool		store_to_binary(byte_slice& target, std::size_t initial_buffer_size = 8192);
+      bool    store_to_binary(byte_stream& ss);
       bool		load_from_binary(const epee::span<const uint8_t> target);
-      bool		load_from_binary(const std::string& target);
+      bool		load_from_binary(const std::string& target)
+      {
+        return load_from_binary(epee::strspan<uint8_t>(target));
+      }
+
       template<class trace_policy>
       bool		  dump_as_xml(std::string& targetObj, const std::string& root_name = "");
       bool		  dump_as_json(std::string& targetObj, size_t indent = 0, bool insert_newlines = true);
@@ -111,21 +117,6 @@ namespace epee
       return false;//TODO: don't think i ever again will use xml - ambiguous and "overtagged" format
     }
 
-    inline
-    bool portable_storage::store_to_binary(binarybuffer& target)
-    {
-      TRY_ENTRY();
-      std::stringstream ss;
-      storage_block_header sbh{};
-      sbh.m_signature_a = SWAP32LE(PORTABLE_STORAGE_SIGNATUREA);
-      sbh.m_signature_b = SWAP32LE(PORTABLE_STORAGE_SIGNATUREB);
-      sbh.m_ver = PORTABLE_STORAGE_FORMAT_VER;
-      ss.write((const char*)&sbh, sizeof(storage_block_header));
-      pack_entry_to_buff(ss, m_root);
-      target = ss.str();
-      return true;
-      CATCH_ENTRY("portable_storage::store_to_binary", false)
-    }
     //---------------------------------------------------------------------------------------------------------------
     template<class to_type>
     struct get_value_visitor: boost::static_visitor<void>
