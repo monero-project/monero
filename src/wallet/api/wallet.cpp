@@ -2868,7 +2868,7 @@ uint64_t WalletImpl::getBytesSent()
 }
 
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::getMultisigSeed(const std::string &seed_offset)
+std::string WalletImpl::getMultisigSeed(const std::string &seed_offset) const
 {
     clearStatus();
 
@@ -2892,7 +2892,7 @@ std::string WalletImpl::getMultisigSeed(const std::string &seed_offset)
     return "";
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::pair<std::uint32_t, std::uint32_t> WalletImpl::getSubaddressIndex(const std::string &address)
+std::pair<std::uint32_t, std::uint32_t> WalletImpl::getSubaddressIndex(const std::string &address) const
 {
     clearStatus();
 
@@ -2969,7 +2969,7 @@ void WalletImpl::thaw(const std::string &key_image)
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::isFrozen(std::size_t idx)
+bool WalletImpl::isFrozen(std::size_t idx) const
 {
     clearStatus();
 
@@ -2986,7 +2986,7 @@ bool WalletImpl::isFrozen(std::size_t idx)
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::isFrozen(const std::string &key_image)
+bool WalletImpl::isFrozen(const std::string &key_image) const
 {
     try
     {
@@ -3009,7 +3009,7 @@ void WalletImpl::createOneOffSubaddress(std::uint32_t account_index, std::uint32
 //    m_subaddressAccount->refresh();
 }
 //-------------------------------------------------------------------------------------------------------------------
-WalletState WalletImpl::getWalletState()
+WalletState WalletImpl::getWalletState() const
 {
     WalletState wallet_state{};
 
@@ -3145,7 +3145,7 @@ void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> enote_details) const
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisig_ptx)
+std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const
 {
     clearStatus();
 
@@ -3167,7 +3167,7 @@ std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisi
     return "";
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &filename)
+bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &filename) const
 {
     clearStatus();
 
@@ -3189,7 +3189,7 @@ bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const s
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs)
+std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs) const
 {
     clearStatus();
 
@@ -3202,7 +3202,7 @@ std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs)
     return tx_dump;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs)
+bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const
 {
     return m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, exported_txs.m_unsigned_tx_set);
 }
@@ -3228,7 +3228,7 @@ std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, Pen
     return signed_tx_data;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs)
+bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const
 {
     clearStatus();
 
@@ -3281,12 +3281,12 @@ bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, Pend
 //    return false;
 //}
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::getFeeMultiplier(std::uint32_t priority, int fee_algorithm)
+std::uint64_t WalletImpl::getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const
 {
     return m_wallet->get_fee_multiplier(priority, fee_algorithm);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::getBaseFee()
+std::uint64_t WalletImpl::getBaseFee() const
 {
     bool use_dyn_fee = useForkRules(HF_VERSION_DYNAMIC_FEE, -30 * 1);
     if (!use_dyn_fee)
@@ -3311,13 +3311,34 @@ std::uint32_t WalletImpl::adjustPriority(std::uint32_t priority)
     return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux)
+void WalletImpl::coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const
 {
     clearStatus();
 
     try
     {
         m_wallet->cold_tx_aux_import(ptx->m_pending_tx, tx_device_aux);
+    }
+    catch (const std::exception &e)
+    {
+        setStatusError(e.what());
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void WalletImpl::coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out, std::vector<cryptonote::address_parse_info> &dsts_info) const
+{
+    clearStatus();
+
+    try
+    {
+        tools::wallet2::signed_tx_set signed_txs;
+
+        m_wallet->cold_sign_tx(ptx_in->m_pending_tx, signed_txs, dsts_info, exported_txs_out->m_tx_device_aux);
+        exported_txs_out->m_key_images = signed_txs.key_images;
+        exported_txs_out->m_pending_tx = signed_txs.ptx;
+        // TODO : figure out if we need signed_txs.tx_key_images here, afaik they're used for selfsend/change enotes
+        //        if needed we can probably add a member like `m_selfsend_key_images` to `PendingTransaction`
+        //        guess then `PendingTransaction` would be a proper replacement for `wallet2::signed_tx_set`
     }
     catch (const std::exception &e)
     {
@@ -3392,7 +3413,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& WalletImpl::getAccountTags()
+const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& WalletImpl::getAccountTags() const
 {
     return m_wallet->get_account_tags();
 }
@@ -3425,7 +3446,7 @@ void WalletImpl::setAccountTagDescription(const std::string &tag, const std::str
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::exportOutputsToStr(bool all, std::uint32_t start, std::uint32_t count)
+std::string WalletImpl::exportOutputsToStr(bool all, std::uint32_t start, std::uint32_t count) const
 {
     clearStatus();
 
@@ -3455,7 +3476,7 @@ std::size_t WalletImpl::importOutputsFromStr(const std::string &outputs_str)
     return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day)
+std::uint64_t WalletImpl::getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const
 {
     clearStatus();
 
@@ -3470,7 +3491,7 @@ std::uint64_t WalletImpl::getBlockchainHeightByDate(std::uint16_t year, std::uin
     return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels)
+std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels) const
 {
     clearStatus();
 
@@ -3485,7 +3506,7 @@ std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog
     return { std::make_pair(0, 0) };
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees)
+std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees) const
 {
     clearStatus();
 
@@ -3512,17 +3533,17 @@ std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog
     return estimateBacklog(fee_levels);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false)
+bool WalletImpl::saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const
 {
     return m_wallet->save_to_file(path_to_file, binary, is_printable);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000)
+bool WalletImpl::loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const
 {
     return m_wallet->load_from_file(path_to_file, target_str, max_size);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::hashTransfers(std::uint64_t transfer_height, std::string &hash)
+std::uint64_t WalletImpl::hashTransfers(std::uint64_t transfer_height, std::string &hash) const
 {
     clearStatus();
 
@@ -3552,7 +3573,29 @@ void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t transfer_height, cons
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::pair<std::size_t, std::uint64_t> WalletImpl::estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size)
+std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> WalletImpl::getPublicNodes(bool white_only = true) const
+{
+    clearStatus();
+
+    std::vector<cryptonote::public_node> public_nodes;
+    std::vector<std::tuple<std::string, std:::uint16_t, std::uint64_t>> public_nodes_out;
+    try
+    {
+        public_nodes m_wallet->get_public_nodes(white_only);
+    }
+    catch (const std::exception &e)
+    {
+        setStatusError((boost::format(tr("Failed to get public nodes. Error: %s")) % e.what()).str());
+        return std::vector<std::tuple<std::string, std:::uint16_t, std::uint64_t>>{};
+    }
+
+    for (auto pub_node : public_nodes)
+        public_nodes_out.push_back(std::tuple<std::string, std:::uint16_t, std::uint64_t>{pub_note.host, pub_note.rpc_port, pub_note.last_seen});
+
+    return public_nodes_out;
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::pair<std::size_t, std::uint64_t> WalletImpl::estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size) const
 {
     clearStatus();
 

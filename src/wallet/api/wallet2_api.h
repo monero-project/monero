@@ -41,6 +41,7 @@
 #include <cstdint>
 
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 
 //  Public interface for libwallet library
 namespace Monero {
@@ -74,6 +75,7 @@ enum NetworkType : uint8_t {
 */
 struct EnoteDetails
 {
+    // QUESTION : If this struct is done, should I create the files "src/wallet/api/enote_details.[h/cpp]", put all the member variables inside the header and only set virtual getter functions in here, like it's done for other structs below?
     // Ko
     std::string m_onetime_address;
     // view_tag
@@ -1341,8 +1343,6 @@ struct Wallet
     * return: true if succeeded
     */
     virtual bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const = 0;
-    // TODO / QUESTION : How to translate the following types to a standard type for the API?
-    // - cryptonote::address_parse_info
     /**
     * brief: signTxToStr - get a signed pending transaction from an unsigned transaction
     * param: exported_txs - unsigned transaction
@@ -1412,7 +1412,7 @@ struct Wallet
     * return: adjusted priority
     * note: sets status error on fail
     */
-    virtual std::uint32_t adjustPriority(std::uint32_t priority) const = 0;
+    virtual std::uint32_t adjustPriority(std::uint32_t priority) = 0;
     // QUESTION : Any suggestion for the function description below?
     /**
     * brief: coldTxAuxImport -
@@ -1421,15 +1421,13 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const = 0;
-// TODO : wallet2::signed_tx_set & cryptonote::address_parse_info
     /**
     * brief: coldSignTx -
-    * param: ptx -
-    * param: exported_txs -
+    * param: ptx_in -
+    * outparam: exported_txs_out -
     * param: dsts_info -
-    * param: tx_device_aux -
     */
-//    virtual void coldSignTx(const PendingTransaction &ptx, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux) const = 0;
+    virtual void coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out, std::vector<cryptonote::address_parse_info> &dsts_info) const = 0;
     /**
     * brief: discardUnmixableOutputs - freeze all unmixable outputs
     * note: sets status error on fail
@@ -1448,7 +1446,7 @@ struct Wallet
     * brief: getAccountTags - get the list of registered account tags
     * return: first.Key=(tag's name), first.Value=(tag's label), second[i]=(i-th account's tag)
     */
-    virtual const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() = 0;
+    virtual const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() const = 0;
     /**
     * brief: setAccountTag - set a tag to a set of subaddress accounts by index
     * param: account_index - major index
@@ -1537,15 +1535,13 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual void finishRescanBcKeepKeyImages(std::uint64_t transfer_height, const std::string &hash) = 0;
-// QUESTION : Should we just `#include "rpc/core_rpc_server_commands_defs.h"` for cryptonote::public_node?
-// TODO : cryptonote::public_node
     /**
-    * brief: getPublicNodes -
+    * brief: getPublicNodes - get a list of public notes with information when they were last seen
     * param: white_only - include gray nodes if false (default: true)
-    * return: vector of public nodes
+    * return: [ [ host_ip, host_rpc_port, last_seen ], ... ]
     * note: sets status error on fail
     */
-//    virtual std::vector<cryptonote::public_node> getPublicNodes(bool white_only = true) const = 0;
+    virtual std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> getPublicNodes(bool white_only = true) const = 0;
     /**
     * brief: estimateTxSizeAndWeight -
     * param: use_rct    -

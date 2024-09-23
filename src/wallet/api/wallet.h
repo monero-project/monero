@@ -255,16 +255,14 @@ public:
     bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const override;
     std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const override;
     bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const override;
-//    bool loadMultisigTxFromFile(const std::string &filename, PendingTransaction &exported_txs, std::function<bool(const PendingTransaction&)> accept_func) const override;
     std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;
     std::uint64_t getBaseFee() const override;
-    std::uint32_t adjustPriority(std::uint32_t priority) const override;
+    std::uint32_t adjustPriority(std::uint32_t priority) override;
     void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const override;
-//    void coldSignTx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux) const override;
-//    const wallet2::transfer_details &getTransferDetails(std::size_t idx) const override;
+    void coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out, std::vector<cryptonote::address_parse_info> &dsts_info) const override;
     void discardUnmixableOutputs() override;
     void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress) override;
-    const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() override;
+    const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() const override;
     void setAccountTag(const std::set<uint32_t> &account_indices, const std::string &tag) override;
     void setAccountTagDescription(const std::string &tag, const std::string &description) override;
     std::string exportOutputsToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const override;
@@ -276,6 +274,7 @@ public:
     bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const override;
     std::uint64_t hashTransfers(std::uint64_t transfer_height, std::string &hash) const override;
     void finishRescanBcKeepKeyImages(std::uint64_t transfer_height, const std::string &hash) override;
+    std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> getPublicNodes(bool white_only = true) const override;
     std::pair<std::size_t, std::uint64_t> estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size) const override;
     std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) override;
     bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_transfers = {}) override;
