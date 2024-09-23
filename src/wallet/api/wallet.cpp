@@ -1161,8 +1161,7 @@ bool WalletImpl::submitTransaction(const string &fileName) {
     return false;
   std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
 
-  // TODO : use WalletImpl::loadTx() if ready
-  bool r = m_wallet->load_tx(fileName, transaction->m_pending_tx);
+  bool r = m_wallet->loadTx(fileName, transaction);
   if (!r) {
     setStatus(Status_Ok, tr("Failed to load transaction from file"));
     return false;
@@ -3226,6 +3225,11 @@ std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, Pen
 
     ptx.m_key_images = signed_txs.key_images;
     return signed_tx_data;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool WalletImpl::loadTx(const std::string &signed_filename, PendingTransaction &ptx) const
+{
+    return m_wallet->load_tx(signed_filename, ptx.m_pending_tx);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const

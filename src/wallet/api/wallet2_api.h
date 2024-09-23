@@ -1351,15 +1351,14 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const = 0;
-// TODO : accept_func with wallet2::signed_tx_set
+    // TODO : if it's fine to drop the accept_func, do it for all the functions below
     /**
     * brief: loadTx - load pending transactions from a file
     * param: signed_filename -
     * outparam: ptx -
-    * param: accept_func - callback function to verify the transaction
     * return: true if succeeded
     */
-//    virtual bool loadTx(const std::string &signed_filename, PendingTransaction &ptx, std::function<bool(const signed_tx_set&)> accept_func) const = 0;
+    virtual bool loadTx(const std::string &signed_filename, PendingTransaction &ptx) const = 0;
 // TODO : accept_func with wallet2::signed_tx_set
     /**
     * brief: parseTxFromStr - get transactions from encrypted signed transaction as hex string
