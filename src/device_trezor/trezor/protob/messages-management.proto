@@ -1,0 +1,504 @@
+syntax = "proto2";
+package hw.trezor.messages.management;
+
+// Sugar for easier handling in Java
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
+option java_outer_classname = "TrezorMessageManagement";
+
+option (include_in_bitcoin_only) = true;
+
+import "messages.proto";
+
+/**
+ * Type of the mnemonic backup given/received by the device during reset/recovery.
+ */
+enum BackupType {
+    Bip39 = 0;              // also called "Single Backup", see BIP-0039
+    Slip39_Basic = 1;       // also called "Shamir Backup", see SLIP-0039
+    Slip39_Advanced = 2;    // also called "Super Shamir" or "Shamir with Groups", see SLIP-0039#two-level-scheme
+}
+
+/**
+ * Level of safety checks for unsafe actions like spending from invalid path namespace or setting high transaction fee.
+ */
+enum SafetyCheckLevel {
+    Strict = 0;             // disallow unsafe actions, this is the default
+    PromptAlways = 1;       // ask user before unsafe action
+    PromptTemporarily = 2;  // like PromptAlways but reverts to Strict after reboot
+}
+
+
+/**
+ * Format of the homescreen image
+ */
+enum HomescreenFormat {
+    Toif144x144 = 1;
+    Jpeg240x240 = 2;
+}
+
+/**
+ * Request: Reset device to default state and ask for device details
+ * @start
+ * @next Features
+ */
+message Initialize {
+    optional bytes session_id = 1;     // assumed device session id; Trezor clears caches if it is different or empty
+    optional bool _skip_passphrase = 2 [deprecated=true]; // removed as part of passphrase redesign
+    optional bool derive_cardano = 3;  // whether to derive Cardano Icarus root keys in this session
+}
+
+/**
+ * Request: Ask for device details (no device reset)
+ * @start
+ * @next Features
+ */
+message GetFeatures {
+}
+
+/**
+ * Response: Reports various information about the device
+ * @end
+ */
+message Features {
+    optional string vendor = 1;                 // name of the manufacturer, e.g. "trezor.io"
+    required uint32 major_version = 2;          // major version of the firmware/bootloader, e.g. 1
+    required uint32 minor_version = 3;          // minor version of the firmware/bootloader, e.g. 0
+    required uint32 patch_version = 4;          // patch version of the firmware/bootloader, e.g. 0
+    optional bool bootloader_mode = 5;          // is device in bootloader mode?
+    optional string device_id = 6;              // device's unique identifier
+    optional bool pin_protection = 7;           // is device protected by PIN?
+    optional bool passphrase_protection = 8;    // is node/mnemonic encrypted using passphrase?
+    optional string language = 9;               // device language
+    optional string label = 10;                 // device description label
+    optional bool initialized = 12;             // does device contain seed?
+    optional bytes revision = 13;               // SCM revision of firmware
+    optional bytes bootloader_hash = 14;        // hash of the bootloader
+    optional bool imported = 15;                // was storage imported from an external source?
+    optional bool unlocked = 16;                // is the device unlocked? called "pin_cached" previously
+    optional bool _passphrase_cached = 17 [deprecated=true]; // is passphrase already cached in session?
+    optional bool firmware_present = 18;        // is valid firmware loaded?
+    optional bool needs_backup = 19;            // does storage need backup? (equals to Storage.needs_backup)
+    optional uint32 flags = 20;                 // device flags (equals to Storage.flags)
+    optional string model = 21;                 // device hardware model
+    optional uint32 fw_major = 22;              // reported firmware version if in bootloader mode
+    optional uint32 fw_minor = 23;              // reported firmware version if in bootloader mode
+    optional uint32 fw_patch = 24;              // reported firmware version if in bootloader mode
+    optional string fw_vendor = 25;             // reported firmware vendor if in bootloader mode
+    // optional bytes fw_vendor_keys = 26;      // obsoleted, use fw_vendor
+    optional bool unfinished_backup = 27;       // report unfinished backup (equals to Storage.unfinished_backup)
+    optional bool no_backup = 28;               // report no backup (equals to Storage.no_backup)
+    optional bool recovery_mode = 29;           // is recovery mode in progress
+    repeated Capability capabilities = 30;      // list of supported capabilities
+    enum Capability {
+        option (has_bitcoin_only_values) = true;
+
+        Capability_Bitcoin = 1 [(bitcoin_only) = true];
+        Capability_Bitcoin_like = 2;                    // Altcoins based on the Bitcoin source code
+        Capability_Binance = 3;
+        Capability_Cardano = 4;
+        Capability_Crypto = 5 [(bitcoin_only) = true];  // generic crypto operations for GPG, SSH, etc.
+        Capability_EOS = 6;
+        Capability_Ethereum = 7;
+        Capability_Lisk = 8 [deprecated = true];
+        Capability_Monero = 9;
+        Capability_NEM = 10;
+        Capability_Ripple = 11;
+        Capability_Stellar = 12;
+        Capability_Tezos = 13;
+        Capability_U2F = 14;
+        Capability_Shamir = 15 [(bitcoin_only) = true];
+        Capability_ShamirGroups = 16 [(bitcoin_only) = true];
+        Capability_PassphraseEntry = 17 [(bitcoin_only) = true];  // the device is capable of passphrase entry directly on the device
+    }
+    optional BackupType backup_type = 31;       // type of device backup (BIP-39 / SLIP-39 basic / SLIP-39 advanced)
+    optional bool sd_card_present = 32;         // is SD card present
+    optional bool sd_protection = 33;           // is SD Protect enabled
+    optional bool wipe_code_protection = 34;    // is wipe code protection enabled
+    optional bytes session_id = 35;
+    optional bool passphrase_always_on_device = 36;  // device enforces passphrase entry on Trezor
+    optional SafetyCheckLevel safety_checks = 37;            // safety check level, set to Prompt to limit path namespace enforcement
+    optional uint32 auto_lock_delay_ms = 38;    // number of milliseconds after which the device locks itself
+    optional uint32 display_rotation = 39;      // in degrees from North
+    optional bool experimental_features = 40;   // are experimental message types enabled?
+    optional bool busy = 41;                    // is the device busy, showing "Do not disconnect"?
+    optional HomescreenFormat homescreen_format = 42;   // format of the homescreen, 1 = TOIf 144x144, 2 = jpg 240x240
+    optional bool hide_passphrase_from_host = 43;   // should we hide the passphrase when it comes from host?
+}
+
+/**
+ * Request: soft-lock the device. Following actions will require PIN. Passphrases remain cached.
+ * @start
+ * @next Success
+ */
+message LockDevice {
+}
+
+/**
+ * Request: Show a "Do not disconnect" dialog instead of the standard homescreen.
+ * @start
+ * @next Success
+ */
+message SetBusy {
+    optional uint32 expiry_ms = 1;  // The time in milliseconds after which the dialog will automatically disappear. Overrides any previously set expiry. If not set, then the dialog is hidden.
+}
+
+/**
+ * Request: end the current sesson. Following actions must call Initialize again.
+ * Cache for the current session is discarded, other sessions remain intact.
+ * Device is not PIN-locked.
+ * @start
+ * @next Success
+ */
+message EndSession {
+}
+
+/**
+ * Request: change language and/or label of the device
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message ApplySettings {
+    optional string language = 1;
+    optional string label = 2;
+    optional bool use_passphrase = 3;
+    optional bytes homescreen = 4;
+    optional uint32 _passphrase_source = 5 [deprecated=true];   // ASK = 0; DEVICE = 1; HOST = 2;
+    optional uint32 auto_lock_delay_ms = 6;
+    optional uint32 display_rotation = 7;  // in degrees from North
+    optional bool passphrase_always_on_device = 8;  // do not prompt for passphrase, enforce device entry
+    optional SafetyCheckLevel safety_checks = 9;  // Safety check level, set to Prompt to limit path namespace enforcement
+    optional bool experimental_features = 10;  // enable experimental message types
+    optional bool hide_passphrase_from_host = 11;  // do not show passphrase coming from host
+}
+
+/**
+ * Request: set flags of the device
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message ApplyFlags {
+    required uint32 flags = 1;  // bitmask, can only set bits, not unset
+}
+
+/**
+ * Request: Starts workflow for setting/changing/removing the PIN
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message ChangePin {
+    optional bool remove = 1;   // is PIN removal requested?
+}
+
+/**
+ * Request: Starts workflow for setting/removing the wipe code
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message ChangeWipeCode {
+    optional bool remove = 1;   // is wipe code removal requested?
+}
+
+/**
+ * Request: Starts workflow for enabling/regenerating/disabling SD card protection
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message SdProtect {
+    required SdProtectOperationType operation = 1;
+    /**
+    * Structure representing SD card protection operation
+    */
+    enum SdProtectOperationType {
+        DISABLE = 0;
+        ENABLE = 1;
+        REFRESH = 2;
+    }
+}
+
+/**
+ * Request: Test if the device is alive, device sends back the message in Success response
+ * @start
+ * @next Success
+ */
+message Ping {
+    optional string message = 1 [default=""];   // message to send back in Success message
+    optional bool button_protection = 2;        // ask for button press
+}
+
+/**
+ * Request: Abort last operation that required user interaction
+ * @start
+ * @next Failure
+ */
+message Cancel {
+}
+
+/**
+ * Request: Request a sample of random data generated by hardware RNG. May be used for testing.
+ * @start
+ * @next Entropy
+ * @next Failure
+ */
+message GetEntropy {
+    required uint32 size = 1;       // size of requested entropy
+}
+
+/**
+ * Response: Reply with random data generated by internal RNG
+ * @end
+ */
+message Entropy {
+    required bytes entropy = 1;     // chunk of random generated bytes
+}
+
+/**
+ * Request: Get a hash of the installed firmware combined with an optional challenge.
+ * @start
+ * @next FirmwareHash
+ * @next Failure
+ */
+message GetFirmwareHash {
+    optional bytes challenge = 1;   // Blake2s key up to 32 bytes in length.
+}
+
+/**
+ * Response: Hash of the installed firmware combined with the optional challenge.
+ * @end
+ */
+message FirmwareHash {
+    required bytes hash = 1;
+}
+
+/**
+ * Request: Request device to wipe all sensitive data and settings
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message WipeDevice {
+}
+
+/**
+ * Request: Load seed and related internal settings from the computer
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message LoadDevice {
+    repeated string mnemonics = 1;                          // seed encoded as mnemonic (12, 18 or 24 words for BIP39, 20 or 33 for SLIP39)
+    optional string pin = 3;                                // set PIN protection
+    optional bool passphrase_protection = 4;                // enable master node encryption using passphrase
+    optional string language = 5 [default='en-US'];         // device language (IETF BCP 47 language tag)
+    optional string label = 6;                              // device label
+    optional bool skip_checksum = 7;                        // do not test mnemonic for valid BIP-39 checksum
+    optional uint32 u2f_counter = 8;                        // U2F counter
+    optional bool needs_backup = 9;                         // set "needs backup" flag
+    optional bool no_backup = 10;                           // indicate that no backup is going to be made
+}
+
+/**
+ * Request: Ask device to do initialization involving user interaction
+ * @start
+ * @next EntropyRequest
+ * @next Failure
+ */
+message ResetDevice {
+    optional bool display_random = 1;                       // display entropy generated by the device before asking for additional entropy
+    optional uint32 strength = 2 [default=256];             // strength of seed in bits
+    optional bool passphrase_protection = 3;                // enable master node encryption using passphrase
+    optional bool pin_protection = 4;                       // enable PIN protection
+    optional string language = 5 [default='en-US'];         // device language (IETF BCP 47 language tag)
+    optional string label = 6;                              // device label
+    optional uint32 u2f_counter = 7;                        // U2F counter
+    optional bool skip_backup = 8;                          // postpone seed backup to BackupDevice workflow
+    optional bool no_backup = 9;                            // indicate that no backup is going to be made
+    optional BackupType backup_type = 10 [default=Bip39];   // type of the mnemonic backup
+}
+
+/**
+ * Request: Perform backup of the device seed if not backed up using ResetDevice
+ * @start
+ * @next Success
+ */
+message BackupDevice {
+}
+
+/**
+ * Response: Ask for additional entropy from host computer
+ * @next EntropyAck
+ */
+message EntropyRequest {
+}
+
+/**
+ * Request: Provide additional entropy for seed generation function
+ * @next Success
+ */
+message EntropyAck {
+    required bytes entropy = 1;     // 256 bits (32 bytes) of random data
+}
+
+/**
+ * Request: Start recovery workflow asking user for specific words of mnemonic
+ * Used to recovery device safely even on untrusted computer.
+ * @start
+ * @next WordRequest
+ */
+message RecoveryDevice {
+    optional uint32 word_count = 1;                     // number of words in BIP-39 mnemonic
+    optional bool passphrase_protection = 2;            // enable master node encryption using passphrase
+    optional bool pin_protection = 3;                   // enable PIN protection
+    optional string language = 4;                       // device language (IETF BCP 47 language tag)
+    optional string label = 5;                          // device label
+    optional bool enforce_wordlist = 6;                 // enforce BIP-39 wordlist during the process
+    // 7 reserved for unused recovery method
+    optional RecoveryDeviceType type = 8;               // supported recovery type
+    optional uint32 u2f_counter = 9;                    // U2F counter
+    optional bool dry_run = 10;                         // perform dry-run recovery workflow (for safe mnemonic validation)
+    /**
+     * Type of recovery procedure. These should be used as bitmask, e.g.,
+     * `RecoveryDeviceType_ScrambledWords | RecoveryDeviceType_Matrix`
+     * listing every method supported by the host computer.
+     *
+     * Note that ScrambledWords must be supported by every implementation
+     * for backward compatibility; there is no way to not support it.
+     */
+    enum RecoveryDeviceType {
+        // use powers of two when extending this field
+        RecoveryDeviceType_ScrambledWords = 0;        // words in scrambled order
+        RecoveryDeviceType_Matrix = 1;                // matrix recovery type
+    }
+}
+
+/**
+ * Response: Device is waiting for user to enter word of the mnemonic
+ * Its position is shown only on device's internal display.
+ * @next WordAck
+ */
+message WordRequest {
+    required WordRequestType type = 1;
+    /**
+    * Type of Recovery Word request
+    */
+    enum WordRequestType {
+        WordRequestType_Plain = 0;
+        WordRequestType_Matrix9 = 1;
+        WordRequestType_Matrix6 = 2;
+    }
+}
+
+/**
+ * Request: Computer replies with word from the mnemonic
+ * @next WordRequest
+ * @next Success
+ * @next Failure
+ */
+message WordAck {
+    required string word = 1;           // one word of mnemonic on asked position
+}
+
+/**
+ * Request: Set U2F counter
+ * @start
+ * @next Success
+ */
+message SetU2FCounter {
+    required uint32 u2f_counter = 1;
+}
+
+/**
+ * Request: Set U2F counter
+ * @start
+ * @next NextU2FCounter
+ */
+message GetNextU2FCounter {
+}
+
+/**
+ * Request: Set U2F counter
+ * @end
+ */
+message NextU2FCounter {
+    required uint32 u2f_counter = 1;
+}
+
+/**
+ * Request: Ask device to prepare for a preauthorized operation.
+ * @start
+ * @next PreauthorizedRequest
+ * @next Failure
+ */
+message DoPreauthorized {
+}
+
+/**
+ * Request: Device awaits a preauthorized operation.
+ * @start
+ * @next SignTx
+ * @next GetOwnershipProof
+ */
+message PreauthorizedRequest {
+}
+
+/**
+ * Request: Cancel any outstanding authorization in the current session.
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message CancelAuthorization {
+}
+
+/**
+ * Request: Reboot firmware to bootloader
+ * @start
+ * @next Success
+ */
+message RebootToBootloader {
+}
+
+/**
+ * Request: Ask device to generate a random nonce and store it in the session's cache
+ * @start
+ * @next Nonce
+ */
+message GetNonce {
+    option (experimental_message) = true;
+}
+
+/**
+ * Response: Contains a random nonce
+ * @end
+ */
+message Nonce {
+    option (experimental_message) = true;
+
+    required bytes nonce = 1; // a 32-byte random value generated by Trezor
+}
+
+/**
+ * Request: Ask device to unlock a subtree of the keychain.
+ * @start
+ * @next UnlockedPathRequest
+ * @next Failure
+ */
+message UnlockPath {
+    repeated uint32 address_n = 1;     // prefix of the BIP-32 path leading to the account (m / purpose')
+    optional bytes mac = 2;            // the MAC returned by UnlockedPathRequest
+}
+
+/**
+ * Request: Device awaits an operation.
+ * @start
+ * @next SignTx
+ * @next GetPublicKey
+ * @next GetAddress
+ */
+message UnlockedPathRequest {
+    optional bytes mac = 1;            // authentication code for future UnlockPath calls
+}
