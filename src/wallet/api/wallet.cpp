@@ -1232,7 +1232,7 @@ bool WalletImpl::exportOutputs(const string &filename, bool all)
 
     try
     {
-        std::string data = exportOutputsToStr(all);
+        std::string data = exportEnotesToStr(all);
         bool r = saveToFile(filename, data);
         if (!r)
         {
@@ -1273,7 +1273,7 @@ bool WalletImpl::importOutputs(const string &filename)
 
     try
     {
-        size_t n_outputs = importOutputsFromStr(data);
+        size_t n_outputs = importEnotesFromStr(data);
         if (status() != Status_Ok)
             throw runtime_error(errorString());
         LOG_PRINT_L2(std::to_string(n_outputs) << " outputs imported");
@@ -3344,7 +3344,7 @@ void WalletImpl::coldSignTx(const PendingTransaction &ptx_in, PendingTransaction
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::discardUnmixableOutputs()
+void WalletImpl::discardUnmixableEnotes()
 {
     clearStatus();
 
@@ -3354,7 +3354,7 @@ void WalletImpl::discardUnmixableOutputs()
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to discard unmixable outputs. Error: %s")) % e.what()).str());
+        setStatusError((boost::format(tr("Failed to discard unmixable enotes. Error: %s")) % e.what()).str());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3444,7 +3444,7 @@ void WalletImpl::setAccountTagDescription(const std::string &tag, const std::str
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::exportOutputsToStr(bool all, std::uint32_t start, std::uint32_t count) const
+std::string WalletImpl::exportEnotesToStr(bool all, std::uint32_t start, std::uint32_t count) const
 {
     clearStatus();
 
@@ -3459,13 +3459,13 @@ std::string WalletImpl::exportOutputsToStr(bool all, std::uint32_t start, std::u
     return "";
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::size_t WalletImpl::importOutputsFromStr(const std::string &outputs_str)
+std::size_t WalletImpl::importEnotesFromStr(const std::string &enotes_str)
 {
     clearStatus();
 
     try
     {
-        return m_wallet->import_outputs_from_str(outputs_str);
+        return m_wallet->import_outputs_from_str(enotes_str);
     }
     catch (const std::exception &e)
     {

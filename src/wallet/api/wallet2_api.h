@@ -83,9 +83,9 @@ struct EnoteDetails
     // this enote was received at block height
     std::uint64_t m_block_height;
     // relative index in tx
-    std::uint64_t m_internal_output_index;
+    std::uint64_t m_internal_enote_index;
     // absolute index from `cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry.output_indices`
-    std::uint64_t m_global_output_index;
+    std::uint64_t m_global_enote_index;
     // is spent
     bool m_spent;
     // is frozen
@@ -1428,10 +1428,10 @@ struct Wallet
     */
     virtual void coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out, std::vector<cryptonote::address_parse_info> &dsts_info) const = 0;
     /**
-    * brief: discardUnmixableOutputs - freeze all unmixable outputs
+    * brief: discardUnmixableEnotes - freeze all unmixable enotes
     * note: sets status error on fail
     */
-    virtual void discardUnmixableOutputs() = 0;
+    virtual void discardUnmixableEnotes() = 0;
     /**
     * brief: setTxKey - set the transaction key (r) for a given <txid> in case the tx was made by some other device or 3rd party wallet
     * param: txid -
@@ -1461,21 +1461,22 @@ struct Wallet
     */
     virtual void setAccountTagDescription(const std::string &tag, const std::string &description) = 0;
     /**
-    * brief: exportOutputsToStr - export outputs and return encrypted data
-    * param: all   - go from `start` for `count` outputs if true, else go incremental from last exported output for `count` outputs (default: false)
-    * param: start - offset index in transfer storage, needs to be 0 for incremental mode (default: 0)
-    * param: count - try to export this amount of outputs (default: 0xffffffff)
-    * return: encrypted data as hex string if succeeded, else empty string
+    * brief: exportEnotesToStr - export enotes and return encrypted data
+    *                            (comparable with legacy exportOutputs(), with the difference that this returns a string, the other one saves to file)
+    * param: all   - go from `start` for `count` enotes if true, else go incremental from last exported enote for `count` enotes (default: false)
+    * param: start - offset index in enote storage, needs to be 0 for incremental mode (default: 0)
+    * param: count - try to export this amount of enotes (default: 0xffffffff)
+    * return: encrypted data of exported enotes as hex string if succeeded, else empty string
     * note: sets status error on fail
     */
-    virtual std::string exportOutputsToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const = 0;
+    virtual std::string exportEnotesToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const = 0;
     /**
-    * brief: importOutputsFromStr - import outputs from encrypted hex string
-    * param: outputs_str - outputs data as encrypted hex string
-    * return: total size of transfer storage
+    * brief: importEnotesFromStr - import enotes from encrypted hex string
+    * param: enotes_str - enotes data as encrypted hex string
+    * return: total size of enote storage
     * note: sets status error on fail
     */
-    virtual std::size_t importOutputsFromStr(const std::string &outputs_str) = 0;
+    virtual std::size_t importEnotesFromStr(const std::string &enotes_str) = 0;
     /**
     * brief: getBlockchainHeightByDate -
     * param: year  -
@@ -1544,9 +1545,9 @@ struct Wallet
     /**
     * brief: estimateTxSizeAndWeight -
     * param: use_rct    -
-    * param: n_inputs   - number of inputs
+    * param: n_inputs   - number of input enotes
     * param: ring_size  -
-    * param: n_outputs  - number of outputs
+    * param: n_outputs  - number of output enotes
     * param: extra_size - size of tx_extra
     * return: [estimated tx size, estimated tx weight]
     * note: sets status error on fail

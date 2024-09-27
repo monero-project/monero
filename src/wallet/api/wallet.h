@@ -243,7 +243,7 @@ public:
     bool isFrozen(std::size_t idx) const override;
     bool isFrozen(const std::string &key_image) const override;
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
-    virtual WalletState getWalletState() const = 0;
+    WalletState getWalletState() const override;
     void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
     void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
@@ -261,13 +261,13 @@ public:
     std::uint32_t adjustPriority(std::uint32_t priority) override;
     void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const override;
     void coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out, std::vector<cryptonote::address_parse_info> &dsts_info) const override;
-    void discardUnmixableOutputs() override;
+    void discardUnmixableEnotes() override;
     void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress) override;
     const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() const override;
     void setAccountTag(const std::set<uint32_t> &account_indices, const std::string &tag) override;
     void setAccountTagDescription(const std::string &tag, const std::string &description) override;
-    std::string exportOutputsToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const override;
-    std::size_t importOutputsFromStr(const std::string &outputs_str) override;
+    std::string exportEnotesToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const override;
+    std::size_t importEnotesFromStr(const std::string &enotes_str) override;
     std::uint64_t getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const override;
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels) const override;
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees) const override;
