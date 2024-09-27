@@ -3028,13 +3028,13 @@ void WalletImpl::rewriteWalletFile(const std::string &wallet_name, const std::st
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name)
+void WalletImpl::writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name)
 {
     clearStatus();
 
     try
     {
-        m_wallet->write_watch_only_wallet(wallet_name, epee::wipeable_string(password.data(), password.size()), new_keys_file_name);
+        m_wallet->write_watch_only_wallet(m_wallet->get_wallet_file(), epee::wipeable_string(password.data(), password.size()), new_keys_file_name);
     }
     catch (const std::exception &e)
     {

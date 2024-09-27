@@ -245,7 +245,7 @@ public:
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
     WalletState getWalletState() const override;
     void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
-    void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) override;
+    void writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name) override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
     void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) override;
     void getEnoteDetails(std::vector<EnoteDetails> enote_details) const override;

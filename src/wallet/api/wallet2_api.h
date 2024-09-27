@@ -94,7 +94,6 @@ struct EnoteDetails
     std::uint64_t m_spent_height;
     // key image
     std::string m_key_image;
-    // QUESTION : Is this comment correct? (This is the `rct::key m_mask` from wallet2::transfer_details)
     // x, blinding factor in amount commitment C = x G + a H
     std::string m_mask;
     // a
@@ -368,8 +367,6 @@ private:
     std::string m_balance;
     std::string m_unlockedBalance;
 public:
-    // QUESTION : afaik this is unused, can we remove it?
-    std::string extra;
     std::string getAddress() const {return m_address;}
     std::string getLabel() const {return m_label;}
     std::string getBalance() const {return m_balance;}
@@ -1166,7 +1163,6 @@ struct Wallet
     virtual void setOffline(bool offline) = 0;
     virtual bool isOffline() const = 0;
     
-    // QUESTION : Removing these three functions should be done in a separate PR?
     //! blackballs a set of outputs
     virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) = 0;
 
@@ -1222,9 +1218,9 @@ struct Wallet
     virtual uint64_t getBytesSent() = 0;
 
     /**
-    * brief: getMultisigSeed - get mnemonic seed phrase for multisig wallet
+    * brief: getMultisigSeed - get seed for multisig wallet
     * param: seed_offset - passphrase
-    * return: mnemonic seed phrase if succeeded, else empty string
+    * return: seed if succeeded, else empty string
     * note: sets status error on fail
     */
     virtual std::string getMultisigSeed(const std::string &seed_offset) const = 0;
@@ -1278,15 +1274,13 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual void rewriteWalletFile(const std::string &wallet_name, const std::string &password) = 0;
-    // QUESTION : Should we change this function from the current behavior in wallet2, so `wallet_name` is just the name of the new wallet instead of changing the `m_wallet_file` for the current wallet?
     /**
     * brief: writeWatchOnlyWallet -  create a new watch-only wallet file with view keys from current wallet
-    * param: wallet_name - name of the current wallet file
     * param: password - password for new watch-only wallet
     * outparam: new_keys_file_name - wallet_name + "-watchonly.keys"
     * note: sets status error on fail
     */
-    virtual void writeWatchOnlyWallet(const std::string &wallet_name, const std::string &password, std::string &new_keys_file_name) = 0;
+    virtual void writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name) = 0;
     /**
     * brief: updatePoolState -
     * outparam: process_txs - [ [tx, tx_id, double_spend_seen], ... ]
