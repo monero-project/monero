@@ -1134,6 +1134,27 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
   return transaction;
 }
 
+UnsignedTransaction *WalletImpl::loadUnsignedTxFromString(const std::string &data) {
+  clearStatus();
+  UnsignedTransactionImpl * transaction = new UnsignedTransactionImpl(*this);
+  if (checkBackgroundSync("cannot load tx") || !m_wallet->parse_unsigned_tx_from_str(data, transaction->m_unsigned_tx_set)){
+    setStatusError(tr("Failed to load unsigned transactions"));
+    transaction->m_status = UnsignedTransaction::Status::Status_Error;
+    transaction->m_errorString = errorString();
+
+    return transaction;
+  }
+
+  // Check tx data and construct confirmation message
+  std::string extra_message;
+  if (!std::get<2>(transaction->m_unsigned_tx_set.transfers).empty())
+    extra_message = (boost::format("%u outputs to import. ") % (unsigned)std::get<2>(transaction->m_unsigned_tx_set.transfers).size()).str();
+  transaction->checkLoadedTx([&transaction](){return transaction->m_unsigned_tx_set.txes.size();}, [&transaction](size_t n)->const tools::wallet2::tx_construction_data&{return transaction->m_unsigned_tx_set.txes[n];}, extra_message);
+  setStatus(transaction->status(), transaction->errorString());
+
+  return transaction;
+}
+
 bool WalletImpl::submitTransaction(const string &fileName) {
   clearStatus();
   if (checkBackgroundSync("cannot submit tx"))
@@ -1152,6 +1173,48 @@ bool WalletImpl::submitTransaction(const string &fileName) {
   }
 
   return true;
+}
+
+bool WalletImpl::submitTransactionFromString(const string &data) {
+  clearStatus();
+  if (checkBackgroundSync("cannot submit tx"))
+    return false;
+  std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
+
+  bool r = m_wallet->parse_tx_from_str(data, transaction->m_pending_tx, NULL);
+  if (!r) {
+    setStatus(Status_Ok, tr("Failed to load transaction from string"));
+    return false;
+  }
+
+  if(!transaction->commit()) {
+    setStatusError(transaction->m_errorString);
+    return false;
+  }
+
+  return true;
+}
+
+std::string WalletImpl::exportKeyImagesAsString(bool all)
+{
+  if (m_wallet->watch_only())
+  {
+    setStatusError(tr("Wallet is view only"));
+    return "";
+  }
+  if (checkBackgroundSync("cannot export key images"))
+    return "";
+
+  try
+  {
+      return m_wallet->export_key_images_string(all);
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    setStatusError(e.what());
+    return "";
+  }
 }
 
 bool WalletImpl::exportKeyImages(const string &filename, bool all) 
@@ -1181,6 +1244,31 @@ bool WalletImpl::exportKeyImages(const string &filename, bool all)
   return true;
 }
 
+bool WalletImpl::importKeyImagesFromString(const std::string &data)
+{
+  if (checkBackgroundSync("cannot import key images"))
+    return false;
+  if (!trustedDaemon()) {
+    setStatusError(tr("Key images can only be imported with a trusted daemon"));
+    return false;
+  }
+  try
+  {
+    uint64_t spent = 0, unspent = 0;
+    uint64_t height = m_wallet->import_key_images_string(data, spent, unspent);
+    LOG_PRINT_L2("Signed key images imported to height " << height << ", "
+        << print_money(spent) << " spent, " << print_money(unspent) << " unspent");
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    setStatusError(string(tr("Failed to import key images: ")) + e.what());
+    return false;
+  }
+
+  return true;
+}
+
 bool WalletImpl::importKeyImages(const string &filename)
 {
   if (checkBackgroundSync("cannot import key images"))
@@ -1204,6 +1292,29 @@ bool WalletImpl::importKeyImages(const string &filename)
   }
 
   return true;
+}
+
+std::string WalletImpl::exportOutputsAsString(bool all)
+{
+    if (checkBackgroundSync("cannot export outputs"))
+        return "";
+    if (m_wallet->key_on_device())
+    {
+        setStatusError(string(tr("Not supported on HW wallets.")));
+        return "";
+    }
+
+    try
+    {
+        return m_wallet->export_outputs_to_str(all);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Error exporting outputs: " << e.what());
+        setStatusError(string(tr("Error exporting outputs: ")) + e.what());
+        return "";
+    }
+    return "";
 }
 
 bool WalletImpl::exportOutputs(const string &filename, bool all)
@@ -1235,6 +1346,32 @@ bool WalletImpl::exportOutputs(const string &filename, bool all)
     }
 
     LOG_PRINT_L2("Outputs exported to " << filename);
+    return true;
+}
+
+bool WalletImpl::importOutputsFromString(const std::string &data)
+{
+    if (checkBackgroundSync("cannot import outputs"))
+        return false;
+    if (m_wallet->key_on_device())
+    {
+        setStatusError(string(tr("Not supported on HW wallets.")));
+        return false;
+    }
+
+
+    try
+    {
+        size_t n_outputs = m_wallet->import_outputs_from_str(data);
+        LOG_PRINT_L2(std::to_string(n_outputs) << " outputs imported");
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR("Failed to import outputs: " << e.what());
+        setStatusError(string(tr("Failed to import outputs: ")) + e.what());
+        return false;
+    }
+
     return true;
 }
 
