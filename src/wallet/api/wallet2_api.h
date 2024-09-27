@@ -1351,7 +1351,7 @@ struct Wallet
     * note: sets status error on fail
     */
     virtual std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const = 0;
-    // TODO : if it's fine to drop the accept_func, do it for all the functions below
+    // TODO : if it's fine to drop the accept_func, do it for all the functions below (where possible, meaning accept_func is optional in wallet2 params)
     /**
     * brief: loadTx - load pending transactions from a file
     * param: signed_filename -
@@ -1571,17 +1571,7 @@ struct Wallet
     * return: true if succeeded
     * note: sets status error on fail
     */
-    virtual bool importKeyImages(std::vector<std::string> key_images, std::size_t offset=0, std::unordered_set<std::size_t> selected_transfers = {}) = 0;
-// TODO : wallet2::signed_tx_set
-    /**
-    * brief: importKeyImages -
-    * param: signed_tx -
-    * param: offset     - offset in local transfer storage
-    * param: only_selected_transfers -
-    * return: true if succeeded
-    * note: sets status error on fail
-    */
-//    virtual bool importKeyImages(signed_tx_set & signed_tx, size_t offset=0, bool only_selected_transfers = false) = 0;
+    virtual bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_transfers = {}) = 0;
 };
 
 /**

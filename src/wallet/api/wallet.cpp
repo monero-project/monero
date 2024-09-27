@@ -525,7 +525,6 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
 
     bool keys_file_exists;
     bool wallet_file_exists;
-    // QUESTION / TODO : same as above
     tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
     LOG_PRINT_L3("wallet_path: " << path << "");
     LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
@@ -538,7 +537,6 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         setStatusError(error);
         return false;
     }
-    // TODO : Should we create a `WalletImpl` object for `view_wallet` instead of just using the `wallet2`? Figure out if that's even possible without much hassle. Then we can use the proposed `setSeedLanguage()` which also validates the language.
     // TODO: validate language
     view_wallet->set_seed_language(language);
 
@@ -550,9 +548,6 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         view_wallet->generate(path, password, address, viewkey);
 
         // Export/Import outputs
-        // TODO : Depends on question from above, if `view_wallet` becomes `WalletImpl`.
-//        std::string outputs = exportOutputsToStr(true/*all*/);
-//        view_wallet->importOutputsFromStr(outputs);
         auto outputs = m_wallet->export_outputs(true/*all*/);
         view_wallet->import_outputs(outputs);
 
@@ -566,7 +561,6 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
 
         // copy confirmed outgoing payments
         std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> out_payments;
-        // TODO : Depends on question from above, if `view_wallet` becomes `WalletImpl` & `getPaymentsOut()` is not implemented yet
         m_wallet->get_payments_out(out_payments, 0);
         view_wallet->import_payments_out(out_payments);
 
@@ -584,7 +578,6 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         return false;
     }
     // Store wallet
-    // TODO : Depends on question from above, if `view_wallet` becomes `WalletImpl`.
     view_wallet->store();
     return true;
 }
@@ -1735,7 +1728,8 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
             pendingTxPostProcess(transaction);
 
             if (multisig().isMultisig) {
-                makeMultisigTxSet(transaction);
+                auto tx_set = m_wallet.>makeMultisigTxSet(transaction->m_pending_tx);
+                transaction->m_signers = tx_set.m_signers;
             }
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -2931,7 +2925,7 @@ void WalletImpl::freeze(const std::string &key_image)
 {
     try
     {
-        freeze(getTransferIndex(key_image));
+        freeze(getEnoteIndex(key_image));
     }
     catch (const std::exception &e)
     {
@@ -2959,7 +2953,7 @@ void WalletImpl::thaw(const std::string &key_image)
 {
     try
     {
-        thaw(getTransferIndex(key_image));
+        thaw(getEnoteIndex(key_image));
     }
     catch (const std::exception &e)
     {
@@ -2989,7 +2983,7 @@ bool WalletImpl::isFrozen(const std::string &key_image) const
 {
     try
     {
-        return isFrozen(getTransferIndex(key_image));
+        return isFrozen(getEnoteIndex(key_image));
     }
     catch (const std::exception &e)
     {
@@ -3656,7 +3650,7 @@ std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::stri
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool importKeyImages(std::vector<std::string> key_images, std::size_t offset, std::unordered_set<std::size_t> selected_transfers)
+bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_t offset, std::unordered_set<std::size_t> selected_transfers)
 {
     clearStatus();
 
@@ -3689,22 +3683,13 @@ bool importKeyImages(std::vector<std::string> key_images, std::size_t offset, st
 //-------------------------------------------------------------------------------------------------------------------
 // PRIVATE
 //-------------------------------------------------------------------------------------------------------------------
-std::size_t WalletImpl::getTransferIndex(const std::string &key_image)
+std::size_t WalletImpl::getEnoteIndex(const std::string &key_image)
 {
     crypto::key_image ki;
     if (!epee::string_tools::hex_to_pod(key_image, ki))
         throw runtime_error(tr("Failed to parse key image."));
 
     return m_wallet->get_transfer_details(ki);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::makeMultisigTxSet(PendingTransaction &ptx)
-{
-    if (!ptx->m_wallet->multisig().isMultisig)
-        throw runtime_error(tr("Wallet is not multisig"));
-
-    auto multisig_tx = m_wallet->make_multisig_tx_set(ptx.m_pending_tx);
-    ptx.m_signers = multisig_tx.m_signers;
 }
 //-------------------------------------------------------------------------------------------------------------------
 

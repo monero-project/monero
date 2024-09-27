@@ -294,19 +294,12 @@ private:
     bool doInit(const std::string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
     bool checkBackgroundSync(const std::string &message) const;
 
-    // QUESTION : Should I remove the private functions from this PR and work on them in another one?
     /**
-    * brief: getTransferIndex - get the index of a stored transfer
-    * param: key_image - key image of transfer
-    * return: index in transfer storage
+    * brief: getEnoteIndex - get the index of an enote in local enote storage
+    * param: key_image - key image to identify the enote
+    * return: enote index
     */
-    std::size_t getTransferIndex(const std::string &key_image) const;
-    // TODO : consider changing the name and/or move to PendingTransaction
-    /**
-    * brief: makeMultisigTxSet - add multisig signers to pending transaction
-    * param: ptx -
-    */
-    void makeMultisigTxSet(PendingTransaction &ptx) const;
+    std::size_t getEnoteIndex(const std::string &key_image) const;
 
 private:
     friend class PendingTransactionImpl;
