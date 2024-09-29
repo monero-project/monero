@@ -41,7 +41,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 // Test helpers
 //----------------------------------------------------------------------------------------------------------------------
-static const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_leaves(const CurveTreesV1 &curve_trees,
+namespace test
+{
+const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
@@ -74,6 +76,7 @@ static const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_le
 
     return outs;
 }
+}//namespace test
 //----------------------------------------------------------------------------------------------------------------------
 static const Selene::Scalar generate_random_selene_scalar()
 {
@@ -97,9 +100,9 @@ static bool grow_tree_db(const std::size_t expected_old_n_leaf_tuples,
     CHECK_AND_ASSERT_MES(test_db.m_db->get_num_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
         false, "unexpected starting n leaf tuples in db");
 
-    auto leaves = generate_random_leaves(*curve_trees, 0, n_leaves);
+    auto new_outputs = test::generate_random_outputs(*curve_trees, 0, n_leaves);
 
-    test_db.m_db->grow_tree(std::move(leaves));
+    test_db.m_db->grow_tree(std::move(new_outputs));
 
     return test_db.m_db->audit_tree(expected_old_n_leaf_tuples + n_leaves);
 }
@@ -232,7 +235,7 @@ bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuple
 
     this->log_last_hashes(last_hashes);
 
-    auto new_outputs = generate_random_leaves(m_curve_trees, old_n_leaf_tuples, new_n_leaf_tuples);
+    auto new_outputs = test::generate_random_outputs(m_curve_trees, old_n_leaf_tuples, new_n_leaf_tuples);
 
     // Get a tree extension object to the existing tree using randomly generated leaves
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
@@ -316,6 +319,9 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples) 
     CHECK_AND_ASSERT_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
         false, "unexpected mismatch of c2 and c1 layers");
 
+    const std::size_t n_layers = c1_layers.size() + c2_layers.size();
+    CHECK_AND_ASSERT_MES(n_layers == m_curve_trees.n_layers(leaves.size()), false, "unexpected n_layers");
+
     // Verify root has 1 member in it
     const bool c2_is_root = c2_layers.size() > c1_layers.size();
     CHECK_AND_ASSERT_MES(c2_is_root ? c2_layers.back().size() == 1 : c1_layers.back().size() == 1, false,
@@ -325,7 +331,7 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples) 
     bool parent_is_c2 = c2_is_root;
     std::size_t c2_idx = c2_layers.size() - 1;
     std::size_t c1_idx = c1_layers.empty() ? 0 : (c1_layers.size() - 1);
-    for (std::size_t i = 1; i < (c2_layers.size() + c1_layers.size()); ++i)
+    for (std::size_t i = 1; i < n_layers; ++i)
     {
         // TODO: implement templated function for below if statement
         if (parent_is_c2)
@@ -405,9 +411,9 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples) 
         m_curve_trees.m_leaf_layer_chunk_width);
 }
 //----------------------------------------------------------------------------------------------------------------------
-fcmp_pp::curve_trees::PathV1 CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t leaf_idx) const
+CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t leaf_idx) const
 {
-    fcmp_pp::curve_trees::PathV1 path_out;
+    CurveTreesV1::Path path_out;
 
     const std::size_t n_leaf_tuples = get_num_leaf_tuples();
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples > leaf_idx, "too high leaf idx");
