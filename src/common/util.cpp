@@ -116,6 +116,22 @@ static int flock_exnb(int fd)
 
 namespace tools
 {
+  void copy_file(const std::string& from, const std::string& to)
+  {
+    using boost::filesystem::path;
+  #if BOOST_VERSION < 107400
+    boost::filesystem::copy_file(
+      path(from),
+      path(to),
+      boost::filesystem::copy_option::overwrite_if_exists);
+  #else
+    boost::filesystem::copy_file(
+      path(from),
+      path(to),
+      boost::filesystem::copy_options::overwrite_existing);
+  #endif
+  }
+
   std::function<void(int)> signal_handler::m_handler;
 
   private_file::private_file() noexcept : m_handle(), m_filename() {}
@@ -1066,7 +1082,7 @@ std::string get_nix_version_display_string()
     time_t tt = ts;
     struct tm tm;
     misc_utils::get_gmt_time(tt, tm);
-    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &tm);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%SZ", &tm);
     return std::string(buffer);
   }
 

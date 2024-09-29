@@ -216,7 +216,9 @@ namespace cryptonote
   bool generate_genesis_block(block& bl);
 
   class Blockchain;
-
+  bool get_block_longhash(const Blockchain *pb, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash = nullptr, const int miners = 0);
+  crypto::hash get_block_longhash(const Blockchain *pb, const block& b, const uint64_t height, const crypto::hash *seed_hash = nullptr, const int miners = 0);
+  void get_altblock_longhash(const block& b, crypto::hash& res, const crypto::hash& seed_hash);
 }
 
 BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)

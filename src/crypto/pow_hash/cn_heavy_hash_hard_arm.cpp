@@ -32,9 +32,11 @@
 
 #define CN_ADD_TARGETS_AND_HEADERS
 
-#include "../keccak.h"
+#include "cn_heavy_hash.hpp"
 #include "aux_hash.h"
-#include "cn_slow_hash.hpp"
+extern "C" {
+#include "../../crypto/keccak.h"
+}
 
 #ifdef HAS_ARM_HW
 extern const uint8_t saes_sbox[256];
@@ -168,7 +170,7 @@ inline void mem_load(cn_sptr& lpad, size_t i, uint8x16_t& x0, uint8x16_t& x1, ui
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
 {
 	uint8x16_t x0, x1, x2, x3, x4, x5, x6, x7;
 	uint8x16_t k0, k1, k2, k3, k4, k5, k6, k7, k8, k9;
@@ -242,7 +244,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::implode_scratchpad_hard()
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::explode_scratchpad_hard()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::explode_scratchpad_hard()
 {
 	uint8x16_t x0, x1, x2, x3, x4, x5, x6, x7;
 	uint8x16_t k0, k1, k2, k3, k4, k5, k6, k7, k8, k9;
@@ -306,7 +308,7 @@ inline void cryptonight_monero_tweak(uint64_t* mem_out, uint8x16_t tmp)
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t len, void* out)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t len, void* out, bool prehashed)
 {
 	if(VERSION == 1 && len < 43)
 	{
@@ -314,7 +316,8 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t l
 		return;
 	}
 
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+  if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	uint64_t mc0;
 	if(VERSION == 1)
@@ -343,9 +346,9 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash(const void* in, size_t l
 		cx = vaesmcq_u8(vaeseq_u8(cx, zero)) ^ _mm_set_epi64x(ah0, al0);
 
 		bx0 ^= cx;
-		if(VERSION == 1) 
-			cryptonight_monero_tweak(scratchpad_ptr(idx0).template as_ptr<uint64_t>(), bx0); 
-		else 
+		if(VERSION == 1)
+			cryptonight_monero_tweak(scratchpad_ptr(idx0).template as_ptr<uint64_t>(), bx0);
+		else
 			vst1q_u8(scratchpad_ptr(idx0).as_byte(), bx0);
 
 		idx0 = vgetq_lane_u64(vreinterpretq_u64_u8(cx), 0);
@@ -485,7 +488,7 @@ inline void single_comupte_wrap(const float32x4_t& n0, const float32x4_t& n1, co
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::inner_hash_3()
 {
 	uint32_t s = spad.as_dword(0) >> 8;
 	cn_sptr idx0 = scratchpad_ptr(s, 0);
@@ -566,9 +569,10 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3()
 
 #if defined(__aarch64__) && !defined(__APPLE__)
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t len, void* pout)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t len, void* pout, bool prehashed)
 {
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+  if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	explode_scratchpad_3();
 	inner_hash_3();
@@ -580,9 +584,10 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::hardware_hash_3(const void* in, size_t
 #endif
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash_3(const void* in, size_t len, void* pout)
+void cn_heavy_hash<MEMORY, ITER, VERSION>::software_hash_3(const void* in, size_t len, void* pout, bool prehashed)
 {
-	keccak((const uint8_t*)in, len, spad.as_byte(), 200);
+  if (!prehashed)
+	  keccak((const uint8_t*)in, len, spad.as_byte(), 200);
 
 	explode_scratchpad_3();
 	inner_hash_3();
@@ -592,7 +597,8 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::software_hash_3(const void* in, size_t
 	memcpy(pout, spad.as_byte(), 32);
 }
 
-template class cn_v1_hash_t;
-template class cn_v7l_hash_t;
-template class cn_gpu_hash_t;
+template class cn_heavy_hash<2*1024*1024, 0x80000, 0>;
+template class cn_heavy_hash<1*1024*1024, 0x40000, 1>;
+template class cn_heavy_hash<2*1024*1024, 0xC000, 2>;
+
 #endif

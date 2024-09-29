@@ -29,8 +29,6 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
-#include <limits>
-#include <functional>
 #include <vector>
 
 namespace epee

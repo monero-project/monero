@@ -87,7 +87,7 @@ namespace cryptonote
 	{
 		crypto::key_derivation derivation;
 		bool r = crypto::generate_key_derivation(address.m_view_public_key, tx_key.sec, derivation);
-		CHECK_AND_ASSERT_MES(r, false, "failed to generate key derivation(" << address.m_view_public_key << ", " << tx_key.sec << ")");
+		CHECK_AND_ASSERT_MES(r, false, "failed to generate key derivation(" << address.m_view_public_key << ", " << crypto::secret_key_explicit_print_ref{tx_key.sec} << ")");
 
 		r = crypto::derive_public_key(derivation, output_index, address.m_spend_public_key, output_key);
 		CHECK_AND_ASSERT_MES(r, false, "Failed to derive_public_key(" << derivation << ", " << output_index << ", " << address.m_spend_public_key << ")");
@@ -296,7 +296,15 @@ namespace cryptonote
     }
     else if (nettype == STAGENET)
     {
-      fork_height = 12000;
+      fork_height = 400;
+      if (height == fork_height)
+      {
+        return 100000 * COIN;
+      }
+      else if (height > (fork_height + 100) && (height % 100 == 0) && height < 1900)
+      {
+        return 100000 * COIN;
+      }
     }
 
     return 0;
@@ -411,12 +419,9 @@ namespace cryptonote
 		crypto::key_derivation derivation;
 		crypto::public_key out_eph_public_key;
 		bool r = crypto::generate_key_derivation(miner_address.m_view_public_key, txkey.sec, derivation);
-		LOG_PRINT_L1("while creating outs:  to generate_key_derivation(" << miner_address.m_view_public_key << ", " << txkey.sec << ")");
-
-		CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << miner_address.m_view_public_key << ", " << txkey.sec << ")");
+		CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << miner_address.m_view_public_key << ", " << crypto::secret_key_explicit_print_ref{txkey.sec} << ")");
 
 		r = crypto::derive_public_key(derivation, 0, miner_address.m_spend_public_key, out_eph_public_key);
-		LOG_PRINT_L1("while creating outs:  to derive_public_key(" << derivation << ", " << 0 << ", " << miner_address.m_spend_public_key << ")");
 		CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << 0 << ", " << miner_address.m_spend_public_key << ")");
 
 		txout_to_key tk;
@@ -436,10 +441,8 @@ namespace cryptonote
 			crypto::key_derivation derivation;
 			crypto::public_key out_eph_public_key;
 			bool r = crypto::generate_key_derivation(service_node_info[i].first.m_view_public_key, sn_key.sec, derivation);
-			LOG_PRINT_L1("while creating outs: generate_key_derivation(" << service_node_info[i].first.m_view_public_key << ")");
-			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << service_node_info[i].first.m_view_public_key << ", "<< sn_key.sec << ")");
+			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << service_node_info[i].first.m_view_public_key << ", "<< crypto::secret_key_explicit_print_ref{sn_key.sec} << ")");
 			r = crypto::derive_public_key(derivation, 1 + i, service_node_info[i].first.m_spend_public_key, out_eph_public_key);
-			LOG_PRINT_L1("while creating outs:  derive_public_key(" << derivation << ", " << (1 + i) << ", " << service_node_info[i].first.m_spend_public_key << ")");
 			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << (1 + i) << ", " << service_node_info[i].first.m_spend_public_key << ")");
 
 
@@ -928,7 +931,7 @@ namespace cryptonote
           crypto::generate_ring_signature(tx_prefix_hash, boost::get<txin_to_key>(tx.vin[i]).k_image, keys_ptrs, in_contexts[i].in_ephemeral.sec, src_entr.real_output, sigs.data());
         ss_ring_s << "signatures:" << ENDL;
         std::for_each(sigs.begin(), sigs.end(), [&](const crypto::signature& s){ss_ring_s << s << ENDL;});
-        ss_ring_s << "prefix_hash:" << tx_prefix_hash << ENDL << "in_ephemeral_key: " << in_contexts[i].in_ephemeral.sec << ENDL << "real_output: " << src_entr.real_output << ENDL;
+        ss_ring_s << "prefix_hash:" << tx_prefix_hash << ENDL << "in_ephemeral_key: " << crypto::secret_key_explicit_print_ref{in_contexts[i].in_ephemeral.sec} << ENDL << "real_output: " << src_entr.real_output << ENDL;
         i++;
       }
 
@@ -1106,8 +1109,53 @@ namespace cryptonote
     bl.minor_version = CURRENT_BLOCK_MINOR_VERSION;
     bl.timestamp = 0;
     bl.nonce = config::GENESIS_NONCE;
-    miner::find_nonce_for_given_block(bl, 1, 0);
+    miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash){
+      return cryptonote::get_block_longhash(NULL, b, hash, height, seed_hash, threads);
+    }, bl, 1, 0, NULL);
     bl.invalidate_hashes();
     return true;
+  }
+
+  void get_altblock_longhash(const block& b, crypto::hash& res, const crypto::hash& seed_hash)
+  {
+    blobdata bd = get_block_hashing_blob(b);
+    rx_slow_hash(seed_hash.data, bd.data(), bd.size(), res.data);
+  }
+
+  bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, const int miners)
+  {
+    const blobdata bd = get_block_hashing_blob(b);
+    const uint8_t hf_ver = b.major_version;
+
+    if (hf_ver >= 21)
+    {
+      crypto::hash hash;
+      if (pbc != NULL)
+      {
+        const uint64_t seed_height = rx_seedheight(height);
+        hash = seed_hash ? *seed_hash : pbc->get_pending_block_id_by_height(seed_height);
+      }
+      else
+      {
+        memset(&hash, 0, sizeof(hash));
+      }
+      rx_slow_hash(hash.data, bd.data(), bd.size(), res.data);
+    }
+    else if (hf_ver >= 6)
+    {
+      crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_slow_hash_type::cn_gpu);
+    }
+    else
+    {
+      crypto::cn_slow_hash(bd.data(), bd.size(), res, cn_slow_hash_type::cn_lite);
+    }
+    return true;
+  }
+
+  crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const crypto::hash *seed_hash, const int miners)
+  {
+    crypto::hash p = crypto::null_hash;
+    get_block_longhash(pbc, b, p, height, seed_hash, miners);
+    return p;
   }
 }

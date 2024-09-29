@@ -62,3 +62,4 @@ set(UNBOUND_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/unbound/libunbound" PARENT_SCOP
 
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
+add_subdirectory(randomxeq)

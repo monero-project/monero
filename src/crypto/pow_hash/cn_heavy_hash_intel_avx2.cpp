@@ -33,9 +33,11 @@
 #define CN_ADD_TARGETS_AND_HEADERS
 #define INTEL_AVX2
 
-#include "../keccak.h"
+#include "cn_heavy_hash.hpp"
 #include "aux_hash.h"
-#include "cn_slow_hash.hpp"
+extern "C" {
+#include "../../crypto/keccak.h"
+}
 
 #ifdef HAS_INTEL_HW
 
@@ -142,7 +144,7 @@ inline void double_comupte_wrap(const __m256& n0, const __m256& n1, const __m256
 }
 
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3_avx()
+void cn_heavy_hash<MEMORY, ITER, VERSION>::inner_hash_3_avx()
 {
 	uint32_t s = spad.as_dword(0) >> 8;
 	cn_sptr idx0 = scratchpad_ptr(s, 0);
@@ -215,7 +217,7 @@ void cn_slow_hash<MEMORY, ITER, VERSION>::inner_hash_3_avx()
 	}
 }
 
-template class cn_v1_hash_t;
-template class cn_v7l_hash_t;
-template class cn_gpu_hash_t;
+template class cn_heavy_hash<2*1024*1024, 0x80000, 0>;
+template class cn_heavy_hash<1*1024*1024, 0x40000, 1>;
+template class cn_heavy_hash<2*1024*1024, 0xC000, 2>;
 #endif

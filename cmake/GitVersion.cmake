@@ -48,7 +48,7 @@ function (get_version_tag_from_git GIT)
         message(STATUS "You are currently on commit ${COMMIT}")
 
         # Get all the tags
-        execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit 
+        execute_process(COMMAND "${GIT}" rev-list --tags --max-count=1 --abbrev-commit
                         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                         RESULT_VARIABLE RET
                         OUTPUT_VARIABLE TAGGEDCOMMIT
@@ -71,7 +71,7 @@ function (get_version_tag_from_git GIT)
                 set(VERSIONTAG "${COMMIT}")
                 set(VERSION_IS_RELEASE "false")
             endif()
-        endif()	    
+        endif()
     endif()
 
     set(VERSIONTAG "${VERSIONTAG}" PARENT_SCOPE)

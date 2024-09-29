@@ -99,7 +99,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define NEW_XEQ_BRIDGE                                  ((uint64_t)20000000000)
 
 #define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)
-#define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)0)
+#define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)208207)
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2    80000 //size of block (bytes) after which reward for block calculated using block size
@@ -176,7 +176,7 @@ static_assert(STAKING_PORTIONS % 3 == 0, "Use a multiple of three, so that it di
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
 #define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   5000
 
-#define P2P_DEFAULT_CONNECTIONS_COUNT_OUT               16
+#define P2P_DEFAULT_CONNECTIONS_COUNT_OUT               8
 #define P2P_DEFAULT_CONNECTIONS_COUNT_IN                32
 #define P2P_DEFAULT_HANDSHAKE_INTERVAL                  60           //secondes
 #define P2P_DEFAULT_PACKET_MAX_SIZE                     50000000     //50000000 bytes maximum packet size
@@ -300,18 +300,25 @@ namespace config
 
   namespace stagenet
   {
-    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
-   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 289;
-   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 289;
+   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 0x95f34;
+   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 0x1ddf34;
+   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 0x229f34;
+   //uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 289;
+   //uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 289;
+   //uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 289;
    uint16_t const P2P_DEFAULT_PORT = 9430;
-   uint16_t const RPC_DEFAULT_PORT = 9531;
-   uint16_t const ZMQ_RPC_DEFAULT_PORT = 9332;
+   uint16_t const RPC_DEFAULT_PORT = 9431;
+   uint16_t const ZMQ_RPC_DEFAULT_PORT = 9432;
    boost::uuids::uuid const NETWORK_ID = { {
        0x14 ,0x20, 0xF3, 0x71 , 0x60, 0x01 , 0x30, 0x62, 0x16, 0x35, 0x02, 0x82, 0x15, 0xA2, 0xA1, 0x14
      } }; // Bender's daydream
 
-  std::string const GOVERNANCE_WALLET_ADDRESS = "";
-  std::string const BRIDGE_WALLET_ADDRESS = "";
+  std::string const GOVERNANCE_WALLET_ADDRESS = "XES1cnvrXNh5fkRvwKPijaBbsHJEnDwS949VHpZEa4DtB3jduSbDjDVZ6tb7ct9PDY6kJTFc1TAEtYF2Dacun4Hw5aVTo2s99z";
+  std::string const BRIDGE_WALLET_ADDRESS = "XES1aQWz3JVhPdXynQUBL21tbHR8Kxi7tehFbeThzPAEeApqqmy1XKBR4mimvrMJSeJpYm8VHN3bkK22nmm9dsnB2GydcWBSjd";
+  std::string const NEW_BRIDGE_WALLET_ADDRESS = "XES1PcUnsFZHR42hgfW3qoZV8hUaQkBXoaWHF3mhqNmeZRLLqPFX5pELQWtJnrUAWfUVN96yRdbVK8i48dC3r1pY9v4dugs8Nu";
+  std::string const DEV_FUND_WALLET = "XES1TLv45CSe2ufGVvUF3U3FBr6vmz7hNX2pEns7U3HQ4PbTEJ4o1f2XyAf3DTbx8Y1BWvdSfrbQL4EVbfzcU1uz7na8yAk6Yi";
+  std::string const NEW_GOV_WALLET = "XES1Qh2ErQHiYRSNdjbhK2YYU3vfGFGj298SwYBQVvb5eiymct5EmXcFJD2pGuVY2c1TLtDnwpicBhP2i9VatN8e6AqcYzeUHq";
+  std::string const NEW_DEV_WALLET = "XES1McEbjv3gZhBwhFaYDqF7fmkcFA9sg4zEuv9wpJwgHHh6iZ891Qu1kcn2TUGHZSGBf4shzYuBndDRf1DAtsq23X4L1Enmpz";
 
   }
 }
@@ -320,6 +327,7 @@ namespace cryptonote
 {
   enum network_version
   {
+    network_version_0 = 0,
     network_version_1 = 1,
     network_version_2,
     network_version_3,
@@ -339,6 +347,8 @@ namespace cryptonote
     network_version_17,
     network_version_18,
     network_version_19,
+    network_version_20,
+    network_version_21,
 
     network_version_count,
   };
@@ -415,6 +425,10 @@ namespace cryptonote
       ::config::GENESIS_NONCE,
       &::config::stagenet::GOVERNANCE_WALLET_ADDRESS,
       &::config::stagenet::BRIDGE_WALLET_ADDRESS,
+      &::config::stagenet::NEW_BRIDGE_WALLET_ADDRESS,
+      &::config::stagenet::DEV_FUND_WALLET,
+      &::config::stagenet::NEW_GOV_WALLET,
+      &::config::stagenet::NEW_DEV_WALLET,
     };
     switch (nettype)
     {

@@ -405,15 +405,37 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   void tx_memory_pool::prune(size_t bytes)
   {
-      CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
     if (bytes == 0)
       bytes = m_txpool_max_weight;
     CRITICAL_REGION_LOCAL1(m_blockchain);
     LockedTXN lock(m_blockchain.get_db());
     bool changed = false;
 
-    auto it = --m_txs_by_fee_and_receive_time.end();
-    while (it != m_txs_by_fee_and_receive_time.begin())
+    auto prune_tx = [this](sorted_tx_container::iterator &it, crypto::hash const &txid, txpool_tx_meta_t const &meta, bool changed)
+    {
+      cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
+      cryptonote::transaction_prefix tx;
+      if (!parse_and_validate_tx_prefix_from_blob(txblob, tx))
+      {
+        MERROR("Failed to parse tx from txpool");
+        return false;
+      }
+
+      // remove first, in case this throws, so key images aren't removed
+      const uint64_t tx_fee = std::get<1>(it->first);
+      MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << tx_fee);
+      m_blockchain.remove_txpool_tx(txid);
+      m_txpool_weight -= meta.weight;
+      remove_transaction_keyimages(tx, txid);
+      MINFO("Pruned tx " << txid << " from txpool: weight: " <<  meta.weight << ", fee/byte: " << tx_fee);
+      it = m_txs_by_fee_and_receive_time.erase(it);
+      changed = true;
+
+      return true;
+    };
+
+    for (auto it = m_txs_by_fee_and_receive_time.begin(); it != m_txs_by_fee_and_receive_time.end(); )
     {
       const bool is_standard_tx = !std::get<0>(it->first);
       const time_t receive_time = std::get<2>(it->first);
@@ -421,6 +443,38 @@ namespace cryptonote
       if (is_standard_tx || receive_time >= time(nullptr) - MEMPOOL_PRUNE_DEREGISTER_LIFETIME)
         break;
 
+      try
+      {
+        const crypto::hash &txid = it->second;
+        txpool_tx_meta_t meta;
+        if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+        {
+          MERROR("Failed to find tx in txpool");
+          return;
+        }
+
+        if (meta.kept_by_block)
+        {
+          it++;
+          continue;
+        }
+
+        if (!prune_tx(it, txid, meta, changed))
+        {
+          MERROR("Failed to parse tx from txpool");
+          return;
+        }
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Error while pruning txpool: " << e.what());
+        return;
+      }
+    }
+
+    auto it = --m_txs_by_fee_and_receive_time.end();
+    while (it != m_txs_by_fee_and_receive_time.begin())
+    {
       if (m_txpool_weight <= bytes)
         break;
       try
@@ -429,30 +483,21 @@ namespace cryptonote
         txpool_tx_meta_t meta;
         if (!m_blockchain.get_txpool_tx_meta(txid, meta))
         {
-          MERROR("Failed to find tx_meta in txpool");
+          MERROR("Failed to find tx in txpool");
           return;
         }
-        // don't prune the kept_by_block ones, they're likely added because we're adding a block with those
+
         if (meta.kept_by_block)
         {
           --it;
           continue;
         }
-        cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
-        cryptonote::transaction_prefix tx;
-        if (!parse_and_validate_tx_prefix_from_blob(txblob, tx))
+
+        if (!prune_tx(it, txid, meta, changed))
         {
           MERROR("Failed to parse tx from txpool");
           return;
         }
-        // remove first, in case this throws, so key images aren't removed
-        MINFO("Pruning tx " << txid << " from txpool: weight: " << meta.weight << ", fee/byte: " << std::get<1>(it->first));
-        m_blockchain.remove_txpool_tx(txid);
-        m_txpool_weight -= meta.weight;
-        remove_transaction_keyimages(tx, txid);
-        MINFO("Pruned tx " << txid << " from txpool: weight: " <<  meta.weight << ", fee/byte: " << std::get<1>(it->first));
-        m_txs_by_fee_and_receive_time.erase(it--);
-        changed = true;
       }
       catch (const std::exception &e)
       {

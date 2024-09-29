@@ -32,6 +32,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <memory>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
@@ -441,11 +442,26 @@ namespace net_utils
     virtual bool call_run_once_service_io()=0;
     virtual bool request_callback()=0;
     virtual boost::asio::io_service& get_io_service()=0;
-    //protect from deletion connection object(with protocol instance) during external call "invoke"
-    virtual bool add_ref()=0;
-    virtual bool release()=0;
   protected:
     virtual ~i_service_endpoint() noexcept(false) {}
+	};
+
+	template<typename t_protocol_handler>
+	struct service_endpoint : i_service_endpoint
+	{
+	  typedef typename t_protocol_handler::connection_context t_connection_context;
+
+	  service_endpoint(typename t_protocol_handler::config_type& config)
+	    : i_service_endpoint(), context(), m_protocol_handler(this, config, context)
+	  {}
+
+	  t_connection_context context;
+
+	  t_protocol_handler m_protocol_handler;
+
+	protected:
+	  virtual ~service_endpoint() noexcept(false)
+	  {}
 	};
 
 

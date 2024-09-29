@@ -15,7 +15,7 @@
 #include "serialization/json_object.h"
 
 
-namespace
+namespace test
 {
     cryptonote::transaction
     make_miner_transaction(cryptonote::account_public_address const& to)
@@ -82,7 +82,10 @@ namespace
 
         return tx;
     }
+}
 
+namespace
+{
     template<typename T>
     T test_json(const T& value)
     {
@@ -109,7 +112,7 @@ TEST(JsonSerialization, MinerTransaction)
 {
     cryptonote::account_base acct;
     acct.generate();
-    const auto miner_tx = make_miner_transaction(acct.get_keys().m_account_address);
+    const auto miner_tx = test::make_miner_transaction(acct.get_keys().m_account_address);
 
     crypto::hash tx_hash{};
     ASSERT_TRUE(cryptonote::get_transaction_hash(miner_tx, tx_hash));
@@ -137,8 +140,8 @@ TEST(JsonSerialization, RegularTransaction)
     cryptonote::account_base acct2;
     acct2.generate();
 
-    const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
-    const auto tx = make_transaction(
+    const auto miner_tx = test::make_miner_transaction(acct1.get_keys().m_account_address);
+    const auto tx = test::make_transaction(
         acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, false, false
     );
 
@@ -168,8 +171,8 @@ TEST(JsonSerialization, RingctTransaction)
     cryptonote::account_base acct2;
     acct2.generate();
 
-    const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
-    const auto tx = make_transaction(
+    const auto miner_tx = test::make_miner_transaction(acct1.get_keys().m_account_address);
+    const auto tx = test::make_transaction(
         acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, false
     );
 
@@ -199,8 +202,8 @@ TEST(JsonSerialization, BulletproofTransaction)
     cryptonote::account_base acct2;
     acct2.generate();
 
-    const auto miner_tx = make_miner_transaction(acct1.get_keys().m_account_address);
-    const auto tx = make_transaction(
+    const auto miner_tx = test::make_miner_transaction(acct1.get_keys().m_account_address);
+    const auto tx = test::make_transaction(
         acct1.get_keys(), {miner_tx}, {acct2.get_keys().m_account_address}, true, true
     );
 

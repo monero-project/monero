@@ -1007,7 +1007,7 @@ namespace service_nodes
 			cryptonote::keypair gov_key = cryptonote::get_deterministic_keypair_from_height(height);
 
 			bool r = crypto::generate_key_derivation(addresses_and_portions[i].first.m_view_public_key, gov_key.sec, derivation);
-			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << addresses_and_portions[i].first.m_view_public_key << ", " << gov_key.sec << ")");
+			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to generate_key_derivation(" << addresses_and_portions[i].first.m_view_public_key << ", " << crypto::secret_key_explicit_print_ref{gov_key.sec} << ")");
 			r = crypto::derive_public_key(derivation, vout_index, addresses_and_portions[i].first.m_spend_public_key, out_eph_public_key);
 			CHECK_AND_ASSERT_MES(r, false, "while creating outs: failed to derive_public_key(" << derivation << ", " << vout_index << ", " << addresses_and_portions[i].first.m_spend_public_key << ")");
 

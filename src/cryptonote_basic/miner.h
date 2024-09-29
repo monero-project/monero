@@ -50,22 +50,23 @@
 
 namespace cryptonote
 {
-
   struct i_miner_handler
   {
     virtual bool handle_block_found(block& b, block_verification_context &bvc) = 0;
-    virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce) = 0;
+    virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) = 0;
   protected:
     ~i_miner_handler(){};
   };
+
+  typedef std::function<bool(const cryptonote::block&, uint64_t, const crypto::hash*, unsigned int, crypto::hash&)> get_block_hash_t;
 
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
   class miner
   {
-  public: 
-    miner(i_miner_handler* phandler);
+  public:
+    miner(i_miner_handler* phandler, const get_block_hash_t& gbh);
     ~miner();
     bool init(const boost::program_options::variables_map& vm, network_type nettype);
     static void init_options(boost::program_options::options_description& desc);
@@ -81,7 +82,7 @@ namespace cryptonote
     bool on_idle();
     void on_synchronized();
     //synchronous analog (for fast calls)
-    static bool find_nonce_for_given_block(block& bl, const difficulty_type& diffic, uint64_t height);
+    static bool find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height, const crypto::hash *seed_hash = NULL);
     void pause();
     void resume();
     void do_print_hashrate(bool do_hr);
@@ -110,8 +111,9 @@ namespace cryptonote
   private:
     bool worker_thread();
     bool request_block_template();
-    void  merge_hr();
-    
+    void merge_hr();
+    void update_autodetection();
+
     struct miner_config
     {
       uint64_t current_extra_message_index;
@@ -122,34 +124,40 @@ namespace cryptonote
     };
 
 
-    volatile uint32_t m_stop;
+    std::atomic<bool> m_stop;
     epee::critical_section m_template_lock;
     block m_template;
     std::atomic<uint32_t> m_template_no;
     std::atomic<uint32_t> m_starter_nonce;
     difficulty_type m_diffic;
     uint64_t m_height;
-    volatile uint32_t m_thread_index; 
+    std::atomic<uint32_t> m_thread_index;
     volatile uint32_t m_threads_total;
+    std::atomic<uint32_t> m_threads_active;
     std::atomic<int32_t> m_pausers_count;
     epee::critical_section m_miners_count_lock;
 
     std::list<boost::thread> m_threads;
     epee::critical_section m_threads_lock;
     i_miner_handler* m_phandler;
+    get_block_hash_t m_gbh;
     account_public_address m_mine_address;
     epee::math_helper::once_a_time_seconds<5> m_update_block_template_interval;
     epee::math_helper::once_a_time_seconds<2> m_update_merge_hr_interval;
+    epee::math_helper::once_a_time_seconds<1> m_autodetect_interval;
     std::vector<blobdata> m_extra_messages;
     miner_config m_config;
-    std::string m_config_folder_path;    
+    std::string m_config_folder_path;
     std::atomic<uint64_t> m_last_hr_merge_time;
     std::atomic<uint64_t> m_hashes;
+    std::atomic<uint64_t> m_total_hashes;
     std::atomic<uint64_t> m_current_hash_rate;
     epee::critical_section m_last_hash_rates_lock;
     std::list<uint64_t> m_last_hash_rates;
     bool m_do_print_hashrate;
     bool m_do_mining;
+    std::vector<std::pair<uint64_t, uint64_t>> m_threads_autodetect;
+    boost::thread::attributes m_attrs;
 
     // background mining stuffs ..
 
@@ -162,7 +170,7 @@ namespace cryptonote
     boost::condition_variable m_is_background_mining_enabled_cond;
     std::atomic<bool> m_is_background_mining_started;
     boost::mutex m_is_background_mining_started_mutex;
-    boost::condition_variable m_is_background_mining_started_cond;    
+    boost::condition_variable m_is_background_mining_started_cond;
     boost::thread m_background_mining_thread;
     uint64_t m_min_idle_seconds;
     uint8_t m_idle_threshold;

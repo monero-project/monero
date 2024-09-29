@@ -30,7 +30,6 @@
 
 #include <sstream>
 #include <numeric>
-#include <boost/interprocess/detail/atomic.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/limits.hpp>
 #include "include_base_utils.h"
@@ -38,8 +37,10 @@
 #include "syncobj.h"
 #include "cryptonote_basic_impl.h"
 #include "cryptonote_format_utils.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "file_io_utils.h"
 #include "common/command_line.h"
+#include "common/util.h"
 #include "string_coding.h"
 #include "string_tools.h"
 #include "storages/portable_storage_template_helper.h"
@@ -72,9 +73,16 @@
 #undef XEQ_DEFAULT_LOG_CATEGORY
 #define XEQ_DEFAULT_LOG_CATEGORY "miner"
 
+#define AUTODETECT_WINDOW 10
+#define AUTODETECT_GAIN_THRESHOLD 1.02f
+
 using namespace epee;
 
 #include "miner.h"
+#include "crypto/hash.h"
+
+extern "C" void rx_slow_hash_allocate_state();
+extern "C" void rx_slow_hash_free_state();
 
 namespace cryptonote
 {
@@ -92,18 +100,21 @@ namespace cryptonote
   }
 
 
-  miner::miner(i_miner_handler* phandler):m_stop(1),
+  miner::miner(i_miner_handler* phandler, const get_block_hash_t &gbh):m_stop(1),
     m_template{},
     m_template_no(0),
     m_diffic(0),
     m_thread_index(0),
     m_phandler(phandler),
+    m_gbh(gbh),
     m_height(0),
+    m_threads_active(0),
     m_pausers_count(0),
     m_threads_total(0),
     m_starter_nonce(0),
     m_last_hr_merge_time(0),
     m_hashes(0),
+    m_total_hashes(0),
     m_do_print_hashrate(false),
     m_do_mining(false),
     m_current_hash_rate(0),
@@ -154,7 +165,9 @@ namespace cryptonote
       extra_nonce = m_extra_messages[m_config.current_extra_message_index];
     }
 
-    if(!m_phandler->get_block_template(bl, m_mine_address, di, height, expected_reward, extra_nonce))
+    uint64_t seed_height;
+    crypto::hash seed_hash;
+    if(!m_phandler->get_block_template(bl, m_mine_address, di, height, expected_reward, extra_nonce, seed_height, seed_hash))
     {
       LOG_ERROR("Failed to get_block_template(), stopping mining");
       return false;
@@ -174,7 +187,12 @@ namespace cryptonote
       merge_hr();
       return true;
     });
-    
+
+    m_autodetect_interval.do_call([&](){
+      update_autodetection();
+      return true;
+    });
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -205,13 +223,62 @@ namespace cryptonote
     m_hashes = 0;
   }
   //-----------------------------------------------------------------------------------------------------
+  void miner::update_autodetection()
+  {
+    if (m_threads_autodetect.empty())
+      return;
+
+    uint64_t now = epee::misc_utils::get_ns_count();
+    uint64_t dt = now - m_threads_autodetect.back().first;
+    if (dt < AUTODETECT_WINDOW + 1000000000ull)
+      return;
+
+    m_threads_autodetect.back().first = dt;
+    uint64_t dh = m_total_hashes - m_threads_autodetect.back().second;
+    m_threads_autodetect.back().second = dh;
+    float hs = dh / (dt / (float)1000000000);
+    MGINFO("Mining autodetection: " << m_threads_autodetect.size() << " threads: " << hs << " H/s");
+
+    bool found = false;
+    if (m_threads_autodetect.size() > 1)
+    {
+      int previdx = m_threads_autodetect.size() - 2;
+      float previous_hs = m_threads_autodetect[previdx].second / (m_threads_autodetect[previdx].first / (float)1000000000);
+      if (previous_hs > 0 && hs / previous_hs < AUTODETECT_GAIN_THRESHOLD)
+      {
+        m_threads_total = m_threads_autodetect.size() - 1;
+        m_threads_autodetect.clear();
+        MGINFO("Optimal number of threads seems to be " << m_threads_total);
+        found = true;
+      }
+    }
+
+    if (!found)
+    {
+      m_threads_autodetect.push_back({now, m_total_hashes});
+      m_threads_total = m_threads_autodetect.size();
+    }
+
+    {
+      CRITICAL_REGION_LOCAL(m_threads_lock);
+      m_stop = true;
+      while (m_threads_active > 0)
+        misc_utils::sleep_no_w(100);
+      m_threads.clear();
+    }
+    m_stop = false;
+    m_thread_index = 0;
+    for(size_t i = 0; i != m_threads_total; i++)
+      m_threads.push_back(boost::thread(m_attrs, boost::bind(&miner::worker_thread, this)));
+  }
+  //-----------------------------------------------------------------------------------------------------
   void miner::init_options(boost::program_options::options_description& desc)
   {
     command_line::add_arg(desc, arg_extra_messages);
     command_line::add_arg(desc, arg_start_mining);
     command_line::add_arg(desc, arg_mining_threads);
     command_line::add_arg(desc, arg_bg_mining_enable);
-    command_line::add_arg(desc, arg_bg_mining_ignore_battery);    
+    command_line::add_arg(desc, arg_bg_mining_ignore_battery);
     command_line::add_arg(desc, arg_bg_mining_min_idle_interval_seconds);
     command_line::add_arg(desc, arg_bg_mining_idle_threshold_percentage);
     command_line::add_arg(desc, arg_bg_mining_miner_target_percentage);
@@ -264,7 +331,7 @@ namespace cryptonote
     if(command_line::has_arg(vm, arg_bg_mining_enable))
       set_is_background_mining_enabled( command_line::get_arg(vm, arg_bg_mining_enable) );
     if(command_line::has_arg(vm, arg_bg_mining_ignore_battery))
-      set_ignore_battery( command_line::get_arg(vm, arg_bg_mining_ignore_battery) );      
+      set_ignore_battery( command_line::get_arg(vm, arg_bg_mining_ignore_battery) );
     if(command_line::has_arg(vm, arg_bg_mining_min_idle_interval_seconds))
       set_min_idle_seconds( command_line::get_arg(vm, arg_bg_mining_min_idle_interval_seconds) );
     if(command_line::has_arg(vm, arg_bg_mining_idle_threshold_percentage))
@@ -293,6 +360,13 @@ namespace cryptonote
   {
     m_mine_address = adr;
     m_threads_total = static_cast<uint32_t>(threads_count);
+    if (threads_count == 0)
+    {
+      m_threads_autodetect.clear();
+      m_threads_autodetect.push_back({epee::misc_utils::get_ns_count(), m_total_hashes});
+      m_threads_total = 1;
+    }
+    m_attrs = attrs;
     m_starter_nonce = crypto::rand<uint32_t>();
     CRITICAL_REGION_LOCAL(m_threads_lock);
     if(is_mining())
@@ -309,17 +383,20 @@ namespace cryptonote
 
     request_block_template();//lets update block template
 
-    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 0);
-    boost::interprocess::ipcdetail::atomic_write32(&m_thread_index, 0);
+    m_stop = false;
+    m_thread_index = 0;
     set_is_background_mining_enabled(do_background);
     set_ignore_battery(ignore_battery);
-    
-    for(size_t i = 0; i != threads_count; i++)
+
+    for(size_t i = 0; i != m_threads_total; i++)
     {
       m_threads.push_back(boost::thread(attrs, boost::bind(&miner::worker_thread, this)));
     }
 
-    LOG_PRINT_L0("Mining has started with " << threads_count << " threads, good luck!" );
+    if (threads_count == 0)
+      MINFO("Mining has started, autodetecting optimal number of threads, good luck!" );
+    else
+      MINFO("Mining has started with " << threads_count << " threads, good luck!" );
 
     if( get_is_background_mining_enabled() )
     {
@@ -347,28 +424,30 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   void miner::send_stop_signal()
   {
-    boost::interprocess::ipcdetail::atomic_write32(&m_stop, 1);
+    m_stop = true;
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::stop()
   {
     MTRACE("Miner has received stop signal");
 
-    if (!is_mining())
+    CRITICAL_REGION_LOCAL(m_threads_lock);
+    bool mining = !m_threads.empty();
+    if (!mining)
     {
-      MDEBUG("Not mining - nothing to stop" );
+      MTRACE("Not mining - nothing to stop" );
       return true;
     }
 
     send_stop_signal();
-    CRITICAL_REGION_LOCAL(m_threads_lock);
 
     // In case background mining was active and the miner threads are waiting
     // on the background miner to signal start. 
-    m_is_background_mining_started_cond.notify_all();
-
-    for(boost::thread& th: m_threads)
-      th.join();
+    while (m_threads_active > 0)
+    {
+      m_is_background_mining_started_cond.notify_all();
+      misc_utils::sleep_no_w(100);
+    }
 
     // The background mining thread could be sleeping for a long time, so we
     // interrupt it just in case
@@ -377,16 +456,16 @@ namespace cryptonote
 
     MINFO("Mining has been stopped, " << m_threads.size() << " finished" );
     m_threads.clear();
+    m_threads_autodetect.clear();
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::find_nonce_for_given_block(block& bl, const difficulty_type& diffic, uint64_t height)
+  bool miner::find_nonce_for_given_block(const get_block_hash_t &gbh, block& bl, const difficulty_type& diffic, uint64_t height, const crypto::hash *seed_hash)
   {
-    cn_gpu_hash hash_ctx;
     for(; bl.nonce != std::numeric_limits<uint32_t>::max(); bl.nonce++)
     {
       crypto::hash h;
-      get_block_longhash(bl, h, hash_ctx);
+      gbh(bl, height, seed_hash, diffic <= 100 ? 0 : tools::get_max_concurrency(), h);
 
       if(check_hash(h, diffic))
       {
@@ -434,7 +513,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------------
   bool miner::worker_thread()
   {
-    uint32_t th_local_index = boost::interprocess::ipcdetail::atomic_inc32(&m_thread_index);
+    const uint32_t th_local_index = m_thread_index++;
+    bool rx_set = false;
+
     MLOG_SET_THREAD_NAME(std::string("[miner ") + std::to_string(th_local_index) + "]");
     MGINFO("Miner thread was started ["<< th_local_index << "]");
     uint32_t nonce = m_starter_nonce + th_local_index;
@@ -442,7 +523,7 @@ namespace cryptonote
     difficulty_type local_diff = 0;
     uint32_t local_template_ver = 0;
     block b;
-    cn_gpu_hash hash_ctx;
+    rx_slow_hash_allocate_state();
 
 
     while(!m_stop)
@@ -458,12 +539,12 @@ namespace cryptonote
         while( !m_is_background_mining_started )
         {
           MGINFO("background mining is enabled, but not started, waiting until start triggers");
-          boost::unique_lock<boost::mutex> started_lock( m_is_background_mining_started_mutex );        
+          boost::unique_lock<boost::mutex> started_lock( m_is_background_mining_started_mutex );
           m_is_background_mining_started_cond.wait( started_lock );
           if( m_stop ) break;
         }
-        
-        if( m_stop ) continue;         
+
+        if( m_stop ) continue;
       }
 
       if(local_template_ver != m_template_no)
@@ -486,7 +567,14 @@ namespace cryptonote
 
       b.nonce = nonce;
       crypto::hash h;
-      get_block_longhash(b, h, hash_ctx);
+
+      if ((b.major_version >= 21) && !rx_set)
+      {
+        crypto::rx_set_miner_thread(th_local_index, tools::get_max_concurrency());
+        rx_set = true;
+      }
+
+      m_gbh(b, height, NULL, tools::get_max_concurrency(), h);
 
       if(check_hash(h, local_diff))
       {
@@ -506,8 +594,11 @@ namespace cryptonote
       }
       nonce+=m_threads_total;
       ++m_hashes;
+      ++m_total_hashes;
     }
+    rx_slow_hash_free_state();
     MGINFO("Miner thread stopped ["<< th_local_index << "]");
+    --m_threads_active;
     return true;
   }
   //-----------------------------------------------------------------------------------------------------

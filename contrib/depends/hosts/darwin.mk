@@ -6,13 +6,8 @@ else
 CC_target=$(host)
 endif
 
-darwin_CC=clang --target=$(CC_target) -mmacosx-version-min=$(OSX_MIN_VERSION) \
-  -B$(host_prefix)/native/bin/$(host)- -mlinker-version=$(LD64_VERSION) \
-  --sysroot $(host_prefix)/native/SDK/
-
-darwin_CXX=clang++ --target=$(CC_target) -mmacosx-version-min=$(OSX_MIN_VERSION) \
-  -B$(host_prefix)/native/bin/$(host)- -mlinker-version=$(LD64_VERSION) \
-  --sysroot $(host_prefix)/native/SDK/ -stdlib=libc++
+darwin_CC=clang -target $(CC_target) -mmacosx-version-min=$(OSX_MIN_VERSION) --sysroot $(host_prefix)/native/SDK/ -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks -mlinker-version=$(LD64_VERSION) -B$(host_prefix)/native/bin/$(host)-
+darwin_CXX=clang++ -target $(CC_target) -mmacosx-version-min=$(OSX_MIN_VERSION) --sysroot $(host_prefix)/native/SDK/ -iwithsysroot/usr/include/c++/v1 -iwithsysroot/usr/include -iframeworkwithsysroot/System/Library/Frameworks -mlinker-version=$(LD64_VERSION) -stdlib=libc++ -B$(host_prefix)/native/bin/$(host)-
 
 darwin_CFLAGS=-pipe
 darwin_CXXFLAGS=$(darwin_CFLAGS) -fvisibility-inlines-hidden

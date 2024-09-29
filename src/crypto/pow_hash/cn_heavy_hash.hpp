@@ -43,18 +43,18 @@
 
 // Macros are for template instantiations
 // Cryptonight
-#define cn_v1_hash_t  cn_slow_hash<2 * 1024 * 1024, 0x80000, 0>
+//#define cn_v1_hash_t  cn_slow_hash<2 * 1024 * 1024, 0x80000, 0>
 // Cryptonight-v7
-#define cn_v7l_hash_t cn_slow_hash<1 * 1024 * 1024, 0x40000, 1>
+//#define cn_v7l_hash_t cn_slow_hash<1 * 1024 * 1024, 0x40000, 1>
 // Cryptonight-GPU
-#define cn_gpu_hash_t cn_slow_hash<2 * 1024 * 1024, 0xC000,  2>
+//#define cn_gpu_hash_t cn_slow_hash<2 * 1024 * 1024, 0xC000,  2>
 
 // Use the types below
-template <size_t MEMORY, size_t ITER, size_t VERSION>
-class cn_slow_hash;
-using cn_v1_hash = cn_v1_hash_t;
-using cn_v7l_hash = cn_v7l_hash_t;
-using cn_gpu_hash = cn_gpu_hash_t;
+//template <size_t MEMORY, size_t ITER, size_t VERSION>
+//class cn_slow_hash;
+//using cn_v1_hash = cn_v1_hash_t;
+//using cn_v7l_hash = cn_v7l_hash_t;
+//using cn_gpu_hash = cn_gpu_hash_t;
 
 #ifdef HAS_INTEL_HW
 inline void cpuid(uint32_t eax, int32_t ecx, int32_t val[4])
@@ -138,17 +138,22 @@ class cn_sptr
 	void* base_ptr;
 };
 
+template<size_t MEMORY, size_t ITER, size_t VERSION> class cn_heavy_hash;
+using cn_heavy_hash_v1 = cn_heavy_hash<2*1024*1024, 0x80000, 0>;
+using cn_heavy_hash_lite = cn_heavy_hash<1*1024*1024, 0x40000, 1>;
+using cn_heavy_hash_gpu = cn_heavy_hash<2*1024*1024, 0xC000, 2>;
+
 template <size_t MEMORY, size_t ITER, size_t VERSION>
-class cn_slow_hash
+class cn_heavy_hash
 {
   public:
-	cn_slow_hash() : borrowed_pad(false)
+	cn_heavy_hash() : borrowed_pad(false)
 	{
 		lpad.set(boost::alignment::aligned_alloc(4096, MEMORY));
 		spad.set(boost::alignment::aligned_alloc(4096, 4096));
 	}
 
-	cn_slow_hash(cn_slow_hash&& other) noexcept : lpad(other.lpad.as_byte()), spad(other.spad.as_byte()), borrowed_pad(other.borrowed_pad)
+	cn_heavy_hash(cn_heavy_hash&& other) noexcept : lpad(other.lpad.as_byte()), spad(other.spad.as_byte()), borrowed_pad(other.borrowed_pad)
 	{
 		other.lpad.set(nullptr);
 		other.spad.set(nullptr);
@@ -157,17 +162,17 @@ class cn_slow_hash
 	// Factory function enabling to temporaliy turn v2 object into v1
 	// It is caller's responsibility to ensure that v2 object is not hashing at the same time!!
 
-	static cn_v7l_hash make_borrowed(cn_gpu_hash& t)
+	static cn_heavy_hash_lite make_borrowed(cn_heavy_hash_gpu& t)
 	{
-		return cn_v7l_hash(t.lpad.as_void(), t.spad.as_void());
+		return cn_heavy_hash_lite(t.lpad.as_void(), t.spad.as_void());
 	}
 
-	static cn_gpu_hash make_borrowed_v3(cn_v1_hash& t)
+	static cn_heavy_hash_gpu make_borrowed_v3(cn_heavy_hash_v1& t)
 	{
-		return cn_gpu_hash(t.lpad.as_void(), t.spad.as_void());
+		return cn_heavy_hash_gpu(t.lpad.as_void(), t.spad.as_void());
 	}
 
-	cn_slow_hash& operator=(cn_slow_hash&& other) noexcept
+	cn_heavy_hash& operator=(cn_heavy_hash&& other) noexcept
 	{
 		if(this == &other)
 			return *this;
@@ -180,55 +185,51 @@ class cn_slow_hash
 	}
 
 	// Copying is going to be really inefficient
-	cn_slow_hash(const cn_slow_hash& other) = delete;
-	cn_slow_hash& operator=(const cn_slow_hash& other) = delete;
+	cn_heavy_hash(const cn_heavy_hash& other) = delete;
+	cn_heavy_hash& operator=(const cn_heavy_hash& other) = delete;
 
-	~cn_slow_hash()
+	~cn_heavy_hash()
 	{
 		free_mem();
 	}
 
-	void hash(const void* in, size_t len, void* out)
+	void hash(const void* in, size_t len, void* out, bool prehashed = false)
 	{
 		if(VERSION <= 1)
 		{
 			if(hw_check_aes() && !check_override())
-				hardware_hash(in, len, out);
+				hardware_hash(in, len, out, prehashed);
 			else
-				software_hash(in, len, out);
+				software_hash(in, len, out, prehashed);
 		}
 		else
 		{
 			if(hw_check_aes() && !check_override())
-				hardware_hash_3(in, len, out);
+				hardware_hash_3(in, len, out, prehashed);
 			else
-				software_hash_3(in, len, out);
+				software_hash_3(in, len, out, prehashed);
 		}
 	}
 
-	void software_hash(const void* in, size_t len, void* out);
-	void software_hash_3(const void* in, size_t len, void* pout);
+	void software_hash(const void* in, size_t len, void* out, bool prehashed);
+	void software_hash_3(const void* in, size_t len, void* pout, bool prehashed);
 
 #if !defined(HAS_INTEL_HW) && !defined(HAS_ARM_HW)
-	inline void hardware_hash(const void* in, size_t len, void* out)
-	{
-		assert(false);
-	}
-	inline void hardware_hash_3(const void* in, size_t len, void* out) { assert(false); }
+	inline void hardware_hash(const void* in, size_t len, void* out, bool prehashed) { assert(false); }
+	inline void hardware_hash_3(const void* in, size_t len, void* out, bool prehashed) { assert(false); }
 #else
-	void hardware_hash(const void* in, size_t len, void* out);
-	void hardware_hash_3(const void* in, size_t len, void* pout);
+	void hardware_hash(const void* in, size_t len, void* out, bool prehashed);
+	void hardware_hash_3(const void* in, size_t len, void* pout, bool prehashed);
 #endif
 
 private:
 	static constexpr size_t MASK = VERSION <= 1 ? ((MEMORY - 1) >> 4) << 4 : ((MEMORY - 1) >> 6) << 6;
-
-	friend cn_v1_hash;
-	friend cn_v7l_hash;
-	friend cn_gpu_hash;
+	friend cn_heavy_hash_v1;
+	friend cn_heavy_hash_lite;
+	friend cn_heavy_hash_gpu;
 
 	// Constructor enabling v1 hash to borrow v2's buffer
-	cn_slow_hash(void* lptr, void* sptr)
+	cn_heavy_hash(void* lptr, void* sptr)
 	{
 		lpad.set(lptr);
 		spad.set(sptr);
@@ -237,7 +238,7 @@ private:
 
 	inline bool check_override()
 	{
-		const char* env = getenv("RYO_USE_SOFTWARE_AES");
+		const char* env = getenv("EQUILIBRIA_USE_SOFTWARE_AES");
 		if(!env)
 		{
 			return false;
@@ -292,6 +293,6 @@ private:
 	bool borrowed_pad;
 };
 
-extern template class cn_v1_hash_t;
-extern template class cn_v7l_hash_t;
-extern template class cn_gpu_hash_t;
+extern template class cn_heavy_hash<2*1024*1024, 0x80000, 0>;
+extern template class cn_heavy_hash<1*1024*1024, 0x40000, 1>;
+extern template class cn_heavy_hash<2*1024*1024, 0xC000, 2>;

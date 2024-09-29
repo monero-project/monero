@@ -1,4 +1,4 @@
-packages:=boost openssl zeromq libiconv
+packages:=boost openssl zeromq
 
 native_packages :=
 
@@ -20,10 +20,6 @@ linux_native_packages = $(hardware_native_packages)
 
 ifeq ($(build_tests),ON)
 packages += gtest
-endif
-
-ifneq ($(host_arch),riscv64)
-linux_packages += unwind
 endif
 
 mingw32_packages = icu4c sodium $(hardware_packages)
