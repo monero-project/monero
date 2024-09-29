@@ -123,11 +123,15 @@ static void cache_last_chunk(const std::unique_ptr<C> &curve,
     CHECK_AND_ASSERT_THROW_MES(!layer_ext.hashes.empty(), "unexpected empty layer ext");
 
     const ChildChunkIdx end_child_chunk_idx = layer_ext.start_idx + layer_ext.hashes.size();
-    const ChildChunkIdx start_child_chunk_idx = std::max(layer_ext.start_idx,
-        end_child_chunk_idx - (end_child_chunk_idx % parent_width));
+
+    const ChildChunkIdx offset = end_child_chunk_idx % parent_width;
+    const ChildChunkIdx end_offset = offset ? offset : parent_width;
+    CHECK_AND_ASSERT_THROW_MES(end_child_chunk_idx >= end_offset, "high end_offset");
+
+    const ChildChunkIdx start_child_chunk_idx = std::max(layer_ext.start_idx, end_child_chunk_idx - end_offset);
 
     MDEBUG("Caching start_child_chunk_idx " << start_child_chunk_idx << " to end_child_chunk_idx " << end_child_chunk_idx
-        << " (layer start idx " << layer_ext.start_idx << ")");
+        << " (layer start idx " << layer_ext.start_idx << " , parent_width " << parent_width << " , end_offset " << end_offset << ")");
 
     // TODO: this code is duplicated above
     for (ChildChunkIdx child_chunk_idx = start_child_chunk_idx; child_chunk_idx < end_child_chunk_idx; ++child_chunk_idx)
