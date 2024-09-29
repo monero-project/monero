@@ -45,10 +45,6 @@ namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-// Hash a chunk of new children
-template<typename C>
-typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
-//----------------------------------------------------------------------------------------------------------------------
 // A layer of contiguous hashes starting from a specific start_idx in the tree
 template<typename C>
 struct LayerExtension final
@@ -173,6 +169,12 @@ struct PreLeafTuple final
 };
 
 //----------------------------------------------------------------------------------------------------------------------
+// Hash a chunk of new children
+template<typename C>
+typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
+//----------------------------------------------------------------------------------------------------------------------
+OutputTuple output_to_tuple(const OutputPair &output_pair);
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // This class is useful to help update the curve trees merkle tree without needing to keep the entire tree in memory
 // - It requires instantiation with the C1 and C2 curve classes and widths, hardening the tree structure
@@ -257,6 +259,29 @@ public:
         std::vector<std::vector<typename C2::Scalar>> c2_children;
     };
 
+    // A path in the tree containing whole chunks at each layer
+    // - leaves contain a complete chunk of leaves, encoded as compressed ed25519 points
+    // - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The hash of the chunk of
+    //   leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
+    // - layers alternate between C1 and C2
+    // - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The hash of the chunk
+    //   of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems that hash
+    //   is in.
+    // - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
+    struct Path final
+    {
+        std::vector<OutputTuple> leaves;
+        std::vector<std::vector<typename C1::Point>> c1_layers;
+        std::vector<std::vector<typename C2::Point>> c2_layers;
+
+        void clear()
+        {
+            leaves.clear();
+            c1_layers.clear();
+            c2_layers.clear();
+        }
+    };
+
 //member functions
 public:
     // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
@@ -284,6 +309,11 @@ public:
         const LastChunkChildrenToTrim &children_to_trim,
         const LastHashes &last_hashes) const;
 
+    // Calculate how many layers in the tree there are based on the number of leaf tuples
+    std::size_t n_layers(const std::size_t n_leaf_tuples) const;
+
+    // Audit the provided path
+    bool audit_path(const Path &path, const OutputPair &output, const std::size_t n_leaf_tuples_in_tree) const;
 private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(
@@ -328,22 +358,6 @@ const std::size_t SELENE_CHUNK_WIDTH = 18;
 std::shared_ptr<CurveTreesV1> curve_trees_v1(
     const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH,
     const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH);
-
-// A path in the tree containing whole chunks at each layer
-// - leaves contain a complete chunk of leaves, encoded as compressed ed25519 points
-// - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The hash of the chunk of
-//   leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
-// - layers alternate between C1 and C2
-// - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The hash of the chunk
-//   of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems that hash
-//   is in.
-// - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
-struct PathV1 final
-{
-    std::vector<OutputTuple> leaves;
-    std::vector<std::vector<Helios::Point>> c1_layers;
-    std::vector<std::vector<Selene::Point>> c2_layers;
-};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
