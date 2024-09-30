@@ -403,8 +403,8 @@ uint64_t Wallet::maximumAllowedAmount()
 
 bool Wallet::walletExists(const std::string &path, bool &key_file_exists, bool &wallet_file_exists)
 {
-    tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
-    return (keys_file_exists || wallet_file_exists)
+    tools::wallet2::wallet_exists(path, key_file_exists, wallet_file_exists);
+    return (key_file_exists || wallet_file_exists);
 }
 
 void Wallet::init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console) {
@@ -790,7 +790,7 @@ bool WalletImpl::close(bool do_store)
             // Do not store wallet with invalid status
             // Status Critical refers to errors on opening or creating wallets.
             if (status() != Status_Critical)
-                store();
+                store("");
             else
                 LOG_ERROR("Status_Critical - not saving wallet");
             LOG_PRINT_L1("wallet::store done");
@@ -1154,7 +1154,7 @@ bool WalletImpl::submitTransaction(const string &fileName) {
     return false;
   std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
 
-  bool r = m_wallet->loadTx(fileName, transaction);
+  bool r = loadTx(fileName, transaction);
   if (!r) {
     setStatus(Status_Ok, tr("Failed to load transaction from file"));
     return false;
@@ -1712,7 +1712,7 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
         }
         try {
             size_t fake_outs_count = mixin_count > 0 ? mixin_count : defaultMixin();
-            fake_outs_count = adjustMixin(mixin_count);
+            fake_outs_count = adjust_mixin(mixin_count);
 
             if (amount) {
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count,
@@ -1913,7 +1913,7 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
         useForkRules(HF_VERSION_CLSAG, 0),
         useForkRules(HF_VERSION_BULLETPROOF_PLUS, 0),
         useForkRules(HF_VERSION_VIEW_TAGS, 0),
-        getBaseFee(priority),
+        m_wallet->get_base_fee(priority),
         m_wallet->get_fee_quantization_mask());
 }
 
@@ -2886,7 +2886,7 @@ std::pair<std::uint32_t, std::uint32_t> WalletImpl::getSubaddressIndex(const std
     if (!index)
         setStatusError(string(tr("Address doesn't belong to the wallet: ") + address));
     else
-        indices = std::make_pair(index.major, index.minor);
+        indices = std::make_pair((*index).major, (*index).minor);
 
     return indices;
 }
@@ -3041,17 +3041,9 @@ void WalletImpl::updatePoolState(std::vector<std::tuple<cryptonote::transaction,
         return;
     }
 
-    std::string tx_id;
     process_txs.reserve(process_txs_pod.size());
     for (auto &tx : process_txs_pod)
-    {
-        if (!epee::string_tools::pod_to_hex(std::get<1>(tx), tx_id))
-        {
-            setStatusError(string(tr("Failed to parse tx_id: ")) + std::get<1>(tx));
-            return;
-        }
-        process_txs.push_back(std::make_tuple(std::get<0>(tx), tx_id, std::get<2>(tx)));
-    }
+        process_txs.push_back(std::make_tuple(std::get<0>(tx), epee::string_tools::pod_to_hex(std::get<1>(tx)), std::get<2>(tx)));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs)
@@ -3081,9 +3073,9 @@ void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::trans
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> enote_details) const
+void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> &enote_details) const
 {
-    wallet2::transfer_container tc;
+    tools::wallet2::transfer_container tc;
     m_wallet->get_transfers(tc);
     enote_details.reserve(tc.size());
 
@@ -3092,7 +3084,6 @@ void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> enote_details) const
         EnoteDetails ed{};
 
         cryptonote::txout_target_v txout_v = td.m_tx.vout[tx.m_internal_output_index];
-        crypto::public_key pub_key_pod;
         if (txout_v.type() == typeid(cryptonote::txout_to_key))
             ed.m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_key>(txout_v).key);
         else if (txout_v.type() == typeid(cryptonote::txout_to_tagged_key))
@@ -3101,9 +3092,10 @@ void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> enote_details) const
             ed.m_view_tag = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).view_tag);
         }
 
-        ed.m_tx_id = td.m_txid;
-        ed.m_internal_output_index = td.m_internal_output_index;
-        ed.m_global_output_index = td.m_global_output_index;
+        ed.m_block_height = td.m_block_height;
+        ed.m_tx_id = epee::string_tools::pod_to_hex(td.m_txid);
+        ed.m_internal_enote_index = td.m_internal_output_index;
+        ed.m_global_enote_index = td.m_global_output_index;
         ed.m_spent = td.m_spent;
         ed.m_frozen = td.m_frozen;
         ed.m_spent_height = td.m_spent_height;
@@ -3129,8 +3121,8 @@ std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisi
         checkMultisigWalletReady(m_wallet);
 
         tools::wallet2::multisig_tx_set multisig_tx_set;
-        multisig_tx_set.m_ptx = multisig_ptxs.m_pending_tx;
-        multisig_tx_set.m_signers = multisig_ptxs.m_signers;
+        multisig_tx_set.m_ptx = multisig_ptx.m_pending_tx;
+        multisig_tx_set.m_signers = multisig_ptx.m_signers;
 
         return m_wallet->save_multisig_tx(multisig_tx_set);
     }
@@ -3142,7 +3134,7 @@ std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisi
     return "";
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const std::string &filename) const
+bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const
 {
     clearStatus();
 
@@ -3151,8 +3143,8 @@ bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const s
         checkMultisigWalletReady(m_wallet);
 
         tools::wallet2::multisig_tx_set multisig_tx_set;
-        multisig_tx_set.m_ptx = multisig_ptxs.m_pending_tx;
-        multisig_tx_set.m_signers = multisig_ptxs.m_signers;
+        multisig_tx_set.m_ptx = multisig_ptx.m_pending_tx;
+        multisig_tx_set.m_signers = multisig_ptx.m_signers;
 
         return m_wallet->save_multisig_tx(multisig_tx_set, filename);
     }
@@ -3190,10 +3182,10 @@ std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, Pen
     clearStatus();
 
     std::string signed_tx_data;
+    tools::wallet2::signed_tx_set signed_txes;
 
     try
     {
-        tools::wallet2::signed_tx_set signed_txes;
         signed_tx_data = m_wallet->sign_tx_dump_to_str(exported_txs.m_unsigned_tx_set, ptx.m_pending_tx, signed_txes);
     }
     catch (const exception &e)
@@ -3279,7 +3271,7 @@ std::uint64_t WalletImpl::getFeeMultiplier(std::uint32_t priority, int fee_algor
     {
         return m_wallet->get_fee_multiplier(priority, fee_algorithm);
     }
-    catch
+    catch (const exception &e)
     {
         setStatusError((boost::format(tr("Failed to get fee multiplier for priority `%u` and fee algorithm `%d`: %s")) % priority % fee_algorithm % e.what()).str());
     }
@@ -3288,11 +3280,7 @@ std::uint64_t WalletImpl::getFeeMultiplier(std::uint32_t priority, int fee_algor
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t WalletImpl::getBaseFee() const
 {
-    bool use_dyn_fee = useForkRules(HF_VERSION_DYNAMIC_FEE, -30 * 1);
-    if (!use_dyn_fee)
-        return FEE_PER_KB;
-
-    return m_wallet->get_dynamic_base_fee_estimate();
+    return m_wallet->get_base_fee();
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::uint32_t WalletImpl::adjustPriority(std::uint32_t priority)
@@ -3306,7 +3294,7 @@ void WalletImpl::coldTxAuxImport(const PendingTransaction &ptx, const std::vecto
 
     try
     {
-        m_wallet->cold_tx_aux_import(ptx->m_pending_tx, tx_device_aux);
+        m_wallet->cold_tx_aux_import(ptx.m_pending_tx, tx_device_aux);
     }
     catch (const std::exception &e)
     {
@@ -3322,9 +3310,9 @@ void WalletImpl::coldSignTx(const PendingTransaction &ptx_in, PendingTransaction
     {
         tools::wallet2::signed_tx_set signed_txs;
 
-        m_wallet->cold_sign_tx(ptx_in->m_pending_tx, signed_txs, dsts_info, exported_txs_out->m_tx_device_aux);
-        exported_txs_out->m_key_images = signed_txs.key_images;
-        exported_txs_out->m_pending_tx = signed_txs.ptx;
+        m_wallet->cold_sign_tx(ptx_in.m_pending_tx, signed_txs, dsts_info, exported_txs_out.m_tx_device_aux);
+        exported_txs_out.m_key_images = signed_txs.key_images;
+        exported_txs_out.m_pending_tx = signed_txs.ptx;
         // TODO : figure out if we need signed_txs.tx_key_images here, afaik they're used for selfsend/change enotes
         //        if needed we can probably add a member like `m_selfsend_key_images` to `PendingTransaction`
         //        guess then `PendingTransaction` would be a proper replacement for `wallet2::signed_tx_set`
@@ -3374,7 +3362,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     {
         if (!epee::string_tools::hex_to_pod(additional_tx_key, tmp_additional_tx_key_pod))
         {
-            setStatusError(string(tr("Failed to parse additional tx key: ")) + additionaL_tx_key);
+            setStatusError(string(tr("Failed to parse additional tx key: ")) + additional_tx_key);
             return;
         }
         additional_tx_keys_pod.push_back(tmp_additional_tx_key_pod);
@@ -3522,12 +3510,12 @@ std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog
     return estimateBacklog(fee_levels);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const
+bool WalletImpl::saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable /* = false */) const
 {
     return m_wallet->save_to_file(path_to_file, binary, is_printable);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const
+bool WalletImpl::loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size /* = 1000000000 */) const
 {
     return m_wallet->load_from_file(path_to_file, target_str, max_size);
 }
@@ -3538,8 +3526,11 @@ std::uint64_t WalletImpl::hashTransfers(std::uint64_t transfer_height, std::stri
 
     try
     {
-        boost::optional<std::uint64_t> _transfer_height = transfer_height == 0 ? boost::none : transfer_height;
-        return m_wallet->hash_m_transfers(_transfer_height, hash);
+        crypto::hash m_transfers_hash;
+        boost::optional<std::uint64_t> _transfer_height = transfer_height == 0 ? boost::none : boost::optional<std::uint64_t>(transfer_height);
+        std::uint64_t current_height = m_wallet->hash_m_transfers(_transfer_height, m_transfers_hash);
+        hash = epee::string_tools::pod_to_hex(m_transfers_hash);
+        return current_height;
     }
     catch (const std::exception &e)
     {
@@ -3554,7 +3545,11 @@ void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t transfer_height, cons
 
     try
     {
-        m_wallet->finish_rescan_bc_keep_key_images(transfer_height, hash);
+        crypto::hash hash_pod;
+        if (!epee::string_tools::hex_to_pod(hash, hash_pod))
+            setStatusError(tr("Failed to parse hash"));
+        else
+            m_wallet->finish_rescan_bc_keep_key_images(transfer_height, hash_pod);
     }
     catch (const std::exception &e)
     {
@@ -3562,12 +3557,12 @@ void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t transfer_height, cons
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> WalletImpl::getPublicNodes(bool white_only = true) const
+std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> WalletImpl::getPublicNodes(bool white_only /* = true */) const
 {
     clearStatus();
 
     std::vector<cryptonote::public_node> public_nodes;
-    std::vector<std::tuple<std::string, std:::uint16_t, std::uint64_t>> public_nodes_out;
+    std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> public_nodes_out;
     try
     {
         public_nodes m_wallet->get_public_nodes(white_only);
@@ -3575,11 +3570,11 @@ std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> WalletImpl::g
     catch (const std::exception &e)
     {
         setStatusError(string(tr("Failed to get public nodes: ")) + e.what());
-        return std::vector<std::tuple<std::string, std:::uint16_t, std::uint64_t>>{};
+        return std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>>{};
     }
 
     for (auto pub_node : public_nodes)
-        public_nodes_out.push_back(std::tuple<std::string, std:::uint16_t, std::uint64_t>{pub_note.host, pub_note.rpc_port, pub_note.last_seen});
+        public_nodes_out.push_back(std::tuple<std::string, std::uint16_t, std::uint64_t>{pub_node.host, pub_node.rpc_port, pub_node.last_seen});
 
     return public_nodes_out;
 }
@@ -3599,7 +3594,7 @@ std::pair<std::size_t, std::uint64_t> WalletImpl::estimateTxSizeAndWeight(bool u
     return std::make_pair(0, 0);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent)
+std::uint64_t WalletImpl::importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent)
 {
     clearStatus();
 
@@ -3617,17 +3612,17 @@ std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::stri
             setStatusError(string(tr("Failed to parse key image: ")) + ski.first);
             return false;
         }
-        if (!epee::string_tools::hex_to_pod(ski.second.substr(0, sig_size/2), tmp_signature.c))
+        if (!epee::string_tools::hex_to_pod(ski.second.substr(0, sig_size/2), tmp_signature_pod.c))
         {
             setStatusError(string(tr("Failed to parse signature.c: ")) + ski.second.substr(0, sig_size/2));
             return false;
         }
-        if (!epee::string_tools::hex_to_pod(ski.second.substr(sig_size/2, sig_size), tmp_signature.r))
+        if (!epee::string_tools::hex_to_pod(ski.second.substr(sig_size/2, sig_size), tmp_signature_pod.r))
         {
             setStatusError(string(tr("Failed to parse signature.r: ")) + ski.second.substr(sig_size/2, sig_size));
             return false;
         }
-        signed_key_images_pod.push_back(std::make_pair(tmp_key_image_pod, tmp_signature));
+        signed_key_images_pod.push_back(std::make_pair(tmp_key_image_pod, tmp_signature_pod));
     }
 
     try
@@ -3660,7 +3655,7 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
 
     try
     {
-        boost::optional<std::unordered_set<std::size_t>> _selected_transfers = selected_transfers.empty() ? boost::none : selected_transfers;
+        boost::optional<std::unordered_set<std::size_t>> _selected_transfers = selected_transfers.empty() ? boost::none : boost::optional<std::unordered_set<std::size_t>>(selected_transfers);
         return m_wallet->import_key_images(key_images_pod, offset, _selected_transfers);
     }
     catch (const std::exception &e)
@@ -3674,7 +3669,7 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
 //-------------------------------------------------------------------------------------------------------------------
 // PRIVATE
 //-------------------------------------------------------------------------------------------------------------------
-std::size_t WalletImpl::getEnoteIndex(const std::string &key_image)
+std::size_t WalletImpl::getEnoteIndex(const std::string &key_image) const
 {
     crypto::key_image ki;
     if (!epee::string_tools::hex_to_pod(key_image, ki))

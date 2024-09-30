@@ -248,7 +248,7 @@ public:
     void writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name) override;
     void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) override;
     void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) override;
-    void getEnoteDetails(std::vector<EnoteDetails> enote_details) const override;
+    void getEnoteDetails(std::vector<EnoteDetails> &enote_details) const override;
     std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
     std::string convertTxToStr(const PendingTransaction &ptxs) const override;

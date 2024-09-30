@@ -82,6 +82,8 @@ struct EnoteDetails
     std::string m_view_tag;
     // this enote was received at block height
     std::uint64_t m_block_height;
+    // tx id in which tx enote was received
+    std::string m_tx_id;
     // relative index in tx
     std::uint64_t m_internal_enote_index;
     // absolute index from `cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry.output_indices`
@@ -1316,7 +1318,7 @@ struct Wallet
     * brief: getEnoteDetails - get information about all enotes
     * outparam: enote_details -
     */
-    virtual void getEnoteDetails(std::vector<EnoteDetails> enote_details) const = 0;
+    virtual void getEnoteDetails(std::vector<EnoteDetails> &enote_details) const = 0;
     /**
     * brief: convertMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
     * param: multisig_ptx - multisig pending transaction
