@@ -51,7 +51,7 @@ static void cache_path_elem(const std::unique_ptr<C> &curve,
     auto &layer_ext = layer_exts[layer_ext_idx];
 
     CHECK_AND_ASSERT_THROW_MES(!layer_ext.hashes.empty(), "empty layer ext");
-    const std::size_t n_layer_elems = layer_ext.start_idx + layer_ext.hashes.size();
+    const uint64_t n_layer_elems = layer_ext.start_idx + layer_ext.hashes.size();
 
     // TODO: clean this up following cache_last_chunk approach
     start_child_chunk_idx_inout = std::max(start_child_chunk_idx_inout, layer_ext.start_idx);
@@ -253,7 +253,7 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
     // start keeping track of the output's path elems
     // TODO: separate function
     std::unordered_set<LeafIdx> new_assigned_outputs;
-    for (std::size_t i = 0; i < tree_extension.leaves.tuples.size(); ++i)
+    for (uint64_t i = 0; i < tree_extension.leaves.tuples.size(); ++i)
     {
         const auto &output_pair = tree_extension.leaves.tuples[i].output_pair;
         const auto output_ref = get_output_ref(output_pair);
@@ -302,7 +302,7 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
             CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "unexpected end_leaf_idx > start_leaf_idx");
 
             // Cache the leaf elems from this leaf's chunk
-            for (std::size_t j = start_leaf_idx; j < end_leaf_idx; ++j)
+            for (LeafIdx j = start_leaf_idx; j < end_leaf_idx; ++j)
             {
                 auto leaf_it = m_cached_leaves.find(j);
                 if (leaf_it != m_cached_leaves.end())
