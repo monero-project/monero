@@ -1336,6 +1336,7 @@ struct Wallet
     * brief: convertTxToStr - get the encrypted data from a vector of pending transactions as hex string
     * param: ptxs -
     * return: unsigned tx data as encrypted hex string if succeeded, else empty string
+    * note: sets status error on fail
     */
     virtual std::string convertTxToStr(const PendingTransaction &ptxs) const = 0;
     /**
@@ -1343,6 +1344,7 @@ struct Wallet
     * param: unsigned_tx_str - encrypted hex string
     * outparam: exported_txs -
     * return: true if succeeded
+    * note: sets status error on fail
     */
     virtual bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const = 0;
     /**
@@ -1400,6 +1402,7 @@ struct Wallet
     * param: priority -
     * param: fee_algorithm -
     * return: fee multiplier
+    * note: sets status error on fail
     */
     virtual std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const = 0;
     /**
@@ -1411,7 +1414,7 @@ struct Wallet
     * brief: adjustPriority - adjust priority depending on how "full" last N blocks are
     * param: priority -
     * return: adjusted priority
-    * note: sets status error on fail
+    * warning: doesn't tell if it failed
     */
     virtual std::uint32_t adjustPriority(std::uint32_t priority) = 0;
     // QUESTION : Any suggestion for the function description below?

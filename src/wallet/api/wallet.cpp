@@ -2626,7 +2626,7 @@ bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to check if we use fork rules for version `%u` with `%d` early blocks. Error: %s")) % version % early_blocks % e.what()).str());
+        setStatusError((boost::format(tr("Failed to check if fork rules for version `%u` with `%d` early blocks should be used: %s")) % version % early_blocks % e.what()).str());
     }
     return false;
 }
@@ -2854,15 +2854,11 @@ std::string WalletImpl::getMultisigSeed(const std::string &seed_offset) const
 {
     clearStatus();
 
-    if (!multisig().isMultisig)
-    {
-      setStatusError(tr("Wallet is not multisig"));
-      return "";
-    }
-
-    epee::wipeable_string seed;
     try
     {
+        checkMultisigWalletReady(m_wallet);
+
+        epee::wipeable_string seed;
         if (m_wallet->get_multisig_seed(seed, seed_offset))
             return std::string(seed.data(), seed.size());
     }
@@ -2882,13 +2878,13 @@ std::pair<std::uint32_t, std::uint32_t> WalletImpl::getSubaddressIndex(const std
     std::pair<std::uint32_t, std::uint32_t> indices{0, 0};
     if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address))
     {
-        setStatusError(tr("Failed to parse address"));
+        setStatusError(string(tr("Failed to parse address: ") + address));
         return indices;
     }
 
     auto index = m_wallet->get_subaddress_index(info.address);
     if (!index)
-        setStatusError(tr("Address doesn't belong to the wallet"));
+        setStatusError(string(tr("Address doesn't belong to the wallet: ") + address));
     else
         indices = std::make_pair(index.major, index.minor);
 
@@ -2906,7 +2902,7 @@ void WalletImpl::freeze(std::size_t idx)
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to freeze enote with index `%zu`: %s")) % idx % e.what()).str());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -2919,7 +2915,7 @@ void WalletImpl::freeze(const std::string &key_image)
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to freeze enote with key image `%s`: %s")) % key_image % e.what()).str());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -2934,7 +2930,7 @@ void WalletImpl::thaw(std::size_t idx)
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to thaw enote with index `%zu`: %s")) % idx % e.what()).str());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -2947,7 +2943,7 @@ void WalletImpl::thaw(const std::string &key_image)
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to thaw enote with key image `%s`: %s")) % key_image % e.what()).str());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -2962,7 +2958,7 @@ bool WalletImpl::isFrozen(std::size_t idx) const
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to determine if enote with index `%zu` is frozen: %s")) % idx % e.what()).str());
     }
 
     return false;
@@ -2977,7 +2973,7 @@ bool WalletImpl::isFrozen(const std::string &key_image) const
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to determine if enote with key image `%s` is frozen: %s")) % key_image % e.what()).str());
     }
 
     return false;
@@ -3010,7 +3006,7 @@ void WalletImpl::rewriteWalletFile(const std::string &wallet_name, const std::st
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to rewrite wallet file with wallet name `%s`: %s")) % wallet_name % e.what()).str());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3025,7 +3021,7 @@ void WalletImpl::writeWatchOnlyWallet(const std::string &password, std::string &
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError(string(tr("Failed to write watch only wallet: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3041,7 +3037,7 @@ void WalletImpl::updatePoolState(std::vector<std::tuple<cryptonote::transaction,
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError(string(tr("Failed to update pool state: ")) + e.what());
         return;
     }
 
@@ -3051,7 +3047,7 @@ void WalletImpl::updatePoolState(std::vector<std::tuple<cryptonote::transaction,
     {
         if (!epee::string_tools::pod_to_hex(std::get<1>(tx), tx_id))
         {
-            setStatusError(tr("Failed to parse tx_id"));
+            setStatusError(string(tr("Failed to parse tx_id: ")) + std::get<1>(tx));
             return;
         }
         process_txs.push_back(std::make_tuple(std::get<0>(tx), tx_id, std::get<2>(tx)));
@@ -3068,7 +3064,7 @@ void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::trans
     {
         if (!epee::string_tools::hex_to_pod(std::get<1>(tx), tx_id))
         {
-            setStatusError(tr("Failed to parse tx_id"));
+            setStatusError(string(tr("Failed to parse tx_id: ")) + std::get<1>(tx));
             return;
         }
         txs_pod.push_back(std::make_tuple(std::get<0>(tx), tx_id, std::get<2>(tx)));
@@ -3081,7 +3077,7 @@ void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::trans
     catch (const std::exception &e)
     {
         LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(e.what());
+        setStatusError(string(tr("Failed to process pool state: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3162,7 +3158,7 @@ bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptxs, const s
     }
     catch (const exception &e)
     {
-        setStatusError(e.what());
+        setStatusError((boost::format(tr("Failed to save multisig tx to file with filename `%s`: %s")) % filename % e.what()).str());
     }
 
     return false;
@@ -3174,16 +3170,19 @@ std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs) const
 
     std::string tx_dump = m_wallet->dump_tx_to_str(ptxs.m_pending_tx);
     if (tx_dump.empty())
-    {
-        setStatusError("Failed to convert pending tx to string");
-    }
+        setStatusError(tr("Failed to convert pending tx to string"));
 
     return tx_dump;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const
 {
-    return m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, exported_txs.m_unsigned_tx_set);
+    if (!m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, exported_txs.m_unsigned_tx_set))
+    {
+        setStatusError(tr("Failed to parse unsigned tx from string. For more info see log file"));
+        return false;
+    }
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const
@@ -3200,7 +3199,7 @@ std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, Pen
     catch (const exception &e)
     {
         setStatusError(string(tr("Failed to sign tx: ")) + e.what());
-        return {};
+        return "";
     }
 
     ptx.m_key_images = signed_txs.key_images;
@@ -3209,7 +3208,14 @@ std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, Pen
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::loadTx(const std::string &signed_filename, PendingTransaction &ptx) const
 {
-    return m_wallet->load_tx(signed_filename, ptx.m_pending_tx);
+    clearStatus();
+
+    if (!m_wallet->load_tx(signed_filename, ptx.m_pending_tx))
+    {
+        setStatusError((boost::format(tr("Failed to load tx from file with filename `%s`. For more info see log file")) % signed_filename).str());
+        return false;
+    }
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const
@@ -3267,7 +3273,17 @@ bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, Pend
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t WalletImpl::getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const
 {
-    return m_wallet->get_fee_multiplier(priority, fee_algorithm);
+    clearStatus();
+
+    try
+    {
+        return m_wallet->get_fee_multiplier(priority, fee_algorithm);
+    }
+    catch
+    {
+        setStatusError((boost::format(tr("Failed to get fee multiplier for priority `%u` and fee algorithm `%d`: %s")) % priority % fee_algorithm % e.what()).str());
+    }
+    return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t WalletImpl::getBaseFee() const
@@ -3281,18 +3297,7 @@ std::uint64_t WalletImpl::getBaseFee() const
 //-------------------------------------------------------------------------------------------------------------------
 std::uint32_t WalletImpl::adjustPriority(std::uint32_t priority)
 {
-    clearStatus();
-
-    try
-    {
-        return m_wallet->adjust_priority(priority);
-    }
-    catch (const std::exception &e)
-    {
-        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
-        setStatusError(string(tr("Failed to adjust priority: ")) + e.what());
-    }
-    return 0;
+    return m_wallet->adjust_priority(priority);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void WalletImpl::coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const
@@ -3305,7 +3310,7 @@ void WalletImpl::coldTxAuxImport(const PendingTransaction &ptx, const std::vecto
     }
     catch (const std::exception &e)
     {
-        setStatusError(e.what());
+        setStatusError(string(tr("Failed to import cold tx aux: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3326,7 +3331,7 @@ void WalletImpl::coldSignTx(const PendingTransaction &ptx_in, PendingTransaction
     }
     catch (const std::exception &e)
     {
-        setStatusError(e.what());
+        setStatusError(string(tr("Failed to cold sign tx: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3340,7 +3345,7 @@ void WalletImpl::discardUnmixableEnotes()
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to discard unmixable enotes. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to discard unmixable enotes: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3351,14 +3356,14 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     crypto::hash txid_pod;
     if (!epee::string_tools::hex_to_pod(txid, txid_pod))
     {
-        setStatusError((boost::format(tr("Failed to parse tx_id: %s")) % tx_id).str());
+        setStatusError(string(tr("Failed to parse tx id: ")) + txid);
         return;
     }
 
     crypto::secret_key tx_key_pod;
     if (!epee::string_tools::hex_to_pod(tx_key, tx_key_pod))
     {
-        setStatusError((boost::format(tr("Failed to parse tx_key: %s")) % tx_key).str());
+        setStatusError(tr("Failed to parse tx key"));
         return;
     }
 
@@ -3369,7 +3374,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     {
         if (!epee::string_tools::hex_to_pod(additional_tx_key, tmp_additional_tx_key_pod))
         {
-            setStatusError((boost::format(tr("Failed to parse additional_tx_key: %s")) % additional_tx_key).str());
+            setStatusError(string(tr("Failed to parse additional tx key: ")) + additionaL_tx_key);
             return;
         }
         additional_tx_keys_pod.push_back(tmp_additional_tx_key_pod);
@@ -3381,7 +3386,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     {
         if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), single_destination_subaddress))
         {
-            setStatusError((boost::format(tr("Failed to get account address from string: %s")) % single_destination_subaddress).str());
+            setStatusError(string(tr("Failed to get account address from string: ")) + single_destination_subaddress);
             return;
         }
         single_destination_subaddress_pod = info.address;
@@ -3393,7 +3398,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to set tx key. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to set tx key: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3412,7 +3417,7 @@ void WalletImpl::setAccountTag(const std::set<uint32_t> &account_indices, const 
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to set account tag. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to set account tag: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3426,7 +3431,7 @@ void WalletImpl::setAccountTagDescription(const std::string &tag, const std::str
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to set account tag description. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to set account tag description: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3440,7 +3445,7 @@ std::string WalletImpl::exportEnotesToStr(bool all, std::uint32_t start, std::ui
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to export outputs to string. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to export enotes to string: ")) + e.what());
     }
     return "";
 }
@@ -3455,7 +3460,7 @@ std::size_t WalletImpl::importEnotesFromStr(const std::string &enotes_str)
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to import outputs from string. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to import enotes to string: ")) + e.what());
     }
     return 0;
 }
@@ -3470,7 +3475,7 @@ std::uint64_t WalletImpl::getBlockchainHeightByDate(std::uint16_t year, std::uin
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to get blockchain height by date. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to get blockchain height by date: ")) + e.what());
     }
     return 0;
 }
@@ -3485,7 +3490,7 @@ std::vector<std::pair<std::uint64_t, std::uint64_t>> WalletImpl::estimateBacklog
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to estimate backlog. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to estimate backlog: ")) + e.what());
     }
     return { std::make_pair(0, 0) };
 }
@@ -3538,7 +3543,7 @@ std::uint64_t WalletImpl::hashTransfers(std::uint64_t transfer_height, std::stri
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to hash transfers. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to hash transfers: ")) + e.what());
     }
     return 0;
 }
@@ -3553,7 +3558,7 @@ void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t transfer_height, cons
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to finish rescan blockchain. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to finish rescan blockchain: ")) + e.what());
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3569,7 +3574,7 @@ std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> WalletImpl::g
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to get public nodes. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to get public nodes: ")) + e.what());
         return std::vector<std::tuple<std::string, std:::uint16_t, std::uint64_t>>{};
     }
 
@@ -3589,7 +3594,7 @@ std::pair<std::size_t, std::uint64_t> WalletImpl::estimateTxSizeAndWeight(bool u
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to estimate transaction size and weight. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to estimate transaction size and weight: ")) + e.what());
     }
     return std::make_pair(0, 0);
 }
@@ -3609,17 +3614,17 @@ std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::stri
     {
         if (!epee::string_tools::hex_to_pod(ski.first, tmp_key_image_pod))
         {
-            setStatusError((boost::format(tr("Failed to parse key_image: %s")) % ski.first).str());
+            setStatusError(string(tr("Failed to parse key image: ")) + ski.first);
             return false;
         }
         if (!epee::string_tools::hex_to_pod(ski.second.substr(0, sig_size/2), tmp_signature.c))
         {
-            setStatusError((boost::format(tr("Failed to parse signature.c: %s")) % ski.second.substr(0, sig_size/2)).str());
+            setStatusError(string(tr("Failed to parse signature.c: ")) + ski.second.substr(0, sig_size/2));
             return false;
         }
         if (!epee::string_tools::hex_to_pod(ski.second.substr(sig_size/2, sig_size), tmp_signature.r))
         {
-            setStatusError((boost::format(tr("Failed to parse signature.r: %s")) % ski.substr(sig_size/2, sig_size)).str());
+            setStatusError(string(tr("Failed to parse signature.r: ")) + ski.second.substr(sig_size/2, sig_size));
             return false;
         }
         signed_key_images_pod.push_back(std::make_pair(tmp_key_image_pod, tmp_signature));
@@ -3631,7 +3636,7 @@ std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::stri
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to import key images. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to import key images: ")) + e.what());
     }
     return false;
 }
@@ -3647,7 +3652,7 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
     {
         if (!epee::string_tools::hex_to_pod(key_image, tmp_key_image_pod))
         {
-            setStatusError((boost::format(tr("Failed to parse key_image: %s")) % key_image).str());
+            setStatusError(string(tr("Failed to parse key image: ")) + key_image);
             return false;
         }
         key_images_pod.push_back(tmp_key_image_pod);
@@ -3660,7 +3665,7 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
     }
     catch (const std::exception &e)
     {
-        setStatusError((boost::format(tr("Failed to import key images. Error: %s")) % e.what()).str());
+        setStatusError(string(tr("Failed to import key images: ")) + e.what());
     }
     return false;
 }
