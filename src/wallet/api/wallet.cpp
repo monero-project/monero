@@ -401,6 +401,12 @@ uint64_t Wallet::maximumAllowedAmount()
     return std::numeric_limits<uint64_t>::max();
 }
 
+bool Wallet::walletExists(const std::string &path, bool &key_file_exists, bool &wallet_file_exists)
+{
+    tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+    return (keys_file_exists || wallet_file_exists)
+}
+
 void Wallet::init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console) {
 #ifdef WIN32
     // Activate UTF-8 support for Boost filesystem classes on Windows
@@ -485,8 +491,7 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
     m_recoveringFromDevice = false;
     bool keys_file_exists;
     bool wallet_file_exists;
-    // QUESTION : I think we can change `WalletManagerImpl::walletExists()` which returns true if `key_file_exists` is true, to take the same outparams as `tools::wallet2::wallet_exists()` (but make them optional) and make the method static. Or do you think it's easier/cleaner to add `WalletImpl::walletExists()` with the described behaviour and leave the one in `WalletManagerImpl` as is?
-    tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+    Wallet::walletExists(path, keys_file_exists, wallet_file_exists);
     LOG_PRINT_L3("wallet_path: " << path << "");
     LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
                  << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
@@ -499,7 +504,6 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
         setStatusCritical(error);
         return false;
     }
-    // TODO: validate language
     setSeedLanguage(language);
     crypto::secret_key recovery_val, secret_key;
     try {
@@ -525,7 +529,7 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
 
     bool keys_file_exists;
     bool wallet_file_exists;
-    tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+    Wallet::walletExists(path, keys_file_exists, wallet_file_exists);
     LOG_PRINT_L3("wallet_path: " << path << "");
     LOG_PRINT_L3("keys_file_exists: " << std::boolalpha << keys_file_exists << std::noboolalpha
                  << "  wallet_file_exists: " << std::boolalpha << wallet_file_exists << std::noboolalpha);
@@ -719,10 +723,7 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
         // Check if wallet cache exists
         bool keys_file_exists;
         bool wallet_file_exists;
-        // QUESTION / TODO : same as above, actually here we could just do:
-//        if(!WalletManagerImpl::walletExists(path)){
-        // even though we check if `wallet_file_exists`, the comment states that we're actually interested in the .keys file.
-        tools::wallet2::wallet_exists(path, keys_file_exists, wallet_file_exists);
+        Wallet::walletExists(path, keys_file_exists, wallet_file_exists);
         if(!wallet_file_exists){
             // Rebuilding wallet cache, using refresh height from .keys file
             m_rebuildWalletCache = true;
@@ -779,13 +780,13 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     return status() == Status_Ok;
 }
 
-bool WalletImpl::close(bool store)
+bool WalletImpl::close(bool do_store)
 {
 
     bool result = false;
     LOG_PRINT_L1("closing wallet...");
     try {
-        if (store) {
+        if (do_store) {
             // Do not store wallet with invalid status
             // Status Critical refers to errors on opening or creating wallets.
             if (status() != Status_Critical)
@@ -827,11 +828,10 @@ void WalletImpl::setSeedLanguage(const std::string &arg)
     if (checkBackgroundSync("cannot set seed language"))
         return;
 
-    // QUESTION : We have some ~8year old TODOs stating we should validate the seed language. Will this suffice or should I make another PR for that?
-    //            IMO it'd make sense now to add `setStatusError()` to this so it doesn't just silently do nothing. If this can stay, remove old TODOs.
-    // Update : Actually after rebasing we now already set the status in the `checkBackgroundSync()` call above.
     if (crypto::ElectrumWords::is_valid_language(arg))
         m_wallet->set_seed_language(arg);
+    else
+        setStatusError(string(tr("Failed to set seed language. Language not valid: ")) + arg);
 }
 
 int WalletImpl::status() const
@@ -1642,8 +1642,6 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
     PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     uint32_t adjusted_priority = adjustPriority(static_cast<uint32_t>(priority));
-    // TODO : Consider adding a function that returns `status() == Status_Ok`:
-//    if (!isStatusOk())
     if (status() != Status_Ok)
     {
         return transaction;
@@ -1728,11 +1726,10 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
             pendingTxPostProcess(transaction);
 
             if (multisig().isMultisig) {
-                auto tx_set = m_wallet.>makeMultisigTxSet(transaction->m_pending_tx);
+                auto tx_set = m_wallet->make_multisig_tx_set(transaction->m_pending_tx);
                 transaction->m_signers = tx_set.m_signers;
             }
         } catch (const tools::error::daemon_busy&) {
-            // TODO: make it translatable with "tr"?
             setStatusError(tr("daemon is busy. Please try again later."));
         } catch (const tools::error::no_connection_to_daemon&) {
             setStatusError(tr("no connection to daemon. Please make sure daemon is running."));
@@ -1826,7 +1823,6 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
             pendingTxPostProcess(transaction);
 
         } catch (const tools::error::daemon_busy&) {
-            // TODO: make it translatable with "tr"?
             setStatusError(tr("daemon is busy. Please try again later."));
         } catch (const tools::error::no_connection_to_daemon&) {
             setStatusError(tr("no connection to daemon. Please make sure daemon is running."));
@@ -1910,7 +1906,7 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
         useForkRules(HF_VERSION_PER_BYTE_FEE, 0),
         useForkRules(4, 0),
         1,
-        getMinRingSize() - 1,
+        m_wallet->get_min_ring_size() - 1,
         destinations.size() + 1,
         extra_size,
         useForkRules(8, 0),
@@ -2243,9 +2239,6 @@ std::string WalletImpl::signMessage(const std::string &message, const std::strin
 {
     if (checkBackgroundSync("cannot sign message"))
         return "";
-
-    // QUESTION : Can we get rid of this `clearStatus()`, because it's already called in `checkBackgroundSync()`, or should we leave this redundant call (I'd actually move it up to the top) so it's directly obvious that this `signMessage()` sets status error?
-    clearStatus();
 
     tools::wallet2::message_signature_type_t sig_type = sign_with_view_key ? tools::wallet2::sign_with_view_key : tools::wallet2::sign_with_spend_key;
 
@@ -2625,22 +2618,18 @@ void WalletImpl::hardForkInfo(uint8_t &version, uint64_t &earliest_height) const
 
 bool WalletImpl::useForkRules(uint8_t version, int64_t early_blocks) const 
 {
-    return m_wallet->use_fork_rules(version,early_blocks);
+    clearStatus();
+
+    try
+    {
+        return m_wallet->use_fork_rules(version, early_blocks);
+    }
+    catch (const std::exception &e)
+    {
+        setStatusError((boost::format(tr("Failed to check if we use fork rules for version `%u` with `%d` early blocks. Error: %s")) % version % early_blocks % e.what()).str());
+    }
+    return false;
 }
-// QUESTION : The method above doesn't handle error, can I replace the body with the following in this PR?
-//{
-//    clearStatus();
-//
-//    try
-//    {
-//        return m_wallet->use_fork_rules(version, early_blocks);
-//    }
-//    catch (const std::exception &e)
-//    {
-//        setStatusError((boost::format(tr("Failed to check if we use fork rules for version `%u` with `%d` early blocks. Error: %s")) % version % early_blocks % e.what()).str());
-//    }
-//    return false;
-//}
 //-------------------------------------------------------------------------------------------------------------------
 
 bool WalletImpl::blackballOutputs(const std::vector<std::string> &outputs, bool add)
@@ -2997,9 +2986,6 @@ bool WalletImpl::isFrozen(const std::string &key_image) const
 void WalletImpl::createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index)
 {
     m_wallet->create_one_off_subaddress({account_index, address_index});
-    // TODO : Figure out if we need to call one of those after creating the one off subaddress.
-//    m_subaddress->refresh(accountIndex);
-//    m_subaddressAccount->refresh();
 }
 //-------------------------------------------------------------------------------------------------------------------
 WalletState WalletImpl::getWalletState() const

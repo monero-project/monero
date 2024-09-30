@@ -768,6 +768,14 @@ struct Wallet
         return paymentIdFromAddress(str, testnet ? TESTNET : MAINNET);
     }
     static uint64_t maximumAllowedAmount();
+    /**
+    * brief: walletExists - check if wallet file and .keys file exist for given path
+    * param: path - filename
+    * outparam: keys_file_exists -
+    * outparam: wallet_file_exists -
+    * return: true if (key_file_exists || wallet_file_exists)
+    */
+    static bool walletExists(const std::string &path, bool &key_file_exists, bool &wallet_file_exists);
     // Easylogger wrapper
     static void init(const char *argv0, const char *default_log_base_name) { init(argv0, default_log_base_name, "", true); }
     static void init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console);
