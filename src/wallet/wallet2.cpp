@@ -7502,6 +7502,11 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
         MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
         return crypto::null_hash;
       }
+      if (ptx.tx_key == crypto::null_skey)
+      {
+        MWARNING("Encrypted payment id found, but no tx secret key, cannot decrypt");
+        return crypto::null_hash;
+      }
       if (m_account.get_device().decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key))
       {
         memcpy(payment_id.data, payment_id8.data, 8);
