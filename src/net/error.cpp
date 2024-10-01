@@ -54,6 +54,8 @@ namespace
                 return "Failed to retrieve desired DNS record";
             case net::error::expected_tld:
                 return "Expected top-level domain";
+            case net::error::invalid_encoding:
+                return "Invalid encoding";
             case net::error::invalid_host:
                 return "Host value is not valid";
             case net::error::invalid_i2p_address:
@@ -62,8 +64,12 @@ namespace
                 return "CIDR netmask outside of 0-32 range";
             case net::error::invalid_port:
                 return "Invalid port value (expected 0-65535)";
+            case net::error::invalid_scheme:
+                return "Invalid/unsupported scheme was provided";
             case net::error::invalid_tor_address:
                 return "Invalid Tor address";
+            case net::error::unexpected_userinfo:
+                return "User or pass was provided unexpectedly";
             case net::error::unsupported_address:
                 return "Network address not supported";
             default:
