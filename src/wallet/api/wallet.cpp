@@ -1154,7 +1154,8 @@ bool WalletImpl::submitTransaction(const string &fileName) {
     return false;
   std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
 
-  bool r = loadTx(fileName, transaction);
+  PendingTransaction *ptx_interface = dynamic_cast<PendingTransaction*>(transaction.get());
+  bool r = loadTx(fileName, *ptx_interface);
   if (!r) {
     setStatus(Status_Ok, tr("Failed to load transaction from file"));
     return false;
@@ -1712,7 +1713,7 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
         }
         try {
             size_t fake_outs_count = mixin_count > 0 ? mixin_count : defaultMixin();
-            fake_outs_count = adjust_mixin(mixin_count);
+            fake_outs_count = m_wallet->adjust_mixin(mixin_count);
 
             if (amount) {
                 transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count,
@@ -2984,7 +2985,7 @@ void WalletImpl::createOneOffSubaddress(std::uint32_t account_index, std::uint32
     m_wallet->create_one_off_subaddress({account_index, address_index});
 }
 //-------------------------------------------------------------------------------------------------------------------
-WalletState WalletImpl::getWalletState() const
+Wallet::WalletState WalletImpl::getWalletState() const
 {
     WalletState wallet_state{};
 
@@ -3083,7 +3084,7 @@ void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> &enote_details) const
     {
         EnoteDetails ed{};
 
-        cryptonote::txout_target_v txout_v = td.m_tx.vout[tx.m_internal_output_index];
+        cryptonote::txout_target_v txout_v = td.m_tx.vout[td.m_internal_output_index].target;
         if (txout_v.type() == typeid(cryptonote::txout_to_key))
             ed.m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_key>(txout_v).key);
         else if (txout_v.type() == typeid(cryptonote::txout_to_tagged_key))
@@ -3099,14 +3100,17 @@ void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> &enote_details) const
         ed.m_spent = td.m_spent;
         ed.m_frozen = td.m_frozen;
         ed.m_spent_height = td.m_spent_height;
-        ed.m_key_image = td.m_key_image;
-        ed.m_mask = td.m_mask;
-        ed.m_amount = td.m_mask;
+        ed.m_key_image = epee::string_tools::pod_to_hex(td.m_key_image);
+        ed.m_mask = epee::string_tools::pod_to_hex(td.m_mask);
+        ed.m_amount = td.m_amount;
         ed.m_protocol_version = td.m_rct ? EnoteDetails::rct : EnoteDetails::cn;
         ed.m_key_image_known = td.m_key_image_known;
         ed.m_key_image_request = td.m_key_image_request;
         ed.m_pk_index = td.m_pk_index;
-        ed.m_uses = td.m_uses;
+        ed.m_uses.reserve(td.m_uses.size());
+        for (auto &u : td.m_uses)
+            ed.m_uses.push_back(std::make_pair(u.first, epee::string_tools::pod_to_hex(u.second)));
+        ed.m_key_image_partial = td.m_key_image_partial;
 
         enote_details.push_back(ed);
     }
@@ -3120,9 +3124,11 @@ std::string WalletImpl::convertMultisigTxToStr(const PendingTransaction &multisi
     {
         checkMultisigWalletReady(m_wallet);
 
+        const PendingTransactionImpl *ptx_impl = dynamic_cast<const PendingTransactionImpl*>(&multisig_ptx);
+
         tools::wallet2::multisig_tx_set multisig_tx_set;
-        multisig_tx_set.m_ptx = multisig_ptx.m_pending_tx;
-        multisig_tx_set.m_signers = multisig_ptx.m_signers;
+        multisig_tx_set.m_ptx = ptx_impl->m_pending_tx;
+        multisig_tx_set.m_signers = ptx_impl->m_signers;
 
         return m_wallet->save_multisig_tx(multisig_tx_set);
     }
@@ -3142,9 +3148,11 @@ bool WalletImpl::saveMultisigTx(const PendingTransaction &multisig_ptx, const st
     {
         checkMultisigWalletReady(m_wallet);
 
+        const PendingTransactionImpl *ptx_impl = dynamic_cast<const PendingTransactionImpl*>(&multisig_ptx);
+
         tools::wallet2::multisig_tx_set multisig_tx_set;
-        multisig_tx_set.m_ptx = multisig_ptx.m_pending_tx;
-        multisig_tx_set.m_signers = multisig_ptx.m_signers;
+        multisig_tx_set.m_ptx = ptx_impl->m_pending_tx;
+        multisig_tx_set.m_signers = ptx_impl->m_signers;
 
         return m_wallet->save_multisig_tx(multisig_tx_set, filename);
     }
@@ -3160,7 +3168,8 @@ std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs) const
 {
     clearStatus();
 
-    std::string tx_dump = m_wallet->dump_tx_to_str(ptxs.m_pending_tx);
+    const PendingTransactionImpl *ptx_impl = dynamic_cast<const PendingTransactionImpl*>(&ptxs);
+    std::string tx_dump = m_wallet->dump_tx_to_str(ptx_impl->m_pending_tx);
     if (tx_dump.empty())
         setStatusError(tr("Failed to convert pending tx to string"));
 
@@ -3169,7 +3178,8 @@ std::string WalletImpl::convertTxToStr(const PendingTransaction &ptxs) const
 //-------------------------------------------------------------------------------------------------------------------
 bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const
 {
-    if (!m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, exported_txs.m_unsigned_tx_set))
+    UnsignedTransactionImpl *utx_impl = dynamic_cast<UnsignedTransactionImpl*>(&exported_txs);
+    if (!m_wallet->parse_unsigned_tx_from_str(unsigned_tx_str, utx_impl->m_unsigned_tx_set))
     {
         setStatusError(tr("Failed to parse unsigned tx from string. For more info see log file"));
         return false;
@@ -3177,16 +3187,19 @@ bool WalletImpl::parseUnsignedTxFromStr(const std::string &unsigned_tx_str, Unsi
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const
+std::string WalletImpl::signTxToStr(UnsignedTransaction &exported_txs, PendingTransaction &ptx) const
 {
     clearStatus();
 
+    tools::wallet2::unsigned_tx_set &utx_set = dynamic_cast<UnsignedTransactionImpl*>(&exported_txs)->m_unsigned_tx_set;
+    PendingTransactionImpl *ptx_impl = dynamic_cast<PendingTransactionImpl*>(&ptx);
+
     std::string signed_tx_data;
-    tools::wallet2::signed_tx_set signed_txes;
+    tools::wallet2::signed_tx_set signed_txs;
 
     try
     {
-        signed_tx_data = m_wallet->sign_tx_dump_to_str(exported_txs.m_unsigned_tx_set, ptx.m_pending_tx, signed_txes);
+        signed_tx_data = m_wallet->sign_tx_dump_to_str(utx_set, ptx_impl->m_pending_tx, signed_txs);
     }
     catch (const exception &e)
     {
@@ -3194,7 +3207,7 @@ std::string WalletImpl::signTxToStr(const UnsignedTransaction &exported_txs, Pen
         return "";
     }
 
-    ptx.m_key_images = signed_txs.key_images;
+    ptx_impl->m_key_images = signed_txs.key_images;
     return signed_tx_data;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -3202,7 +3215,9 @@ bool WalletImpl::loadTx(const std::string &signed_filename, PendingTransaction &
 {
     clearStatus();
 
-    if (!m_wallet->load_tx(signed_filename, ptx.m_pending_tx))
+    PendingTransactionImpl *ptx_impl = dynamic_cast<PendingTransactionImpl*>(&ptx);
+
+    if (!m_wallet->load_tx(signed_filename, ptx_impl->m_pending_tx))
     {
         setStatusError((boost::format(tr("Failed to load tx from file with filename `%s`. For more info see log file")) % signed_filename).str());
         return false;
@@ -3218,13 +3233,14 @@ bool WalletImpl::parseMultisigTxFromStr(const std::string &multisig_tx_str, Pend
     {
         checkMultisigWalletReady(m_wallet);
 
+        PendingTransactionImpl *ptx_impl = dynamic_cast<PendingTransactionImpl*>(&exported_txs);
         tools::wallet2::multisig_tx_set multisig_tx;
 
         if (!m_wallet->parse_multisig_tx_from_str(multisig_tx_str, multisig_tx))
             throw runtime_error(tr("Failed to parse multisig transaction from string."));
 
-        exported_txs.m_pending_tx = multisig_tx.m_ptx;
-        exported_txs.m_signers = multisig_tx.m_signers;
+        ptx_impl->m_pending_tx = multisig_tx.m_ptx;
+        ptx_impl->m_signers = multisig_tx.m_signers;
 
         return true;
     }
@@ -3292,9 +3308,11 @@ void WalletImpl::coldTxAuxImport(const PendingTransaction &ptx, const std::vecto
 {
     clearStatus();
 
+    const PendingTransactionImpl *ptx_impl = dynamic_cast<const PendingTransactionImpl*>(&ptx);
+
     try
     {
-        m_wallet->cold_tx_aux_import(ptx.m_pending_tx, tx_device_aux);
+        m_wallet->cold_tx_aux_import(ptx_impl->m_pending_tx, tx_device_aux);
     }
     catch (const std::exception &e)
     {
@@ -3308,11 +3326,13 @@ void WalletImpl::coldSignTx(const PendingTransaction &ptx_in, PendingTransaction
 
     try
     {
+        const PendingTransactionImpl *ptx_impl_in = dynamic_cast<const PendingTransactionImpl*>(&ptx_in);
+        PendingTransactionImpl *ptx_impl_out = dynamic_cast<PendingTransactionImpl*>(&exported_txs_out);
         tools::wallet2::signed_tx_set signed_txs;
 
-        m_wallet->cold_sign_tx(ptx_in.m_pending_tx, signed_txs, dsts_info, exported_txs_out.m_tx_device_aux);
-        exported_txs_out.m_key_images = signed_txs.key_images;
-        exported_txs_out.m_pending_tx = signed_txs.ptx;
+        m_wallet->cold_sign_tx(ptx_impl_in->m_pending_tx, signed_txs, dsts_info, ptx_impl_out->m_tx_device_aux);
+        ptx_impl_out->m_key_images = signed_txs.key_images;
+        ptx_impl_out->m_pending_tx = signed_txs.ptx;
         // TODO : figure out if we need signed_txs.tx_key_images here, afaik they're used for selfsend/change enotes
         //        if needed we can probably add a member like `m_selfsend_key_images` to `PendingTransaction`
         //        guess then `PendingTransaction` would be a proper replacement for `wallet2::signed_tx_set`
@@ -3357,7 +3377,7 @@ void WalletImpl::setTxKey(const std::string &txid, const std::string &tx_key, co
 
     std::vector<crypto::secret_key> additional_tx_keys_pod;
     crypto::secret_key tmp_additional_tx_key_pod;
-    additional_tx_key_pod.reserve(additional_tx_keys.size());
+    additional_tx_keys_pod.reserve(additional_tx_keys.size());
     for (std::string additional_tx_key : additional_tx_keys)
     {
         if (!epee::string_tools::hex_to_pod(additional_tx_key, tmp_additional_tx_key_pod))
@@ -3565,7 +3585,7 @@ std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> WalletImpl::g
     std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> public_nodes_out;
     try
     {
-        public_nodes m_wallet->get_public_nodes(white_only);
+        public_nodes = m_wallet->get_public_nodes(white_only);
     }
     catch (const std::exception &e)
     {
@@ -3671,11 +3691,22 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t WalletImpl::getEnoteIndex(const std::string &key_image) const
 {
-    crypto::key_image ki;
-    if (!epee::string_tools::hex_to_pod(key_image, ki))
-        throw runtime_error(tr("Failed to parse key image."));
+    std::vector<EnoteDetails> enote_details;
+    getEnoteDetails(enote_details);
+    for (size_t idx = 0; idx < enote_details.size(); ++idx)
+    {
+        const EnoteDetails &ed = enote_details[idx];
+        if (ed.m_key_image == key_image)
+        {
+            if (ed.m_key_image_known)
+                return idx;
+            else if (ed.m_key_image_partial)
+                setStatusError("Failed to get enote index by key image: Transfer detail lookups are not allowed for multisig partial key images");
+        }
+    }
 
-    return m_wallet->get_transfer_details(ki);
+    setStatusError("Failed to get enote index by key image: Key image not found");
+    return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
 

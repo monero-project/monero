@@ -199,7 +199,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
         ti->m_unlock_time = pd.m_unlock_time;
-        ti->m_change = pd->m_change;
+        ti->m_change = pd.m_change;
         ti->m_tx_state = TransactionInfo::confirmed;
         // not used for confirmed_transfer_details
         ti->m_double_spend_seen = false;
@@ -240,8 +240,8 @@ void TransactionHistoryImpl::refresh()
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
         ti->m_unlock_time = pd.m_tx.unlock_time;
-        ti->m_change = pd->m_change;
-        ti->m_tx_state = pd->m_state;
+        ti->m_change = pd.m_change;
+        ti->m_tx_state = pd.m_state;
         // not used for unconfirmed_transfer_details
         ti->m_double_spend_seen = false;
         for (const auto &d : pd.m_dests)

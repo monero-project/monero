@@ -253,7 +253,7 @@ public:
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
     std::string convertTxToStr(const PendingTransaction &ptxs) const override;
     bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const override;
-    std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const override;
+    std::string signTxToStr(UnsignedTransaction &exported_txs, PendingTransaction &ptx) const override;
     bool loadTx(const std::string &signed_filename, PendingTransaction &ptx) const override;
     bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const override;
     std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;

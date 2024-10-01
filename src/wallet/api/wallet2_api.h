@@ -112,8 +112,8 @@ struct EnoteDetails
     std::vector<std::pair<std::uint64_t, std::string>> m_uses;
 // QUESTION : Any input on these multisig members? I'd ignore them for now.
     // Multisig
-    /*
     bool m_key_image_partial;
+    /*
     std::vector<rct::key> m_multisig_k;
     std::vector<multisig_info> m_multisig_info; // one per other participant
     */
@@ -519,7 +519,7 @@ struct Wallet
     struct WalletState {
         // is wallet file format deprecated
         bool is_deprecated;
-        std::uint64_t ring_rize;
+        std::uint64_t ring_size;
         std::string daemon_address;
     };
 
@@ -1356,7 +1356,7 @@ struct Wallet
     * return: signed tx data as encrypted hex string
     * note: sets status error on fail
     */
-    virtual std::string signTxToStr(const UnsignedTransaction &exported_txs, PendingTransaction &ptx) const = 0;
+    virtual std::string signTxToStr(UnsignedTransaction &exported_txs, PendingTransaction &ptx) const = 0;
     // TODO : if it's fine to drop the accept_func, do it for all the functions below (where possible, meaning accept_func is optional in wallet2 params)
     /**
     * brief: loadTx - load pending transactions from a file
