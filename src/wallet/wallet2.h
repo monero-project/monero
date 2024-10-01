@@ -91,6 +91,14 @@ class wallet_accessor_test;
 
 namespace tools
 {
+  enum light_wallet_server_type : uint8_t
+  {
+    STANDARD = 0,
+    OPENMONERO,
+    MYMONERO,
+    UNDEFINED = 255
+  };
+
   class ringdb;
   class wallet2;
   class Notify;
@@ -1023,6 +1031,7 @@ private:
     */
     bool light_wallet() const { return m_light_wallet; }
     void set_light_wallet(bool light_wallet) { m_light_wallet = light_wallet; }
+    void set_light_wallet_server_type(light_wallet_server_type server_type){ m_light_wallet_server_type = server_type; };
     uint64_t get_light_wallet_scanned_block_height() const { return m_light_wallet_scanned_block_height; }
     uint64_t get_light_wallet_blockchain_height() const { return m_light_wallet_blockchain_height; }
 
@@ -1611,7 +1620,39 @@ private:
     // Parse rct string
     bool light_wallet_parse_rct_str(const std::string& rct_string, const crypto::public_key& tx_pub_key, uint64_t internal_output_index, rct::key& decrypted_mask, rct::key& rct_commit, bool decrypt) const;
     // check if key image is ours
-    bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index);
+    bool light_wallet_key_image_is_ours(const crypto::key_image& key_image, const crypto::public_key& tx_public_key, uint64_t out_index, const cryptonote::subaddress_index subaddress_index);
+
+    bool light_wallet_is_output_spent(const std::string& out_public_key, const std::string& tx_public_key, uint64_t out_index);
+
+    bool light_wallet_is_output_spent(const crypto::public_key& out_public_key, const crypto::public_key& tx_public_key, uint64_t out_index);
+
+    bool light_wallet_is_key_image_spent(const crypto::key_image& key_image) {
+      std::vector<crypto::key_image> key_images;
+
+      key_images.push_back(key_image);
+      std::vector<bool> spent_list = light_wallet_is_key_image_spent(key_images);
+
+      if (spent_list.empty()) return false;
+
+      return spent_list[0];
+    }
+
+    bool m_light_wallet_is_logged_in;
+    boost::optional<tools::COMMAND_RPC_GET_UNSPENT_OUTS::response> m_unspent_outputs_response;
+    boost::optional<tools::COMMAND_RPC_GET_ADDRESS_TXS::response> m_address_txs_response;
+    void light_wallet_get_tx_unspent_outs(const std::string tx_hash, std::vector<tools::COMMAND_RPC_GET_UNSPENT_OUTS::output> &outputs) const;
+    void light_wallet_refresh(uint64_t & blocks_fectched, bool& received_money);
+
+    std::vector<bool> light_wallet_is_key_image_spent(const std::vector<crypto::key_image>& key_images);
+    std::vector<cryptonote::subaddress_index> m_light_wallet_subaddrs;
+    std::vector<uint32_t> m_light_wallet_accounts;
+    std::list<tools::COMMAND_RPC_GET_UNSPENT_OUTS::output> m_light_wallet_unspent_outputs;
+    bool light_wallet_supports_subaddrs();
+    void light_wallet_get_subaddrs();
+    bool light_wallet_provision_subaddrs(uint32_t maj_i, uint32_t min_i, uint32_t n_maj, uint32_t n_min);
+    bool light_wallet_upsert_subaddrs(std::vector<cryptonote::subaddress_index> subaddrs);
+    bool generate_output_key_image(const std::string& out_public_key, const std::string& tx_public_key, uint64_t out_index, const cryptonote::subaddress_index subaddress, crypto::key_image& ki) const;
+    bool generate_output_key_image(const crypto::public_key& out_public_key, const crypto::public_key& tx_public_key, uint64_t out_index, const cryptonote::subaddress_index subaddress, crypto::key_image& ki) const;
 
     /*
      * "attributes" are a mechanism to store an arbitrary number of string values
@@ -1823,6 +1864,7 @@ private:
     void on_device_progress(const hw::device_progress& event);
 
     std::string get_rpc_status(const std::string &s) const;
+    std::string get_rpc_status(const bool &s) const;
     void throw_on_rpc_response_error(bool r, const epee::json_rpc::error &error, const std::string &status, const char *method) const;
 
     std::string get_client_signature() const;
@@ -1849,6 +1891,7 @@ private:
     transfer_container m_transfers;
     payment_container m_payments;
     serializable_unordered_map<crypto::key_image, size_t> m_key_images;
+    std::set<std::string> m_spent_key_images;
     serializable_unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     serializable_unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
@@ -1940,6 +1983,7 @@ private:
 
     // Light wallet
     bool m_light_wallet; /* sends view key to daemon for scanning */
+    light_wallet_server_type m_light_wallet_server_type = STANDARD;
     uint64_t m_light_wallet_scanned_block_height;
     uint64_t m_light_wallet_blockchain_height;
     uint64_t m_light_wallet_per_kb_fee = FEE_PER_KB;
@@ -1949,6 +1993,7 @@ private:
     // Light wallet info needed to populate m_payment requires 2 separate api calls (get_address_txs and get_unspent_outs)
     // We save the info from the first call in m_light_wallet_address_txs for easier lookup.
     std::unordered_map<crypto::hash, address_tx> m_light_wallet_address_txs;
+    std::vector<crypto::public_key> m_light_wallet_processed_out_public_keys;
     // store calculated key image for faster lookup
     serializable_unordered_map<crypto::public_key, serializable_map<uint64_t, crypto::key_image> > m_key_image_cache;
 
