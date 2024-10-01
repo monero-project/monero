@@ -45,7 +45,11 @@ TEST(fcmp_pp, prove)
     LOG_PRINT_L1("Test prove with helios chunk width " << helios_chunk_width
         << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth);
 
-    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
+    uint64_t min_leaves_needed_for_tree_depth = 0;
+    const auto curve_trees = test::init_curve_trees_test(helios_chunk_width,
+        selene_chunk_width,
+        tree_depth,
+        min_leaves_needed_for_tree_depth);
 
     LOG_PRINT_L1("Initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
 

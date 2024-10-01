@@ -42,6 +42,11 @@ namespace test
 const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const CurveTreesV1 &curve_trees,
     const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples);
+
+std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,
+    const std::size_t selene_chunk_width,
+    const std::size_t tree_depth,
+    uint64_t &n_leaves_out);
 }//namespace test
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -115,22 +120,4 @@ private:
     Tree m_tree = Tree{};
 };
 //----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-#define INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth)                          \
-    static_assert(helios_chunk_width > 1, "helios width must be > 1");                                     \
-    static_assert(selene_chunk_width > 1, "selene width must be > 1");                                     \
-    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width); \
-                                                                                                           \
-    /* Number of leaves required for tree to reach given depth */                                          \
-    std::size_t min_leaves_needed_for_tree_depth = selene_chunk_width;                                     \
-    for (std::size_t i = 1; i < tree_depth; ++i)                                                           \
-    {                                                                                                      \
-        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;                    \
-        min_leaves_needed_for_tree_depth *= width;                                                         \
-    }                                                                                                      \
-                                                                                                           \
-    /* Increment to test for off-by-1 */                                                                   \
-    ++min_leaves_needed_for_tree_depth;                                                                    \
-                                                                                                           \
-    unit_test::BlockchainLMDBTest test_db;                                                                 \
 //----------------------------------------------------------------------------------------------------------------------

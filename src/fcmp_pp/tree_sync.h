@@ -157,6 +157,8 @@ private:
 
     // The outputs that TreeSync should keep track of while syncing
     std::unordered_map<OutputRef, AssignedLeafIdx> m_registered_outputs;
+
+    // TODO: this likely isn't the right data structure. Need to get all outputs by block hash (this keeps elems by key unordered)
     std::unordered_multimap<BlockHash, RegisteredOutputContext> m_registered_outputs_by_block;
 
     // Cached leaves and tree elems
