@@ -30,6 +30,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
+#include "fcmp_pp/curve_trees.h"
 #include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
 
@@ -64,6 +65,10 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
+  MDB_cursor *m_txc_locked_outputs;
+  MDB_cursor *m_txc_leaves;
+  MDB_cursor *m_txc_layers;
+
   MDB_cursor *m_txc_txpool_meta;
   MDB_cursor *m_txc_txpool_blob;
 
@@ -87,6 +92,9 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_locked_outputs	m_cursors->m_txc_locked_outputs
+#define m_cur_leaves		m_cursors->m_txc_leaves
+#define m_cur_layers		m_cursors->m_txc_layers
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_alt_blocks	m_cursors->m_txc_alt_blocks
@@ -109,6 +117,9 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
+  bool m_rf_locked_outputs;
+  bool m_rf_leaves;
+  bool m_rf_layers;
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
   bool m_rf_alt_blocks;
@@ -183,7 +194,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=true);
+  BlockchainLMDB(bool batch_transactions=true, std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> curve_trees = fcmp_pp::curve_trees::curve_trees_v1());
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -356,6 +367,13 @@ public:
   static int compare_hash32(const MDB_val *a, const MDB_val *b);
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
+  // make private
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
+
+  virtual void trim_tree(const uint64_t trim_n_leaf_tuples);
+
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
+
 private:
   void do_resize(uint64_t size_increase=0);
 
@@ -370,6 +388,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
+                , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
                 );
 
   virtual void remove_block();
@@ -378,7 +397,7 @@ private:
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
-  virtual uint64_t add_output(const crypto::hash& tx_hash,
+  virtual output_indexes_t add_output(const crypto::hash& tx_hash,
       const tx_out& tx_output,
       const uint64_t& local_index,
       const uint64_t unlock_time,
@@ -398,6 +417,39 @@ private:
   virtual void add_spent_key(const crypto::key_image& k_image);
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
+
+  template<typename C>
+  void grow_layer(const std::unique_ptr<C> &curve,
+    const std::vector<fcmp_pp::curve_trees::LayerExtension<C>> &layer_extensions,
+    const uint64_t c_idx,
+    const uint64_t layer_idx);
+
+  template<typename C>
+  void trim_layer(const std::unique_ptr<C> &curve,
+    const fcmp_pp::curve_trees::LayerReduction<C> &layer_reduction,
+    const uint64_t layer_idx);
+
+  virtual uint64_t get_num_leaf_tuples() const;
+
+  virtual std::array<uint8_t, 32UL> get_tree_root() const;
+
+  fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
+
+  fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+
+  fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+
+  template<typename C_CHILD, typename C_PARENT>
+  bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
+    const std::unique_ptr<C_PARENT> &c_parent,
+    const uint64_t child_layer_idx,
+    const uint64_t chunk_width) const;
+
+  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_unlock_block_id(uint64_t block_id);
+
+  void del_locked_outs_at_block_id(uint64_t block_id);
 
   uint64_t num_outputs() const;
 
@@ -441,6 +493,9 @@ private:
   // migrate from DB version 4 to 5
   void migrate_4_5();
 
+  // migrate from DB version 5 to 6
+  void migrate_5_6();
+
   void cleanup_batch();
 
 private:
@@ -462,6 +517,10 @@ private:
   MDB_dbi m_output_amounts;
 
   MDB_dbi m_spent_keys;
+
+  MDB_dbi m_locked_outputs;
+  MDB_dbi m_leaves;
+  MDB_dbi m_layers;
 
   MDB_dbi m_txpool_meta;
   MDB_dbi m_txpool_blob;

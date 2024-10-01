@@ -32,6 +32,8 @@
 
 #include <string>
 #include <exception>
+#include <map>
+#include <memory>
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
@@ -40,6 +42,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
+#include "fcmp_pp/curve_trees.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -187,6 +190,14 @@ struct txpool_tx_meta_t
   }
 };
 
+/**
+ * @brief a struct containing output indexes for convenience
+ */
+struct output_indexes_t
+{
+  uint64_t amount_index;
+  uint64_t output_id;
+};
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
@@ -398,6 +409,7 @@ private:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
+   * @param outs_by_unlock_block the outputs from this block to add to the merkle tree
    */
   virtual void add_block( const block& blk
                 , size_t block_weight
@@ -406,6 +418,7 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
+                , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
                 ) = 0;
 
   /**
@@ -470,8 +483,9 @@ private:
    * future, this tracking (of the number, at least) should be moved to
    * this class, as it is necessary and the same among all BlockchainDB.
    *
-   * It returns an amount output index, which is the index of the output
-   * for its specified amount.
+   * It returns the output indexes, which contains an amount output index (the
+   * index of the output for its specified amount) and output id (the global
+   * index of the output among all outputs of any amount).
    *
    * This data should be stored in such a manner that the only thing needed to
    * reverse the process is the tx_out.
@@ -484,9 +498,9 @@ private:
    * @param local_index index of the output in its transaction
    * @param unlock_time unlock time/height of the output
    * @param commitment the rct commitment to the output amount
-   * @return amount output index
+   * @return output indexes
    */
-  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
+  virtual output_indexes_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
 
   /**
    * @brief store amount output indices for a tx's outputs
@@ -567,8 +581,10 @@ protected:
    * @param tx the transaction to add
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
+   *
+   * @return the global output ids of all outputs inserted
    */
-  void add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  std::vector<uint64_t> add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -576,12 +592,14 @@ protected:
 
   HardFork* m_hardfork;
 
+  std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> m_curve_trees;
+
 public:
 
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees() { }
 
   /**
    * @brief An empty destructor.
@@ -1764,6 +1782,15 @@ public:
    */
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
+  // TODO: description and make private
+  virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
+
+  virtual void trim_tree(const uint64_t trim_n_leaf_tuples) = 0;
+
+  // TODO: description
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
+  virtual uint64_t get_num_leaf_tuples() const = 0;
+  virtual std::array<uint8_t, 32UL> get_tree_root() const = 0;
 
   //
   // Hard fork related storage

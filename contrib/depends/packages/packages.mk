@@ -1,3 +1,4 @@
+native_packages:=fcmp_pp_rust_deps
 packages:=boost openssl zeromq expat unbound sodium
 
 hardware_packages := hidapi protobuf libusb
@@ -24,5 +25,5 @@ mingw32_packages = $(hardware_packages)
 mingw32_native_packages = $(hardware_native_packages)
 
 ifneq ($(build_os),darwin)
-darwin_native_packages += darwin_sdk native_clang native_cctools native_libtapi
+darwin_native_packages += darwin_sdk
 endif

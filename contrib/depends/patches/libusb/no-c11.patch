@@ -1,0 +1,35 @@
+diff --git a/configure.ac b/configure.ac
+index 6dc7c698..3ce6cb78 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -41,30 +41,6 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
+ EXTRA_CPPFLAGS=
+ EXTRA_CFLAGS=
+ 
+-dnl check for -std=gnu11 compiler support (optional)
+-dnl note that we don't just check if the compiler accepts '-std=x11'
+-dnl but also that it supports the _Thread_local keyword because some compilers
+-dnl (e.g. gcc 4.8) accept the command line option but do not implement TLS
+-saved_CFLAGS="${CFLAGS}"
+-CFLAGS="-std=gnu11"
+-AC_MSG_CHECKING([if $CC supports -std=gnu11])
+-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([_Thread_local int x;], [x = 42;])],
+-	[AC_MSG_RESULT([yes])
+-	 c_dialect=gnu],
+-	[AC_MSG_RESULT([no])
+-	 c_dialect=])
+-if test "x$c_dialect" != xgnu; then
+-	dnl fallback check for -std=c11 compiler support (required)
+-	CFLAGS="-std=c11"
+-	AC_MSG_CHECKING([if $CC supports -std=c11])
+-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([_Thread_local int x;], [x = 42;])],
+-		[AC_MSG_RESULT([yes])],
+-		[AC_MSG_RESULT([no])
+-		 AC_MSG_ERROR([compiler with C11 support is required to build libusb])])
+-	c_dialect=c
+-fi
+-CFLAGS="${saved_CFLAGS}"
+-
+ AC_DEFINE([_GNU_SOURCE], [1], [Enable GNU extensions.])
+ AC_DEFINE([DEFAULT_VISIBILITY], [__attribute__ ((visibility ("default")))], [Define to the attribute for default visibility.])
+ AC_DEFINE([PRINTF_FORMAT(a, b)], [__attribute__ ((__format__ (__printf__, a, b)))], [Define to the attribute for enabling parameter checks on printf-like functions.])

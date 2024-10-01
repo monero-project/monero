@@ -618,6 +618,12 @@ namespace crypto {
     ge_p1p1_to_p3(&res, &point2);
   }
 
+  void crypto_ops::derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    ge_p3 point;
+    hash_to_ec(pub, point);
+    ge_p3_tobytes(&ki_gen, &point);
+  }
+
   void crypto_ops::generate_key_image(const public_key &pub, const secret_key &sec, key_image &image) {
     ge_p3 point;
     ge_p2 point2;

@@ -1,0 +1,126 @@
+diff --git a/Configurations/15-android.conf b/Configurations/15-android.conf
+index 41ad9223e0..bad9eb4dd3 100644
+--- a/Configurations/15-android.conf
++++ b/Configurations/15-android.conf
+@@ -56,111 +56,7 @@
+             $config{target} =~ m|[^-]+-([^-]+)$|;	# split on dash
+             $arch = $1;
+ 
+-            if ($sysroot = $ENV{CROSS_SYSROOT}) {
+-                $sysroot =~ m|/android-([0-9]+)/arch-(\w+)/?$|;
+-                ($api, $arch) = ($1, $2);
+-            } elsif ($is_standalone_toolchain) {
+-                $sysroot = "$ndk/sysroot";
+-            } else {
+-                $api = "*";
+-
+-                # see if user passed -D__ANDROID_API__=N
+-                foreach (@{$useradd{CPPDEFINES}}, @{$user{CPPFLAGS}}) {
+-                    if (m|__ANDROID_API__=([0-9]+)|) {
+-                        $api = $1;
+-                        last;
+-                    }
+-                }
+-
+-                if (-d "$ndk/platforms") {
+-                    # list available platforms (numerically)
+-                    my @platforms = sort { $a =~ m/-([0-9]+)$/; my $aa = $1;
+-                                           $b =~ m/-([0-9]+)$/; $aa <=> $1;
+-                                         } glob("$ndk/platforms/android-$api");
+-                    die "no $ndk/platforms/android-$api" if ($#platforms < 0);
+-
+-                    $sysroot = "@platforms[$#platforms]/arch-$arch";
+-                    $sysroot =~ m|/android-([0-9]+)/arch-$arch|;
+-                    $api = $1;
+-                } elsif ($api eq "*") {
+-                    # r22 Removed platforms dir, use this JSON file
+-                    my $path = "$ndk/meta/platforms.json";
+-                    open my $fh, $path or die "Could not open '$path' $!";
+-                    while (<$fh>) {
+-                        if (/"max": (\d+),/) {
+-                            $api = $1;
+-                            last;
+-                        }
+-                    }
+-                    close $fh;
+-                }
+-                die "Could not get default API Level" if ($api eq "*");
+-            }
+-            die "no sysroot=$sysroot" if (length $sysroot && !-d $sysroot);
+-
+-            my $triarch = $triplet{$arch};
+-            my $cflags;
+-            my $cppflags;
+-
+-            # see if there is NDK clang on $PATH, "universal" or "standalone"
+-            if (which("clang") =~ m|^$ndk/.*/prebuilt/([^/]+)/|) {
+-                my $host=$1;
+-                # harmonize with gcc default
+-                my $arm = $ndkver > 16 ? "armv7a" : "armv5te";
+-                (my $tridefault = $triarch) =~ s/^arm-/$arm-/;
+-                (my $tritools   = $triarch) =~ s/(?:x|i6)86(_64)?-.*/x86$1/;
+-                if (length $sysroot) {
+-                    $cflags .= " -target $tridefault "
+-                            .  "-gcc-toolchain \$($ndk_var)/toolchains"
+-                            .  "/$tritools-4.9/prebuilt/$host";
+-                    $user{CC} = "clang" if ($user{CC} !~ m|clang|);
+-                } else {
+-                    $user{CC} = "$tridefault$api-clang";
+-                }
+-                $user{CROSS_COMPILE} = undef;
+-                if (which("llvm-ar") =~ m|^$ndk/.*/prebuilt/([^/]+)/|) {
+-                    $user{AR} = "llvm-ar";
+-                    $user{ARFLAGS} = [ "rs" ];
+-                    $user{RANLIB} = ":";
+-                }
+-            } elsif ($is_standalone_toolchain) {
+-                my $cc = $user{CC} // "clang";
+-                # One can probably argue that both clang and gcc should be
+-                # probed, but support for "standalone toolchain" was added
+-                # *after* announcement that gcc is being phased out, so
+-                # favouring clang is considered adequate. Those who insist
+-                # have option to enforce test for gcc with CC=gcc.
+-                if (which("$triarch-$cc") !~ m|^$ndk|) {
+-                    die "no NDK $triarch-$cc on \$PATH";
+-                }
+-                $user{CC} = $cc;
+-                $user{CROSS_COMPILE} = "$triarch-";
+-            } elsif ($user{CC} eq "clang") {
+-                die "no NDK clang on \$PATH";
+-            } else {
+-                if (which("$triarch-gcc") !~ m|^$ndk/.*/prebuilt/([^/]+)/|) {
+-                    die "no NDK $triarch-gcc on \$PATH";
+-                }
+-                $cflags .= " -mandroid";
+-                $user{CROSS_COMPILE} = "$triarch-";
+-            }
+-
+-            if (length $sysroot) {
+-                if (!-d "$sysroot/usr/include") {
+-                    my $incroot = "$ndk/sysroot/usr/include";
+-                    die "no $incroot"          if (!-d $incroot);
+-                    die "no $incroot/$triarch" if (!-d "$incroot/$triarch");
+-                    $incroot =~ s|^$ndk/||;
+-                    $cppflags  = "-D__ANDROID_API__=$api";
+-                    $cppflags .= " -isystem \$($ndk_var)/$incroot/$triarch";
+-                    $cppflags .= " -isystem \$($ndk_var)/$incroot";
+-                }
+-                $sysroot =~ s|^$ndk/||;
+-                $sysroot = " --sysroot=\$($ndk_var)/$sysroot";
+-            }
+             $android_ndk = {
+-                cflags   => $cflags . $sysroot,
+-                cppflags => $cppflags,
+                 bn_ops   => $arch =~ m/64$/ ? "SIXTY_FOUR_BIT_LONG"
+                                             : "BN_LLONG",
+             };
+@@ -184,9 +80,6 @@ my %targets = (
+         # systems are perfectly capable of executing binaries targeting
+         # Froyo. Keep in mind that in the nutshell Android builds are
+         # about JNI, i.e. shared libraries, not applications.
+-        cflags           => add(sub { android_ndk()->{cflags} }),
+-        cppflags         => add(sub { android_ndk()->{cppflags} }),
+-        cxxflags         => add(sub { android_ndk()->{cflags} }),
+         bn_ops           => sub { android_ndk()->{bn_ops} },
+         bin_cflags       => "-fPIE",
+         bin_lflags       => "-pie",
