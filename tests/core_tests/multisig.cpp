@@ -227,13 +227,13 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         CHECK_AND_ASSERT_MES(r, false, "Failed to generate multisig export key image");
       }
       MDEBUG("Party " << msidx << ":");
-      MDEBUG("spend: sec " << miner_account[msidx].get_keys().m_spend_secret_key << ", pub " << miner_account[msidx].get_keys().m_account_address.m_spend_public_key);
-      MDEBUG("view: sec " << miner_account[msidx].get_keys().m_view_secret_key << ", pub " << miner_account[msidx].get_keys().m_account_address.m_view_public_key);
+      MDEBUG("spend: sec " << crypto::secret_key_explicit_print_ref{miner_account[msidx].get_keys().m_spend_secret_key} << ", pub " << miner_account[msidx].get_keys().m_account_address.m_spend_public_key);
+      MDEBUG("view: sec " << crypto::secret_key_explicit_print_ref{miner_account[msidx].get_keys().m_view_secret_key} << ", pub " << miner_account[msidx].get_keys().m_account_address.m_view_public_key);
       for (const auto &k: miner_account[msidx].get_multisig_keys())
-        MDEBUG("msk: " << k);
+        MDEBUG("msk: " << crypto::secret_key_explicit_print_ref{k});
       for (size_t n = 0; n < account_k[msidx][tdidx].size(); ++n)
       {
-        MDEBUG("k: " << account_k[msidx][tdidx][n]);
+        MDEBUG("k: " << crypto::secret_key_explicit_print_ref{account_k[msidx][tdidx][n]});
         MDEBUG("L: " << account_L[msidx][tdidx][n]);
         MDEBUG("R: " << account_R[msidx][tdidx][n]);
       }
@@ -406,7 +406,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       MDEBUG("signing with k " << k.back()[n]);
     MDEBUG("signing with sk " << skey);
     for (const auto &sk: used_keys)
-      MDEBUG("  created with sk " << sk);
+      MDEBUG("  created with sk " << crypto::secret_key_explicit_print_ref{sk});
     CHECK_AND_ASSERT_MES(signer_tx_builder.next_partial_sign(sig.total_alpha_G, sig.total_alpha_H, k, skey, sig.c_0, sig.s), false, "error: multisig::signing::tx_builder_ringct_t::next_partial_sign");
 
     // in round-robin signing, the last signer finalizes the tx

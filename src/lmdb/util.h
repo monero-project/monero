@@ -127,7 +127,7 @@ namespace lmdb
     /*!
         A LMDB comparison function that uses `std::memcmp`.
 
-        \toaram T is `!epee::has_padding`
+        \toaram T has standard layout and an alignment of 1
         \tparam offset to `T` within the value.
 
         \return The result of `std::memcmp` over the value.
@@ -135,7 +135,7 @@ namespace lmdb
     template<typename T, std::size_t offset = 0>
     inline int compare(MDB_val const* left, MDB_val const* right) noexcept
     {
-        static_assert(!epee::has_padding<T>(), "memcmp will not work");
+        static_assert(std::is_standard_layout_v<T> && alignof(T) == 1, "memcmp will not work");
         if (!left || !right || left->mv_size < sizeof(T) + offset || right->mv_size < sizeof(T) + offset)
         {
             assert("invalid use of custom comparison" == 0);
