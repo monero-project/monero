@@ -109,7 +109,7 @@ namespace
     template<typename T>
     bool compare(const T& lhs, const T& rhs) noexcept
     {
-        static_assert(!epee::has_padding<T>(), "type might have padding");
+        static_assert(std::is_standard_layout<T>() && alignof(T) == 1, "type might have padding");
         return std::memcmp(std::addressof(lhs), std::addressof(rhs), sizeof(T)) == 0;
     }
 
