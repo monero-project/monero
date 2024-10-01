@@ -31,6 +31,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/uuid/nil_generator.hpp>
 
+#include "misc_log_ex.h"
 #include "string_tools.h"
 using namespace epee;
 
@@ -679,9 +680,21 @@ namespace cryptonote
     r = m_mempool.init(max_txpool_weight, m_nettype == FAKECHAIN);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize memory pool");
 
+    uint64_t session_start_height = m_blockchain_storage.get_current_blockchain_height();
+    uint8_t hardfork_version_start = m_blockchain_storage.get_hard_fork_version(session_start_height);
+    uint8_t hardfork_version_current = m_blockchain_storage.get_current_hard_fork_version();
+    MDEBUG("Current height: " << session_start_height);
+    MDEBUG("Start hardfork version: " << (int) hardfork_version_start);
+    MDEBUG("Current hardfork version: " << (int) hardfork_version_current);
+    
     // now that we have a valid m_blockchain_storage, we can clean out any
     // transactions in the pool that do not conform to the current fork
-    m_mempool.validate(m_blockchain_storage.get_current_hard_fork_version());
+    if(hardfork_version_start != hardfork_version_current) {
+      m_mempool.validate(hardfork_version_current);
+    }
+    else {
+      MDEBUG("Not validating the txpool, no hardfork detected.");
+    }
 
     bool show_time_stats = command_line::get_arg(vm, arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
