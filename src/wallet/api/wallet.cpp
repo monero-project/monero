@@ -749,7 +749,12 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     crypto::secret_key recovery_key;
     std::string old_language;
     if (!crypto::ElectrumWords::words_to_bytes(seed, recovery_key, old_language)) {
-        setStatusError(tr("Electrum-style word list failed verification"));
+        std::string invalid_word = crypto::ElectrumWords::get_invalid_word(seed);
+        if (invalid_word != "") {
+            setStatusError((boost::format(tr("Invalid word %s")) % ("'" + invalid_word + "'")).str());
+        } else {
+            setStatusError(tr("Electrum-style word list failed verification"));
+        }
         return false;
     }
     if (!seed_offset.empty())
