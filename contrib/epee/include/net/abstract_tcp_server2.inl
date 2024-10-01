@@ -328,7 +328,7 @@ namespace net_utils
       return;
     }
     auto self = connection<T>::shared_from_this();
-    if (m_connection_type != e_connection_type_RPC) {
+    if (speed_limit_is_enabled()) {
       auto calc_duration = []{
         CRITICAL_REGION_LOCAL(
           network_throttle_manager_t::m_lock_get_global_throttle_in
@@ -382,7 +382,7 @@ namespace net_utils
             m_conn_context.m_max_speed_down,
             speed
           );
-          {
+          if (speed_limit_is_enabled()) {
             CRITICAL_REGION_LOCAL(
               network_throttle_manager_t::m_lock_get_global_throttle_in
             );
@@ -454,7 +454,7 @@ namespace net_utils
       return;
     }
     auto self = connection<T>::shared_from_this();
-    if (m_connection_type != e_connection_type_RPC) {
+    if (speed_limit_is_enabled()) {
       auto calc_duration = [this]{
         CRITICAL_REGION_LOCAL(
           network_throttle_manager_t::m_lock_get_global_throttle_out
@@ -513,7 +513,7 @@ namespace net_utils
             m_conn_context.m_max_speed_down,
             speed
           );
-          {
+          if (speed_limit_is_enabled()) {
             CRITICAL_REGION_LOCAL(
               network_throttle_manager_t::m_lock_get_global_throttle_out
             );
@@ -1022,7 +1022,7 @@ namespace net_utils
   template<typename T>
   bool connection<T>::speed_limit_is_enabled() const
   {
-    return m_connection_type != e_connection_type_RPC;
+    return m_connection_type == e_connection_type_P2P;
   }
 
   template<typename T>
