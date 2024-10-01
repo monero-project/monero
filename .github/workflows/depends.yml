@@ -31,36 +31,47 @@ jobs:
         toolchain:
           - name: "RISCV 64bit"
             host: "riscv64-linux-gnu"
+            rust_host: "riscv64gc-unknown-linux-gnu"
             packages: "python3 gperf g++-riscv64-linux-gnu"
           - name: "ARM v7"
             host: "arm-linux-gnueabihf"
+            rust_host: "armv7-unknown-linux-gnueabihf"
             packages: "python3 gperf g++-arm-linux-gnueabihf"
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
+            rust_host: "aarch64-unknown-linux-gnu"
             packages: "python3 gperf g++-aarch64-linux-gnu"
           - name: "i686 Win"
             host: "i686-w64-mingw32"
+            rust_host: "i686-pc-windows-gnu"
             packages: "python3 g++-mingw-w64-i686"
           - name: "i686 Linux"
             host: "i686-pc-linux-gnu"
+            rust_host: "i686-unknown-linux-gnu"
             packages: "gperf cmake g++-multilib python3-zmq"
           - name: "Win64"
             host: "x86_64-w64-mingw32"
+            rust_host: "x86_64-pc-windows-gnu"
             packages: "cmake python3 g++-mingw-w64-x86-64"
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
+            rust_host: "x86_64-unknown-linux-gnu"
             packages: "gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
+            rust_host: "x86_64-apple-darwin"
             packages: "cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
           - name: "Cross-Mac aarch64"
             host: "aarch64-apple-darwin"
+            rust_host: "aarch64-apple-darwin"
             packages: "cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
+            rust_host: "x86_64-unknown-freebsd"
             packages: "clang-8 gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
           - name: "ARMv8 Android"
             host: "aarch64-linux-android"
+            rust_host: "aarch64-linux-android"
             packages: "gperf cmake python3"
     name: ${{ matrix.toolchain.name }}
     steps:
@@ -95,6 +106,11 @@ jobs:
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
       run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+    - name: install rust target
+      # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
+      # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
+      # We can't use Rust 1.70 due to LLVM 16 requiring ld >= 2.40 when building for Windows
+      run: rustup toolchain install 1.69; rustup default 1.69; rustup target add ${{ matrix.toolchain.rust_host }}
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'i686-w64-mingw32' }}
       run: |

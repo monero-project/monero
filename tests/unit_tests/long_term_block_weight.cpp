@@ -58,6 +58,7 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
+                        , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
                         ) override {
     blocks.push_back({block_weight, long_term_block_weight});
   }

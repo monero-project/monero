@@ -306,7 +306,8 @@ namespace cryptonote
             ar.tag("rctsig_prunable");
             ar.begin_object();
             r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
-                vin.size() > 0 && vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
+                (vin.empty() || vin[0].type() != typeid(txin_to_key) || rct_signatures.type == rct::RCTTypeFcmpPlusPlus)
+                ? 0 : boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1);
             if (!r || !ar.good()) return false;
             ar.end_object();
           }
