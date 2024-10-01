@@ -33,7 +33,21 @@
 #include "fcmp_pp/curve_trees.h"
 #include "fcmp_pp/tree_sync.h"
 
-
+//----------------------------------------------------------------------------------------------------------------------
+#define INIT_SYNC_TEST(tree_depth)                                                                            \
+    static const std::size_t helios_chunk_width = 3;                                                          \
+    static const std::size_t selene_chunk_width = 2;                                                          \
+                                                                                                              \
+    uint64_t n_leaves_needed = 0;                                                                             \
+    auto curve_trees = test::init_curve_trees_test(helios_chunk_width,                                        \
+        selene_chunk_width,                                                                                   \
+        tree_depth,                                                                                           \
+        n_leaves_needed);                                                                                     \
+                                                                                                              \
+    /* Each block, we'll sync a max of just over 2 full chunks, to make sure we're saving all path elems even \
+       when the data we need is not in the last chunk */                                                      \
+    static const std::size_t max_outputs_per_block = (2*selene_chunk_width)+1;                                \
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_sync, register_output)
 {
@@ -141,37 +155,37 @@ TEST(tree_sync, sync_block_simple)
 TEST(tree_sync, sync_n_blocks_register_n_outputs)
 {
     // Init
-    static const std::size_t LEAVES_PER_BLOCK = 10;
-    static const std::size_t N_BLOCKS = 101;
+    static const std::size_t tree_depth = 6;
+    INIT_SYNC_TEST(tree_depth);
 
-    auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+    // Sync until we've synced all the leaves needed to get to the desired tree depth
     auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
-
+    uint64_t block_idx_included_in_chain = 0;
+    uint64_t n_outputs_synced = 0;
     crypto::hash prev_block_hash = crypto::hash{};
 
     // Keep track of all registered outputs so that we can make sure ALL output paths update correctly every block
     std::vector<fcmp_pp::curve_trees::OutputPair> registered_outputs;
-    registered_outputs.reserve(N_BLOCKS);
+    registered_outputs.reserve(n_leaves_needed);
 
-    // Sync N_BLOCKS blocks, 1 block at a time
-    for (std::size_t i = 0; i < N_BLOCKS; ++i)
+    while (n_outputs_synced < n_leaves_needed)
     {
-        LOG_PRINT_L1("Syncing block " << i+1);
+        const auto sync_n_outputs = (block_idx_included_in_chain % max_outputs_per_block) + 1;
+        LOG_PRINT_L1("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx_included_in_chain+1)
+            << " (" << (n_outputs_synced+sync_n_outputs) << " / " << n_leaves_needed << " outputs)");
 
-        // Generate LEAVES_PER_BLOCK random outputs
-        const auto n_total_leaves = i * LEAVES_PER_BLOCK;
-        auto outputs = test::generate_random_outputs(*curve_trees, n_total_leaves, LEAVES_PER_BLOCK);
-        CHECK_AND_ASSERT_THROW_MES(outputs.size() == LEAVES_PER_BLOCK, "unexpected size of outputs");
+        auto outputs = test::generate_random_outputs(*curve_trees, n_outputs_synced, sync_n_outputs);
+        CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
         // Pick an output to register
-        auto output_to_register = i % LEAVES_PER_BLOCK;
+        auto output_to_register = block_idx_included_in_chain % sync_n_outputs;
         const auto output = outputs[output_to_register].output_pair;
+        MDEBUG("Registering output " << n_outputs_synced + output_to_register);
 
         // Set output metadata
-        const uint64_t block_idx_included_in_chain = i;
         crypto::hash block_hash_included_in_chain;
-        crypto::cn_fast_hash(&i, sizeof(std::size_t), block_hash_included_in_chain);
-        const uint64_t unlock_block_idx = i;
+        crypto::cn_fast_hash(&block_idx_included_in_chain, sizeof(std::size_t), block_hash_included_in_chain);
+        const uint64_t unlock_block_idx = block_idx_included_in_chain;
 
         // Register the output
         bool r = tree_sync->register_output(block_idx_included_in_chain,
@@ -187,32 +201,33 @@ TEST(tree_sync, sync_n_blocks_register_n_outputs)
             prev_block_hash,
             std::move(outputs));
 
+        n_outputs_synced += sync_n_outputs;
+
         // Audit all registered output paths
         for (const auto &o : registered_outputs)
         {
             CurveTreesV1::Path output_path;
             ASSERT_TRUE(tree_sync->get_output_path(o, output_path));
-            ASSERT_TRUE(curve_trees->audit_path(output_path, o, (n_total_leaves+LEAVES_PER_BLOCK)));
+            ASSERT_TRUE(curve_trees->audit_path(output_path, o, n_outputs_synced));
         }
 
         // Update for next iteration
         prev_block_hash = block_hash_included_in_chain;
+        ++block_idx_included_in_chain;
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_sync, sync_n_blocks_register_one_output)
 {
     // Init
-    static const std::size_t LEAVES_PER_BLOCK = 10;
-    static const std::size_t N_BLOCKS = 101;
-    static const std::size_t TOTAL_N_OUTPUTS = LEAVES_PER_BLOCK * N_BLOCKS;
+    static const std::size_t tree_depth = 5;
+    INIT_SYNC_TEST(tree_depth);
 
-    auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
-
-    // For every output, sync N_BLOCKS registering 1 output each separate sync, and audit its path
-    for (std::size_t i = 0; i < TOTAL_N_OUTPUTS; ++i)
+    // For every output, sync until the tree reaches the expected tree depth, registering 1 output each separate
+    // sync. We audit the output path every block while syncing
+    for (std::size_t i = 0; i < n_leaves_needed; ++i)
     {
-        LOG_PRINT_L1("Test register output " << i << " / " << TOTAL_N_OUTPUTS);
+        LOG_PRINT_L1("Register output " << (i+1) << " / " << n_leaves_needed);
         auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
 
         fcmp_pp::curve_trees::OutputPair registered_output;
@@ -220,25 +235,26 @@ TEST(tree_sync, sync_n_blocks_register_one_output)
 
         crypto::hash prev_block_hash = crypto::hash{};
 
-        // Sync N_BLOCKS blocks, 1 block at a time
-        for (std::size_t j = 0; j < N_BLOCKS; ++j)
+        uint64_t block_idx_included_in_chain = 0;
+        uint64_t n_outputs_synced = 0;
+        while (n_outputs_synced < n_leaves_needed)
         {
-            // Generate LEAVES_PER_BLOCK random outputs
-            const auto n_total_leaves = j * LEAVES_PER_BLOCK;
-            auto outputs = test::generate_random_outputs(*curve_trees, n_total_leaves, LEAVES_PER_BLOCK);
-            CHECK_AND_ASSERT_THROW_MES(outputs.size() == LEAVES_PER_BLOCK, "unexpected size of outputs");
+            const auto sync_n_outputs = (block_idx_included_in_chain % max_outputs_per_block) + 1;
+            MDEBUG("Syncing "<< sync_n_outputs << " outputs in block " << block_idx_included_in_chain);
+
+            auto outputs = test::generate_random_outputs(*curve_trees, n_outputs_synced, sync_n_outputs);
+            CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
             // Block metadata
-            const uint64_t block_idx_included_in_chain = j;
             crypto::hash block_hash_included_in_chain;
-            crypto::cn_fast_hash(&j, sizeof(std::size_t), block_hash_included_in_chain);
+            crypto::cn_fast_hash(&block_idx_included_in_chain, sizeof(uint64_t), block_hash_included_in_chain);
 
             // Check if this chunk includes the output we're supposed to register
-            if (n_total_leaves <= i && i < (n_total_leaves + LEAVES_PER_BLOCK))
+            if (n_outputs_synced <= i && i < (n_outputs_synced + sync_n_outputs))
             {
                 ASSERT_FALSE(registered);
 
-                auto output_to_register = i % LEAVES_PER_BLOCK;
+                auto output_to_register = i - n_outputs_synced;
                 const auto output = outputs[output_to_register].output_pair;
 
                 // Register the output
@@ -258,23 +274,26 @@ TEST(tree_sync, sync_n_blocks_register_one_output)
                 prev_block_hash,
                 std::move(outputs));
 
+            n_outputs_synced += sync_n_outputs;
+
             // Audit registered output path
             if (registered)
             {
                 CurveTreesV1::Path output_path;
                 ASSERT_TRUE(tree_sync->get_output_path(registered_output, output_path));
-                ASSERT_TRUE(curve_trees->audit_path(output_path, registered_output, (n_total_leaves+LEAVES_PER_BLOCK)));
+                ASSERT_TRUE(curve_trees->audit_path(output_path, registered_output, n_outputs_synced));
             }
 
             // Update for next iteration
             prev_block_hash = block_hash_included_in_chain;
+            ++block_idx_included_in_chain;
         }
 
         ASSERT_TRUE(registered);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
-// TODO: test sync deep tree with >=5 layers
+// TODO: the cache correctly drops values it doesn't need
 // TODO: test edge cases: duplicate output when syncing, mismatched prev block hash in sync_block
 // TODO: reorg handling
 // TODO: clean up code

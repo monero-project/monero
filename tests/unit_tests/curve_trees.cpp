@@ -76,6 +76,29 @@ const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(c
 
     return outs;
 }
+//----------------------------------------------------------------------------------------------------------------------
+std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,
+    const std::size_t selene_chunk_width,
+    const std::size_t tree_depth,
+    uint64_t &n_leaves_out)
+{
+    CHECK_AND_ASSERT_THROW_MES(helios_chunk_width > 1, "helios width must be > 1");
+    CHECK_AND_ASSERT_THROW_MES(selene_chunk_width > 1, "selene width must be > 1");
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
+
+    /* Number of leaves required for tree to reach given depth */
+    n_leaves_out = (uint64_t) selene_chunk_width;
+    for (uint64_t i = 1; i < tree_depth; ++i)
+    {
+        const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
+        n_leaves_out *= width;
+    }
+
+    /* Increment to test for off-by-1 */
+    ++n_leaves_out;
+
+    return curve_trees;
+}
 }//namespace test
 //----------------------------------------------------------------------------------------------------------------------
 static const Selene::Scalar generate_random_selene_scalar()
@@ -131,6 +154,19 @@ static bool trim_tree_db(const std::size_t expected_old_n_leaf_tuples,
 
     return true;
 }
+//----------------------------------------------------------------------------------------------------------------------
+#define INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth) \
+    static_assert(helios_chunk_width > 1, "helios width must be > 1");            \
+    static_assert(selene_chunk_width > 1, "selene width must be > 1");            \
+                                                                                  \
+    /* Number of leaves required for tree to reach given depth */                 \
+    uint64_t min_leaves_needed_for_tree_depth = 0;                                \
+    const auto curve_trees = test::init_curve_trees_test(helios_chunk_width,      \
+        selene_chunk_width,                                                       \
+        tree_depth,                                                               \
+        min_leaves_needed_for_tree_depth);                                        \
+                                                                                  \
+    unit_test::BlockchainLMDBTest test_db;                                        \
 //----------------------------------------------------------------------------------------------------------------------
 #define BEGIN_INIT_TREE_ITER(curve_trees)                                                             \
     for (std::size_t init_leaves = 1; init_leaves <= min_leaves_needed_for_tree_depth; ++init_leaves) \

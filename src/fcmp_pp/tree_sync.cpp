@@ -197,11 +197,11 @@ bool TreeSync<C1, C2>::register_output(const uint64_t block_idx_included_in_chai
     m_registered_outputs.insert({ std::move(output_ref), AssignedLeafIdx{} });
 
     // Add to registered outputs by block container
-    const RegisteredOutputContext registered_output{
+    RegisteredOutputContext registered_output{
             .output_ref = output_ref,
             .included_in_tree = false,
         };
-    m_registered_outputs_by_block.insert({ block_hash_included_in_chain, registered_output });
+    m_registered_outputs_by_block.insert({ block_hash_included_in_chain, std::move(registered_output) });
 
     return true;
 }
