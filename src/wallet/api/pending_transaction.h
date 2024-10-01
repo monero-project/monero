@@ -45,6 +45,7 @@ public:
     ~PendingTransactionImpl();
     int status() const override;
     std::string errorString() const override;
+    std::string commit_string() override;
     bool commit(const std::string &filename = "", bool overwrite = false) override;
     uint64_t amount() const override;
     uint64_t dust() const override;
