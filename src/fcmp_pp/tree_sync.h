@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "curve_trees.h"
 #include "ringct/rctTypes.h"
@@ -35,6 +36,7 @@
 #include <memory>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace fcmp_pp
 {
@@ -70,16 +72,18 @@ struct BlockMeta final
 };
 
 // TODO: we only need to ref count by chunks, not by individual records
+// TODO: consider using additional bool path_member. Purge from cache on dequeue if path_member is false && ref_count == 0.
+//       This could simplify the ref counting logic when adding path leaves and elems.
 struct CachedTreeElem final
 {
     std::array<uint8_t, 32UL> tree_elem;
-    std::size_t ref_count;
+    uint64_t ref_count;
 };
 
 struct CachedLeafTuple final
 {
     OutputPair output;
-    std::size_t ref_count;
+    uint64_t ref_count;
 };
 
 struct AssignedLeafIdx final
@@ -95,6 +99,8 @@ struct RegisteredOutputContext final
 };
 
 using TreeElemCache = std::unordered_map<LayerIdx, std::unordered_map<ChildChunkIdx, CachedTreeElem>>;
+using LeavesSet = std::unordered_set<LeafIdx>;
+using ChildChunkIdxSet = std::unordered_set<ChildChunkIdx>;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -115,8 +121,10 @@ template<typename C1, typename C2>
 class TreeSync
 {
 public:
-    TreeSync(std::shared_ptr<CurveTrees<C1, C2>> &curve_trees):
-            m_curve_trees{curve_trees}
+    TreeSync(std::shared_ptr<CurveTrees<C1, C2>> &curve_trees,
+        const std::size_t max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT):
+            m_curve_trees{curve_trees},
+            m_max_reorg_depth{max_reorg_depth}
     {};
 
     // Registers an output with the TreeSync object so that syncing will keep track of the output's path in the tree
@@ -154,6 +162,7 @@ private:
 // Internal member variables
 private:
     std::shared_ptr<CurveTrees<C1, C2>> m_curve_trees;
+    const std::size_t m_max_reorg_depth;
 
     // The outputs that TreeSync should keep track of while syncing
     std::unordered_map<OutputRef, AssignedLeafIdx> m_registered_outputs;
@@ -164,6 +173,11 @@ private:
     // Cached leaves and tree elems
     std::unordered_map<LeafIdx, CachedLeafTuple> m_cached_leaves;
     TreeElemCache m_cached_tree_elems;
+
+    // Keep track of cached tree elems that are not needed for path data and can be pruned from the cache once the cache
+    // reaches m_max_reorg_depth
+    std::unordered_map<BlockHash, LeavesSet> m_prunable_leaves_by_block;
+    std::unordered_map<BlockHash, std::unordered_map<LayerIdx, ChildChunkIdxSet>> m_prunable_tree_elems_by_block;
 
     // Used for getting tree extensions and reductions when growing and trimming respectively
     // - These are unspecific to the wallet's registered outputs. These are strictly necessary to ensure we can rebuild
