@@ -1243,7 +1243,7 @@ struct Wallet
     virtual std::pair<std::uint32_t, std::uint32_t> getSubaddressIndex(const std::string &address) const = 0;
     /**
     * brief: freeze - freeze enote "so they don't appear in balance, nor are considered when creating a transaction, etc." (https://github.com/monero-project/monero/pull/5333)
-    * param: idx - index of enote in `m_transfers`
+    * param: idx - index of enote in local enote storage
     * param: key_image - key image of enote
     * note: sets status error on fail
     */
@@ -1251,7 +1251,7 @@ struct Wallet
     virtual void freeze(const std::string &key_image) = 0;
     /**
     * brief: thaw - thaw enote that is frozen, so it appears in balance and can be spent in a transaction
-    * param: idx - index of enote in `m_transfers`
+    * param: idx - index of enote in local enote storage
     * param: key_image - key image of enote
     * note: sets status error on fail
     */
@@ -1259,7 +1259,7 @@ struct Wallet
     virtual void thaw(const std::string &key_image) = 0;
     /**
     * brief: isFrozen - check if enote is frozen
-    * param: idx - index of enote in `m_transfers`
+    * param: idx - index of enote in local enote storage
     * param: key_image - key image of enote
     * return : true if enote is frozen, else false
     * note: sets status error on fail
@@ -1528,20 +1528,21 @@ struct Wallet
     */
     virtual bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const = 0;
     /**
-    * brief: hashTransfers  -
-    * param: transfer_height -
-    * outparam: hash - hash of all transfers from wallet transfer storage up until `transfer_height`
-    * return: amount of hashed transfers
+    * brief: hashEnotes - get hash of all enotes in local enote store up until `enote_idx`
+    *                     (formerly in wallet2: `uint64_t wallet2::hash_m_transfers(boost::optional<uint64_t> transfer_height, crypto::hash &hash)`)
+    * param: enote_idx - include all enotes below this index
+    * outparam: hash - hash as hex string
+    * return: number of hashed enotes
     * note: sets status error on fail
     */
-    virtual std::uint64_t hashTransfers(std::uint64_t transfer_height, std::string &hash) const = 0;
+    virtual std::uint64_t hashEnotes(std::uint64_t enote_idx, std::string &hash) const = 0;
     /**
     * brief: finishRescanBcKeepKeyImages  -
-    * param: transfer_height -
+    * param: enote_idx -
     * param: hash -
     * note: sets status error on fail
     */
-    virtual void finishRescanBcKeepKeyImages(std::uint64_t transfer_height, const std::string &hash) = 0;
+    virtual void finishRescanBcKeepKeyImages(std::uint64_t enote_idx, const std::string &hash) = 0;
     /**
     * brief: getPublicNodes - get a list of public notes with information when they were last seen
     * param: white_only - include gray nodes if false (default: true)
@@ -1563,7 +1564,7 @@ struct Wallet
     /**
     * brief: importKeyImages -
     * param: signed_key_images - [ [key_image, signature c || signature r], ... ]
-    * param: offset      - offset in local transfer storage
+    * param: offset      - offset in local enote storage
     * outparam: spent    - total spent amount of the wallet
     * outparam: unspent  - total unspent amount of the wallet
     * param: check_spent -
@@ -1574,12 +1575,12 @@ struct Wallet
     /**
     * brief: importKeyImages -
     * param: key_images -
-    * param: offset     - offset in local transfer storage
-    * param: selected_transfers -
+    * param: offset     - offset in local enote storage
+    * param: selected_enotes_indices -
     * return: true if succeeded
     * note: sets status error on fail
     */
-    virtual bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_transfers = {}) = 0;
+    virtual bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_enotes_indices = {}) = 0;
 };
 
 /**

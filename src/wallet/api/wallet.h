@@ -273,12 +273,12 @@ public:
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees) const override;
     bool saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const override;
     bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const override;
-    std::uint64_t hashTransfers(std::uint64_t transfer_height, std::string &hash) const override;
-    void finishRescanBcKeepKeyImages(std::uint64_t transfer_height, const std::string &hash) override;
+    std::uint64_t hashEnotes(std::uint64_t enote_idx, std::string &hash) const override;
+    void finishRescanBcKeepKeyImages(std::uint64_t enote_idx, const std::string &hash) override;
     std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> getPublicNodes(bool white_only = true) const override;
     std::pair<std::size_t, std::uint64_t> estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size) const override;
     std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) override;
-    bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_transfers = {}) override;
+    bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_enotes_indices = {}) override;
 
 private:
     void clearStatus() const;

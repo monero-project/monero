@@ -3540,26 +3540,26 @@ bool WalletImpl::loadFromFile(const std::string &path_to_file, std::string &targ
     return m_wallet->load_from_file(path_to_file, target_str, max_size);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t WalletImpl::hashTransfers(std::uint64_t transfer_height, std::string &hash) const
+std::uint64_t WalletImpl::hashEnotes(std::uint64_t enote_idx, std::string &hash) const
 {
     clearStatus();
 
     try
     {
-        crypto::hash m_transfers_hash;
-        boost::optional<std::uint64_t> _transfer_height = transfer_height == 0 ? boost::none : boost::optional<std::uint64_t>(transfer_height);
-        std::uint64_t current_height = m_wallet->hash_m_transfers(_transfer_height, m_transfers_hash);
-        hash = epee::string_tools::pod_to_hex(m_transfers_hash);
+        crypto::hash hash_pod;
+        boost::optional<std::uint64_t> idx = enote_idx == 0 ? boost::none : boost::optional<std::uint64_t>(enote_idx);
+        std::uint64_t current_height = m_wallet->hash_m_transfers(idx, hash_pod);
+        hash = epee::string_tools::pod_to_hex(hash_pod);
         return current_height;
     }
     catch (const std::exception &e)
     {
-        setStatusError(string(tr("Failed to hash transfers: ")) + e.what());
+        setStatusError(string(tr("Failed to hash enotes: ")) + e.what());
     }
     return 0;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t transfer_height, const std::string &hash)
+void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t enote_idx, const std::string &hash)
 {
     clearStatus();
 
@@ -3569,7 +3569,7 @@ void WalletImpl::finishRescanBcKeepKeyImages(std::uint64_t transfer_height, cons
         if (!epee::string_tools::hex_to_pod(hash, hash_pod))
             setStatusError(tr("Failed to parse hash"));
         else
-            m_wallet->finish_rescan_bc_keep_key_images(transfer_height, hash_pod);
+            m_wallet->finish_rescan_bc_keep_key_images(enote_idx, hash_pod);
     }
     catch (const std::exception &e)
     {
@@ -3656,7 +3656,7 @@ std::uint64_t WalletImpl::importKeyImages(const std::vector<std::pair<std::strin
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_t offset, std::unordered_set<std::size_t> selected_transfers)
+bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_t offset, std::unordered_set<std::size_t> selected_enotes_indices)
 {
     clearStatus();
 
@@ -3675,8 +3675,8 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
 
     try
     {
-        boost::optional<std::unordered_set<std::size_t>> _selected_transfers = selected_transfers.empty() ? boost::none : boost::optional<std::unordered_set<std::size_t>>(selected_transfers);
-        return m_wallet->import_key_images(key_images_pod, offset, _selected_transfers);
+        boost::optional<std::unordered_set<std::size_t>> _selected_enote_indices = selected_enotes_indices.empty() ? boost::none : boost::optional<std::unordered_set<std::size_t>>(selected_enotes_indices);
+        return m_wallet->import_key_images(key_images_pod, offset, _selected_enote_indices);
     }
     catch (const std::exception &e)
     {
@@ -3701,7 +3701,7 @@ std::size_t WalletImpl::getEnoteIndex(const std::string &key_image) const
             if (ed.m_key_image_known)
                 return idx;
             else if (ed.m_key_image_partial)
-                setStatusError("Failed to get enote index by key image: Transfer detail lookups are not allowed for multisig partial key images");
+                setStatusError("Failed to get enote index by key image: Enote detail lookups are not allowed for multisig partial key images");
         }
     }
 
