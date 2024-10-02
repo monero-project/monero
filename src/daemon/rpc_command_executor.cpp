@@ -2447,14 +2447,13 @@ bool t_rpc_command_executor::set_bootstrap_daemon(
     return true;
 }
 
-bool t_rpc_command_executor::flush_cache(bool bad_txs, bool bad_blocks)
+bool t_rpc_command_executor::flush_cache(bool bad_blocks)
 {
     cryptonote::COMMAND_RPC_FLUSH_CACHE::request req;
     cryptonote::COMMAND_RPC_FLUSH_CACHE::response res;
     std::string fail_message = "Unsuccessful";
     epee::json_rpc::error error_resp;
 
-    req.bad_txs = bad_txs;
     req.bad_blocks = bad_blocks;
 
     if (m_is_rpc)

@@ -125,43 +125,7 @@ namespace cryptonote
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const tx_blob_entry& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
-
-     /**
-      * @brief handles a list of incoming transactions
-      *
-      * Parses incoming transactions and, if nothing is obviously wrong,
-      * passes them along to the transaction pool
-      *
-      * @pre `tx_blobs.size() == tvc.size()`
-      *
-      * @param tx_blobs the txs to handle
-      * @param tvc metadata about the transactions' validity
-      * @param tx_relay how the transaction was received.
-      * @param relayed whether or not the transactions were relayed to us
-      *
-      * @return true if the transactions were accepted, false otherwise
-      */
-     bool handle_incoming_txs(epee::span<const tx_blob_entry> tx_blobs, epee::span<tx_verification_context> tvc, relay_method tx_relay, bool relayed);
-
-     /**
-      * @brief handles a list of incoming transactions
-      *
-      * Parses incoming transactions and, if nothing is obviously wrong,
-      * passes them along to the transaction pool
-      *
-      * @param tx_blobs the txs to handle
-      * @param tvc metadata about the transactions' validity
-      * @param tx_relay how the transaction was received.
-      * @param relayed whether or not the transactions were relayed to us
-      *
-      * @return true if the transactions were accepted, false otherwise
-      */
-     bool handle_incoming_txs(const std::vector<tx_blob_entry>& tx_blobs, std::vector<tx_verification_context>& tvc, relay_method tx_relay, bool relayed)
-     {
-       tvc.resize(tx_blobs.size());
-       return handle_incoming_txs(epee::to_span(tx_blobs), epee::to_mut_span(tvc), tx_relay, relayed);
-     }
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
 
      /**
       * @brief handles an incoming block
@@ -173,12 +137,19 @@ namespace cryptonote
       * @param block_blob the block to be added
       * @param block the block to be added, or NULL
       * @param bvc return-by-reference metadata context about the block's validity
+      * @param extra_block_txs txs belonging to this block that may not be in the mempool
       * @param update_miner_blocktemplate whether or not to update the miner's block template
       *
       * @return false if loading new checkpoints fails, or the block is not
       * added, otherwise true
       */
-     bool handle_incoming_block(const blobdata& block_blob, const block *b, block_verification_context& bvc, bool update_miner_blocktemplate = true);
+     bool handle_incoming_block(const blobdata& block_blob, const block *b,
+       block_verification_context& bvc,
+       bool update_miner_blocktemplate = true);
+
+     bool handle_incoming_block(const blobdata& block_blob, const block *b,
+       block_verification_context& bvc, pool_supplement& extra_block_txs,
+       bool update_miner_blocktemplate = true);
 
      /**
       * @copydoc Blockchain::prepare_handle_incoming_blocks
@@ -462,13 +433,6 @@ namespace cryptonote
       * @param enforce_dns enforce DNS checkpoints or not
       */
      void set_enforce_dns_checkpoints(bool enforce_dns);
-
-     /**
-      * @brief set a listener for txes being added to the txpool
-      *
-      * @param callable to notify, or empty function to disable.
-      */
-     void set_txpool_listener(boost::function<void(std::vector<txpool_event>)> zmq_pub);
 
      /**
       * @brief set whether or not to enable or disable DNS checkpoints
@@ -827,13 +791,6 @@ namespace cryptonote
      bool is_update_available() const { return m_update_available; }
 
      /**
-      * @brief get whether fluffy blocks are enabled
-      *
-      * @return whether fluffy blocks are enabled
-      */
-     bool fluffy_blocks_enabled() const { return m_fluffy_blocks_enabled; }
-
-     /**
       * @brief check a set of hashes against the precompiled hash set
       *
       * @return number of usable blocks
@@ -897,11 +854,6 @@ namespace cryptonote
      bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
      /**
-      * @brief flushes the bad txs cache
-      */
-     void flush_bad_txs_cache();
-
-     /**
       * @brief flushes the invalid block cache
       */
      void flush_invalid_blocks();
@@ -914,6 +866,55 @@ namespace cryptonote
       * @return true iff success, false otherwise
       */
      bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
+
+     /**
+      * @brief validates some simple properties of a transaction
+      *
+      * Currently checks: tx has inputs,
+      *                   tx inputs all of supported type(s),
+      *                   tx outputs valid (type, key, amount),
+      *                   input and output total amounts don't overflow,
+      *                   output amount <= input amount,
+      *                   tx not too large,
+      *                   each input has a different key image.
+      *
+      * @param tx the transaction to check
+      * @param tvc tx verification context where extra fail flags are stored
+      * @param hf_version hard fork version
+      *
+      * @return true if all the checks pass, otherwise false
+      */
+     static bool check_tx_semantic(const transaction& tx, tx_verification_context& tvc,
+      uint8_t hf_version);
+
+     /**
+      * @brief verify that each input key image in a transaction is unique
+      *
+      * @param tx the transaction to check
+      *
+      * @return false if any key image is repeated, otherwise true
+      */
+     static bool check_tx_inputs_keyimages_diff(const transaction& tx);
+
+     /**
+      * @brief verify that each ring uses distinct members
+      *
+      * @param tx the transaction to check
+      * @param hf_version the hard fork version rules to use
+      *
+      * @return false if any ring uses duplicate members, true otherwise
+      */
+     static bool check_tx_inputs_ring_members_diff(const transaction& tx, const uint8_t hf_version);
+
+     /**
+      * @brief verify that each input key image in a transaction is in
+      * the valid domain
+      *
+      * @param tx the transaction to check
+      *
+      * @return false if any key image is not in the valid domain, otherwise true
+      */
+     static bool check_tx_inputs_keyimages_domain(const transaction& tx);
 
    private:
 
@@ -950,7 +951,8 @@ namespace cryptonote
       *
       * @note see Blockchain::add_new_block
       */
-     bool add_new_block(const block& b, block_verification_context& bvc);
+     bool add_new_block(const block& b, block_verification_context& bvc,
+       pool_supplement& extra_block_txs);
 
      /**
       * @brief load any core state stored on disk
@@ -960,49 +962,6 @@ namespace cryptonote
       * @return true
       */
      bool load_state_data();
-
-     /**
-      * @copydoc parse_tx_from_blob(transaction&, crypto::hash&, crypto::hash&, const blobdata&) const
-      *
-      * @note see parse_tx_from_blob(transaction&, crypto::hash&, crypto::hash&, const blobdata&) const
-      */
-     bool parse_tx_from_blob(transaction& tx, crypto::hash& tx_hash, const blobdata& blob) const;
-
-     /**
-      * @brief check a transaction's syntax
-      *
-      * For now this does nothing, but it may check something about the tx
-      * in the future.
-      *
-      * @param tx the transaction to check
-      *
-      * @return true
-      */
-     bool check_tx_syntax(const transaction& tx) const;
-
-     /**
-      * @brief validates some simple properties of a transaction
-      *
-      * Currently checks: tx has inputs,
-      *                   tx inputs all of supported type(s),
-      *                   tx outputs valid (type, key, amount),
-      *                   input and output total amounts don't overflow,
-      *                   output amount <= input amount,
-      *                   tx not too large,
-      *                   each input has a different key image.
-      *
-      * @param tx the transaction to check
-      * @param keeped_by_block if the transaction has been in a block
-      *
-      * @return true if all the checks pass, otherwise false
-      */
-     bool check_tx_semantic(const transaction& tx, bool keeped_by_block) const;
-     void set_semantics_failed(const crypto::hash &tx_hash);
-
-     bool handle_incoming_tx_pre(const tx_blob_entry& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash);
-     bool handle_incoming_tx_post(const tx_blob_entry& tx_blob, tx_verification_context& tvc, cryptonote::transaction &tx, crypto::hash &tx_hash);
-     struct tx_verification_batch_info { const cryptonote::transaction *tx; crypto::hash tx_hash; tx_verification_context &tvc; bool &result; };
-     bool handle_incoming_tx_accumulated_batch(std::vector<tx_verification_batch_info> &tx_info, bool keeped_by_block);
 
      /**
       * @copydoc miner::on_block_chain_update
@@ -1021,35 +980,6 @@ namespace cryptonote
       * @return true
       */
      bool handle_command_line(const boost::program_options::variables_map& vm);
-
-     /**
-      * @brief verify that each input key image in a transaction is unique
-      *
-      * @param tx the transaction to check
-      *
-      * @return false if any key image is repeated, otherwise true
-      */
-     bool check_tx_inputs_keyimages_diff(const transaction& tx) const;
-
-     /**
-      * @brief verify that each ring uses distinct members
-      *
-      * @param tx the transaction to check
-      * @param hf_version the hard fork version rules to use
-      *
-      * @return false if any ring uses duplicate members, true otherwise
-      */
-     bool check_tx_inputs_ring_members_diff(const transaction& tx, const uint8_t hf_version) const;
-
-     /**
-      * @brief verify that each input key image in a transaction is in
-      * the valid domain
-      *
-      * @param tx the transaction to check
-      *
-      * @return false if any key image is not in the valid domain, otherwise true
-      */
-     bool check_tx_inputs_keyimages_domain(const transaction& tx) const;
 
      /**
       * @brief attempts to relay any transactions in the mempool which need it
@@ -1139,9 +1069,6 @@ namespace cryptonote
 
      time_t start_time;
 
-     std::unordered_set<crypto::hash> bad_semantics_txes[2];
-     boost::mutex bad_semantics_txes_lock;
-
      enum {
        UPDATES_DISABLED,
        UPDATES_NOTIFY,
@@ -1153,15 +1080,9 @@ namespace cryptonote
      size_t m_last_update_length;
      boost::mutex m_update_mutex;
 
-     bool m_fluffy_blocks_enabled;
      bool m_offline;
 
-    /* `boost::function` is used because the implementation never allocates if
-       the callable object has a single `std::shared_ptr` or `std::weap_ptr`
-       internally. Whereas, the libstdc++ `std::function` will allocate. */
-
      std::shared_ptr<tools::Notify> m_block_rate_notify;
-     boost::function<void(std::vector<txpool_event>)> m_zmq_pub;
    };
 }
 

@@ -598,7 +598,7 @@ public:
 
     cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
     size_t pool_size = m_c.get_pool_transactions_count();
-    m_c.handle_incoming_tx({t_serializable_object_to_blob(tx), crypto::null_hash}, tvc, m_tx_relay, false);
+    m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_tx_relay, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
     bool r = m_validator.check_tx_verification_context(tvc, tx_added, m_ev_index, tx);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
@@ -609,16 +609,17 @@ public:
   {
     log_event("cryptonote::transaction");
 
-    std::vector<cryptonote::tx_blob_entry> tx_blobs;
+    std::vector<cryptonote::blobdata> tx_blobs;
     std::vector<cryptonote::tx_verification_context> tvcs;
      cryptonote::tx_verification_context tvc0 = AUTO_VAL_INIT(tvc0);
     for (const auto &tx: txs)
     {
-      tx_blobs.push_back({t_serializable_object_to_blob(tx)});
+      tx_blobs.emplace_back(t_serializable_object_to_blob(tx));
       tvcs.push_back(tvc0);
     }
     size_t pool_size = m_c.get_pool_transactions_count();
-    m_c.handle_incoming_txs(tx_blobs, tvcs, m_tx_relay, false);
+    for (size_t i = 0; i < tx_blobs.size(); ++i)
+      m_c.handle_incoming_tx(tx_blobs[i], tvcs[i], m_tx_relay, false);
     size_t tx_added = m_c.get_pool_transactions_count() - pool_size;
     bool r = m_validator.check_tx_verification_context_array(tvcs, tx_added, m_ev_index, txs);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
