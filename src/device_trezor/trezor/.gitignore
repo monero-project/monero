@@ -1,0 +1,1 @@
+trezor-common

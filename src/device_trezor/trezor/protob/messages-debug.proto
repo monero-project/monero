@@ -1,0 +1,185 @@
+syntax = "proto2";
+package hw.trezor.messages.debug;
+
+// Sugar for easier handling in Java
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
+option java_outer_classname = "TrezorMessageDebug";
+
+option (include_in_bitcoin_only) = true;
+
+import "messages.proto";
+import "messages-common.proto";
+import "messages-management.proto";
+
+/**
+ * Request: "Press" the button on the device
+ * @start
+ * @next DebugLinkLayout
+ */
+message DebugLinkDecision {
+    optional DebugButton button = 1;  // button press
+    optional DebugSwipeDirection swipe = 2;  // swipe direction
+    optional string input = 3;  // keyboard input
+    /**
+    * Structure representing swipe direction
+    */
+    enum DebugSwipeDirection {
+        UP = 0;
+        DOWN = 1;
+        LEFT = 2;
+        RIGHT = 3;
+    }
+
+    /**
+    * Structure representing button presses
+    */
+    enum DebugButton {
+        NO = 0;
+        YES = 1;
+        INFO = 2;
+    }
+
+    optional uint32 x = 4;        // touch X coordinate
+    optional uint32 y = 5;        // touch Y coordinate
+    optional bool wait = 6;       // wait for layout change
+    optional uint32 hold_ms = 7;  // touch hold duration
+}
+
+/**
+ * Response: Device text layout
+ * @end
+ */
+message DebugLinkLayout {
+    repeated string lines = 1;
+}
+
+/**
+ * Request: Re-seed RNG with given value
+ * @start
+ * @next Success
+ */
+message DebugLinkReseedRandom {
+    optional uint32 value = 1;
+}
+
+/**
+ * Request: Start or stop recording screen changes into given target directory
+ * @start
+ * @next Success
+ */
+message DebugLinkRecordScreen {
+    optional string target_directory = 1;  // empty or missing to stop recording
+}
+
+/**
+ * Request: Computer asks for device state
+ * @start
+ * @next DebugLinkState
+ */
+message DebugLinkGetState {
+    optional bool wait_word_list = 1;  // Trezor T only - wait until mnemonic words are shown
+    optional bool wait_word_pos = 2;   // Trezor T only - wait until reset word position is requested
+    optional bool wait_layout = 3;     // wait until current layout changes
+}
+
+/**
+ * Response: Device current state
+ * @end
+ */
+message DebugLinkState {
+    optional bytes layout = 1;                              // raw buffer of display
+    optional string pin = 2;                                // current PIN, blank if PIN is not set/enabled
+    optional string matrix = 3;                             // current PIN matrix
+    optional bytes mnemonic_secret = 4;                     // current mnemonic secret
+    optional common.HDNodeType node = 5; // current BIP-32 node
+    optional bool passphrase_protection = 6;                // is node/mnemonic encrypted using passphrase?
+    optional string reset_word = 7;                         // word on device display during ResetDevice workflow
+    optional bytes reset_entropy = 8;                       // current entropy during ResetDevice workflow
+    optional string recovery_fake_word = 9;                 // (fake) word on display during RecoveryDevice workflow
+    optional uint32 recovery_word_pos = 10;                 // index of mnemonic word the device is expecting during RecoveryDevice workflow
+    optional uint32 reset_word_pos = 11;                    // index of mnemonic word the device is expecting during ResetDevice workflow
+    optional management.BackupType mnemonic_type = 12;      // current mnemonic type (BIP-39/SLIP-39)
+    repeated string layout_lines = 13;                      // current layout text
+}
+
+/**
+ * Request: Ask device to restart
+ * @start
+ */
+message DebugLinkStop {
+}
+
+/**
+ * Response: Device wants host to log event
+ * @ignore
+ */
+message DebugLinkLog {
+    optional uint32 level = 1;
+    optional string bucket = 2;
+    optional string text = 3;
+}
+
+/**
+ * Request: Read memory from device
+ * @start
+ * @next DebugLinkMemory
+ */
+message DebugLinkMemoryRead {
+    optional uint32 address = 1;
+    optional uint32 length = 2;
+}
+
+/**
+ * Response: Device sends memory back
+ * @end
+ */
+message DebugLinkMemory {
+    optional bytes memory = 1;
+}
+
+/**
+ * Request: Write memory to device.
+ * WARNING: Writing to the wrong location can irreparably break the device.
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message DebugLinkMemoryWrite {
+    optional uint32 address = 1;
+    optional bytes memory = 2;
+    optional bool flash = 3;
+}
+
+/**
+ * Request: Erase block of flash on device
+ * WARNING: Writing to the wrong location can irreparably break the device.
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message DebugLinkFlashErase {
+    optional uint32 sector = 1;
+}
+
+
+/**
+ * Request: Erase the SD card
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message DebugLinkEraseSdCard {
+    optional bool format = 1;  // if true, the card will be formatted to FAT32.
+                               // if false, it will be all 0xFF bytes.
+}
+
+
+/**
+ * Request: Start or stop tracking layout changes
+ * @start
+ * @next Success
+ */
+message DebugLinkWatchLayout {
+    optional bool watch = 1;  // if true, start watching layout.
+                              // if false, stop.
+}

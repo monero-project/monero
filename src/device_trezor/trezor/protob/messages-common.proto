@@ -1,0 +1,165 @@
+syntax = "proto2";
+package hw.trezor.messages.common;
+
+// Sugar for easier handling in Java
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
+option java_outer_classname = "TrezorMessageCommon";
+
+option (include_in_bitcoin_only) = true;
+
+import "messages.proto";
+
+/**
+ * Response: Success of the previous request
+ * @end
+ */
+message Success {
+    optional string message = 1 [default=""]; // human readable description of action or request-specific payload
+}
+
+/**
+ * Response: Failure of the previous request
+ * @end
+ */
+message Failure {
+    optional FailureType code = 1;  // computer-readable definition of the error state
+    optional string message = 2;    // human-readable message of the error state
+    enum FailureType {
+        Failure_UnexpectedMessage = 1;
+        Failure_ButtonExpected = 2;
+        Failure_DataError = 3;
+        Failure_ActionCancelled = 4;
+        Failure_PinExpected = 5;
+        Failure_PinCancelled = 6;
+        Failure_PinInvalid = 7;
+        Failure_InvalidSignature = 8;
+        Failure_ProcessError = 9;
+        Failure_NotEnoughFunds = 10;
+        Failure_NotInitialized = 11;
+        Failure_PinMismatch = 12;
+        Failure_WipeCodeMismatch = 13;
+        Failure_InvalidSession = 14;
+        Failure_FirmwareError = 99;
+    }
+}
+
+/**
+ * Response: Device is waiting for HW button press.
+ * @auxstart
+ * @next ButtonAck
+ */
+message ButtonRequest {
+    optional ButtonRequestType code = 1;  // enum identifier of the screen
+    optional uint32 pages = 2;            // if the screen is paginated, number of pages
+    /**
+    * Type of button request
+    */
+    enum ButtonRequestType {
+        ButtonRequest_Other = 1;
+        ButtonRequest_FeeOverThreshold = 2;
+        ButtonRequest_ConfirmOutput = 3;
+        ButtonRequest_ResetDevice = 4;
+        ButtonRequest_ConfirmWord = 5;
+        ButtonRequest_WipeDevice = 6;
+        ButtonRequest_ProtectCall = 7;
+        ButtonRequest_SignTx = 8;
+        ButtonRequest_FirmwareCheck = 9;
+        ButtonRequest_Address = 10;
+        ButtonRequest_PublicKey = 11;
+        ButtonRequest_MnemonicWordCount = 12;
+        ButtonRequest_MnemonicInput = 13;
+        _Deprecated_ButtonRequest_PassphraseType = 14 [deprecated=true];
+        ButtonRequest_UnknownDerivationPath = 15;
+        ButtonRequest_RecoveryHomepage = 16;
+        ButtonRequest_Success = 17;
+        ButtonRequest_Warning = 18;
+        ButtonRequest_PassphraseEntry = 19;
+        ButtonRequest_PinEntry = 20;
+    }
+}
+
+/**
+ * Request: Computer agrees to wait for HW button press
+ * @auxend
+ */
+message ButtonAck {
+}
+
+/**
+ * Response: Device is asking computer to show PIN matrix and awaits PIN encoded using this matrix scheme
+ * @auxstart
+ * @next PinMatrixAck
+ */
+message PinMatrixRequest {
+    optional PinMatrixRequestType type = 1;
+    /**
+    * Type of PIN request
+    */
+    enum PinMatrixRequestType {
+        PinMatrixRequestType_Current = 1;
+        PinMatrixRequestType_NewFirst = 2;
+        PinMatrixRequestType_NewSecond = 3;
+        PinMatrixRequestType_WipeCodeFirst = 4;
+        PinMatrixRequestType_WipeCodeSecond = 5;
+    }
+}
+
+/**
+ * Request: Computer responds with encoded PIN
+ * @auxend
+ */
+message PinMatrixAck {
+    required string pin = 1;    // matrix encoded PIN entered by user
+}
+
+/**
+ * Response: Device awaits encryption passphrase
+ * @auxstart
+ * @next PassphraseAck
+ */
+message PassphraseRequest {
+    optional bool _on_device = 1 [deprecated=true];  // <2.3.0
+}
+
+/**
+ * Request: Send passphrase back
+ * @auxend
+ */
+message PassphraseAck {
+    optional string passphrase = 1;
+    optional bytes _state = 2 [deprecated=true];  // <2.3.0
+    optional bool on_device = 3;    // user wants to enter passphrase on the device
+}
+
+/**
+ * Response: Device awaits passphrase state
+ * Deprecated in 2.3.0
+ * @next Deprecated_PassphraseStateAck
+ */
+message Deprecated_PassphraseStateRequest {
+    option deprecated = true;
+    optional bytes state = 1;       // actual device state
+}
+
+/**
+ * Request: Send passphrase state back
+ * Deprecated in 2.3.0
+ * @auxend
+ */
+message Deprecated_PassphraseStateAck {
+    option deprecated = true;
+}
+
+/**
+ * Structure representing BIP32 (hierarchical deterministic) node
+ * Used for imports of private key into the device and exporting public key out of device
+ * @embed
+ */
+message HDNodeType {
+    required uint32 depth = 1;
+    required uint32 fingerprint = 2;
+    required uint32 child_num = 3;
+    required bytes chain_code = 4;
+    optional bytes private_key = 5;
+    required bytes public_key = 6;
+}
