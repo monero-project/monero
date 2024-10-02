@@ -46,9 +46,9 @@ void on_levin_traffic(const context_t &context, bool initiator, bool sent, bool 
 namespace
 {
   static const constexpr epee::serialization::portable_storage::limits_t default_levin_limits = {
-    8192, // objects
-    16384, // fields
-    16384, // strings
+    65536, // objects
+    131072, // fields
+    65536, // strings
   };
 }
 
