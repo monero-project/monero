@@ -6,5 +6,6 @@ $(package)_sha256_hash=df75d30ecafc429e905134333aeae56ac65fac67cb4182622398fd717
 
 define $(package)_stage_cmds
   mkdir -p $($(package)_staging_dir)/$(host_prefix)/native/SDK &&\
+  rm -rf usr/include/readline && \
   mv * $($(package)_staging_dir)/$(host_prefix)/native/SDK
 endef
