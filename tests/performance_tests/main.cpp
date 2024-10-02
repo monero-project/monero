@@ -188,13 +188,20 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE4(filter, p, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 56, 16);
   TEST_PERFORMANCE4(filter, p, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 56, 16);
 
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 1, 0, 1);
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 0xffffffffffffffff);
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 1);
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 1, 0, 1, 0);
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 1, 0, 0, 1);
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0, 1);
-  TEST_PERFORMANCE4(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0, 1, 0, 1, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 0xffffffffffffffff, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 1, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 1, 0, 1, 0, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 1, 0, 0, 1, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0, 1, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, true);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0, 1, 0, 1, false);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 0xffffffffffffffff, false);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 1, false);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 1, 0, 1, 0, false);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 1, 0, 0, 1, false);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0, 1, false);
+  TEST_PERFORMANCE5(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, false);
 
   TEST_PERFORMANCE0(filter, p, test_is_out_to_acc);
   TEST_PERFORMANCE0(filter, p, test_is_out_to_acc_precomp);
