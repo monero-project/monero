@@ -1,0 +1,22 @@
+diff --git a/configure.ac b/configure.ac
+index 6dc7c698..eebe10a1 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -46,7 +46,7 @@ dnl note that we don't just check if the compiler accepts '-std=x11'
+ dnl but also that it supports the _Thread_local keyword because some compilers
+ dnl (e.g. gcc 4.8) accept the command line option but do not implement TLS
+ saved_CFLAGS="${CFLAGS}"
+-CFLAGS="-std=gnu11"
++CFLAGS="${saved_CFLAGS} -std=gnu11"
+ AC_MSG_CHECKING([if $CC supports -std=gnu11])
+ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([_Thread_local int x;], [x = 42;])],
+ 	[AC_MSG_RESULT([yes])
+@@ -55,7 +55,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([_Thread_local int x;], [x = 42;])],
+ 	 c_dialect=])
+ if test "x$c_dialect" != xgnu; then
+ 	dnl fallback check for -std=c11 compiler support (required)
+-	CFLAGS="-std=c11"
++	CFLAGS="${saved_CFLAGS} -std=c11"
+ 	AC_MSG_CHECKING([if $CC supports -std=c11])
+ 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([_Thread_local int x;], [x = 42;])],
+ 		[AC_MSG_RESULT([yes])],
