@@ -43,6 +43,7 @@ static void cache_path_elem(const std::unique_ptr<C> &curve,
     const std::vector<LayerExtension<C>> &layer_exts,
     const std::size_t layer_ext_idx,
     const LayerIdx layer_idx,
+    const bool newly_registered_output,
     ChildChunkIdx &start_child_chunk_idx_inout,
     ChildChunkIdx &end_child_chunk_idx_inout,
     TreeElemCache &cached_tree_elems_inout)
@@ -54,7 +55,6 @@ static void cache_path_elem(const std::unique_ptr<C> &curve,
     const uint64_t n_layer_elems = layer_ext.start_idx + layer_ext.hashes.size();
 
     // TODO: clean this up following cache_last_chunk approach
-    start_child_chunk_idx_inout = std::max(start_child_chunk_idx_inout, layer_ext.start_idx);
     end_child_chunk_idx_inout = std::min(end_child_chunk_idx_inout, n_layer_elems);
 
     MDEBUG("Caching path elems from start_child_chunk_idx: " << start_child_chunk_idx_inout << " to end_child_chunk_idx: " << end_child_chunk_idx_inout);
@@ -63,16 +63,26 @@ static void cache_path_elem(const std::unique_ptr<C> &curve,
     for (ChildChunkIdx child_chunk_idx = start_child_chunk_idx_inout; child_chunk_idx < end_child_chunk_idx_inout; ++child_chunk_idx)
     {
         // TODO: separate function
+        auto cached_layer_it = cached_tree_elems_inout.find(layer_idx);
+        if (child_chunk_idx < layer_ext.start_idx)
+        {
+            // We expect we already have the tree elem cached, since it should be part of the last chunk
+            CHECK_AND_ASSERT_THROW_MES(cached_layer_it != cached_tree_elems_inout.end(), "missing layer from last chunk");
+            auto cached_tree_elem_it = cached_layer_it->second.find(child_chunk_idx);
+            CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing tree elem from last chunk");
+
+            // We only bump the ref count for tree elems not in this tree extension if we're caching path elems for a
+            // newly registered output. This tells the cache to keep the elem cached, don't prune it.
+            if (newly_registered_output)
+                cached_tree_elem_it->second.ref_count += 1;
+
+            continue;
+        }
+
         CHECK_AND_ASSERT_THROW_MES(child_chunk_idx >= layer_ext.start_idx, "low child_chunk_Idx");
         const ChildChunkIdx ext_hash_idx = child_chunk_idx - layer_ext.start_idx;
 
-        MDEBUG("ext_hash_idx: " << ext_hash_idx
-            << " , hash: " << curve->to_string(layer_ext.hashes[ext_hash_idx])
-            << " , update_existing_last_hash: " << layer_ext.update_existing_last_hash
-            << " , child_chunk_idx: " << child_chunk_idx);
-
         // Check if the layer exists
-        auto cached_layer_it = cached_tree_elems_inout.find(layer_idx);
         if (cached_layer_it == cached_tree_elems_inout.end())
         {
             cached_tree_elems_inout[layer_idx] = {{ child_chunk_idx, CachedTreeElem{
@@ -93,11 +103,16 @@ static void cache_path_elem(const std::unique_ptr<C> &curve,
             continue;
         }
 
-        // We're already keeping track of this elem, so bump the ref count
-        cached_tree_elem_it->second.ref_count += 1;
+        // We only need to bump the ref count for *new* path elems in this tree extension, or for elems in the
+        // path of a newly registered output. Otherwise we're duplicating refs to an output's path elems that won't get
+        // purged.
+        // TODO: when implementing reorg, see how this logic can be simplified
+        const bool updating_existing_last_hash = ext_hash_idx == 0 && layer_ext.update_existing_last_hash;
+        if (newly_registered_output || !updating_existing_last_hash)
+            cached_tree_elem_it->second.ref_count += 1;
 
         // If the tree extension is updating an existing value, we need to update it in our cache too
-        if (ext_hash_idx == 0 && layer_ext.update_existing_last_hash)
+        if (updating_existing_last_hash)
         {
             auto tree_elem = curve->to_bytes(layer_ext.hashes.front());
             cached_tree_elem_it->second.tree_elem = std::move(tree_elem);
@@ -115,7 +130,8 @@ static void cache_last_chunk(const std::unique_ptr<C> &curve,
     const std::size_t layer_ext_idx,
     const LayerIdx layer_idx,
     const std::size_t parent_width,
-    TreeElemCache &cached_tree_elems_inout)
+    TreeElemCache &cached_tree_elems_inout,
+    ChildChunkIdxSet &prunable_child_chunks_inout)
 {
     CHECK_AND_ASSERT_THROW_MES(layer_exts.size() > layer_ext_idx, "unexpected high layer_ext_idx");
 
@@ -128,19 +144,32 @@ static void cache_last_chunk(const std::unique_ptr<C> &curve,
     const ChildChunkIdx end_offset = offset ? offset : parent_width;
     CHECK_AND_ASSERT_THROW_MES(end_child_chunk_idx >= end_offset, "high end_offset");
 
-    const ChildChunkIdx start_child_chunk_idx = std::max(layer_ext.start_idx, end_child_chunk_idx - end_offset);
+    const ChildChunkIdx start_child_chunk_idx = end_child_chunk_idx - end_offset;
 
     MDEBUG("Caching start_child_chunk_idx " << start_child_chunk_idx << " to end_child_chunk_idx " << end_child_chunk_idx
         << " (layer start idx " << layer_ext.start_idx << " , parent_width " << parent_width << " , end_offset " << end_offset << ")");
 
-    // TODO: this code is duplicated above
+    // TODO: this code is *mostly* duplicated above with subtle diffs
     for (ChildChunkIdx child_chunk_idx = start_child_chunk_idx; child_chunk_idx < end_child_chunk_idx; ++child_chunk_idx)
     {
+        prunable_child_chunks_inout.insert(child_chunk_idx);
+
+        auto cached_layer_it = cached_tree_elems_inout.find(layer_idx);
+        if (child_chunk_idx < layer_ext.start_idx)
+        {
+            // We expect we already have the tree elem cached, since it should be part of the last chunk
+            CHECK_AND_ASSERT_THROW_MES(cached_layer_it != cached_tree_elems_inout.end(), "missing layer from last chunk");
+            auto cached_tree_elem_it = cached_layer_it->second.find(child_chunk_idx);
+            CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing tree elem from last chunk");
+
+            cached_tree_elem_it->second.ref_count += 1;
+            continue;
+        }
+
         // TODO: separate function
         CHECK_AND_ASSERT_THROW_MES(child_chunk_idx >= layer_ext.start_idx, "low child_chunk_Idx");
         const ChildChunkIdx ext_hash_idx = child_chunk_idx - layer_ext.start_idx;
 
-        auto cached_layer_it = cached_tree_elems_inout.find(layer_idx);
         if (cached_layer_it == cached_tree_elems_inout.end())
         {
             cached_tree_elems_inout[layer_idx] = {{ child_chunk_idx, CachedTreeElem {
@@ -294,6 +323,8 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
         const LeafIdx end_leaf_idx = std::min(start_leaf_idx + m_curve_trees->m_c2_width,
             tree_extension.leaves.start_leaf_tuple_idx + tree_extension.leaves.tuples.size());
 
+        const bool newly_assigned_output = new_assigned_outputs.find(leaf_idx) != new_assigned_outputs.end();
+
         // If the registered output's chunk isn't present in this tree extension, we have no leaves to cache
         if (end_leaf_idx > tree_extension.leaves.start_leaf_tuple_idx)
         {
@@ -310,8 +341,6 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
                     // We only need to bump the ref count for new outputs included in this tree extension, or for
                     // outputs in the chunk of a newly registered output
                     const bool new_leaf = j >= tree_extension.leaves.start_leaf_tuple_idx;
-                    const bool newly_assigned_output = new_assigned_outputs.find(j) != new_assigned_outputs.end();
-
                     if (newly_assigned_output || new_leaf)
                         leaf_it->second.ref_count += 1;
 
@@ -348,6 +377,7 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
                         c2_layer_exts,
                         c2_idx,
                         layer_idx,
+                        newly_assigned_output,
                         start_child_chunk_idx,
                         end_child_chunk_idx,
                         m_cached_tree_elems
@@ -362,6 +392,7 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
                         c1_layer_exts,
                         c1_idx,
                         layer_idx,
+                        newly_assigned_output,
                         start_child_chunk_idx,
                         end_child_chunk_idx,
                         m_cached_tree_elems
@@ -384,12 +415,19 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
 
     // Cache the last chunk of leaves, so if a registered output appears in the first chunk next block, we'll have all
     // prior leaves from that output's chunk
-    // TODO: keep track of which leaves these are by block, so we can delete upon de-queing block from the cache
     // TODO: separate function
+    // TODO: This won't cache the last chunk of leaves if the last chunk is full. This will bork reorg handling, but won't affect
+    //       the normal case of path updating, since a new output won't later appear in an already full chunk. When implementing reorg
+    //       handling, make sure the test catches that this is implemented incorrectly, then fix this.
+    LeavesSet prunable_leaves;
     const LeafIdx start_leaf_idx_last_chunk = new_total_n_leaf_tuples - (new_total_n_leaf_tuples % m_curve_trees->m_c2_width);
     const LeafIdx end_leaf_idx_last_chunk = std::min(start_leaf_idx_last_chunk + m_curve_trees->m_c2_width, new_total_n_leaf_tuples);
     for (LeafIdx i = start_leaf_idx_last_chunk; i < end_leaf_idx_last_chunk; ++i)
     {
+        // "Last chunk" leaves can be pruned once we exceed the max reorg depth and dequeue a block from the cache;
+        // they aren't tied to registered outputs
+        prunable_leaves.insert(i);
+
         // Bump the ref count if it's already cached
         auto leaf_it = m_cached_leaves.find(i);
         if (leaf_it != m_cached_leaves.end())
@@ -408,31 +446,101 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
                 .ref_count = 1,
             };
     }
+    m_prunable_leaves_by_block[block_hash] = std::move(prunable_leaves);
 
     // Cache the last chunk of hashes from every layer. We need to do this to handle all of the following:
     //   1) So we can use the tree's last hashes to grow the tree from here next block.
     //   2) In case a registered output appears in the first chunk next block, we'll have all its path elems cached.
     //   3) To trim the tree on reorg using the last children from each chunk
-    // TODO: keep track of which hashes we add by block, so we can delete upon de-queing block from the cache
     // TODO: separate function
     bool use_c2 = true;
     std::size_t c1_idx = 0, c2_idx = 0;
+    std::unordered_map<LayerIdx, ChildChunkIdxSet> prunable_tree_elems;
+    MDEBUG("Caching last chunks at block " << blk_meta.blk_idx);
     for (LayerIdx layer_idx = 0; layer_idx < n_layers; ++layer_idx)
     {
         MDEBUG("Caching the last chunk from layer " << layer_idx+1 << " / " << n_layers);
+        ChildChunkIdxSet prunable_child_chunks;
         if (use_c2)
         {
-            cache_last_chunk(m_curve_trees->m_c2, c2_layer_exts, c2_idx, layer_idx, m_curve_trees->m_c1_width, m_cached_tree_elems);
+            cache_last_chunk(m_curve_trees->m_c2, c2_layer_exts, c2_idx, layer_idx, m_curve_trees->m_c1_width, m_cached_tree_elems, prunable_child_chunks);
             ++c2_idx;
         }
         else
         {
-            cache_last_chunk(m_curve_trees->m_c1, c1_layer_exts, c1_idx, layer_idx, m_curve_trees->m_c2_width, m_cached_tree_elems);
+            cache_last_chunk(m_curve_trees->m_c1, c1_layer_exts, c1_idx, layer_idx, m_curve_trees->m_c2_width, m_cached_tree_elems, prunable_child_chunks);
             ++c1_idx;
         }
 
+        prunable_tree_elems[layer_idx] = std::move(prunable_child_chunks);
         use_c2 = !use_c2;
     }
+    m_prunable_tree_elems_by_block[block_hash] = std::move(prunable_tree_elems);
+
+    // Dequeue the oldest cached block
+    // TODO: separate function
+    if (m_cached_blocks.size() > m_max_reorg_depth)
+    {
+        CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cached blocks");
+        BlockMeta oldest_block = m_cached_blocks.front();
+
+        // Remove refs to prunable leaves in the cache
+        auto prunable_leaves_it = m_prunable_leaves_by_block.find(oldest_block.blk_hash);
+        CHECK_AND_ASSERT_THROW_MES(prunable_leaves_it != m_prunable_leaves_by_block.end(), "missing block of prunable leaves");
+        for (const auto &prunable_leaf_idx : prunable_leaves_it->second)
+        {
+            auto leaf_it = m_cached_leaves.find(prunable_leaf_idx);
+            CHECK_AND_ASSERT_THROW_MES(leaf_it != m_cached_leaves.end(), "cache is missing leaf");
+            CHECK_AND_ASSERT_THROW_MES(leaf_it->second.ref_count != 0, "leaf has 0 ref count");
+
+            leaf_it->second.ref_count -= 1;
+
+            // If the ref count is 0, garbage collect it
+            if (leaf_it->second.ref_count == 0)
+                m_cached_leaves.erase(leaf_it);
+        }
+        m_prunable_leaves_by_block.erase(oldest_block.blk_hash);
+
+        // Remove refs to prunable tree elems in the cache
+        auto prunable_tree_elems_it = m_prunable_tree_elems_by_block.find(oldest_block.blk_hash);
+        CHECK_AND_ASSERT_THROW_MES(prunable_tree_elems_it != m_prunable_tree_elems_by_block.end(), "missing block of prunable tree elems");
+        for (const auto &tree_elem : prunable_tree_elems_it->second)
+        {
+            const LayerIdx layer_idx = tree_elem.first;
+            const ChildChunkIdxSet &child_chunk_idx_set = tree_elem.second;
+            if (child_chunk_idx_set.empty())
+                continue;
+
+            auto cached_layer_it = m_cached_tree_elems.find(layer_idx);
+            CHECK_AND_ASSERT_THROW_MES(cached_layer_it != m_cached_tree_elems.end(), "missing cached layer");
+
+            for (const auto &child_chunk_idx : child_chunk_idx_set)
+            {
+                auto cached_chunk_it = cached_layer_it->second.find(child_chunk_idx);
+                CHECK_AND_ASSERT_THROW_MES(cached_chunk_it != cached_layer_it->second.end(), "missing cached chunk");
+                CHECK_AND_ASSERT_THROW_MES(cached_chunk_it->second.ref_count != 0, "chunk has 0 ref count");
+
+                cached_chunk_it->second.ref_count -= 1;
+
+                // If the ref count is 0, garbage collect it
+                if (cached_chunk_it->second.ref_count == 0)
+                    m_cached_tree_elems[layer_idx].erase(cached_chunk_it);
+            }
+
+            // If the layer is empty, garbage collect it
+            if (m_cached_tree_elems[layer_idx].empty())
+                m_cached_tree_elems.erase(layer_idx);
+        }
+        m_prunable_tree_elems_by_block.erase(oldest_block.blk_hash);
+
+        // Prune the block
+        m_cached_blocks.pop();
+
+        // Keep in mind: the registered output path should remain untouched, chain state isn't changing. We're only
+        // purging refs to last chunks from the cache.
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(m_max_reorg_depth >= m_cached_blocks.size(), "cached blocks exceeded max reorg depth");
 }
 
 // Explicit instantiation
