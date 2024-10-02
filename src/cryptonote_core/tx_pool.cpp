@@ -694,19 +694,21 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive) const
+  bool tx_memory_pool::get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t limit_size) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     txs.clear();
+    size_t size = 0;
 
     for (const auto &it: txids)
     {
       tx_details details;
       bool success = get_transaction_info(it, details, include_sensitive, true/*include_blob*/);
-      if (success)
+      if (success && (!limit_size || (size + details.blob_size < limit_size)))
       {
+        size += details.blob_size;
         txs.push_back(std::make_pair(it, std::move(details)));
       }
     }
@@ -985,7 +987,7 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t limit_size) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1029,7 +1031,7 @@ namespace cryptonote
         remaining_added_txids = std::vector<crypto::hash>(txids.begin() + max_tx_count, txids.end());
         txids.erase(txids.begin() + max_tx_count, txids.end());
       }
-      get_transactions_info(txids, added_txs, include_sensitive);
+      get_transactions_info(txids, added_txs, include_sensitive, limit_size);
       return true;
     }
 
@@ -1039,7 +1041,7 @@ namespace cryptonote
       if (pit.second >= start_time)
         txids.push_back(pit.first);
     }
-    get_transactions_info(txids, added_txs, include_sensitive);
+    get_transactions_info(txids, added_txs, include_sensitive, limit_size);
     if (added_txs.size() > max_tx_count)
     {
       remaining_added_txids.reserve(added_txs.size() - max_tx_count);
