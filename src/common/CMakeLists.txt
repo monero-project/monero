@@ -52,10 +52,6 @@ if (STACK_TRACE)
   list(APPEND common_sources stack_trace.cpp)
 endif()
 
-if (BACKCOMPAT)
-  list(APPEND common_sources compat/glibc_compat.cpp)
-endif()
-
 set(common_headers)
 
 monero_find_all_headers(common_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
