@@ -228,8 +228,6 @@ static bool validate_layer(const std::unique_ptr<C> &curve,
 template<typename C_CHILD, typename C_PARENT>
 static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(const std::unique_ptr<C_CHILD> &c_child,
     const CurveTreesGlobalTree::Layer<C_CHILD> &child_layer,
-    const bool need_last_chunk_children_to_trim,
-    const bool need_last_chunk_remaining_children,
     const std::size_t start_trim_idx,
     const std::size_t end_trim_idx)
 {
@@ -821,10 +819,8 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
 
         const auto &trim_layer_instructions = trim_instructions[i];
 
-        const bool need_last_chunk_children_to_trim   = trim_layer_instructions.need_last_chunk_children_to_trim;
-        const bool need_last_chunk_remaining_children = trim_layer_instructions.need_last_chunk_remaining_children;
-        const std::size_t start_trim_idx              = trim_layer_instructions.start_trim_idx;
-        const std::size_t end_trim_idx                = trim_layer_instructions.end_trim_idx;
+        const std::size_t start_trim_idx = trim_layer_instructions.start_trim_idx;
+        const std::size_t end_trim_idx   = trim_layer_instructions.end_trim_idx;
 
         if (parent_is_c2)
         {
@@ -833,8 +829,6 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
             auto children_to_trim = get_last_chunk_children_to_trim<Helios, Selene>(
                 m_curve_trees.m_c1,
                 m_tree.c1_layers[c1_idx],
-                need_last_chunk_children_to_trim,
-                need_last_chunk_remaining_children,
                 start_trim_idx,
                 end_trim_idx);
 
@@ -848,8 +842,6 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
             auto children_to_trim = get_last_chunk_children_to_trim<Selene, Helios>(
                 m_curve_trees.m_c2,
                 m_tree.c2_layers[c2_idx],
-                need_last_chunk_children_to_trim,
-                need_last_chunk_remaining_children,
                 start_trim_idx,
                 end_trim_idx);
 

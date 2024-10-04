@@ -282,6 +282,26 @@ public:
         }
     };
 
+    // The indexes in the tree of a leaf's path elems containing whole chunks at each layer
+    // - leaf_range refers to a complete chunk of leaves
+    // - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The index of the hash of the chunk
+    //   of leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
+    // - layers alternate between C1 and C2
+    // - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The indeox of the hash of
+    //   the chunk of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems
+    //   that has is in.
+    // - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
+    struct PathIndexes final
+    {
+        using StartIdx = uint64_t;
+        using EndIdxExclusive = uint64_t;
+        using Range = std::pair<StartIdx, EndIdxExclusive>;
+
+        Range leaf_range;
+        std::vector<Range> c1_layers;
+        std::vector<Range> c2_layers;
+    };
+
 //member functions
 public:
     // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
@@ -311,6 +331,10 @@ public:
 
     // Calculate how many layers in the tree there are based on the number of leaf tuples
     std::size_t n_layers(const std::size_t n_leaf_tuples) const;
+
+    // Get path indexes for the provided leaf tuple
+    // - Returns empty path indexes if leaf is not in the tree (if n_leaf_tuples <= leaf_tuple_idx)
+    PathIndexes get_path_indexes(const uint64_t n_leaf_tuples, const uint64_t leaf_tuple_idx) const;
 
     // Audit the provided path
     bool audit_path(const Path &path, const OutputPair &output, const std::size_t n_leaf_tuples_in_tree) const;

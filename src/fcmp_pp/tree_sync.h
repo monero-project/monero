@@ -33,8 +33,8 @@
 #include "curve_trees.h"
 #include "ringct/rctTypes.h"
 
+#include <deque>
 #include <memory>
-#include <queue>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -89,7 +89,10 @@ struct CachedLeafTuple final
 struct AssignedLeafIdx final
 {
     bool assigned_leaf_idx{false};
-    uint64_t leaf_idx{0};
+    LeafIdx leaf_idx{0};
+
+    void assign_leaf(const LeafIdx idx) { leaf_idx = idx; assigned_leaf_idx = true; }
+    void unassign_leaf() { leaf_idx = 0; assigned_leaf_idx = false; }
 };
 
 struct RegisteredOutputContext final
@@ -98,8 +101,11 @@ struct RegisteredOutputContext final
     bool included_in_tree{false};
 };
 
-using TreeElemCache = std::unordered_map<LayerIdx, std::unordered_map<ChildChunkIdx, CachedTreeElem>>;
-using LeavesSet = std::unordered_set<LeafIdx>;
+using ChildChunkCache  = std::unordered_map<ChildChunkIdx, CachedTreeElem>;
+
+// TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
+using TreeElemCache    = std::unordered_map<LayerIdx, ChildChunkCache>;
+using LeavesSet        = std::unordered_set<LeafIdx>;
 using ChildChunkIdxSet = std::unordered_set<ChildChunkIdx>;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -132,10 +138,9 @@ public:
     // - Returns false if the output is already registered
     // - Throws if the TreeSync object has already synced the block in which the output unlocks. The scanner would not
     //   be able to determine the output's position in the tree in this case
-    bool register_output(const uint64_t block_idx_included_in_chain,
-        const crypto::hash &block_hash_included_in_chain,
-        const uint64_t unlock_block_idx,
-        const OutputPair &output);
+    bool register_output(const OutputPair &output, const uint64_t unlock_block_idx);
+
+    // TODO: bool cancel_output_registration
 
     // Sync the leaf tuples from the provided block
     // - The block must be contiguous to the most recently synced block
@@ -159,6 +164,14 @@ public:
 private:
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes(const std::size_t n_leaf_tuples) const;
 
+    typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
+        const std::vector<TrimLayerInstructions> &trim_instructions) const;
+
+    typename CurveTrees<C1, C2>::LastHashes get_last_hashes_to_trim(
+        const std::vector<TrimLayerInstructions> &trim_instructions) const;
+
+    void deque_block(const BlockHash &block_hash);
+
 // Internal member variables
 private:
     std::shared_ptr<CurveTrees<C1, C2>> m_curve_trees;
@@ -167,12 +180,9 @@ private:
     // The outputs that TreeSync should keep track of while syncing
     std::unordered_map<OutputRef, AssignedLeafIdx> m_registered_outputs;
 
-    // TODO: this likely isn't the right data structure. Need to get all outputs by block hash (this keeps elems by key unordered)
-    std::unordered_multimap<BlockHash, RegisteredOutputContext> m_registered_outputs_by_block;
-
     // Cached leaves and tree elems
     std::unordered_map<LeafIdx, CachedLeafTuple> m_cached_leaves;
-    TreeElemCache m_cached_tree_elems;
+    TreeElemCache m_tree_elem_cache;
 
     // Keep track of cached tree elems that are not needed for path data and can be pruned from the cache once the cache
     // reaches m_max_reorg_depth
@@ -182,7 +192,7 @@ private:
     // Used for getting tree extensions and reductions when growing and trimming respectively
     // - These are unspecific to the wallet's registered outputs. These are strictly necessary to ensure we can rebuild
     //   the tree extensions and reductions for each block correctly locally when syncing.
-    std::queue<BlockMeta> m_cached_blocks;
+    std::deque<BlockMeta> m_cached_blocks;
 
 // TODO: serialization
 };
