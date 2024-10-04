@@ -1027,18 +1027,18 @@ template CurveTrees<Helios, Selene>::TreeReduction CurveTrees<Helios, Selene>::g
     const LastHashes &last_hashes) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-std::size_t CurveTrees<C1, C2>::n_layers(const std::size_t n_leaf_tuples) const
+std::size_t CurveTrees<C1, C2>::n_layers(const uint64_t n_leaf_tuples) const
 {
     if (n_leaf_tuples == 0)
         return 0;
 
-    std::size_t n_children = n_leaf_tuples;
+    uint64_t n_children = n_leaf_tuples;
     std::size_t n_layers = 0;
     bool use_c2 = true;
     do
     {
-        const std::size_t width = use_c2 ? m_c2_width : m_c1_width;
-        const std::size_t n_parents = ((n_children - 1) / width) + 1;
+        const std::size_t parent_chunk_width = use_c2 ? m_c2_width : m_c1_width;
+        const uint64_t n_parents = ((n_children - 1) / parent_chunk_width) + 1;
         n_children = n_parents;
         use_c2 = !use_c2;
         ++n_layers;
@@ -1046,6 +1046,58 @@ std::size_t CurveTrees<C1, C2>::n_layers(const std::size_t n_leaf_tuples) const
     while (n_children > 1);
 
     return n_layers;
+}
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+typename CurveTrees<C1, C2>::PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples,
+    const uint64_t leaf_tuple_idx) const
+{
+    CurveTrees<C1, C2>::PathIndexes path_indexes_out;
+
+    if (n_leaf_tuples <= leaf_tuple_idx)
+        return path_indexes_out;
+
+    MERROR("n_leaf_tuples: " << n_leaf_tuples << " , leaf_tuple_idx: " << leaf_tuple_idx);
+
+    uint64_t child_idx = leaf_tuple_idx;
+    uint64_t n_children = n_leaf_tuples;
+    bool leaf_layer = true;
+    bool parent_is_c2 = true;
+    do
+    {
+        const std::size_t parent_chunk_width = parent_is_c2 ? m_c2_width : m_c1_width;
+        const uint64_t parent_idx = child_idx / parent_chunk_width;
+
+        const uint64_t start_range = parent_idx * parent_chunk_width;
+        const uint64_t end_range = std::min(n_children, start_range + parent_chunk_width);
+
+        const uint64_t n_parents = (leaf_layer || n_children > 1)
+            ? (((n_children - 1) / parent_chunk_width) + 1)
+            : 0;
+
+        MDEBUG("start_range: " << start_range
+            << " ,  end_range: " << end_range
+            << " ,  parent_chunk_width: " << parent_chunk_width
+            << " ,  n_parents: " << n_parents
+            << " ,  parent_idx: " << parent_idx);
+
+        std::pair<uint64_t, uint64_t> range = { start_range, end_range };
+        if (leaf_layer)
+            path_indexes_out.leaf_range = std::move(range);
+        else if (parent_is_c2)
+            path_indexes_out.c1_layers.emplace_back(std::move(range));
+        else
+            path_indexes_out.c2_layers.emplace_back(std::move(range));
+
+        child_idx = parent_idx;
+        n_children = n_parents;
+
+        leaf_layer = false;
+        parent_is_c2 = !parent_is_c2;
+    }
+    while (n_children > 0);
+
+    return path_indexes_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<>
