@@ -75,48 +75,32 @@ enum NetworkType : uint8_t {
 */
 struct EnoteDetails
 {
-    // QUESTION : If this struct is done, should I create the files "src/wallet/api/enote_details.[h/cpp]", put all the member variables inside the header and only set virtual getter functions in here, like it's done for other structs below?
-    // Ko
-    std::string m_onetime_address;
-    // view_tag
-    std::string m_view_tag;
-    // this enote was received at block height
-    std::uint64_t m_block_height;
-    // tx id in which tx enote was received
-    std::string m_tx_id;
-    // relative index in tx
-    std::uint64_t m_internal_enote_index;
-    // absolute index from `cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry.output_indices`
-    std::uint64_t m_global_enote_index;
-    // is spent
-    bool m_spent;
-    // is frozen
-    bool m_frozen;
-    // blockchain height, set if spent
-    std::uint64_t m_spent_height;
-    // key image
-    std::string m_key_image;
-    // x, blinding factor in amount commitment C = x G + a H
-    std::string m_mask;
-    // a
-    std::uint64_t m_amount;
-    // protocol version : cn = CryptoNote, rct = RingCT
-    enum { cn, rct } m_protocol_version;
-    // is key image known
-    bool m_key_image_known;
-    // view wallets: we want to request it; cold wallets: it was requested
-    bool m_key_image_request;
-    // public key index in tx_extra
-    uint64_t m_pk_index;
-    // track uses of this enote in the blockchain in the format [ [block_height, tx_id], ... ] if `wallet2::m_track_uses` is true (default is false)
-    std::vector<std::pair<std::uint64_t, std::string>> m_uses;
-// QUESTION : Any input on these multisig members? I'd ignore them for now.
+    enum TxProtocol {
+        Tx_Protocol_CryptoNote,
+        Tx_Protocol_RingCT
+    };
+
+    virtual ~EnoteDetails() = 0;
+    virtual std::string onetimeAddress() const = 0;
+    virtual std::string viewTag() const = 0;
+    virtual std::uint64_t blockHeight() const = 0;
+    virtual std::string txId() const = 0;
+    virtual std::uint64_t internalEnoteIndex() const = 0;
+    virtual std::uint64_t globalEnoteIndex() const = 0;
+    virtual bool isSpent() const = 0;
+    virtual bool isFrozen() const = 0;
+    virtual std::uint64_t spentHeight() const = 0;
+    virtual std::string keyImage() const = 0;
+    virtual std::string mask() const = 0;
+    virtual std::uint64_t amount() const = 0;
+    virtual TxProtocol protocolVersion() const = 0;
+    virtual bool isKeyImageKnown() const = 0;
+    virtual bool isKeyImageRequest() const = 0;
+    virtual uint64_t pkIndex() const = 0;
+    virtual std::vector<std::pair<std::uint64_t, std::string>> uses() const = 0;
+
     // Multisig
-    bool m_key_image_partial;
-    /*
-    std::vector<rct::key> m_multisig_k;
-    std::vector<multisig_info> m_multisig_info; // one per other participant
-    */
+    virtual bool isKeyImagePartial() const = 0;
 };
 
 /**
@@ -1318,7 +1302,7 @@ struct Wallet
     * brief: getEnoteDetails - get information about all enotes
     * outparam: enote_details -
     */
-    virtual void getEnoteDetails(std::vector<EnoteDetails> &enote_details) const = 0;
+    virtual void getEnoteDetails(std::vector<std::shared_ptr<EnoteDetails>> &enote_details) const = 0;
     /**
     * brief: convertMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
     * param: multisig_ptx - multisig pending transaction

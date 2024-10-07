@@ -30,6 +30,7 @@
 
 
 #include "wallet.h"
+#include "enote_details.h"
 #include "pending_transaction.h"
 #include "unsigned_transaction.h"
 #include "transaction_history.h"
@@ -3074,43 +3075,43 @@ void WalletImpl::processPoolState(const std::vector<std::tuple<cryptonote::trans
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-void WalletImpl::getEnoteDetails(std::vector<EnoteDetails> &enote_details) const
+void WalletImpl::getEnoteDetails(std::vector<std::shared_ptr<EnoteDetails>> &enote_details) const
 {
     tools::wallet2::transfer_container tc;
     m_wallet->get_transfers(tc);
     enote_details.reserve(tc.size());
 
-    for (auto &td : tc)
+    for (const auto &td : tc)
     {
-        EnoteDetails ed{};
+        auto ed = std::make_shared<EnoteDetailsImpl>();
 
         cryptonote::txout_target_v txout_v = td.m_tx.vout[td.m_internal_output_index].target;
         if (txout_v.type() == typeid(cryptonote::txout_to_key))
-            ed.m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_key>(txout_v).key);
+            ed->m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_key>(txout_v).key);
         else if (txout_v.type() == typeid(cryptonote::txout_to_tagged_key))
         {
-            ed.m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).key);
-            ed.m_view_tag = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).view_tag);
+            ed->m_onetime_address = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).key);
+            ed->m_view_tag = epee::string_tools::pod_to_hex(boost::get<cryptonote::txout_to_tagged_key>(txout_v).view_tag);
         }
 
-        ed.m_block_height = td.m_block_height;
-        ed.m_tx_id = epee::string_tools::pod_to_hex(td.m_txid);
-        ed.m_internal_enote_index = td.m_internal_output_index;
-        ed.m_global_enote_index = td.m_global_output_index;
-        ed.m_spent = td.m_spent;
-        ed.m_frozen = td.m_frozen;
-        ed.m_spent_height = td.m_spent_height;
-        ed.m_key_image = epee::string_tools::pod_to_hex(td.m_key_image);
-        ed.m_mask = epee::string_tools::pod_to_hex(td.m_mask);
-        ed.m_amount = td.m_amount;
-        ed.m_protocol_version = td.m_rct ? EnoteDetails::rct : EnoteDetails::cn;
-        ed.m_key_image_known = td.m_key_image_known;
-        ed.m_key_image_request = td.m_key_image_request;
-        ed.m_pk_index = td.m_pk_index;
-        ed.m_uses.reserve(td.m_uses.size());
+        ed->m_block_height = td.m_block_height;
+        ed->m_tx_id = epee::string_tools::pod_to_hex(td.m_txid);
+        ed->m_internal_enote_index = td.m_internal_output_index;
+        ed->m_global_enote_index = td.m_global_output_index;
+        ed->m_spent = td.m_spent;
+        ed->m_frozen = td.m_frozen;
+        ed->m_spent_height = td.m_spent_height;
+        ed->m_key_image = epee::string_tools::pod_to_hex(td.m_key_image);
+        ed->m_mask = epee::string_tools::pod_to_hex(td.m_mask);
+        ed->m_amount = td.m_amount;
+        ed->m_protocol_version = td.m_rct ? EnoteDetails::Tx_Protocol_RingCT : EnoteDetails::Tx_Protocol_CryptoNote;
+        ed->m_key_image_known = td.m_key_image_known;
+        ed->m_key_image_request = td.m_key_image_request;
+        ed->m_pk_index = td.m_pk_index;
+        ed->m_uses.reserve(td.m_uses.size());
         for (auto &u : td.m_uses)
-            ed.m_uses.push_back(std::make_pair(u.first, epee::string_tools::pod_to_hex(u.second)));
-        ed.m_key_image_partial = td.m_key_image_partial;
+            ed->m_uses.push_back(std::make_pair(u.first, epee::string_tools::pod_to_hex(u.second)));
+        ed->m_key_image_partial = td.m_key_image_partial;
 
         enote_details.push_back(ed);
     }
@@ -3691,16 +3692,16 @@ bool WalletImpl::importKeyImages(std::vector<std::string> key_images, std::size_
 //-------------------------------------------------------------------------------------------------------------------
 std::size_t WalletImpl::getEnoteIndex(const std::string &key_image) const
 {
-    std::vector<EnoteDetails> enote_details;
+    std::vector<std::shared_ptr<EnoteDetails>> enote_details;
     getEnoteDetails(enote_details);
     for (size_t idx = 0; idx < enote_details.size(); ++idx)
     {
-        const EnoteDetails &ed = enote_details[idx];
-        if (ed.m_key_image == key_image)
+        const auto &ed = std::dynamic_pointer_cast<EnoteDetailsImpl>(enote_details[idx]);
+        if (ed->m_key_image == key_image)
         {
-            if (ed.m_key_image_known)
+            if (ed->m_key_image_known)
                 return idx;
-            else if (ed.m_key_image_partial)
+            else if (ed->m_key_image_partial)
                 setStatusError("Failed to get enote index by key image: Enote detail lookups are not allowed for multisig partial key images");
         }
     }
