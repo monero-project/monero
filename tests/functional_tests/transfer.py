@@ -30,6 +30,7 @@
 
 from __future__ import print_function
 import json
+import util_resources
 import pprint
 from deepdiff import DeepDiff
 pp = pprint.PrettyPrinter(indent=2)
@@ -45,6 +46,17 @@ seeds = [
     'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
     'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
 ]
+
+def diff_transfers(actual_transfers, expected_transfers, ignore_order = True):
+    # The payments containers aren't ordered; re-scanning can lead to diff orders
+    diff = DeepDiff(actual_transfers, expected_transfers, ignore_order = ignore_order)
+    if diff != {}:
+        pp.pprint(diff)
+    assert diff == {}
+
+def diff_incoming_transfers(actual_transfers, expected_transfers):
+    # wallet2 m_transfers container is ordered and order should be the same across rescans
+    diff_transfers(actual_transfers, expected_transfers, ignore_order = False)
 
 class TransferTest():
     def run_test(self):
@@ -63,6 +75,8 @@ class TransferTest():
         self.check_is_key_image_spent()
         self.check_scan_tx()
         self.check_subtract_fee_from_outputs()
+        self.check_background_sync()
+        self.check_background_sync_reorg_recovery()
 
     def reset(self):
         print('Resetting blockchain')
@@ -840,12 +854,6 @@ class TransferTest():
 
         print('Testing scan_tx')
 
-        def diff_transfers(actual_transfers, expected_transfers):
-            diff = DeepDiff(actual_transfers, expected_transfers)
-            if diff != {}:
-                pp.pprint(diff)
-            assert diff == {}
-
         # set up sender_wallet
         sender_wallet = self.wallet[0]
         try: sender_wallet.close_wallet()
@@ -1126,6 +1134,386 @@ class TransferTest():
             raise ValueError('transfer request with index should have thrown')
         except AssertionError:
             pass
+
+    def check_background_sync(self):
+        daemon = Daemon()
+
+        print('Testing background sync')
+
+        # Some helper functions
+        def stop_with_wrong_inputs(wallet, wallet_password, seed = ''):
+            invalid = False
+            try: wallet.stop_background_sync(wallet_password = wallet_password, seed = seed)
+            except: invalid = True
+            assert invalid
+
+        def open_with_wrong_password(wallet, filename, password):
+            invalid_password = False
+            try: wallet.open_wallet(filename, password = password)
+            except: invalid_password = True
+            assert invalid_password
+
+        def restore_wallet(wallet, seed, filename = '', password = ''):
+            wallet.close_wallet()
+            if filename != '':
+                util_resources.remove_wallet_files(filename)
+            wallet.restore_deterministic_wallet(seed = seed, filename = filename, password = password)
+            wallet.auto_refresh(enable = False)
+            assert wallet.get_transfers() == {}
+
+        def assert_correct_transfers(wallet, expected_transfers, expected_inc_transfers, expected_balance):
+            diff_transfers(wallet.get_transfers(), expected_transfers)
+            diff_incoming_transfers(wallet.incoming_transfers(transfer_type = 'all'), expected_inc_transfers)
+            assert wallet.get_balance().balance == expected_balance
+
+        # Set up sender_wallet. Prepare to sweep single output to receiver.
+        # We're testing a sweep because it makes sure background sync can
+        # properly pick up txs which do not have a change output back to sender.
+        sender_wallet = self.wallet[0]
+        try: sender_wallet.close_wallet()
+        except: pass
+        sender_wallet.restore_deterministic_wallet(seed = seeds[0])
+        sender_wallet.auto_refresh(enable = False)
+        sender_wallet.refresh()
+        res = sender_wallet.incoming_transfers(transfer_type = 'available')
+        unlocked = [x for x in res.transfers if x.unlocked and x.amount > 0]
+        assert len(unlocked) > 0
+        ki = unlocked[0].key_image
+        amount = unlocked[0].amount
+        spent_txid = unlocked[0].tx_hash
+        sender_wallet.refresh()
+        res = sender_wallet.get_transfers()
+        out_len = 0 if 'out' not in res else len(res.out)
+        sender_starting_balance = sender_wallet.get_balance().balance
+
+        # Background sync type options
+        reuse_password = sender_wallet.background_sync_options.reuse_password
+        custom_password = sender_wallet.background_sync_options.custom_password
+
+        # set up receiver_wallet
+        receiver_wallet = self.wallet[1]
+        try: receiver_wallet.close_wallet()
+        except: pass
+        receiver_wallet.restore_deterministic_wallet(seed = seeds[1])
+        receiver_wallet.auto_refresh(enable = False)
+        receiver_wallet.refresh()
+        res = receiver_wallet.get_transfers()
+        in_len = 0 if 'in' not in res else len(res['in'])
+        receiver_starting_balance = receiver_wallet.get_balance().balance
+
+        # transfer from sender_wallet to receiver_wallet
+        dst = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW'
+        res = sender_wallet.sweep_single(dst, key_image = ki)
+        assert len(res.tx_hash) == 32*2
+        txid = res.tx_hash
+        assert res.fee > 0
+        fee = res.fee
+        assert res.amount == amount - fee
+
+        expected_sender_balance = sender_starting_balance - amount
+        expected_receiver_balance = receiver_starting_balance + (amount - fee)
+
+        print('Checking background sync on outgoing wallet')
+        sender_wallet.setup_background_sync(background_sync_type = reuse_password)
+        sender_wallet.start_background_sync()
+        # Mine block to an uninvolved wallet
+        daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
+        # sender should still be able to scan the transfer normally because we
+        # spent an output that had a known key image
+        sender_wallet.refresh()
+        transfers = sender_wallet.get_transfers()
+        assert 'pending' not in transfers or len(transfers.pending) == 0
+        assert 'pool' not in transfers or len (transfers.pool) == 0
+        assert len(transfers.out) == out_len + 1
+        tx = [x for x in transfers.out if x.txid == txid]
+        assert len(tx) == 1
+        tx = tx[0]
+        assert tx.amount == amount - fee
+        assert tx.fee == fee
+        assert len(tx.destinations) == 1
+        assert tx.destinations[0].amount == amount - fee
+        assert tx.destinations[0].address == dst
+        incoming_transfers = sender_wallet.incoming_transfers(transfer_type = 'all')
+        assert len([x for x in incoming_transfers.transfers if x.tx_hash == spent_txid and x.key_image == ki and x.spent]) == 1
+        assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        # Restore and check background syncing outgoing wallet
+        restore_wallet(sender_wallet, seeds[0])
+        sender_wallet.setup_background_sync(background_sync_type = reuse_password)
+        sender_wallet.start_background_sync()
+        sender_wallet.refresh()
+        for i, out_tx in enumerate(transfers.out):
+            if 'destinations' in out_tx:
+                del transfers.out[i]['destinations'] # destinations are not expected after wallet restore
+        # sender's balance should be higher because can't detect spends while
+        # background sync enabled, only receives
+        background_bal = sender_wallet.get_balance().balance
+        assert background_bal > expected_sender_balance
+        background_transfers = sender_wallet.get_transfers()
+        assert 'out' not in background_transfers or len(background_transfers.out) == 0
+        assert 'in' in background_transfers and len(background_transfers['in']) > 0
+        background_incoming_transfers = sender_wallet.incoming_transfers(transfer_type = 'all')
+        assert len(background_incoming_transfers) == len(incoming_transfers)
+        assert len([x for x in background_incoming_transfers.transfers if x.spent or x.key_image != '']) == 0
+        assert len([x for x in background_incoming_transfers.transfers if x.tx_hash == spent_txid]) == 1
+
+        # Try to stop background sync with the wrong seed
+        stop_with_wrong_inputs(sender_wallet, wallet_password = '', seed = seeds[1])
+
+        # Stop background sync and check transfers update correctly
+        sender_wallet.stop_background_sync(wallet_password = '', seed = seeds[0])
+        assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        # Check stopping a wallet with wallet files saved to disk
+        for background_sync_type in [reuse_password, custom_password]:
+            restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
+            sender_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = background_cache_password)
+            sender_wallet.start_background_sync()
+            sender_wallet.refresh()
+            assert_correct_transfers(sender_wallet, background_transfers, background_incoming_transfers, background_bal)
+            stop_with_wrong_inputs(sender_wallet, 'wrong_password')
+            sender_wallet.stop_background_sync(wallet_password = 'test_password')
+            assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        # Close wallet while background syncing, then reopen
+        for background_sync_type in [reuse_password, custom_password]:
+            restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
+            sender_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = background_cache_password)
+            sender_wallet.start_background_sync()
+            sender_wallet.refresh()
+            assert_correct_transfers(sender_wallet, background_transfers, background_incoming_transfers, background_bal)
+            sender_wallet.close_wallet()
+            open_with_wrong_password(sender_wallet, 'test1', 'wrong_password')
+            sender_wallet.open_wallet('test1', password = 'test_password')
+            # It should reopen with spend key loaded and correctly scan all transfers
+            assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        # Close wallet while syncing normally, then reopen
+        for background_sync_type in [reuse_password, custom_password]:
+            restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
+            sender_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = background_cache_password)
+            sender_wallet.refresh()
+            assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+            sender_wallet.close_wallet()
+            open_with_wrong_password(sender_wallet, 'test1', 'wrong_password')
+            sender_wallet.open_wallet('test1', password = 'test_password')
+            assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        # Create background cache using custom password, then use it to sync, then reopen main wallet
+        for background_cache_password in ['background_password', '']:
+            restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+            assert not util_resources.file_exists('test1.background')
+            assert not util_resources.file_exists('test1.background.keys')
+            sender_wallet.setup_background_sync(background_sync_type = custom_password, wallet_password = 'test_password', background_cache_password = background_cache_password)
+            assert util_resources.file_exists('test1.background')
+            assert util_resources.file_exists('test1.background.keys')
+            sender_wallet.close_wallet()
+            open_with_wrong_password(sender_wallet, 'test1.background', 'test_password')
+            sender_wallet.open_wallet('test1.background', password = background_cache_password)
+            sender_wallet.refresh()
+            assert_correct_transfers(sender_wallet, background_transfers, background_incoming_transfers, background_bal)
+            sender_wallet.close_wallet()
+            sender_wallet.open_wallet('test1', password = 'test_password')
+            assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        # Check that main wallet keeps background cache encrypted with custom password in sync
+        restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+        sender_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = 'background_password')
+        sender_wallet.refresh()
+        assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+        sender_wallet.close_wallet()
+        sender_wallet.open_wallet('test1.background', password = 'background_password')
+        assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        # Try using wallet password as custom background password
+        restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+        assert not util_resources.file_exists('test1.background')
+        assert not util_resources.file_exists('test1.background.keys')
+        same_password = False
+        try: sender_wallet.setup_background_sync(background_sync_type = custom_password, wallet_password = 'test_password', background_cache_password = 'test_password')
+        except: same_password = True
+        assert same_password
+        assert not util_resources.file_exists('test1.background')
+        assert not util_resources.file_exists('test1.background.keys')
+
+        # Turn off background sync
+        for background_sync_type in [reuse_password, custom_password]:
+            restore_wallet(sender_wallet, seeds[0], 'test1', 'test_password')
+            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
+            sender_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = background_cache_password)
+            if background_sync_type == custom_password:
+                assert util_resources.file_exists('test1.background')
+                assert util_resources.file_exists('test1.background.keys')
+                sender_wallet.close_wallet()
+                assert util_resources.file_exists('test1.background')
+                assert util_resources.file_exists('test1.background.keys')
+            else:
+                assert not util_resources.file_exists('test1.background')
+                assert not util_resources.file_exists('test1.background.keys')
+                sender_wallet.close_wallet()
+                assert not util_resources.file_exists('test1.background')
+                assert not util_resources.file_exists('test1.background.keys')
+            sender_wallet.open_wallet('test1', password = 'test_password')
+            sender_wallet.setup_background_sync(background_sync_type = sender_wallet.background_sync_options.off, wallet_password = 'test_password')
+            assert not util_resources.file_exists('test1.background')
+            assert not util_resources.file_exists('test1.background.keys')
+            sender_wallet.close_wallet()
+            assert not util_resources.file_exists('test1.background')
+            assert not util_resources.file_exists('test1.background.keys')
+            sender_wallet.open_wallet('test1', password = 'test_password')
+
+        # Sanity check against outgoing wallet restored at height 0
+        sender_wallet.close_wallet()
+        sender_wallet.restore_deterministic_wallet(seed = seeds[0], restore_height = 0)
+        sender_wallet.refresh()
+        assert_correct_transfers(sender_wallet, transfers, incoming_transfers, expected_sender_balance)
+
+        print('Checking background sync on incoming wallet')
+        receiver_wallet.setup_background_sync(background_sync_type = reuse_password)
+        receiver_wallet.start_background_sync()
+        receiver_wallet.refresh()
+        transfers = receiver_wallet.get_transfers()
+        assert 'pending' not in transfers or len(transfers.pending) == 0
+        assert 'pool' not in transfers or len (transfers.pool) == 0
+        assert len(transfers['in']) == in_len + 1
+        tx = [x for x in transfers['in'] if x.txid == txid]
+        assert len(tx) == 1
+        tx = tx[0]
+        assert tx.amount == amount - fee
+        assert tx.fee == fee
+        incoming_transfers = receiver_wallet.incoming_transfers(transfer_type = 'all')
+        assert len([x for x in incoming_transfers.transfers if x.tx_hash == txid and x.key_image == '' and not x.spent]) == 1
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        # Restore and check background syncing incoming wallet
+        restore_wallet(receiver_wallet, seeds[1])
+        receiver_wallet.setup_background_sync(background_sync_type = reuse_password)
+        receiver_wallet.start_background_sync()
+        receiver_wallet.refresh()
+        if 'out' in transfers:
+            for i, out_tx in enumerate(transfers.out):
+                if 'destinations' in out_tx:
+                    del transfers.out[i]['destinations'] # destinations are not expected after wallet restore
+        background_bal = receiver_wallet.get_balance().balance
+        assert background_bal >= expected_receiver_balance
+        background_transfers = receiver_wallet.get_transfers()
+        assert 'out' not in background_transfers or len(background_transfers.out) == 0
+        assert 'in' in background_transfers and len(background_transfers['in']) > 0
+        background_incoming_transfers = receiver_wallet.incoming_transfers(transfer_type = 'all')
+        assert len(background_incoming_transfers) == len(incoming_transfers)
+        assert len([x for x in background_incoming_transfers.transfers if x.spent or x.key_image != '']) == 0
+        assert len([x for x in background_incoming_transfers.transfers if x.tx_hash == txid]) == 1
+
+        # Stop background sync and check transfers update correctly
+        receiver_wallet.stop_background_sync(wallet_password = '', seed = seeds[1])
+        diff_transfers(receiver_wallet.get_transfers(), transfers)
+        incoming_transfers = receiver_wallet.incoming_transfers(transfer_type = 'all')
+        assert len(background_incoming_transfers) == len(incoming_transfers)
+        assert len([x for x in incoming_transfers.transfers if x.tx_hash == txid and x.key_image != '' and not x.spent]) == 1
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        # Check a fresh incoming wallet with wallet files saved to disk and encrypted with password
+        restore_wallet(receiver_wallet, seeds[1], 'test2', 'test_password')
+        receiver_wallet.setup_background_sync(background_sync_type = reuse_password, wallet_password = 'test_password')
+        receiver_wallet.start_background_sync()
+        receiver_wallet.refresh()
+        assert_correct_transfers(receiver_wallet, background_transfers, background_incoming_transfers, background_bal)
+        stop_with_wrong_inputs(receiver_wallet, 'wrong_password')
+        receiver_wallet.stop_background_sync(wallet_password = 'test_password')
+        assert_correct_transfers(receiver_wallet, transfers, incoming_transfers, expected_receiver_balance)
+
+        # Close receiver's wallet while background sync is enabled then reopen
+        restore_wallet(receiver_wallet, seeds[1], 'test2', 'test_password')
+        receiver_wallet.setup_background_sync(background_sync_type = reuse_password, wallet_password = 'test_password')
+        receiver_wallet.start_background_sync()
+        receiver_wallet.refresh()
+        diff_transfers(receiver_wallet.get_transfers(), background_transfers)
+        diff_incoming_transfers(receiver_wallet.incoming_transfers(transfer_type = 'all'), background_incoming_transfers)
+        assert receiver_wallet.get_balance().balance == background_bal
+        receiver_wallet.close_wallet()
+        receiver_wallet.open_wallet('test2', password = 'test_password')
+        # It should reopen with spend key loaded and correctly scan all transfers
+        assert_correct_transfers(receiver_wallet, transfers, incoming_transfers, expected_receiver_balance)
+
+        # Sanity check against incoming wallet restored at height 0
+        receiver_wallet.close_wallet()
+        receiver_wallet.restore_deterministic_wallet(seed = seeds[1], restore_height = 0)
+        receiver_wallet.refresh()
+        assert_correct_transfers(receiver_wallet, transfers, incoming_transfers, expected_receiver_balance)
+
+        # Clean up
+        util_resources.remove_wallet_files('test1')
+        util_resources.remove_wallet_files('test2')
+        for i in range(2):
+            self.wallet[i].close_wallet()
+            self.wallet[i].restore_deterministic_wallet(seed = seeds[i])
+
+    def check_background_sync_reorg_recovery(self):
+        daemon = Daemon()
+
+        print('Testing background sync reorg recovery')
+
+        # Disconnect daemon from peers
+        daemon.out_peers(0)
+
+        # Background sync type options
+        sender_wallet = self.wallet[0]
+        reuse_password = sender_wallet.background_sync_options.reuse_password
+        custom_password = sender_wallet.background_sync_options.custom_password
+
+        for background_sync_type in [reuse_password, custom_password]:
+            # Set up wallet saved to disk
+            sender_wallet.close_wallet()
+            util_resources.remove_wallet_files('test1')
+            sender_wallet.restore_deterministic_wallet(seed = seeds[0], filename = 'test1', password = '')
+            sender_wallet.auto_refresh(enable = False)
+            sender_wallet.refresh()
+            sender_starting_balance = sender_wallet.get_balance().balance
+
+            # Send tx and mine a block
+            amount = 1000000000000
+            assert sender_starting_balance > amount
+            dst = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': amount}
+            res = sender_wallet.transfer([dst])
+            assert len(res.tx_hash) == 32*2
+            txid = res.tx_hash
+
+            daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
+
+            # Make sure the wallet can see the tx
+            sender_wallet.refresh()
+            transfers = sender_wallet.get_transfers()
+            assert 'pool' not in transfers or len (transfers.pool) == 0
+            tx = [x for x in transfers.out if x.txid == txid]
+            assert len(tx) == 1
+            tx = tx[0]
+            assert sender_wallet.get_balance().balance < (sender_starting_balance - amount)
+
+            # Pop the block while background syncing
+            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
+            sender_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = '', background_cache_password = background_cache_password)
+            sender_wallet.start_background_sync()
+            daemon.pop_blocks(1)
+            daemon.flush_txpool()
+
+            daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
+
+            # Make sure the wallet can no longer see the tx
+            sender_wallet.refresh()
+            sender_wallet.stop_background_sync(wallet_password = '', seed = seeds[0])
+            transfers = sender_wallet.get_transfers()
+            no_tx = [x for x in transfers.out if x.txid == txid]
+            assert len(no_tx) == 0
+            assert sender_wallet.get_balance().balance == sender_starting_balance
+
+        # Clean up
+        daemon.out_peers(12)
+        util_resources.remove_wallet_files('test1')
+        self.wallet[0].close_wallet()
+        self.wallet[0].restore_deterministic_wallet(seed = seeds[0])
 
 if __name__ == '__main__':
     TransferTest().run_test()
