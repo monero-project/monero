@@ -586,13 +586,32 @@ static TrimLayerInstructions get_trim_layer_instructions(
     // hashed for the first time, and so we don't need the existing last hash in that case, even if the hash is updating
     const bool need_existing_last_hash = update_existing_last_hash && !need_last_chunk_remaining_children;
 
-    // We need to decrement the offset we use to hash the chunk if the last child is changing
-    std::size_t hash_offset = new_offset;
-    if (last_child_will_change)
+    // Set the hash_offset to use when calling hash_grow or hash_trim
+    std::size_t hash_offset = 0;
+    if (need_last_chunk_children_to_trim)
     {
-        hash_offset = hash_offset == 0
+        CHECK_AND_ASSERT_THROW_MES(new_offset > 0, "new_offset must be > 0 when trimming last chunk children");
+        hash_offset = new_offset;
+
+        if (last_child_will_change)
+        {
+            // We decrement the offset we use to hash the chunk if the last child is changing, since we're going to
+            // use the old value of the last child when trimming
+            --hash_offset;
+        }
+    }
+    else if (need_last_chunk_remaining_children)
+    {
+        // If we're trimming using remaining children, then we're just going to call hash_grow with offset 0
+        hash_offset = 0;
+    }
+    else if (last_child_will_change)
+    {
+        // We're not trimming at all in this case, we're only updating the existing last hash with hash_trim. We need
+        // hash_offset to be equal to 1 - this existing last hash's position
+        hash_offset = new_offset == 0
             ? (parent_chunk_width - 1) // chunk is full, so decrement full width by 1
-            : (hash_offset - 1);
+            : (new_offset - 1);
     }
 
     // Set the child index range so the caller knows which children to read from the tree
@@ -610,15 +629,17 @@ static TrimLayerInstructions get_trim_layer_instructions(
     else if (need_last_chunk_remaining_children)
     {
         // We'll call hash_grow with the remaining children between [0, offset]
-        CHECK_AND_ASSERT_THROW_MES(new_total_children >= hash_offset, "hash_offset is unexpectedly high");
-        start_trim_idx = new_total_children - hash_offset;
+        CHECK_AND_ASSERT_THROW_MES(new_total_children >= new_offset, "new_offset is unexpectedly high");
+        start_trim_idx = new_total_children - new_offset;
         end_trim_idx   = new_total_children;
-    }
 
-    // If we're trimming using remaining children, then we're just going to call hash_grow with offset 0
-    if (need_last_chunk_remaining_children)
-    {
-        hash_offset = 0;
+        if (last_child_will_change)
+        {
+            // We don't need the last old child if it's changing, we'll just use its new value. Decrement the
+            // end_trim_idx by 1 so we know not to read and use the last old child from the tree in this case.
+            CHECK_AND_ASSERT_THROW_MES(end_trim_idx > 0, "end_trim_idx cannot be 0");
+            --end_trim_idx;
+        }
     }
 
     MDEBUG("parent_chunk_width: "                    << parent_chunk_width
@@ -668,6 +689,16 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
 
     layer_reduction_out.new_total_parents         = trim_layer_instructions.new_total_parents;
     layer_reduction_out.update_existing_last_hash = trim_layer_instructions.update_existing_last_hash;
+
+    if (!trim_layer_instructions.need_last_chunk_children_to_trim &&
+        !trim_layer_instructions.need_last_chunk_remaining_children &&
+        !trim_layer_instructions.need_new_last_child)
+    {
+        // In this case we're just trimming to the boundary, and don't need to get a new hash
+        CHECK_AND_ASSERT_THROW_MES(!layer_reduction_out.update_existing_last_hash, "unexpected update last hash");
+        MDEBUG("Trimming to chunk boundary");
+        return layer_reduction_out;
+    }
 
     if (trim_layer_instructions.need_existing_last_hash)
         CHECK_AND_ASSERT_THROW_MES(parent_last_hashes.size() > parent_layer_idx, "missing last parent hash");
