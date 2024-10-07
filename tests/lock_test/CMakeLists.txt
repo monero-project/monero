@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2024, The Monero Project
+# Copyright (c) 2014-2023, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,65 +26,47 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
+set(lock_tests_source
+  lock_tests.cpp)
 
-set(common_sources
-  base58.cpp
-  command_line.cpp
-  dns_utils.cpp
-  download.cpp
-  error.cpp
-  expect.cpp
-  util.cpp
-  i18n.cpp
-  notify.cpp
-  password.cpp
-  perf_timer.cpp
-  pruning.cpp
-  recursive_shared_mutex.cpp  
-  spawn.cpp
-  threadpool.cpp
-  updates.cpp
-  aligned.c
-  timings.cc
-  combinator.cpp)
-
-if (STACK_TRACE)
-  list(APPEND common_sources stack_trace.cpp)
-endif()
-
-if (BACKCOMPAT)
-  list(APPEND common_sources compat/glibc_compat.cpp)
-endif()
-
-set(common_headers)
-
-monero_find_all_headers(common_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
-
-monero_private_headers(common
-  ${common_private_headers})
-monero_add_library(common
-  ${common_sources}
-  ${common_headers}
-  ${common_private_headers}
-  DEPENDS generate_translations_header)
-target_link_libraries(common
-  PUBLIC
-    cncrypto
-    ${UNBOUND_LIBRARIES}
-    ${LIBUNWIND_LIBRARIES}
-    ${Boost_DATE_TIME_LIBRARY}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
+monero_add_minimal_executable(lock_tests
+  ${lock_tests_source})
+target_link_libraries(lock_tests
+  PRIVATE
+    epee
+    common
+    ${GTEST_LIBRARIES}
     ${Boost_CHRONO_LIBRARY}
-  PRIVATE
-    ${OPENSSL_LIBRARIES}
+    ${Boost_DATE_TIME_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${Boost_THREAD_LIBARRY}
+    ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
-target_include_directories(common
-  PRIVATE
-    ${Boost_INCLUDE_DIRS})
 
-#monero_install_headers(common
-#  ${common_headers})
+if(CMAKE_CXX_COMPILER_ID MATCHES GNU OR CMAKE_CXX_COMPILER_ID MATCHES Clang)
+  # Due to a bug in upstream ubuntu-20.04
+  # we have to disable thread sanitizer until the fix 
+  # pushed. Once fixed we can remove this condition and 
+  # set_target_properties unconditionaly.
+  # https://bugs.launchpad.net/ubuntu/+source/gcc-9/+bug/2029910
+  if(EXISTS "/usr/lib/x86_64-linux-gnu/libtsan_preinit.o")
+    set_target_properties(lock_tests
+    PROPERTIES
+      COMPILE_FLAGS "-fsanitize=thread -Og -fno-omit-frame-pointer -g"
+      LINK_FLAGS "-fsanitize=thread -Og -fno-omit-frame-pointer -g")
+  endif()
+endif()
+
+set_property(TARGET lock_tests
+  PROPERTY
+    FOLDER "tests")
+
+add_test(
+  NAME    lock_tests
+  COMMAND lock_tests)
+
+# This is not computation intensive test.
+# just locking and unlocking in multiple threads.
+# if it fails to complete in 1500 seconds in slow machines.
+# Then it means it in somekind of deadlock, and should fail.   
+set_tests_properties(lock_tests PROPERTIES TIMEOUT 1500) 
