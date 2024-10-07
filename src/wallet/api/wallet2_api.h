@@ -40,6 +40,9 @@
 #include <stdexcept>
 #include <cstdint>
 
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
+
 //  Public interface for libwallet library
 namespace Monero {
 
@@ -66,6 +69,39 @@ enum NetworkType : uint8_t {
         T t;
         bool set;
     };
+
+/**
+* brief: EnoteDetails - Container for all the necessary information that belongs to an enote
+*/
+struct EnoteDetails
+{
+    enum TxProtocol {
+        Tx_Protocol_CryptoNote,
+        Tx_Protocol_RingCT
+    };
+
+    virtual ~EnoteDetails() = 0;
+    virtual std::string onetimeAddress() const = 0;
+    virtual std::string viewTag() const = 0;
+    virtual std::uint64_t blockHeight() const = 0;
+    virtual std::string txId() const = 0;
+    virtual std::uint64_t internalEnoteIndex() const = 0;
+    virtual std::uint64_t globalEnoteIndex() const = 0;
+    virtual bool isSpent() const = 0;
+    virtual bool isFrozen() const = 0;
+    virtual std::uint64_t spentHeight() const = 0;
+    virtual std::string keyImage() const = 0;
+    virtual std::string mask() const = 0;
+    virtual std::uint64_t amount() const = 0;
+    virtual TxProtocol protocolVersion() const = 0;
+    virtual bool isKeyImageKnown() const = 0;
+    virtual bool isKeyImageRequest() const = 0;
+    virtual uint64_t pkIndex() const = 0;
+    virtual std::vector<std::pair<std::uint64_t, std::string>> uses() const = 0;
+
+    // Multisig
+    virtual bool isKeyImagePartial() const = 0;
+};
 
 /**
  * @brief Transaction-like interface for sending money
@@ -173,6 +209,13 @@ struct TransactionInfo
         Direction_Out
     };
 
+    enum TxState {
+       pending,
+       pending_in_pool,
+       failed,
+       confirmed
+    };
+
     struct Transfer {
         Transfer(uint64_t _amount, const std::string &address);
         const uint64_t amount;
@@ -181,7 +224,9 @@ struct TransactionInfo
 
     virtual ~TransactionInfo() = 0;
     virtual int  direction() const = 0;
+    // legacy : use txState() instead
     virtual bool isPending() const = 0;
+    // legacy : use txState() instead
     virtual bool isFailed() const = 0;
     virtual bool isCoinbase() const = 0;
     virtual uint64_t amount() const = 0;
@@ -199,6 +244,10 @@ struct TransactionInfo
     virtual std::string paymentId() const = 0;
     //! only applicable for output transactions
     virtual const std::vector<Transfer> & transfers() const = 0;
+
+    virtual std::uint64_t receivedChangeAmount() const = 0;
+    virtual int txState() const = 0;
+    virtual bool isDoubleSpendSeen() const = 0;
 };
 /**
  * @brief The TransactionHistory - interface for displaying transaction history
@@ -304,7 +353,6 @@ private:
     std::string m_balance;
     std::string m_unlockedBalance;
 public:
-    std::string extra;
     std::string getAddress() const {return m_address;}
     std::string getLabel() const {return m_label;}
     std::string getBalance() const {return m_balance;}
@@ -450,6 +498,13 @@ struct Wallet
         BackgroundSync_Off = 0,
         BackgroundSync_ReusePassword = 1,
         BackgroundSync_CustomPassword = 2
+    };
+
+    struct WalletState {
+        // is wallet file format deprecated
+        bool is_deprecated;
+        std::uint64_t ring_size;
+        std::string daemon_address;
     };
 
     virtual ~Wallet() = 0;
@@ -699,6 +754,14 @@ struct Wallet
         return paymentIdFromAddress(str, testnet ? TESTNET : MAINNET);
     }
     static uint64_t maximumAllowedAmount();
+    /**
+    * brief: walletExists - check if wallet file and .keys file exist for given path
+    * param: path - filename
+    * outparam: keys_file_exists -
+    * outparam: wallet_file_exists -
+    * return: true if (key_file_exists || wallet_file_exists)
+    */
+    static bool walletExists(const std::string &path, bool &key_file_exists, bool &wallet_file_exists);
     // Easylogger wrapper
     static void init(const char *argv0, const char *default_log_base_name) { init(argv0, default_log_base_name, "", true); }
     static void init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console);
@@ -1043,12 +1106,15 @@ struct Wallet
     virtual std::string getReserveProof(bool all, uint32_t account_index, uint64_t amount, const std::string &message) const = 0;
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const = 0;
 
-    /*
-     * \brief signMessage - sign a message with the spend private key
-     * \param message - the message to sign (arbitrary byte data)
-     * \return the signature
-     */
-    virtual std::string signMessage(const std::string &message, const std::string &address = "") = 0;
+    /**
+    * brief: signMessage - sign a message with your private key (SigV2)
+    * param: message - message to sign (arbitrary byte data)
+    * param: address - address used to sign the message (use main address if empty)
+    * param: sign_with_view_key - (default: false, use spend key to sign)
+    * return: proof type prefix + base58 encoded signature, else empty string
+    * note: sets status error on fail
+    */
+    virtual std::string signMessage(const std::string &message, const std::string &address = "", bool sign_with_view_key = false) = 0;
     /*!
      * \brief verifySignedMessage - verify a signature matches a given message
      * \param message - the message (arbitrary byte data)
@@ -1144,6 +1210,361 @@ struct Wallet
 
     //! get bytes sent
     virtual uint64_t getBytesSent() = 0;
+
+    /**
+    * brief: getMultisigSeed - get seed for multisig wallet
+    * param: seed_offset - passphrase
+    * return: seed if succeeded, else empty string
+    * note: sets status error on fail
+    */
+    virtual std::string getMultisigSeed(const std::string &seed_offset) const = 0;
+    /**
+    * brief: getSubaddressIndex - get major and minor index of provided subaddress
+    * param: address - main- or sub-address to get the index from
+    * return: [major_index, minor_index] if succeeded
+    * note: sets status error on fail
+    */
+    virtual std::pair<std::uint32_t, std::uint32_t> getSubaddressIndex(const std::string &address) const = 0;
+    /**
+    * brief: freeze - freeze enote "so they don't appear in balance, nor are considered when creating a transaction, etc." (https://github.com/monero-project/monero/pull/5333)
+    * param: idx - index of enote in local enote storage
+    * param: key_image - key image of enote
+    * note: sets status error on fail
+    */
+    virtual void freeze(std::size_t idx) = 0;
+    virtual void freeze(const std::string &key_image) = 0;
+    /**
+    * brief: thaw - thaw enote that is frozen, so it appears in balance and can be spent in a transaction
+    * param: idx - index of enote in local enote storage
+    * param: key_image - key image of enote
+    * note: sets status error on fail
+    */
+    virtual void thaw(std::size_t idx) = 0;
+    virtual void thaw(const std::string &key_image) = 0;
+    /**
+    * brief: isFrozen - check if enote is frozen
+    * param: idx - index of enote in local enote storage
+    * param: key_image - key image of enote
+    * return : true if enote is frozen, else false
+    * note: sets status error on fail
+    */
+    virtual bool isFrozen(std::size_t idx) const = 0;
+    virtual bool isFrozen(const std::string &key_image) const = 0;
+    /**
+    * brief: createOneOffSubaddress - create a subaddress for given index
+    * param: account_index - major index
+    * param: address_index - minor index
+    */
+    virtual void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) = 0;
+    /**
+    * brief: getWalletState - get information about the wallet
+    * return: WalletState object
+    */
+    virtual WalletState getWalletState() const = 0;
+    /**
+    * brief: rewriteWalletFile - rewrite the wallet file for wallet update
+    * param: wallet_name - name of the wallet file (should exist)
+    * param: password - wallet password
+    * note: sets status error on fail
+    */
+    virtual void rewriteWalletFile(const std::string &wallet_name, const std::string &password) = 0;
+    /**
+    * brief: writeWatchOnlyWallet -  create a new watch-only wallet file with view keys from current wallet
+    * param: password - password for new watch-only wallet
+    * outparam: new_keys_file_name - wallet_name + "-watchonly.keys"
+    * note: sets status error on fail
+    */
+    virtual void writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name) = 0;
+    /**
+    * brief: updatePoolState -
+    * outparam: process_txs - [ [tx, tx_id, double_spend_seen], ... ]
+    * param: refreshed - (default: false)
+    * param: try_incremental - (default: false)
+    * note: sets status error on fail
+    * This public method is typically called to make sure that the wallet's pool state is up-to-date by
+    * clients like simplewallet and the RPC daemon. Before incremental update this was the same method
+    * that 'refresh' also used, but now it's more complicated because for the time being we support
+    * the "old" and the "new" way of updating the pool and because only the 'getblocks' call supports
+    * incremental update but we don't want any blocks here.
+    *
+    * simplewallet does NOT update the pool info during automatic refresh to avoid disturbing interactive
+    * messages and prompts. When it finally calls this method here "to catch up" so to say we can't use
+    * incremental update anymore, because with that we might miss some txs altogether.
+    */
+    virtual void updatePoolState(std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &process_txs, bool refreshed = false, bool try_incremental = false) = 0;
+    /**
+    * brief: processPoolState -
+    * param: txs - [ [tx, tx_id, double_spend_seen], ... ]
+    * note: sets status error on fail
+    */
+    virtual void processPoolState(const std::vector<std::tuple<cryptonote::transaction, std::string, bool>> &txs) = 0;
+    /**
+    * brief: getEnoteDetails - get information about all enotes
+    * outparam: enote_details -
+    */
+    virtual void getEnoteDetails(std::vector<std::shared_ptr<EnoteDetails>> &enote_details) const = 0;
+    /**
+    * brief: convertMultisigTxToString - get the encrypted unsigned multisig transaction as hex string from a multisig pending transaction
+    * param: multisig_ptx - multisig pending transaction
+    * return: encrypted tx data as hex string if succeeded, else empty string
+    * note: sets status error on fail
+    */
+    virtual std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const = 0;
+    /**
+    * brief: saveMultisigTx - save a multisig pending transaction to file
+    * param: multisig_ptx - multisig pending transaction
+    * param: filename -
+    * return: true if succeeded
+    * note: sets status error on fail
+    */
+    virtual bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const = 0;
+    /**
+    * brief: convertTxToStr - get the encrypted data from a vector of pending transactions as hex string
+    * param: ptxs -
+    * return: unsigned tx data as encrypted hex string if succeeded, else empty string
+    * note: sets status error on fail
+    */
+    virtual std::string convertTxToStr(const PendingTransaction &ptxs) const = 0;
+    /**
+    * brief: parseUnsignedTxFromStr - get an unsigned transaction set from encrypted unsigned transaction as hex string
+    * param: unsigned_tx_str - encrypted hex string
+    * outparam: exported_txs -
+    * return: true if succeeded
+    * note: sets status error on fail
+    */
+    virtual bool parseUnsignedTxFromStr(const std::string &unsigned_tx_str, UnsignedTransaction &exported_txs) const = 0;
+    /**
+    * brief: signTxToStr - get a signed pending transaction from an unsigned transaction
+    * param: exported_txs - unsigned transaction
+    * outparam: ptx - signed pending transaction
+    * return: signed tx data as encrypted hex string
+    * note: sets status error on fail
+    */
+    virtual std::string signTxToStr(UnsignedTransaction &exported_txs, PendingTransaction &ptx) const = 0;
+    // TODO : if it's fine to drop the accept_func, do it for all the functions below (where possible, meaning accept_func is optional in wallet2 params)
+    /**
+    * brief: loadTx - load pending transactions from a file
+    * param: signed_filename -
+    * outparam: ptx -
+    * return: true if succeeded
+    */
+    virtual bool loadTx(const std::string &signed_filename, PendingTransaction &ptx) const = 0;
+// TODO : accept_func with wallet2::signed_tx_set
+    /**
+    * brief: parseTxFromStr - get transactions from encrypted signed transaction as hex string
+    * param: signed_tx_str -
+    * outparam: ptx -
+    * param: accept_func - callback function to verify the transaction
+    * return: true if succeeded
+    */
+//    virtual bool parseTxFromStr(const std::string &signed_tx_str, PendingTransaction &ptx, std::function<bool(const signed_tx_set &)> accept_func) const = 0;
+    /**
+    * brief: parseMultisigTxFromStr - get pending multisig transaction from encrypted unsigned multisig transaction as hex string
+    * param: multisig_tx_str -
+    * outparam: exported_txs -
+    * return: true if succeeded
+    * note: sets status error on fail
+    */
+    virtual bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const = 0;
+// TODO : accept_func with wallet2::multisig_tx_set
+    /**
+    * brief: loadMultisigTxFromFile - load a multisig transaction set from a file
+    * param: multisig_tx_str -
+    * outparam: exported_txs -
+    * return: true if succeeded
+    */
+//    virtual bool loadMultisigTxFromFile(const std::string &filename, PendingTransaction &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func) const = 0;
+// TODO : accept_func with wallet2::multisig_tx_set
+    /**
+    * brief: signMultisigTxFromFile - load a multisig transaction set from a file, sign it and store to a file
+    * param: filename - load from and store to file with this filename
+    * outparam: txids - transaction ids of signed transactions
+    * param: accept_func - callback function to verify the transaction
+    * return: true if succeeded
+    */
+//    virutal bool signMultisigTxFromFile(const std::string &filename, std::vector<crypto::hash> &txids, std::function<bool(const multisig_tx_set&)> accept_func) const = 0;
+    /**
+    * brief: getFeeMultiplier -
+    * param: priority -
+    * param: fee_algorithm -
+    * return: fee multiplier
+    * note: sets status error on fail
+    */
+    virtual std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const = 0;
+    /**
+    * brief: getBaseFee -
+    * return: dynamic base fee estimate if using dynamic fee, else FEE_PER_KB
+    */
+    virtual std::uint64_t getBaseFee() const = 0;
+    /**
+    * brief: adjustPriority - adjust priority depending on how "full" last N blocks are
+    * param: priority -
+    * return: adjusted priority
+    * warning: doesn't tell if it failed
+    */
+    virtual std::uint32_t adjustPriority(std::uint32_t priority) = 0;
+    // QUESTION : Any suggestion for the function description below?
+    /**
+    * brief: coldTxAuxImport -
+    * param: ptx -
+    * param: tx_device_aux -
+    * note: sets status error on fail
+    */
+    virtual void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const = 0;
+    /**
+    * brief: coldSignTx -
+    * param: ptx_in -
+    * outparam: exported_txs_out -
+    * param: dsts_info -
+    */
+    virtual void coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out, std::vector<cryptonote::address_parse_info> &dsts_info) const = 0;
+    /**
+    * brief: discardUnmixableEnotes - freeze all unmixable enotes
+    * note: sets status error on fail
+    */
+    virtual void discardUnmixableEnotes() = 0;
+    /**
+    * brief: setTxKey - set the transaction key (r) for a given <txid> in case the tx was made by some other device or 3rd party wallet
+    * param: txid -
+    * param: tx_key - secret transaction key r
+    * param: additional_tx_keys -
+    * param: single_destination_subaddress -
+    * note: sets status error on fail
+    */
+    virtual void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress) = 0;
+    /**
+    * brief: getAccountTags - get the list of registered account tags
+    * return: first.Key=(tag's name), first.Value=(tag's label), second[i]=(i-th account's tag)
+    */
+    virtual const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() const = 0;
+    /**
+    * brief: setAccountTag - set a tag to a set of subaddress accounts by index
+    * param: account_index - major index
+    * param: tag -
+    * note: sets status error on fail
+    */
+    virtual void setAccountTag(const std::set<uint32_t> &account_indices, const std::string &tag) = 0;
+    /**
+    * brief: setAccountTagDescription - set a description for a tag, tag must already exist
+    * param: tag -
+    * param: description -
+    * note: sets status error on fail
+    */
+    virtual void setAccountTagDescription(const std::string &tag, const std::string &description) = 0;
+    /**
+    * brief: exportEnotesToStr - export enotes and return encrypted data
+    *                            (comparable with legacy exportOutputs(), with the difference that this returns a string, the other one saves to file)
+    * param: all   - go from `start` for `count` enotes if true, else go incremental from last exported enote for `count` enotes (default: false)
+    * param: start - offset index in enote storage, needs to be 0 for incremental mode (default: 0)
+    * param: count - try to export this amount of enotes (default: 0xffffffff)
+    * return: encrypted data of exported enotes as hex string if succeeded, else empty string
+    * note: sets status error on fail
+    */
+    virtual std::string exportEnotesToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const = 0;
+    /**
+    * brief: importEnotesFromStr - import enotes from encrypted hex string
+    * param: enotes_str - enotes data as encrypted hex string
+    * return: total size of enote storage
+    * note: sets status error on fail
+    */
+    virtual std::size_t importEnotesFromStr(const std::string &enotes_str) = 0;
+    /**
+    * brief: getBlockchainHeightByDate -
+    * param: year  -
+    * param: month - in range 1-12
+    * param: day   - in range 1-31
+    * return: blockchain height
+    * note: sets status error on fail
+    */
+    virtual std::uint64_t getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const = 0;
+    // QUESTION : Can anyone help with these comments?
+    /**
+    * brief: estimateBacklog -
+    * param: fee_levels - [ [fee per byte min, fee per byte max], ... ]
+    * param: min_tx_weight -
+    * param: max_tx_weight -
+    * param: fees -
+    * return: [ [number of blocks min, number of blocks max], ... ]
+    * note: sets status error on fail
+    */
+    virtual std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels) const = 0;
+    virtual std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(std::uint64_t min_tx_weight, std::uint64_t max_tx_weight, const std::vector<std::uint64_t> &fees) const = 0;
+// TODO : mms::multisig_wallet_state - from a quick search for get_multisig_wallet_state in simplewallet.cpp this will be complicated to replace
+    /**
+    * brief: getMultisigWalletState -
+    * return:
+    */
+//    virtual mms::multisig_wallet_state getMultisigWalletState() const = 0;
+    /**
+    * brief: saveToFile   - save hex string to file
+    * param: path_to_file - file name
+    * param: binary       - hex string data
+    * param: is_printable - (default: false)
+    * return: true if succeeded
+    */
+    virtual bool saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const = 0;
+    /**
+    * brief: loadFromFile  - load hex string from file
+    * param: path_to_file  - file name
+    * outparam: target_str - hex string data
+    * param: max_size      - maximum size in bytes (default: 1000000000)
+    * return: true if succeeded
+    */
+    virtual bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const = 0;
+    /**
+    * brief: hashEnotes - get hash of all enotes in local enote store up until `enote_idx`
+    *                     (formerly in wallet2: `uint64_t wallet2::hash_m_transfers(boost::optional<uint64_t> transfer_height, crypto::hash &hash)`)
+    * param: enote_idx - include all enotes below this index
+    * outparam: hash - hash as hex string
+    * return: number of hashed enotes
+    * note: sets status error on fail
+    */
+    virtual std::uint64_t hashEnotes(std::uint64_t enote_idx, std::string &hash) const = 0;
+    /**
+    * brief: finishRescanBcKeepKeyImages  -
+    * param: enote_idx -
+    * param: hash -
+    * note: sets status error on fail
+    */
+    virtual void finishRescanBcKeepKeyImages(std::uint64_t enote_idx, const std::string &hash) = 0;
+    /**
+    * brief: getPublicNodes - get a list of public notes with information when they were last seen
+    * param: white_only - include gray nodes if false (default: true)
+    * return: [ [ host_ip, host_rpc_port, last_seen ], ... ]
+    * note: sets status error on fail
+    */
+    virtual std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> getPublicNodes(bool white_only = true) const = 0;
+    /**
+    * brief: estimateTxSizeAndWeight -
+    * param: use_rct    -
+    * param: n_inputs   - number of input enotes
+    * param: ring_size  -
+    * param: n_outputs  - number of output enotes
+    * param: extra_size - size of tx_extra
+    * return: [estimated tx size, estimated tx weight]
+    * note: sets status error on fail
+    */
+    virtual std::pair<std::size_t, std::uint64_t> estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size) const = 0;
+    /**
+    * brief: importKeyImages -
+    * param: signed_key_images - [ [key_image, signature c || signature r], ... ]
+    * param: offset      - offset in local enote storage
+    * outparam: spent    - total spent amount of the wallet
+    * outparam: unspent  - total unspent amount of the wallet
+    * param: check_spent -
+    * return: blockchain height of last signed key image, can be 0 if height unknown
+    * note: sets status error on fail
+    */
+    virtual std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) = 0;
+    /**
+    * brief: importKeyImages -
+    * param: key_images -
+    * param: offset     - offset in local enote storage
+    * param: selected_enotes_indices -
+    * return: true if succeeded
+    * note: sets status error on fail
+    */
+    virtual bool importKeyImages(std::vector<std::string> key_images, std::size_t offset = 0, std::unordered_set<std::size_t> selected_enotes_indices = {}) = 0;
 };
 
 /**
