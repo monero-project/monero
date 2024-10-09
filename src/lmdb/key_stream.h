@@ -133,6 +133,7 @@ namespace lmdb
         //! \pre `!is_end()` \return Current key
         K get_key() const noexcept
         {
+            static_assert(std::is_trivially_copyable<K>(), "key is not memcpy safe");
             assert(!is_end());
             K out;
             std::memcpy(std::addressof(out), key.data(), sizeof(out));
