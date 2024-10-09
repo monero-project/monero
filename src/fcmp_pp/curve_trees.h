@@ -317,9 +317,14 @@ public:
         std::vector<OutputContext> &&new_leaf_tuples) const;
 
     // Get instructions useful for trimming all existing layers in the tree
+    // - always_regrow_with_remaining will use hash_grow with remaining elems left in a chunk to "trim" every chunk,
+    //   rather than trim using the elems in the chunk to be removed. This is useful when we don't have all elems from a
+    //   chunk saved and therefore cannot use hash_trim with the elems we're going to trim, as is the case with the
+    //   pruned tree sync implementation.
     std::vector<TrimLayerInstructions> get_trim_instructions(
         const uint64_t old_n_leaf_tuples,
-        const uint64_t trim_n_leaf_tuples) const;
+        const uint64_t trim_n_leaf_tuples,
+        const bool always_regrow_with_remaining = false) const;
 
     // Take in the instructions useful for trimming all existing layers in the tree, all children to be trimmed from
     // each last chunk, and the existing last hash in what will become the new last parent of each layer, and return

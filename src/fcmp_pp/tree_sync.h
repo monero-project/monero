@@ -164,7 +164,7 @@ public:
 private:
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes(const std::size_t n_leaf_tuples) const;
 
-    typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
+    typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_regrow(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes_to_trim(

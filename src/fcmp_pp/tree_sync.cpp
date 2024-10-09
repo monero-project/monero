@@ -111,13 +111,6 @@ static void cache_path_elem(const std::unique_ptr<C> &curve,
         const bool updating_existing_last_hash = ext_hash_idx == 0 && layer_ext.update_existing_last_hash;
         if (newly_registered_output || !updating_existing_last_hash)
             cached_tree_elem_it->second.ref_count += 1;
-
-        // If the tree extension is updating an existing value, we need to update it in our cache too
-        if (updating_existing_last_hash)
-        {
-            auto tree_elem = curve->to_bytes(layer_ext.hashes.front());
-            cached_tree_elem_it->second.tree_elem = std::move(tree_elem);
-        }
     }
 
     start_child_chunk_idx_inout /= parent_width;
@@ -139,6 +132,21 @@ static void cache_last_chunk(const std::unique_ptr<C> &curve,
     const auto &layer_ext = layer_exts[layer_ext_idx];
     CHECK_AND_ASSERT_THROW_MES(!layer_ext.hashes.empty(), "unexpected empty layer ext");
 
+    // First, update the existing last hash if it updated
+    // TODO: move this to its own function, separate from cache_last_chunk but is called before cache_last_chunk
+    if (layer_ext.update_existing_last_hash)
+    {
+        auto cached_layer_it = cached_tree_elems_inout.find(layer_idx);
+        CHECK_AND_ASSERT_THROW_MES(cached_layer_it != cached_tree_elems_inout.end(), "missing layer");
+
+        auto cached_tree_elem_it = cached_layer_it->second.find(layer_ext.start_idx);
+        CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing cached elem");
+
+        auto tree_elem = curve->to_bytes(layer_ext.hashes.front());
+        cached_tree_elem_it->second.tree_elem = std::move(tree_elem);
+    }
+
+    // Second, cache the new last chunk values
     const ChildChunkIdx end_child_chunk_idx = layer_ext.start_idx + layer_ext.hashes.size();
 
     const ChildChunkIdx offset = end_child_chunk_idx % parent_width;
@@ -192,44 +200,38 @@ static void cache_last_chunk(const std::unique_ptr<C> &curve,
 
         // We're already keeping track of this elem, so bump the ref count
         cached_tree_elem_it->second.ref_count += 1;
-
-        // If the tree extension is updating an existing value, we need to update it in our cache too. Note that only the
-        // first hash in the given layer extension can update (when update_existing_last_hash is true, the first hash is the
-        // "existing last hash" before the tree extension is used to grow the tree).
-        if (ext_hash_idx == 0 && layer_ext.update_existing_last_hash)
-        {
-            auto tree_elem = curve->to_bytes(layer_ext.hashes.front());
-            cached_tree_elem_it->second.tree_elem = std::move(tree_elem);
-        }
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C_CHILD, typename C_PARENT>
-static std::vector<typename C_PARENT::Scalar> get_layer_last_chunk_children_to_trim(const std::unique_ptr<C_CHILD> &c_child,
+static std::vector<typename C_PARENT::Scalar> get_layer_last_chunk_children_to_regrow(
+    const std::unique_ptr<C_CHILD> &c_child,
     const ChildChunkCache &child_chunk_cache,
-    const ChildChunkIdx start_trim_idx,
-    const ChildChunkIdx end_trim_idx)
+    const ChildChunkIdx start_idx,
+    const ChildChunkIdx end_idx)
 {
-    std::vector<typename C_PARENT::Scalar> children_to_trim_out;
-    if (end_trim_idx > start_trim_idx)
+    std::vector<typename C_PARENT::Scalar> children_to_regrow_out;
+    if (end_idx > start_idx)
     {
-        ChildChunkIdx idx = start_trim_idx;
-        MDEBUG("Start trim from idx: " << idx << " , ending trim at: " << end_trim_idx);
+        ChildChunkIdx idx = start_idx;
         do
         {
             const auto cached_chunk_it = child_chunk_cache.find(idx);
-            CHECK_AND_ASSERT_THROW_MES(cached_chunk_it != child_chunk_cache.end(), "missing child chunk for trim");
+            CHECK_AND_ASSERT_THROW_MES(cached_chunk_it != child_chunk_cache.end(), "missing child chunk for regrow");
 
             auto child_point = c_child->from_bytes(cached_chunk_it->second.tree_elem);
             auto child_scalar = c_child->point_to_cycle_scalar(child_point);
-            children_to_trim_out.push_back(std::move(child_scalar));
+
+            MDEBUG("Re-growing with child chunk idx: " << idx << " , elem: " << c_child->to_string(child_point));
+
+            children_to_regrow_out.push_back(std::move(child_scalar));
 
             ++idx;
         }
-        while (idx < end_trim_idx);
+        while (idx < end_idx);
     }
 
-    return children_to_trim_out;
+    return children_to_regrow_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -333,8 +335,6 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
         if (!registered_o.second.assigned_leaf_idx)
             continue;
 
-        MDEBUG("Caching tree elems for leaf idx: " << registered_o.second.leaf_idx);
-
         // Cache leaves
         // TODO: separate function
         const LeafIdx leaf_idx = registered_o.second.leaf_idx;
@@ -344,13 +344,13 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
 
         const bool newly_assigned_output = new_assigned_outputs.find(leaf_idx) != new_assigned_outputs.end();
 
-        MERROR("Caching leaves for leaf_idx: " << leaf_idx << " , start_leaf_idx: " << start_leaf_idx << " , end_leaf_idx: " << end_leaf_idx << " , tree_extension.leaves.start_leaf_tuple_idx: " << tree_extension.leaves.start_leaf_tuple_idx);
+        MDEBUG("Caching leaves for leaf_idx: " << leaf_idx << " , start_leaf_idx: " << start_leaf_idx
+            << " , end_leaf_idx: " << end_leaf_idx
+            << " , start_leaf_tuple_idx: " << tree_extension.leaves.start_leaf_tuple_idx);
 
         // If the registered output's chunk isn't present in this tree extension, we have no leaves to cache
         if (end_leaf_idx > tree_extension.leaves.start_leaf_tuple_idx)
         {
-            MDEBUG("Caching leaves for leaf_idx: " << leaf_idx << " , start_leaf_idx: " << start_leaf_idx << " , end_leaf_idx: " << end_leaf_idx);
-
             CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "unexpected end_leaf_idx > start_leaf_idx");
 
             // Cache the leaf elems from this leaf's chunk
@@ -446,7 +446,7 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
     const LeafIdx start_leaf_idx_last_chunk = new_total_n_leaf_tuples - end_leaf_offset;
     const LeafIdx end_leaf_idx_last_chunk = std::min(start_leaf_idx_last_chunk + m_curve_trees->m_c2_width, new_total_n_leaf_tuples);
 
-    MERROR("Caching last leaves from leaf idx " << start_leaf_idx_last_chunk << " to " << end_leaf_idx_last_chunk);
+    MDEBUG("Caching last leaves from leaf idx " << start_leaf_idx_last_chunk << " to " << end_leaf_idx_last_chunk);
 
     for (LeafIdx i = start_leaf_idx_last_chunk; i < end_leaf_idx_last_chunk; ++i)
     {
@@ -553,24 +553,83 @@ bool TreeSync<C1, C2>::pop_block()
 
     // We're going to trim the tree as the node would to see exactly how the tree elems we know about need to change.
     // First get trim instructions
-    const auto trim_instructions = m_curve_trees->get_trim_instructions(old_n_leaf_tuples, trim_n_leaf_tuples);
+    const auto trim_instructions = m_curve_trees->get_trim_instructions(old_n_leaf_tuples,
+        trim_n_leaf_tuples,
+        true/*always_regrow_with_remaining*/);
     MDEBUG("Acquired trim instructions for " << trim_instructions.size() << " layers");
 
     // Do initial tree reads using trim instructions
-    const auto last_chunk_children_to_trim = this->get_last_chunk_children_to_trim(trim_instructions);
+    const auto last_chunk_children_to_regrow = this->get_last_chunk_children_to_regrow(trim_instructions);
     const auto last_hashes_to_trim = this->get_last_hashes_to_trim(trim_instructions);
 
     // Get the new hashes, wrapped in a simple struct we can use to trim the tree
     const auto tree_reduction = m_curve_trees->get_tree_reduction(
         trim_instructions,
-        last_chunk_children_to_trim,
+        last_chunk_children_to_regrow,
         last_hashes_to_trim);
 
     const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
     const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
     const std::size_t new_n_layers = c2_layer_reductions.size() + c1_layer_reductions.size();
 
-    // Use the tree reduction to update output paths
+    // Use the tree reduction to update ref'd last hashes
+    // NOTE: deque_block above already removed refs to any last chunk hashes and last chunk leaves that weren't tied
+    // to registered outputs, so we don't need to remove anything here.
+    // TODO: separate function
+    {
+        bool use_c2 = true;
+        std::size_t c2_idx = 0;
+        std::size_t c1_idx = 0;
+        for (LayerIdx i = 0; i < new_n_layers; ++i)
+        {
+            auto cached_layer_it = m_tree_elem_cache.find(i);
+            CHECK_AND_ASSERT_THROW_MES(cached_layer_it != m_tree_elem_cache.end(), "missing cached layer");
+
+            // TODO: templated function
+            if (use_c2)
+            {
+                CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layer_reductions.size(), "unexpected c2 layer reduction");
+                const auto &c2_reduction = c2_layer_reductions[c2_idx];
+
+                // We updated the last hash
+                if (c2_reduction.update_existing_last_hash)
+                {
+                    MDEBUG("layer: " << i << " updating last hash to " << m_curve_trees->m_c2->to_string(c2_reduction.new_last_hash));
+
+                    CHECK_AND_ASSERT_THROW_MES(c2_reduction.new_total_parents > 0, "unexpected 0 new_total_parents");
+                    auto cached_tree_elem_it = cached_layer_it->second.find(c2_reduction.new_total_parents - 1);
+                    CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing cached new last hash");
+
+                    cached_tree_elem_it->second.tree_elem = m_curve_trees->m_c2->to_bytes(c2_reduction.new_last_hash);
+                }
+
+                ++c2_idx;
+            }
+            else
+            {
+                CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layer_reductions.size(), "unexpected c1 layer reduction");
+                const auto &c1_reduction = c1_layer_reductions[c1_idx];
+
+                // We updated the last hash
+                if (c1_reduction.update_existing_last_hash)
+                {
+                    MDEBUG("layer: " << i << " updating last hash to " << m_curve_trees->m_c1->to_string(c1_reduction.new_last_hash));
+
+                    CHECK_AND_ASSERT_THROW_MES(c1_reduction.new_total_parents > 0, "unexpected 0 new_total_parents");
+                    auto cached_tree_elem_it = cached_layer_it->second.find(c1_reduction.new_total_parents - 1);
+                    CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing cached new last hash");
+
+                    cached_tree_elem_it->second.tree_elem = m_curve_trees->m_c1->to_bytes(c1_reduction.new_last_hash);
+                }
+
+                ++c1_idx;
+            }
+
+            use_c2 = !use_c2;
+        }
+    }
+
+    // Use the tree reduction to update registered output paths
     for (auto &registered_o : m_registered_outputs)
     {
         // If the output isn't in the tree, it has no path elems we need to change in the cache 
@@ -580,15 +639,18 @@ bool TreeSync<C1, C2>::pop_block()
         // TODO: below should all be a separate function
         // Get the output's cached path indexes in the tree
         const LeafIdx leaf_idx = registered_o.second.leaf_idx;
-        MERROR("old_n_leaf_tuples: " << old_n_leaf_tuples << " leaf_idx: " << leaf_idx);
         const auto old_path_idxs = m_curve_trees->get_path_indexes(old_n_leaf_tuples, leaf_idx);
+
+        const bool output_removed_from_tree = leaf_idx >= tree_reduction.new_total_leaf_tuples;
 
         // Use the tree reduction to update the cached leaves and path elems
         // First, remove any cached leaves if necessary
-        if (old_path_idxs.leaf_range.second > tree_reduction.new_total_leaf_tuples)
+        if (output_removed_from_tree || old_path_idxs.leaf_range.second > tree_reduction.new_total_leaf_tuples)
         {
             // Remove leaves from the cache
-            const LeafIdx start_leaf_idx = tree_reduction.new_total_leaf_tuples;
+            const LeafIdx start_leaf_idx = output_removed_from_tree
+                ? old_path_idxs.leaf_range.first
+                : tree_reduction.new_total_leaf_tuples;
             const LeafIdx end_leaf_idx = old_path_idxs.leaf_range.second;
 
             // TODO: separate static function, duplicated above
@@ -599,6 +661,7 @@ bool TreeSync<C1, C2>::pop_block()
                 CHECK_AND_ASSERT_THROW_MES(leaf_it->second.ref_count != 0, "leaf has 0 ref count");
 
                 leaf_it->second.ref_count -= 1;
+                MDEBUG("Removing leaf " << i << " , updated ref count: " << leaf_it->second.ref_count);
 
                 // If the ref count is 0, garbage collect it
                 if (leaf_it->second.ref_count == 0)
@@ -616,6 +679,7 @@ bool TreeSync<C1, C2>::pop_block()
             CHECK_AND_ASSERT_THROW_MES(cached_layer_it != m_tree_elem_cache.end(), "missing cached layer");
 
             uint64_t new_total_parents = 0;
+            uint64_t old_chunk_start = 0;
             uint64_t old_chunk_end = 0;
             // TODO: templated function
             if (use_c2)
@@ -625,17 +689,8 @@ bool TreeSync<C1, C2>::pop_block()
 
                 new_total_parents = c2_reduction.new_total_parents;
 
-                // We updated the last hash
-                if (c2_reduction.update_existing_last_hash)
-                {
-                    CHECK_AND_ASSERT_THROW_MES(new_total_parents > 0, "unexpected 0 new_total_parents");
-                    auto cached_tree_elem_it = cached_layer_it->second.find(new_total_parents - 1);
-                    CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing cached new last hash");
-
-                    cached_tree_elem_it->second.tree_elem = m_curve_trees->m_c2->to_bytes(c2_reduction.new_last_hash);
-                }
-
                 CHECK_AND_ASSERT_THROW_MES(old_path_idxs.c2_layers.size() > c2_idx, "unexpected c2 path idxs");
+                old_chunk_start = old_path_idxs.c2_layers[c2_idx].first;
                 old_chunk_end = old_path_idxs.c2_layers[c2_idx].second;
 
                 ++c2_idx;
@@ -647,32 +702,26 @@ bool TreeSync<C1, C2>::pop_block()
 
                 new_total_parents = c1_reduction.new_total_parents;
 
-                // We updated the last hash
-                if (c1_reduction.update_existing_last_hash)
-                {
-                    CHECK_AND_ASSERT_THROW_MES(new_total_parents > 0, "unexpected 0 new_total_parents");
-                    auto cached_tree_elem_it = cached_layer_it->second.find(new_total_parents - 1);
-                    CHECK_AND_ASSERT_THROW_MES(cached_tree_elem_it != cached_layer_it->second.end(), "missing cached new last hash");
-
-                    cached_tree_elem_it->second.tree_elem = m_curve_trees->m_c1->to_bytes(c1_reduction.new_last_hash);
-                }
-
                 CHECK_AND_ASSERT_THROW_MES(old_path_idxs.c1_layers.size() > c1_idx, "unexpected c1 path idxs");
+                old_chunk_start = old_path_idxs.c1_layers[c1_idx].first;
                 old_chunk_end = old_path_idxs.c1_layers[c1_idx].second;
 
                 ++c1_idx;
             }
 
-            MERROR("old_chunk_end " << old_chunk_end << " , new_total_parents: " << new_total_parents);
+            MDEBUG("layer: " << i
+                << " , old_chunk_start: "   << old_chunk_start
+                << " , old_chunk_end: "     << old_chunk_end
+                << " , new_total_parents: " << new_total_parents);
 
             // Remove cached elems if necessary
-            if (old_chunk_end > new_total_parents)
+            if (output_removed_from_tree || old_chunk_end > new_total_parents)
             {
                 // Remove refs to stale path elems from the cache
-                const ChildChunkIdx start_idx = new_total_parents;
+                const ChildChunkIdx start_idx = output_removed_from_tree ? old_chunk_start : new_total_parents;
                 const ChildChunkIdx end_idx = old_chunk_end;
 
-                MERROR("Removing in layer " << i << ": start_idx: " << start_idx << " , end_idx: " << end_idx);
+                MDEBUG("Removing in layer " << i << ": start_idx: " << start_idx << " , end_idx: " << end_idx);
 
                 // TODO: separate static function, duplicated above
                 for (ChildChunkIdx j = start_idx; j < end_idx; ++j)
@@ -695,12 +744,15 @@ bool TreeSync<C1, C2>::pop_block()
             use_c2 = !use_c2;
         }
 
-        const bool output_removed_from_tree = leaf_idx >= tree_reduction.new_total_leaf_tuples;
         if (output_removed_from_tree)
+        {
+            MDEBUG("Un-assigning leaf idx " << leaf_idx);
             registered_o.second.unassign_leaf();
+        }
     }
 
-    // Check if there are any layers that need to be removed
+    // Check if there are any remaining layers that need to be removed
+    // NOTE: this should only be useful for removing excess layers from registered outputs
     // TODO: de-dup this code
     LayerIdx layer_idx = new_n_layers;
     while (1)
@@ -709,7 +761,7 @@ bool TreeSync<C1, C2>::pop_block()
         if (cache_layer_it == m_tree_elem_cache.end())
             break;
 
-        MERROR("Removing cached layer " << layer_idx);
+        MDEBUG("Removing cached layer " << layer_idx);
         m_tree_elem_cache.erase(cache_layer_it);
         ++layer_idx;
     }
@@ -864,54 +916,53 @@ template CurveTrees<Helios, Selene>::LastHashes TreeSync<Helios, Selene>::get_la
     const std::size_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSync<Helios, Selene>::get_last_chunk_children_to_trim(
+CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSync<Helios, Selene>::get_last_chunk_children_to_regrow(
     const std::vector<TrimLayerInstructions> &trim_instructions) const
 {
-    CurveTrees<Helios, Selene>::LastChunkChildrenToTrim all_children_to_trim;
+    CurveTrees<Helios, Selene>::LastChunkChildrenToTrim all_children_to_regrow;
 
     if (trim_instructions.empty())
-        return all_children_to_trim;
+        return all_children_to_regrow;
 
     // Leaf layer
     const auto &trim_leaf_layer_instructions = trim_instructions[0];
-    std::vector<Selene::Scalar> leaves_to_trim;
+    std::vector<Selene::Scalar> leaves_to_regrow;
     const std::size_t LEAF_TUPLE_SIZE = CurveTrees<Helios, Selene>::LEAF_TUPLE_SIZE;
     // TODO: separate function
     if (trim_leaf_layer_instructions.end_trim_idx > trim_leaf_layer_instructions.start_trim_idx)
     {
         LeafIdx idx = trim_leaf_layer_instructions.start_trim_idx;
-        MDEBUG("Start trim from idx: " << idx);
         do
         {
             CHECK_AND_ASSERT_THROW_MES(idx % LEAF_TUPLE_SIZE == 0, "expected divisble by leaf tuple size");
             const LeafIdx leaf_idx = idx / LEAF_TUPLE_SIZE;
 
-            MERROR("Searching for leaf idx " << leaf_idx);
+            MDEBUG("Re-growing with leaf idx " << leaf_idx);
             const auto leaf_it = m_cached_leaves.find(leaf_idx);
             CHECK_AND_ASSERT_THROW_MES(leaf_it != m_cached_leaves.end(), "missing cached leaf");
 
             const auto leaf_tuple = m_curve_trees->leaf_tuple(leaf_it->second.output);
 
-            leaves_to_trim.push_back(leaf_tuple.O_x);
-            leaves_to_trim.push_back(leaf_tuple.I_x);
-            leaves_to_trim.push_back(leaf_tuple.C_x);
+            leaves_to_regrow.push_back(leaf_tuple.O_x);
+            leaves_to_regrow.push_back(leaf_tuple.I_x);
+            leaves_to_regrow.push_back(leaf_tuple.C_x);
 
             idx += LEAF_TUPLE_SIZE;
         }
         while (idx < trim_leaf_layer_instructions.end_trim_idx);
     }
 
-    all_children_to_trim.c2_children.emplace_back(std::move(leaves_to_trim));
+    all_children_to_regrow.c2_children.emplace_back(std::move(leaves_to_regrow));
 
     bool parent_is_c2 = false;
     for (std::size_t i = 1; i < trim_instructions.size(); ++i)
     {
-        MDEBUG("Getting trim instructions for layer " << i);
+        MDEBUG("Getting last chunk children to re-grow layer " << i);
 
         const auto &trim_layer_instructions = trim_instructions[i];
 
-        const ChildChunkIdx start_trim_idx = trim_layer_instructions.start_trim_idx;
-        const ChildChunkIdx end_trim_idx   = trim_layer_instructions.end_trim_idx;
+        const ChildChunkIdx start_idx = trim_layer_instructions.start_trim_idx;
+        const ChildChunkIdx end_idx   = trim_layer_instructions.end_trim_idx;
 
         const LayerIdx layer_idx = i - 1;
         const auto cached_layer_it = m_tree_elem_cache.find(layer_idx);
@@ -919,29 +970,29 @@ CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSync<Helios, Selene>::ge
 
         if (parent_is_c2)
         {
-            auto children_to_trim = get_layer_last_chunk_children_to_trim<Helios, Selene>(
+            auto children_to_regrow = get_layer_last_chunk_children_to_regrow<Helios, Selene>(
                 m_curve_trees->m_c1,
                 cached_layer_it->second,
-                start_trim_idx,
-                end_trim_idx);
+                start_idx,
+                end_idx);
 
-            all_children_to_trim.c2_children.emplace_back(std::move(children_to_trim));
+            all_children_to_regrow.c2_children.emplace_back(std::move(children_to_regrow));
         }
         else
         {
-            auto children_to_trim = get_layer_last_chunk_children_to_trim<Selene, Helios>(
+            auto children_to_regrow = get_layer_last_chunk_children_to_regrow<Selene, Helios>(
                 m_curve_trees->m_c2,
                 cached_layer_it->second,
-                start_trim_idx,
-                end_trim_idx);
+                start_idx,
+                end_idx);
 
-            all_children_to_trim.c1_children.emplace_back(std::move(children_to_trim));
+            all_children_to_regrow.c1_children.emplace_back(std::move(children_to_regrow));
         }
 
         parent_is_c2 = !parent_is_c2;
     }
 
-    return all_children_to_trim;
+    return all_children_to_regrow;
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<>
@@ -971,11 +1022,19 @@ CurveTrees<Helios, Selene>::LastHashes TreeSync<Helios, Selene>::get_last_hashes
         if (parent_is_c2)
         {
             auto c2_point = m_curve_trees->m_c2->from_bytes(cached_chunk_it->second.tree_elem);
+
+            MDEBUG("Last hash at layer: " << i << " , last_parent_idx: " << last_parent_idx
+                << " , hash: " << m_curve_trees->m_c2->to_string(c2_point));
+
             last_hashes.c2_last_hashes.push_back(std::move(c2_point));
         }
         else
         {
             auto c1_point = m_curve_trees->m_c1->from_bytes(cached_chunk_it->second.tree_elem);
+
+            MDEBUG("Last hash at layer: " << i << " , last_parent_idx: " << last_parent_idx
+                << " , hash: " << m_curve_trees->m_c1->to_string(c1_point));
+
             last_hashes.c1_last_hashes.push_back(std::move(c1_point));
         }
 
@@ -1008,7 +1067,8 @@ void TreeSync<C1, C2>::deque_block(const BlockHash &block_hash)
 
     // Remove refs to prunable tree elems in the cache
     auto prunable_tree_elems_it = m_prunable_tree_elems_by_block.find(block_hash);
-    CHECK_AND_ASSERT_THROW_MES(prunable_tree_elems_it != m_prunable_tree_elems_by_block.end(), "missing block of prunable tree elems");
+    CHECK_AND_ASSERT_THROW_MES(prunable_tree_elems_it != m_prunable_tree_elems_by_block.end(),
+        "missing block of prunable tree elems");
     for (const auto &tree_elem : prunable_tree_elems_it->second)
     {
         const LayerIdx layer_idx = tree_elem.first;
@@ -1017,13 +1077,14 @@ void TreeSync<C1, C2>::deque_block(const BlockHash &block_hash)
             continue;
 
         auto cached_layer_it = m_tree_elem_cache.find(layer_idx);
-        CHECK_AND_ASSERT_THROW_MES(cached_layer_it != m_tree_elem_cache.end(), "missing cached layer");
+        CHECK_AND_ASSERT_THROW_MES(cached_layer_it != m_tree_elem_cache.end(), "missing prunable cached layer");
 
         for (const auto &child_chunk_idx : child_chunk_idx_set)
         {
             auto cached_chunk_it = cached_layer_it->second.find(child_chunk_idx);
-            CHECK_AND_ASSERT_THROW_MES(cached_chunk_it != cached_layer_it->second.end(), "missing cached chunk");
-            CHECK_AND_ASSERT_THROW_MES(cached_chunk_it->second.ref_count != 0, "chunk has 0 ref count");
+            CHECK_AND_ASSERT_THROW_MES(cached_chunk_it != cached_layer_it->second.end(),
+                "missing prunable cached chunk");
+            CHECK_AND_ASSERT_THROW_MES(cached_chunk_it->second.ref_count != 0, "prunable chunk has 0 ref count");
 
             cached_chunk_it->second.ref_count -= 1;
 

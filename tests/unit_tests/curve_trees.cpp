@@ -815,7 +815,7 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
     std::size_t c2_idx = 0;
     for (std::size_t i = 1; i < trim_instructions.size(); ++i)
     {
-        MDEBUG("Getting trim instructions for layer " << i);
+        MDEBUG("Getting last chunk children to trim from layer " << i);
 
         const auto &trim_layer_instructions = trim_instructions[i];
 

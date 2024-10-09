@@ -82,7 +82,7 @@ TEST(tree_sync, register_output)
 
     // 5. Sync the block of outputs
     tree_sync->sync_block(block_idx,
-        crypto::hash{}/*block_hash*/,
+        crypto::hash{0x01}/*block_hash*/,
         crypto::hash{}/*prev_block_hash*/,
         std::move(outputs));
 
@@ -113,7 +113,7 @@ TEST(tree_sync, sync_block_simple)
 
     // 3. Sync the block of outputs
     tree_sync->sync_block(block_idx,
-        crypto::hash{}/*block_hash*/,
+        crypto::hash{0x01}/*block_hash*/,
         crypto::hash{}/*prev_block_hash*/,
         std::move(outputs));
 
@@ -261,6 +261,10 @@ TEST(tree_sync, sync_n_blocks_register_one_output)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_sync, sync_past_max_reorg_depth)
 {
+    // This test is useful for making sure TreeSync syncs correctly even after syncing past the reorg depth. Internally
+    // the class drops cached values from beyond the reorg depth. This test makes sure registered output paths still
+    // update correctly even after cached values from the tree get dropped.
+
     // Init
     static const std::size_t max_reorg_depth = 1;
     static const std::size_t tree_depth = 5;
@@ -334,20 +338,8 @@ TEST(tree_sync, sync_past_max_reorg_depth)
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(tree_sync, reorg_every_block_after_register)
+TEST(tree_sync, reorg_after_register)
 {
-    // FIXME: The problem with the current impl is that it expects ALL values to be in the cache from the "new" last chunk
-    // on trim. However, sync_block is *only* caching last chunk as it sees it. E.g. a last chunk is 2/3 full on block n,
-    // then fills up in block n+1 which also adds more chunks after. That last chunk from block n won't have all elems
-    // cached. So getting the last children to trim from that new last chunk will fail.
-    // Simple solution: cache full chunks for each "last chunk". Upon syncing, keep track of the "current" last chunk
-    // and add those elems to the cache.
-    // Alternative solution: ALWAYS grow with remaining children when trimming. This is less efficient reorg handling, but does save
-    // some storage space in the client (KB's at the cost of slower reorg handling.. but also don't need to call to_bytes()
-    // on path elems).. Easiest way to do this would be to add a param to get_trim_instructions() to allow growing with
-    // remaining always
-    // Going with the alternative...
-
     // Init
     static const std::size_t tree_depth = 5;
     INIT_SYNC_TEST(tree_depth);
@@ -371,13 +363,12 @@ TEST(tree_sync, reorg_every_block_after_register)
         std::vector<uint64_t> n_outputs_synced_by_block;
         while (n_outputs_synced < n_leaves_needed)
         {
-            if (registered)
+            if (registered && block_idx > (included_block_idx + 1))
             {
                 uint64_t cur_block_idx = block_idx;
-                ASSERT_GT(cur_block_idx, included_block_idx);
                 ASSERT_EQ(n_outputs_synced_by_block.size(), block_idx);
 
-                LOG_PRINT_L1("Popping blocks from block idx " << block_idx-1 << " to " << included_block_idx);
+                MDEBUG("Popping blocks back to block " << included_block_idx + 1 << " , then re-syncing");
 
                 auto prev_n_outputs_synced = [&n_outputs_synced_by_block](uint64_t blk_idx) -> uint64_t
                     { return blk_idx == 0 ? 0 : n_outputs_synced_by_block[blk_idx - 1]; };
@@ -388,7 +379,8 @@ TEST(tree_sync, reorg_every_block_after_register)
                     ASSERT_TRUE(tree_sync->pop_block());
                     --cur_block_idx;
 
-                    MERROR("cur_block_idx: " << cur_block_idx << " , prev_n_outputs_synced(cur_block_idx): " << prev_n_outputs_synced(cur_block_idx));
+                    MDEBUG("cur_block_idx: " << cur_block_idx
+                        << " , prev_n_outputs_synced(cur_block_idx): " << prev_n_outputs_synced(cur_block_idx));
 
                     CurveTreesV1::Path output_path;
                     ASSERT_TRUE(tree_sync->get_output_path(registered_output, output_path));
@@ -400,7 +392,7 @@ TEST(tree_sync, reorg_every_block_after_register)
                 while (cur_block_idx < block_idx)
                 {
                     const auto sync_n_outputs = (cur_block_idx % max_outputs_per_block) + 1;
-                    LOG_PRINT_L1("Re-syncing "<< sync_n_outputs << " outputs in block " << (cur_block_idx+1)
+                    MDEBUG("Re-syncing "<< sync_n_outputs << " outputs in block " << (cur_block_idx+1)
                         << " (" << (prev_n_outputs_synced(cur_block_idx)+sync_n_outputs) << " / " << n_leaves_needed << " outputs)");
 
                     auto outputs = test::generate_random_outputs(*curve_trees, prev_n_outputs_synced(cur_block_idx), sync_n_outputs);
@@ -426,7 +418,7 @@ TEST(tree_sync, reorg_every_block_after_register)
             }
 
             const auto sync_n_outputs = (block_idx % max_outputs_per_block) + 1;
-            LOG_PRINT_L1("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
+            MDEBUG("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
                 << " (" << (n_outputs_synced+sync_n_outputs) << " / " << n_leaves_needed << " outputs)");
 
             auto outputs = test::generate_random_outputs(*curve_trees, n_outputs_synced, sync_n_outputs);
@@ -478,7 +470,77 @@ TEST(tree_sync, reorg_every_block_after_register)
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(tree_sync, register_after_reorg)
+{
+    // Init
+    static const std::size_t tree_depth = 5;
+    INIT_SYNC_TEST(tree_depth);
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+
+    // Sync until we reach expected tree depth
+    uint64_t block_idx = 0;
+    uint64_t n_outputs_synced = 0;
+    std::vector<uint64_t> n_outputs_synced_by_block;
+    std::vector<crypto::hash> block_hashes;
+    while (n_outputs_synced < n_leaves_needed)
+    {
+        const auto sync_n_outputs = (block_idx % max_outputs_per_block) + 1;
+        LOG_PRINT_L1("Syncing "<< sync_n_outputs << " outputs in block " << (block_idx+1)
+            << " (" << (n_outputs_synced+sync_n_outputs) << " / " << n_leaves_needed << " outputs)");
+
+        auto outputs = test::generate_random_outputs(*curve_trees, n_outputs_synced, sync_n_outputs);
+        CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
+
+        // Block metadata
+        crypto::hash block_hash;
+        crypto::cn_fast_hash(&block_idx, sizeof(uint64_t), block_hash);
+
+        // Sync the outputs generated above
+        tree_sync->sync_block(block_idx,
+            block_hash,
+            block_hashes.empty() ? crypto::hash{} : block_hashes.back(),
+            std::move(outputs));
+
+        n_outputs_synced += sync_n_outputs;
+        n_outputs_synced_by_block.push_back(n_outputs_synced);
+        block_hashes.push_back(block_hash);
+
+        // Update for next iteration
+        ++block_idx;
+    }
+
+    // Reorg 1 block
+    // TODO: test reorg 1 block to block_idx blocks
+    LOG_PRINT_L1("Popping 1 block");
+    ASSERT_TRUE(tree_sync->pop_block());
+    --block_idx;
+    block_hashes.pop_back();
+    n_outputs_synced_by_block.pop_back();
+    n_outputs_synced = n_outputs_synced_by_block.back();
+
+    // Register output and sync it in the next block
+    LOG_PRINT_L1("Registering 1 output and syncing in next block");
+    auto outputs = test::generate_random_outputs(*curve_trees, n_outputs_synced, 1);
+    CHECK_AND_ASSERT_THROW_MES(outputs.size() == 1, "unexpected size of outputs");
+
+    const auto output = outputs[0].output_pair;
+    ASSERT_TRUE(tree_sync->register_output(output, block_idx));
+
+    // Block metadata
+    crypto::hash block_hash;
+    crypto::cn_fast_hash(&block_idx, sizeof(uint64_t), block_hash);
+
+    // Sync the output generated above
+    tree_sync->sync_block(block_idx,
+        block_hash,
+        block_hashes.empty() ? crypto::hash{} : block_hashes.back(),
+        std::move(outputs));
+
+    CurveTreesV1::Path output_path;
+    ASSERT_TRUE(tree_sync->get_output_path(output, output_path));
+    ASSERT_TRUE(curve_trees->audit_path(output_path, output, n_outputs_synced+1));
+}
+//----------------------------------------------------------------------------------------------------------------------
 // TODO: test edge cases: duplicate output when syncing, mismatched prev block hash in sync_block
-// TODO: reorg handling
 // TODO: clean up code
 //----------------------------------------------------------------------------------------------------------------------
