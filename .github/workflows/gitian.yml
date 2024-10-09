@@ -34,7 +34,7 @@ jobs:
         ./gitian-build.py --setup --docker github-actions ${{ github.ref_name }}
     - name: build
       run: |
-        ./gitian-build.py --docker --detach-sign --no-commit --build -j 3 -o ${{ matrix.operating-system.option }} github-actions ${{ github.ref_name }}
+        ./gitian-build.py --docker --detach-sign --no-commit --build -j 4 -o ${{ matrix.operating-system.option }} github-actions ${{ github.ref_name }}
     - name: post build
       run: |
         cd out/${{ github.ref_name }}
