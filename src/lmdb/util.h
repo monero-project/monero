@@ -111,6 +111,7 @@ namespace lmdb
     template<typename T, std::size_t offset = 0>
     inline int less(MDB_val const* left, MDB_val const* right) noexcept
     {
+        static_assert(std::is_trivially_copyable<T>(), "memcpy will not work");
         if (!left || !right || left->mv_size < sizeof(T) + offset || right->mv_size < sizeof(T) + offset)
         {
             assert("invalid use of custom comparison" == 0);
