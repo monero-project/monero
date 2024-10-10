@@ -80,9 +80,6 @@ static void cache_leaf_chunk(const ChildChunkIdx chunk_idx,
     if (leaves.start_leaf_tuple_idx >= end_leaf_idx)
         return;
 
-    CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "start_leaf_idx is too high");
-    const uint64_t expected_chunk_size = end_leaf_idx - start_leaf_idx;
-
     // Check if the leaf's chunk is already cached
     uint64_t cached_chunk_size = 0;
     auto leaf_chunk_it = leaf_cache_inout.find(chunk_idx);
@@ -95,6 +92,9 @@ static void cache_leaf_chunk(const ChildChunkIdx chunk_idx,
         cached_chunk_size = (uint64_t) leaf_chunk_it->second.leaves.size();
     }
 
+    // See what we expect the leaf chunk size to be
+    CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "start_leaf_idx is too high");
+    const uint64_t expected_chunk_size = end_leaf_idx - start_leaf_idx;
     CHECK_AND_ASSERT_THROW_MES(expected_chunk_size >= cached_chunk_size, "cached leaf chunk is too big");
     const uint64_t new_leaves_needed = expected_chunk_size - cached_chunk_size;
 
@@ -102,7 +102,7 @@ static void cache_leaf_chunk(const ChildChunkIdx chunk_idx,
     if (new_leaves_needed == 0)
         return;
 
-    // Collect the new leaves in the leaf's chunk to add to the cache
+    // Add the new leaves in the leaf's chunk to the cache
     const LeafIdx end_tuple_idx = end_leaf_idx - leaves.start_leaf_tuple_idx;
     CHECK_AND_ASSERT_THROW_MES(leaves.tuples.size() >= end_tuple_idx, "high end_tuple_idx");
     CHECK_AND_ASSERT_THROW_MES(end_tuple_idx >= new_leaves_needed, "low end_tuple_idx");
@@ -299,14 +299,11 @@ static void cache_last_chunk_leaves(const std::shared_ptr<CurveTrees<C1, C2>> &c
     LeafCache &leaf_cache_inout)
 {
     const uint64_t n_leaf_tuples = leaves.start_leaf_tuple_idx + leaves.tuples.size();
+    if (n_leaf_tuples == 0)
+        return;
 
-    const LeafIdx leaf_offset = n_leaf_tuples % curve_trees->m_c2_width;
-    const LeafIdx end_leaf_offset = (leaf_offset > 0) ? leaf_offset : curve_trees->m_c2_width;
-
-    CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples >= end_leaf_offset, "high end_leaf_offset");
-
-    const LeafIdx start_leaf_idx = n_leaf_tuples - end_leaf_offset;
-    const ChildChunkIdx chunk_idx = start_leaf_idx / curve_trees->m_c2_width;
+    const LeafIdx last_leaf_idx = n_leaf_tuples - 1;
+    const ChildChunkIdx chunk_idx = last_leaf_idx / curve_trees->m_c2_width;
 
     // Always bump the ref count for last chunk of leaves so that it sticks around until pruned
     const bool bump_ref_count = true;
