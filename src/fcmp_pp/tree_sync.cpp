@@ -137,26 +137,26 @@ static void remove_leaf_chunk_ref(const ChildChunkIdx chunk_idx, LeafCache &leaf
         leaf_cache_inout.erase(leaf_chunk_it);
 }
 //----------------------------------------------------------------------------------------------------------------------
-static void pop_leaves_from_cached_last_chunk(const uint64_t new_n_leaf_tuples,
+static void shrink_cached_last_leaf_chunk(const uint64_t new_n_leaf_tuples,
     const std::size_t leaf_parent_chunk_width,
     LeafCache &leaf_cache_inout)
 {
     // If the offset is 0, the last chunk is full and we're supposed to keep all elems in it
-    const uint64_t offset = new_n_leaf_tuples % leaf_parent_chunk_width;
+    const std::size_t offset = new_n_leaf_tuples % leaf_parent_chunk_width;
     if (offset == 0)
         return;
 
-    const ChildChunkIdx chunk_idx = new_n_leaf_tuples / leaf_parent_chunk_width;
+    const LeafIdx last_leaf_idx = new_n_leaf_tuples - 1;
+    const ChildChunkIdx chunk_idx = last_leaf_idx / leaf_parent_chunk_width;
+
     auto leaf_chunk_it = leaf_cache_inout.find(chunk_idx);
     CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it != leaf_cache_inout.end(), "cache is missing leaf chunk");
 
     // The last chunk should have at least offset leaves
-    CHECK_AND_ASSERT_THROW_MES((uint64_t)leaf_chunk_it->second.leaves.size() >= offset,
-        "unexpected n leaves in cached chunk");
+    const std::size_t n_leaves_last_chunk = leaf_chunk_it->second.leaves.size();
+    CHECK_AND_ASSERT_THROW_MES(n_leaves_last_chunk >= offset, "unexpected n leaves in cached last chunk");
 
-    // Pop until the expected offset
-    while ((uint64_t)leaf_chunk_it->second.leaves.size() > offset)
-        leaf_chunk_it->second.leaves.pop_back();
+    leaf_chunk_it->second.leaves.resize(offset);
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
@@ -683,7 +683,7 @@ bool TreeSync<C1, C2>::pop_block()
     // Pop leaves from the current last chunk
     // NOTE: deque_block above already removed refs to any last chunk leaves that weren't tied to registered outputs,
     // so we don't need to remove refs here.
-    pop_leaves_from_cached_last_chunk(new_n_leaf_tuples, m_curve_trees->m_c2_width, m_leaf_cache);
+    shrink_cached_last_leaf_chunk(new_n_leaf_tuples, m_curve_trees->m_c2_width, m_leaf_cache);
 
     // Use the tree reduction to update ref'd last hashes
     // NOTE: deque_block above already removed refs to any last chunk hashes and last chunk leaves that weren't tied
@@ -1140,12 +1140,12 @@ template<typename C1, typename C2>
 void TreeSync<C1, C2>::deque_block(const BlockHash &block_hash, const uint64_t old_n_leaf_tuples)
 {
     // Remove ref to last chunk leaves from the cache
-    const uint64_t offset = old_n_leaf_tuples % m_curve_trees->m_c2_width;
-    const uint64_t old_last_chunk_start_leaf_idx = offset == 0
-        ? (old_n_leaf_tuples - m_curve_trees->m_c2_width)
-        : (old_n_leaf_tuples - offset);
-    const ChildChunkIdx leaf_chunk_idx = old_last_chunk_start_leaf_idx / m_curve_trees->m_c2_width;
-    remove_leaf_chunk_ref(leaf_chunk_idx, m_leaf_cache);
+    if (old_n_leaf_tuples > 0)
+    {
+        const LeafIdx old_last_leaf_idx = old_n_leaf_tuples - 1;
+        const ChildChunkIdx leaf_chunk_idx = old_last_leaf_idx / m_curve_trees->m_c2_width;
+        remove_leaf_chunk_ref(leaf_chunk_idx, m_leaf_cache);
+    }
 
     // Remove refs to prunable tree elems in the cache
     auto prunable_tree_elems_it = m_prunable_tree_elems_by_block.find(block_hash);
