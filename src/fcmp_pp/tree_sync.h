@@ -78,9 +78,9 @@ struct CachedTreeElem final
     uint64_t ref_count;
 };
 
-struct CachedLeafTuple final
+struct CachedLeafChunk final
 {
-    OutputPair output;
+    std::vector<OutputPair> leaves;
     uint64_t ref_count;
 };
 
@@ -100,15 +100,13 @@ struct RegisteredOutputContext final
 };
 
 using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
-using LeafCache         = std::unordered_map<LeafIdx, CachedLeafTuple>;
+using LeafCache         = std::unordered_map<ChildChunkIdx, CachedLeafChunk>;
 using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElem>;
 
 // TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
 using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
-using LeavesSet         = std::unordered_set<LeafIdx>;
 using ChildChunkIdxSet  = std::unordered_set<ChildChunkIdx>;
 
-using PrunableLeaves    = std::unordered_map<BlockHash, LeavesSet>;
 using PrunableChunks    = std::unordered_map<LayerIdx, ChildChunkIdxSet>;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -173,7 +171,7 @@ private:
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes_to_trim(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
-    void deque_block(const BlockHash &block_hash);
+    void deque_block(const BlockHash &block_hash, const uint64_t old_n_leaf_tuples);
 
 // Internal member variables
 private:
@@ -184,12 +182,11 @@ private:
     RegisteredOutputs m_registered_outputs;
 
     // Cached leaves and tree elems
-    LeafCache m_cached_leaves;
+    LeafCache m_leaf_cache;
     TreeElemCache m_tree_elem_cache;
 
     // Keep track of cached tree elems that are not needed for path data and can be pruned from the cache once the cache
     // reaches m_max_reorg_depth
-    PrunableLeaves m_prunable_leaves_by_block;
     std::unordered_map<BlockHash, PrunableChunks> m_prunable_tree_elems_by_block;
 
     // Used for getting tree extensions and reductions when growing and trimming respectively

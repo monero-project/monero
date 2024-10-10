@@ -59,50 +59,104 @@ static bool assign_new_output(const OutputPair &output_pair,
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-static void cache_registered_leaf_chunk(const LeafIdx leaf_idx,
+static void cache_leaf_chunk(const ChildChunkIdx chunk_idx,
     const std::size_t leaf_parent_chunk_width,
     const typename CurveTrees<C1, C2>::Leaves &leaves,
-    const bool newly_assigned_output,
+    const bool bump_ref_count,
     LeafCache &leaf_cache_inout)
 {
-    const LeafIdx start_leaf_idx = (leaf_idx / leaf_parent_chunk_width) * leaf_parent_chunk_width;
-    const LeafIdx end_leaf_idx = std::min(start_leaf_idx + leaf_parent_chunk_width,
-        leaves.start_leaf_tuple_idx + leaves.tuples.size());
+    const uint64_t n_leaf_tuples  = leaves.start_leaf_tuple_idx + leaves.tuples.size();
 
-    MDEBUG("Caching leaves for leaf_idx: " << leaf_idx
+    const LeafIdx start_leaf_idx = chunk_idx * leaf_parent_chunk_width;
+    const LeafIdx end_leaf_idx   = std::min(start_leaf_idx + leaf_parent_chunk_width, n_leaf_tuples);
+
+    MDEBUG("Caching leaves at chunk_idx: " << chunk_idx
         << " , start_leaf_idx: "           << start_leaf_idx
         << " , end_leaf_idx: "             << end_leaf_idx
+        << " , bump_ref_count: "           << bump_ref_count
         << " , start_leaf_tuple_idx: "     << leaves.start_leaf_tuple_idx);
 
-    // If the registered output's chunk isn't present in this tree extension, we have no leaves to cache
-    if (end_leaf_idx > leaves.start_leaf_tuple_idx)
+    // If the leaf's chunk isn't present in this leaf extension, there are no new leaves we need to cache
+    if (leaves.start_leaf_tuple_idx >= end_leaf_idx)
+        return;
+
+    CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "start_leaf_idx is too high");
+    const uint64_t expected_chunk_size = end_leaf_idx - start_leaf_idx;
+
+    // Check if the leaf's chunk is already cached
+    uint64_t cached_chunk_size = 0;
+    auto leaf_chunk_it = leaf_cache_inout.find(chunk_idx);
+    const bool cache_hit = leaf_chunk_it != leaf_cache_inout.end();
+    if (cache_hit)
     {
-        CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "unexpected end_leaf_idx > start_leaf_idx");
+        if (bump_ref_count)
+            leaf_chunk_it->second.ref_count += 1;
 
-        // Cache the leaf elems from this leaf's chunk
-        for (LeafIdx j = start_leaf_idx; j < end_leaf_idx; ++j)
-        {
-            auto leaf_it = leaf_cache_inout.find(j);
-            if (leaf_it != leaf_cache_inout.end())
-            {
-                // We only need to bump the ref count for new outputs included in this tree extension, or for
-                // outputs in the chunk of a newly registered output
-                const bool new_leaf = j >= leaves.start_leaf_tuple_idx;
-                if (newly_assigned_output || new_leaf)
-                    leaf_it->second.ref_count += 1;
-
-                continue;
-            }
-
-            CHECK_AND_ASSERT_THROW_MES(j >= leaves.start_leaf_tuple_idx, "low j");
-            const uint64_t tuple_idx = j - leaves.start_leaf_tuple_idx;
-
-            CHECK_AND_ASSERT_THROW_MES(leaves.tuples.size() > tuple_idx, "high tuple_idx");
-            const auto &output_pair = leaves.tuples[tuple_idx].output_pair;
-
-            leaf_cache_inout[j] = CachedLeafTuple { .output = output_pair, .ref_count = 1 };
-        }
+        cached_chunk_size = (uint64_t) leaf_chunk_it->second.leaves.size();
     }
+
+    CHECK_AND_ASSERT_THROW_MES(expected_chunk_size >= cached_chunk_size, "cached leaf chunk is too big");
+    const uint64_t new_leaves_needed = expected_chunk_size - cached_chunk_size;
+
+    // If we already have all the leaves, we're done, we've already bumped the ref count if needed
+    if (new_leaves_needed == 0)
+        return;
+
+    // Collect the new leaves in the leaf's chunk to add to the cache
+    const LeafIdx end_tuple_idx = end_leaf_idx - leaves.start_leaf_tuple_idx;
+    CHECK_AND_ASSERT_THROW_MES(leaves.tuples.size() >= end_tuple_idx, "high end_tuple_idx");
+    CHECK_AND_ASSERT_THROW_MES(end_tuple_idx >= new_leaves_needed, "low end_tuple_idx");
+    const LeafIdx start_tuple_idx = end_tuple_idx - new_leaves_needed;
+
+    std::vector<OutputPair> new_leaves;
+    for (LeafIdx i = start_tuple_idx; i < end_tuple_idx; ++i)
+    {
+        const auto &output_pair = leaves.tuples[i].output_pair;
+        if (cache_hit)
+            leaf_chunk_it->second.leaves.push_back(output_pair);
+        else
+            new_leaves.push_back(output_pair);
+    }
+
+    // Add to the cache
+    if (!cache_hit)
+        leaf_cache_inout[chunk_idx] = CachedLeafChunk { .leaves = std::move(new_leaves), .ref_count = 1 };
+}
+//----------------------------------------------------------------------------------------------------------------------
+static void remove_leaf_chunk_ref(const ChildChunkIdx chunk_idx, LeafCache &leaf_cache_inout)
+{
+    auto leaf_chunk_it = leaf_cache_inout.find(chunk_idx);
+    CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it != leaf_cache_inout.end(), "cache is missing leaf chunk");
+    CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it->second.ref_count != 0, "leaf chunk has 0 ref count");
+
+    leaf_chunk_it->second.ref_count -= 1;
+    MDEBUG("Removing leaf chunk " << chunk_idx << " , updated ref count: " << leaf_chunk_it->second.ref_count);
+
+    // If the ref count is 0, garbage collect it
+    if (leaf_chunk_it->second.ref_count == 0)
+        leaf_cache_inout.erase(leaf_chunk_it);
+}
+//----------------------------------------------------------------------------------------------------------------------
+static void pop_leaves_from_cached_last_chunk(const uint64_t new_n_leaf_tuples,
+    const std::size_t leaf_parent_chunk_width,
+    LeafCache &leaf_cache_inout)
+{
+    // If the offset is 0, the last chunk is full and we're supposed to keep all elems in it
+    const uint64_t offset = new_n_leaf_tuples % leaf_parent_chunk_width;
+    if (offset == 0)
+        return;
+
+    const ChildChunkIdx chunk_idx = new_n_leaf_tuples / leaf_parent_chunk_width;
+    auto leaf_chunk_it = leaf_cache_inout.find(chunk_idx);
+    CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it != leaf_cache_inout.end(), "cache is missing leaf chunk");
+
+    // The last chunk should have at least offset leaves
+    CHECK_AND_ASSERT_THROW_MES((uint64_t)leaf_chunk_it->second.leaves.size() >= offset,
+        "unexpected n leaves in cached chunk");
+
+    // Pop until the expected offset
+    while ((uint64_t)leaf_chunk_it->second.leaves.size() > offset)
+        leaf_chunk_it->second.leaves.pop_back();
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
@@ -240,7 +294,7 @@ static void cache_registered_path_chunks(const LeafIdx leaf_idx,
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-static LeavesSet cache_last_chunk_leaves(const std::shared_ptr<CurveTrees<C1, C2>> &curve_trees,
+static void cache_last_chunk_leaves(const std::shared_ptr<CurveTrees<C1, C2>> &curve_trees,
     const typename CurveTrees<C1, C2>::Leaves &leaves,
     LeafCache &leaf_cache_inout)
 {
@@ -252,37 +306,16 @@ static LeavesSet cache_last_chunk_leaves(const std::shared_ptr<CurveTrees<C1, C2
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples >= end_leaf_offset, "high end_leaf_offset");
 
     const LeafIdx start_leaf_idx = n_leaf_tuples - end_leaf_offset;
-    const LeafIdx end_leaf_idx   = std::min(start_leaf_idx + curve_trees->m_c2_width, n_leaf_tuples);
+    const ChildChunkIdx chunk_idx = start_leaf_idx / curve_trees->m_c2_width;
 
-    MDEBUG("Caching last chunk of leaves from leaf idx " << start_leaf_idx << " to " << end_leaf_idx);
+    // Always bump the ref count for last chunk of leaves so that it sticks around until pruned
+    const bool bump_ref_count = true;
 
-    LeavesSet prunable_leaves_out;
-    for (LeafIdx i = start_leaf_idx; i < end_leaf_idx; ++i)
-    {
-        // "Last chunk" leaves can be pruned once we exceed the max reorg depth and deque a block from the cache;
-        // they aren't tied to registered outputs
-        prunable_leaves_out.insert(i);
-
-        // Bump the ref count if it's already cached
-        auto leaf_it = leaf_cache_inout.find(i);
-        if (leaf_it != leaf_cache_inout.end())
-        {
-            leaf_it->second.ref_count += 1;
-            continue;
-        }
-
-        // The leaf is not cached, so cache it
-        CHECK_AND_ASSERT_THROW_MES(i >= leaves.start_leaf_tuple_idx,
-            "the leaf isn't in this tree extension, expected the leaf to be cached already");
-        const auto ext_idx = i - leaves.start_leaf_tuple_idx;
-        auto &output = leaves.tuples[ext_idx].output_pair;
-        leaf_cache_inout[i] = CachedLeafTuple {
-                .output = std::move(output),
-                .ref_count = 1,
-            };
-    }
-
-    return prunable_leaves_out;
+    cache_leaf_chunk<C1, C2>(chunk_idx,
+        curve_trees->m_c2_width,
+        leaves,
+        bump_ref_count,
+        leaf_cache_inout);
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
@@ -493,8 +526,8 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
         CHECK_AND_ASSERT_THROW_MES(block_idx == 0, "syncing first block_idx > 0 not yet implemented");
 
         // Make sure all blockchain containers are empty
-        CHECK_AND_ASSERT_THROW_MES(m_cached_blocks.empty(),     "expected empty cached blocks");
-        CHECK_AND_ASSERT_THROW_MES(m_cached_leaves.empty(),     "expected empty cached leaves");
+        CHECK_AND_ASSERT_THROW_MES(m_cached_blocks.empty(),   "expected empty cached blocks");
+        CHECK_AND_ASSERT_THROW_MES(m_leaf_cache.empty(),      "expected empty cached leaves");
         CHECK_AND_ASSERT_THROW_MES(m_tree_elem_cache.empty(), "expected empty cached tree elems");
     }
     else
@@ -537,28 +570,30 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
         if (!registered_o.second.assigned_leaf_idx)
             continue;
 
-        // Cache registered leaf's chunk
         const LeafIdx leaf_idx = registered_o.second.leaf_idx;
-        const bool newly_assigned_output = new_assigned_outputs.find(leaf_idx) != new_assigned_outputs.end();
-        cache_registered_leaf_chunk<C1, C2>(leaf_idx,
+
+        // We only need to bump the ref count on this registered output's leaf chunk if it was just included in the tree
+        const bool bump_ref_count = new_assigned_outputs.find(leaf_idx) != new_assigned_outputs.end();
+
+        // Cache registered leaf's chunk
+        cache_leaf_chunk<C1, C2>(leaf_idx / m_curve_trees->m_c2_width,
             m_curve_trees->m_c2_width,
             tree_extension.leaves,
-            newly_assigned_output,
-            m_cached_leaves);
+            bump_ref_count,
+            m_leaf_cache);
 
         // Now cache the rest of the path elems for each registered output
         cache_registered_path_chunks<C1, C2>(leaf_idx,
             m_curve_trees,
             c1_layer_exts,
             c2_layer_exts,
-            newly_assigned_output,
+            bump_ref_count,
             m_tree_elem_cache);
     }
 
     // Cache the last chunk of leaves, so if a registered output appears in the first chunk next block, we'll have all
     // prior leaves from that output's chunk
-    auto prunable_leaves = cache_last_chunk_leaves<C1, C2>(m_curve_trees, tree_extension.leaves, m_cached_leaves);
-    m_prunable_leaves_by_block[block_hash] = std::move(prunable_leaves);
+    cache_last_chunk_leaves<C1, C2>(m_curve_trees, tree_extension.leaves, m_leaf_cache);
 
     // Cache the last chunk of hashes from every layer. We need to do this to handle all of the following:
     //   1) So we can use the tree's last hashes to grow the tree from here next block.
@@ -586,7 +621,7 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
         CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cached blocks");
         const BlockMeta &oldest_block = m_cached_blocks.front();
 
-        this->deque_block(oldest_block.blk_hash);
+        this->deque_block(oldest_block.blk_hash, oldest_block.n_leaf_tuples);
 
         // Prune the block
         m_cached_blocks.pop_front();
@@ -613,7 +648,7 @@ bool TreeSync<C1, C2>::pop_block()
     // Pop the top block off the back of the cache
     const uint64_t  old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
     const BlockHash old_block_hash    = m_cached_blocks.back().blk_hash;
-    this->deque_block(old_block_hash);
+    this->deque_block(old_block_hash, old_n_leaf_tuples);
     m_cached_blocks.pop_back();
 
     // Determine how many leaves we need to trim
@@ -647,6 +682,11 @@ bool TreeSync<C1, C2>::pop_block()
     const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
     const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
     const std::size_t new_n_layers = c2_layer_reductions.size() + c1_layer_reductions.size();
+
+    // Pop leaves from the current last chunk
+    // NOTE: deque_block above already removed refs to any last chunk leaves that weren't tied to registered outputs,
+    // so we don't need to remove refs here.
+    pop_leaves_from_cached_last_chunk(new_n_leaf_tuples, m_curve_trees->m_c2_width, m_leaf_cache);
 
     // Use the tree reduction to update ref'd last hashes
     // NOTE: deque_block above already removed refs to any last chunk hashes and last chunk leaves that weren't tied
@@ -720,29 +760,11 @@ bool TreeSync<C1, C2>::pop_block()
         const bool output_removed_from_tree = leaf_idx >= tree_reduction.new_total_leaf_tuples;
 
         // Use the tree reduction to update the cached leaves and path elems
-        // First, remove any cached leaves if necessary
-        if (output_removed_from_tree || old_path_idxs.leaf_range.second > tree_reduction.new_total_leaf_tuples)
+        // First, remove ref to the leaf's chunk if we're removing the leaf from the tree
+        if (output_removed_from_tree)
         {
-            // Remove leaves from the cache
-            const LeafIdx start_leaf_idx = output_removed_from_tree
-                ? old_path_idxs.leaf_range.first
-                : tree_reduction.new_total_leaf_tuples;
-            const LeafIdx end_leaf_idx = old_path_idxs.leaf_range.second;
-
-            // TODO: separate static function, duplicated above
-            for (LeafIdx i = start_leaf_idx; i < end_leaf_idx; ++i)
-            {
-                auto leaf_it = m_cached_leaves.find(i);
-                CHECK_AND_ASSERT_THROW_MES(leaf_it != m_cached_leaves.end(), "cache is missing leaf");
-                CHECK_AND_ASSERT_THROW_MES(leaf_it->second.ref_count != 0, "leaf has 0 ref count");
-
-                leaf_it->second.ref_count -= 1;
-                MDEBUG("Removing leaf " << i << " , updated ref count: " << leaf_it->second.ref_count);
-
-                // If the ref count is 0, garbage collect it
-                if (leaf_it->second.ref_count == 0)
-                    m_cached_leaves.erase(leaf_it);
-            }
+            const ChildChunkIdx leaf_chunk_idx = leaf_idx / m_curve_trees->m_c2_width;
+            remove_leaf_chunk_ref(leaf_chunk_idx, m_leaf_cache);
         }
 
         // Second, remove or update any cached path elems if necessary
@@ -867,22 +889,14 @@ bool TreeSync<C1, C2>::get_output_path(const OutputPair &output, typename CurveT
     const LeafIdx leaf_idx = registered_output_it->second.leaf_idx;
     ChildChunkIdx child_chunk_idx = leaf_idx / m_curve_trees->m_c2_width;
     const LeafIdx start_leaf_idx = child_chunk_idx * m_curve_trees->m_c2_width;
-    const LeafIdx end_leaf_idx = start_leaf_idx + m_curve_trees->m_c2_width;
 
-    MDEBUG("Getting output path at leaf_idx: " << leaf_idx << " , start_leaf_idx: " << start_leaf_idx << " , end_leaf_idx: " << end_leaf_idx);
-
-    CHECK_AND_ASSERT_THROW_MES(start_leaf_idx <= leaf_idx && leaf_idx < end_leaf_idx, "unexpected leaf idx range");
+    MDEBUG("Getting output path at leaf_idx: " << leaf_idx << " , start_leaf_idx: " << start_leaf_idx);
 
     // Collect cached leaves from the leaf chunk this leaf is in
-    for (LeafIdx i = start_leaf_idx; i < end_leaf_idx; ++i)
-    {
-        auto it = m_cached_leaves.find(i);
-        if (it == m_cached_leaves.end())
-            break;
-
-        MDEBUG("Found leaf idx " << i);
-        path_out.leaves.push_back(output_to_tuple(it->second.output));
-    }
+    const auto leaf_chunk_it = m_leaf_cache.find(child_chunk_idx);
+    CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it != m_leaf_cache.end(), "missing cached leaf chunk");
+    for (const auto &leaf : leaf_chunk_it->second.leaves)
+        path_out.leaves.push_back(output_to_tuple(leaf));
 
     CHECK_AND_ASSERT_THROW_MES((start_leaf_idx + path_out.leaves.size()) > leaf_idx, "leaves path missing leaf_idx");
 
@@ -1008,22 +1022,27 @@ CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSync<Helios, Selene>::ge
     if (trim_leaf_layer_instructions.end_trim_idx > trim_leaf_layer_instructions.start_trim_idx)
     {
         LeafIdx idx = trim_leaf_layer_instructions.start_trim_idx;
+        CHECK_AND_ASSERT_THROW_MES(idx % LEAF_TUPLE_SIZE == 0, "expected divisble by leaf tuple size");
+        const ChildChunkIdx chunk_idx = idx / m_curve_trees->m_leaf_layer_chunk_width;
+
+        const auto leaf_chunk_it = m_leaf_cache.find(chunk_idx);
+        CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it != m_leaf_cache.end(), "missing cached leaf chunk");
+        auto leaf_it = leaf_chunk_it->second.leaves.begin();
+
         do
         {
-            CHECK_AND_ASSERT_THROW_MES(idx % LEAF_TUPLE_SIZE == 0, "expected divisble by leaf tuple size");
             const LeafIdx leaf_idx = idx / LEAF_TUPLE_SIZE;
-
             MDEBUG("Re-growing with leaf idx " << leaf_idx);
-            const auto leaf_it = m_cached_leaves.find(leaf_idx);
-            CHECK_AND_ASSERT_THROW_MES(leaf_it != m_cached_leaves.end(), "missing cached leaf");
+            CHECK_AND_ASSERT_THROW_MES(leaf_it != leaf_chunk_it->second.leaves.end(), "missing cached leaf");
 
-            const auto leaf_tuple = m_curve_trees->leaf_tuple(leaf_it->second.output);
+            const auto leaf_tuple = m_curve_trees->leaf_tuple(*leaf_it);
 
             leaves_to_regrow.push_back(leaf_tuple.O_x);
             leaves_to_regrow.push_back(leaf_tuple.I_x);
             leaves_to_regrow.push_back(leaf_tuple.C_x);
 
             idx += LEAF_TUPLE_SIZE;
+            ++leaf_it;
         }
         while (idx < trim_leaf_layer_instructions.end_trim_idx);
     }
@@ -1121,25 +1140,15 @@ CurveTrees<Helios, Selene>::LastHashes TreeSync<Helios, Selene>::get_last_hashes
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSync<C1, C2>::deque_block(const BlockHash &block_hash)
+void TreeSync<C1, C2>::deque_block(const BlockHash &block_hash, const uint64_t old_n_leaf_tuples)
 {
-    // Remove refs to prunable leaves in the cache
-    auto prunable_leaves_it = m_prunable_leaves_by_block.find(block_hash);
-    CHECK_AND_ASSERT_THROW_MES(prunable_leaves_it != m_prunable_leaves_by_block.end(),
-        "missing block of prunable leaves");
-    for (const auto &prunable_leaf_idx : prunable_leaves_it->second)
-    {
-        auto leaf_it = m_cached_leaves.find(prunable_leaf_idx);
-        CHECK_AND_ASSERT_THROW_MES(leaf_it != m_cached_leaves.end(), "cache is missing leaf");
-        CHECK_AND_ASSERT_THROW_MES(leaf_it->second.ref_count != 0, "leaf has 0 ref count");
-
-        leaf_it->second.ref_count -= 1;
-
-        // If the ref count is 0, garbage collect it
-        if (leaf_it->second.ref_count == 0)
-            m_cached_leaves.erase(leaf_it);
-    }
-    m_prunable_leaves_by_block.erase(block_hash);
+    // Remove ref to last chunk leaves from the cache
+    const uint64_t offset = old_n_leaf_tuples % m_curve_trees->m_c2_width;
+    const uint64_t old_last_chunk_start_leaf_idx = offset == 0
+        ? (old_n_leaf_tuples - m_curve_trees->m_c2_width)
+        : (old_n_leaf_tuples - offset);
+    const ChildChunkIdx leaf_chunk_idx = old_last_chunk_start_leaf_idx / m_curve_trees->m_c2_width;
+    remove_leaf_chunk_ref(leaf_chunk_idx, m_leaf_cache);
 
     // Remove refs to prunable tree elems in the cache
     auto prunable_tree_elems_it = m_prunable_tree_elems_by_block.find(block_hash);
