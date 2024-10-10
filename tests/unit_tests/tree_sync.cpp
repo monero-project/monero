@@ -543,4 +543,5 @@ TEST(tree_sync, register_after_reorg)
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: test edge cases: duplicate output when syncing, mismatched prev block hash in sync_block
 // TODO: clean up code
+// TODO: test that there are no dangling refs, refs are gc'd as expected
 //----------------------------------------------------------------------------------------------------------------------

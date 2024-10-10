@@ -72,8 +72,6 @@ struct BlockMeta final
 };
 
 // TODO: we only need to ref count by chunks, not by individual records
-// TODO: consider using additional bool path_member. Purge from cache on dequeue if path_member is false && ref_count == 0.
-//       This could simplify the ref counting logic when adding path leaves and elems.
 struct CachedTreeElem final
 {
     std::array<uint8_t, 32UL> tree_elem;
@@ -101,12 +99,17 @@ struct RegisteredOutputContext final
     bool included_in_tree{false};
 };
 
-using ChildChunkCache  = std::unordered_map<ChildChunkIdx, CachedTreeElem>;
+using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
+using LeafCache         = std::unordered_map<LeafIdx, CachedLeafTuple>;
+using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElem>;
 
 // TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
-using TreeElemCache    = std::unordered_map<LayerIdx, ChildChunkCache>;
-using LeavesSet        = std::unordered_set<LeafIdx>;
-using ChildChunkIdxSet = std::unordered_set<ChildChunkIdx>;
+using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
+using LeavesSet         = std::unordered_set<LeafIdx>;
+using ChildChunkIdxSet  = std::unordered_set<ChildChunkIdx>;
+
+using PrunableLeaves    = std::unordered_map<BlockHash, LeavesSet>;
+using PrunableChunks    = std::unordered_map<LayerIdx, ChildChunkIdxSet>;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -178,16 +181,16 @@ private:
     const std::size_t m_max_reorg_depth;
 
     // The outputs that TreeSync should keep track of while syncing
-    std::unordered_map<OutputRef, AssignedLeafIdx> m_registered_outputs;
+    RegisteredOutputs m_registered_outputs;
 
     // Cached leaves and tree elems
-    std::unordered_map<LeafIdx, CachedLeafTuple> m_cached_leaves;
+    LeafCache m_cached_leaves;
     TreeElemCache m_tree_elem_cache;
 
     // Keep track of cached tree elems that are not needed for path data and can be pruned from the cache once the cache
     // reaches m_max_reorg_depth
-    std::unordered_map<BlockHash, LeavesSet> m_prunable_leaves_by_block;
-    std::unordered_map<BlockHash, std::unordered_map<LayerIdx, ChildChunkIdxSet>> m_prunable_tree_elems_by_block;
+    PrunableLeaves m_prunable_leaves_by_block;
+    std::unordered_map<BlockHash, PrunableChunks> m_prunable_tree_elems_by_block;
 
     // Used for getting tree extensions and reductions when growing and trimming respectively
     // - These are unspecific to the wallet's registered outputs. These are strictly necessary to ensure we can rebuild
