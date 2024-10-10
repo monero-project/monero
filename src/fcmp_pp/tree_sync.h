@@ -93,12 +93,6 @@ struct AssignedLeafIdx final
     void unassign_leaf() { leaf_idx = 0; assigned_leaf_idx = false; }
 };
 
-struct RegisteredOutputContext final
-{
-    OutputRef output_ref;
-    bool included_in_tree{false};
-};
-
 using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
 using LeafCache         = std::unordered_map<ChildChunkIdx, CachedLeafChunk>;
 using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElem>;
