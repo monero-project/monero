@@ -26,6 +26,7 @@
 
 #include "file_io_utils.h"
 
+#include <filesystem>
 #include <fstream>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -153,35 +154,9 @@ namespace file_io_utils
 
 	bool get_file_size(const std::string& path_to_file, uint64_t &size)
 	{
-#ifdef _WIN32
-                std::wstring wide_path;
-                try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-                if (file_handle == INVALID_HANDLE_VALUE)
-                    return false;
-                LARGE_INTEGER file_size;
-                BOOL result = GetFileSizeEx(file_handle, &file_size);
-                CloseHandle(file_handle);
-                if (result) {
-                    size = file_size.QuadPart;
-                }
-                return size;
-#else
-		try
-		{
-			std::ifstream fstream;
-			fstream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-			fstream.open(path_to_file, std::ios_base::binary | std::ios_base::in | std::ios::ate);
-			size = fstream.tellg();
-			fstream.close();
-			return true;
-		}
-
-		catch(...)
-		{
-			return false;
-		}
-#endif
+		std::error_code ec;
+		size = static_cast<uint64_t>(std::filesystem::file_size(path_to_file, ec));
+		return !ec;
 	}
 
 }
