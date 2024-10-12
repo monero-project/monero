@@ -335,7 +335,7 @@ public:
         const LastHashes &last_hashes) const;
 
     // Calculate how many layers in the tree there are based on the number of leaf tuples
-    std::size_t n_layers(const std::size_t n_leaf_tuples) const;
+    std::size_t n_layers(const uint64_t n_leaf_tuples) const;
 
     // Get path indexes for the provided leaf tuple
     // - Returns empty path indexes if leaf is not in the tree (if n_leaf_tuples <= leaf_tuple_idx)

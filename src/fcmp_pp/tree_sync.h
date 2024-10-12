@@ -71,10 +71,11 @@ struct BlockMeta final
     uint64_t n_leaf_tuples;
 };
 
-// TODO: we only need to ref count by chunks, not by individual records
-struct CachedTreeElem final
+// TODO: replace ref_count with bool included_in_registered_path, then if included_in_registered_path is true, can't
+// delete. Simple.
+struct CachedTreeElemChunk final
 {
-    std::array<uint8_t, 32UL> tree_elem;
+    std::vector<std::array<uint8_t, 32UL>> tree_elems;
     uint64_t ref_count;
 };
 
@@ -95,13 +96,10 @@ struct AssignedLeafIdx final
 
 using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
 using LeafCache         = std::unordered_map<ChildChunkIdx, CachedLeafChunk>;
-using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElem>;
+using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElemChunk>;
 
 // TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
 using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
-using ChildChunkIdxSet  = std::unordered_set<ChildChunkIdx>;
-
-using PrunableChunks    = std::unordered_map<LayerIdx, ChildChunkIdxSet>;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -172,16 +170,14 @@ private:
     std::shared_ptr<CurveTrees<C1, C2>> m_curve_trees;
     const std::size_t m_max_reorg_depth;
 
+// State
+private:
     // The outputs that TreeSync should keep track of while syncing
     RegisteredOutputs m_registered_outputs;
 
     // Cached leaves and tree elems
     LeafCache m_leaf_cache;
     TreeElemCache m_tree_elem_cache;
-
-    // Keep track of cached tree elems that are not needed for path data and can be pruned from the cache once the cache
-    // reaches m_max_reorg_depth
-    std::unordered_map<BlockHash, PrunableChunks> m_prunable_tree_elems_by_block;
 
     // Used for getting tree extensions and reductions when growing and trimming respectively
     // - These are unspecific to the wallet's registered outputs. These are strictly necessary to ensure we can rebuild
