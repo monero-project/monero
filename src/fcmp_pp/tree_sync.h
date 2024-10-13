@@ -36,7 +36,7 @@
 #include <deque>
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
+
 
 namespace fcmp_pp
 {
@@ -51,18 +51,7 @@ using LayerIdx      = std::size_t;
 using ChildChunkIdx = uint64_t;
 
 using OutputRef = crypto::hash;
-inline OutputRef get_output_ref(const OutputPair &o)
-{
-    static_assert(sizeof(o.output_pubkey) == sizeof(o.commitment), "unexpected size of output pubkey & commitment");
-
-    static const std::size_t N_ELEMS = 2;
-    static_assert(sizeof(o) == (N_ELEMS * sizeof(crypto::public_key)), "unexpected size of output pair");
-
-    const crypto::public_key data[N_ELEMS] = {o.output_pubkey, rct::rct2pk(o.commitment)};
-    crypto::hash h;
-    crypto::cn_fast_hash(data, N_ELEMS * sizeof(crypto::public_key), h);
-    return h;
-};
+OutputRef get_output_ref(const OutputPair &o);
 
 struct BlockMeta final
 {
@@ -71,8 +60,10 @@ struct BlockMeta final
     uint64_t n_leaf_tuples;
 };
 
-// TODO: replace ref_count with bool included_in_registered_path, then if included_in_registered_path is true, can't
-// delete. Simple.
+// We need to use a ref count on all individual elems in the cache because it's possible for:
+//  a) multiple blocks to share path elems that need to remain after pruning a block past the max reorg depth.
+//  b) multiple registered outputs to share the same path elems.
+// We can't remove a cached elem unless we know it's ref'd 0 times.
 struct CachedTreeElemChunk final
 {
     std::vector<std::array<uint8_t, 32UL>> tree_elems;
@@ -155,7 +146,7 @@ public:
 
 // Internal helper functions
 private:
-    typename CurveTrees<C1, C2>::LastHashes get_last_hashes(const std::size_t n_leaf_tuples) const;
+    typename CurveTrees<C1, C2>::LastHashes get_last_hashes(const uint64_t n_leaf_tuples) const;
 
     typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_regrow(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
@@ -163,7 +154,7 @@ private:
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes_to_trim(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
-    void deque_block(const BlockHash &block_hash, const uint64_t old_n_leaf_tuples);
+    void deque_block(const BlockMeta &block);
 
 // Internal member variables
 private:
