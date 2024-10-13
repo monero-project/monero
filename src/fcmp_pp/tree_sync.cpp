@@ -37,7 +37,21 @@ namespace fcmp_pp
 namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
-static bool assign_new_output(const OutputPair &output_pair,
+OutputRef get_output_ref(const OutputPair &o)
+{
+    static_assert(sizeof(o.output_pubkey) == sizeof(o.commitment), "unexpected size of output pubkey & commitment");
+
+    static const std::size_t N_ELEMS = 2;
+    static_assert(sizeof(o) == (N_ELEMS * sizeof(crypto::public_key)), "unexpected size of output pair");
+
+    const crypto::public_key data[N_ELEMS] = {o.output_pubkey, rct::rct2pk(o.commitment)};
+    crypto::hash h;
+    crypto::cn_fast_hash(data, N_ELEMS * sizeof(crypto::public_key), h);
+    return h;
+};
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static void assign_new_output(const OutputPair &output_pair,
     const LeafIdx leaf_idx,
     RegisteredOutputs &registered_outputs_inout)
 {
@@ -45,17 +59,17 @@ static bool assign_new_output(const OutputPair &output_pair,
 
     auto registered_output_it = registered_outputs_inout.find(output_ref);
     if (registered_output_it == registered_outputs_inout.end())
-        return false;
+        return;
 
     // If it's already assigned a leaf idx, then it must be a duplicate and we only care about the earliest one
     // TODO: test this circumstance
     if (registered_output_it->second.assigned_leaf_idx)
-        return false;
+        return;
 
     MDEBUG("Starting to keep track of leaf_idx: " << leaf_idx);
     registered_output_it->second.assign_leaf(leaf_idx);
 
-    return true;
+    return;
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -66,6 +80,8 @@ static void cache_leaf_chunk(const ChildChunkIdx chunk_idx,
     LeafCache &leaf_cache_inout)
 {
     const uint64_t n_leaf_tuples  = leaves.start_leaf_tuple_idx + leaves.tuples.size();
+    if (n_leaf_tuples == 0)
+        return;
 
     const LeafIdx start_leaf_idx = chunk_idx * leaf_parent_chunk_width;
     const LeafIdx end_leaf_idx   = std::min(start_leaf_idx + leaf_parent_chunk_width, n_leaf_tuples);
@@ -182,11 +198,11 @@ static void cache_path_chunk(const std::unique_ptr<C> &curve,
     CHECK_AND_ASSERT_THROW_MES(expected_chunk_size >= cached_chunk_size, "cached chunk is too big");
     const uint64_t new_elems_needed = expected_chunk_size - cached_chunk_size;
 
-    MDEBUG("layer_cache_hit: "              << layer_cache_hit
-        << " , cache_hit: "                 << cache_hit
-        << " , cached_chunk_size: "         << cached_chunk_size
-        << " , expected_chunk_size: "       << expected_chunk_size
-        << " , new_elems_needed: "          << new_elems_needed);
+    MDEBUG("layer_cache_hit: "        << layer_cache_hit
+        << " , cache_hit: "           << cache_hit
+        << " , cached_chunk_size: "   << cached_chunk_size
+        << " , expected_chunk_size: " << expected_chunk_size
+        << " , new_elems_needed: "    << new_elems_needed);
 
     // If we already have all the latest elems, we're done, we've already bumped the ref count if needed
     if (new_elems_needed == 0)
@@ -527,14 +543,12 @@ static void reduce_cached_last_chunks(
 template<typename C1, typename C2>
 static void update_registered_path(const std::shared_ptr<CurveTrees<C1, C2>> &curve_trees,
     const LeafIdx leaf_idx,
-    const std::unordered_set<LeafIdx> &new_assigned_outputs,
     const typename CurveTrees<C1, C2>::TreeExtension &tree_extension,
     LeafCache &leaf_cache_inout,
     TreeElemCache &tree_elem_cach_inout)
 {
     // We only need to bump the ref count on this registered output's leaf chunk if it was just included in the tree
-    // TODO: I don't need this, just compare leaf_idx to tree_extension.leaves.start_leaf_tuple_idx
-    const bool bump_ref_count = new_assigned_outputs.find(leaf_idx) != new_assigned_outputs.end();
+    const bool bump_ref_count = leaf_idx >= tree_extension.leaves.start_leaf_tuple_idx;
 
     // Cache registered leaf's chunk
     cache_leaf_chunk<C1, C2>(leaf_idx / curve_trees->m_c2_width,
@@ -544,6 +558,9 @@ static void update_registered_path(const std::shared_ptr<CurveTrees<C1, C2>> &cu
         leaf_cache_inout);
 
     // Now cache the rest of the path elems for each registered output
+    // FIXME: 2 registered outputs share a parent chunk. The leaves were **already** in the chain so bump_ref_count is
+    // false here, but we're adding a new parent this tree extension, or new members to an existing parent chunk. The
+    // ref count on newly included elems will only go up for 1 of those registered outputs.
     cache_path_chunks<C1, C2>(leaf_idx,
         curve_trees,
         tree_extension.c1_layer_extensions,
@@ -695,19 +712,16 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
         this->get_last_hashes(n_leaf_tuples),
         std::move(new_leaf_tuples));
 
-    // Update the existing last hashes in the cache
+    // Update the existing last hashes in the cache using the tree extension
     update_existing_last_hashes<C1, C2>(m_curve_trees, tree_extension, m_tree_elem_cache);
 
     // Check if any registered outputs are present in the tree extension. If so, we assign the output its leaf idx and
     // start keeping track of the output's path elems
-    std::unordered_set<LeafIdx> new_assigned_outputs;
     for (uint64_t i = 0; i < tree_extension.leaves.tuples.size(); ++i)
     {
         const auto &output_pair = tree_extension.leaves.tuples[i].output_pair;
         const LeafIdx leaf_idx = tree_extension.leaves.start_leaf_tuple_idx + i;
-
-        if (assign_new_output(output_pair, leaf_idx, m_registered_outputs))
-            new_assigned_outputs.insert(leaf_idx);
+        assign_new_output(output_pair, leaf_idx, m_registered_outputs);
     }
 
     // Cache tree elems from the tree extension needed in order to keep track of registered output paths in the tree
@@ -719,7 +733,6 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
 
         update_registered_path<C1, C2>(m_curve_trees,
             registered_o.second.leaf_idx,
-            new_assigned_outputs,
             tree_extension,
             m_leaf_cache,
             m_tree_elem_cache);
@@ -745,15 +758,10 @@ void TreeSync<C1, C2>::sync_block(const uint64_t block_idx,
     m_cached_blocks.push_back(std::move(blk_meta));
 
     // Deque the oldest cached block upon reaching the max reorg depth
-    // TODO: separate function
     if (m_cached_blocks.size() > m_max_reorg_depth)
     {
         CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cached blocks");
-        const BlockMeta &oldest_block = m_cached_blocks.front();
-
-        this->deque_block(oldest_block.blk_hash, oldest_block.n_leaf_tuples);
-
-        // Prune the block
+        this->deque_block(m_cached_blocks.front());
         m_cached_blocks.pop_front();
     }
 
@@ -772,10 +780,9 @@ bool TreeSync<C1, C2>::pop_block()
     if (m_cached_blocks.empty())
         return false;
 
-    // Pop the top block off the back of the cache
-    const uint64_t  old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
-    const BlockHash old_block_hash    = m_cached_blocks.back().blk_hash;
-    this->deque_block(old_block_hash, old_n_leaf_tuples);
+    // Pop the top block off the cache
+    const uint64_t old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
+    this->deque_block(m_cached_blocks.back());
     m_cached_blocks.pop_back();
 
     // Determine how many leaves we need to trim
@@ -847,7 +854,6 @@ bool TreeSync<C1, C2>::pop_block()
 
     // Check if there are any remaining layers that need to be removed
     // NOTE: this should only be useful for removing excess layers from registered outputs
-    // TODO: de-dup this code
     LayerIdx layer_idx = new_n_layers;
     while (1)
     {
@@ -936,7 +942,7 @@ template bool TreeSync<Helios, Selene>::get_output_path(const OutputPair &output
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::LastHashes TreeSync<C1, C2>::get_last_hashes(const std::size_t n_leaf_tuples) const
+typename CurveTrees<C1, C2>::LastHashes TreeSync<C1, C2>::get_last_hashes(const uint64_t n_leaf_tuples) const
 {
     MDEBUG("Getting last hashes on tree with " << n_leaf_tuples << " leaf tuples");
 
@@ -944,7 +950,7 @@ typename CurveTrees<C1, C2>::LastHashes TreeSync<C1, C2>::get_last_hashes(const 
     if (n_leaf_tuples == 0)
         return last_hashes;
 
-    std::size_t n_children = n_leaf_tuples;
+    uint64_t n_children = n_leaf_tuples;
     bool use_c2 = true;
     LayerIdx layer_idx = 0;
     do
@@ -982,7 +988,7 @@ typename CurveTrees<C1, C2>::LastHashes TreeSync<C1, C2>::get_last_hashes(const 
 
 // Explicit instantiation
 template CurveTrees<Helios, Selene>::LastHashes TreeSync<Helios, Selene>::get_last_hashes(
-    const std::size_t n_leaf_tuples) const;
+    const uint64_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<>
 CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSync<Helios, Selene>::get_last_chunk_children_to_regrow(
@@ -1137,18 +1143,18 @@ CurveTrees<Helios, Selene>::LastHashes TreeSync<Helios, Selene>::get_last_hashes
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSync<C1, C2>::deque_block(const BlockHash &block_hash, const uint64_t old_n_leaf_tuples)
+void TreeSync<C1, C2>::deque_block(const BlockMeta &block)
 {
-    if (old_n_leaf_tuples == 0)
+    if (block.n_leaf_tuples == 0)
         return;
 
     // Remove ref to last chunk leaves from the cache
-    const LeafIdx old_last_leaf_idx = old_n_leaf_tuples - 1;
+    const LeafIdx old_last_leaf_idx = block.n_leaf_tuples - 1;
     const ChildChunkIdx leaf_chunk_idx = old_last_leaf_idx / m_curve_trees->m_c2_width;
     remove_leaf_chunk_ref(leaf_chunk_idx, m_leaf_cache);
 
     // Remove refs to last chunk in every layer
-    remove_path_chunks_refs(old_last_leaf_idx, m_curve_trees, old_n_leaf_tuples, m_tree_elem_cache);
+    remove_path_chunks_refs(old_last_leaf_idx, m_curve_trees, block.n_leaf_tuples, m_tree_elem_cache);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
