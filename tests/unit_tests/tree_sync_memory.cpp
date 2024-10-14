@@ -31,7 +31,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
 #include "fcmp_pp/curve_trees.h"
-#include "fcmp_pp/tree_sync.h"
+#include "fcmp_pp/tree_sync_memory.h"
 
 //----------------------------------------------------------------------------------------------------------------------
 #define INIT_SYNC_TEST(tree_depth)                                                                            \
@@ -53,7 +53,7 @@ TEST(tree_sync, register_output)
 {
     // 1. Init
     auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
-    auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
 
     const std::size_t INIT_LEAVES = 10;
     auto outputs = test::generate_random_outputs(*curve_trees, 0, INIT_LEAVES);
@@ -97,7 +97,7 @@ TEST(tree_sync, sync_block_simple)
     static const std::size_t INIT_LEAVES = 10;
 
     auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
-    auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
 
     auto outputs = test::generate_random_outputs(*curve_trees, 0, INIT_LEAVES);
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
@@ -134,7 +134,7 @@ TEST(tree_sync, sync_n_blocks_register_n_outputs)
     INIT_SYNC_TEST(tree_depth);
 
     // Sync until we've synced all the leaves needed to get to the desired tree depth
-    auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
     uint64_t block_idx = 0;
     uint64_t n_outputs_synced = 0;
     crypto::hash prev_block_hash = crypto::hash{};
@@ -198,7 +198,7 @@ TEST(tree_sync, sync_n_blocks_register_one_output)
     for (std::size_t i = 0; i < n_leaves_needed; ++i)
     {
         LOG_PRINT_L1("Register output " << (i+1) << " / " << n_leaves_needed);
-        auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+        auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
 
         fcmp_pp::curve_trees::OutputPair registered_output;
         bool registered = false;
@@ -277,7 +277,7 @@ TEST(tree_sync, sync_past_max_reorg_depth)
         LOG_PRINT_L1("Register output " << (i+1) << " / " << n_leaves_needed);
 
         // Sync until we've synced all the leaves needed to get to the desired tree depth
-        auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees, max_reorg_depth);
+        auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees, max_reorg_depth);
 
         uint64_t block_idx = 0;
         uint64_t n_outputs_synced = 0;
@@ -349,7 +349,7 @@ TEST(tree_sync, reorg_after_register)
     for (std::size_t i = 0; i < n_leaves_needed; ++i)
     {
         LOG_PRINT_L1("Register output " << (i+1) << " / " << n_leaves_needed);
-        auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+        auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
 
         fcmp_pp::curve_trees::OutputPair registered_output;
         bool registered = false;
@@ -475,7 +475,7 @@ TEST(tree_sync, register_after_reorg)
     // Init
     static const std::size_t tree_depth = 5;
     INIT_SYNC_TEST(tree_depth);
-    auto tree_sync = new fcmp_pp::curve_trees::TreeSync<Helios, Selene>(curve_trees);
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
 
     // Sync until we reach expected tree depth
     uint64_t block_idx = 0;

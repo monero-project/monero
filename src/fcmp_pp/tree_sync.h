@@ -31,11 +31,8 @@
 #include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "curve_trees.h"
-#include "ringct/rctTypes.h"
 
-#include <deque>
 #include <memory>
-#include <unordered_map>
 
 
 namespace fcmp_pp
@@ -43,70 +40,14 @@ namespace fcmp_pp
 namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
-using BlockIdx  = uint64_t;
-using BlockHash = crypto::hash;
-
-using LeafIdx       = uint64_t;
-using LayerIdx      = std::size_t;
-using ChildChunkIdx = uint64_t;
-
-using OutputRef = crypto::hash;
-OutputRef get_output_ref(const OutputPair &o);
-
-struct BlockMeta final
-{
-    BlockIdx blk_idx;
-    BlockHash blk_hash;
-    uint64_t n_leaf_tuples;
-};
-
-// We need to use a ref count on all individual elems in the cache because it's possible for:
-//  a) multiple blocks to share path elems that need to remain after pruning a block past the max reorg depth.
-//  b) multiple registered outputs to share the same path elems.
-// We can't remove a cached elem unless we know it's ref'd 0 times.
-struct CachedTreeElemChunk final
-{
-    std::vector<std::array<uint8_t, 32UL>> tree_elems;
-    uint64_t ref_count;
-};
-
-struct CachedLeafChunk final
-{
-    std::vector<OutputPair> leaves;
-    uint64_t ref_count;
-};
-
-struct AssignedLeafIdx final
-{
-    bool assigned_leaf_idx{false};
-    LeafIdx leaf_idx{0};
-
-    void assign_leaf(const LeafIdx idx) { leaf_idx = idx; assigned_leaf_idx = true; }
-    void unassign_leaf() { leaf_idx = 0; assigned_leaf_idx = false; }
-};
-
-using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
-using LeafCache         = std::unordered_map<ChildChunkIdx, CachedLeafChunk>;
-using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElemChunk>;
-
-// TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
-using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
-
 //----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-// Syncs the tree, keeping track of known output paths
-// - Wallets can use this object to sync the tree locally, making sure they can construct fcmp++'s for received outputs
-//   using the outputs' latest paths in the tree, without revealing which output is being spent to the daemon.
-// - The object does not store the entire tree locally. The object only stores what it needs in order to update paths
-//   of known received outputs as it syncs.
+// Interface to sync the tree, keeping track of known output paths
+// - Wallets can use this interface to sync the tree locally, making sure they can construct fcmp++'s for received
+//   outputs using the outputs' latest paths in the tree, without revealing which output is being spent to the daemon.
 // - The caller first calls register_output for any known received outputs.
 // - The caller then calls sync_block, which identifies and updates known output paths in the tree.
 // - The caller can get an output's latest path in the tree via get_output_path.
 // - If there's a reorg, the caller can use pop_block, which trims the locally synced tree and updates paths as needed.
-// - The memory footprint of the TreeSync object is roughly all known output paths and the last chunk of tree elems in
-//   every layer of the tree for the last N blocks. The latter is required to handle reorgs up to N blocks deep.
-// - WARNING: the implementation is not thread safe, it expects synchronous calls.
-//   TODO: use a mutex to enforce thread safety.
 template<typename C1, typename C2>
 class TreeSync
 {
@@ -122,7 +63,7 @@ public:
     // - Returns false if the output is already registered
     // - Throws if the TreeSync object has already synced the block in which the output unlocks. The scanner would not
     //   be able to determine the output's position in the tree in this case
-    bool register_output(const OutputPair &output, const uint64_t unlock_block_idx);
+    virtual bool register_output(const OutputPair &output, const uint64_t unlock_block_idx) = 0;
 
     // TODO: bool cancel_output_registration
 
@@ -130,52 +71,24 @@ public:
     // - The block must be contiguous to the most recently synced block
     // - If any registered outputs are present in the new leaf tuples, keeps track of their paths in the tree
     // - Uses the new leaf tuples to update any existing known output paths in the tree
-    void sync_block(const uint64_t block_idx,
+    virtual void sync_block(const uint64_t block_idx,
         const crypto::hash &block_hash,
         const crypto::hash &prev_block_hash,
-        std::vector<OutputContext> &&new_leaf_tuples);
+        std::vector<OutputContext> &&new_leaf_tuples) = 0;
 
     // Trim from the locally synced tree and update any paths as necesary
     // - Returns false if we cannot pop any more blocks (if the max reorg depth is reached, or no more blocks to pop)
-    bool pop_block();
+    virtual bool pop_block() = 0;
 
     // Get a registered output's path in the tree
     // - Returns false if the output is not registered
     // - Returns true with empty path_out if the output is registered but not yet included in the tree
-    bool get_output_path(const OutputPair &output, typename CurveTrees<C1, C2>::Path &path_out) const;
+    virtual bool get_output_path(const OutputPair &output, typename CurveTrees<C1, C2>::Path &path_out) const = 0;
 
-// Internal helper functions
-private:
-    typename CurveTrees<C1, C2>::LastHashes get_last_hashes(const uint64_t n_leaf_tuples) const;
-
-    typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_regrow(
-        const std::vector<TrimLayerInstructions> &trim_instructions) const;
-
-    typename CurveTrees<C1, C2>::LastHashes get_last_hashes_to_trim(
-        const std::vector<TrimLayerInstructions> &trim_instructions) const;
-
-    void deque_block(const BlockMeta &block);
-
-// Internal member variables
-private:
+// Internal member variables accessible by derived class
+protected:
     std::shared_ptr<CurveTrees<C1, C2>> m_curve_trees;
     const std::size_t m_max_reorg_depth;
-
-// State
-private:
-    // The outputs that TreeSync should keep track of while syncing
-    RegisteredOutputs m_registered_outputs;
-
-    // Cached leaves and tree elems
-    LeafCache m_leaf_cache;
-    TreeElemCache m_tree_elem_cache;
-
-    // Used for getting tree extensions and reductions when growing and trimming respectively
-    // - These are unspecific to the wallet's registered outputs. These are strictly necessary to ensure we can rebuild
-    //   the tree extensions and reductions for each block correctly locally when syncing.
-    std::deque<BlockMeta> m_cached_blocks;
-
-// TODO: serialization
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
