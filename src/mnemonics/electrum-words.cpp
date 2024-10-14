@@ -371,6 +371,59 @@ namespace crypto
       return true;
     }
 
+    std::string get_invalid_word(const epee::wipeable_string &words)
+    {
+      // If there's a new language added, add an instance of it here.
+      std::vector<Language::Base*> language_instances({
+        Language::Singleton<Language::Chinese_Simplified>::instance(),
+        Language::Singleton<Language::English>::instance(),
+        Language::Singleton<Language::Dutch>::instance(),
+        Language::Singleton<Language::French>::instance(),
+        Language::Singleton<Language::Spanish>::instance(),
+        Language::Singleton<Language::German>::instance(),
+        Language::Singleton<Language::Italian>::instance(),
+        Language::Singleton<Language::Portuguese>::instance(),
+        Language::Singleton<Language::Japanese>::instance(),
+        Language::Singleton<Language::Russian>::instance(),
+        Language::Singleton<Language::Esperanto>::instance(),
+        Language::Singleton<Language::Lojban>::instance(),
+        Language::Singleton<Language::EnglishOld>::instance()
+      });
+
+      std::vector<epee::wipeable_string> seed;
+      words.split(seed);
+
+      for (
+        std::vector<epee::wipeable_string>::const_iterator seed_i = seed.begin();
+        seed_i != seed.end();
+        seed_i++
+      )
+      {
+        bool has_any = false;
+
+        for (
+          std::vector<Language::Base*>::iterator lang_i = language_instances.begin();
+          lang_i != language_instances.end() && !has_any;
+          lang_i++
+        )
+        {
+          auto &word_map = (*lang_i)->get_word_map();
+
+          if (word_map.count(*seed_i) != 0)
+          {
+            has_any = true;
+            break;
+          }
+        }
+
+        if (!has_any) {
+          return std::string(seed_i->data(), seed_i->size());
+        }
+      }
+
+      return "";
+    }
+
     /*!
      * \brief Converts bytes (secret key) to seed words.
      * \param  src           Secret key

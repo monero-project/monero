@@ -83,6 +83,8 @@ namespace crypto
     bool words_to_bytes(const epee::wipeable_string &words, crypto::secret_key& dst,
       std::string &language_name);
 
+    std::string get_invalid_word(const epee::wipeable_string &words);
+
     /*!
      * \brief Converts bytes to seed words.
      * \param  src           Secret data
