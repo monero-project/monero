@@ -89,6 +89,8 @@ struct PendingTransaction
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
+    // return string of transaction gives the same content which would be saved to file with commit(filename)
+    virtual std::string commit_string() = 0;
     // commit transaction or save to file if filename is provided.
     virtual bool commit(const std::string &filename = "", bool overwrite = false) = 0;
     virtual uint64_t amount() const = 0;
@@ -161,6 +163,11 @@ struct UnsignedTransaction
     * return - true on success
     */
     virtual bool sign(const std::string &signedFileName) = 0;
+   /*!
+    * @brief sign - Sign txs and return as string
+    * return - true on success
+    */
+    virtual std::string signAsString() = 0;
 };
 
 /**
@@ -896,10 +903,23 @@ struct Wallet
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) = 0;
     
    /*!
+    * \brief loadUnsignedTxFromString  - creates transaction from unsigned tx string
+    * \return                - UnsignedTransaction object. caller is responsible to check UnsignedTransaction::status()
+    *                          after object returned
+    */
+    virtual UnsignedTransaction * loadUnsignedTxFromString(const std::string &unsigned_filename) = 0;
+
+   /*!
     * \brief submitTransaction - submits transaction in signed tx file
     * \return                  - true on success
     */
     virtual bool submitTransaction(const std::string &fileName) = 0;
+
+   /*!
+    * \brief submitTransactionFromString - submits transaction in signed tx file
+    * \return                  - true on success
+    */
+    virtual bool submitTransactionFromString(const std::string &fileName) = 0;
     
 
     /*!
@@ -917,12 +937,26 @@ struct Wallet
                                             PendingTransaction::Priority priority) const = 0;
 
    /*!
+    * \brief exportKeyImages - exports key images as string
+    * \param all - export all key images or only those that have not yet been exported
+    * \return                  - key images as std::string
+    */
+    virtual std::string exportKeyImagesAsString(bool all = false) = 0;
+
+   /*!
     * \brief exportKeyImages - exports key images to file
     * \param filename
     * \param all - export all key images or only those that have not yet been exported
     * \return                  - true on success
     */
     virtual bool exportKeyImages(const std::string &filename, bool all = false) = 0;
+
+   /*!
+    * \brief importKeyImagesFromString - imports key images from string for UR use.
+    * \param data
+    * \return                  - true on success
+    */
+    virtual bool importKeyImagesFromString(const std::string &data) = 0;
    
    /*!
     * \brief importKeyImages - imports key images from file
@@ -932,11 +966,24 @@ struct Wallet
     virtual bool importKeyImages(const std::string &filename) = 0;
 
     /*!
-     * \brief importOutputs - exports outputs to file
+     * \brief exportOutputsAsString - exports outputs to a string for UR
+     * \return                  - true on success
+     */
+    virtual std::string exportOutputsAsString(bool all = false) = 0;
+
+    /*!
+     * \brief exportOutputs - exports outputs to file
      * \param filename
      * \return                  - true on success
      */
     virtual bool exportOutputs(const std::string &filename, bool all = false) = 0;
+
+    /*!
+     * \brief importOutputsFromString - imports outputs from string for UR
+     * \param filename
+     * \return                  - true on success
+     */
+    virtual bool importOutputsFromString(const std::string &data) = 0;
 
     /*!
      * \brief importOutputs - imports outputs from file

@@ -96,6 +96,28 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
   return true;
 }
 
+std::string UnsignedTransactionImpl::signAsString()
+{
+  if(m_wallet.watchOnly())
+  {
+     m_errorString = tr("This is a watch only wallet");
+     m_status = Status_Error;
+     return "";
+  }
+  tools::wallet2::signed_tx_set signed_txes;
+  std::vector<tools::wallet2::pending_tx> ptx;
+  try
+  {
+    return m_wallet.m_wallet->sign_tx_dump_to_str(m_unsigned_tx_set, ptx, signed_txes);
+  }
+  catch (const std::exception &e)
+  {
+    m_errorString = string(tr("Failed to sign transaction")) + e.what();
+    m_status = Status_Error;
+    return "";
+  }
+}
+
 //----------------------------------------------------------------------------------------------------
 bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message)
 {
