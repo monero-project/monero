@@ -47,6 +47,7 @@ using namespace epee;
 #include "cryptonote_config.h"
 #include "misc_language.h"
 #include "file_io_utils.h"
+#include <cmath>
 #include <csignal>
 #include "checkpoints/checkpoints.h"
 #include "ringct/rctTypes.h"
@@ -2051,11 +2052,13 @@ namespace cryptonote
       unsigned int b = 0;
       const time_t time_boundary = now - static_cast<time_t>(seconds[n]);
       for (time_t ts: timestamps) b += ts >= time_boundary;
-      const double p = probability(b, seconds[n] / DIFFICULTY_TARGET_V2);
-      MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability " << p << ")");
+      const double dur = seconds[n] / DIFFICULTY_TARGET_V2; // duration of block generation we are measuring
+      const double p = probability(b, dur);
+      MDEBUG("blocks in the last " << seconds[n] / 60 << " minutes: " << b << " (probability actual " << p << ", expected >=" << threshold << ")");
       if (p < threshold)
       {
-        MWARNING("There were " << b << (b == max_blocks_checked ? " or more" : "") << " blocks in the last " << seconds[n] / 60 << " minutes, there might be large hash rate changes, or we might be partitioned, cut off from the Monero network or under attack, or your computer's time is off. Or it could be just sheer bad luck.");
+        const long b_min_exp = std::lround(threshold * dur); // lower bound on blocks we expect during measurement
+        MWARNING("There were " << b << (b == max_blocks_checked ? " or more" : "") << " blocks in the last " << seconds[n] / 60 << " minutes, while we expected >=" << b_min_exp << ". There might be large hash rate changes, we might be partitioned, cut off from the Monero network or under attack, or your computer's time is off.");
 
         std::shared_ptr<tools::Notify> block_rate_notify = m_block_rate_notify;
         if (block_rate_notify)
