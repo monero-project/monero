@@ -1094,6 +1094,9 @@ std::size_t CurveTrees<C1, C2>::n_layers(const uint64_t n_leaf_tuples) const
 
     return n_layers;
 }
+
+// Explicit instantiation
+template std::size_t CurveTrees<Helios, Selene>::n_layers(const uint64_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples,
@@ -1146,6 +1149,11 @@ typename CurveTrees<C1, C2>::PathIndexes CurveTrees<C1, C2>::get_path_indexes(co
 
     return path_indexes_out;
 }
+
+// Explicit instantiation
+template CurveTrees<Helios, Selene>::PathIndexes CurveTrees<Helios, Selene>::get_path_indexes(
+    const uint64_t n_leaf_tuples,
+    const uint64_t leaf_tuple_idx) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<>
 bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Path &path,

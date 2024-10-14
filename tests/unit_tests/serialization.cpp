@@ -1315,7 +1315,7 @@ TEST(Serialization, tx_fcmp_pp)
 
   const std::size_t proof_len = fcmp_pp::proof_len(n_inputs, curve_trees_tree_depth);
 
-  const auto make_dummy_fcmp_pp_tx = [curve_trees_tree_depth, proof_len]() -> transaction
+  const auto make_dummy_fcmp_pp_tx = [proof_len]() -> transaction
   {
     transaction tx;
 
