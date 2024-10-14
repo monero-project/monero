@@ -1,0 +1,35 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "definitions": {
+        "binary32": {
+            "type": "string",
+            "description": "32-bytes binary data as hex",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+        },
+        "uint64": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+        },
+        "transaction": {
+            "type": "object",
+            "properties": {
+                "blob_size": { "$ref": "#/definitions/uint64" },
+                "fee": { "$ref": "#/definitions/uint64" },
+                "id": {
+                    "description": "Unique (cryptographic hash) identifier",
+                    "$ref": "#/definitions/binary32"
+                },
+                "weight": { "$ref": "#/definitions/uint64" }
+                
+            },
+            "required": ["id", "blob_size", "fee", "weight"]
+        }
+    },
+    "title": "json-minimal-txpool_add",
+    "description": "List of newly observed transactions",
+    "type": "array",
+    "items": { "$ref": "#/definitions/transaction" }
+}
