@@ -168,6 +168,11 @@ namespace cryptonote
   , "How many blocks to sync at once during chain synchronization (0 = adaptive)."
   , 0
   };
+  static const command_line::arg_descriptor<size_t> arg_batch_max_weight  = {
+    "batch-max-weight"
+    , "How many megabytes to sync in one batch during chain synchronization, default is 20 max"
+  , (BATCH_MAX_WEIGHT)
+  };
   static const command_line::arg_descriptor<std::string> arg_check_updates = {
     "check-updates"
   , "Check for new versions of monero: [disabled|notify|download|update]"
@@ -335,6 +340,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_fast_block_sync);
     command_line::add_arg(desc, arg_show_time_stats);
     command_line::add_arg(desc, arg_block_sync_size);
+    command_line::add_arg(desc, arg_batch_max_weight);
     command_line::add_arg(desc, arg_check_updates);
     command_line::add_arg(desc, arg_no_fluffy_blocks);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
@@ -690,6 +696,17 @@ namespace cryptonote
     block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
     if (block_sync_size > BLOCKS_SYNCHRONIZING_MAX_COUNT)
       MERROR("Error --block-sync-size cannot be greater than " << BLOCKS_SYNCHRONIZING_MAX_COUNT);
+
+    if(block_sync_size)
+      MWARNING("When --block-sync-size defined, the --batch-max-weight is not going to have any effect.");
+
+    batch_max_weight = command_line::get_arg(vm, arg_batch_max_weight);
+    if (batch_max_weight > BATCH_MAX_ALLOWED_WEIGHT) {
+      MERROR("Error --batch-max-weight cannot be greater than " << BATCH_MAX_ALLOWED_WEIGHT << " [mB]");
+      batch_max_weight = BATCH_MAX_ALLOWED_WEIGHT;
+    }
+
+    batch_max_weight *= 1000000; // transfer it to byte.
 
     MGINFO("Loading checkpoints");
 
@@ -1214,16 +1231,37 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  size_t core::get_block_sync_size(uint64_t height) const
+  size_t core::get_block_sync_size(uint64_t height, const uint64_t average_blocksize_of_biggest_batch) const
   {
-    static const uint64_t quick_height = m_nettype == TESTNET ? 801219 : m_nettype == MAINNET ? 1220516 : 0;
     size_t res = 0;
     if (block_sync_size > 0)
       res = block_sync_size;
-    else if (height >= quick_height)
-      res = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
-    else
-      res = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4;
+    else {
+      size_t number_of_blocks = BLOCKS_MEDIAN_WINDOW;
+      std::vector<uint64_t> last_n_blocks_weights;
+      m_blockchain_storage.get_last_n_blocks_weights(last_n_blocks_weights, number_of_blocks);
+      uint64_t median_weight = epee::misc_utils::median(last_n_blocks_weights);
+      MINFO("Last " << number_of_blocks
+             << " blocks median size is " << median_weight
+             << " bytes and the max average blocksize in the queue is " << average_blocksize_of_biggest_batch << " bytes");
+      uint64_t projected_blocksize = (average_blocksize_of_biggest_batch > median_weight) ? average_blocksize_of_biggest_batch : median_weight;
+      if ((projected_blocksize * BLOCKS_MEDIAN_WINDOW) < batch_max_weight) {
+        res = BLOCKS_MEDIAN_WINDOW;
+        MINFO("blocks are tiny, " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
+      }
+      else if (projected_blocksize >= batch_max_weight) {
+        res = 1;
+        MINFO("blocks are projected to surpass " << batch_max_weight << " bytes, syncing just a single block in next batch");
+      }
+      else if (projected_blocksize > BLOCKS_HUGE_THRESHOLD_SIZE) {
+        res = 1;
+        MINFO("blocks are huge, sync just a single block in next batch");
+      }
+      else {
+        res = batch_max_weight / projected_blocksize;
+        MINFO("projected blocksize is " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
+      }
+    }
 
     static size_t max_block_size = 0;
     if (max_block_size == 0)

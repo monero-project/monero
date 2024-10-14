@@ -1443,7 +1443,11 @@ namespace cryptonote
      * @param weights return-by-reference the list of weights
      * @param count the number of blocks to get weights for
      */
+  public:
     void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
+#ifndef IN_UNIT_TESTS
+  private:
+#endif
 
     /**
      * @brief gets block long term weight median
