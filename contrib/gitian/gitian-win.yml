@@ -23,12 +23,6 @@ packages:
 - "cmake"
 alternatives:
 -
-  package: "i686-w64-mingw32-g++"
-  path: "/usr/bin/i686-w64-mingw32-g++-posix"
--
-  package: "i686-w64-mingw32-gcc"
-  path: "/usr/bin/i686-w64-mingw32-gcc-posix"
--
   package: "x86_64-w64-mingw32-g++"
   path: "/usr/bin/x86_64-w64-mingw32-g++-posix"
 -
@@ -40,7 +34,7 @@ remotes:
 files: []
 script: |
   WRAP_DIR=$HOME/wrapped
-  HOSTS="i686-w64-mingw32 x86_64-w64-mingw32"
+  HOSTS="x86_64-w64-mingw32"
   FAKETIME_HOST_PROGS="windres objcopy"
   FAKETIME_PROGS="date zip"
   HOST_CFLAGS="-O2 -g"
