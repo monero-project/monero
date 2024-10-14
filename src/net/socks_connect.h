@@ -31,7 +31,10 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/thread/future.hpp>
+#include <memory>
 #include <string>
+
+#include "net/fwd.h"
 
 namespace net
 {
@@ -40,7 +43,7 @@ namespace socks
     //! Primarily for use with `epee::net_utils::http_client`.
     struct connector
     {
-        boost::asio::ip::tcp::endpoint proxy_address;
+        std::shared_ptr<endpoint> proxy_address;
 
         /*! Creates a new socket, asynchronously connects to `proxy_address`,
             and requests a connection to `remote_host` on `remote_port`. Sets
