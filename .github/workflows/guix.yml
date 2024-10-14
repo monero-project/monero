@@ -1,0 +1,92 @@
+name: ci/gh-actions/guix
+
+on:
+  push:
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/guix/**'
+      - '!contrib/**.md'
+      - '.github/workflows/guix.yml'
+  pull_request:
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/guix/**'
+      - '!contrib/**.md'
+      - '.github/workflows/guix.yml'
+
+jobs:
+  cache-sources:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: depends sources cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: contrib/depends/sources
+          key: sources-${{ hashFiles('contrib/depends/packages/*') }}
+      - name: download depends sources
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: make -C contrib/depends download
+
+  build-guix:
+    runs-on: ubuntu-24.04
+    needs: [cache-sources]
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - target: "x86_64-linux-gnu"
+          - target: "aarch64-linux-gnu"
+          - target: "arm-linux-gnueabihf"
+          - target: "riscv64-linux-gnu"
+          - target: "i686-linux-gnu"
+          - target: "x86_64-w64-mingw32"
+          - target: "i686-w64-mingw32"
+          - target: "x86_64-unknown-freebsd"
+          - target: "x86_64-apple-darwin"
+          - target: "aarch64-apple-darwin"
+          - target: "aarch64-linux-android"
+          - target: "arm-linux-androideabi"
+
+    name: ${{ matrix.toolchain.target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: remove bundled packages
+        run: sudo rm -rf /usr/local
+      - name: depends sources cache
+        uses: actions/cache/restore@v4
+        with:
+          path: contrib/depends/sources
+          key: sources-${{ hashFiles('contrib/depends/packages/*') }}
+      - name: install dependencies
+        run: sudo apt update; sudo apt -y install guix git ca-certificates apparmor-utils
+      - name: fix apparmor
+        run: sudo cp .github/workflows/guix /etc/apparmor.d/guix; sudo /etc/init.d/apparmor reload; sudo aa-enforce guix || true
+      - name: purge apparmor
+        run: sudo apt purge apparmor
+      - name: build
+        run: SUBSTITUTE_URLS='http://bordeaux.guix.gnu.org' HOSTS="${{ matrix.toolchain.target }}" ./contrib/guix/guix-build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.toolchain.target }}
+          path: |
+            guix/guix-build-*/output/${{ matrix.toolchain.target }}/*
+            guix/guix-build-*/logs/${{ matrix.toolchain.target }}/*
+
+  bundle-logs:
+    runs-on: ubuntu-24.04
+    needs: [build-guix]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "logs"
+          path: '**/logs/**'
