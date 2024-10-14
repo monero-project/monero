@@ -84,13 +84,6 @@ jobs:
         restore-keys: |
           depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
           depends-${{ matrix.toolchain.host }}-
-# Static cache
-    - name: OSX SDK cache
-      uses: actions/cache@v4
-      with:
-        path: contrib/depends/sdk-sources
-        key: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
-        restore-keys: sdk-${{ matrix.toolchain.host }}-${{ matrix.toolchain.osx_sdk }}
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
