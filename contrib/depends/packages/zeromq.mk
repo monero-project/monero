@@ -8,7 +8,6 @@ define $(package)_set_vars
   $(package)_config_opts=--without-documentation --disable-shared --without-libsodium --disable-curve
   $(package)_config_opts_linux=--with-pic
   $(package)_config_opts_freebsd=--with-pic
-  $(package)_cxxflags=-std=c++11
 endef
 
 define $(package)_config_cmds
