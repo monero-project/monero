@@ -28,12 +28,22 @@
 
 #pragma once
 
+#include "common/unordered_containers_boost_serialization.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "curve_trees.h"
 #include "ringct/rctTypes.h"
+#include "serialization/array.h"
+#include "serialization/containers.h"
+#include "serialization/crypto.h"
+#include "serialization/pair.h"
+#include "serialization/serialization.h"
 #include "tree_sync.h"
 
+#include <boost/serialization/array.hpp>
+#include <boost/serialization/deque.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/version.hpp>
 #include <deque>
 #include <memory>
 #include <unordered_map>
@@ -59,22 +69,60 @@ struct BlockMeta final
     BlockIdx blk_idx;
     BlockHash blk_hash;
     uint64_t n_leaf_tuples;
+
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & blk_hash;
+        a & blk_idx;
+        a & n_leaf_tuples;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(blk_idx)
+        FIELD(blk_hash)
+        FIELD(n_leaf_tuples)
+    END_SERIALIZE()
 };
 
 // We need to use a ref count on all individual elems in the cache because it's possible for:
 //  a) multiple blocks to share path elems that need to remain after pruning a block past the max reorg depth.
 //  b) multiple registered outputs to share the same path elems.
 // We can't remove a cached elem unless we know it's ref'd 0 times.
-struct CachedTreeElemChunk final
-{
-    std::vector<std::array<uint8_t, 32UL>> tree_elems;
-    uint64_t ref_count;
-};
-
 struct CachedLeafChunk final
 {
     std::vector<OutputPair> leaves;
     uint64_t ref_count;
+
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & leaves;
+        a & ref_count;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(leaves)
+        FIELD(ref_count)
+    END_SERIALIZE()
+};
+
+struct CachedTreeElemChunk final
+{
+    std::vector<std::array<uint8_t, 32UL>> tree_elems;
+    uint64_t ref_count;
+
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & tree_elems;
+        a & ref_count;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(tree_elems)
+        FIELD(ref_count)
+    END_SERIALIZE()
 };
 
 struct AssignedLeafIdx final
@@ -84,6 +132,18 @@ struct AssignedLeafIdx final
 
     void assign_leaf(const LeafIdx idx) { leaf_idx = idx; assigned_leaf_idx = true; }
     void unassign_leaf() { leaf_idx = 0; assigned_leaf_idx = false; }
+
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & assigned_leaf_idx;
+        a & leaf_idx;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(assigned_leaf_idx)
+        FIELD(leaf_idx)
+    END_SERIALIZE()
 };
 
 using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
@@ -106,8 +166,8 @@ template<typename C1, typename C2>
 class TreeSyncMemory final : public TreeSync<C1, C2>
 {
 public:
-    TreeSyncMemory(std::shared_ptr<CurveTrees<C1, C2>> &curve_trees,
-        const std::size_t max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT):
+    TreeSyncMemory(std::shared_ptr<CurveTrees<C1, C2>> curve_trees,
+        const uint64_t max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT):
             TreeSync<C1, C2>(curve_trees, max_reorg_depth)
     {};
 
@@ -150,9 +210,51 @@ private:
     //   the tree extensions and reductions for each block correctly locally when syncing.
     std::deque<BlockMeta> m_cached_blocks;
 
-// TODO: serialization
+// Serialization
+public:
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & m_registered_outputs;
+        a & m_leaf_cache;
+        a & m_tree_elem_cache;
+        a & m_cached_blocks;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        VERSION_FIELD(0)
+        FIELD(m_registered_outputs)
+        FIELD(m_leaf_cache)
+        FIELD(m_tree_elem_cache)
+        FIELD(m_cached_blocks)
+        // It's possible for m_cached_blocks.size() > m_max_reorg_depth if the max reorg depth changes across runs.
+        // This is ok as implemented. m_cached_blocks.size() will stay constant while syncing in this case.
+    END_SERIALIZE()
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace curve_trees
 }//namespace fcmp_pp
+
+
+// Since BOOST_CLASS_VERSION does not work for templated class, implement it
+namespace boost
+{
+namespace serialization
+{
+template<typename C1, typename C2>
+struct version<fcmp_pp::curve_trees::TreeSyncMemory<C1, C2>>
+{
+    static const int VERSION = 0;
+    typedef mpl::int_<VERSION> type;
+    typedef mpl::integral_c_tag tag;
+    BOOST_STATIC_CONSTANT(unsigned int, value = version::type::value);
+    BOOST_MPL_ASSERT((
+        boost::mpl::less<
+            boost::mpl::int_<VERSION>,
+            boost::mpl::int_<256>
+        >
+    ));
+};
+}
+}

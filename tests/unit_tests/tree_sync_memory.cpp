@@ -32,6 +32,8 @@
 #include "curve_trees.h"
 #include "fcmp_pp/curve_trees.h"
 #include "fcmp_pp/tree_sync_memory.h"
+#include "serialization/binary_utils.h"
+#include "string_tools.h"
 
 //----------------------------------------------------------------------------------------------------------------------
 #define INIT_SYNC_TEST(tree_depth)                                                                            \
@@ -539,6 +541,64 @@ TEST(tree_sync, register_after_reorg)
     CurveTreesV1::Path output_path;
     ASSERT_TRUE(tree_sync->get_output_path(output, output_path));
     ASSERT_TRUE(curve_trees->audit_path(output_path, output, n_outputs_synced+1));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(tree_sync, serialization)
+{
+    // 1. Sync a block containing a registered output
+    static const std::size_t INIT_LEAVES = 10;
+    auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
+    auto outputs = test::generate_random_outputs(*curve_trees, 0, INIT_LEAVES);
+    CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
+
+    const uint64_t block_idx = 0;
+    const uint64_t unlock_block_idx = 0;
+    const auto output = outputs[0].output_pair;
+    ASSERT_TRUE(tree_sync->register_output(output, unlock_block_idx));
+
+    tree_sync->sync_block(block_idx,
+        crypto::hash{0x01}/*block_hash*/,
+        crypto::hash{}/*prev_block_hash*/,
+        std::move(outputs));
+
+    // 2. Serialize the tree_sync object
+    std::string blob;
+    ASSERT_TRUE(serialization::dump_binary(*tree_sync, blob));
+
+    // 3. Make sure the output is present in the serialized string
+    const std::string blob_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
+    ASSERT_TRUE(blob_hex.find(epee::string_tools::pod_to_hex(output.output_pubkey)) != std::string::npos);
+    ASSERT_TRUE(blob_hex.find(epee::string_tools::pod_to_hex(output.commitment)) != std::string::npos);
+
+    // 4. De-serialize the string into a new tree_sync2 object
+    auto tree_sync2 = fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
+    ASSERT_TRUE(serialization::parse_binary(blob, tree_sync2));
+
+    // 5. Make sure output's path is the same across both tree_sync and tree_sync2
+    CurveTreesV1::Path output_path;
+    ASSERT_TRUE(tree_sync->get_output_path(output, output_path));
+    ASSERT_TRUE(curve_trees->audit_path(output_path, output, INIT_LEAVES));
+
+    CurveTreesV1::Path output_path2;
+    ASSERT_TRUE(tree_sync2.get_output_path(output, output_path2));
+    // Checking the roots match and auditing path suffices for now, TODO: implement constant time eq
+    // ASSERT_EQ(output_path, output_path2);
+    auto get_root_bytes = [&curve_trees](const CurveTreesV1::Path &path) -> std::array<uint8_t, 32UL>
+    {
+        return path.c1_layers.size() > path.c2_layers.size()
+            ? curve_trees->m_c1->to_bytes(path.c1_layers.back().front())
+            : curve_trees->m_c2->to_bytes(path.c2_layers.back().front());
+    };
+    const auto root_bytes = get_root_bytes(output_path);
+    const auto root_bytes2 = get_root_bytes(output_path2);
+    ASSERT_EQ(root_bytes, root_bytes2);
+    ASSERT_TRUE(curve_trees->audit_path(output_path2, output, INIT_LEAVES));
+
+    // 6. Re-serialize tree_sync2 object and check equality
+    std::string blob2;
+    ASSERT_TRUE(serialization::dump_binary(tree_sync2, blob2));
+    ASSERT_EQ(blob, blob2);
 }
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: test edge cases: duplicate output when syncing, mismatched prev block hash in sync_block

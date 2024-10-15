@@ -55,6 +55,7 @@ target_link_libraries(fcmp_pp
     common
     epee
   PRIVATE
+    ${Boost_SERIALIZATION_LIBRARY}
     ${CMAKE_CURRENT_BINARY_DIR}/fcmp_pp_rust/libfcmp_pp_rust.a
     ${EXTRA_LIBRARIES}
     ${EXTRA_RUST_LIBRARIES})

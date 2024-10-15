@@ -758,15 +758,15 @@ void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
     m_cached_blocks.push_back(std::move(blk_meta));
 
     // Deque the oldest cached block upon reaching the max reorg depth
-    if (m_cached_blocks.size() > TreeSync<C1, C2>::m_max_reorg_depth)
+    if ((uint64_t)m_cached_blocks.size() > TreeSync<C1, C2>::m_max_reorg_depth)
     {
         CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cached blocks");
         this->deque_block(m_cached_blocks.front());
         m_cached_blocks.pop_front();
     }
 
-    CHECK_AND_ASSERT_THROW_MES((TreeSync<C1, C2>::m_max_reorg_depth >= m_cached_blocks.size()),
-        "cached blocks exceeded max reorg depth");
+    if ((uint64_t)m_cached_blocks.size() >= TreeSync<C1, C2>::m_max_reorg_depth)
+        LOG_ERROR("Cached blocks exceeded max reorg depth");
 }
 
 // Explicit instantiation

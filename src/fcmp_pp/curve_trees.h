@@ -30,6 +30,7 @@
 
 #include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
 #include "tower_cycle.h"
@@ -136,6 +137,18 @@ struct OutputPair final
 {
     crypto::public_key output_pubkey;
     rct::key           commitment;
+
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & output_pubkey;
+        a & commitment;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(output_pubkey)
+        FIELD(commitment)
+    END_SERIALIZE()
 };
 
 // Contextual wrapper for the output
