@@ -257,6 +257,7 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
+    tx.set_blob_size(tx_blob.size());
     //TODO: validate tx
 
     return get_transaction_hash(tx, tx_hash);
@@ -518,6 +519,19 @@ namespace cryptonote
       blob_size = s.str().size();
     }
     return get_transaction_weight(tx, blob_size);
+  }
+  //---------------------------------------------------------------
+  uint64_t get_transaction_blob_size(const transaction& tx)
+  {
+    if (!tx.is_blob_size_valid())
+    {
+      const cryptonote::blobdata tx_blob = tx_to_blob(tx);
+      tx.set_blob_size(tx_blob.size());
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(tx.is_blob_size_valid(), "BUG: blob size valid not set");
+
+    return tx.blob_size;
   }
   //---------------------------------------------------------------
   bool get_tx_fee(const transaction& tx, uint64_t & fee)
