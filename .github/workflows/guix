@@ -1,0 +1,10 @@
+# Workaround for: https://bugs.launchpad.net/ubuntu/+source/guix/+bug/2064115
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile guix /usr/bin/guix flags=(unconfined) {
+  userns,
+
+  include if exists <local/guix>
+}
