@@ -52,8 +52,8 @@ template<typename C1, typename C2>
 class TreeSync
 {
 public:
-    TreeSync(std::shared_ptr<CurveTrees<C1, C2>> &curve_trees,
-        const std::size_t max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT):
+    TreeSync(std::shared_ptr<CurveTrees<C1, C2>> curve_trees,
+        const uint64_t max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT):
             m_curve_trees{curve_trees},
             m_max_reorg_depth{max_reorg_depth}
     {};
@@ -85,10 +85,13 @@ public:
     // - Returns true with empty path_out if the output is registered but not yet included in the tree
     virtual bool get_output_path(const OutputPair &output, typename CurveTrees<C1, C2>::Path &path_out) const = 0;
 
+    // Overwrite the max reorg depth
+    void set_max_reorg_depth(const uint64_t max_reorg_depth) { m_max_reorg_depth = max_reorg_depth; };
+
 // Internal member variables accessible by derived class
 protected:
     std::shared_ptr<CurveTrees<C1, C2>> m_curve_trees;
-    const std::size_t m_max_reorg_depth;
+    uint64_t m_max_reorg_depth;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

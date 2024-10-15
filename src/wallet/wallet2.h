@@ -57,6 +57,8 @@
 #include "common/util.h"
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
+#include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/tree_sync_memory.h"
 #include "multisig/multisig_account.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
@@ -1360,11 +1362,14 @@ private:
         return;
       }
       a & m_background_sync_data;
+      if(ver < 32)
+        return;
+      a & m_tree_sync;
     }
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
-      VERSION_FIELD(2)
+      VERSION_FIELD(3)
       FIELD(m_blockchain)
       FIELD(m_transfers)
       FIELD(m_account_public_address)
@@ -1403,6 +1408,9 @@ private:
         return true;
       }
       FIELD(m_background_sync_data)
+      if (version < 3)
+        return true;
+      FIELD(m_tree_sync)
     END_SERIALIZE()
 
     /*!
@@ -2045,9 +2053,13 @@ private:
     bool m_background_syncing;
     bool m_processing_background_cache;
     background_sync_data_t m_background_sync_data;
+
+    using Helios = fcmp_pp::curve_trees::Helios;
+    using Selene = fcmp_pp::curve_trees::Selene;
+    fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene> m_tree_sync;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 31)
+BOOST_CLASS_VERSION(tools::wallet2, 32)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)

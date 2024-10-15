@@ -1256,7 +1256,10 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_enable_multisig(false),
   m_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
-  m_allow_mismatched_daemon_version(false)
+  m_allow_mismatched_daemon_version(false),
+  m_tree_sync(fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(
+      fcmp_pp::curve_trees::curve_trees_v1(),
+      m_max_reorg_depth))
 {
 }
 
@@ -6458,6 +6461,9 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   {
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, "failed to load keys from buffer");
   }
+
+  // We may have loaded a max reorg depth different than the default
+  m_tree_sync.set_max_reorg_depth(m_max_reorg_depth);
 
   wallet_keys_unlocker unlocker(*this, m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && !m_is_background_wallet, password);
 

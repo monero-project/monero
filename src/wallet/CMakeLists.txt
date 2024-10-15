@@ -52,6 +52,7 @@ target_link_libraries(wallet
     multisig
     common
     cryptonote_core
+    fcmp_pp
     mnemonics
     device_trezor
     net
