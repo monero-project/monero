@@ -661,7 +661,7 @@ namespace cryptonote
 
       bool incremental;
       std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
-      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental);
+      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental, LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9);
       if (success)
       {
         res.added_pool_txs.clear();
