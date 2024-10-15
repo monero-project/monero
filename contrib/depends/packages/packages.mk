@@ -1,7 +1,7 @@
 packages:=boost openssl zeromq expat unbound sodium
 
-hardware_packages := hidapi protobuf libusb
-hardware_native_packages := native_protobuf
+hardware_packages := hidapi abseil protobuf libusb
+hardware_native_packages := native_abseil native_protobuf
 
 android_native_packages = android_ndk $(hardware_native_packages)
 android_packages = ncurses readline protobuf
