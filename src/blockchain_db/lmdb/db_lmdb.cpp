@@ -3696,7 +3696,7 @@ bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&
   return fret;
 }
 
-bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const
+bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx, uint64_t unlock_time)> f) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3720,7 +3720,7 @@ bool BlockchainLMDB::for_all_outputs(std::function<bool(uint64_t amount, const c
     uint64_t amount = *(const uint64_t*)k.mv_data;
     outkey *ok = (outkey *)v.mv_data;
     tx_out_index toi = get_output_tx_and_index_from_global(ok->output_id);
-    if (!f(amount, toi.first, ok->data.height, toi.second)) {
+    if (!f(amount, toi.first, ok->data.height, toi.second, ok->data.unlock_time)) {
       fret = false;
       break;
     }

@@ -5592,16 +5592,6 @@ bool Blockchain::for_all_transactions(std::function<bool(const crypto::hash&, co
   return m_db->for_all_transactions(f, pruned);
 }
 
-bool Blockchain::for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const
-{
-  return m_db->for_all_outputs(f);
-}
-
-bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t height)> f) const
-{
-  return m_db->for_all_outputs(amount, f);
-}
-
 void Blockchain::invalidate_block_template_cache()
 {
   MDEBUG("Invalidating block template cache");
