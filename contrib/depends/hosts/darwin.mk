@@ -1,4 +1,4 @@
-OSX_MIN_VERSION=10.13
+OSX_MIN_VERSION=10.15
 LD64_VERSION=609
 ifeq (aarch64, $(host_arch))
 CC_target=arm64-apple-$(host_os)
