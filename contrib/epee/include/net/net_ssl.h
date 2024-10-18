@@ -151,6 +151,33 @@ namespace net_utils
 	bool create_ec_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 	bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert);
 
+  /**
+   * @brief Create a human-readable X509 certificate fingerprint
+   *
+   * Example output: "12:A3:92:19:87:D2:A2:A5:77:94:82:29:B9:5A:91:01:AB:5F:75:16:9A:BA:CD:3D:D3:69:3D:6A:87:DC:E8:0E"
+   *
+   * @param[in] cert The certificate which will be used to create the fingerprint
+   * @param[in] fdig The digest algorithm to use, defaults to SHA-256 b/c that is what ssl_options_t uses
+   * @return The human-readable fingerprint string
+   *
+   * @throw boost::system_error if there is an OpenSSL error
+   */
+  std::string get_hr_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig = EVP_sha256());
+
+  /**
+   * @brief Create a human-readable fingerprint from the contents of an X509 certificate
+   *
+   * Should be equivalent to the command `openssl x509 -in <cert file> -fingerprint -sha256 -noout`
+   * Example output: "12:A3:92:19:87:D2:A2:A5:77:94:82:29:B9:5A:91:01:AB:5F:75:16:9A:BA:CD:3D:D3:69:3D:6A:87:DC:E8:0E"
+   *
+   * @param[in] cert_path The path to an X509 certificate which will be used to create the fingerprint
+   * @param[in] fdig The digest algorithm to use, defaults to SHA-256 b/c that is what ssl_options_t uses
+   * @return The human-readable fingerprint string
+   *
+   * @throw boost::system_error if there is an OpenSSL error or file I/O error
+   */
+  std::string get_hr_ssl_fingerprint_from_file(const std::string& cert_path, const EVP_MD *fdig = EVP_sha256());
+
   //! Store private key for `ssl` at `base + ".key"` unencrypted and certificate for `ssl` at `base + ".crt"`.
   boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const boost::filesystem::path& base);
 }
