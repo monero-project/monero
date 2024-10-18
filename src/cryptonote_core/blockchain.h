@@ -31,6 +31,7 @@
 #pragma once
 #include <boost/asio/io_service.hpp>
 #include <boost/function/function_fwd.hpp>
+#include "common/recursive_shared_mutex.h"
 #if BOOST_VERSION >= 107400
 #include <boost/serialization/library_version_type.hpp>
 #endif
@@ -48,6 +49,7 @@
 
 #include "span.h"
 #include "syncobj.h"
+#include "common/recursive_shared_mutex.h"
 #include "string_tools.h"
 #include "rolling_median.h"
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -1136,7 +1138,7 @@ namespace cryptonote
 
     tx_memory_pool& m_tx_pool;
 
-    mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
+    mutable tools::recursive_shared_mutex m_blockchain_lock;
 
     // main chain
     size_t m_current_block_cumul_weight_limit;
