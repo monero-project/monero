@@ -106,9 +106,8 @@ sudo usermod -aG docker $USER
 ```
 
 Manual Building
--------------------
+---------------
 
-=======
 The script automatically installs some packages with apt. If you are not running it on a debian-like system, pass `--no-apt` along with the other
 arguments to it. It calls all available .yml descriptors, which in turn pass the build configurations for different platforms to gitian.
 The instructions below use the automated script [gitian-build.py](gitian-build.py) which is tested to work on Ubuntu.
@@ -194,16 +193,22 @@ An example script to verify the checksums would be:
 ```bash
 pushd out/${VERSION}
 
+TMP=$(mktemp)
 for ASSERT in ../../sigs/${VERSION}-*/*/*.assert; do
-  if ! sha256sum --ignore-missing -c "${ASSERT}" ; then
-    echo "FAILED for ${ASSERT} ! Please inspect manually."
+  # discard illegal formatting
+  sed "s#^\(- out_manifest: \)'#\1|\n    #g" "${ASSERT}" |
+    grep -vE "^'|^ *-|^ *git:" > "$TMP"
+
+  if ! sha256sum --ignore-missing --warn -c "${TMP}" ; then
+    echo "FAILED for ${ASSERT} ! Please inspect manually." >&2
   fi
 done
+rm "$TMP"
 
 popd
 ```
 
-Don't ignore the incorrect formatting of the found assert files. These files you'll have to compare manually (currently OSX and FreeBSD).
+Don't ignore any reports on incorrect formatting and verify the corresponding files manually.
 
 
 You can also look in the [gitian.sigs](https://github.com/monero-project/gitian.sigs/) repo and / or [getmonero.org release checksums](https://web.getmonero.org/downloads/hashes.txt) to see if others got the same checksum for the same version tag.  If there is ever a mismatch -- **STOP! Something is wrong**.  Contact others on IRC / github to figure out what is going on.
@@ -215,7 +220,7 @@ Signing assert files
 If you chose to do detached signing using `--detach-sign` above (recommended), you need to copy these uncommitted changes to your host machine, then sign them using your gpg key like so:
 
 ```bash
-for ASSERT in sigs/${VERSION}-*/*/*.assert; do gpg --detach-sign ${ASSERT}; done
+for ASSERT in sigs/${VERSION}-*/${GH_USER}/*.assert; do gpg --detach-sign ${ASSERT}; done
 ```
 
 This will create a `.sig` file for each `.assert` file above (2 files for each platform).

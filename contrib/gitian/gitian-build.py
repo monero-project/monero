@@ -7,6 +7,7 @@ import sys
 
 gsigs = 'https://github.com/monero-project/gitian.sigs.git'
 gbrepo = 'https://github.com/devrandom/gitian-builder.git'
+gbcommit = '6f21a0ef5c9ea3df1a515c4b8b9a9296512821dd'
 
 platforms = {'l': ['Linux', 'linux', 'tar.bz2'],
         'a': ['Android', 'android', 'tar.bz2'],
@@ -28,7 +29,7 @@ def setup():
     if not os.path.isdir('builder'):
         subprocess.check_call(['git', 'clone', gbrepo, 'builder'])
     os.chdir('builder')
-    subprocess.check_call(['git', 'checkout', 'c0f77ca018cb5332bfd595e0aff0468f77542c23'])
+    subprocess.check_call(['git', 'checkout', gbcommit])
     os.makedirs('inputs', exist_ok=True)
     os.chdir('inputs')
     if os.path.isdir('monero'):
@@ -67,7 +68,7 @@ def rebuild():
 
         print('\nCompiling ' + args.version + ' ' + os_name)
         infile = 'inputs/monero/contrib/gitian/gitian-' + tag_name + '.yml'
-        subprocess.check_call(['bin/gbuild', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, infile])
+        subprocess.check_call(['bin/gbuild', '--skip-fetch', '-j', args.jobs, '-m', args.memory, '--commit', 'monero='+args.commit, '--url', 'monero='+args.url, infile])
         subprocess.check_call(['bin/gsign', '-p', args.sign_prog, '--signer', args.signer, '--release', args.version+'-'+tag_name, '--destination', '../sigs/', infile])
         subprocess.check_call('mv build/out/monero-*.' + suffix + ' ../out/'+args.version, shell=True)
         print('Moving var/install.log to var/install-' + tag_name + '.log')
