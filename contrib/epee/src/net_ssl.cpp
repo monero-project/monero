@@ -27,6 +27,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <algorithm>
 #include <string.h>
 #include <thread>
 #include <boost/asio/ssl.hpp>
@@ -521,18 +522,19 @@ void ssl_options_t::configure(
   {
     socket.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
 
-    
-    socket.set_verify_callback([&](const bool preverified, boost::asio::ssl::verify_context &ctx)
+    // callback occurs after `configure` has exited, so keep copies and not references
+    const ssl_options_t this_copy(*this);
+    socket.set_verify_callback([host, this_copy = std::move(this_copy)](const bool preverified, boost::asio::ssl::verify_context &ctx)
     {
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
       const bool verified = preverified &&
-        (verification != ssl_verification_t::system_ca || host.empty() || boost::asio::ssl::rfc2818_verification(host)(preverified, ctx));
+        (this_copy.verification != ssl_verification_t::system_ca || host.empty() || boost::asio::ssl::rfc2818_verification(host)(preverified, ctx));
 
-      if (!verified && !has_fingerprint(ctx))
+      if (!verified && !this_copy.has_fingerprint(ctx))
       {
         // autodetect will reconnect without SSL - warn and keep connection encrypted
-        if (support != ssl_support_t::e_ssl_support_autodetect)
+        if (this_copy.support != ssl_support_t::e_ssl_support_autodetect)
         {
           MERROR("SSL certificate is not in the allowed list, connection dropped");
           return false;
@@ -642,6 +644,44 @@ bool ssl_options_t::handshake(
   }
   MDEBUG("SSL handshake success");
   return true;
+}
+
+std::vector<std::uint8_t> convert_fingerprint(const boost::string_ref id)
+{
+  std::vector<std::uint8_t> out;
+  out.resize(id.size());
+  std::copy(id.begin(), id.end(), out.begin());
+  return out;
+}
+
+std::string get_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig)
+{
+  CHECK_AND_ASSERT_THROW_MES(cert && fdig, "Pointer args to get_ssl_fingerprint cannot be null");
+
+  std::string md;
+  unsigned n = 0;
+  md.resize(EVP_MAX_MD_SIZE);
+  if (!X509_digest(cert, fdig, reinterpret_cast<std::uint8_t*>(&md[0]), &n))
+  {
+    const unsigned long ssl_err_val = static_cast<int>(ERR_get_error());
+    const boost::system::error_code ssl_err_code = boost::asio::error::ssl_errors(static_cast<int>(ssl_err_val));
+    MERROR("Failed to create SSL fingerprint: " << ERR_reason_error_string(ssl_err_val));
+    throw boost::system::system_error(ssl_err_code, ERR_reason_error_string(ssl_err_val));
+  }
+  md.resize(n);
+  return md;
+}
+
+std::string get_ssl_fingerprint(boost::asio::ssl::context &ssl_context, const EVP_MD *fdig)
+{
+  SSL_CTX *ctx = ssl_context.native_handle();
+  CHECK_AND_ASSERT_THROW_MES(ctx, "Failed to get SSL context");
+  
+  X509* ssl_cert = nullptr;
+  std::unique_ptr<SSL, decltype(&SSL_free)> dflt_SSL(SSL_new(ctx), SSL_free);
+  CHECK_AND_ASSERT_THROW_MES(dflt_SSL, "Failed to create new SSL object");
+  CHECK_AND_ASSERT_THROW_MES((ssl_cert = SSL_get_certificate(dflt_SSL.get())), "Failed to get SSL certificate");
+  return get_ssl_fingerprint(ssl_cert, fdig);
 }
 
 std::string get_hr_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig)

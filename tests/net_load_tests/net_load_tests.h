@@ -47,7 +47,7 @@ namespace net_load_tests
 {
   struct test_connection_context : epee::net_utils::connection_context_base
   {
-    test_connection_context(): epee::net_utils::connection_context_base(boost::uuids::nil_uuid(), {}, false, false), m_closed(false) {}
+    test_connection_context(): epee::net_utils::connection_context_base(boost::uuids::nil_uuid(), {}, false, epee::net_utils::ssl_support_t::e_ssl_support_disabled), m_closed(false) {}
     static constexpr int handshake_command() noexcept { return 1001; }
     static constexpr bool handshake_complete() noexcept { return true; }
     size_t get_max_bytes(int command) const { return LEVIN_DEFAULT_MAX_PACKET_SIZE; }

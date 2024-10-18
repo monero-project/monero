@@ -530,14 +530,14 @@ TEST(cryptonote_protocol_handler, race_condition)
     }
     virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer in, const contexts::basic& context) override {
       if (shared_state)
-        return shared_state->send(in.finalize_notify(command), context.m_connection_id);
+        return shared_state->send(in.finalize_notify(command, true), context.m_connection_id);
       else
         return {};
     }
     virtual bool relay_notify_to_list(int command, epee::levin::message_writer in, connections_t connections) override {
       if (shared_state) {
         for (auto &e: connections)
-          shared_state->send(in.finalize_notify(command), e.second);
+          shared_state->send(in.finalize_notify(command, true), e.second);
       }
       return {};
     }
@@ -1090,6 +1090,7 @@ TEST(node_server, race_condition)
     conn->get_context(context);
     event_t handshaked;
     typename messages::handshake::request_t msg{{
+      std::string{},
       ::config::NETWORK_ID,
       58080,
     }};

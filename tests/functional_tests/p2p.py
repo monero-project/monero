@@ -45,6 +45,7 @@ class P2PTest():
         self.mine(80)
         self.test_p2p_reorg()
         self.test_p2p_tx_propagation()
+        self.test_p2p_ssl()
 
     def reset(self):
         print('Resetting blockchain')
@@ -78,6 +79,8 @@ class P2PTest():
         daemon3 = Daemon(idx = 3)
 
         # give sync some time
+        daemon2.stop_mining()
+        daemon3.stop_mining()
         time.sleep(1)
 
         res = daemon2.get_info()
@@ -168,6 +171,8 @@ class P2PTest():
             res = daemon.get_transaction_pool_hashes()
             assert not 'tx_hashes' in res or len(res.tx_hashes) == 0
 
+        daemon2.stop_mining()
+        daemon3.stop_mining()
         self.wallet.refresh()
         res = self.wallet.get_balance()
 
@@ -176,13 +181,36 @@ class P2PTest():
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
 
-        time.sleep(5)
+        time.sleep(45)
 
         for daemon in [daemon2, daemon3]:
             res = daemon.get_transaction_pool_hashes()
             assert len(res.tx_hashes) == 1
             assert res.tx_hashes[0] == txid
 
+    def test_p2p_ssl(self):
+        print('Testing P2P SSL')
+        daemon2 = Daemon(idx = 2)
+        daemon3 = Daemon(idx = 3)
+        daemon4 = Daemon(idx = 4, username="md5_lover", password="Z1ON0101")
+
+        connections = daemon2.get_connections().connections
+        for connection in connections:
+            assert connection.ssl == 0
+
+        connections = daemon3.get_connections().connections
+        for connection in connections:
+            if connection.port == "18282":
+                assert connection.ssl == 0
+            elif connection.port == "18284":
+                assert connection.ssl == 2
+
+        connections = daemon4.get_connections().connections
+        for connection in connections:
+            if connection.port == "18282":
+                assert connection.ssl == 0
+            elif connection.port == "18283":
+                assert connection.ssl == 2
 
 if __name__ == '__main__':
     P2PTest().run_test()

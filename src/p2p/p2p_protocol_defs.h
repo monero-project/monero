@@ -33,10 +33,12 @@
 #include <iomanip>
 #include <boost/uuid/uuid.hpp>
 #include <boost/serialization/version.hpp>
+#include <boost/variant/variant.hpp>
 #include "serialization/keyvalue_serialization.h"
 #include "net/net_utils_base.h"
 #include "net/tor_address.h" // needed for serialization
 #include "net/i2p_address.h" // needed for serialization
+#include "net/net_ssl.h"
 #include "misc_language.h"
 #include "string_tools.h"
 #include "time_helper.h"
@@ -48,11 +50,58 @@ namespace nodetool
   typedef boost::uuids::uuid uuid;
   typedef uint64_t peerid_type;
 
+  // The current modes/versions for p2p encryption
+  constexpr uint8_t emode_ssl_autodetect = 0;
+  constexpr uint8_t emode_disabled = 1;
+  constexpr uint8_t emode_ssl_enabled = 2;
+
   static inline std::string peerid_to_string(peerid_type peer_id)
   {
     std::ostringstream s;
     s << std::hex << peer_id;
     return epee::string_tools::pad_string(s.str(), 16, '0', true);
+  }
+
+  inline uint8_t get_encryption_mode(const epee::net_utils::ssl_support_t support)
+  {
+    switch (support)
+    {
+      case epee::net_utils::ssl_support_t::e_ssl_support_enabled:
+        return emode_ssl_enabled;
+      case epee::net_utils::ssl_support_t::e_ssl_support_disabled:
+        return emode_disabled;
+      default:
+      case epee::net_utils::ssl_support_t::e_ssl_support_autodetect:
+        break;
+    }
+    return emode_ssl_autodetect;
+  }
+
+  template<typename T>
+  inline epee::net_utils::ssl_options_t get_p2p_encryption(const T& peer)
+  {
+    namespace net = epee::net_utils;
+    switch (peer.encryption_mode)
+    {
+      default:
+      case emode_ssl_autodetect:
+        return net::ssl_support_t::e_ssl_support_autodetect;
+      case emode_disabled:
+        return net::ssl_support_t::e_ssl_support_disabled;
+      case emode_ssl_enabled:
+        break;
+    }
+
+    if (peer.cert_finger.empty())
+    {
+      // SSL is required, but no verification
+      net::ssl_options_t out = net::ssl_support_t::e_ssl_support_enabled;
+      out.verification = net::ssl_verification_t::none;
+      return out;
+    }
+    // Fingerprint specified, require SSL
+    std::vector<std::vector<std::uint8_t>> fingers{net::convert_fingerprint(peer.cert_finger)};
+    return {std::move(fingers), {}};
   }
 
 #pragma pack (push, 1)
@@ -72,11 +121,13 @@ namespace nodetool
   struct peerlist_entry_base
   {
     AddressType adr;
+    std::string cert_finger;
     peerid_type id;
     int64_t last_seen;
     uint32_t pruning_seed;
     uint16_t rpc_port;
     uint32_t rpc_credits_per_hash;
+    uint8_t encryption_mode;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
@@ -85,16 +136,9 @@ namespace nodetool
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
       KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
+      KV_SERIALIZE_OPT(encryption_mode, emode_ssl_autodetect)
+      KV_SERIALIZE_OPT(cert_finger, std::string{})
     END_KV_SERIALIZE_MAP()
-
-    BEGIN_SERIALIZE()
-      FIELD(adr)
-      FIELD(id)
-      VARINT_FIELD(last_seen)
-      VARINT_FIELD(pruning_seed)
-      VARINT_FIELD(rpc_port)
-      VARINT_FIELD(rpc_credits_per_hash)
-    END_SERIALIZE()
   };
   typedef peerlist_entry_base<epee::net_utils::network_address> peerlist_entry;
 
@@ -102,43 +146,20 @@ namespace nodetool
   struct anchor_peerlist_entry_base
   {
     AddressType adr;
+    std::string cert_finger;
     peerid_type id;
     int64_t first_seen;
+    uint8_t encryption_mode;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(adr)
       KV_SERIALIZE(id)
       KV_SERIALIZE(first_seen)
+      KV_SERIALIZE_OPT(encryption_mode, emode_ssl_autodetect)
+      KV_SERIALIZE_OPT(cert_finger, std::string{})
     END_KV_SERIALIZE_MAP()
-
-    BEGIN_SERIALIZE()
-      FIELD(adr)
-      FIELD(id)
-      VARINT_FIELD(first_seen)
-    END_SERIALIZE()
   };
   typedef anchor_peerlist_entry_base<epee::net_utils::network_address> anchor_peerlist_entry;
-
-  template<typename AddressType>
-  struct connection_entry_base
-  {
-    AddressType adr;
-    peerid_type id;
-    bool is_income;
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(adr)
-      KV_SERIALIZE(id)
-      KV_SERIALIZE(is_income)
-    END_KV_SERIALIZE_MAP()
-
-    BEGIN_SERIALIZE()
-      FIELD(adr)
-      FIELD(id)
-      FIELD(is_income)
-    END_SERIALIZE()
-  };
-  typedef connection_entry_base<epee::net_utils::network_address> connection_entry;
 
 #pragma pack(pop)
 
@@ -184,12 +205,14 @@ namespace nodetool
 
   struct basic_node_data
   {
-    uuid network_id;                   
+    std::string cert_finger;
+    uuid network_id;
     uint32_t my_port;
     uint16_t rpc_port;
     uint32_t rpc_credits_per_hash;
     peerid_type peer_id;
     uint32_t support_flags;
+    uint8_t encryption_mode;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_VAL_POD_AS_BLOB(network_id)
@@ -198,6 +221,8 @@ namespace nodetool
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)(0))
       KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
       KV_SERIALIZE_OPT(support_flags, (uint32_t)0)
+      KV_SERIALIZE_OPT(encryption_mode, emode_ssl_autodetect)
+      KV_SERIALIZE_OPT(cert_finger, std::string{})
     END_KV_SERIALIZE_MAP()
   };
   

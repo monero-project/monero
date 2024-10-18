@@ -895,7 +895,7 @@ namespace net_utils
       boost::uuids::random_generator()(),
       *real_remote,
       is_income,
-      connection_basic::m_ssl_support == ssl_support_t::e_ssl_support_enabled
+      connection_basic::m_ssl_support
     );
     m_host = real_remote->host_str();
     try { host_count(1); } catch(...) { /* ignore */ }
@@ -1559,7 +1559,7 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  typename boosted_tcp_server<t_protocol_handler>::try_connect_result_t boosted_tcp_server<t_protocol_handler>::try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support)
+  typename boosted_tcp_server<t_protocol_handler>::try_connect_result_t boosted_tcp_server<t_protocol_handler>::try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_options_t& ssl_options)
   {
     TRY_ENTRY();
 
@@ -1635,7 +1635,7 @@ namespace net_utils
     {
       // Handshake
       MDEBUG("Handshaking SSL...");
-      if (!new_connection_l->handshake(boost::asio::ssl::stream_base::client))
+      if (!new_connection_l->client_handshake(ssl_options))
       {
         if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect)
         {
@@ -1649,6 +1649,7 @@ namespace net_utils
           sock_.close();
         return CONNECT_FAILURE;
       }
+      new_connection_l->set_ssl_enabled();
     }
 
     return CONNECT_SUCCESS;
@@ -1657,11 +1658,11 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_connection_context& conn_context, const std::string& bind_ip, epee::net_utils::ssl_options_t ssl_options)
   {
     TRY_ENTRY();
 
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_options.support) );
     connections_mutex.lock();
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
@@ -1746,24 +1747,22 @@ namespace net_utils
     //boost::asio::ip::tcp::endpoint remote_endpoint(boost::asio::ip::address::from_string(addr.c_str()), port);
     boost::asio::ip::tcp::endpoint remote_endpoint(*iterator);
 
-    auto try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_support);
+    auto try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_options);
     if (try_connect_result == CONNECT_FAILURE)
       return false;
-    if (ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect && try_connect_result == CONNECT_NO_SSL)
+    if (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_autodetect && try_connect_result == CONNECT_NO_SSL)
     {
       // we connected, but could not connect with SSL, try without
       MERROR("SSL handshake failed on an autodetect connection, reconnecting without SSL");
       new_connection_l->disable_ssl();
-      try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+      ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+      try_connect_result = try_connect(new_connection_l, adr, port, sock_, remote_endpoint, bind_ip_to_use, conn_timeout, ssl_options);
       if (try_connect_result != CONNECT_SUCCESS)
         return false;
     }
 
     // start adds the connection to the config object's list, so we don't need to have it locally anymore
-    connections_mutex.lock();
-    connections_.erase(new_connection_l);
-    connections_mutex.unlock();
-    bool r = new_connection_l->start(false, 1 < m_threads_count);
+    bool r = remove_connection(new_connection_l) && new_connection_l->start(false, 1 < m_threads_count);
     if (r)
     {
       new_connection_l->get_context(conn_context);
@@ -1783,10 +1782,10 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler> template<class t_callback>
-  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_options_t ssl_options)
   {
     TRY_ENTRY();    
-    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
+    connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_options.support) );
     connections_mutex.lock();
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
@@ -1863,60 +1862,113 @@ namespace net_utils
         return false;
       }
     }
-    
-    boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(io_service_));
-    //start deadline
-    sh_deadline->expires_from_now(boost::posix_time::milliseconds(conn_timeout));
-    sh_deadline->async_wait([=](const boost::system::error_code& error)
-      {
-          if(error != boost::asio::error::operation_aborted) 
-          {
-            _dbg3("Failed to connect to " << adr << ':' << port << ", because of timeout (" << conn_timeout << ")");
-            new_connection_l->socket().close();
-          }
-      });
-    //start async connect
-    sock_.async_connect(remote_endpoint, [=](const boost::system::error_code& ec_)
-      {
-        t_connection_context conn_context = AUTO_VAL_INIT(conn_context);
-        boost::system::error_code ignored_ec;
-        boost::asio::ip::tcp::socket::endpoint_type lep = new_connection_l->socket().local_endpoint(ignored_ec);
-        if(!ec_)
-        {//success
-          if(!sh_deadline->cancel())
-          {
-            cb(conn_context, boost::asio::error::operation_aborted);//this mean that deadline timer already queued callback with cancel operation, rare situation
-          }else
-          {
-            _dbg3("[sock " << new_connection_l->socket().native_handle() << "] Connected success to " << adr << ':' << port <<
-              " from " << lep.address().to_string() << ':' << lep.port());
 
-            // start adds the connection to the config object's list, so we don't need to have it locally anymore
-            connections_mutex.lock();
-            connections_.erase(new_connection_l);
-            connections_mutex.unlock();
-            bool r = new_connection_l->start(false, 1 < m_threads_count);
-            if (r)
-            {
-              new_connection_l->get_context(conn_context);
-              cb(conn_context, ec_);
-            }
-            else
-            {
-              _dbg3("[sock " << new_connection_l->socket().native_handle() << "] Failed to start connection to " << adr << ':' << port);
-              cb(conn_context, boost::asio::error::fault);
-            }
-          }
-        }else
-        {
-          _dbg3("[sock " << new_connection_l->socket().native_handle() << "] Failed to connect to " << adr << ':' << port <<
-            " from " << lep.address().to_string() << ':' << lep.port() << ": " << ec_.message() << ':' << ec_.value());
-          cb(conn_context, ec_);
-        }
-      });
-    return true;
+    ssl_options.configure(new_connection_l->socket_, boost::asio::ssl::stream_base::client);
+    return connect_async_internal(new_connection_l, remote_endpoint, conn_timeout, cb);
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::connect_async", false);
   }
-  
+
+  template<class t_protocol_handler> template<class t_callback>
+  bool boosted_tcp_server<t_protocol_handler>::connect_async_internal(const connection_ptr& new_connection_l, const boost::asio::ip::tcp::endpoint& remote_endpoint, uint32_t conn_timeout, const t_callback &cb)
+  {
+    if (!new_connection_l)
+      return false;
+
+    TRY_ENTRY();
+
+    const auto on_timer = [=](boost::system::error_code error)
+      {
+        if (error != boost::asio::error::operation_aborted)
+        {
+          _dbg3("Failed to connect to " << remote_endpoint << ", because of timeout (" << conn_timeout << ')');
+          new_connection_l->socket().close(error); // ignore errors
+        }
+      };
+
+    auto sh_deadline = std::make_shared<boost::asio::deadline_timer>(io_service_);
+    sh_deadline->expires_from_now(boost::posix_time::milliseconds(conn_timeout));
+    sh_deadline->async_wait(new_connection_l->wrap(on_timer));
+
+    new_connection_l->socket().async_connect(remote_endpoint, new_connection_l->wrap([=](const boost::system::error_code& ec_)
+      {
+        const auto on_cancel = [=](const boost::system::error_code& error)
+        {
+          boost::system::error_code ignored_ec{};
+          const auto lep = new_connection_l->socket().local_endpoint(ignored_ec);
+          _dbg3("[sock " << new_connection_l->socket().native_handle() << "] to " << remote_endpoint << " from " << lep << " failed: " << error.message());
+          if (remove_connection(new_connection_l))
+            cb(t_connection_context{}, error);
+        };
+
+        if(!ec_)
+        {//success
+          const auto on_ready = [=] ()
+            {
+              if (sh_deadline->cancel())
+              {
+                boost::system::error_code ignored_ec{};
+                const auto lep = new_connection_l->socket().local_endpoint(ignored_ec);
+                _dbg3("[sock " << new_connection_l->socket().native_handle() << "] Connected successfully to " << remote_endpoint <<
+                  " from " << lep.address().to_string() << ':' << lep.port());
+
+                if (remove_connection(new_connection_l) && new_connection_l->start(false, 1 < m_threads_count))
+                {
+                  t_connection_context conn_context{};
+                  new_connection_l->get_context(conn_context);
+                  cb(conn_context, ec_);
+                }
+                else
+                  on_cancel(boost::asio::error::fault);
+              }
+              else // if timer already expired
+                on_cancel(boost::asio::error::operation_aborted);
+            };
+
+          if (new_connection_l->get_ssl_support() != ssl_support_t::e_ssl_support_disabled)
+          {
+            // set new timer for handshake
+            if (sh_deadline->expires_from_now(boost::posix_time::milliseconds(conn_timeout)))
+            {
+              sh_deadline->async_wait(new_connection_l->wrap(on_timer));
+              new_connection_l->socket_.async_handshake(boost::asio::ssl::stream_base::client, new_connection_l->wrap([=] (const boost::system::error_code& ec)
+                {
+                  if (ec)
+                  {
+                    if (new_connection_l->get_ssl_support() == ssl_support_t::e_ssl_support_autodetect)
+                    {
+                      _dbg3("[sock " << new_connection_l->socket().native_handle() << "] SSL connection to " <<
+                        remote_endpoint << " failed: " << ec.message() << ". Trying without SSL");
+                      new_connection_l->disable_ssl();
+                      connect_async_internal(new_connection_l, remote_endpoint, conn_timeout, cb);
+                    }
+                    else // ssl mandatory and failed
+                      on_cancel(ec);
+                  }
+                  else // ssl handshake complete
+                    on_ready();
+                }));
+            }
+            else // if timer already expired
+              on_cancel(boost::asio::error::operation_aborted);
+          }
+          else // ssl disabled
+            on_ready();
+        }
+        else // ec_ has error
+          on_cancel(ec_);
+      }));
+    return true;
+    CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::connect_async_internal", false);
+  }
+
+  template<class t_protocol_handler>
+  bool boosted_tcp_server<t_protocol_handler>::remove_connection(const connection_ptr& new_connection)
+  {
+    if (!new_connection)
+      return false;
+    const boost::lock_guard<boost::mutex> sync{connections_mutex};
+    connections_.erase(new_connection);
+    return true;
+  }
 } // namespace
 } // namespace
