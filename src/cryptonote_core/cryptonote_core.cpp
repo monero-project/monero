@@ -188,6 +188,12 @@ namespace cryptonote
   , "Run a program for each new block, '%s' will be replaced by the block hash"
   , ""
   };
+  static const command_line::arg_descriptor<std::string> arg_sync_notify = {
+    "sync-notify"
+  , "Run a program when we start or stop syncing, '%h' will be replaced by the "
+    "current height, '%t' by the target height, '%s' by 1 if synced, 0 if not."
+  , ""
+  };
   static const command_line::arg_descriptor<bool> arg_prune_blockchain  = {
     "prune-blockchain"
   , "Prune blockchain"
@@ -344,6 +350,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_sync_pruned_blocks);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
+    command_line::add_arg(desc, arg_sync_notify);
     command_line::add_arg(desc, arg_prune_blockchain);
     command_line::add_arg(desc, arg_reorg_notify);
     command_line::add_arg(desc, arg_block_rate_notify);
@@ -645,6 +652,28 @@ namespace cryptonote
     catch (const std::exception &e)
     {
       MERROR("Failed to parse block notify spec: " << e.what());
+    }
+
+    try
+    {
+      if (!command_line::is_arg_defaulted(vm, arg_sync_notify))
+      {
+        struct sync_notify
+        {
+          tools::Notify cmdline;
+
+          void operator()(bool syncing, std::uint64_t height, std::uint64_t target) const
+          {
+            cmdline.notify("%s", syncing ? "1" : " 0", "%h", std::to_string(height).c_str(), "%t", std::to_string(target).c_str(), NULL);
+          }
+        };
+
+        add_sync_notify(sync_notify{{command_line::get_arg(vm, arg_sync_notify).c_str()}});
+      }
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Failed to parse sync notify spec: " << e.what());
     }
 
     try
@@ -1523,6 +1552,32 @@ namespace cryptonote
     m_miner.resume();
   }
   //-----------------------------------------------------------------------------------------------
+  void core::add_sync_notify(boost::function<void(bool, std::uint64_t, std::uint64_t)>&& notify)
+  {
+    if (notify)
+    {
+      m_sync_notifiers.push_back(std::move(notify));
+    }
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::on_start_syncing(uint64_t target)
+  {
+    MINFO("Starting syncing");
+    const uint64_t current_blockchain_height = get_current_blockchain_height();
+    if (target >= current_blockchain_height + 5) // don't switch to unsafe mode just for a few blocks
+      safesyncmode(false);
+    for (const auto& notifier : m_sync_notifiers)
+      notifier(true, current_blockchain_height, target);
+  }
+  //-----------------------------------------------------------------------------------------------
+  void core::on_stop_syncing()
+  {
+    MINFO("Stopping syncing");
+    safesyncmode(true);
+    for (const auto& notifier : m_sync_notifiers)
+      notifier(false, get_current_blockchain_height(), 0);
+  }
+  //-----------------------------------------------------------------------------------------------
   block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
   {
     block_complete_entry bce;
@@ -1610,7 +1665,12 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::add_new_block(const block& b, block_verification_context& bvc)
   {
-    return m_blockchain_storage.add_new_block(b, bvc);
+    const bool syncing = get_current_blockchain_height() < get_target_blockchain_height();
+    if (!m_blockchain_storage.add_new_block(b, bvc))
+      return false;
+    if (syncing && get_current_blockchain_height() >= get_target_blockchain_height())
+      on_stop_syncing();
+    return true;
   }
 
   //-----------------------------------------------------------------------------------------------
@@ -2104,6 +2164,11 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   void core::set_target_blockchain_height(uint64_t target_blockchain_height)
   {
+    const uint64_t height = get_current_blockchain_height();
+    if (m_target_blockchain_height > height && target_blockchain_height <= height)
+      on_stop_syncing();
+    else if (target_blockchain_height > height)
+      on_start_syncing(target_blockchain_height);
     m_target_blockchain_height = target_blockchain_height;
   }
   //-----------------------------------------------------------------------------------------------
