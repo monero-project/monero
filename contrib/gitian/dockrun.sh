@@ -7,12 +7,19 @@ fi
 VERSION=$1
 
 DOCKER=`command -v docker`
-CACHER=`command -v apt-cacher-ng`
+CACHER_BIN="/usr/sbin/apt-cacher-ng"
 
-if [ -z "$DOCKER" -o -z "$CACHER" ]; then
-	echo "$0: you must first install docker.io and apt-cacher-ng"
-	echo "  e.g. sudo apt-get install docker.io apt-cacher-ng"
+if [ -z "$DOCKER" ]; then
+	echo "$0: you must first install docker.io"
+	echo "  e.g. sudo apt-get install docker.io"
 	exit 1
+fi
+
+# only use APT cacher if package is present
+if [ ! -f "$CACHER_BIN" ]; then
+	DOCKER_CACHE_LINE=""
+else
+	DOCKER_CACHE_LINE="RUN echo 'Acquire::http { Proxy \"http://172.17.0.1:3142\"; };' > /etc/apt/apt.conf.d/50cacher"
 fi
 
 GH_USER=${GH_USER-$USER}
@@ -33,7 +40,7 @@ cat <<EOF > ${TAG}.Dockerfile
 FROM ubuntu:bionic
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN echo 'Acquire::http { Proxy "http://172.17.0.1:3142"; };' > /etc/apt/apt.conf.d/50cacher
+$DOCKER_CACHE_LINE
 RUN echo "$GID" >> /etc/group
 RUN apt-get update && apt-get --no-install-recommends -y install lsb-release ruby git make wget docker.io python3 curl
 
@@ -66,7 +73,7 @@ cat <<EOF > ${TAG2}.Dockerfile
 FROM ubuntu:bionic
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN echo 'Acquire::http { Proxy "http://172.17.0.1:3142"; };' > /etc/apt/apt.conf.d/50cacher
+$DOCKER_CACHE_LINE
 RUN apt-get update && apt-get --no-install-recommends -y install build-essential git language-pack-en \
   wget lsb-release curl gcc-7 g++-7 gcc g++ binutils-gold pkg-config autoconf libtool automake faketime \
   bsdmainutils ca-certificates python cmake gperf
