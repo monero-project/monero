@@ -4691,7 +4691,8 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
   if (!version)
     version = &version_;
   bool wallet_is_outdated = false, daemon_is_outdated = false;
-  if (!m_wallet->check_connection(version, NULL, 200000, &wallet_is_outdated, &daemon_is_outdated))
+  boost::system::error_code err{};
+  if (!m_wallet->check_connection(version, NULL, 200000, &wallet_is_outdated, &daemon_is_outdated, std::addressof(err)))
   {
     if (!silent)
     {
@@ -4705,7 +4706,7 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
           tr("Daemon is not up to date. "
           "Please make sure the daemon is running the latest version or change the daemon address using the 'set_daemon' command.");
       else
-        fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
+        fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << " : " << err.message() << ". " <<
           tr("Daemon either is not started or wrong port was passed. "
           "Please make sure daemon is running or change the daemon address using the 'set_daemon' command.");
     }
@@ -9793,9 +9794,10 @@ bool simple_wallet::status(const std::vector<std::string> &args)
   uint64_t local_height = m_wallet->get_blockchain_current_height();
   uint32_t version = 0;
   bool ssl = false;
-  if (!m_wallet->check_connection(&version, &ssl))
+  boost::system::error_code error{};
+  if (!m_wallet->check_connection(&version, &ssl, 200000, nullptr, nullptr, std::addressof(error)))
   {
-    success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected";
+    success_msg_writer() << "Refreshed " << local_height << "/?, no daemon connected: " << error.message();
     return true;
   }
 
