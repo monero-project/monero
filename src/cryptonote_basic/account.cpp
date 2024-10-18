@@ -152,6 +152,17 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_keys.m_multisig_keys.clear();
   }
   //-----------------------------------------------------------------
+  void account_base::set_spend_key(const crypto::secret_key& spend_secret_key)
+  {
+    // make sure derived spend public key matches saved public spend key
+    crypto::public_key spend_public_key;
+    crypto::secret_key_to_public_key(spend_secret_key, spend_public_key);
+    CHECK_AND_ASSERT_THROW_MES(m_keys.m_account_address.m_spend_public_key == spend_public_key,
+        "Unexpected derived public spend key");
+
+    m_keys.m_spend_secret_key = spend_secret_key;
+  }
+  //-----------------------------------------------------------------
   crypto::secret_key account_base::generate(const crypto::secret_key& recovery_key, bool recover, bool two_random)
   {
     crypto::secret_key first = generate_keys(m_keys.m_account_address.m_spend_public_key, m_keys.m_spend_secret_key, recovery_key, recover);
