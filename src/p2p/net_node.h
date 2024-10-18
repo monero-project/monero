@@ -161,9 +161,9 @@ namespace nodetool
         : m_connect(nullptr),
           m_net_server(epee::net_utils::e_connection_type_P2P),
           m_seed_nodes(),
-          m_bind_ip(),
+          m_bind_ipv4_address(),
           m_bind_ipv6_address(),
-          m_port(),
+          m_port_ipv4(),
           m_port_ipv6(),
           m_notifier(),
           m_our_address(),
@@ -183,9 +183,9 @@ namespace nodetool
         : m_connect(nullptr),
           m_net_server(public_service, epee::net_utils::e_connection_type_P2P),
           m_seed_nodes(),
-          m_bind_ip(),
+          m_bind_ipv4_address(),
           m_bind_ipv6_address(),
-          m_port(),
+          m_port_ipv4(),
           m_port_ipv6(),
           m_notifier(),
           m_our_address(),
@@ -204,9 +204,9 @@ namespace nodetool
       connect_func* m_connect;
       net_server m_net_server;
       std::vector<epee::net_utils::network_address> m_seed_nodes;
-      std::string m_bind_ip;
+      std::string m_bind_ipv4_address;
       std::string m_bind_ipv6_address;
-      std::string m_port;
+      std::string m_port_ipv4;
       std::string m_port_ipv6;
       cryptonote::levin::notify m_notifier;
       epee::net_utils::network_address m_our_address; // in anonymity networks
@@ -266,7 +266,7 @@ namespace nodetool
     bool init(const boost::program_options::variables_map& vm, const std::string& proxy = {}, bool proxy_dns_leaks_allowed = {});
     bool deinit();
     bool send_stop_signal();
-    uint32_t get_this_peer_port(){return m_listening_port;}
+    uint32_t get_this_peer_port(){return m_listening_port_ipv4;}
     t_payload_net_handler& get_payload_object();
 
     // debug functions
@@ -448,7 +448,7 @@ namespace nodetool
 
     bool m_have_address;
     bool m_first_connection_maker_call;
-    uint32_t m_listening_port;
+    uint32_t m_listening_port_ipv4;
     uint32_t m_listening_port_ipv6;
     uint32_t m_external_port;
     uint16_t m_rpc_port;
@@ -520,10 +520,13 @@ namespace nodetool
 
     const int64_t default_limit_up = P2P_DEFAULT_LIMIT_RATE_UP;      // kB/s
     const int64_t default_limit_down = P2P_DEFAULT_LIMIT_RATE_DOWN;  // kB/s
-    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv4_address;
     extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address;
-    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port;
-    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv6;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_ip; // DEPRECATED
+    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv4_port;
+    extern const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_ipv6_port;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_port; // DEPRECATED
+    extern const command_line::arg_descriptor<std::string> arg_p2p_bind_port_ipv6; // DEPRECATED
     extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6;
     extern const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv4;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;

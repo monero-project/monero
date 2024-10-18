@@ -56,8 +56,8 @@ namespace epee
         : m_net_server(external_io_service)
     {}
 
-    bool init(std::function<void(size_t, uint8_t*)> rng, const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0",
-      const std::string& bind_ipv6_address = "::", bool use_ipv6 = false, bool require_ipv4 = true,
+    bool init(std::function<void(size_t, uint8_t*)> rng, const std::string& bind_port = "0", const std::string& bind_address_ipv4 = "0.0.0.0",
+      const std::string& bind_address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
       std::vector<std::string> access_control_origins = std::vector<std::string>(),
       boost::optional<net_utils::http::login> user = boost::none,
       net_utils::ssl_options_t ssl_options = net_utils::ssl_support_t::e_ssl_support_autodetect)
@@ -76,12 +76,12 @@ namespace epee
 
       m_net_server.get_config_object().m_user = std::move(user);
 
-      MGINFO("Binding on " << bind_ip << " (IPv4):" << bind_port);
+      MGINFO("Binding on " << bind_address_ipv4 << " (IPv4):" << bind_port);
       if (use_ipv6)
       {
-        MGINFO("Binding on " << bind_ipv6_address << " (IPv6):" << bind_port);
+        MGINFO("Binding on " << bind_address_ipv6 << " (IPv6):" << bind_port);
       }
-      bool res = m_net_server.init_server(bind_port, bind_ip, bind_port, bind_ipv6_address, use_ipv6, require_ipv4, std::move(ssl_options));
+      bool res = m_net_server.init_server(bind_port, bind_address_ipv4, bind_port, bind_address_ipv6, use_ipv6, require_ipv4, std::move(ssl_options));
       if(!res)
       {
         LOG_ERROR("Failed to bind server");
@@ -120,9 +120,9 @@ namespace epee
       return true;
     }
 
-    int get_binded_port()
+    int get_binded_port_ipv4()
     {
-      return m_net_server.get_binded_port();
+      return m_net_server.get_binded_port_ipv4();
     }
 
     long get_connections_count() const

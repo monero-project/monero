@@ -277,7 +277,7 @@ namespace cryptonote
     if (!rpc_config)
       return false;
 
-    std::string bind_ip_str = rpc_config->bind_ip;
+    std::string bind_ipv4_str = rpc_config->bind_ipv4_address;
     std::string bind_ipv6_str = rpc_config->bind_ipv6_address;
     if (restricted)
     {
@@ -285,7 +285,7 @@ namespace cryptonote
       const bool has_restricted_rpc_port_arg = !command_line::is_arg_defaulted(vm, restricted_rpc_port_arg);
       if (has_restricted_rpc_port_arg && port == command_line::get_arg(vm, restricted_rpc_port_arg))
       {
-        bind_ip_str = rpc_config->restricted_bind_ip;
+        bind_ipv4_str = rpc_config->restricted_bind_ipv4_address;
         bind_ipv6_str = rpc_config->restricted_bind_ipv6_address;
       }
     }
@@ -325,9 +325,9 @@ namespace cryptonote
 
     if (!m_rpc_payment)
     {
-      uint32_t bind_ip;
-      bool ok = epee::string_tools::get_ip_int32_from_string(bind_ip, bind_ip_str);
-      if (ok & !epee::net_utils::is_ip_loopback(bind_ip))
+      uint32_t bind_ipv4;
+      bool ok = epee::string_tools::get_ip_int32_from_string(bind_ipv4, bind_ipv4_str);
+      if (ok & !epee::net_utils::is_ip_loopback(bind_ipv4))
         MWARNING("The RPC server is accessible from the outside, but no RPC payment was setup. RPC access will be free for all.");
     }
 
@@ -398,7 +398,7 @@ namespace cryptonote
 
     auto rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
     const bool inited = epee::http_server_impl_base<core_rpc_server, connection_context>::init(
-      rng, std::move(port), std::move(bind_ip_str),
+      rng, std::move(port), std::move(bind_ipv4_str),
       std::move(bind_ipv6_str), std::move(rpc_config->use_ipv6), std::move(rpc_config->require_ipv4),
       std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options)
     );
