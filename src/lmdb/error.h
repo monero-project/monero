@@ -26,8 +26,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
-#include <system_error>
-#include <type_traits>
+#include "common/error.h"
 
 //! Executes a LMDB command, and returns errors via `lmdb::error` enum.
 #define MONERO_LMDB_CHECK(...)         \
@@ -47,18 +46,8 @@ namespace lmdb
         // All other errors are the values reported by LMDB
     };
 
-    std::error_category const& error_category() noexcept;
-
-    inline std::error_code make_error_code(error value) noexcept
-    {
-        return std::error_code{int(value), error_category()};
-    }
+    monero::error_category const& error_category() noexcept;
+    monero::error_code make_error_code(error value) noexcept;
 }
 
-namespace std
-{
-    template<>
-    struct is_error_code_enum<::lmdb::error>
-      : true_type
-    {};
-}
+MONERO_DECLARE_ERROR_ENUM(lmdb::error)

@@ -137,12 +137,22 @@ namespace socks
                 return boost::system::error_condition{value, *this};
             }
         };
+        //! function in anonymous namespace allows compiler to optimize `error_category::failed` call
+        const socks_category& category_instance() noexcept
+        {
+            static const socks_category instance;
+            return instance;
+        }
     }
 
     const boost::system::error_category& error_category() noexcept
     {
-        static const socks_category instance{};
-        return instance;
+        return category_instance();
+    }
+
+    boost::system::error_code make_error_code(error value) noexcept
+    {
+        return {int(value), category_instance()};
     }
 
     struct client::completed

@@ -76,18 +76,15 @@ namespace socks
     };
 
     /* boost::system::error_code is extended for easier compatibility with
-       boost::asio errors. If std::error_code is needed (with expect<T> for
-       instance), then upgrade to boost 1.65+ or use conversion code in
-       develop branch at boost/system/detail/std_interoperability.hpp */
+       boost::asio errors. If std::error_code is needed, then upgrade to boost
+       1.65+ or use conversion code in develop branch at
+       boost/system/detail/std_interoperability.hpp */
 
     //! \return boost::system::error_category for net::socks namespace
     const boost::system::error_category& error_category() noexcept;
 
     //! \return net::socks::error as a boost::system::error_code.
-    inline boost::system::error_code make_error_code(error value) noexcept
-    {
-        return boost::system::error_code{int(value), socks::error_category()};
-    }
+    boost::system::error_code make_error_code(error value) noexcept;
 
     //! Client support for socks connect and resolve commands.
     class client
