@@ -1118,7 +1118,7 @@ void BlockchainLMDB::remove_transaction_data(const crypto::hash& tx_hash, const 
       throw1(DB_ERROR("Failed to add removal of tx index to db transaction"));
 }
 
-output_indexes_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
+uint64_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
     const tx_out& tx_output,
     const uint64_t& local_index,
     const uint64_t unlock_time,
@@ -1182,10 +1182,7 @@ output_indexes_t BlockchainLMDB::add_output(const crypto::hash& tx_hash,
   if ((result = mdb_cursor_put(m_cur_output_amounts, &val_amount, &data, MDB_APPENDDUP)))
       throw0(DB_ERROR(lmdb_error("Failed to add output pubkey to db transaction: ", result).c_str()));
 
-  return output_indexes_t{
-    .amount_index = ok.amount_index,
-    .output_id    = ok.output_id
-  };
+  return ok.amount_index;
 }
 
 void BlockchainLMDB::add_tx_amount_output_indices(const uint64_t tx_id,

@@ -30,6 +30,7 @@
 
 #include "string_tools.h"
 #include "blockchain_db.h"
+#include "blockchain_db_utils.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
@@ -40,60 +41,6 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain.db"
 
 using epee::string_tools::pod_to_hex;
-
-//---------------------------------------------------------------
-// Helper function to group outputs by unlock block
-static void get_outs_by_unlock_block(const cryptonote::transaction &tx,
-  const std::vector<uint64_t> &output_ids,
-  const uint64_t tx_height,
-  const bool miner_tx,
-  fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block_inout)
-{
-  const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, tx_height);
-
-  CHECK_AND_ASSERT_THROW_MES(tx.vout.size() == output_ids.size(), "unexpected size of output ids");
-
-  for (std::size_t i = 0; i < tx.vout.size(); ++i)
-  {
-    const auto &out = tx.vout[i];
-
-    crypto::public_key output_public_key;
-    if (!cryptonote::get_output_public_key(out, output_public_key))
-      throw std::runtime_error("Could not get an output public key from a tx output.");
-
-    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
-      "Revisit this section and update for the new tx version.");
-    CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
-
-    if (!miner_tx && tx.version == 2)
-      CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
-
-    rct::key commitment = (miner_tx || tx.version != 2)
-      ? rct::zeroCommit(out.amount)
-      : tx.rct_signatures.outPk[i].mask;
-
-    auto output_pair = fcmp_pp::curve_trees::OutputPair{
-        .output_pubkey = std::move(output_public_key),
-        .commitment    = std::move(commitment)
-      };
-
-    auto output_context = fcmp_pp::curve_trees::OutputContext{
-        .output_id   = output_ids[i],
-        .output_pair = std::move(output_pair)
-      };
-
-    if (outs_by_unlock_block_inout.find(unlock_block) == outs_by_unlock_block_inout.end())
-    {
-      auto new_vec = std::vector<fcmp_pp::curve_trees::OutputContext>{std::move(output_context)};
-      outs_by_unlock_block_inout[unlock_block] = std::move(new_vec);
-    }
-    else
-    {
-      outs_by_unlock_block_inout[unlock_block].emplace_back(std::move(output_context));
-    }
-  }
-}
-//---------------------------------------------------------------
 
 namespace cryptonote
 {
@@ -233,7 +180,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-std::vector<uint64_t> BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& txp, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   const transaction &tx = txp.first;
 
@@ -277,7 +224,7 @@ std::vector<uint64_t> BlockchainDB::add_transaction(const crypto::hash& blk_hash
 
   uint64_t tx_id = add_transaction_data(blk_hash, txp, tx_hash, tx_prunable_hash);
 
-  std::vector<output_indexes_t> output_indices(tx.vout.size());
+  std::vector<uint64_t> amount_output_indices(tx.vout.size());
 
   // iterate tx.vout using indices instead of C++11 foreach syntax because
   // we need the index
@@ -291,29 +238,17 @@ std::vector<uint64_t> BlockchainDB::add_transaction(const crypto::hash& blk_hash
       cryptonote::tx_out vout = tx.vout[i];
       rct::key commitment = rct::zeroCommit(vout.amount);
       vout.amount = 0;
-      output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
+      amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
         &commitment);
     }
     else
     {
-      output_indices[i] = add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
+      amount_output_indices[i] = add_output(tx_hash, tx.vout[i], i, tx.unlock_time,
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
 
-  std::vector<uint64_t> amount_output_indices;
-  std::vector<uint64_t> output_ids;
-  amount_output_indices.reserve(output_indices.size());
-  output_ids.reserve(output_indices.size());
-  for (const auto &o_idx : output_indices)
-  {
-    amount_output_indices.push_back(o_idx.amount_index);
-    output_ids.push_back(o_idx.output_id);
-  }
-
   add_tx_amount_output_indices(tx_id, amount_output_indices);
-
-  return output_ids;
 }
 
 uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
@@ -336,31 +271,32 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   time_blk_hash += time1;
 
   uint64_t prev_height = height();
+  const uint64_t total_n_outputs = num_outputs();
 
   // call out to add the transactions
 
   time1 = epee::misc_utils::get_tick_count();
 
-  std::vector<std::vector<uint64_t>> output_ids;
-  output_ids.reserve(txs.size());
-
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  std::vector<uint64_t> miner_output_ids = add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
+  add_transaction(blk_hash, std::make_pair(blk.miner_tx, blobdata_ref(miner_bd)));
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
+  std::vector<std::reference_wrapper<const transaction>> _txs; // ref wrapper to avoid extra copies
+  _txs.reserve(txs.size());
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    output_ids.push_back(add_transaction(blk_hash, tx, &tx_hash));
+    add_transaction(blk_hash, tx, &tx_hash);
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
         ++num_rct_outs;
     }
     ++tx_i;
+    _txs.push_back(std::ref(tx.first));
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
@@ -368,25 +304,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   // When adding a block, we also need to keep track of when outputs unlock, so
   // we can use them to grow the merkle tree used in fcmp's at that point.
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block;
-
-  // Get miner tx's leaf tuples
-  get_outs_by_unlock_block(
-    blk.miner_tx,
-    miner_output_ids,
-    prev_height,
-    true/*miner_tx*/,
-    outs_by_unlock_block);
-
-  // Get all other txs' leaf tuples
-  for (std::size_t i = 0; i < txs.size(); ++i)
-  {
-    get_outs_by_unlock_block(
-      txs[i].first,
-      output_ids[i],
-      prev_height,
-      false/*miner_tx*/,
-      outs_by_unlock_block);
-  }
+  cryptonote::get_outs_by_unlock_block(blk.miner_tx, _txs, total_n_outputs, prev_height, outs_by_unlock_block);
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();

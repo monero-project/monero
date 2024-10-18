@@ -1074,7 +1074,7 @@ private:
     void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
     bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
 
-    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth;}
+    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth; m_tree_sync.set_max_reorg_depth(depth);}
     uint64_t max_reorg_depth() const {return m_max_reorg_depth;}
 
     bool deinit();

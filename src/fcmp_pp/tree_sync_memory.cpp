@@ -37,7 +37,7 @@ namespace fcmp_pp
 namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
-OutputRef get_output_ref(const OutputPair &o)
+static OutputRef get_output_ref(const OutputPair &o)
 {
     static_assert(sizeof(o.output_pubkey) == sizeof(o.commitment), "unexpected size of output pubkey & commitment");
 
@@ -49,7 +49,6 @@ OutputRef get_output_ref(const OutputPair &o)
     crypto::cn_fast_hash(data, N_ELEMS * sizeof(crypto::public_key), h);
     return h;
 };
-//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 static void assign_new_output(const OutputPair &output_pair,
     const LeafIdx leaf_idx,
@@ -70,6 +69,90 @@ static void assign_new_output(const OutputPair &output_pair,
     registered_output_it->second.assign_leaf(leaf_idx);
 
     return;
+}
+//----------------------------------------------------------------------------------------------------------------------
+static uint64_t add_to_locked_outputs_cache(const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block,
+    const CreatedBlockIdx created_block_idx,
+    LockedOutputsByUnlock &locked_outputs_inout,
+    LockedOutputsByCreated &locked_outputs_refs_inout)
+{
+    uint64_t n_outputs_added = 0;
+
+    LockedOutputRefs locked_output_refs;
+    for (const auto &unlock_block : outs_by_unlock_block)
+    {
+        const UnlockBlockIdx unlock_block_idx = unlock_block.first;
+        CHECK_AND_ASSERT_THROW_MES(unlock_block_idx > created_block_idx, "unlock block idx should be > created block");
+        const auto &new_locked_outputs = unlock_block.second;
+
+        // We keep track of the number outputs we're adding to the cache at a specific unlock block, so that we can
+        // quickly remove those outputs from the cache upon popping a block.
+        const auto n_new_outputs = new_locked_outputs.size();
+        locked_output_refs[unlock_block_idx] = n_new_outputs;
+
+        n_outputs_added += n_new_outputs;
+
+        // Add to locked outputs cache by unlock block, so we can use them to grow the tree upon unlock.
+        auto locked_outputs_it = locked_outputs_inout.find(unlock_block_idx);
+        if (locked_outputs_it == locked_outputs_inout.end())
+        {
+            locked_outputs_inout[unlock_block_idx] = new_locked_outputs;
+            continue;
+        }
+
+        auto &locked_outputs = locked_outputs_it->second;
+        locked_outputs.insert(locked_outputs.end(), new_locked_outputs.begin(), new_locked_outputs.end());
+    }
+
+    // This is keeping track of locked output refs in the locked outputs cache by their created block. We use this to
+    // quickly remove locked outputs form the cache cache upon popping the block from the chain.
+    CHECK_AND_ASSERT_THROW_MES(locked_outputs_refs_inout.find(created_block_idx) == locked_outputs_refs_inout.end(),
+        "unexpected locked output refs found");
+    locked_outputs_refs_inout[created_block_idx] = std::move(locked_output_refs);
+
+    return n_outputs_added;
+}
+//----------------------------------------------------------------------------------------------------------------------
+static uint64_t remove_outputs_created_at_block(const CreatedBlockIdx &created_block_idx,
+    LockedOutputsByUnlock &locked_outputs_inout,
+    LockedOutputsByCreated &locked_outputs_refs_inout)
+{
+    uint64_t n_outputs_removed = 0;
+
+    // Get the outputs created at the provided creation block
+    auto locked_output_refs_it = locked_outputs_refs_inout.find(created_block_idx);
+    CHECK_AND_ASSERT_THROW_MES(locked_output_refs_it != locked_outputs_refs_inout.end(), "missing locked output refs");
+
+    for (const auto &locked_output_refs : locked_output_refs_it->second)
+    {
+        // The outputs are grouped by unlock block
+        const UnlockBlockIdx unlock_block_idx = locked_output_refs.first;
+        const NumOutputs n_outputs_to_remove = locked_output_refs.second;
+
+        // Find the locked outputs using the unlock block
+        const auto locked_outputs_it = locked_outputs_inout.find(unlock_block_idx);
+        CHECK_AND_ASSERT_THROW_MES(locked_outputs_it != locked_outputs_inout.end(), "missing locked outputs");
+
+        const NumOutputs n_cur_outputs = locked_outputs_it->second.size();
+        CHECK_AND_ASSERT_THROW_MES(n_cur_outputs >= n_outputs_to_remove, "unexpected n locked outputs");
+
+        // We're removing the number of outputs we originally added upon creation in add_to_locked_outputs_cache
+        n_outputs_removed += n_outputs_to_remove;
+
+        // Now remove those outputs from the locked outputs cache
+        if (n_cur_outputs == n_outputs_to_remove)
+        {
+            locked_outputs_inout.erase(locked_outputs_it);
+            continue;
+        }
+
+        locked_outputs_it->second.resize(n_cur_outputs - n_outputs_to_remove);
+    }
+
+    // Don't need the refs anymore, we're done with the outputs created at the given block
+    locked_outputs_refs_inout.erase(locked_output_refs_it);
+
+    return n_outputs_removed;
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -160,12 +243,12 @@ static void cache_path_chunk(const std::unique_ptr<C> &curve,
     const ChildChunkIdx end_chunk_idx   = std::min(start_chunk_idx + parent_width, n_layer_elems);
     CHECK_AND_ASSERT_THROW_MES(end_chunk_idx > start_chunk_idx, "start_chunk_idx is too high");
 
-    MDEBUG("Caching path elems at layer_idx: "  << layer_idx
-        << " , parent_idx: "                    << parent_idx
-        << " , start_chunk_idx: "               << start_chunk_idx
-        << " , end_chunk_idx: "                 << end_chunk_idx
-        << " , bump_ref_count: "                << bump_ref_count
-        << " , start_idx: "                     << layer_ext.start_idx);
+    MDEBUG("Caching path elems at layer_idx: " << layer_idx
+        << " , parent_idx: "                   << parent_idx
+        << " , start_chunk_idx: "              << start_chunk_idx
+        << " , end_chunk_idx: "                << end_chunk_idx
+        << " , bump_ref_count: "               << bump_ref_count
+        << " , start_idx: "                    << layer_ext.start_idx);
 
     // If the chunk isn't in this tree extension at all, there are no elems we need to cache
     if (layer_ext.start_idx >= end_chunk_idx)
@@ -655,18 +738,18 @@ bool TreeSyncMemory<C1, C2>::register_output(const OutputPair &output, const uin
         const auto &top_synced_block = m_cached_blocks.back();
 
         // If the output is already unlocked, we won't be able to tell the output's position in the tree
-        CHECK_AND_ASSERT_THROW_MES(unlock_block_idx > top_synced_block.blk_idx,
+        CHECK_AND_ASSERT_MES(unlock_block_idx > top_synced_block.blk_idx, false,
             "already synced block in which output unlocked");
     }
 
     auto output_ref = get_output_ref(output);
-
-    // Return false if already registered
-    if (m_registered_outputs.find(output_ref) != m_registered_outputs.end())
-        return false;
+    CHECK_AND_ASSERT_MES(m_registered_outputs.find(output_ref) == m_registered_outputs.end(), false,
+        "output is already registered");
 
     // Add to registered outputs container
     m_registered_outputs.insert({ std::move(output_ref), AssignedLeafIdx{} });
+
+    MDEBUG("Registered output " << output.output_pubkey << " , commitment " << output.commitment);
 
     return true;
 }
@@ -679,7 +762,7 @@ template<typename C1, typename C2>
 void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
     const crypto::hash &block_hash,
     const crypto::hash &prev_block_hash,
-    std::vector<OutputContext> &&new_leaf_tuples)
+    const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block)
 {
     // Pre-checks
     std::size_t n_leaf_tuples = 0;
@@ -705,12 +788,23 @@ void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
         n_leaf_tuples = prev_block.n_leaf_tuples;
     }
 
+    // Get the outputs spendable in the next block from the cache. We keep these outputs in the cache in case there's a
+    // reorg, and trimmed outputs would re-enter the locked outputs cache.
+    auto spendable_outputs = m_locked_outputs[block_idx];
+
     // Get the tree extension using existing tree data. We'll use the tree extension to update registered output paths
     // in the tree and cache the data necessary to either build the next block's tree extension or pop the block.
     const auto tree_extension = TreeSync<C1, C2>::m_curve_trees->get_tree_extension(
         n_leaf_tuples,
         this->get_last_hashes(n_leaf_tuples),
-        std::move(new_leaf_tuples));
+        std::move(spendable_outputs));
+
+    // Now that we've grown the tree with outputs that unlock this block, we add the outputs from this block to the
+    // locked outputs cache so that they'll be used to grow the tree when they unlock.
+    m_output_count += add_to_locked_outputs_cache(outs_by_unlock_block,
+        block_idx,
+        m_locked_outputs,
+        m_locked_output_refs);
 
     // Update the existing last hashes in the cache using the tree extension
     update_existing_last_hashes<C1, C2>(TreeSync<C1, C2>::m_curve_trees, tree_extension, m_tree_elem_cache);
@@ -761,11 +855,23 @@ void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
     if ((uint64_t)m_cached_blocks.size() > TreeSync<C1, C2>::m_max_reorg_depth)
     {
         CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cached blocks");
-        this->deque_block(m_cached_blocks.front());
+        const auto &oldest_block = m_cached_blocks.front();
+
+        // All locked outputs that unlocked in the oldest block idx should already be in the tree. We keep them cached
+        // to handle reorgs (in case an output trimmed from the tree is supposed to re-enter the cache). We don't need
+        // to keep them past the reorg depth.
+        m_locked_outputs.erase(/*UnlockBlockIdx*/oldest_block.blk_idx);
+
+        // We keep locked output refs around for outputs *created* in the oldest block, so we can quickly remove them
+        // from the locked outputs cache upon popping the block. Once the reorg depth is exceeded, we can't remove those
+        // outputs anyway, so remove from the cache.
+        m_locked_output_refs.erase(/*CreatedBlockIdx*/oldest_block.blk_idx);
+
+        this->deque_block(oldest_block);
         m_cached_blocks.pop_front();
     }
 
-    if ((uint64_t)m_cached_blocks.size() >= TreeSync<C1, C2>::m_max_reorg_depth)
+    if ((uint64_t)m_cached_blocks.size() > TreeSync<C1, C2>::m_max_reorg_depth)
         LOG_ERROR("Cached blocks exceeded max reorg depth");
 }
 
@@ -773,7 +879,7 @@ void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
 template void TreeSyncMemory<Helios, Selene>::sync_block(const uint64_t block_idx,
     const crypto::hash &block_hash,
     const crypto::hash &prev_block_hash,
-    std::vector<OutputContext> &&new_leaf_tuples);
+    const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 bool TreeSyncMemory<C1, C2>::pop_block()
@@ -783,8 +889,17 @@ bool TreeSyncMemory<C1, C2>::pop_block()
 
     // Pop the top block off the cache
     const uint64_t old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
+    const BlockIdx pop_block_idx = m_cached_blocks.back().blk_idx;
     this->deque_block(m_cached_blocks.back());
     m_cached_blocks.pop_back();
+
+    // Remove locked outputs from the cache that were created in this block
+    const uint64_t n_outputs_removed = remove_outputs_created_at_block(
+        pop_block_idx,
+        m_locked_outputs,
+        m_locked_output_refs);
+    CHECK_AND_ASSERT_THROW_MES(m_output_count >= n_outputs_removed, "output count too low");
+    m_output_count -= n_outputs_removed;
 
     // Determine how many leaves we need to trim
     uint64_t new_n_leaf_tuples = 0;
@@ -825,13 +940,13 @@ bool TreeSyncMemory<C1, C2>::pop_block()
     reduce_cached_last_chunks<C1, C2>(tree_reduction, TreeSync<C1, C2>::m_curve_trees, m_tree_elem_cache);
 
     // Use the tree reduction to update registered output paths
+    // TODO: below should all be a separate function
     for (auto &registered_o : m_registered_outputs)
     {
         // If the output isn't in the tree, it has no path elems we need to change in the cache 
         if (!registered_o.second.assigned_leaf_idx)
             continue;
 
-        // TODO: below should all be a separate function
         // Get the output's cached path indexes in the tree
         const LeafIdx leaf_idx = registered_o.second.leaf_idx;
         const auto old_path_idxs = TreeSync<C1, C2>::m_curve_trees->get_path_indexes(old_n_leaf_tuples, leaf_idx);
@@ -940,6 +1055,20 @@ bool TreeSyncMemory<C1, C2>::get_output_path(const OutputPair &output, typename 
 // Explicit instantiation
 template bool TreeSyncMemory<Helios, Selene>::get_output_path(const OutputPair &output,
     CurveTrees<Helios, Selene>::Path &path_out) const;
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+void TreeSyncMemory<C1, C2>::clear()
+{
+    m_locked_outputs.clear();
+    m_locked_output_refs.clear();
+    m_output_count = 0;
+    m_registered_outputs.clear();
+    m_leaf_cache.clear();
+    m_tree_elem_cache.clear();
+    m_cached_blocks.clear();
+}
+template void TreeSyncMemory<Helios, Selene>::clear();
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -1081,7 +1210,8 @@ typename CurveTrees<C1, C2>::LastChunkChildrenToTrim TreeSyncMemory<C1, C2>::get
     return all_children_to_regrow;
 }
 
-template CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSyncMemory<Helios, Selene>::get_last_chunk_children_to_regrow(
+template
+CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSyncMemory<Helios, Selene>::get_last_chunk_children_to_regrow(
     const std::vector<TrimLayerInstructions> &trim_instructions) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>

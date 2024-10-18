@@ -63,20 +63,6 @@ template Helios::Point get_new_parent<Helios>(const std::unique_ptr<Helios> &cur
 template Selene::Point get_new_parent<Selene>(const std::unique_ptr<Selene> &curve,
     const typename Selene::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
-std::shared_ptr<CurveTreesV1> curve_trees_v1(const std::size_t helios_chunk_width, const std::size_t selene_chunk_width)
-{
-    std::unique_ptr<Helios> helios(new Helios());
-    std::unique_ptr<Selene> selene(new Selene());
-    return std::shared_ptr<CurveTreesV1>(
-            new CurveTreesV1(
-                std::move(helios),
-                std::move(selene),
-                helios_chunk_width,
-                selene_chunk_width
-            )
-        );
-};
-//----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_to_tuple(const OutputPair &output_pair)
 {
     const crypto::public_key &output_pubkey = output_pair.output_pubkey;
@@ -107,6 +93,20 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
         .C = std::move(C),
     };
 }
+//----------------------------------------------------------------------------------------------------------------------
+std::shared_ptr<CurveTreesV1> curve_trees_v1(const std::size_t helios_chunk_width, const std::size_t selene_chunk_width)
+{
+    std::unique_ptr<Helios> helios(new Helios());
+    std::unique_ptr<Selene> selene(new Selene());
+    return std::shared_ptr<CurveTreesV1>(
+            new CurveTreesV1(
+                std::move(helios),
+                std::move(selene),
+                helios_chunk_width,
+                selene_chunk_width
+            )
+        );
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Static functions
@@ -1158,7 +1158,7 @@ template CurveTrees<Helios, Selene>::PathIndexes CurveTrees<Helios, Selene>::get
 template<>
 bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Path &path,
     const OutputPair &output,
-    const std::size_t n_leaf_tuples_in_tree) const
+    const uint64_t n_leaf_tuples_in_tree) const
 {
     // TODO: use the leaf idx to know exactly which parent indexes we expect and how many parent hashes we expect at each layer
 

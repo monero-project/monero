@@ -190,15 +190,6 @@ struct txpool_tx_meta_t
   }
 };
 
-/**
- * @brief a struct containing output indexes for convenience
- */
-struct output_indexes_t
-{
-  uint64_t amount_index;
-  uint64_t output_id;
-};
-
 #define DBF_SAFE       1
 #define DBF_FAST       2
 #define DBF_FASTEST    4
@@ -498,9 +489,9 @@ private:
    * @param local_index index of the output in its transaction
    * @param unlock_time unlock time/height of the output
    * @param commitment the rct commitment to the output amount
-   * @return output indexes
+   * @return amount output index
    */
-  virtual output_indexes_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
+  virtual uint64_t add_output(const crypto::hash& tx_hash, const tx_out& tx_output, const uint64_t& local_index, const uint64_t unlock_time, const rct::key *commitment) = 0;
 
   /**
    * @brief store amount output indices for a tx's outputs
@@ -581,10 +572,8 @@ protected:
    * @param tx the transaction to add
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
-   *
-   * @return the global output ids of all outputs inserted
    */
-  std::vector<uint64_t> add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, const std::pair<transaction, blobdata_ref>& tx, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -1394,6 +1383,16 @@ public:
    * @return the height of the transaction's block
    */
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
+
+  // returns the total number of outputs in the chain (of all amounts)
+  /**
+   * @brief fetches the number of outputs in the chain
+   *
+   * The subclass should return a count of outputs, or zero if there are none.
+   *
+   * @return the total number of outputs in the chain (of all amounts)
+   */
+  virtual uint64_t num_outputs() const = 0;
 
   // returns the total number of outputs of amount <amount>
   /**
