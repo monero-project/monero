@@ -277,6 +277,7 @@ public:
 
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
+  virtual uint64_t num_outputs() const;
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
   virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
@@ -397,7 +398,7 @@ private:
 
   virtual void remove_transaction_data(const crypto::hash& tx_hash, const transaction& tx);
 
-  virtual output_indexes_t add_output(const crypto::hash& tx_hash,
+  virtual uint64_t add_output(const crypto::hash& tx_hash,
       const tx_out& tx_output,
       const uint64_t& local_index,
       const uint64_t unlock_time,
@@ -452,8 +453,6 @@ private:
   std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_unlock_block_id(uint64_t block_id);
 
   void del_locked_outs_at_block_id(uint64_t block_id);
-
-  uint64_t num_outputs() const;
 
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);

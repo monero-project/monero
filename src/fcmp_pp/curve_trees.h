@@ -157,6 +157,18 @@ struct OutputContext final
     // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
     uint64_t output_id;
     OutputPair output_pair;
+
+    template <class Archive>
+    inline void serialize(Archive &a, const unsigned int ver)
+    {
+        a & output_id;
+        a & output_pair;
+    }
+
+    BEGIN_SERIALIZE_OBJECT()
+        FIELD(output_id)
+        FIELD(output_pair)
+    END_SERIALIZE()
 };
 #pragma pack(pop)
 
@@ -355,7 +367,7 @@ public:
     PathIndexes get_path_indexes(const uint64_t n_leaf_tuples, const uint64_t leaf_tuple_idx) const;
 
     // Audit the provided path
-    bool audit_path(const Path &path, const OutputPair &output, const std::size_t n_leaf_tuples_in_tree) const;
+    bool audit_path(const Path &path, const OutputPair &output, const uint64_t n_leaf_tuples_in_tree) const;
 private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(

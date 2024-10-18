@@ -61,8 +61,11 @@ using LeafIdx       = uint64_t;
 using LayerIdx      = std::size_t;
 using ChildChunkIdx = uint64_t;
 
+using UnlockBlockIdx  = BlockIdx;
+using CreatedBlockIdx = BlockIdx;
+using NumOutputs      = std::size_t;
+
 using OutputRef = crypto::hash;
-OutputRef get_output_ref(const OutputPair &o);
 
 struct BlockMeta final
 {
@@ -146,6 +149,10 @@ struct AssignedLeafIdx final
     END_SERIALIZE()
 };
 
+using LockedOutputsByUnlock  = std::unordered_map<UnlockBlockIdx, std::vector<OutputContext>>;
+using LockedOutputRefs       = std::unordered_map<UnlockBlockIdx, NumOutputs>;
+using LockedOutputsByCreated = std::unordered_map<CreatedBlockIdx, LockedOutputRefs>;
+
 using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
 using LeafCache         = std::unordered_map<ChildChunkIdx, CachedLeafChunk>;
 using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElemChunk>;
@@ -158,8 +165,9 @@ using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
 // Syncs the tree and keeps a user's known received outputs up to date, all saved in memory.
 // - The object does not store the entire tree locally. The object only stores what it needs in order to update paths
 //   of known received outputs as it syncs.
-// - The memory footprint of the TreeSyncMemory object is roughly all known output paths and the last chunk of tree
-//   elems of every layer of the tree the last N blocks. The latter is required to handle reorgs up to N blocks deep.
+// - The memory footprint of the TreeSyncMemory object is roughly ALL locked outputs in the chain, all known output
+//   paths, and the last chunk of tree elems at every layer of the tree the last N blocks. The latter is required to
+//   handle reorgs up to N blocks deep.
 // - WARNING: the implementation is not thread safe, it expects synchronous calls.
 //   TODO: use a mutex to enforce thread safety.
 template<typename C1, typename C2>
@@ -178,11 +186,18 @@ public:
     void sync_block(const uint64_t block_idx,
         const crypto::hash &block_hash,
         const crypto::hash &prev_block_hash,
-        std::vector<OutputContext> &&new_leaf_tuples) override;
+        const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block) override;
 
     bool pop_block() override;
 
     bool get_output_path(const OutputPair &output, typename CurveTrees<C1, C2>::Path &path_out) const override;
+
+// Public functions not part of TreeSync interface
+public:
+    uint64_t get_output_count() const { return m_output_count; }
+
+    // Clear all state
+    void clear();
 
 // Internal helper functions
 private:
@@ -198,6 +213,13 @@ private:
 
 // State held in memory
 private:
+    // Locked outputs in the chain that we use to grow the tree with internally upon unlock
+    LockedOutputsByUnlock m_locked_outputs;
+    LockedOutputsByCreated m_locked_output_refs;
+
+    // Keep a global output counter so the caller knows how output id's should be set
+    uint64_t m_output_count{0};
+
     // The outputs that TreeSyncMemory should keep track of while syncing
     RegisteredOutputs m_registered_outputs;
 
@@ -215,6 +237,9 @@ public:
     template <class Archive>
     inline void serialize(Archive &a, const unsigned int ver)
     {
+        a & m_locked_outputs;
+        a & m_locked_output_refs;
+        a & m_output_count;
         a & m_registered_outputs;
         a & m_leaf_cache;
         a & m_tree_elem_cache;
@@ -223,6 +248,9 @@ public:
 
     BEGIN_SERIALIZE_OBJECT()
         VERSION_FIELD(0)
+        FIELD(m_locked_outputs)
+        FIELD(m_locked_output_refs)
+        FIELD(m_output_count)
         FIELD(m_registered_outputs)
         FIELD(m_leaf_cache)
         FIELD(m_tree_elem_cache)
@@ -235,7 +263,6 @@ public:
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace curve_trees
 }//namespace fcmp_pp
-
 
 // Since BOOST_CLASS_VERSION does not work for templated class, implement it
 namespace boost
