@@ -1783,7 +1783,7 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler> template<class t_callback>
-  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, t_callback &&cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support)
   {
     TRY_ENTRY();    
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, ssl_support) );
@@ -1876,7 +1876,7 @@ namespace net_utils
           }
       });
     //start async connect
-    sock_.async_connect(remote_endpoint, [=](const boost::system::error_code& ec_)
+    sock_.async_connect(remote_endpoint, [=, cb = std::forward<t_callback>(cb)](const boost::system::error_code& ec_) mutable
       {
         t_connection_context conn_context = AUTO_VAL_INIT(conn_context);
         boost::system::error_code ignored_ec;

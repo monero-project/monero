@@ -103,7 +103,7 @@ public:
   uint64_t m_invoke_timeout;
 
   template<class callback_t>
-  int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
+  int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, callback_t &&cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
   int send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
   bool close(boost::uuids::uuid connection_id);
@@ -181,105 +181,90 @@ public:
 
   struct invoke_response_handler_base
   {
-    virtual bool handle(int res, const epee::span<const uint8_t> buff, connection_context& context)=0;
-    virtual bool is_timer_started() const=0;
-    virtual void cancel()=0;
-    virtual bool cancel_timer()=0;
-    virtual void reset_timer()=0;
-  };
-  template <class callback_t>
-  struct anvoke_handler: invoke_response_handler_base
-  {
-    anvoke_handler(const callback_t& cb, uint64_t timeout,  async_protocol_handler& con, int command)
-      :m_cb(cb), m_timeout(timeout), m_con(con), m_timer(con.m_pservice_endpoint->get_io_service()), m_timer_started(false),
-      m_cancel_timer_called(false), m_timer_cancelled(false), m_command(command)
-    {
-      if(m_con.start_outer_call())
-      {
-        MDEBUG(con.get_context_ref() << "anvoke_handler, timeout: " << timeout);
-        m_timer.expires_from_now(boost::posix_time::milliseconds(timeout));
-        m_timer.async_wait([&con, command, cb, timeout](const boost::system::error_code& ec)
-        {
-          if(ec == boost::asio::error::operation_aborted)
-            return;
-          MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command << " timeout: " << timeout);
-          epee::span<const uint8_t> fake;
-          cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
-          con.close();
-          con.finish_outer_call();
-        });
-        m_timer_started = true;
-      }
-    }
-    virtual ~anvoke_handler()
-    {}
-    callback_t m_cb;
-    async_protocol_handler& m_con;
+  protected:
     boost::asio::deadline_timer m_timer;
-    bool m_timer_started;
-    bool m_cancel_timer_called;
-    bool m_timer_cancelled;
-    uint64_t m_timeout;
-    int m_command;
-    virtual bool handle(int res, const epee::span<const uint8_t> buff, typename async_protocol_handler::connection_context& context)
+    async_protocol_handler& m_con;
+    const uint64_t m_timeout;
+    const int m_command;
+
+    virtual void do_handle(int res, const epee::span<const uint8_t> buff)=0;
+
+  public:
+    invoke_response_handler_base(uint64_t timeout, async_protocol_handler& con, int command)
+      : m_timer(con.m_pservice_endpoint->get_io_service()),
+        m_con(con),
+        m_timeout(timeout),
+        m_command(command)
+    {}
+
+    virtual ~invoke_response_handler_base() {}
+
+    //! Run user handler. Only call if `cancel_timer()` returns true.
+    void handle(int res, const epee::span<const uint8_t> buff)
     {
-      if(!cancel_timer())
-        return false;
-      m_cb(res, buff, context);
+      do_handle(res, buff);
       m_con.finish_outer_call();
+    }
+
+    //! Cancel timer and run user handler if not previously invoked \return True if user handler invoked
+    bool cancel()
+    {
+      if (!cancel_timer())
+        return false;
+      handle(LEVIN_ERROR_CONNECTION_DESTROYED, nullptr);
       return true;
     }
-    virtual bool is_timer_started() const
+
+    //! Cancel timer but do not run user handler. \return True if user handler has not been invoked
+    bool cancel_timer()
     {
-      return m_timer_started;
+      boost::system::error_code ignored{};
+      return m_timer.cancel(ignored);
     }
-    virtual void cancel()
+
+    // Attempt to adjust timeout for user handler execution. \return True if timer adjusted.
+    static bool reset_timer(const std::shared_ptr<invoke_response_handler_base>& self, const bool initial = false)
     {
-      if(cancel_timer())
+      if (!self || (!initial && !self->cancel_timer()))
+        return false;
+      if (initial && !self->m_con.start_outer_call())
+        return false;
+
+      self->m_timer.expires_from_now(boost::posix_time::milliseconds(self->m_timeout));
+      self->m_timer.async_wait([self](const boost::system::error_code& ec)
       {
-        epee::span<const uint8_t> fake;
-        m_cb(LEVIN_ERROR_CONNECTION_DESTROYED, fake, m_con.get_context_ref());
-        m_con.finish_outer_call();
-      }
+        if(ec == boost::asio::error::operation_aborted)
+          return;
+        MINFO(self->m_con.get_context_ref() << "Timeout on invoke operation happened, command: " << self->m_command << " timeout: " << self->m_timeout);
+        self->do_handle(LEVIN_ERROR_CONNECTION_TIMEDOUT, nullptr); // delay finish_outer_call
+        self->m_con.close();
+	self->m_con.finish_outer_call();
+      });
+      return true;
     }
-    virtual bool cancel_timer()
+  };
+  template <class callback_t>
+  struct anvoke_handler final : invoke_response_handler_base
+  {
+    template<typename F>
+    anvoke_handler(F&& cb, uint64_t timeout,  async_protocol_handler& con, int command)
+      : invoke_response_handler_base(timeout, con, command), m_cb(std::forward<F>(cb))
+    {}
+    virtual ~anvoke_handler() override final
+    {}
+
+  private:
+    callback_t m_cb;
+    virtual void do_handle(int res, const epee::span<const uint8_t> buff) override final
     {
-      if(!m_cancel_timer_called)
-      {
-        m_cancel_timer_called = true;
-        boost::system::error_code ignored_ec;
-        m_timer_cancelled = 1 == m_timer.cancel(ignored_ec);
-      }
-      return m_timer_cancelled;
-    }
-    virtual void reset_timer()
-    {
-      boost::system::error_code ignored_ec;
-      if (!m_cancel_timer_called && m_timer.cancel(ignored_ec) > 0)
-      {
-        callback_t& cb = m_cb;
-        uint64_t timeout = m_timeout;
-        async_protocol_handler& con = m_con;
-        int command = m_command;
-        m_timer.expires_from_now(boost::posix_time::milliseconds(m_timeout));
-        m_timer.async_wait([&con, cb, command, timeout](const boost::system::error_code& ec)
-        {
-          if(ec == boost::asio::error::operation_aborted)
-            return;
-          MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command << " timeout: " << timeout);
-          epee::span<const uint8_t> fake;
-          cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
-          con.close();
-          con.finish_outer_call();
-        });
-      }
+      m_cb(res, buff, this->m_con.get_context_ref());
     }
   };
   critical_section m_invoke_response_handlers_lock;
-  std::list<boost::shared_ptr<invoke_response_handler_base> > m_invoke_response_handlers;
+  std::deque<std::shared_ptr<invoke_response_handler_base>> m_invoke_response_handlers;
   
   template<class callback_t>
-  bool add_invoke_response_handler(const callback_t &cb, uint64_t timeout,  async_protocol_handler& con, int command)
+  bool add_invoke_response_handler(callback_t &&cb, uint64_t timeout, async_protocol_handler& con, int command)
   {
     CRITICAL_REGION_LOCAL(m_invoke_response_handlers_lock);
     if (m_protocol_released)
@@ -287,9 +272,10 @@ public:
       MERROR("Adding response handler to a released object");
       return false;
     }
-    boost::shared_ptr<invoke_response_handler_base> handler(boost::make_shared<anvoke_handler<callback_t>>(cb, timeout, con, command));
-    m_invoke_response_handlers.push_back(handler);
-    return handler->is_timer_started();
+    m_invoke_response_handlers.push_back(
+      std::make_shared<anvoke_handler<std::decay_t<callback_t>>>(std::forward<callback_t>(cb), timeout, con, command)
+    );
+    return invoke_response_handler_base::reset_timer(m_invoke_response_handlers.back(), true);
   }
   template<class callback_t> friend struct anvoke_handler;
 public:
@@ -361,9 +347,8 @@ public:
 
     // Never call callback inside critical section, that can cause deadlock. Callback can be called when
     // invoke_response_handler_base is cancelled
-    std::for_each(local_invoke_response_handlers.begin(), local_invoke_response_handlers.end(), [](const boost::shared_ptr<invoke_response_handler_base>& pinv_resp_hndlr) {
+    for (const std::shared_ptr<invoke_response_handler_base>& pinv_resp_hndlr : local_invoke_response_handlers)
       pinv_resp_hndlr->cancel();
-    });
 
     return true;
   }
@@ -436,8 +421,7 @@ public:
             if (!m_invoke_response_handlers.empty())
             {
               //async call scenario
-              boost::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
-              response_handler->reset_timer();
+              invoke_response_handler_base::reset_timer(m_invoke_response_handlers.front());
               MDEBUG(m_connection_context << "LEVIN_PACKET partial msg received. len=" << cb << ", current total " << m_cache_in_buffer.size() << "/" << m_current_head.m_cb << " (" << (100.0f * m_cache_in_buffer.size() / (m_current_head.m_cb ? m_current_head.m_cb : 1)) << "%)");
             }
           }
@@ -498,7 +482,7 @@ public:
             epee::critical_region_t<decltype(m_invoke_response_handlers_lock)> invoke_response_handlers_guard(m_invoke_response_handlers_lock);
             if(!m_invoke_response_handlers.empty())
             {//async call scenario
-              boost::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
+              const std::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
               bool timer_cancelled = response_handler->cancel_timer();
                // Don't pop handler, to avoid destroying it
               if(timer_cancelled)
@@ -506,7 +490,7 @@ public:
               invoke_response_handlers_guard.unlock();
 
               if(timer_cancelled)
-                response_handler->handle(m_current_head.m_return_code, buff_to_invoke, m_connection_context);
+                response_handler->handle(m_current_head.m_return_code, buff_to_invoke);
             }
             else
             {
@@ -604,7 +588,7 @@ public:
   }
 
   template<class callback_t>
-  bool async_invoke(int command, message_writer in_msg, const callback_t &cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
+  bool async_invoke(int command, message_writer in_msg, callback_t &&cb, size_t timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
   {
     misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
       boost::bind(&async_protocol_handler::finish_outer_call, this));
@@ -627,7 +611,7 @@ public:
         break;
       }
 
-      if(!add_invoke_response_handler(cb, timeout, *this, command))
+      if(!add_invoke_response_handler(std::forward<callback_t>(cb), timeout, *this, command))
       {
         err_code = LEVIN_ERROR_CONNECTION_DESTROYED;
         break;
@@ -752,11 +736,11 @@ int async_protocol_handler_config<t_connection_context>::find_and_lock_connectio
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-int async_protocol_handler_config<t_connection_context>::invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, size_t timeout)
+int async_protocol_handler_config<t_connection_context>::invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, callback_t &&cb, size_t timeout)
 {
   async_protocol_handler<t_connection_context>* aph;
   int r = find_and_lock_connection(connection_id, aph);
-  return LEVIN_OK == r ? aph->async_invoke(command, std::move(in_msg), cb, timeout) : r;
+  return LEVIN_OK == r ? aph->async_invoke(command, std::move(in_msg), std::forward<callback_t>(cb), timeout) : r;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
