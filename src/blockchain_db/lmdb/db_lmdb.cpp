@@ -2702,7 +2702,10 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
       // We don't handle the old format previous to that commit.
       txn.commit();
       m_open = true;
+      // Decrement num active txs so db can resize if needed
+      mdb_txn_safe::increment_txns(-1);
       migrate(db_version);
+      mdb_txn_safe::increment_txns(1);
       return;
     }
 #endif
@@ -6897,7 +6900,9 @@ void BlockchainLMDB::migrate_5_6()
       if (!m_batch_transactions)
         set_batch_transactions(true);
       const std::size_t BATCH_SIZE = 10000;
-      batch_start(BATCH_SIZE);
+      // Since step 3/3 in migration deletes block info records from the db, can't use num blocks batch size, otherwise
+      // get_estimated_batch_size can fail to read block weight by height
+      batch_start();
       txn.m_txn = m_write_txn->m_txn;
 
       /* the spent_keys table name is the same but the old version and new version
@@ -6942,13 +6947,10 @@ void BlockchainLMDB::migrate_5_6()
               std::cout << i << " / " << n_key_images << " key images (" << percent << "% of step 1/3)  \r" << std::flush;
             }
 
-            txn.commit();
-            result = mdb_txn_begin(m_env, NULL, 0, txn);
-            if (result)
-              throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-            m_write_txn->m_txn = txn.m_txn;
-            m_write_batch_txn->m_txn = txn.m_txn;
-            memset(&m_wcursors, 0, sizeof(m_wcursors));
+            // Start a new batch so resizing can occur as needed
+            batch_stop();
+            batch_start();
+            txn.m_txn = m_write_txn->m_txn;
           }
 
           // Open all cursors
@@ -7008,7 +7010,7 @@ void BlockchainLMDB::migrate_5_6()
       if (!m_batch_transactions)
         set_batch_transactions(true);
       const std::size_t BATCH_SIZE = 10000;
-      batch_start(BATCH_SIZE);
+      batch_start();
       txn.m_txn = m_write_txn->m_txn;
 
       // Use this cache to know how to restart the migration if the process is killed
@@ -7040,13 +7042,15 @@ void BlockchainLMDB::migrate_5_6()
               throw0(DB_ERROR(lmdb_error("Failed to update max output id: ", result).c_str()));
 
             // Commit and start a new txn
-            txn.commit();
-            result = mdb_txn_begin(m_env, NULL, 0, txn);
-            if (result)
-              throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-            m_write_txn->m_txn = txn.m_txn;
-            m_write_batch_txn->m_txn = txn.m_txn;
-            memset(&m_wcursors, 0, sizeof(m_wcursors));
+            batch_stop();
+            batch_start();
+            txn.m_txn = m_write_txn->m_txn;
+
+            // Reset k and v so we continue migration from the last output
+            k = {sizeof(last_output.amount), (void *)&last_output.amount};
+
+            const std::size_t outkey_size = (last_output.amount == 0) ? sizeof(outkey) : sizeof(pre_rct_outkey);
+            v = {outkey_size, (void *)&last_output.ok};
           }
 
           // Open all cursors
@@ -7186,7 +7190,7 @@ void BlockchainLMDB::migrate_5_6()
       if (!m_batch_transactions)
         set_batch_transactions(true);
       const std::size_t BATCH_SIZE = 50;
-      batch_start(BATCH_SIZE);
+      batch_start();
       txn.m_txn = m_write_txn->m_txn;
 
       /* the block_info table name is the same but the old version and new version
@@ -7214,13 +7218,9 @@ void BlockchainLMDB::migrate_5_6()
               std::cout << i << " / " << n_blocks << " blocks (" << percent << "% of step 3/3)  \r" << std::flush;
             }
 
-            txn.commit();
-            result = mdb_txn_begin(m_env, NULL, 0, txn);
-            if (result)
-              throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-            m_write_txn->m_txn = txn.m_txn;
-            m_write_batch_txn->m_txn = txn.m_txn;
-            memset(&m_wcursors, 0, sizeof(m_wcursors));
+            batch_stop();
+            batch_start();
+            txn.m_txn = m_write_txn->m_txn;
           }
 
           // Open all cursors
