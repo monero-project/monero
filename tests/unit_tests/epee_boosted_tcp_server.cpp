@@ -33,6 +33,7 @@
 #include <boost/thread/mutex.hpp>
 #include <condition_variable>
 #include <mutex>
+#include <thread>
 
 #include "gtest/gtest.h"
 
