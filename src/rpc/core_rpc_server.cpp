@@ -652,53 +652,7 @@ namespace cryptonote
 
     res.pool_info_extent = COMMAND_RPC_GET_BLOCKS_FAST::NONE;
 
-    if (get_pool)
-    {
-      const bool restricted = m_restricted && ctx;
-      const bool request_has_rpc_origin = ctx != NULL;
-      const bool allow_sensitive = !request_has_rpc_origin || !restricted;
-      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
-
-      bool incremental;
-      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
-      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental);
-      if (success)
-      {
-        res.added_pool_txs.clear();
-        if (m_rpc_payment)
-        {
-          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
-        }
-        for (const auto &added_pool_tx: added_pool_txs)
-        {
-          COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
-          info.tx_hash = added_pool_tx.first;
-          std::stringstream oss;
-          binary_archive<true> ar(oss);
-          bool r = req.prune
-            ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-            : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-          if (!r)
-          {
-            res.status = "Failed to serialize transaction";
-            return true;
-          }
-          info.tx_blob = oss.str();
-          info.double_spend_seen = added_pool_tx.second.double_spend_seen;
-          res.added_pool_txs.push_back(std::move(info));
-        }
-      }
-      if (success)
-      {
-        res.pool_info_extent = incremental ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
-      }
-      else
-      {
-        res.status = "Failed to get pool info";
-        return true;
-      }
-    }
-
+    size_t cumul_block_data_size = 0;
     if (get_blocks)
     {
       // quick check for noop
@@ -748,7 +702,7 @@ namespace cryptonote
 
       CHECK_PAYMENT_SAME_TS(req, res, bs.size() * COST_PER_BLOCK);
 
-      size_t size = 0, ntxes = 0;
+      size_t ntxes = 0;
       res.blocks.reserve(bs.size());
       res.output_indices.reserve(bs.size());
       for(auto& bd: bs)
@@ -756,7 +710,7 @@ namespace cryptonote
         res.blocks.resize(res.blocks.size()+1);
         res.blocks.back().pruned = req.prune;
         res.blocks.back().block = bd.first.first;
-        size += bd.first.first.size();
+        cumul_block_data_size += bd.first.first.size();
         res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
         ntxes += bd.second.size();
         res.output_indices.back().indices.reserve(1 + bd.second.size());
@@ -768,7 +722,7 @@ namespace cryptonote
           res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
           i->second.clear();
           i->second.shrink_to_fit();
-          size += res.blocks.back().txs.back().blob.size();
+          cumul_block_data_size += res.blocks.back().txs.back().blob.size();
         }
 
         const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
@@ -790,7 +744,54 @@ namespace cryptonote
             res.output_indices.back().indices.push_back({std::move(indices[i])});
         }
       }
-      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
+      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << cumul_block_data_size);
+    }
+
+    if (get_pool)
+    {
+      const bool restricted = m_restricted && ctx;
+      const bool request_has_rpc_origin = ctx != NULL;
+      const bool allow_sensitive = !request_has_rpc_origin || !restricted;
+      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
+
+      bool incremental;
+      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
+      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental, (LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9) - cumul_block_data_size);
+      if (success)
+      {
+        res.added_pool_txs.clear();
+        if (m_rpc_payment)
+        {
+          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
+        }
+        for (const auto &added_pool_tx: added_pool_txs)
+        {
+          COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
+          info.tx_hash = added_pool_tx.first;
+          std::stringstream oss;
+          binary_archive<true> ar(oss);
+          bool r = req.prune
+            ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
+            : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
+          if (!r)
+          {
+            res.status = "Failed to serialize transaction";
+            return true;
+          }
+          info.tx_blob = oss.str();
+          info.double_spend_seen = added_pool_tx.second.double_spend_seen;
+          res.added_pool_txs.push_back(std::move(info));
+        }
+      }
+      if (success)
+      {
+        res.pool_info_extent = incremental ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
+      }
+      else
+      {
+        res.status = "Failed to get pool info";
+        return true;
+      }
     }
 
     res.status = CORE_RPC_STATUS_OK;

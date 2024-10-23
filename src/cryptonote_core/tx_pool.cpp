@@ -694,19 +694,23 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive) const
+  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     txs.clear();
+    txs.reserve(std::min<size_t>(txids.size(), 1000000)); // reserve limited to 1 million
+    size_t cumul_txblob_size = 0;
 
-    for (const auto &it: txids)
+    for (size_t i = 0; i < txids.size(); ++i)
     {
+      const crypto::hash &it{txids[i]};
       tx_details details;
       bool success = get_transaction_info(it, details, include_sensitive, true/*include_blob*/);
-      if (success)
+      if (success && (!cumul_txblob_size_limit || (cumul_txblob_size + details.blob_size < cumul_txblob_size_limit)))
       {
+        cumul_txblob_size += details.blob_size;
         txs.push_back(std::make_pair(it, std::move(details)));
       }
     }
@@ -985,7 +989,7 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1016,47 +1020,80 @@ namespace cryptonote
     remaining_added_txids.clear();
     removed_txs.clear();
 
-    std::vector<crypto::hash> txids;
     if (!incremental)
-    {
       LOG_PRINT_L2("Giving back the whole pool");
-      // Give back the whole pool in 'added_txs'; because calling 'get_transaction_info' right inside the
-      // anonymous method somehow results in an LMDB error with transactions we have to build a list of
-      // ids first and get the full info afterwards
-      get_transaction_hashes(txids, include_sensitive);
-      if (txids.size() > max_tx_count)
+
+    // If incremental, handle removed TXIDs first since it's important that txs are removed
+    // from synchronizers' pools, and we need need to estimate how much space we have left to
+    // request full-bodied txs
+    if (incremental)
+    {
+      std::multimap<time_t, removed_tx_info>::const_iterator rit = m_removed_txs_by_time.lower_bound(start_time);
+      while (rit != m_removed_txs_by_time.end())
       {
-        remaining_added_txids = std::vector<crypto::hash>(txids.begin() + max_tx_count, txids.end());
-        txids.erase(txids.begin() + max_tx_count, txids.end());
+        if (include_sensitive || !rit->second.sensitive)
+        {
+          removed_txs.push_back(rit->second.txid);
+        }
+        ++rit;
       }
-      get_transactions_info(txids, added_txs, include_sensitive);
-      return true;
     }
 
-    // Give back incrementally, based on time of entry into the map
+    // Build a list of TXIDs that we want information for eventually.  When `!incremental`, we might
+    // collect TXIDs that have already left the pool which will cause a followup RPC call that
+    // fetches non-existent txs, but that's *okay* since a non-incremental caller probably doesn't
+    // care about being incredibly efficient. This problem is also unavoidable anyways if we need to
+    // ever return anything inside `remaining_added_txids`, since those txs might have left the mempool
+    // by the time the followup RPC call reaches the daemon
+    std::vector<crypto::hash> txids;
+    txids.reserve(m_added_txs_by_id.size());
     for (const auto &pit : m_added_txs_by_id)
     {
-      if (pit.second >= start_time)
+      const bool relevant_txid{!incremental || pit.second >= start_time};
+      if (relevant_txid)
         txids.push_back(pit.first);
     }
-    get_transactions_info(txids, added_txs, include_sensitive);
-    if (added_txs.size() > max_tx_count)
+
+    // Estimate max cumulative size left for full tx blobs
+    const size_t removed_txids_clawback{32 * removed_txs.size()};
+    const size_t remaining_txids_clawback{32 * txids.size()};
+    const size_t added_tx_txid_clawback(32 * txids.size());
+    const size_t total_clawback{removed_txids_clawback + remaining_txids_clawback + added_tx_txid_clawback};
+    const size_t cumulative_txblob_size_limit{cumul_limit_size > total_clawback ? cumul_limit_size - total_clawback : 0};
+
+    // Perform TX info fetch, limited to max_tx_count and cumulative_txblob_size_limit
+    const size_t max_full_tx_fetch_count{std::min(txids.size(), max_tx_count)};
+    if (cumulative_txblob_size_limit && max_full_tx_fetch_count)
     {
-      remaining_added_txids.reserve(added_txs.size() - max_tx_count);
-      for (size_t i = max_tx_count; i < added_txs.size(); ++i)
-        remaining_added_txids.push_back(added_txs[i].first);
-      added_txs.erase(added_txs.begin() + max_tx_count, added_txs.end());
+      const epee::span<const crypto::hash> txid_fetch_span{&txids[0], max_full_tx_fetch_count};
+      if (!get_transactions_info(txid_fetch_span, added_txs, include_sensitive, cumulative_txblob_size_limit))
+        return false;
     }
 
-    std::multimap<time_t, removed_tx_info>::const_iterator rit = m_removed_txs_by_time.lower_bound(start_time);
-    while (rit != m_removed_txs_by_time.end())
+    // Populate `remaining_added_txids` with all TXIDs in `txids` and not in `added_txs`
+    if (added_txs.size() < txids.size())
     {
-      if (include_sensitive || !rit->second.sensitive)
+      const size_t num_remaining{added_txs.size() - max_tx_count};
+      remaining_added_txids.reserve(num_remaining);
+
+      // This iteration code assumes that the get_transactions_info() method A) returns elements in
+      // the same order as they are passed in (skipping failures) and B) does not return TXIDs which
+      // don't exist in the input. If these assumptions don't hold then remaining_added_txids will
+      // be wrong, but it shouldn't cause any undefined behavior outside of that and should terminate
+      // in a short finite time period O(N) with N = txids.size()
+      auto txid_it = txids.cbegin();
+      auto added_it = added_txs.cbegin();
+      while (txid_it != txids.cend())
       {
-        removed_txs.push_back(rit->second.txid);
+        if (added_it != added_txs.cend() && added_it->first == *txid_it)
+          ++added_it;
+        else
+          remaining_added_txids.push_back(*txid_it);
+
+        ++txid_it;
       }
-      ++rit;
     }
+
     return true;
   }
   //------------------------------------------------------------------
