@@ -32,7 +32,7 @@ files: []
 script: |
 
   WRAP_DIR=$HOME/wrapped
-  HOSTS="arm-linux-android aarch64-linux-android"
+  HOSTS="aarch64-linux-android"
   FAKETIME_HOST_PROGS="clang clang++ ar nm"
   FAKETIME_PROGS="date"
   HOST_CFLAGS="-O2 -g"
