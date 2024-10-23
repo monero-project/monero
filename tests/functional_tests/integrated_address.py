@@ -36,7 +36,6 @@ Test the following RPCs:
 
 """
 
-from __future__ import print_function
 from framework.wallet import Wallet
 
 class IntegratedAddressTest():

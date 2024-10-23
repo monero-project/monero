@@ -32,7 +32,6 @@
 """Test wallet address book RPC
 """
 
-from __future__ import print_function
 from framework.wallet import Wallet
 
 class AddressBookTest():

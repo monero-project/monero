@@ -31,7 +31,6 @@
 """Test cold tx signing
 """
 
-from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 import random

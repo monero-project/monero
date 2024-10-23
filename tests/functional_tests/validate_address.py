@@ -31,7 +31,6 @@
 """Test address validation RPC calls
 """
 
-from __future__ import print_function
 from framework.wallet import Wallet
 
 class AddressValidationTest():
