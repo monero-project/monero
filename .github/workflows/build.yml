@@ -78,7 +78,7 @@ jobs:
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}
-          make release-static-win64 -j${{env.MAKE_JOB_COUNT}}
+          make release-static -j${{env.MAKE_JOB_COUNT}}
 
   build-arch:
     name: 'Arch Linux'
