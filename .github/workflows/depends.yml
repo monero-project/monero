@@ -56,6 +56,8 @@ jobs:
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
             packages: "clang-8"
+          - name: "ARMv7 Android"
+            host: "arm-linux-android"
           - name: "ARMv8 Android"
             host: "aarch64-linux-android"
     name: ${{ matrix.toolchain.name }}
