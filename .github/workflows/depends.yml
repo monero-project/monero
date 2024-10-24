@@ -31,37 +31,33 @@ jobs:
         toolchain:
           - name: "RISCV 64bit"
             host: "riscv64-linux-gnu"
-            packages: "python3 gperf g++-riscv64-linux-gnu"
+            packages: "g++-riscv64-linux-gnu"
           - name: "ARM v7"
             host: "arm-linux-gnueabihf"
-            packages: "python3 gperf g++-arm-linux-gnueabihf"
+            packages: "g++-arm-linux-gnueabihf"
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
-            packages: "python3 gperf g++-aarch64-linux-gnu"
+            packages: "g++-aarch64-linux-gnu"
           - name: "i686 Win"
             host: "i686-w64-mingw32"
-            packages: "python3 g++-mingw-w64-i686"
+            packages: "g++-mingw-w64-i686"
           - name: "i686 Linux"
             host: "i686-pc-linux-gnu"
-            packages: "gperf cmake g++-multilib python3-zmq"
+            packages: "g++-multilib"
           - name: "Win64"
             host: "x86_64-w64-mingw32"
-            packages: "cmake python3 g++-mingw-w64-x86-64"
+            packages: "g++-mingw-w64-x86-64"
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
-            packages: "gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
-            packages: "cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
           - name: "Cross-Mac aarch64"
             host: "aarch64-apple-darwin"
-            packages: "cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev python3-setuptools-git"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
-            packages: "clang-8 gperf cmake python3-zmq libdbus-1-dev libharfbuzz-dev"
+            packages: "clang-8"
           - name: "ARMv8 Android"
             host: "aarch64-linux-android"
-            packages: "gperf cmake python3"
     name: ${{ matrix.toolchain.name }}
     steps:
     - uses: actions/checkout@v4
@@ -94,7 +90,7 @@ jobs:
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
-      run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+      run: sudo apt update; sudo apt -y install build-essential libtool cmake autotools-dev automake pkg-config python3 gperf bsdmainutils curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'i686-w64-mingw32' }}
       run: |
