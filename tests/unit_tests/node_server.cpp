@@ -1245,7 +1245,6 @@ TEST(node_server, race_condition)
           "--out-peers=0",
           "--data-dir",
           dir.string(),
-          "--no-igd",
           "--add-exclusive-node=127.0.0.1:48080",
           "--check-updates=disabled",
           "--disable-dns-checkpoints",

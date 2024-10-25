@@ -72,8 +72,6 @@ complete -c monerod -l ban-list -r -F -d "Specify ban list file, one IP address 
 complete -c monerod -l hide-my-port -d "Do not announce yourself as peerlist candidate"
 complete -c monerod -l no-sync -d "Don't synchronize the blockchain with other peers"
 complete -c monerod -l enable-dns-blocklist -d "Apply realtime blocklist from DNS"
-complete -c monerod -l no-igd -d "Disable UPnP port mapping"
-complete -c monerod -l igd -r -a "Enabled disabled enabled" -d "UPnP port mapping. Default: delayed"
 complete -c monerod -l out-peers -r -d "Set max number of out peers. Default: -1"
 complete -c monerod -l in-peers -r -d "Set max number of in peers. Default: -1"
 complete -c monerod -l tos-flag -r -d "Set TOS flag. Default: -1"
