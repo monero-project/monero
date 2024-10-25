@@ -68,7 +68,7 @@ target_link_libraries(daemon
     ${ZMQ_LIB}
     ${GNU_READLINE_LIBRARY}
     ${EXTRA_LIBRARIES}
-    ${Blocks})
+    $<TARGET_NAME_IF_EXISTS:blocks>)
 set_property(TARGET daemon
   PROPERTY
     OUTPUT_NAME "monerod")
