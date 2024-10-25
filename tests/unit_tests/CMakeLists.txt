@@ -131,7 +131,7 @@ target_link_libraries(unit_tests
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
-    ${ZMQ_LIB})
+    PkgConfig::libzmq)
 set_property(TARGET unit_tests
   PROPERTY
     FOLDER "tests")
