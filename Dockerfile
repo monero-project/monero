@@ -15,13 +15,19 @@ RUN set -ex && \
         cmake \
         curl \
         git \
+        make \
         libtool \
         pkg-config \
         gperf \
         libusb-1.0-0-dev \
         libhidapi-dev \
         libprotobuf-dev \
-        protobuf-compiler && \
+        protobuf-compiler \
+        libssl-dev \
+        libunbound-dev \
+        libboost-all-dev \
+        libsodium-dev \
+        libzmq3-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -30,15 +36,16 @@ COPY . .
 
 ARG NPROC
 RUN set -ex && \
-    git submodule init && git submodule update && \
+    git submodule init && \
+    git submodule update && \
+    echo "Submodules initialized and updated" && \
     rm -rf build && \
     mkdir build && \
     cd build && \
     cmake .. -DARCH="default" -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release && \
-    if [ -z "$NPROC" ] ; \
-    then make -j$(nproc) ; \
-    else make -j$NPROC ; \
-    fi
+    echo "CMake configuration completed" && \
+    if [ -z "$NPROC" ] ; then make -j$(nproc) ; else make -j$NPROC ; fi && \
+    echo "Build completed"
 
 # runtime stage
 FROM ubuntu:20.04
@@ -50,6 +57,9 @@ RUN set -ex && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /src/build /usr/local/bin/
+
+# Create monero user
+RUN adduser --system --group --disabled-password monero
 
 # Create monero user
 RUN adduser --system --group --disabled-password monero && \
