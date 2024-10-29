@@ -15,6 +15,11 @@ DEFAULT_TESTS = [
   'http_digest_auth', 'integrated_address', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs',
   'rpc_payment', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
 ]
+CPP_TESTS = set(['wallet_scanner'])
+
+for cpp_test in CPP_TESTS:
+  DEFAULT_TESTS.append(cpp_test)
+
 try:
   python = sys.argv[1]
   srcdir = sys.argv[2]
@@ -148,8 +153,12 @@ for test in tests:
   try:
     print('[TEST STARTED] ' + test)
     sys.stdout.flush()
-    cmd = [python, srcdir + '/' + test + ".py"]
+
+    python_test = [python, srcdir + '/' + test + ".py"]
+    cpp_test = [FUNCTIONAL_TESTS_DIRECTORY + '/functional_tests', '--' + test]
+    cmd = cpp_test if test in CPP_TESTS else python_test
     subprocess.check_call(cmd)
+
     PASS.append(test)
     print('[TEST PASSED] ' + test)
   except:
