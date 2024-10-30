@@ -2,19 +2,175 @@ use ciphersuite::{
     group::{
         ff::{Field, PrimeField},
         GroupEncoding,
-    },
-    Ciphersuite, Helios, Selene,
+    }, Ciphersuite, Helios, Selene
 };
+use dalek_ff_group::{EdwardsPoint, Scalar};
 use helioselene::{
     Field25519 as SeleneScalar, HeliosPoint, HelioseleneField as HeliosScalar, SelenePoint,
 };
 
-use ec_divisors::DivisorCurve;
-use full_chain_membership_proofs::tree::{hash_grow, hash_trim};
+use ec_divisors::{DivisorCurve, ScalarDecomposition};
+use full_chain_membership_proofs::{tree::{hash_grow, hash_trim}, CBlind, IBlind, IBlindBlind, OBlind};
 
 use monero_fcmp_plus_plus::{HELIOS_HASH_INIT, SELENE_HASH_INIT, HELIOS_GENERATORS, SELENE_GENERATORS};
 
 // TODO: Use a macro to de-duplicate some of of this code
+
+//-------------------------------------------------------------------------------------- Blindings
+
+//---------------------------------------------- OutputBlinds
+
+#[no_mangle]
+pub extern "C" fn output_blinds_new_edwards(
+    o_blind: EdwardsPoint, 
+    i_blind: EdwardsPoint, 
+    i_blind_blind: EdwardsPoint, 
+    c_blind: EdwardsPoint
+) {
+    
+}
+
+//---------------------------------------------- OBlind
+
+/// # Safety 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn oblind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<OBlind<EdwardsPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+        let blind = OBlind::new(*t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn oblind_new_helios(t: HeliosPoint, scalar: HeliosScalar) -> CResult<OBlind<HeliosPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = OBlind::new(t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn oblind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CResult<OBlind<SelenePoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = OBlind::new(t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+//---------------------------------------------- CBlind
+
+/// # Safety 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn cblind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<CBlind<EdwardsPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+        let blind = CBlind::new(*t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn cblind_new_helios(t: HeliosPoint, scalar: HeliosScalar) -> CResult<CBlind<HeliosPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = CBlind::new(t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn cblind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CResult<CBlind<SelenePoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = CBlind::new(t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+//---------------------------------------------- IBlind
+
+/// # Safety 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn iblind_new_edwards(t: *const EdwardsPoint, v: *const EdwardsPoint, scalar: *const Scalar) -> CResult<IBlind<EdwardsPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+        let blind = IBlind::new(*t, *v, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn iblind_new_helios(t: HeliosPoint, v: HeliosPoint, scalar: HeliosScalar) -> CResult<IBlind<HeliosPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = IBlind::new(t, v, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn iblind_new_selene(t: SelenePoint, v: SelenePoint, scalar: SeleneScalar) -> CResult<IBlind<SelenePoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = IBlind::new(t, v, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+//---------------------------------------------- IBlindBlind
+
+/// # Safety 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn iblind_blind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<IBlindBlind<EdwardsPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+        let blind = IBlindBlind::new(*t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn iblind_blind_new_helios(t: HeliosPoint, scalar: HeliosScalar) -> CResult<IBlindBlind<HeliosPoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = IBlindBlind::new(t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn iblind_blind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CResult<IBlindBlind<SelenePoint>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar) {
+        let blind = IBlindBlind::new(t, scalar);
+        CResult::ok(blind)
+    } else {
+        CResult::err(())
+    }
+}
+
+//-------------------------------------------------------------------------------------- Curve points
 
 #[no_mangle]
 pub extern "C" fn helios_hash_init_point() -> HeliosPoint {

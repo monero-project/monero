@@ -11,7 +11,8 @@ crate-type = ["staticlib"]
 std-shims = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
 
 helioselene = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
-ciphersuite = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["ed25519", "helioselene"] }
+dalek-ff-group = { git = "https://github.com/kayabaNerve/fcmp-plus-plus" }
+ciphersuite = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["ed25519", "dalek", "helioselene"] }
 
 generalized-bulletproofs = { git = "https://github.com/kayabaNerve/fcmp-plus-plus", features = ["tests"] }
 
