@@ -71,7 +71,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "ciphersuite"
 version = "0.4.1"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "blake2",
  "dalek-ff-group",
@@ -100,9 +100,9 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.12"
+version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53fe5e26ff1b7aef8bca9c6080520cfb8d9333c7568e1829cef191a9723e5504"
+checksum = "608697df725056feaccfa42cffdaeeec3fccc4ffc38358ecd19b243e716a78e0"
 dependencies = [
  "libc",
 ]
@@ -160,7 +160,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -197,12 +197,14 @@ dependencies = [
 [[package]]
 name = "ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "dalek-ff-group",
+ "ff",
  "group",
  "hex",
  "rand_core",
+ "subtle",
  "zeroize",
 ]
 
@@ -243,6 +245,7 @@ name = "fcmp_pp_rust"
 version = "0.0.0"
 dependencies = [
  "ciphersuite",
+ "dalek-ff-group",
  "ec-divisors",
  "full-chain-membership-proofs",
  "generalized-bulletproofs",
@@ -271,7 +274,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "blake2",
  "digest",
@@ -284,7 +287,7 @@ dependencies = [
 [[package]]
 name = "full-chain-membership-proofs"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -307,7 +310,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "generalized-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -319,7 +322,7 @@ dependencies = [
 [[package]]
 name = "generalized-bulletproofs-circuit-abstraction"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "ciphersuite",
  "generalized-bulletproofs",
@@ -329,7 +332,7 @@ dependencies = [
 [[package]]
 name = "generalized-bulletproofs-ec-gadgets"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "ciphersuite",
  "generalized-bulletproofs-circuit-abstraction",
@@ -339,7 +342,7 @@ dependencies = [
 [[package]]
 name = "generalized-schnorr"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "ciphersuite",
  "flexible-transcript",
@@ -403,7 +406,7 @@ dependencies = [
 [[package]]
 name = "helioselene"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "crypto-bigint",
  "dalek-ff-group",
@@ -424,9 +427,9 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "k256"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956ff9b67e26e1a6a866cb758f12c6f8746208489e3e4a4b5580802f2f0a587b"
+checksum = "f6e3919bbaa2945715f0bb6d3934a173d1e9a59ac23767fbaaef277265a7411b"
 dependencies = [
  "cfg-if",
  "ecdsa",
@@ -445,9 +448,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.155"
+version = "0.2.161"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
+checksum = "8e9489c2807c139ffd9c1794f4af0ebe86a828db53ecdc7fea2111d0fed085d1"
 
 [[package]]
 name = "merlin"
@@ -464,7 +467,7 @@ dependencies = [
 [[package]]
 name = "minimal-ed448"
 version = "0.4.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "crypto-bigint",
  "ff",
@@ -479,7 +482,7 @@ dependencies = [
 [[package]]
 name = "monero-fcmp-plus-plus"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "ciphersuite",
  "dalek-ff-group",
@@ -502,7 +505,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -516,7 +519,7 @@ dependencies = [
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "curve25519-dalek",
  "std-shims",
@@ -525,7 +528,7 @@ dependencies = [
 [[package]]
 name = "monero-primitives"
 version = "0.1.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -538,7 +541,7 @@ dependencies = [
 [[package]]
 name = "multiexp"
 version = "0.4.0"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "ff",
  "group",
@@ -550,9 +553,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.19.0"
+version = "1.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
+checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "p256"
@@ -586,18 +589,18 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.86"
+version = "1.0.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e719e8df665df0d1c8fbfd238015744736151d4445ec0836b8e628aae103b77"
+checksum = "f139b0662de085916d1fb67d2b4169d1addddda1919e696f3252b740b629986e"
 dependencies = [
  "unicode-ident",
 ]
 
 [[package]]
 name = "quote"
-version = "1.0.36"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
+checksum = "b5b9d34b8991d19d98081b46eacdd8eb58c6f2b201139f7c5f643cc155a633af"
 dependencies = [
  "proc-macro2",
 ]
@@ -619,18 +622,18 @@ dependencies = [
 
 [[package]]
 name = "rustc_version"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
+checksum = "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92"
 dependencies = [
  "semver",
 ]
 
 [[package]]
 name = "rustversion"
-version = "1.0.17"
+version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "955d28af4278de8121b7ebeb796b6a45735dc01436d898801014aced2773a3d6"
+checksum = "0e819f2bc632f285be6d7cd36e25940d45b2391dd6d9b939e79de557f7014248"
 
 [[package]]
 name = "sec1"
@@ -701,7 +704,7 @@ dependencies = [
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#529a3fe9c54b7f701d7978b3dc781ea27ba7d7e5"
+source = "git+https://github.com/kayabaNerve/fcmp-plus-plus#3bae1e9b0feed6a089767d3c810db438c8c0e8e9"
 dependencies = [
  "hashbrown",
  "spin",
@@ -715,9 +718,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "syn"
-version = "2.0.72"
+version = "2.0.85"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc4b9b9bf2add8093d3f2c0204471e951b2285580335de42f9d2534f3ae7a8af"
+checksum = "5023162dfcd14ef8f32034d8bcd4cc5ddc61ef7a247c024a33e24e1f24d21b56"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -738,9 +741,9 @@ checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+checksum = "e91b56cd4cadaeb79bbf1a5645f6b4f8dc5bde8834ad5894a8db35fda9efa1fe"
 
 [[package]]
 name = "version_check"
