@@ -31,14 +31,15 @@
 #pragma once
 
 
-#include <string>
-#include <vector>
-#include <list>
-#include <set>
+#include <cstdint>
 #include <ctime>
 #include <iostream>
+#include <list>
+#include <optional>
+#include <set>
 #include <stdexcept>
-#include <cstdint>
+#include <string>
+#include <vector>
 
 //  Public interface for libwallet library
 namespace Monero {
@@ -54,18 +55,9 @@ enum NetworkType : uint8_t {
         void onStartup();
     }
 
+    // backwards compatible shim for old declaration of handmade optional<> struct
     template<typename T>
-    class optional {
-      public:
-        optional(): set(false) {}
-        optional(const T &t): t(t), set(true) {}
-        const T &operator*() const { return t; }
-        T &operator*() { return t; }
-        operator bool() const { return set; }
-      private:
-        T t;
-        bool set;
-    };
+    using optional = std::optional<T>;
 
 /**
  * @brief Transaction-like interface for sending money
