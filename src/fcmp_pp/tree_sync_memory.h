@@ -194,7 +194,23 @@ public:
 
 // Public functions not part of TreeSync interface
 public:
+    // TODO: make this part of the TreeSync interface
+    std::array<uint8_t, 32UL> get_tree_root() const;
+    uint64_t get_n_leaf_tuples() const;
+
     uint64_t get_output_count() const { return m_output_count; }
+
+    void sync_blocks(const uint64_t prev_last_block_idx,
+        const crypto::hash &prev_block_hash,
+        const std::vector<crypto::hash> &new_block_hashes,
+        const std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> &outs_by_unlock_blocks,
+        typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension_out,
+        std::vector<uint64_t> &n_new_leaf_tuples_per_block_out);
+
+    void process_synced_blocks(const uint64_t n_blocks_already_synced,
+        const std::vector<crypto::hash> &new_block_hashes,
+        const std::vector<uint64_t> &n_new_leaf_tuples_per_block,
+        const typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension);
 
     // Clear all state
     void clear();
@@ -231,6 +247,10 @@ private:
     // - These are unspecific to the wallet's registered outputs. These are strictly necessary to ensure we can rebuild
     //   the tree extensions and reductions for each block correctly locally when syncing.
     std::deque<BlockMeta> m_cached_blocks;
+
+    uint64_t m_getting_unlocked_outs_ms;
+    uint64_t m_getting_tree_extension_ms;
+    uint64_t m_updating_cache_values_ms;
 
 // Serialization
 public:

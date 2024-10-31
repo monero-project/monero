@@ -303,8 +303,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   // When adding a block, we also need to keep track of when outputs unlock, so
   // we can use them to grow the merkle tree used in fcmp's at that point.
-  fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block;
-  cryptonote::get_outs_by_unlock_block(blk.miner_tx, _txs, total_n_outputs, prev_height, outs_by_unlock_block);
+  const auto outs_by_unlock_block = cryptonote::get_outs_by_unlock_block(blk.miner_tx, _txs, total_n_outputs, prev_height).first;
 
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();

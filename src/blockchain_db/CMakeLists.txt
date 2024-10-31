@@ -34,6 +34,7 @@ target_link_libraries(blockchain_db_utils
   PUBLIC
     cncrypto
     cryptonote_basic
+    epee
     ringct
 )
 
