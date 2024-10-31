@@ -595,7 +595,7 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
             ts.rct = false;
             ts.mask = rct::identity();  // non-rct has identity mask by definition
 
-            rct::key comm = rct::zeroCommit(ts.amount);
+            rct::key comm = rct::zeroCommitVartime(ts.amount);
             for(auto & ot : ts.outputs)
               ot.second.mask = comm;
 
