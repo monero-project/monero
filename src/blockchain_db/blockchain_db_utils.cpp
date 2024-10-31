@@ -32,6 +32,8 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "ringct/rctOps.h"
 
+#include "profile_tools.h"
+
 //----------------------------------------------------------------------------------------------------------------------
 // Helper function to group outputs by unlock block
 static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
@@ -41,6 +43,9 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
     fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block_inout)
 {
     const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, block_idx);
+
+    uint64_t getting_commitment_ns = 0;
+    uint64_t setting_unlock_block_ns = 0;
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
@@ -57,9 +62,13 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
         if (!miner_tx && tx.version == 2)
             CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > i, "unexpected size of outPk");
 
+        TIME_MEASURE_NS_START(getting_commitment);
+
         rct::key commitment = (miner_tx || tx.version < 2)
             ? rct::zeroCommitVartime(out.amount)
             : tx.rct_signatures.outPk[i].mask;
+
+        TIME_MEASURE_NS_FINISH(getting_commitment);
 
         auto output_pair = fcmp_pp::curve_trees::OutputPair{
                 .output_pubkey = std::move(output_public_key),
@@ -71,6 +80,8 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
                 .output_pair = std::move(output_pair)
             };
 
+        TIME_MEASURE_NS_START(setting_unlock_block);
+
         if (outs_by_unlock_block_inout.find(unlock_block) == outs_by_unlock_block_inout.end())
         {
             auto new_vec = std::vector<fcmp_pp::curve_trees::OutputContext>{std::move(output_context)};
@@ -80,7 +91,14 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
         {
             outs_by_unlock_block_inout[unlock_block].emplace_back(std::move(output_context));
         }
+
+        TIME_MEASURE_NS_FINISH(setting_unlock_block);
+
+        getting_commitment_ns += getting_commitment;
+        setting_unlock_block_ns += setting_unlock_block;
     }
+
+    LOG_PRINT_L3("getting_commitment_ms: " << getting_commitment_ns / 1000 << " , setting_unlock_block_ms: " << setting_unlock_block_ns / 1000);
 
     return tx.vout.size();
 }
@@ -88,14 +106,13 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
 //----------------------------------------------------------------------------------------------------------------------
 namespace cryptonote
 {
-uint64_t get_outs_by_unlock_block(
+std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlock_block(
     const cryptonote::transaction &miner_tx,
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const uint64_t first_output_id,
-    const uint64_t block_idx,
-    fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block_out)
+    const uint64_t block_idx)
 {
-    outs_by_unlock_block_out.clear();
+    fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block_out;
 
     uint64_t output_id = first_output_id;
 
@@ -118,7 +135,7 @@ uint64_t get_outs_by_unlock_block(
             outs_by_unlock_block_out);
     }
 
-    return output_id;
+    return { outs_by_unlock_block_out, output_id };
 }
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace cryptonote

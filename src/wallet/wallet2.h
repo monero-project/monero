@@ -1945,6 +1945,9 @@ private:
     const std::vector<std::vector<rct::key>> *m_multisig_rescan_k;
     std::unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
+    uint64_t m_sync_blocks_time_ms;
+    uint64_t m_outs_by_unlock_time_ms;
+
     std::atomic<bool> m_run;
 
     boost::recursive_mutex m_daemon_rpc_mutex;

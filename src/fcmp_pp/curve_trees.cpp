@@ -29,6 +29,7 @@
 #include "curve_trees.h"
 
 #include "common/threadpool.h"
+#include "profile_tools.h"
 #include "ringct/rctOps.h"
 
 #include <stdlib.h>
@@ -68,22 +69,32 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
     const crypto::public_key &output_pubkey = output_pair.output_pubkey;
     const rct::key &commitment              = output_pair.commitment;
 
+    TIME_MEASURE_NS_START(clear_torsion_ns);
+
     rct::key O, C;
     if (!fcmp_pp::clear_torsion(rct::pk2rct(output_pubkey), O))
         throw std::runtime_error("output pubkey is invalid");
     if (!fcmp_pp::clear_torsion(commitment, C))
         throw std::runtime_error("commitment is invalid");
 
+    TIME_MEASURE_NS_FINISH(clear_torsion_ns);
+
     if (O == rct::I)
         throw std::runtime_error("O cannot equal identity");
     if (C == rct::I)
         throw std::runtime_error("C cannot equal identity");
+
+    TIME_MEASURE_NS_START(derive_key_image_generator_ns);
 
     // Must use the original output pubkey to derive I to prevent double spends, since torsioned outputs yield a
     // a distinct I and key image from their respective torsion cleared output (and torsioned outputs are spendable
     // before fcmp++)
     crypto::ec_point I;
     crypto::derive_key_image_generator(output_pubkey, I);
+
+    TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
+
+    LOG_PRINT_L3("clear_torsion_ns: " << clear_torsion_ns << " , derive_key_image_generator_ns: " << derive_key_image_generator_ns);
 
     rct::key I_rct = rct::pt2rct(I);
 
@@ -222,82 +233,78 @@ static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
     CHECK_AND_ASSERT_THROW_MES(chunk_width > start_offset, "start_offset must be smaller than chunk_width");
 
     // See how many children we need to fill up the existing last chunk
-    std::size_t chunk_size = std::min(new_child_scalars.size(), chunk_width - start_offset);
+    const std::size_t first_chunk_size = std::min(new_child_scalars.size(), chunk_width - start_offset);
 
-    CHECK_AND_ASSERT_THROW_MES(new_child_scalars.size() >= chunk_size, "unexpected first chunk size");
+    CHECK_AND_ASSERT_THROW_MES(new_child_scalars.size() >= first_chunk_size, "unexpected first chunk size");
 
     const std::size_t n_chunks = 1 // first chunk
-        + (new_child_scalars.size() - chunk_size) / chunk_width // middle chunks
-        + (((new_child_scalars.size() - chunk_size) % chunk_width > 0) ? 1 : 0); // final chunk
+        + (new_child_scalars.size() - first_chunk_size) / chunk_width // middle chunks
+        + (((new_child_scalars.size() - first_chunk_size) % chunk_width > 0) ? 1 : 0); // final chunk
 
     parents_out.hashes.resize(n_chunks);
 
-    MDEBUG("First chunk_size: " << chunk_size << " , num new child scalars: " << new_child_scalars.size()
-        << " , start_offset: " << start_offset << " , parent layer start idx: " << parents_out.start_idx);
+    MDEBUG("First chunk_size: "          << first_chunk_size
+        << " , num new child scalars: "  << new_child_scalars.size()
+        << " , start_offset: "           << start_offset
+        << " , parent layer start idx: " << parents_out.start_idx
+        << " , n chunks: "               << n_chunks);
 
-    // Hash all chunks in parallel
+    // Hash batches of chunks in parallel
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
 
-    // Hash the first chunk
-    tpool.submit(&waiter,
-            [
-                &curve,
-                &old_last_child,
-                &old_last_parent,
-                &new_child_scalars,
-                &parents_out,
-                start_offset,
-                chunk_size
-            ]()
-            {
-                auto &hash_out = parents_out.hashes[0];
-                hash_first_chunk(curve,
-                    old_last_child,
-                    old_last_parent,
-                    start_offset,
-                    new_child_scalars,
-                    chunk_size,
-                    hash_out);
-            },
-            true
-        );
-
-    // Hash chunks of child scalars to create the parent hashes
-    std::size_t chunk_start_idx = chunk_size;
-    std::size_t chunk_idx = 1;
-    while (chunk_start_idx < new_child_scalars.size())
+    const std::size_t HASH_BATCH_SIZE = 1 + (n_chunks / (std::size_t)tpool.get_max_concurrency());
+    for (std::size_t i = 0; i < n_chunks; i += HASH_BATCH_SIZE)
     {
-        // Fill a complete chunk, or add the remaining new children to the last chunk
-        chunk_size = std::min(chunk_width, new_child_scalars.size() - chunk_start_idx);
-
-        CHECK_AND_ASSERT_THROW_MES(chunk_idx < parents_out.hashes.size(), "unexpected chunk_idx");
-
+        const std::size_t end = std::min(i + HASH_BATCH_SIZE, n_chunks);
         tpool.submit(&waiter,
                 [
                     &curve,
+                    &old_last_child,
+                    &old_last_parent,
                     &new_child_scalars,
                     &parents_out,
-                    chunk_start_idx,
-                    chunk_size,
-                    chunk_idx
+                    start_offset,
+                    first_chunk_size,
+                    chunk_width,
+                    i,
+                    end
                 ]()
                 {
-                    auto &hash_out = parents_out.hashes[chunk_idx];
-                    hash_next_chunk(curve, chunk_start_idx, new_child_scalars, chunk_size, hash_out);
+                    for (std::size_t j = i; j < end; ++j)
+                    {
+                        auto &hash_out = parents_out.hashes[j];
+
+                        // Hash the first chunk
+                        if (j == 0)
+                        {
+                            hash_first_chunk(curve,
+                                old_last_child,
+                                old_last_parent,
+                                start_offset,
+                                new_child_scalars,
+                                first_chunk_size,
+                                hash_out);
+                            continue;
+                        }
+
+                        const std::size_t chunk_start = j * chunk_width;
+
+                        CHECK_AND_ASSERT_THROW_MES(chunk_start > start_offset, "unexpected small chunk_start");
+                        const std::size_t chunk_start_idx = chunk_start - start_offset;
+
+                        const std::size_t chunk_end_idx = std::min(chunk_start_idx + chunk_width, new_child_scalars.size());
+
+                        CHECK_AND_ASSERT_THROW_MES(chunk_end_idx > chunk_start_idx, "unexpected large chunk_start_idx");
+                        const std::size_t chunk_size = chunk_end_idx - chunk_start_idx;
+
+                        hash_next_chunk(curve, chunk_start_idx, new_child_scalars, chunk_size, hash_out);
+                    }
                 },
                 true
             );
-
-        // Advance to the next chunk
-        chunk_start_idx += chunk_size;
-
-        CHECK_AND_ASSERT_THROW_MES(chunk_start_idx <= new_child_scalars.size(), "unexpected chunk start idx");
-
-        ++chunk_idx;
     }
 
-    CHECK_AND_ASSERT_THROW_MES(chunk_idx == n_chunks, "unexpected n chunks");
     CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to hash chunks");
 
     return parents_out;
@@ -784,6 +791,8 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
 //----------------------------------------------------------------------------------------------------------------------
 static PreLeafTuple output_tuple_to_pre_leaf_tuple(const OutputTuple &o)
 {
+    TIME_MEASURE_NS_START(point_to_ed_y_derivatives_ns);
+
     PreLeafTuple plt;
     if (!fcmp_pp::point_to_ed_y_derivatives(o.O, plt.O_pre_x))
         throw std::runtime_error("failed to get ed y derivatives from O");
@@ -791,6 +800,10 @@ static PreLeafTuple output_tuple_to_pre_leaf_tuple(const OutputTuple &o)
         throw std::runtime_error("failed to get ed y derivatives from I");
     if (!fcmp_pp::point_to_ed_y_derivatives(o.C, plt.C_pre_x))
         throw std::runtime_error("failed to get ed y derivatives from C");
+
+    TIME_MEASURE_NS_FINISH(point_to_ed_y_derivatives_ns);
+
+    LOG_PRINT_L3("point_to_ed_y_derivatives_ns: " << point_to_ed_y_derivatives_ns);
 
     return plt;
 }
@@ -855,7 +868,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputContext> &&new_outputs) const
+    std::vector<OutputContext> &&new_outputs)
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
@@ -863,9 +876,13 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     if (new_outputs.empty())
         return tree_extension;
 
+    TIME_MEASURE_START(sorting_outputs);
+
     // Sort the outputs by order they appear in the chain
     const auto sort_fn = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
     std::sort(new_outputs.begin(), new_outputs.end(), sort_fn);
+
+    TIME_MEASURE_FINISH(sorting_outputs);
 
     // Convert sorted outputs into leaf tuples, place each element of each leaf tuple in a flat vector to be hashed,
     // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
@@ -875,6 +892,8 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
     if (flattened_leaves.empty())
         return tree_extension;
+
+    TIME_MEASURE_START(hashing_leaves);
 
     MDEBUG("Getting extension for layer 0");
     auto grow_layer_instructions = get_leaf_layer_grow_instructions(
@@ -895,6 +914,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
             flattened_leaves,
             m_leaf_layer_chunk_width
         );
+    TIME_MEASURE_FINISH(hashing_leaves);
 
     CHECK_AND_ASSERT_THROW_MES(
         (leaf_parents.start_idx + leaf_parents.hashes.size()) == grow_layer_instructions.new_total_parents,
@@ -907,6 +927,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
     std::size_t c1_last_idx = 0;
     std::size_t c2_last_idx = 0;
+    TIME_MEASURE_START(hashing_layers);
     while (grow_layer_instructions.new_total_parents > 1)
     {
         MDEBUG("Getting extension for layer " << (c1_last_idx + c2_last_idx + 1));
@@ -928,6 +949,15 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
         parent_is_c1 = !parent_is_c1;
     }
+    TIME_MEASURE_FINISH(hashing_layers);
+
+    m_sorting_outputs_ms += sorting_outputs;
+    m_hash_leaves_ms += hashing_leaves;
+    m_hash_layers_ms += hashing_layers;
+
+    LOG_PRINT_L1("Total time spent hashing leaves: " << m_hash_leaves_ms / 1000
+        << " , hashing layers: "              << m_hash_layers_ms / 1000
+        << " , sorting outputs: "             << m_sorting_outputs_ms / 1000);
 
     return tree_extension;
 };
@@ -936,7 +966,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Helios, Selene>::TreeExtension CurveTrees<Helios, Selene>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputContext> &&new_outputs) const;
+    std::vector<OutputContext> &&new_outputs);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
@@ -1305,8 +1335,10 @@ template<typename C1, typename C2>
 void CurveTrees<C1, C2>::set_valid_leaves(
     std::vector<typename C2::Scalar> &flattened_leaves_out,
     std::vector<OutputContext> &tuples_out,
-    std::vector<OutputContext> &&new_outputs) const
+    std::vector<OutputContext> &&new_outputs)
 {
+    TIME_MEASURE_START(set_valid_leaves);
+
     // Keep track of valid outputs to make sure we only use leaves from valid outputs. Can't use std::vector<bool>
     // because std::vector<bool> concurrent access is not thread safe.
     enum Boolean : uint8_t {
@@ -1318,37 +1350,45 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
 
+    TIME_MEASURE_START(convert_valid_leaves);
     // Step 1. Multithreaded convert valid outputs into Edwards y derivatives needed to get Wei x coordinates
-    // TODO: investigate batched threading (as opposed to small tasks)
     std::vector<PreLeafTuple> pre_leaves;
     pre_leaves.resize(new_outputs.size());
-    for (std::size_t i = 0; i < new_outputs.size(); ++i)
+    const std::size_t LEAF_CONVERT_BATCH_SIZE = 1 + (new_outputs.size() / (std::size_t)tpool.get_max_concurrency());
+    for (std::size_t i = 0; i < new_outputs.size(); i += LEAF_CONVERT_BATCH_SIZE)
     {
+        const std::size_t end = std::min(i + LEAF_CONVERT_BATCH_SIZE, new_outputs.size());
         tpool.submit(&waiter,
                 [
                     &new_outputs,
                     &valid_outputs,
                     &pre_leaves,
-                    i
+                    i,
+                    end
                 ]()
                 {
-                    CHECK_AND_ASSERT_THROW_MES(valid_outputs.size() > i, "unexpected valid outputs size");
-                    CHECK_AND_ASSERT_THROW_MES(!valid_outputs[i], "unexpected valid output");
-                    CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > i, "unexpected pre_leaves size");
+                    for (std::size_t j = i; j < end; ++j)
+                    {
+                        CHECK_AND_ASSERT_THROW_MES(valid_outputs.size() > j, "unexpected valid outputs size");
+                        CHECK_AND_ASSERT_THROW_MES(!valid_outputs[j], "unexpected valid output");
+                        CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > j, "unexpected pre_leaves size");
 
-                    const auto &output_pair = new_outputs[i].output_pair;
+                        const auto &output_pair = new_outputs[j].output_pair;
 
-                    try { pre_leaves[i] = output_to_pre_leaf_tuple(output_pair); }
-                    catch(...) { /* Invalid outputs can't be added to the tree */ return; }
+                        try { pre_leaves[j] = output_to_pre_leaf_tuple(output_pair); }
+                        catch(...) { /* Invalid outputs can't be added to the tree */ return; }
 
-                    valid_outputs[i] = True;
+                        valid_outputs[j] = True;
+                    }
                 },
                 true
             );
     }
 
     CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to ed y derivatives");
+    TIME_MEASURE_FINISH(convert_valid_leaves);
 
+    TIME_MEASURE_START(collect_derivatives);
     // Step 2. Collect valid Edwards y derivatives
     const std::size_t n_valid_outputs = std::count(valid_outputs.begin(), valid_outputs.end(), True);
     const std::size_t n_valid_leaf_elems = n_valid_outputs * LEAF_TUPLE_SIZE;
@@ -1391,36 +1431,46 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     }
 
     CHECK_AND_ASSERT_THROW_MES(n_valid_leaf_elems == valid_i, "unexpected end valid_i");
+    TIME_MEASURE_FINISH(collect_derivatives);
 
+    TIME_MEASURE_START(batch_invert);
     // Step 3. Get batch inverse of all valid (1-y)'s
     // - Batch inversion is significantly faster than inverting 1 at a time
     fe *inv_one_minus_y_vec = (fe *) malloc(n_valid_leaf_elems * sizeof(fe));
     CHECK_AND_ASSERT_THROW_MES(inv_one_minus_y_vec, "failed malloc inv_one_minus_y_vec");
     CHECK_AND_ASSERT_THROW_MES(fe_batch_invert(inv_one_minus_y_vec, one_minus_y_vec, n_valid_leaf_elems) == 0,
         "failed to batch invert");
+    TIME_MEASURE_FINISH(batch_invert);
 
+    TIME_MEASURE_START(get_selene_scalars);
     // Step 4. Multithreaded get Wei x's and convert to Selene scalars
-    // TODO: investigate batched threading (as opposed to small tasks)
     flattened_leaves_out.resize(n_valid_leaf_elems);
-    for (std::size_t i = 0; i < n_valid_leaf_elems; ++i)
+    const std::size_t DERIVATION_BATCH_SIZE = 1 + (n_valid_leaf_elems / (std::size_t)tpool.get_max_concurrency());
+    for (std::size_t i = 0; i < n_valid_leaf_elems; i += DERIVATION_BATCH_SIZE)
     {
+        const std::size_t end = std::min(n_valid_leaf_elems, i + DERIVATION_BATCH_SIZE);
         tpool.submit(&waiter,
                 [
                     &inv_one_minus_y_vec,
                     &one_plus_y_vec,
                     &flattened_leaves_out,
-                    i
+                    i,
+                    end
                 ]()
                 {
-                    rct::key wei_x;
-                    fe_ed_y_derivatives_to_wei_x(wei_x.bytes, inv_one_minus_y_vec[i], one_plus_y_vec[i]);
-                    flattened_leaves_out[i] = tower_cycle::selene_scalar_from_bytes(wei_x);
+                    for (std::size_t j = i; j < end; ++j)
+                    {
+                        rct::key wei_x;
+                        fe_ed_y_derivatives_to_wei_x(wei_x.bytes, inv_one_minus_y_vec[j], one_plus_y_vec[j]);
+                        flattened_leaves_out[j] = tower_cycle::selene_scalar_from_bytes(wei_x);
+                    }
                 },
                 true
             );
     }
 
     CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to wei x coords");
+    TIME_MEASURE_FINISH(get_selene_scalars);
 
     // Step 5. Set valid tuples to be stored in the db
     tuples_out.clear();
@@ -1440,6 +1490,21 @@ void CurveTrees<C1, C2>::set_valid_leaves(
     free(one_plus_y_vec);
     free(one_minus_y_vec);
     free(inv_one_minus_y_vec);
+
+    TIME_MEASURE_FINISH(set_valid_leaves);
+
+    m_convert_valid_leaves_ms += convert_valid_leaves;
+    m_collect_derivatives_ms  += collect_derivatives;
+    m_batch_invert_ms         += batch_invert;
+    m_get_selene_scalars_ms   += get_selene_scalars;
+
+    m_set_valid_leaves_ms     += set_valid_leaves;
+
+    LOG_PRINT_L1("Total time spent setting leaves: " << m_set_valid_leaves_ms / 1000
+        << " , converting valid leaves: " << m_convert_valid_leaves_ms / 1000
+        << " , collecting derivatives: "  << m_collect_derivatives_ms / 1000
+        << " , batch invert: "            << m_batch_invert_ms / 1000
+        << " , get selene scalars: "      << m_get_selene_scalars_ms / 1000);
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>

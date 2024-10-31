@@ -32,17 +32,18 @@
 #include "fcmp_pp/curve_trees.h"
 
 #include <functional>
+#include <utility>
 #include <vector>
 
 namespace cryptonote
 {
-// This function internally relies on ringct for zeroCommit. I implemented in this blockchain_db_utils file instead of
-// cryptonote_basic (where it would seem the better place to put it) to avoid a circular dependency between
+// These functions internally rely on ringct for zeroCommitVartime. I implemented in this blockchain_db_utils file
+// instead of cryptonote_basic (where it would seem the better place to put it) to avoid a circular dependency between
 // ringct <> cryptonote_basic.
-uint64_t get_outs_by_unlock_block(
+// Note that zeroCommitVartime causes this function to execute slowly.
+std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlock_block(
     const cryptonote::transaction &miner_tx,
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const uint64_t first_output_id,
-    const uint64_t block_idx,
-    fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_out);
+    const uint64_t block_idx);
 }

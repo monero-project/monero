@@ -339,7 +339,7 @@ public:
     // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        std::vector<OutputContext> &&new_leaf_tuples) const;
+        std::vector<OutputContext> &&new_leaf_tuples);
 
     // Get instructions useful for trimming all existing layers in the tree
     // - always_regrow_with_remaining will use hash_grow with remaining elems left in a chunk to "trim" every chunk,
@@ -373,7 +373,7 @@ private:
     void set_valid_leaves(
         std::vector<typename C2::Scalar> &flattened_leaves_out,
         std::vector<OutputContext> &tuples_out,
-        std::vector<OutputContext> &&new_outputs) const;
+        std::vector<OutputContext> &&new_outputs);
 
     // Helper function used to set the next layer extension used to grow the next layer in the tree
     // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
@@ -385,6 +385,18 @@ private:
         std::size_t &c1_last_idx_inout,
         std::size_t &c2_last_idx_inout,
         TreeExtension &tree_extension_inout) const;
+
+//private state
+private:
+    uint64_t m_set_valid_leaves_ms{0};
+    uint64_t m_get_selene_scalars_ms{0};
+    uint64_t m_batch_invert_ms{0};
+    uint64_t m_collect_derivatives_ms{0};
+    uint64_t m_convert_valid_leaves_ms{0};
+
+    uint64_t m_sorting_outputs_ms{0};
+    uint64_t m_hash_leaves_ms{0};
+    uint64_t m_hash_layers_ms{0};
 
 //public member variables
 public:
