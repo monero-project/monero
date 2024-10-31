@@ -236,7 +236,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const std::pair
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
-      rct::key commitment = rct::zeroCommit(vout.amount);
+      rct::key commitment = rct::zeroCommitVartime(vout.amount);
       vout.amount = 0;
       amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
         &commitment);
