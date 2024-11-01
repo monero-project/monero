@@ -10,34 +10,121 @@ use helioselene::{
 };
 
 use ec_divisors::{DivisorCurve, ScalarDecomposition};
-use full_chain_membership_proofs::{tree::{hash_grow, hash_trim}, CBlind, IBlind, IBlindBlind, OBlind};
+use full_chain_membership_proofs::{tree::{hash_grow, hash_trim}, Branches, CBlind, IBlind, IBlindBlind, OBlind, OutputBlinds, Path};
 
-use monero_fcmp_plus_plus::{HELIOS_HASH_INIT, SELENE_HASH_INIT, HELIOS_GENERATORS, SELENE_GENERATORS};
+use monero_fcmp_plus_plus::{HELIOS_HASH_INIT, SELENE_HASH_INIT, HELIOS_GENERATORS, SELENE_GENERATORS, Curves};
 
 // TODO: Use a macro to de-duplicate some of of this code
+
+//-------------------------------------------------------------------------------------- Path
+
+//-------------------------------------------------------------------------------------- Fcmp
+
+/// # Safety 
+/// 
+/// This function assume the that the scalar and point being passed in input are 
+/// heap-allocated by a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn fcmp_prove(paths: *const Vec<Path<Curves>>) -> CResult<Branches<Curves>, ()> {
+    if let Some(scalar) = Branches::new(paths.read()) {
+        CResult::ok(scalar)
+    } else {
+        CResult::err(())
+    }
+}
+
+//-------------------------------------------------------------------------------------- Branches
+
+// TODO: FCMP API requires a vector instance which with CResult imply a double allocation.
+
+/// # Safety 
+/// 
+/// This function assume the that the scalar and point being passed in input are 
+/// heap-allocated by a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn branches_new(paths: *const Vec<Path<Curves>>) -> CResult<Branches<Curves>, ()> {
+    if let Some(scalar) = Branches::new(paths.read()) {
+        CResult::ok(scalar)
+    } else {
+        CResult::err(())
+    }
+}
+
+//-------------------------------------------------------------------------------------- ScalarDecomposition
+
+/// # Safety 
+/// 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn scalar_decomposition_new_edwards(scalar: *const Scalar) -> CResult<ScalarDecomposition<Scalar>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
+        CResult::ok(scalar)
+    } else {
+        CResult::err(())
+    }
+}
+
+/// # Safety 
+/// 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn scalar_decomposition_new_helios(scalar: *const HeliosScalar) -> CResult<ScalarDecomposition<HeliosScalar>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
+        CResult::ok(scalar)
+    } else {
+        CResult::err(())
+    }
+}
+
+/// # Safety 
+/// 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn scalar_decomposition_new_selene(scalar: *const SeleneScalar) -> CResult<ScalarDecomposition<SeleneScalar>, ()> {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
+        CResult::ok(scalar)
+    } else {
+        CResult::err(())
+    }
+}
 
 //-------------------------------------------------------------------------------------- Blindings
 
 //---------------------------------------------- OutputBlinds
 
+/// # Safety 
+/// 
+/// This function assume the that the scalar and point being passed in input are from 
+/// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
-pub extern "C" fn output_blinds_new_edwards(
-    o_blind: EdwardsPoint, 
-    i_blind: EdwardsPoint, 
-    i_blind_blind: EdwardsPoint, 
-    c_blind: EdwardsPoint
-) {
-    
+pub unsafe extern "C" fn output_blinds_new_edwards(
+    o_blind: *const OBlind<EdwardsPoint>, 
+    i_blind: *const IBlind<EdwardsPoint>, 
+    i_blind_blind: *const IBlindBlind<EdwardsPoint>, 
+    c_blind: *const CBlind<EdwardsPoint>,
+) -> CResult<OutputBlinds<EdwardsPoint>, ()>{
+    CResult::ok(
+        OutputBlinds::new(
+            o_blind.read(), 
+            i_blind.read(), 
+            i_blind_blind.read(), 
+            c_blind.read()
+        )
+    )
 }
 
 //---------------------------------------------- OBlind
 
 /// # Safety 
+/// 
 /// This function assume the that the scalar and point being passed in input are from 
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn oblind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<OBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
         let blind = OBlind::new(*t, scalar);
         CResult::ok(blind)
     } else {
@@ -68,11 +155,12 @@ pub extern "C" fn oblind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CRe
 //---------------------------------------------- CBlind
 
 /// # Safety 
+/// 
 /// This function assume the that the scalar and point being passed in input are from 
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn cblind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<CBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
         let blind = CBlind::new(*t, scalar);
         CResult::ok(blind)
     } else {
@@ -103,11 +191,12 @@ pub extern "C" fn cblind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CRe
 //---------------------------------------------- IBlind
 
 /// # Safety 
+/// 
 /// This function assume the that the scalar and point being passed in input are from 
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn iblind_new_edwards(t: *const EdwardsPoint, v: *const EdwardsPoint, scalar: *const Scalar) -> CResult<IBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
         let blind = IBlind::new(*t, *v, scalar);
         CResult::ok(blind)
     } else {
@@ -138,11 +227,12 @@ pub extern "C" fn iblind_new_selene(t: SelenePoint, v: SelenePoint, scalar: Sele
 //---------------------------------------------- IBlindBlind
 
 /// # Safety 
+/// 
 /// This function assume the that the scalar and point being passed in input are from 
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn iblind_blind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<IBlindBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(*scalar) {
+    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
         let blind = IBlindBlind::new(*t, scalar);
         CResult::ok(blind)
     } else {
