@@ -50,7 +50,7 @@ template<typename C>
 typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children)
 {
     for (std::size_t i = 0; i < new_children.len; ++i)
-        MDEBUG("Hashing child " << curve->to_string(new_children.buf[i]));
+        MDEBUG("Hashing " << curve->to_string(new_children.buf[i]));
 
     return curve->hash_grow(
             curve->hash_init_point(),
@@ -1224,7 +1224,7 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
     }
 
     // Hash the leaf chunk
-    MDEBUG("Path contains " << leaves.size() << " leaf tuples, hashing the leaf tuples");
+    MDEBUG("Path contains " << leaves.size() << " leaf tuples and " << n_layers << " layers, hashing leaf tuples");
     const Selene::Chunk leaf_chunk{leaf_scalars.data(), leaf_scalars.size()};
     const Selene::Point leaf_parent_hash = get_new_parent<Selene>(m_c2, leaf_chunk);
     const auto leaf_parent_bytes = m_c2->to_bytes(leaf_parent_hash);
@@ -1262,6 +1262,8 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
         // TODO: template
         if (parent_is_c1)
         {
+            MDEBUG("Layer " << i << " has " << c2_layer.size() << " elems");
+
             // Collect c1 scalars so we can hash them
             std::vector<Helios::Scalar> c1_scalars;
             c1_scalars.reserve(c2_layer.size());
@@ -1294,6 +1296,8 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
         }
         else
         {
+            MDEBUG("Layer " << i << " has " << c1_layer.size() << " elems");
+
             // Collect c2 scalars so we can hash them
             std::vector<Selene::Scalar> c2_scalars;
             c2_scalars.reserve(c1_layer.size());

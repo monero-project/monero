@@ -248,9 +248,9 @@ private:
     //   the tree extensions and reductions for each block correctly locally when syncing.
     std::deque<BlockMeta> m_cached_blocks;
 
-    uint64_t m_getting_unlocked_outs_ms;
-    uint64_t m_getting_tree_extension_ms;
-    uint64_t m_updating_cache_values_ms;
+    uint64_t m_getting_unlocked_outs_ms{0};
+    uint64_t m_getting_tree_extension_ms{0};
+    uint64_t m_updating_cache_values_ms{0};
 
 // Serialization
 public:
