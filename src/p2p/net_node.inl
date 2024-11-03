@@ -639,8 +639,7 @@ namespace nodetool
 
       if (zone.m_connect == nullptr && tx_relay_zones <= 1)
       {
-        MERROR("Listed --" << arg_anonymous_inbound.name << " without listing any --" << arg_tx_proxy.name << ". The latter is necessary for sending local txes over anonymity networks");
-        return false;
+        MLOG_YELLOW(el::Level::Warning, "Listed --" << arg_anonymous_inbound.name << " without listing any --" << arg_tx_proxy.name << ". The latter is recommended for sending local txes over anonymity networks.");
       }
 
       zone.m_bind_ip = std::move(inbound.local_ip);
