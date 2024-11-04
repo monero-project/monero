@@ -3223,6 +3223,134 @@ void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, 
   hashes = std::move(res.m_block_ids);
 }
 //----------------------------------------------------------------------------------------------------
+struct TreeSyncStartParams
+{
+  uint64_t next_block_idx{0};
+  uint64_t parsed_block_idx{0};
+  crypto::hash prev_block_hash;
+  uint64_t n_new_blocks{0};
+};
+
+static TreeSyncStartParams tree_sync_reorg_check(const uint64_t start_height, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const uint64_t n_blocks_already_synced, const hashchain &blockchain, tools::wallet2::TreeSyncV1 &tree_sync_inout)
+{
+  const uint64_t n_downloaded_blocks = (uint64_t) parsed_blocks.size();
+  if (n_downloaded_blocks == 0)
+    return TreeSyncStartParams{};
+
+  // Make sure the tree sync cache matches wallet2's blockchain cache
+  fcmp_pp::curve_trees::BlockMeta top_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!tree_sync_inout.get_top_block(top_synced_block), tools::error::wallet_internal_error,
+    "empty tree sync cache");
+  THROW_WALLET_EXCEPTION_IF((top_synced_block.blk_idx + 1) != n_blocks_already_synced, tools::error::wallet_internal_error,
+    "top synced block index does not match blockchain cache's top synced block index");
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(top_synced_block.blk_idx), tools::error::out_of_hashchain_bounds_error);
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[top_synced_block.blk_idx], tools::error::wallet_internal_error,
+    "top synced block index does not match blockchain cache's top synced block hash");
+
+  // Determine which new blocks we'll need to sync to the tree sync cache
+  const uint64_t last_block_idx = start_height + n_downloaded_blocks - 1;
+  THROW_WALLET_EXCEPTION_IF(n_blocks_already_synced > last_block_idx, error::wallet_internal_error,
+      "already synced block idx");
+
+  // Check if the new downloaded blocks are contiguous to the tree sync cache.
+  // If not, we correct the tree sync cache and sync any new blocks.
+  uint64_t next_block_idx = n_blocks_already_synced;
+  uint64_t parsed_block_idx = last_block_idx - next_block_idx;
+  crypto::hash prev_block_hash = parsed_blocks[parsed_block_idx].block.prev_id;
+
+  while (prev_block_hash != top_synced_block.blk_hash)
+  {
+    // If not contiguous, a reorg has been detected. We need to pop blocks from
+    // the tree sync cache until we're back on the correct chain.
+    // TODO: max reorg depth handling
+    THROW_WALLET_EXCEPTION_IF(next_block_idx == 0, error::wallet_internal_error, "next_block_idx must be > 0");
+    // TODO: This is a reorg error that the wallet should be able to recover from by re-requesting blocks
+    THROW_WALLET_EXCEPTION_IF(parsed_block_idx == 0, error::wallet_internal_error, "parsed_block_idx must be > 0");
+
+    THROW_WALLET_EXCEPTION_IF(!tree_sync_inout.pop_block(), error::wallet_internal_error, "Failed to pop block from tree");
+
+    --next_block_idx;
+    --parsed_block_idx;
+    prev_block_hash = parsed_blocks[parsed_block_idx].block.prev_id;
+
+    THROW_WALLET_EXCEPTION_IF(!tree_sync_inout.get_top_block(top_synced_block), error::wallet_internal_error,
+      "empty tree sync cache");
+  }
+
+  // We only need outputs from *new* blocks that we're syncing
+  const uint64_t n_new_blocks = 1 + last_block_idx - next_block_idx;
+
+  MDEBUG("start_height: "              << start_height
+      << ", last_block_idx: "          << last_block_idx
+      << ", n_downloaded_blocks: "     << n_downloaded_blocks
+      << ", n_blocks_already_synced: " << n_blocks_already_synced
+      << ", next_block_idx: "          << next_block_idx
+      << ", parsed_block_idx: "        << parsed_block_idx
+      << ", n_new_blocks: "            << n_new_blocks);
+
+  return TreeSyncStartParams { next_block_idx, parsed_block_idx, prev_block_hash, n_new_blocks };
+}
+
+static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_params, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, tools::wallet2::TreeSyncV1 &tree_sync_inout, uint64_t &outs_by_unlock_time_ms_inout, uint64_t &sync_blocks_time_ms_inout, std::vector<crypto::hash> &new_block_hashes_out, std::vector<uint64_t> &new_leaf_tuples_per_block_out, fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension_out)
+{
+  TIME_MEASURE_START(sync_blocks_time);
+
+  new_block_hashes_out.clear();
+  new_leaf_tuples_per_block_out.clear();
+  tree_extension_out = fcmp_pp::curve_trees::CurveTreesV1::TreeExtension{};
+
+  const uint64_t next_block_idx = tree_sync_start_params.next_block_idx;
+  const uint64_t parsed_block_idx = tree_sync_start_params.parsed_block_idx;
+  const crypto::hash prev_block_hash = tree_sync_start_params.prev_block_hash;
+  const uint64_t n_new_blocks = tree_sync_start_params.n_new_blocks;
+
+  THROW_WALLET_EXCEPTION_IF(next_block_idx == 0, error::wallet_internal_error, "next_block_idx must be > 0");
+  const uint64_t prev_last_block_idx = next_block_idx - 1;
+
+  // Collect all outs from all blocks by unlock block
+  TIME_MEASURE_START(collecting_outs_by_unlock_block);
+  std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> outs_by_unlock_blocks;
+
+  new_block_hashes_out.reserve(n_new_blocks);
+  outs_by_unlock_blocks.reserve(n_new_blocks);
+
+  uint64_t first_output_id = tree_sync_inout.get_output_count();
+  for (size_t i = parsed_block_idx; i < n_new_blocks; ++i)
+  {
+    new_block_hashes_out.push_back(parsed_blocks[i].block.hash);
+
+    const auto &miner_tx = std::ref(parsed_blocks[i].block.miner_tx);
+    std::vector<std::reference_wrapper<const cryptonote::transaction>> txs;
+    txs.reserve(parsed_blocks[i].txes.size());
+    for (size_t j = 0; j < parsed_blocks[i].txes.size(); ++j)
+      txs.push_back(std::ref(parsed_blocks[i].txes[j]));
+
+    // Note: this function is slow because of zeroCommitVartime
+    auto res = cryptonote::get_outs_by_unlock_block(miner_tx, txs, first_output_id, prev_last_block_idx);
+
+    outs_by_unlock_blocks.emplace_back(std::move(res.first));
+    first_output_id = res.second + 1;
+  }
+
+  TIME_MEASURE_FINISH(collecting_outs_by_unlock_block);
+
+  // Get a tree extension with the outputs that will unlock in this chunk of blocks
+  tree_sync_inout.sync_blocks(prev_last_block_idx,
+    prev_block_hash,
+    new_block_hashes_out,
+    outs_by_unlock_blocks,
+    tree_extension_out,
+    new_leaf_tuples_per_block_out);
+
+  TIME_MEASURE_FINISH(sync_blocks_time);
+
+  outs_by_unlock_time_ms_inout += collecting_outs_by_unlock_block;
+  sync_blocks_time_ms_inout += sync_blocks_time;
+
+  LOG_PRINT_L1("Total time spent building tree: " << outs_by_unlock_time_ms_inout / 1000
+      << " , time spent collecting outs by unlock time while building tree: " << sync_blocks_time_ms_inout / 1000);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   blocks_added = 0;
@@ -3246,91 +3374,26 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   }
 
   // Use outputs to build the curve tree in a separate thread
-  tools::threadpool::waiter tree_sync_waiter(tpool);
+  tools::threadpool::waiter tree_sync_blocks_waiter(tpool);
   const uint64_t n_blocks_already_synced = (uint64_t) m_blockchain.size();
   THROW_WALLET_EXCEPTION_IF(n_blocks_already_synced == 0, error::wallet_internal_error, "n_blocks_already_synced == 0");
 
-  fcmp_pp::curve_trees::CurveTreesV1::TreeExtension tree_extension;
-  std::vector<uint64_t> new_leaf_tuples_per_block;
+  // Check tree sync cache contiguity to chain. Handle reorg on tree sync cache if necessary
+  const auto tree_sync_start_params = tree_sync_reorg_check(start_height, parsed_blocks, n_blocks_already_synced, m_blockchain, m_tree_sync);
+  if (tree_sync_start_params.n_new_blocks == 0)
+    return;
+
   std::vector<crypto::hash> new_block_hashes;
+  std::vector<uint64_t> new_leaf_tuples_per_block;
+  fcmp_pp::curve_trees::CurveTreesV1::TreeExtension tree_extension;
 
-  tpool.submit(&tree_sync_waiter, [this, &parsed_blocks, &tree_extension, &new_leaf_tuples_per_block, &new_block_hashes, start_height, n_blocks_already_synced]() {
-      TIME_MEASURE_START(sync_blocks_time);
-
-      const uint64_t n_downloaded_blocks = (uint64_t) parsed_blocks.size();
-      if (n_downloaded_blocks == 0)
-        return;
-
-      const uint64_t last_block_idx = start_height + n_downloaded_blocks - 1;
-      THROW_WALLET_EXCEPTION_IF(n_blocks_already_synced > last_block_idx, error::wallet_internal_error,
-          "already synced block idx");
-
-      const uint64_t n_new_blocks = (last_block_idx + 1) - n_blocks_already_synced;
-      MDEBUG("last_block_idx: "            << last_block_idx
-          << ", start_height: "            << start_height
-          << ", n_downloaded_blocks: "     << n_downloaded_blocks
-          << ", n_blocks_already_synced: " << n_blocks_already_synced
-          << ", n_new_blocks: "            << n_new_blocks);
-
-      // Contiguity check on already synced blocks
-      THROW_WALLET_EXCEPTION_IF(n_downloaded_blocks >= n_new_blocks, error::wallet_internal_error,
-          "n_downloaded_blocks must be >= n_new_blocks");
-      const uint64_t next_block_idx = n_downloaded_blocks - n_new_blocks;
-
-      // TODO: Check contiguity and handle reorgs if not contigous
-      uint64_t prev_last_block_idx = n_blocks_already_synced - 1;
-      crypto::hash prev_block_hash = parsed_blocks[next_block_idx].block.prev_id;
-
-      // We only need outputs from blocks contiguous to the already synced height
-
-      if (n_new_blocks == 0)
-        return;
-
-      // Collect all outs from all blocks by unlock block
-      TIME_MEASURE_START(collecting_outs_by_unlock_block);
-      std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> outs_by_unlock_blocks;
-
-      new_block_hashes.reserve(n_new_blocks);
-      outs_by_unlock_blocks.reserve(n_new_blocks);
-
-      uint64_t first_output_id = m_tree_sync.get_output_count();
-      for (size_t i = next_block_idx; i < n_new_blocks; ++i)
-      {
-        new_block_hashes.push_back(parsed_blocks[i].block.hash);
-
-        const auto &miner_tx = std::ref(parsed_blocks[i].block.miner_tx);
-        std::vector<std::reference_wrapper<const cryptonote::transaction>> txs;
-        txs.reserve(parsed_blocks[i].txes.size());
-        for (size_t j = 0; j < parsed_blocks[i].txes.size(); ++j)
-          txs.push_back(std::ref(parsed_blocks[i].txes[j]));
-
-        // Note: this function is slow because of zeroCommitVartime
-        auto res = cryptonote::get_outs_by_unlock_block(miner_tx, txs, first_output_id, prev_last_block_idx);
-
-        outs_by_unlock_blocks.emplace_back(std::move(res.first));
-        first_output_id = res.second + 1;
-      }
-
-      TIME_MEASURE_FINISH(collecting_outs_by_unlock_block);
-
-      // Get a tree extension with the outputs that will unlock in this chunk of blocks
-      m_tree_sync.sync_blocks(prev_last_block_idx,
-        prev_block_hash,
-        new_block_hashes,
-        outs_by_unlock_blocks,
-        tree_extension,
-        new_leaf_tuples_per_block);
-
-      TIME_MEASURE_FINISH(sync_blocks_time);
-
-      m_outs_by_unlock_time_ms += collecting_outs_by_unlock_block;
-      m_sync_blocks_time_ms += sync_blocks_time;
-
-      LOG_PRINT_L1("Total time spent building tree: " << m_sync_blocks_time_ms / 1000
-          << " , time spent collecting outs by unlock time while building tree: " << m_outs_by_unlock_time_ms / 1000);
+  // Get the tree extension in parallel to identifying receives in the rest of
+  // this function. After identifying receives in parallel, we'll then process
+  // the tree extension, saving any path elements we need for received outputs,
+  // and throwing away excess tree elems we won't need to continue syncing.
+  tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &new_leaf_tuples_per_block, &tree_extension, tree_sync_start_params]() {
+      tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_sync, m_outs_by_unlock_time_ms, m_sync_blocks_time_ms, new_block_hashes, new_leaf_tuples_per_block, tree_extension);
     });
-  // After identifying received outputs in parallel the rest of this function,
-  // we will then process the synced blocks at the end of this function.
 
   for (size_t i = 0; i < blocks.size(); ++i)
   {
@@ -3521,9 +3584,9 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // Now that we've processed all received outputs, call process_synced_blocks
   // to save the elems we need from the tree, and get rid of the rest of the
   // tree elems we no longer need.
-  LOG_PRINT_L1("Waiting on tree sync");
-  THROW_WALLET_EXCEPTION_IF(!tree_sync_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
-  LOG_PRINT_L1("Done waiting on tree sync");
+  LOG_PRINT_L3("Building the tree...");
+  THROW_WALLET_EXCEPTION_IF(!tree_sync_blocks_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+  LOG_PRINT_L3("Done waiting on tree build");
   // TODO: make sure top block hash matches top of tree extension
   m_tree_sync.process_synced_blocks(n_blocks_already_synced, new_block_hashes, new_leaf_tuples_per_block, tree_extension);
 }
