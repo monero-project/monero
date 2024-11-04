@@ -200,6 +200,15 @@ then:
 
 [2] libnorm-dev is needed if your zmq library was built with libnorm, and not needed otherwise
 
+With [Nix](https://nix.dev/tutorials/first-steps/), enter a shell having all dependencies:
+(Tested on Nixpkgs 24.05, *aarch64-darwin* and *x86_64-darwin* platforms, macOS 15.1.)
+
+```
+% nix-shell --pure ./contrib/nix/local-build-shell.nix
+
+[nix-shell:~/monero]$ # ... now you can build ...
+```
+
 Install all dependencies at once on Debian/Ubuntu:
 
 ```
