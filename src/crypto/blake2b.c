@@ -286,7 +286,34 @@ int blake2b_init(blake2b_state *S, size_t outlen) {
 	return blake2b_init_param(S, &P);
 }
 
-int blake2b_init_key(blake2b_state *S, size_t outlen, const void *key, size_t keylen) {
+/* Fwd */
+static void blake2b_compress_mv(blake2b_state *S, const uint64_t *m, uint64_t * restrict v);
+
+/**
+ * The difference from `blake2b_compress()` is that this function directly takes
+ * a variable-sized input, treating it as a block where the remaining bytes are
+ * zeros, and also wipes stack variables `m` and `v`. The intended use case is
+ * initializing hash states with keys, hence the stricter memory handling. I
+ * don't attempt to prevent swapping of the variables `m` and `v` since the OS
+ * would have to be dumber than a box of rocks to swap stack variables used just
+ * microseconds ago. `keylen` is assumed to be less than or equal to 128.
+ */
+static void blake2b_compress_key(blake2b_state *S, const uint8_t *key, size_t keylen) {
+	uint64_t m[16];
+	uint64_t v[16];
+
+	memset(m, 0, sizeof(m));
+	while (keylen--) {
+		m[keylen / 8] |= (((uint64_t) key[keylen]) << ((keylen % 8) * 8));
+	}
+
+	blake2b_compress_mv(S, m, v);
+
+	clear_internal_memory(m, sizeof(m));
+	clear_internal_memory(v, sizeof(v));
+}
+
+int blake2b_init_key(blake2b_state *S, size_t outlen, const void *key, size_t keylen, int has_data) {
 	blake2b_param P;
 
 	if (S == NULL) {
@@ -321,25 +348,30 @@ int blake2b_init_key(blake2b_state *S, size_t outlen, const void *key, size_t ke
 		return -1;
 	}
 
-	{
-		uint8_t block[BLAKE2B_BLOCKBYTES];
-		memset(block, 0, BLAKE2B_BLOCKBYTES);
-		memcpy(block, key, keylen);
-		blake2b_update(S, block, BLAKE2B_BLOCKBYTES);
-		/* Burn the key from stack */
-		clear_internal_memory(block, BLAKE2B_BLOCKBYTES);
+	blake2b_increment_counter(S, BLAKE2B_BLOCKBYTES);
+	if (!has_data) {
+		blake2b_set_lastblock(S);
 	}
+	blake2b_compress_key(S, key, keylen);
+	S->skip_final_compress = 1;
+
 	return 0;
 }
 
 static void blake2b_compress(blake2b_state *S, const uint8_t *block) {
 	uint64_t m[16];
 	uint64_t v[16];
-	unsigned int i, r;
+	unsigned int i;
 
 	for (i = 0; i < 16; ++i) {
 		m[i] = load64(block + i * sizeof(m[i]));
 	}
+
+	blake2b_compress_mv(S, m, v);
+}
+
+static void blake2b_compress_mv(blake2b_state *S, const uint64_t *m, uint64_t * restrict v) {
+	unsigned int i, r;
 
 	for (i = 0; i < 8; ++i) {
 		v[i] = S->h[i];
@@ -427,6 +459,7 @@ int blake2b_update(blake2b_state *S, const void *in, size_t inlen) {
 	}
 	memcpy(&S->buf[S->buflen], pin, inlen);
 	S->buflen += (unsigned int)inlen;
+	S->skip_final_compress = 0;
 	return 0;
 }
 
@@ -439,15 +472,18 @@ int blake2b_final(blake2b_state *S, void *out, size_t outlen) {
 		return -1;
 	}
 
-	/* Is this a reused state? */
-	if (S->f[0] != 0) {
-		return -1;
-	}
+	if (!S->skip_final_compress) {
+		/* Is this a reused state? */
+		if (S->f[0] != 0) {
+			return -1;
+		}
 
-	blake2b_increment_counter(S, S->buflen);
-	blake2b_set_lastblock(S);
-	memset(&S->buf[S->buflen], 0, BLAKE2B_BLOCKBYTES - S->buflen); /* Padding */
-	blake2b_compress(S, S->buf);
+		blake2b_increment_counter(S, S->buflen);
+		blake2b_set_lastblock(S);
+		memset(&S->buf[S->buflen], 0, BLAKE2B_BLOCKBYTES - S->buflen); /* Padding */
+		blake2b_compress(S, S->buf);
+	}
+	S->skip_final_compress = 0;
 
 	for (i = 0; i < 8; ++i) { /* Output full hash to temp buffer */
 		store64(buffer + sizeof(S->h[i]) * i, S->h[i]);
@@ -479,7 +515,7 @@ int blake2b(void *out, size_t outlen, const void *in, size_t inlen,
 	}
 
 	if (keylen > 0) {
-		if (blake2b_init_key(&S, outlen, key, keylen) < 0) {
+		if (blake2b_init_key(&S, outlen, key, keylen, inlen != 0) < 0) {
 			goto fail;
 		}
 	}

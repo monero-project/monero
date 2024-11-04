@@ -76,6 +76,7 @@ extern "C" {
 		unsigned buflen;
 		unsigned outlen;
 		uint8_t last_node;
+		uint8_t skip_final_compress;
 	} blake2b_state;
 
 	/* Ensure param structs have not been wrongly padded */
@@ -98,7 +99,7 @@ extern "C" {
 	/* Streaming API */
 	int blake2b_init(blake2b_state *S, size_t outlen);
 	int blake2b_init_key(blake2b_state *S, size_t outlen, const void *key,
-		size_t keylen);
+		size_t keylen, int has_data);
 	int blake2b_init_param(blake2b_state *S, const blake2b_param *P);
 	int blake2b_update(blake2b_state *S, const void *in, size_t inlen);
 	int blake2b_final(blake2b_state *S, void *out, size_t outlen);
