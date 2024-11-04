@@ -964,6 +964,9 @@ void TreeSyncMemory<C1, C2>::sync_blocks(const uint64_t prev_last_block_idx,
         n_new_leaf_tuples_per_block_out.push_back(n_leaf_tuples_in_block);
     }
 
+    CHECK_AND_ASSERT_THROW_MES(new_leaf_tuple_it == tree_extension_out.leaves.tuples.end(),
+        "did not reach all leaf tuples");
+
     m_getting_unlocked_outs_ms += getting_unlocked_outputs;
     m_getting_tree_extension_ms += getting_tree_extension;
 

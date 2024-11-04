@@ -897,6 +897,10 @@ private:
       tx_entry_data(): lowest_height((uint64_t)-1), highest_height(0) {}
     };
 
+    using Helios = fcmp_pp::curve_trees::Helios;
+    using Selene = fcmp_pp::curve_trees::Selene;
+    using TreeSyncV1 = fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>;
+
     /*!
      * \brief  Generates a wallet or restores one. Assumes the multisig setup
       *        has already completed for the provided multisig info.
@@ -2057,9 +2061,7 @@ private:
     bool m_processing_background_cache;
     background_sync_data_t m_background_sync_data;
 
-    using Helios = fcmp_pp::curve_trees::Helios;
-    using Selene = fcmp_pp::curve_trees::Selene;
-    fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene> m_tree_sync;
+    TreeSyncV1 m_tree_sync;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 32)

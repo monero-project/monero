@@ -197,6 +197,12 @@ public:
     // TODO: make this part of the TreeSync interface
     std::array<uint8_t, 32UL> get_tree_root() const;
     uint64_t get_n_leaf_tuples() const;
+    bool get_top_block(BlockMeta &top_block_out) const
+    {
+        CHECK_AND_ASSERT_MES(m_cached_blocks.empty(), false, "empty cached blocks");
+        memcpy(&top_block_out, &m_cached_blocks.back(), sizeof(BlockMeta));
+        return true;
+    };
 
     uint64_t get_output_count() const { return m_output_count; }
 
