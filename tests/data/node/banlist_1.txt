@@ -1,0 +1,17 @@
+# magicfolk
+255.255.255.0   # Saruman the White
+128.128.128.0    # Gandalf the Gray
+150.75.0.0     #     Radagast the Brown
+99.98.0.0/16    # All of Misty Mountain
+
+# personal enemies
+1.2.3.4 # this woman used to give me swirlies
+6.7.8.9    #  I just don't like the cut of his jib
+1.0.0.7#Literally James Bond, he wrecked my aston martin
+100.98.1.13 # Earl from HOA
+100.98.1.0/24   #The rest of the HOA for good measure
+#
+
+#7.7.7.7
+#^^^We're chill now, she's truly an angel
+
