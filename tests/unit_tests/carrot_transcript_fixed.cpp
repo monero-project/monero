@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -26,25 +26,36 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "gtest/gtest.h"
 
-extern "C"
+#include "carrot_core/config.h"
+#include "carrot_core/core_types.h"
+#include "carrot_core/transcript_fixed.h"
+#include "crypto/crypto.h"
+
+#include <cstdint>
+
+TEST(carrot_transcript_fixed, sizeof_sum)
 {
-#include "crypto-ops.h"
+    EXPECT_EQ(0, sp::detail::sizeof_sum<>());
+    EXPECT_EQ(1, sp::detail::sizeof_sum<unsigned char>());
+    EXPECT_EQ(12, (sp::detail::sizeof_sum<uint64_t, uint32_t>()));
 }
-#include "crypto.h"
 
-namespace crypto
+static constexpr const unsigned char DS1[] = "perspicacious";
+static constexpr const unsigned char DS2[] = "recrudescence";
+
+TEST(carrot_transcript_fixed, ts_size)
 {
+    const auto transcript1 = sp::make_fixed_transcript<DS1>((uint32_t)32);
+    EXPECT_EQ(1 + 13 + 4, transcript1.size());
 
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
+    const auto transcript2 = sp::make_fixed_transcript<DS2>((uint32_t)32, (uint64_t)64);
+    EXPECT_EQ(1 + 13 + 4 + 8, transcript2.size());
 
-} //namespace crypto
+    // vt = H_3(s_sr || input_context || Ko)
+    const auto transcript_vt = sp::make_fixed_transcript<carrot::CARROT_DOMAIN_SEP_VIEW_TAG>(
+        carrot::input_context_t{},
+        crypto::public_key{});
+    EXPECT_EQ(1 + 15 + 33 + 32, transcript_vt.size());
+}

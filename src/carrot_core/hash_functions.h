@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -26,25 +26,34 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+// Core hash functions for Seraphis (note: this implementation satisfies the Jamtis specification).
+
 #pragma once
 
-extern "C"
+//local headers
+
+//third party headers
+
+//standard headers
+#include <cstddef>
+
+//forward declarations
+
+
+namespace carrot
 {
-#include "crypto-ops.h"
-}
-#include "crypto.h"
 
-namespace crypto
-{
+/// H_3(x): 3-byte output
+void derive_bytes_3(const void *data, const std::size_t data_length, const void *key, void *hash_out);
+/// H_8(x): 8-byte output
+void derive_bytes_8(const void *data, const std::size_t data_length, const void* key, void *hash_out);
+/// H_16(x): 16-byte output
+void derive_bytes_16(const void *data, const std::size_t data_length, const void *key, void *hash_out);
+/// H_32(x): 32-byte output
+void derive_bytes_32(const void *data, const std::size_t data_length, const void *key, void *hash_out);
+/// H_64(x): 64-byte output
+void derive_bytes_64(const void *data, const std::size_t data_length, const void *key, void *hash_out);
+/// H_n(x): unclamped Curve25519/Ed25519 group scalar output (32 bytes)
+void derive_scalar(const void *data, const std::size_t data_length, const void *key, void *hash_out);
 
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-
-} //namespace crypto
+} //namespace carrot
