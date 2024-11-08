@@ -38,6 +38,10 @@ set(unit_tests_sources
   bulletproofs.cpp
   bulletproofs_plus.cpp
   canonical_amounts.cpp
+  carrot_core.cpp
+  carrot_legacy.cpp
+  carrot_mock_helpers.cpp
+  carrot_transcript_fixed.cpp
   chacha.cpp
   checkpoints.cpp
   command_line.cpp
@@ -105,6 +109,7 @@ set(unit_tests_sources
   is_hdd.cpp
   aligned.cpp
   rpc_version_str.cpp
+  x25519.cpp
   zmq_rpc.cpp)
 
 set(unit_tests_headers
@@ -116,6 +121,7 @@ monero_add_minimal_executable(unit_tests
 target_link_libraries(unit_tests
   PRIVATE
     ringct
+    carrot_core
     cryptonote_protocol
     cryptonote_core
     daemon_messages

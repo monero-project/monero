@@ -17,3 +17,7 @@
 [submodule "external/fcmp-plus-plus"]
 	path = external/fcmp-plus-plus
 	url = https://github.com/kayabaNerve/fcmp-plus-plus.git
+[submodule "external/mx25519"]
+	path = external/mx25519
+	url = https://github.com/jeffro256/mx25519
+	branch = unclamped
