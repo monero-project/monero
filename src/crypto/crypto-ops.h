@@ -156,6 +156,18 @@ void sc_muladd(unsigned char *s, const unsigned char *a, const unsigned char *b,
 int sc_check(const unsigned char *);
 int sc_isnonzero(const unsigned char *); /* Doesn't normalize */
 
+/**
+ * brief: Convert Ed25519 y-coord to X25519 x-coord, AKA "ConvertPointE()" in the Carrot spec
+ */
+void ge_p2_to_x25519(unsigned char *xbytes, const ge_p2 *h);
+void ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h);
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s);
+
+/**
+ * brief: Convert X25519 x-coord to Ed25519 point with positive sign
+ */
+int ge_fromx25519_vartime(ge_p3 *h, const unsigned char *s);
+
 // internal
 uint64_t load_3(const unsigned char *in);
 uint64_t load_4(const unsigned char *in);

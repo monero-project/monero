@@ -35,12 +35,15 @@
 extern "C"
 {
 #include "crypto/crypto-ops.h"
+#include "mx25519.h"
 }
+#include "crypto/x25519.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -72,6 +75,62 @@ namespace
     out << "BEGIN" << value << "END";  
     return out.str() == "BEGIN<" + std::string{expected, sizeof(T) * 2} + ">END";
   }
+
+  std::vector<const mx25519_impl*> get_available_mx25519_impls()
+  {
+    static constexpr const mx25519_type ALL_IMPL_TYPES[4] = {MX25519_TYPE_PORTABLE,
+    MX25519_TYPE_ARM64,
+    MX25519_TYPE_AMD64,
+    MX25519_TYPE_AMD64X};
+    static constexpr const size_t NUM_IMPLS = sizeof(ALL_IMPL_TYPES) / sizeof(ALL_IMPL_TYPES[0]);
+
+    std::vector<const mx25519_impl*> available_impls;
+    available_impls.reserve(NUM_IMPLS);
+    for (int i = 0; i < NUM_IMPLS; ++i)
+    {
+      const mx25519_type impl_type = ALL_IMPL_TYPES[i];
+      const mx25519_impl * const impl = mx25519_select_impl(impl_type);
+      if (nullptr == impl)
+        continue;
+      available_impls.push_back(impl);
+    }
+
+    return available_impls;
+  }
+
+  std::string get_name_of_mx25519_impl(const mx25519_impl* impl)
+  {
+#   define get_name_of_mx25519_impl_CASE(x) case x: return #x;
+    CHECK_AND_ASSERT_THROW_MES(impl != nullptr, "null impl");
+    const mx25519_type impl_type = mx25519_impl_type(impl);
+    switch (impl_type)
+    {
+    get_name_of_mx25519_impl_CASE(MX25519_TYPE_PORTABLE)
+    get_name_of_mx25519_impl_CASE(MX25519_TYPE_ARM64)
+    get_name_of_mx25519_impl_CASE(MX25519_TYPE_AMD64)
+    get_name_of_mx25519_impl_CASE(MX25519_TYPE_AMD64X)
+    default:
+      throw std::runtime_error("get name of mx25519 impl: unrecognized impl type");
+    }
+#   undef get_name_of_mx25519_impl_CASE
+  }
+
+  void dump_mx25519_impls(const std::vector<const mx25519_impl*> &impls)
+  {
+    std::cout << "Testing " << impls.size() << " mx25519 implementations:" << std::endl;
+    for (const mx25519_impl *impl : impls)
+      std::cout << "    - " << get_name_of_mx25519_impl(impl) << std::endl;
+  }
+}
+
+static inline bool operator==(const mx25519_pubkey &a, const mx25519_pubkey &b)
+{
+  return memcmp(&a, &b, sizeof(mx25519_pubkey)) == 0;
+}
+
+static inline bool operator!=(const mx25519_pubkey &a, const mx25519_pubkey &b)
+{
+  return !(a == b);
 }
 
 TEST(Crypto, Ostream)
@@ -344,4 +403,236 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+TEST(Crypto, x25519_impl_scmul_key_convergence)
+{
+  std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
+
+  if (available_impls.size() < 2)
+    return;
+
+  dump_mx25519_impls(available_impls);
+
+  crypto::x25519_pubkey P_fixed;
+  epee::string_tools::hex_to_pod("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a", P_fixed);
+
+  crypto::x25519_pubkey P_random;
+  rct::key tmp = rct::pkGen();
+  edwards_bytes_to_x25519_vartime(P_random.data, tmp.bytes);
+
+  tmp = rct::skGen();
+  mx25519_privkey a;
+  memcpy(&a, &tmp, sizeof(a));
+
+  mx25519_pubkey res_fixed;
+  mx25519_pubkey res_random;
+
+  bool first = true;
+  for (const mx25519_impl *impl : available_impls)
+  {
+    mx25519_pubkey tmp_mx;
+    mx25519_scmul_key(impl, &tmp_mx, &a, &P_fixed);
+    if (!first)
+    {
+      EXPECT_EQ(res_fixed, tmp_mx);
+    }
+    
+    memcpy(&res_fixed, &tmp_mx, 32);
+
+    mx25519_scmul_key(impl, &tmp_mx, &a, &P_random);
+    if (!first)
+    {
+      EXPECT_EQ(res_random, tmp_mx);
+    }
+
+    memcpy(&res_random, &tmp_mx, 32);
+
+    first = false;
+  }
+}
+
+TEST(Crypto, x25519_secret_key_1_scmul_base)
+{
+  const crypto::secret_key one({crypto::ec_scalar{.data = {1}}});
+  const mx25519_pubkey B{.data={9}};
+
+  const std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
+
+  for (const mx25519_impl *impl : available_impls)
+  {
+    mx25519_pubkey B1;
+    mx25519_scmul_base(impl, &B1, reinterpret_cast<const mx25519_privkey*>(&one));
+
+    EXPECT_EQ(B, B1);
+    if (B1 != B)
+    {
+      std::cout << "Failure occurred with " << get_name_of_mx25519_impl(impl) << " impl" << std::endl;
+    }
+  }
+}
+
+TEST(Crypto, x25519_secret_key_2_scmul_base)
+{
+  const crypto::secret_key two({crypto::ec_scalar{.data = {2}}});
+  const rct::key G_doubled = rct::addKeys(rct::G, rct::G);
+  mx25519_pubkey B_doubled;
+  edwards_bytes_to_x25519_vartime(B_doubled.data, G_doubled.bytes);
+
+  const std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
+
+  for (const mx25519_impl *impl : available_impls)
+  {
+    mx25519_pubkey B2;
+    mx25519_scmul_base(impl, &B2, reinterpret_cast<const mx25519_privkey*>(&two));
+
+    EXPECT_EQ(B_doubled, B2);
+    if (B2 != B_doubled)
+    {
+      std::cout << "Failure occurred with " << get_name_of_mx25519_impl(impl) << " impl" << std::endl;
+    }
+  }
+}
+
+TEST(Crypto, x25519_secret_key_4_scmul_base)
+{
+  const crypto::secret_key four({crypto::ec_scalar{.data = {4}}});
+  const rct::key G_quad = rct::scalarmultBase({.bytes = {4}});
+  mx25519_pubkey B_quad;
+  edwards_bytes_to_x25519_vartime(B_quad.data, G_quad.bytes);
+
+  const std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
+
+  for (const mx25519_impl *impl : available_impls)
+  {
+    mx25519_pubkey B4;
+    mx25519_scmul_base(impl, &B4, reinterpret_cast<const mx25519_privkey*>(&four));
+
+    EXPECT_EQ(B_quad, B4);
+    if (B4 != B_quad)
+    {
+      std::cout << "Failure occurred with " << get_name_of_mx25519_impl(impl) << " impl" << std::endl;
+    }
+  }
+}
+
+TEST(Crypto, x25519_secret_key_8_scmul_base)
+{
+  const crypto::secret_key eight({crypto::ec_scalar{.data = {8}}});
+  const rct::key G_oct = rct::scalarmultBase({.bytes = {8}});
+  mx25519_pubkey B_oct;
+  edwards_bytes_to_x25519_vartime(B_oct.data, G_oct.bytes);
+
+  const std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
+
+  for (const mx25519_impl *impl : available_impls)
+  {
+    mx25519_pubkey B8;
+    mx25519_scmul_base(impl, &B8, reinterpret_cast<const mx25519_privkey*>(&eight));
+
+    EXPECT_EQ(B_oct, B8);
+    if (B8 != B_oct)
+    {
+      std::cout << "Failure occurred with " << get_name_of_mx25519_impl(impl) << " impl" << std::endl;
+    }
+  }
+}
+
+TEST(Crypto, ConvertPointE_Base)
+{
+  const crypto::public_key G = crypto::get_G();
+  const crypto::x25519_pubkey B_expected = {{9}};
+
+  crypto::x25519_pubkey B_actual;
+  edwards_bytes_to_x25519_vartime(B_actual.data, to_bytes(G));
+
+  EXPECT_EQ(B_expected, B_actual);
+}
+
+TEST(Crypto, ConvertPointE_PreserveScalarMultBase)
+{
+  // *clamped* private key a
+  const crypto::secret_key a = rct::rct2sk(rct::skGen());
+  rct::key a_key;
+  memcpy(&a_key, &a, sizeof(rct::key));
+
+  // P_ed = a G
+  const rct::key P_edward = rct::scalarmultBase(a_key);
+
+  // P_mont = a B
+  crypto::x25519_pubkey P_mont;
+  crypto::x25519_scmul_base(a, P_mont);
+
+  // P_mont' = ConvertPointE(P_ed)
+  crypto::x25519_pubkey P_mont_converted;
+  edwards_bytes_to_x25519_vartime(P_mont_converted.data, P_edward.bytes);
+
+  // P_mont' ?= P_mont
+  EXPECT_EQ(P_mont_converted, P_mont);
+}
+
+TEST(Crypto, ConvertPointE_PreserveScalarMultBase_gep3)
+{
+  // compared to ConvertPointE_PreserveScalarMultBase, this test will use Z != 1 (probably)
+
+  const crypto::secret_key a = rct::rct2sk(rct::skGen());
+  rct::key a_key;
+  memcpy(&a_key, &a, sizeof(rct::key));
+
+  // P_ed = a G
+  ge_p3 P_p3;
+  ge_scalarmult_base(&P_p3, to_bytes(a));
+
+  // check that Z != 1, otherwise this test is a dup of ConvertPointE_PreserveScalarMultBase
+  rct::key Z_bytes;
+  fe_tobytes(Z_bytes.bytes, P_p3.Z);
+  ASSERT_NE(Z_bytes, rct::I); // check Z != 1
+
+  // P_mont = a B
+  crypto::x25519_pubkey P_mont;
+  crypto::x25519_scmul_base(a, P_mont);
+
+  // P_mont' = ConvertPointE(P_ed)
+  crypto::x25519_pubkey P_mont_converted;
+  ge_p3_to_x25519(P_mont_converted.data, &P_p3);
+
+  // P_mont' ?= P_mont
+  EXPECT_EQ(P_mont_converted, P_mont);
+}
+
+TEST(Crypto, ConvertPointE_EraseSign)
+{
+  // generate a random point P and test that ConvertPointE(P) == ConvertPointE(-P)
+
+  const rct::key P = rct::pkGen();
+  rct::key negP;
+  rct::subKeys(negP, rct::I, P);
+
+  crypto::x25519_pubkey P_mont;
+  edwards_bytes_to_x25519_vartime(P_mont.data, P.bytes);
+
+  crypto::x25519_pubkey negP_mont;
+  edwards_bytes_to_x25519_vartime(negP_mont.data, negP.bytes);
+
+  EXPECT_EQ(P_mont, negP_mont);
+}
+
+TEST(Crypto, ge_fromx25519_vartime_Base)
+{
+  const crypto::x25519_pubkey B = {{9}};
+
+  crypto::public_key G_actual;
+  ge_p3 G_actual_p3;
+  ge_fromx25519_vartime(&G_actual_p3, B.data);
+  ge_p3_tobytes(to_bytes(G_actual), &G_actual_p3);
+
+  EXPECT_EQ(crypto::get_G(), G_actual);
+}
+
+TEST(Crypto, ge_fromx25519_vartime_RandomPointNominalSuccess)
+{
+  const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
+
+  ge_p3 h;
+  EXPECT_EQ(0, ge_fromx25519_vartime(&h, P.data));
 }
