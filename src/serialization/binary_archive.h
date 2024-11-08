@@ -197,7 +197,7 @@ struct binary_archive<true> : public binary_archive_base<true>
   {
     for (size_t i = 0; i < sizeof(T); i++) {
       stream_.put((char)(v & 0xff));
-      if (1 < sizeof(T)) v >>= 8;
+      if constexpr (1 < sizeof(T)) { v >>= 8; }
     }
   }
 
