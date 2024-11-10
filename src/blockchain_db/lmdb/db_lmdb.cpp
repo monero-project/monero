@@ -1421,7 +1421,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> 
 
   // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
   CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");
-  auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, std::move(new_outputs));
+  auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, {std::move(new_outputs)});
 
   // Insert the leaves
   // TODO: grow_leaves

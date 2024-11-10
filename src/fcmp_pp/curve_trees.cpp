@@ -868,7 +868,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputContext> &&new_outputs)
+    std::vector<std::vector<OutputContext>> &&new_outputs)
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
@@ -879,8 +879,17 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     TIME_MEASURE_START(sorting_outputs);
 
     // Sort the outputs by order they appear in the chain
-    const auto sort_fn = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
-    std::sort(new_outputs.begin(), new_outputs.end(), sort_fn);
+    // Note: the outputs are expected to be grouped by unlock block
+    std::vector<OutputContext> flat_sorted_outputs;
+    for (auto &unsorted_outputs : new_outputs)
+    {
+        const auto sort_fn = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
+        std::sort(unsorted_outputs.begin(), unsorted_outputs.end(), sort_fn);
+
+        flat_sorted_outputs.insert(flat_sorted_outputs.end(),
+            std::make_move_iterator(unsorted_outputs.begin()),
+            std::make_move_iterator(unsorted_outputs.end()));
+    }
 
     TIME_MEASURE_FINISH(sorting_outputs);
 
@@ -888,7 +897,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
     // they cannot be inserted to the tree.
     std::vector<typename C2::Scalar> flattened_leaves;
-    this->set_valid_leaves(flattened_leaves, tree_extension.leaves.tuples, std::move(new_outputs));
+    this->set_valid_leaves(flattened_leaves, tree_extension.leaves.tuples, std::move(flat_sorted_outputs));
 
     if (flattened_leaves.empty())
         return tree_extension;
@@ -966,7 +975,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Helios, Selene>::TreeExtension CurveTrees<Helios, Selene>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<OutputContext> &&new_outputs);
+    std::vector<std::vector<OutputContext>> &&new_outputs);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
@@ -1380,7 +1389,13 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                         const auto &output_pair = new_outputs[j].output_pair;
 
                         try { pre_leaves[j] = output_to_pre_leaf_tuple(output_pair); }
-                        catch(...) { /* Invalid outputs can't be added to the tree */ return; }
+                        catch(...)
+                        {
+                            /* Invalid outputs can't be added to the tree */
+                            LOG_PRINT_L2("Output " << new_outputs[j].output_id << " is invalid (out pubkey " <<
+                                output_pair.output_pubkey << " , commitment " << output_pair.commitment << ")");
+                            continue;
+                        }
 
                         valid_outputs[j] = True;
                     }

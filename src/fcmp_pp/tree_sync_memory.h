@@ -199,24 +199,24 @@ public:
     uint64_t get_n_leaf_tuples() const;
     bool get_top_block(BlockMeta &top_block_out) const
     {
-        CHECK_AND_ASSERT_MES(m_cached_blocks.empty(), false, "empty cached blocks");
+        CHECK_AND_ASSERT_MES(!m_cached_blocks.empty(), false, "empty cached blocks");
         memcpy(&top_block_out, &m_cached_blocks.back(), sizeof(BlockMeta));
         return true;
     };
 
     uint64_t get_output_count() const { return m_output_count; }
 
-    void sync_blocks(const uint64_t prev_last_block_idx,
+    void sync_blocks(const uint64_t start_block_idx,
         const crypto::hash &prev_block_hash,
         const std::vector<crypto::hash> &new_block_hashes,
         const std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> &outs_by_unlock_blocks,
         typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension_out,
         std::vector<uint64_t> &n_new_leaf_tuples_per_block_out);
 
-    void process_synced_blocks(const uint64_t n_blocks_already_synced,
+    void process_synced_blocks(const uint64_t start_block_idx,
         const std::vector<crypto::hash> &new_block_hashes,
-        const std::vector<uint64_t> &n_new_leaf_tuples_per_block,
-        const typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension);
+        const typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension,
+        const std::vector<uint64_t> &n_new_leaf_tuples_per_block);
 
     // Clear all state
     void clear();
