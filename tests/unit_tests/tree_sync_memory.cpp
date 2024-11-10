@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 
+#include "crypto/crypto.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
 #include "fcmp_pp/curve_trees.h"
@@ -131,6 +132,90 @@ TEST(tree_sync, sync_block_simple)
     ASSERT_GE(curve_trees->m_c2_width, INIT_LEAVES);
     ASSERT_EQ(output_path.leaves.size(), INIT_LEAVES);
     ASSERT_TRUE(curve_trees->audit_path(output_path, output, INIT_LEAVES));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(tree_sync, sync_n_chunks_of_blocks)
+{
+    // 1. Init
+    static const std::size_t INIT_LEAVES = 10;
+    static const std::size_t N_CHUNKS = 10;
+    static const std::size_t N_BLOCKS_PER_CHUNK = 100;
+
+    const std::size_t rand_chunk = crypto::rand_idx(N_CHUNKS);
+    const std::size_t rand_block = crypto::rand_idx(N_BLOCKS_PER_CHUNK - 1);
+    const std::size_t rand_leaf = crypto::rand_idx(INIT_LEAVES);
+
+    auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+    auto tree_sync = new fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(curve_trees);
+
+    const crypto::hash mock_block_hash{};
+
+    // 2. Make chunks of blocks
+    std::vector<std::vector<crypto::hash>> chunks_of_block_hashes;
+    std::vector<std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock>> chunks_of_outputs;
+    std::size_t leaf_count = 0;
+    uint64_t unlock_block_idx = 0;
+    fcmp_pp::curve_trees::OutputPair output;
+    for (std::size_t i = 0; i < N_CHUNKS; ++i)
+    {
+        std::vector<crypto::hash> block_hashes;
+        std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> outs;
+        for (std::size_t j = 0; j < N_BLOCKS_PER_CHUNK; ++j)
+        {
+            auto outputs = test::generate_random_outputs(*curve_trees, leaf_count, INIT_LEAVES);
+            leaf_count += INIT_LEAVES;
+            const auto unlock_block = 1 + i * N_BLOCKS_PER_CHUNK + j;
+
+            if (i == rand_chunk && j == rand_block)
+            {
+                unlock_block_idx = unlock_block;
+                output = outputs[rand_leaf].output_pair;
+            }
+
+            outs.push_back({{ unlock_block, std::move(outputs) }});
+            block_hashes.push_back(mock_block_hash);
+        }
+        chunks_of_block_hashes.push_back(std::move(block_hashes));
+        chunks_of_outputs.push_back(std::move(outs));
+    }
+    ASSERT_TRUE(unlock_block_idx > 0);
+
+    // 3. Register output
+    ASSERT_TRUE(tree_sync->register_output(output, unlock_block_idx));
+
+    // 4. Sync the chunks of blocks
+    for (std::size_t i = 0; i < N_CHUNKS; ++i)
+    {
+        const uint64_t start_block_idx = i * N_BLOCKS_PER_CHUNK;
+
+        fcmp_pp::curve_trees::CurveTrees<Helios, Selene>::TreeExtension tree_extension;
+        std::vector<uint64_t> n_new_leaf_tuples_per_block;
+
+        tree_sync->sync_blocks(start_block_idx,
+            mock_block_hash,
+            chunks_of_block_hashes[i],
+            chunks_of_outputs[i],
+            tree_extension,
+            n_new_leaf_tuples_per_block);
+
+        tree_sync->process_synced_blocks(start_block_idx,
+            chunks_of_block_hashes[i],
+            tree_extension,
+            n_new_leaf_tuples_per_block);
+
+        // Audit the output's path in the tree
+        CurveTreesV1::Path output_path;
+        ASSERT_TRUE(tree_sync->get_output_path(output, output_path));
+        if (!output_path.empty())
+        {
+            ASSERT_TRUE(curve_trees->audit_path(output_path, output, tree_sync->get_n_leaf_tuples()));
+        }
+    }
+
+    // 5. Make sure the output was actually added to the tree
+    CurveTreesV1::Path output_path;
+    ASSERT_TRUE(tree_sync->get_output_path(output, output_path));
+    ASSERT_TRUE(!output_path.empty());
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_sync, sync_n_blocks_register_n_outputs)

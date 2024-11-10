@@ -305,6 +305,8 @@ public:
             c1_layers.clear();
             c2_layers.clear();
         }
+
+        bool empty() { return leaves.empty() && c1_layers.empty() && c2_layers.empty(); }
     };
 
     // The indexes in the tree of a leaf's path elems containing whole chunks at each layer
@@ -339,7 +341,7 @@ public:
     // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        std::vector<OutputContext> &&new_leaf_tuples);
+        std::vector<std::vector<OutputContext>> &&new_outputs);
 
     // Get instructions useful for trimming all existing layers in the tree
     // - always_regrow_with_remaining will use hash_grow with remaining elems left in a chunk to "trim" every chunk,

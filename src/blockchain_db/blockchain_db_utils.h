@@ -40,7 +40,7 @@ namespace cryptonote
 // These functions internally rely on ringct for zeroCommitVartime. I implemented in this blockchain_db_utils file
 // instead of cryptonote_basic (where it would seem the better place to put it) to avoid a circular dependency between
 // ringct <> cryptonote_basic.
-// Note that zeroCommitVartime causes this function to execute slowly.
+// Note that zeroCommitVartime is expensive.
 std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlock_block(
     const cryptonote::transaction &miner_tx,
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
