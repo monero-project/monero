@@ -1918,6 +1918,8 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // re-request txs from daemon to re-process with all tx data needed
   tx_entry_data txs_to_reprocess = get_tx_entries(tx_hashes_to_reprocess);
 
+  // TODO: request output paths in tree for all outputs in requested txs, add the received output paths to the cache
+
   process_scan_txs(txs_to_scan, txs_to_reprocess, tx_hashes_to_reprocess, dbd);
   reattach_blockchain(m_blockchain, dbd);
 
@@ -1946,6 +1948,8 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
     catch (...) { MERROR("Failed getting block header at height " << txs_to_scan.highest_height); }
 
     // The wallet's blockchain state will now sync from the expected height correctly on next refresh loop
+
+    // TODO: be sure to initialize the right-edge of the tree at skip_to_height
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -3220,9 +3224,14 @@ struct TreeSyncStartParams
   crypto::hash prev_block_hash;
 };
 
-static fcmp_pp::curve_trees::BlockMeta top_block_match(const hashchain &blockchain, const tools::wallet2::TreeSyncV1 &tree_sync)
+static void top_block_match(const hashchain &blockchain, const tools::wallet2::TreeSyncV1 &tree_sync)
 {
-  THROW_WALLET_EXCEPTION_IF(blockchain.empty(), tools::error::wallet_internal_error, "unexpected empty blockchain");
+  if (blockchain.empty())
+  {
+    THROW_WALLET_EXCEPTION_IF(tree_sync.get_output_count() != 0, tools::error::wallet_internal_error,
+      "unexpected non-zero output count in tree sync");
+    return;
+  }
 
   const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
@@ -3236,8 +3245,6 @@ static fcmp_pp::curve_trees::BlockMeta top_block_match(const hashchain &blockcha
     tools::error::wallet_internal_error, "m_blockchain <> m_tree_sync top block idx mismatch");
   THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
     tools::error::wallet_internal_error, "m_blockchain <> m_tree_sync top block hash mismatch");
-
-  return top_synced_block;
 }
 
 static void reorg_depth_check(const uint64_t reorg_blk_idx, const uint64_t start_height, const crypto::hash &first_parsed_hash, const hashchain &blockchain, const uint64_t max_reorg_depth)
@@ -3269,7 +3276,11 @@ static TreeSyncStartParams tree_sync_reorg_check(const uint64_t start_height, co
     return TreeSyncStartParams{};
 
   // Make sure the tree sync cache matches wallet2's blockchain cache
-  auto top_synced_block = top_block_match(blockchain, tree_sync_inout);
+  top_block_match(blockchain, tree_sync_inout);
+
+  fcmp_pp::curve_trees::BlockMeta top_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!tree_sync_inout.get_top_block(top_synced_block), tools::error::wallet_internal_error,
+    "empty tree sync cache");
 
   // Check if the new downloaded blocks are contiguous to the tree sync cache.
   // If not, we correct the tree sync cache and sync any new blocks.
@@ -15082,6 +15093,12 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     const transfer_details &td = m_transfers[n];
     if (!td.m_key_image_partial)
       continue;
+    // FIXME: if we need to pop more blocks from the tree cache than the reorg depth, and the wallet has received
+    // outputs from before the detach height, then the wallet won't be able to correct those prior output paths.
+    // Some solutions:
+    // A) restart sync from the wallet's first received output height.
+    // B) re-request output paths from the daemon.
+    // C) multisig wallet should stop syncing upon identifying a receive.
     MINFO("Multisig info importing from block height " << td.m_block_height);
     handle_reorg(td.m_block_height);
     break;
