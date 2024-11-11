@@ -626,6 +626,7 @@ namespace hw {
         } else {
           MDEBUG("Have view key");
           this->has_view_key = true;
+          log_hexbuffer("secret.viewkey", this->viewkey.data, 32);
         }
       
         #ifdef DEBUG_HWDEVICE
