@@ -1121,7 +1121,6 @@ void TreeSyncMemory<C1, C2>::process_synced_blocks(const uint64_t start_block_id
         // Deque the oldest cached block upon reaching the max reorg depth
         if ((uint64_t)m_cached_blocks.size() > TreeSync<C1, C2>::m_max_reorg_depth)
         {
-            CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cached blocks");
             const auto &oldest_block = m_cached_blocks.front();
 
             // All locked outputs that unlocked in the oldest block idx should already be in the tree. We keep them cached
@@ -1180,6 +1179,10 @@ bool TreeSyncMemory<C1, C2>::pop_block()
     }
     CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= new_n_leaf_tuples, "expected old_n_leaf_tuples >= new_n_leaf_tuples");
     const uint64_t trim_n_leaf_tuples = old_n_leaf_tuples - new_n_leaf_tuples;
+
+    // No leaves to trim, safe return
+    if (trim_n_leaf_tuples == 0)
+        return true;
 
     // We're going to trim the tree as the node would to see exactly how the tree elems we know about need to change.
     // First get trim instructions
