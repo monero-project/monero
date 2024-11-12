@@ -598,7 +598,7 @@ namespace multisig
       // note: if num_signers_required == signers.size(), then this test will ensure all signers are present in 'origins',
       //       which contains only unique pubkeys
       CHECK_AND_ASSERT_THROW_MES(std::find(signers.begin(), signers.end(), origin) != signers.end(),
-        "An unknown origin recommended a multisig post-kex verification messsage.");
+        "An unknown origin recommended a multisig post-kex verification message.");
     }
 
     return pubkey_origins_map;

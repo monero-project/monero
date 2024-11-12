@@ -156,7 +156,7 @@ namespace multisig
     const std::string& get_next_kex_round_msg() const { return m_next_round_kex_message; }
 
   //account status functions
-    // account has been intialized, and the account holder can use the 'common' key
+    // account has been initialized, and the account holder can use the 'common' key
     bool account_is_active() const;
     // account has gone through main kex rounds, only remaining step is to verify all other participants are ready
     bool main_kex_rounds_done() const;
