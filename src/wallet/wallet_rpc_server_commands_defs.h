@@ -2193,7 +2193,7 @@ namespace wallet_rpc
   {
     struct request_t
     {
-      bool autosave_current;
+      bool autosave_current = true;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_OPT(autosave_current, true)
