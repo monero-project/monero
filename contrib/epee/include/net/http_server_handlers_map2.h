@@ -165,6 +165,7 @@
       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
       return true; \
     } \
+    ps.open_section("params", nullptr, true); \
     if(false) return true; //just a stub to have "else if"
 
 
