@@ -89,6 +89,7 @@ namespace
         , uint64_t num_rct_outs
         , const crypto::hash& blk_hash
         , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
+        , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/>& timelocked_outputs
     ) override
     {
       blocks.push_back({blk, blk_hash});
@@ -172,7 +173,7 @@ static std::unique_ptr<cryptonote::BlockchainAndPool> init_blockchain(const std:
 
     const block *blk = &boost::get<block>(ev);
     auto blk_hash = get_block_hash(*blk);
-    bdb->add_block(*blk, 1, 1, 1, 0, 0, blk_hash, {});
+    bdb->add_block(*blk, 1, 1, 1, 0, 0, blk_hash, {}, {});
   }
 
   bool r = bap->blockchain.init(bdb, nettype, true, test_options, 2, nullptr);

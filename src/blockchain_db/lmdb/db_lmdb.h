@@ -69,6 +69,8 @@ typedef struct mdb_txn_cursors
   MDB_cursor *m_txc_leaves;
   MDB_cursor *m_txc_layers;
 
+  MDB_cursor *m_txc_timelocked_outputs;
+
   MDB_cursor *m_txc_txpool_meta;
   MDB_cursor *m_txc_txpool_blob;
 
@@ -95,6 +97,7 @@ typedef struct mdb_txn_cursors
 #define m_cur_locked_outputs	m_cursors->m_txc_locked_outputs
 #define m_cur_leaves		m_cursors->m_txc_leaves
 #define m_cur_layers		m_cursors->m_txc_layers
+#define m_cur_timelocked_outputs	m_cursors->m_txc_timelocked_outputs
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_alt_blocks	m_cursors->m_txc_alt_blocks
@@ -120,6 +123,7 @@ typedef struct mdb_rflags
   bool m_rf_locked_outputs;
   bool m_rf_leaves;
   bool m_rf_layers;
+  bool m_rf_timelocked_outputs;
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
   bool m_rf_alt_blocks;
@@ -390,6 +394,7 @@ private:
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
                 , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
+                , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/>& timelocked_outputs
                 );
 
   virtual void remove_block();
@@ -522,6 +527,8 @@ private:
   MDB_dbi m_locked_outputs;
   MDB_dbi m_leaves;
   MDB_dbi m_layers;
+
+  MDB_dbi m_timelocked_outputs;
 
   MDB_dbi m_txpool_meta;
   MDB_dbi m_txpool_blob;

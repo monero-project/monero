@@ -37,11 +37,19 @@
 
 namespace cryptonote
 {
+
+struct OutsByUnlockBlockMeta
+{
+    fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block;
+    uint64_t next_output_id;
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/> timelocked_outputs;
+};
+
 // These functions internally rely on ringct for zeroCommitVartime. I implemented in this blockchain_db_utils file
 // instead of cryptonote_basic (where it would seem the better place to put it) to avoid a circular dependency between
 // ringct <> cryptonote_basic.
 // Note that zeroCommitVartime is expensive.
-std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlock_block(
+OutsByUnlockBlockMeta get_outs_by_unlock_block(
     const cryptonote::transaction &miner_tx,
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const uint64_t first_output_id,

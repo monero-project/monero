@@ -1629,13 +1629,18 @@ namespace cryptonote
     return key;
   }
   //---------------------------------------------------------------
+  static uint64_t get_default_last_locked_block_index(const uint64_t block_included_in_chain)
+  {
+    static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "unexpected default spendable age");
+    return block_included_in_chain + (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
+  }
+  //---------------------------------------------------------------
   // TODO: write tests for this func that match with current daemon logic
   uint64_t get_unlock_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
   {
     uint64_t unlock_block_index = 0;
 
-    static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "unexpected default spendable age");
-    const uint64_t default_block_index = block_included_in_chain + (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
+    const uint64_t default_block_index = get_default_last_locked_block_index(block_included_in_chain);
 
     if (unlock_time == 0)
     {
@@ -1685,5 +1690,13 @@ namespace cryptonote
 
     // Can't unlock earlier than the default unlock block
     return std::max(unlock_block_index, default_block_index);
+  }
+  //---------------------------------------------------------------
+  bool is_custom_timelocked(bool is_coinbase, uint64_t unlock_block_idx, uint64_t block_included_in_chain)
+  {
+    if (is_coinbase)
+      return false;
+
+    return unlock_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
   }
 }

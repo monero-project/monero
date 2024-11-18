@@ -151,6 +151,7 @@ public:
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
                         , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
+                        , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/>& timelocked_outputs
                         ) override { }
   virtual cryptonote::block get_block_from_height(const uint64_t& height) const override { return cryptonote::block(); }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {}

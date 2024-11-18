@@ -207,6 +207,8 @@ namespace
  * leaves           leaf_idx     {output ID, output pubkey, commitment}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  *
+ * timelocked_outputs block ID   [{output ID, output pubkey, commitment}...]
+ *
  * txpool_meta      txn hash     txn metadata
  * txpool_blob      txn hash     txn blob
  *
@@ -218,8 +220,8 @@ namespace
  * attached as a prefix on the Data to serve as the DUPSORT key.
  * (DUPFIXED saves 8 bytes per record.)
  *
- * The output_amounts, locked_outputs, and layers tables don't use a
- * dummy key, but use DUPSORT.
+ * The output_amounts, locked_outputs, layers, and timelocked_outputs tables
+ * don't use a dummy key, but use DUPSORT.
  */
 const char* const LMDB_BLOCKS = "blocks";
 const char* const LMDB_BLOCK_HEIGHTS = "block_heights";
@@ -241,6 +243,8 @@ const char* const LMDB_SPENT_KEYS = "spent_keys";
 const char* const LMDB_LOCKED_OUTPUTS = "locked_outputs";
 const char* const LMDB_LEAVES = "leaves";
 const char* const LMDB_LAYERS = "layers";
+
+const char* const LMDB_TIMELOCKED_OUTPUTS = "timelocked_outputs";
 
 const char* const LMDB_TXPOOL_META = "txpool_meta";
 const char* const LMDB_TXPOOL_BLOB = "txpool_blob";
@@ -808,7 +812,7 @@ estim:
 }
 
 void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-    uint64_t num_rct_outs, const crypto::hash& blk_hash, const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block)
+    uint64_t num_rct_outs, const crypto::hash& blk_hash, const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/>& timelocked_outputs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -890,7 +894,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
 
   CURSOR(locked_outputs)
 
-  // Add the locked outputs from this block to the locked outputs table
+  // Add the locked outputs from this block to the locked outputs and custom timelocked tables
   for (const auto &unlock_block : outs_by_unlock_block)
   {
     MDB_val_set(k_block_id, unlock_block.first);
@@ -900,6 +904,14 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
       result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
+
+      if (timelocked_outputs.find(locked_output.output_id) != timelocked_outputs.end())
+      {
+        MDB_val_set(v_timelocked_output, locked_output);
+        result = mdb_cursor_put(m_cur_timelocked_outputs, &k_block_id, &v_timelocked_output, MDB_APPENDDUP);
+        if (result != MDB_SUCCESS)
+          throw0(DB_ERROR(lmdb_error("Failed to add timelocked output: ", result).c_str()));
+      }
     }
   }
 
@@ -1292,6 +1304,9 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
     if (result)
       throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
   }
+
+  // TODO: remove output from custom timelocked outputs table if custom timelocked
+  // Just search for it and see if it's in the table, remove if so
 
   result = mdb_cursor_del(m_cur_output_txs, 0);
   if (result)
@@ -2624,6 +2639,8 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
   lmdb_db_open(txn, LMDB_LAYERS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_layers, "Failed to open db handle for m_layers");
 
+  lmdb_db_open(txn, LMDB_TIMELOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_timelocked_outputs, "Failed to open db handle for m_timelocked_outputs");
+
   lmdb_db_open(txn, LMDB_TXPOOL_META, MDB_CREATE, m_txpool_meta, "Failed to open db handle for m_txpool_meta");
   lmdb_db_open(txn, LMDB_TXPOOL_BLOB, MDB_CREATE, m_txpool_blob, "Failed to open db handle for m_txpool_blob");
 
@@ -2646,6 +2663,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
   mdb_set_dupsort(txn, m_leaves, compare_uint64);
   mdb_set_dupsort(txn, m_layers, compare_uint64);
+  mdb_set_dupsort(txn, m_timelocked_outputs, compare_uint64);
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
   mdb_set_dupsort(txn, m_block_info, compare_uint64);
   if (!(mdb_flags & MDB_RDONLY))
@@ -2832,6 +2850,8 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_leaves: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_layers, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_layers: ", result).c_str()));
+  if (auto result = mdb_drop(txn, m_timelocked_outputs, 0))
+    throw0(DB_ERROR(lmdb_error("Failed to drop m_timelocked_outputs: ", result).c_str()));
   (void)mdb_drop(txn, m_hf_starting_heights, 0); // this one is dropped in new code
   if (auto result = mdb_drop(txn, m_hf_versions, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
@@ -7321,6 +7341,8 @@ void BlockchainLMDB::migrate_5_6()
 
       txn.commit();
     }
+
+    // TODO: Step 4, iterate over all txs in order and add the custom timelocked outputs to the timelocked_outputs table
   } while(0);
 
   // Update db version
