@@ -1029,7 +1029,7 @@ void sync_genesis_block(const crypto::hash &genesis_hash,
   fcmp_pp::curve_trees::TreeSyncMemory<fcmp_pp::curve_trees::Helios, fcmp_pp::curve_trees::Selene> &tree_sync_inout)
 {
   tree_sync_inout.clear();
-  const auto outs_by_unlock_block = cryptonote::get_outs_by_unlock_block(genesis_tx, {}, 0, 0).first;
+  const auto outs_by_unlock_block = cryptonote::get_outs_by_unlock_block(genesis_tx, {}, 0, 0).outs_by_unlock_block;
   tree_sync_inout.sync_block(0, genesis_hash, crypto::hash{}, outs_by_unlock_block);
 }
   //-----------------------------------------------------------------
@@ -3376,8 +3376,8 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
     // Note: this function is slow because of zeroCommitVartime
     auto res = cryptonote::get_outs_by_unlock_block(miner_tx, txs, first_output_id, created_block_idx);
 
-    outs_by_unlock_blocks.emplace_back(std::move(res.first));
-    first_output_id = res.second;
+    outs_by_unlock_blocks.emplace_back(std::move(res.outs_by_unlock_block));
+    first_output_id = res.next_output_id;
   }
 
   TIME_MEASURE_FINISH(collecting_outs_by_unlock_block);

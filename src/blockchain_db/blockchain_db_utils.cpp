@@ -40,9 +40,11 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
     const uint64_t &first_output_id,
     const uint64_t block_idx,
     const bool miner_tx,
-    fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block_inout)
+    fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block_inout,
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/> &timelocked_outputs_inout)
 {
     const uint64_t unlock_block = cryptonote::get_unlock_block_index(tx.unlock_time, block_idx);
+    const bool has_custom_timelock = cryptonote::is_custom_timelocked(miner_tx, unlock_block, block_idx);
 
     uint64_t getting_commitment_ns = 0;
     uint64_t setting_unlock_block_ns = 0;
@@ -75,10 +77,16 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
                 .commitment    = std::move(commitment)
             };
 
+        const uint64_t output_id = first_output_id + i;
         auto output_context = fcmp_pp::curve_trees::OutputContext{
-                .output_id   = first_output_id + i,
+                .output_id   = output_id,
                 .output_pair = std::move(output_pair)
             };
+
+        if (has_custom_timelock)
+        {
+            timelocked_outputs_inout[output_id] = unlock_block;
+        }
 
         TIME_MEASURE_NS_START(setting_unlock_block);
 
@@ -106,13 +114,15 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
 //----------------------------------------------------------------------------------------------------------------------
 namespace cryptonote
 {
-std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlock_block(
+OutsByUnlockBlockMeta get_outs_by_unlock_block(
     const cryptonote::transaction &miner_tx,
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const uint64_t first_output_id,
     const uint64_t block_idx)
 {
     fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block_out;
+
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/> timelocked_outputs_out;
 
     uint64_t output_id = first_output_id;
 
@@ -122,7 +132,8 @@ std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlo
         output_id,
         block_idx,
         true/*miner_tx*/,
-        outs_by_unlock_block_out);
+        outs_by_unlock_block_out,
+        timelocked_outputs_out);
 
     // Get all other txs' leaf tuples
     for (const auto &tx : txs)
@@ -132,10 +143,11 @@ std::pair<fcmp_pp::curve_trees::OutputsByUnlockBlock, uint64_t> get_outs_by_unlo
             output_id,
             block_idx,
             false/*miner_tx*/,
-            outs_by_unlock_block_out);
+            outs_by_unlock_block_out,
+            timelocked_outputs_out);
     }
 
-    return { outs_by_unlock_block_out, output_id };
+    return { outs_by_unlock_block_out, output_id, timelocked_outputs_out };
 }
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace cryptonote
