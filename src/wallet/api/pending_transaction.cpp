@@ -171,21 +171,10 @@ std::string PendingTransactionImpl::commitToString()
     try {
 	tx = m_wallet.m_wallet->dump_tx_to_str(m_pending_tx);
 	m_status = Status_Ok;
-    } catch (const tools::error::daemon_busy&) {
-        // TODO: make it translatable with "tr"?
-        m_errorString = tr("daemon is busy. Please try again later.");
+	return tx;
+    } catch (const tools::error::wallet_internal_error&) {
+        m_errorString = tr("Wallet internal eror.");
         m_status = Status_Error;
-    } catch (const tools::error::no_connection_to_daemon&) {
-        m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
-        m_status = Status_Error;
-    } catch (const tools::error::tx_rejected& e) {
-        std::ostringstream writer(m_errorString);
-        writer << (boost::format(tr("transaction %s was rejected by daemon with status: ")) % get_transaction_hash(e.tx())) <<  e.status();
-        std::string reason = e.reason();
-        m_status = Status_Error;
-        m_errorString = writer.str();
-        if (!reason.empty())
-          m_errorString  += string(tr(". Reason: ")) + reason;
     } catch (const std::exception &e) {
         m_errorString = string(tr("Unknown exception: ")) + e.what();
         m_status = Status_Error;
@@ -194,10 +183,7 @@ std::string PendingTransactionImpl::commitToString()
         LOG_ERROR(m_errorString);
         m_status = Status_Error;
     }
-    m_wallet.startRefresh();
-    if (m_status != Status_Ok)
-	return "";
-    return tx;
+    return ""; // m_status != Status_Ok
 }
 
 uint64_t PendingTransactionImpl::amount() const
