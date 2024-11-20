@@ -1136,13 +1136,13 @@ UnsignedTransaction *WalletImpl::loadUnsignedTx(const std::string &unsigned_file
 
 UnsignedTransaction *WalletImpl::loadUnsignedTxFromString(const std::string &data) {
   clearStatus();
-  UnsignedTransactionImpl * transaction = new UnsignedTransactionImpl(*this);
+  std::unique_ptr<UnsignedTransactionImpl> transaction(new UnsignedTransactionImpl(*this));
   if (checkBackgroundSync("cannot load tx") || !m_wallet->parse_unsigned_tx_from_str(data, transaction->m_unsigned_tx_set)){
     setStatusError(tr("Failed to load unsigned transactions"));
     transaction->m_status = UnsignedTransaction::Status::Status_Error;
     transaction->m_errorString = errorString();
 
-    return transaction;
+    return transaction.release();
   }
 
   // Check tx data and construct confirmation message
@@ -1152,7 +1152,7 @@ UnsignedTransaction *WalletImpl::loadUnsignedTxFromString(const std::string &dat
   transaction->checkLoadedTx([&transaction](){return transaction->m_unsigned_tx_set.txes.size();}, [&transaction](size_t n)->const tools::wallet2::tx_construction_data&{return transaction->m_unsigned_tx_set.txes[n];}, extra_message);
   setStatus(transaction->status(), transaction->errorString());
 
-  return transaction;
+  return transaction.release();
 }
 
 bool WalletImpl::submitTransaction(const string &fileName) {
