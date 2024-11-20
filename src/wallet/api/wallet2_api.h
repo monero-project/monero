@@ -90,7 +90,7 @@ struct PendingTransaction
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
     // return string of transaction gives the same content which would be saved to file with commit(filename)
-    virtual std::string commit_string() = 0;
+    virtual std::string commitToString() = 0;
     // commit transaction or save to file if filename is provided.
     virtual bool commit(const std::string &filename = "", bool overwrite = false) = 0;
     virtual uint64_t amount() const = 0;
