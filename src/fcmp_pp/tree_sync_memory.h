@@ -160,6 +160,8 @@ using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElemChunk>
 // TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
 using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
 
+static const int TREE_SYNC_MEMORY_VERSION = 0;
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Syncs the tree and keeps a user's known received outputs up to date, all saved in memory.
@@ -186,7 +188,7 @@ public:
     void sync_block(const uint64_t block_idx,
         const crypto::hash &block_hash,
         const crypto::hash &prev_block_hash,
-        const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block) override;
+        const OutputsByUnlockBlock &outs_by_unlock_block) override;
 
     bool pop_block() override;
 
@@ -194,15 +196,19 @@ public:
 
 // Public functions not part of TreeSync interface
 public:
+    void init(const BlockMeta &init_block, const OutputsByUnlockBlock &timelocked_outputs);
+
     // TODO: make this part of the TreeSync interface
     std::array<uint8_t, 32UL> get_tree_root() const;
     uint64_t get_n_leaf_tuples() const;
     bool get_top_block(BlockMeta &top_block_out) const
     {
-        CHECK_AND_ASSERT_MES(!m_cached_blocks.empty(), false, "empty cached blocks");
+        CHECK_AND_ASSERT_MES(!this->empty(), false, "empty cached blocks");
         memcpy(&top_block_out, &m_cached_blocks.back(), sizeof(BlockMeta));
         return true;
     };
+
+    bool empty() const { return m_cached_blocks.empty(); }
 
     uint64_t get_output_count() const { return m_output_count; }
 
@@ -273,7 +279,7 @@ public:
     }
 
     BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
+        VERSION_FIELD(TREE_SYNC_MEMORY_VERSION)
         FIELD(m_locked_outputs)
         FIELD(m_locked_output_refs)
         FIELD(m_output_count)
@@ -298,13 +304,12 @@ namespace serialization
 template<typename C1, typename C2>
 struct version<fcmp_pp::curve_trees::TreeSyncMemory<C1, C2>>
 {
-    static const int VERSION = 0;
-    typedef mpl::int_<VERSION> type;
+    typedef mpl::int_<fcmp_pp::curve_trees::TREE_SYNC_MEMORY_VERSION> type;
     typedef mpl::integral_c_tag tag;
     BOOST_STATIC_CONSTANT(unsigned int, value = version::type::value);
     BOOST_MPL_ASSERT((
         boost::mpl::less<
-            boost::mpl::int_<VERSION>,
+            boost::mpl::int_<fcmp_pp::curve_trees::TREE_SYNC_MEMORY_VERSION>,
             boost::mpl::int_<256>
         >
     ));

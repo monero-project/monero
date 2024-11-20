@@ -33,6 +33,7 @@
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
+#include "serialization/keyvalue_serialization.h"
 #include "tower_cycle.h"
 
 #include <map>
@@ -138,6 +139,8 @@ struct OutputPair final
     crypto::public_key output_pubkey;
     rct::key           commitment;
 
+    bool operator==(const OutputPair &other) const { return output_pubkey == other.output_pubkey && commitment == other.commitment; }
+
     template <class Archive>
     inline void serialize(Archive &a, const unsigned int ver)
     {
@@ -149,6 +152,11 @@ struct OutputPair final
         FIELD(output_pubkey)
         FIELD(commitment)
     END_SERIALIZE()
+
+    BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_VAL_POD_AS_BLOB(output_pubkey)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(commitment)
+    END_KV_SERIALIZE_MAP()
 };
 
 // Contextual wrapper for the output
@@ -157,6 +165,8 @@ struct OutputContext final
     // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
     uint64_t output_id;
     OutputPair output_pair;
+
+    bool operator==(const OutputContext &other) const { return output_id == other.output_id && output_pair == other.output_pair; }
 
     template <class Archive>
     inline void serialize(Archive &a, const unsigned int ver)
@@ -169,6 +179,11 @@ struct OutputContext final
         FIELD(output_id)
         FIELD(output_pair)
     END_SERIALIZE()
+
+    BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(output_id)
+        KV_SERIALIZE(output_pair)
+    END_KV_SERIALIZE_MAP()
 };
 #pragma pack(pop)
 

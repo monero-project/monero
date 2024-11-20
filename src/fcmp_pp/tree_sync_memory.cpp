@@ -28,6 +28,7 @@
 
 #include "tree_sync_memory.h"
 
+#include "common/merge_sorted_vectors.h"
 #include "misc_log_ex.h"
 #include "profile_tools.h"
 #include "string_tools.h"
@@ -75,51 +76,6 @@ static void assign_new_output(const OutputPair &output_pair,
     return;
 }
 //----------------------------------------------------------------------------------------------------------------------
-template<typename T, typename U>
-static bool merge_sorted_vectors(const std::vector<T> &a, const std::vector<T> &b, const U &sort_fn, std::vector<T> &v_out)
-{
-    v_out.clear();
-    v_out.reserve(a.size() + b.size());
-
-    if (!std::is_sorted(a.begin(), a.end(), sort_fn))
-        return false;
-    if (!std::is_sorted(b.begin(), b.end(), sort_fn))
-        return false;
-
-    auto a_it = a.begin();
-    auto b_it = b.begin();
-
-    while (a_it != a.end() || b_it != b.end())
-    {
-        if (a_it == a.end())
-        {
-            v_out.push_back(*b_it);
-            ++b_it;
-            continue;
-        }
-
-        if (b_it == b.end())
-        {
-            v_out.push_back(*a_it);
-            ++a_it;
-            continue;
-        }
-
-        if (sort_fn(*a_it, *b_it))
-        {
-            v_out.push_back(*a_it);
-            ++a_it;
-            continue;
-        }
-
-        v_out.push_back(*b_it);
-        ++b_it;
-    }
-
-    assert(std::is_sorted(v_out.begin(), v_out.end(), sort_fn));
-    return true;
-}
-//----------------------------------------------------------------------------------------------------------------------
 static uint64_t add_to_locked_outputs_cache(const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block,
     const CreatedBlockIdx created_block_idx,
     LockedOutputsByUnlock &locked_outputs_inout,
@@ -153,7 +109,7 @@ static uint64_t add_to_locked_outputs_cache(const fcmp_pp::curve_trees::OutputsB
         const auto &locked_outputs = locked_outputs_it->second;
         std::vector<OutputContext> all_locked_outputs;
         const auto is_less = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
-        bool r = merge_sorted_vectors(locked_outputs, new_locked_outputs, is_less, all_locked_outputs);
+        bool r = tools::merge_sorted_vectors(locked_outputs, new_locked_outputs, is_less, all_locked_outputs);
         CHECK_AND_ASSERT_THROW_MES(r, "failed to merge sorted locked outputs");
 
         locked_outputs_inout[unlock_block_idx] = std::move(all_locked_outputs);
@@ -1360,6 +1316,25 @@ bool TreeSyncMemory<C1, C2>::get_output_path(const OutputPair &output, typename 
 template bool TreeSyncMemory<Helios, Selene>::get_output_path(const OutputPair &output,
     CurveTrees<Helios, Selene>::Path &path_out) const;
 //----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+void TreeSyncMemory<C1, C2>::init(const BlockMeta &init_block, const OutputsByUnlockBlock &timelocked_outputs)
+{
+    CHECK_AND_ASSERT_THROW_MES(this->empty(), "expected empty tree cache");
+
+    m_cached_blocks.push_back(init_block);
+
+    // Assume the created block idx is the genesis block so the outputs won't get pruned
+    const CreatedBlockIdx created_block_idx{0};
+    add_to_locked_outputs_cache(timelocked_outputs, created_block_idx, m_locked_outputs, m_locked_output_refs);
+
+    // TODO: handle right-most edge of tree
+    // TODO: handle unordered insertion when syncing
+}
+
+// Explicit instantiation
+template void TreeSyncMemory<Helios, Selene>::init(const BlockMeta &init_block,
+    const OutputsByUnlockBlock &timelocked_outputs);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::array<uint8_t, 32UL> TreeSyncMemory<C1, C2>::get_tree_root() const

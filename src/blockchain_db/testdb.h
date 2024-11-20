@@ -102,7 +102,7 @@ public:
   virtual uint64_t num_outputs() const override { return 1; }
   virtual uint64_t get_num_outputs(const uint64_t& amount) const override { return 1; }
   virtual uint64_t get_indexing_base() const override { return 0; }
-  virtual cryptonote::output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const override { return cryptonote::output_data_t(); }
+  virtual cryptonote::outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const override { return cryptonote::outkey(); }
   virtual cryptonote::tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const override { return cryptonote::tx_out_index(); }
   virtual cryptonote::tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const override { return cryptonote::tx_out_index(); }
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<cryptonote::tx_out_index> &indices) const override {}
@@ -122,6 +122,9 @@ public:
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const override { return false; };
   virtual std::array<uint8_t, 32UL> get_tree_root() const override { return {}; };
   virtual uint64_t get_num_leaf_tuples() const override { return 0; };
+  virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const override { return 0; };
+  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override { return {{}}; };
+  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_recent_locked_outputs(uint64_t end_block_idx) const override { return {{}}; };
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image_y&)>) const override { return true; }
   virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override { return true; }

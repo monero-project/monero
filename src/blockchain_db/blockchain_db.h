@@ -120,6 +120,16 @@ enum class relay_category : uint8_t
 bool matches_category(relay_method method, relay_category category) noexcept;
 
 #pragma pack(push, 1)
+// This MUST be identical to output_data_t, without the extra rct data at the end
+struct pre_rct_output_data_t
+{
+  crypto::public_key pubkey;       //!< the output's public key (for spend verification)
+  uint64_t           unlock_time;  //!< the output's unlock time (or height)
+  uint64_t           height;       //!< the height of the block which created the output
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
 
 /**
  * @brief a struct containing output metadata
@@ -132,6 +142,18 @@ struct output_data_t
   rct::key           commitment;   //!< the output's amount commitment (for spend verification)
 };
 #pragma pack(pop)
+
+typedef struct pre_rct_outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    pre_rct_output_data_t data;
+} pre_rct_outkey;
+
+typedef struct outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    output_data_t data;
+} outkey;
 
 #pragma pack(push, 1)
 struct tx_data_t
@@ -1435,7 +1457,7 @@ public:
    *
    * @return the requested output data
    */
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
+  virtual outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
 
   /**
    * @brief gets an output's tx hash and index
@@ -1791,7 +1813,26 @@ public:
   // TODO: description
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
   virtual uint64_t get_num_leaf_tuples() const = 0;
+  virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
   virtual std::array<uint8_t, 32UL> get_tree_root() const = 0;
+
+  /**
+   * @brief return custom timelocked outputs after the provided block idx
+   *
+   * @param start_block_idx
+   *
+   * @return custom timelocked outputs grouped by unlock block
+   */
+  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
+
+  /**
+   * @brief return recent timelocked outputs after the provided end_block_idx
+   *
+   * @param end_block_idx
+   *
+   * @return the recent locked outputs grouped by unlock block, that unlock
+   */
+  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_recent_locked_outputs(uint64_t end_block_idx) const = 0;
 
   //
   // Hard fork related storage
