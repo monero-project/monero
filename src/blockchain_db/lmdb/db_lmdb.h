@@ -266,6 +266,8 @@ public:
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
+  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h) const;
+
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_pruned_tx_blobs_from(const crypto::hash& h, size_t count, std::vector<cryptonote::blobdata> &bd) const;
@@ -284,7 +286,7 @@ public:
   virtual uint64_t num_outputs() const;
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
+  virtual outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const;
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
@@ -437,7 +439,7 @@ private:
 
   virtual uint64_t get_num_leaf_tuples() const;
 
-  uint64_t get_top_block_n_leaf_tuples() const;
+  uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
   virtual std::array<uint8_t, 32UL> get_tree_root() const;
 
@@ -458,6 +460,14 @@ private:
   std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_unlock_block_id(uint64_t block_id);
 
   void del_locked_outs_at_block_id(uint64_t block_id);
+
+  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const;
+
+  // Returns:
+  // - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
+  // - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
+  // - the outputs are grouped by unlock block idx
+  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
 
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);

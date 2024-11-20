@@ -40,6 +40,7 @@ using namespace epee;
 #include "common/updates.h"
 #include "common/download.h"
 #include "common/util.h"
+#include "common/merge_sorted_vectors.h"
 #include "common/perf_timer.h"
 #include "int-util.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -47,6 +48,7 @@ using namespace epee;
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
 #include "cryptonote_core/tx_sanity_check.h"
+#include "fcmp_pp/curve_trees.h"
 #include "misc_language.h"
 #include "net/local_ip.h"
 #include "net/parse.h"
@@ -650,6 +652,12 @@ namespace cryptonote
         return true;
     }
 
+    if (req.init_tree_sync && !get_blocks)
+    {
+      res.status = "Failed, must get blocks when requesting init tree sync data";
+      return true;
+    }
+
     res.pool_info_extent = COMMAND_RPC_GET_BLOCKS_FAST::NONE;
 
     if (get_pool)
@@ -792,6 +800,71 @@ namespace cryptonote
         }
       }
       MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
+    }
+
+    // Get the data necessary to start syncing the tree from the provided height
+    // TODO: static function
+    if (req.init_tree_sync)
+    {
+      // 1. Custom timelocked outputs that will unlock at height >= start block height
+      auto custom_outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(res.start_height);
+
+      // 2a. Coinbase output contexts created between blocks [requested block height - 60, requested block height]
+      // 2b. Non coinbase output con texts created between blocks [requested block height - 10, requested block height]
+      auto outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_recent_locked_outputs(res.start_height);
+
+      // 3. Combine all locked outputs into vec
+      std::vector<COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t> locked_outputs;
+      locked_outputs.reserve(custom_outs_by_unlock_block.size() + outs_by_unlock_block.size());
+
+      // 3a. Iterate over all custom outs and check if unlock block is present in other outs. If so, combine.
+      for (auto &o : custom_outs_by_unlock_block)
+      {
+        const uint64_t unlock_block = o.first;
+
+        auto outs_it = outs_by_unlock_block.find(unlock_block);
+        if (outs_it == outs_by_unlock_block.end())
+        {
+          locked_outputs.push_back({ unlock_block, std::move(o.second) });
+          continue;
+        }
+
+        // Merge custom locked with other outs
+        const auto is_less = [](const fcmp_pp::curve_trees::OutputContext &a, const fcmp_pp::curve_trees::OutputContext &b)
+            { return a.output_id < b.output_id; };
+        std::vector<fcmp_pp::curve_trees::OutputContext> sorted_outs;
+        if (!tools::merge_sorted_vectors(o.second, outs_it->second, is_less, sorted_outs))
+        {
+          LOG_ERROR("Failed to merge locked outs");
+          res.status = "Failed";
+          return true;
+        }
+
+        locked_outputs.push_back({ unlock_block, std::move(sorted_outs) });
+      }
+
+      // 3b. Get the remaining locked outs
+      for (auto &o : outs_by_unlock_block)
+      {
+        const uint64_t unlock_block = o.first;
+
+        auto custom_outs_it = custom_outs_by_unlock_block.find(unlock_block);
+        if (custom_outs_it != custom_outs_by_unlock_block.end())
+        {
+          // We've already added it
+          continue;
+        }
+
+        locked_outputs.push_back({ unlock_block, std::move(o.second) });
+      }
+      res.locked_outputs = std::move(locked_outputs);
+
+      // 4. N leaf tuples and right-most edge of the tree at requested block height - 1
+      res.n_leaf_tuples = res.start_height > 0
+        ? m_core.get_blockchain_storage().get_db().get_block_n_leaf_tuples(res.start_height - 1)
+        : 0;
+
+      // TODO: get last hash in each layer and calculate what each hash *should* be by hash trim/grow each parent's children
     }
 
     res.status = CORE_RPC_STATUS_OK;

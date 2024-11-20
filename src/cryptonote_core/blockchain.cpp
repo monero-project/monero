@@ -225,7 +225,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
         if (count < outputs.size())
           output_index = outputs.at(count);
         else
-          output_index = m_db->get_output_key(tx_in_to_key.amount, i);
+          output_index = m_db->get_output_key(tx_in_to_key.amount, i).data;
 
         // call to the passed boost visitor to grab the public key for the output
         if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, output_index.commitment))
@@ -2304,8 +2304,7 @@ uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
 
 crypto::public_key Blockchain::get_output_key(uint64_t amount, uint64_t global_index) const
 {
-  output_data_t data = m_db->get_output_key(amount, global_index);
-  return data.pubkey;
+  return m_db->get_output_key(amount, global_index).data.pubkey;
 }
 
 //------------------------------------------------------------------
@@ -2356,7 +2355,7 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
 //------------------------------------------------------------------
 void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const
 {
-  const auto o_data = m_db->get_output_key(amount, index);
+  const auto o_data = m_db->get_output_key(amount, index).data;
   key = o_data.pubkey;
   mask = o_data.commitment;
   tx_out_index toi = m_db->get_output_tx_and_index(amount, index);

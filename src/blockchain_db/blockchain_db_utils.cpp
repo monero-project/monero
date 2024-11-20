@@ -47,7 +47,6 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
     const bool has_custom_timelock = cryptonote::is_custom_timelocked(miner_tx, unlock_block, block_idx);
 
     uint64_t getting_commitment_ns = 0;
-    uint64_t setting_unlock_block_ns = 0;
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
@@ -88,8 +87,6 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
             timelocked_outputs_inout[output_id] = unlock_block;
         }
 
-        TIME_MEASURE_NS_START(setting_unlock_block);
-
         if (outs_by_unlock_block_inout.find(unlock_block) == outs_by_unlock_block_inout.end())
         {
             auto new_vec = std::vector<fcmp_pp::curve_trees::OutputContext>{std::move(output_context)};
@@ -100,13 +97,10 @@ static uint64_t set_tx_outs_by_unlock_block(const cryptonote::transaction &tx,
             outs_by_unlock_block_inout[unlock_block].emplace_back(std::move(output_context));
         }
 
-        TIME_MEASURE_NS_FINISH(setting_unlock_block);
-
         getting_commitment_ns += getting_commitment;
-        setting_unlock_block_ns += setting_unlock_block;
     }
 
-    LOG_PRINT_L3("getting_commitment_ms: " << getting_commitment_ns / 1000 << " , setting_unlock_block_ms: " << setting_unlock_block_ns / 1000);
+    LOG_PRINT_L3("getting_commitment_ms: " << getting_commitment_ns / 1000);
 
     return tx.vout.size();
 }
@@ -120,34 +114,31 @@ OutsByUnlockBlockMeta get_outs_by_unlock_block(
     const uint64_t first_output_id,
     const uint64_t block_idx)
 {
-    fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block_out;
-
-    std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/> timelocked_outputs_out;
-
-    uint64_t output_id = first_output_id;
+    OutsByUnlockBlockMeta outs_by_unlock_meta_out;
+    outs_by_unlock_meta_out.next_output_id = first_output_id;
 
     // Get miner tx's leaf tuples
-    output_id += set_tx_outs_by_unlock_block(
+    outs_by_unlock_meta_out.next_output_id += set_tx_outs_by_unlock_block(
         miner_tx,
-        output_id,
+        outs_by_unlock_meta_out.next_output_id,
         block_idx,
         true/*miner_tx*/,
-        outs_by_unlock_block_out,
-        timelocked_outputs_out);
+        outs_by_unlock_meta_out.outs_by_unlock_block,
+        outs_by_unlock_meta_out.timelocked_outputs);
 
     // Get all other txs' leaf tuples
     for (const auto &tx : txs)
     {
-        output_id += set_tx_outs_by_unlock_block(
+        outs_by_unlock_meta_out.next_output_id += set_tx_outs_by_unlock_block(
             tx.get(),
-            output_id,
+            outs_by_unlock_meta_out.next_output_id,
             block_idx,
             false/*miner_tx*/,
-            outs_by_unlock_block_out,
-            timelocked_outputs_out);
+            outs_by_unlock_meta_out.outs_by_unlock_block,
+            outs_by_unlock_meta_out.timelocked_outputs);
     }
 
-    return { outs_by_unlock_block_out, output_id, timelocked_outputs_out };
+    return outs_by_unlock_meta_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace cryptonote
