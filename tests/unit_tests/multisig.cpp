@@ -80,7 +80,7 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
     wallet.generate("", "", spendkey, true, false);
     ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(cryptonote::TESTNET));
     wallet.decrypt_keys("");
-    ASSERT_TRUE(test_addresses[idx].spendkey == epee::string_tools::pod_to_hex(wallet.get_account().get_keys().m_spend_secret_key));
+    ASSERT_TRUE(test_addresses[idx].spendkey == epee::string_tools::pod_to_hex(unwrap(unwrap(wallet.get_account().get_keys().m_spend_secret_key))));
     wallet.encrypt_keys("");
   }
   catch (const std::exception &e)

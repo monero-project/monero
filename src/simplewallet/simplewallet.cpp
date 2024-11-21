@@ -7872,9 +7872,9 @@ bool simple_wallet::submit_transfer(const std::vector<std::string> &args_)
 std::string get_tx_key_stream(crypto::secret_key tx_key, std::vector<crypto::secret_key> additional_tx_keys)
 {
   ostringstream oss;
-  oss << epee::string_tools::pod_to_hex(tx_key);
+  oss << epee::string_tools::pod_to_hex(unwrap(unwrap(tx_key)));
   for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-    oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+    oss << epee::string_tools::pod_to_hex(unwrap(unwrap(additional_tx_keys[i])));
   return oss.str();
 }
 

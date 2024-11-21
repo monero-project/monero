@@ -4721,7 +4721,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
     original_address = get_account_address_as_str(m_nettype, false, m_original_address);
     value.SetString(original_address.c_str(), original_address.length());
     json.AddMember("original_address", value, json.GetAllocator());
-    original_view_secret_key = epee::string_tools::pod_to_hex(m_original_view_secret_key);
+    original_view_secret_key = epee::string_tools::pod_to_hex(unwrap(unwrap(m_original_view_secret_key)));
     value.SetString(original_view_secret_key.c_str(), original_view_secret_key.length());
     json.AddMember("original_view_secret_key", value, json.GetAllocator());
   }

@@ -133,17 +133,13 @@ namespace epee
     return {src.data(), src.size()};
   }
 
-  template<typename T>
-  constexpr bool has_padding() noexcept
-  {
-    return !std::is_standard_layout<T>() || alignof(T) != 1;
-  }
-
   //! \return Cast data from `src` as `span<const std::uint8_t>`.
   template<typename T>
   span<const std::uint8_t> to_byte_span(const span<const T> src) noexcept
   {
-    static_assert(!has_padding<T>(), "source type may have padding");
+    static_assert(!std::is_empty<T>(), "empty value types will not work -> sizeof == 1");
+    static_assert(std::is_standard_layout_v<T>, "type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<T>, "type must be trivially copyable with no padding");
     return {reinterpret_cast<const std::uint8_t*>(src.data()), src.size_bytes()}; 
   }
 
@@ -153,7 +149,8 @@ namespace epee
   {
     using value_type = typename T::value_type;
     static_assert(!std::is_empty<value_type>(), "empty value types will not work -> sizeof == 1");
-    static_assert(!has_padding<value_type>(), "source value type may have padding");
+    static_assert(std::is_standard_layout_v<value_type>, "value type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<value_type>, "value type must be trivially copyable with no padding");
     return {reinterpret_cast<std::uint8_t*>(src.data()), src.size() * sizeof(value_type)};
   }
 
@@ -162,7 +159,8 @@ namespace epee
   span<const std::uint8_t> as_byte_span(const T& src) noexcept
   {
     static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
-    static_assert(!has_padding<T>(), "source type may have padding");
+    static_assert(std::is_standard_layout_v<T>, "type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<T>, "type must be trivially copyable with no padding");
     return {reinterpret_cast<const std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }
 
@@ -171,7 +169,8 @@ namespace epee
   span<std::uint8_t> as_mut_byte_span(T& src) noexcept
   {
     static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
-    static_assert(!has_padding<T>(), "source type may have padding");
+    static_assert(std::is_standard_layout_v<T>, "type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<T>, "type must be trivially copyable with no padding");
     return {reinterpret_cast<std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }
 
