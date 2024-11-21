@@ -895,7 +895,7 @@ std::string WalletImpl::integratedAddress(const std::string &payment_id) const
 
 std::string WalletImpl::secretViewKey() const
 {
-    return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_view_secret_key);
+    return epee::string_tools::pod_to_hex(unwrap(unwrap(m_wallet->get_account().get_keys().m_view_secret_key)));
 }
 
 std::string WalletImpl::publicViewKey() const
@@ -905,7 +905,7 @@ std::string WalletImpl::publicViewKey() const
 
 std::string WalletImpl::secretSpendKey() const
 {
-    return epee::string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_spend_secret_key);
+    return epee::string_tools::pod_to_hex(unwrap(unwrap(m_wallet->get_account().get_keys().m_spend_secret_key)));
 }
 
 std::string WalletImpl::publicSpendKey() const
@@ -1197,24 +1197,24 @@ bool WalletImpl::submitTransactionFromString(const string &data) {
 
 std::string WalletImpl::exportKeyImagesAsString(bool all)
 {
-   if (m_wallet->watch_only())
-   {
-      setStatusError(tr("Wallet is view only"));
-      return "";
-   }
-   if (checkBackgroundSync("cannot export key images"))
-      return "";
+  if (m_wallet->watch_only())
+  {
+    setStatusError(tr("Wallet is view only"));
+    return "";
+  }
+  if (checkBackgroundSync("cannot export key images"))
+    return "";
 
-   try
-   {
+  try
+  {
       return m_wallet->export_key_images_string(all);
-   }
-   catch (const std::exception &e)
-   {
-      LOG_ERROR("Error exporting key images: " << e.what());
-      setStatusError(e.what());
-      return "";
-   }
+  }
+  catch (const std::exception &e)
+  {
+    LOG_ERROR("Error exporting key images: " << e.what());
+    setStatusError(e.what());
+    return "";
+  }
 }
 
 bool WalletImpl::exportKeyImages(const string &filename, bool all) 
@@ -2137,9 +2137,9 @@ std::string WalletImpl::getTxKey(const std::string &txid_str) const
         {
             clearStatus();
             std::ostringstream oss;
-            oss << epee::string_tools::pod_to_hex(tx_key);
+            oss << epee::string_tools::pod_to_hex(unwrap(unwrap(tx_key)));
             for (size_t i = 0; i < additional_tx_keys.size(); ++i)
-                oss << epee::string_tools::pod_to_hex(additional_tx_keys[i]);
+                oss << epee::string_tools::pod_to_hex(unwrap(unwrap(additional_tx_keys[i])));
             return oss.str();
         }
         else

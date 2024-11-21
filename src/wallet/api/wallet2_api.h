@@ -920,7 +920,6 @@ struct Wallet
     * \return                  - true on success
     */
     virtual bool submitTransactionFromString(const std::string &data) = 0;
-    
 
     /*!
      * \brief disposeTransaction - destroys transaction object
