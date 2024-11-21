@@ -164,8 +164,8 @@ struct UnsignedTransaction
     */
     virtual bool sign(const std::string &signedFileName) = 0;
    /*!
-    * @brief sign - Sign txs and return as string
-    * return - true on success
+    * @brief signAsString - Sign txs and return as string
+    * return - signed tx as string on success
     */
     virtual std::string signAsString() = 0;
 };
@@ -907,7 +907,7 @@ struct Wallet
     * \return                - UnsignedTransaction object. caller is responsible to check UnsignedTransaction::status()
     *                          after object returned
     */
-    virtual UnsignedTransaction * loadUnsignedTxFromString(const std::string &unsigned_filename) = 0;
+    virtual UnsignedTransaction * loadUnsignedTxFromString(const std::string &data) = 0;
 
    /*!
     * \brief submitTransaction - submits transaction in signed tx file
@@ -916,10 +916,10 @@ struct Wallet
     virtual bool submitTransaction(const std::string &fileName) = 0;
 
    /*!
-    * \brief submitTransactionFromString - submits transaction in signed tx file
+    * \brief submitTransactionFromString - submits transaction provided as string
     * \return                  - true on success
     */
-    virtual bool submitTransactionFromString(const std::string &fileName) = 0;
+    virtual bool submitTransactionFromString(const std::string &data) = 0;
     
 
     /*!

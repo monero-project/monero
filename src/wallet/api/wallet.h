@@ -166,9 +166,9 @@ public:
                                         std::set<uint32_t> subaddr_indices = {}) override;
     virtual PendingTransaction * createSweepUnmixableTransaction() override;
     bool submitTransaction(const std::string &fileName) override;
-    bool submitTransactionFromString(const std::string &fileName) override;
+    bool submitTransactionFromString(const std::string &data) override;
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) override;
-    virtual UnsignedTransaction * loadUnsignedTxFromString(const std::string &unsigned_filename) override;
+    virtual UnsignedTransaction * loadUnsignedTxFromString(const std::string &data) override;
     std::string exportKeyImagesAsString(bool all = false) override;
     bool exportKeyImages(const std::string &filename, bool all = false) override;
     bool importKeyImagesFromString(const std::string &data) override;
