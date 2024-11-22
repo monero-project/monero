@@ -258,6 +258,17 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       END_KV_SERIALIZE_MAP()
     };
 
+    struct init_tree_sync_data_t
+    {
+      fcmp_pp::curve_trees::PathBytes last_hashes;
+      std::vector<locked_outputs_t> locked_outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(last_hashes)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(locked_outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response_t: public rpc_access_response_base
     {
       std::vector<block_complete_entry> blocks;
@@ -271,7 +282,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<crypto::hash> remaining_added_pool_txids;
       std::vector<crypto::hash> removed_pool_txids;
       uint64_t n_leaf_tuples;
-      std::vector<locked_outputs_t> locked_outputs;
+      init_tree_sync_data_t init_tree_sync_data;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
@@ -294,7 +305,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(n_leaf_tuples, (uint64_t) 0)
         if (n_leaf_tuples > 0)
         {
-          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(locked_outputs)
+          KV_SERIALIZE(init_tree_sync_data)
         }
       END_KV_SERIALIZE_MAP()
     };

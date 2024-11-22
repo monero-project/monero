@@ -3137,7 +3137,7 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   update_pool_state_from_pool_data(res.pool_info_extent == COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL, res.removed_pool_txids, added_pool_txs, process_txs, refreshed);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, fcmp_pp::curve_trees::OutputsByUnlockBlock &locked_outputs, uint64_t &n_leaf_tuples)
+void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, uint64_t &n_leaf_tuples, cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t &init_tree_sync_data)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
@@ -3167,10 +3167,8 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
   blocks = std::move(res.blocks);
   o_indices = std::move(res.output_indices);
   current_height = res.current_height;
-  locked_outputs.clear();
-  for (auto &lo : res.locked_outputs)
-    locked_outputs[lo.unlock_block] = std::move(lo.outputs);
   n_leaf_tuples = res.n_leaf_tuples;
+  init_tree_sync_data = std::move(res.init_tree_sync_data);
   if (res.pool_info_extent != COMMAND_RPC_GET_BLOCKS_FAST::NONE)
     m_pool_info_query_time = res.daemon_time;
 
@@ -3687,9 +3685,9 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     uint64_t current_height;
-    fcmp_pp::curve_trees::OutputsByUnlockBlock locked_outputs;
     uint64_t n_leaf_tuples;
-    pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs, locked_outputs, n_leaf_tuples);
+    cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t init_tree_sync_data;
+    pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs, n_leaf_tuples, init_tree_sync_data);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
@@ -3751,12 +3749,15 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
       // Initialize the tree
       THROW_WALLET_EXCEPTION_IF(blocks_start_height == 0, error::wallet_internal_error, "blocks_start_height should be > 0");
       THROW_WALLET_EXCEPTION_IF(parsed_blocks.empty(), error::wallet_internal_error, "unexpected empty blocks on init sync");
-      const fcmp_pp::curve_trees::BlockMeta blk_meta{
-          .blk_idx       = blocks_start_height - 1,
-          .blk_hash      = parsed_blocks.front().block.prev_id,
-          .n_leaf_tuples = n_leaf_tuples
-        };
-      m_tree_sync.init(blk_meta, locked_outputs);
+
+      const uint64_t start_block_idx = blocks_start_height - 1;
+      const auto &start_block_hash = parsed_blocks.front().block.prev_id;
+
+      fcmp_pp::curve_trees::OutputsByUnlockBlock locked_outputs;
+      for (auto &lo : init_tree_sync_data.locked_outputs)
+        locked_outputs[lo.unlock_block] = std::move(lo.outputs);
+
+      m_tree_sync.init(start_block_idx, start_block_hash, n_leaf_tuples, init_tree_sync_data.last_hashes, locked_outputs);
     }
   }
   catch(...)

@@ -196,7 +196,11 @@ public:
 
 // Public functions not part of TreeSync interface
 public:
-    void init(const BlockMeta &init_block, const OutputsByUnlockBlock &timelocked_outputs);
+    void init(const uint64_t start_block_idx,
+        const crypto::hash &start_block_hash,
+        const uint64_t n_leaf_tuples,
+        const fcmp_pp::curve_trees::PathBytes &last_hashes,
+        const OutputsByUnlockBlock &timelocked_outputs);
 
     // TODO: make this part of the TreeSync interface
     std::array<uint8_t, 32UL> get_tree_root() const;
