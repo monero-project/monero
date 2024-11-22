@@ -377,9 +377,11 @@ public:
   // make private
   virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
 
-  virtual void trim_tree(const uint64_t trim_n_leaf_tuples, const uint64_t trim_block_id);
+  virtual void trim_block();
 
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
+
+  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_hashes(const uint64_t block_idx) const;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -437,6 +439,8 @@ private:
     const fcmp_pp::curve_trees::LayerReduction<C> &layer_reduction,
     const uint64_t layer_idx);
 
+  virtual fcmp_pp::curve_trees::CurveTreesV1::TreeReduction get_tree_reduction(const uint64_t new_n_blocks) const;
+
   virtual uint64_t get_num_leaf_tuples() const;
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
@@ -446,6 +450,9 @@ private:
   fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
   fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim get_last_chunk_children_to_trim(
+    const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
+
+  fcmp_pp::curve_trees::PathBytes get_last_chunk_children(
     const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
   fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(

@@ -208,6 +208,19 @@ struct PreLeafTuple final
     fcmp_pp::EdYDerivatives C_pre_x;
 };
 
+// TODO: move bytes type into specific types, same as crypto::public_key ... e.g. selene::bytes or selene::compressed_point or selene::point_bytes
+// TODO: this should have a better type name. Something like TreeEdge
+struct PathBytes final
+{
+    std::vector<OutputContext> leaves;
+    std::vector<std::vector<std::array<uint8_t, 32UL>>> layer_chunks;
+
+    BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(leaves)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(layer_chunks)
+    END_KV_SERIALIZE_MAP()
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 // Hash a chunk of new children
 template<typename C>
@@ -276,7 +289,7 @@ public:
     // - c2_layer_reductions[0] is first layer after leaves, then c1_layer_reductions[0], c2_layer_reductions[1], etc
     struct TreeReduction final
     {
-        uint64_t                        new_total_leaf_tuples;
+        uint64_t                        new_total_leaf_tuples{0};
         std::vector<LayerReduction<C1>> c1_layer_reductions;
         std::vector<LayerReduction<C2>> c2_layer_reductions;
     };

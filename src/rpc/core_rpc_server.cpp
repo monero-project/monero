@@ -827,6 +827,8 @@ namespace cryptonote
     // TODO: static function
     if (req.init_tree_sync)
     {
+      COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t init_tree_sync_data;
+
       // 1. Custom timelocked outputs that will unlock at height >= start block height
       auto custom_outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(res.start_height);
 
@@ -835,7 +837,7 @@ namespace cryptonote
       auto outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_recent_locked_outputs(res.start_height);
 
       // 3. Combine all locked outputs into vec
-      std::vector<COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t> locked_outputs;
+      auto &locked_outputs = init_tree_sync_data.locked_outputs;
       locked_outputs.reserve(custom_outs_by_unlock_block.size() + outs_by_unlock_block.size());
 
       // 3a. Iterate over all custom outs and check if unlock block is present in other outs. If so, combine.
@@ -878,14 +880,16 @@ namespace cryptonote
 
         locked_outputs.push_back({ unlock_block, std::move(o.second) });
       }
-      res.locked_outputs = std::move(locked_outputs);
 
       // 4. N leaf tuples and right-most edge of the tree at requested block height - 1
-      res.n_leaf_tuples = res.start_height > 0
-        ? m_core.get_blockchain_storage().get_db().get_block_n_leaf_tuples(res.start_height - 1)
-        : 0;
+      auto last_hashes = res.start_height > 0
+        ? m_core.get_blockchain_storage().get_db().get_last_hashes(res.start_height - 1)
+        : std::make_pair((uint64_t)0, fcmp_pp::curve_trees::PathBytes{});
 
-      // TODO: get last hash in each layer and calculate what each hash *should* be by hash trim/grow each parent's children
+      res.n_leaf_tuples = last_hashes.first;
+
+      init_tree_sync_data.last_hashes = std::move(last_hashes.second);
+      res.init_tree_sync_data = std::move(init_tree_sync_data);
     }
 
     res.status = CORE_RPC_STATUS_OK;
