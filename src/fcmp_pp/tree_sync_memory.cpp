@@ -1176,6 +1176,7 @@ bool TreeSyncMemory<C1, C2>::pop_block()
             continue;
 
         // Get the output's cached path indexes in the tree
+        // TODO: Why did I get this old_path_idxs here?
         const LeafIdx leaf_idx = registered_o.second.leaf_idx;
         const auto old_path_idxs = TreeSync<C1, C2>::m_curve_trees->get_path_indexes(old_n_leaf_tuples, leaf_idx);
 

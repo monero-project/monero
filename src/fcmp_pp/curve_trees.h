@@ -221,6 +221,26 @@ struct PathBytes final
     END_KV_SERIALIZE_MAP()
 };
 
+
+// The indexes in the tree of a leaf's path elems containing whole chunks at each layer
+// - leaf_range refers to a complete chunk of leaves
+// - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The index of the hash of the chunk
+//   of leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
+// - layers alternate between C1 and C2
+// - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The indeox of the hash of
+//   the chunk of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems
+//   that has is in.
+// - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
+struct PathIndexes final
+{
+    using StartIdx = uint64_t;
+    using EndIdxExclusive = uint64_t;
+    using Range = std::pair<StartIdx, EndIdxExclusive>;
+
+    Range leaf_range;
+    std::vector<Range> layers;
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 // Hash a chunk of new children
 template<typename C>
@@ -335,26 +355,6 @@ public:
         }
 
         bool empty() { return leaves.empty() && c1_layers.empty() && c2_layers.empty(); }
-    };
-
-    // The indexes in the tree of a leaf's path elems containing whole chunks at each layer
-    // - leaf_range refers to a complete chunk of leaves
-    // - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The index of the hash of the chunk
-    //   of leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
-    // - layers alternate between C1 and C2
-    // - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The indeox of the hash of
-    //   the chunk of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems
-    //   that has is in.
-    // - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
-    struct PathIndexes final
-    {
-        using StartIdx = uint64_t;
-        using EndIdxExclusive = uint64_t;
-        using Range = std::pair<StartIdx, EndIdxExclusive>;
-
-        Range leaf_range;
-        std::vector<Range> c1_layers;
-        std::vector<Range> c2_layers;
     };
 
 //member functions

@@ -1138,10 +1138,9 @@ std::size_t CurveTrees<C1, C2>::n_layers(const uint64_t n_leaf_tuples) const
 template std::size_t CurveTrees<Helios, Selene>::n_layers(const uint64_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples,
-    const uint64_t leaf_tuple_idx) const
+PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples, const uint64_t leaf_tuple_idx) const
 {
-    CurveTrees<C1, C2>::PathIndexes path_indexes_out;
+    PathIndexes path_indexes_out;
 
     if (n_leaf_tuples <= leaf_tuple_idx)
         return path_indexes_out;
@@ -1173,10 +1172,8 @@ typename CurveTrees<C1, C2>::PathIndexes CurveTrees<C1, C2>::get_path_indexes(co
         std::pair<uint64_t, uint64_t> range = { start_range, end_range };
         if (leaf_layer)
             path_indexes_out.leaf_range = std::move(range);
-        else if (parent_is_c2)
-            path_indexes_out.c1_layers.emplace_back(std::move(range));
         else
-            path_indexes_out.c2_layers.emplace_back(std::move(range));
+            path_indexes_out.layers.emplace_back(std::move(range));
 
         child_idx = parent_idx;
         n_children = n_parents;
@@ -1190,8 +1187,7 @@ typename CurveTrees<C1, C2>::PathIndexes CurveTrees<C1, C2>::get_path_indexes(co
 }
 
 // Explicit instantiation
-template CurveTrees<Helios, Selene>::PathIndexes CurveTrees<Helios, Selene>::get_path_indexes(
-    const uint64_t n_leaf_tuples,
+template PathIndexes CurveTrees<Helios, Selene>::get_path_indexes(const uint64_t n_leaf_tuples,
     const uint64_t leaf_tuple_idx) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<>

@@ -381,6 +381,8 @@ public:
 
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
 
+  fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const;
+
   virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_hashes(const uint64_t block_idx) const;
 
 private:
