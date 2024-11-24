@@ -102,9 +102,9 @@ public:
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
 
-static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
+static bool is_banned(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
-  std::map<std::string, time_t> hosts = server.get_blocked_hosts();
+  std::map<std::string, time_t> hosts = server.get_banned_hosts();
   for (auto rec: hosts)
   {
     if (rec.first == address.host_str())
@@ -125,80 +125,80 @@ TEST(ban, add)
   cprotocol.set_p2p_endpoint(&server);
 
   // starts empty
-  ASSERT_TRUE(server.get_blocked_hosts().empty());
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.get_banned_hosts().empty());
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // add an IP
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // add the same, should not change
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
-  // remove an unblocked IP, should not change
-  ASSERT_FALSE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,5)));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  // remove an unbanned IP, should not change
+  ASSERT_FALSE(server.unban_host(MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // remove the IP, ends up empty
-  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 0);
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.unban_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 0);
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // remove the IP from an empty list, still empty
-  ASSERT_FALSE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 0);
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_FALSE(server.unban_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 0);
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
-  // add two for known amounts of time, they're both blocked
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 1));
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,5), 3));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 2);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
-  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS(1,2,3,5)));
+  // add two for known amounts of time, they're both banned
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4), 1));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,5), 3));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 2);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.unban_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.unban_host(MAKE_IPV4_ADDRESS(1,2,3,5)));
 
   // these tests would need to call is_remote_ip_allowed, which is private
 #if 0
-  // after two seconds, the first IP is unblocked, but not the second yet
+  // after two seconds, the first IP is unbanned, but not the second yet
   sleep(2);
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 
-  // after two more seconds, the second IP is also unblocked
+  // after two more seconds, the second IP is also unbanned
   sleep(2);
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 0);
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 0);
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
 #endif
 
   // add an IP again, then re-ban for longer, then shorter
   time_t t;
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 2));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4), 2));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 1);
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 9));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4), 9));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 8);
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 5));
-  ASSERT_TRUE(server.get_blocked_hosts().size() == 1);
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4), 5));
+  ASSERT_TRUE(server.get_banned_hosts().size() == 1);
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 4);
 }
 
@@ -210,12 +210,12 @@ TEST(ban, limit)
   cprotocol.set_p2p_endpoint(&server);
 
   // starts empty
-  ASSERT_TRUE(server.get_blocked_hosts().empty());
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), std::numeric_limits<time_t>::max() - 1));
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4), 1));
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.get_banned_hosts().empty());
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4), std::numeric_limits<time_t>::max() - 1));
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS(1,2,3,4), 1));
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
 }
 
 TEST(ban, subnet)
@@ -226,28 +226,28 @@ TEST(ban, subnet)
   Server server(cprotocol);
   cprotocol.set_p2p_endpoint(&server);
 
-  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(1,2,3,4,24), 10));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
-  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,3,4), &seconds));
+  ASSERT_TRUE(server.ban_subnet(MAKE_IPV4_SUBNET(1,2,3,4,24), 10));
+  ASSERT_TRUE(server.get_banned_subnets().size() == 1);
+  ASSERT_TRUE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,3,4), &seconds));
   ASSERT_TRUE(seconds >= 9);
-  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,3,255), &seconds));
-  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,3,0), &seconds));
-  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,4,0), &seconds));
-  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,2,0), &seconds));
-  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(1,2,3,8,24)));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 0);
-  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,3,255), &seconds));
-  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,3,0), &seconds));
-  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(1,2,3,4,8), 10));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
-  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,255,3,255), &seconds));
-  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,0,3,255), &seconds));
-  ASSERT_FALSE(server.unblock_subnet(MAKE_IPV4_SUBNET(1,2,3,8,24)));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
-  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(1,2,3,4,8), 10));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
-  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(1,255,0,0,8)));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 0);
+  ASSERT_TRUE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,3,255), &seconds));
+  ASSERT_TRUE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,3,0), &seconds));
+  ASSERT_FALSE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,4,0), &seconds));
+  ASSERT_FALSE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,2,0), &seconds));
+  ASSERT_TRUE(server.unban_subnet(MAKE_IPV4_SUBNET(1,2,3,8,24)));
+  ASSERT_TRUE(server.get_banned_subnets().size() == 0);
+  ASSERT_FALSE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,3,255), &seconds));
+  ASSERT_FALSE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,2,3,0), &seconds));
+  ASSERT_TRUE(server.ban_subnet(MAKE_IPV4_SUBNET(1,2,3,4,8), 10));
+  ASSERT_TRUE(server.get_banned_subnets().size() == 1);
+  ASSERT_TRUE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,255,3,255), &seconds));
+  ASSERT_TRUE(server.is_host_banned(MAKE_IPV4_ADDRESS(1,0,3,255), &seconds));
+  ASSERT_FALSE(server.unban_subnet(MAKE_IPV4_SUBNET(1,2,3,8,24)));
+  ASSERT_TRUE(server.get_banned_subnets().size() == 1);
+  ASSERT_TRUE(server.ban_subnet(MAKE_IPV4_SUBNET(1,2,3,4,8), 10));
+  ASSERT_TRUE(server.get_banned_subnets().size() == 1);
+  ASSERT_TRUE(server.unban_subnet(MAKE_IPV4_SUBNET(1,255,0,0,8)));
+  ASSERT_TRUE(server.get_banned_subnets().size() == 0);
 }
 
 TEST(ban, ignores_port)
@@ -257,13 +257,13 @@ TEST(ban, ignores_port)
   Server server(cprotocol);
   cprotocol.set_p2p_endpoint(&server);
 
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
-  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5), std::numeric_limits<time_t>::max() - 1));
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
-  ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,6)));
-  ASSERT_TRUE(server.unblock_host(MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
-  ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,6)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
+  ASSERT_TRUE(server.ban_host(MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5), std::numeric_limits<time_t>::max() - 1));
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
+  ASSERT_TRUE(is_banned(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,6)));
+  ASSERT_TRUE(server.unban_host(MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,5)));
+  ASSERT_FALSE(is_banned(server,MAKE_IPV4_ADDRESS_PORT(1,2,3,4,6)));
 }
 
 TEST(node_server, bind_same_p2p_port)
@@ -511,7 +511,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     virtual bool add_host_fail(const address_t&, unsigned int = {}) override {
       return {};
     }
-    virtual bool block_host(address_t address, time_t = {}, bool = {}) override {
+    virtual bool ban_host(address_t address, time_t = {}, bool = {}) override {
       return {};
     }
     virtual bool drop_connection(const contexts::basic& context) override {
@@ -541,16 +541,16 @@ TEST(cryptonote_protocol_handler, race_condition)
       }
       return {};
     }
-    virtual bool unblock_host(const address_t&) override {
+    virtual bool unban_host(const address_t&) override {
       return {};
     }
     virtual zone_t send_txs(blobs_t, const zone_t, const uuid_t&, relay_t) override {
       return {};
     }
-    virtual bans::subnets get_blocked_subnets() override {
+    virtual bans::subnets get_banned_subnets() override {
       return {};
     }
-    virtual bans::hosts get_blocked_hosts() override {
+    virtual bans::hosts get_banned_hosts() override {
       return {};
     }
     virtual uint64_t get_public_connections_count() override {

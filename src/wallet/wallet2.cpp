@@ -15505,7 +15505,7 @@ std::vector<cryptonote::public_node> wallet2::get_public_nodes(bool white_only)
 
   req.white = true;
   req.gray = !white_only;
-  req.include_blocked = false;
+  req.include_banned = req.include_blocked = false;
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};

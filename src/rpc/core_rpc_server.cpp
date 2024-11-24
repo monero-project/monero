@@ -197,7 +197,7 @@ namespace cryptonote
 
     request.gray = true;
     request.white = true;
-    request.include_blocked = false;
+    request.include_banned = request.include_blocked = false;
     if (!on_get_public_nodes(request, response) || response.status != CORE_RPC_STATUS_OK)
     {
       return {};
@@ -465,18 +465,18 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::add_host_fail(const connection_context *ctx, unsigned int score)
   {
-    if(!ctx || !ctx->m_remote_address.is_blockable() || disable_rpc_ban)
+    if(!ctx || !ctx->m_remote_address.is_bannable() || disable_rpc_ban)
       return false;
 
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
     uint64_t fails = m_host_fails_score[ctx->m_remote_address.host_str()] += score;
     MDEBUG("Host " << ctx->m_remote_address.host_str() << " fail score=" << fails);
-    if(fails > RPC_IP_FAILS_BEFORE_BLOCK)
+    if(fails > RPC_IP_FAILS_BEFORE_BAN)
     {
       auto it = m_host_fails_score.find(ctx->m_remote_address.host_str());
       CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
-      it->second = RPC_IP_FAILS_BEFORE_BLOCK/2;
-      m_p2p.block_host(ctx->m_remote_address);
+      it->second = RPC_IP_FAILS_BEFORE_BAN/2;
+      m_p2p.ban_host(ctx->m_remote_address);
     }
     return true;
   }
@@ -1548,6 +1548,7 @@ namespace cryptonote
     RPC_TRACKER(get_peer_list);
     std::vector<nodetool::peerlist_entry> white_list;
     std::vector<nodetool::peerlist_entry> gray_list;
+    bool dont_include_banned = (!req.include_blocked && !req.include_banned);
 
     if (req.public_only)
     {
@@ -1560,7 +1561,7 @@ namespace cryptonote
 
     for (auto & entry : white_list)
     {
-      if (!req.include_blocked && m_p2p.is_host_blocked(entry.adr, NULL))
+      if (dont_include_banned && m_p2p.is_host_banned(entry.adr, NULL))
         continue;
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
         res.white_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
@@ -1574,7 +1575,7 @@ namespace cryptonote
 
     for (auto & entry : gray_list)
     {
-      if (!req.include_blocked && m_p2p.is_host_blocked(entry.adr, NULL))
+      if (dont_include_banned && m_p2p.is_host_banned(entry.adr, NULL))
         continue;
       if (entry.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
         res.gray_list.emplace_back(entry.id, entry.adr.as<epee::net_utils::ipv4_network_address>().ip(),
@@ -1596,7 +1597,7 @@ namespace cryptonote
 
     COMMAND_RPC_GET_PEER_LIST::request peer_list_req;
     COMMAND_RPC_GET_PEER_LIST::response peer_list_res;
-    peer_list_req.include_blocked = req.include_blocked;
+    peer_list_req.include_banned = req.include_blocked || req.include_banned;
     const bool success = on_get_peer_list(peer_list_req, peer_list_res, ctx);
     res.status = peer_list_res.status;
     if (!success)
@@ -2779,8 +2780,8 @@ namespace cryptonote
     RPC_TRACKER(get_bans);
 
     auto now = time(nullptr);
-    std::map<std::string, time_t> blocked_hosts = m_p2p.get_blocked_hosts();
-    for (std::map<std::string, time_t>::const_iterator i = blocked_hosts.begin(); i != blocked_hosts.end(); ++i)
+    std::map<std::string, time_t> banned_hosts = m_p2p.get_banned_hosts();
+    for (std::map<std::string, time_t>::const_iterator i = banned_hosts.begin(); i != banned_hosts.end(); ++i)
     {
       if (i->second > now) {
         COMMAND_RPC_GETBANS::ban b;
@@ -2793,8 +2794,8 @@ namespace cryptonote
         res.bans.push_back(b);
       }
     }
-    std::map<epee::net_utils::ipv4_network_subnet, time_t> blocked_subnets = m_p2p.get_blocked_subnets();
-    for (std::map<epee::net_utils::ipv4_network_subnet, time_t>::const_iterator i = blocked_subnets.begin(); i != blocked_subnets.end(); ++i)
+    std::map<epee::net_utils::ipv4_network_subnet, time_t> banned_subnets = m_p2p.get_banned_subnets();
+    for (std::map<epee::net_utils::ipv4_network_subnet, time_t>::const_iterator i = banned_subnets.begin(); i != banned_subnets.end(); ++i)
     {
       if (i->second > now) {
         COMMAND_RPC_GETBANS::ban b;
@@ -2823,7 +2824,7 @@ namespace cryptonote
     epee::net_utils::network_address na = std::move(*na_parsed);
 
     time_t seconds;
-    if (m_p2p.is_host_blocked(na, &seconds))
+    if (m_p2p.is_host_banned(na, &seconds))
     {
       res.banned = true;
       res.seconds = seconds;
@@ -2853,9 +2854,9 @@ namespace cryptonote
         if (ns_parsed)
         {
           if (i->ban)
-            m_p2p.block_subnet(*ns_parsed, i->seconds);
+            m_p2p.ban_subnet(*ns_parsed, i->seconds);
           else
-            m_p2p.unblock_subnet(*ns_parsed);
+            m_p2p.unban_subnet(*ns_parsed);
           continue;
         }
       }
@@ -2877,9 +2878,9 @@ namespace cryptonote
         na = epee::net_utils::ipv4_network_address{i->ip, 0};
       }
       if (i->ban)
-        m_p2p.block_host(na, i->seconds);
+        m_p2p.ban_host(na, i->seconds);
       else
-        m_p2p.unblock_host(na);
+        m_p2p.unban_host(na);
     }
 
     res.status = CORE_RPC_STATUS_OK;

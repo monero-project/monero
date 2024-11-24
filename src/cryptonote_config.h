@@ -149,14 +149,14 @@
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     8192       // kB/s
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
-#define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
-#define P2P_IP_FAILS_BEFORE_BLOCK                       10
+#define P2P_IP_BANTIME                                (60*60*24)  //24 hour
+#define P2P_IP_FAILS_BEFORE_BAN                       10
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
 #define P2P_SUPPORT_FLAG_FLUFFY_BLOCKS                  0x01
 #define P2P_SUPPORT_FLAGS                               P2P_SUPPORT_FLAG_FLUFFY_BLOCKS
 
-#define RPC_IP_FAILS_BEFORE_BLOCK                       3
+#define RPC_IP_FAILS_BEFORE_BAN                       3
 
 #define CRYPTONOTE_NAME                         "bitmonero"
 #define CRYPTONOTE_BLOCKCHAINDATA_FILENAME      "data.mdb"
@@ -205,7 +205,7 @@
 
 #define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
-#define DNS_BLOCKLIST_LIFETIME (86400 * 8)
+#define DNS_BANLIST_LIFETIME (86400 * 8)
 
 //The limit is enough for the mandatory transaction content with 16 outputs (547 bytes),
 //a custom tag (1 byte) and up to 32 bytes of custom data for each recipient.

@@ -660,7 +660,7 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
     std::cout << "Invalid syntax: Expects one or two parameters. For more details, use the help command." << std::endl;
     return true;
   }
-  time_t seconds = P2P_IP_BLOCKTIME;
+  time_t seconds = P2P_IP_BANTIME;
   if (args.size() > 1)
   {
     try

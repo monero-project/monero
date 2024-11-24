@@ -116,6 +116,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_ban_list);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
     command_line::add_arg(desc, arg_no_sync);
+    command_line::add_arg(desc, arg_enable_dns_banlist);
     command_line::add_arg(desc, arg_enable_dns_blocklist);
     command_line::add_arg(desc, arg_no_igd);
     command_line::add_arg(desc, arg_igd);
@@ -174,19 +175,19 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_remote_host_allowed(const epee::net_utils::network_address &address, time_t *t)
   {
-    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    CRITICAL_REGION_LOCAL(m_banned_hosts_lock);
 
     const time_t now = time(nullptr);
 
     // look in the hosts list
-    auto it = m_blocked_hosts.find(address.host_str());
-    if (it != m_blocked_hosts.end())
+    auto it = m_banned_hosts.find(address.host_str());
+    if (it != m_banned_hosts.end())
     {
       if (now >= it->second)
       {
-        m_blocked_hosts.erase(it);
-        MCLOG_CYAN(el::Level::Info, "global", "Host " << address.host_str() << " unblocked.");
-        it = m_blocked_hosts.end();
+        m_banned_hosts.erase(it);
+        MCLOG_CYAN(el::Level::Info, "global", "Host " << address.host_str() << " unbanned.");
+        it = m_banned_hosts.end();
       }
       else
       {
@@ -201,12 +202,12 @@ namespace nodetool
     {
       auto ipv4_address = address.template as<epee::net_utils::ipv4_network_address>();
       std::map<epee::net_utils::ipv4_network_subnet, time_t>::iterator it;
-      for (it = m_blocked_subnets.begin(); it != m_blocked_subnets.end(); )
+      for (it = m_banned_subnets.begin(); it != m_banned_subnets.end(); )
       {
         if (now >= it->second)
         {
-          it = m_blocked_subnets.erase(it);
-          MCLOG_CYAN(el::Level::Info, "global", "Subnet " << it->first.host_str() << " unblocked.");
+          it = m_banned_subnets.erase(it);
+          MCLOG_CYAN(el::Level::Info, "global", "Subnet " << it->first.host_str() << " unbanned.");
           continue;
         }
         if (it->first.matches(ipv4_address))
@@ -224,41 +225,41 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_host(epee::net_utils::network_address addr, time_t seconds, bool add_only)
+  bool node_server<t_payload_net_handler>::ban_host(epee::net_utils::network_address addr, time_t seconds, bool add_only)
   {
-    if(!addr.is_blockable())
+    if(!addr.is_bannable())
       return false;
 
     const time_t now = time(nullptr);
     bool added = false;
 
-    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    CRITICAL_REGION_LOCAL(m_banned_hosts_lock);
     time_t limit;
     if (now > std::numeric_limits<time_t>::max() - seconds)
       limit = std::numeric_limits<time_t>::max();
     else
       limit = now + seconds;
     const std::string host_str = addr.host_str();
-    auto it = m_blocked_hosts.find(host_str);
-    if (it == m_blocked_hosts.end())
+    auto it = m_banned_hosts.find(host_str);
+    if (it == m_banned_hosts.end())
     {
-      m_blocked_hosts[host_str] = limit;
+      m_banned_hosts[host_str] = limit;
 
-      // if the host was already blocked due to being in a blocked subnet, let it be silent
-      bool matches_blocked_subnet = false;
+      // if the host was already banned due to being in a banned subnet, let it be silent
+      bool matches_banned_subnet = false;
       if (addr.get_type_id() == epee::net_utils::address_type::ipv4)
       {
         auto ipv4_address = addr.template as<epee::net_utils::ipv4_network_address>();
-        for (auto jt = m_blocked_subnets.begin(); jt != m_blocked_subnets.end(); ++jt)
+        for (auto jt = m_banned_subnets.begin(); jt != m_banned_subnets.end(); ++jt)
         {
           if (jt->first.matches(ipv4_address))
           {
-            matches_blocked_subnet = true;
+            matches_banned_subnet = true;
             break;
           }
         }
       }
-      if (!matches_blocked_subnet)
+      if (!matches_banned_subnet)
         added = true;
     }
     else if (it->second < limit || !add_only)
@@ -300,37 +301,37 @@ namespace nodetool
     }
 
     if (added)
-      MCLOG_CYAN(el::Level::Info, "global", "Host " << host_str << " blocked.");
+      MCLOG_CYAN(el::Level::Info, "global", "Host " << host_str << " banned.");
     else
-      MINFO("Host " << host_str << " block time updated.");
+      MINFO("Host " << host_str << " ban time updated.");
     return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::unblock_host(const epee::net_utils::network_address &address)
+  bool node_server<t_payload_net_handler>::unban_host(const epee::net_utils::network_address &address)
   {
-    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    auto i = m_blocked_hosts.find(address.host_str());
-    if (i == m_blocked_hosts.end())
+    CRITICAL_REGION_LOCAL(m_banned_hosts_lock);
+    auto i = m_banned_hosts.find(address.host_str());
+    if (i == m_banned_hosts.end())
       return false;
-    m_blocked_hosts.erase(i);
-    MCLOG_CYAN(el::Level::Info, "global", "Host " << address.host_str() << " unblocked.");
+    m_banned_hosts.erase(i);
+    MCLOG_CYAN(el::Level::Info, "global", "Host " << address.host_str() << " unbanned.");
     return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds)
+  bool node_server<t_payload_net_handler>::ban_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds)
   {
     const time_t now = time(nullptr);
 
-    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    CRITICAL_REGION_LOCAL(m_banned_hosts_lock);
     time_t limit;
     if (now > std::numeric_limits<time_t>::max() - seconds)
       limit = std::numeric_limits<time_t>::max();
     else
       limit = now + seconds;
-    const bool added = m_blocked_subnets.find(subnet) == m_blocked_subnets.end();
-    m_blocked_subnets[subnet] = limit;
+    const bool added = m_banned_subnets.find(subnet) == m_banned_subnets.end();
+    m_banned_subnets[subnet] = limit;
 
     // drop any connection to that subnet. This should only have to look into
     // the zone related to the connection, but really make sure everything is
@@ -363,39 +364,39 @@ namespace nodetool
     }
 
     if (added)
-      MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " blocked.");
+      MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " banned.");
     else
-      MINFO("Subnet " << subnet.host_str() << " blocked.");
+      MINFO("Subnet " << subnet.host_str() << " banned.");
     return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet)
+  bool node_server<t_payload_net_handler>::unban_subnet(const epee::net_utils::ipv4_network_subnet &subnet)
   {
-    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    auto i = m_blocked_subnets.find(subnet);
-    if (i == m_blocked_subnets.end())
+    CRITICAL_REGION_LOCAL(m_banned_hosts_lock);
+    auto i = m_banned_subnets.find(subnet);
+    if (i == m_banned_subnets.end())
       return false;
-    m_blocked_subnets.erase(i);
-    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " unblocked.");
+    m_banned_subnets.erase(i);
+    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " unbanned.");
     return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::add_host_fail(const epee::net_utils::network_address &address, unsigned int score)
   {
-    if(!address.is_blockable())
+    if(!address.is_bannable())
       return false;
 
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
     uint64_t fails = m_host_fails_score[address.host_str()] += score;
     MDEBUG("Host " << address.host_str() << " fail score=" << fails);
-    if(fails > P2P_IP_FAILS_BEFORE_BLOCK)
+    if(fails > P2P_IP_FAILS_BEFORE_BAN)
     {
       auto it = m_host_fails_score.find(address.host_str());
       CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
-      it->second = P2P_IP_FAILS_BEFORE_BLOCK/2;
-      block_host(address);
+      it->second = P2P_IP_FAILS_BEFORE_BAN/2;
+      ban_host(address);
     }
     return true;
   }
@@ -530,13 +531,13 @@ namespace nodetool
         auto subnet = net::get_ipv4_subnet_address(line);
         if (subnet)
         {
-          block_subnet(*subnet, std::numeric_limits<time_t>::max());
+          ban_subnet(*subnet, std::numeric_limits<time_t>::max());
           continue;
         }
         const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
         if (parsed_addr)
         {
-          block_host(*parsed_addr, std::numeric_limits<time_t>::max());
+          ban_host(*parsed_addr, std::numeric_limits<time_t>::max());
           continue;
         }
         MERROR("Invalid IP address or IPv4 subnet: " << line);
@@ -549,7 +550,8 @@ namespace nodetool
     if (command_line::has_arg(vm, arg_no_sync))
       m_payload_handler.set_no_sync(true);
 
-    m_enable_dns_blocklist = command_line::get_arg(vm, arg_enable_dns_blocklist);
+    m_enable_dns_banlist = command_line::get_arg(vm, arg_enable_dns_banlist) 
+                           || command_line::get_arg(vm, arg_enable_dns_blocklist);
 
     if ( !set_max_out_peers(public_zone, command_line::get_arg(vm, arg_out_peers) ) )
       return false;
@@ -907,7 +909,7 @@ namespace nodetool
       public_zone.m_proxy_address = *endpoint;
       public_zone.m_can_pingback = false;
       m_enable_dns_seed_nodes &= proxy_dns_leaks_allowed;
-      m_enable_dns_blocklist &= proxy_dns_leaks_allowed;
+      m_enable_dns_banlist &= proxy_dns_leaks_allowed;
     }
 
     if (m_nettype == cryptonote::TESTNET)
@@ -2015,14 +2017,14 @@ namespace nodetool
     m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
-    m_dns_blocklist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_blocklist, this));
+    m_dns_banlist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_banlist, this));
     return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::update_dns_blocklist()
+  bool node_server<t_payload_net_handler>::update_dns_banlist()
   {
-    if (!m_enable_dns_blocklist)
+    if (!m_enable_dns_banlist)
       return true;
     if (m_nettype != cryptonote::MAINNET)
       return true;
@@ -2053,23 +2055,23 @@ namespace nodetool
         auto subnet = net::get_ipv4_subnet_address(ip);
         if (subnet)
         {
-          block_subnet(*subnet, DNS_BLOCKLIST_LIFETIME);
+          ban_subnet(*subnet, DNS_BANLIST_LIFETIME);
           ++good;
           continue;
         }
         const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
         if (parsed_addr)
         {
-          block_host(*parsed_addr, DNS_BLOCKLIST_LIFETIME, true);
+          ban_host(*parsed_addr, DNS_BANLIST_LIFETIME, true);
           ++good;
           continue;
         }
-        MWARNING("Invalid IP address or subnet from DNS blocklist: " << ip << " - " << parsed_addr.error());
+        MWARNING("Invalid IP address or subnet from DNS banlist: " << ip << " - " << parsed_addr.error());
         ++bad;
       }
     }
     if (good > 0)
-      MINFO(good << " addresses added to the blocklist");
+      MINFO(good << " addresses added to the banlist");
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -2188,7 +2190,7 @@ namespace nodetool
 
     LOG_DEBUG_CC(context, "REMOTE PEERLIST: remote peerlist size=" << peerlist_.size());
     LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
-    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    CRITICAL_REGION_LOCAL(m_banned_hosts_lock);
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
       return !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
     });

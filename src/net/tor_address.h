@@ -121,7 +121,7 @@ namespace net
         }
 
         //! \return `!is_unknown()`.
-        bool is_blockable() const noexcept { return !is_unknown(); }
+        bool is_bannable() const noexcept { return !is_unknown(); }
     };
 
     inline bool operator==(const tor_address& lhs, const tor_address& rhs) noexcept
