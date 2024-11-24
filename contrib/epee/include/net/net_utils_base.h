@@ -89,7 +89,7 @@ namespace net_utils
 		bool is_local() const;
 		static constexpr address_type get_type_id() noexcept { return address_type::ipv4; }
 		static constexpr zone get_zone() noexcept { return zone::public_; }
-		static constexpr bool is_blockable() noexcept { return true; }
+		static constexpr bool is_bannable() noexcept { return true; }
 
 		BEGIN_KV_SERIALIZE_MAP()
 			if (is_store)
@@ -145,7 +145,7 @@ namespace net_utils
 		bool is_local() const;
 		static constexpr address_type get_type_id() noexcept { return address_type::invalid; }
 		static constexpr zone get_zone() noexcept { return zone::public_; }
-		static constexpr bool is_blockable() noexcept { return true; }
+		static constexpr bool is_bannable() noexcept { return true; }
 
 		BEGIN_KV_SERIALIZE_MAP()
 			KV_SERIALIZE(m_ip)
@@ -195,7 +195,7 @@ namespace net_utils
 		bool is_local() const;
 		static constexpr address_type get_type_id() noexcept { return address_type::ipv6; }
 		static constexpr zone get_zone() noexcept { return zone::public_; }
-		static constexpr bool is_blockable() noexcept { return true; }
+		static constexpr bool is_bannable() noexcept { return true; }
 
 		static const uint8_t ID = 2;
 		BEGIN_KV_SERIALIZE_MAP()
@@ -235,7 +235,7 @@ namespace net_utils
 			virtual bool is_local() const = 0;
 			virtual address_type get_type_id() const = 0;
 			virtual zone get_zone() const = 0;
-			virtual bool is_blockable() const = 0;
+			virtual bool is_bannable() const = 0;
 			virtual std::uint16_t port() const = 0;
 		};
 
@@ -266,7 +266,7 @@ namespace net_utils
 			virtual bool is_local() const override { return value.is_local(); }
 			virtual address_type get_type_id() const override { return value.get_type_id(); }
 			virtual zone get_zone() const override { return value.get_zone(); }
-			virtual bool is_blockable() const override { return value.is_blockable(); }
+			virtual bool is_bannable() const override { return value.is_bannable(); }
 			virtual std::uint16_t port() const override { return value.port(); }
 		};
 
@@ -313,7 +313,7 @@ namespace net_utils
 		bool is_local() const { return self ? self->is_local() : false; }
 		address_type get_type_id() const { return self ? self->get_type_id() : address_type::invalid; }
 		zone get_zone() const { return self ? self->get_zone() : zone::invalid; }
-		bool is_blockable() const { return self ? self->is_blockable() : false; }
+		bool is_bannable() const { return self ? self->is_bannable() : false; }
 		std::uint16_t port() const { return self ? self->port() : 0; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 

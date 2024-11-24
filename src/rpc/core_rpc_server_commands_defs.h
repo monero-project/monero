@@ -1390,12 +1390,14 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     struct request_t: public rpc_request_base
     {
       bool public_only;
-      bool include_blocked;
+      bool include_blocked; // alias for include_banned
+      bool include_banned;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE_OPT(public_only, true)
         KV_SERIALIZE_OPT(include_blocked, false)
+        KV_SERIALIZE_OPT(include_banned, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1441,12 +1443,14 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     {
       bool gray;
       bool white;
-      bool include_blocked;
+      bool include_banned;
+      bool include_blocked; // alias for banned
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE_OPT(gray, false)
         KV_SERIALIZE_OPT(white, true)
+        KV_SERIALIZE_OPT(include_banned, false)
         KV_SERIALIZE_OPT(include_blocked, false)
       END_KV_SERIALIZE_MAP()
     };

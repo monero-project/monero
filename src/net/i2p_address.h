@@ -119,7 +119,7 @@ namespace net
         }
 
         //! \return `!is_unknown()`.
-        bool is_blockable() const noexcept { return !is_unknown(); }
+        bool is_bannable() const noexcept { return !is_unknown(); }
     };
 
     inline bool operator==(const i2p_address& lhs, const i2p_address& rhs) noexcept
