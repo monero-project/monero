@@ -411,7 +411,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
         rct::xmr_amount amount;
         crypto::secret_key amount_blinding_factor;
         get_output_proposal_special_v1(proposal,
-            keys.k_view,
+            keys.k_view_dev,
             keys.account_spend_pubkey,
             tx_first_key_image,
             enote,
@@ -498,7 +498,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
         rct::xmr_amount amount;
         crypto::secret_key amount_blinding_factor;
         get_output_proposal_special_v1(proposal,
-            keys.k_view,
+            keys.k_view_dev,
             keys.account_spend_pubkey,
             tx_first_key_image,
             enote,
@@ -590,7 +590,7 @@ TEST(carrot_core, main_address_internal_scan_completeness)
         rct::xmr_amount amount;
         crypto::secret_key amount_blinding_factor;
         get_output_proposal_internal_v1(proposal,
-            keys.s_view_balance,
+            keys.s_view_balance_dev,
             tx_first_key_image,
             enote,
             amount,
@@ -665,7 +665,7 @@ TEST(carrot_core, subaddress_internal_scan_completeness)
         rct::xmr_amount amount;
         crypto::secret_key amount_blinding_factor;
         get_output_proposal_internal_v1(proposal,
-            keys.s_view_balance,
+            keys.s_view_balance_dev,
             tx_first_key_image,
             enote,
             amount,

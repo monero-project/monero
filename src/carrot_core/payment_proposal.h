@@ -35,6 +35,7 @@
 #include "carrot_enote_types.h"
 #include "crypto/x25519.h"
 #include "destination.h"
+#include "device.h"
 #include "ringct/rctTypes.h"
 
 //third party headers
@@ -120,7 +121,7 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
 /**
 * brief: get_output_proposal_v1 - convert the carrot proposal to an output proposal (external selfsend)
 * param: proposal -
-* param: k_view -
+* param: k_view_dev -
 * param: primary_address_spend_pubkey -
 * param: tx_first_key_image -
 * outparam: output_enote_out -
@@ -128,7 +129,7 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
 * outparam: amount_blinding_factor_out - used to open commitment C_a
 */
 void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
-    const crypto::secret_key &k_view,
+    const view_incoming_key_device &k_view_dev,
     const crypto::public_key &primary_address_spend_pubkey,
     const crypto::key_image &tx_first_key_image,
     CarrotEnoteV1 &output_enote_out,
@@ -137,7 +138,7 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
 /**
 * brief: get_output_proposal_internal_v1 - convert the carrot proposal to an output proposal (internal)
 * param: proposal -
-* param: s_view_balance -
+* param: s_view_balance_dev -
 * param: primary_address_spend_pubkey -
 * param: tx_first_key_image -
 * outparam: output_enote_out -
@@ -146,7 +147,7 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
 * outparam: amount_blinding_factor_out - used to open commitment C_a
 */
 void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
-    const crypto::secret_key &s_view_balance,
+    const view_balance_secret_device &s_view_balance_dev,
     const crypto::key_image &tx_first_key_image,
     CarrotEnoteV1 &output_enote_out,
     rct::xmr_amount &amount_out,
