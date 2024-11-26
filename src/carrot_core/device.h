@@ -1,4 +1,4 @@
-// Copyright (c) 2022, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -90,7 +90,7 @@ struct device_error: public std::runtime_error
         char buf[384];
         snprintf(buf, sizeof(buf),
             "%s %s device error (%d), at %s(): %s",
-            code, dev_make, dev_model, func_called, msg);
+            dev_make.c_str(), dev_model.c_str(), code, func_called.c_str(), msg.c_str());
         return {buf};
     }
 
@@ -119,7 +119,7 @@ struct view_incoming_key_device
      * return: true on success, false on failure (e.g. unable to decompress point)
      */
     virtual bool view_key_8_scalar_mult_x25519(const crypto::x25519_pubkey &D,
-        crypto::public_key &kv8D) const = 0;
+        crypto::x25519_pubkey &kv8D) const = 0;
 
     /**
      * brief: make_janus_anchor_special - make a janus anchor for "special" enotes
@@ -133,6 +133,8 @@ struct view_incoming_key_device
         const crypto::public_key &onetime_address,
         const crypto::public_key &account_spend_pubkey,
         janus_anchor_t &anchor_special_out) const = 0;
+
+    virtual ~view_incoming_key_device() = default;
 };
 
 struct view_balance_secret_device
@@ -156,6 +158,8 @@ struct view_balance_secret_device
     virtual void make_internal_sender_receiver_secret(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
         crypto::hash &s_sender_receiver_out) const = 0;
+
+    virtual ~view_balance_secret_device() = default;
 };
 
 } //namespace carrot

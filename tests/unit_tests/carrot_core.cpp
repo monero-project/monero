@@ -31,6 +31,7 @@
 #include "carrot_core/account_secrets.h"
 #include "carrot_core/address_utils.h"
 #include "carrot_core/carrot_enote_scan.h"
+#include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/payment_proposal.h"
 #include "crypto/crypto.h"
@@ -52,6 +53,12 @@ struct mock_carrot_keys
     crypto::public_key account_spend_pubkey;
     crypto::public_key account_view_pubkey;
     crypto::public_key main_address_view_pubkey;
+
+    view_incoming_key_ram_borrowed_device k_view_dev;
+    view_balance_secret_ram_borrowed_device s_view_balance_dev;
+
+    mock_carrot_keys(): k_view_dev(k_view), s_view_balance_dev(s_view_balance)
+    {}
 
     static mock_carrot_keys generate()
     {
@@ -183,7 +190,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
     const bool scan_success = try_scan_carrot_enote_external(enote,
         encrypted_payment_id,
         s_sender_receiver_unctx,
-        keys.k_view,
+        keys.k_view_dev,
         keys.account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
@@ -263,7 +270,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
     const bool scan_success = try_scan_carrot_enote_external(enote,
         encrypted_payment_id,
         s_sender_receiver_unctx,
-        keys.k_view,
+        keys.k_view_dev,
         keys.account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
@@ -351,7 +358,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
     const bool scan_success = try_scan_carrot_enote_external(enote,
         encrypted_payment_id,
         s_sender_receiver_unctx,
-        keys.k_view,
+        keys.k_view_dev,
         keys.account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
@@ -429,7 +436,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
         const bool scan_success = try_scan_carrot_enote_external(enote,
             std::nullopt,
             s_sender_receiver_unctx,
-            keys.k_view,
+            keys.k_view_dev,
             keys.account_spend_pubkey,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
@@ -516,7 +523,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
         const bool scan_success = try_scan_carrot_enote_external(enote,
             std::nullopt,
             s_sender_receiver_unctx,
-            keys.k_view,
+            keys.k_view_dev,
             keys.account_spend_pubkey,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
@@ -599,7 +606,7 @@ TEST(carrot_core, main_address_internal_scan_completeness)
         crypto::secret_key recovered_amount_blinding_factor;
         CarrotEnoteType recovered_enote_type;
         const bool scan_success = try_scan_carrot_enote_internal(enote,
-            keys.s_view_balance,
+            keys.s_view_balance_dev,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
             recovered_address_spend_pubkey,
@@ -674,7 +681,7 @@ TEST(carrot_core, subaddress_internal_scan_completeness)
         crypto::secret_key recovered_amount_blinding_factor;
         CarrotEnoteType recovered_enote_type;
         const bool scan_success = try_scan_carrot_enote_internal(enote,
-            keys.s_view_balance,
+            keys.s_view_balance_dev,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
             recovered_address_spend_pubkey,
@@ -745,7 +752,7 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
     crypto::public_key recovered_address_spend_pubkey;
     const bool scan_success = try_scan_carrot_coinbase_enote(enote,
         s_sender_receiver_unctx,
-        keys.k_view,
+        keys.k_view_dev,
         keys.account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,

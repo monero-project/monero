@@ -1,4 +1,4 @@
-// Copyright (c) 2022, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -449,7 +449,7 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool verify_external_carrot_janus_protection(const janus_anchor_t &nominal_anchor,
+bool verify_carrot_external_janus_protection(const janus_anchor_t &nominal_anchor,
     const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
     const crypto::public_key &nominal_address_view_pubkey,
@@ -478,104 +478,6 @@ bool verify_external_carrot_janus_protection(const janus_anchor_t &nominal_ancho
 
     // D_e' ?= D_e
     return nominal_enote_ephemeral_pubkey == enote_ephemeral_pubkey;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool verify_external_carrot_janus_protection_receiver(const janus_anchor_t &nominal_anchor,
-    const input_context_t &input_context,
-    const crypto::public_key &nominal_address_spend_pubkey,
-    const crypto::public_key &account_spend_pubkey,
-    const crypto::secret_key &k_view,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    payment_id_t &nominal_payment_id_inout)
-{
-    const bool is_subaddress = nominal_address_spend_pubkey != account_spend_pubkey;
-
-    // make K^j_v', given K^j_s'
-    crypto::public_key nominal_address_view_pubkey;
-    if (is_subaddress)
-        nominal_address_view_pubkey = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(nominal_address_spend_pubkey),
-            rct::sk2rct(k_view)));
-    else // cryptonote address
-        nominal_address_view_pubkey = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k_view)));
-
-    // if can recompute D_e with pid', then PASS
-    if (verify_external_carrot_janus_protection(nominal_anchor,
-            input_context,
-            nominal_address_spend_pubkey, 
-            nominal_address_view_pubkey,
-            is_subaddress,
-            nominal_payment_id_inout,
-            enote_ephemeral_pubkey))
-        return true;
-
-    // if can recompute D_e with null pid, then PASS
-    nominal_payment_id_inout = null_payment_id;
-    if (verify_external_carrot_janus_protection(nominal_anchor,
-            input_context,
-            nominal_address_spend_pubkey, 
-            nominal_address_view_pubkey,
-            is_subaddress,
-            null_payment_id,
-            enote_ephemeral_pubkey))
-        return true;
-
-    // neither D_e recompute attempt passed, so FAIL
-    return false;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool verify_special_carrot_janus_protection(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const input_context_t &input_context,
-    const crypto::public_key &onetime_address,
-    const crypto::secret_key &k_view,
-    const crypto::public_key &account_spend_pubkey,
-    const janus_anchor_t &nominal_anchor)
-{
-    // anchor_sp' = H_16(D_e, input_context, Ko, k_v, K_s)
-    janus_anchor_t nominal_special_anchor;
-    make_carrot_janus_anchor_special(enote_ephemeral_pubkey,
-        input_context,
-        onetime_address,
-        k_view,
-        account_spend_pubkey,
-        nominal_special_anchor);
-    
-    // anchor_sp' ?= anchor'
-    return nominal_special_anchor == nominal_anchor;
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool verify_carrot_janus_protection(const input_context_t &input_context,
-    const crypto::public_key &onetime_address,
-    const crypto::secret_key &k_view,
-    const crypto::public_key &account_spend_pubkey,
-    const crypto::public_key &nominal_address_spend_pubkey,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    const janus_anchor_t &nominal_anchor,
-    payment_id_t &nominal_payment_id_inout)
-{
-    // try checking for Janus protection, normal external path
-    if (verify_external_carrot_janus_protection_receiver(nominal_anchor,
-            input_context,
-            nominal_address_spend_pubkey,
-            account_spend_pubkey,
-            k_view,
-            enote_ephemeral_pubkey,
-            nominal_payment_id_inout))
-        return true;
-
-    // pid is always null for self-send enotes
-    nominal_payment_id_inout = null_payment_id;
-
-    // try checking for Janus protection, special path
-    if (verify_special_carrot_janus_protection(enote_ephemeral_pubkey,
-            input_context,
-            onetime_address,
-            k_view,
-            account_spend_pubkey,
-            nominal_anchor))
-        return true;
-
-    // neither attempt at checking Janus protection worked
-    return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

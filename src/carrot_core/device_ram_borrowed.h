@@ -26,16 +26,16 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Core hash functions for Seraphis (note: this implementation satisfies the Jamtis specification).
+//! @file Carrot device implementations for in-memory keys & secrets
 
 #pragma once
 
 //local headers
+#include "device.h"
 
 //third party headers
 
 //standard headers
-#include <cstddef>
 
 //forward declarations
 
@@ -43,17 +43,44 @@
 namespace carrot
 {
 
-/// H_3(x): 3-byte output
-void derive_bytes_3(const void *data, const std::size_t data_length, const void *key, void *hash_out);
-/// H_8(x): 8-byte output
-void derive_bytes_8(const void *data, const std::size_t data_length, const void* key, void *hash_out);
-/// H_16(x): 16-byte output
-void derive_bytes_16(const void *data, const std::size_t data_length, const void *key, void *hash_out);
-/// H_32(x): 32-byte output
-void derive_bytes_32(const void *data, const std::size_t data_length, const void *key, void *hash_out);
-/// H_64(x): 64-byte output
-void derive_bytes_64(const void *data, const std::size_t data_length, const void *key, void *hash_out);
-/// H_n(x): unclamped Curve25519/Ed25519 group scalar output (32 bytes)
-void derive_scalar(const void *data, const std::size_t data_length, const void *key, void *hash_out);
+class view_incoming_key_ram_borrowed_device: public view_incoming_key_device
+{
+public:
+    view_incoming_key_ram_borrowed_device(const crypto::secret_key &k_view_incoming):
+        m_k_view_incoming(k_view_incoming) {}
+
+    bool view_key_scalar_mult_ed25519(const crypto::public_key &P,
+        crypto::public_key &kvP) const override;
+
+    bool view_key_8_scalar_mult_x25519(const crypto::x25519_pubkey &D,
+        crypto::x25519_pubkey &kv8D) const override;
+
+    void make_janus_anchor_special(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+        const input_context_t &input_context,
+        const crypto::public_key &onetime_address,
+        const crypto::public_key &account_spend_pubkey,
+        janus_anchor_t &anchor_special_out) const override;
+
+private:
+    const crypto::secret_key &m_k_view_incoming;
+};
+
+class view_balance_secret_ram_borrowed_device: public view_balance_secret_device
+{
+public:
+    view_balance_secret_ram_borrowed_device(const crypto::secret_key &s_view_balance):
+        m_s_view_balance(s_view_balance) {}
+
+    void make_internal_view_tag(const input_context_t &input_context,
+        const crypto::public_key &onetime_address,
+        view_tag_t &view_tag_out) const override;
+
+    void make_internal_sender_receiver_secret(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+        const input_context_t &input_context,
+        crypto::hash &s_sender_receiver_out) const override;
+
+private:
+    const crypto::secret_key &m_s_view_balance;
+};
 
 } //namespace carrot

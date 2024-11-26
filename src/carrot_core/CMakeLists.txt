@@ -32,6 +32,7 @@ set(carrot_core_sources
   carrot_enote_scan.cpp
   core_types.cpp
   destination.cpp
+  device_ram_borrowed.cpp
   enote_utils.cpp
   hash_functions.cpp
   payment_proposal.cpp)
