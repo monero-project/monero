@@ -46,15 +46,15 @@ TEST(carrot_transcript_fixed, ts_size)
 {
     static constexpr const unsigned char DS1[] = "perspicacious";
     const auto transcript1 = sp::make_fixed_transcript<DS1>((uint32_t)32);
-    EXPECT_EQ(1 + 13 + 4, transcript1.size);
+    EXPECT_EQ(1 + 13 + 4, transcript1.size());
 
     static constexpr const unsigned char DS2[] = "recrudescence";
     const auto transcript2 = sp::make_fixed_transcript<DS2>((uint32_t)32, (uint64_t)64);
-    EXPECT_EQ(1 + 13 + 4 + 8, transcript2.size);
+    EXPECT_EQ(1 + 13 + 4 + 8, transcript2.size());
 
     // vt = H_3(s_sr || input_context || Ko)
     const auto transcript_vt = sp::make_fixed_transcript<carrot::CARROT_DOMAIN_SEP_VIEW_TAG>(
         carrot::input_context_t{},
         crypto::public_key{});
-    EXPECT_EQ(1 + 15 + 33 + 32, transcript_vt.size);
+    EXPECT_EQ(1 + 15 + 33 + 32, transcript_vt.size());
 }

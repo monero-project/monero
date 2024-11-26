@@ -52,7 +52,7 @@ void make_carrot_index_extension_generator(const crypto::secret_key &s_generate_
 {
     // s^j_gen = H_32[s_ga](j_major, j_minor)
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ADDRESS_INDEX_GEN>(j_major, j_minor);
-    derive_bytes_32(transcript.data(), transcript.size, &s_generate_address, &address_generator_out);
+    derive_bytes_32(transcript.data(), transcript.size(), &s_generate_address, &address_generator_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_subaddress_scalar(const crypto::public_key &spend_pubkey,
@@ -64,7 +64,7 @@ void make_carrot_subaddress_scalar(const crypto::public_key &spend_pubkey,
     // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR>(
         spend_pubkey, j_major, j_minor);
-    derive_scalar(transcript.data(), transcript.size, &s_address_generator, subaddress_scalar_out.data);
+    derive_scalar(transcript.data(), transcript.size(), &s_address_generator, subaddress_scalar_out.data);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_address_spend_pubkey(const crypto::public_key &spend_pubkey,

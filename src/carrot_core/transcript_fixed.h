@@ -77,9 +77,6 @@ template <std::size_t N, const unsigned char domain_sep[N], typename... Ts>
 class SpFixedTranscript final
 {
 public:
-//public static member variables
-    static constexpr std::size_t size = 1 + SpFixedTranscript::domain_sep_size() + detail::sizeof_sum<Ts...>();
-
 //constructors
     /// normal constructor
     SpFixedTranscript(const Ts&... args)
@@ -101,6 +98,11 @@ public:
 
 //member functions
     constexpr const void* data() const noexcept { return m_transcript; }
+
+    static constexpr std::size_t size()
+    {
+        return 1 + domain_sep_size() + detail::sizeof_sum<Ts...>();
+    }
 
 //destructors
     ~SpFixedTranscript()
@@ -171,7 +173,7 @@ private:
 
 //member variables
     /// the transcript buffer
-    unsigned char m_transcript[size];
+    unsigned char m_transcript[size()];
 };
 
 template <const auto & domain_sep, typename... Ts>
