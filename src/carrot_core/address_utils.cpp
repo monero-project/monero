@@ -82,20 +82,4 @@ void make_carrot_address_spend_pubkey(const crypto::public_key &spend_pubkey,
         rct::pk2rct(spend_pubkey), rct::sk2rct(subaddress_scalar)));
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_address(const crypto::public_key &spend_pubkey,
-    const crypto::secret_key &s_generate_address,
-    const std::uint32_t j_major,
-    const std::uint32_t j_minor,
-    const crypto::secret_key &k_view,
-    crypto::public_key &address_spend_pubkey_out)
-{
-    // K^j_s = k^j_subscal * K_s
-    crypto::public_key address_spend_pubkey;
-    make_carrot_address_spend_pubkey(spend_pubkey, s_generate_address, j_major, j_minor, address_spend_pubkey);
-
-    // K^j_v = k_v * K^j_s
-    address_spend_pubkey_out = rct::rct2pk(rct::scalarmultKey(
-        rct::pk2rct(address_spend_pubkey), rct::sk2rct(k_view)));
-}
-//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
