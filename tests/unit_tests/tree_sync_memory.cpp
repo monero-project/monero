@@ -728,15 +728,15 @@ TEST(tree_sync, serialization)
     ASSERT_TRUE(tree_sync2.get_output_path(output, output_path2));
     // Checking the roots match and auditing path suffices for now, TODO: implement constant time eq
     // ASSERT_EQ(output_path, output_path2);
-    auto get_root_bytes = [&curve_trees](const CurveTreesV1::Path &path) -> std::array<uint8_t, 32UL>
+    auto get_root_str = [&curve_trees](const CurveTreesV1::Path &path) -> std::string
     {
         return path.c1_layers.size() > path.c2_layers.size()
-            ? curve_trees->m_c1->to_bytes(path.c1_layers.back().front())
-            : curve_trees->m_c2->to_bytes(path.c2_layers.back().front());
+            ? curve_trees->m_c1->to_string(path.c1_layers.back().front())
+            : curve_trees->m_c2->to_string(path.c2_layers.back().front());
     };
-    const auto root_bytes = get_root_bytes(output_path);
-    const auto root_bytes2 = get_root_bytes(output_path2);
-    ASSERT_EQ(root_bytes, root_bytes2);
+    const auto root_str = get_root_str(output_path);
+    const auto root_str2 = get_root_str(output_path2);
+    ASSERT_EQ(root_str, root_str2);
     ASSERT_TRUE(curve_trees->audit_path(output_path2, output, INIT_LEAVES));
 
     // 7. Validate output counts

@@ -346,7 +346,7 @@ typedef struct mdb_block_info_5
   uint64_t bi_cum_rct;
   uint64_t bi_long_term_block_weight;
   uint64_t bi_n_leaf_tuples;
-  std::array<uint8_t, 32UL> bi_tree_root;
+  crypto::ec_point bi_tree_root;
 } mdb_block_info_5;
 
 typedef mdb_block_info_5 mdb_block_info;
@@ -369,7 +369,7 @@ typedef struct mdb_leaf {
 
 typedef struct layer_val {
     uint64_t child_chunk_idx;
-    std::array<uint8_t, 32UL> child_chunk_hash;
+    crypto::ec_point child_chunk_hash;
 } layer_val;
 
 std::atomic<uint64_t> mdb_txn_safe::num_active_txns{0};
@@ -1535,6 +1535,9 @@ fcmp_pp::curve_trees::CurveTreesV1::TreeReduction BlockchainLMDB::get_tree_reduc
     throw1(DB_ERROR("Unexpected: more leaf tuples are in prev block, tree is expected to only grow"));
   const uint64_t trim_n_leaf_tuples = old_n_leaf_tuples - new_n_leaf_tuples;
 
+  if (trim_n_leaf_tuples == 0)
+    return { .new_total_leaf_tuples = old_n_leaf_tuples };
+
   CHECK_AND_ASSERT_THROW_MES(m_curve_trees != nullptr, "curve trees must be set");
   const auto trim_instructions = m_curve_trees->get_trim_instructions(old_n_leaf_tuples, trim_n_leaf_tuples);
 
@@ -1570,6 +1573,7 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_ha
   const auto last_path_indexes = m_curve_trees->get_path_indexes(new_n_leaf_tuples, new_n_leaf_tuples - 1);
   auto path = this->get_path(last_path_indexes);
 
+  // Use the tree reduction to update last hashes in each layer if needed
   bool use_c2 = true;
   std::size_t c1_idx = 0;
   std::size_t c2_idx = 0;
@@ -1579,14 +1583,14 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_ha
     {
       const auto &layer_reduction = tree_reduction.c2_layer_reductions[c2_idx];
       if (layer_reduction.update_existing_last_hash)
-        layer.back() = m_curve_trees->m_c2->to_bytes(layer_reduction.new_last_hash);
+        layer.chunk_bytes.back() = m_curve_trees->m_c2->to_bytes(layer_reduction.new_last_hash);
       ++c2_idx;
     }
     else
     {
       const auto &layer_reduction = tree_reduction.c1_layer_reductions[c1_idx];
       if (layer_reduction.update_existing_last_hash)
-        layer.back() = m_curve_trees->m_c1->to_bytes(layer_reduction.new_last_hash);
+        layer.chunk_bytes.back() = m_curve_trees->m_c1->to_bytes(layer_reduction.new_last_hash);
       ++c1_idx;
     }
 
@@ -1645,7 +1649,7 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
   std::size_t layer_idx = 0;
   for (const auto &layer_idx_range : path_indexes.layers)
   {
-    std::vector<std::array<uint8_t, 32UL>> chunk;
+    fcmp_pp::curve_trees::ChunkBytes chunk;
 
     MDB_val_set(k, layer_idx);
     MDB_val_set(v, layer_idx_range.first);
@@ -1662,7 +1666,7 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
         throw0(DB_ERROR(lmdb_error("Failed to get layer elem: ", result).c_str()));
 
       auto *lv = (layer_val *)v.mv_data;
-      chunk.emplace_back(std::move(lv->child_chunk_hash));
+      chunk.chunk_bytes.emplace_back(std::move(lv->child_chunk_hash));
     }
 
     layer_chunks_out.emplace_back(std::move(chunk));
@@ -1697,6 +1701,8 @@ void BlockchainLMDB::trim_block()
   const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
   if (tree_reduction.new_total_leaf_tuples > old_n_leaf_tuples)
     throw1(DB_ERROR("Unexpected: more leaf tuples are in prev block, tree is expected to only grow"));
+  if (tree_reduction.new_total_leaf_tuples == old_n_leaf_tuples)
+    return;
 
   // Use tree reduction to trim tree
   // Trim the leaves
@@ -1921,7 +1927,7 @@ uint64_t BlockchainLMDB::get_block_n_leaf_tuples(const uint64_t block_idx) const
   return n_leaf_tuples;
 }
 
-std::array<uint8_t, 32UL> BlockchainLMDB::get_tree_root() const
+crypto::ec_point BlockchainLMDB::get_tree_root() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1929,7 +1935,7 @@ std::array<uint8_t, 32UL> BlockchainLMDB::get_tree_root() const
   TXN_PREFIX_RDONLY();
   RCURSOR(layers)
 
-  std::array<uint8_t, 32UL> root;
+  crypto::ec_point root;
 
   {
     MDB_val k, v;
@@ -2041,7 +2047,7 @@ fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_
     if (parent_is_c1)
     {
       std::vector<fcmp_pp::curve_trees::Helios::Scalar> c1_children;
-      for (const auto &c2_child : layer_chunk)
+      for (const auto &c2_child : layer_chunk.chunk_bytes)
       {
           const auto point = m_curve_trees->m_c2->from_bytes(c2_child);
           auto child_scalar = m_curve_trees->m_c2->point_to_cycle_scalar(point);
@@ -2052,7 +2058,7 @@ fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_
     else
     {
       std::vector<fcmp_pp::curve_trees::Selene::Scalar> c2_children;
-      for (const auto &c1_child : layer_chunk)
+      for (const auto &c1_child : layer_chunk.chunk_bytes)
       {
           const auto point = m_curve_trees->m_c1->from_bytes(c1_child);
           auto child_scalar = m_curve_trees->m_c1->point_to_cycle_scalar(point);
@@ -2129,7 +2135,7 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_last_chunk_children(
   {
     const auto &trim_layer_instructions = trim_instructions[i];
 
-    std::vector<std::array<uint8_t, 32UL>> chunk;
+    fcmp_pp::curve_trees::ChunkBytes chunk;
 
     if (trim_layer_instructions.end_trim_idx > trim_layer_instructions.start_trim_idx)
     {
@@ -2151,7 +2157,7 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_last_chunk_children(
           throw0(DB_ERROR(lmdb_error("Failed to get layer elem: ", result).c_str()));
 
         auto *lv = (layer_val *)v.mv_data;
-        chunk.emplace_back(std::move(lv->child_chunk_hash));
+        chunk.chunk_bytes.emplace_back(std::move(lv->child_chunk_hash));
 
         ++idx;
       }
@@ -2312,16 +2318,16 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
       MDEBUG("Hashing " << m_curve_trees->m_c2->to_string(leaves[i]));
 
     const auto chunk_hash = fcmp_pp::curve_trees::get_new_parent(m_curve_trees->m_c2, chunk);
-    MDEBUG("chunk_hash " << m_curve_trees->m_c2->to_string(chunk_hash) << " , hash init point: "
+    const auto expected_chunk_hash = m_curve_trees->m_c2->to_string(chunk_hash);
+    MDEBUG("chunk_hash " << expected_chunk_hash << " , hash init point: "
       << m_curve_trees->m_c2->to_string(m_curve_trees->m_c2->hash_init_point()) << " (" << leaves.size() << " leaves)");
 
     // Now compare to value from the db
     const auto *lv = (layer_val *)v_parent.mv_data;
-    MDEBUG("Actual leaf chunk hash " << epee::string_tools::pod_to_hex(lv->child_chunk_hash));
+    const auto actual_chunk_hash = epee::string_tools::pod_to_hex(lv->child_chunk_hash);
+    MDEBUG("Actual leaf chunk hash " << actual_chunk_hash);
 
-    const auto expected_bytes = m_curve_trees->m_c2->to_bytes(chunk_hash);
-    const auto actual_bytes   = lv->child_chunk_hash;
-    CHECK_AND_ASSERT_MES(expected_bytes == actual_bytes, false, "unexpected leaf chunk hash");
+    CHECK_AND_ASSERT_MES(expected_chunk_hash == actual_chunk_hash, false, "unexpected leaf chunk hash");
     CHECK_AND_ASSERT_MES(lv->child_chunk_idx == child_chunk_idx, false, "unexpected child chunk idx");
 
     ++child_chunk_idx;
@@ -2482,14 +2488,14 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
       MDEBUG("Hashing " << c_parent->to_string(child_scalars[i]));
 
     const auto chunk_hash = fcmp_pp::curve_trees::get_new_parent(c_parent, chunk);
-    MDEBUG("Expected chunk_hash " << c_parent->to_string(chunk_hash) << " (" << child_scalars.size() << " children)");
+    const auto expected_chunk_hash = c_parent->to_string(chunk_hash);
+    MDEBUG("Expected chunk_hash " << expected_chunk_hash << " (" << child_scalars.size() << " children)");
 
     const auto *lv = (layer_val *)v_parent.mv_data;
-    MDEBUG("Actual chunk hash " << epee::string_tools::pod_to_hex(lv->child_chunk_hash));
+    const auto actual_chunk_hash = epee::string_tools::pod_to_hex(lv->child_chunk_hash);
+    MDEBUG("Actual chunk hash " << actual_chunk_hash);
 
-    const auto actual_bytes   = lv->child_chunk_hash;
-    const auto expected_bytes = c_parent->to_bytes(chunk_hash);
-    if (actual_bytes != expected_bytes)
+    if (expected_chunk_hash != actual_chunk_hash)
       throw0(DB_ERROR(("unexpected hash at child_chunk_idx " + std::to_string(child_chunk_idx)).c_str()));
     if (lv->child_chunk_idx != child_chunk_idx)
       throw0(DB_ERROR(("unexpected child_chunk_idx, epxected " + std::to_string(child_chunk_idx)).c_str()));
@@ -2585,8 +2591,7 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
 
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
 
-  // TODO: check output id at start_block_idx, and don't return any outputs that were created at or past it
-
+  // 1. Get all custom timelocked outputs with last locked block start_block_idx or higher
   uint64_t blk_idx = start_block_idx;
   MDB_cursor_op op = MDB_SET;
   bool reading_first_op_next_multiple = false;
@@ -2643,6 +2648,45 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
     }
   }
 
+  // 2. Only return outputs that were created BEFORE start_block_idx
+  // 2a. Place output id's in a sorted vector in descending order
+  using output_id_pair_t = std::pair<uint64_t/*output_id*/, uint64_t/*unlock_block*/>;
+  std::vector<output_id_pair_t> output_ids;
+  for (const auto &outs_by_unlock_block : outs)
+  {
+    for (const auto &o : outs_by_unlock_block.second)
+      output_ids.push_back({ o.output_id, outs_by_unlock_block.first });
+  }
+  std::sort(output_ids.begin(), output_ids.end(), [](const output_id_pair_t a, const output_id_pair_t b)
+    {return a.first > b.first; });
+
+  // 2b. Remove all outputs from the result container that were created at height start_block_idx or higher
+  for (const auto &output_id : output_ids)
+  {
+    const auto output_tx = this->get_output_tx_and_index_from_global(output_id.first);
+    const uint64_t tx_block_idx = this->get_tx_block_height(output_tx.first);
+
+    // As soon as we encounter an output created before start_block_idx, we're done
+    if (tx_block_idx < start_block_idx)
+      break;
+
+    // Find the output in the outs container
+    auto blk_it = outs.find(output_id.second);
+
+    // The last one in the vec should be the output id since it should be sorted
+    if (blk_it == outs.end())
+      throw0(DB_ERROR("Missing output's unlock block"));
+    if (blk_it->second.empty())
+      throw0(DB_ERROR("Unlock block missing outputs"));
+    if (blk_it->second.back().output_id != output_id.first)
+      throw0(DB_ERROR("Output id is not last in outs by unlock block"));
+
+    // Remove the output from outs container
+    blk_it->second.erase(blk_it->second.end() - 1);
+    if (blk_it->second.empty())
+      outs.erase(blk_it);
+  }
+
   TXN_POSTFIX_RDONLY();
 
   return outs;
@@ -2657,6 +2701,8 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
   RCURSOR(timelocked_outputs)
 
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
+  if (end_block_idx == 0)
+    return outs;
 
   const uint64_t coinbase_start_idx = CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW > end_block_idx
     ? 0
@@ -2666,15 +2712,14 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
     ? 0
     : end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
-  const uint64_t n_blocks = this->height();
-  const uint64_t end_blk_idx = std::min(n_blocks, end_blk_idx);
+  const uint64_t end_blk_idx = std::min(this->height(), end_block_idx);
 
   const auto get_out_unlock_blocks = [this, &outs, normal_start_idx](uint64_t b_idx, const crypto::hash, const block &b) -> bool
   {
     // Add output data grouped by unlock block
     auto add_outs_by_unlock_block = [this, &outs, b_idx](const crypto::hash &tx_hash, const bool is_coinbase)
     {
-      auto out_data = get_tx_output_data(tx_hash);
+      auto out_data = this->get_tx_output_data(tx_hash);
       if (out_data.empty())
         return;
 
@@ -2686,7 +2731,10 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
 
       auto outs_it = outs.find(unlock_block);
       if (outs_it == outs.end())
+      {
         outs[unlock_block] = {};
+        outs_it = outs.find(unlock_block);
+      }
 
       for (auto &out : out_data)
         outs_it->second.push_back({ out.output_id, { std::move(out.data.pubkey), std::move(out.data.commitment) }});

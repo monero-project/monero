@@ -260,12 +260,21 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct init_tree_sync_data_t
     {
+      uint64_t init_block_idx;
+      crypto::hash init_block_hash;
+      /// n leaf tuples in the chain when the chain tip was block init_block_idx
+      uint64_t n_leaf_tuples;
+      /// the last full path in the tree when the chain tip was block init_block_idx
       fcmp_pp::curve_trees::PathBytes last_hashes;
+      /// outputs created before init_block_idx with last locked block >= init_block_idx
       std::vector<locked_outputs_t> locked_outputs;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(init_block_idx)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(init_block_hash)
+        KV_SERIALIZE(n_leaf_tuples)
         KV_SERIALIZE(last_hashes)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(locked_outputs)
+        KV_SERIALIZE(locked_outputs)
       END_KV_SERIALIZE_MAP()
     };
 
@@ -281,7 +290,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<pool_tx_info> added_pool_txs;
       std::vector<crypto::hash> remaining_added_pool_txids;
       std::vector<crypto::hash> removed_pool_txids;
-      uint64_t n_leaf_tuples;
       init_tree_sync_data_t init_tree_sync_data;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -302,11 +310,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         {
           KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
         }
-        KV_SERIALIZE_OPT(n_leaf_tuples, (uint64_t) 0)
-        if (n_leaf_tuples > 0)
-        {
-          KV_SERIALIZE(init_tree_sync_data)
-        }
+        KV_SERIALIZE(init_tree_sync_data) // FIXME: make this optional (it could also intro a major breaking change to the daemon)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

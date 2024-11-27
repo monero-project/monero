@@ -213,9 +213,9 @@ static bool validate_layer(const std::unique_ptr<C> &curve,
 
         MDEBUG("chunk_start_idx: " << chunk_start_idx << " , chunk_size: " << chunk_size << " , chunk_hash: " << curve->to_string(chunk_hash));
 
-        const auto actual_bytes = curve->to_bytes(parent);
-        const auto expected_bytes = curve->to_bytes(chunk_hash);
-        CHECK_AND_ASSERT_MES(actual_bytes == expected_bytes, false, "unexpected hash");
+        const auto actual = curve->to_string(parent);
+        const auto expected = curve->to_string(chunk_hash);
+        CHECK_AND_ASSERT_MES(actual == expected, false, "unexpected hash");
 
         chunk_start_idx += chunk_size;
     }
@@ -529,12 +529,12 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     return path_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::array<uint8_t, 32UL> CurveTreesGlobalTree::get_tree_root() const
+crypto::ec_point CurveTreesGlobalTree::get_tree_root() const
 {
     const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
 
     if (n_layers == 0)
-        return std::array<uint8_t, 32UL>();
+        return crypto::ec_point();
 
     if ((n_layers % 2) == 0)
     {
@@ -1196,7 +1196,7 @@ TEST(curve_trees, hash_trim)
             1,
             trimmed_children,
             curve_trees->m_c2->zero_scalar());
-        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
+        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
@@ -1205,9 +1205,9 @@ TEST(curve_trees, hash_trim)
             /*offset*/                   0,
             /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
+        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
 
-        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+        ASSERT_EQ(trim_res_str, grow_res_str);
     }
 
     // 2. Trim 2
@@ -1233,7 +1233,7 @@ TEST(curve_trees, hash_trim)
             1,
             trimmed_children,
             curve_trees->m_c2->zero_scalar());
-        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
+        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
@@ -1242,9 +1242,9 @@ TEST(curve_trees, hash_trim)
             /*offset*/                   0,
             /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
+        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
 
-        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+        ASSERT_EQ(trim_res_str, grow_res_str);
     }
 
     // 3. Change 1
@@ -1271,7 +1271,7 @@ TEST(curve_trees, hash_trim)
             1,
             trimmed_children,
             selene_scalar_2);
-        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
+        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_2}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_2};
@@ -1280,9 +1280,9 @@ TEST(curve_trees, hash_trim)
             /*offset*/                   0,
             /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
+        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
 
-        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+        ASSERT_EQ(trim_res_str, grow_res_str);
     }
 
     // 4. Trim 2 and grow back by 1
@@ -1310,7 +1310,7 @@ TEST(curve_trees, hash_trim)
             1,
             trimmed_children,
             selene_scalar_3);
-        const auto trim_res_bytes = curve_trees->m_c2->to_bytes(trim_res);
+        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_3}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_3};
@@ -1319,9 +1319,9 @@ TEST(curve_trees, hash_trim)
             /*offset*/                   0,
             /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
+        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
 
-        ASSERT_EQ(trim_res_bytes, grow_res_bytes);
+        ASSERT_EQ(trim_res_str, grow_res_str);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -1351,7 +1351,7 @@ TEST(curve_trees, hash_grow)
         all_children.size(),
         curve_trees->m_c2->zero_scalar(),
         Selene::Chunk{new_children.data(), new_children.size()});
-    const auto ext_hash_bytes = curve_trees->m_c2->to_bytes(ext_hash);
+    const auto ext_hash_str = curve_trees->m_c2->to_string(ext_hash);
 
     // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_1, selene_scalar_2}
     all_children.push_back(selene_scalar_2);
@@ -1360,9 +1360,9 @@ TEST(curve_trees, hash_grow)
         /*offset*/                   0,
         /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
-    const auto grow_res_bytes = curve_trees->m_c2->to_bytes(grow_res);
+    const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
 
-    ASSERT_EQ(ext_hash_bytes, grow_res_bytes);
+    ASSERT_EQ(ext_hash_str, grow_res_str);
 
     // Extend again with a new child
     const auto selene_scalar_3 = generate_random_selene_scalar();
@@ -1373,7 +1373,7 @@ TEST(curve_trees, hash_grow)
         all_children.size(),
         curve_trees->m_c2->zero_scalar(),
         Selene::Chunk{new_children.data(), new_children.size()});
-    const auto ext_hash_bytes2 = curve_trees->m_c2->to_bytes(ext_hash2);
+    const auto ext_hash_str2 = curve_trees->m_c2->to_string(ext_hash2);
 
     // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_1, selene_scalar_2, selene_scalar_3}
     all_children.push_back(selene_scalar_3);
@@ -1382,7 +1382,7 @@ TEST(curve_trees, hash_grow)
         /*offset*/                   0,
         /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
-    const auto grow_res_bytes2 = curve_trees->m_c2->to_bytes(grow_res2);
+    const auto grow_res_str2 = curve_trees->m_c2->to_string(grow_res2);
 
-    ASSERT_EQ(ext_hash_bytes2, grow_res_bytes2);
+    ASSERT_EQ(ext_hash_str2, grow_res_str2);
 }

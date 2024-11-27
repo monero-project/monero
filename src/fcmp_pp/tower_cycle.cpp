@@ -161,50 +161,50 @@ Selene::Scalar Selene::zero_scalar() const
     return fcmp_pp_rust::selene_zero_scalar();
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::array<uint8_t, 32UL> Helios::to_bytes(const Helios::Scalar &scalar) const
+crypto::ec_scalar Helios::to_bytes(const Helios::Scalar &scalar) const
 {
     auto bytes = fcmp_pp_rust::helios_scalar_to_bytes(scalar);
-    std::array<uint8_t, 32UL> res;
+    crypto::ec_scalar res;
     memcpy(&res, bytes, 32);
     free(bytes);
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::array<uint8_t, 32UL> Selene::to_bytes(const Selene::Scalar &scalar) const
+crypto::ec_scalar Selene::to_bytes(const Selene::Scalar &scalar) const
 {
     auto bytes = fcmp_pp_rust::selene_scalar_to_bytes(scalar);
-    std::array<uint8_t, 32UL> res;
+    crypto::ec_scalar res;
     memcpy(&res, bytes, 32);
     free(bytes);
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::array<uint8_t, 32UL> Helios::to_bytes(const Helios::Point &point) const
+crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
 {
     auto bytes = fcmp_pp_rust::helios_point_to_bytes(point);
-    std::array<uint8_t, 32UL> res;
+    crypto::ec_point res;
     memcpy(&res, bytes, 32);
     free(bytes);
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::array<uint8_t, 32UL> Selene::to_bytes(const Selene::Point &point) const
+crypto::ec_point Selene::to_bytes(const Selene::Point &point) const
 {
     auto bytes = fcmp_pp_rust::selene_point_to_bytes(point);
-    std::array<uint8_t, 32UL> res;
+    crypto::ec_point res;
     memcpy(&res, bytes, 32);
     free(bytes);
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Point Helios::from_bytes(const std::array<uint8_t, 32UL> &bytes) const
+Helios::Point Helios::from_bytes(const crypto::ec_point &bytes) const
 {
-    return fcmp_pp_rust::helios_point_from_bytes(bytes.data());
+    return fcmp_pp_rust::helios_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
 }
 //----------------------------------------------------------------------------------------------------------------------
-Selene::Point Selene::from_bytes(const std::array<uint8_t, 32UL> &bytes) const
+Selene::Point Selene::from_bytes(const crypto::ec_point &bytes) const
 {
-    return fcmp_pp_rust::selene_point_from_bytes(bytes.data());
+    return fcmp_pp_rust::selene_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::string Helios::to_string(const typename Helios::Scalar &scalar) const

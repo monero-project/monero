@@ -33,14 +33,12 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "curve_trees.h"
 #include "ringct/rctTypes.h"
-#include "serialization/array.h"
 #include "serialization/containers.h"
 #include "serialization/crypto.h"
 #include "serialization/pair.h"
 #include "serialization/serialization.h"
 #include "tree_sync.h"
 
-#include <boost/serialization/array.hpp>
 #include <boost/serialization/deque.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/version.hpp>
@@ -112,7 +110,7 @@ struct CachedLeafChunk final
 
 struct CachedTreeElemChunk final
 {
-    std::vector<std::array<uint8_t, 32UL>> tree_elems;
+    std::vector<crypto::ec_point> tree_elems;
     uint64_t ref_count;
 
     template <class Archive>
@@ -203,7 +201,7 @@ public:
         const OutputsByUnlockBlock &timelocked_outputs);
 
     // TODO: make this part of the TreeSync interface
-    std::array<uint8_t, 32UL> get_tree_root() const;
+    crypto::ec_point get_tree_root() const;
     uint64_t get_n_leaf_tuples() const;
     bool get_top_block(BlockMeta &top_block_out) const
     {

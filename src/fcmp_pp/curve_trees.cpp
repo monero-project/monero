@@ -984,12 +984,12 @@ std::vector<TrimLayerInstructions> CurveTrees<C1, C2>::get_trim_instructions(
     const bool always_regrow_with_remaining) const
 {
     CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= trim_n_leaf_tuples, "cannot trim more leaves than exist");
-    CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
 
     std::vector<TrimLayerInstructions> trim_instructions;
-
     if (old_n_leaf_tuples == trim_n_leaf_tuples)
-        return trim_instructions;
+        return trim_instructions; // Empty instructions means trim the whole tree
+
+    CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
 
     // Get trim instructions for the leaf layer
     {
@@ -1232,16 +1232,16 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
     MDEBUG("Path contains " << leaves.size() << " leaf tuples and " << n_layers << " layers, hashing leaf tuples");
     const Selene::Chunk leaf_chunk{leaf_scalars.data(), leaf_scalars.size()};
     const Selene::Point leaf_parent_hash = get_new_parent<Selene>(m_c2, leaf_chunk);
-    const auto leaf_parent_bytes = m_c2->to_bytes(leaf_parent_hash);
+    const auto leaf_parent_str = m_c2->to_string(leaf_parent_hash);
 
     // Make sure leaf chunk hash is present in first c2_layer
     const auto &first_c2_layer = c2_layers.front();
     found = false;
-    MDEBUG("Looking for leaf chunk hash: " << m_c2->to_string(leaf_parent_hash) << " among " << first_c2_layer.size() << " hashes");
+    MDEBUG("Looking for leaf chunk hash: " << leaf_parent_str << " among " << first_c2_layer.size() << " hashes");
     for (std::size_t i = 0; !found && i < first_c2_layer.size(); ++i)
     {
         MDEBUG("Reading: " << m_c2->to_string(first_c2_layer[i]));
-        found = (leaf_parent_bytes == m_c2->to_bytes(first_c2_layer[i]));
+        found = (leaf_parent_str == m_c2->to_string(first_c2_layer[i]));
     }
     CHECK_AND_ASSERT_MES(found, false, "did not find leaf chunk hash");
 
@@ -1281,15 +1281,15 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
             // Hash c1 scalars
             const Helios::Chunk chunk{c1_scalars.data(), c1_scalars.size()};
             const Helios::Point hash = get_new_parent<Helios>(m_c1, chunk);
-            const auto bytes = m_c1->to_bytes(hash);
+            const auto hash_str = m_c1->to_string(hash);
 
             // Make sure hash is present in c1 layer
-            MDEBUG("Looking for c1 hash: " << m_c1->to_string(hash) << " among " << c1_layer.size() << " hashes");
+            MDEBUG("Looking for c1 hash: " << hash_str << " among " << c1_layer.size() << " hashes");
             found = false;
             for (std::size_t j = 0; !found && j < c1_layer.size(); ++j)
             {
                 MDEBUG("Reading: " << m_c1->to_string(c1_layer[j]));
-                found = (bytes == m_c1->to_bytes(c1_layer[j]));
+                found = (hash_str == m_c1->to_string(c1_layer[j]));
             }
             CHECK_AND_ASSERT_MES(found, false, "did not find c1 hash");
 
@@ -1312,15 +1312,15 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
             // Hash c2 scalars
             const Selene::Chunk chunk{c2_scalars.data(), c2_scalars.size()};
             const Selene::Point hash = get_new_parent<Selene>(m_c2, chunk);
-            const auto bytes = m_c2->to_bytes(hash);
+            const auto hash_str = m_c2->to_string(hash);
 
             // Make sure hash is present in c2 layer
-            MDEBUG("Looking for c2 hash: " << m_c2->to_string(hash) << " among " << c2_layer.size() << " hashes");
+            MDEBUG("Looking for c2 hash: " << hash_str << " among " << c2_layer.size() << " hashes");
             found = false;
             for (std::size_t j = 0; !found && j < c2_layer.size(); ++j)
             {
                 MDEBUG("Reading: " << m_c2->to_string(c2_layer[j]));
-                found = (bytes == m_c2->to_bytes(c2_layer[j]));
+                found = (hash_str == m_c2->to_string(c2_layer[j]));
             }
             CHECK_AND_ASSERT_MES(found, false, "did not find c2 hash");
 

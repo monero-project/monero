@@ -208,29 +208,29 @@ struct PreLeafTuple final
     fcmp_pp::EdYDerivatives C_pre_x;
 };
 
-// TODO: move bytes type into specific types, same as crypto::public_key ... e.g. selene::bytes or selene::compressed_point or selene::point_bytes
-// TODO: this should have a better type name. Something like TreeEdge
+struct ChunkBytes final
+{
+    std::vector<crypto::ec_point> chunk_bytes;
+
+    BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(chunk_bytes)
+    END_KV_SERIALIZE_MAP()
+};
+
 struct PathBytes final
 {
     std::vector<OutputContext> leaves;
-    std::vector<std::vector<std::array<uint8_t, 32UL>>> layer_chunks;
+    std::vector<ChunkBytes> layer_chunks;
 
     BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(leaves)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(layer_chunks)
+        KV_SERIALIZE(layer_chunks)
     END_KV_SERIALIZE_MAP()
 };
 
 
 // The indexes in the tree of a leaf's path elems containing whole chunks at each layer
 // - leaf_range refers to a complete chunk of leaves
-// - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The index of the hash of the chunk
-//   of leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
-// - layers alternate between C1 and C2
-// - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The indeox of the hash of
-//   the chunk of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems
-//   that has is in.
-// - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
 struct PathIndexes final
 {
     using StartIdx = uint64_t;
@@ -376,6 +376,7 @@ public:
     //   rather than trim using the elems in the chunk to be removed. This is useful when we don't have all elems from a
     //   chunk saved and therefore cannot use hash_trim with the elems we're going to trim, as is the case with the
     //   pruned tree sync implementation.
+    // - empty response means empty the tree
     std::vector<TrimLayerInstructions> get_trim_instructions(
         const uint64_t old_n_leaf_tuples,
         const uint64_t trim_n_leaf_tuples,

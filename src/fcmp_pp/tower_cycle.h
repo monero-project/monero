@@ -88,10 +88,10 @@ public:
 
     virtual typename C::Scalar zero_scalar() const = 0;
 
-    virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Scalar &scalar) const = 0;
-    virtual std::array<uint8_t, 32UL> to_bytes(const typename C::Point &point) const = 0;
+    virtual crypto::ec_scalar to_bytes(const typename C::Scalar &scalar) const = 0;
+    virtual crypto::ec_point to_bytes(const typename C::Point &point) const = 0;
 
-    virtual typename C::Point from_bytes(const std::array<uint8_t, 32UL> &bytes) const = 0;
+    virtual typename C::Point from_bytes(const crypto::ec_point &bytes) const = 0;
 
     virtual std::string to_string(const typename C::Scalar &scalar) const = 0;
     virtual std::string to_string(const typename C::Point &point) const = 0;
@@ -126,10 +126,10 @@ public:
 
     Scalar zero_scalar() const override;
 
-    std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
-    std::array<uint8_t, 32UL> to_bytes(const Point &point) const override;
+    crypto::ec_scalar to_bytes(const Scalar &scalar) const override;
+    crypto::ec_point to_bytes(const Point &point) const override;
 
-    Point from_bytes(const std::array<uint8_t, 32UL> &bytes) const override;
+    Point from_bytes(const crypto::ec_point &bytes) const override;
 
     std::string to_string(const Scalar &scalar) const override;
     std::string to_string(const Point &point) const override;
@@ -164,10 +164,10 @@ public:
 
     Scalar zero_scalar() const override;
 
-    std::array<uint8_t, 32UL> to_bytes(const Scalar &scalar) const override;
-    std::array<uint8_t, 32UL> to_bytes(const Point &point) const override;
+    crypto::ec_scalar to_bytes(const Scalar &scalar) const override;
+    crypto::ec_point to_bytes(const Point &point) const override;
 
-    Point from_bytes(const std::array<uint8_t, 32UL> &bytes) const override;
+    Point from_bytes(const crypto::ec_point &bytes) const override;
 
     std::string to_string(const Scalar &scalar) const override;
     std::string to_string(const Point &point) const override;
