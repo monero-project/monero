@@ -88,7 +88,7 @@ public:
     CurveTreesV1::Path get_path_at_leaf_idx(const std::size_t leaf_idx) const;
 
     // Hint: use num leaf tuples in the tree to determine the type
-    std::array<uint8_t, 32UL> get_tree_root() const;
+    crypto::ec_point get_tree_root() const;
 
 private:
     // Use the tree extension to extend the in-memory tree

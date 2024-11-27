@@ -91,6 +91,11 @@ namespace boost
   {
     a & reinterpret_cast<char (&)[sizeof(crypto::hash8)]>(x);
   }
+  template <class Archive>
+  inline void serialize(Archive &a, crypto::ec_point &x, const boost::serialization::version_type ver)
+  {
+    a & reinterpret_cast<char (&)[sizeof(crypto::ec_point)]>(x);
+  }
 
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::txout_to_script &x, const boost::serialization::version_type ver)

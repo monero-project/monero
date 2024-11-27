@@ -447,7 +447,7 @@ private:
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
-  virtual std::array<uint8_t, 32UL> get_tree_root() const;
+  virtual crypto::ec_point get_tree_root() const;
 
   fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_tree_last_hashes() const;
 
