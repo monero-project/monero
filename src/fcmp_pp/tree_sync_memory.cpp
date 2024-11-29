@@ -1407,6 +1407,14 @@ void TreeSyncMemory<C1, C2>::init(const uint64_t start_block_idx,
     // - Assume the created block idx is the genesis block so the outputs won't get pruned.
     const CreatedBlockIdx created_block_idx{0};
     add_to_locked_outputs_cache(timelocked_outputs, created_block_idx, m_locked_outputs, m_locked_output_refs);
+
+    // Set the output count to the max output id + 1
+    // WARNING: this is a little hacky because if there are no timelocked outputs provided (which should never be the
+    // case), then the output count would be 0 even if initializing at a block index > 0
+    for (const auto &bl: timelocked_outputs)
+        for (const auto &o : bl.second)
+            if (o.output_id >= m_output_count)
+                m_output_count = o.output_id + 1;
 }
 
 // Explicit instantiation

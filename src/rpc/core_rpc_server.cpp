@@ -616,17 +616,12 @@ namespace cryptonote
     init_tree_sync_data.init_block_idx = init_block_idx;
     init_tree_sync_data.init_block_hash = init_hash;
 
-    if (init_block_idx == 0)
-    {
-      res.init_tree_sync_data = std::move(init_tree_sync_data);
-      return true;
-    }
+    // 1. Custom timelocked outputs created before sync_start_idx with last locked block >= sync_start_idx
+    const uint64_t sync_start_idx = init_block_idx + 1;
+    auto custom_outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(sync_start_idx);
 
-    // 1. Custom timelocked outputs created before init_block_idx with last locked block >= init_block_idx
-    auto custom_outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(init_block_idx);
-
-    // 2a. Coinbase output contexts created between blocks [init_block_idx - 60, init_block_idx]
-    // 2b. Normal output contexts created between blocks [init_block_idx - 10, init_block_idx]
+    // 2a. Coinbase output contexts created between blocks [init_block_idx - 60, init_block_idx] inclusive
+    // 2b. Normal output contexts created between blocks [init_block_idx - 10, init_block_idx] inclusive
     auto outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_recent_locked_outputs(init_block_idx);
 
     // 3. Combine all locked outputs into vec
@@ -673,13 +668,14 @@ namespace cryptonote
       locked_outputs.push_back({ unlock_block, std::move(o.second) });
     }
 
-    // 4. N leaf tuples and last chunk at each layer of the tree at requested block height - 1
-    auto last_hashes = m_core.get_blockchain_storage().get_db().get_last_hashes(init_block_idx - 1);
+    // 4. N leaf tuples and last chunk at each layer of the tree at init_block_idx
+    auto last_hashes = m_core.get_blockchain_storage().get_db().get_last_hashes(init_block_idx);
     init_tree_sync_data.n_leaf_tuples = last_hashes.first;
     init_tree_sync_data.last_hashes = std::move(last_hashes.second);
 
     MDEBUG("Set init tree sync data, blk " << init_tree_sync_data.init_block_idx << " , hash " << init_tree_sync_data.init_block_hash);
     res.init_tree_sync_data = std::move(init_tree_sync_data);
+    res.included_init_tree_sync_data = true;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

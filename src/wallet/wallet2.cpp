@@ -3137,7 +3137,7 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   update_pool_state_from_pool_data(res.pool_info_extent == COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL, res.removed_pool_txids, added_pool_txs, process_txs, refreshed);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t &init_tree_sync_data)
+void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
@@ -3167,9 +3167,10 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
   blocks = std::move(res.blocks);
   o_indices = std::move(res.output_indices);
   current_height = res.current_height;
-  init_tree_sync_data = std::move(res.init_tree_sync_data);
   if (res.pool_info_extent != COMMAND_RPC_GET_BLOCKS_FAST::NONE)
     m_pool_info_query_time = res.daemon_time;
+  if (res.included_init_tree_sync_data)
+    init_tree_sync_data = boost::optional<COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t>(std::move(res.init_tree_sync_data));
 
   MDEBUG("Pulled blocks: blocks_start_height " << blocks_start_height << ", count " << blocks.size()
       << ", height " << blocks_start_height + blocks.size() << ", node height " << res.current_height
@@ -3347,6 +3348,7 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
   const uint64_t start_parsed_block_i = tree_sync_start_params.start_parsed_block_i;
   const crypto::hash &prev_block_hash = tree_sync_start_params.prev_block_hash;
 
+  THROW_WALLET_EXCEPTION_IF(start_parsed_block_i > sync_start_block_idx, error::wallet_internal_error, "high start_parsed_block_i");
   THROW_WALLET_EXCEPTION_IF(start_parsed_block_i >= parsed_blocks.size(), error::wallet_internal_error, "high start_parsed_block_i");
   const uint64_t n_new_blocks = parsed_blocks.size() - start_parsed_block_i;
 
@@ -3689,7 +3691,7 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     uint64_t current_height;
-    cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t init_tree_sync_data;
+    boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> init_tree_sync_data;
     pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs, init_tree_sync_data);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
@@ -3747,19 +3749,18 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
     last = !blocks.empty() && cryptonote::get_block_height(parsed_blocks.back().block) + 1 == current_height;
 
-    if (m_tree_sync.empty())
+    if (init_tree_sync_data)
     {
-      // TODO: need to handle the case when pointing to an outdated daemon
       // Initialize the tree
-      const uint64_t init_block_idx = init_tree_sync_data.init_block_idx;
-      const crypto::hash &init_block_hash = init_tree_sync_data.init_block_hash;
+      const uint64_t init_block_idx = init_tree_sync_data->init_block_idx;
+      const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
       MINFO("Initializing wallet tree at block " << init_block_idx << " with block hash " << init_block_hash);
 
       fcmp_pp::curve_trees::OutputsByUnlockBlock locked_outputs;
-      for (auto &lo : init_tree_sync_data.locked_outputs)
+      for (auto &lo : init_tree_sync_data->locked_outputs)
         locked_outputs[lo.unlock_block] = std::move(lo.outputs);
 
-      m_tree_sync.init(init_block_idx, init_block_hash, init_tree_sync_data.n_leaf_tuples, init_tree_sync_data.last_hashes, locked_outputs);
+      m_tree_sync.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_hashes, locked_outputs);
     }
   }
   catch(...)
