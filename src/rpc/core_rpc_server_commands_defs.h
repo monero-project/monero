@@ -290,6 +290,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<pool_tx_info> added_pool_txs;
       std::vector<crypto::hash> remaining_added_pool_txids;
       std::vector<crypto::hash> removed_pool_txids;
+      bool included_init_tree_sync_data;
       init_tree_sync_data_t init_tree_sync_data;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -310,7 +311,11 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         {
           KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
         }
-        KV_SERIALIZE(init_tree_sync_data) // FIXME: make this optional (it could also intro a major breaking change to the daemon)
+        KV_SERIALIZE_OPT(included_init_tree_sync_data, false)
+        if (included_init_tree_sync_data)
+        {
+          KV_SERIALIZE(init_tree_sync_data)
+        }
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

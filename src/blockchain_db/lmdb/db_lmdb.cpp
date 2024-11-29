@@ -871,13 +871,15 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
     throw0(DB_ERROR(lmdb_error("Failed to add block height by hash to db transaction: ", result).c_str()));
 
   CURSOR(locked_outputs)
+  CURSOR(timelocked_outputs)
 
   // Add the locked outputs from this block to the locked outputs and custom timelocked tables
   for (const auto &unlock_block : outs_by_unlock_block)
   {
-    MDB_val_set(k_block_id, unlock_block.first);
+    const uint64_t last_locked_block_idx = unlock_block.first;
     for (const auto &locked_output : unlock_block.second)
     {
+      MDB_val_set(k_block_id, last_locked_block_idx);
       MDB_val_set(v_output, locked_output);
       result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
@@ -885,8 +887,9 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
 
       if (timelocked_outputs.find(locked_output.output_id) != timelocked_outputs.end())
       {
+        MDB_val_set(k_timelocked_block_id, last_locked_block_idx);
         MDB_val_set(v_timelocked_output, locked_output);
-        result = mdb_cursor_put(m_cur_timelocked_outputs, &k_block_id, &v_timelocked_output, MDB_APPENDDUP);
+        result = mdb_cursor_put(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_APPENDDUP);
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add timelocked output: ", result).c_str()));
       }
@@ -1279,8 +1282,27 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
       throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
   }
 
-  // TODO: remove output from custom timelocked outputs table if custom timelocked
-  // Just search for it and see if it's in the table, remove if so
+  // Remove output from custom timelocked outputs table if present
+  CURSOR(timelocked_outputs);
+
+  MDB_val_set(k_timelocked_block_id, unlock_block);
+  MDB_val_set(v_timelocked_output, ok->output_id);
+
+  result = mdb_cursor_get(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_GET_BOTH);
+  if (result == MDB_NOTFOUND)
+  {
+    // Output is either not timelocked or is invalid
+  }
+  else if (result)
+  {
+    throw1(DB_ERROR(lmdb_error("Error adding removal of timelocked output to db transaction", result).c_str()));
+  }
+  else
+  {
+    result = mdb_cursor_del(m_cur_timelocked_outputs, 0);
+    if (result)
+      throw0(DB_ERROR(lmdb_error(std::string("Error deleting timelocked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
+  }
 
   result = mdb_cursor_del(m_cur_output_txs, 0);
   if (result)
@@ -1563,7 +1585,7 @@ fcmp_pp::curve_trees::CurveTreesV1::TreeReduction BlockchainLMDB::get_tree_reduc
 std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_hashes(const uint64_t block_idx) const
 {
   // Calculate what the last hashes should be at every layer for the provided block
-  const auto tree_reduction = this->get_tree_reduction(block_idx + 1)/*new_n_blocks*/;
+  const auto tree_reduction = this->get_tree_reduction(block_idx + 1/*new_n_blocks*/);
 
   // Get ALL the children from every layer's last chunk as of the provided block
   const uint64_t new_n_leaf_tuples = tree_reduction.new_total_leaf_tuples;
@@ -2595,6 +2617,9 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   uint64_t blk_idx = start_block_idx;
   MDB_cursor_op op = MDB_SET;
   bool reading_first_op_next_multiple = false;
+  // TODO: iterate backwards over timelocked outputs table until encountering last locked block < start_block_idx
+  // instead of checking every unlock block
+  // WARNING: slow if there are a lot of timelocked outputs
   while (blk_idx < n_blocks)
   {
     MDB_val_set(k_block_id, blk_idx);
@@ -2664,14 +2689,14 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   for (const auto &output_id : output_ids)
   {
     const auto output_tx = this->get_output_tx_and_index_from_global(output_id.first);
-    const uint64_t tx_block_idx = this->get_tx_block_height(output_tx.first);
+    const uint64_t created_block_idx = this->get_tx_block_height(output_tx.first);
 
-    // As soon as we encounter an output created before start_block_idx, we're done
-    if (tx_block_idx < start_block_idx)
+    // As soon as we encounter an output created before start_block_idx, we're done, we've removed all we needed to
+    if (created_block_idx < start_block_idx)
       break;
 
     // Find the output in the outs container
-    auto blk_it = outs.find(output_id.second);
+    auto blk_it = outs.find(output_id.second/*unlock_block*/);
 
     // The last one in the vec should be the output id since it should be sorted
     if (blk_it == outs.end())
@@ -2701,7 +2726,12 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
   RCURSOR(timelocked_outputs)
 
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
+
   if (end_block_idx == 0)
+    return outs;
+
+  const uint64_t height = this->height();
+  if (height == 0)
     return outs;
 
   const uint64_t coinbase_start_idx = CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW > end_block_idx
@@ -2712,7 +2742,7 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
     ? 0
     : end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
-  const uint64_t end_blk_idx = std::min(this->height(), end_block_idx);
+  const uint64_t end_blk_idx = std::min(height - 1, end_block_idx);
 
   const auto get_out_unlock_blocks = [this, &outs, normal_start_idx](uint64_t b_idx, const crypto::hash, const block &b) -> bool
   {
@@ -2743,7 +2773,7 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
     // Add coinbase outputs
     add_outs_by_unlock_block(cryptonote::get_transaction_hash(b.miner_tx), true);
 
-    if (b_idx < normal_start_idx)
+    if (normal_start_idx > b_idx)
       return true;
 
     // Add normal outputs
@@ -7436,7 +7466,7 @@ void BlockchainLMDB::migrate_5_6()
       struct tmp_output_cache { uint64_t n_outputs_read; uint64_t amount; outkey ok; };
       tmp_output_cache last_output;
 
-      MDB_cursor *c_output_amounts, *c_locked_outputs, *c_tmp_last_output;
+      MDB_cursor *c_output_amounts, *c_locked_outputs, *c_tmp_last_output, *c_timelocked_outputs;
       MDB_val k, v;
 
       i = 0;
@@ -7482,6 +7512,9 @@ void BlockchainLMDB::migrate_5_6()
           result = mdb_cursor_open(txn, m_tmp_last_output, &c_tmp_last_output);
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to open a cursor for temp last output: ", result).c_str()));
+          result = mdb_cursor_open(txn, m_timelocked_outputs, &c_timelocked_outputs);
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for timelocked outputs: ", result).c_str()));
 
           // Get the cached last output from the db
           bool found_cached_output = false;
@@ -7589,7 +7622,7 @@ void BlockchainLMDB::migrate_5_6()
         // Get the block in which the output will unlock
         const uint64_t unlock_block = cryptonote::get_unlock_block_index(output_data.unlock_time, output_data.height);
 
-        // Now add the output to the locked outputs table
+        // Add the output to the locked outputs table
         MDB_val_set(k_block_id, unlock_block);
         MDB_val_set(v_output, output_context);
 
@@ -7598,6 +7631,30 @@ void BlockchainLMDB::migrate_5_6()
         result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
+
+        // Check if the output is a coinbase output
+        bool is_coinbase = false;
+        const bool has_coinbase_unlock_block = unlock_block == (output_data.height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - 1);
+        if (has_coinbase_unlock_block)
+        {
+          // Only coinbase outputs could potentially have the coinbase unlock block (see prevalidate_miner_transaction)
+          auto toi = this->get_output_tx_and_index_from_global(output_id);
+          auto tx = this->get_pruned_tx(toi.first);
+          is_coinbase = cryptonote::is_coinbase(tx);
+        }
+
+        // Add custom timelocked outputs to the timelocked outputs table
+        if (!cryptonote::is_custom_timelocked(is_coinbase, unlock_block, output_data.height))
+          continue;
+
+        MDB_val_set(k_timelocked_block_id, unlock_block);
+        MDB_val_set(v_timelocked_output, output_context);
+
+        // MDB_NODUPDATA because all output id's should be unique
+        // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by output_id
+        result = mdb_cursor_put(c_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_NODUPDATA);
+        if (result != MDB_SUCCESS)
+          throw0(DB_ERROR(lmdb_error("Failed to add timelocked output: ", result).c_str()));
       }
     }
 
@@ -7740,8 +7797,6 @@ void BlockchainLMDB::migrate_5_6()
 
       txn.commit();
     }
-
-    // TODO: Step 4, iterate over all txs in order and add the custom timelocked outputs to the timelocked_outputs table
   } while(0);
 
   // Update db version
