@@ -69,6 +69,8 @@ private:
     std::unordered_set<crypto::public_key> m_signers;
     std::vector<std::string> m_tx_device_aux;
     std::vector<crypto::key_image> m_key_images;
+    // wallet2 m_cold_key_images
+    std::unordered_map<crypto::public_key, crypto::key_image> m_tx_key_images;
 };
 
 

@@ -7979,7 +7979,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   return parse_tx_from_str(s, ptx, accept_func);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
+bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func, tools::wallet2::signed_tx_set *signed_txs_out /* = nullptr */, bool do_handle_key_images /* = true */)
 {
   std::string s = signed_tx_st;
   signed_tx_set signed_txs;
@@ -8073,17 +8073,29 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     return false;
   }
 
-  // import key images
-  bool r = import_key_images(signed_txs.key_images);
-  if (!r) return false;
+  // Make signed_tx_set available to caller
+  if (signed_txs_out)
+      *signed_txs_out = std::move(signed_txs);
 
-  // remember key images for this tx, for when we get those txes from the blockchain
-  for (const auto &e: signed_txs.tx_key_images)
-    m_cold_key_images.insert(e);
+  // `do_handle_key_images = true` was (and is) the default behavior, but for more flexibility in the Wallet API it can be turned off now
+  if (do_handle_key_images)
+  {
+    // import key images
+    bool r = import_key_images(signed_txs.key_images);
+    if (!r) return false;
 
+    // remember key images for this tx, for when we get those txes from the blockchain
+    insert_cold_key_images(signed_txs.tx_key_images);
+  }
   ptx = signed_txs.ptx;
 
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::insert_cold_key_images(std::unordered_map<crypto::public_key, crypto::key_image> &cold_key_images)
+{
+    for (const auto &ki: cold_key_images)
+      m_cold_key_images.insert(ki);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::save_multisig_tx(multisig_tx_set txs)
