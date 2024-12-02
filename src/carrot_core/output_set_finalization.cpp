@@ -171,6 +171,22 @@ void get_output_enote_proposals(std::vector<CarrotPaymentProposalV1> &&normal_pa
     CHECK_AND_ASSERT_THROW_MES(num_integrated <= 1,
         "get output enote proposals: only one integrated address is allowed per tx output set");
 
+    // assert anchor_norm != 0 for payments
+    for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
+        CHECK_AND_ASSERT_THROW_MES(normal_payment_proposal.randomness != janus_anchor_t{},
+            "get output enote proposals: normal payment proposal has unset anchor_norm AKA randomness");
+
+    // sort normal payment proposals by anchor_norm and assert uniqueness of randomness for each payment
+    const auto sort_by_randomness = [](const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 &b) -> bool
+    {
+        return memcmp(&a.randomness, &b.randomness, JANUS_ANCHOR_BYTES) < 0;
+    };
+    std::sort(normal_payment_proposals.begin(), normal_payment_proposals.end(), sort_by_randomness);
+    const bool has_unique_randomness = tools::is_sorted_and_unique(normal_payment_proposals,
+        sort_by_randomness);
+    CHECK_AND_ASSERT_THROW_MES(has_unique_randomness,
+        "get output enote proposals: normal payment proposals contain duplicate anchor_norm AKA randomness");
+
     // input_context = "R" || KI_1
     input_context_t input_context;
     make_carrot_input_context(tx_first_key_image, input_context);

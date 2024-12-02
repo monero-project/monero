@@ -125,16 +125,29 @@ bool make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &
     // @TODO: this is slower than a turtle on morphine, and will cripple scan speed, but should be correct
 
     // K_e = ConvertPointM(D_e)
-    ge_p3 D_e_in_ed25519_p3;
-    if (ge_fromx25519_vartime(&D_e_in_ed25519_p3, enote_ephemeral_pubkey.data) != 0)
+    ge_p3 p3_tmp;
+    if (ge_fromx25519_vartime(&p3_tmp, enote_ephemeral_pubkey.data) != 0)
+        return false;
+    
+    // serialize K_e
+    crypto::public_key K_e;
+    ge_p3_tobytes(to_bytes(K_e), &p3_tmp);
+
+    // [ed25519] s_sr = 8 d_e K^j_v
+    crypto::key_derivation s_sr_in_ed25519;
+    if (!crypto::wallet::generate_key_derivation(K_e, k_view, s_sr_in_ed25519))
+        return false;
+    else if (memcmp(&s_sr_in_ed25519, &rct::I, sizeof(rct::key)) == 0)
         return false;
 
-    // serialize K_e
-    crypto::public_key D_e_in_ed25519;
-    ge_p3_tobytes(to_bytes(D_e_in_ed25519), &D_e_in_ed25519_p3);
+    // deserialize s_sr
+    ge_p3 s_sr_in_ed25519_p3;
+    ge_frombytes_vartime(&s_sr_in_ed25519_p3, to_bytes(s_sr_in_ed25519));
 
-    // do ECDH exchange 8 k_v D_e
-    return make_carrot_uncontextualized_shared_key_sender(k_view, D_e_in_ed25519, s_sender_receiver_unctx_out);
+    // ConvertPointE(s_sr)
+    ge_p3_to_x25519(s_sender_receiver_unctx_out.data, &s_sr_in_ed25519_p3);
+
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool make_carrot_uncontextualized_shared_key_sender(const crypto::secret_key &enote_ephemeral_privkey,

@@ -146,6 +146,27 @@ TEST(carrot_core, ECDH_subaddress_completeness)
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, ECDH_mx25519_convergence)
+{
+    const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
+    const crypto::x25519_secret_key a = crypto::x25519_secret_key_gen();
+    const crypto::x25519_secret_key eight = crypto::x25519_scalar{{8}};
+
+    // do Q = 8 * a * P using mx25519
+    crypto::x25519_pubkey Q_mx25519;
+    crypto::x25519_scmul_key(eight, P, Q_mx25519);
+    crypto::x25519_scmul_key(a, Q_mx25519, Q_mx25519);
+
+    // do Q = 8 * a * P using make_carrot_uncontextualized_shared_key_receiver()
+    crypto::secret_key a_sk;
+    memcpy(&a_sk, &a, sizeof(a_sk));
+    crypto::x25519_pubkey Q_carrot;
+    ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(a_sk, P, Q_carrot));
+
+    // check equal
+    EXPECT_EQ(Q_mx25519, Q_carrot);
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, main_address_normal_scan_completeness)
 {
     const mock_carrot_keys keys = mock_carrot_keys::generate();
@@ -750,4 +771,93 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
         recovered_sender_extension_t,
         enote.onetime_address));
 }
+//----------------------------------------------------------------------------------------------------------------------
+/*
+TEST(carrot_core, subaddress_transfer_2out_completeness)
+{
+
+    const mock_carrot_keys alice = mock_carrot_keys::generate();
+    const mock_carrot_keys bob = mock_carrot_keys::generate();
+
+    const uint32_t alice_j_major = crypto::rand<uint32_t>();
+    const uint32_t alice_j_minor = crypto::rand<uint32_t>();
+    CarrotDestinationV1 alice_address;
+    make_carrot_subaddress_v1(alice.account_spend_pubkey,
+        alice.main_address_view_pubkey,
+        alice.s_generate_address,
+        alice_j_major,
+        alice_j_minor,
+        alice_address);
+    
+    const uint32_t bob_j_major = crypto::rand<uint32_t>();
+    const uint32_t bob_j_minor = crypto::rand<uint32_t>();
+    CarrotDestinationV1 bob_address;
+    make_carrot_subaddress_v1(bob.account_spend_pubkey,
+        bob.main_address_view_pubkey,
+        bob.s_generate_address,
+        bob_j_major,
+        bob_j_minor,
+        bob_address);
+
+    const CarrotPaymentProposalV1 proposal = CarrotPaymentProposalV1{
+        .destination = main_address,
+        .amount = crypto::rand<rct::xmr_amount>(),
+        .randomness = gen_janus_anchor()
+    };
+
+    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+
+    RCTOutputEnoteProposal enote_proposal;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_proposal_normal_v1(proposal,
+        tx_first_key_image,
+        enote_proposal,
+        encrypted_payment_id);
+
+    ASSERT_EQ(proposal.amount, enote_proposal.amount);
+    const rct::key recomputed_amount_commitment = rct::commit(enote_proposal.amount, rct::sk2rct(enote_proposal.amount_blinding_factor));
+    ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
+
+    crypto::x25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
+        enote_proposal.enote.enote_ephemeral_pubkey,
+        s_sender_receiver_unctx);
+
+    crypto::secret_key recovered_sender_extension_g;
+    crypto::secret_key recovered_sender_extension_t;
+    crypto::public_key recovered_address_spend_pubkey;
+    rct::xmr_amount recovered_amount;
+    crypto::secret_key recovered_amount_blinding_factor;
+    encrypted_payment_id_t recovered_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    const bool scan_success = try_scan_carrot_enote_external(enote_proposal.enote,
+        encrypted_payment_id,
+        s_sender_receiver_unctx,
+        keys.k_view_dev,
+        keys.account_spend_pubkey,
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        recovered_address_spend_pubkey,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_payment_id,
+        recovered_enote_type);
+    
+    ASSERT_TRUE(scan_success);
+
+    // check recovered data
+    EXPECT_EQ(proposal.destination.address_spend_pubkey, recovered_address_spend_pubkey);
+    EXPECT_EQ(proposal.amount, recovered_amount);
+    EXPECT_EQ(enote_proposal.amount_blinding_factor, recovered_amount_blinding_factor);
+    EXPECT_EQ(null_payment_id, recovered_payment_id);
+    EXPECT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
+
+    // check spendability
+    EXPECT_TRUE(can_open_fcmp_onetime_address(keys.k_prove_spend,
+        keys.k_generate_image,
+        rct::rct2sk(rct::I),
+        recovered_sender_extension_g,
+        recovered_sender_extension_t,
+        enote_proposal.enote.onetime_address));
+}*/
 //----------------------------------------------------------------------------------------------------------------------
