@@ -146,7 +146,9 @@ tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_enote_proposals(std::vector<CarrotPaymentProposalV1> &&normal_payment_proposals,
     std::vector<CarrotPaymentProposalSelfSendV1> &&selfsend_payment_proposals,
-    const view_balance_secret_device &s_view_balance_dev,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const crypto::public_key &account_spend_pubkey,
     const crypto::key_image &tx_first_key_image,
     std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
     encrypted_payment_id_t &encrypted_payment_id_out)
@@ -208,18 +210,34 @@ void get_output_enote_proposals(std::vector<CarrotPaymentProposalV1> &&normal_pa
             encrypted_payment_id_out = encrypted_payment_id;
     }
 
-    // in the case that the pid is ambiguous, set it to random bytes
+    // in the case that the pid target is ambiguous, set it to random bytes
     const bool ambiguous_pid_destination = num_integrated == 0 && normal_payment_proposals.size() > 1;
     if (ambiguous_pid_destination)
         encrypted_payment_id_out = gen_payment_id();
 
-    // construct selfsend enotes
+    // construct selfsend enotes, preferring internal enotes over special enotes when possible
     for (const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
     {
-        get_output_proposal_internal_v1(selfsend_payment_proposal,
-            s_view_balance_dev,
-            tx_first_key_image,
-            tools::add_element(output_enote_proposals_out));
+        if (s_view_balance_dev != nullptr)
+        {
+            get_output_proposal_internal_v1(selfsend_payment_proposal,
+                *s_view_balance_dev,
+                tx_first_key_image,
+                tools::add_element(output_enote_proposals_out));
+        }
+        else if (k_view_dev != nullptr)
+        {
+            get_output_proposal_special_v1(selfsend_payment_proposal,
+                *k_view_dev,
+                account_spend_pubkey,
+                tx_first_key_image,
+                tools::add_element(output_enote_proposals_out));
+        }
+        else // neither k_v nor s_vb device passed
+        {
+            ASSERT_MES_AND_THROW(
+                "get output enote proposals: neither a view-balance nor view-incoming device was provided");
+        }
     }
 
     // sort enotes by D_e and assert uniqueness properties of D_e

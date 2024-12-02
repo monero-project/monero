@@ -321,7 +321,7 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
 //-------------------------------------------------------------------------------------------------------------------
 void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &primary_address_spend_pubkey,
+    const crypto::public_key &account_spend_pubkey,
     const crypto::key_image &tx_first_key_image,
     RCTOutputEnoteProposal &output_enote_out)
 {
@@ -362,7 +362,7 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
     k_view_dev.make_janus_anchor_special(proposal.enote_ephemeral_pubkey,
         input_context,
         output_enote_out.enote.onetime_address,
-        primary_address_spend_pubkey,
+        account_spend_pubkey,
         janus_anchor_special);
 
     // 6. encrypt special anchor: anchor_enc = anchor XOR m_anchor

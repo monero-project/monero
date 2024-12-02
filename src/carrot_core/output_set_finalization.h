@@ -87,11 +87,25 @@ tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1
     const crypto::public_key &change_address_spend_pubkey,
     const crypto::x25519_pubkey &other_enote_ephemeral_pubkey);
 /**
- * brief: get_output_enote_proposals - convert payment proposals into output enote proposals
+ * brief: get_output_enote_proposals - convert a *finalized* set of payment proposals into output enote proposals
+ * param: normal_payment_proposals -
+ * param: selfsend_payment_proposals -
+ * param: s_view_balance_dev - pointer to view-balance device (OPTIONAL)
+ * param: k_view_dev - pointer to view-incoming device (OPTIONAL)
+ * param: account_spend_pubkey - K_s
+ * param: tx_first_key_image - KI_1
+ * outparam: output_enote_proposals_out -
+ * outparam: encrypted_payment_id_out - pid_enc
+ * throw: std::runtime_error if the payment proposals do not represent a valid tx output set, or if no devices
+ * 
+ * If s_view_balance_dev is not NULL, then the selfsend payments are converted into *internal* enotes.
+ * Otherwise, if k_view_dev is not NULL, then the selfsend payments are converted into *external* enotes.
  */
 void get_output_enote_proposals(std::vector<CarrotPaymentProposalV1> &&normal_payment_proposals,
     std::vector<CarrotPaymentProposalSelfSendV1> &&selfsend_payment_proposals,
-    const view_balance_secret_device &s_view_balance_dev,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const crypto::public_key &account_spend_pubkey,
     const crypto::key_image &tx_first_key_image,
     std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
     encrypted_payment_id_t &encrypted_payment_id_out);

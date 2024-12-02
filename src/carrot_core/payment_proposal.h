@@ -129,20 +129,20 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
 * brief: get_output_proposal_v1 - convert the carrot proposal to an output proposal (external selfsend)
 * param: proposal -
 * param: k_view_dev -
-* param: primary_address_spend_pubkey -
+* param: account_spend_pubkey -
 * param: tx_first_key_image -
 * outparam: output_enote_out -
 */
 void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &primary_address_spend_pubkey,
+    const crypto::public_key &account_spend_pubkey,
     const crypto::key_image &tx_first_key_image,
     RCTOutputEnoteProposal &output_enote_out);
 /**
 * brief: get_output_proposal_internal_v1 - convert the carrot proposal to an output proposal (internal)
 * param: proposal -
 * param: s_view_balance_dev -
-* param: primary_address_spend_pubkey -
+* param: account_spend_pubkey -
 * param: tx_first_key_image -
 * outparam: output_enote_out -
 * outparam: partial_memo_out -

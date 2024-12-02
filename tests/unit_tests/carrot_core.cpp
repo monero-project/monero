@@ -893,10 +893,11 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
         enote.onetime_address));
 }
 //----------------------------------------------------------------------------------------------------------------------
-static void subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(const bool alice_subaddress,
+static void subtest_2out_transfer_get_output_enote_proposals_completeness(const bool alice_subaddress,
     const bool bob_subaddress,
     const bool bob_integrated,
-    const CarrotEnoteType alice_selfsend_type)
+    const CarrotEnoteType alice_selfsend_type,
+    const bool alice_internal_selfsends)
 {
     // generate alice keys and address
     const mock_carrot_keys alice = mock_carrot_keys::generate();
@@ -972,11 +973,13 @@ static void subtest_2out_transfer_get_enote_output_proposals_internal_ss_complet
     encrypted_payment_id_t encrypted_payment_id;
     get_output_enote_proposals({bob_payment_proposal},
         {alice_payment_proposal},
-        alice.s_view_balance_dev,
+        alice_internal_selfsends ? &alice.s_view_balance_dev : nullptr,
+        &alice.k_view_dev,
+        alice.account_spend_pubkey,
         tx_first_key_image,
         enote_proposals,
         encrypted_payment_id);
-    
+
     ASSERT_EQ(2, enote_proposals.size()); // 2-out tx
 
     // collect enotes
@@ -1061,37 +1064,73 @@ static void subtest_2out_transfer_get_enote_output_proposals_internal_ss_complet
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_enote_output_proposals_internal_ss_main2main_completeness)
 {
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, false, CarrotEnoteType::PAYMENT);
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, false, CarrotEnoteType::CHANGE);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, false, CarrotEnoteType::PAYMENT, true);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, false, CarrotEnoteType::CHANGE, true);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_enote_output_proposals_internal_ss_main2sub_completeness)
 {
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, true, false, CarrotEnoteType::PAYMENT);
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, true, false, CarrotEnoteType::CHANGE);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, true, false, CarrotEnoteType::PAYMENT, true);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, true, false, CarrotEnoteType::CHANGE, true);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_enote_output_proposals_internal_ss_main2integ_completeness)
 {
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, true, CarrotEnoteType::PAYMENT);
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, true, CarrotEnoteType::CHANGE);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, true, CarrotEnoteType::PAYMENT, true);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, true, CarrotEnoteType::CHANGE, true);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_enote_output_proposals_internal_ss_sub2main_completeness)
 {
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, false, CarrotEnoteType::PAYMENT);
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, false, CarrotEnoteType::CHANGE);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, false, CarrotEnoteType::PAYMENT, true);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, false, CarrotEnoteType::CHANGE, true);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_enote_output_proposals_internal_ss_sub2sub_completeness)
 {
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, true, false, CarrotEnoteType::PAYMENT);
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, true, false, CarrotEnoteType::CHANGE);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, true, false, CarrotEnoteType::PAYMENT, true);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, true, false, CarrotEnoteType::CHANGE, true);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_enote_output_proposals_internal_ss_sub2integ_completeness)
 {
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, true, CarrotEnoteType::PAYMENT);
-    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, true, CarrotEnoteType::CHANGE);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, true, CarrotEnoteType::PAYMENT, true);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, true, CarrotEnoteType::CHANGE, true);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_external_ss_main2main_completeness)
+{
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, false, CarrotEnoteType::PAYMENT, false);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, false, CarrotEnoteType::CHANGE, false);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_external_ss_main2sub_completeness)
+{
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, true, false, CarrotEnoteType::PAYMENT, false);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, true, false, CarrotEnoteType::CHANGE, false);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_external_ss_main2integ_completeness)
+{
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, true, CarrotEnoteType::PAYMENT, false);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(false, false, true, CarrotEnoteType::CHANGE, false);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_external_ss_sub2main_completeness)
+{
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, false, CarrotEnoteType::PAYMENT, false);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, false, CarrotEnoteType::CHANGE, false);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_external_ss_sub2sub_completeness)
+{
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, true, false, CarrotEnoteType::PAYMENT, false);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, true, false, CarrotEnoteType::CHANGE, false);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_external_ss_sub2integ_completeness)
+{
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, true, CarrotEnoteType::PAYMENT, false);
+    subtest_2out_transfer_get_output_enote_proposals_completeness(true, false, true, CarrotEnoteType::CHANGE, false);
 }
 //----------------------------------------------------------------------------------------------------------------------
