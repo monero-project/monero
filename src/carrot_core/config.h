@@ -66,4 +66,7 @@ static constexpr const unsigned char CARROT_DOMAIN_SEP_GENERATE_ADDRESS_SECRET[]
 static constexpr const unsigned char CARROT_DOMAIN_SEP_ADDRESS_INDEX_GEN[] = "Carrot address index generator";
 static constexpr const unsigned char CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR[] = "Carrot subaddress scalar";
 
+// Carrot misc constants
+static constexpr const unsigned int CARROT_MIN_TX_OUTPUTS = 2;
+static constexpr const unsigned int CARROT_MAX_TX_OUTPUTS = 16;
 } //namespace carrot
