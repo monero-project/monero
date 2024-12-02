@@ -893,138 +893,73 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
         enote.onetime_address));
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(carrot_core, main2main_transfer_2out_completeness)
+static void subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(const bool alice_subaddress,
+    const bool bob_subaddress,
+    const bool bob_integrated,
+    const CarrotEnoteType alice_selfsend_type)
 {
+    // generate alice keys and address
     const mock_carrot_keys alice = mock_carrot_keys::generate();
-    const mock_carrot_keys bob = mock_carrot_keys::generate();
-
-    CarrotDestinationV1 alice_address;
-    make_carrot_main_address_v1(alice.account_spend_pubkey,
-        alice.main_address_view_pubkey,
-        alice_address);
-
-    CarrotDestinationV1 bob_address;
-    make_carrot_main_address_v1(bob.account_spend_pubkey,
-        bob.main_address_view_pubkey,
-        bob_address);
-
-    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
-
-    const CarrotPaymentProposalV1 bob_payment_proposal = CarrotPaymentProposalV1{
-        .destination = bob_address,
-        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-        .randomness = gen_janus_anchor()
-    };
-
-    const CarrotPaymentProposalSelfSendV1 alice_payment_proposal = CarrotPaymentProposalSelfSendV1{
-        .destination_address_spend_pubkey = alice_address.address_spend_pubkey,
-        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-        .enote_type = CarrotEnoteType::CHANGE,
-        .enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(bob_payment_proposal, input_context)
-    };
-
-    std::vector<RCTOutputEnoteProposal> enote_proposals;
-    encrypted_payment_id_t encrypted_payment_id;
-    get_output_enote_proposals({bob_payment_proposal},
-        {alice_payment_proposal},
-        alice.s_view_balance_dev,
-        tx_first_key_image,
-        enote_proposals,
-        encrypted_payment_id);
-    
-    ASSERT_EQ(2, enote_proposals.size()); // 2-out tx
-
-    // collect enotes
-    std::vector<CarrotEnoteV1> enotes;
-    for (const RCTOutputEnoteProposal &enote_proposal : enote_proposals)
-        enotes.push_back(enote_proposal.enote);
-
-    // check that alice scanned 1 enote
-    std::vector<unittest_carrot_scan_result_t> alice_scan_vec;
-    unittest_scan_enote_set(enotes, encrypted_payment_id, alice, alice_scan_vec);
-    ASSERT_EQ(1, alice_scan_vec.size());
-    unittest_carrot_scan_result_t alice_scan = alice_scan_vec.front();
-
-    // check that bob scanned 1 enote
-    std::vector<unittest_carrot_scan_result_t> bob_scan_vec;
-    unittest_scan_enote_set(enotes, encrypted_payment_id, bob, bob_scan_vec);
-    ASSERT_EQ(1, bob_scan_vec.size());
-    unittest_carrot_scan_result_t bob_scan = bob_scan_vec.front();
-
-    // set named references to enotes
-    ASSERT_TRUE((alice_scan.output_index == 0 && bob_scan.output_index == 1) ||
-        (alice_scan.output_index == 1 && bob_scan.output_index == 0));
-    const CarrotEnoteV1 &alice_enote = enotes.at(alice_scan.output_index);
-    const CarrotEnoteV1 &bob_enote = enotes.at(bob_scan.output_index);
-
-    // check Alice's recovered data
-    EXPECT_EQ(alice_payment_proposal.destination_address_spend_pubkey, alice_scan.address_spend_pubkey);
-    EXPECT_EQ(alice_payment_proposal.amount, alice_scan.amount);
-    EXPECT_EQ(alice_enote.amount_commitment, rct::commit(alice_scan.amount, rct::sk2rct(alice_scan.amount_blinding_factor)));
-    EXPECT_EQ(null_payment_id, alice_scan.payment_id);
-    EXPECT_EQ(alice_payment_proposal.enote_type, alice_scan.enote_type);
-
-    // check Bob's recovered data
-    EXPECT_EQ(bob_payment_proposal.destination.address_spend_pubkey, bob_scan.address_spend_pubkey);
-    EXPECT_EQ(bob_payment_proposal.amount, bob_scan.amount);
-    EXPECT_EQ(bob_enote.amount_commitment, rct::commit(bob_scan.amount, rct::sk2rct(bob_scan.amount_blinding_factor)));
-    EXPECT_EQ(null_payment_id, bob_scan.payment_id);
-    EXPECT_EQ(CarrotEnoteType::PAYMENT, bob_scan.enote_type);
-
-    // check Alice spendability
-    EXPECT_TRUE(can_open_fcmp_onetime_address(alice.k_prove_spend,
-        alice.k_generate_image,
-        crypto::secret_key{{1}},
-        alice_scan.sender_extension_g,
-        alice_scan.sender_extension_t,
-        alice_enote.onetime_address));
-    
-    // check Bob spendability
-    EXPECT_TRUE(can_open_fcmp_onetime_address(bob.k_prove_spend,
-        bob.k_generate_image,
-        crypto::secret_key{{1}},
-        bob_scan.sender_extension_g,
-        bob_scan.sender_extension_t,
-        bob_enote.onetime_address));
-}
-//----------------------------------------------------------------------------------------------------------------------
-TEST(carrot_core, sub2sub_transfer_2out_completeness)
-{
-    const mock_carrot_keys alice = mock_carrot_keys::generate();
-    const mock_carrot_keys bob = mock_carrot_keys::generate();
-
     const uint32_t alice_j_major = crypto::rand<uint32_t>();
     const uint32_t alice_j_minor = crypto::rand<uint32_t>();
     CarrotDestinationV1 alice_address;
-    make_carrot_subaddress_v1(alice.account_spend_pubkey,
-        alice.account_view_pubkey,
-        alice.s_generate_address,
-        alice_j_major,
-        alice_j_minor,
-        alice_address);
-    
+    if (alice_subaddress)
+    {
+        make_carrot_subaddress_v1(alice.account_spend_pubkey,
+            alice.account_view_pubkey,
+            alice.s_generate_address,
+            alice_j_major,
+            alice_j_minor,
+            alice_address);
+    }
+    else
+    {
+        make_carrot_main_address_v1(alice.account_spend_pubkey,
+            alice.main_address_view_pubkey,
+            alice_address);
+    }
+
+    // generate bob keys and address
+    const mock_carrot_keys bob = mock_carrot_keys::generate();
     const uint32_t bob_j_major = crypto::rand<uint32_t>();
     const uint32_t bob_j_minor = crypto::rand<uint32_t>();
     CarrotDestinationV1 bob_address;
-    make_carrot_subaddress_v1(bob.account_spend_pubkey,
-        bob.account_view_pubkey,
-        bob.s_generate_address,
-        bob_j_major,
-        bob_j_minor,
-        bob_address);
+    if (bob_subaddress)
+    {
+        make_carrot_subaddress_v1(bob.account_spend_pubkey,
+            bob.account_view_pubkey,
+            bob.s_generate_address,
+            bob_j_major,
+            bob_j_minor,
+            bob_address);
+    }
+    else if (bob_integrated)
+    {
+        make_carrot_integrated_address_v1(bob.account_spend_pubkey,
+            bob.main_address_view_pubkey,
+            gen_payment_id(),
+            bob_address);
+    }
+    else
+    {
+        make_carrot_main_address_v1(bob.account_spend_pubkey,
+            bob.main_address_view_pubkey,
+            bob_address);
+    }
 
+    // generate input context
     const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
     input_context_t input_context;
     make_carrot_input_context(tx_first_key_image, input_context);
 
+    // outgoing payment proposal to bob
     const CarrotPaymentProposalV1 bob_payment_proposal = CarrotPaymentProposalV1{
         .destination = bob_address,
         .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
         .randomness = gen_janus_anchor()
     };
 
+    // selfsend payment proposal to alice
     const CarrotPaymentProposalSelfSendV1 alice_payment_proposal = CarrotPaymentProposalSelfSendV1{
         .destination_address_spend_pubkey = alice_address.address_spend_pubkey,
         .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
@@ -1032,6 +967,7 @@ TEST(carrot_core, sub2sub_transfer_2out_completeness)
         .enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(bob_payment_proposal, input_context)
     };
 
+    // turn payment proposals into enotes
     std::vector<RCTOutputEnoteProposal> enote_proposals;
     encrypted_payment_id_t encrypted_payment_id;
     get_output_enote_proposals({bob_payment_proposal},
@@ -1077,7 +1013,7 @@ TEST(carrot_core, sub2sub_transfer_2out_completeness)
     EXPECT_EQ(bob_payment_proposal.destination.address_spend_pubkey, bob_scan.address_spend_pubkey);
     EXPECT_EQ(bob_payment_proposal.amount, bob_scan.amount);
     EXPECT_EQ(bob_enote.amount_commitment, rct::commit(bob_scan.amount, rct::sk2rct(bob_scan.amount_blinding_factor)));
-    EXPECT_EQ(null_payment_id, bob_scan.payment_id);
+    EXPECT_EQ(bob_integrated ? bob_address.payment_id : null_payment_id, bob_scan.payment_id);
     EXPECT_EQ(CarrotEnoteType::PAYMENT, bob_scan.enote_type);
 
     // check Alice spendability
@@ -1096,7 +1032,7 @@ TEST(carrot_core, sub2sub_transfer_2out_completeness)
 
     EXPECT_TRUE(can_open_fcmp_onetime_address(alice.k_prove_spend,
         alice.k_generate_image,
-        alice_subaddr_scalar,
+        alice_subaddress ? alice_subaddr_scalar : crypto::secret_key{{1}},
         alice_scan.sender_extension_g,
         alice_scan.sender_extension_t,
         alice_enote.onetime_address));
@@ -1117,107 +1053,45 @@ TEST(carrot_core, sub2sub_transfer_2out_completeness)
 
     EXPECT_TRUE(can_open_fcmp_onetime_address(bob.k_prove_spend,
         bob.k_generate_image,
-        bob_subaddr_scalar,
+        bob_subaddress ? bob_subaddr_scalar : crypto::secret_key{{1}},
         bob_scan.sender_extension_g,
         bob_scan.sender_extension_t,
         bob_enote.onetime_address));
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(carrot_core, main2integ_transfer_2out_completeness)
+TEST(carrot_core, get_enote_output_proposals_internal_ss_main2main_completeness)
 {
-    const mock_carrot_keys alice = mock_carrot_keys::generate();
-    const mock_carrot_keys bob = mock_carrot_keys::generate();
-
-    CarrotDestinationV1 alice_address;
-    make_carrot_main_address_v1(alice.account_spend_pubkey,
-        alice.main_address_view_pubkey,
-        alice_address);
-
-    CarrotDestinationV1 bob_address;
-    make_carrot_integrated_address_v1(bob.account_spend_pubkey,
-        bob.main_address_view_pubkey,
-        gen_payment_id(),
-        bob_address);
-
-    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
-
-    const CarrotPaymentProposalV1 bob_payment_proposal = CarrotPaymentProposalV1{
-        .destination = bob_address,
-        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-        .randomness = gen_janus_anchor()
-    };
-
-    const CarrotPaymentProposalSelfSendV1 alice_payment_proposal = CarrotPaymentProposalSelfSendV1{
-        .destination_address_spend_pubkey = alice_address.address_spend_pubkey,
-        .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
-        .enote_type = CarrotEnoteType::CHANGE,
-        .enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(bob_payment_proposal, input_context)
-    };
-
-    std::vector<RCTOutputEnoteProposal> enote_proposals;
-    encrypted_payment_id_t encrypted_payment_id;
-    get_output_enote_proposals({bob_payment_proposal},
-        {alice_payment_proposal},
-        alice.s_view_balance_dev,
-        tx_first_key_image,
-        enote_proposals,
-        encrypted_payment_id);
-
-    ASSERT_EQ(2, enote_proposals.size()); // 2-out tx
-
-    // collect enotes
-    std::vector<CarrotEnoteV1> enotes;
-    for (const RCTOutputEnoteProposal &enote_proposal : enote_proposals)
-        enotes.push_back(enote_proposal.enote);
-
-    // check that alice scanned 1 enote
-    std::vector<unittest_carrot_scan_result_t> alice_scan_vec;
-    unittest_scan_enote_set(enotes, encrypted_payment_id, alice, alice_scan_vec);
-    ASSERT_EQ(1, alice_scan_vec.size());
-    unittest_carrot_scan_result_t alice_scan = alice_scan_vec.front();
-
-    // check that bob scanned 1 enote
-    std::vector<unittest_carrot_scan_result_t> bob_scan_vec;
-    unittest_scan_enote_set(enotes, encrypted_payment_id, bob, bob_scan_vec);
-    ASSERT_EQ(1, bob_scan_vec.size());
-    unittest_carrot_scan_result_t bob_scan = bob_scan_vec.front();
-
-    // set named references to enotes
-    ASSERT_TRUE((alice_scan.output_index == 0 && bob_scan.output_index == 1) ||
-        (alice_scan.output_index == 1 && bob_scan.output_index == 0));
-    const CarrotEnoteV1 &alice_enote = enotes.at(alice_scan.output_index);
-    const CarrotEnoteV1 &bob_enote = enotes.at(bob_scan.output_index);
-
-    // check Alice's recovered data
-    EXPECT_EQ(alice_payment_proposal.destination_address_spend_pubkey, alice_scan.address_spend_pubkey);
-    EXPECT_EQ(alice_payment_proposal.amount, alice_scan.amount);
-    EXPECT_EQ(alice_enote.amount_commitment, rct::commit(alice_scan.amount, rct::sk2rct(alice_scan.amount_blinding_factor)));
-    EXPECT_EQ(null_payment_id, alice_scan.payment_id);
-    EXPECT_EQ(alice_payment_proposal.enote_type, alice_scan.enote_type);
-
-    // check Bob's recovered data
-    EXPECT_EQ(bob_payment_proposal.destination.address_spend_pubkey, bob_scan.address_spend_pubkey);
-    EXPECT_EQ(bob_payment_proposal.amount, bob_scan.amount);
-    EXPECT_EQ(bob_enote.amount_commitment, rct::commit(bob_scan.amount, rct::sk2rct(bob_scan.amount_blinding_factor)));
-    EXPECT_EQ(bob_address.payment_id, bob_scan.payment_id); // DIFFERENT FROM MAIN
-    EXPECT_EQ(CarrotEnoteType::PAYMENT, bob_scan.enote_type);
-
-    // check Alice spendability
-    EXPECT_TRUE(can_open_fcmp_onetime_address(alice.k_prove_spend,
-        alice.k_generate_image,
-        crypto::secret_key{{1}},
-        alice_scan.sender_extension_g,
-        alice_scan.sender_extension_t,
-        alice_enote.onetime_address));
-    
-    // check Bob spendability
-    EXPECT_TRUE(can_open_fcmp_onetime_address(bob.k_prove_spend,
-        bob.k_generate_image,
-        crypto::secret_key{{1}},
-        bob_scan.sender_extension_g,
-        bob_scan.sender_extension_t,
-        bob_enote.onetime_address));
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, false, CarrotEnoteType::PAYMENT);
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, false, CarrotEnoteType::CHANGE);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_internal_ss_main2sub_completeness)
+{
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, true, false, CarrotEnoteType::PAYMENT);
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, true, false, CarrotEnoteType::CHANGE);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_internal_ss_main2integ_completeness)
+{
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, true, CarrotEnoteType::PAYMENT);
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(false, false, true, CarrotEnoteType::CHANGE);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_internal_ss_sub2main_completeness)
+{
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, false, CarrotEnoteType::PAYMENT);
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, false, CarrotEnoteType::CHANGE);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_internal_ss_sub2sub_completeness)
+{
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, true, false, CarrotEnoteType::PAYMENT);
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, true, false, CarrotEnoteType::CHANGE);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_enote_output_proposals_internal_ss_sub2integ_completeness)
+{
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, true, CarrotEnoteType::PAYMENT);
+    subtest_2out_transfer_get_enote_output_proposals_internal_ss_completeness(true, false, true, CarrotEnoteType::CHANGE);
 }
 //----------------------------------------------------------------------------------------------------------------------
