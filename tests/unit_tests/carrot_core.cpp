@@ -124,7 +124,7 @@ static bool can_open_fcmp_onetime_address(const crypto::secret_key &k_prove_spen
     // K_s = k_gi G + k_ps T
     // K^j_s = k^j_subscal * K_s
     // Ko = K^j_s + k^o_g G + k^o_t T
-    //    = (k^o_g + k^j_subscal * k_gi) + (k^o_t + k^j_subscal * k_ps)
+    //    = (k^o_g + k^j_subscal * k_gi) G + (k^o_t + k^j_subscal * k_ps) T
 
     // combined_g = k^o_g + k^j_subscal * k_gi
     rct::key combined_g;
