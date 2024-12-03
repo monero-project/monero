@@ -1595,6 +1595,10 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_ha
   const auto last_path_indexes = m_curve_trees->get_path_indexes(new_n_leaf_tuples, new_n_leaf_tuples - 1);
   auto path = this->get_path(last_path_indexes);
 
+  // If the tree remains the same size, then we just use the last path and don't need to make any changes
+  if (tree_reduction.c2_layer_reductions.empty())
+    return { tree_reduction.new_total_leaf_tuples, path };
+
   // Use the tree reduction to update last hashes in each layer if needed
   bool use_c2 = true;
   std::size_t c1_idx = 0;
@@ -1603,6 +1607,7 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_ha
   {
     if (use_c2)
     {
+      CHECK_AND_ASSERT_THROW_MES(c2_idx < tree_reduction.c2_layer_reductions.size(), "unexpected c2 layer reduction");
       const auto &layer_reduction = tree_reduction.c2_layer_reductions[c2_idx];
       if (layer_reduction.update_existing_last_hash)
         layer.chunk_bytes.back() = m_curve_trees->m_c2->to_bytes(layer_reduction.new_last_hash);
@@ -1610,6 +1615,7 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_ha
     }
     else
     {
+      CHECK_AND_ASSERT_THROW_MES(c1_idx < tree_reduction.c1_layer_reductions.size(), "unexpected c1 layer reduction");
       const auto &layer_reduction = tree_reduction.c1_layer_reductions[c1_idx];
       if (layer_reduction.update_existing_last_hash)
         layer.chunk_bytes.back() = m_curve_trees->m_c1->to_bytes(layer_reduction.new_last_hash);
@@ -1934,9 +1940,7 @@ uint64_t BlockchainLMDB::get_block_n_leaf_tuples(const uint64_t block_idx) const
   RCURSOR(block_info);
 
   if (block_idx >= height())
-  {
-    return 0;
-  }
+    throw1(BLOCK_DNE("Attempting to get n leaf tuples at non-existent block"));
 
   MDB_val_copy<uint64_t> k(block_idx);
   MDB_val h = k;
@@ -2612,6 +2616,10 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   const uint64_t n_blocks = this->height();
 
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
+
+  // Early return if we want custom timelocked outputs created in blocks that do not exist yet
+  if (start_block_idx >= n_blocks)
+    return outs;
 
   // 1. Get all custom timelocked outputs with last locked block start_block_idx or higher
   uint64_t blk_idx = start_block_idx;
