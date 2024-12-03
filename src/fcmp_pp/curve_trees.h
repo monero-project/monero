@@ -312,6 +312,7 @@ public:
         uint64_t                        new_total_leaf_tuples{0};
         std::vector<LayerReduction<C1>> c1_layer_reductions;
         std::vector<LayerReduction<C2>> c2_layer_reductions;
+        // TODO: enums for how it should be used {0: Normal trim, 1: Trim to empty, 2: Don't trim at all}
     };
 
     // Last hashes from each layer in the tree
