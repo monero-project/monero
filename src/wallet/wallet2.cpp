@@ -2937,6 +2937,8 @@ void wallet2::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t gra
   size_t sz = blockchain_size - m_blockchain.offset();
   if(!sz)
   {
+    if(m_blockchain.size() > m_blockchain.offset())
+      ids.push_back(m_blockchain[m_blockchain.offset()]);
     ids.push_back(m_blockchain.genesis());
     return;
   }
