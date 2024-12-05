@@ -107,7 +107,7 @@ private:
     CurveTreesV1::LastHashes get_last_hashes_for_trim(
         const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
-    CurveTreesV1::LastChunkChildrenToTrim get_all_last_chunk_children_to_trim(
+    CurveTreesV1::LastChunkChildrenForTrim get_last_chunk_children_for_trim(
         const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions);
 
     // logging helpers

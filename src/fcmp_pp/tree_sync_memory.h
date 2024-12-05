@@ -233,13 +233,13 @@ public:
 private:
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes(const uint64_t n_leaf_tuples) const;
 
-    typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_regrow(
+    typename CurveTrees<C1, C2>::LastChunkChildrenForTrim get_last_chunk_children_to_regrow(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes_for_trim(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
-    void deque_block(const BlockMeta &block);
+    void deque_block(const uint64_t n_leaf_tuples_at_block);
 
 // State held in memory
 private:

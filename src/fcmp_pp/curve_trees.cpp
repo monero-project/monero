@@ -692,7 +692,7 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
     const std::unique_ptr<C_PARENT> &c_parent,
     const TrimLayerInstructions &trim_layer_instructions,
     const std::vector<typename C_PARENT::Point> &parent_last_hashes,
-    const std::vector<std::vector<typename C_PARENT::Scalar>> &children_to_trim,
+    const std::vector<std::vector<typename C_PARENT::Scalar>> &children_for_trim,
     const std::vector<typename C_CHILD::Point> &child_last_hashes,
     const std::size_t parent_layer_idx,
     const std::size_t child_layer_idx,
@@ -724,8 +724,8 @@ static typename fcmp_pp::curve_trees::LayerReduction<C_PARENT> get_next_layer_re
     if (trim_layer_instructions.need_last_chunk_children_to_trim
         || trim_layer_instructions.need_last_chunk_remaining_children)
     {
-        CHECK_AND_ASSERT_THROW_MES(children_to_trim.size() > parent_layer_idx, "missing children to trim");
-        child_scalars = children_to_trim[parent_layer_idx];
+        CHECK_AND_ASSERT_THROW_MES(children_for_trim.size() > parent_layer_idx, "missing children for trim");
+        child_scalars = children_for_trim[parent_layer_idx];
     }
 
     typename C_PARENT::Scalar new_last_child_scalar = c_parent->zero_scalar();
@@ -1041,7 +1041,7 @@ template std::vector<TrimLayerInstructions> CurveTrees<Helios, Selene>::get_trim
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reduction(
     const std::vector<TrimLayerInstructions> &trim_instructions,
-    const LastChunkChildrenToTrim &children_to_trim,
+    const LastChunkChildrenForTrim &children_for_trim,
     const LastHashes &last_hashes) const
 {
     TreeReduction tree_reduction_out;
@@ -1072,7 +1072,7 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
                     m_c2,
                     trim_layer_instructions,
                     last_hashes.c2_last_hashes,
-                    children_to_trim.c2_children,
+                    children_for_trim.c2_children,
                     last_hashes.c1_last_hashes,
                     c2_idx,
                     c1_idx,
@@ -1089,7 +1089,7 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
                     m_c1,
                     trim_layer_instructions,
                     last_hashes.c1_last_hashes,
-                    children_to_trim.c1_children,
+                    children_for_trim.c1_children,
                     last_hashes.c2_last_hashes,
                     c1_idx,
                     c2_idx,
@@ -1109,7 +1109,7 @@ typename CurveTrees<C1, C2>::TreeReduction CurveTrees<C1, C2>::get_tree_reductio
 // Explicit instantiation
 template CurveTrees<Helios, Selene>::TreeReduction CurveTrees<Helios, Selene>::get_tree_reduction(
     const std::vector<TrimLayerInstructions> &trim_instructions,
-    const LastChunkChildrenToTrim &children_to_trim,
+    const LastChunkChildrenForTrim &children_for_trim,
     const LastHashes &last_hashes) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -1158,6 +1158,8 @@ PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples, c
 
         const uint64_t start_range = parent_idx * parent_chunk_width;
         const uint64_t end_range = std::min(n_children, start_range + parent_chunk_width);
+
+        CHECK_AND_ASSERT_THROW_MES(end_range > start_range, "path end_range must be > start_range");
 
         const uint64_t n_parents = (leaf_layer || n_children > 1)
             ? (((n_children - 1) / parent_chunk_width) + 1)
@@ -1336,6 +1338,67 @@ bool CurveTrees<Helios, Selene>::audit_path(const CurveTrees<Helios, Selene>::Pa
 
     return true;
 }
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+typename CurveTrees<C1, C2>::LastChunkChildrenForTrim CurveTrees<C1, C2>::last_chunk_children_from_path_bytes(
+    const PathBytes &path_bytes) const
+{
+  LastChunkChildrenForTrim last_chunk_children_for_trim;
+
+  auto &c1_last_children_out = last_chunk_children_for_trim.c1_children;
+  auto &c2_last_children_out = last_chunk_children_for_trim.c2_children;
+
+  // Get the leaves as C2 scalars
+  {
+    std::vector<typename C2::Scalar> leaves_to_trim;
+    for (const auto &output_context : path_bytes.leaves)
+    {
+        auto leaf = this->leaf_tuple(output_context.output_pair);
+
+        leaves_to_trim.emplace_back(std::move(leaf.O_x));
+        leaves_to_trim.emplace_back(std::move(leaf.I_x));
+        leaves_to_trim.emplace_back(std::move(leaf.C_x));
+    }
+    c2_last_children_out.emplace_back(std::move(leaves_to_trim));
+  }
+
+  // Get the layer elems
+  bool parent_is_c1 = true;
+  for (const auto &layer_chunk : path_bytes.layer_chunks)
+  {
+    if (parent_is_c1)
+    {
+      std::vector<typename C1::Scalar> c1_children;
+      for (const auto &c2_child : layer_chunk.chunk_bytes)
+      {
+          const auto point = m_c2->from_bytes(c2_child);
+          auto child_scalar = m_c2->point_to_cycle_scalar(point);
+          c1_children.emplace_back(std::move(child_scalar));
+      }
+      c1_last_children_out.emplace_back(std::move(c1_children));
+    }
+    else
+    {
+      std::vector<typename C2::Scalar> c2_children;
+      for (const auto &c1_child : layer_chunk.chunk_bytes)
+      {
+          const auto point = m_c1->from_bytes(c1_child);
+          auto child_scalar = m_c1->point_to_cycle_scalar(point);
+          c2_children.emplace_back(std::move(child_scalar));
+      }
+      c2_last_children_out.emplace_back(std::move(c2_children));
+    }
+
+    parent_is_c1 = !parent_is_c1;
+  }
+
+  return last_chunk_children_for_trim;
+}
+
+// Explicit instantiation
+template
+CurveTrees<Helios, Selene>::LastChunkChildrenForTrim
+CurveTrees<Helios, Selene>::last_chunk_children_from_path_bytes(const PathBytes &path_bytes) const;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTrees private member functions

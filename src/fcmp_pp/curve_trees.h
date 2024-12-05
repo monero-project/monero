@@ -228,7 +228,6 @@ struct PathBytes final
     END_KV_SERIALIZE_MAP()
 };
 
-
 // The indexes in the tree of a leaf's path elems containing whole chunks at each layer
 // - leaf_range refers to a complete chunk of leaves
 struct PathIndexes final
@@ -327,7 +326,7 @@ public:
     // The children we'll trim from each last chunk in the tree
     // - layers alternate between C1 and C2
     // - c2_children[0] refers to the layer after leaves, then c1_children[0], then c2_children[1], etc
-    struct LastChunkChildrenToTrim final
+    struct LastChunkChildrenForTrim final
     {
         std::vector<std::vector<typename C1::Scalar>> c1_children;
         std::vector<std::vector<typename C2::Scalar>> c2_children;
@@ -383,12 +382,12 @@ public:
         const uint64_t trim_n_leaf_tuples,
         const bool always_regrow_with_remaining = false) const;
 
-    // Take in the instructions useful for trimming all existing layers in the tree, all children to be trimmed from
-    // each last chunk, and the existing last hash in what will become the new last parent of each layer, and return
-    // a tree reduction struct that can be used to trim a tree
+    // Take in the instructions useful for trimming all existing layers in the tree, all children used to trim each
+    // last chunk, and the existing last hash in what will become the new last parent of each layer, and return a
+    // tree reduction struct that can be used to trim a tree
     TreeReduction get_tree_reduction(
         const std::vector<TrimLayerInstructions> &trim_instructions,
-        const LastChunkChildrenToTrim &children_to_trim,
+        const LastChunkChildrenForTrim &children_for_trim,
         const LastHashes &last_hashes) const;
 
     // Calculate how many layers in the tree there are based on the number of leaf tuples
@@ -400,6 +399,8 @@ public:
 
     // Audit the provided path
     bool audit_path(const Path &path, const OutputPair &output, const uint64_t n_leaf_tuples_in_tree) const;
+
+    LastChunkChildrenForTrim last_chunk_children_from_path_bytes(const PathBytes &path_bytes) const;
 private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(
