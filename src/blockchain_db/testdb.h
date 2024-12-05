@@ -118,11 +118,11 @@ public:
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
   virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) override {};
-  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_hashes(const uint64_t block_idx) const override { return {0, fcmp_pp::curve_trees::PathBytes{}}; };
+  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const override { return {0, fcmp_pp::curve_trees::PathBytes{}}; };
   virtual void trim_block() override {};
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const override { return false; };
   virtual crypto::ec_point get_tree_root() const override { return {}; };
-  virtual uint64_t get_num_leaf_tuples() const override { return 0; };
+  virtual uint64_t get_n_leaf_tuples() const override { return 0; };
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const override { return 0; };
   virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override { return {{}}; };
   virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_recent_locked_outputs(uint64_t end_block_idx) const override { return {{}}; };

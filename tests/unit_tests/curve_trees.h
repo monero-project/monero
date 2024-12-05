@@ -73,7 +73,7 @@ public:
 //public member functions
 public:
     // Read the in-memory tree and get the number of leaf tuples
-    std::size_t get_num_leaf_tuples() const;
+    std::size_t get_n_leaf_tuples() const;
 
     // Grow tree by provided new_n_leaf_tuples
     bool grow_tree(const std::size_t expected_old_n_leaf_tuples, const std::size_t new_n_leaf_tuples);
@@ -104,7 +104,7 @@ private:
     // number of leaves
     // - This function is useful to collect all tree data necessary to perform the actual trim operation
     // - This function can return elems from each last chunk that will need to be trimmed
-    CurveTreesV1::LastHashes get_last_hashes_to_trim(
+    CurveTreesV1::LastHashes get_last_hashes_for_trim(
         const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
     CurveTreesV1::LastChunkChildrenToTrim get_all_last_chunk_children_to_trim(

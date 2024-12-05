@@ -3760,7 +3760,7 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
       for (auto &lo : init_tree_sync_data->locked_outputs)
         locked_outputs[lo.unlock_block] = std::move(lo.outputs);
 
-      m_tree_sync.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_hashes, locked_outputs);
+      m_tree_sync.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_path, locked_outputs);
     }
   }
   catch(...)

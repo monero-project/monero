@@ -1150,13 +1150,13 @@ bool TreeSyncMemory<C1, C2>::pop_block()
 
     // Do initial tree reads using trim instructions
     const auto last_chunk_children_to_regrow = this->get_last_chunk_children_to_regrow(trim_instructions);
-    const auto last_hashes_to_trim = this->get_last_hashes_to_trim(trim_instructions);
+    const auto last_hashes_for_trim = this->get_last_hashes_for_trim(trim_instructions);
 
     // Get the new hashes, wrapped in a simple struct we can use to trim the tree
     const auto tree_reduction = TreeSync<C1, C2>::m_curve_trees->get_tree_reduction(
         trim_instructions,
         last_chunk_children_to_regrow,
-        last_hashes_to_trim);
+        last_hashes_for_trim);
 
     const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
     const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
@@ -1323,11 +1323,11 @@ template<typename C1, typename C2>
 void TreeSyncMemory<C1, C2>::init(const uint64_t start_block_idx,
     const crypto::hash &start_block_hash,
     const uint64_t n_leaf_tuples,
-    const fcmp_pp::curve_trees::PathBytes &last_hashes,
+    const fcmp_pp::curve_trees::PathBytes &last_path,
     const OutputsByUnlockBlock &timelocked_outputs)
 {
     CHECK_AND_ASSERT_THROW_MES(this->empty(), "expected empty tree cache");
-    CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples >= last_hashes.leaves.size(), "n_leaf_tuples too small");
+    CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples >= last_path.leaves.size(), "n_leaf_tuples too small");
 
     fcmp_pp::curve_trees::BlockMeta init_block{
         .blk_idx       = start_block_idx,
@@ -1339,22 +1339,22 @@ void TreeSyncMemory<C1, C2>::init(const uint64_t start_block_idx,
 
     const uint64_t last_leaf_idx = n_leaf_tuples > 0 ? n_leaf_tuples - 1 : 0;
     const auto last_path_indexes = TreeSync<C1, C2>::m_curve_trees->get_path_indexes(n_leaf_tuples, last_leaf_idx);
-    CHECK_AND_ASSERT_THROW_MES(last_path_indexes.layers.size() == last_hashes.layer_chunks.size(),
+    CHECK_AND_ASSERT_THROW_MES(last_path_indexes.layers.size() == last_path.layer_chunks.size(),
         "unexpected size of layer chunks");
 
-    // {n_leaf_tuples, last_hashes.leaves} -> Leaves
-    const uint64_t start_leaf_tuple_idx = n_leaf_tuples - last_hashes.leaves.size();
+    // {n_leaf_tuples, last_path.leaves} -> Leaves
+    const uint64_t start_leaf_tuple_idx = n_leaf_tuples - last_path.leaves.size();
     CHECK_AND_ASSERT_THROW_MES(last_path_indexes.leaf_range.first == start_leaf_tuple_idx,
         "unexpected start leaf tuple idx");
-    typename CurveTrees<C1, C2>::Leaves leaves{ start_leaf_tuple_idx, last_hashes.leaves };
+    typename CurveTrees<C1, C2>::Leaves leaves{ start_leaf_tuple_idx, last_path.leaves };
 
-    // {leaves, last_hashes.layer_chunks} -> TreeExtension
+    // {leaves, last_path.layer_chunks} -> TreeExtension
     // TODO: {const n_leaf_tuples, const &last_chunks} -> TreeExtension can be implemented in m_curve_trees
     typename CurveTrees<C1, C2>::TreeExtension tree_extension;
     tree_extension.leaves = std::move(leaves);
     bool use_c2 = true;
     LayerIdx layer_idx = 0;
-    for (const auto &child_chunk : last_hashes.layer_chunks)
+    for (const auto &child_chunk : last_path.layer_chunks)
     {
         // Get the start indexes and expected size of the last chunk
         const ChildChunkIdx start_idx = last_path_indexes.layers[layer_idx].first;
@@ -1624,7 +1624,7 @@ CurveTrees<Helios, Selene>::LastChunkChildrenToTrim TreeSyncMemory<Helios, Selen
     const std::vector<TrimLayerInstructions> &trim_instructions) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes_to_trim(
+typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes_for_trim(
     const std::vector<TrimLayerInstructions> &trim_instructions) const
 {
     typename CurveTrees<C1, C2>::LastHashes last_hashes;
@@ -1654,7 +1654,7 @@ typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes_
 
         const std::size_t new_offset = new_last_idx % grandparent_width;
 
-        MDEBUG("Getting last hash to trim at layer " << i
+        MDEBUG("Getting last hash for trim at layer " << i
             << " , new_total_parents: " << new_total_parents
             << " , grandparent_width: " << grandparent_width
             << " , chunk_idx: " << chunk_idx
@@ -1690,7 +1690,7 @@ typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes_
 }
 
 // Explicit instantiation
-template CurveTrees<Helios, Selene>::LastHashes TreeSyncMemory<Helios, Selene>::get_last_hashes_to_trim(
+template CurveTrees<Helios, Selene>::LastHashes TreeSyncMemory<Helios, Selene>::get_last_hashes_for_trim(
     const std::vector<TrimLayerInstructions> &trim_instructions) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>

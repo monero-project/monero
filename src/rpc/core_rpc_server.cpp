@@ -668,10 +668,15 @@ namespace cryptonote
       locked_outputs.push_back({ unlock_block, std::move(o.second) });
     }
 
-    // 4. N leaf tuples and last chunk at each layer of the tree at init_block_idx
-    auto last_hashes = m_core.get_blockchain_storage().get_db().get_last_hashes(init_block_idx);
-    init_tree_sync_data.n_leaf_tuples = last_hashes.first;
-    init_tree_sync_data.last_hashes = std::move(last_hashes.second);
+    // 3c. Sort locked outputs by last locked block
+    std::sort(locked_outputs.begin(), locked_outputs.end(),
+        [](const COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t &a, const COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t &b)
+            { return a.unlock_block < b.unlock_block; });
+
+    // 4. N leaf tuples and last chunk at each layer of the tree when init_block_idx was the last block in the chain
+    auto last_path = m_core.get_blockchain_storage().get_db().get_last_path(init_block_idx);
+    init_tree_sync_data.n_leaf_tuples = last_path.first;
+    init_tree_sync_data.last_path = std::move(last_path.second);
 
     MDEBUG("Set init tree sync data, blk " << init_tree_sync_data.init_block_idx << " , hash " << init_tree_sync_data.init_block_hash);
     res.init_tree_sync_data = std::move(init_tree_sync_data);
