@@ -197,7 +197,7 @@ public:
     void init(const uint64_t start_block_idx,
         const crypto::hash &start_block_hash,
         const uint64_t n_leaf_tuples,
-        const fcmp_pp::curve_trees::PathBytes &last_hashes,
+        const fcmp_pp::curve_trees::PathBytes &last_path,
         const OutputsByUnlockBlock &timelocked_outputs);
 
     // TODO: make this part of the TreeSync interface
@@ -236,7 +236,7 @@ private:
     typename CurveTrees<C1, C2>::LastChunkChildrenToTrim get_last_chunk_children_to_regrow(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
-    typename CurveTrees<C1, C2>::LastHashes get_last_hashes_to_trim(
+    typename CurveTrees<C1, C2>::LastHashes get_last_hashes_for_trim(
         const std::vector<TrimLayerInstructions> &trim_instructions) const;
 
     void deque_block(const BlockMeta &block);

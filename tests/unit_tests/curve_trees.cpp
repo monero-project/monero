@@ -120,7 +120,7 @@ static bool grow_tree_db(const std::size_t expected_old_n_leaf_tuples,
 {
     cryptonote::db_wtxn_guard guard(test_db.m_db);
 
-    CHECK_AND_ASSERT_MES(test_db.m_db->get_num_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
+    CHECK_AND_ASSERT_MES(test_db.m_db->get_n_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
         false, "unexpected starting n leaf tuples in db");
 
     auto new_outputs = test::generate_random_outputs(*curve_trees, 0, n_leaves);
@@ -142,7 +142,7 @@ static bool trim_tree_db(const std::size_t expected_old_n_leaf_tuples,
     LOG_PRINT_L1("Trimming " << trim_leaves << " leaf tuples from tree with "
         << expected_old_n_leaf_tuples << " leaves in db");
 
-    CHECK_AND_ASSERT_MES(test_db.m_db->get_num_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
+    CHECK_AND_ASSERT_MES(test_db.m_db->get_n_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
         false, "trimming unexpected starting n leaf tuples in db");
 
     // Can use 0 for trim_block_id since it's unused in tests
@@ -255,7 +255,7 @@ static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(co
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTreesGlobalTree public implementations
 //----------------------------------------------------------------------------------------------------------------------
-std::size_t CurveTreesGlobalTree::get_num_leaf_tuples() const
+std::size_t CurveTreesGlobalTree::get_n_leaf_tuples() const
 {
     return m_tree.leaves.size();
 }
@@ -263,7 +263,7 @@ std::size_t CurveTreesGlobalTree::get_num_leaf_tuples() const
 bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuples,const std::size_t new_n_leaf_tuples)
 {
     // Do initial tree reads
-    const std::size_t old_n_leaf_tuples = this->get_num_leaf_tuples();
+    const std::size_t old_n_leaf_tuples = this->get_n_leaf_tuples();
     CHECK_AND_ASSERT_MES(old_n_leaf_tuples == expected_old_n_leaf_tuples, false, "unexpected old_n_leaf_tuples");
     const CurveTreesV1::LastHashes last_hashes = this->get_last_hashes();
 
@@ -291,7 +291,7 @@ bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuple
 //----------------------------------------------------------------------------------------------------------------------
 bool CurveTreesGlobalTree::trim_tree(const std::size_t expected_old_n_leaf_tuples, const std::size_t trim_n_leaf_tuples)
 {
-    const std::size_t old_n_leaf_tuples = this->get_num_leaf_tuples();
+    const std::size_t old_n_leaf_tuples = this->get_n_leaf_tuples();
     CHECK_AND_ASSERT_MES(old_n_leaf_tuples == expected_old_n_leaf_tuples, false, "unexpected old_n_leaf_tuples");
     CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= trim_n_leaf_tuples, "cannot trim more leaves than exist");
     CHECK_AND_ASSERT_THROW_MES(trim_n_leaf_tuples > 0, "must be trimming some leaves");
@@ -306,18 +306,18 @@ bool CurveTreesGlobalTree::trim_tree(const std::size_t expected_old_n_leaf_tuple
 
     // Do initial tree reads
     const auto last_chunk_children_to_trim = this->get_all_last_chunk_children_to_trim(trim_instructions);
-    const auto last_hashes_to_trim = this->get_last_hashes_to_trim(trim_instructions);
+    const auto last_hashes_for_trim = this->get_last_hashes_for_trim(trim_instructions);
 
     // Get the new hashes, wrapped in a simple struct we can use to trim the tree
     const auto tree_reduction = m_curve_trees.get_tree_reduction(
         trim_instructions,
         last_chunk_children_to_trim,
-        last_hashes_to_trim);
+        last_hashes_for_trim);
 
     // Use tree reduction to trim tree
     this->reduce_tree(tree_reduction);
 
-    const std::size_t new_n_leaf_tuples = this->get_num_leaf_tuples();
+    const std::size_t new_n_leaf_tuples = this->get_n_leaf_tuples();
     CHECK_AND_ASSERT_THROW_MES((new_n_leaf_tuples + trim_n_leaf_tuples) == old_n_leaf_tuples,
         "unexpected num leaves after trim");
 
@@ -449,7 +449,7 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
 {
     CurveTreesV1::Path path_out;
 
-    const std::size_t n_leaf_tuples = get_num_leaf_tuples();
+    const std::size_t n_leaf_tuples = get_n_leaf_tuples();
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples > leaf_idx, "too high leaf idx");
 
     // Get leaves
@@ -855,7 +855,7 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
     return all_children_to_trim;
 }
 //----------------------------------------------------------------------------------------------------------------------
-CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_to_trim(
+CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_for_trim(
     const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const
 {
     CurveTreesV1::LastHashes last_hashes;

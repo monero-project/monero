@@ -265,7 +265,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       /// n leaf tuples in the chain when the chain tip was block init_block_idx
       uint64_t n_leaf_tuples;
       /// the last full path in the tree when the chain tip was block init_block_idx
-      fcmp_pp::curve_trees::PathBytes last_hashes;
+      fcmp_pp::curve_trees::PathBytes last_path;
       /// outputs created before init_block_idx with last locked block >= init_block_idx
       std::vector<locked_outputs_t> locked_outputs;
 
@@ -273,7 +273,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(init_block_idx)
         KV_SERIALIZE_VAL_POD_AS_BLOB(init_block_hash)
         KV_SERIALIZE(n_leaf_tuples)
-        KV_SERIALIZE(last_hashes)
+        KV_SERIALIZE(last_path)
         KV_SERIALIZE(locked_outputs)
       END_KV_SERIALIZE_MAP()
     };

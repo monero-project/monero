@@ -858,7 +858,7 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
     bi.bi_cum_rct += bi_prev->bi_cum_rct;
   }
   bi.bi_long_term_block_weight = long_term_block_weight;
-  bi.bi_n_leaf_tuples = this->get_num_leaf_tuples();
+  bi.bi_n_leaf_tuples = this->get_n_leaf_tuples();
   bi.bi_tree_root = this->get_tree_root();
 
   MDB_val_set(val, bi);
@@ -1425,7 +1425,7 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> 
   CURSOR(leaves)
 
   // Get the number of leaf tuples that exist in the tree
-  const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
+  const uint64_t old_n_leaf_tuples = this->get_n_leaf_tuples();
 
   // Read every layer's last hash
   const auto last_hashes = this->get_tree_last_hashes();
@@ -1551,7 +1551,7 @@ fcmp_pp::curve_trees::CurveTreesV1::TreeReduction BlockchainLMDB::get_tree_reduc
 
   // Get n_leaf_tuples from the new tip so we can trim the curve trees tree to the new tip
   const uint64_t new_n_leaf_tuples = new_n_blocks == 0 ? 0 : this->get_block_n_leaf_tuples(new_n_blocks - 1);
-  const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
+  const uint64_t old_n_leaf_tuples = this->get_n_leaf_tuples();
 
   if (new_n_leaf_tuples > old_n_leaf_tuples)
     throw1(DB_ERROR("Unexpected: more leaf tuples are in prev block, tree is expected to only grow"));
@@ -1565,13 +1565,13 @@ fcmp_pp::curve_trees::CurveTreesV1::TreeReduction BlockchainLMDB::get_tree_reduc
 
   // Do initial tree reads
   const auto last_chunk_children_to_trim = this->get_last_chunk_children_to_trim(trim_instructions);
-  const auto last_hashes_to_trim = this->get_last_hashes_to_trim(trim_instructions);
+  const auto last_hashes_for_trim = this->get_last_hashes_for_trim(trim_instructions);
 
   // Get the new hashes, wrapped in a simple struct we can use to trim the tree
   const auto tree_reduction = m_curve_trees->get_tree_reduction(
     trim_instructions,
     last_chunk_children_to_trim,
-    last_hashes_to_trim);
+    last_hashes_for_trim);
 
   CHECK_AND_ASSERT_THROW_MES((tree_reduction.new_total_leaf_tuples + trim_n_leaf_tuples) == old_n_leaf_tuples,
     "unexpected new total leaves");
@@ -1581,10 +1581,9 @@ fcmp_pp::curve_trees::CurveTreesV1::TreeReduction BlockchainLMDB::get_tree_reduc
   return tree_reduction;
 }
 
-// TODO: cleaner name
-std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_hashes(const uint64_t block_idx) const
+std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_path(const uint64_t block_idx) const
 {
-  // Calculate what the last hashes should be at every layer for the provided block
+  // Determine what the last hashes should be at every layer for the provided block
   const auto tree_reduction = this->get_tree_reduction(block_idx + 1/*new_n_blocks*/);
 
   // Get ALL the children from every layer's last chunk as of the provided block
@@ -1726,9 +1725,11 @@ void BlockchainLMDB::trim_block()
   const auto tree_reduction = this->get_tree_reduction(old_n_blocks - 1);
   const uint64_t trim_block_id = old_n_blocks - 1;
 
-  const uint64_t old_n_leaf_tuples = this->get_num_leaf_tuples();
+  const uint64_t old_n_leaf_tuples = this->get_n_leaf_tuples();
   if (tree_reduction.new_total_leaf_tuples > old_n_leaf_tuples)
     throw1(DB_ERROR("Unexpected: more leaf tuples are in prev block, tree is expected to only grow"));
+
+  // Return if we don't need to trim any leaves
   if (tree_reduction.new_total_leaf_tuples == old_n_leaf_tuples)
     return;
 
@@ -1904,7 +1905,7 @@ void BlockchainLMDB::trim_layer(const std::unique_ptr<C> &curve,
   }
 }
 
-uint64_t BlockchainLMDB::get_num_leaf_tuples() const
+uint64_t BlockchainLMDB::get_n_leaf_tuples() const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2034,7 +2035,6 @@ fcmp_pp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_tree_last_has
   return last_hashes;
 }
 
-// TODO: this could be part of m_curve_trees and take in PathBytes as a param (PathBytes last_chunk_children -> LastChunkChildren)
 fcmp_pp::curve_trees::CurveTreesV1::LastChunkChildrenToTrim BlockchainLMDB::get_last_chunk_children_to_trim(
   const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const
 {
@@ -2198,7 +2198,7 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_last_chunk_children(
   return last_chunk_children;
 }
 
-fcmp_pp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_last_hashes_to_trim(
+fcmp_pp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_last_hashes_for_trim(
   const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -2211,7 +2211,6 @@ fcmp_pp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_last_hashes_t
 
   TXN_PREFIX_RDONLY();
   RCURSOR(layers)
-
 
   // Traverse the tree layer-by-layer starting at the layer closest to leaf layer
   uint64_t layer_idx = 0;
@@ -2257,7 +2256,7 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
   RCURSOR(leaves)
   RCURSOR(layers)
 
-  const uint64_t actual_n_leaf_tuples = this->get_num_leaf_tuples();
+  const uint64_t actual_n_leaf_tuples = this->get_n_leaf_tuples();
   CHECK_AND_ASSERT_MES(actual_n_leaf_tuples == expected_n_leaf_tuples, false, "unexpected num leaf tuples");
 
   MDEBUG("Auditing tree with " << actual_n_leaf_tuples << " leaf tuples");
@@ -2613,76 +2612,50 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   TXN_PREFIX_RDONLY();
   RCURSOR(timelocked_outputs)
 
-  const uint64_t n_blocks = this->height();
-
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
 
-  // Early return if we want custom timelocked outputs created in blocks that do not exist yet
-  if (start_block_idx >= n_blocks)
-    return outs;
+  /*
+    We expect the timelocked outputs table to be sorted primarily by key, i.e.
+    last locked block idx. For a given key, we expect timelocked outputs to be
+    sorted based on output id. Output id's increase monotonically
+    based on when the output is added to the chain.
+  */
 
   // 1. Get all custom timelocked outputs with last locked block start_block_idx or higher
-  uint64_t blk_idx = start_block_idx;
-  MDB_cursor_op op = MDB_SET;
-  bool reading_first_op_next_multiple = false;
-  // TODO: iterate backwards over timelocked outputs table until encountering last locked block < start_block_idx
-  // instead of checking every unlock block
-  // WARNING: slow if there are a lot of timelocked outputs
-  while (blk_idx < n_blocks)
+  MDB_cursor_op op = MDB_LAST;
+  while (1)
   {
-    MDB_val_set(k_block_id, blk_idx);
-    MDB_val v_output;
-
-    int result = mdb_cursor_get(m_cur_timelocked_outputs, &k_block_id, &v_output, op);
+    MDB_val k, v;
+    int result = mdb_cursor_get(m_cur_timelocked_outputs, &k, &v, op);
     if (result == MDB_NOTFOUND)
-    {
-      ++blk_idx;
-      op = MDB_SET;
-      reading_first_op_next_multiple = false;
-      continue;
-    }
+      break;
     if (result != MDB_SUCCESS)
-      throw0(DB_ERROR(lmdb_error("Failed to get next timelocked outputs: ", result).c_str()));
+      throw0(DB_ERROR(lmdb_error("Failed to get last timelocked output: ", result).c_str()));
 
-    const uint64_t blk_id = *(const uint64_t*)k_block_id.mv_data;
-    if (blk_id != blk_idx)
-      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(blk_idx)).c_str()));
+    const uint64_t last_locked_block_idx = *(const uint64_t*)k.mv_data;
 
-    const auto range_begin = ((const fcmp_pp::curve_trees::OutputContext*)v_output.mv_data);
-    const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputContext);
+    // We can stop as soon as we encounter a timelocked output with last locked
+    // block < start_block_idx, since the table should be sorted primarily by
+    // last locked block, and we're iterating in reverse.
+    if (last_locked_block_idx < start_block_idx)
+      break;
 
-    auto it = range_begin;
-
-    if (op == MDB_SET)
-      outs[blk_idx] = std::vector<fcmp_pp::curve_trees::OutputContext>{};
-
-    // The first MDB_NEXT_MULTIPLE includes the val already read from MDB_SET, so skip first val
-    if (reading_first_op_next_multiple)
-      ++it;
-
-    auto outs_it = outs.find(blk_idx);
+    // Make a new entry for the last locked block idx if not already present
+    auto outs_it = outs.find(last_locked_block_idx);
     if (outs_it == outs.end())
-      throw0(DB_ERROR("Unexpected empty outs by unlock block"));
-
-    while (it < range_end)
     {
-      outs_it->second.push_back(*it);
-      ++it;
+      outs[last_locked_block_idx] = {};
+      outs_it = outs.find(last_locked_block_idx);
     }
 
-    if (op == MDB_SET)
-    {
-      op = MDB_NEXT_MULTIPLE;
-      reading_first_op_next_multiple = true;
-    }
-    else
-    {
-      reading_first_op_next_multiple = false;
-    }
+    auto timelocked_output = *((const fcmp_pp::curve_trees::OutputContext*)v.mv_data);
+    outs_it->second.emplace_back(std::move(timelocked_output));
+
+    op = MDB_PREV;
   }
 
   // 2. Only return outputs that were created BEFORE start_block_idx
-  // 2a. Place output id's in a sorted vector in descending order
+  // 2a. Place all output id's in a flat vector
   using output_id_pair_t = std::pair<uint64_t/*output_id*/, uint64_t/*unlock_block*/>;
   std::vector<output_id_pair_t> output_ids;
   for (const auto &outs_by_unlock_block : outs)
@@ -2690,10 +2663,12 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
     for (const auto &o : outs_by_unlock_block.second)
       output_ids.push_back({ o.output_id, outs_by_unlock_block.first });
   }
-  std::sort(output_ids.begin(), output_ids.end(), [](const output_id_pair_t a, const output_id_pair_t b)
+
+  // 2b. Sort the vector in descending order by output ID, so outputs are ordered most recently created first
+  std::sort(output_ids.begin(), output_ids.end(), [](const output_id_pair_t &a, const output_id_pair_t &b)
     {return a.first > b.first; });
 
-  // 2b. Remove all outputs from the result container that were created at height start_block_idx or higher
+  // 2c. Remove all outputs from the result container that were created at height start_block_idx or higher
   for (const auto &output_id : output_ids)
   {
     const auto output_tx = this->get_output_tx_and_index_from_global(output_id.first);
@@ -2706,18 +2681,27 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
     // Find the output in the outs container
     auto blk_it = outs.find(output_id.second/*unlock_block*/);
 
-    // The last one in the vec should be the output id since it should be sorted
+    // The first one in the vec should be the output id since outputs were added from the table in descending order
     if (blk_it == outs.end())
       throw0(DB_ERROR("Missing output's unlock block"));
     if (blk_it->second.empty())
       throw0(DB_ERROR("Unlock block missing outputs"));
-    if (blk_it->second.back().output_id != output_id.first)
-      throw0(DB_ERROR("Output id is not last in outs by unlock block"));
+    if (blk_it->second.front().output_id != output_id.first)
+      throw0(DB_ERROR("Output id is not first in outs by unlock block"));
 
     // Remove the output from outs container
-    blk_it->second.erase(blk_it->second.end() - 1);
+    blk_it->second.erase(blk_it->second.begin());
     if (blk_it->second.empty())
       outs.erase(blk_it);
+  }
+
+  // 3. Sort outputs of each last locked block by output id
+  for (auto &outs_by_unlock_block : outs)
+  {
+    auto &unsorted = outs_by_unlock_block.second;
+    std::sort(unsorted.begin(), unsorted.end(),
+      [](const fcmp_pp::curve_trees::OutputContext &a, const fcmp_pp::curve_trees::OutputContext &b)
+        {return a.output_id < b.output_id; });
   }
 
   TXN_POSTFIX_RDONLY();
@@ -7755,7 +7739,7 @@ void BlockchainLMDB::migrate_5_6()
         bi.bi_hash = bi_old->bi_hash;
         bi.bi_cum_rct = bi_old->bi_cum_rct;
         bi.bi_long_term_block_weight = bi_old->bi_long_term_block_weight;
-        bi.bi_n_leaf_tuples = this->get_num_leaf_tuples();
+        bi.bi_n_leaf_tuples = this->get_n_leaf_tuples();
         bi.bi_tree_root = this->get_tree_root();
 
         LOGIF(el::Level::Info)

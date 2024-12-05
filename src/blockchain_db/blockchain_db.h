@@ -1808,12 +1808,12 @@ public:
   // TODO: description and make private
   virtual void grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
 
-  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_hashes(const uint64_t block_idx) const = 0;
+  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const = 0;
   virtual void trim_block() = 0;
 
   // TODO: description
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
-  virtual uint64_t get_num_leaf_tuples() const = 0;
+  virtual uint64_t get_n_leaf_tuples() const = 0;
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
   virtual crypto::ec_point get_tree_root() const = 0;
 

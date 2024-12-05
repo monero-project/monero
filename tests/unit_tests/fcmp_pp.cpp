@@ -60,7 +60,7 @@ TEST(fcmp_pp, prove)
     LOG_PRINT_L1("Finished initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
 
     // Create proof for every leaf in the tree
-    for (std::size_t leaf_idx = 0; leaf_idx < global_tree.get_num_leaf_tuples(); ++leaf_idx)
+    for (std::size_t leaf_idx = 0; leaf_idx < global_tree.get_n_leaf_tuples(); ++leaf_idx)
     {
         const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
     }

@@ -383,7 +383,7 @@ public:
 
   fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const;
 
-  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_hashes(const uint64_t block_idx) const;
+  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -443,7 +443,7 @@ private:
 
   virtual fcmp_pp::curve_trees::CurveTreesV1::TreeReduction get_tree_reduction(const uint64_t new_n_blocks) const;
 
-  virtual uint64_t get_num_leaf_tuples() const;
+  virtual uint64_t get_n_leaf_tuples() const;
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
@@ -457,7 +457,7 @@ private:
   fcmp_pp::curve_trees::PathBytes get_last_chunk_children(
     const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
-  fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_to_trim(
+  fcmp_pp::curve_trees::CurveTreesV1::LastHashes get_last_hashes_for_trim(
     const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions) const;
 
   template<typename C_CHILD, typename C_PARENT>
