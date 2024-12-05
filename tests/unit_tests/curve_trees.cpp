@@ -146,8 +146,9 @@ static bool trim_tree_db(const std::size_t expected_old_n_leaf_tuples,
         false, "trimming unexpected starting n leaf tuples in db");
 
     // Can use 0 for trim_block_id since it's unused in tests
-    // test_db.m_db->trim_tree(trim_leaves, 0);
-    CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(expected_old_n_leaf_tuples - trim_leaves), false,
+    const uint64_t new_n_leaf_tuples = expected_old_n_leaf_tuples - trim_leaves;
+    test_db.m_db->trim_tree(new_n_leaf_tuples, 0);
+    CHECK_AND_ASSERT_MES(test_db.m_db->audit_tree(new_n_leaf_tuples), false,
         "failed to trim tree in db");
 
     MDEBUG("Successfully trimmed tree in db by " << trim_leaves << " leaves");
@@ -226,12 +227,13 @@ static bool validate_layer(const std::unique_ptr<C> &curve,
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C_CHILD, typename C_PARENT>
-static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(const std::unique_ptr<C_CHILD> &c_child,
+static std::vector<typename C_PARENT::Scalar> get_layer_last_chunk_children_for_trim(
+    const std::unique_ptr<C_CHILD> &c_child,
     const CurveTreesGlobalTree::Layer<C_CHILD> &child_layer,
     const std::size_t start_trim_idx,
     const std::size_t end_trim_idx)
 {
-    std::vector<typename C_PARENT::Scalar> children_to_trim_out;
+    std::vector<typename C_PARENT::Scalar> children_for_trim_out;
     if (end_trim_idx > start_trim_idx)
     {
         std::size_t idx = start_trim_idx;
@@ -242,14 +244,14 @@ static std::vector<typename C_PARENT::Scalar> get_last_chunk_children_to_trim(co
             const auto &child_point = child_layer[idx];
 
             auto child_scalar = c_child->point_to_cycle_scalar(child_point);
-            children_to_trim_out.push_back(std::move(child_scalar));
+            children_for_trim_out.push_back(std::move(child_scalar));
 
             ++idx;
         }
         while (idx < end_trim_idx);
     }
 
-    return children_to_trim_out;
+    return children_for_trim_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -305,13 +307,13 @@ bool CurveTreesGlobalTree::trim_tree(const std::size_t expected_old_n_leaf_tuple
     MDEBUG("Acquired trim instructions for " << trim_instructions.size() << " layers");
 
     // Do initial tree reads
-    const auto last_chunk_children_to_trim = this->get_all_last_chunk_children_to_trim(trim_instructions);
+    const auto last_chunk_children_for_trim = this->get_last_chunk_children_for_trim(trim_instructions);
     const auto last_hashes_for_trim = this->get_last_hashes_for_trim(trim_instructions);
 
     // Get the new hashes, wrapped in a simple struct we can use to trim the tree
     const auto tree_reduction = m_curve_trees.get_tree_reduction(
         trim_instructions,
-        last_chunk_children_to_trim,
+        last_chunk_children_for_trim,
         last_hashes_for_trim);
 
     // Use tree reduction to trim tree
@@ -773,13 +775,13 @@ CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes() const
 }
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: template
-CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_children_to_trim(
+CurveTreesV1::LastChunkChildrenForTrim CurveTreesGlobalTree::get_last_chunk_children_for_trim(
     const std::vector<fcmp_pp::curve_trees::TrimLayerInstructions> &trim_instructions)
 {
-    CurveTreesV1::LastChunkChildrenToTrim all_children_to_trim;
+    CurveTreesV1::LastChunkChildrenForTrim all_children_for_trim;
 
     if (trim_instructions.empty())
-        return all_children_to_trim;
+        return all_children_for_trim;
 
     // Leaf layer
     const auto &trim_leaf_layer_instructions = trim_instructions[0];
@@ -808,7 +810,7 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
         while (idx < trim_leaf_layer_instructions.end_trim_idx);
     }
 
-    all_children_to_trim.c2_children.emplace_back(std::move(leaves_to_trim));
+    all_children_for_trim.c2_children.emplace_back(std::move(leaves_to_trim));
 
     bool parent_is_c2 = false;
     std::size_t c1_idx = 0;
@@ -826,33 +828,33 @@ CurveTreesV1::LastChunkChildrenToTrim CurveTreesGlobalTree::get_all_last_chunk_c
         {
             CHECK_AND_ASSERT_THROW_MES(m_tree.c1_layers.size() > c1_idx, "c1_idx too high");
 
-            auto children_to_trim = get_last_chunk_children_to_trim<Helios, Selene>(
+            auto children_for_trim = get_layer_last_chunk_children_for_trim<Helios, Selene>(
                 m_curve_trees.m_c1,
                 m_tree.c1_layers[c1_idx],
                 start_trim_idx,
                 end_trim_idx);
 
-            all_children_to_trim.c2_children.emplace_back(std::move(children_to_trim));
+            all_children_for_trim.c2_children.emplace_back(std::move(children_for_trim));
             ++c1_idx;
         }
         else
         {
             CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "c2_idx too high");
 
-            auto children_to_trim = get_last_chunk_children_to_trim<Selene, Helios>(
+            auto children_for_trim = get_layer_last_chunk_children_for_trim<Selene, Helios>(
                 m_curve_trees.m_c2,
                 m_tree.c2_layers[c2_idx],
                 start_trim_idx,
                 end_trim_idx);
 
-            all_children_to_trim.c1_children.emplace_back(std::move(children_to_trim));
+            all_children_for_trim.c1_children.emplace_back(std::move(children_for_trim));
             ++c2_idx;
         }
 
         parent_is_c2 = !parent_is_c2;
     }
 
-    return all_children_to_trim;
+    return all_children_for_trim;
 }
 //----------------------------------------------------------------------------------------------------------------------
 CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_for_trim(
@@ -1089,7 +1091,6 @@ TEST(curve_trees, grow_tree)
     END_INIT_TREE_ITER()
 }
 //----------------------------------------------------------------------------------------------------------------------
-// FIXME: all trim tree in db tests
 TEST(curve_trees, trim_tree)
 {
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
@@ -1117,11 +1118,11 @@ TEST(curve_trees, trim_tree)
         CurveTreesGlobalTree tree_copy(global_tree);
         ASSERT_TRUE(tree_copy.trim_tree(init_leaves, trim_leaves));
 
-        // // Tree in db
-        // // Copy the already existing db
-        // unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
-        // INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
-        // ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
+        // Tree in db
+        // Copy the already existing db
+        unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
+        INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
+        ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
     }
 
     END_INIT_TREE_ITER()
@@ -1158,12 +1159,12 @@ TEST(curve_trees, trim_tree_then_grow)
         ASSERT_TRUE(tree_copy.trim_tree(init_leaves, trim_leaves));
         ASSERT_TRUE(tree_copy.grow_tree(init_leaves - trim_leaves, grow_after_trim));
 
-        // // Tree in db
-        // // Copy the already existing db
-        // unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
-        // INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
-        // ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
-        // ASSERT_TRUE(grow_tree_db(init_leaves - trim_leaves, grow_after_trim, curve_trees, copy_db));
+        // Tree in db
+        // Copy the already existing db
+        unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
+        INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
+        ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
+        ASSERT_TRUE(grow_tree_db(init_leaves - trim_leaves, grow_after_trim, curve_trees, copy_db));
     }
 
     END_INIT_TREE_ITER()
