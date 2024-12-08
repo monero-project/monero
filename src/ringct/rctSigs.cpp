@@ -761,15 +761,22 @@ namespace rct {
         return result;
     }
 
-    clsag proveRctCLSAGSimple(const key &message, const ctkeyV &pubs, const ctkey &inSk, const key &a, const key &Cout, unsigned int index, hw::device &hwdev) {
-        //setup vars
-        size_t rows = 1;
-        size_t cols = pubs.size();
-        CHECK_AND_ASSERT_THROW_MES(cols >= 1, "Empty pubs");
-        keyV tmp(rows + 1);
-        keyV sk(rows + 1);
-        keyM M(cols, tmp);
+    /**
+     * brief: proveRctCLSAGSimple - given a msg, mixring, pseudo out commitment, and private keys, make a CLSAG proof
+     * param: message - any message we want to sign, but normally a transaction body hash
+     * param: pubs - AKA mixring, a list of referenced output pubkey and amount commitment tuples { (K_o, C_a), ... }
+     * param: inSk - (x, c_a) where x is the privkey of pubs[index].dest and c_a is the blinding factor of pubs[index].mask
+     * param: c_out - the blinding factor for Cout
+     * param: Cout - AKA the "pseudo amount commitment"
+     * param: index - the index of our private keys in the mixring
+     * return: a CLSAG that proves someone with opening knowledge of K_o[k] and C_a[k] (k unknown) signed this message
+     */
+    clsag proveRctCLSAGSimple(const key &message, const ctkeyV &pubs, const ctkey &inSk, const key &c_out, const key &Cout, unsigned int index, hw::device &hwdev) {
+        CHECK_AND_ASSERT_THROW_MES(!pubs.empty(), "Empty pubs");
 
+        // P: unmodified output pubkeys                 K_o
+        // C: commitments to zero                       C_0 = C_a - Cout
+        // C_nonzero: unmodified amount commitments     C_a
         keyV P, C, C_nonzero;
         P.reserve(pubs.size());
         C.reserve(pubs.size());
@@ -783,10 +790,15 @@ namespace rct {
             C.push_back(tmp);
         }
 
-        sk[0] = copy(inSk.dest);
-        sc_sub(sk[1].bytes, inSk.mask.bytes, a.bytes);
-        clsag result = CLSAG_Gen(message, P, sk[0], C, sk[1], C_nonzero, Cout, index, hwdev);
-        memwipe(sk.data(), sk.size() * sizeof(key));
+        // zero_commit_sk: private key of "true" commitment to zero      c_0 s.t. C_0[index] = c_0 * G
+        // c_0 = c_a - c_out where:
+        //          c_a is the true amount commitment blinding factor and
+        //          c_out is the blinding factor of the pseudo amount commitment Cout
+        key zero_commit_sk;
+        sc_sub(zero_commit_sk.bytes, inSk.mask.bytes, c_out.bytes);
+
+        clsag result = CLSAG_Gen(message, P, inSk.dest, C, zero_commit_sk, C_nonzero, Cout, index, hwdev);
+        memwipe(&zero_commit_sk, sizeof(zero_commit_sk));
         return result;
     }
 
