@@ -696,6 +696,7 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
       std::ifstream ifs(ban_list_path.string());
       for (std::string line; std::getline(ifs, line); )
       {
+        boost::trim(line);
         auto subnet = net::get_ipv4_subnet_address(line);
         if (subnet)
         {
