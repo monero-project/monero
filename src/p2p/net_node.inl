@@ -527,6 +527,7 @@ namespace nodetool
       std::istringstream iss(banned_ips);
       for (std::string line; std::getline(iss, line); )
       {
+        boost::trim(line);
         auto subnet = net::get_ipv4_subnet_address(line);
         if (subnet)
         {
