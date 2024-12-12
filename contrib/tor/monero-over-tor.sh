@@ -41,8 +41,18 @@ ControlSocketsGroupWritable 1
 CookieAuthentication 1
 CookieAuthFile $TORDIR/control.authcookie
 CookieAuthFileGroupReadable 1
+SocksPort 9050 IsolateDestAddr
+SocksPort 9052 OnionTrafficOnly IsolateDestAddr
 HiddenServiceDir $TORDIR
 HiddenServicePort 18083 127.0.0.1:18083
+HiddenServiceEnableIntroDoSDefense 1
+HiddenServiceEnableIntroDoSRatePerSec 10
+HiddenServiceEnableIntroDoSBurstPerSec 20
+HiddenServicePoWDefensesEnabled 1
+HiddenServicePoWQueueRate 5
+HiddenServicePoWQueueBurst 10
+HiddenServiceMaxStreams 1000
+HiddenServiceMaxStreamsCloseCircuit 1
 EOF
 
 echo "Starting Tor..."
@@ -67,7 +77,7 @@ fi
 echo "Starting monerod..."
 HOSTNAME=$(cat "$HOSTNAMEFILE")
 "$monerod" \
-  --anonymous-inbound "$HOSTNAME":18083,127.0.0.1:18083,25 --tx-proxy tor,127.0.0.1:9050,10 \
+  --anonymous-inbound "$HOSTNAME":18083,127.0.0.1:18083,25 --proxy 127.0.0.1:9050 --tx-proxy tor,127.0.0.1:9052,10 \
   --add-priority-node zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083 \
   --add-priority-node 2xmrnode5itf65lz.onion:18083 \
   --detach
