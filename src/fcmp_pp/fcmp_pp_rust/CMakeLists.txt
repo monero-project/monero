@@ -86,10 +86,10 @@ endif()
 set(RUST_TARGET "${RUST_ARCH}-${RUST_PLATFORM}${RUST_TOOLCHAIN}")
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(CARGO_CMD cargo build --target "${RUST_TARGET}")
+  set(CARGO_CMD cargo build --target "${RUST_TARGET}" ${CARGO_OPTIONS})
   set(TARGET_DIR "debug")
 else ()
-  set(CARGO_CMD cargo build --target "${RUST_TARGET}" --release)
+  set(CARGO_CMD cargo build --target "${RUST_TARGET}" --release ${CARGO_OPTIONS})
   set(TARGET_DIR "release")
 endif ()
 

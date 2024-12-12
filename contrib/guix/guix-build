@@ -271,6 +271,28 @@ mkdir -p "$OUTDIR_BASE"
 LOGDIR_BASE="${LOGDIR_BASE:-${VERSION_BASE}/logs}"
 mkdir -p "$LOGDIR_BASE"
 
+# Download and archive Rust dependencies.
+# Version and Hash need to be updated when:
+# - we bump the time-machine and Guix has a new version of Rust.
+# - Cargo.lock in src/fcmp_pp/fcmp_pp_rust is updated.
+RUST_DEPS_VERSION=0
+RUST_DEPS_HASH="20wk494jz59yy7n9iym45f4cz2w8fkyj"
+RUST_DEPS_ARCHIVE="rust_deps-${RUST_DEPS_VERSION}.tar.gz"
+RUST_DEPS_STORE_ITEM="/gnu/store/${RUST_DEPS_HASH}-${RUST_DEPS_ARCHIVE}"
+if [ ! -f "${RUST_DEPS_STORE_ITEM}" ]; then
+    time-machine environment --manifest="${PWD}/contrib/guix/rust/cargo.scm" \
+                             --container \
+                             --pure \
+                             --network \
+                             --no-cwd \
+                             --share="$PWD"=/monero \
+                             -- env RUST_DEPS_ARCHIVE="$RUST_DEPS_ARCHIVE" \
+                                    bash /monero/contrib/guix/rust/cargo.sh
+
+    time-machine download ${RUST_DEPS_ARCHIVE}
+    rm ${RUST_DEPS_ARCHIVE}
+fi
+
 # Download the depends sources now as we won't have internet access in the build
 # container
 for host in $HOSTS; do
@@ -445,6 +467,7 @@ EOF
                                  --share="$DISTSRC_BASE"=/distsrc-base \
                                  --share="$OUTDIR_BASE"=/outdir-base \
                                  --share="$LOGDIR_BASE"=/logdir-base \
+                                 --share="$RUST_DEPS_STORE_ITEM"=/rust-deps \
                                  --expose="$(git rev-parse --git-common-dir)" \
                                  ${SOURCES_PATH:+--share="$SOURCES_PATH"} \
                                  ${BASE_CACHE:+--share="$BASE_CACHE"} \
