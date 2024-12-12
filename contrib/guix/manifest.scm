@@ -18,6 +18,7 @@
              (gnu packages perl)
              (gnu packages pkg-config)
              ((gnu packages python) #:select (python-minimal))
+             (gnu packages rust)
              ((gnu packages tls) #:select (openssl))
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system gnu)
@@ -278,6 +279,8 @@ chain for " target " development."))
         pkg-config
         gperf         ; required to build eudev in depends
         cmake-minimal
+        rust
+        (list rust "cargo")
 
         ;; Scripting
         perl           ; required to build openssl in depends
@@ -307,7 +310,7 @@ chain for " target " development."))
               (list gcc-toolchain-12 "static")))
           ((string-contains target "darwin")
            (list
-             gcc-toolchain-10
+             gcc-toolchain-11
              clang-toolchain-11
              binutils))
           (else '())))))
