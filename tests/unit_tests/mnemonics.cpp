@@ -255,3 +255,54 @@ TEST(mnemonics, partial_word_tolerance)
     ASSERT_EQ(true, res);
     ASSERT_STREQ(language_name_1.c_str(), "English");
 }
+
+TEST(mnemonics, get_invalid_word)
+{
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "crim bam scamp gna limi woma wron tuit birth mundane donuts square cohesive dolphin titans narrate fue saved wrap aloof magic mirr toget upda wra"
+      ) == "crim"
+    );
+
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "criminal bamboo scamper gnaw limits womanly wrong tuition birth mundane donuts square cohesive dolphin titans narrate fue saved wrap aloof magically mirror together update wrap"
+      ) == "fue"
+    );
+
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "a a a a a a a a a a a a a a a a a a a a a a a a a"
+      ) == "a"
+    );
+
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandonnn abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
+      ) == "abandonnn"
+    );
+  
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "abando abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandonnn abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
+      ) == "abando"
+    );
+  
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "criminal bamboo scamper gnaw limits womanly wrong tuition birth mundane donuts square cohesive dolphin titans narrate fuel saved wrap aloof magically mirror together update wrap"
+      ) == ""
+    );
+
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
+      ) == ""
+    );
+
+    ASSERT_TRUE(
+      crypto::ElectrumWords::get_invalid_word(
+        "ㇴ"
+      ) == "ㇴ"
+    );
+}
