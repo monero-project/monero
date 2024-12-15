@@ -618,6 +618,12 @@ namespace crypto {
     ge_p1p1_to_p3(&res, &point2);
   }
 
+  void crypto_ops::derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    ge_p3 point;
+    hash_to_ec(pub, point);
+    ge_p3_tobytes(&ki_gen, &point);
+  }
+
   void crypto_ops::generate_key_image(const public_key &pub, const secret_key &sec, key_image &image) {
     ge_p3 point;
     ge_p2 point2;
@@ -772,5 +778,22 @@ POP_WARNINGS
     // only need a slice of view_tag_full to realize optimal perf/space efficiency
     static_assert(sizeof(crypto::view_tag) <= sizeof(view_tag_full), "view tag should not be larger than hash result");
     memcpy(&view_tag, &view_tag_full, sizeof(crypto::view_tag));
+  }
+
+  bool crypto_ops::key_image_to_y(const key_image &ki, key_image_y &ki_y) {
+    static_assert(sizeof(key_image) == 32 && sizeof(key_image_y) == 32, "unexpected size of key image");
+    memcpy(&ki_y, &ki, 32);
+    // clear the sign bit, leaving us with the y coord
+    ki_y.data[31] &= 0x7F;
+    // return true if sign bit is set on the original key image
+    return (ki.data[31] & 0x80) > 0;
+  }
+
+  void crypto_ops::key_image_from_y(const key_image_y &ki_y, const bool sign, key_image &ki) {
+    static_assert(sizeof(key_image) == 32 && sizeof(key_image_y) == 32, "unexpected size of key image");
+    memcpy(&ki, &ki_y, 32);
+    if (sign) {
+      ki.data[31] ^= 0x80;
+    }
   }
 }

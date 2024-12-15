@@ -1288,6 +1288,16 @@ namespace cryptonote
       res.status = "Failed";
       return true;
     }
+
+    std::vector<crypto::key_image_y> key_images_y;
+    key_images_y.reserve(key_images.size());
+    for (const auto &ki : key_images)
+    {
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(ki, ki_y);
+      key_images_y.emplace_back(std::move(ki_y));
+    }
+
     for (std::vector<cryptonote::spent_key_image_info>::const_iterator i = ki.begin(); i != ki.end(); ++i)
     {
       crypto::hash hash;
@@ -1295,11 +1305,13 @@ namespace cryptonote
       if (parse_hash256(i->id_hash, hash))
       {
         memcpy(&spent_key_image, &hash, sizeof(hash)); // a bit dodgy, should be other parse functions somewhere
+        crypto::key_image_y spent_key_image_y;
+        crypto::key_image_to_y(spent_key_image, spent_key_image_y);
         for (size_t n = 0; n < res.spent_status.size(); ++n)
         {
           if (res.spent_status[n] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT)
           {
-            if (key_images[n] == spent_key_image)
+            if (key_images_y[n] == spent_key_image_y)
             {
               res.spent_status[n] = COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_POOL;
               break;

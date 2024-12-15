@@ -43,6 +43,7 @@
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
 #include "derive_view_tag.h"
+#include "fe_batch_invert.h"
 #include "ge_frombytes_vartime.h"
 #include "ge_tobytes.h"
 #include "generate_key_derivation.h"
@@ -206,6 +207,8 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, p, test_generate_key_image);
   TEST_PERFORMANCE0(filter, p, test_derive_public_key);
   TEST_PERFORMANCE0(filter, p, test_derive_secret_key);
+  TEST_PERFORMANCE1(filter, p, test_fe_batch_invert, true); // batched
+  TEST_PERFORMANCE1(filter, p, test_fe_batch_invert, false); // individual inversions
   TEST_PERFORMANCE0(filter, p, test_ge_frombytes_vartime);
   TEST_PERFORMANCE0(filter, p, test_ge_tobytes);
   TEST_PERFORMANCE0(filter, p, test_generate_keypair);

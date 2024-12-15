@@ -1,0 +1,22 @@
+Boost 1.64.0 doesn't recognize that we're building with Clang and passes a
+flags that results in an error. We don't support GCC < 4.0 at all, so
+commenting out the lines here is fine. Patch can be dropped when we update to
+Boost 1.84.0
+
+--- boost_1_64_0/tools/build/src/tools/darwin.jam
++++ boost_1_64_0/tools/build/src/tools/darwin.jam
+@@ -138,10 +138,10 @@ rule init ( version ? : command * : options * : requirement * )
+     common.handle-options darwin : $(condition) : $(command) : $(options) ;
+
+     # - GCC 4.0 and higher in Darwin does not have -fcoalesce-templates.
+-    if $(real-version) < "4.0.0"
+-    {
+-        flags darwin.compile.c++ OPTIONS $(condition) : -fcoalesce-templates ;
+-    }
++    #if $(real-version) < "4.0.0"
++    #{
++    #    flags darwin.compile.c++ OPTIONS $(condition) : -fcoalesce-templates ;
++    #}
+     # - GCC 4.2 and higher in Darwin does not have -Wno-long-double.
+     if $(real-version) < "4.2.0"
+     {

@@ -30,6 +30,13 @@
 
 #pragma once
 
+#include "gtest/gtest.h"
+
+#include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/lmdb/db_lmdb.h"
+#include "fcmp_pp/curve_trees.h"
+#include "misc_log_ex.h"
+
 #include <atomic>
 #include <boost/filesystem.hpp>
 
@@ -64,7 +71,91 @@ namespace unit_test
   private:
     std::atomic<size_t> m_counter;
   };
+
+  class BlockchainLMDBTest
+  {
+  public:
+    BlockchainLMDBTest(bool is_copy = false) :
+      m_temp_db_dir(boost::filesystem::temp_directory_path().string() + "/monero-lmdb-tests/"),
+      m_is_copy{is_copy}
+    {}
+
+    ~BlockchainLMDBTest()
+    {
+      delete m_db;
+      if (m_temp_db_dir.find("/monero-lmdb-tests/") == std::string::npos)
+      {
+        LOG_ERROR("unexpected temp db dir");
+        return;
+      }
+      if (!m_is_copy)
+        boost::filesystem::remove_all(m_temp_db_dir);
+    }
+
+    void init_new_db(std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> curve_trees)
+    {
+      CHECK_AND_ASSERT_THROW_MES(this->m_db == nullptr, "expected nullptr m_db");
+      this->m_db = new cryptonote::BlockchainLMDB(true/*batch_transactions*/, curve_trees);
+
+      const auto temp_db_path = boost::filesystem::unique_path();
+      const std::string dir_path = m_temp_db_dir + temp_db_path.string();
+
+      MDEBUG("Creating test db at path " << dir_path);
+      ASSERT_NO_THROW(this->m_db->open(dir_path));
+      m_cur_dir_path = dir_path;
+    }
+
+    void init_hardfork(cryptonote::HardFork *hardfork)
+    {
+      hardfork->init();
+      this->m_db->set_hard_fork(hardfork);
+    }
+
+    BlockchainLMDBTest *copy_db(std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> curve_trees)
+    {
+      CHECK_AND_ASSERT_THROW_MES(this->m_db != nullptr, "expected non-null m_db");
+      CHECK_AND_ASSERT_THROW_MES(this->m_cur_dir_path != "", "expected cur dir path set");
+
+      const boost::filesystem::path lmdb_data_path = boost::filesystem::path(m_cur_dir_path + "/data.mdb");
+      CHECK_AND_ASSERT_THROW_MES(boost::filesystem::exists(lmdb_data_path), "did not find lmdb data file");
+
+      // Close db, copy db file, open copy, then reopen the db
+      this->m_db->close();
+      const auto temp_db_path = boost::filesystem::unique_path();
+      const std::string dest_path = m_temp_db_dir + temp_db_path.string();
+      CHECK_AND_ASSERT_THROW_MES(boost::filesystem::create_directories(dest_path),
+        "failed to create new db dirs");
+      boost::filesystem::copy_file(lmdb_data_path, dest_path + "/data.mdb");
+
+      // Open db copy
+      BlockchainLMDBTest *copy_db = new BlockchainLMDBTest(true/*is_copy*/);
+      copy_db->m_db = new cryptonote::BlockchainLMDB(true/*batch_transactions*/, curve_trees);
+      copy_db->m_db->open(dest_path);
+      copy_db->m_cur_dir_path = dest_path;
+
+      // Reopen original db so it's ready for use
+      this->m_db->open(m_cur_dir_path);
+
+      return copy_db;
+    }
+
+    cryptonote::BlockchainDB* m_db{nullptr};
+    const std::string m_temp_db_dir;
+    std::string m_cur_dir_path{""};
+    const bool m_is_copy{false};
+  };
 }
+
+#define INIT_BLOCKCHAIN_LMDB_TEST_DB(test_db, curve_trees) \
+  if (curve_trees != nullptr) \
+    test_db.init_new_db(curve_trees); \
+  auto hardfork = cryptonote::HardFork(*test_db.m_db, 1, 0); \
+  test_db.init_hardfork(&hardfork); \
+  auto scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
+    ASSERT_NO_THROW(test_db.m_db->close()); \
+    delete test_db.m_db; \
+    test_db.m_db = nullptr; \
+  })
 
 # define ASSERT_EQ_MAP(val, map, key) \
   do { \
