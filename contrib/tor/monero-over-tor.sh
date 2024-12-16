@@ -78,8 +78,6 @@ echo "Starting monerod..."
 HOSTNAME=$(cat "$HOSTNAMEFILE")
 "$monerod" \
   --anonymous-inbound "$HOSTNAME":18083,127.0.0.1:18083,25 --proxy 127.0.0.1:9050 --tx-proxy tor,127.0.0.1:9052,10 \
-  --add-priority-node zbjkbsxc5munw3qusl7j2hpcmikhqocdf4pqhnhtpzw5nt5jrmofptid.onion:18083 \
-  --add-priority-node 2xmrnode5itf65lz.onion:18083 \
   --detach
 ready=0
 for i in `seq 10`
