@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 #include <boost/utility/string_ref.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/filesystem/path.hpp>
@@ -125,6 +126,7 @@ namespace net_utils
         \note It is strongly encouraged that clients using `system_ca`
           verification provide a non-empty `host` for rfc2818 verification.
 
+        \param io_context associated with `socket`.
         \param socket Used in SSL handshake and verification
         \param type Client or server
         \param host This parameter is only used when
@@ -136,6 +138,7 @@ namespace net_utils
         \return True if the SSL handshake completes with peer verification
           settings. */
     bool handshake(
+      boost::asio::io_context& io_context,
       boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
       boost::asio::ssl::stream_base::handshake_type type,
       boost::asio::const_buffer buffer = {},
