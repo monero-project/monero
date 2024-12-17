@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <boost/asio/post.hpp>
 #include <boost/chrono/chrono.hpp>
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/mutex.hpp>
@@ -173,9 +174,9 @@ TEST(test_epee_connection, test_lifetime)
   using shared_states_t = std::vector<shared_state_ptr>;
   using tag_t = boost::uuids::uuid;
   using tags_t = std::vector<tag_t>;
-  using io_context_t = boost::asio::io_service;
+  using io_context_t = boost::asio::io_context;
   using endpoint_t = boost::asio::ip::tcp::endpoint;
-  using work_t = boost::asio::io_service::work;
+  using work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
   using work_ptr = std::shared_ptr<work_t>;
   using workers_t = std::vector<std::thread>;
   using server_t = epee::net_utils::boosted_tcp_server<handler_t>;
@@ -189,7 +190,7 @@ TEST(test_epee_connection, test_lifetime)
   using shared_conn_ptr = std::shared_ptr<shared_conn_t>;
 
   io_context_t io_context;
-  work_ptr work(std::make_shared<work_t>(io_context));
+  work_ptr work(std::make_shared<work_t>(io_context.get_executor()));
 
   workers_t workers;
   while (workers.size() < 4) {
@@ -198,7 +199,7 @@ TEST(test_epee_connection, test_lifetime)
     });
   }
 
-  endpoint_t endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 5262);
+  endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 5262);
   server_t server(epee::net_utils::e_connection_type_P2P);
   server.init_server(endpoint.port(),
     endpoint.address().to_string(),
@@ -211,13 +212,16 @@ TEST(test_epee_connection, test_lifetime)
   server.run_server(2, false);
   server.get_config_shared()->set_handler(new command_handler_t, &command_handler_t::destroy);
 
-  io_context.post([&io_context, &work, &endpoint, &server]{
-    shared_state_ptr shared_state;
-    auto scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&work, &shared_state]{
-      work.reset();
-      if (shared_state)
-        shared_state->set_handler(nullptr, nullptr);
-    });
+  boost::asio::post(
+    io_context,
+    [&io_context, &work, &endpoint, &server]{
+      shared_state_ptr shared_state;
+      auto scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&work, &shared_state]{
+        work.reset();
+        if (shared_state)
+          shared_state->set_handler(nullptr, nullptr);
+      }
+    );
 
     shared_state = std::make_shared<shared_state_t>();
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
@@ -380,9 +384,7 @@ TEST(test_epee_connection, test_lifetime)
           connection_ptr conn(new connection_t(io_context, s, {}, {}));
           conn->socket().connect(endpoint);
           conn->start({}, {});
-          io_context.post([conn]{
-            conn->cancel();
-          });
+          boost::asio::post(io_context, [conn] { conn->cancel(); });
           conn.reset();
           s->del_out_connections(1);
           while (s->sock_count);
@@ -452,9 +454,7 @@ TEST(test_epee_connection, test_lifetime)
           context_t context;
           conn->get_context(context);
           auto tag = context.m_connection_id;
-          io_context.post([conn]{
-            conn->cancel();
-          });
+          boost::asio::post(io_context, [conn] { conn->cancel(); });
           conn.reset();
           s->close(tag);
           while (s->sock_count);
@@ -497,7 +497,7 @@ TEST(test_epee_connection, ssl_shutdown)
   };
 
   using handler_t = epee::levin::async_protocol_handler<context_t>;
-  using io_context_t = boost::asio::io_service;
+  using io_context_t = boost::asio::io_context;
   using endpoint_t = boost::asio::ip::tcp::endpoint;
   using server_t = epee::net_utils::boosted_tcp_server<handler_t>;
   using socket_t = boost::asio::ip::tcp::socket;
@@ -505,7 +505,7 @@ TEST(test_epee_connection, ssl_shutdown)
   using ssl_context_t = boost::asio::ssl::context;
   using ec_t = boost::system::error_code;
 
-  endpoint_t endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 5263);
+  endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 5263);
   server_t server(epee::net_utils::e_connection_type_P2P);
   server.init_server(endpoint.port(),
     endpoint.address().to_string(),
@@ -540,8 +540,8 @@ TEST(test_epee_connection, ssl_shutdown)
 
 TEST(test_epee_connection, ssl_handshake)
 {
-  using io_context_t = boost::asio::io_service;
-  using work_t = boost::asio::io_service::work;
+  using io_context_t = boost::asio::io_context;
+  using work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
   using work_ptr = std::shared_ptr<work_t>;
   using workers_t = std::vector<std::thread>;
   using socket_t = boost::asio::ip::tcp::socket;
@@ -549,7 +549,7 @@ TEST(test_epee_connection, ssl_handshake)
   using ssl_socket_ptr = std::unique_ptr<ssl_socket_t>;
   using ssl_options_t = epee::net_utils::ssl_options_t;
   io_context_t io_context;
-  work_ptr work(std::make_shared<work_t>(io_context));
+  work_ptr work(std::make_shared<work_t>(io_context.get_executor()));
   workers_t workers;
   auto constexpr N = 2;
   while (workers.size() < N) {
@@ -563,12 +563,14 @@ TEST(test_epee_connection, ssl_handshake)
     ssl_socket_ptr ssl_socket(new ssl_socket_t(io_context, ssl_context));
     ssl_socket->next_layer().open(boost::asio::ip::tcp::v4());
     for (size_t i = 0; i < N; ++i) {
-      io_context.post([]{
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-      });
+      boost::asio::post(
+        io_context,
+        [] { std::this_thread::sleep_for(std::chrono::milliseconds(50)); }
+      );
     }
     EXPECT_EQ(
       ssl_options.handshake(
+        io_context,
         *ssl_socket,
         ssl_socket_t::server,
         {},
@@ -673,7 +675,7 @@ TEST(boosted_tcp_server, strand_deadlock)
   using server_t = epee::net_utils::boosted_tcp_server<handler_t>;
   using endpoint_t = boost::asio::ip::tcp::endpoint;
 
-  endpoint_t endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 5262);
+  endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 5262);
   server_t server(epee::net_utils::e_connection_type_P2P);
   server.init_server(
     endpoint.port(),

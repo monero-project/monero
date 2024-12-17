@@ -30,7 +30,7 @@
 #define _NET_UTILS_BASE_H_
 
 #include <boost/uuid/uuid.hpp>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
 #include <typeinfo>
 #include <type_traits>
@@ -45,12 +45,6 @@
 
 #ifndef MAKE_IP
 #define MAKE_IP( a1, a2, a3, a4 )	(a1|(a2<<8)|(a3<<16)|(((uint32_t)a4)<<24))
-#endif
-
-#if BOOST_VERSION >= 107000
-#define GET_IO_SERVICE(s) ((boost::asio::io_context&)(s).get_executor().context())
-#else
-#define GET_IO_SERVICE(s) ((s).get_io_service())
 #endif
 
 namespace net
@@ -443,7 +437,7 @@ namespace net_utils
     virtual bool send_done()=0;
     virtual bool call_run_once_service_io()=0;
     virtual bool request_callback()=0;
-    virtual boost::asio::io_service& get_io_service()=0;
+    virtual boost::asio::io_context& get_io_context()=0;
     //protect from deletion connection object(with protocol instance) during external call "invoke"
     virtual bool add_ref()=0;
     virtual bool release()=0;
