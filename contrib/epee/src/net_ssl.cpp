@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include <thread>
+#include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/cerrno.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -44,6 +45,13 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.ssl"
+
+
+#if BOOST_VERSION >= 107300
+  #define MONERO_HOSTNAME_VERIFY boost::asio::ssl::host_name_verification
+#else
+  #define MONERO_HOSTNAME_VERIFY boost::asio::ssl::rfc2818_verification
+#endif
 
 // openssl genrsa -out /tmp/KEY 4096
 // openssl req -new -key /tmp/KEY -out /tmp/REQ
@@ -526,7 +534,7 @@ void ssl_options_t::configure(
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
       const bool verified = preverified &&
-        (verification != ssl_verification_t::system_ca || host.empty() || boost::asio::ssl::rfc2818_verification(host)(preverified, ctx));
+        (verification != ssl_verification_t::system_ca || host.empty() || MONERO_HOSTNAME_VERIFY(host)(preverified, ctx));
 
       if (!verified && !has_fingerprint(ctx))
       {
@@ -544,6 +552,7 @@ void ssl_options_t::configure(
 }
 
 bool ssl_options_t::handshake(
+  boost::asio::io_context& io_context,
   boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &socket,
   boost::asio::ssl::stream_base::handshake_type type,
   boost::asio::const_buffer buffer,
@@ -555,12 +564,11 @@ bool ssl_options_t::handshake(
   auto start_handshake = [&]{
     using ec_t = boost::system::error_code;
     using timer_t = boost::asio::steady_timer;
-    using strand_t = boost::asio::io_service::strand;
+    using strand_t = boost::asio::io_context::strand;
     using socket_t = boost::asio::ip::tcp::socket;
 
-    auto &io_context = GET_IO_SERVICE(socket);
     if (io_context.stopped())
-      io_context.reset();
+      io_context.restart();
     strand_t strand(io_context);
     timer_t deadline(io_context, timeout);
 
@@ -595,13 +603,13 @@ bool ssl_options_t::handshake(
       state.result = ec;
       if (!state.cancel_handshake) {
         state.cancel_timer = true;
-        ec_t ec;
-        deadline.cancel(ec);
+        deadline.cancel();
       }
     };
 
     deadline.async_wait(on_timer);
-    strand.post(
+    boost::asio::post(
+      strand,
       [&]{
         socket.async_handshake(
           type,

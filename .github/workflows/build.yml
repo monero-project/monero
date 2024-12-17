@@ -43,8 +43,7 @@ jobs:
       - uses: ./.github/actions/set-make-job-count
       - name: install dependencies
         run: |
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install boost@1.85 hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache
-          brew link boost@1.85
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}
@@ -71,16 +70,7 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           update: true
-          install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
-      - shell: msys2 {0}
-        run: |
-          curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-boost-1.86.0-7-any.pkg.tar.zst
-          echo "3e84674b4d2b3ab82f4d5e22bcc2015fa139b6fd936c55d6b71f89a72a1ee0a2 mingw-w64-x86_64-boost-1.86.0-7-any.pkg.tar.zst" | sha256sum -c
-          curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-boost-libs-1.86.0-7-any.pkg.tar.zst
-          echo "4cb1d1066fffa6a5788b212ccb920c6d8cc93a8ecbbc633565bfc9b2ebc6feb5 mingw-w64-x86_64-boost-libs-1.86.0-7-any.pkg.tar.zst" | sha256sum -c
-          curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-icu-75.1-2-any.pkg.tar.zst
-          echo "bf57882d43efcdfd746463613ea982c69b64aa4ba9bed4cb24c02a81ad06c3a9 mingw-w64-x86_64-icu-75.1-2-any.pkg.tar.zst" | sha256sum -c
-          pacman --noconfirm -U mingw-w64-x86_64-boost-1.86.0-7-any.pkg.tar.zst mingw-w64-x86_64-boost-libs-1.86.0-7-any.pkg.tar.zst mingw-w64-x86_64-icu-75.1-2-any.pkg.tar.zst
+          install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
       - uses: ./.github/actions/set-make-job-count
       - name: build
         run: |

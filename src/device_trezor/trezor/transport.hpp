@@ -244,7 +244,7 @@ namespace trezor {
     int m_device_port;
 
     std::unique_ptr<udp::socket> m_socket;
-    boost::asio::io_service m_io_service;
+    boost::asio::io_context m_io_service;
     boost::asio::deadline_timer m_deadline;
     udp::endpoint m_endpoint;
   };

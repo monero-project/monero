@@ -138,7 +138,7 @@ namespace
   class test_connection : public epee::net_utils::i_service_endpoint
   {
   public:
-    test_connection(boost::asio::io_service& io_service, test_levin_protocol_handler_config& protocol_config)
+    test_connection(boost::asio::io_context& io_service, test_levin_protocol_handler_config& protocol_config)
       : m_io_service(io_service)
       , m_protocol_handler(this, protocol_config, m_context)
       , m_send_return(true)
@@ -163,7 +163,7 @@ namespace
     virtual bool send_done()                          { return true; }
     virtual bool call_run_once_service_io()           { return true; }
     virtual bool request_callback()                   { return true; }
-    virtual boost::asio::io_service& get_io_service() { return m_io_service; }
+    virtual boost::asio::io_context& get_io_context() { return m_io_service; }
     virtual bool add_ref()                            { return true; }
     virtual bool release()                            { return true; }
 
@@ -180,7 +180,7 @@ namespace
     test_levin_protocol_handler m_protocol_handler;
 
   private:
-    boost::asio::io_service& m_io_service;
+    boost::asio::io_context& m_io_service;
 
     call_counter m_send_counter;
     boost::mutex m_mutex;
@@ -224,7 +224,7 @@ namespace
     }
 
   protected:
-    boost::asio::io_service m_io_service;
+    boost::asio::io_context m_io_service;
     test_levin_protocol_handler_config m_handler_config;
     test_levin_commands_handler *m_pcommands_handler, &m_commands_handler;
   };
@@ -300,7 +300,7 @@ BEGIN_SIMPLE_FUZZER()
   fclose(f);
 #endif
     //std::unique_ptr<test_connection> conn = new test();
-    boost::asio::io_service io_service;
+    boost::asio::io_context io_service;
     test_levin_protocol_handler_config m_handler_config;
     test_levin_commands_handler *m_pcommands_handler = new test_levin_commands_handler();
     m_handler_config.set_handler(m_pcommands_handler, [](epee::levin::levin_commands_handler<test_levin_connection_context> *handler) { delete handler; });
