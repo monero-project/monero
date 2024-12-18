@@ -31,6 +31,18 @@
 cmake_minimum_required(VERSION 3.5)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
+# Find Boost
+set(Boost_USE_STATIC_LIBS ON)  # Use static Boost libraries (optional)
+find_package(Boost REQUIRED COMPONENTS system filesystem)
+
+if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+    message(STATUS "Boost found! Include directories: ${Boost_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "Boost not found! Please install Boost and set BOOST_ROOT.")
+endif()
+
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 list(INSERT CMAKE_MODULE_PATH 0
@@ -187,6 +199,11 @@ function (monero_add_minimal_executable name)
     ${ARGN})
     monero_set_target_no_relink("${name}")
     monero_set_target_strip    ("${name}")
+    if (Boost_FOUND)
+        target_link_libraries("${name}" PRIVATE Boost::system Boost::filesystem)
+    else()
+        message(FATAL_ERROR "Boost not found! Cannot link Boost libraries.")
+      endif()
 endfunction()
 
 # Finds all headers in a directory and its subdirs, to be able to search for them and autosave in IDEs.
@@ -206,6 +223,8 @@ endmacro()
 # Function to forbid undefined symbols and also verify
 # 1) Test project with all types of libraries and without undefined symbols can compile successfully
 # 2) Test project with all types of libraries and undefined symbols can not compile successfully
+
+
 function(forbid_undefined_symbols)
   unset(TMP)
   # https://www.unix.com/man-page/linux/1/ld, --no-undefined, Report unresolved symbol references from regular object files.
