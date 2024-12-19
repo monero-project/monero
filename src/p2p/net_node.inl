@@ -2474,6 +2474,7 @@ namespace nodetool
 
     //fill response
     const epee::net_utils::zone zone_type = context.m_remote_address.get_zone();
+    const bool is_public = (zone_type == epee::net_utils::zone::public_);
     network_zone& zone = m_network_zones.at(zone_type);
 
     //will add self to peerlist if in same zone as outgoing later in this function
@@ -2483,6 +2484,21 @@ namespace nodetool
     std::vector<peerlist_entry> local_peerlist_new;
     zone.m_peerlist.get_peerlist_head(local_peerlist_new, true, max_peerlist_size);
 
+    /* Tor/I2P nodes receiving connections via forwarding (from tor/i2p daemon)
+    do not know the address of the connecting peer. This is relayed to them,
+    iff the node has setup an inbound hidden service. The other peer will have
+    to use the random peer_id value to link the two. My initial thought is that
+    the inbound peer should leave the other side marked as `<unknown tor host>`,
+    etc., because someone could give faulty addresses over Tor/I2P to get the
+    real peer with that identity banned/blacklisted.
+
+    \note Insert into `local_peerlist_new` so that it is only sent once like
+      the other peers. */
+    if(outgoing_to_same_zone)
+      local_peerlist_new.push_back(
+        peerlist_entry{zone.m_our_address, zone.m_config.m_peer_id, (is_public ? std::time(nullptr) : 0)}
+      );
+
     //only include out peers we did not already send
     rsp.local_peerlist_new.reserve(local_peerlist_new.size());
     for (auto &pe: local_peerlist_new)
@@ -2490,19 +2506,16 @@ namespace nodetool
       if (!context.sent_addresses.insert(pe.adr).second)
         continue;
       rsp.local_peerlist_new.push_back(std::move(pe));
+
+      if (!is_public)
+        rsp.local_peerlist_new.back().last_seen = 0;
     }
     m_payload_handler.get_payload_sync_data(rsp.payload_data);
 
-    /* Tor/I2P nodes receiving connections via forwarding (from tor/i2p daemon)
-    do not know the address of the connecting peer. This is relayed to them,
-    iff the node has setup an inbound hidden service. The other peer will have
-    to use the random peer_id value to link the two. My initial thought is that
-    the inbound peer should leave the other side marked as `<unknown tor host>`,
-    etc., because someone could give faulty addresses over Tor/I2P to get the
-    real peer with that identity banned/blacklisted. */
-
-    if(outgoing_to_same_zone)
-      rsp.local_peerlist_new.push_back(peerlist_entry{zone.m_our_address, zone.m_config.m_peer_id, std::time(nullptr)});
+    // randomize so location of local inbound is not easily found
+    std::shuffle(
+      rsp.local_peerlist_new.begin(), rsp.local_peerlist_new.end(), crypto::random_device{}
+    );
 
     LOG_DEBUG_CC(context, "COMMAND_TIMED_SYNC");
     return 1;
