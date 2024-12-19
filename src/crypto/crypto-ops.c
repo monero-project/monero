@@ -40,7 +40,6 @@ DISABLE_VS_WARNINGS(4146 4244)
 
 /* Predeclarations */
 
-static void fe_sq(fe, const fe);
 static void ge_madd(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_msub(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_p2_0(ge_p2 *);
@@ -232,7 +231,7 @@ static void fe_cmov(fe f, const fe g, unsigned int b) {
 h = f
 */
 
-static void fe_copy(fe h, const fe f) {
+void fe_copy(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -358,7 +357,7 @@ Preconditions:
    |f| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
 */
 
-static int fe_isnegative(const fe f) {
+int fe_isnegative(const fe f) {
   unsigned char s[32];
   fe_tobytes(s, f);
   return s[0] & 1;
@@ -639,7 +638,7 @@ Postconditions:
    |h| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
 */
 
-static void fe_neg(fe h, const fe f) {
+void fe_neg(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -689,7 +688,7 @@ Postconditions:
 See fe_mul.c for discussion of implementation strategy.
 */
 
-static void fe_sq(fe h, const fe f) {
+void fe_sq(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];

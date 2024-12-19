@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,31 +25,52 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
-extern "C"
-{
-#include "crypto/crypto-ops.h"
-}
-#include "ringct/rctTypes.h"
+#include "crypto/crypto.h"
+#include "cryptonote_basic/cryptonote_basic.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 
-namespace fcmp_pp
+#include "single_tx_test_base.h"
+
+class test_torsion_check : public multi_tx_test_base<1>
 {
-//----------------------------------------------------------------------------------------------------------------------
-// Field elems needed to get wei x coord
-struct EdYDerivatives final
-{
-    fe one_plus_y;
-    fe one_minus_y;
+public:
+  static const size_t loop_count = 10000;
+
+  typedef multi_tx_test_base<1> base_class;
+
+  bool init()
+  {
+    using namespace cryptonote;
+
+    if (!base_class::init())
+      return false;
+
+    cryptonote::account_base m_alice;
+    cryptonote::transaction m_tx;
+
+    m_alice.generate();
+
+    std::vector<tx_destination_entry> destinations;
+    destinations.push_back(tx_destination_entry(1, m_alice.get_keys().m_account_address, false));
+
+    if (!construct_tx(this->m_miners[this->real_source_idx].get_keys(), this->m_sources, destinations, boost::none, std::vector<uint8_t>(), m_tx))
+      return false;
+
+    const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
+    m_rct_key = rct::ki2rct(txin.k_image);
+    return true;
+  }
+
+  bool test()
+  {
+    return fcmp_pp::torsion_check(m_rct_key);
+  }
+
+private:
+  rct::key m_rct_key;
 };
-//----------------------------------------------------------------------------------------------------------------------
-// TODO: tests for these functions
-bool torsion_check(const rct::key &k);
-bool clear_torsion(const rct::key &k, rct::key &k_out);
-bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives);
-void ed_y_derivatives_to_wei_x(const EdYDerivatives &ed_y_derivatives, rct::key &wei_x);
-bool point_to_wei_x(const rct::key &pub, rct::key &wei_x);
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-}//namespace fcmp_pp

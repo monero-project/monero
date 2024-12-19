@@ -57,6 +57,8 @@ set(performance_tests_headers
   performance_tests.h
   performance_utils.h
   single_tx_test_base.h
+  torsion_check.h
+  torsion_clear.h
   zero_commit.h)
 
 monero_add_minimal_executable(performance_tests
@@ -69,6 +71,7 @@ target_link_libraries(performance_tests
     common
     cncrypto
     epee
+    fcmp_pp
     ringct
     seraphis_crypto
     ${Boost_CHRONO_LIBRARY}
