@@ -5,9 +5,6 @@
 # execute brew bundle in the directory containing the Brewfile
 
 tap "homebrew/bundle"
-tap "homebrew/cask"
-tap "homebrew/cask-versions"
-tap "homebrew/core"
 
 brew "autoconf"
 brew "autogen"
