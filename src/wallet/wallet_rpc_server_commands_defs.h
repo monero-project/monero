@@ -2598,6 +2598,7 @@ namespace wallet_rpc
       std::string ssl_ca_file;
       std::vector<std::string> ssl_allowed_fingerprints;
       bool ssl_allow_any_cert;
+      std::string proxy;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
@@ -2610,6 +2611,7 @@ namespace wallet_rpc
         KV_SERIALIZE(ssl_ca_file)
         KV_SERIALIZE(ssl_allowed_fingerprints)
         KV_SERIALIZE_OPT(ssl_allow_any_cert, false)
+        KV_SERIALIZE_OPT(proxy, (std::string)"")
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
