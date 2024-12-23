@@ -8688,6 +8688,22 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
   PAUSE_READLINE();
 
+  auto formatter = boost::format("%8.8s %6.6s %8.8s %25.25s %20.20s %64.64s %15.15s %14.14s %s %s - %s");
+  message_writer(console_color_default, false) << formatter
+  % "Block"
+  % "In/Out"
+  % "Locked?"
+  % "Timestamp"
+  % "Amount"
+  % "Tx Hash"
+  % "Tx Payment ID"
+  % "Tx Fee"
+  % "Destination(s)"
+  % "Index"
+  % "Tx Note";
+
+  formatter = boost::format("%8.8llu %6.6s %8.8s %25.25s %20.20s %64.64s %15.15s %14.14s %s %s - %s");
+
   for (const auto& transfer : all_transfers)
   {
     const auto color = transfer.type == "failed" ? console_color_red : transfer.confirmed ? ((transfer.direction == "in" || transfer.direction == "block") ? console_color_green : console_color_magenta) : console_color_default;
@@ -8703,8 +8719,6 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
         destinations += (transfer.direction == "in" ? output.first.substr(0, 6) : output.first) + ":" + print_money(output.second);
       }
     }
-
-    auto formatter = boost::format("%8.8llu %6.6s %8.8s %25.25s %20.20s %s %s %14.14s %s %s - %s");
 
     message_writer(color, false) << formatter
       % transfer.block
