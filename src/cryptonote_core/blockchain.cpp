@@ -1209,12 +1209,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
       // just the latter (because the rollback was done above).
       rollback_blockchain_switching(disconnected_chain, split_height);
 
-      // FIXME: Why do we keep invalid blocks around?  Possibly in case we hear
-      // about them again so we can immediately dismiss them, but needs some
-      // looking into.
       const crypto::hash blkid = cryptonote::get_block_hash(bei.bl);
-      add_block_as_invalid(bei, blkid);
-      MERROR("The block was inserted as invalid while connecting new alternative chain, block_id: " << blkid);
       m_db->remove_alt_block(blkid);
       alt_ch_iter++;
 
@@ -1222,7 +1217,6 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
       {
         const auto &bei = *alt_ch_to_orph_iter++;
         const crypto::hash blkid = cryptonote::get_block_hash(bei.bl);
-        add_block_as_invalid(bei, blkid);
         m_db->remove_alt_block(blkid);
       }
       return false;
