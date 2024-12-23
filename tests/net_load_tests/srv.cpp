@@ -189,7 +189,7 @@ namespace
       if (0 < count)
       {
         // Perhaps not all connections were closed, try to close it after 7 seconds
-        boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(m_tcp_server.get_io_service(), boost::posix_time::seconds(7)));
+        boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(m_tcp_server.get_io_context(), boost::posix_time::seconds(7)));
         sh_deadline->async_wait([=](const boost::system::error_code& ec)
         {
           boost::shared_ptr<boost::asio::deadline_timer> t = sh_deadline; // Capture sh_deadline

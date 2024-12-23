@@ -149,7 +149,7 @@ namespace cryptonote
     {
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ip, ec);
+      const auto parsed_ip = boost::asio::ip::make_address(config.bind_ip, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ip.name);
@@ -177,7 +177,7 @@ namespace cryptonote
 
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ipv6_address, ec);
+      const auto parsed_ip = boost::asio::ip::make_address(config.bind_ipv6_address, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ipv6_address.name);
@@ -198,7 +198,7 @@ namespace cryptonote
     {
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      boost::asio::ip::address::from_string(config.restricted_bind_ip, ec);
+      boost::asio::ip::make_address(config.restricted_bind_ip, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_restricted_bind_ip.name);
@@ -215,7 +215,7 @@ namespace cryptonote
 
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      boost::asio::ip::address::from_string(config.restricted_bind_ipv6_address, ec);
+      boost::asio::ip::make_address(config.restricted_bind_ipv6_address, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_restricted_bind_ipv6_address.name);
