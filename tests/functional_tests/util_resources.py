@@ -34,7 +34,6 @@
     by running numerical calculations
 """
 
-from __future__ import print_function
 import subprocess
 import psutil
 import os

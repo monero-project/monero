@@ -31,7 +31,6 @@
 """Test get_output_distribution RPC
 """
 
-from __future__ import print_function
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 

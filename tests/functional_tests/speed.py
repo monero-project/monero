@@ -41,7 +41,6 @@ Test the following RPCs:
 
 import time
 from time import sleep
-from __future__ import print_function
 
 from framework.daemon import Daemon
 from framework.wallet import Wallet
