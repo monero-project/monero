@@ -171,6 +171,13 @@
       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
       return true; \
     } \
+    epee::serialization::storage_entry params_; \
+    params_ = epee::serialization::storage_entry(epee::serialization::section()); \
+    if(!ps.get_value("params", params_, nullptr)) \
+    { \
+      epee::serialization::section params_section; \
+      ps.set_value("params", std::move(params_section), nullptr); \
+    } \
     if(false) return true; //just a stub to have "else if"
 
 
