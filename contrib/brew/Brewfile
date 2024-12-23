@@ -16,7 +16,7 @@ brew "binutils"
 brew "coreutils"
 brew "cmake"
 brew "pkg-config"
-brew "boost"
+brew "boost@1.85", link: true
 brew "openssl"
 brew "hidapi"
 brew "zmq"
