@@ -98,6 +98,7 @@ namespace cryptonote
     bool foreach(std::function<bool(const span&)> f) const;
     bool requested(const crypto::hash &hash) const;
     bool have(const crypto::hash &hash) const;
+    std::uint64_t have_height(const crypto::hash &hash) const;
 
   private:
     void erase_block(block_map::iterator j);
@@ -107,6 +108,6 @@ namespace cryptonote
     block_map blocks;
     mutable boost::recursive_mutex mutex;
     std::unordered_set<crypto::hash> requested_hashes;
-    std::unordered_set<crypto::hash> have_blocks;
+    std::unordered_map<crypto::hash, std::uint64_t> have_blocks;
   };
 }
