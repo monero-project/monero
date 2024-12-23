@@ -14,8 +14,8 @@ on:
 env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   BUILD_DEFAULT_LINUX: |
-        cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --parallel 3
-  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libnorm-dev libusb-1.0-0-dev libpgm-dev libprotobuf-dev protobuf-compiler ccache git'
+        cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --parallel 4
+  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
   APT_SET_CONF: |
         tee -a /etc/apt/apt.conf.d/80-custom << EOF
         Acquire::Retries "3";
@@ -43,7 +43,7 @@ jobs:
         restore-keys: ccache-${{ runner.os }}-build-
     - name: install dependencies
       run: |
-        HOMEBREW_NO_AUTO_UPDATE=1 brew install boost@1.85 hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf@21 ccache
+        HOMEBREW_NO_AUTO_UPDATE=1 brew install boost@1.85 hidapi openssl zmq miniupnpc expat libunwind-headers protobuf@21 ccache
         brew link protobuf@21 boost@1.85
     - name: build
       run: |

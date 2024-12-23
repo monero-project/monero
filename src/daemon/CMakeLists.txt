@@ -65,7 +65,7 @@ target_link_libraries(daemon
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${ZMQ_LIB}
+    PkgConfig::libzmq
     ${GNU_READLINE_LIBRARY}
     ${EXTRA_LIBRARIES}
     $<TARGET_NAME_IF_EXISTS:blocks>)
