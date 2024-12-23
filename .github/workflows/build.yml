@@ -113,6 +113,7 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
     steps:
