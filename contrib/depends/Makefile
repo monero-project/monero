@@ -25,16 +25,22 @@ host_toolchain:=$(HOST)-
 endif
 
 ifneq ($(DEBUG),)
-release_type=Debug
+release_type=debug
 else
-release_type=Release
+release_type=release
 endif
 
 ifneq ($(TESTS),)
 build_tests=ON
-release_type=Debug
+release_type=debug
 else
 build_tests=OFF
+endif
+
+ifeq ($(release_type),debug)
+cmake_release_type=Debug
+else
+cmake_release_type=Release
 endif
 
 base_build_dir=$(BASEDIR)/work/build
@@ -143,7 +149,7 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@LDFLAGS@|$(strip $(host_LDFLAGS) $(host_$(release_type)_LDFLAGS))|' \
             -e 's|@allow_host_packages@|$(ALLOW_HOST_PACKAGES)|' \
             -e 's|@debug@|$(DEBUG)|' \
-            -e 's|@release_type@|$(release_type)|' \
+            -e 's|@release_type@|$(cmake_release_type)|' \
             -e 's|@build_tests@|$(build_tests)|' \
             -e 's|@cmake_system_name@|$($(host_os)_cmake_system)|' \
             -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|'\
