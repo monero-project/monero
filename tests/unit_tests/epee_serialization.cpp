@@ -77,6 +77,67 @@ struct ObjOfInts
     KV_SERIALIZE(x)
   END_KV_SERIALIZE_MAP()
 };
+
+template<typename t_param>
+struct ParentObjWithOptChild
+{
+  t_param     params;
+
+  ParentObjWithOptChild(): params{} {}
+
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(params)
+  END_KV_SERIALIZE_MAP()
+};
+
+struct ObjWithOptChild
+{
+  bool test_value;
+
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE_OPT(test_value, true);
+  END_KV_SERIALIZE_MAP()
+};
+}
+
+TEST(epee_binary, serialize_deserialize)
+{
+  ParentObjWithOptChild<ObjWithOptChild> o;
+  std::string o_json;
+  o.params.test_value = true;
+
+  EXPECT_TRUE(epee::serialization::store_t_to_json(o, o_json));
+  EXPECT_TRUE(o.params.test_value);
+
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o, o_json));
+  EXPECT_TRUE(o.params.test_value);
+
+  ParentObjWithOptChild<ObjWithOptChild> o2;
+  std::string o2_json;
+  o.params.test_value = false;
+
+  EXPECT_TRUE(epee::serialization::store_t_to_json(o2, o2_json));
+  EXPECT_FALSE(o2.params.test_value);
+
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o2, o2_json));
+  EXPECT_FALSE(o2.params.test_value);
+
+  // compiler sets default value of test_value to false
+  ParentObjWithOptChild<ObjWithOptChild> o3;
+  std::string o3_json;
+
+  EXPECT_TRUE(epee::serialization::store_t_to_json(o3, o3_json));
+  EXPECT_FALSE(o3.params.test_value);
+
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o3, o3_json));
+  EXPECT_FALSE(o3.params.test_value);
+
+  // test optional field default initialization.
+  ParentObjWithOptChild<ObjWithOptChild> o4;
+  std::string o4_json = "{\"params\": {}}";
+
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o4, o4_json));
+  EXPECT_TRUE(o4.params.test_value);
 }
 
 TEST(epee_binary, any_empty_seq)
