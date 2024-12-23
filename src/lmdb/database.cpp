@@ -179,9 +179,10 @@ namespace lmdb
     expect<void> database::commit(write_txn txn) noexcept
     {
         MONERO_PRECOND(txn != nullptr);
-        MONERO_LMDB_CHECK(mdb_txn_commit(txn.get()));
-        txn.release();
+        const int err = mdb_txn_commit(txn.release());
         release_context(ctx);
+        if (err)
+          return {lmdb::error(err)};
         return success();
     }
 } // lmdb
