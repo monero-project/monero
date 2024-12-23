@@ -177,6 +177,41 @@ private:
 //member variables
     /// variant of all value types
     VType m_value;
+
+//friend functions
+template <class Archive, typename... Ts>
+friend bool do_serialize(Archive &ar, variant<Ts...> &v);
+};
+
+template <typename... Types>
+class optional_variant: public variant<boost::blank, Types...>
+{
+public:
+//constructors
+    /// default constructor
+    optional_variant() = default;
+
+    /// construct from variant type (use enable_if to avoid issues with copy/move constructor)
+    template <typename T,
+        typename std::enable_if<
+                !std::is_same<
+                        std::remove_cv_t<std::remove_reference_t<T>>,
+                        optional_variant<Types...>
+                    >::value,
+                bool
+            >::type = true>
+    optional_variant(T &&value) : variant<boost::blank, Types...>(std::forward<T>(value)) {}
+
+    // construct like boost::optional
+    optional_variant(boost::none_t) {}
+
+//overloaded operators
+    /// boolean operator: true if the variant isn't empty/uninitialized
+    explicit operator bool() const noexcept { return !this->is_empty(); }
+
+//member functions
+    /// check if empty/uninitialized
+    bool is_empty() const noexcept { return this->index() == 0; }
 };
 
 template <typename... Types>
