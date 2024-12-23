@@ -1480,10 +1480,13 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
   uint64_t blockchain_height = m_db->height();
   uint64_t tip_height = start_height + count - 1;
   crypto::hash tip_hash = crypto::null_hash;
-  if (tip_height < blockchain_height && count == (size_t)m_long_term_block_weights_cache_rolling_median.size())
+  if (tip_height < blockchain_height)
   {
     tip_hash = m_db->get_block_hash_from_height(tip_height);
-    cached = tip_hash == m_long_term_block_weights_cache_tip_hash;
+    if (count == (size_t)m_long_term_block_weights_cache_rolling_median.size())
+    {
+      cached = tip_hash == m_long_term_block_weights_cache_tip_hash;
+    }
   }
 
   if (cached)
@@ -1494,8 +1497,11 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
 
   // in the vast majority of uncached cases, most is still cached,
   // as we just move the window one block up:
-  if (tip_height > 0 && count == (size_t)m_long_term_block_weights_cache_rolling_median.size() && tip_height < blockchain_height)
+  if (tip_height > 0 && tip_height < blockchain_height)
   {
+   const size_t rmsize = m_long_term_block_weights_cache_rolling_median.size();
+   if (count == rmsize || (count == rmsize + 1 && rmsize < CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE))
+   {
     crypto::hash old_tip_hash = m_db->get_block_hash_from_height(tip_height - 1);
     if (old_tip_hash == m_long_term_block_weights_cache_tip_hash)
     {
@@ -1504,6 +1510,7 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
       m_long_term_block_weights_cache_rolling_median.insert(m_db->get_block_long_term_weight(tip_height));
       return m_long_term_block_weights_cache_rolling_median.median();
     }
+   }
   }
 
   MTRACE("requesting " << count << " from " << start_height << ", uncached");
