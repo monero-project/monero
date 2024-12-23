@@ -36,7 +36,7 @@ Varints are used to pack integers in an portable and space optimized way. Varint
 | b10           | 4 bytes       | 16384 to 1073741823               |
 | b11           | 8 bytes       | 1073741824 to 4611686018427387903 |
 
-#### Represenations of Example Values
+#### Representations of Example Values
 |        Value         | Byte Representation (hex) |
 |----------------------|---------------------------|
 |                    0 | 00                        |
