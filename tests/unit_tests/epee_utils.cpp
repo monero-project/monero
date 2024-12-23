@@ -34,6 +34,7 @@
 #include <boost/range/iterator_range.hpp>
 #include <cstdint>
 #include <gtest/gtest.h>
+#include <iomanip>
 #include <iterator>
 #include <string>
 #include <sstream>
