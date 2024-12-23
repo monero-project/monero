@@ -312,13 +312,13 @@ Dependencies need to be built with -fPIC. Static libraries usually aren't, so yo
 
 #### On the Raspberry Pi
 
-Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (2017-09-07 or later) from https://www.raspberrypi.org/downloads/raspbian/. If you are using Raspian Jessie, [please see note in the following section](#note-for-raspbian-jessie-users).
+Tested on a Raspberry Pi 5B with a clean installation of Raspberry Pi OS (64-bit) with Debian 12 from https://www.raspberrypi.com/software/operating-systems/.
 
-* `apt-get update && apt-get upgrade` to install all of the latest software
+* `apt-get update && apt-get upgrade` to install the latest software
 
 * Install the dependencies for Monero from the 'Debian' column in the table above.
 
-* Increase the system swap size:
+* **Optional**: increase the system swap size:
 
     ```bash
     sudo /etc/init.d/dphys-swapfile stop  
@@ -332,9 +332,9 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 * Clone Monero and checkout the most recent release version:
 
     ```bash
-    git clone https://github.com/monero-project/monero.git
+    git clone --recursive https://github.com/monero-project/monero.git
     cd monero
-    git checkout v0.18.1.2
+    git checkout v0.18.3.4
     ```
 
 * Build:
@@ -343,7 +343,7 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
     USE_SINGLE_BUILDDIR=1 make release
     ```
 
-* Wait 4-6 hours
+* Wait a few hours
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -354,43 +354,6 @@ Tested on a Raspberry Pi Zero with a clean install of minimal Raspbian Stretch (
 * Run Monero with `monerod --detach`
 
 * You may wish to reduce the size of the swap file after the build has finished, and delete the boost directory from your home directory
-
-#### *Note for Raspbian Jessie users:*
-
-If you are using the older Raspbian Jessie image, compiling Monero is a bit more complicated. The version of Boost available in the Debian Jessie repositories is too old to use with Monero, and thus you must compile a newer version yourself. The following explains the extra steps and has been tested on a Raspberry Pi 2 with a clean install of minimal Raspbian Jessie.
-
-* As before, `apt-get update && apt-get upgrade` to install all of the latest software, and increase the system swap size
-
-    ```bash
-    sudo /etc/init.d/dphys-swapfile stop
-    sudo nano /etc/dphys-swapfile
-    CONF_SWAPSIZE=2048
-    sudo /etc/init.d/dphys-swapfile start
-    ```
-
-
-* Then, install the dependencies for Monero except for `libunwind` and `libboost-all-dev`
-
-* Install the latest version of boost (this may first require invoking `apt-get remove --purge libboost*-dev` to remove a previous version if you're not using a clean install):
-
-    ```bash
-    cd
-    wget https://sourceforge.net/projects/boost/files/boost/1.72.0/boost_1_72_0.tar.bz2
-    tar xvfo boost_1_72_0.tar.bz2
-    cd boost_1_72_0
-    ./bootstrap.sh
-    sudo ./b2
-    ```
-
-* Wait ~8 hours
-
-    ```bash    
-    sudo ./bjam cxxflags=-fPIC cflags=-fPIC -a install
-    ```
-
-* Wait ~4 hours
-
-* From here, follow the [general Raspberry Pi instructions](#on-the-raspberry-pi) from the "Clone Monero and checkout most recent release version" step.
 
 #### On Windows:
 
