@@ -1,0 +1,23 @@
+Fixes a missing include in glibc. It is needed for riscv64 targets.
+This patch can be removed when we upgrade glibc to > 2.27.
+
+diff --git a/sysdeps/unix/sysv/linux/riscv/flush-icache.c b/sysdeps/unix/sysv/linux/riscv/flush-icache.c
+index d612ef4c6c..0b2042620b 100644
+--- a/sysdeps/unix/sysv/linux/riscv/flush-icache.c
++++ b/sysdeps/unix/sysv/linux/riscv/flush-icache.c
+@@ -21,7 +21,11 @@
+ #include <stdlib.h>
+ #include <atomic.h>
+ #include <sys/cachectl.h>
+-#include <asm/syscalls.h>
++#if __has_include (<asm/syscalls.h>)
++# include <asm/syscalls.h>
++#else
++# include <asm/unistd.h>
++#endif
+ 
+ typedef int (*func_type) (void *, void *, unsigned long int);
+ 
+-- 
+2.31.1
+

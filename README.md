@@ -20,7 +20,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
-    - [Gitian builds](#gitian-builds)
+    - [Guix builds](#guix-builds)
   - [Internationalization](#Internationalization)
   - [Using Tor](#using-tor)
   - [Pruning](#Pruning)
@@ -597,9 +597,9 @@ USE_DEVICE_TREZOR=OFF make release
 
 For more information, please check out Trezor [src/device_trezor/README.md](src/device_trezor/README.md).
 
-### Gitian builds
+### Guix builds
 
-See [contrib/gitian/README.md](contrib/gitian/README.md).
+See [contrib/guix/README.md](contrib/guix/README.md).
 
 ## Installing Monero from a package
 
