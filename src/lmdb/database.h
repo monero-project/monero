@@ -111,7 +111,7 @@ namespace lmdb
             \return The result of calling `f`.
         */
         template<typename F>
-        typename std::result_of<F(MDB_txn&)>::type try_write(F f, unsigned attempts = 3)
+        auto try_write(F f, unsigned attempts = 3) -> decltype(f(std::declval<MDB_txn&>()))
         {
             for (unsigned i = 0; i < attempts; ++i)
             {
