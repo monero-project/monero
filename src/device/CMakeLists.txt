@@ -78,5 +78,4 @@ target_link_libraries(device
     ${Boost_SERIALIZATION_LIBRARY}
   PRIVATE
     version
-    ${Blocks}
     ${EXTRA_LIBRARIES})

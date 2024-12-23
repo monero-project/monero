@@ -148,7 +148,7 @@ target_link_libraries(blockchain_import
     ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
-    ${Blocks})
+    $<TARGET_NAME_IF_EXISTS:blocks>)
 
 if(ARCH_WIDTH)
   target_compile_definitions(blockchain_import
