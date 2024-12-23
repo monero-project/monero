@@ -5909,7 +5909,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   CHECK_AND_ASSERT_THROW_MES(std::find(signers.begin(), signers.end(), multisig_account.get_base_pubkey()) != signers.end(),
     "The local account's signer key was not found in initial multisig kex messages when converting a wallet to multisig.");
 
-  // intialize key exchange
+  // initialize key exchange
   multisig_account.initialize_kex(threshold, signers, expanded_msgs);
   CHECK_AND_ASSERT_THROW_MES(multisig_account.account_is_active(), "Failed to activate multisig account.");
 

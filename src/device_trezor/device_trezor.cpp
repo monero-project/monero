@@ -511,7 +511,7 @@ namespace trezor {
                                 tools::wallet2::signed_tx_set & signed_tx,
                                 hw::tx_aux_data & aux_data)
     {
-      CHECK_AND_ASSERT_THROW_MES(std::get<0>(unsigned_tx.transfers) == 0, "Unsuported non zero offset");
+      CHECK_AND_ASSERT_THROW_MES(std::get<0>(unsigned_tx.transfers) == 0, "Unsupported non zero offset");
 
       TREZOR_AUTO_LOCK_CMD();
       require_connected();
