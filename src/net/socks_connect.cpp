@@ -36,6 +36,7 @@
 
 #include "net/error.h"
 #include "net/net_utils_base.h"
+#include "net/parse.h"
 #include "net/socks.h"
 #include "string_tools.h"
 #include "string_tools_lexical.h"
@@ -44,9 +45,22 @@ namespace net
 {
 namespace socks
 {
+    namespace
+    {
+        bool get_v6_address(boost::asio::ip::address_v6& out, const std::string& source)
+        {
+            boost::system::error_code error{};
+            out = boost::asio::ip::address_v6::from_string(source, error);
+            return !error;
+        }
+    } // anonymous
+
     boost::unique_future<boost::asio::ip::tcp::socket>
     connector::operator()(const std::string& remote_host, const std::string& remote_port, boost::asio::steady_timer& timeout) const
     {
+        if (!proxy_address)
+            std::runtime_error{"Unexpected nullptr of net::socks::endpoint"};
+
         struct future_socket
         {
             boost::promise<boost::asio::ip::tcp::socket> result_;
@@ -68,18 +82,21 @@ namespace socks
 
             bool is_set = false;
             std::uint32_t ip_address = 0;
+            boost::asio::ip::address_v6 v6_address{};
             boost::promise<boost::asio::ip::tcp::socket> result{};
             out = result.get_future();
             const auto proxy = net::socks::make_connect_client(
-                boost::asio::ip::tcp::socket{GET_IO_SERVICE(timeout)}, net::socks::version::v4a, future_socket{std::move(result)}
+                boost::asio::ip::tcp::socket{GET_IO_SERVICE(timeout)}, proxy_address->ver, future_socket{std::move(result)}
             );
 
             if (epee::string_tools::get_ip_int32_from_string(ip_address, remote_host))
-                is_set = proxy->set_connect_command(epee::net_utils::ipv4_network_address{ip_address, port});
+                is_set = proxy->set_connect_command(epee::net_utils::ipv4_network_address{ip_address, port}, std::addressof(proxy_address->userinfo));
+            else if (get_v6_address(v6_address, remote_host))
+                is_set = proxy->set_connect_command(epee::net_utils::ipv6_network_address{v6_address, port}, std::addressof(proxy_address->userinfo));
             else
-                is_set = proxy->set_connect_command(remote_host, port);
+                is_set = proxy->set_connect_command(remote_host, port, std::addressof(proxy_address->userinfo));
 
-            if (!is_set || !net::socks::client::connect_and_send(proxy, proxy_address))
+            if (!is_set || !net::socks::client::connect_and_send(proxy, proxy_address->address))
                 throw std::system_error{net::error::invalid_host, "Address for socks proxy"};
 
             timeout.async_wait(net::socks::client::async_close{std::move(proxy)});
