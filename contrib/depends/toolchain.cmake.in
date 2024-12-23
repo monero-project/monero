@@ -32,12 +32,6 @@ SET(Protobuf_INCLUDE_DIR @prefix@/include CACHE PATH "Protobuf include dir")
 SET(Protobuf_INCLUDE_DIRS @prefix@/include CACHE PATH "Protobuf include dir")
 SET(Protobuf_LIBRARY @prefix@/lib/libprotobuf.a CACHE FILEPATH "Protobuf library")
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Android")
-SET(LIBUNWIND_INCLUDE_DIR @prefix@/include)
-SET(LIBUNWIND_LIBRARIES @prefix@/lib/libunwind.a)
-SET(LIBUNWIND_LIBRARY_DIRS @prefix@/lib)
-endif()
-
 SET(ZMQ_INCLUDE_PATH @prefix@/include)
 SET(ZMQ_LIB @prefix@/lib/libzmq.a)
 
