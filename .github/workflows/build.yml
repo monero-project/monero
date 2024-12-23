@@ -81,7 +81,7 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make release-static-win64 -j2
+        make release-static-win64 -j4
 
   build-debian:
     name: 'build-debian (debian-10)'
@@ -163,7 +163,7 @@ jobs:
       run: |
         ${{env.CCACHE_SETTINGS}}
         cmake .
-        make wallet_api -j3
+        make wallet_api -j4
 
   test-ubuntu:
     needs: build-ubuntu
