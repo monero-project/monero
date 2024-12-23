@@ -96,7 +96,7 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make depends target=${{ matrix.toolchain.host }} -j2
+        make depends target=${{ matrix.toolchain.host }} -j4
     - uses: actions/upload-artifact@v3
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin11' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
       with:
