@@ -75,15 +75,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
 
-#define THROW_ON_RPC_RESPONSE_ERROR(r, error, res, method, ...) \
-  do { \
-    throw_on_rpc_response_error(r, error, res.status, method); \
-    THROW_WALLET_EXCEPTION_IF(res.status != CORE_RPC_STATUS_OK, ## __VA_ARGS__); \
-  } while(0)
-
-#define THROW_ON_RPC_RESPONSE_ERROR_GENERIC(r, err, res, method) \
-  THROW_ON_RPC_RESPONSE_ERROR(r, err, res, method, tools::error::wallet_generic_rpc_error, method, res.status)
-
 class Serialization_portability_wallet_Test;
 class wallet_accessor_test;
 namespace multisig { class multisig_account; }
@@ -1910,8 +1901,6 @@ private:
     boost::optional<epee::wipeable_string> on_device_pin_request();
     boost::optional<epee::wipeable_string> on_device_passphrase_request(bool & on_device);
     void on_device_progress(const hw::device_progress& event);
-
-    void throw_on_rpc_response_error(bool r, const epee::json_rpc::error &error, const std::string &status, const char *method) const;
 
     bool should_expand(const cryptonote::subaddress_index &index) const;
     bool spends_one_of_ours(const cryptonote::transaction &tx) const;
