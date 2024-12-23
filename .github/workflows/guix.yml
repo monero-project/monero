@@ -83,7 +83,7 @@ jobs:
           sudo aa-enforce guix || true
           sudo apt purge apparmor
       - name: build
-        run: SUBSTITUTE_URLS='http://bordeaux.guix.gnu.org' HOSTS="${{ matrix.toolchain.target }}" ./contrib/guix/guix-build
+        run: ADDITIONAL_GUIX_TIMEMACHINE_FLAGS="--disable-authentication" SUBSTITUTE_URLS='http://bordeaux.guix.gnu.org' HOSTS="${{ matrix.toolchain.target }}" ./contrib/guix/guix-build
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.toolchain.target }}
