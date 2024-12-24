@@ -76,30 +76,8 @@ else()
     message(STATUS "Trezor: support disabled by USE_DEVICE_TREZOR")
 endif()
 
-if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
-    if (NOT "$ENV{TREZOR_PYTHON}" STREQUAL "")
-        set(TREZOR_PYTHON "$ENV{TREZOR_PYTHON}" CACHE INTERNAL "Copied from environment variable TREZOR_PYTHON")
-    else()
-        find_package(Python QUIET COMPONENTS Interpreter)  # cmake 3.12+
-        if(Python_Interpreter_FOUND)
-            set(TREZOR_PYTHON "${Python_EXECUTABLE}")
-        endif()
-    endif()
-
-    if(NOT TREZOR_PYTHON)
-        find_package(PythonInterp)
-        if(PYTHONINTERP_FOUND AND PYTHON_EXECUTABLE)
-            set(TREZOR_PYTHON "${PYTHON_EXECUTABLE}")
-        endif()
-    endif()
-
-    if(NOT TREZOR_PYTHON)
-        trezor_fatal_msg("Trezor: Python not found")
-    endif()
-endif()
-
 # Protobuf compilation test
-if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
+if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
     execute_process(COMMAND ${Protobuf_PROTOC_EXECUTABLE} -I "${CMAKE_CURRENT_LIST_DIR}" -I "${Protobuf_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.proto" --cpp_out ${CMAKE_BINARY_DIR} RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
     if(RET)
         trezor_fatal_msg("Trezor: Protobuf test generation failed: ${OUT} ${ERR}")
@@ -138,22 +116,39 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
 endif()
 
 # Try to build protobuf messages
-if(Protobuf_FOUND AND USE_DEVICE_TREZOR AND TREZOR_PYTHON)
-    set(ENV{PROTOBUF_INCLUDE_DIRS} "${Protobuf_INCLUDE_DIR}")
-    set(ENV{PROTOBUF_PROTOC_EXECUTABLE} "${Protobuf_PROTOC_EXECUTABLE}")
-    set(TREZOR_PROTOBUF_PARAMS "")
-    if (USE_DEVICE_TREZOR_DEBUG)
-        set(TREZOR_PROTOBUF_PARAMS "--debug")
-    endif()
-    
-    execute_process(COMMAND ${TREZOR_PYTHON} tools/build_protob.py ${TREZOR_PROTOBUF_PARAMS} WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/../src/device_trezor/trezor RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
+if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
+    # .proto files to compile
+    set(_proto_files "messages.proto"
+                     "messages-common.proto"
+                     "messages-management.proto"
+                     "messages-monero.proto")
+    if (TREZOR_DEBUG)
+        list(APPEND _proto_files "messages-debug.proto")
+    endif ()
+
+    set(_proto_include_dir "${CMAKE_SOURCE_DIR}/external/trezor-common/protob")
+    set(_proto_files_absolute)
+    foreach(file IN LISTS _proto_files)
+        list(APPEND _proto_files_absolute "${_proto_include_dir}/${file}")
+    endforeach ()
+
+    set(_proto_out_dir "${CMAKE_SOURCE_DIR}/src/device_trezor/trezor/messages")
+    execute_process(COMMAND ${Protobuf_PROTOC_EXECUTABLE} --cpp_out "${_proto_out_dir}" "-I${_proto_include_dir}" ${_proto_files_absolute} RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
     if(RET)
-        trezor_fatal_msg("Trezor: protobuf messages could not be regenerated (err=${RET}, python ${PYTHON})."
-                "OUT: ${OUT}, ERR: ${ERR}."
-                "Please read src/device_trezor/trezor/tools/README.md")
+        trezor_fatal_msg("Trezor: protobuf messages could not be (re)generated (err=${RET}). OUT: ${OUT}, ERR: ${ERR}.")
     endif()
 
-    message(STATUS "Trezor: protobuf messages regenerated out: \"${OUT}.\"")
+    if(FREEBSD)
+        # FreeBSD defines `minor` in usr/include/sys/types.h which conflicts with this file
+        # https://github.com/trezor/trezor-firmware/issues/4460
+        file(READ "${_proto_out_dir}/messages-monero.pb.h" file_content)
+        string(REPLACE "// @@protoc_insertion_point(includes)"
+                       "// @@protoc_insertion_point(includes)\n#ifdef minor\n#undef minor\n#endif"
+                updated_content "${file_content}")
+        file(WRITE "${_proto_out_dir}/messages-monero.pb.h" "${updated_content}")
+    endif()
+
+    message(STATUS "Trezor: protobuf messages regenerated out.")
     set(DEVICE_TREZOR_READY 1)
     add_definitions(-DDEVICE_TREZOR_READY=1)
     add_definitions(-DPROTOBUF_INLINE_NOT_IN_HEADERS=0)
