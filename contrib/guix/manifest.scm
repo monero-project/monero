@@ -265,7 +265,6 @@ chain for " target " development."))
         bzip2 ; used to create release archives (non-windows)
         gzip  ; used to unpack most packages in depends
         xz    ; used to unpack freebsd_base
-        p7zip
         zip   ; used to create release archives (windows)
         unzip ; used to unpack android_ndk
 
