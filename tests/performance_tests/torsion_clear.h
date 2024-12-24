@@ -61,19 +61,16 @@ public:
       return false;
 
     const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
-    return ge_frombytes_vartime(&m_ge_p3, (const unsigned char*) &rct::ki2rct(txin.k_image)) == 0;
+    m_rct_key = rct::ki2rct(txin.k_image);
+    return true;
   }
 
   bool test()
   {
-    // TODO: make this an apples-to-apples comparison with torsion_check.h
-    ge_p2 point_inv_8;
-    ge_scalarmult(&point_inv_8, rct::INV_EIGHT.bytes, &m_ge_p3);
-    ge_p1p1 point_inv_8_mul_8;
-    ge_mul8(&point_inv_8_mul_8, &point_inv_8);
-    return true;
+    rct::key torsion_cleared;
+    return fcmp_pp::clear_torsion(m_rct_key, torsion_cleared);
   }
 
 private:
-  ge_p3 m_ge_p3;
+  rct::key m_rct_key;
 };
