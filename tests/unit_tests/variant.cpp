@@ -404,7 +404,7 @@ TEST(variant, visit_lambda)
             return std::to_string(x);
     };
 
-    variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
+    optional_variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
     EXPECT_THROW(v.visit(stringify_lambda), std::runtime_error);
 
     v = "Rev";
@@ -434,7 +434,7 @@ TEST(variant, visit_ref_passthru)
         const int& operator()(const B &b) const { return b.x; }
     };
 
-    tools::variant<A, B> v;
+    optional_variant<A, B> v;
     EXPECT_THROW(v.visit(x_ref_visitor{}), std::runtime_error);
 
     // A very hairy looking test, but we're just testing that the reference returned from our static
@@ -449,7 +449,7 @@ TEST(variant, visit_ref_passthru)
 //-------------------------------------------------------------------------------------------------------------------
 TEST(variant, value_initialize_to_type_index)
 {
-    variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
+    optional_variant<int8_t, uint8_t, int16_t, uint16_t, std::string> v;
     for (int i = 0; i < 6; ++i)
     {
         v.value_initialize_to_type_index(i);
