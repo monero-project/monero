@@ -2172,11 +2172,13 @@ namespace wallet_rpc
       std::string filename;
       std::string password;
       bool autosave_current;
+      bool no_initial_sync;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(filename)
         KV_SERIALIZE(password)
         KV_SERIALIZE_OPT(autosave_current, true)
+        KV_SERIALIZE_OPT(no_initial_sync, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
