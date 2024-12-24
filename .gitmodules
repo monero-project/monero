@@ -14,3 +14,6 @@
 	path = external/supercop
 	url = https://github.com/monero-project/supercop
 	branch = monero
+[submodule "external/mx25519"]
+	path = external/mx25519
+	url = https://github.com/tevador/mx25519

@@ -36,6 +36,7 @@ extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
+#include "crypto/x25519.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
@@ -344,4 +345,105 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+TEST(Crypto, ConvertPointE_Base)
+{
+  const crypto::public_key G = crypto::get_G();
+  const crypto::x25519_pubkey B_expected = {{9}};
+
+  crypto::x25519_pubkey B_actual;
+  edwards_bytes_to_x25519_vartime(B_actual.data, to_bytes(G));
+
+  EXPECT_EQ(B_expected, B_actual);
+}
+
+TEST(Crypto, ConvertPointE_PreserveScalarMultBase)
+{
+  // *clamped* private key a
+  const crypto::x25519_secret_key a = crypto::x25519_secret_key_gen();
+  rct::key a_key;
+  memcpy(&a_key, &a, sizeof(rct::key));
+
+  // P_ed = a G
+  const rct::key P_edward = rct::scalarmultBase(a_key);
+
+  // P_mont = a B
+  crypto::x25519_pubkey P_mont;
+  crypto::x25519_scmul_base(a, P_mont);
+
+  // P_mont' = ConvertPointE(P_ed)
+  crypto::x25519_pubkey P_mont_converted;
+  edwards_bytes_to_x25519_vartime(P_mont_converted.data, P_edward.bytes);
+
+  // P_mont' ?= P_mont
+  EXPECT_EQ(P_mont_converted, P_mont);
+}
+
+TEST(Crypto, ConvertPointE_PreserveScalarMultBase_gep3)
+{
+  // compared to ConvertPointE_PreserveScalarMultBase, this test will use Z != 1 (probably)
+
+  // *clamped* private key a
+  const crypto::x25519_secret_key a = crypto::x25519_secret_key_gen();
+  rct::key a_key;
+  memcpy(&a_key, &a, sizeof(rct::key));
+
+  // P_ed = a G
+  ge_p3 P_p3;
+  ge_scalarmult_base(&P_p3, a.data);
+
+  // check that Z != 1, otherwise this test is a dup of ConvertPointE_PreserveScalarMultBase
+  const unsigned char one_bytes[32] = {1};
+  unsigned char Z_bytes[32];
+  fe_tobytes(Z_bytes, P_p3.Z);
+  ASSERT_TRUE(memcmp(Z_bytes, one_bytes, 32)); // check Z != 1
+
+  // P_mont = a B
+  crypto::x25519_pubkey P_mont;
+  crypto::x25519_scmul_base(a, P_mont);
+
+  // P_mont' = ConvertPointE(P_ed)
+  crypto::x25519_pubkey P_mont_converted;
+  ge_p3_to_x25519(P_mont_converted.data, &P_p3);
+
+  // P_mont' ?= P_mont
+  EXPECT_EQ(P_mont_converted, P_mont);
+}
+
+TEST(Crypto, ConvertPointE_EraseSign)
+{
+  // generate a random point P and test that ConvertPointE(P) == ConvertPointE(-P)
+
+  const rct::key P = rct::pkGen();
+  rct::key negP;
+  rct::subKeys(negP, rct::I, P);
+
+  crypto::x25519_pubkey P_mont;
+  edwards_bytes_to_x25519_vartime(P_mont.data, P.bytes);
+
+  crypto::x25519_pubkey negP_mont;
+  edwards_bytes_to_x25519_vartime(negP_mont.data, negP.bytes);
+
+  EXPECT_EQ(P_mont, negP_mont);
+}
+
+TEST(Crypto, ge_fromx25519_vartime_Base)
+{
+  const crypto::x25519_pubkey B = {{9}};
+
+  crypto::public_key G_actual;
+  ge_p3 G_actual_p3;
+  ge_fromx25519_vartime(&G_actual_p3, B.data);
+  ge_p3_tobytes(to_bytes(G_actual), &G_actual_p3);
+
+  EXPECT_EQ(crypto::get_G(), G_actual);
+}
+
+TEST(Crypto, ge_fromx25519_vartime_RandomPointNominalSuccess)
+{
+  const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
+
+  ge_p3 h;
+  EXPECT_EQ(0, ge_fromx25519_vartime(&h, P.data));
 }
