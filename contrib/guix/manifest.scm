@@ -257,7 +257,6 @@ chain for " target " development."))
         patch
         gawk
         sed
-        moreutils ; sponge is used to construct the SHA256SUMS.part file in libexec/build.sh
         patchelf  ; unused, occassionally useful for debugging
 
         ;; Compression and archiving
