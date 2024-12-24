@@ -280,7 +280,6 @@ chain for " target " development."))
 
         ;; Scripting
         perl           ; required to build openssl in depends
-        python-minimal ; required to build monero (cmake/CheckTrezor.cmake) and in android_ndk
 
         ;; Git
         git-minimal ; used to create the release source archive
@@ -303,7 +302,8 @@ chain for " target " development."))
           ((string-contains target "android")
             (list
               gcc-toolchain-12
-              (list gcc-toolchain-12 "static")))
+              (list gcc-toolchain-12 "static")
+              python-minimal)) ; required for the android_ndk
           ((string-contains target "darwin")
            (list
              gcc-toolchain-10
