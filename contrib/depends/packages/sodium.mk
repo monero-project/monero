@@ -12,7 +12,6 @@ endef
 
 define $(package)_preprocess_cmds
   patch -p1 < $($(package)_patch_dir)/disable-glibc-getrandom-getentropy.patch &&\
-  autoconf &&\
   patch -p1 < $($(package)_patch_dir)/fix-whitespace.patch
 endef
 

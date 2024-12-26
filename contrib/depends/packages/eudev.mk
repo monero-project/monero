@@ -16,10 +16,6 @@ define $(package)_build_cmd
   $(MAKE)
 endef
 
-define $(package)_preprocess_cmds
-  cd $($(package)_build_subdir); autoreconf -f -i
-endef
-
 define $(package)_stage_cmds
   $(MAKE) DESTDIR=$($(package)_staging_dir) install
 endef
