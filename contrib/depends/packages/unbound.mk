@@ -17,10 +17,6 @@ define $(package)_set_vars
   $(package)_cflags_mingw32+="-D_WIN32_WINNT=0x600"
 endef
 
-define $(package)_preprocess_cmds
-  autoconf
-endef
-
 define $(package)_config_cmds
   $($(package)_autoconf) ac_cv_func_getentropy=no AR_FLAGS=$($(package)_arflags)
 endef
