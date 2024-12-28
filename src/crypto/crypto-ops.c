@@ -1993,26 +1993,18 @@ void sc_reduce(unsigned char *s) {
   s[31] = s11 >> 17;
 }
 
-/* New code */
+/* From fe_pow22523.c */
 
-static void fe_divpowm1(fe r, const fe u, const fe v) {
-  fe v3, uv7, t0, t1, t2;
+void fe_pow22523(fe out, const fe z) {
+  fe t0;
+  fe t1;
+  fe t2;
   int i;
 
-  fe_sq(v3, v);
-  fe_mul(v3, v3, v); /* v3 = v^3 */
-  fe_sq(uv7, v3);
-  fe_mul(uv7, uv7, v);
-  fe_mul(uv7, uv7, u); /* uv7 = uv^7 */
-
-  /*fe_pow22523(uv7, uv7);*/
-
-  /* From fe_pow22523.c */
-
-  fe_sq(t0, uv7);
+  fe_sq(t0, z);
   fe_sq(t1, t0);
   fe_sq(t1, t1);
-  fe_mul(t1, uv7, t1);
+  fe_mul(t1, z, t1);
   fe_mul(t0, t0, t1);
   fe_sq(t0, t0);
   fe_mul(t0, t1, t0);
@@ -2051,12 +2043,24 @@ static void fe_divpowm1(fe r, const fe u, const fe v) {
   fe_mul(t0, t1, t0);
   fe_sq(t0, t0);
   fe_sq(t0, t0);
-  fe_mul(t0, t0, uv7);
+  fe_mul(out, t0, z);
+}
 
-  /* End fe_pow22523.c */
-  /* t0 = (uv^7)^((q-5)/8) */
-  fe_mul(t0, t0, v3);
-  fe_mul(r, t0, u); /* u^(m+1)v^(-(m+1)) */
+/* New code */
+
+static void fe_divpowm1(fe r, const fe u, const fe v) {
+  fe v3, uv7;
+
+  fe_sq(v3, v);
+  fe_mul(v3, v3, v); /* v3 = v^3 */
+  fe_sq(uv7, v3);
+  fe_mul(uv7, uv7, v);
+  fe_mul(uv7, uv7, u); /* uv7 = uv^7 */
+
+  fe_pow22523(r, uv7); /* (uv^7)^((q-5)/8) */
+
+  fe_mul(r, r, v3);
+  fe_mul(r, r, u); /* u^(m+1)v^(-(m+1)) */
 }
 
 static void ge_cached_0(ge_cached *r) {
@@ -3929,4 +3933,20 @@ void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y
   fe wei_x_fe;
   fe_add(wei_x_fe, inv_one_minus_y_mul_one_plus_y, fe_a_inv_3);
   fe_tobytes(wei_x, wei_x_fe);
+}
+
+void fe_reduce(fe reduced_f, const fe f)
+{
+  unsigned char f_bytes[32];
+  fe_tobytes(f_bytes, f);
+  fe_frombytes_vartime(reduced_f, f_bytes);
+}
+
+void fe_dbl(fe h, const fe f)
+{
+  fe f_reduced;
+  fe_reduce(f_reduced, f);
+  fe h_res;
+  fe_add(h_res, f_reduced, f_reduced);
+  fe_reduce(h, h_res);
 }

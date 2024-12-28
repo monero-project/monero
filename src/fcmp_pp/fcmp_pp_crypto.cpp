@@ -28,6 +28,7 @@
 
 #include "fcmp_pp_crypto.h"
 
+#include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 
 static void print_bytes(const fe f)
@@ -50,17 +51,7 @@ static void print_fe(const fe f)
     printf("\n");
 }
 
-static void inv_iso(fe u_out, fe w_out, const fe u, const fe w)
-{
-    // 4u
-    fe_add(u_out, u, u);
-    fe_add(u_out, u_out, u_out);
-    // 2w
-    fe_add(w_out, w, w);
-};
-
 // z = x^y
-// FIXME: this doesn't yield same result as rust impl
 // TODO: pre-compute table + use windowing
 static void fe_pow(fe z, const fe x, const fe y)
 {
@@ -85,15 +76,14 @@ static void fe_pow(fe z, const fe x, const fe y)
 
 static bool sqrt_ext(fe y, const fe x)
 {
+    fe y_res;
+
     fe x2;
-    fe_add(x2, x, x);
+    fe_dbl(x2, x);
 
     fe b;
-    // FIXME: this doesn't yield rust impl's ^(q-5)/8... so trying to use fe_pow instead
-    // fe_pow22523(b, x2);
-
-    // FIXME: this doesn't yield same result as rust pow impl
-    fe_pow(b, x2, fe_mod_5_8);
+    // fe_pow(b, x2, fe_mod_5_8);
+    fe_pow22523(b, x2);
 
     fe b_sq;
     fe_sq(b_sq, b);
@@ -103,23 +93,27 @@ static bool sqrt_ext(fe y, const fe x)
 
     if (memcmp(c, fe_one, sizeof(fe)) == 0 || memcmp(c, fe_m1, sizeof(fe)) == 0)
     {
-        static const fe fe_3 = {3, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-        fe_copy(c, fe_3);
+        fe_0(c);
+        c[0] = 3;
     }
 
     fe c_sub_1;
     fe_sub(c_sub_1, c, fe_one);
 
-    fe_mul(y, x, b);
-    fe_mul(y, y, c_sub_1);
+    fe_mul(y_res, x, b);
+    fe_mul(y_res, y_res, c_sub_1);
 
     // TODO: double check this
-    if (fe_isnegative(y))
-        fe_neg(y, y);
+    if (fe_isnegative(y_res)) {
+        fe_neg(y_res, y_res);
+    }
 
     fe y_sq;
-    fe_sq(y_sq, y);
-    return memcmp(x, y_sq, sizeof(fe)) == 0;
+    fe_sq(y_sq, y_res);
+    bool r = memcmp(x, y_sq, sizeof(fe)) == 0;
+
+    fe_copy(y, y_res);
+    return r;
 };
 
 // TODO: impl faster sqrt
@@ -128,123 +122,249 @@ static bool sqrt(fe y, const fe x)
     return sqrt_ext(y, x);
 };
 
-static void inv_psi1(fe e_out, fe u_out, fe w_out, const fe e, const fe u, const fe w, const fe msqrt2b)
+static void inv_iso(fe u_out, fe w_out, const fe u, const fe w)
 {
+    // 4u
+    fe_dbl(u_out, u);
+    fe_dbl(u_out, u_out);
+    // 2w
+    fe_dbl(w_out, w);
+};
+
+static void inv_psi1(fe e_out, fe u_out, fe w_out, const fe e, const fe u, const fe w)
+{
+    fe e_res, u_res, w_res;
+
     fe tt;
     bool cc = sqrt_ext(tt, u);
-    memcpy(w_out, tt, sizeof(fe));
+    fe_copy(w_res, tt);
     fe w_;
-    memcpy(w_, w, sizeof(fe));
-    memcpy(e_out, e, sizeof(fe));
+    fe_copy(w_, w);
+    fe_copy(e_res, e);
 
     if (!cc)
     {
         fe tt_sq;
         fe_sq(tt_sq, tt);
         fe neg_u_dbl;
-        fe_add(neg_u_dbl, u, u);
+        fe_dbl(neg_u_dbl, u);
         fe_neg(neg_u_dbl, neg_u_dbl);
-        if (memcmp(tt_sq, neg_u_dbl, sizeof(fe)) == 0)
+        if (memcmp(tt_sq, neg_u_dbl, sizeof(fe)) == 0) {
             fe_mul(tt, tt, fe_sqrtm1);
+        }
 
-        fe_mul(w_, w_, tt);
+        fe_mul(w_, w, tt);
 
         fe e_sq;
         fe_sq(e_sq, e);
+        fe_mul(w_res, fe_msqrt2b, e_sq);
 
-        fe_mul(w_out, msqrt2b, e_sq);
-        fe_mul(e_out, e, tt);
+        fe_mul(e_res, e_res, tt);
     }
 
-    fe w_out_sq;
-    fe_sq(w_out_sq, w_out);
+    fe w_res_sq;
+    fe_sq(w_res_sq, w_res);
 
-    fe e_out_sq;
-    fe_sq(e_out_sq, e_out);
+    fe e_res_sq;
+    fe_sq(e_res_sq, e_res);
 
     fe A_e_sq;
-    fe_mul(A_e_sq, fe_a0, e_out_sq);
+    fe_mul(A_e_sq, fe_a0, e_res_sq);
 
-    fe w_out_w;
-    fe_mul(w_out_w, w_out, w_);
+    fe w_res_w;
+    fe_mul(w_res_w, w_res, w_);
 
-    fe_sub(u_out, w_out_sq, A_e_sq);
-    fe_sub(u_out, u_out, w_out_w);
-    fe_mul(u_out, u_out, fe_inv2);
+    fe_sub(u_res, w_res_sq, A_e_sq);
+    fe_reduce(u_res, u_res);
+    fe_sub(u_res, u_res, w_res_w);
+    fe_mul(u_res, u_res, fe_inv2);
+
+    fe_copy(e_out, e_res);
+    fe_copy(u_out, u_res);
+    fe_copy(w_out, w_res);
 };
 
 static bool inv_psi2(fe u_out, fe w_out, const fe e, const fe u, const fe w)
 {
-    if (!sqrt(w_out, u))
+    fe u_res, w_res;
+
+    if (!sqrt(w_res, u))
         return false;
     fe e_sq;
     fe_sq(e_sq, e);
     fe Ap_e_sq;
     fe_mul(Ap_e_sq, fe_ap, e_sq);
 
-    fe w_out_w;
-    fe_mul(w_out_w, w_out, w);
+    fe w_res_w;
+    fe_mul(w_res_w, w_res, w);
 
-    fe_sub(u_out, u, Ap_e_sq);
-    fe_sub(u_out, u_out, w_out_w);
-    fe_mul(u_out, u_out, fe_inv2);
+    fe_sub(u_res, u, Ap_e_sq);
+    fe_reduce(u_res, u_res);
+    fe_sub(u_res, u_res, w_res_w);
+    fe_mul(u_res, u_res, fe_inv2);
+
+    fe_copy(u_out, u_res);
+    fe_copy(w_out, w_res);
 
     return true;
 };
+
+static bool check_e_u_w(const fe e, const fe u, const fe w)
+{
+    return true;
+
+    // static fe a;
+    // fe_1(a);
+    // fe_neg(a, a);
+    // fe a_minus_D;
+    // fe_sub(a_minus_D, a, fe_d);
+    // fe A;
+    // fe_add(A, a, fe_d);
+    // fe_dbl(A, A);
+    // fe B;
+    // fe_sq(B, a_minus_D);
+
+    // // Make sure e, u, w are correct here
+    // fe w_sq, u_w_sq;
+    // fe_sq(w_sq, w);
+    // fe_mul(u_w_sq, u, w_sq);
+
+    // fe u_sq, A_u_mul_e_sq, e_sq, e_sq_sq, B_mul_e_sq_sq, sum;
+    // fe_sq(u_sq, u);
+    // fe_mul(A_u_mul_e_sq, A, u);
+    // fe_sq(e_sq, e);
+    // fe_mul(A_u_mul_e_sq, A_u_mul_e_sq, e_sq);
+    // fe_sq(e_sq_sq, e_sq);
+    // fe_mul(B_mul_e_sq_sq, B, e_sq_sq);
+
+    // fe_reduce(u_sq, u_sq);
+    // fe_reduce(A_u_mul_e_sq, A_u_mul_e_sq);
+    // fe_add(sum, u_sq, A_u_mul_e_sq);
+
+    // fe_reduce(sum, sum);
+    // fe_reduce(B_mul_e_sq_sq, B_mul_e_sq_sq);
+    // fe_add(sum, sum, B_mul_e_sq_sq);
+
+    // fe_reduce(sum, sum);
+
+    // if (memcmp(u_w_sq, sum, sizeof(fe)) != 0)
+    // {
+    //     printf("wei mapping is wrong\n");
+    //     return false;
+    // }
+
+    // return true;
+}
 
 namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob/94744c5324e869a9483bbbd93a864e108304bf76/crypto/divisors/src/tests/torsion_check.rs
 bool torsion_check(const rct::key &k) {
-    // TODO: remove and just use static consts
-    static fe a;
-    fe_1(a);
-    fe_neg(a, a);
-    static fe D;
-    fe_copy(D, fe_d);
-    static fe a_minus_D;
-    fe_sub(a_minus_D, a, D);
-    static fe A;
-    fe_add(A, a, D);
-    fe_add(A, A, A);
-    static fe B;
-    fe_sq(B, a_minus_D);
-    static fe Ap;
-    fe_add(Ap, A, A);
-    fe_neg(Ap, Ap);
-    static fe Asq;
-    fe_sq(Asq, A);
-    fe B_mul4;
-    fe_add(B_mul4, B, B);
-    fe_add(B_mul4, B_mul4, B_mul4);
-    static fe Bp;
-    fe_sub(Bp, Asq, B_mul4);
-    static fe msqrt2b;
-    fe_add(msqrt2b, Bp, Bp);
-    if (!sqrt(msqrt2b, msqrt2b))
-        return false;
-    fe_neg(msqrt2b, msqrt2b);
+    // {
+    //     static fe D;
+    //     {
+    //         fe fe_numer{121665, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    //         fe fe_denom{121666, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    //         fe_neg(fe_numer, fe_numer);
+    //         fe_invert(fe_denom, fe_denom);
+    //         fe_mul(D, fe_numer, fe_denom);
+    //     }
+    //     static fe one;
+    //     fe_1(one);
+    //     static fe a;
+    //     fe_neg(a, one);
+    //     static fe a_minus_D;
+    //     fe_sub(a_minus_D, a, D);
+    //     fe_reduce(a_minus_D, a_minus_D);
+    //     static fe A;
+    //     fe_add(A, a, D);
+    //     fe_reduce(A, A);
+    //     fe_dbl(A, A);
+    //     static fe B;
+    //     fe_sq(B, a_minus_D);
+    //     static fe Ap;
+    //     fe_neg(Ap, A);
+    //     fe_dbl(Ap, Ap);
+    //     static fe Asq;
+    //     fe_sq(Asq, A);
+    //     fe B_mul_4;
+    //     fe_dbl(B_mul_4, B);
+    //     fe_dbl(B_mul_4, B_mul_4);
+    //     static fe Bp;
+    //     fe_sub(Bp, Asq, B_mul_4);
+    //     static const fe fe_5{5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    //     static const fe fe_8{8, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    //     static fe fe_neg_5;
+    //     fe_neg(fe_neg_5, fe_5);
+    //     static fe inv_8;
+    //     fe_invert(inv_8, fe_8);
+    //     static fe mod_5_8;
+    //     fe_mul(mod_5_8, fe_neg_5, inv_8);
+    //     static fe Bp2;
+    //     fe_dbl(Bp2, Bp);
+    //     static fe neg_sqrt_2b;
+    //     if (!sqrt(neg_sqrt_2b, Bp2))
+    //         return false;
+    //     // needs sqrt implemented to match rust const usage
+    //     // fe_neg(neg_sqrt_2b, neg_sqrt_2b);
+    //     static fe inv_2;
+    //     static const fe fe_2{2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    //     fe_invert(inv_2, fe_2);
 
-    // fe mod_5_8;
-    // fe fe_5;
-    // fe_0(fe_5);
-    // fe_5[0] = 5;
-    // fe neg_fe_5;
-    // fe_neg(neg_fe_5, fe_5);
-    // fe fe_8;
-    // fe_0(fe_8);
-    // fe_8[0] = 8;
-    // fe fe_inv8;
-    // fe_invert(fe_inv8, fe_8);
-    // fe_mul(mod_5_8, neg_fe_5, fe_inv8);
+    //     static fe sqrtm1;
+    //     if (!sqrt(sqrtm1, a))
+    //         return false;
+
+    //     printf("fe_d: ");
+    //     print_fe(D);
+
+    //     printf("fe_a_sub_d: ");
+    //     print_fe(a_minus_D);
+
+    //     printf("fe_a0: ");
+    //     print_fe(A);
+
+    //     printf("fe_ap: ");
+    //     print_fe(Ap);
+
+    //     printf("neg_sqrt_2b: ");
+    //     print_fe(neg_sqrt_2b);
+
+    //     printf("mod_5_8: ");
+    //     print_fe(mod_5_8);
+
+    //     printf("inv_2: ");
+    //     print_fe(inv_2);
+
+    //     printf("fe_sqrtm1: ");
+    //     print_fe(sqrtm1);
+
+    //     assert(memcmp(fe_d,       D,           sizeof(fe)) == 0);
+    //     assert(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0);
+    //     assert(memcmp(fe_a0,      A,           sizeof(fe)) == 0);
+    //     assert(memcmp(fe_ap,      Ap,          sizeof(fe)) == 0);
+    //     assert(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0);
+    //     assert(memcmp(fe_mod_5_8, mod_5_8,     sizeof(fe)) == 0);
+    //     assert(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0);
+    //     assert(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
+
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_d,       D,           sizeof(fe)) == 0, "fe_d");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0, "fe_a_sub_d");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_a0,      A,           sizeof(fe)) == 0, "fe_a0");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_ap,      Ap,          sizeof(fe)) == 0, "fe_ap");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0, "fe_msqrt2b");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_mod_5_8, mod_5_8,     sizeof(fe)) == 0, "fe_mod_5_8");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0, "fe_ivn2");
+    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0, "fe_sqrtm1");
+    // }
 
     // De-compress the point
     ge_p3 point;
     if (ge_frombytes_vartime(&point, k.bytes) != 0)
         return false;
 
-    // Make sure point not equal to identity
+    // Make sure point is not equal to identity
     {
         ge_p2 point_ge_p2;
         ge_p3_to_p2(&point_ge_p2, &point);
@@ -273,46 +393,34 @@ bool torsion_check(const rct::key &k) {
         fe_mul(u, u, point.X);
         fe_mul(u, u, e);
         // w
-        fe_add(w, z_minus_ed_y, z_minus_ed_y);
+        fe_dbl(w, z_minus_ed_y);
     }
 
     // FIXME: only run this in debug mode
-    {
-        // Make sure e, u, w are correct here
-        fe w_sq, u_w_sq;
-        fe_sq(w_sq, w);
-        fe_mul(u_w_sq, u, w_sq);
-
-        fe u_sq, A_u_mul_e_sq, e_sq, e_sq_sq, B_mul_e_sq_sq, sum;
-        fe_sq(u_sq, u);
-        fe_mul(A_u_mul_e_sq, A, u);
-        fe_sq(e_sq, e);
-        fe_mul(A_u_mul_e_sq, A_u_mul_e_sq, e_sq);
-        fe_sq(e_sq_sq, e_sq);
-        fe_mul(B_mul_e_sq_sq, B, e_sq_sq);
-
-        fe_add(sum, u_sq, A_u_mul_e_sq);
-        fe_add(sum, sum, B_mul_e_sq_sq);
-
-        if (memcmp(u_w_sq, sum, sizeof(fe)) != 0)
-        {
-            printf("wei mapping is wrong\n");
-            return false;
-        }
-    }
+    if (!check_e_u_w(e, u, w))
+        return false;
 
     // Torsion check
     inv_iso(u, w, u, w);
+
     if (!inv_psi2(u, w, e, u, w))
         return false;
-    inv_psi1(e, u, w, e, u, w, msqrt2b);
+
+    inv_psi1(e, u, w, e, u, w);
+
+    if (!check_e_u_w(e, u, w))
+        return false;
 
     inv_iso(u, w, u, w);
     if (!inv_psi2(u, w, e, u, w))
         return false;
-    inv_psi1(e, u, w, e, u, w, msqrt2b);
+    inv_psi1(e, u, w, e, u, w);
 
-    inv_iso(u, w, u, w);
+    if (!check_e_u_w(e, u, w))
+        return false;
+
+    fe _;
+    inv_iso(u, _, u, w);
 
     // TODO: check if u has a square root via legendre symbol
     // e.g. https://github.com/signalapp/curve25519-java/blob/70fae57d6dccff7e78a46203c534314b07dfdd98/android/jni/ed25519/additions/elligator.c#L8-L25

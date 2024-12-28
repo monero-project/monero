@@ -129,6 +129,10 @@ void ge_tobytes(unsigned char *, const ge_p2 *);
 
 void sc_reduce(unsigned char *);
 
+/* From fe_pow22523.c */
+
+void fe_pow22523(fe, const fe);
+
 /* New code */
 
 void ge_scalarmult(ge_p2 *, const unsigned char *, const ge_p3 *);
@@ -141,6 +145,7 @@ void ge_mul8(ge_p1p1 *, const ge_p2 *);
 extern const fe fe_a_sub_d;
 extern const fe fe_a0;
 extern const fe fe_ap;
+extern const fe fe_msqrt2b;
 extern const fe fe_ma2;
 extern const fe fe_ma;
 extern const fe fe_fffb1;
@@ -185,3 +190,6 @@ void fe_1(fe h);
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
 
 void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y);
+
+void fe_reduce(fe reduced_f, const fe f);
+void fe_dbl(fe h, const fe f);
