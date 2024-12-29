@@ -6,8 +6,6 @@ $(package)_sha256_hash=6653ef5910f17954861fe72332e68b03ca6e4d9c7160eb3a8de5a5a91
 
 define $(package)_set_vars
   $(package)_config_opts=--without-documentation --disable-shared --without-libsodium --disable-curve
-  $(package)_config_opts_linux=--with-pic
-  $(package)_config_opts_freebsd=--with-pic
   $(package)_cxxflags=-std=c++11
 endef
 
