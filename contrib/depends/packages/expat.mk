@@ -6,7 +6,7 @@ $(package)_sha256_hash=ff60e6a6b6ce570ae012dc7b73169c7fdf4b6bf08c12ed0ec6f55736b
 
 define $(package)_set_vars
 $(package)_config_opts=--disable-shared --without-docbook --without-tests --without-examples
-$(package)_config_opts+=--enable-option-checking --without-xmlwf --with-pic
+$(package)_config_opts+=--enable-option-checking --without-xmlwf
 $(package)_config_opts+=--prefix=$(host_prefix)
 endef
 
