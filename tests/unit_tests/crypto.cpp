@@ -39,6 +39,7 @@ extern "C"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 
@@ -404,4 +405,91 @@ TEST(Crypto, batch_inversion)
 
   free(init_elems);
   free(norm_inverted);
+}
+
+TEST(Crypto, fe_constants)
+{
+  // D = -121665/121666
+  fe D;
+  {
+    fe fe_numer{121665, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    fe fe_denom{121666, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    fe_neg(fe_numer, fe_numer);
+    fe_invert(fe_denom, fe_denom);
+    fe_mul(D, fe_numer, fe_denom);
+  }
+
+  fe one;
+  fe_1(one);
+  fe a;
+  fe_neg(a, one);
+
+  fe a_minus_D;
+  fe_sub(a_minus_D, a, D);
+  fe_reduce(a_minus_D, a_minus_D);
+
+  // A = 2*(a+D)
+  fe A;
+  fe_add(A, a, D);
+  fe_dbl(A, A);
+
+  // B = (a-D)^2
+  fe B;
+  fe_sq(B, a_minus_D);
+
+  // Ap = -2A
+  fe Ap;
+  fe_neg(Ap, A);
+  fe_dbl(Ap, Ap);
+
+  fe Asq;
+  fe_sq(Asq, A);
+
+  // Bp = A^2-4B
+  fe Bp;
+  fe_dbl(Bp, B);
+  fe_dbl(Bp, Bp);
+  fe_sub(Bp, Asq, Bp);
+
+  fe neg_sqrt_2b;
+  fe_dbl(neg_sqrt_2b, Bp);
+  ASSERT_TRUE(fcmp_pp::sqrt(neg_sqrt_2b, neg_sqrt_2b));
+  // needs sqrt implemented to match rust const usage
+  // fe_neg(neg_sqrt_2b, neg_sqrt_2b);
+
+  fe inv_2;
+  static const fe fe_2{2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  fe_invert(inv_2, fe_2);
+
+  fe sqrtm1;
+  ASSERT_TRUE(fcmp_pp::sqrt(sqrtm1, a));
+
+  ASSERT_TRUE(memcmp(fe_d,       D,           sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_a0,      A,           sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_ap,      Ap,          sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
+}
+
+// // TODO
+// TEST(Crypto, torsion_check_invalid_point)
+// {
+// }
+
+// // TODO
+// TEST(Crypto, torsion_check_torsioned_point)
+// {
+// }
+
+TEST(Crypto, torsion_check_pass)
+{
+  const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+  rct::key x = rct::pk2rct(kp.pub);
+  ASSERT_TRUE(fcmp_pp::torsion_check(x));
+  ASSERT_TRUE(rct::isInMainSubgroup(x));
+  rct::key cleared;
+  fcmp_pp::clear_torsion(x, cleared);
+  ASSERT_EQ(x, cleared);
 }

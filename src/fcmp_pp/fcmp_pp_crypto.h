@@ -45,6 +45,7 @@ struct EdYDerivatives final
 };
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: tests for these functions
+bool sqrt(fe y, const fe x);
 bool torsion_check(const rct::key &k);
 bool clear_torsion(const rct::key &k, rct::key &k_out);
 bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives);

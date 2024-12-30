@@ -31,25 +31,25 @@
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 
-static void print_bytes(const fe f)
-{
-    unsigned char bytes[32];
-    fe_tobytes(bytes, f);
-    for (int i = 0; i < 32; ++i)
-    {
-        printf("%d, ", bytes[i]);
-    }
-    printf("\n");
-}
+// static void print_bytes(const fe f)
+// {
+//     unsigned char bytes[32];
+//     fe_tobytes(bytes, f);
+//     for (int i = 0; i < 32; ++i)
+//     {
+//         printf("%d, ", bytes[i]);
+//     }
+//     printf("\n");
+// }
 
-static void print_fe(const fe f)
-{
-    for (int i = 0; i < 10; ++i)
-    {
-        printf("%d, ", f[i]);
-    }
-    printf("\n");
-}
+// static void print_fe(const fe f)
+// {
+//     for (int i = 0; i < 10; ++i)
+//     {
+//         printf("%d, ", f[i]);
+//     }
+//     printf("\n");
+// }
 
 static bool sqrt_ext(fe y, const fe x)
 {
@@ -79,7 +79,6 @@ static bool sqrt_ext(fe y, const fe x)
     fe_mul(y_res, x, b);
     fe_mul(y_res, y_res, c_sub_1);
 
-    // TODO: double check this
     if (fe_isnegative(y_res)) {
         fe_neg(y_res, y_res);
     }
@@ -92,11 +91,14 @@ static bool sqrt_ext(fe y, const fe x)
     return r;
 };
 
-// TODO: impl faster sqrt
-static bool sqrt(fe y, const fe x)
+namespace fcmp_pp
 {
-    return sqrt_ext(y, x);
-};
+    // TODO: impl faster sqrt
+    bool sqrt(fe y, const fe x)
+    {
+        return sqrt_ext(y, x);
+    };
+}//namespace fcmp_pp
 
 static void inv_iso(fe u_out, fe w_out, const fe u, const fe w)
 {
@@ -164,7 +166,7 @@ static bool inv_psi2(fe u_out, fe w_out, const fe e, const fe u, const fe w)
 {
     fe u_res, w_res;
 
-    if (!sqrt(w_res, u))
+    if (!fcmp_pp::sqrt(w_res, u))
         return false;
     fe e_sq;
     fe_sq(e_sq, e);
@@ -208,7 +210,6 @@ static bool check_e_u_w(const fe e, const fe u, const fe w)
     fe_sq(e_sq_sq, e_sq);
     fe_mul(B_mul_e_sq_sq, B, e_sq_sq);
 
-    fe_reduce(u_sq, u_sq);
     fe_reduce(A_u_mul_e_sq, A_u_mul_e_sq);
     fe_add(sum, u_sq, A_u_mul_e_sq);
 
@@ -229,98 +230,12 @@ namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob/94744c5324e869a9483bbbd93a864e108304bf76/crypto/divisors/src/tests/torsion_check.rs
+// WARNING1: this approach needs to be carefully vetted academically and audited
+// before it can be used in production.
+// WARNING2: since fe_add and fe_sub expect the input fe's to be within a
+// smaller domain than the output fe, we sometimes need to "reduce" a field elem
+// to chain calls to fe_add and fe_sub. Notice all calls to fe_reduce.
 bool torsion_check(const rct::key &k) {
-    // {
-    //     static fe D;
-    //     {
-    //         fe fe_numer{121665, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    //         fe fe_denom{121666, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    //         fe_neg(fe_numer, fe_numer);
-    //         fe_invert(fe_denom, fe_denom);
-    //         fe_mul(D, fe_numer, fe_denom);
-    //     }
-    //     static fe one;
-    //     fe_1(one);
-    //     static fe a;
-    //     fe_neg(a, one);
-    //     static fe a_minus_D;
-    //     fe_sub(a_minus_D, a, D);
-    //     fe_reduce(a_minus_D, a_minus_D);
-    //     static fe A;
-    //     fe_add(A, a, D);
-    //     fe_reduce(A, A);
-    //     fe_dbl(A, A);
-    //     static fe B;
-    //     fe_sq(B, a_minus_D);
-    //     static fe Ap;
-    //     fe_neg(Ap, A);
-    //     fe_dbl(Ap, Ap);
-    //     static fe Asq;
-    //     fe_sq(Asq, A);
-    //     fe B_mul_4;
-    //     fe_dbl(B_mul_4, B);
-    //     fe_dbl(B_mul_4, B_mul_4);
-    //     static fe Bp;
-    //     fe_sub(Bp, Asq, B_mul_4);
-    //     static const fe fe_5{5, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    //     static const fe fe_8{8, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    //     static fe fe_neg_5;
-    //     fe_neg(fe_neg_5, fe_5);
-    //     static fe inv_8;
-    //     fe_invert(inv_8, fe_8);
-    //     static fe Bp2;
-    //     fe_dbl(Bp2, Bp);
-    //     static fe neg_sqrt_2b;
-    //     if (!sqrt(neg_sqrt_2b, Bp2))
-    //         return false;
-    //     // needs sqrt implemented to match rust const usage
-    //     // fe_neg(neg_sqrt_2b, neg_sqrt_2b);
-    //     static fe inv_2;
-    //     static const fe fe_2{2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    //     fe_invert(inv_2, fe_2);
-
-    //     static fe sqrtm1;
-    //     if (!sqrt(sqrtm1, a))
-    //         return false;
-
-    //     printf("fe_d: ");
-    //     print_fe(D);
-
-    //     printf("fe_a_sub_d: ");
-    //     print_fe(a_minus_D);
-
-    //     printf("fe_a0: ");
-    //     print_fe(A);
-
-    //     printf("fe_ap: ");
-    //     print_fe(Ap);
-
-    //     printf("neg_sqrt_2b: ");
-    //     print_fe(neg_sqrt_2b);
-
-    //     printf("inv_2: ");
-    //     print_fe(inv_2);
-
-    //     printf("fe_sqrtm1: ");
-    //     print_fe(sqrtm1);
-
-    //     assert(memcmp(fe_d,       D,           sizeof(fe)) == 0);
-    //     assert(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0);
-    //     assert(memcmp(fe_a0,      A,           sizeof(fe)) == 0);
-    //     assert(memcmp(fe_ap,      Ap,          sizeof(fe)) == 0);
-    //     assert(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0);
-    //     assert(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0);
-    //     assert(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
-
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_d,       D,           sizeof(fe)) == 0, "fe_d");
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0, "fe_a_sub_d");
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_a0,      A,           sizeof(fe)) == 0, "fe_a0");
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_ap,      Ap,          sizeof(fe)) == 0, "fe_ap");
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0, "fe_msqrt2b");
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0, "fe_ivn2");
-    //     CHECK_AND_ASSERT_THROW_MES(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0, "fe_sqrtm1");
-    // }
-
     // De-compress the point
     ge_p3 point;
     if (ge_frombytes_vartime(&point, k.bytes) != 0) {
