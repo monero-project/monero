@@ -36,7 +36,8 @@
 
 #include "single_tx_test_base.h"
 
-class test_torsion_check : public multi_tx_test_base<1>
+template<bool check>
+class test_torsion_ops : public multi_tx_test_base<1>
 {
 public:
   static const size_t loop_count = 10000;
@@ -68,7 +69,11 @@ public:
 
   bool test()
   {
-    return fcmp_pp::torsion_check(m_rct_key);
+    rct::key _;
+    if (check)
+      return fcmp_pp::torsion_check(m_rct_key);
+    else
+      return fcmp_pp::clear_torsion(m_rct_key, _);
   }
 
 private:

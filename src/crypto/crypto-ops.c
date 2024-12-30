@@ -3935,6 +3935,23 @@ void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y
   fe_tobytes(wei_x, wei_x_fe);
 }
 
+/*
+Since fe_add and fe_sub enforce the following conditions:
+
+Preconditions:
+   |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+   |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+
+Postconditions:
+   |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+
+We sometimes need to "reduce" field elems when they are in the poscondition's
+larger domain to match the precondition domain. This way we can take the output
+of fe_add or fe_sub and use it as input to another call to fe_add or fe_sub.
+
+We reduce by converting the field elem to its byte repr, then re-deriving the
+field elem from the byte repr.
+*/
 void fe_reduce(fe reduced_f, const fe f)
 {
   unsigned char f_bytes[32];
@@ -3944,9 +3961,12 @@ void fe_reduce(fe reduced_f, const fe f)
 
 void fe_dbl(fe h, const fe f)
 {
+  // Reduce the input for safety to ensure we meet the preconditions for fe_add
   fe f_reduced;
   fe_reduce(f_reduced, f);
   fe h_res;
   fe_add(h_res, f_reduced, f_reduced);
+  // Reduce the output for safety to ensure the result can be used as input to
+  // fe_add or fe_sub without an extra call to fe_reduce
   fe_reduce(h, h_res);
 }
