@@ -2,7 +2,7 @@
 # Simulate a maximal block attack on the Monero network
 # This uses the scheme proposed by ArticMine
 # Written by Sarang Nother
-# Copyright (c) 2019-2024, The Monero Project
+# Copyright (c) 2019-2025, The Monero Project
 import sys
 import math
 
