@@ -31,7 +31,7 @@
 #pragma once
 
 #include <string.h>
-#include <sodium/crypto_verify_32.h>
+#include "crypto/verify.h"
 
 struct memcmp32
 {

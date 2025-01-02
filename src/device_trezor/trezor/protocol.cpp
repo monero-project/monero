@@ -36,12 +36,11 @@
 #include <common/apply_permutation.h>
 #include <common/json_util.h>
 #include <crypto/hmac-keccak.h>
+#include <crypto/verify.h>
 #include <ringct/rctSigs.h>
 #include <ringct/bulletproofs.h>
 #include <ringct/bulletproofs_plus.h>
 #include "cryptonote_config.h"
-#include <sodium.h>
-#include <sodium/crypto_verify_32.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 
 #define GET_FIELD_STRING(name, type, jtype) field_##name = std::string(json[#name].GetString(), json[#name].GetStringLength())
