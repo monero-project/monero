@@ -307,6 +307,7 @@ chain for " target " development."))
           ((string-contains target "darwin")
            (list
              gcc-toolchain-10
-             clang-toolchain-11
-             binutils))
+             clang-toolchain-17
+             lld-17
+             (make-lld-wrapper lld-17 #:lld-as-ld? #t)))
           (else '())))))
