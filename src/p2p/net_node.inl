@@ -2339,7 +2339,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler> template<class t_callback>
-  bool node_server<t_payload_net_handler>::try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb)
+  bool node_server<t_payload_net_handler>::try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback &&cb)
   {
     if(!node_data.my_port)
       return false;
@@ -2382,9 +2382,9 @@ namespace nodetool
       address = epee::net_utils::network_address{epee::net_utils::ipv6_network_address(ipv6_addr, node_data.my_port)};
     }
     peerid_type pr = node_data.peer_id;
-    bool r = zone.m_net_server.connect_async(ip, port, zone.m_config.m_net_config.ping_connection_timeout, [cb, /*context,*/ address, pr, this](
+    bool r = zone.m_net_server.connect_async(ip, port, zone.m_config.m_net_config.ping_connection_timeout, [cb = std::forward<t_callback>(cb), /*context,*/ address, pr, this] (
       const typename net_server::t_connection_context& ping_context,
-      const boost::system::error_code& ec)->bool
+      const boost::system::error_code& ec) mutable ->bool
     {
       if(ec)
       {
@@ -2393,19 +2393,11 @@ namespace nodetool
       }
       COMMAND_PING::request req;
       COMMAND_PING::response rsp;
-      //vc2010 workaround
-      /*std::string ip_ = ip;
-      std::string port_=port;
-      peerid_type pr_ = pr;
-      auto cb_ = cb;*/
-
-      // GCC 5.1.0 gives error with second use of uint64_t (peerid_type) variable.
-      peerid_type pr_ = pr;
 
       network_zone& zone = m_network_zones.at(address.get_zone());
 
       bool inv_call_res = epee::net_utils::async_invoke_remote_command2<COMMAND_PING::response>(ping_context, COMMAND_PING::ID, req, zone.m_net_server.get_config_object(),
-        [=](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
+        [this, pr, cb = std::move(cb), ping_context = std::move(ping_context), address = std::move(address)](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
       {
         if(code <= 0)
         {
@@ -2416,7 +2408,7 @@ namespace nodetool
         network_zone& zone = m_network_zones.at(address.get_zone());
         if(rsp.status != PING_OK_RESPONSE_STATUS_TEXT || pr != rsp.peer_id)
         {
-          LOG_WARNING_CC(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << address.str() << ", hsh_peer_id=" << pr_ << ", rsp.peer_id=" << peerid_to_string(rsp.peer_id));
+          LOG_WARNING_CC(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << address.str() << ", hsh_peer_id=" << pr << ", rsp.peer_id=" << peerid_to_string(rsp.peer_id));
           zone.m_net_server.get_config_object().close(ping_context.m_connection_id);
           return;
         }
@@ -2452,7 +2444,7 @@ namespace nodetool
       COMMAND_REQUEST_SUPPORT_FLAGS::ID, 
       support_flags_request, 
       m_network_zones.at(epee::net_utils::zone::public_).m_net_server.get_config_object(),
-      [=](int code, const typename COMMAND_REQUEST_SUPPORT_FLAGS::response& rsp, p2p_connection_context& context_)
+      [f = std::move(f)](int code, const typename COMMAND_REQUEST_SUPPORT_FLAGS::response& rsp, p2p_connection_context& context_)
       {  
         if(code < 0)
         {
