@@ -22,7 +22,7 @@ freebsd_native_packages := freebsd_base
 freebsd_packages :=
 
 ifneq ($(build_os),darwin)
-darwin_native_packages := darwin_sdk native_cctools native_libtapi
+darwin_native_packages := darwin_sdk
 endif
 darwin_packages :=
 

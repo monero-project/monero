@@ -467,9 +467,13 @@ You can also cross-compile static binaries on Linux for Windows and macOS with t
     update-alternatives --set x86_64-w64-mingw32-gcc $(which x86_64-w64-mingw32-gcc-posix)
     ```
 * ```make depends target=x86_64-apple-darwin``` for Intel macOS binaries.
-  * Requires: `clang`
+  * Requires: `clang-18 lld-18`
 * ```make depends target=arm64-apple-darwin``` for Apple Silicon macOS binaries.
-  * Requires: `clang`
+  * Requires: `clang-18 lld-18`
+  * You also need to run:
+    ```shell
+    export PATH="/usr/lib/llvm-18/bin/:$PATH"
+    ```
 * ```make depends target=i686-linux-gnu``` for 32-bit linux binaries.
   * Requires: `g++-multilib bc`
 * ```make depends target=i686-w64-mingw32``` for 32-bit windows binaries.

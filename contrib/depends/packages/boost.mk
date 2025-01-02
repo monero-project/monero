@@ -11,15 +11,13 @@ $(package)_config_opts+=--layout=system --user-config=user-config.jam
 $(package)_config_opts+=threading=multi link=static -sNO_BZIP2=1 -sNO_ZLIB=1
 $(package)_config_opts_linux=threadapi=pthread runtime-link=shared
 $(package)_config_opts_android=threadapi=pthread runtime-link=static target-os=android
-$(package)_config_opts_darwin=--toolset=darwin runtime-link=shared target-os=darwin
+$(package)_config_opts_darwin=runtime-link=shared target-os=darwin
 $(package)_config_opts_mingw32=binary-format=pe target-os=windows threadapi=win32 runtime-link=static
 $(package)_config_opts_x86_64_mingw32=address-model=64
 $(package)_config_opts_i686_mingw32=address-model=32
 $(package)_config_opts_i686_linux=address-model=32 architecture=x86
 $(package)_toolset_$(host_os)=gcc
 $(package)_archiver_$(host_os)=$($(package)_ar)
-$(package)_toolset_darwin=darwin
-$(package)_archiver_darwin=$($(package)_libtool)
 $(package)_config_libraries_$(host_os)="chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization"
 $(package)_config_libraries_mingw32="chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization,locale"
 $(package)_cxxflags=-std=c++17
