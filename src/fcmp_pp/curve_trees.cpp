@@ -69,16 +69,48 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
     const crypto::public_key &output_pubkey = output_pair.output_pubkey;
     const rct::key &commitment              = output_pair.commitment;
 
+    const rct::key &O_key = rct::pk2rct(output_pubkey);
+    const rct::key &C_key = commitment;
+
+    TIME_MEASURE_NS_START(ge_frombytes_vartime_ns);
+
+    ge_p3 O_p3, C_p3;
+    if (ge_frombytes_vartime(&O_p3, O_key.bytes) != 0)
+        throw std::runtime_error("output pubkey is invalid");
+    if (ge_frombytes_vartime(&C_p3, C_key.bytes) != 0)
+        throw std::runtime_error("commitment is invalid");
+
+    TIME_MEASURE_NS_FINISH(ge_frombytes_vartime_ns);
+
+    TIME_MEASURE_NS_START(identity_check_ns);
+
+    if (fcmp_pp::mul8_is_identity(O_p3))
+        throw std::runtime_error("O mul8 cannot equal identity");
+    if (fcmp_pp::mul8_is_identity(C_p3))
+        throw std::runtime_error("C mul8 cannot equal identity");
+
+    TIME_MEASURE_NS_FINISH(identity_check_ns);
+
+    TIME_MEASURE_NS_START(check_torsion_ns);
+
+    const bool O_is_torsion_free = fcmp_pp::torsion_check_vartime(O_p3);
+    const bool C_is_torsion_free = fcmp_pp::torsion_check_vartime(C_p3);
+
+    if (!O_is_torsion_free)
+        LOG_PRINT_L2("Output has torsion " << output_pubkey);
+    if (!C_is_torsion_free)
+        LOG_PRINT_L2("Commitment has torsion " << commitment);
+
+    TIME_MEASURE_NS_FINISH(check_torsion_ns);
+
     TIME_MEASURE_NS_START(clear_torsion_ns);
 
-    rct::key O, C;
-    if (!fcmp_pp::clear_torsion(rct::pk2rct(output_pubkey), O))
-        throw std::runtime_error("output pubkey is invalid");
-    if (!fcmp_pp::clear_torsion(commitment, C))
-        throw std::runtime_error("commitment is invalid");
+    rct::key O = O_is_torsion_free ? O_key : fcmp_pp::clear_torsion(O_p3);
+    rct::key C = C_is_torsion_free ? C_key : fcmp_pp::clear_torsion(C_p3);
 
     TIME_MEASURE_NS_FINISH(clear_torsion_ns);
 
+    // Redundant check for safety
     if (O == rct::I)
         throw std::runtime_error("O cannot equal identity");
     if (C == rct::I)
@@ -94,7 +126,11 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
 
     TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
 
-    LOG_PRINT_L3("clear_torsion_ns: " << clear_torsion_ns << " , derive_key_image_generator_ns: " << derive_key_image_generator_ns);
+    LOG_PRINT_L3("ge_frombytes_vartime_ns: " << ge_frombytes_vartime_ns
+        << " , identity_check_ns: "          << identity_check_ns
+        << " , check_torsion_ns: "           << check_torsion_ns
+        << " , clear_torsion_ns: "           << clear_torsion_ns
+        << " , derive_key_image_generator_ns: " << derive_key_image_generator_ns);
 
     rct::key I_rct = rct::pt2rct(I);
 

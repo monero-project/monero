@@ -63,19 +63,20 @@ public:
       return false;
 
     const cryptonote::txin_to_key& txin = boost::get<cryptonote::txin_to_key>(m_tx.vin[0]);
-    m_rct_key = rct::ki2rct(txin.k_image);
-    return true;
+    return ge_frombytes_vartime(&m_point, (const unsigned char*)txin.k_image.data) == 0;
   }
 
   bool test()
   {
-    rct::key _;
-    if (check)
-      return fcmp_pp::torsion_check(m_rct_key);
-    else
-      return fcmp_pp::clear_torsion(m_rct_key, _);
+    if (!check)
+    {
+      fcmp_pp::clear_torsion(m_point);
+      return true;
+    }
+
+    return !fcmp_pp::mul8_is_identity(m_point) && fcmp_pp::torsion_check_vartime(m_point);
   }
 
 private:
-  rct::key m_rct_key;
+  ge_p3 m_point;
 };

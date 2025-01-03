@@ -205,12 +205,12 @@ public:
     uint64_t get_n_leaf_tuples() const;
     bool get_top_block(BlockMeta &top_block_out) const
     {
-        CHECK_AND_ASSERT_MES(!this->empty(), false, "empty cached blocks");
+        CHECK_AND_ASSERT_MES(!m_cached_blocks.empty(), false, "empty cached blocks");
         memcpy(&top_block_out, &m_cached_blocks.back(), sizeof(BlockMeta));
         return true;
     };
 
-    bool empty() const { return m_cached_blocks.empty(); }
+    uint64_t n_synced_blocks() const { return m_cached_blocks.empty() ? 0 : (m_cached_blocks.back().blk_idx + 1); }
 
     uint64_t get_output_count() const { return m_output_count; }
 

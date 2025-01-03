@@ -2669,9 +2669,6 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
 
   fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
 
-  if (end_block_idx == 0)
-    return outs;
-
   const uint64_t height = this->height();
   if (height == 0)
     return outs;

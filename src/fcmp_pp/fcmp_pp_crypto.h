@@ -46,8 +46,9 @@ struct EdYDerivatives final
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: tests for these functions
 bool sqrt(fe y, const fe x);
-bool torsion_check(const rct::key &k);
-bool clear_torsion(const rct::key &k, rct::key &k_out);
+bool mul8_is_identity(const ge_p3 &point);
+bool torsion_check_vartime(const ge_p3 &point);
+rct::key clear_torsion(const ge_p3 &point);
 bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives);
 void ed_y_derivatives_to_wei_x(const EdYDerivatives &ed_y_derivatives, rct::key &wei_x);
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x);

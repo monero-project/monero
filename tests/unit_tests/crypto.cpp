@@ -42,6 +42,7 @@ extern "C"
 #include "fcmp_pp/fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -473,23 +474,28 @@ TEST(Crypto, fe_constants)
   ASSERT_TRUE(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
 }
 
-// // TODO
-// TEST(Crypto, torsion_check_invalid_point)
-// {
-// }
-
-// // TODO
-// TEST(Crypto, torsion_check_torsioned_point)
-// {
-// }
-
 TEST(Crypto, torsion_check_pass)
 {
   const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
-  rct::key x = rct::pk2rct(kp.pub);
-  ASSERT_TRUE(fcmp_pp::torsion_check(x));
-  ASSERT_TRUE(rct::isInMainSubgroup(x));
-  rct::key cleared;
-  fcmp_pp::clear_torsion(x, cleared);
-  ASSERT_EQ(x, cleared);
+  ge_p3 x;
+  ASSERT_EQ(ge_frombytes_vartime(&x, (const unsigned char*)kp.pub.data), 0);
+  const rct::key k = rct::pk2rct(kp.pub);
+  ASSERT_TRUE(rct::isInMainSubgroup(k));
+  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+  ASSERT_TRUE(fcmp_pp::torsion_check_vartime(x));
+  const rct::key cleared = fcmp_pp::clear_torsion(x);
+  ASSERT_EQ(k, cleared);
+}
+
+TEST(Crypto, torsion_check_torsioned_point)
+{
+  rct::key k;
+  epee::string_tools::hex_to_pod("b10ba13e303cbe9abf7d5d44f1d417727abcc14903a74e071abd652ce1bf76dd", k);
+  ge_p3 x;
+  ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
+  ASSERT_FALSE(rct::isInMainSubgroup(k));
+  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+  ASSERT_FALSE(fcmp_pp::torsion_check_vartime(x));
+  const rct::key cleared = fcmp_pp::clear_torsion(x);
+  ASSERT_NE(k, cleared);
 }
