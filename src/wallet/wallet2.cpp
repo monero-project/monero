@@ -3146,7 +3146,7 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
   req.prune = true;
   req.start_height = start_height;
   req.no_miner_tx = false; // always need the miner tx so we can grow the tree correctly
-  req.init_tree_sync = m_tree_sync.empty();
+  req.init_tree_sync = m_tree_sync.n_synced_blocks() == 0;
 
   MDEBUG("Pulling blocks: start_height " << start_height << " , init_tree_sync: " << req.init_tree_sync);
 
@@ -6742,7 +6742,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   generate_genesis(genesis);
   crypto::hash genesis_hash = get_block_hash(genesis);
 
-  if (m_tree_sync.empty() && !m_transfers.empty() && m_has_ever_refreshed_from_node)
+  if (m_tree_sync.n_synced_blocks() == 0 && !m_transfers.empty() && m_has_ever_refreshed_from_node)
   {
     // clear the wallet so that we re-sync the tree and get received output paths
     // TODO: may want to warn users that this is happening before doing it, esp. because it'll delete tx dests

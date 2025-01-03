@@ -1304,7 +1304,7 @@ void TreeSyncMemory<C1, C2>::init(const uint64_t start_block_idx,
     const fcmp_pp::curve_trees::PathBytes &last_path,
     const OutputsByUnlockBlock &timelocked_outputs)
 {
-    CHECK_AND_ASSERT_THROW_MES(this->empty(), "expected empty tree cache");
+    CHECK_AND_ASSERT_THROW_MES(m_cached_blocks.empty(), "expected empty tree cache");
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples >= last_path.leaves.size(), "n_leaf_tuples too small");
 
     fcmp_pp::curve_trees::BlockMeta init_block{

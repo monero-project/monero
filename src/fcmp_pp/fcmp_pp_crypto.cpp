@@ -229,33 +229,28 @@ static bool check_e_u_w(const fe e, const fe u, const fe w)
 namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
+bool mul8_is_identity(const ge_p3 &point) {
+    ge_p2 point_ge_p2;
+    ge_p3_to_p2(&point_ge_p2, &point);
+    ge_p1p1 point_mul8;
+    ge_mul8(&point_mul8, &point_ge_p2);
+    ge_p2 point_mul8_p2;
+    ge_p1p1_to_p2(&point_mul8_p2, &point_mul8);
+    rct::key tmp;
+    ge_tobytes(tmp.bytes, &point_mul8_p2);
+    return tmp == rct::I;
+}
+//----------------------------------------------------------------------------------------------------------------------
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob/94744c5324e869a9483bbbd93a864e108304bf76/crypto/divisors/src/tests/torsion_check.rs
+// Returns true if point is torsion free
+// Pre-condition: point is a valid point and point*8 not equal to identity
 // WARNING1: this approach needs to be carefully vetted academically and audited
 // before it can be used in production.
 // WARNING2: since fe_add and fe_sub expect the input fe's to be within a
 // smaller domain than the output fe, we sometimes need to "reduce" a field elem
 // to chain calls to fe_add and fe_sub. Notice all calls to fe_reduce.
-bool torsion_check(const rct::key &k) {
-    // De-compress the point
-    ge_p3 point;
-    if (ge_frombytes_vartime(&point, k.bytes) != 0) {
-        return false;
-    }
-
-    // Make sure point is not equal to identity
-    {
-        ge_p2 point_ge_p2;
-        ge_p3_to_p2(&point_ge_p2, &point);
-        ge_p1p1 point_mul8;
-        ge_mul8(&point_mul8, &point_ge_p2);
-
-        ge_p2 point_mul8_p2;
-        ge_p1p1_to_p2(&point_mul8_p2, &point_mul8);
-        rct::key tmp;
-        ge_tobytes(tmp.bytes, &point_mul8_p2);
-        if (tmp == rct::I)
-            return false;
-    }
+bool torsion_check_vartime(const ge_p3 &point) {
+    assert(!mul8_is_identity(point));
 
     // ed to wei
     fe e, u, w;
@@ -296,10 +291,7 @@ bool torsion_check(const rct::key &k) {
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool clear_torsion(const rct::key &k, rct::key &k_out) {
-    ge_p3 point;
-    if (ge_frombytes_vartime(&point, k.bytes) != 0)
-        return false;
+rct::key clear_torsion(const ge_p3 &point) {
     // mul by inv 8, then mul by 8
     ge_p2 point_inv_8;
     ge_scalarmult(&point_inv_8, rct::INV_EIGHT.bytes, &point);
@@ -307,8 +299,9 @@ bool clear_torsion(const rct::key &k, rct::key &k_out) {
     ge_mul8(&point_inv_8_mul_8, &point_inv_8);
     ge_p3 torsion_cleared_point;
     ge_p1p1_to_p3(&torsion_cleared_point, &point_inv_8_mul_8);
+    rct::key k_out;
     ge_p3_tobytes(k_out.bytes, &torsion_cleared_point);
-    return true;
+    return k_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
 bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives) {
