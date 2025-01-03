@@ -18,7 +18,6 @@ android_RANLIB=llvm-ranlib
 
 android_CFLAGS=-pipe
 android_CXXFLAGS=$(android_CFLAGS)
-android_ARFLAGS=crsD
 
 android_release_CFLAGS=-O2
 android_release_CXXFLAGS=$(android_release_CFLAGS)
