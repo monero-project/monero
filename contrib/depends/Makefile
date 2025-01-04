@@ -152,6 +152,7 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
             -e 's|@release_type@|$(cmake_release_type)|' \
             -e 's|@build_tests@|$(build_tests)|' \
             -e 's|@cmake_system_name@|$($(host_os)_cmake_system)|' \
+            -e 's|@cmake_system_version@|$($(host_os)_cmake_system_version)|' \
             -e 's|@prefix@|$($(host_arch)_$(host_os)_prefix)|'\
             -e 's|@arch@|$(host_arch)|'\
             $< > $@

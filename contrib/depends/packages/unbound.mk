@@ -15,7 +15,6 @@ define $(package)_set_vars
   $(package)_config_opts_w64=--enable-static-exe --sysconfdir=/etc --prefix=$(host_prefix) --target=$(host_prefix)
   $(package)_config_opts_x86_64_darwin=ac_cv_func_SHA384_Init=yes
   $(package)_build_opts_mingw32=LDFLAGS="$($(package)_ldflags) -lpthread"
-  $(package)_cflags_mingw32+="-D_WIN32_WINNT=0x600"
 endef
 
 define $(package)_preprocess_cmds
