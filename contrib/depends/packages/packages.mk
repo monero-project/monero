@@ -20,7 +20,7 @@ packages += gtest
 endif
 
 linux_native_packages :=
-linux_packages := eudev
+linux_packages :=
 
 freebsd_native_packages := freebsd_base
 freebsd_packages :=

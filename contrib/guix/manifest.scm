@@ -273,7 +273,6 @@ chain for " target " development."))
         autoconf-2.71 ; defaults to 2.69, which does not recognize the aarch64-apple-darwin target
         automake
         pkg-config
-        gperf         ; required to build eudev in depends
         cmake-minimal
 
         ;; Scripting
