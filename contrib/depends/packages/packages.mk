@@ -13,7 +13,7 @@ darwin_packages = ncurses readline $(hardware_packages)
 freebsd_native_packages = freebsd_base $(hardware_native_packages)
 freebsd_packages = ncurses readline protobuf libusb
 
-linux_packages = eudev ncurses readline $(hardware_packages)
+linux_packages = ncurses readline $(hardware_packages)
 linux_native_packages = $(hardware_native_packages)
 
 ifeq ($(build_tests),ON)
