@@ -29,6 +29,7 @@ env:
 
 jobs:
   build-macos:
+    name: 'macOS (brew)'
     runs-on: macOS-latest
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
@@ -51,6 +52,7 @@ jobs:
         make -j3
 
   build-windows:
+    name: 'Windows (MSYS2)'
     runs-on: windows-latest
     env:
       CCACHE_TEMPDIR: C:\Users\runneradmin\.ccache-temp
@@ -84,7 +86,7 @@ jobs:
         make release-static-win64 -j2
 
   build-debian:
-    name: 'build-debian (debian-10)'
+    name: 'Debian 10'
     runs-on: ubuntu-latest
     container:
       image: debian:10
@@ -109,13 +111,18 @@ jobs:
 # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
 
   build-ubuntu:
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
+        include:
+          - os: ubuntu-20.04
+            name: Ubuntu 20.04
+          - os: ubuntu-22.04
+            name: Ubuntu 22.04
     steps:
     - uses: actions/checkout@v4
       with:
@@ -139,6 +146,7 @@ jobs:
         ${{env.BUILD_DEFAULT_LINUX}}
 
   libwallet-ubuntu:
+    name: "Ubuntu 20.04 (libwallet)"
     runs-on: ubuntu-20.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
@@ -166,6 +174,7 @@ jobs:
         make wallet_api -j3
 
   test-ubuntu:
+    name: "Ubuntu 20.04 (tests)"
     needs: build-ubuntu
     runs-on: ubuntu-20.04
     env:
@@ -203,6 +212,7 @@ jobs:
 # BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
 
   source-archive:
+    name: "source archive"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v4
