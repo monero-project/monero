@@ -1,0 +1,20 @@
+diff --git a/configure b/configure
+index a41e3e1e..7d6a58f0 100755
+--- a/configure
++++ b/configure
+@@ -22053,6 +22053,7 @@ else $as_nop
+    withval="/usr/local /opt/local /usr/lib /usr/pkg /usr/sfw /usr"
+ fi
+ 
++if test x_$withval = x_yes -o x_$withval != x_no; then
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for libexpat" >&5
+ printf %s "checking for libexpat... " >&6; }
+ found_libexpat="no"
+@@ -22090,6 +22091,7 @@ else $as_nop
+   ac_have_decl=0
+ fi
+ printf "%s\n" "#define HAVE_DECL_XML_STOPPARSER $ac_have_decl" >>confdefs.h
++fi
+ 
+ 
+ # hiredis (redis C client for cachedb)
