@@ -35,8 +35,6 @@
 # ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
 # others.
 
-find_package(Miniupnpc REQUIRED)
-
 message(STATUS "Using in-tree miniupnpc")
 set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation" FORCE)
 add_subdirectory(miniupnp/miniupnpc)
