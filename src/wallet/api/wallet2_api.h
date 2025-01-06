@@ -1082,15 +1082,6 @@ struct Wallet
     */
     virtual void setOffline(bool offline) = 0;
     virtual bool isOffline() const = 0;
-    
-    //! blackballs a set of outputs
-    virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) = 0;
-
-    //! blackballs an output
-    virtual bool blackballOutput(const std::string &amount, const std::string &offset) = 0;
-
-    //! unblackballs an output
-    virtual bool unblackballOutput(const std::string &amount, const std::string &offset) = 0;
 
     //! gets the ring used for a key image, if any
     virtual bool getRing(const std::string &key_image, std::vector<uint64_t> &ring) const = 0;
