@@ -48,7 +48,6 @@ jobs:
           - target: "x86_64-apple-darwin"
           - target: "aarch64-apple-darwin"
           - target: "aarch64-linux-android"
-          - target: "arm-linux-androideabi"
 
     name: ${{ matrix.toolchain.target }}
     steps:

@@ -88,8 +88,7 @@ export HOSTS="${HOSTS:-x86_64-linux-gnu
                        x86_64-unknown-freebsd
                        x86_64-apple-darwin
                        aarch64-apple-darwin
-                       aarch64-linux-android
-                       arm-linux-androideabi}"
+                       aarch64-linux-android}"
 
 # Usage: distsrc_for_host HOST
 #
