@@ -98,6 +98,16 @@ namespace levin
       return std::chrono::steady_clock::duration{crypto::rand_range(rep(0), range.count())};
     }
 
+    bool set_connection_can_broadcast_txs_to_peer(std::shared_ptr<connections> p2p, boost::uuids::uuid conn, bool val, bool exclusive_peers) {
+      if (exclusive_peers && !val)
+        return true;
+      return p2p->for_connection(conn, [&](detail::p2p_context& context)
+      {
+         context.can_broadcast_txs_to_peer = val;
+         return true;
+       });
+    }
+
     uint64_t get_median_remote_height(connections& p2p)
     {
         std::vector<uint64_t> remote_heights;
@@ -618,8 +628,9 @@ namespace levin
       std::shared_ptr<detail::zone> zone_;
       const std::size_t channel_;
       const i_core_events* core_;
+      bool exclusive_peers_;
 
-      static void wait(const std::chrono::steady_clock::time_point start, std::shared_ptr<detail::zone> zone, const std::size_t index, const i_core_events* core)
+      static void wait(const std::chrono::steady_clock::time_point start, std::shared_ptr<detail::zone> zone, const std::size_t index, const i_core_events* core, bool exclusive_peers)
       {
         if (!zone)
           return;
@@ -627,7 +638,7 @@ namespace levin
         noise_channel& channel = zone->channels.at(index);
         channel.next_noise.expires_at(start + noise_min_delay + random_duration(noise_delay_range));
         channel.next_noise.async_wait(
-          channel.strand.wrap(send_noise{std::move(zone), index, core})
+          channel.strand.wrap(send_noise{std::move(zone), index, core, exclusive_peers})
         );
       }
 
@@ -645,12 +656,20 @@ namespace levin
         const auto start = std::chrono::steady_clock::now();
         noise_channel& channel = zone_->channels.at(channel_);
 
+        bool can_broadcast = true;
+        zone_->p2p->for_connection(channel.connection, [&](detail::p2p_context& context){
+            can_broadcast = context.can_broadcast_txs_to_peer;
+            return true;
+        });
+
         if (!channel.connection.is_nil())
         {
           epee::byte_slice message = nullptr;
-          if (!channel.active.empty())
+          if (can_broadcast && !channel.active.empty())
+          {
             message = channel.active.take_slice(zone_->noise.size());
-          else if (!channel.queue.empty())
+          }
+          else if (can_broadcast && !channel.queue.empty())
           {
             channel.active = channel.queue.front().clone();
             message = channel.active.take_slice(zone_->noise.size());
@@ -660,8 +679,12 @@ namespace levin
 
           if (zone_->p2p->send(std::move(message), channel.connection))
           {
-            if (!channel.queue.empty() && channel.active.empty())
+            if (can_broadcast && !channel.queue.empty() && channel.active.empty())
+            {
               channel.queue.pop_front();
+              if (zone_->nzone == epee::net_utils::zone::tor)
+                set_connection_can_broadcast_txs_to_peer(zone_->p2p, channel.connection, false, exclusive_peers_);
+            }
           }
           else
           {
@@ -678,7 +701,7 @@ namespace levin
           }
         }
 
-        wait(start, std::move(zone_), channel_, core_);
+        wait(start, std::move(zone_), channel_, core_, exclusive_peers_);
       }
     };
 
@@ -715,7 +738,7 @@ namespace levin
     };
   } // anonymous
 
-  notify::notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise, epee::net_utils::zone zone, const bool pad_txs, i_core_events& core)
+  notify::notify(boost::asio::io_service& service, std::shared_ptr<connections> p2p, epee::byte_slice noise, epee::net_utils::zone zone, const bool pad_txs, i_core_events& core, bool exclusive_peers)
     : zone_(std::make_shared<detail::zone>(service, std::move(p2p), std::move(noise), zone, pad_txs))
     , core_(std::addressof(core))
   {
@@ -733,7 +756,7 @@ namespace levin
       start_epoch{zone_, min_epoch, epoch_range, out_count, core_}();
 
       for (std::size_t channel = 0; channel < zone_->channels.size(); ++channel)
-        send_noise::wait(now, zone_, channel, core_);
+        send_noise::wait(now, zone_, channel, core_, exclusive_peers);
     }
   }
 

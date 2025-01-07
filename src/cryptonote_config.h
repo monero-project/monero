@@ -220,6 +220,15 @@ namespace config
   uint64_t const DEFAULT_DUST_THRESHOLD = ((uint64_t)2000000000); // 2 * pow(10, 9)
   uint64_t const BASE_REWARD_CLAMP_THRESHOLD = ((uint64_t)100000000); // pow(10, 8)
 
+  // Both below are in nanoseconds. Onion connections are randomly dropped within this
+  // range and successive onion connections are delayed within this range
+  time_t const RANDOM_CONNECTION_DROP_LOWER = 2 * 60 * 1000000;
+  time_t const RANDOM_CONNECTION_DROP_UPPER = 4 * 60 * 1000000;
+  uint8_t const ACQUIRE_PEERS_RECONNECT_SCALING_FACTOR = 4;
+
+  // Onion circuit will expire after not being used for this many minutes
+  uint8_t const DEFAULT_ONION_CIRCUIT_EXPIRY = 10;
+
   uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 18;
   uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 19;
   uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 42;

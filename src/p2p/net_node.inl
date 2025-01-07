@@ -452,7 +452,7 @@ namespace nodetool
     m_use_ipv6 = command_line::get_arg(vm, arg_p2p_use_ipv6);
     m_require_ipv4 = !command_line::get_arg(vm, arg_p2p_ignore_ipv4);
     public_zone.m_notifier = cryptonote::levin::notify{
-      public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr, epee::net_utils::zone::public_, pad_txs, m_payload_handler.get_core()
+      public_zone.m_net_server.get_io_service(), public_zone.m_net_server.get_config_shared(), nullptr, epee::net_utils::zone::public_, pad_txs, m_payload_handler.get_core(), !m_exclusive_peers.empty()
     };
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
@@ -615,7 +615,7 @@ namespace nodetool
       }
 
       zone.m_notifier = cryptonote::levin::notify{
-        zone.m_net_server.get_io_service(), zone.m_net_server.get_config_shared(), std::move(this_noise), proxy.zone, pad_txs, m_payload_handler.get_core()
+        zone.m_net_server.get_io_service(), zone.m_net_server.get_config_shared(), std::move(this_noise), proxy.zone, pad_txs, m_payload_handler.get_core(), !m_exclusive_peers.empty()
       };
     }
 
@@ -1375,6 +1375,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, PeerType peer_type, uint64_t first_seen_stamp)
   {
+    bool one_conn_below_max = false;
+
     network_zone& zone = m_network_zones.at(na.get_zone());
     if (zone.m_connect == nullptr) // outgoing connections in zone not possible
       return false;
@@ -1386,6 +1388,10 @@ namespace nodetool
     {
       return false;
     }
+    else if (zone.m_current_number_of_out_peers == zone.m_config.m_net_config.max_out_connection_count - 1)
+    {
+      one_conn_below_max = true;
+    }
     else if (zone.m_current_number_of_out_peers > zone.m_config.m_net_config.max_out_connection_count)
     {
       zone.m_net_server.get_config_object().del_out_connections(1);
@@ -1393,6 +1399,9 @@ namespace nodetool
       return false;
     }
 
+    if (na.get_zone() == epee::net_utils::zone::tor && time(nullptr) < m_make_next_tor_connection_after) {
+      return false;
+    }
 
     MDEBUG("Connecting to " << na.str() << "(peer_type=" << peer_type << ", last_seen: "
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
@@ -1449,6 +1458,17 @@ namespace nodetool
     zone.m_peerlist.append_with_peer_anchor(ape);
     zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income);
     zone.m_notifier.new_out_connection();
+
+    if (na.get_zone() == epee::net_utils::zone::tor) {
+      if (one_conn_below_max)
+      {
+        extend_make_next_connection_after(na.get_zone(), false);
+      }
+      else
+      {
+        extend_make_next_connection_after(na.get_zone(), true);
+      }
+    }
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK.");
     return true;
@@ -1813,6 +1833,35 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::extend_make_next_connection_after(epee::net_utils::zone zone,
+                                                                             bool acquire_peers) {
+    if (zone == epee::net_utils::zone::public_ || !m_exclusive_peers.empty())
+      return false;
+
+    auto scaling_factor = 1;
+    if (acquire_peers)
+      scaling_factor = ::config::ACQUIRE_PEERS_RECONNECT_SCALING_FACTOR;
+
+    auto offset = crypto::rand_range<time_t>(::config::RANDOM_CONNECTION_DROP_LOWER / scaling_factor,
+                                             ::config::RANDOM_CONNECTION_DROP_UPPER / scaling_factor) / 1000000;
+
+    if (zone == epee::net_utils::zone::tor)
+    {
+      if (m_make_next_tor_connection_after > time(nullptr))
+      {
+        return false;
+      }
+      m_make_next_tor_connection_after = time(nullptr) + offset;
+    }
+    else if (zone == epee::net_utils::zone::i2p)
+    {
+      return false; // not implemented
+    }
+
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::connections_maker()
   {
     using zone_type = epee::net_utils::zone;
@@ -1825,6 +1874,10 @@ namespace nodetool
     bool one_succeeded = false;
     for(auto& zone : m_network_zones)
     {
+      if (zone.first == zone_type::tor && m_make_next_tor_connection_after > time(nullptr)) {
+        continue;
+      }
+
       size_t start_conn_count = get_outgoing_connections_count(zone.second);
       if(!zone.second.m_peerlist.get_white_peers_count() && !connect_to_seed(zone.first))
       {
@@ -1836,7 +1889,6 @@ namespace nodetool
       size_t base_expected_white_connections = (zone.second.m_config.m_net_config.max_out_connection_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
 
       // carefully avoid `continue` in nested loop
-      
       size_t conn_count = get_outgoing_connections_count(zone.second);
       while(conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
       {
@@ -1874,12 +1926,25 @@ namespace nodetool
         conn_count = new_conn_count;
       }
 
-      if (start_conn_count == get_outgoing_connections_count(zone.second) && start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
+      // max out connections set too high for available peers or connection issue
+      if (get_outgoing_connections_count(zone.second) <= start_conn_count && start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
       {
+        // add check if tor and not yet ready to connecct, if so avoid trying seeds.
         MINFO("Failed to connect to any, trying seeds");
         if (!connect_to_seed(zone.first))
+        {
+          // stop signal sent, extend as a precaution
+          extend_make_next_connection_after(zone.first, false);
           continue;
+        }
       }
+
+      // extend when no connection is made, prevents immediate new connection after peer drop
+      // acquire peers false because usually this will be max connections reached or set too high for available peers
+      // this will make a temporary connection issue worse
+      extend_make_next_connection_after(zone.first, false);
+
+      // this is really stop_signal_not_sent
       one_succeeded = true;
     }
 
@@ -2026,6 +2091,43 @@ namespace nodetool
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
     m_dns_blocklist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_blocklist, this));
+    if (m_exclusive_peers.empty())
+      m_drop_random_outgoing_tor_connection_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::drop_random_outgoing_tor_connection, this));
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::drop_random_outgoing_tor_connection()
+  {
+    std::vector<p2p_connection_context> outgoing_tor_connections;
+    auto tor_zone = m_network_zones.find(epee::net_utils::zone::tor);
+
+    if (tor_zone != m_network_zones.end()) {
+        tor_zone->second.m_net_server.get_config_object().foreach_connection([&](p2p_connection_context &cntx) {
+            if (!cntx.m_is_income) {
+                outgoing_tor_connections.push_back(cntx);
+            }
+            return true;
+        });
+    }
+
+    for (auto &cntx : outgoing_tor_connections) {
+      if (!cntx.can_broadcast_txs_to_peer) {
+        drop_connection(cntx);
+        // should use random auth for each connection but no socks5
+        // possible to use same circuit twice if drop initiated by remote
+        block_host(cntx.m_remote_address, (::config::DEFAULT_ONION_CIRCUIT_EXPIRY + 1) * 60, true);
+        return true;
+      }
+    }
+
+    if (auto len = outgoing_tor_connections.size()) {
+        auto index_to_drop = crypto::rand_idx(len);
+        drop_connection(outgoing_tor_connections[index_to_drop]);
+        block_host(outgoing_tor_connections[index_to_drop].m_remote_address,
+                   (::config::DEFAULT_ONION_CIRCUIT_EXPIRY + 1) * 60, true);
+    }
+
     return true;
   }
   //-----------------------------------------------------------------------------------
