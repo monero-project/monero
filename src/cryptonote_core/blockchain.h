@@ -979,25 +979,6 @@ namespace cryptonote
     bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const;
 
     /**
-     * @brief perform a check on all outputs in the blockchain
-     *
-     * @param std::function the check to perform, pass/fail
-     *
-     * @return false if any output fails the check, otherwise true
-     */
-    bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)>) const;
-
-    /**
-     * @brief perform a check on all outputs of a given amount in the blockchain
-     *
-     * @param amount the amount to iterate through
-     * @param std::function the check to perform, pass/fail
-     *
-     * @return false if any output fails the check, otherwise true
-     */
-    bool for_all_outputs(uint64_t amount, std::function<bool(uint64_t height)>) const;
-
-    /**
      * @brief get a reference to the BlockchainDB in use by Blockchain
      *
      * @return a reference to the BlockchainDB instance
