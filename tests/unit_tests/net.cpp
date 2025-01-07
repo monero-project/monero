@@ -108,7 +108,7 @@ TEST(tor_address, invalid)
     EXPECT_TRUE(net::tor_address::make(onion).has_error());
 }
 
-TEST(tor_address, unblockable_types)
+TEST(tor_address, unbannable_types)
 {
     net::tor_address tor{};
 
@@ -144,14 +144,14 @@ TEST(tor_address, valid)
     EXPECT_EQ(0u, address1->port());
     EXPECT_STREQ(v3_onion, address1->host_str());
     EXPECT_STREQ(v3_onion, address1->str().c_str());
-    EXPECT_TRUE(address1->is_blockable());
+    EXPECT_TRUE(address1->is_bannable());
 
     net::tor_address address2{*address1};
 
     EXPECT_EQ(0u, address2.port());
     EXPECT_STREQ(v3_onion, address2.host_str());
     EXPECT_STREQ(v3_onion, address2.str().c_str());
-    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_TRUE(address2.is_bannable());
     EXPECT_TRUE(address2.equal(*address1));
     EXPECT_TRUE(address1->equal(address2));
     EXPECT_TRUE(address2 == *address1);
@@ -168,7 +168,7 @@ TEST(tor_address, valid)
     EXPECT_EQ(6545, address2.port());
     EXPECT_STREQ(v3_onion_2, address2.host_str());
     EXPECT_EQ(std::string{v3_onion_2} + ":6545", address2.str().c_str());
-    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_TRUE(address2.is_bannable());
     EXPECT_FALSE(address2.equal(*address1));
     EXPECT_FALSE(address1->equal(address2));
     EXPECT_FALSE(address2 == *address1);
@@ -185,7 +185,7 @@ TEST(tor_address, valid)
     EXPECT_EQ(65535, address3.port());
     EXPECT_STREQ(v3_onion, address3.host_str());
     EXPECT_EQ(std::string{v3_onion} + ":65535", address3.str().c_str());
-    EXPECT_TRUE(address3.is_blockable());
+    EXPECT_TRUE(address3.is_bannable());
     EXPECT_FALSE(address3.equal(*address1));
     EXPECT_FALSE(address1->equal(address3));
     EXPECT_FALSE(address3 == *address1);
@@ -227,9 +227,9 @@ TEST(tor_address, generic_network_address)
     EXPECT_EQ(epee::net_utils::zone::tor, tor1.get_zone());
     EXPECT_EQ(epee::net_utils::zone::tor, tor2.get_zone());
     EXPECT_EQ(epee::net_utils::zone::public_, ip.get_zone());
-    EXPECT_TRUE(tor1.is_blockable());
-    EXPECT_TRUE(tor2.is_blockable());
-    EXPECT_TRUE(ip.is_blockable());
+    EXPECT_TRUE(tor1.is_bannable());
+    EXPECT_TRUE(tor2.is_bannable());
+    EXPECT_TRUE(ip.is_bannable());
 }
 
 namespace
@@ -478,7 +478,7 @@ TEST(i2p_address, invalid)
     EXPECT_TRUE(net::i2p_address::make(i2p).has_error());
 }
 
-TEST(i2p_address, unblockable_types)
+TEST(i2p_address, unbannable_types)
 {
     net::i2p_address i2p{};
 
@@ -514,14 +514,14 @@ TEST(i2p_address, valid)
     EXPECT_EQ(1u, address1->port());
     EXPECT_STREQ(b32_i2p, address1->host_str());
     EXPECT_STREQ(b32_i2p, address1->str().c_str());
-    EXPECT_TRUE(address1->is_blockable());
+    EXPECT_TRUE(address1->is_bannable());
 
     net::i2p_address address2{*address1};
 
     EXPECT_EQ(1u, address2.port());
     EXPECT_STREQ(b32_i2p, address2.host_str());
     EXPECT_STREQ(b32_i2p, address2.str().c_str());
-    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_TRUE(address2.is_bannable());
     EXPECT_TRUE(address2.equal(*address1));
     EXPECT_TRUE(address1->equal(address2));
     EXPECT_TRUE(address2 == *address1);
@@ -538,7 +538,7 @@ TEST(i2p_address, valid)
     EXPECT_EQ(1u, address2.port());
     EXPECT_STREQ(b32_i2p_2, address2.host_str());
     EXPECT_EQ(std::string{b32_i2p_2}, address2.str().c_str());
-    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_TRUE(address2.is_bannable());
     EXPECT_FALSE(address2.equal(*address1));
     EXPECT_FALSE(address1->equal(address2));
     EXPECT_FALSE(address2 == *address1);
@@ -555,7 +555,7 @@ TEST(i2p_address, valid)
     EXPECT_EQ(1u, address3.port());
     EXPECT_STREQ(b32_i2p, address3.host_str());
     EXPECT_EQ(std::string{b32_i2p}, address3.str().c_str());
-    EXPECT_TRUE(address3.is_blockable());
+    EXPECT_TRUE(address3.is_bannable());
     EXPECT_TRUE(address3.equal(*address1));
     EXPECT_TRUE(address1->equal(address3));
     EXPECT_TRUE(address3 == *address1);
@@ -597,9 +597,9 @@ TEST(i2p_address, generic_network_address)
     EXPECT_EQ(epee::net_utils::zone::i2p, i2p1.get_zone());
     EXPECT_EQ(epee::net_utils::zone::i2p, i2p2.get_zone());
     EXPECT_EQ(epee::net_utils::zone::public_, ip.get_zone());
-    EXPECT_TRUE(i2p1.is_blockable());
-    EXPECT_TRUE(i2p2.is_blockable());
-    EXPECT_TRUE(ip.is_blockable());
+    EXPECT_TRUE(i2p1.is_bannable());
+    EXPECT_TRUE(i2p2.is_bannable());
+    EXPECT_TRUE(ip.is_bannable());
 }
 
 namespace
