@@ -561,7 +561,7 @@
     <name>cryptonote::rpc_args</name>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="92"/>
-        <source>Specify IP to bind RPC server</source>
+        <source>Specify IPv4 address to bind RPC server</source>
         <translation>RPC सर्वर को बाँधने के लिए IP निर्दिष्ट करें</translation>
     </message>
     <message>
@@ -586,7 +586,7 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="97"/>
-        <source>Confirm rpc-bind-ip value is NOT a loopback (local) IP</source>
+        <source>Confirm rpc-bind-ipv4-address value is NOT a loopback (local) IP</source>
         <translation>Rpc-bind-ip के मान की पुष्टि करें की वह लूपबैक (स्थानीय) IP तो नहीं है</translation>
     </message>
     <message>
@@ -632,7 +632,7 @@
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="146"/>
         <location filename="../src/rpc/rpc_args.cpp" line="174"/>
-        <source>Invalid IP address given for --</source>
+        <source>Invalid IPv4 address given for --</source>
         <translation>-- के लिए दिया गया अमान्य IP पता</translation>
     </message>
     <message>

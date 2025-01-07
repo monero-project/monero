@@ -1133,11 +1133,11 @@ namespace net_utils
     acceptor_(io_service_),
     acceptor_ipv6(io_service_),
     default_remote(),
-    m_stop_signal_sent(false), m_port(0), 
+    m_stop_signal_sent(false), m_port_ipv4(0),
     m_threads_count(0),
     m_thread_index(0),
 		m_connection_type( connection_type ),
-    new_connection_(),
+    new_connection_ipv4(),
     new_connection_ipv6()
   {
     create_server_type_map();
@@ -1151,11 +1151,11 @@ namespace net_utils
     acceptor_(io_service_),
     acceptor_ipv6(io_service_),
     default_remote(),
-    m_stop_signal_sent(false), m_port(0),
+    m_stop_signal_sent(false), m_port_ipv4(0),
     m_threads_count(0),
     m_thread_index(0),
 		m_connection_type(connection_type),
-    new_connection_(),
+    new_connection_ipv4(),
     new_connection_ipv6()
   {
     create_server_type_map();
@@ -1178,15 +1178,15 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-    bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port,  const std::string& address,
+    bool boosted_tcp_server<t_protocol_handler>::init_server(uint32_t port_ipv4, const std::string& address_ipv4,
 	uint32_t port_ipv6, const std::string& address_ipv6, bool use_ipv6, bool require_ipv4,
 	ssl_options_t ssl_options)
   {
     TRY_ENTRY();
     m_stop_signal_sent = false;
-    m_port = port;
+    m_port_ipv4 = port_ipv4;
     m_port_ipv6 = port_ipv6;
-    m_address = address;
+    m_address_ipv4 = address_ipv4;
     m_address_ipv6 = address_ipv6;
     m_use_ipv6 = use_ipv6;
     m_require_ipv4 = require_ipv4;
@@ -1199,7 +1199,7 @@ namespace net_utils
     try
     {
       boost::asio::ip::tcp::resolver resolver(io_service_);
-      boost::asio::ip::tcp::resolver::query query(address, boost::lexical_cast<std::string>(port), boost::asio::ip::tcp::resolver::query::canonical_name);
+      boost::asio::ip::tcp::resolver::query query(address_ipv4, boost::lexical_cast<std::string>(port_ipv4), boost::asio::ip::tcp::resolver::query::canonical_name);
       boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
       acceptor_.open(endpoint.protocol());
 #if !defined(_WIN32)
@@ -1208,10 +1208,10 @@ namespace net_utils
       acceptor_.bind(endpoint);
       acceptor_.listen();
       boost::asio::ip::tcp::endpoint binded_endpoint = acceptor_.local_endpoint();
-      m_port = binded_endpoint.port();
+      m_port_ipv4 = binded_endpoint.port();
       MDEBUG("start accept (IPv4)");
-      new_connection_.reset(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, m_state->ssl_options().support));
-      acceptor_.async_accept(new_connection_->socket(),
+      new_connection_ipv4.reset(new connection<t_protocol_handler>(io_service_, m_state, m_connection_type, m_state->ssl_options().support));
+      acceptor_.async_accept(new_connection_ipv4->socket(),
 	boost::bind(&boosted_tcp_server<t_protocol_handler>::handle_accept_ipv4, this,
 	boost::asio::placeholders::error));
     }
@@ -1233,7 +1233,7 @@ namespace net_utils
     {
       try
       {
-        if (port_ipv6 == 0) port_ipv6 = port; // default arg means bind to same port as ipv4
+        if (port_ipv6 == 0) port_ipv6 = port_ipv4; // default arg means bind to same port as ipv4
         boost::asio::ip::tcp::resolver resolver(io_service_);
         boost::asio::ip::tcp::resolver::query query(address_ipv6, boost::lexical_cast<std::string>(port_ipv6), boost::asio::ip::tcp::resolver::query::canonical_name);
         boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(query);
@@ -1282,15 +1282,15 @@ namespace net_utils
   }
   //-----------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port,  const std::string& address,
+  bool boosted_tcp_server<t_protocol_handler>::init_server(const std::string port_ipv4, const std::string& address_ipv4,
       const std::string port_ipv6, const std::string address_ipv6, bool use_ipv6, bool require_ipv4,
       ssl_options_t ssl_options)
   {
-    uint32_t p = 0;
+    uint32_t p_ipv4 = 0;
     uint32_t p_ipv6 = 0;
 
-    if (port.size() && !string_tools::get_xtype_from_string(p, port)) {
-      MERROR("Failed to convert port no = " << port);
+    if (port_ipv4.size() && !string_tools::get_xtype_from_string(p_ipv4, port_ipv4)) {
+      MERROR("Failed to convert port no = " << port_ipv4);
       return false;
     }
 
@@ -1298,7 +1298,7 @@ namespace net_utils
       MERROR("Failed to convert port no = " << port_ipv6);
       return false;
     }
-    return this->init_server(p, address, p_ipv6, address_ipv6, use_ipv6, require_ipv4, std::move(ssl_options));
+    return this->init_server(p_ipv4, address_ipv4, p_ipv6, address_ipv6, use_ipv6, require_ipv4, std::move(ssl_options));
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1389,7 +1389,7 @@ namespace net_utils
       {
         //some problems with the listening socket ?..
         _dbg1("Net service stopped without stop request, restarting...");
-        if(!this->init_server(m_port, m_address, m_port_ipv6, m_address_ipv6, m_use_ipv6, m_require_ipv4))
+        if(!this->init_server(m_port_ipv4, m_address_ipv4, m_port_ipv6, m_address_ipv6, m_use_ipv6, m_require_ipv4))
         {
           _dbg1("Reiniting service failed, exit.");
           return false;
@@ -1472,7 +1472,7 @@ namespace net_utils
     MDEBUG("handle_accept");
 
     boost::asio::ip::tcp::acceptor* current_acceptor = &acceptor_;
-    connection_ptr* current_new_connection = &new_connection_;
+    connection_ptr* current_new_connection = &new_connection_ipv4;
     auto accept_function_pointer = &boosted_tcp_server<t_protocol_handler>::handle_accept_ipv4;
     if (ipv6)
     {

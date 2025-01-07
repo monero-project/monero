@@ -395,8 +395,8 @@ TEST(node_server, bind_same_p2p_port)
     For Mac OSX and OpenBSD, set the following alias (by running the command as root), before running the test, or else it will fail:
     ifconfig lo0 alias 127.0.0.2
     */
-    vm.find(nodetool::arg_p2p_bind_ip.name)->second   = boost::program_options::variable_value(std::string("127.0.0.2"), false);
-    vm.find(nodetool::arg_p2p_bind_port.name)->second = boost::program_options::variable_value(std::string(port), false);
+    vm.find(nodetool::arg_p2p_bind_ipv4_address.name)->second = boost::program_options::variable_value(std::string("127.0.0.2"), false);
+    vm.find(nodetool::arg_p2p_bind_ipv4_port.name)->second = boost::program_options::variable_value(std::string(port), false);
 
     boost::program_options::notify(vm);
 
@@ -1226,8 +1226,8 @@ TEST(node_server, race_condition)
       options_t options;
       boost::program_options::store(
         boost::program_options::command_line_parser({
-          "--p2p-bind-ip=127.0.0.1",
-          "--p2p-bind-port=48080",
+          "--p2p-bind-ipv4-address=127.0.0.1",
+          "--p2p-bind-ipv4-port=48080",
           "--out-peers=0",
           "--data-dir",
           dir.string(),

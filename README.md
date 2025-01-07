@@ -648,7 +648,7 @@ See [README.i18n.md](docs/README.i18n.md).
 While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by
 setting the following configuration parameters and environment variables:
 
-* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in
+* `--p2p-bind-ipv4-address 127.0.0.1` on the command line or `p2p-bind-ipv4-address=127.0.0.1` in
   monerod.conf to disable listening for connections on external interfaces.
 * `--no-igd` on the command line or `no-igd=1` in monerod.conf to disable IGD
   (UPnP port forwarding negotiation), which is pointless with Tor.
@@ -670,7 +670,7 @@ setting the following configuration parameters and environment variables:
 Example command line to start monerod through Tor:
 
 ```bash
-DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
+DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ipv4-address 127.0.0.1 --no-igd
 ```
 
 A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed
@@ -684,7 +684,7 @@ allow inbound connections. Full example:
 
 ```bash
 sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
-DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
+DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ipv4-address 127.0.0.1 --no-igd --rpc-bind-ipv4-address 127.0.0.1 \
     --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
 ```
 

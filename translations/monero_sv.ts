@@ -561,7 +561,7 @@
     <name>cryptonote::rpc_args</name>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="92"/>
-        <source>Specify IP to bind RPC server</source>
+        <source>Specify IPv4 address to bind RPC server</source>
         <translation>Ange IP-adress för att binda till RPC-server</translation>
     </message>
     <message>
@@ -586,8 +586,8 @@
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="97"/>
-        <source>Confirm rpc-bind-ip value is NOT a loopback (local) IP</source>
-        <translation>Bekräftelsevärde för rpc-bind-ip är INTE en lokal IP-adress (loopback)</translation>
+        <source>Confirm rpc-bind-ipv4-address value is NOT a loopback (local) IP</source>
+        <translation>Bekräftelsevärde för rpc-bind-ipv4-address är INTE en lokal IP-adress (loopback)</translation>
     </message>
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="98"/>
@@ -632,7 +632,7 @@
     <message>
         <location filename="../src/rpc/rpc_args.cpp" line="146"/>
         <location filename="../src/rpc/rpc_args.cpp" line="174"/>
-        <source>Invalid IP address given for --</source>
+        <source>Invalid IPv4 address given for --</source>
         <translation>Ogiltig IP-adress angiven för --</translation>
     </message>
     <message>

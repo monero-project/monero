@@ -99,10 +99,13 @@ namespace nodetool
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::init_options(boost::program_options::options_description& desc)
   {
-    command_line::add_arg(desc, arg_p2p_bind_ip);
+    command_line::add_arg(desc, arg_p2p_bind_ipv4_address);
     command_line::add_arg(desc, arg_p2p_bind_ipv6_address);
-    command_line::add_arg(desc, arg_p2p_bind_port, false);
-    command_line::add_arg(desc, arg_p2p_bind_port_ipv6, false);
+    command_line::add_arg(desc, arg_p2p_bind_ip); // DEPRECATED
+    command_line::add_arg(desc, arg_p2p_bind_ipv4_port, false);
+    command_line::add_arg(desc, arg_p2p_bind_ipv6_port, false);
+    command_line::add_arg(desc, arg_p2p_bind_port, false); // DEPRECATED
+    command_line::add_arg(desc, arg_p2p_bind_port_ipv6, false); // DEPRECATED
     command_line::add_arg(desc, arg_p2p_use_ipv6);
     command_line::add_arg(desc, arg_p2p_ignore_ipv4);
     command_line::add_arg(desc, arg_p2p_external_port);
@@ -412,10 +415,29 @@ namespace nodetool
 
     network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
     public_zone.m_connect = &public_connect;
-    public_zone.m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
+    public_zone.m_bind_ipv4_address = command_line::get_arg(vm, arg_p2p_bind_ipv4_address);
     public_zone.m_bind_ipv6_address = command_line::get_arg(vm, arg_p2p_bind_ipv6_address);
-    public_zone.m_port = command_line::get_arg(vm, arg_p2p_bind_port);
-    public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_port_ipv6);
+    public_zone.m_port_ipv4 = command_line::get_arg(vm, arg_p2p_bind_ipv4_port);
+    public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_ipv6_port);
+
+    // DEPRECATED --p2p-bind-ip
+    if (!command_line::get_arg(vm, arg_p2p_bind_ip).empty())
+      MWARNING("--p2p-bind-ip is now DEPRECATED, replace with --p2p-bind-ipv4-address");
+    if (public_zone.m_bind_ipv4_address.empty())
+      public_zone.m_bind_ipv4_address = command_line::get_arg(vm, arg_p2p_bind_ip);
+
+    // DEPRECATED --p2p-bind-port
+    if (!command_line::get_arg(vm, arg_p2p_bind_port).empty())
+      MWARNING("--p2p-bind-port is now DEPRECATED, replace with --p2p-bind-ipv4-port");
+    if (public_zone.m_port_ipv4.empty())
+      public_zone.m_port_ipv4 = command_line::get_arg(vm, arg_p2p_bind_port);
+
+    // DEPRECATED --p2p-bind-port-ipv6
+    if (!command_line::get_arg(vm, arg_p2p_bind_port_ipv6).empty())
+      MWARNING("--p2p-bind-port-ipv6 is now DEPRECATED, replace with --p2p-bind-ipv6-port");
+    if (public_zone.m_port_ipv6.empty())
+      public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_ipv6_port);
+
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
@@ -637,7 +659,7 @@ namespace nodetool
     {
       network_zone& zone = add_zone(inbound.our_address.get_zone());
 
-      if (!zone.m_bind_ip.empty())
+      if (!zone.m_bind_ipv4_address.empty())
       {
         MERROR("Listed --" << arg_anonymous_inbound.name << " twice with " << epee::net_utils::zone_to_string(inbound.our_address.get_zone()) << " network");
         return false;
@@ -649,8 +671,8 @@ namespace nodetool
         return false;
       }
 
-      zone.m_bind_ip = std::move(inbound.local_ip);
-      zone.m_port = std::move(inbound.local_port);
+      zone.m_bind_ipv4_address = std::move(inbound.local_ip);
+      zone.m_port_ipv4 = std::move(inbound.local_port);
       zone.m_net_server.set_default_remote(std::move(inbound.default_remote));
       zone.m_our_address = std::move(inbound.our_address);
 
@@ -936,10 +958,10 @@ namespace nodetool
     m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
     network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
 
-    if ((m_nettype == cryptonote::MAINNET && public_zone.m_port != std::to_string(::config::P2P_DEFAULT_PORT))
-        || (m_nettype == cryptonote::TESTNET && public_zone.m_port != std::to_string(::config::testnet::P2P_DEFAULT_PORT))
-        || (m_nettype == cryptonote::STAGENET && public_zone.m_port != std::to_string(::config::stagenet::P2P_DEFAULT_PORT))) {
-      m_config_folder = m_config_folder + "/" + public_zone.m_port;
+    if ((m_nettype == cryptonote::MAINNET && public_zone.m_port_ipv4 != std::to_string(::config::P2P_DEFAULT_PORT))
+        || (m_nettype == cryptonote::TESTNET && public_zone.m_port_ipv4 != std::to_string(::config::testnet::P2P_DEFAULT_PORT))
+        || (m_nettype == cryptonote::STAGENET && public_zone.m_port_ipv4 != std::to_string(::config::stagenet::P2P_DEFAULT_PORT))) {
+      m_config_folder = m_config_folder + "/" + public_zone.m_port_ipv4;
     }
 
     res = init_config();
@@ -972,25 +994,25 @@ namespace nodetool
       zone.second.m_net_server.get_config_object().set_handler(this);
       zone.second.m_net_server.get_config_object().m_invoke_timeout = P2P_DEFAULT_INVOKE_TIMEOUT;
 
-      if (!zone.second.m_bind_ip.empty())
+      if (!zone.second.m_bind_ipv4_address.empty())
       {
         std::string ipv6_addr = "";
         std::string ipv6_port = "";
         zone.second.m_net_server.set_connection_filter(this);
-        MINFO("Binding (IPv4) on " << zone.second.m_bind_ip << ":" << zone.second.m_port);
+        MINFO("Binding (IPv4) on " << zone.second.m_bind_ipv4_address << ":" << zone.second.m_port_ipv4);
         if (!zone.second.m_bind_ipv6_address.empty() && m_use_ipv6)
         {
           ipv6_addr = zone.second.m_bind_ipv6_address;
           ipv6_port = zone.second.m_port_ipv6;
           MINFO("Binding (IPv6) on " << zone.second.m_bind_ipv6_address << ":" << zone.second.m_port_ipv6);
         }
-        res = zone.second.m_net_server.init_server(zone.second.m_port, zone.second.m_bind_ip, ipv6_port, ipv6_addr, m_use_ipv6, m_require_ipv4, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+        res = zone.second.m_net_server.init_server(zone.second.m_port_ipv4, zone.second.m_bind_ipv4_address, ipv6_port, ipv6_addr, m_use_ipv6, m_require_ipv4, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
       }
     }
 
-    m_listening_port = public_zone.m_net_server.get_binded_port();
-    MLOG_GREEN(el::Level::Info, "Net service bound (IPv4) to " << public_zone.m_bind_ip << ":" << m_listening_port);
+    m_listening_port_ipv4 = public_zone.m_net_server.get_binded_port_ipv4();
+    MLOG_GREEN(el::Level::Info, "Net service bound (IPv4) to " << public_zone.m_bind_ipv4_address << ":" << m_listening_port_ipv4);
     if (m_use_ipv6)
     {
       m_listening_port_ipv6 = public_zone.m_net_server.get_binded_port_ipv6();
@@ -1002,7 +1024,7 @@ namespace nodetool
     // add UPnP port mapping
     if(m_igd == igd)
     {
-      add_upnp_port_mapping_v4(m_listening_port);
+      add_upnp_port_mapping_v4(m_listening_port_ipv4);
       if (m_use_ipv6)
       {
         add_upnp_port_mapping_v6(m_listening_port_ipv6);
@@ -1092,7 +1114,7 @@ namespace nodetool
         zone.second.m_net_server.deinit_server();
       // remove UPnP port mapping
       if(m_igd == igd)
-        delete_upnp_port_mapping(m_listening_port);
+        delete_upnp_port_mapping(m_listening_port_ipv4);
     }
     return store_config();
   }
@@ -2101,7 +2123,7 @@ namespace nodetool
         if (m_igd == delayed_igd)
         {
           MWARNING("No incoming connections, trying to setup IGD");
-          add_upnp_port_mapping(m_listening_port);
+          add_upnp_port_mapping(m_listening_port_ipv4);
           m_igd = igd;
         }
         else
@@ -2209,7 +2231,7 @@ namespace nodetool
   {
     node_data.peer_id = zone.m_config.m_peer_id;
     if(!m_hide_my_port && zone.m_can_pingback)
-      node_data.my_port = m_external_port ? m_external_port : m_listening_port;
+      node_data.my_port = m_external_port ? m_external_port : m_listening_port_ipv4;
     else
       node_data.my_port = 0;
     node_data.rpc_port = zone.m_can_pingback ? m_rpc_port : 0;

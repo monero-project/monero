@@ -55,7 +55,7 @@ void mock_daemon::default_options(boost::program_options::variables_map & vm)
   std::vector<std::string> exclusive_nodes{"127.0.0.1:65525"};
   tools::options::set_option(vm, nodetool::arg_p2p_add_exclusive_node, po::variable_value(exclusive_nodes, false));
 
-  tools::options::set_option(vm, nodetool::arg_p2p_bind_ip, po::variable_value(std::string("127.0.0.1"), false));
+  tools::options::set_option(vm, nodetool::arg_p2p_bind_ipv4_address, po::variable_value(std::string("127.0.0.1"), false));
   tools::options::set_option(vm, nodetool::arg_no_igd, po::variable_value(true, false));
   tools::options::set_option(vm, cryptonote::arg_offline, po::variable_value(true, false));
   tools::options::set_option(vm, "disable-dns-checkpoints", po::variable_value(true, false));
@@ -69,7 +69,7 @@ void mock_daemon::default_options(boost::program_options::variables_map & vm)
   // By default pick non-standard ports to avoid confusion with possibly locally running daemons (mainnet/testnet)
   const char *test_p2p_port = getenv("TEST_P2P_PORT");
   auto p2p_port = std::string(test_p2p_port && strlen(test_p2p_port) > 0 ? test_p2p_port : "61340");
-  tools::options::set_option(vm, nodetool::arg_p2p_bind_port, po::variable_value(p2p_port, false));
+  tools::options::set_option(vm, nodetool::arg_p2p_bind_ipv4_port, po::variable_value(p2p_port, false));
 
   const char *test_rpc_port = getenv("TEST_RPC_PORT");
   auto rpc_port = std::string(test_rpc_port && strlen(test_rpc_port) > 0 ? test_rpc_port : "61341");
@@ -85,7 +85,7 @@ void mock_daemon::default_options(boost::program_options::variables_map & vm)
 void mock_daemon::set_ports(boost::program_options::variables_map & vm, unsigned initial_port)
 {
   CHECK_AND_ASSERT_THROW_MES(initial_port < 65535-2, "Invalid port number");
-  tools::options::set_option(vm, nodetool::arg_p2p_bind_port, po::variable_value(std::to_string(initial_port), false));
+  tools::options::set_option(vm, nodetool::arg_p2p_bind_ipv4_port, po::variable_value(std::to_string(initial_port), false));
   tools::options::set_option(vm, cryptonote::core_rpc_server::arg_rpc_bind_port, po::variable_value(std::to_string(initial_port + 1), false));
   tools::options::set_option(vm, daemon_args::arg_zmq_rpc_bind_port, po::variable_value(std::to_string(initial_port + 2), false));
   po::notify(vm);
@@ -93,7 +93,7 @@ void mock_daemon::set_ports(boost::program_options::variables_map & vm, unsigned
 
 void mock_daemon::load_params(boost::program_options::variables_map const & vm)
 {
-  m_p2p_bind_port = command_line::get_arg(vm, nodetool::arg_p2p_bind_port);
+  m_p2p_bind_port = command_line::get_arg(vm, nodetool::arg_p2p_bind_ipv4_port);
   m_rpc_bind_port = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
   m_zmq_bind_port = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_port);
   m_network_type = command_line::get_arg(vm, cryptonote::arg_testnet_on) ? cryptonote::TESTNET : cryptonote::MAINNET;
