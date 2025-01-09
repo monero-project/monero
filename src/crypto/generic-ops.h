@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <sodium/crypto_verify_32.h>
 
 #define CRYPTO_MAKE_COMPARABLE(type) \
@@ -60,14 +61,18 @@ namespace crypto { \
 namespace crypto { \
   static_assert(sizeof(std::size_t) <= sizeof(type), "Size of " #type " must be at least that of size_t"); \
   inline std::size_t hash_value(const type &_v) { \
-    return reinterpret_cast<const std::size_t &>(_v); \
+    std::size_t h; \
+    memcpy(&h, std::addressof(_v), sizeof(h)); \
+    return h; \
   } \
 } \
 namespace std { \
   template<> \
   struct hash<crypto::type> { \
     std::size_t operator()(const crypto::type &_v) const { \
-      return reinterpret_cast<const std::size_t &>(_v); \
+      std::size_t h; \
+      memcpy(&h, std::addressof(_v), sizeof(h)); \
+      return h; \
     } \
   }; \
 }
