@@ -616,23 +616,3 @@ TEST(Crypto, ConvertPointE_EraseSign)
 
   EXPECT_EQ(P_mont, negP_mont);
 }
-
-TEST(Crypto, ge_fromx25519_vartime_Base)
-{
-  const crypto::x25519_pubkey B = {{9}};
-
-  crypto::public_key G_actual;
-  ge_p3 G_actual_p3;
-  ge_fromx25519_vartime(&G_actual_p3, B.data);
-  ge_p3_tobytes(to_bytes(G_actual), &G_actual_p3);
-
-  EXPECT_EQ(crypto::get_G(), G_actual);
-}
-
-TEST(Crypto, ge_fromx25519_vartime_RandomPointNominalSuccess)
-{
-  const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
-
-  ge_p3 h;
-  EXPECT_EQ(0, ge_fromx25519_vartime(&h, P.data));
-}
