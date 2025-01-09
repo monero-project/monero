@@ -33,7 +33,6 @@
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/payment_proposal.h"
 #include "crypto/crypto.h"
-#include "crypto/x25519.h"
 #include "device/device.hpp"
 #include "performance_tests.h"
 #include "ringct/rctOps.h"
@@ -222,7 +221,7 @@ public:
             m_encrypted_payment_id);
         m_enote = output_proposal.enote;
 
-        crypto::x25519_pubkey s_sender_receiver_unctx;
+        mx25519_pubkey s_sender_receiver_unctx;
         carrot::make_carrot_uncontextualized_shared_key_receiver(m_k_view_incoming,
             m_enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
@@ -266,7 +265,7 @@ public:
 
     bool test()
     {
-        crypto::x25519_pubkey s_sender_receiver_unctx;
+        mx25519_pubkey s_sender_receiver_unctx;
         carrot::make_carrot_uncontextualized_shared_key_receiver(m_k_view_incoming,
             m_enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);

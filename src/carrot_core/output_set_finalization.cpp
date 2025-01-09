@@ -98,7 +98,7 @@ tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1
     const rct::xmr_amount remaining_change,
     const bool have_payment_type_selfsend,
     const crypto::public_key &change_address_spend_pubkey,
-    const crypto::x25519_pubkey &other_enote_ephemeral_pubkey)
+    const mx25519_pubkey &other_enote_ephemeral_pubkey)
 {
     const std::optional<AdditionalOutputType> additional_output_type = get_additional_output_type(
             num_outgoing,
@@ -131,7 +131,7 @@ tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1
             .destination_address_spend_pubkey = change_address_spend_pubkey,
             .amount = remaining_change,
             .enote_type = CarrotEnoteType::CHANGE,
-            .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen()
+            .enote_ephemeral_pubkey = gen_x25519_pubkey()
         };
     case AdditionalOutputType::DUMMY:
         return CarrotPaymentProposalV1{
@@ -245,7 +245,7 @@ void get_output_enote_proposals(std::vector<CarrotPaymentProposalV1> &&normal_pa
     {
         return memcmp(&a.enote.enote_ephemeral_pubkey,
             &b.enote.enote_ephemeral_pubkey,
-            sizeof(crypto::x25519_pubkey)) < 0;
+            sizeof(mx25519_pubkey)) < 0;
     };
     std::sort(output_enote_proposals_out.begin(), output_enote_proposals_out.end(), sort_by_ephemeral_pubkey);
     const bool has_unique_ephemeral_pubkeys = tools::is_sorted_and_unique(output_enote_proposals_out,

@@ -33,7 +33,6 @@
 
 //local headers
 #include "carrot_enote_types.h"
-#include "crypto/x25519.h"
 #include "destination.h"
 #include "device.h"
 #include "ringct/rctTypes.h"
@@ -77,7 +76,7 @@ struct CarrotPaymentProposalSelfSendV1 final
     /// enote_type
     CarrotEnoteType enote_type;
     /// enote ephemeral pubkey: xr G
-    crypto::x25519_pubkey enote_ephemeral_pubkey;
+    mx25519_pubkey enote_ephemeral_pubkey;
     /// anchor: arbitrary, pre-encrypted message for _internal_ selfsends
     std::optional<janus_anchor_t> internal_message;
 };
@@ -105,7 +104,7 @@ bool operator<(const RCTOutputEnoteProposal &a, const RCTOutputEnoteProposal &b)
 * param: input_context -
 * return: D_e
 */
-crypto::x25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
+mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context);
 /**
 * brief: get_coinbase_output_proposal_v1 - convert the carrot proposal to a coinbase output proposal

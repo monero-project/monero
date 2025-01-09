@@ -31,6 +31,7 @@
 #pragma once
 
 //local headers
+#include "mx25519.h"
 
 //third party headers
 
@@ -126,5 +127,7 @@ payment_id_t gen_payment_id();
 view_tag_t gen_view_tag();
 /// generate a random input context
 input_context_t gen_input_context();
+/// generate a random X25519 pubkey (unclamped)
+mx25519_pubkey gen_x25519_pubkey();
 
 } //namespace carrot

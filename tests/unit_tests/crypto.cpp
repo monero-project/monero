@@ -35,12 +35,11 @@
 extern "C"
 {
 #include "crypto/crypto-ops.h"
-#include "mx25519.h"
 }
-#include "crypto/x25519.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
+#include "mx25519.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "string_tools.h"
@@ -59,7 +58,6 @@ namespace
     "6c7251d54154cfa92c173a0dd39c1f948b655970153799af2aeadc9ff1add0ea";
 
   template<typename T> void *addressof(T &t) { return &t; }
-  template<> void *addressof(crypto::secret_key &k) { return addressof(unwrap(unwrap(k))); }
 
   template<typename T>
   bool is_formatted()
@@ -414,10 +412,10 @@ TEST(Crypto, x25519_impl_scmul_key_convergence)
 
   dump_mx25519_impls(available_impls);
 
-  crypto::x25519_pubkey P_fixed;
+  mx25519_pubkey P_fixed;
   epee::string_tools::hex_to_pod("8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a", P_fixed);
 
-  crypto::x25519_pubkey P_random;
+  mx25519_pubkey P_random;
   rct::key tmp = rct::pkGen();
   edwards_bytes_to_x25519_vartime(P_random.data, tmp.bytes);
 
@@ -541,9 +539,9 @@ TEST(Crypto, x25519_secret_key_8_scmul_base)
 TEST(Crypto, ConvertPointE_Base)
 {
   const crypto::public_key G = crypto::get_G();
-  const crypto::x25519_pubkey B_expected = {{9}};
+  const mx25519_pubkey B_expected = {{9}};
 
-  crypto::x25519_pubkey B_actual;
+  mx25519_pubkey B_actual;
   edwards_bytes_to_x25519_vartime(B_actual.data, to_bytes(G));
 
   EXPECT_EQ(B_expected, B_actual);
@@ -551,53 +549,63 @@ TEST(Crypto, ConvertPointE_Base)
 
 TEST(Crypto, ConvertPointE_PreserveScalarMultBase)
 {
-  // *clamped* private key a
-  const crypto::secret_key a = rct::rct2sk(rct::skGen());
-  rct::key a_key;
-  memcpy(&a_key, &a, sizeof(rct::key));
+  const std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
 
-  // P_ed = a G
-  const rct::key P_edward = rct::scalarmultBase(a_key);
+  for (const mx25519_impl *impl : available_impls)
+  {
+    // *clamped* private key a
+    const crypto::secret_key a = rct::rct2sk(rct::skGen());
+    rct::key a_key;
+    memcpy(&a_key, &a, sizeof(rct::key));
 
-  // P_mont = a B
-  crypto::x25519_pubkey P_mont;
-  crypto::x25519_scmul_base(a, P_mont);
+    // P_ed = a G
+    const rct::key P_edward = rct::scalarmultBase(a_key);
 
-  // P_mont' = ConvertPointE(P_ed)
-  crypto::x25519_pubkey P_mont_converted;
-  edwards_bytes_to_x25519_vartime(P_mont_converted.data, P_edward.bytes);
+    // P_mont = a B
+    mx25519_pubkey P_mont;
+    mx25519_scmul_base(impl, &P_mont, reinterpret_cast<const mx25519_privkey*>(&a));
 
-  // P_mont' ?= P_mont
-  EXPECT_EQ(P_mont_converted, P_mont);
+    // P_mont' = ConvertPointE(P_ed)
+    mx25519_pubkey P_mont_converted;
+    edwards_bytes_to_x25519_vartime(P_mont_converted.data, P_edward.bytes);
+
+    // P_mont' ?= P_mont
+    EXPECT_EQ(P_mont_converted, P_mont);
+  }
 }
 
 TEST(Crypto, ConvertPointE_PreserveScalarMultBase_gep3)
 {
   // compared to ConvertPointE_PreserveScalarMultBase, this test will use Z != 1 (probably)
 
-  const crypto::secret_key a = rct::rct2sk(rct::skGen());
-  rct::key a_key;
-  memcpy(&a_key, &a, sizeof(rct::key));
+  const std::vector<const mx25519_impl*> available_impls = get_available_mx25519_impls();
 
-  // P_ed = a G
-  ge_p3 P_p3;
-  ge_scalarmult_base(&P_p3, to_bytes(a));
+  for (const mx25519_impl *impl : available_impls)
+  {
+    const crypto::secret_key a = rct::rct2sk(rct::skGen());
+    rct::key a_key;
+    memcpy(&a_key, &a, sizeof(rct::key));
 
-  // check that Z != 1, otherwise this test is a dup of ConvertPointE_PreserveScalarMultBase
-  rct::key Z_bytes;
-  fe_tobytes(Z_bytes.bytes, P_p3.Z);
-  ASSERT_NE(Z_bytes, rct::I); // check Z != 1
+    // P_ed = a G
+    ge_p3 P_p3;
+    ge_scalarmult_base(&P_p3, to_bytes(a));
 
-  // P_mont = a B
-  crypto::x25519_pubkey P_mont;
-  crypto::x25519_scmul_base(a, P_mont);
+    // check that Z != 1, otherwise this test is a dup of ConvertPointE_PreserveScalarMultBase
+    rct::key Z_bytes;
+    fe_tobytes(Z_bytes.bytes, P_p3.Z);
+    ASSERT_NE(Z_bytes, rct::I); // check Z != 1
 
-  // P_mont' = ConvertPointE(P_ed)
-  crypto::x25519_pubkey P_mont_converted;
-  ge_p3_to_x25519(P_mont_converted.data, &P_p3);
+    // P_mont = a B
+    mx25519_pubkey P_mont;
+    mx25519_scmul_base(impl, &P_mont, reinterpret_cast<const mx25519_privkey*>(&a));
 
-  // P_mont' ?= P_mont
-  EXPECT_EQ(P_mont_converted, P_mont);
+    // P_mont' = ConvertPointE(P_ed)
+    mx25519_pubkey P_mont_converted;
+    ge_p3_to_x25519(P_mont_converted.data, &P_p3);
+
+    // P_mont' ?= P_mont
+    EXPECT_EQ(P_mont_converted, P_mont);
+  }
 }
 
 TEST(Crypto, ConvertPointE_EraseSign)
@@ -608,10 +616,10 @@ TEST(Crypto, ConvertPointE_EraseSign)
   rct::key negP;
   rct::subKeys(negP, rct::I, P);
 
-  crypto::x25519_pubkey P_mont;
+  mx25519_pubkey P_mont;
   edwards_bytes_to_x25519_vartime(P_mont.data, P.bytes);
 
-  crypto::x25519_pubkey negP_mont;
+  mx25519_pubkey negP_mont;
   edwards_bytes_to_x25519_vartime(negP_mont.data, negP.bytes);
 
   EXPECT_EQ(P_mont, negP_mont);

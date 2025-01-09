@@ -32,8 +32,8 @@
 
 //local headers
 #include "crypto/crypto.h"
-#include "crypto/x25519.h"
 #include "core_types.h"
+#include "mx25519.h"
 #include "ringct/rctTypes.h"
 
 //third party headers
@@ -68,7 +68,7 @@ void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
  * outparam: enote_ephemeral_pubkey_out - D_e
  */
 void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &enote_ephemeral_privkey,
-    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
+    mx25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * brief: make_carrot_enote_ephemeral_pubkey_subaddress - make enote ephemeral pubkey D_e for a subaddress
  *   D_e = d_e ConvertPointE(K^j_s)
@@ -78,7 +78,7 @@ void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &eno
  */
 void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
-    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
+    mx25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * brief: make_carrot_uncontextualized_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
  *   s_sr = k_v D_e
@@ -88,8 +88,8 @@ void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &eno
  * return: true if successful, false if a failure occurred in point decompression
  */
 bool make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &k_view,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
-    crypto::x25519_pubkey &s_sender_receiver_unctx_out);
+    const mx25519_pubkey &enote_ephemeral_pubkey,
+    mx25519_pubkey &s_sender_receiver_unctx_out);
 /**
  * brief: make_carrot_uncontextualized_shared_key_sender - perform the sender-side ECDH exchange for Carrot enotes
  *   s_sr = d_e ConvertPointE(K^j_v)
@@ -100,7 +100,7 @@ bool make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &
  */
 bool make_carrot_uncontextualized_shared_key_sender(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_view_pubkey,
-    crypto::x25519_pubkey &s_sender_receiver_unctx_out);
+    mx25519_pubkey &s_sender_receiver_unctx_out);
 /**
 * brief: make_carrot_view_tag - used for optimized identification of enotes
 *    vt = H_3(s_sr || input_context || Ko)
@@ -137,7 +137,7 @@ void make_carrot_input_context(const crypto::key_image &first_rct_key_image, inp
 *   - note: this is 'crypto::hash' instead of 'crypto::secret_key' for better performance in multithreaded environments
 */
 void make_carrot_sender_receiver_secret(const unsigned char s_sender_receiver_unctx[32],
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const mx25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     crypto::hash &s_sender_receiver_out);
 /**
@@ -304,7 +304,7 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_pa
  * param: account_spend_pubkey - K_s
  * outparam: anchor_special_out - anchor_sp
  */
-void make_carrot_janus_anchor_special(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const crypto::public_key &onetime_address,
     const crypto::secret_key &k_view,
@@ -388,5 +388,5 @@ bool verify_carrot_external_janus_protection(const janus_anchor_t &nominal_ancho
     const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey);
+    const mx25519_pubkey &enote_ephemeral_pubkey);
 } //namespace carrot

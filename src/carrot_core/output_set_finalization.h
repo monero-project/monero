@@ -85,7 +85,7 @@ tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1
     const rct::xmr_amount remaining_change,
     const bool have_payment_type_selfsend,
     const crypto::public_key &change_address_spend_pubkey,
-    const crypto::x25519_pubkey &other_enote_ephemeral_pubkey);
+    const mx25519_pubkey &other_enote_ephemeral_pubkey);
 /**
  * brief: get_output_enote_proposals - convert a *finalized* set of payment proposals into output enote proposals
  * param: normal_payment_proposals -

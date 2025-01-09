@@ -43,39 +43,41 @@ using namespace carrot;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+namespace
+{
 // https://github.com/jedisct1/libsodium/blob/master/src/libsodium/crypto_scalarmult/curve25519/ref10/x25519_ref10.c#L17
-  static const crypto::x25519_pubkey x25519_small_order_points[7] = {
-      /* 0 (order 4) */
-      {{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+static const mx25519_pubkey x25519_small_order_points[7] = {
+    /* 0 (order 4) */
+    {{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }},
-      /* 1 (order 1) */
-      {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    /* 1 (order 1) */
+    {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }},
-      /* 325606250916557431795983626356110631294008115727848805560023387167927233504
-          (order 8) */
-      {{ 0xe0, 0xeb, 0x7a, 0x7c, 0x3b, 0x41, 0xb8, 0xae, 0x16, 0x56, 0xe3,
+    /* 325606250916557431795983626356110631294008115727848805560023387167927233504
+        (order 8) */
+    {{ 0xe0, 0xeb, 0x7a, 0x7c, 0x3b, 0x41, 0xb8, 0xae, 0x16, 0x56, 0xe3,
         0xfa, 0xf1, 0x9f, 0xc4, 0x6a, 0xda, 0x09, 0x8d, 0xeb, 0x9c, 0x32,
         0xb1, 0xfd, 0x86, 0x62, 0x05, 0x16, 0x5f, 0x49, 0xb8, 0x00 }},
-      /* 39382357235489614581723060781553021112529911719440698176882885853963445705823
-          (order 8) */
-      {{ 0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24, 0xb1, 0xd0, 0xb1,
+    /* 39382357235489614581723060781553021112529911719440698176882885853963445705823
+        (order 8) */
+    {{ 0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24, 0xb1, 0xd0, 0xb1,
         0x55, 0x9c, 0x83, 0xef, 0x5b, 0x04, 0x44, 0x5c, 0xc4, 0x58, 0x1c,
         0x8e, 0x86, 0xd8, 0x22, 0x4e, 0xdd, 0xd0, 0x9f, 0x11, 0x57 }},
-      /* p-1 (order 2) */
-      {{ 0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    /* p-1 (order 2) */
+    {{ 0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f }},
-      /* p (=0, order 4) */
-      {{ 0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    /* p (=0, order 4) */
+    {{ 0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f }},
-      /* p+1 (=1, order 1) */
-      {{ 0xee, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    /* p+1 (=1, order 1) */
+    {{ 0xee, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f }}
-  };
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 struct mock_carrot_keys
@@ -173,7 +175,7 @@ static void unittest_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
         const CarrotEnoteV1 &enote = enotes.at(output_index);
 
         // s_sr = k_v D_e
-        crypto::x25519_pubkey s_sr;
+        mx25519_pubkey s_sr;
         make_carrot_uncontextualized_shared_key_receiver(keys.k_view, enote.enote_ephemeral_pubkey, s_sr);
 
         unittest_carrot_scan_result_t scan_result{};
@@ -218,6 +220,11 @@ static void unittest_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
             res.push_back(scan_result);
     }
 }
+} // namespace
+static inline bool operator==(const mx25519_pubkey &a, const mx25519_pubkey &b)
+{
+    return 0 == memcmp(&a, &b, sizeof(mx25519_pubkey));
+}
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, ECDH_cryptonote_completeness)
@@ -227,13 +234,13 @@ TEST(carrot_core, ECDH_cryptonote_completeness)
     crypto::secret_key k_ephem = rct::rct2sk(rct::skGen());
     ASSERT_NE(k_view, k_ephem);
 
-    crypto::x25519_pubkey enote_ephemeral_pubkey;
+    mx25519_pubkey enote_ephemeral_pubkey;
     make_carrot_enote_ephemeral_pubkey_cryptonote(k_ephem, enote_ephemeral_pubkey);
 
-    crypto::x25519_pubkey s_sr_sender;
+    mx25519_pubkey s_sr_sender;
     ASSERT_TRUE(make_carrot_uncontextualized_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
 
-    crypto::x25519_pubkey s_sr_receiver;
+    mx25519_pubkey s_sr_receiver;
     ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
 
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
@@ -247,13 +254,13 @@ TEST(carrot_core, ECDH_subaddress_completeness)
     crypto::secret_key k_ephem = rct::rct2sk(rct::skGen());
     ASSERT_NE(k_view, k_ephem);
 
-    crypto::x25519_pubkey enote_ephemeral_pubkey;
+    mx25519_pubkey enote_ephemeral_pubkey;
     make_carrot_enote_ephemeral_pubkey_subaddress(k_ephem, spend_pubkey, enote_ephemeral_pubkey);
 
-    crypto::x25519_pubkey s_sr_sender;
+    mx25519_pubkey s_sr_sender;
     ASSERT_TRUE(make_carrot_uncontextualized_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
 
-    crypto::x25519_pubkey s_sr_receiver;
+    mx25519_pubkey s_sr_receiver;
     ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
 
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
@@ -261,15 +268,18 @@ TEST(carrot_core, ECDH_subaddress_completeness)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, ECDH_mx25519_convergence)
 {
-    const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
+    const mx25519_pubkey P = gen_x25519_pubkey();
     const crypto::secret_key a = rct::rct2sk(rct::skGen());
 
+    const mx25519_impl *impl = mx25519_select_impl(MX25519_TYPE_AUTO);
+    ASSERT_NE(nullptr, impl);
+
     // do Q = a * P using mx25519
-    crypto::x25519_pubkey Q_mx25519;
-    crypto::x25519_scmul_key(a, P, Q_mx25519);
+    mx25519_pubkey Q_mx25519;
+    mx25519_scmul_key(impl, &Q_mx25519, reinterpret_cast<const mx25519_privkey*>(&a), &P);
 
     // do Q = a * P using make_carrot_uncontextualized_shared_key_receiver()
-    crypto::x25519_pubkey Q_carrot;
+    mx25519_pubkey Q_carrot;
     ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(a, P, Q_carrot));
 
     // check equal
@@ -302,7 +312,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
     const rct::key recomputed_amount_commitment = rct::commit(enote_proposal.amount, rct::sk2rct(enote_proposal.amount_blinding_factor));
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-    crypto::x25519_pubkey s_sender_receiver_unctx;
+    mx25519_pubkey s_sender_receiver_unctx;
     make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
@@ -379,7 +389,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
     const rct::key recomputed_amount_commitment = rct::commit(enote_proposal.amount, rct::sk2rct(enote_proposal.amount_blinding_factor));
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-    crypto::x25519_pubkey s_sender_receiver_unctx;
+    mx25519_pubkey s_sender_receiver_unctx;
     make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
@@ -464,7 +474,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
     const rct::key recomputed_amount_commitment = rct::commit(enote_proposal.amount, rct::sk2rct(enote_proposal.amount_blinding_factor));
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-    crypto::x25519_pubkey s_sender_receiver_unctx;
+    mx25519_pubkey s_sender_receiver_unctx;
     make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
@@ -523,7 +533,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
             .destination_address_spend_pubkey = keys.account_spend_pubkey,
             .amount = crypto::rand<rct::xmr_amount>(),
             .enote_type = enote_type,
-            .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen(),
+            .enote_ephemeral_pubkey = gen_x25519_pubkey(),
         };
 
         const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
@@ -539,7 +549,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
         const rct::key recomputed_amount_commitment = rct::commit(enote_proposal.amount, rct::sk2rct(enote_proposal.amount_blinding_factor));
         ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-        crypto::x25519_pubkey s_sender_receiver_unctx;
+        mx25519_pubkey s_sender_receiver_unctx;
         make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
             enote_proposal.enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
@@ -607,7 +617,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
             .destination_address_spend_pubkey = subaddress.address_spend_pubkey,
             .amount = crypto::rand<rct::xmr_amount>(),
             .enote_type = enote_type,
-            .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen(),
+            .enote_ephemeral_pubkey = gen_x25519_pubkey(),
         };
 
         const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
@@ -623,7 +633,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
         const rct::key recomputed_amount_commitment = rct::commit(enote_proposal.amount, rct::sk2rct(enote_proposal.amount_blinding_factor));
         ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-        crypto::x25519_pubkey s_sender_receiver_unctx;
+        mx25519_pubkey s_sender_receiver_unctx;
         make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
             enote_proposal.enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
@@ -696,7 +706,7 @@ TEST(carrot_core, main_address_internal_scan_completeness)
             .destination_address_spend_pubkey = main_address.address_spend_pubkey,
             .amount = crypto::rand<rct::xmr_amount>(),
             .enote_type = enote_type,
-            .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen(),
+            .enote_ephemeral_pubkey = gen_x25519_pubkey(),
             .internal_message = gen_janus_anchor()
         };
 
@@ -772,7 +782,7 @@ TEST(carrot_core, subaddress_internal_scan_completeness)
             .destination_address_spend_pubkey = subaddress.address_spend_pubkey,
             .amount = crypto::rand<rct::xmr_amount>(),
             .enote_type = enote_type,
-            .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen(),
+            .enote_ephemeral_pubkey = gen_x25519_pubkey(),
             .internal_message = gen_janus_anchor()
         };
 
@@ -859,7 +869,7 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
 
     ASSERT_EQ(proposal.amount, enote.amount);
 
-    crypto::x25519_pubkey s_sender_receiver_unctx;
+    mx25519_pubkey s_sender_receiver_unctx;
     make_carrot_uncontextualized_shared_key_receiver(keys.k_view,
         enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);

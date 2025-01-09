@@ -31,6 +31,10 @@
 
 //local headers
 #include "crypto/crypto.h"
+extern "C"
+{
+#include "crypto/crypto-ops.h"
+}
 
 //third party headers
 #include <cstring>
@@ -116,6 +120,18 @@ view_tag_t gen_view_tag()
 input_context_t gen_input_context()
 {
     return crypto::rand<input_context_t>();
+}
+//-------------------------------------------------------------------------------------------------------------------
+mx25519_pubkey gen_x25519_pubkey()
+{
+    unsigned char sc64[64];
+    crypto::rand(sizeof(sc64), sc64);
+    sc_reduce(sc64);
+    ge_p3 P;
+    ge_scalarmult_base(&P, sc64);
+    mx25519_pubkey P_x25519;
+    ge_p3_to_x25519(P_x25519.data, &P);
+    return P_x25519;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

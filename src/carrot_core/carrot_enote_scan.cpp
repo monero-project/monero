@@ -104,7 +104,7 @@ bool verify_carrot_janus_protection(const input_context_t &input_context,
     const view_incoming_key_device &k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &nominal_address_spend_pubkey,
-    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    const mx25519_pubkey &enote_ephemeral_pubkey,
     const janus_anchor_t &nominal_anchor,
     payment_id_t &nominal_payment_id_inout)
 {
@@ -159,7 +159,7 @@ bool verify_carrot_janus_protection(const input_context_t &input_context,
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_coinbase_enote(const CarrotCoinbaseEnoteV1 &enote,
-    const crypto::x25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver_unctx,
     const view_incoming_key_device &k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     crypto::secret_key &sender_extension_g_out,
@@ -228,7 +228,7 @@ bool try_scan_carrot_coinbase_enote(const CarrotCoinbaseEnoteV1 &enote,
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> encrypted_payment_id,
-    const crypto::x25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver_unctx,
     const view_incoming_key_device &k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     crypto::secret_key &sender_extension_g_out,
