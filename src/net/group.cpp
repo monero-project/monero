@@ -90,12 +90,35 @@ uint32_t DecodeBits(std::vector<bool>::const_iterator& bitpos, const std::vector
     return INVALID; // Reached EOF in exponent
 }
 
+// See https://github.com/bitcoin/bitcoin/blob/master/contrib/asmap/asmap.py#L148
 enum class Instruction : uint32_t
 {
+    /**One instruction in the binary asmap format.
+       A return instruction, encoded as [0], returns a constant ASN. It is followed by
+       an integer using the ASN encoding.*/
     RETURN = 0,
+    /**A jump instruction, encoded as [1,0] inspects the next unused bit in the input
+       and either continues execution (if 0), or skips a specified number of bits (if 1).
+       It is followed by an integer, and then two subprograms. The integer uses jump encoding
+       and corresponds to the length of the first subprogram (so it can be skipped).*/
     JUMP = 1,
+    /**A match instruction, encoded as [1,1,0] inspects 1 or more of the next unused bits
+       in the input with its argument. If they all match, execution continues. If they do
+       not, failure is returned. If a default instruction has been executed before, instead
+       of failure the default instruction's argument is returned. It is followed by an
+       integer in match encoding, and a subprogram. That value is at least 2 bits and at
+       most 9 bits. An n-bit value signifies matching (n-1) bits in the input with the lower
+       (n-1) bits in the match value.*/
     MATCH = 2,
+    /**A default instruction, encoded as [1,1,1] sets the default variable to its argument,
+       and continues execution. It is followed by an integer in ASN encoding, and a subprogram.*/
     DEFAULT = 3,
+    /**Not an actual instruction, but a way to encode the empty program that fails. In the
+       encoder, it is used more generally to represent the failure case inside MATCH instructions,
+       which may (if used inside the context of a DEFAULT instruction) actually correspond to
+       a successful return. In this usage, they're always converted to an actual MATCH or RETURN
+      before the top level is reached (see make_default below).*/
+    END = 4
 };
 
 const std::vector<uint8_t> TYPE_BIT_SIZES{0, 0, 1};
