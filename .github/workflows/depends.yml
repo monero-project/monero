@@ -80,6 +80,7 @@ jobs:
         restore-keys: |
           depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
           depends-${{ matrix.toolchain.host }}-
+    - uses: ./.github/actions/set-make-job-count
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
@@ -92,7 +93,7 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make depends target=${{ matrix.toolchain.host }} -j4
+        make depends target=${{ matrix.toolchain.host }} -j${{env.MAKE_JOB_COUNT}}
     - uses: actions/upload-artifact@v4
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' || matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'aarch64-apple-darwin' || matrix.toolchain.host == 'x86_64-unknown-linux-gnu' }}
       with:
