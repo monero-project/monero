@@ -304,6 +304,7 @@ namespace rct {
       RCTTypeBulletproof2 = 4,
       RCTTypeCLSAG = 5,
       RCTTypeBulletproofPlus = 6,
+      RCTTypeFcmpPlusPlus = 7,
     };
     enum RangeProofType { RangeProofBorromean, RangeProofPaddedBulletproof };
     struct RCTConfig {
@@ -336,7 +337,7 @@ namespace rct {
           FIELD(type)
           if (type == RCTTypeNull)
             return ar.good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus && type != RCTTypeFcmpPlusPlus)
             return false;
           VARINT_FIELD(txnFee)
           // inputs/outputs not saved, only here for serialization help
@@ -365,7 +366,7 @@ namespace rct {
             return false;
           for (size_t i = 0; i < outputs; ++i)
           {
-            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
+            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus || type == RCTTypeFcmpPlusPlus)
             {
               // Since RCTTypeBulletproof2 enote types, we don't serialize the blinding factor, and only serialize the
               // first 8 bytes of ecdhInfo[i].amount
@@ -741,10 +742,12 @@ namespace rct {
     static inline const rct::key &sk2rct(const crypto::secret_key &sk) { return (const rct::key&)sk; }
     static inline const rct::key &ki2rct(const crypto::key_image &ki) { return (const rct::key&)ki; }
     static inline const rct::key &hash2rct(const crypto::hash &h) { return (const rct::key&)h; }
+    static inline const rct::key &pt2rct(const crypto::ec_point &pt) { return (const rct::key&)pt; }
     static inline const crypto::public_key &rct2pk(const rct::key &k) { return (const crypto::public_key&)k; }
     static inline const crypto::secret_key &rct2sk(const rct::key &k) { return (const crypto::secret_key&)k; }
     static inline const crypto::key_image &rct2ki(const rct::key &k) { return (const crypto::key_image&)k; }
     static inline const crypto::hash &rct2hash(const rct::key &k) { return (const crypto::hash&)k; }
+    static inline const crypto::ec_point &rct2pt(const rct::key &k) { return (const crypto::ec_point&)k; }
     static inline bool operator==(const rct::key &k0, const crypto::public_key &k1) { return !crypto_verify_32(k0.bytes, (const unsigned char*)&k1); }
     static inline bool operator!=(const rct::key &k0, const crypto::public_key &k1) { return crypto_verify_32(k0.bytes, (const unsigned char*)&k1); }
 }

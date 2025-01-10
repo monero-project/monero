@@ -733,19 +733,6 @@ bool gen_tx_output_is_not_txout_to_key::generate(std::vector<test_event_entry>& 
 
   builder.m_tx.vout.push_back(tx_out());
   builder.m_tx.vout.back().amount = 1;
-  builder.m_tx.vout.back().target = txout_to_script();
-
-  builder.step4_calc_hash();
-  builder.step5_sign(sources);
-
-  DO_CALLBACK(events, "mark_invalid_tx");
-  events.push_back(builder.m_tx);
-
-  builder.step1_init();
-  builder.step2_fill_inputs(miner_account.get_keys(), sources);
-
-  builder.m_tx.vout.push_back(tx_out());
-  builder.m_tx.vout.back().amount = 1;
   builder.m_tx.vout.back().target = txout_to_scripthash();
 
   builder.step4_calc_hash();
