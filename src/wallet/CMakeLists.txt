@@ -37,6 +37,8 @@ set(wallet_sources
   node_rpc_proxy.cpp
   message_store.cpp
   message_transporter.cpp
+  scanning_tools.cpp
+  tx_builder.cpp
 )
 
 monero_find_all_headers(wallet_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -51,6 +53,7 @@ target_link_libraries(wallet
     blockchain_db_utils
     rpc_base
     multisig
+    carrot_impl
     common
     cryptonote_core
     fcmp_pp
