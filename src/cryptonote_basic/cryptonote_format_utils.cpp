@@ -908,10 +908,13 @@ namespace cryptonote
   {
     // before HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_key
     // after HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_tagged_key
+    // after HF_VERSION_FCMP_PLUS_PLUS, outputs with public keys are of type txout_to_carrot_v1
     if (out.target.type() == typeid(txout_to_key))
       output_public_key = boost::get< txout_to_key >(out.target).key;
     else if (out.target.type() == typeid(txout_to_tagged_key))
       output_public_key = boost::get< txout_to_tagged_key >(out.target).key;
+    else if (out.target.type() == typeid(txout_to_carrot_v1))
+      output_public_key = boost::get< txout_to_carrot_v1 >(out.target).key;
     else
     {
       LOG_ERROR("Unexpected output target type found: " << out.target.type().name());
@@ -957,11 +960,33 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_output_types(const transaction& tx, const uint8_t hf_version)
   {
+    CHECK_AND_ASSERT_MES(tx.vout.size() > 0, false, "no outputs in transaction");
+
     for (const auto &o: tx.vout)
     {
-      if (hf_version > HF_VERSION_VIEW_TAGS)
+      if (hf_version > HF_VERSION_CARROT)
       {
-        // from v15, require outputs have view tags
+        // from v18, require outputs be carrot outputs
+        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_carrot_v1), false, "wrong variant type: "
+          << o.target.type().name() << ", expected txout_to_carrot_v1 in transaction id=" << get_transaction_hash(tx));
+      }
+      else if (hf_version == HF_VERSION_CARROT)
+      {
+        // during v17, require outputs be of type txout_to_tagged_key OR txout_to_carrot_v1
+        // to allow grace period before requiring all to be txout_to_carrot_v1
+        CHECK_AND_ASSERT_MES(
+          o.target.type() == typeid(txout_to_carrot_v1) || o.target.type() == typeid(txout_to_tagged_key),
+          false, "wrong variant type: " << o.target.type().name()
+          << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
+
+        // require all outputs in a tx be of the same type
+        CHECK_AND_ASSERT_MES(o.target.type() == tx.vout[0].target.type(), false, "non-matching variant types: "
+          << o.target.type().name() << " and " << tx.vout[0].target.type().name() << ", "
+          << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
+      }
+      else if (hf_version > HF_VERSION_VIEW_TAGS)
+      {
+        // from v16, require outputs have view tags
         CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
           << o.target.type().name() << ", expected txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
       }

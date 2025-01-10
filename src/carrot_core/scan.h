@@ -82,7 +82,7 @@ bool make_carrot_uncontextualized_shared_key_receiver(
     const mx25519_pubkey &enote_ephemeral_pubkey,
     mx25519_pubkey &s_sender_receiver_unctx_out);
 /**
- * brief: try_ecdh_and_scan_carrot_coinbase_enote - derive s_sr and attempt full scan process on coinbase enote
+ * brief: try_scan_carrot_coinbase_enote - attempt full scan process on coinbase enote
  * param: enote -
  * param: k_view_dev -
  * param: main_address_spend_pubkey - K^0_s
@@ -91,6 +91,20 @@ bool make_carrot_uncontextualized_shared_key_receiver(
  * param: sender_extension_g_out - k^t_o
  * return: true iff the scan process succeeded
  */
+bool try_scan_carrot_coinbase_enote(
+    const CarrotCoinbaseEnoteV1 &enote,
+    const mx25519_pubkey &s_sender_receiver_unctx,
+    const view_incoming_key_device &k_view_dev,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out);
+bool try_scan_carrot_coinbase_enote(
+    const CarrotCoinbaseEnoteV1 &enote,
+    const mx25519_pubkey &s_sender_receiver_unctx,
+    const view_incoming_key_device &k_view_dev,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out);
 bool try_ecdh_and_scan_carrot_coinbase_enote(
     const CarrotCoinbaseEnoteV1 &enote,
     const view_incoming_key_device &k_view_dev,
@@ -144,6 +158,28 @@ bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
     crypto::secret_key &amount_blinding_factor_out,
     payment_id_t &payment_id_out,
     CarrotEnoteType &enote_type_out);
+bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const view_incoming_key_device &k_view_dev,
+    const crypto::public_key &main_address_spend_pubkey,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    crypto::public_key &address_spend_pubkey_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    payment_id_t &payment_id_out,
+    CarrotEnoteType &enote_type_out);
+bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const view_incoming_key_device &k_view_dev,
+    const epee::span<const crypto::public_key> &main_address_spend_pubkeys,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    crypto::public_key &address_spend_pubkey_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    payment_id_t &payment_id_out,
+    CarrotEnoteType &enote_type_out);
 /**
  * brief: try_scan_carrot_enote_internal - attempt full scan process on internal enote
  * param: enote -
@@ -166,22 +202,6 @@ bool try_scan_carrot_enote_internal(const CarrotEnoteV1 &enote,
     crypto::secret_key &amount_blinding_factor_out,
     CarrotEnoteType &enote_type_out,
     janus_anchor_t &internal_message_out);
-/**
- * brief: try_ecdh_and_scan_carrot_enote_external - derive s_sr and attempt full scan process on external enote
- * 
- * Same as try_scan_carrot_enote_external() but paramater s_sender_receiver_unctx is calculated inside function
- */
-bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out);
 /**
  * brief: try_scan_carrot_enote_external_destination_only - attempt external scan process, w/o decrypting
  *                                                          amount or recomputing the amount commitment
