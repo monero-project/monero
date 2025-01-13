@@ -55,7 +55,7 @@ void make_carrot_index_extension_generator(const crypto::secret_key &s_generate_
     derive_bytes_32(transcript.data(), transcript.size(), &s_generate_address, &address_generator_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_subaddress_scalar(const crypto::public_key &spend_pubkey,
+void make_carrot_subaddress_scalar(const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &s_address_generator,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
@@ -63,11 +63,11 @@ void make_carrot_subaddress_scalar(const crypto::public_key &spend_pubkey,
 {
     // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR>(
-        spend_pubkey, j_major, j_minor);
+        account_spend_pubkey, j_major, j_minor);
     derive_scalar(transcript.data(), transcript.size(), &s_address_generator, subaddress_scalar_out.data);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_address_spend_pubkey(const crypto::public_key &spend_pubkey,
+void make_carrot_address_spend_pubkey(const crypto::public_key &account_spend_pubkey,
     const crypto::secret_key &s_generate_address,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
@@ -75,11 +75,11 @@ void make_carrot_address_spend_pubkey(const crypto::public_key &spend_pubkey,
 {
     // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
     crypto::secret_key subaddress_scalar;
-    make_carrot_subaddress_scalar(spend_pubkey, s_generate_address, j_major, j_minor, subaddress_scalar);
+    make_carrot_subaddress_scalar(account_spend_pubkey, s_generate_address, j_major, j_minor, subaddress_scalar);
 
     // K^j_s = k^j_subscal * K_s
     address_spend_pubkey_out = rct::rct2pk(rct::scalarmultKey(
-        rct::pk2rct(spend_pubkey), rct::sk2rct(subaddress_scalar)));
+        rct::pk2rct(account_spend_pubkey), rct::sk2rct(subaddress_scalar)));
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
