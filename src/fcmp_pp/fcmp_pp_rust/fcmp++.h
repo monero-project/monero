@@ -87,9 +87,37 @@ struct Slice {
   uintptr_t len;
 };
 
+struct OutputBytes {
+  const uint8_t *O_bytes;
+  const uint8_t *I_bytes;
+  const uint8_t *C_bytes;
+};
+
 using HeliosScalarSlice = Slice<HeliosScalar>;
 
 using SeleneScalarSlice = Slice<SeleneScalar>;
+
+using OutputSlice = Slice<OutputBytes>;
+
+using HeliosScalarChunks = Slice<HeliosScalarSlice>;
+
+using SeleneScalarChunks = Slice<SeleneScalarSlice>;
+
+using RerandomizedOutput = uint8_t *;
+
+using Blind = uint8_t *;
+
+using BlindedPoint = uint8_t *;
+
+using OutputBlinds = uint8_t *;
+
+using BranchBlind = uint8_t *;
+
+using BranchBlindSlice = Slice<BranchBlind>;
+
+using Ed25519ScalarBytes = uint8_t *;
+
+using TreeRoot = uint8_t *;
 
 extern "C" {
 HeliosPoint helios_hash_init_point();
@@ -118,6 +146,10 @@ HeliosScalar helios_zero_scalar();
 
 SeleneScalar selene_zero_scalar();
 
+TreeRoot selene_tree_root(SelenePoint selene_point);
+
+TreeRoot helios_tree_root(HeliosPoint helios_point);
+
 CResult hash_grow_helios(HeliosPoint existing_hash,
                                              uintptr_t offset,
                                              HeliosScalar existing_child_at_offset,
@@ -137,6 +169,38 @@ CResult hash_trim_selene(SelenePoint existing_hash,
                                              uintptr_t offset,
                                              SeleneScalarSlice children,
                                              SeleneScalar child_to_grow_back);
+
+CResult rerandomize_output(OutputBytes output);
+
+CResult o_blind(RerandomizedOutput rerandomized_output);
+CResult i_blind(RerandomizedOutput rerandomized_output);
+CResult i_blind_blind(RerandomizedOutput rerandomized_output);
+CResult c_blind(RerandomizedOutput rerandomized_output);
+
+CResult blind_o_blind(Blind o_blind);
+CResult blind_i_blind(Blind i_blind);
+CResult blind_i_blind_blind(Blind i_blind_blind);
+CResult blind_c_blind(Blind c_blind);
+
+CResult output_blinds_new(Blind o_blind,
+                                             Blind i_blind,
+                                             Blind i_blind_blind,
+                                             Blind c_blind);
+
+CResult helios_branch_blind();
+CResult selene_branch_blind();
+
+void prove(Ed25519ScalarBytes x,
+                                             Ed25519ScalarBytes y,
+                                             uintptr_t leaf_idx,
+                                             OutputSlice leaves,
+                                             HeliosScalarChunks helios_layer_chunks,
+                                             SeleneScalarChunks selene_layer_chunks,
+                                             RerandomizedOutput rerandomized_output,
+                                             OutputBlinds output_blinds,
+                                             BranchBlindSlice helios_branch_blinds,
+                                             BranchBlindSlice selene_branch_blinds,
+                                             TreeRoot tree_root);
 
 } // extern "C"
 }//namespace fcmp_pp_rust

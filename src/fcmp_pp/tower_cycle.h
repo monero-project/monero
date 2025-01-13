@@ -42,24 +42,37 @@ namespace tower_cycle
 //----------------------------------------------------------------------------------------------------------------------
 // Rust types
 //----------------------------------------------------------------------------------------------------------------------
+using OutputBytes = fcmp_pp_rust::OutputBytes;
+using OutputChunk = fcmp_pp_rust::OutputSlice;
+using RerandomizedOutput = fcmp_pp_rust::RerandomizedOutput;
+using Blind = fcmp_pp_rust::Blind;
+using BlindedPoint = fcmp_pp_rust::BlindedPoint;
+using OutputBlinds = fcmp_pp_rust::OutputBlinds;
+using BranchBlind = fcmp_pp_rust::BranchBlind;
+using BranchBlinds = fcmp_pp_rust::BranchBlindSlice;
+using Ed25519Scalar = fcmp_pp_rust::Ed25519ScalarBytes;
+using TreeRoot = fcmp_pp_rust::TreeRoot;
+//----------------------------------------------------------------------------------------------------------------------
 // Need to forward declare Scalar types for point_to_cycle_scalar below
 using SeleneScalar = fcmp_pp_rust::SeleneScalar;
 using HeliosScalar = fcmp_pp_rust::HeliosScalar;
 //----------------------------------------------------------------------------------------------------------------------
 struct HeliosT final
 {
-    using Scalar      = HeliosScalar;
-    using Point       = fcmp_pp_rust::HeliosPoint;
-    using Chunk       = fcmp_pp_rust::HeliosScalarSlice;
-    using CycleScalar = SeleneScalar;
+    using Scalar       = HeliosScalar;
+    using Point        = fcmp_pp_rust::HeliosPoint;
+    using Chunk        = fcmp_pp_rust::HeliosScalarSlice;
+    using CycleScalar  = SeleneScalar;
+    using ScalarChunks = fcmp_pp_rust::HeliosScalarChunks;
 };
 //----------------------------------------------------------------------------------------------------------------------
 struct SeleneT final
 {
-    using Scalar      = SeleneScalar;
-    using Point       = fcmp_pp_rust::SelenePoint;
-    using Chunk       = fcmp_pp_rust::SeleneScalarSlice;
-    using CycleScalar = HeliosScalar;
+    using Scalar       = SeleneScalar;
+    using Point        = fcmp_pp_rust::SelenePoint;
+    using Chunk        = fcmp_pp_rust::SeleneScalarSlice;
+    using CycleScalar  = HeliosScalar;
+    using ScalarChunks = fcmp_pp_rust::SeleneScalarChunks;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -101,10 +114,11 @@ class Helios final : public Curve<HeliosT>
 {
 //typedefs
 public:
-    using Scalar      = HeliosT::Scalar;
-    using Point       = HeliosT::Point;
-    using Chunk       = HeliosT::Chunk;
-    using CycleScalar = HeliosT::CycleScalar;
+    using Scalar       = HeliosT::Scalar;
+    using Point        = HeliosT::Point;
+    using Chunk        = HeliosT::Chunk;
+    using CycleScalar  = HeliosT::CycleScalar;
+    using ScalarChunks = HeliosT::ScalarChunks;
 
 //member functions
 public:
@@ -139,10 +153,11 @@ class Selene final : public Curve<SeleneT>
 {
 //typedefs
 public:
-    using Scalar      = SeleneT::Scalar;
-    using Point       = SeleneT::Point;
-    using Chunk       = SeleneT::Chunk;
-    using CycleScalar = SeleneT::CycleScalar;
+    using Scalar       = SeleneT::Scalar;
+    using Point        = SeleneT::Point;
+    using Chunk        = SeleneT::Chunk;
+    using CycleScalar  = SeleneT::CycleScalar;
+    using ScalarChunks = SeleneT::ScalarChunks;
 
 //member functions
 public:
@@ -185,6 +200,42 @@ template<typename C_POINTS, typename C_SCALARS>
 void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
     const std::vector<typename C_POINTS::Point> &points,
     std::vector<typename C_SCALARS::Scalar> &scalars_out);
+//----------------------------------------------------------------------------------------------------------------------
+TreeRoot selene_tree_root(const Selene::Point &point);
+TreeRoot helios_tree_root(const Helios::Point &point);
+//----------------------------------------------------------------------------------------------------------------------
+// TODO: consider putting this section somewhere better than tower_cycle
+RerandomizedOutput rerandomize_output(const OutputBytes output);
+
+Blind o_blind(const RerandomizedOutput rerandomized_output);
+Blind i_blind(const RerandomizedOutput rerandomized_output);
+Blind i_blind_blind(const RerandomizedOutput rerandomized_output);
+Blind c_blind(const RerandomizedOutput rerandomized_output);
+
+BlindedPoint blind_o_blind(const Blind o_blind);
+BlindedPoint blind_i_blind(const Blind i_blind);
+BlindedPoint blind_i_blind_blind(const Blind i_blind_blind);
+BlindedPoint blind_c_blind(const Blind c_blind);
+
+OutputBlinds output_blinds_new(const Blind blinded_o_blind,
+    const Blind blinded_i_blind,
+    const Blind blinded_i_blind_blind,
+    const Blind blinded_c_blind);
+
+BranchBlind helios_branch_blind();
+BranchBlind selene_branch_blind();
+
+void prove(const Ed25519Scalar x,
+    const Ed25519Scalar y,
+    std::size_t output_idx,
+    const OutputChunk &leaves,
+    const Helios::ScalarChunks &c1_layer_chunks,
+    const Selene::ScalarChunks &c2_layer_chunks,
+    const RerandomizedOutput rerandomized_output,
+    const OutputBlinds output_blinds,
+    const BranchBlinds &c1_branch_blinds,
+    const BranchBlinds &c2_branch_blinds,
+    const TreeRoot tree_root);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace tower_cycle

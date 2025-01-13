@@ -76,7 +76,9 @@ public:
     std::size_t get_n_leaf_tuples() const;
 
     // Grow tree by provided new_n_leaf_tuples
-    bool grow_tree(const std::size_t expected_old_n_leaf_tuples, const std::size_t new_n_leaf_tuples);
+    bool grow_tree(const std::size_t expected_old_n_leaf_tuples,
+        const std::size_t new_n_leaf_tuples,
+        const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs);
 
     // Trim the provided number of leaf tuples from the tree
     bool trim_tree(const std::size_t expected_old_n_leaf_tuples, const std::size_t trim_n_leaf_tuples);
@@ -87,8 +89,7 @@ public:
     // Get the path in the tree of the provided leaf idx
     CurveTreesV1::Path get_path_at_leaf_idx(const std::size_t leaf_idx) const;
 
-    // Hint: use num leaf tuples in the tree to determine the type
-    crypto::ec_point get_tree_root() const;
+    fcmp_pp::tower_cycle::TreeRoot get_tree_root() const;
 
 private:
     // Use the tree extension to extend the in-memory tree

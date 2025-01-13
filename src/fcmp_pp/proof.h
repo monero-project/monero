@@ -43,4 +43,15 @@ static inline std::size_t proof_len(const std::size_t n_inputs, const uint8_t cu
     return n_inputs * (std::size_t)curve_trees_tree_depth * 2;
 };
 
+// TODO: use consistent c1,c2 <> c1,c2 across C++ <> rust and rename below fns for c1 and c2
+static inline std::size_t n_necessary_helios_blinds(const uint8_t curve_trees_tree_depth)
+{
+    return curve_trees_tree_depth / 2;
+};
+
+static inline std::size_t n_necessary_selene_blinds(const uint8_t curve_trees_tree_depth)
+{
+    return (curve_trees_tree_depth / 2) + (curve_trees_tree_depth % 2);
+};
+
 }//namespace fcmp_pp

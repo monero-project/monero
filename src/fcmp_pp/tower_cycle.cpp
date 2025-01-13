@@ -278,6 +278,149 @@ template void extend_scalars_from_cycle_points<Selene, Helios>(const std::unique
     const std::vector<Selene::Point> &points,
     std::vector<Helios::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
+TreeRoot selene_tree_root(const Selene::Point &point) { return fcmp_pp_rust::selene_tree_root(point); }
+TreeRoot helios_tree_root(const Helios::Point &point) { return fcmp_pp_rust::helios_tree_root(point); }
+//----------------------------------------------------------------------------------------------------------------------
+RerandomizedOutput rerandomize_output(const OutputBytes output)
+{
+    auto result = fcmp_pp_rust::rerandomize_output(output);
+    if (result.err != nullptr)
+    {
+        free(result.err);
+        throw std::runtime_error("failed to rerandomize output");
+    }
+    return (RerandomizedOutput) result.value;
+}
+
+static Blind handle_blind_res(const std::string func, const fcmp_pp_rust::CResult &res)
+{
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to get randomized output's " + func);
+    }
+    return (Blind) res.value;
+}
+
+static BlindedPoint handle_blinded_res(const std::string func, const fcmp_pp_rust::CResult &res)
+{
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to " + func);
+    }
+    return (BlindedPoint) res.value;
+}
+
+Blind o_blind(const RerandomizedOutput rerandomized_output)
+{
+    auto result = fcmp_pp_rust::o_blind(rerandomized_output);
+    return handle_blind_res(__func__, result);
+}
+
+Blind i_blind(const RerandomizedOutput rerandomized_output)
+{
+    auto result = fcmp_pp_rust::i_blind(rerandomized_output);
+    return handle_blind_res(__func__, result);
+}
+
+Blind i_blind_blind(const RerandomizedOutput rerandomized_output)
+{
+    auto result = fcmp_pp_rust::i_blind_blind(rerandomized_output);
+    return handle_blind_res(__func__, result);
+}
+
+Blind c_blind(const RerandomizedOutput rerandomized_output)
+{
+    auto result = fcmp_pp_rust::c_blind(rerandomized_output);
+    return handle_blind_res(__func__, result);
+}
+
+BlindedPoint blind_o_blind(const Blind o_blind)
+{
+    auto res = fcmp_pp_rust::blind_o_blind(o_blind);
+    return handle_blinded_res(__func__, res);
+}
+
+BlindedPoint blind_i_blind(const Blind i_blind)
+{
+    auto res = fcmp_pp_rust::blind_i_blind(i_blind);
+    return handle_blinded_res(__func__, res);
+}
+
+BlindedPoint blind_i_blind_blind(const Blind i_blind_blind)
+{
+    auto res = fcmp_pp_rust::blind_i_blind_blind(i_blind_blind);
+    return handle_blinded_res(__func__, res);
+}
+
+BlindedPoint blind_c_blind(const Blind c_blind)
+{
+    auto res = fcmp_pp_rust::blind_c_blind(c_blind);
+    return handle_blinded_res(__func__, res);
+}
+
+OutputBlinds output_blinds_new(const Blind blinded_o_blind,
+    const Blind blinded_i_blind,
+    const Blind blinded_i_blind_blind,
+    const Blind blinded_c_blind)
+{
+    auto res = fcmp_pp_rust::output_blinds_new(blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to get new output blinds");
+    }
+    return (OutputBlinds) res.value;
+}
+
+static BranchBlind handle_branch_blind(const std::string func, const fcmp_pp_rust::CResult &res)
+{
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to get new " + func);
+    }
+    return (BranchBlind) res.value;
+}
+
+BranchBlind helios_branch_blind()
+{
+    const auto res = fcmp_pp_rust::helios_branch_blind();
+    return handle_branch_blind(__func__, res);
+}
+
+BranchBlind selene_branch_blind()
+{
+    const auto res = fcmp_pp_rust::selene_branch_blind();
+    return handle_branch_blind(__func__, res);
+}
+
+void prove(const Ed25519Scalar x,
+    const Ed25519Scalar y,
+    std::size_t output_idx,
+    const OutputChunk &leaves,
+    const Helios::ScalarChunks &c1_layer_chunks,
+    const Selene::ScalarChunks &c2_layer_chunks,
+    const RerandomizedOutput rerandomized_output,
+    const OutputBlinds output_blinds,
+    const BranchBlinds &c1_branch_blinds,
+    const BranchBlinds &c2_branch_blinds,
+    const TreeRoot tree_root)
+{
+    fcmp_pp_rust::prove(x,
+        y,
+        output_idx,
+        leaves,
+        c1_layer_chunks,
+        c2_layer_chunks,
+        rerandomized_output,
+        output_blinds,
+        c1_branch_blinds,
+        c2_branch_blinds,
+        tree_root);
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle
 } //namespace fcmp_pp
