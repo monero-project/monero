@@ -176,7 +176,8 @@ static bool trim_tree_db(const std::size_t expected_old_n_leaf_tuples,
                                                                                                       \
         /* Init tree in memory */                                                                     \
         CurveTreesGlobalTree global_tree(*curve_trees);                                               \
-        ASSERT_TRUE(global_tree.grow_tree(0, init_leaves));                                           \
+        const auto init_outputs = test::generate_random_outputs(*curve_trees, 0, init_leaves);        \
+        ASSERT_TRUE(global_tree.grow_tree(0, init_leaves, init_outputs));                             \
                                                                                                       \
         /* Init tree in db */                                                                         \
         INIT_BLOCKCHAIN_LMDB_TEST_DB(test_db, curve_trees);                                           \
@@ -262,16 +263,18 @@ std::size_t CurveTreesGlobalTree::get_n_leaf_tuples() const
     return m_tree.leaves.size();
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuples,const std::size_t new_n_leaf_tuples)
+bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuples,
+    const std::size_t new_n_leaf_tuples,
+    const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs)
 {
+    CHECK_AND_ASSERT_MES(new_outputs.size() == new_n_leaf_tuples, false, "unexpected n new outputs");
+
     // Do initial tree reads
     const std::size_t old_n_leaf_tuples = this->get_n_leaf_tuples();
     CHECK_AND_ASSERT_MES(old_n_leaf_tuples == expected_old_n_leaf_tuples, false, "unexpected old_n_leaf_tuples");
     const CurveTreesV1::LastHashes last_hashes = this->get_last_hashes();
 
     this->log_last_hashes(last_hashes);
-
-    auto new_outputs = test::generate_random_outputs(m_curve_trees, old_n_leaf_tuples, new_n_leaf_tuples);
 
     // Get a tree extension object to the existing tree using randomly generated leaves
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
@@ -531,26 +534,26 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     return path_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
-crypto::ec_point CurveTreesGlobalTree::get_tree_root() const
+fcmp_pp::tower_cycle::TreeRoot CurveTreesGlobalTree::get_tree_root() const
 {
     const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
 
     if (n_layers == 0)
-        return crypto::ec_point();
+        return nullptr;
 
     if ((n_layers % 2) == 0)
     {
         CHECK_AND_ASSERT_THROW_MES(!m_tree.c1_layers.empty(), "missing c1 layers");
         const auto &last_layer = m_tree.c1_layers.back();
-        CHECK_AND_ASSERT_THROW_MES(!last_layer.empty(), "missing elems from last c1 layer");
-        return m_curve_trees.m_c1->to_bytes(last_layer.back());
+        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
+        return fcmp_pp::tower_cycle::helios_tree_root(last_layer.back());
     }
     else
     {
         CHECK_AND_ASSERT_THROW_MES(!m_tree.c2_layers.empty(), "missing c2 layers");
         const auto &last_layer = m_tree.c2_layers.back();
-        CHECK_AND_ASSERT_THROW_MES(!last_layer.empty(), "missing elems from last c2 layer");
-        return m_curve_trees.m_c2->to_bytes(last_layer.back());
+        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
+        return fcmp_pp::tower_cycle::selene_tree_root(last_layer.back());
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -1079,7 +1082,8 @@ TEST(curve_trees, grow_tree)
         // Tree in memory
         // Copy the already existing global tree
         CurveTreesGlobalTree tree_copy(global_tree);
-        ASSERT_TRUE(tree_copy.grow_tree(init_leaves, ext_leaves));
+        const auto new_outputs = test::generate_random_outputs(*curve_trees, init_leaves, ext_leaves);
+        ASSERT_TRUE(tree_copy.grow_tree(init_leaves, ext_leaves, new_outputs));
 
         // Tree in db
         // Copy the already existing db
@@ -1152,19 +1156,21 @@ TEST(curve_trees, trim_tree_then_grow)
     {
         if (trim_leaves > init_leaves)
             continue;
+        const std::size_t n_leaves_after_trim = init_leaves - trim_leaves;
 
         // Tree in memory
         // Copy the already existing global tree
         CurveTreesGlobalTree tree_copy(global_tree);
         ASSERT_TRUE(tree_copy.trim_tree(init_leaves, trim_leaves));
-        ASSERT_TRUE(tree_copy.grow_tree(init_leaves - trim_leaves, grow_after_trim));
+        const auto new_outputs = test::generate_random_outputs(*curve_trees, n_leaves_after_trim, grow_after_trim);
+        ASSERT_TRUE(tree_copy.grow_tree(n_leaves_after_trim, grow_after_trim, new_outputs));
 
         // Tree in db
         // Copy the already existing db
         unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
         INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
         ASSERT_TRUE(trim_tree_db(init_leaves, trim_leaves, copy_db));
-        ASSERT_TRUE(grow_tree_db(init_leaves - trim_leaves, grow_after_trim, curve_trees, copy_db));
+        ASSERT_TRUE(grow_tree_db(n_leaves_after_trim, grow_after_trim, curve_trees, copy_db));
     }
 
     END_INIT_TREE_ITER()

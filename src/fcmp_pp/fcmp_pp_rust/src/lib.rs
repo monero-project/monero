@@ -1,8 +1,11 @@
+use rand_core::OsRng;
+
 use ciphersuite::{
     group::{
         ff::{Field, PrimeField},
-        GroupEncoding,
-    }, Ciphersuite, Helios, Selene
+        GroupEncoding, Group,
+    },
+    Ciphersuite, Helios, Selene, Ed25519
 };
 use dalek_ff_group::{EdwardsPoint, Scalar};
 use helioselene::{
@@ -10,9 +13,17 @@ use helioselene::{
 };
 
 use ec_divisors::{DivisorCurve, ScalarDecomposition};
-use full_chain_membership_proofs::{tree::{hash_grow, hash_trim}, Branches, CBlind, IBlind, IBlindBlind, OBlind, OutputBlinds, Path};
+use full_chain_membership_proofs::tree::{hash_grow, hash_trim};
 
-use monero_fcmp_plus_plus::{HELIOS_HASH_INIT, SELENE_HASH_INIT, HELIOS_GENERATORS, SELENE_GENERATORS, Curves};
+use monero_fcmp_plus_plus::{
+    HELIOS_HASH_INIT, SELENE_HASH_INIT, HELIOS_GENERATORS, SELENE_GENERATORS,
+    FCMP_PARAMS, Curves,
+    fcmps::{TreeRoot, Path, Branches, BranchBlind, BranchesWithBlinds, OBlind, IBlind, IBlindBlind, CBlind, OutputBlinds, Fcmp},
+    FcmpPlusPlus, Output,
+    sal::{RerandomizedOutput, OpenedInputTuple, SpendAuthAndLinkability},
+};
+
+use monero_generators::{T, FCMP_U, FCMP_V};
 
 // TODO: Use a macro to de-duplicate some of of this code
 
@@ -48,6 +59,22 @@ pub unsafe extern "C" fn branches_new(paths: *const Vec<Path<Curves>>) -> CResul
     } else {
         CResult::err(())
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn helios_branch_blind() -> CResult<BranchBlind::<<Helios as Ciphersuite>::G>, ()> {
+    CResult::ok(BranchBlind::<<Helios as Ciphersuite>::G>::new(
+        HELIOS_GENERATORS().h(),
+        ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
+    ))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn selene_branch_blind() -> CResult<BranchBlind::<<Selene as Ciphersuite>::G>, ()> {
+    CResult::ok(BranchBlind::<<Selene as Ciphersuite>::G>::new(
+        SELENE_GENERATORS().h(),
+        ScalarDecomposition::new(<Selene as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
+    ))
 }
 
 //-------------------------------------------------------------------------------------- ScalarDecomposition
@@ -100,7 +127,7 @@ pub unsafe extern "C" fn scalar_decomposition_new_selene(scalar: *const SeleneSc
 /// This function assume the that the scalar and point being passed in input are from 
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
-pub unsafe extern "C" fn output_blinds_new_edwards(
+pub unsafe extern "C" fn output_blinds_new(
     o_blind: *const OBlind<EdwardsPoint>, 
     i_blind: *const IBlind<EdwardsPoint>, 
     i_blind_blind: *const IBlindBlind<EdwardsPoint>, 
@@ -120,12 +147,12 @@ pub unsafe extern "C" fn output_blinds_new_edwards(
 
 /// # Safety 
 /// 
-/// This function assume the that the scalar and point being passed in input are from 
+/// This function assumes that the scalar being passed in input is from
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
-pub unsafe extern "C" fn oblind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<OBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
-        let blind = OBlind::new(*t, scalar);
+pub unsafe extern "C" fn blind_o_blind(o_blind: *const Scalar) -> CResult<OBlind<EdwardsPoint>, ()> {
+    if let Some(o_blind) = ScalarDecomposition::new(o_blind.read()) {
+        let blind = OBlind::new(EdwardsPoint(T()), o_blind);
         CResult::ok(blind)
     } else {
         CResult::err(())
@@ -156,12 +183,12 @@ pub extern "C" fn oblind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CRe
 
 /// # Safety 
 /// 
-/// This function assume the that the scalar and point being passed in input are from 
+/// This function assumes that the scalar being passed in input is from
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
-pub unsafe extern "C" fn cblind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<CBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
-        let blind = CBlind::new(*t, scalar);
+pub unsafe extern "C" fn blind_c_blind(c_blind: *const Scalar) -> CResult<CBlind<EdwardsPoint>, ()> {
+    if let Some(c_blind) = ScalarDecomposition::new(c_blind.read()) {
+        let blind = CBlind::new(EdwardsPoint::generator(), c_blind);
         CResult::ok(blind)
     } else {
         CResult::err(())
@@ -192,12 +219,12 @@ pub extern "C" fn cblind_new_selene(t: SelenePoint, scalar: SeleneScalar) -> CRe
 
 /// # Safety 
 /// 
-/// This function assume the that the scalar and point being passed in input are from 
+/// This function assumes that the scalar being passed in input is from
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
-pub unsafe extern "C" fn iblind_new_edwards(t: *const EdwardsPoint, v: *const EdwardsPoint, scalar: *const Scalar) -> CResult<IBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
-        let blind = IBlind::new(*t, *v, scalar);
+pub unsafe extern "C" fn blind_i_blind(i_blind: *const Scalar) -> CResult<IBlind<EdwardsPoint>, ()> {
+    if let Some(i_blind) = ScalarDecomposition::new(i_blind.read()) {
+        let blind = IBlind::new(EdwardsPoint(FCMP_U()), EdwardsPoint(FCMP_V()), i_blind);
         CResult::ok(blind)
     } else {
         CResult::err(())
@@ -228,12 +255,12 @@ pub extern "C" fn iblind_new_selene(t: SelenePoint, v: SelenePoint, scalar: Sele
 
 /// # Safety 
 /// 
-/// This function assume the that the scalar and point being passed in input are from 
+/// This function assumes that the scalar being passed in input is from
 /// allocated on the heap has been returned through a CResult instance.
 #[no_mangle]
-pub unsafe extern "C" fn iblind_blind_new_edwards(t: *const EdwardsPoint, scalar: *const Scalar) -> CResult<IBlindBlind<EdwardsPoint>, ()> {
-    if let Some(scalar) = ScalarDecomposition::new(scalar.read()) {
-        let blind = IBlindBlind::new(*t, scalar);
+pub unsafe extern "C" fn blind_i_blind_blind(i_blind_blind: *const Scalar) -> CResult<IBlindBlind<EdwardsPoint>, ()> {
+    if let Some(i_blind_blind) = ScalarDecomposition::new(i_blind_blind.read()) {
+        let blind = IBlindBlind::new(EdwardsPoint(T()), i_blind_blind);
         CResult::ok(blind)
     } else {
         CResult::err(())
@@ -313,6 +340,18 @@ pub extern "C" fn selene_point_from_bytes(selene_point: *const u8) -> SelenePoin
     <Selene>::read_G(&mut selene_point).unwrap()
 }
 
+fn ed25519_point_from_bytes(ed25519_point: *const u8) -> EdwardsPoint {
+    let mut ed25519_point = unsafe { core::slice::from_raw_parts(ed25519_point, 32) };
+    // TODO: Return an error here (instead of unwrapping)
+    <Ed25519>::read_G(&mut ed25519_point).unwrap()
+}
+
+fn ed25519_scalar_from_bytes(ed25519_scalar: *const u8) -> Scalar {
+    let mut ed25519_scalar = unsafe { core::slice::from_raw_parts(ed25519_scalar, 32) };
+    // TODO: Return an error here (instead of unwrapping)
+    <Ed25519>::read_F(&mut ed25519_scalar).unwrap()
+}
+
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
 pub extern "C" fn selene_scalar_from_bytes(selene_scalar: *const u8) -> SeleneScalar {
@@ -347,6 +386,24 @@ pub extern "C" fn selene_zero_scalar() -> SeleneScalar {
     SeleneScalar::ZERO
 }
 
+#[no_mangle]
+pub extern "C" fn selene_tree_root(selene_point: SelenePoint) -> *const u8 {
+    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C1(selene_point))) as *const u8
+}
+
+#[no_mangle]
+pub extern "C" fn helios_tree_root(helios_point: HeliosPoint) -> *const u8 {
+    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C2(helios_point))) as *const u8
+}
+
+#[allow(non_snake_case)]
+#[repr(C)]
+pub struct OutputBytes {
+    O: *const u8,
+    I: *const u8,
+    C: *const u8,
+}
+
 #[repr(C)]
 pub struct Slice<T> {
     buf: *const T,
@@ -354,8 +411,18 @@ pub struct Slice<T> {
 }
 pub type HeliosScalarSlice = Slice<HeliosScalar>;
 pub type SeleneScalarSlice = Slice<SeleneScalar>;
+pub type OutputSlice = Slice<OutputBytes>;
+pub type HeliosScalarChunks = Slice<HeliosScalarSlice>;
+pub type SeleneScalarChunks = Slice<SeleneScalarSlice>;
+pub type HeliosBranchBlindSlice = Slice<*const BranchBlind::<<Helios as Ciphersuite>::G>>;
+pub type SeleneBranchBlindSlice = Slice<*const BranchBlind::<<Selene as Ciphersuite>::G>>;
 impl<'a, T> From<Slice<T>> for &'a [T] {
     fn from(slice: Slice<T>) -> Self {
+        unsafe { core::slice::from_raw_parts(slice.buf, slice.len) }
+    }
+}
+impl<'a, T> From<&Slice<T>> for &'a [T] {
+    fn from(slice: &Slice<T>) -> Self {
         unsafe { core::slice::from_raw_parts(slice.buf, slice.len) }
     }
 }
@@ -470,6 +537,197 @@ pub extern "C" fn hash_trim_selene(
         // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
         CResult::err(())
     }
+}
+
+#[no_mangle]
+pub extern "C" fn o_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
+    let rerandomized_output = unsafe { (*output).clone() };
+    CResult::ok(rerandomized_output.o_blind())
+}
+
+#[no_mangle]
+pub extern "C" fn i_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
+    let rerandomized_output = unsafe { (*output).clone() };
+    CResult::ok(rerandomized_output.i_blind())
+}
+
+#[no_mangle]
+pub extern "C" fn i_blind_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
+    let rerandomized_output = unsafe { (*output).clone() };
+    CResult::ok(rerandomized_output.i_blind_blind())
+}
+
+#[no_mangle]
+pub extern "C" fn c_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
+    let rerandomized_output = unsafe { (*output).clone() };
+    CResult::ok(rerandomized_output.c_blind())
+}
+
+#[no_mangle]
+pub extern "C" fn rerandomize_output(output: OutputBytes) -> CResult<RerandomizedOutput, ()> {
+    // TODO: CResult::err() on failure of output decompression
+    // TODO: take in a de-compressed output
+    let output = Output::new(
+            ed25519_point_from_bytes(output.O),
+            ed25519_point_from_bytes(output.I),
+            ed25519_point_from_bytes(output.C),
+        )
+        .unwrap();
+
+    let rerandomized_output = RerandomizedOutput::new(&mut OsRng, output);
+    CResult::ok(rerandomized_output)
+}
+
+fn blind_branches(
+    branches: Branches<Curves>,
+    output_blinds: Vec<OutputBlinds<<Ed25519 as Ciphersuite>::G>>,
+    c1_branch_blinds: Vec<BranchBlind::<<Selene as Ciphersuite>::G>>,
+    c2_branch_blinds: Vec<BranchBlind::<<Helios as Ciphersuite>::G>>,
+  ) -> BranchesWithBlinds<Curves> {
+    if branches.necessary_c1_blinds() != c1_branch_blinds.len() {
+        panic!("unexpected size of c1 branch blinds");
+    }
+    if branches.necessary_c2_blinds() != c2_branch_blinds.len() {
+        panic!("unexpected size of c2 branch blinds");
+    }
+    branches.blind(output_blinds, c1_branch_blinds, c2_branch_blinds).unwrap()
+}
+
+#[no_mangle]
+pub extern "C" fn prove(// TODO: signable_tx_hash,
+    x: *const u8,
+    y: *const u8,
+    output_idx: usize,
+    leaves: OutputSlice,
+    helios_layer_chunks: HeliosScalarChunks,
+    selene_layer_chunks: SeleneScalarChunks,
+    // TODO: make sure these aren't getting consumed
+    rerandomized_output: *const RerandomizedOutput,
+    output_blinds: *const OutputBlinds<EdwardsPoint>,
+    helios_branch_blinds: HeliosBranchBlindSlice,
+    selene_branch_blinds: SeleneBranchBlindSlice,
+    // TODO: tree_root is only used for verify, remove it
+    tree_root: *const TreeRoot<Selene, Helios>,
+) {
+    // TODO: pass signable_tx_hash as param
+    let signable_tx_hash = [0; 32];
+
+    // SAL proof
+    let (input, spend_auth_and_linkability, L) = {
+        let x = ed25519_scalar_from_bytes(x);
+        let y = ed25519_scalar_from_bytes(y);
+        let rerandomized_output = unsafe { (*rerandomized_output).clone() };
+        let input = rerandomized_output.input();
+        let opening = OpenedInputTuple::open(rerandomized_output, &x, &y).unwrap();
+        let (L, spend_auth_and_linkability) =
+            SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
+        (input, spend_auth_and_linkability, L)
+    };
+
+    // Leaves
+    let leaves: &[OutputBytes] = leaves.into();
+    let leaves: Vec<Output> = leaves
+        .iter()
+        .map(|x| {
+            // TODO: don't unwrap, error
+            Output::new(
+                ed25519_point_from_bytes(x.O),
+                ed25519_point_from_bytes(x.I),
+                ed25519_point_from_bytes(x.C),
+            )
+            .unwrap()
+        })
+        .collect();
+
+    // Output
+    if output_idx >= leaves.len() {
+        // TODO: return error instead of panic
+        panic!("output_idx is too high");
+    }
+    let output = leaves[output_idx].clone();
+
+    // Helios layer chunks
+    let helios_layers: &[HeliosScalarSlice] = helios_layer_chunks.into();
+    let helios_layers: Vec<Vec<<Helios as Ciphersuite>::F>> = helios_layers
+        .iter()
+        .map(|x| {
+            let inner_slice: &[<Helios as Ciphersuite>::F] = x.into();
+            inner_slice.iter().map(|y| y.to_owned()).collect()
+        })
+        .collect();
+
+    // Selene layer chunks
+    let selene_layers: &[SeleneScalarSlice] = selene_layer_chunks.into();
+    let selene_layers: Vec<Vec<<Selene as Ciphersuite>::F>> = selene_layers
+        .iter()
+        .map(|x| {
+            let inner_slice: &[<Selene as Ciphersuite>::F] = x.into();
+            inner_slice.iter().map(|y| y.to_owned()).collect()
+        })
+        .collect();
+
+    let curve_2_layers = helios_layers;
+    let curve_1_layers = selene_layers;
+
+    let path: Path<Curves> = Path { output, leaves, curve_2_layers, curve_1_layers };
+    let branches = Branches::new(vec![path]).unwrap();
+
+    let output_blinds = unsafe { (*output_blinds).clone() };
+
+    // Collect branch blinds
+    let c1_branch_blinds: &[*const BranchBlind::<<Selene as Ciphersuite>::G>] = selene_branch_blinds.into();
+    let c1_branch_blinds: Vec<BranchBlind::<<Selene as Ciphersuite>::G>> = c1_branch_blinds
+        .iter()
+        .map(|x| unsafe { (*x.to_owned()).clone() })
+        .collect();
+
+    let c2_branch_blinds: &[*const BranchBlind::<<Helios as Ciphersuite>::G>] = helios_branch_blinds.into();
+    let c2_branch_blinds: Vec<BranchBlind::<<Helios as Ciphersuite>::G>> = c2_branch_blinds
+        .iter()
+        .map(|x| unsafe { (*x.to_owned()).clone() })
+        .collect();
+
+    // Blind branches with branch blinds
+    let n_layers = c1_branch_blinds.len() + c2_branch_blinds.len();
+    let blinded_branches = blind_branches(branches, vec![output_blinds], c1_branch_blinds, c2_branch_blinds);
+
+    // Membership proof
+    let fcmp = Fcmp::prove(
+            &mut OsRng,
+            FCMP_PARAMS(),
+            blinded_branches,
+        ).unwrap();
+
+    // Combine SAL and membership proof
+    let fcmp_plus_plus = FcmpPlusPlus::new(vec![(input, spend_auth_and_linkability)], fcmp);
+
+    // let mut buf = vec![];
+    // fcmp_plus_plus.write(&mut buf).unwrap();
+
+    // TODO: remove everything below
+    let mut ed_verifier = multiexp::BatchVerifier::new(1);
+    let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
+    let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
+
+    let tree_root: TreeRoot<Selene, Helios> = unsafe { (*tree_root).clone() };
+
+    // TODO: remove verify
+    fcmp_plus_plus
+      .verify(
+        &mut OsRng,
+        &mut ed_verifier,
+        &mut c1_verifier,
+        &mut c2_verifier,
+        tree_root,
+        n_layers,
+        signable_tx_hash,
+        vec![L],
+      )
+      .unwrap();
+
+    assert!(ed_verifier.verify_vartime());
+    assert!(SELENE_GENERATORS().verify(c1_verifier));
+    assert!(HELIOS_GENERATORS().verify(c2_verifier));
 }
 
 // https://github.com/rust-lang/rust/issues/79609
