@@ -27,7 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(carrot_impl_sources
-  tx_format.cpp
+  carrot_tx_format_utils.cpp
 )
 
 monero_find_all_headers(carrot_impl_headers, "${CMAKE_CURRENT_SOURCE_DIR}")

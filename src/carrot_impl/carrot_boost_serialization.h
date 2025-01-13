@@ -50,10 +50,12 @@ inline void serialize(Archive &a, carrot::view_tag_t &x, const boost::serializat
 {
     a & x.bytes;
 }
+//---------------------------------------------------
 template <class Archive>
 inline void serialize(Archive &a, carrot::encrypted_janus_anchor_t &x, const boost::serialization::version_type ver)
 {
     a & x.bytes;
 }
+//---------------------------------------------------
 } //namespace serialization
 } //namespace boot
