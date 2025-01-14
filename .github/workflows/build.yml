@@ -13,8 +13,7 @@ on:
 # The below variables reduce repetitions across similar targets
 env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
-  BUILD_DEFAULT_LINUX: |
-        cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --parallel 4
+  BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build'
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
   APT_SET_CONF: |
         tee -a /etc/apt/apt.conf.d/80-custom << EOF
@@ -41,6 +40,7 @@ jobs:
         path: /Users/runner/Library/Caches/ccache
         key: ccache-${{ runner.os }}-build-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-
+    - uses: ./.github/actions/set-make-job-count
     - name: install dependencies
       run: |
         HOMEBREW_NO_AUTO_UPDATE=1 brew install boost@1.85 hidapi openssl zmq miniupnpc expat libunwind-headers protobuf@21 ccache
@@ -48,7 +48,7 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make -j3
+        make -j${{env.MAKE_JOB_COUNT}}
 
   build-windows:
     runs-on: windows-latest
@@ -78,10 +78,11 @@ jobs:
         curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-boost-libs-1.86.0-7-any.pkg.tar.zst
         echo "4cb1d1066fffa6a5788b212ccb920c6d8cc93a8ecbbc633565bfc9b2ebc6feb5 mingw-w64-x86_64-boost-libs-1.86.0-7-any.pkg.tar.zst" | sha256sum -c
         pacman --noconfirm -U mingw-w64-x86_64-boost-1.86.0-7-any.pkg.tar.zst mingw-w64-x86_64-boost-libs-1.86.0-7-any.pkg.tar.zst
+    - uses: ./.github/actions/set-make-job-count
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        make release-static-win64 -j4
+        make release-static-win64 -j${{env.MAKE_JOB_COUNT}}
 
   build-debian:
     name: 'build-debian (debian-10)'
@@ -102,8 +103,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - uses: ./.github/actions/set-make-job-count
       - name: build
-        run: ${{env.BUILD_DEFAULT_LINUX}}
+        run: ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
 
 # See the OS labels and monitor deprecations here:
 # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
@@ -125,6 +127,7 @@ jobs:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
+    - uses: ./.github/actions/set-make-job-count
     - name: remove bundled packages
       run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
@@ -136,7 +139,7 @@ jobs:
     - name: build
       run: |
         ${{env.CCACHE_SETTINGS}}
-        ${{env.BUILD_DEFAULT_LINUX}}
+        ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
 
   libwallet-ubuntu:
     runs-on: ubuntu-20.04
@@ -151,6 +154,7 @@ jobs:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-libwallet-
+    - uses: ./.github/actions/set-make-job-count
     - name: remove bundled packages
       run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
@@ -163,7 +167,7 @@ jobs:
       run: |
         ${{env.CCACHE_SETTINGS}}
         cmake .
-        make wallet_api -j4
+        make wallet_api -j${{env.MAKE_JOB_COUNT}}
 
   test-ubuntu:
     needs: build-ubuntu
@@ -180,6 +184,7 @@ jobs:
         path: ~/.ccache
         key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
         restore-keys: ccache-${{ runner.os }}-build-ubuntu-latest
+    - uses: ./.github/actions/set-make-job-count
     - name: remove bundled packages
       run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
@@ -196,7 +201,7 @@ jobs:
         DNS_PUBLIC: tcp://9.9.9.9
       run: |
         ${{env.CCACHE_SETTINGS}}
-        ${{env.BUILD_DEFAULT_LINUX}}
+        ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
         cmake --build build --target test
 
 # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
