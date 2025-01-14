@@ -126,7 +126,7 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
         list(APPEND _proto_files "messages-debug.proto")
     endif ()
 
-    set(_proto_include_dir "${CMAKE_SOURCE_DIR}/external/trezor-common/protob")
+    set(_proto_include_dir "${CMAKE_SOURCE_DIR}/src/device_trezor/trezor/protob")
     set(_proto_files_absolute)
     foreach(file IN LISTS _proto_files)
         list(APPEND _proto_files_absolute "${_proto_include_dir}/${file}")
