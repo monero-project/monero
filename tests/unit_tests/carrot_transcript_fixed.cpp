@@ -42,13 +42,14 @@ TEST(carrot_transcript_fixed, sizeof_sum)
     EXPECT_EQ(12, (sp::detail::sizeof_sum<uint64_t, uint32_t>()));
 }
 
+static constexpr const unsigned char DS1[] = "perspicacious";
+static constexpr const unsigned char DS2[] = "recrudescence";
+
 TEST(carrot_transcript_fixed, ts_size)
 {
-    static constexpr const unsigned char DS1[14] = "perspicacious";
     const auto transcript1 = sp::make_fixed_transcript<DS1>((uint32_t)32);
     EXPECT_EQ(1 + 13 + 4, transcript1.size());
 
-    static constexpr const unsigned char DS2[14] = "recrudescence";
     const auto transcript2 = sp::make_fixed_transcript<DS2>((uint32_t)32, (uint64_t)64);
     EXPECT_EQ(1 + 13 + 4 + 8, transcript2.size());
 
