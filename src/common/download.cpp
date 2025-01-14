@@ -30,7 +30,6 @@
 #include <atomic>
 #include <boost/filesystem.hpp>
 #include <boost/thread/thread.hpp>
-#include "file_io_utils.h"
 #include "net/http_client.h"
 #include "download.h"
 
@@ -73,8 +72,11 @@ namespace tools
     {
       boost::unique_lock<boost::mutex> lock(control->mutex);
       std::ios_base::openmode mode = std::ios_base::out | std::ios_base::binary;
-      uint64_t existing_size = 0;
-      if (epee::file_io_utils::get_file_size(control->path, existing_size) && existing_size > 0)
+      boost::system::error_code ec{};
+      uint64_t existing_size = static_cast<uint64_t>(boost::filesystem::file_size(control->path, ec));
+      if (ec)
+        existing_size = 0;
+      if (existing_size > 0)
       {
         MINFO("Resuming downloading " << control->uri << " to " << control->path << " from " << existing_size);
         mode |= std::ios_base::app;
