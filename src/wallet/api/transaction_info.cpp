@@ -149,4 +149,19 @@ uint64_t TransactionInfoImpl::unlockTime() const
     return m_unlock_time;
 }
 
+std::uint64_t TransactionInfoImpl::receivedChangeAmount() const
+{
+    return m_change;
+}
+
+TransactionInfo::TxState TransactionInfoImpl::txState() const
+{
+    return m_tx_state;
+}
+
+bool TransactionInfoImpl::isDoubleSpendSeen() const
+{
+    return m_double_spend_seen;
+}
+
 } // namespace
