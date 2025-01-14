@@ -353,6 +353,14 @@ namespace cryptonote
       };
       typedef epee::misc_utils::struct_init<request_t> request;
     
+      struct standard_response_t
+      {
+        bool status;
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(status)
+        END_KV_SERIALIZE_MAP()
+      };
+      typedef epee::misc_utils::struct_init<standard_response_t> standard_response;
       
       struct response_t
       {
