@@ -63,6 +63,8 @@ public:
     virtual uint64_t confirmations() const override;
     virtual uint64_t unlockTime() const override;
 
+    std::uint64_t receivedChangeAmount() const override;
+    TxState txState() const override;
     bool isDoubleSpendSeen() const override;
 
 private:
@@ -83,6 +85,10 @@ private:
     std::vector<Transfer> m_transfers;
     uint64_t    m_confirmations;
     uint64_t    m_unlock_time;
+    // received change amount from outgoing transaction
+    std::uint64_t m_change;
+    // tx state : TxState_Pending / TxState_PendingInPool / TxState_Failed / TxState_Confirmed
+    TxState m_tx_state;
     // is double spend seen
     bool m_double_spend_seen;
 
