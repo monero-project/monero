@@ -915,6 +915,16 @@ namespace cryptonote
       */
      bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
 
+     /**
+       * @brief sets a sync notify object to call when we start/stop syncing
+      *
+      * @param notify the notify object to call
+      */
+     void add_sync_notify(boost::function<void(bool, uint64_t, uint64_t)> &&notify);
+
+     void on_start_syncing(uint64_t target);
+     void on_stop_syncing();
+
    private:
 
      /**
@@ -1162,6 +1172,8 @@ namespace cryptonote
 
      std::shared_ptr<tools::Notify> m_block_rate_notify;
      boost::function<void(std::vector<txpool_event>)> m_zmq_pub;
+
+     std::vector<boost::function<void(bool, std::uint64_t, std::uint64_t)>> m_sync_notifiers;
    };
 }
 
