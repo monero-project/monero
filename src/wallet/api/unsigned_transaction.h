@@ -55,6 +55,7 @@ public:
     bool sign(const std::string &signedFileName) override;
     std::string confirmationMessage() const override {return m_confirmationMessage;}
     uint64_t minMixinCount() const override;
+    std::string signAsString() override;
 
 private:
     // Callback function to check all loaded tx's and generate confirmationMessage
