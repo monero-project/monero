@@ -578,21 +578,6 @@ pub extern "C" fn rerandomize_output(output: OutputBytes) -> CResult<Rerandomize
     CResult::ok(rerandomized_output)
 }
 
-fn blind_branches(
-    branches: Branches<Curves>,
-    output_blinds: Vec<OutputBlinds<<Ed25519 as Ciphersuite>::G>>,
-    c1_branch_blinds: Vec<BranchBlind::<<Selene as Ciphersuite>::G>>,
-    c2_branch_blinds: Vec<BranchBlind::<<Helios as Ciphersuite>::G>>,
-  ) -> BranchesWithBlinds<Curves> {
-    if branches.necessary_c1_blinds() != c1_branch_blinds.len() {
-        panic!("unexpected size of c1 branch blinds");
-    }
-    if branches.necessary_c2_blinds() != c2_branch_blinds.len() {
-        panic!("unexpected size of c2 branch blinds");
-    }
-    branches.blind(output_blinds, c1_branch_blinds, c2_branch_blinds).unwrap()
-}
-
 #[no_mangle]
 pub extern "C" fn prove(// TODO: signable_tx_hash,
     x: *const u8,
@@ -611,18 +596,6 @@ pub extern "C" fn prove(// TODO: signable_tx_hash,
 ) {
     // TODO: pass signable_tx_hash as param
     let signable_tx_hash = [0; 32];
-
-    // SAL proof
-    let (input, spend_auth_and_linkability, L) = {
-        let x = ed25519_scalar_from_bytes(x);
-        let y = ed25519_scalar_from_bytes(y);
-        let rerandomized_output = unsafe { (*rerandomized_output).clone() };
-        let input = rerandomized_output.input();
-        let opening = OpenedInputTuple::open(rerandomized_output, &x, &y).unwrap();
-        let (L, spend_auth_and_linkability) =
-            SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
-        (input, spend_auth_and_linkability, L)
-    };
 
     // Leaves
     let leaves: &[OutputBytes] = leaves.into();
@@ -645,6 +618,19 @@ pub extern "C" fn prove(// TODO: signable_tx_hash,
         panic!("output_idx is too high");
     }
     let output = leaves[output_idx].clone();
+
+    // SAL proof
+    let (input, spend_auth_and_linkability, L) = {
+        let x = ed25519_scalar_from_bytes(x);
+        let y = ed25519_scalar_from_bytes(y);
+        let rerandomized_output = unsafe { (*rerandomized_output).clone() };
+        let input = rerandomized_output.input();
+        let opening = OpenedInputTuple::open(rerandomized_output, &x, &y).unwrap();
+        let (L, spend_auth_and_linkability) =
+            SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash.clone(), opening);
+        assert_eq!(output.I() * x, L);
+        (input, spend_auth_and_linkability, L)
+    };
 
     // Helios layer chunks
     let helios_layers: &[HeliosScalarSlice] = helios_layer_chunks.into();
@@ -688,8 +674,10 @@ pub extern "C" fn prove(// TODO: signable_tx_hash,
         .collect();
 
     // Blind branches with branch blinds
+    assert_eq!(branches.necessary_c1_blinds(), c1_branch_blinds.len());
+    assert_eq!(branches.necessary_c2_blinds(), c2_branch_blinds.len());
     let n_layers = c1_branch_blinds.len() + c2_branch_blinds.len();
-    let blinded_branches = blind_branches(branches, vec![output_blinds], c1_branch_blinds, c2_branch_blinds);
+    let blinded_branches = branches.blind(vec![output_blinds], c1_branch_blinds, c2_branch_blinds).unwrap();
 
     // Membership proof
     let fcmp = Fcmp::prove(
@@ -719,7 +707,7 @@ pub extern "C" fn prove(// TODO: signable_tx_hash,
         &mut c1_verifier,
         &mut c2_verifier,
         tree_root,
-        n_layers,
+        1 + n_layers,
         signable_tx_hash,
         vec![L],
       )
