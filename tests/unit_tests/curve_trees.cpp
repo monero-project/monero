@@ -456,11 +456,11 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
 
     const std::size_t n_leaf_tuples = get_n_leaf_tuples();
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples > leaf_idx, "too high leaf idx");
+    const auto path_idxs = m_curve_trees.get_path_indexes(n_leaf_tuples, leaf_idx);
 
     // Get leaves
-    const std::size_t start_leaf_idx = (leaf_idx / m_curve_trees.m_c2_width) * m_curve_trees.m_c2_width;
-    const std::size_t end_leaf_idx = std::min(n_leaf_tuples, start_leaf_idx + m_curve_trees.m_c2_width);
-    for (std::size_t i = start_leaf_idx; i < end_leaf_idx; ++i)
+    const auto &leaf_range = path_idxs.leaf_range;
+    for (std::size_t i = leaf_range.first; i < leaf_range.second; ++i)
     {
         const auto &output_pair = m_tree.leaves[i];
 
@@ -483,11 +483,10 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     }
 
     // Get parents
-    const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
-    std::size_t start_parent_idx = start_leaf_idx / m_curve_trees.m_c2_width;
+    const auto &layer_ranges = path_idxs.layers;
     std::size_t c1_idx = 0, c2_idx = 0;
     bool use_c2 = true;
-    for (std::size_t i = 0; i < n_layers; ++i)
+    for (const auto &layer_range : layer_ranges)
     {
         if (use_c2)
         {
@@ -496,16 +495,13 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
 
             CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "too high c2_idx");
             const std::size_t n_layer_elems = m_tree.c2_layers[c2_idx].size();
+            CHECK_AND_ASSERT_THROW_MES(n_layer_elems >= layer_range.second, "too high parent idx");
 
-            CHECK_AND_ASSERT_THROW_MES(n_layer_elems > start_parent_idx, "too high parent idx");
-            const std::size_t end_parent_idx = std::min(n_layer_elems, start_parent_idx + m_curve_trees.m_c2_width);
-
-            for (std::size_t j = start_parent_idx; j < end_parent_idx; ++j)
+            for (std::size_t j = layer_range.first; j < layer_range.second; ++j)
             {
                 layer_out.emplace_back(m_tree.c2_layers[c2_idx][j]);
             }
 
-            start_parent_idx /= m_curve_trees.m_c1_width;
             ++c2_idx;
         }
         else
@@ -515,16 +511,13 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
 
             CHECK_AND_ASSERT_THROW_MES(m_tree.c1_layers.size() > c1_idx, "too high c1_idx");
             const std::size_t n_layer_elems = m_tree.c1_layers[c1_idx].size();
+            CHECK_AND_ASSERT_THROW_MES(n_layer_elems >= layer_range.second, "too high parent idx");
 
-            CHECK_AND_ASSERT_THROW_MES(n_layer_elems > start_parent_idx, "too high parent idx");
-            const std::size_t end_parent_idx = std::min(n_layer_elems, start_parent_idx + m_curve_trees.m_c1_width);
-
-            for (std::size_t j = start_parent_idx; j < end_parent_idx; ++j)
+            for (std::size_t j = layer_range.first; j < layer_range.second; ++j)
             {
                 layer_out.emplace_back(m_tree.c1_layers[c1_idx][j]);
             }
 
-            start_parent_idx /= m_curve_trees.m_c2_width;
             ++c1_idx;
         }
 
