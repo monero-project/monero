@@ -79,6 +79,7 @@ jobs:
         make release-static-win64 -j4
 
   build-debian:
+    # Oldest supported Debian version
     name: 'Debian 10'
     runs-on: ubuntu-latest
     container:
@@ -100,43 +101,47 @@ jobs:
       - name: build
         run: ${{env.BUILD_DEFAULT_LINUX}}
 
-# See the OS labels and monitor deprecations here:
-# https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-
   build-ubuntu:
     name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    env:
-      CCACHE_TEMPDIR: /tmp/.ccache-temp
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
-            name: Ubuntu 20.04
-          - os: ubuntu-22.04
-            name: Ubuntu 22.04
+          # Oldest supported Ubuntu LTS version
+          - name: Ubuntu 20.04
+            container: ubuntu:20.04
+
+          # Most popular Ubuntu LTS version
+          - name: Ubuntu 22.04
+            container: ubuntu:22.04
+    container:
+      image: ${{ matrix.container }}
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        CCACHE_TEMPDIR: /tmp/.ccache-temp
+        CCACHE_DIR: ~/.ccache
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - uses: actions/cache@v4
-      with:
-        path: ~/.ccache
-        key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
-        restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
-    - name: remove bundled packages
-      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
-    - name: set apt conf
-      run: sudo ${{env.APT_SET_CONF}}
-    - name: update apt
-      run: sudo apt update
-    - name: install monero dependencies
-      run: sudo ${{env.APT_INSTALL_LINUX}}
-    - name: build
-      run: |
-        ${{env.CCACHE_SETTINGS}}
-        ${{env.BUILD_DEFAULT_LINUX}}
+      - name: set apt conf
+        run: ${{env.APT_SET_CONF}}
+      - name: update apt
+        run: apt update
+      - name: install monero dependencies
+        run: ${{env.APT_INSTALL_LINUX}}
+      - name: configure git
+        run: git config --global --add safe.directory '*'
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.container }}-build-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.container }}-build-
+      - name: build
+        run: |
+          ${{env.CCACHE_SETTINGS}}
+          ${{env.BUILD_DEFAULT_LINUX}}
 
   libwallet-ubuntu:
     name: "Ubuntu 20.04 (libwallet)"
@@ -167,59 +172,81 @@ jobs:
         make wallet_api -j4
 
   test-ubuntu:
-    name: "Ubuntu 20.04 (tests)"
+    name: "${{ matrix.name }} (tests)"
     needs: build-ubuntu
-    runs-on: ubuntu-20.04
-    env:
-      CCACHE_TEMPDIR: /tmp/.ccache-temp
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - name: ccache
-      uses: actions/cache@v4
-      with:
-        path: ~/.ccache
-        key: ccache-${{ runner.os }}-build-ubuntu-latest-${{ github.sha }}
-        restore-keys: ccache-${{ runner.os }}-build-ubuntu-latest
-    - name: remove bundled packages
-      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
-    - name: set apt conf
-      run: sudo ${{env.APT_SET_CONF}}
-    - name: update apt
-      run: sudo apt update
-    - name: install monero dependencies
-      run: sudo ${{env.APT_INSTALL_LINUX}}
-    - name: install Python dependencies
-      run: pip install requests psutil monotonic zmq deepdiff
-    - name: tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: Ubuntu 20.04
+            container: ubuntu:20.04
+    container:
+      image: ${{ matrix.container }}
       env:
-        CTEST_OUTPUT_ON_FAILURE: ON
-        DNS_PUBLIC: tcp://9.9.9.9
-      run: |
-        ${{env.CCACHE_SETTINGS}}
-        ${{env.BUILD_DEFAULT_LINUX}}
-        cmake --build build --target test
+        DEBIAN_FRONTEND: noninteractive
+        CCACHE_TEMPDIR: /tmp/.ccache-temp
+        CCACHE_DIR: ~/.ccache
+    steps:
+      - name: set apt conf
+        run: ${{env.APT_SET_CONF}}
+      - name: update apt
+        run: apt update
+      - name: install monero dependencies
+        run: ${{env.APT_INSTALL_LINUX}}
+      - name: install pip
+        run: apt install -y python3-pip
+      - name: install Python dependencies
+        run: pip install requests psutil monotonic zmq deepdiff
+      - name: configure git
+        run: git config --global --add safe.directory '*'
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.container }}-build-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.container }}-build-
+      - name: tests
+        env:
+          CTEST_OUTPUT_ON_FAILURE: ON
+          DNS_PUBLIC: tcp://9.9.9.9
+        run: |
+          ${{env.CCACHE_SETTINGS}}
+          ${{env.BUILD_DEFAULT_LINUX}}
+          cmake --build build --target test
 
 # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
 # BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
 
   source-archive:
     name: "source archive"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      env:
+        DEBIAN_FRONTEND: noninteractive
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        submodules: recursive
-    - name: archive
-      run: |
-        pip install git-archive-all
-        export VERSION="monero-$(git describe)"
-        export OUTPUT="$VERSION.tar"
-        echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
-        /home/runner/.local/bin/git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
-    - uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.OUTPUT }}
-        path: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/${{ env.OUTPUT }}
+      - name: set apt conf
+        run: ${{env.APT_SET_CONF}}
+      - name: update apt
+        run: apt update
+      - name: install dependencies
+        run: apt install -y git python3-pip
+      - name: configure git
+        run: git config --global --add safe.directory '*'
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: archive
+        run: |
+          pip install git-archive-all
+          export VERSION="monero-$(git describe)"
+          export OUTPUT="$VERSION.tar"
+          echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
+          git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.OUTPUT }}
+          path: ${{ env.OUTPUT }}
