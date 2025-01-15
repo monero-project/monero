@@ -209,7 +209,8 @@ CResult fcmp_prove_input_new(Ed25519ScalarBytes x,
 CResult helios_branch_blind();
 CResult selene_branch_blind();
 
-void prove(FcmpProveInputSlice fcmp_prove_inputs,
+void prove(const uint8_t *signable_tx_hash,
+                                             FcmpProveInputSlice fcmp_prove_inputs,
                                              TreeRoot tree_root);
 
 } // extern "C"

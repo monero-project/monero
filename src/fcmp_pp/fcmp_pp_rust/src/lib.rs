@@ -689,13 +689,13 @@ pub extern "C" fn fcmp_prove_input_new(x: *const u8,
 }
 
 #[no_mangle]
-pub extern "C" fn prove(// TODO: signable_tx_hash,
+pub extern "C" fn prove(signable_tx_hash: *const u8,
     inputs: FcmpProveInputSlice,
     // TODO: tree_root is only used for verify, remove it
     tree_root: *const TreeRoot<Selene, Helios>,
 ) {
-    // TODO: pass signable_tx_hash as param
-    let signable_tx_hash = [0; 32];
+    let signable_tx_hash = unsafe { core::slice::from_raw_parts(signable_tx_hash, 32) };
+    let signable_tx_hash: [u8; 32] = signable_tx_hash.try_into().unwrap();
 
     // Collect inputs into a vec
     let inputs: &[*const FcmpProveInput] = inputs.into();
