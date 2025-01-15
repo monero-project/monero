@@ -68,4 +68,30 @@ namespace crypto
   //! Generate random duration with 1/4 second precision
   using random_poisson_subseconds =
     random_poisson_duration<std::chrono::duration<std::chrono::milliseconds::rep, std::ratio<1, 4>>>;
+
+  template<typename D>
+  struct random_exponential_duration
+  {
+    using result_type = D;
+    using rep = typename result_type::rep;
+
+    explicit random_exponential_duration(double rate)
+      : dist(rate)
+    {}
+
+    result_type operator()()
+    {
+      /* Note this always rounds down to nearest whole number. if `std::lround`
+        was used instead, then 0 seconds would be used less frequently. Not sure
+        which is better, since we cannot broadcast on sub-seconds intervals. */
+      crypto::random_device rand{};
+      return result_type{rep(dist(rand))};
+    }
+
+  private:
+    std::exponential_distribution<double> dist;
+  };
+
+  using random_exponential_seconds = random_exponential_duration<std::chrono::seconds>;
 }
+
