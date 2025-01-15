@@ -176,6 +176,11 @@ CResult hash_trim_selene(SelenePoint existing_hash,
                                              SeleneScalarSlice children,
                                              SeleneScalar child_to_grow_back);
 
+CResult path_new(OutputSlice leaves,
+                                             uintptr_t output_idx,
+                                             HeliosScalarChunks helios_layer_chunks,
+                                             SeleneScalarChunks selene_layer_chunks);
+
 CResult rerandomize_output(OutputBytes output);
 
 CResult o_blind(RerandomizedOutput rerandomized_output);
@@ -188,15 +193,13 @@ CResult blind_i_blind(Blind i_blind);
 CResult blind_i_blind_blind(Blind i_blind_blind);
 CResult blind_c_blind(Blind c_blind);
 
-CResult path_new(OutputSlice leaves,
-                                             uintptr_t output_idx,
-                                             HeliosScalarChunks helios_layer_chunks,
-                                             SeleneScalarChunks selene_layer_chunks);
+CResult output_blinds_new(BlindedPoint o_blind,
+                                             BlindedPoint i_blind,
+                                             BlindedPoint i_blind_blind,
+                                             BlindedPoint c_blind);
 
-CResult output_blinds_new(Blind o_blind,
-                                             Blind i_blind,
-                                             Blind i_blind_blind,
-                                             Blind c_blind);
+CResult helios_branch_blind();
+CResult selene_branch_blind();
 
 CResult fcmp_prove_input_new(Ed25519ScalarBytes x,
                                              Ed25519ScalarBytes y,
@@ -205,9 +208,6 @@ CResult fcmp_prove_input_new(Ed25519ScalarBytes x,
                                              OutputBlinds output_blinds,
                                              BranchBlindSlice helios_branch_blinds,
                                              BranchBlindSlice selene_branch_blinds);
-
-CResult helios_branch_blind();
-CResult selene_branch_blind();
 
 void prove(const uint8_t *signable_tx_hash,
                                              FcmpProveInputSlice fcmp_prove_inputs,
