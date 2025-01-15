@@ -117,7 +117,13 @@ using BranchBlindSlice = Slice<BranchBlind>;
 
 using Ed25519ScalarBytes = uint8_t *;
 
+using Path = uint8_t *;
+
 using TreeRoot = uint8_t *;
+
+using FcmpProveInput = uint8_t *;
+
+using FcmpProveInputSlice = Slice<FcmpProveInput>;
 
 extern "C" {
 HeliosPoint helios_hash_init_point();
@@ -182,24 +188,28 @@ CResult blind_i_blind(Blind i_blind);
 CResult blind_i_blind_blind(Blind i_blind_blind);
 CResult blind_c_blind(Blind c_blind);
 
+CResult path_new(OutputSlice leaves,
+                                             uintptr_t output_idx,
+                                             HeliosScalarChunks helios_layer_chunks,
+                                             SeleneScalarChunks selene_layer_chunks);
+
 CResult output_blinds_new(Blind o_blind,
                                              Blind i_blind,
                                              Blind i_blind_blind,
                                              Blind c_blind);
 
+CResult fcmp_prove_input_new(Ed25519ScalarBytes x,
+                                             Ed25519ScalarBytes y,
+                                             RerandomizedOutput rerandomized_output,
+                                             Path path,
+                                             OutputBlinds output_blinds,
+                                             BranchBlindSlice helios_branch_blinds,
+                                             BranchBlindSlice selene_branch_blinds);
+
 CResult helios_branch_blind();
 CResult selene_branch_blind();
 
-void prove(Ed25519ScalarBytes x,
-                                             Ed25519ScalarBytes y,
-                                             uintptr_t leaf_idx,
-                                             OutputSlice leaves,
-                                             HeliosScalarChunks helios_layer_chunks,
-                                             SeleneScalarChunks selene_layer_chunks,
-                                             RerandomizedOutput rerandomized_output,
-                                             OutputBlinds output_blinds,
-                                             BranchBlindSlice helios_branch_blinds,
-                                             BranchBlindSlice selene_branch_blinds,
+void prove(FcmpProveInputSlice fcmp_prove_inputs,
                                              TreeRoot tree_root);
 
 } // extern "C"

@@ -360,10 +360,24 @@ BlindedPoint blind_c_blind(const Blind c_blind)
     return handle_blinded_res(__func__, res);
 }
 
-OutputBlinds output_blinds_new(const Blind blinded_o_blind,
-    const Blind blinded_i_blind,
-    const Blind blinded_i_blind_blind,
-    const Blind blinded_c_blind)
+Path path_new(const OutputChunk &leaves,
+    std::size_t output_idx,
+    const Helios::ScalarChunks &helios_layer_chunks,
+    const Selene::ScalarChunks &selene_layer_chunks)
+{
+    auto res = fcmp_pp_rust::path_new(leaves, output_idx, helios_layer_chunks, selene_layer_chunks);
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to get new path");
+    }
+    return (Path) res.value;
+}
+
+OutputBlinds output_blinds_new(const BlindedPoint blinded_o_blind,
+    const BlindedPoint blinded_i_blind,
+    const BlindedPoint blinded_i_blind_blind,
+    const BlindedPoint blinded_c_blind)
 {
     auto res = fcmp_pp_rust::output_blinds_new(blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
     if (res.err != nullptr)
@@ -396,29 +410,35 @@ BranchBlind selene_branch_blind()
     return handle_branch_blind(__func__, res);
 }
 
-void prove(const Ed25519Scalar x,
+FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
     const Ed25519Scalar y,
-    std::size_t output_idx,
-    const OutputChunk &leaves,
-    const Helios::ScalarChunks &c1_layer_chunks,
-    const Selene::ScalarChunks &c2_layer_chunks,
     const RerandomizedOutput rerandomized_output,
+    const Path path,
     const OutputBlinds output_blinds,
-    const BranchBlinds &c1_branch_blinds,
-    const BranchBlinds &c2_branch_blinds,
+    const BranchBlinds &helios_branch_blinds,
+    const BranchBlinds &selene_branch_blinds)
+{
+    auto res = fcmp_pp_rust::fcmp_prove_input_new(x,
+        y,
+        rerandomized_output,
+        path,
+        output_blinds,
+        helios_branch_blinds,
+        selene_branch_blinds);
+
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to get new FCMP++ prove input");
+    }
+
+    return (FcmpProveInput) res.value;
+}
+
+void prove(const FcmpProveInputs fcmp_prove_inputs,
     const TreeRoot tree_root)
 {
-    fcmp_pp_rust::prove(x,
-        y,
-        output_idx,
-        leaves,
-        c1_layer_chunks,
-        c2_layer_chunks,
-        rerandomized_output,
-        output_blinds,
-        c1_branch_blinds,
-        c2_branch_blinds,
-        tree_root);
+    fcmp_pp_rust::prove(fcmp_prove_inputs, tree_root);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

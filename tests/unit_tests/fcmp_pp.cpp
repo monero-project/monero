@@ -90,6 +90,8 @@ const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &curve_tr
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, prove)
 {
+    static const std::size_t N_INPUTS = 2;
+
     // TODO: fix C++ to match layer widths with rust side. These are mixed because I switched it for C++
     static const std::size_t helios_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
     static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH;
@@ -120,10 +122,12 @@ TEST(fcmp_pp, prove)
     std::vector<fcmp_pp::tower_cycle::BranchBlind> helios_branch_blinds;
     std::vector<fcmp_pp::tower_cycle::BranchBlind> selene_branch_blinds;
 
+    std::vector<fcmp_pp::tower_cycle::FcmpProveInput> fcmp_prove_inputs;
+
     // Create proof for every leaf in the tree
     for (std::size_t leaf_idx = 0; leaf_idx < global_tree.get_n_leaf_tuples(); ++leaf_idx)
     {
-        LOG_PRINT_L1("Constructing proof for leaf idx " << leaf_idx);
+        LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
 
         const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
         const std::size_t output_idx = leaf_idx % curve_trees->m_c2_width;
@@ -147,6 +151,8 @@ TEST(fcmp_pp, prove)
                 });
         }
         const fcmp_pp::tower_cycle::OutputChunk leaves{output_bytes.data(), output_bytes.size()};
+
+        const auto rerandomized_output = fcmp_pp::tower_cycle::rerandomize_output(output_bytes[output_idx]);
 
         // helios scalars from selene points
         std::vector<std::vector<fcmp_pp::tower_cycle::HeliosScalar>> helios_scalars;
@@ -188,7 +194,10 @@ TEST(fcmp_pp, prove)
         }
         const Selene::ScalarChunks selene_scalar_chunks{selene_chunks.data(), selene_chunks.size()};
 
-        const auto rerandomized_output = fcmp_pp::tower_cycle::rerandomize_output(output_bytes[output_idx]);
+        const auto path_rust = fcmp_pp::tower_cycle::path_new(leaves,
+            output_idx,
+            helios_scalar_chunks,
+            selene_scalar_chunks);
 
         // Collect blinds for rerandomized output
         const auto o_blind = fcmp_pp::tower_cycle::o_blind(rerandomized_output);
@@ -215,18 +224,24 @@ TEST(fcmp_pp, prove)
             for (std::size_t i = 0; i < helios_scalars.size(); ++i)
                 selene_branch_blinds.emplace_back(fcmp_pp::tower_cycle::selene_branch_blind());
 
-        fcmp_pp::tower_cycle::prove(x,
-                y,
-                output_idx,
-                leaves,
-                helios_scalar_chunks,
-                selene_scalar_chunks,
-                rerandomized_output,
-                output_blinds,
-                {helios_branch_blinds.data(), helios_branch_blinds.size()},
-                {selene_branch_blinds.data(), selene_branch_blinds.size()},
+        auto fcmp_prove_input = fcmp_pp::tower_cycle::fcmp_prove_input_new(x,
+            y,
+            rerandomized_output,
+            path_rust,
+            output_blinds,
+            {helios_branch_blinds.data(), helios_branch_blinds.size()},
+            {selene_branch_blinds.data(), selene_branch_blinds.size()});
+
+        fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
+        if (fcmp_prove_inputs.size() < N_INPUTS)
+            continue;
+
+        LOG_PRINT_L1("Constructing proof");
+        fcmp_pp::tower_cycle::prove(
+                {fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
                 tree_root
             );
+        fcmp_prove_inputs.clear();
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

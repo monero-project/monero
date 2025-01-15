@@ -51,7 +51,11 @@ using OutputBlinds = fcmp_pp_rust::OutputBlinds;
 using BranchBlind = fcmp_pp_rust::BranchBlind;
 using BranchBlinds = fcmp_pp_rust::BranchBlindSlice;
 using Ed25519Scalar = fcmp_pp_rust::Ed25519ScalarBytes;
+using Path = fcmp_pp_rust::Path;
 using TreeRoot = fcmp_pp_rust::TreeRoot;
+
+using FcmpProveInput = fcmp_pp_rust::FcmpProveInput;
+using FcmpProveInputs = fcmp_pp_rust::FcmpProveInputSlice;
 //----------------------------------------------------------------------------------------------------------------------
 // Need to forward declare Scalar types for point_to_cycle_scalar below
 using SeleneScalar = fcmp_pp_rust::SeleneScalar;
@@ -217,24 +221,28 @@ BlindedPoint blind_i_blind(const Blind i_blind);
 BlindedPoint blind_i_blind_blind(const Blind i_blind_blind);
 BlindedPoint blind_c_blind(const Blind c_blind);
 
-OutputBlinds output_blinds_new(const Blind blinded_o_blind,
-    const Blind blinded_i_blind,
-    const Blind blinded_i_blind_blind,
-    const Blind blinded_c_blind);
+Path path_new(const OutputChunk &leaves,
+    std::size_t output_idx,
+    const Helios::ScalarChunks &helios_layer_chunks,
+    const Selene::ScalarChunks &selene_layer_chunks);
+
+OutputBlinds output_blinds_new(const BlindedPoint blinded_o_blind,
+    const BlindedPoint blinded_i_blind,
+    const BlindedPoint blinded_i_blind_blind,
+    const BlindedPoint blinded_c_blind);
 
 BranchBlind helios_branch_blind();
 BranchBlind selene_branch_blind();
 
-void prove(const Ed25519Scalar x,
+FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
     const Ed25519Scalar y,
-    std::size_t output_idx,
-    const OutputChunk &leaves,
-    const Helios::ScalarChunks &c1_layer_chunks,
-    const Selene::ScalarChunks &c2_layer_chunks,
     const RerandomizedOutput rerandomized_output,
+    const Path path,
     const OutputBlinds output_blinds,
-    const BranchBlinds &c1_branch_blinds,
-    const BranchBlinds &c2_branch_blinds,
+    const BranchBlinds &helios_branch_blinds,
+    const BranchBlinds &selene_branch_blinds);
+
+void prove(const FcmpProveInputs fcmp_prove_inputs,
     const TreeRoot tree_root);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
