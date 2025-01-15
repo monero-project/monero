@@ -1,0 +1,62 @@
+expat is used for an optional unbound-anchor app, which we don't use.
+
+diff --git a/configure b/configure
+index 918a063..0e35b2c 100755
+--- a/configure
++++ b/configure
+@@ -22042,55 +22042,6 @@ printf "%s\n" "#define USE_MINI_EVENT 1" >>confdefs.h
+ 
+ fi
+ 
+-# check for libexpat
+-
+-# Check whether --with-libexpat was given.
+-if test ${with_libexpat+y}
+-then :
+-  withval=$with_libexpat;
+-else $as_nop
+-   withval="/usr/local /opt/local /usr/lib /usr/pkg /usr/sfw /usr"
+-fi
+-
+-{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for libexpat" >&5
+-printf %s "checking for libexpat... " >&6; }
+-found_libexpat="no"
+-for dir in $withval ; do
+-            if test -f "$dir/include/expat.h"; then
+-		found_libexpat="yes"
+-				if test "$dir" != "/usr"; then
+-                    CPPFLAGS="$CPPFLAGS -I$dir/include"
+-		    LDFLAGS="$LDFLAGS -L$dir/lib"
+-		fi
+-            	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: found in $dir" >&5
+-printf "%s\n" "found in $dir" >&6; }
+-                break;
+-            fi
+-done
+-if test x_$found_libexpat != x_yes; then
+-	as_fn_error $? "Could not find libexpat, expat.h" "$LINENO" 5
+-fi
+-ac_fn_c_check_header_compile "$LINENO" "expat.h" "ac_cv_header_expat_h" "$ac_includes_default
+-"
+-if test "x$ac_cv_header_expat_h" = xyes
+-then :
+-  printf "%s\n" "#define HAVE_EXPAT_H 1" >>confdefs.h
+-
+-fi
+-
+-ac_fn_check_decl "$LINENO" "XML_StopParser" "ac_cv_have_decl_XML_StopParser" "$ac_includes_default
+-#include <expat.h>
+-
+-" "$ac_c_undeclared_builtin_options" "CFLAGS"
+-if test "x$ac_cv_have_decl_XML_StopParser" = xyes
+-then :
+-  ac_have_decl=1
+-else $as_nop
+-  ac_have_decl=0
+-fi
+-printf "%s\n" "#define HAVE_DECL_XML_STOPPARSER $ac_have_decl" >>confdefs.h
+-
+-
+ # hiredis (redis C client for cachedb)
+ 
+ # Check whether --with-libhiredis was given.
