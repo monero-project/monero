@@ -104,18 +104,10 @@ jobs:
 # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
 
   build-ubuntu:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+    name: 'Ubuntu 20.04'
+    runs-on: ubuntu-20.04
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-20.04
-            name: Ubuntu 20.04
-          - os: ubuntu-22.04
-            name: Ubuntu 22.04
     steps:
     - uses: actions/checkout@v4
       with:
@@ -123,8 +115,8 @@ jobs:
     - uses: actions/cache@v4
       with:
         path: ~/.ccache
-        key: ccache-${{ runner.os }}-build-${{ matrix.os }}-${{ github.sha }}
-        restore-keys: ccache-${{ runner.os }}-build-${{ matrix.os }}
+        key: ccache-${{ runner.os }}-build-${{ runner.os }}-${{ github.sha }}
+        restore-keys: ccache-${{ runner.os }}-build-${{ runner.os }}
     - name: remove bundled packages
       run: ${{env.REMOVE_BUNDLED_PACKAGES}}
     - name: set apt conf
