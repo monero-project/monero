@@ -18,7 +18,7 @@ use full_chain_membership_proofs::tree::{hash_grow, hash_trim};
 use monero_fcmp_plus_plus::{
     HELIOS_HASH_INIT, SELENE_HASH_INIT, HELIOS_GENERATORS, SELENE_GENERATORS,
     FCMP_PARAMS, Curves,
-    fcmps::{TreeRoot, Path, Branches, BranchBlind, BranchesWithBlinds, OBlind, IBlind, IBlindBlind, CBlind, OutputBlinds, Fcmp},
+    fcmps::{TreeRoot, Path, Branches, BranchBlind, OBlind, IBlind, IBlindBlind, CBlind, OutputBlinds, Fcmp},
     FcmpPlusPlus, Output,
     sal::{RerandomizedOutput, OpenedInputTuple, SpendAuthAndLinkability},
 };
@@ -28,6 +28,62 @@ use monero_generators::{T, FCMP_U, FCMP_V};
 // TODO: Use a macro to de-duplicate some of of this code
 
 //-------------------------------------------------------------------------------------- Path
+
+#[no_mangle]
+pub unsafe extern "C" fn path_new(
+    leaves: OutputSlice,
+    output_idx: usize,
+    helios_layer_chunks: HeliosScalarChunks,
+    selene_layer_chunks: SeleneScalarChunks,
+) -> CResult<Path<Curves>, ()>{
+    // Collect decompressed leaves
+    let leaves: &[OutputBytes] = leaves.into();
+    let leaves: Vec<Output> = leaves
+        .iter()
+        .map(|x| {
+            // TODO: don't unwrap, error
+            Output::new(
+                ed25519_point_from_bytes(x.O),
+                ed25519_point_from_bytes(x.I),
+                ed25519_point_from_bytes(x.C),
+            )
+            .unwrap()
+        })
+        .collect();
+
+    // Output
+    if output_idx >= leaves.len() {
+        // TODO: return error instead of panic
+        panic!("output_idx is too high");
+    }
+    let output = leaves[output_idx].clone();
+
+    // Collect helios layer chunks
+    let helios_layers: &[HeliosScalarSlice] = helios_layer_chunks.into();
+    let helios_layers: Vec<Vec<<Helios as Ciphersuite>::F>> = helios_layers
+        .iter()
+        .map(|x| {
+            let inner_slice: &[<Helios as Ciphersuite>::F] = x.into();
+            inner_slice.iter().map(|y| y.to_owned()).collect()
+        })
+        .collect();
+
+    // Collect selene layer chunks
+    let selene_layers: &[SeleneScalarSlice] = selene_layer_chunks.into();
+    let selene_layers: Vec<Vec<<Selene as Ciphersuite>::F>> = selene_layers
+        .iter()
+        .map(|x| {
+            let inner_slice: &[<Selene as Ciphersuite>::F] = x.into();
+            inner_slice.iter().map(|y| y.to_owned()).collect()
+        })
+        .collect();
+
+    let curve_2_layers = helios_layers;
+    let curve_1_layers = selene_layers;
+
+    let path: Path<Curves> = Path { output, leaves, curve_2_layers, curve_1_layers };
+    CResult::ok(path)
+}
 
 //-------------------------------------------------------------------------------------- Fcmp
 
@@ -541,25 +597,25 @@ pub extern "C" fn hash_trim_selene(
 
 #[no_mangle]
 pub extern "C" fn o_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
-    let rerandomized_output = unsafe { (*output).clone() };
+    let rerandomized_output = unsafe { output.read() };
     CResult::ok(rerandomized_output.o_blind())
 }
 
 #[no_mangle]
 pub extern "C" fn i_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
-    let rerandomized_output = unsafe { (*output).clone() };
+    let rerandomized_output = unsafe { output.read() };
     CResult::ok(rerandomized_output.i_blind())
 }
 
 #[no_mangle]
 pub extern "C" fn i_blind_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
-    let rerandomized_output = unsafe { (*output).clone() };
+    let rerandomized_output = unsafe { output.read() };
     CResult::ok(rerandomized_output.i_blind_blind())
 }
 
 #[no_mangle]
 pub extern "C" fn c_blind(output: *const RerandomizedOutput) -> CResult<Scalar, ()> {
-    let rerandomized_output = unsafe { (*output).clone() };
+    let rerandomized_output = unsafe { output.read() };
     CResult::ok(rerandomized_output.c_blind())
 }
 
@@ -578,87 +634,42 @@ pub extern "C" fn rerandomize_output(output: OutputBytes) -> CResult<Rerandomize
     CResult::ok(rerandomized_output)
 }
 
+struct SalInput
+{
+    x: Scalar,
+    y: Scalar,
+    rerandomized_output: RerandomizedOutput,
+}
+
+pub struct FcmpProveInput
+{
+    sal_input: SalInput,
+    path: Path<Curves>,
+    output_blinds: OutputBlinds<EdwardsPoint>,
+    c1_branch_blinds: Vec<BranchBlind::<<Selene as Ciphersuite>::G>>,
+    c2_branch_blinds: Vec<BranchBlind::<<Helios as Ciphersuite>::G>>,
+}
+
+pub type FcmpProveInputSlice = Slice<*const FcmpProveInput>;
+
 #[no_mangle]
-pub extern "C" fn prove(// TODO: signable_tx_hash,
-    x: *const u8,
+pub extern "C" fn fcmp_prove_input_new(x: *const u8,
     y: *const u8,
-    output_idx: usize,
-    leaves: OutputSlice,
-    helios_layer_chunks: HeliosScalarChunks,
-    selene_layer_chunks: SeleneScalarChunks,
-    // TODO: make sure these aren't getting consumed
     rerandomized_output: *const RerandomizedOutput,
+    path: *const Path<Curves>,
     output_blinds: *const OutputBlinds<EdwardsPoint>,
     helios_branch_blinds: HeliosBranchBlindSlice,
     selene_branch_blinds: SeleneBranchBlindSlice,
-    // TODO: tree_root is only used for verify, remove it
-    tree_root: *const TreeRoot<Selene, Helios>,
-) {
-    // TODO: pass signable_tx_hash as param
-    let signable_tx_hash = [0; 32];
+) -> CResult<FcmpProveInput, ()>  {
+    // SAL
+    let x = ed25519_scalar_from_bytes(x);
+    let y = ed25519_scalar_from_bytes(y);
+    let rerandomized_output = unsafe { rerandomized_output.read() };
+    let sal_input = SalInput { x, y, rerandomized_output };
 
-    // Leaves
-    let leaves: &[OutputBytes] = leaves.into();
-    let leaves: Vec<Output> = leaves
-        .iter()
-        .map(|x| {
-            // TODO: don't unwrap, error
-            Output::new(
-                ed25519_point_from_bytes(x.O),
-                ed25519_point_from_bytes(x.I),
-                ed25519_point_from_bytes(x.C),
-            )
-            .unwrap()
-        })
-        .collect();
-
-    // Output
-    if output_idx >= leaves.len() {
-        // TODO: return error instead of panic
-        panic!("output_idx is too high");
-    }
-    let output = leaves[output_idx].clone();
-
-    // SAL proof
-    let (input, spend_auth_and_linkability, L) = {
-        let x = ed25519_scalar_from_bytes(x);
-        let y = ed25519_scalar_from_bytes(y);
-        let rerandomized_output = unsafe { (*rerandomized_output).clone() };
-        let input = rerandomized_output.input();
-        let opening = OpenedInputTuple::open(rerandomized_output, &x, &y).unwrap();
-        let (L, spend_auth_and_linkability) =
-            SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash.clone(), opening);
-        assert_eq!(output.I() * x, L);
-        (input, spend_auth_and_linkability, L)
-    };
-
-    // Helios layer chunks
-    let helios_layers: &[HeliosScalarSlice] = helios_layer_chunks.into();
-    let helios_layers: Vec<Vec<<Helios as Ciphersuite>::F>> = helios_layers
-        .iter()
-        .map(|x| {
-            let inner_slice: &[<Helios as Ciphersuite>::F] = x.into();
-            inner_slice.iter().map(|y| y.to_owned()).collect()
-        })
-        .collect();
-
-    // Selene layer chunks
-    let selene_layers: &[SeleneScalarSlice] = selene_layer_chunks.into();
-    let selene_layers: Vec<Vec<<Selene as Ciphersuite>::F>> = selene_layers
-        .iter()
-        .map(|x| {
-            let inner_slice: &[<Selene as Ciphersuite>::F] = x.into();
-            inner_slice.iter().map(|y| y.to_owned()).collect()
-        })
-        .collect();
-
-    let curve_2_layers = helios_layers;
-    let curve_1_layers = selene_layers;
-
-    let path: Path<Curves> = Path { output, leaves, curve_2_layers, curve_1_layers };
-    let branches = Branches::new(vec![path]).unwrap();
-
-    let output_blinds = unsafe { (*output_blinds).clone() };
+    // Path and output blinds
+    let path = unsafe { path.read() };
+    let output_blinds = unsafe { output_blinds.read() };
 
     // Collect branch blinds
     let c1_branch_blinds: &[*const BranchBlind::<<Selene as Ciphersuite>::G>] = selene_branch_blinds.into();
@@ -673,31 +684,82 @@ pub extern "C" fn prove(// TODO: signable_tx_hash,
         .map(|x| unsafe { (*x.to_owned()).clone() })
         .collect();
 
-    // Blind branches with branch blinds
+    let fcmp_prove_input = FcmpProveInput { sal_input, path, output_blinds, c1_branch_blinds, c2_branch_blinds };
+    CResult::ok(fcmp_prove_input)
+}
+
+#[no_mangle]
+pub extern "C" fn prove(// TODO: signable_tx_hash,
+    inputs: FcmpProveInputSlice,
+    // TODO: tree_root is only used for verify, remove it
+    tree_root: *const TreeRoot<Selene, Helios>,
+) {
+    // TODO: pass signable_tx_hash as param
+    let signable_tx_hash = [0; 32];
+
+    // Collect inputs into a vec
+    let inputs: &[*const FcmpProveInput] = inputs.into();
+    let inputs: Vec<FcmpProveInput> = inputs
+        .iter()
+        .map(|x| unsafe { x.read() })
+        .collect();
+
+    // SAL proofs
+    let mut key_images: Vec<EdwardsPoint> = vec![];
+    let sal_proofs = inputs.iter().map(|prove_input| {
+        let sal_input = &prove_input.sal_input;
+        let rerandomized_output = &sal_input.rerandomized_output;
+        let x = sal_input.x;
+        let y = sal_input.y;
+
+        let input = rerandomized_output.input();
+        let opening = OpenedInputTuple::open(rerandomized_output.clone(), &x, &y).unwrap();
+
+        #[allow(non_snake_case)]
+        let (L, spend_auth_and_linkability) =
+            SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash.clone(), opening);
+
+        // assert_eq!(prove_input.path.output.O(), EdwardsPoint((*x * *EdwardsPoint::generator()) + (*y * *EdwardsPoint(T()))));
+        assert_eq!(prove_input.path.output.I() * x, L);
+
+        key_images.push(L);
+        (input, spend_auth_and_linkability)
+    }).collect();
+
+    let paths = inputs.iter().map(|x| x.path.clone()).collect();
+    let output_blinds = inputs.iter().map(|x| x.output_blinds.clone()).collect();
+
+    let c1_branch_blinds: Vec<_> = inputs.iter().map(|x| x.c1_branch_blinds.clone()).collect::<Vec<_>>().into_iter().flatten().collect();
+    let c2_branch_blinds: Vec<_> = inputs.iter().map(|x| x.c2_branch_blinds.clone()).collect::<Vec<_>>().into_iter().flatten().collect();
+
+    let branches = Branches::new(paths).unwrap();
+
     assert_eq!(branches.necessary_c1_blinds(), c1_branch_blinds.len());
     assert_eq!(branches.necessary_c2_blinds(), c2_branch_blinds.len());
-    let n_layers = c1_branch_blinds.len() + c2_branch_blinds.len();
-    let blinded_branches = branches.blind(vec![output_blinds], c1_branch_blinds, c2_branch_blinds).unwrap();
+    let n_branch_blinds = (c1_branch_blinds.len() + c2_branch_blinds.len()) / inputs.len();
+
+    let blinded_branches = branches.blind(output_blinds, c1_branch_blinds, c2_branch_blinds).unwrap();
 
     // Membership proof
     let fcmp = Fcmp::prove(
-            &mut OsRng,
-            FCMP_PARAMS(),
-            blinded_branches,
-        ).unwrap();
+        &mut OsRng,
+        FCMP_PARAMS(),
+        blinded_branches,
+    ).unwrap();
 
-    // Combine SAL and membership proof
-    let fcmp_plus_plus = FcmpPlusPlus::new(vec![(input, spend_auth_and_linkability)], fcmp);
+    // Combine SAL proofs and membership proof
+    let fcmp_plus_plus = FcmpPlusPlus::new(sal_proofs, fcmp);
 
     // let mut buf = vec![];
     // fcmp_plus_plus.write(&mut buf).unwrap();
 
-    // TODO: remove everything below
     let mut ed_verifier = multiexp::BatchVerifier::new(1);
     let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
     let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
 
-    let tree_root: TreeRoot<Selene, Helios> = unsafe { (*tree_root).clone() };
+    let tree_root: TreeRoot<Selene, Helios> = unsafe { tree_root.read() };
+
+    let n_layers = 1 + n_branch_blinds;
 
     // TODO: remove verify
     fcmp_plus_plus
@@ -707,9 +769,9 @@ pub extern "C" fn prove(// TODO: signable_tx_hash,
         &mut c1_verifier,
         &mut c2_verifier,
         tree_root,
-        1 + n_layers,
+        n_layers,
         signable_tx_hash,
-        vec![L],
+        key_images,
       )
       .unwrap();
 
