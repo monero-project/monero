@@ -14,7 +14,7 @@ on:
 env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   BUILD_DEFAULT_LINUX: |
-        cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --parallel 4
+        cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all --parallel 4 && cmake --build build --target wallet_api --parallel 4
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
   APT_SET_CONF: |
         tee -a /etc/apt/apt.conf.d/80-custom << EOF
@@ -137,34 +137,6 @@ jobs:
       run: |
         ${{env.CCACHE_SETTINGS}}
         ${{env.BUILD_DEFAULT_LINUX}}
-
-  libwallet-ubuntu:
-    name: "Ubuntu 20.04 (libwallet)"
-    runs-on: ubuntu-20.04
-    env:
-      CCACHE_TEMPDIR: /tmp/.ccache-temp
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - uses: actions/cache@v4
-      with:
-        path: ~/.ccache
-        key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
-        restore-keys: ccache-${{ runner.os }}-libwallet-
-    - name: remove bundled packages
-      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
-    - name: set apt conf
-      run: sudo ${{env.APT_SET_CONF}}
-    - name: update apt
-      run: sudo apt update
-    - name: install monero dependencies
-      run: sudo ${{env.APT_INSTALL_LINUX}}
-    - name: build
-      run: |
-        ${{env.CCACHE_SETTINGS}}
-        cmake .
-        make wallet_api -j4
 
   test-ubuntu:
     name: "Ubuntu 20.04 (tests)"
