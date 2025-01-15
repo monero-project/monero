@@ -237,6 +237,18 @@ TEST(ban, subnet)
   test_core pr_core;
   cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
   Server server(cprotocol);
+  {
+    boost::program_options::options_description opts{};
+    Server::init_options(opts);
+    cryptonote::core::init_options(opts);
+
+    char** args = nullptr;
+    boost::program_options::variables_map vm;
+    boost::program_options::store(
+      boost::program_options::parse_command_line(0, args, opts), vm
+    );
+    server.init(vm);
+  }
   cprotocol.set_p2p_endpoint(&server);
 
   ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(1,2,3,4,24), 10));
