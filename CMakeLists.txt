@@ -1193,11 +1193,6 @@ if(CMAKE_C_COMPILER_ID MATCHES "Clang" AND ARCH_WIDTH EQUAL "32" AND NOT IOS AND
   endif()
 endif()
 
-if(STATIC)
-  set(sodium_USE_STATIC_LIBS ON)
-endif()
-find_package(Sodium REQUIRED)
-
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(libzmq REQUIRED IMPORTED_TARGET libzmq)
 

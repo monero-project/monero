@@ -63,6 +63,11 @@ if (USE_DEVICE_TREZOR)
         trezor_fatal_msg("Trezor: protobuf library not found")
     endif()
 
+    if(STATIC)
+        set(sodium_USE_STATIC_LIBS ON)
+    endif()
+    find_package(Sodium REQUIRED)
+
     if(TREZOR_DEBUG)
         set(USE_DEVICE_TREZOR_DEBUG 1)
         message(STATUS "Trezor: debug build enabled")

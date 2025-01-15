@@ -36,7 +36,6 @@
 #include <vector>
 #include <iostream>
 #include <cinttypes>
-#include <sodium/crypto_verify_32.h>
 
 extern "C" {
 #include "crypto/crypto-ops.h"
