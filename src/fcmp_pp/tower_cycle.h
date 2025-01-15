@@ -242,7 +242,8 @@ FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
     const BranchBlinds &helios_branch_blinds,
     const BranchBlinds &selene_branch_blinds);
 
-void prove(const FcmpProveInputs fcmp_prove_inputs,
+void prove(const crypto::hash &tx_hash,
+    const FcmpProveInputs fcmp_prove_inputs,
     const TreeRoot tree_root);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

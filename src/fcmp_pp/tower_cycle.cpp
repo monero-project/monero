@@ -435,10 +435,11 @@ FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
     return (FcmpProveInput) res.value;
 }
 
-void prove(const FcmpProveInputs fcmp_prove_inputs,
+void prove(const crypto::hash &tx_hash,
+    const FcmpProveInputs fcmp_prove_inputs,
     const TreeRoot tree_root)
 {
-    fcmp_pp_rust::prove(fcmp_prove_inputs, tree_root);
+    fcmp_pp_rust::prove(reinterpret_cast<const uint8_t*>(&tx_hash), fcmp_prove_inputs, tree_root);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

@@ -238,6 +238,7 @@ TEST(fcmp_pp, prove)
 
         LOG_PRINT_L1("Constructing proof");
         fcmp_pp::tower_cycle::prove(
+                crypto::hash{},
                 {fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
                 tree_root
             );
