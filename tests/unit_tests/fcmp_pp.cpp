@@ -123,6 +123,8 @@ TEST(fcmp_pp, prove)
     std::vector<fcmp_pp::tower_cycle::BranchBlind> selene_branch_blinds;
 
     std::vector<fcmp_pp::tower_cycle::FcmpProveInput> fcmp_prove_inputs;
+    std::vector<crypto::key_image> key_images;
+    std::vector<rct::key> pseudo_outs;
 
     // Create proof for every leaf in the tree
     for (std::size_t leaf_idx = 0; leaf_idx < global_tree.get_n_leaf_tuples(); ++leaf_idx)
@@ -153,6 +155,13 @@ TEST(fcmp_pp, prove)
         const fcmp_pp::tower_cycle::OutputChunk leaves{output_bytes.data(), output_bytes.size()};
 
         const auto rerandomized_output = fcmp_pp::tower_cycle::rerandomize_output(output_bytes[output_idx]);
+
+        pseudo_outs.emplace_back(fcmp_pp::tower_cycle::pseudo_out(rerandomized_output));
+
+        key_images.emplace_back();
+        crypto::generate_key_image(rct::rct2pk(path.leaves[output_idx].O),
+            new_outputs.x_vec[leaf_idx],
+            key_images.back());
 
         // helios scalars from selene points
         std::vector<std::vector<fcmp_pp::tower_cycle::HeliosScalar>> helios_scalars;
@@ -237,12 +246,25 @@ TEST(fcmp_pp, prove)
             continue;
 
         LOG_PRINT_L1("Constructing proof");
-        fcmp_pp::tower_cycle::prove(
-                crypto::hash{},
+        const crypto::hash tx_hash{};
+        const auto proof = fcmp_pp::tower_cycle::prove(
+                tx_hash,
                 {fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
-                tree_root
+                1 + tree_depth
             );
+
+        bool verify = fcmp_pp::tower_cycle::verify(
+                tx_hash,
+                proof,
+                tree_root,
+                pseudo_outs,
+                key_images
+            );
+        ASSERT_TRUE(verify);
+
         fcmp_prove_inputs.clear();
+        pseudo_outs.clear();
+        key_images.clear();
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

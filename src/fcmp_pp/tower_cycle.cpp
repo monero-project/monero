@@ -292,6 +292,16 @@ RerandomizedOutput rerandomize_output(const OutputBytes output)
     return (RerandomizedOutput) result.value;
 }
 
+rct::key pseudo_out(const RerandomizedOutput rerandomized_output)
+{
+    uint8_t * res_ptr = fcmp_pp_rust::pseudo_out(rerandomized_output);
+    rct::key res;
+    static_assert(sizeof(rct::key) == 32, "unexpected size of rct::key");
+    memcpy(&res, res_ptr, sizeof(rct::key));
+    free(res_ptr);
+    return res;
+}
+
 static Blind handle_blind_res(const std::string func, const fcmp_pp_rust::CResult &res)
 {
     if (res.err != nullptr)
@@ -435,11 +445,62 @@ FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
     return (FcmpProveInput) res.value;
 }
 
-void prove(const crypto::hash &tx_hash,
+FcmpPpProof prove(const crypto::hash &signable_tx_hash,
     const FcmpProveInputs fcmp_prove_inputs,
-    const TreeRoot tree_root)
+    std::size_t n_tree_layers)
 {
-    fcmp_pp_rust::prove(reinterpret_cast<const uint8_t*>(&tx_hash), fcmp_prove_inputs, tree_root);
+    auto res = fcmp_pp_rust::prove(reinterpret_cast<const uint8_t*>(&signable_tx_hash),
+        fcmp_prove_inputs,
+        n_tree_layers);
+
+    if (res.err != nullptr)
+    {
+        free(res.err);
+        throw std::runtime_error("failed to construct FCMP++ proof");
+    }
+
+    const std::size_t proof_size = fcmp_pp_rust::fcmp_pp_proof_size(fcmp_prove_inputs.len, n_tree_layers);
+
+    // res.value is a void * pointing to a uint8_t *, so cast as a double pointer
+    uint8_t **buf = (uint8_t**) res.value;
+
+    static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
+    FcmpPpProof proof{
+            .n_tree_layers = (uint8_t) n_tree_layers,
+            .buf           = {*buf, *buf + proof_size}
+        };
+
+    // Free both pointers
+    free(*buf);
+    free(res.value);
+
+    return proof;
+}
+
+bool verify(const crypto::hash &signable_tx_hash,
+    const FcmpPpProof &fcmp_pp_proof,
+    const TreeRoot tree_root,
+    const std::vector<rct::key> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images)
+{
+    std::vector<const uint8_t *> pseudo_outs_ptrs;
+    pseudo_outs_ptrs.reserve(pseudo_outs.size());
+    for (const auto &po : pseudo_outs)
+        pseudo_outs_ptrs.emplace_back((const uint8_t *)&po.bytes);
+
+    std::vector<const uint8_t *> key_images_ptrs;
+    key_images_ptrs.reserve(key_images.size());
+    for (const auto &ki : key_images)
+        key_images_ptrs.emplace_back((const uint8_t *)&ki.data);
+
+    return fcmp_pp_rust::verify(
+            reinterpret_cast<const uint8_t*>(&signable_tx_hash),
+            {fcmp_pp_proof.buf.data(), fcmp_pp_proof.buf.size()},
+            fcmp_pp_proof.n_tree_layers,
+            tree_root,
+            {pseudo_outs_ptrs.data(), pseudo_outs_ptrs.size()},
+            {key_images_ptrs.data(), key_images_ptrs.size()}
+        );
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

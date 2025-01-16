@@ -211,6 +211,8 @@ TreeRoot helios_tree_root(const Helios::Point &point);
 // TODO: consider putting this section somewhere better than tower_cycle
 RerandomizedOutput rerandomize_output(const OutputBytes output);
 
+rct::key pseudo_out(const RerandomizedOutput rerandomized_output);
+
 Blind o_blind(const RerandomizedOutput rerandomized_output);
 Blind i_blind(const RerandomizedOutput rerandomized_output);
 Blind i_blind_blind(const RerandomizedOutput rerandomized_output);
@@ -242,9 +244,22 @@ FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
     const BranchBlinds &helios_branch_blinds,
     const BranchBlinds &selene_branch_blinds);
 
-void prove(const crypto::hash &tx_hash,
+struct FcmpPpProof final
+{
+    uint8_t n_tree_layers;
+    std::vector<uint8_t> buf;
+};
+
+FcmpPpProof prove(const crypto::hash &signable_tx_hash,
     const FcmpProveInputs fcmp_prove_inputs,
-    const TreeRoot tree_root);
+    const std::size_t n_tree_layers);
+
+bool verify(const crypto::hash &signable_tx_hash,
+    const FcmpPpProof &fcmp_pp_proof,
+    const TreeRoot tree_root,
+    const std::vector<rct::key> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images);
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace tower_cycle

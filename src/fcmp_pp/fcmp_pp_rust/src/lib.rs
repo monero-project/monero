@@ -369,6 +369,18 @@ pub extern "C" fn rerandomize_output(output: OutputBytes) -> CResult<Rerandomize
     CResult::ok(rerandomized_output)
 }
 
+//---------------------------------------------- PseudoOut
+
+/// # Safety
+///
+/// This function assumes that the rerandomized output being passed in input was
+/// allocated on the heap and returned through a CResult instance.
+#[no_mangle]
+pub unsafe extern "C" fn pseudo_out(output: *const RerandomizedOutput) -> *const u8 {
+    let rerandomized_output = unsafe { output.read() };
+    c_u8_32(rerandomized_output.input().C_tilde().to_bytes())
+}
+
 //---------------------------------------------- OBlind
 
 /// # Safety
@@ -595,15 +607,14 @@ pub unsafe extern "C" fn fcmp_prove_input_new(
 
 /// # Safety
 ///
-/// This function assumes that the x and y are 32 byte Ed25519 scalars, and that all other
-/// types passed as input were allocated on the heap (via Box::into_raw(Box::new()))
+/// This function assumes that the signable_tx_hash is 32 bytes and that the inputs are a slice
+/// of inputs returned from fcmp_prove_input_new.
 #[no_mangle]
 pub unsafe extern "C" fn prove(
     signable_tx_hash: *const u8,
     inputs: FcmpProveInputSlice,
-    // TODO: tree_root is only used for verify, remove it
-    tree_root: *const TreeRoot<Selene, Helios>,
-) {
+    n_tree_layers: usize,
+) -> CResult<*const u8, ()> {
     let signable_tx_hash = unsafe { core::slice::from_raw_parts(signable_tx_hash, 32) };
     let signable_tx_hash: [u8; 32] = signable_tx_hash.try_into().unwrap();
 
@@ -612,7 +623,6 @@ pub unsafe extern "C" fn prove(
     let inputs: Vec<FcmpProveInput> = inputs.iter().map(|x| unsafe { x.read() }).collect();
 
     // SAL proofs
-    let mut key_images: Vec<EdwardsPoint> = vec![];
     let sal_proofs = inputs
         .iter()
         .map(|prove_input| {
@@ -624,14 +634,15 @@ pub unsafe extern "C" fn prove(
             let input = rerandomized_output.input();
             let opening = OpenedInputTuple::open(rerandomized_output.clone(), &x, &y).unwrap();
 
-            #[allow(non_snake_case)]
-            let (L, spend_auth_and_linkability) =
+            let (key_image, spend_auth_and_linkability) =
                 SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
 
-            // assert_eq!(prove_input.path.output.O(), EdwardsPoint((*x * *EdwardsPoint::generator()) + (*y * *EdwardsPoint(T()))));
-            assert_eq!(prove_input.path.output.I() * x, L);
+            assert_eq!(
+                prove_input.path.output.O(),
+                EdwardsPoint((*x * *EdwardsPoint::generator()) + (*y * *EdwardsPoint(T())))
+            );
+            assert_eq!(prove_input.path.output.I() * x, key_image);
 
-            key_images.push(L);
             (input, spend_auth_and_linkability)
         })
         .collect();
@@ -658,7 +669,9 @@ pub unsafe extern "C" fn prove(
 
     assert_eq!(branches.necessary_c1_blinds(), c1_branch_blinds.len());
     assert_eq!(branches.necessary_c2_blinds(), c2_branch_blinds.len());
+
     let n_branch_blinds = (c1_branch_blinds.len() + c2_branch_blinds.len()) / inputs.len();
+    assert_eq!(n_tree_layers, n_branch_blinds + 1);
 
     let blinded_branches = branches
         .blind(output_blinds, c1_branch_blinds, c2_branch_blinds)
@@ -670,18 +683,76 @@ pub unsafe extern "C" fn prove(
     // Combine SAL proofs and membership proof
     let fcmp_plus_plus = FcmpPlusPlus::new(sal_proofs, fcmp);
 
-    // let mut buf = vec![];
-    // fcmp_plus_plus.write(&mut buf).unwrap();
+    let mut buf = vec![];
+    fcmp_plus_plus.write(&mut buf).unwrap();
+    assert_eq!(fcmp_pp_proof_size(inputs.len(), n_tree_layers), buf.len());
 
-    let mut ed_verifier = multiexp::BatchVerifier::new(1);
-    let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
-    let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
+    // Leak the buf into a ptr that the C++ can handle
+    let ptr = buf.leak().as_ptr();
+    CResult::ok(ptr)
+}
+
+// TODO: cache a static global table for proof lens by n_inputs and n_tree_layers bc the calc is slow
+#[no_mangle]
+pub extern "C" fn fcmp_pp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
+    FcmpPlusPlus::proof_size(n_inputs, n_tree_layers)
+}
+
+/// # Safety
+///
+/// This function assumes that the signable tx hash is 32 bytes, the tree root is heap
+/// allocated via a CResult, and pseudo outs and key images are 32 bytes each
+#[no_mangle]
+pub unsafe extern "C" fn verify(
+    signable_tx_hash: *const u8,
+    proof: Slice<u8>,
+    n_tree_layers: usize,
+    tree_root: *const TreeRoot<Selene, Helios>,
+    pseudo_outs: Slice<*const u8>,
+    key_images: Slice<*const u8>,
+) -> bool {
+    // Early checks
+    let n_inputs = pseudo_outs.len;
+    if n_inputs == 0 || n_inputs != key_images.len {
+        return false;
+    }
+    if proof.len != fcmp_pp_proof_size(n_inputs, n_tree_layers) {
+        return false;
+    }
+
+    let signable_tx_hash = unsafe { core::slice::from_raw_parts(signable_tx_hash, 32) };
+    let signable_tx_hash: [u8; 32] = signable_tx_hash.try_into().unwrap();
+
+    let mut proof: &[u8] = proof.into();
+
+    // 32 byte pseudo outs
+    let pseudo_outs: &[*const u8] = pseudo_outs.into();
+    let pseudo_outs: Vec<[u8; 32]> = pseudo_outs
+        .iter()
+        .map(|&x| {
+            let x = unsafe { core::slice::from_raw_parts(x, 32) };
+            let mut pseudo_out = [0u8; 32];
+            pseudo_out.copy_from_slice(x);
+            pseudo_out
+        })
+        .collect();
+
+    // Read the FCMP++ proof
+    let fcmp_plus_plus = FcmpPlusPlus::read(&pseudo_outs, n_tree_layers, &mut proof).unwrap();
 
     let tree_root: TreeRoot<Selene, Helios> = unsafe { tree_root.read() };
 
-    let n_layers = 1 + n_branch_blinds;
+    // Collect de-compressed key images into a Vec
+    let key_images: &[*const u8] = key_images.into();
+    let key_images: Vec<EdwardsPoint> = key_images
+        .iter()
+        .map(|&x| ed25519_point_from_bytes(x))
+        .collect();
 
-    // TODO: remove verify
+    let mut ed_verifier = multiexp::BatchVerifier::new(n_inputs);
+    let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
+    let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
+
     fcmp_plus_plus
         .verify(
             &mut OsRng,
@@ -689,15 +760,15 @@ pub unsafe extern "C" fn prove(
             &mut c1_verifier,
             &mut c2_verifier,
             tree_root,
-            n_layers,
+            n_tree_layers,
             signable_tx_hash,
             key_images,
         )
         .unwrap();
 
-    assert!(ed_verifier.verify_vartime());
-    assert!(SELENE_GENERATORS().verify(c1_verifier));
-    assert!(HELIOS_GENERATORS().verify(c2_verifier));
+    ed_verifier.verify_vartime()
+        && SELENE_GENERATORS().verify(c1_verifier)
+        && HELIOS_GENERATORS().verify(c2_verifier)
 }
 
 // https://github.com/rust-lang/rust/issues/79609
