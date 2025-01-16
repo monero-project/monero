@@ -44,18 +44,6 @@ namespace tower_cycle
 //----------------------------------------------------------------------------------------------------------------------
 using OutputBytes = fcmp_pp_rust::OutputBytes;
 using OutputChunk = fcmp_pp_rust::OutputSlice;
-using RerandomizedOutput = fcmp_pp_rust::RerandomizedOutput;
-using Blind = fcmp_pp_rust::Blind;
-using BlindedPoint = fcmp_pp_rust::BlindedPoint;
-using OutputBlinds = fcmp_pp_rust::OutputBlinds;
-using BranchBlind = fcmp_pp_rust::BranchBlind;
-using BranchBlinds = fcmp_pp_rust::BranchBlindSlice;
-using Ed25519Scalar = fcmp_pp_rust::Ed25519ScalarBytes;
-using Path = fcmp_pp_rust::Path;
-using TreeRoot = fcmp_pp_rust::TreeRoot;
-
-using FcmpProveInput = fcmp_pp_rust::FcmpProveInput;
-using FcmpProveInputs = fcmp_pp_rust::FcmpProveInputSlice;
 //----------------------------------------------------------------------------------------------------------------------
 // Need to forward declare Scalar types for point_to_cycle_scalar below
 using SeleneScalar = fcmp_pp_rust::SeleneScalar;
@@ -205,44 +193,44 @@ void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
     const std::vector<typename C_POINTS::Point> &points,
     std::vector<typename C_SCALARS::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
-TreeRoot selene_tree_root(const Selene::Point &point);
-TreeRoot helios_tree_root(const Helios::Point &point);
+uint8_t *selene_tree_root(const Selene::Point &point);
+uint8_t *helios_tree_root(const Helios::Point &point);
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: consider putting this section somewhere better than tower_cycle
-RerandomizedOutput rerandomize_output(const OutputBytes output);
+uint8_t *rerandomize_output(const OutputBytes output);
 
-rct::key pseudo_out(const RerandomizedOutput rerandomized_output);
+rct::key pseudo_out(const uint8_t *rerandomized_output);
 
-Blind o_blind(const RerandomizedOutput rerandomized_output);
-Blind i_blind(const RerandomizedOutput rerandomized_output);
-Blind i_blind_blind(const RerandomizedOutput rerandomized_output);
-Blind c_blind(const RerandomizedOutput rerandomized_output);
+uint8_t *o_blind(const uint8_t *rerandomized_output);
+uint8_t *i_blind(const uint8_t *rerandomized_output);
+uint8_t *i_blind_blind(const uint8_t *rerandomized_output);
+uint8_t *c_blind(const uint8_t *rerandomized_output);
 
-BlindedPoint blind_o_blind(const Blind o_blind);
-BlindedPoint blind_i_blind(const Blind i_blind);
-BlindedPoint blind_i_blind_blind(const Blind i_blind_blind);
-BlindedPoint blind_c_blind(const Blind c_blind);
+uint8_t *blind_o_blind(const uint8_t *o_blind);
+uint8_t *blind_i_blind(const uint8_t *i_blind);
+uint8_t *blind_i_blind_blind(const uint8_t *i_blind_blind);
+uint8_t *blind_c_blind(const uint8_t *c_blind);
 
-Path path_new(const OutputChunk &leaves,
+uint8_t *path_new(const OutputChunk &leaves,
     std::size_t output_idx,
     const Helios::ScalarChunks &helios_layer_chunks,
     const Selene::ScalarChunks &selene_layer_chunks);
 
-OutputBlinds output_blinds_new(const BlindedPoint blinded_o_blind,
-    const BlindedPoint blinded_i_blind,
-    const BlindedPoint blinded_i_blind_blind,
-    const BlindedPoint blinded_c_blind);
+uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
+    const uint8_t *blinded_i_blind,
+    const uint8_t *blinded_i_blind_blind,
+    const uint8_t *blinded_c_blind);
 
-BranchBlind helios_branch_blind();
-BranchBlind selene_branch_blind();
+uint8_t *helios_branch_blind();
+uint8_t *selene_branch_blind();
 
-FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
-    const Ed25519Scalar y,
-    const RerandomizedOutput rerandomized_output,
-    const Path path,
-    const OutputBlinds output_blinds,
-    const BranchBlinds &helios_branch_blinds,
-    const BranchBlinds &selene_branch_blinds);
+uint8_t *fcmp_prove_input_new(const uint8_t *x,
+    const uint8_t *y,
+    const uint8_t *rerandomized_output,
+    const uint8_t *path,
+    const uint8_t *output_blinds,
+    const std::vector<const uint8_t *> &helios_branch_blinds,
+    const std::vector<const uint8_t *> &selene_branch_blinds);
 
 struct FcmpPpProof final
 {
@@ -251,12 +239,12 @@ struct FcmpPpProof final
 };
 
 FcmpPpProof prove(const crypto::hash &signable_tx_hash,
-    const FcmpProveInputs fcmp_prove_inputs,
+    const std::vector<const uint8_t *> &fcmp_prove_inputs,
     const std::size_t n_tree_layers);
 
 bool verify(const crypto::hash &signable_tx_hash,
     const FcmpPpProof &fcmp_pp_proof,
-    const TreeRoot tree_root,
+    const uint8_t *tree_root,
     const std::vector<rct::key> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images);
 

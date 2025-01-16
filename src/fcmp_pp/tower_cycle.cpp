@@ -278,21 +278,26 @@ template void extend_scalars_from_cycle_points<Selene, Helios>(const std::unique
     const std::vector<Selene::Point> &points,
     std::vector<Helios::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
-TreeRoot selene_tree_root(const Selene::Point &point) { return fcmp_pp_rust::selene_tree_root(point); }
-TreeRoot helios_tree_root(const Helios::Point &point) { return fcmp_pp_rust::helios_tree_root(point); }
+uint8_t *selene_tree_root(const Selene::Point &point) { return fcmp_pp_rust::selene_tree_root(point); }
+uint8_t *helios_tree_root(const Helios::Point &point) { return fcmp_pp_rust::helios_tree_root(point); }
 //----------------------------------------------------------------------------------------------------------------------
-RerandomizedOutput rerandomize_output(const OutputBytes output)
+static uint8_t *handle_res_ptr(const std::string func, const fcmp_pp_rust::CResult &res)
 {
-    auto result = fcmp_pp_rust::rerandomize_output(output);
-    if (result.err != nullptr)
+    if (res.err != nullptr)
     {
-        free(result.err);
-        throw std::runtime_error("failed to rerandomize output");
+        free(res.err);
+        throw std::runtime_error("failed to " + func);
     }
-    return (RerandomizedOutput) result.value;
+    return (uint8_t *) res.value;
 }
 
-rct::key pseudo_out(const RerandomizedOutput rerandomized_output)
+uint8_t *rerandomize_output(const OutputBytes output)
+{
+    auto res = fcmp_pp_rust::rerandomize_output(output);
+    return handle_res_ptr(__func__, res);
+}
+
+rct::key pseudo_out(const uint8_t *rerandomized_output)
 {
     uint8_t * res_ptr = fcmp_pp_rust::pseudo_out(rerandomized_output);
     rct::key res;
@@ -302,155 +307,109 @@ rct::key pseudo_out(const RerandomizedOutput rerandomized_output)
     return res;
 }
 
-static Blind handle_blind_res(const std::string func, const fcmp_pp_rust::CResult &res)
-{
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to get randomized output's " + func);
-    }
-    return (Blind) res.value;
-}
-
-static BlindedPoint handle_blinded_res(const std::string func, const fcmp_pp_rust::CResult &res)
-{
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to " + func);
-    }
-    return (BlindedPoint) res.value;
-}
-
-Blind o_blind(const RerandomizedOutput rerandomized_output)
+uint8_t *o_blind(const uint8_t *rerandomized_output)
 {
     auto result = fcmp_pp_rust::o_blind(rerandomized_output);
-    return handle_blind_res(__func__, result);
+    return handle_res_ptr(__func__, result);
 }
 
-Blind i_blind(const RerandomizedOutput rerandomized_output)
+uint8_t *i_blind(const uint8_t *rerandomized_output)
 {
     auto result = fcmp_pp_rust::i_blind(rerandomized_output);
-    return handle_blind_res(__func__, result);
+    return handle_res_ptr(__func__, result);
 }
 
-Blind i_blind_blind(const RerandomizedOutput rerandomized_output)
+uint8_t *i_blind_blind(const uint8_t *rerandomized_output)
 {
     auto result = fcmp_pp_rust::i_blind_blind(rerandomized_output);
-    return handle_blind_res(__func__, result);
+    return handle_res_ptr(__func__, result);
 }
 
-Blind c_blind(const RerandomizedOutput rerandomized_output)
+uint8_t *c_blind(const uint8_t *rerandomized_output)
 {
     auto result = fcmp_pp_rust::c_blind(rerandomized_output);
-    return handle_blind_res(__func__, result);
+    return handle_res_ptr(__func__, result);
 }
 
-BlindedPoint blind_o_blind(const Blind o_blind)
+uint8_t *blind_o_blind(const uint8_t *o_blind)
 {
     auto res = fcmp_pp_rust::blind_o_blind(o_blind);
-    return handle_blinded_res(__func__, res);
+    return handle_res_ptr(__func__, res);
 }
 
-BlindedPoint blind_i_blind(const Blind i_blind)
+uint8_t *blind_i_blind(const uint8_t *i_blind)
 {
     auto res = fcmp_pp_rust::blind_i_blind(i_blind);
-    return handle_blinded_res(__func__, res);
+    return handle_res_ptr(__func__, res);
 }
 
-BlindedPoint blind_i_blind_blind(const Blind i_blind_blind)
+uint8_t *blind_i_blind_blind(const uint8_t *i_blind_blind)
 {
     auto res = fcmp_pp_rust::blind_i_blind_blind(i_blind_blind);
-    return handle_blinded_res(__func__, res);
+    return handle_res_ptr(__func__, res);
 }
 
-BlindedPoint blind_c_blind(const Blind c_blind)
+uint8_t *blind_c_blind(const uint8_t *c_blind)
 {
     auto res = fcmp_pp_rust::blind_c_blind(c_blind);
-    return handle_blinded_res(__func__, res);
+    return handle_res_ptr(__func__, res);
 }
 
-Path path_new(const OutputChunk &leaves,
+uint8_t *path_new(const OutputChunk &leaves,
     std::size_t output_idx,
     const Helios::ScalarChunks &helios_layer_chunks,
     const Selene::ScalarChunks &selene_layer_chunks)
 {
     auto res = fcmp_pp_rust::path_new(leaves, output_idx, helios_layer_chunks, selene_layer_chunks);
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to get new path");
-    }
-    return (Path) res.value;
+    return handle_res_ptr(__func__, res);
 }
 
-OutputBlinds output_blinds_new(const BlindedPoint blinded_o_blind,
-    const BlindedPoint blinded_i_blind,
-    const BlindedPoint blinded_i_blind_blind,
-    const BlindedPoint blinded_c_blind)
+uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
+    const uint8_t *blinded_i_blind,
+    const uint8_t *blinded_i_blind_blind,
+    const uint8_t *blinded_c_blind)
 {
     auto res = fcmp_pp_rust::output_blinds_new(blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to get new output blinds");
-    }
-    return (OutputBlinds) res.value;
+    return handle_res_ptr(__func__, res);
 }
 
-static BranchBlind handle_branch_blind(const std::string func, const fcmp_pp_rust::CResult &res)
-{
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to get new " + func);
-    }
-    return (BranchBlind) res.value;
-}
-
-BranchBlind helios_branch_blind()
+uint8_t *helios_branch_blind()
 {
     const auto res = fcmp_pp_rust::helios_branch_blind();
-    return handle_branch_blind(__func__, res);
+    return handle_res_ptr(__func__, res);
 }
 
-BranchBlind selene_branch_blind()
+uint8_t *selene_branch_blind()
 {
     const auto res = fcmp_pp_rust::selene_branch_blind();
-    return handle_branch_blind(__func__, res);
+    return handle_res_ptr(__func__, res);
 }
 
-FcmpProveInput fcmp_prove_input_new(const Ed25519Scalar x,
-    const Ed25519Scalar y,
-    const RerandomizedOutput rerandomized_output,
-    const Path path,
-    const OutputBlinds output_blinds,
-    const BranchBlinds &helios_branch_blinds,
-    const BranchBlinds &selene_branch_blinds)
+uint8_t *fcmp_prove_input_new(const uint8_t *x,
+    const uint8_t *y,
+    const uint8_t *rerandomized_output,
+    const uint8_t *path,
+    const uint8_t *output_blinds,
+    const std::vector<const uint8_t *> &helios_branch_blinds,
+    const std::vector<const uint8_t *> &selene_branch_blinds)
 {
     auto res = fcmp_pp_rust::fcmp_prove_input_new(x,
         y,
         rerandomized_output,
         path,
         output_blinds,
-        helios_branch_blinds,
-        selene_branch_blinds);
+        {helios_branch_blinds.data(), helios_branch_blinds.size()},
+        {selene_branch_blinds.data(), selene_branch_blinds.size()});
 
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to get new FCMP++ prove input");
-    }
-
-    return (FcmpProveInput) res.value;
+    return handle_res_ptr(__func__, res);
 }
 
 FcmpPpProof prove(const crypto::hash &signable_tx_hash,
-    const FcmpProveInputs fcmp_prove_inputs,
-    std::size_t n_tree_layers)
+    const std::vector<const uint8_t *> &fcmp_prove_inputs,
+    const std::size_t n_tree_layers)
 {
     auto res = fcmp_pp_rust::prove(reinterpret_cast<const uint8_t*>(&signable_tx_hash),
-        fcmp_prove_inputs,
+        {fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
         n_tree_layers);
 
     if (res.err != nullptr)
@@ -459,7 +418,7 @@ FcmpPpProof prove(const crypto::hash &signable_tx_hash,
         throw std::runtime_error("failed to construct FCMP++ proof");
     }
 
-    const std::size_t proof_size = fcmp_pp_rust::fcmp_pp_proof_size(fcmp_prove_inputs.len, n_tree_layers);
+    const std::size_t proof_size = fcmp_pp_rust::fcmp_pp_proof_size(fcmp_prove_inputs.size(), n_tree_layers);
 
     // res.value is a void * pointing to a uint8_t *, so cast as a double pointer
     uint8_t **buf = (uint8_t**) res.value;
@@ -479,7 +438,7 @@ FcmpPpProof prove(const crypto::hash &signable_tx_hash,
 
 bool verify(const crypto::hash &signable_tx_hash,
     const FcmpPpProof &fcmp_pp_proof,
-    const TreeRoot tree_root,
+    const uint8_t *tree_root,
     const std::vector<rct::key> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images)
 {
