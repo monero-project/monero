@@ -103,30 +103,6 @@ using HeliosScalarChunks = Slice<HeliosScalarSlice>;
 
 using SeleneScalarChunks = Slice<SeleneScalarSlice>;
 
-using RerandomizedOutput = uint8_t *;
-
-using Blind = uint8_t *;
-
-using BlindedPoint = uint8_t *;
-
-using OutputBlinds = uint8_t *;
-
-using BranchBlind = uint8_t *;
-
-using BranchBlindSlice = Slice<BranchBlind>;
-
-using Ed25519ScalarBytes = uint8_t *;
-
-using Path = uint8_t *;
-
-using TreeRoot = uint8_t *;
-
-using FcmpProveInput = uint8_t *;
-
-using FcmpProveInputSlice = Slice<FcmpProveInput>;
-
-using FcmpPpProofSlice = Slice<uint8_t>;
-
 extern "C" {
 HeliosPoint helios_hash_init_point();
 
@@ -154,9 +130,9 @@ HeliosScalar helios_zero_scalar();
 
 SeleneScalar selene_zero_scalar();
 
-TreeRoot selene_tree_root(SelenePoint selene_point);
+uint8_t *selene_tree_root(SelenePoint selene_point);
 
-TreeRoot helios_tree_root(HeliosPoint helios_point);
+uint8_t *helios_tree_root(HeliosPoint helios_point);
 
 CResult hash_grow_helios(HeliosPoint existing_hash,
                                              uintptr_t offset,
@@ -185,44 +161,44 @@ CResult path_new(OutputSlice leaves,
 
 CResult rerandomize_output(OutputBytes output);
 
-uint8_t *pseudo_out(RerandomizedOutput rerandomized_output);
+uint8_t *pseudo_out(const uint8_t *rerandomized_output);
 
-CResult o_blind(RerandomizedOutput rerandomized_output);
-CResult i_blind(RerandomizedOutput rerandomized_output);
-CResult i_blind_blind(RerandomizedOutput rerandomized_output);
-CResult c_blind(RerandomizedOutput rerandomized_output);
+CResult o_blind(const uint8_t *rerandomized_output);
+CResult i_blind(const uint8_t *rerandomized_output);
+CResult i_blind_blind(const uint8_t *rerandomized_output);
+CResult c_blind(const uint8_t *rerandomized_output);
 
-CResult blind_o_blind(Blind o_blind);
-CResult blind_i_blind(Blind i_blind);
-CResult blind_i_blind_blind(Blind i_blind_blind);
-CResult blind_c_blind(Blind c_blind);
+CResult blind_o_blind(const uint8_t *o_blind);
+CResult blind_i_blind(const uint8_t *i_blind);
+CResult blind_i_blind_blind(const uint8_t *i_blind_blind);
+CResult blind_c_blind(const uint8_t *c_blind);
 
-CResult output_blinds_new(BlindedPoint o_blind,
-                                             BlindedPoint i_blind,
-                                             BlindedPoint i_blind_blind,
-                                             BlindedPoint c_blind);
+CResult output_blinds_new(const uint8_t *o_blind,
+                                             const uint8_t *i_blind,
+                                             const uint8_t *i_blind_blind,
+                                             const uint8_t *c_blind);
 
 CResult helios_branch_blind();
 CResult selene_branch_blind();
 
-CResult fcmp_prove_input_new(Ed25519ScalarBytes x,
-                                             Ed25519ScalarBytes y,
-                                             RerandomizedOutput rerandomized_output,
-                                             Path path,
-                                             OutputBlinds output_blinds,
-                                             BranchBlindSlice helios_branch_blinds,
-                                             BranchBlindSlice selene_branch_blinds);
+CResult fcmp_prove_input_new(const uint8_t *x,
+                                             const uint8_t *y,
+                                             const uint8_t *rerandomized_output,
+                                             const uint8_t *path,
+                                             const uint8_t *output_blinds,
+                                             Slice<const uint8_t *>helios_branch_blinds,
+                                             Slice<const uint8_t *>selene_branch_blinds);
 
 CResult prove(const uint8_t *signable_tx_hash,
-                                             FcmpProveInputSlice fcmp_prove_inputs,
+                                             Slice<const uint8_t *> fcmp_prove_inputs,
                                              uintptr_t n_tree_layers);
 
 uintptr_t fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
 bool verify(const uint8_t *signable_tx_hash,
-                                             FcmpPpProofSlice fcmp_pp_proof_slice,
+                                             Slice<uint8_t> fcmp_pp_proof_slice,
                                              uintptr_t n_tree_layers,
-                                             TreeRoot tree_root,
+                                             const uint8_t *tree_root,
                                              Slice<const uint8_t *> pseudo_outs,
                                              Slice<const uint8_t *> key_images);
 

@@ -527,7 +527,7 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     return path_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
-fcmp_pp::tower_cycle::TreeRoot CurveTreesGlobalTree::get_tree_root() const
+uint8_t *CurveTreesGlobalTree::get_tree_root() const
 {
     const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
 

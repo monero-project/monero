@@ -89,7 +89,7 @@ public:
     // Get the path in the tree of the provided leaf idx
     CurveTreesV1::Path get_path_at_leaf_idx(const std::size_t leaf_idx) const;
 
-    fcmp_pp::tower_cycle::TreeRoot get_tree_root() const;
+    uint8_t *get_tree_root() const;
 
 private:
     // Use the tree extension to extend the in-memory tree

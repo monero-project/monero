@@ -119,10 +119,10 @@ TEST(fcmp_pp, prove)
     const auto tree_root = global_tree.get_tree_root();
 
     // Keep them cached across runs
-    std::vector<fcmp_pp::tower_cycle::BranchBlind> helios_branch_blinds;
-    std::vector<fcmp_pp::tower_cycle::BranchBlind> selene_branch_blinds;
+    std::vector<const uint8_t *> helios_branch_blinds;
+    std::vector<const uint8_t *> selene_branch_blinds;
 
-    std::vector<fcmp_pp::tower_cycle::FcmpProveInput> fcmp_prove_inputs;
+    std::vector<const uint8_t *> fcmp_prove_inputs;
     std::vector<crypto::key_image> key_images;
     std::vector<rct::key> pseudo_outs;
 
@@ -138,8 +138,8 @@ TEST(fcmp_pp, prove)
         // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
         // LOG_PRINT_L1("Passed the audit...\n");
 
-        const auto x = (fcmp_pp::tower_cycle::Ed25519Scalar) new_outputs.x_vec[leaf_idx].data;
-        const auto y = (fcmp_pp::tower_cycle::Ed25519Scalar) new_outputs.y_vec[leaf_idx].data;
+        const auto x = (uint8_t *) new_outputs.x_vec[leaf_idx].data;
+        const auto y = (uint8_t *) new_outputs.y_vec[leaf_idx].data;
 
         // Leaves
         std::vector<fcmp_pp::tower_cycle::OutputBytes> output_bytes;
@@ -238,8 +238,8 @@ TEST(fcmp_pp, prove)
             rerandomized_output,
             path_rust,
             output_blinds,
-            {helios_branch_blinds.data(), helios_branch_blinds.size()},
-            {selene_branch_blinds.data(), selene_branch_blinds.size()});
+            helios_branch_blinds,
+            selene_branch_blinds);
 
         fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
         if (fcmp_prove_inputs.size() < N_INPUTS)
@@ -249,7 +249,7 @@ TEST(fcmp_pp, prove)
         const crypto::hash tx_hash{};
         const auto proof = fcmp_pp::tower_cycle::prove(
                 tx_hash,
-                {fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
+                fcmp_prove_inputs,
                 1 + tree_depth
             );
 
