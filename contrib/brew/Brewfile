@@ -28,5 +28,5 @@ brew "doxygen"
 brew "graphviz"
 brew "libunwind-headers"
 brew "xz"
-brew "protobuf@21", link: true
+brew "protobuf"
 brew "libusb"
