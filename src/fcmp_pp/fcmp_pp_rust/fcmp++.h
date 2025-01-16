@@ -125,6 +125,8 @@ using FcmpProveInput = uint8_t *;
 
 using FcmpProveInputSlice = Slice<FcmpProveInput>;
 
+using FcmpPpProofSlice = Slice<uint8_t>;
+
 extern "C" {
 HeliosPoint helios_hash_init_point();
 
@@ -183,6 +185,8 @@ CResult path_new(OutputSlice leaves,
 
 CResult rerandomize_output(OutputBytes output);
 
+uint8_t *pseudo_out(RerandomizedOutput rerandomized_output);
+
 CResult o_blind(RerandomizedOutput rerandomized_output);
 CResult i_blind(RerandomizedOutput rerandomized_output);
 CResult i_blind_blind(RerandomizedOutput rerandomized_output);
@@ -209,9 +213,18 @@ CResult fcmp_prove_input_new(Ed25519ScalarBytes x,
                                              BranchBlindSlice helios_branch_blinds,
                                              BranchBlindSlice selene_branch_blinds);
 
-void prove(const uint8_t *signable_tx_hash,
+CResult prove(const uint8_t *signable_tx_hash,
                                              FcmpProveInputSlice fcmp_prove_inputs,
-                                             TreeRoot tree_root);
+                                             uintptr_t n_tree_layers);
+
+uintptr_t fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+
+bool verify(const uint8_t *signable_tx_hash,
+                                             FcmpPpProofSlice fcmp_pp_proof_slice,
+                                             uintptr_t n_tree_layers,
+                                             TreeRoot tree_root,
+                                             Slice<const uint8_t *> pseudo_outs,
+                                             Slice<const uint8_t *> key_images);
 
 } // extern "C"
 }//namespace fcmp_pp_rust
