@@ -90,7 +90,7 @@ const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &curve_tr
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, prove)
 {
-    static const std::size_t N_INPUTS = 2;
+    static const std::size_t N_INPUTS = 8;
 
     // TODO: fix C++ to match layer widths with rust side. These are mixed because I switched it for C++
     static const std::size_t helios_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
