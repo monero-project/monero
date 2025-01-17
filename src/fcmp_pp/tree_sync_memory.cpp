@@ -822,14 +822,16 @@ void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
     const crypto::hash &prev_block_hash,
     const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block)
 {
+    const std::vector<crypto::hash> new_block_hashes{block_hash};
+    const std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> outs{outs_by_unlock_block};
+
     typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension tree_extension;
     std::vector<uint64_t> n_new_leaf_tuples_per_block;
 
-    const auto new_block_hashes = {block_hash};
     this->sync_blocks(block_idx,
         prev_block_hash,
         new_block_hashes,
-        {outs_by_unlock_block},
+        outs,
         tree_extension,
         n_new_leaf_tuples_per_block);
 
