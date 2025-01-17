@@ -4,7 +4,6 @@ $(package)_download_path=https://www.nlnetlabs.nl/downloads/$(package)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=bc1d576f3dd846a0739adc41ffaa702404c6767d2b6082deb9f2f97cbb24a3a9
 $(package)_dependencies=openssl expat
-$(package)_patches=disable-glibc-reallocarray.patch
 
 
 define $(package)_set_vars
@@ -19,7 +18,6 @@ define $(package)_set_vars
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/disable-glibc-reallocarray.patch &&\
   autoconf
 endef
 
