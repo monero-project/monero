@@ -15,7 +15,7 @@ env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   BUILD_DEFAULT_LINUX: |
         cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --parallel 4
-  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
+  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
         tee -a /etc/apt/apt.conf.d/80-custom << EOF
         Acquire::Retries "3";
@@ -92,6 +92,13 @@ jobs:
         run: apt update
       - name: install monero dependencies
         run: ${{env.APT_INSTALL_LINUX}}
+      - name: install rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          export PATH="$HOME/.cargo/bin:$PATH"
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          rustup toolchain install 1.69
+          rustup default 1.69
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v4
