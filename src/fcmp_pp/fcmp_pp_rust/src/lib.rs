@@ -27,6 +27,12 @@ use monero_fcmp_plus_plus::{
 
 use monero_generators::{FCMP_U, FCMP_V, T};
 
+// TODO: everything allocated with Box::into_raw needs to be freed manually using from_raw when done
+// https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw
+// https://internals.rust-lang.org/t/manually-freeing-the-pointer-from-into-raw/19002
+// Current idea is to use C++ types initalized with a raw pointer from a fn over the FFI, and make destructors for each
+// type that call the respective destructor for that raw pointer (which calls Box::from_raw over the FFI to clean up)
+// TODO: don't use CResult for types the FFI supports (e.g. SelenePoint, SeleneScalar), don't want the raw * because need to manually from_raw it to dealloc
 // TODO: Use a macro to de-duplicate some of of this code
 // TODO: Don't unwrap anywhere and populate the CResult error type in all fn's
 
@@ -688,6 +694,7 @@ pub unsafe extern "C" fn prove(
     assert_eq!(fcmp_pp_proof_size(inputs.len(), n_tree_layers), buf.len());
 
     // Leak the buf into a ptr that the C++ can handle
+    // TODO: Use Box::leak instead, and then in destructor convert back to box https://doc.rust-lang.org/std/boxed/struct.Box.html#method.leak
     let ptr = buf.leak().as_ptr();
     CResult::ok(ptr)
 }
