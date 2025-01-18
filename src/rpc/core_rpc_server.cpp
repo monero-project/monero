@@ -2808,6 +2808,12 @@ namespace cryptonote
       }
       else
       {
+        if (!i->ip)
+        {
+          error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+          error_resp.message = "No ip/host supplied";
+          return false;
+        }
         na = epee::net_utils::ipv4_network_address{i->ip, 0};
       }
       if (i->ban)
