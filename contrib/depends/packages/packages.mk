@@ -15,10 +15,6 @@ ifneq ($(host_os),mingw32)
 packages += ncurses readline
 endif
 
-ifeq ($(build_tests),ON)
-packages += gtest
-endif
-
 linux_native_packages :=
 linux_packages := eudev
 

@@ -11,3 +11,6 @@
 	path = external/supercop
 	url = https://github.com/monero-project/supercop
 	branch = monero
+[submodule "external/gtest"]
+	path = external/gtest
+	url = https://github.com/google/googletest.git
