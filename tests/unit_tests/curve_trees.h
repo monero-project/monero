@@ -32,8 +32,8 @@
 #include "fcmp_pp/tower_cycle.h"
 #include "unit_tests_utils.h"
 
-using Helios       = fcmp_pp::curve_trees::Helios;
 using Selene       = fcmp_pp::curve_trees::Selene;
+using Helios       = fcmp_pp::curve_trees::Helios;
 using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -66,8 +66,8 @@ public:
     struct Tree final
     {
         std::vector<fcmp_pp::curve_trees::OutputPair> leaves;
-        std::vector<Layer<Helios>> c1_layers;
-        std::vector<Layer<Selene>> c2_layers;
+        std::vector<Layer<Selene>> c1_layers;
+        std::vector<Layer<Helios>> c2_layers;
     };
 
 //public member functions

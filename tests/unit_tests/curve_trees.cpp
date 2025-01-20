@@ -77,14 +77,14 @@ const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(c
     return outs;
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,
-    const std::size_t selene_chunk_width,
+std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t selene_chunk_width,
+    const std::size_t helios_chunk_width,
     const std::size_t tree_depth,
     uint64_t &n_leaves_out)
 {
-    CHECK_AND_ASSERT_THROW_MES(helios_chunk_width > 1, "helios width must be > 1");
     CHECK_AND_ASSERT_THROW_MES(selene_chunk_width > 1, "selene width must be > 1");
-    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(helios_chunk_width, selene_chunk_width);
+    CHECK_AND_ASSERT_THROW_MES(helios_chunk_width > 1, "helios width must be > 1");
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(selene_chunk_width, helios_chunk_width);
 
     /* Number of leaves required for tree to reach given depth */
     n_leaves_out = (uint64_t) selene_chunk_width;
@@ -156,14 +156,14 @@ static bool trim_tree_db(const std::size_t expected_old_n_leaf_tuples,
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-#define INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth) \
-    static_assert(helios_chunk_width > 1, "helios width must be > 1");            \
+#define INIT_CURVE_TREES_TEST                                                     \
     static_assert(selene_chunk_width > 1, "selene width must be > 1");            \
+    static_assert(helios_chunk_width > 1, "helios width must be > 1");            \
                                                                                   \
     /* Number of leaves required for tree to reach given depth */                 \
     uint64_t min_leaves_needed_for_tree_depth = 0;                                \
-    const auto curve_trees = test::init_curve_trees_test(helios_chunk_width,      \
-        selene_chunk_width,                                                       \
+    const auto curve_trees = test::init_curve_trees_test(selene_chunk_width,      \
+        helios_chunk_width,                                                       \
         tree_depth,                                                               \
         min_leaves_needed_for_tree_depth);                                        \
                                                                                   \
@@ -350,75 +350,48 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples) 
 
     if (leaves.empty())
     {
-        CHECK_AND_ASSERT_MES(c2_layers.empty() && c1_layers.empty(), false, "expected empty tree");
+        CHECK_AND_ASSERT_MES(c1_layers.empty() && c2_layers.empty(), false, "expected empty tree");
         return true;
     }
 
-    CHECK_AND_ASSERT_MES(!c2_layers.empty(), false, "must have at least 1 c2 layer in tree");
-    CHECK_AND_ASSERT_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
-        false, "unexpected mismatch of c2 and c1 layers");
+    CHECK_AND_ASSERT_MES(!c1_layers.empty(), false, "must have at least 1 c1 layer in tree");
+    CHECK_AND_ASSERT_MES(c1_layers.size() == c2_layers.size() || c1_layers.size() == (c2_layers.size() + 1),
+        false, "unexpected mismatch of c1 and c2 layers");
 
     const std::size_t n_layers = c1_layers.size() + c2_layers.size();
     CHECK_AND_ASSERT_MES(n_layers == m_curve_trees.n_layers(leaves.size()), false, "unexpected n_layers");
 
     // Verify root has 1 member in it
-    const bool c2_is_root = c2_layers.size() > c1_layers.size();
-    CHECK_AND_ASSERT_MES(c2_is_root ? c2_layers.back().size() == 1 : c1_layers.back().size() == 1, false,
+    const bool c1_is_root = c1_layers.size() > c2_layers.size();
+    CHECK_AND_ASSERT_MES(c1_is_root ? c1_layers.back().size() == 1 : c2_layers.back().size() == 1, false,
         "root must have 1 member in it");
 
     // Iterate from root down to layer above leaves, and check hashes match up correctly
-    bool parent_is_c2 = c2_is_root;
-    std::size_t c2_idx = c2_layers.size() - 1;
-    std::size_t c1_idx = c1_layers.empty() ? 0 : (c1_layers.size() - 1);
+    bool parent_is_c1 = c1_is_root;
+    std::size_t c1_idx = c1_layers.size() - 1;
+    std::size_t c2_idx = c2_layers.empty() ? 0 : (c2_layers.size() - 1);
     for (std::size_t i = 1; i < n_layers; ++i)
     {
         // TODO: implement templated function for below if statement
-        if (parent_is_c2)
-        {
-            MDEBUG("Validating parent c2 layer " << c2_idx << " , child c1 layer " << c1_idx);
-
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layers.size(), "unexpected c2_idx");
-            CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layers.size(), "unexpected c1_idx");
-
-            const Layer<Selene> &parents  = c2_layers[c2_idx];
-            const Layer<Helios> &children = c1_layers[c1_idx];
-
-            CHECK_AND_ASSERT_MES(!parents.empty(), false, "no parents at c2_idx " + std::to_string(c2_idx));
-            CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c1_idx " + std::to_string(c1_idx));
-
-            std::vector<Selene::Scalar> child_scalars;
-            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_curve_trees.m_c1,
-                children,
-                child_scalars);
-
-            const bool valid = validate_layer<Selene>(m_curve_trees.m_c2,
-                parents,
-                child_scalars,
-                m_curve_trees.m_c2_width);
-
-            CHECK_AND_ASSERT_MES(valid, false, "failed to validate c2_idx " + std::to_string(c2_idx));
-
-            --c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             MDEBUG("Validating parent c1 layer " << c1_idx << " , child c2 layer " << c2_idx);
 
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layers.size(), "unexpected c1_idx");
             CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layers.size(), "unexpected c2_idx");
 
-            const Layer<Helios> &parents  = c1_layers[c1_idx];
-            const Layer<Selene> &children = c2_layers[c2_idx];
+            const Layer<Selene> &parents  = c1_layers[c1_idx];
+            const Layer<Helios> &children = c2_layers[c2_idx];
 
             CHECK_AND_ASSERT_MES(!parents.empty(), false, "no parents at c1_idx " + std::to_string(c1_idx));
             CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c2_idx " + std::to_string(c2_idx));
 
-            std::vector<Helios::Scalar> child_scalars;
-            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_curve_trees.m_c2,
+            std::vector<Selene::Scalar> child_scalars;
+            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_curve_trees.m_c2,
                 children,
                 child_scalars);
 
-            const bool valid = validate_layer<Helios>(
+            const bool valid = validate_layer<Selene>(
                 m_curve_trees.m_c1,
                 parents,
                 child_scalars,
@@ -428,8 +401,35 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples) 
 
             --c1_idx;
         }
+        else
+        {
+            MDEBUG("Validating parent c2 layer " << c2_idx << " , child c1 layer " << c1_idx);
 
-        parent_is_c2 = !parent_is_c2;
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layers.size(), "unexpected c2_idx");
+            CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layers.size(), "unexpected c1_idx");
+
+            const Layer<Helios> &parents  = c2_layers[c2_idx];
+            const Layer<Selene> &children = c1_layers[c1_idx];
+
+            CHECK_AND_ASSERT_MES(!parents.empty(), false, "no parents at c2_idx " + std::to_string(c2_idx));
+            CHECK_AND_ASSERT_MES(!children.empty(), false, "no children at c1_idx " + std::to_string(c1_idx));
+
+            std::vector<Helios::Scalar> child_scalars;
+            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_curve_trees.m_c1,
+                children,
+                child_scalars);
+
+            const bool valid = validate_layer<Helios>(m_curve_trees.m_c2,
+                parents,
+                child_scalars,
+                m_curve_trees.m_c2_width);
+
+            CHECK_AND_ASSERT_MES(valid, false, "failed to validate c2_idx " + std::to_string(c2_idx));
+
+            --c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 
     MDEBUG("Validating leaves");
@@ -444,8 +444,8 @@ bool CurveTreesGlobalTree::audit_tree(const std::size_t expected_n_leaf_tuples) 
     }
 
     // Now validate leaves
-    return validate_layer<Selene>(m_curve_trees.m_c2,
-        c2_layers[0],
+    return validate_layer<Selene>(m_curve_trees.m_c1,
+        c1_layers[0],
         m_curve_trees.flatten_leaves(std::move(leaf_tuples)),
         m_curve_trees.m_leaf_layer_chunk_width);
 }
@@ -485,26 +485,10 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     // Get parents
     const auto &layer_ranges = path_idxs.layers;
     std::size_t c1_idx = 0, c2_idx = 0;
-    bool use_c2 = true;
+    bool parent_is_c1 = true;
     for (const auto &layer_range : layer_ranges)
     {
-        if (use_c2)
-        {
-            path_out.c2_layers.emplace_back();
-            auto &layer_out = path_out.c2_layers.back();
-
-            CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "too high c2_idx");
-            const std::size_t n_layer_elems = m_tree.c2_layers[c2_idx].size();
-            CHECK_AND_ASSERT_THROW_MES(n_layer_elems >= layer_range.second, "too high parent idx");
-
-            for (std::size_t j = layer_range.first; j < layer_range.second; ++j)
-            {
-                layer_out.emplace_back(m_tree.c2_layers[c2_idx][j]);
-            }
-
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             path_out.c1_layers.emplace_back();
             auto &layer_out = path_out.c1_layers.back();
@@ -520,8 +504,24 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
 
             ++c1_idx;
         }
+        else
+        {
+            path_out.c2_layers.emplace_back();
+            auto &layer_out = path_out.c2_layers.back();
 
-        use_c2 = !use_c2;
+            CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "too high c2_idx");
+            const std::size_t n_layer_elems = m_tree.c2_layers[c2_idx].size();
+            CHECK_AND_ASSERT_THROW_MES(n_layer_elems >= layer_range.second, "too high parent idx");
+
+            for (std::size_t j = layer_range.first; j < layer_range.second; ++j)
+            {
+                layer_out.emplace_back(m_tree.c2_layers[c2_idx][j]);
+            }
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 
     return path_out;
@@ -536,16 +536,16 @@ uint8_t *CurveTreesGlobalTree::get_tree_root() const
 
     if ((n_layers % 2) == 0)
     {
-        CHECK_AND_ASSERT_THROW_MES(!m_tree.c1_layers.empty(), "missing c1 layers");
-        const auto &last_layer = m_tree.c1_layers.back();
-        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
+        CHECK_AND_ASSERT_THROW_MES(!m_tree.c2_layers.empty(), "missing c2 layers");
+        const auto &last_layer = m_tree.c2_layers.back();
+        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
         return fcmp_pp::tower_cycle::helios_tree_root(last_layer.back());
     }
     else
     {
-        CHECK_AND_ASSERT_THROW_MES(!m_tree.c2_layers.empty(), "missing c2 layers");
-        const auto &last_layer = m_tree.c2_layers.back();
-        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
+        CHECK_AND_ASSERT_THROW_MES(!m_tree.c1_layers.empty(), "missing c1 layers");
+        const auto &last_layer = m_tree.c1_layers.back();
+        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
         return fcmp_pp::tower_cycle::selene_tree_root(last_layer.back());
     }
 }
@@ -566,59 +566,25 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
     }
 
     // Add the layers
-    const auto &c2_extensions = tree_extension.c2_layer_extensions;
     const auto &c1_extensions = tree_extension.c1_layer_extensions;
-    CHECK_AND_ASSERT_THROW_MES(!c2_extensions.empty(), "empty c2 extensions");
+    const auto &c2_extensions = tree_extension.c2_layer_extensions;
+    CHECK_AND_ASSERT_THROW_MES(!c1_extensions.empty(), "empty c1 extensions");
 
-    bool use_c2 = true;
-    std::size_t c2_idx = 0;
-    std::size_t c1_idx = 0;
-    for (std::size_t i = 0; i < (c2_extensions.size() + c1_extensions.size()); ++i)
+    bool parent_is_c1 = true;
+    std::size_t c1_idx = 0, c2_idx = 0;
+    for (std::size_t i = 0; i < (c1_extensions.size() + c2_extensions.size()); ++i)
     {
         // TODO: template below if statement
-        if (use_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer extension");
-            const fcmp_pp::curve_trees::LayerExtension<Selene> &c2_ext = c2_extensions[c2_idx];
-
-            CHECK_AND_ASSERT_THROW_MES(!c2_ext.hashes.empty(), "empty c2 layer extension");
-
-            CHECK_AND_ASSERT_THROW_MES(c2_idx <= m_tree.c2_layers.size(), "missing c2 layer");
-            if (m_tree.c2_layers.size() == c2_idx)
-                m_tree.c2_layers.emplace_back(Layer<Selene>{});
-
-            auto &c2_inout = m_tree.c2_layers[c2_idx];
-
-            const bool started_after_tip = (c2_inout.size() == c2_ext.start_idx);
-            const bool started_at_tip    = (c2_inout.size() == (c2_ext.start_idx + 1));
-            CHECK_AND_ASSERT_THROW_MES(started_after_tip || started_at_tip, "unexpected c2 layer start");
-
-            // We updated the last hash
-            if (started_at_tip)
-            {
-                CHECK_AND_ASSERT_THROW_MES(c2_ext.update_existing_last_hash, "expect to be updating last hash");
-                c2_inout.back() = c2_ext.hashes.front();
-            }
-            else
-            {
-                CHECK_AND_ASSERT_THROW_MES(!c2_ext.update_existing_last_hash, "unexpected last hash update");
-            }
-
-            for (std::size_t i = started_at_tip ? 1 : 0; i < c2_ext.hashes.size(); ++i)
-                c2_inout.emplace_back(c2_ext.hashes[i]);
-
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_extensions.size(), "unexpected c1 layer extension");
-            const fcmp_pp::curve_trees::LayerExtension<Helios> &c1_ext = c1_extensions[c1_idx];
+            const fcmp_pp::curve_trees::LayerExtension<Selene> &c1_ext = c1_extensions[c1_idx];
 
             CHECK_AND_ASSERT_THROW_MES(!c1_ext.hashes.empty(), "empty c1 layer extension");
 
             CHECK_AND_ASSERT_THROW_MES(c1_idx <= m_tree.c1_layers.size(), "missing c1 layer");
             if (m_tree.c1_layers.size() == c1_idx)
-                m_tree.c1_layers.emplace_back(Layer<Helios>{});
+                m_tree.c1_layers.emplace_back(Layer<Selene>{});
 
             auto &c1_inout = m_tree.c1_layers[c1_idx];
 
@@ -642,8 +608,41 @@ void CurveTreesGlobalTree::extend_tree(const CurveTreesV1::TreeExtension &tree_e
 
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer extension");
+            const fcmp_pp::curve_trees::LayerExtension<Helios> &c2_ext = c2_extensions[c2_idx];
 
-        use_c2 = !use_c2;
+            CHECK_AND_ASSERT_THROW_MES(!c2_ext.hashes.empty(), "empty c2 layer extension");
+
+            CHECK_AND_ASSERT_THROW_MES(c2_idx <= m_tree.c2_layers.size(), "missing c2 layer");
+            if (m_tree.c2_layers.size() == c2_idx)
+                m_tree.c2_layers.emplace_back(Layer<Helios>{});
+
+            auto &c2_inout = m_tree.c2_layers[c2_idx];
+
+            const bool started_after_tip = (c2_inout.size() == c2_ext.start_idx);
+            const bool started_at_tip    = (c2_inout.size() == (c2_ext.start_idx + 1));
+            CHECK_AND_ASSERT_THROW_MES(started_after_tip || started_at_tip, "unexpected c2 layer start");
+
+            // We updated the last hash
+            if (started_at_tip)
+            {
+                CHECK_AND_ASSERT_THROW_MES(c2_ext.update_existing_last_hash, "expect to be updating last hash");
+                c2_inout.back() = c2_ext.hashes.front();
+            }
+            else
+            {
+                CHECK_AND_ASSERT_THROW_MES(!c2_ext.update_existing_last_hash, "unexpected last hash update");
+            }
+
+            for (std::size_t i = started_at_tip ? 1 : 0; i < c2_ext.hashes.size(); ++i)
+                c2_inout.emplace_back(c2_ext.hashes[i]);
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -656,41 +655,19 @@ void CurveTreesGlobalTree::reduce_tree(const CurveTreesV1::TreeReduction &tree_r
         m_tree.leaves.pop_back();
 
     // Trim the layers
-    const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
     const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
-    CHECK_AND_ASSERT_THROW_MES(c2_layer_reductions.size() == c1_layer_reductions.size()
-        || c2_layer_reductions.size() == (c1_layer_reductions.size() + 1),
-        "unexpected mismatch of c2 and c1 layer reductions");
+    const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
+    CHECK_AND_ASSERT_THROW_MES(c1_layer_reductions.size() == c2_layer_reductions.size()
+        || c1_layer_reductions.size() == (c2_layer_reductions.size() + 1),
+        "unexpected mismatch of c1 and c2 layer reductions");
 
-    bool use_c2 = true;
-    std::size_t c2_idx = 0;
+    bool parent_is_c1 = true;
     std::size_t c1_idx = 0;
-    for (std::size_t i = 0; i < (c2_layer_reductions.size() + c1_layer_reductions.size()); ++i)
+    std::size_t c2_idx = 0;
+    for (std::size_t i = 0; i < (c1_layer_reductions.size() + c2_layer_reductions.size()); ++i)
     {
         // TODO: template below if statement
-        if (use_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layer_reductions.size(), "unexpected c2 layer reduction");
-            const auto &c2_reduction = c2_layer_reductions[c2_idx];
-
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < m_tree.c2_layers.size(), "missing c2 layer");
-            auto &c2_inout = m_tree.c2_layers[c2_idx];
-
-            CHECK_AND_ASSERT_THROW_MES(c2_reduction.new_total_parents <= c2_inout.size(),
-                "unexpected c2 new total parents");
-
-            c2_inout.resize(c2_reduction.new_total_parents);
-            c2_inout.shrink_to_fit();
-
-            // We updated the last hash
-            if (c2_reduction.update_existing_last_hash)
-            {
-                c2_inout.back() = c2_reduction.new_last_hash;
-            }
-
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layer_reductions.size(), "unexpected c1 layer reduction");
             const auto &c1_reduction = c1_layer_reductions[c1_idx];
@@ -712,8 +689,30 @@ void CurveTreesGlobalTree::reduce_tree(const CurveTreesV1::TreeReduction &tree_r
 
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layer_reductions.size(), "unexpected c2 layer reduction");
+            const auto &c2_reduction = c2_layer_reductions[c2_idx];
 
-        use_c2 = !use_c2;
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < m_tree.c2_layers.size(), "missing c2 layer");
+            auto &c2_inout = m_tree.c2_layers[c2_idx];
+
+            CHECK_AND_ASSERT_THROW_MES(c2_reduction.new_total_parents <= c2_inout.size(),
+                "unexpected c2 new total parents");
+
+            c2_inout.resize(c2_reduction.new_total_parents);
+            c2_inout.shrink_to_fit();
+
+            // We updated the last hash
+            if (c2_reduction.update_existing_last_hash)
+            {
+                c2_inout.back() = c2_reduction.new_last_hash;
+            }
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 
     // Delete remaining layers
@@ -733,38 +732,38 @@ CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes() const
     const auto &c1_layers = m_tree.c1_layers;
     const auto &c2_layers = m_tree.c2_layers;
 
-    // We started with c2 and then alternated, so c2 is the same size or 1 higher than c1
-    CHECK_AND_ASSERT_THROW_MES(c2_layers.size() == c1_layers.size() || c2_layers.size() == (c1_layers.size() + 1),
+    // We started with c1 and then alternated, so c1 is the same size or 1 higher than c2
+    CHECK_AND_ASSERT_THROW_MES(c1_layers.size() == c2_layers.size() || c1_layers.size() == (c2_layers.size() + 1),
         "unexpected number of curve layers");
 
     c1_last_hashes_out.reserve(c1_layers.size());
     c2_last_hashes_out.reserve(c2_layers.size());
 
-    if (c2_layers.empty())
+    if (c1_layers.empty())
         return last_hashes_out;
 
-    // Next parents will be c2
-    bool use_c2 = true;
+    // Next parents will be c1
+    bool parent_is_c1 = true;
 
     // Then get last chunks up until the root
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
     while (c1_last_hashes_out.size() < c1_layers.size() || c2_last_hashes_out.size() < c2_layers.size())
     {
-        if (use_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > c2_idx, "missing c2 layer");
-            c2_last_hashes_out.push_back(c2_layers[c2_idx].back());
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_layers.size() > c1_idx, "missing c1 layer");
             c1_last_hashes_out.push_back(c1_layers[c1_idx].back());
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(c2_layers.size() > c2_idx, "missing c2 layer");
+            c2_last_hashes_out.push_back(c2_layers[c2_idx].back());
+            ++c2_idx;
+        }
 
-        use_c2 = !use_c2;
+        parent_is_c1 = !parent_is_c1;
     }
 
     return last_hashes_out;
@@ -806,9 +805,9 @@ CurveTreesV1::LastChunkChildrenForTrim CurveTreesGlobalTree::get_last_chunk_chil
         while (idx < trim_leaf_layer_instructions.end_trim_idx);
     }
 
-    all_children_for_trim.c2_children.emplace_back(std::move(leaves_to_trim));
+    all_children_for_trim.c1_children.emplace_back(std::move(leaves_to_trim));
 
-    bool parent_is_c2 = false;
+    bool parent_is_c2 = true;
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
     for (std::size_t i = 1; i < trim_instructions.size(); ++i)
@@ -824,7 +823,7 @@ CurveTreesV1::LastChunkChildrenForTrim CurveTreesGlobalTree::get_last_chunk_chil
         {
             CHECK_AND_ASSERT_THROW_MES(m_tree.c1_layers.size() > c1_idx, "c1_idx too high");
 
-            auto children_for_trim = get_layer_last_chunk_children_for_trim<Helios, Selene>(
+            auto children_for_trim = get_layer_last_chunk_children_for_trim<Selene, Helios>(
                 m_curve_trees.m_c1,
                 m_tree.c1_layers[c1_idx],
                 start_trim_idx,
@@ -837,7 +836,7 @@ CurveTreesV1::LastChunkChildrenForTrim CurveTreesGlobalTree::get_last_chunk_chil
         {
             CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "c2_idx too high");
 
-            auto children_for_trim = get_layer_last_chunk_children_for_trim<Selene, Helios>(
+            auto children_for_trim = get_layer_last_chunk_children_for_trim<Helios, Selene>(
                 m_curve_trees.m_c2,
                 m_tree.c2_layers[c2_idx],
                 start_trim_idx,
@@ -861,7 +860,7 @@ CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_for_trim(
     if (trim_instructions.empty())
         return last_hashes;
 
-    bool parent_is_c2 = true;
+    bool parent_is_c1 = true;
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
     for (const auto &trim_layer_instructions : trim_instructions)
@@ -869,17 +868,7 @@ CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_for_trim(
         const std::size_t new_total_parents = trim_layer_instructions.new_total_parents;
         CHECK_AND_ASSERT_THROW_MES(new_total_parents > 0, "no new parents");
 
-        if (parent_is_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "c2_idx too high");
-            const auto &c2_layer = m_tree.c2_layers[c2_idx];
-
-            CHECK_AND_ASSERT_THROW_MES(c2_layer.size() >= new_total_parents, "not enough c2 parents");
-
-            last_hashes.c2_last_hashes.push_back(c2_layer[new_total_parents - 1]);
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(m_tree.c1_layers.size() > c1_idx, "c1_idx too high");
             const auto &c1_layer = m_tree.c1_layers[c1_idx];
@@ -889,8 +878,18 @@ CurveTreesV1::LastHashes CurveTreesGlobalTree::get_last_hashes_for_trim(
             last_hashes.c1_last_hashes.push_back(c1_layer[new_total_parents - 1]);
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(m_tree.c2_layers.size() > c2_idx, "c2_idx too high");
+            const auto &c2_layer = m_tree.c2_layers[c2_idx];
 
-        parent_is_c2 = !parent_is_c2;
+            CHECK_AND_ASSERT_THROW_MES(c2_layer.size() >= new_total_parents, "not enough c2 parents");
+
+            last_hashes.c2_last_hashes.push_back(c2_layer[new_total_parents - 1]);
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 
     return last_hashes;
@@ -908,21 +907,12 @@ void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_
 
     MDEBUG("Total of " << c1_last_hashes.size() << " Helios layers and " << c2_last_hashes.size() << " Selene layers");
 
-    bool use_c2 = true;
+    bool parent_is_c1 = true;
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
     for (std::size_t i = 0; i < (c1_last_hashes.size() + c2_last_hashes.size()); ++i)
     {
-        if (use_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_last_hashes.size(), "unexpected c2 layer");
-
-            const auto &last_hash = c2_last_hashes[c2_idx];
-            MDEBUG("c2_idx: " << c2_idx << " , last_hash: " << m_curve_trees.m_c2->to_string(last_hash));
-
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_last_hashes.size(), "unexpected c1 layer");
 
@@ -931,8 +921,17 @@ void CurveTreesGlobalTree::log_last_hashes(const CurveTreesV1::LastHashes &last_
 
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_last_hashes.size(), "unexpected c2 layer");
 
-        use_c2 = !use_c2;
+            const auto &last_hash = c2_last_hashes[c2_idx];
+            MDEBUG("c2_idx: " << c2_idx << " , last_hash: " << m_curve_trees.m_c2->to_string(last_hash));
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -953,38 +952,25 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
         const auto &output_pair = tree_extension.leaves.tuples[i].output_pair;
         const auto leaf = m_curve_trees.leaf_tuple(output_pair);
 
-        const auto O_x = m_curve_trees.m_c2->to_string(leaf.O_x);
-        const auto I_x = m_curve_trees.m_c2->to_string(leaf.I_x);
-        const auto C_x = m_curve_trees.m_c2->to_string(leaf.C_x);
+        const auto O_x = m_curve_trees.m_c1->to_string(leaf.O_x);
+        const auto I_x = m_curve_trees.m_c1->to_string(leaf.I_x);
+        const auto C_x = m_curve_trees.m_c1->to_string(leaf.C_x);
 
         MDEBUG("Leaf tuple idx " << (tree_extension.leaves.start_leaf_tuple_idx + (i * CurveTreesV1::LEAF_TUPLE_SIZE))
             << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
     }
 
-    bool use_c2 = true;
+    bool parent_is_c1 = true;
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
     for (std::size_t i = 0; i < (c1_extensions.size() + c2_extensions.size()); ++i)
     {
-        if (use_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer");
-
-            const fcmp_pp::curve_trees::LayerExtension<Selene> &c2_layer = c2_extensions[c2_idx];
-            MDEBUG("Selene tree extension start idx: " << c2_layer.start_idx);
-
-            for (std::size_t j = 0; j < c2_layer.hashes.size(); ++j)
-                MDEBUG("Child chunk start idx: " << (j + c2_layer.start_idx) << " , hash: "
-                    << m_curve_trees.m_c2->to_string(c2_layer.hashes[j]));
-
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_extensions.size(), "unexpected c1 layer");
 
-            const fcmp_pp::curve_trees::LayerExtension<Helios> &c1_layer = c1_extensions[c1_idx];
-            MDEBUG("Helios tree extension start idx: " << c1_layer.start_idx);
+            const fcmp_pp::curve_trees::LayerExtension<Selene> &c1_layer = c1_extensions[c1_idx];
+            MDEBUG("Selene tree extension start idx: " << c1_layer.start_idx);
 
             for (std::size_t j = 0; j < c1_layer.hashes.size(); ++j)
                 MDEBUG("Child chunk start idx: " << (j + c1_layer.start_idx) << " , hash: "
@@ -992,8 +978,21 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
 
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_extensions.size(), "unexpected c2 layer");
 
-        use_c2 = !use_c2;
+            const fcmp_pp::curve_trees::LayerExtension<Helios> &c2_layer = c2_extensions[c2_idx];
+            MDEBUG("Helios tree extension start idx: " << c2_layer.start_idx);
+
+            for (std::size_t j = 0; j < c2_layer.hashes.size(); ++j)
+                MDEBUG("Child chunk start idx: " << (j + c2_layer.start_idx) << " , hash: "
+                    << m_curve_trees.m_c2->to_string(c2_layer.hashes[j]));
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -1003,50 +1002,50 @@ void CurveTreesGlobalTree::log_tree()
         return;
 
     MDEBUG("Tree has " << m_tree.leaves.size() << " leaves, "
-        << m_tree.c1_layers.size() << " helios layers, " <<  m_tree.c2_layers.size() << " selene layers");
+        << m_tree.c1_layers.size() << " selene layers, " <<  m_tree.c2_layers.size() << " helios layers");
 
     for (std::size_t i = 0; i < m_tree.leaves.size(); ++i)
     {
         const auto leaf = m_curve_trees.leaf_tuple(m_tree.leaves[i]);
 
-        const auto O_x = m_curve_trees.m_c2->to_string(leaf.O_x);
-        const auto I_x = m_curve_trees.m_c2->to_string(leaf.I_x);
-        const auto C_x = m_curve_trees.m_c2->to_string(leaf.C_x);
+        const auto O_x = m_curve_trees.m_c1->to_string(leaf.O_x);
+        const auto I_x = m_curve_trees.m_c1->to_string(leaf.I_x);
+        const auto C_x = m_curve_trees.m_c1->to_string(leaf.C_x);
 
         MDEBUG("Leaf idx " << i << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
     }
 
-    bool use_c2 = true;
+    bool parent_is_c1 = true;
     std::size_t c1_idx = 0;
     std::size_t c2_idx = 0;
     for (std::size_t i = 0; i < (m_tree.c1_layers.size() + m_tree.c2_layers.size()); ++i)
     {
-        if (use_c2)
-        {
-            CHECK_AND_ASSERT_THROW_MES(c2_idx < m_tree.c2_layers.size(), "unexpected c2 layer");
-
-            const CurveTreesGlobalTree::Layer<Selene> &c2_layer = m_tree.c2_layers[c2_idx];
-            MDEBUG("Selene layer size: " << c2_layer.size() << " , tree layer: " << i);
-
-            for (std::size_t j = 0; j < c2_layer.size(); ++j)
-                MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c2->to_string(c2_layer[j]));
-
-            ++c2_idx;
-        }
-        else
+        if (parent_is_c1)
         {
             CHECK_AND_ASSERT_THROW_MES(c1_idx < m_tree.c1_layers.size(), "unexpected c1 layer");
 
-            const CurveTreesGlobalTree::Layer<Helios> &c1_layer = m_tree.c1_layers[c1_idx];
-            MDEBUG("Helios layer size: " << c1_layer.size() << " , tree layer: " << i);
+            const CurveTreesGlobalTree::Layer<Selene> &c1_layer = m_tree.c1_layers[c1_idx];
+            MDEBUG("Selene layer size: " << c1_layer.size() << " , tree layer: " << i);
 
             for (std::size_t j = 0; j < c1_layer.size(); ++j)
                 MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c1->to_string(c1_layer[j]));
 
             ++c1_idx;
         }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(c2_idx < m_tree.c2_layers.size(), "unexpected c2 layer");
 
-        use_c2 = !use_c2;
+            const CurveTreesGlobalTree::Layer<Helios> &c2_layer = m_tree.c2_layers[c2_idx];
+            MDEBUG("Helios layer size: " << c2_layer.size() << " , tree layer: " << i);
+
+            for (std::size_t j = 0; j < c2_layer.size(); ++j)
+                MDEBUG("Child chunk start idx: " << j << " , hash: " << m_curve_trees.m_c2->to_string(c2_layer[j]));
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -1056,15 +1055,14 @@ void CurveTreesGlobalTree::log_tree()
 TEST(curve_trees, grow_tree)
 {
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
-    static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 2;
-
+    static const std::size_t helios_chunk_width = 3;
     static const std::size_t tree_depth = 4;
 
-    LOG_PRINT_L1("Test grow tree with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth);
+    LOG_PRINT_L1("Test grow tree with selene chunk width " << selene_chunk_width
+        << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth);
 
-    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
+    INIT_CURVE_TREES_TEST;
 
     // First initialize the tree with init_leaves
     BEGIN_INIT_TREE_ITER(curve_trees)
@@ -1091,15 +1089,14 @@ TEST(curve_trees, grow_tree)
 TEST(curve_trees, trim_tree)
 {
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
-    static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 3;
-
+    static const std::size_t helios_chunk_width = 3;
     static const std::size_t tree_depth = 4;
 
-    LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth);
+    LOG_PRINT_L1("Test trim tree with selene chunk width " << selene_chunk_width
+        << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth);
 
-    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
+    INIT_CURVE_TREES_TEST;
 
     // First initialize the tree with init_leaves
     BEGIN_INIT_TREE_ITER(curve_trees)
@@ -1128,18 +1125,17 @@ TEST(curve_trees, trim_tree)
 TEST(curve_trees, trim_tree_then_grow)
 {
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
-    static const std::size_t helios_chunk_width = 3;
     static const std::size_t selene_chunk_width = 3;
-
+    static const std::size_t helios_chunk_width = 3;
     static const std::size_t tree_depth = 2;
 
     static const std::size_t grow_after_trim = 1;
 
-    LOG_PRINT_L1("Test trim tree with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth
+    LOG_PRINT_L1("Test trim tree with selene chunk width " << selene_chunk_width
+        << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth
         << ", then grow " << grow_after_trim << " leaf/leaves");
 
-    INIT_CURVE_TREES_TEST(helios_chunk_width, selene_chunk_width, tree_depth);
+    INIT_CURVE_TREES_TEST;
 
     // First initialize the tree with init_leaves
     BEGIN_INIT_TREE_ITER(curve_trees)
@@ -1183,29 +1179,29 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 2 scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1};
-        const auto init_hash = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto init_hash = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         // Trim selene_scalar_1
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 1};
-        const auto trim_res = curve_trees->m_c2->hash_trim(
+        const auto trim_res = curve_trees->m_c1->hash_trim(
             init_hash,
             1,
             trimmed_children,
-            curve_trees->m_c2->zero_scalar());
-        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
+            curve_trees->m_c1->zero_scalar());
+        const auto trim_res_str = curve_trees->m_c1->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
-        const auto grow_res = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto grow_res = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
+        const auto grow_res_str = curve_trees->m_c1->to_string(grow_res);
 
         ASSERT_EQ(trim_res_str, grow_res_str);
     }
@@ -1220,29 +1216,29 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 3 selene scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1, selene_scalar_2};
-        const auto init_hash = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto init_hash = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         // Trim the initial result by 2 children
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 2};
-        const auto trim_res = curve_trees->m_c2->hash_trim(
+        const auto trim_res = curve_trees->m_c1->hash_trim(
             init_hash,
             1,
             trimmed_children,
-            curve_trees->m_c2->zero_scalar());
-        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
+            curve_trees->m_c1->zero_scalar());
+        const auto trim_res_str = curve_trees->m_c1->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0};
-        const auto grow_res = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto grow_res = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
+        const auto grow_res_str = curve_trees->m_c1->to_string(grow_res);
 
         ASSERT_EQ(trim_res_str, grow_res_str);
     }
@@ -1256,31 +1252,31 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 2 selene scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1};
-        const auto init_hash = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto init_hash = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         const auto selene_scalar_2 = generate_random_selene_scalar();
 
         // Trim the 2nd child and grow with new child
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 1};
-        const auto trim_res = curve_trees->m_c2->hash_trim(
+        const auto trim_res = curve_trees->m_c1->hash_trim(
             init_hash,
             1,
             trimmed_children,
             selene_scalar_2);
-        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
+        const auto trim_res_str = curve_trees->m_c1->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_2}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_2};
-        const auto grow_res = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto grow_res = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
+        const auto grow_res_str = curve_trees->m_c1->to_string(grow_res);
 
         ASSERT_EQ(trim_res_str, grow_res_str);
     }
@@ -1295,31 +1291,31 @@ TEST(curve_trees, hash_trim)
 
         // Get the initial hash of the 3 selene scalars
         std::vector<Selene::Scalar> init_children{selene_scalar_0, selene_scalar_1, selene_scalar_2};
-        const auto init_hash = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto init_hash = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{init_children.data(), init_children.size()});
 
         const auto selene_scalar_3 = generate_random_selene_scalar();
 
         // Trim the initial result by 2 children+grow by 1
         const auto &trimmed_children = Selene::Chunk{init_children.data() + 1, 2};
-        const auto trim_res = curve_trees->m_c2->hash_trim(
+        const auto trim_res = curve_trees->m_c1->hash_trim(
             init_hash,
             1,
             trimmed_children,
             selene_scalar_3);
-        const auto trim_res_str = curve_trees->m_c2->to_string(trim_res);
+        const auto trim_res_str = curve_trees->m_c1->to_string(trim_res);
 
         // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_3}
         std::vector<Selene::Scalar> remaining_children{selene_scalar_0, selene_scalar_3};
-        const auto grow_res = curve_trees->m_c2->hash_grow(
-            /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+        const auto grow_res = curve_trees->m_c1->hash_grow(
+            /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
             /*offset*/                   0,
-            /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+            /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
             /*children*/                 Selene::Chunk{remaining_children.data(), remaining_children.size()});
-        const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
+        const auto grow_res_str = curve_trees->m_c1->to_string(grow_res);
 
         ASSERT_EQ(trim_res_str, grow_res_str);
     }
@@ -1337,30 +1333,30 @@ TEST(curve_trees, hash_grow)
 
     // Get the initial hash of the 2 selene scalars
     std::vector<Selene::Scalar> all_children{selene_scalar_0, selene_scalar_1};
-    const auto init_hash = curve_trees->m_c2->hash_grow(
-        /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+    const auto init_hash = curve_trees->m_c1->hash_grow(
+        /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
         /*offset*/                   0,
-        /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+        /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
 
     // Extend with a new child
     const auto selene_scalar_2 = generate_random_selene_scalar();
     std::vector<Selene::Scalar> new_children{selene_scalar_2};
-    const auto ext_hash = curve_trees->m_c2->hash_grow(
+    const auto ext_hash = curve_trees->m_c1->hash_grow(
         init_hash,
         all_children.size(),
-        curve_trees->m_c2->zero_scalar(),
+        curve_trees->m_c1->zero_scalar(),
         Selene::Chunk{new_children.data(), new_children.size()});
-    const auto ext_hash_str = curve_trees->m_c2->to_string(ext_hash);
+    const auto ext_hash_str = curve_trees->m_c1->to_string(ext_hash);
 
     // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_1, selene_scalar_2}
     all_children.push_back(selene_scalar_2);
-    const auto grow_res = curve_trees->m_c2->hash_grow(
-        /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+    const auto grow_res = curve_trees->m_c1->hash_grow(
+        /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
         /*offset*/                   0,
-        /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+        /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
-    const auto grow_res_str = curve_trees->m_c2->to_string(grow_res);
+    const auto grow_res_str = curve_trees->m_c1->to_string(grow_res);
 
     ASSERT_EQ(ext_hash_str, grow_res_str);
 
@@ -1368,21 +1364,21 @@ TEST(curve_trees, hash_grow)
     const auto selene_scalar_3 = generate_random_selene_scalar();
     new_children.clear();
     new_children = {selene_scalar_3};
-    const auto ext_hash2 = curve_trees->m_c2->hash_grow(
+    const auto ext_hash2 = curve_trees->m_c1->hash_grow(
         ext_hash,
         all_children.size(),
-        curve_trees->m_c2->zero_scalar(),
+        curve_trees->m_c1->zero_scalar(),
         Selene::Chunk{new_children.data(), new_children.size()});
-    const auto ext_hash_str2 = curve_trees->m_c2->to_string(ext_hash2);
+    const auto ext_hash_str2 = curve_trees->m_c1->to_string(ext_hash2);
 
     // Now compare to calling hash_grow{selene_scalar_0, selene_scalar_1, selene_scalar_2, selene_scalar_3}
     all_children.push_back(selene_scalar_3);
-    const auto grow_res2 = curve_trees->m_c2->hash_grow(
-        /*existing_hash*/            curve_trees->m_c2->hash_init_point(),
+    const auto grow_res2 = curve_trees->m_c1->hash_grow(
+        /*existing_hash*/            curve_trees->m_c1->hash_init_point(),
         /*offset*/                   0,
-        /*existing_child_at_offset*/ curve_trees->m_c2->zero_scalar(),
+        /*existing_child_at_offset*/ curve_trees->m_c1->zero_scalar(),
         /*children*/                 Selene::Chunk{all_children.data(), all_children.size()});
-    const auto grow_res_str2 = curve_trees->m_c2->to_string(grow_res2);
+    const auto grow_res_str2 = curve_trees->m_c1->to_string(grow_res2);
 
     ASSERT_EQ(ext_hash_str2, grow_res_str2);
 }

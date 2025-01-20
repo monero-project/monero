@@ -1258,7 +1258,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
   m_allow_mismatched_daemon_version(false),
-  m_tree_sync(fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>(
+  m_tree_sync(fcmp_pp::curve_trees::TreeSyncMemory<Selene, Helios>(
       fcmp_pp::curve_trees::curve_trees_v1(),
       m_max_reorg_depth))
 {

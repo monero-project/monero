@@ -927,8 +927,6 @@ void BlockchainLMDB::remove_block()
 
   // must use h now; deleting from m_block_info will invalidate it
   mdb_block_info *bi = (mdb_block_info *)h.mv_data;
-  const uint64_t block_id = bi->bi_height;
-  const uint64_t old_n_leaf_tuples = bi->bi_n_leaf_tuples;
   blk_height bh = {bi->bi_hash, 0};
   h.mv_data = (void *)&bh;
   h.mv_size = sizeof(bh);
@@ -1450,45 +1448,45 @@ void BlockchainLMDB::grow_tree(std::vector<fcmp_pp::curve_trees::OutputContext> 
 
   // Grow the layers
   // TODO: grow_layers
-  const auto &c2_extensions = tree_extension.c2_layer_extensions;
   const auto &c1_extensions = tree_extension.c1_layer_extensions;
+  const auto &c2_extensions = tree_extension.c2_layer_extensions;
 
-  bool use_c2 = true;
-  uint64_t c2_idx = 0;
+  bool parent_is_c1 = true;
   uint64_t c1_idx = 0;
-  for (uint64_t i = 0; i < (c2_extensions.size() + c1_extensions.size()); ++i)
+  uint64_t c2_idx = 0;
+  for (uint64_t i = 0; i < (c1_extensions.size() + c2_extensions.size()); ++i)
   {
-    const uint64_t layer_idx = c2_idx + c1_idx;
+    const uint64_t layer_idx = c1_idx + c2_idx;
     MDEBUG("Growing layer " << layer_idx);
 
-    if (use_c2)
+    if (parent_is_c1)
     {
       if (layer_idx % 2 != 0)
-        throw0(DB_ERROR(("Growing odd c2 layer, expected even layer idx for c2: "
+        throw0(DB_ERROR(("Growing odd c1 layer, expected even layer idx for c1: "
           + std::to_string(layer_idx)).c_str()));
 
-      this->grow_layer<fcmp_pp::curve_trees::Selene>(m_curve_trees->m_c2,
-        c2_extensions,
-        c2_idx,
-        layer_idx);
-
-      ++c2_idx;
-    }
-    else
-    {
-      if (layer_idx % 2 == 0)
-        throw0(DB_ERROR(("Growing even c1 layer, expected odd layer idx for c1: "
-          + std::to_string(layer_idx)).c_str()));
-
-      this->grow_layer<fcmp_pp::curve_trees::Helios>(m_curve_trees->m_c1,
+      this->grow_layer<fcmp_pp::curve_trees::Selene>(m_curve_trees->m_c1,
         c1_extensions,
         c1_idx,
         layer_idx);
 
       ++c1_idx;
     }
+    else
+    {
+      if (layer_idx % 2 == 0)
+        throw0(DB_ERROR(("Growing even c2 layer, expected odd layer idx for c2: "
+          + std::to_string(layer_idx)).c_str()));
 
-    use_c2 = !use_c2;
+      this->grow_layer<fcmp_pp::curve_trees::Helios>(m_curve_trees->m_c2,
+        c2_extensions,
+        c2_idx,
+        layer_idx);
+
+      ++c2_idx;
+    }
+
+    parent_is_c1 = !parent_is_c1;
   }
 }
 
@@ -1603,20 +1601,12 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_pa
     return { tree_reduction.new_total_leaf_tuples, path };
 
   // Use the tree reduction to update last hashes in each layer if needed
-  bool use_c2 = true;
+  bool parent_is_c1 = true;
   std::size_t c1_idx = 0;
   std::size_t c2_idx = 0;
   for (auto &layer : path.layer_chunks)
   {
-    if (use_c2)
-    {
-      CHECK_AND_ASSERT_THROW_MES(c2_idx < tree_reduction.c2_layer_reductions.size(), "unexpected c2 layer reduction");
-      const auto &layer_reduction = tree_reduction.c2_layer_reductions[c2_idx];
-      if (layer_reduction.update_existing_last_hash)
-        layer.chunk_bytes.back() = m_curve_trees->m_c2->to_bytes(layer_reduction.new_last_hash);
-      ++c2_idx;
-    }
-    else
+    if (parent_is_c1)
     {
       CHECK_AND_ASSERT_THROW_MES(c1_idx < tree_reduction.c1_layer_reductions.size(), "unexpected c1 layer reduction");
       const auto &layer_reduction = tree_reduction.c1_layer_reductions[c1_idx];
@@ -1624,8 +1614,16 @@ std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_last_pa
         layer.chunk_bytes.back() = m_curve_trees->m_c1->to_bytes(layer_reduction.new_last_hash);
       ++c1_idx;
     }
+    else
+    {
+      CHECK_AND_ASSERT_THROW_MES(c2_idx < tree_reduction.c2_layer_reductions.size(), "unexpected c2 layer reduction");
+      const auto &layer_reduction = tree_reduction.c2_layer_reductions[c2_idx];
+      if (layer_reduction.update_existing_last_hash)
+        layer.chunk_bytes.back() = m_curve_trees->m_c2->to_bytes(layer_reduction.new_last_hash);
+      ++c2_idx;
+    }
 
-    use_c2 = !use_c2;
+    parent_is_c1 = !parent_is_c1;
   }
 
   TXN_POSTFIX_RDONLY();
@@ -1783,32 +1781,32 @@ void BlockchainLMDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t 
 
   // Trim the layers
   // TODO: trim_layers
-  const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
   const auto &c1_layer_reductions = tree_reduction.c1_layer_reductions;
+  const auto &c2_layer_reductions = tree_reduction.c2_layer_reductions;
 
-  const std::size_t n_layers = c2_layer_reductions.size() + c1_layer_reductions.size();
+  const std::size_t n_layers = c1_layer_reductions.size() + c2_layer_reductions.size();
 
-  bool use_c2 = true;
-  uint64_t c2_idx = 0;
+  bool parent_is_c1 = true;
   uint64_t c1_idx = 0;
+  uint64_t c2_idx = 0;
   for (uint64_t i = 0; i < n_layers; ++i)
   {
-    if (use_c2)
-    {
-      CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layer_reductions.size(), "unexpected c2 layer reduction");
-      const auto &c2_reduction = c2_layer_reductions[c2_idx];
-      this->trim_layer(m_curve_trees->m_c2, c2_reduction, i);
-      ++c2_idx;
-    }
-    else
+    if (parent_is_c1)
     {
       CHECK_AND_ASSERT_THROW_MES(c1_idx < c1_layer_reductions.size(), "unexpected c1 layer reduction");
       const auto &c1_reduction = c1_layer_reductions[c1_idx];
       this->trim_layer(m_curve_trees->m_c1, c1_reduction, i);
       ++c1_idx;
     }
+    else
+    {
+      CHECK_AND_ASSERT_THROW_MES(c2_idx < c2_layer_reductions.size(), "unexpected c2 layer reduction");
+      const auto &c2_reduction = c2_layer_reductions[c2_idx];
+      this->trim_layer(m_curve_trees->m_c2, c2_reduction, i);
+      ++c2_idx;
+    }
 
-    use_c2 = !use_c2;
+    parent_is_c1 = !parent_is_c1;
   }
 
   // Trim any remaining layers in layers after the root
@@ -2032,16 +2030,16 @@ fcmp_pp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_tree_last_has
     const auto *lv = (layer_val *)v.mv_data;
     MDEBUG("Reading last hash at layer_idx: " << layer_idx << " , lv->child_chunk_idx: " << lv->child_chunk_idx);
 
-    const bool use_c2 = (layer_idx % 2) == 0;
-    if (use_c2)
-    {
-      auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
-      c2_last_hashes.emplace_back(std::move(point));
-    }
-    else
+    const bool parent_is_c1 = (layer_idx % 2) == 0;
+    if (parent_is_c1)
     {
       auto point = m_curve_trees->m_c1->from_bytes(lv->child_chunk_hash);
       c1_last_hashes.emplace_back(std::move(point));
+    }
+    else
+    {
+      auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
+      c2_last_hashes.emplace_back(std::move(point));
     }
 
     ++layer_idx;
@@ -2181,13 +2179,13 @@ fcmp_pp::curve_trees::CurveTreesV1::LastHashes BlockchainLMDB::get_last_hashes_f
     const auto *lv = (layer_val *)v.mv_data;
     if ((layer_idx % 2) == 0)
     {
-      auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
-      last_hashes_out.c2_last_hashes.emplace_back(std::move(point));
+      auto point = m_curve_trees->m_c1->from_bytes(lv->child_chunk_hash);
+      last_hashes_out.c1_last_hashes.emplace_back(std::move(point));
     }
     else
     {
-      auto point = m_curve_trees->m_c1->from_bytes(lv->child_chunk_hash);
-      last_hashes_out.c1_last_hashes.emplace_back(std::move(point));
+      auto point = m_curve_trees->m_c2->from_bytes(lv->child_chunk_hash);
+      last_hashes_out.c2_last_hashes.emplace_back(std::move(point));
     }
 
     ++layer_idx;
@@ -2238,7 +2236,7 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
   {
     // Get next leaf chunk
     std::vector<fcmp_pp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples_chunk;
-    leaf_tuples_chunk.reserve(m_curve_trees->m_c2_width);
+    leaf_tuples_chunk.reserve(m_curve_trees->m_c1_width);
 
     if (child_chunk_idx && child_chunk_idx % 1000 == 0)
       MINFO("Auditing layer " << layer_idx << ", child_chunk_idx " << child_chunk_idx);
@@ -2259,7 +2257,7 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
 
       leaf_tuples_chunk.emplace_back(std::move(leaf));
 
-      if (leaf_tuples_chunk.size() == m_curve_trees->m_c2_width)
+      if (leaf_tuples_chunk.size() == m_curve_trees->m_c1_width)
         break;
     }
 
@@ -2291,12 +2289,12 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
 
     // Hash the chunk of leaves
     for (uint64_t i = 0; i < leaves.size(); ++i)
-      MDEBUG("Hashing " << m_curve_trees->m_c2->to_string(leaves[i]));
+      MDEBUG("Hashing " << m_curve_trees->m_c1->to_string(leaves[i]));
 
-    const auto chunk_hash = fcmp_pp::curve_trees::get_new_parent(m_curve_trees->m_c2, chunk);
-    const auto expected_chunk_hash = m_curve_trees->m_c2->to_string(chunk_hash);
+    const auto chunk_hash = fcmp_pp::curve_trees::get_new_parent(m_curve_trees->m_c1, chunk);
+    const auto expected_chunk_hash = m_curve_trees->m_c1->to_string(chunk_hash);
     MDEBUG("chunk_hash " << expected_chunk_hash << " , hash init point: "
-      << m_curve_trees->m_c2->to_string(m_curve_trees->m_c2->hash_init_point()) << " (" << leaves.size() << " leaves)");
+      << m_curve_trees->m_c1->to_string(m_curve_trees->m_c1->hash_init_point()) << " (" << leaves.size() << " leaves)");
 
     // Now compare to value from the db
     const auto *lv = (layer_val *)v_parent.mv_data;
@@ -2317,23 +2315,23 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
   {
     MDEBUG("Auditing layer " << layer_idx);
 
-    // Alternate starting with c1 as parent (we already audited c2 leaf parents), then c2 as parent, then c1, etc.
-    const bool parent_is_c1 = layer_idx % 2 == 0;
-    if (parent_is_c1)
-    {
-      audit_complete = this->audit_layer(
-          /*c_child*/         m_curve_trees->m_c2,
-          /*c_parent*/        m_curve_trees->m_c1,
-          layer_idx,
-          /*chunk_width*/     m_curve_trees->m_c1_width);
-    }
-    else
+    // Alternate starting with c2 as parent (we already audited c1 leaf parents), then c1 as parent, then c2, etc.
+    const bool parent_is_c2 = layer_idx % 2 == 0;
+    if (parent_is_c2)
     {
       audit_complete = this->audit_layer(
           /*c_child*/         m_curve_trees->m_c1,
           /*c_parent*/        m_curve_trees->m_c2,
           layer_idx,
           /*chunk_width*/     m_curve_trees->m_c2_width);
+    }
+    else
+    {
+      audit_complete = this->audit_layer(
+          /*c_child*/         m_curve_trees->m_c2,
+          /*c_parent*/        m_curve_trees->m_c1,
+          layer_idx,
+          /*chunk_width*/     m_curve_trees->m_c1_width);
     }
 
     ++layer_idx;

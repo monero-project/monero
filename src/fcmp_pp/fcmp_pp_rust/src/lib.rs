@@ -35,6 +35,7 @@ use monero_generators::{FCMP_U, FCMP_V, T};
 // TODO: don't use CResult for types the FFI supports (e.g. SelenePoint, SeleneScalar), don't want the raw * because need to manually from_raw it to dealloc
 // TODO: Use a macro to de-duplicate some of of this code
 // TODO: Don't unwrap anywhere and populate the CResult error type in all fn's
+// TODO: repalce asserts with error returns where reasonable
 
 //-------------------------------------------------------------------------------------- Curve points
 
@@ -569,8 +570,8 @@ pub unsafe extern "C" fn fcmp_prove_input_new(
     rerandomized_output: *const RerandomizedOutput,
     path: *const Path<Curves>,
     output_blinds: *const OutputBlinds<EdwardsPoint>,
-    helios_branch_blinds: HeliosBranchBlindSlice,
     selene_branch_blinds: SeleneBranchBlindSlice,
+    helios_branch_blinds: HeliosBranchBlindSlice,
 ) -> CResult<FcmpProveInput, ()> {
     // SAL
     let x = ed25519_scalar_from_bytes(x);
@@ -637,16 +638,17 @@ pub unsafe extern "C" fn prove(
             let x = sal_input.x;
             let y = sal_input.y;
 
+            assert_eq!(
+                prove_input.path.output.O(),
+                EdwardsPoint((*x * *EdwardsPoint::generator()) + (*y * *EdwardsPoint(T())))
+            );
+
             let input = rerandomized_output.input();
             let opening = OpenedInputTuple::open(rerandomized_output.clone(), &x, &y).unwrap();
 
             let (key_image, spend_auth_and_linkability) =
                 SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
 
-            assert_eq!(
-                prove_input.path.output.O(),
-                EdwardsPoint((*x * *EdwardsPoint::generator()) + (*y * *EdwardsPoint(T())))
-            );
             assert_eq!(prove_input.path.output.I() * x, key_image);
 
             (input, spend_auth_and_linkability)
