@@ -250,7 +250,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair);
 //----------------------------------------------------------------------------------------------------------------------
 // This class is useful to help update the curve trees merkle tree without needing to keep the entire tree in memory
 // - It requires instantiation with the C1 and C2 curve classes and widths, hardening the tree structure
-// - It ties the C2 curve in the tree to the leaf layer (the leaf layer is composed of C2 scalars)
+// - It ties the C1 curve in the tree to the leaf layer (the leaf layer is composed of C1 scalars)
 template<typename C1, typename C2>
 class CurveTrees
 {
@@ -263,7 +263,7 @@ public:
             m_c2{std::move(c2)},
             m_c1_width{c1_width},
             m_c2_width{c2_width},
-            m_leaf_layer_chunk_width{LEAF_TUPLE_SIZE * c2_width}
+            m_leaf_layer_chunk_width{LEAF_TUPLE_SIZE * c1_width}
     {
         assert(c1_width > 0);
         assert(c2_width > 0);
@@ -275,14 +275,14 @@ public:
     struct LeafTuple final
     {
         // Output ed25519 point x-coordinate
-        typename C2::Scalar O_x;
+        typename C1::Scalar O_x;
         // Key image generator x-coordinate
-        typename C2::Scalar I_x;
+        typename C1::Scalar I_x;
         // Commitment x-coordinate
-        typename C2::Scalar C_x;
+        typename C1::Scalar C_x;
     };
     static const std::size_t LEAF_TUPLE_SIZE = 3;
-    static_assert(sizeof(LeafTuple) == (sizeof(typename C2::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
+    static_assert(sizeof(LeafTuple) == (sizeof(typename C1::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
     // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
     struct Leaves final
@@ -295,7 +295,7 @@ public:
 
     // A struct useful to extend an existing tree
     // - layers alternate between C1 and C2
-    // - c2_layer_extensions[0] is first layer after leaves, then c1_layer_extensions[0], c2_layer_extensions[1], etc
+    // - c1_layer_extensions[0] is first layer after leaves, then c2_layer_extensions[0], c1_layer_extensions[1], etc
     struct TreeExtension final
     {
         Leaves                          leaves;
@@ -305,7 +305,7 @@ public:
 
     // A struct useful to reduce the number of leaves in an existing tree
     // - layers alternate between C1 and C2
-    // - c2_layer_reductions[0] is first layer after leaves, then c1_layer_reductions[0], c2_layer_reductions[1], etc
+    // - c1_layer_reductions[0] is first layer after leaves, then c2_layer_reductions[0], c1_layer_reductions[1], etc
     struct TreeReduction final
     {
         uint64_t                        new_total_leaf_tuples{0};
@@ -316,7 +316,7 @@ public:
 
     // Last hashes from each layer in the tree
     // - layers alternate between C1 and C2
-    // - c2_last_hashes[0] refers to the layer after leaves, then c1_last_hashes[0], then c2_last_hashes[1], etc
+    // - c1_last_hashes[0] refers to the layer after leaves, then c2_last_hashes[0], then c1_last_hashes[1], etc
     struct LastHashes final
     {
         std::vector<typename C1::Point> c1_last_hashes;
@@ -325,7 +325,7 @@ public:
 
     // The children we'll trim from each last chunk in the tree
     // - layers alternate between C1 and C2
-    // - c2_children[0] refers to the layer after leaves, then c1_children[0], then c2_children[1], etc
+    // - c1_children[0] refers to the layer after leaves, then c2_children[0], then c1_children[1], etc
     struct LastChunkChildrenForTrim final
     {
         std::vector<std::vector<typename C1::Scalar>> c1_children;
@@ -334,13 +334,13 @@ public:
 
     // A path in the tree containing whole chunks at each layer
     // - leaves contain a complete chunk of leaves, encoded as compressed ed25519 points
-    // - c2_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The hash of the chunk of
-    //   leaves is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash is in.
+    // - c1_layers[0] refers to the chunk of elems in the tree in the layer after leaves. The hash of the chunk of
+    //   leaves is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems that hash is in.
     // - layers alternate between C1 and C2
-    // - c1_layers[0] refers to the chunk of elems in the tree in the layer after c2_layers[0]. The hash of the chunk
-    //   of c2_layers[0] is 1 member of the c1_layers[0] chunk. The rest of c1_layers[0] is the chunk of elems that hash
+    // - c2_layers[0] refers to the chunk of elems in the tree in the layer after c1_layers[0]. The hash of the chunk
+    //   of c1_layers[0] is 1 member of the c2_layers[0] chunk. The rest of c2_layers[0] is the chunk of elems that hash
     //   is in.
-    // - c2_layers[1] refers to the chunk of elems in the tree in the layer after c1_layers[0] etc.
+    // - c1_layers[1] refers to the chunk of elems in the tree in the layer after c2_layers[0] etc.
     struct Path final
     {
         std::vector<OutputTuple> leaves;
@@ -363,7 +363,7 @@ public:
     LeafTuple leaf_tuple(const OutputPair &output_pair) const;
 
     // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
-    std::vector<typename C2::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
+    std::vector<typename C1::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
 
     // Take in the existing number of leaf tuples and the existing last hash in each layer in the tree, as well as new
     // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
@@ -404,7 +404,7 @@ public:
 private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(
-        std::vector<typename C2::Scalar> &flattened_leaves_out,
+        std::vector<typename C1::Scalar> &flattened_leaves_out,
         std::vector<OutputContext> &tuples_out,
         std::vector<OutputContext> &&new_outputs);
 
@@ -445,18 +445,18 @@ public:
     const std::size_t m_c2_width;
 };
 //----------------------------------------------------------------------------------------------------------------------
-using Helios       = tower_cycle::Helios;
 using Selene       = tower_cycle::Selene;
-using CurveTreesV1 = CurveTrees<Helios, Selene>;
+using Helios       = tower_cycle::Helios;
+using CurveTreesV1 = CurveTrees<Selene, Helios>;
 
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob
 //  /b2742e86f3d18155fd34dd1ed69cb8f79b900fce/crypto/fcmps/src/tests.rs#L81-L82
-const std::size_t HELIOS_CHUNK_WIDTH = 38;
-const std::size_t SELENE_CHUNK_WIDTH = 18;
+const std::size_t SELENE_CHUNK_WIDTH = 38;
+const std::size_t HELIOS_CHUNK_WIDTH = 18;
 
 std::shared_ptr<CurveTreesV1> curve_trees_v1(
-    const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH,
-    const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH);
+    const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH,
+    const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees

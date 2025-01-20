@@ -49,15 +49,6 @@ using OutputChunk = fcmp_pp_rust::OutputSlice;
 using SeleneScalar = fcmp_pp_rust::SeleneScalar;
 using HeliosScalar = fcmp_pp_rust::HeliosScalar;
 //----------------------------------------------------------------------------------------------------------------------
-struct HeliosT final
-{
-    using Scalar       = HeliosScalar;
-    using Point        = fcmp_pp_rust::HeliosPoint;
-    using Chunk        = fcmp_pp_rust::HeliosScalarSlice;
-    using CycleScalar  = SeleneScalar;
-    using ScalarChunks = fcmp_pp_rust::HeliosScalarChunks;
-};
-//----------------------------------------------------------------------------------------------------------------------
 struct SeleneT final
 {
     using Scalar       = SeleneScalar;
@@ -65,6 +56,15 @@ struct SeleneT final
     using Chunk        = fcmp_pp_rust::SeleneScalarSlice;
     using CycleScalar  = HeliosScalar;
     using ScalarChunks = fcmp_pp_rust::SeleneScalarChunks;
+};
+//----------------------------------------------------------------------------------------------------------------------
+struct HeliosT final
+{
+    using Scalar       = HeliosScalar;
+    using Point        = fcmp_pp_rust::HeliosPoint;
+    using Chunk        = fcmp_pp_rust::HeliosScalarSlice;
+    using CycleScalar  = SeleneScalar;
+    using ScalarChunks = fcmp_pp_rust::HeliosScalarChunks;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -102,15 +102,15 @@ public:
     virtual std::string to_string(const typename C::Point &point) const = 0;
 };
 //----------------------------------------------------------------------------------------------------------------------
-class Helios final : public Curve<HeliosT>
+class Selene final : public Curve<SeleneT>
 {
 //typedefs
 public:
-    using Scalar       = HeliosT::Scalar;
-    using Point        = HeliosT::Point;
-    using Chunk        = HeliosT::Chunk;
-    using CycleScalar  = HeliosT::CycleScalar;
-    using ScalarChunks = HeliosT::ScalarChunks;
+    using Scalar       = SeleneT::Scalar;
+    using Point        = SeleneT::Point;
+    using Chunk        = SeleneT::Chunk;
+    using CycleScalar  = SeleneT::CycleScalar;
+    using ScalarChunks = SeleneT::ScalarChunks;
 
 //member functions
 public:
@@ -141,15 +141,15 @@ public:
     std::string to_string(const Point &point) const override;
 };
 //----------------------------------------------------------------------------------------------------------------------
-class Selene final : public Curve<SeleneT>
+class Helios final : public Curve<HeliosT>
 {
 //typedefs
 public:
-    using Scalar       = SeleneT::Scalar;
-    using Point        = SeleneT::Point;
-    using Chunk        = SeleneT::Chunk;
-    using CycleScalar  = SeleneT::CycleScalar;
-    using ScalarChunks = SeleneT::ScalarChunks;
+    using Scalar       = HeliosT::Scalar;
+    using Point        = HeliosT::Point;
+    using Chunk        = HeliosT::Chunk;
+    using CycleScalar  = HeliosT::CycleScalar;
+    using ScalarChunks = HeliosT::ScalarChunks;
 
 //member functions
 public:
@@ -221,16 +221,16 @@ uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
     const uint8_t *blinded_i_blind_blind,
     const uint8_t *blinded_c_blind);
 
-uint8_t *helios_branch_blind();
 uint8_t *selene_branch_blind();
+uint8_t *helios_branch_blind();
 
 uint8_t *fcmp_prove_input_new(const uint8_t *x,
     const uint8_t *y,
     const uint8_t *rerandomized_output,
     const uint8_t *path,
     const uint8_t *output_blinds,
-    const std::vector<const uint8_t *> &helios_branch_blinds,
-    const std::vector<const uint8_t *> &selene_branch_blinds);
+    const std::vector<const uint8_t *> &selene_branch_blinds,
+    const std::vector<const uint8_t *> &helios_branch_blinds);
 
 struct FcmpPpProof final
 {

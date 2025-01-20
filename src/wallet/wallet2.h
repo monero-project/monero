@@ -897,9 +897,9 @@ private:
       tx_entry_data(): lowest_height((uint64_t)-1), highest_height(0) {}
     };
 
-    using Helios = fcmp_pp::curve_trees::Helios;
     using Selene = fcmp_pp::curve_trees::Selene;
-    using TreeSyncV1 = fcmp_pp::curve_trees::TreeSyncMemory<Helios, Selene>;
+    using Helios = fcmp_pp::curve_trees::Helios;
+    using TreeSyncV1 = fcmp_pp::curve_trees::TreeSyncMemory<Selene, Helios>;
 
     /*!
      * \brief  Generates a wallet or restores one. Assumes the multisig setup

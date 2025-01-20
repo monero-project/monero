@@ -92,18 +92,16 @@ TEST(fcmp_pp, prove)
 {
     static const std::size_t N_INPUTS = 8;
 
-    // TODO: fix C++ to match layer widths with rust side. These are mixed because I switched it for C++
-    static const std::size_t helios_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
-    static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH;
-
+    static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
+    static const std::size_t helios_chunk_width = fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH;
     static const std::size_t tree_depth = 3;
 
-    LOG_PRINT_L1("Test prove with helios chunk width " << helios_chunk_width
-        << ", selene chunk width " << selene_chunk_width << ", tree depth " << tree_depth);
+    LOG_PRINT_L1("Test prove with selene chunk width " << selene_chunk_width
+        << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth);
 
     uint64_t min_leaves_needed_for_tree_depth = 0;
-    const auto curve_trees = test::init_curve_trees_test(helios_chunk_width,
-        selene_chunk_width,
+    const auto curve_trees = test::init_curve_trees_test(selene_chunk_width,
+        helios_chunk_width,
         tree_depth,
         min_leaves_needed_for_tree_depth);
 
@@ -119,8 +117,8 @@ TEST(fcmp_pp, prove)
     const auto tree_root = global_tree.get_tree_root();
 
     // Keep them cached across runs
-    std::vector<const uint8_t *> helios_branch_blinds;
     std::vector<const uint8_t *> selene_branch_blinds;
+    std::vector<const uint8_t *> helios_branch_blinds;
 
     std::vector<const uint8_t *> fcmp_prove_inputs;
     std::vector<crypto::key_image> key_images;
@@ -132,7 +130,7 @@ TEST(fcmp_pp, prove)
         LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
 
         const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
-        const std::size_t output_idx = leaf_idx % curve_trees->m_c2_width;
+        const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
         // const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
         // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
@@ -163,30 +161,10 @@ TEST(fcmp_pp, prove)
             new_outputs.x_vec[leaf_idx],
             key_images.back());
 
-        // helios scalars from selene points
-        std::vector<std::vector<fcmp_pp::tower_cycle::HeliosScalar>> helios_scalars;
-        std::vector<fcmp_pp::tower_cycle::Helios::Chunk> helios_chunks;
-        for (const auto &selene_points : path.c2_layers)
-        {
-            // Exclude the root
-            if (selene_points.size() == 1)
-                break;
-            helios_scalars.emplace_back();
-            auto &helios_layer = helios_scalars.back();
-            helios_layer.reserve(selene_points.size());
-            for (const auto &selene_point : selene_points)
-                helios_layer.emplace_back(curve_trees->m_c2->point_to_cycle_scalar(selene_point));
-            // Padding with 0's
-            for (std::size_t i = selene_points.size(); i < curve_trees->m_c1_width; ++i)
-                helios_layer.emplace_back(curve_trees->m_c1->zero_scalar());
-            helios_chunks.emplace_back(fcmp_pp::tower_cycle::Helios::Chunk{helios_layer.data(), helios_layer.size()});
-        }
-        const Helios::ScalarChunks helios_scalar_chunks{helios_chunks.data(), helios_chunks.size()};
-
         // selene scalars from helios points
         std::vector<std::vector<fcmp_pp::tower_cycle::SeleneScalar>> selene_scalars;
         std::vector<fcmp_pp::tower_cycle::Selene::Chunk> selene_chunks;
-        for (const auto &helios_points : path.c1_layers)
+        for (const auto &helios_points : path.c2_layers)
         {
             // Exclude the root
             if (helios_points.size() == 1)
@@ -194,14 +172,34 @@ TEST(fcmp_pp, prove)
             selene_scalars.emplace_back();
             auto &selene_layer = selene_scalars.back();
             selene_layer.reserve(helios_points.size());
-            for (const auto &c1_point : helios_points)
-                selene_layer.emplace_back(curve_trees->m_c1->point_to_cycle_scalar(c1_point));
+            for (const auto &c2_point : helios_points)
+                selene_layer.emplace_back(curve_trees->m_c2->point_to_cycle_scalar(c2_point));
             // Padding with 0's
-            for (std::size_t i = helios_points.size(); i < curve_trees->m_c2_width; ++i)
-                selene_layer.emplace_back(curve_trees->m_c2->zero_scalar());
+            for (std::size_t i = helios_points.size(); i < curve_trees->m_c1_width; ++i)
+                selene_layer.emplace_back(curve_trees->m_c1->zero_scalar());
             selene_chunks.emplace_back(fcmp_pp::tower_cycle::Selene::Chunk{selene_layer.data(), selene_layer.size()});
         }
         const Selene::ScalarChunks selene_scalar_chunks{selene_chunks.data(), selene_chunks.size()};
+
+        // helios scalars from selene points
+        std::vector<std::vector<fcmp_pp::tower_cycle::HeliosScalar>> helios_scalars;
+        std::vector<fcmp_pp::tower_cycle::Helios::Chunk> helios_chunks;
+        for (const auto &selene_points : path.c1_layers)
+        {
+            // Exclude the root
+            if (selene_points.size() == 1)
+                break;
+            helios_scalars.emplace_back();
+            auto &helios_layer = helios_scalars.back();
+            helios_layer.reserve(selene_points.size());
+            for (const auto &c1_point : selene_points)
+                helios_layer.emplace_back(curve_trees->m_c1->point_to_cycle_scalar(c1_point));
+            // Padding with 0's
+            for (std::size_t i = selene_points.size(); i < curve_trees->m_c2_width; ++i)
+                helios_layer.emplace_back(curve_trees->m_c2->zero_scalar());
+            helios_chunks.emplace_back(fcmp_pp::tower_cycle::Helios::Chunk{helios_layer.data(), helios_layer.size()});
+        }
+        const Helios::ScalarChunks helios_scalar_chunks{helios_chunks.data(), helios_chunks.size()};
 
         const auto path_rust = fcmp_pp::tower_cycle::path_new(leaves,
             output_idx,
@@ -225,21 +223,21 @@ TEST(fcmp_pp, prove)
             blinded_c_blind);
 
         // Cache branch blinds
-        if (helios_branch_blinds.empty())
-            for (std::size_t i = 0; i < selene_scalars.size(); ++i)
-                helios_branch_blinds.emplace_back(fcmp_pp::tower_cycle::helios_branch_blind());
-
         if (selene_branch_blinds.empty())
             for (std::size_t i = 0; i < helios_scalars.size(); ++i)
                 selene_branch_blinds.emplace_back(fcmp_pp::tower_cycle::selene_branch_blind());
+
+        if (helios_branch_blinds.empty())
+            for (std::size_t i = 0; i < selene_scalars.size(); ++i)
+                helios_branch_blinds.emplace_back(fcmp_pp::tower_cycle::helios_branch_blind());
 
         auto fcmp_prove_input = fcmp_pp::tower_cycle::fcmp_prove_input_new(x,
             y,
             rerandomized_output,
             path_rust,
             output_blinds,
-            helios_branch_blinds,
-            selene_branch_blinds);
+            selene_branch_blinds,
+            helios_branch_blinds);
 
         fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
         if (fcmp_prove_inputs.size() < N_INPUTS)

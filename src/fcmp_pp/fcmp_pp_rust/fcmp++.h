@@ -186,8 +186,8 @@ CResult fcmp_prove_input_new(const uint8_t *x,
                                              const uint8_t *rerandomized_output,
                                              const uint8_t *path,
                                              const uint8_t *output_blinds,
-                                             Slice<const uint8_t *>helios_branch_blinds,
-                                             Slice<const uint8_t *>selene_branch_blinds);
+                                             Slice<const uint8_t *>selene_branch_blinds,
+                                             Slice<const uint8_t *>helios_branch_blinds);
 
 CResult prove(const uint8_t *signable_tx_hash,
                                              Slice<const uint8_t *> fcmp_prove_inputs,

@@ -35,19 +35,14 @@ namespace tower_cycle
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Point Helios::hash_init_point() const
-{
-    return fcmp_pp_rust::helios_hash_init_point();
-}
-//----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_init_point() const
 {
     return fcmp_pp_rust::selene_hash_init_point();
 }
 //----------------------------------------------------------------------------------------------------------------------
-Helios::CycleScalar Helios::point_to_cycle_scalar(const Helios::Point &point) const
+Helios::Point Helios::hash_init_point() const
 {
-    return fcmp_pp_rust::helios_point_to_selene_scalar(point);
+    return fcmp_pp_rust::helios_hash_init_point();
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::CycleScalar Selene::point_to_cycle_scalar(const Selene::Point &point) const
@@ -55,52 +50,9 @@ Selene::CycleScalar Selene::point_to_cycle_scalar(const Selene::Point &point) co
     return fcmp_pp_rust::selene_point_to_helios_scalar(point);
 }
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Point Helios::hash_grow(
-    const Helios::Point &existing_hash,
-    const std::size_t offset,
-    const Helios::Scalar &existing_child_at_offset,
-    const Helios::Chunk &new_children) const
+Helios::CycleScalar Helios::point_to_cycle_scalar(const Helios::Point &point) const
 {
-    auto result = fcmp_pp_rust::hash_grow_helios(
-        existing_hash,
-        offset,
-        existing_child_at_offset,
-        new_children);
-
-    if (result.err != nullptr)
-    {
-        free(result.err);
-        throw std::runtime_error("failed to hash grow");
-    }
-
-    typename Helios::Point res;
-    memcpy(&res, result.value, sizeof(typename Helios::Point));
-    free(result.value);
-    return res;
-}
-//----------------------------------------------------------------------------------------------------------------------
-Helios::Point Helios::hash_trim(
-    const Helios::Point &existing_hash,
-    const std::size_t offset,
-    const Helios::Chunk &children,
-    const Helios::Scalar &child_to_grow_back) const
-{
-    auto result = fcmp_pp_rust::hash_trim_helios(
-        existing_hash,
-        offset,
-        children,
-        child_to_grow_back);
-
-    if (result.err != nullptr)
-    {
-        free(result.err);
-        throw std::runtime_error("failed to hash trim");
-    }
-
-    typename Helios::Point res;
-    memcpy(&res, result.value, sizeof(typename Helios::Point));
-    free(result.value);
-    return res;
+    return fcmp_pp_rust::helios_point_to_selene_scalar(point);
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_grow(
@@ -151,9 +103,52 @@ Selene::Point Selene::hash_trim(
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Scalar Helios::zero_scalar() const
+Helios::Point Helios::hash_grow(
+    const Helios::Point &existing_hash,
+    const std::size_t offset,
+    const Helios::Scalar &existing_child_at_offset,
+    const Helios::Chunk &new_children) const
 {
-    return fcmp_pp_rust::helios_zero_scalar();
+    auto result = fcmp_pp_rust::hash_grow_helios(
+        existing_hash,
+        offset,
+        existing_child_at_offset,
+        new_children);
+
+    if (result.err != nullptr)
+    {
+        free(result.err);
+        throw std::runtime_error("failed to hash grow");
+    }
+
+    typename Helios::Point res;
+    memcpy(&res, result.value, sizeof(typename Helios::Point));
+    free(result.value);
+    return res;
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Point Helios::hash_trim(
+    const Helios::Point &existing_hash,
+    const std::size_t offset,
+    const Helios::Chunk &children,
+    const Helios::Scalar &child_to_grow_back) const
+{
+    auto result = fcmp_pp_rust::hash_trim_helios(
+        existing_hash,
+        offset,
+        children,
+        child_to_grow_back);
+
+    if (result.err != nullptr)
+    {
+        free(result.err);
+        throw std::runtime_error("failed to hash trim");
+    }
+
+    typename Helios::Point res;
+    memcpy(&res, result.value, sizeof(typename Helios::Point));
+    free(result.value);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Scalar Selene::zero_scalar() const
@@ -161,13 +156,9 @@ Selene::Scalar Selene::zero_scalar() const
     return fcmp_pp_rust::selene_zero_scalar();
 }
 //----------------------------------------------------------------------------------------------------------------------
-crypto::ec_scalar Helios::to_bytes(const Helios::Scalar &scalar) const
+Helios::Scalar Helios::zero_scalar() const
 {
-    auto bytes = fcmp_pp_rust::helios_scalar_to_bytes(scalar);
-    crypto::ec_scalar res;
-    memcpy(&res, bytes, 32);
-    free(bytes);
-    return res;
+    return fcmp_pp_rust::helios_zero_scalar();
 }
 //----------------------------------------------------------------------------------------------------------------------
 crypto::ec_scalar Selene::to_bytes(const Selene::Scalar &scalar) const
@@ -179,10 +170,10 @@ crypto::ec_scalar Selene::to_bytes(const Selene::Scalar &scalar) const
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
+crypto::ec_scalar Helios::to_bytes(const Helios::Scalar &scalar) const
 {
-    auto bytes = fcmp_pp_rust::helios_point_to_bytes(point);
-    crypto::ec_point res;
+    auto bytes = fcmp_pp_rust::helios_scalar_to_bytes(scalar);
+    crypto::ec_scalar res;
     memcpy(&res, bytes, 32);
     free(bytes);
     return res;
@@ -197,9 +188,13 @@ crypto::ec_point Selene::to_bytes(const Selene::Point &point) const
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
-Helios::Point Helios::from_bytes(const crypto::ec_point &bytes) const
+crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
 {
-    return fcmp_pp_rust::helios_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
+    auto bytes = fcmp_pp_rust::helios_point_to_bytes(point);
+    crypto::ec_point res;
+    memcpy(&res, bytes, 32);
+    free(bytes);
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::from_bytes(const crypto::ec_point &bytes) const
@@ -207,9 +202,9 @@ Selene::Point Selene::from_bytes(const crypto::ec_point &bytes) const
     return fcmp_pp_rust::selene_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::string Helios::to_string(const typename Helios::Scalar &scalar) const
+Helios::Point Helios::from_bytes(const crypto::ec_point &bytes) const
 {
-    return epee::string_tools::pod_to_hex(this->to_bytes(scalar));
+    return fcmp_pp_rust::helios_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::string Selene::to_string(const typename Selene::Scalar &scalar) const
@@ -217,12 +212,17 @@ std::string Selene::to_string(const typename Selene::Scalar &scalar) const
     return epee::string_tools::pod_to_hex(this->to_bytes(scalar));
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::string Helios::to_string(const typename Helios::Point &point) const
+std::string Helios::to_string(const typename Helios::Scalar &scalar) const
+{
+    return epee::string_tools::pod_to_hex(this->to_bytes(scalar));
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::string Selene::to_string(const typename Selene::Point &point) const
 {
     return epee::string_tools::pod_to_hex(this->to_bytes(point));
 }
 //----------------------------------------------------------------------------------------------------------------------
-std::string Selene::to_string(const typename Selene::Point &point) const
+std::string Helios::to_string(const typename Helios::Point &point) const
 {
     return epee::string_tools::pod_to_hex(this->to_bytes(point));
 }
@@ -373,15 +373,15 @@ uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
     return handle_res_ptr(__func__, res);
 }
 
-uint8_t *helios_branch_blind()
-{
-    const auto res = fcmp_pp_rust::helios_branch_blind();
-    return handle_res_ptr(__func__, res);
-}
-
 uint8_t *selene_branch_blind()
 {
     const auto res = fcmp_pp_rust::selene_branch_blind();
+    return handle_res_ptr(__func__, res);
+}
+
+uint8_t *helios_branch_blind()
+{
+    const auto res = fcmp_pp_rust::helios_branch_blind();
     return handle_res_ptr(__func__, res);
 }
 
@@ -390,16 +390,16 @@ uint8_t *fcmp_prove_input_new(const uint8_t *x,
     const uint8_t *rerandomized_output,
     const uint8_t *path,
     const uint8_t *output_blinds,
-    const std::vector<const uint8_t *> &helios_branch_blinds,
-    const std::vector<const uint8_t *> &selene_branch_blinds)
+    const std::vector<const uint8_t *> &selene_branch_blinds,
+    const std::vector<const uint8_t *> &helios_branch_blinds)
 {
     auto res = fcmp_pp_rust::fcmp_prove_input_new(x,
         y,
         rerandomized_output,
         path,
         output_blinds,
-        {helios_branch_blinds.data(), helios_branch_blinds.size()},
-        {selene_branch_blinds.data(), selene_branch_blinds.size()});
+        {selene_branch_blinds.data(), selene_branch_blinds.size()},
+        {helios_branch_blinds.data(), helios_branch_blinds.size()});
 
     return handle_res_ptr(__func__, res);
 }
