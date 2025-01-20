@@ -192,7 +192,7 @@ bool t_rpc_command_executor::print_peer_list(bool white, bool gray, size_t limit
 
   std::string failure_message = "Couldn't retrieve peer list";
 
-  req.include_blocked = true;
+  req.include_banned = req.include_blocked = true;
 
   if (m_is_rpc)
   {
@@ -240,7 +240,7 @@ bool t_rpc_command_executor::print_peer_list_stats() {
   std::string failure_message = "Couldn't retrieve peer list";
 
   req.public_only = false;
-  req.include_blocked = true;
+  req.include_banned = req.include_blocked = true;
 
   if (m_is_rpc)
   {
