@@ -158,23 +158,23 @@ using ChildChunkCache   = std::unordered_map<ChildChunkIdx, CachedTreeElemChunk>
 // TODO: technically this can be a vector. There should *always* be at least 1 entry for every layer
 using TreeElemCache     = std::unordered_map<LayerIdx, ChildChunkCache>;
 
-static const int TREE_SYNC_MEMORY_VERSION = 0;
+static const int TREE_CACHE_VERSION = 0;
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Syncs the tree and keeps a user's known received outputs up to date, all saved in memory.
 // - The object does not store the entire tree locally. The object only stores what it needs in order to update paths
 //   of known received outputs as it syncs.
-// - The memory footprint of the TreeSyncMemory object is roughly ALL locked outputs in the chain, all known output
-//   paths, and the last chunk of tree elems at every layer of the tree the last N blocks. The latter is required to
-//   handle reorgs up to N blocks deep.
+// - The memory footprint of the object is roughly ALL locked outputs in the chain, all known output paths, and the last
+//   chunk of tree elems at every layer of the tree the last N blocks. The latter is required to handle reorgs up to
+//   N blocks deep.
 // - WARNING: the implementation is not thread safe, it expects synchronous calls.
 //   TODO: use a mutex to enforce thread safety.
 template<typename C1, typename C2>
-class TreeSyncMemory final : public TreeSync<C1, C2>
+class TreeCache final : public TreeSync<C1, C2>
 {
 public:
-    TreeSyncMemory(std::shared_ptr<CurveTrees<C1, C2>> curve_trees,
+    TreeCache(std::shared_ptr<CurveTrees<C1, C2>> curve_trees,
         const uint64_t max_reorg_depth = ORPHANED_BLOCKS_MAX_COUNT):
             TreeSync<C1, C2>(curve_trees, max_reorg_depth)
     {};
@@ -250,7 +250,7 @@ private:
     // Keep a global output counter so the caller knows how output id's should be set
     uint64_t m_output_count{0};
 
-    // The outputs that TreeSyncMemory should keep track of while syncing
+    // The outputs that TreeCache should keep track of while syncing
     RegisteredOutputs m_registered_outputs;
 
     // Cached leaves and tree elems
@@ -281,7 +281,7 @@ public:
     }
 
     BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(TREE_SYNC_MEMORY_VERSION)
+        VERSION_FIELD(TREE_CACHE_VERSION)
         FIELD(m_locked_outputs)
         FIELD(m_locked_output_refs)
         FIELD(m_output_count)
@@ -304,14 +304,14 @@ namespace boost
 namespace serialization
 {
 template<typename C1, typename C2>
-struct version<fcmp_pp::curve_trees::TreeSyncMemory<C1, C2>>
+struct version<fcmp_pp::curve_trees::TreeCache<C1, C2>>
 {
-    typedef mpl::int_<fcmp_pp::curve_trees::TREE_SYNC_MEMORY_VERSION> type;
+    typedef mpl::int_<fcmp_pp::curve_trees::TREE_CACHE_VERSION> type;
     typedef mpl::integral_c_tag tag;
     BOOST_STATIC_CONSTANT(unsigned int, value = version::type::value);
     BOOST_MPL_ASSERT((
         boost::mpl::less<
-            boost::mpl::int_<fcmp_pp::curve_trees::TREE_SYNC_MEMORY_VERSION>,
+            boost::mpl::int_<fcmp_pp::curve_trees::TREE_CACHE_VERSION>,
             boost::mpl::int_<256>
         >
     ));

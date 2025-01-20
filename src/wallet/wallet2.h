@@ -58,7 +58,7 @@
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
 #include "fcmp_pp/curve_trees.h"
-#include "fcmp_pp/tree_sync_memory.h"
+#include "fcmp_pp/tree_cache.h"
 #include "multisig/multisig_account.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctOps.h"
@@ -899,7 +899,7 @@ private:
 
     using Selene = fcmp_pp::curve_trees::Selene;
     using Helios = fcmp_pp::curve_trees::Helios;
-    using TreeSyncV1 = fcmp_pp::curve_trees::TreeSyncMemory<Selene, Helios>;
+    using TreeCacheV1 = fcmp_pp::curve_trees::TreeCache<Selene, Helios>;
 
     /*!
      * \brief  Generates a wallet or restores one. Assumes the multisig setup
@@ -1078,7 +1078,7 @@ private:
     void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
     bool explicit_refresh_from_block_height() const {return m_explicit_refresh_from_block_height;}
 
-    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth; m_tree_sync.set_max_reorg_depth(depth);}
+    void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth; m_tree_cache.set_max_reorg_depth(depth);}
     uint64_t max_reorg_depth() const {return m_max_reorg_depth;}
 
     bool deinit();
@@ -1368,7 +1368,7 @@ private:
       a & m_background_sync_data;
       if(ver < 32)
         return;
-      a & m_tree_sync;
+      a & m_tree_cache;
     }
 
     BEGIN_SERIALIZE_OBJECT()
@@ -1414,7 +1414,7 @@ private:
       FIELD(m_background_sync_data)
       if (version < 3)
         return true;
-      FIELD(m_tree_sync)
+      FIELD(m_tree_cache)
     END_SERIALIZE()
 
     /*!
@@ -2061,7 +2061,7 @@ private:
     bool m_processing_background_cache;
     background_sync_data_t m_background_sync_data;
 
-    TreeSyncV1 m_tree_sync;
+    TreeCacheV1 m_tree_cache;
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 32)
