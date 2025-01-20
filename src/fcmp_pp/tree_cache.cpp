@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "tree_sync_memory.h"
+#include "tree_cache.h"
 
 #include "common/merge_sorted_vectors.h"
 #include "misc_log_ex.h"
@@ -791,7 +791,7 @@ static std::vector<typename C_PARENT::Scalar> get_layer_last_chunk_children_to_r
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-bool TreeSyncMemory<C1, C2>::register_output(const OutputPair &output, const uint64_t unlock_block_idx)
+bool TreeCache<C1, C2>::register_output(const OutputPair &output, const uint64_t unlock_block_idx)
 {
     if (!m_cached_blocks.empty())
     {
@@ -815,10 +815,10 @@ bool TreeSyncMemory<C1, C2>::register_output(const OutputPair &output, const uin
 }
 
 // Explicit instantiation
-template bool TreeSyncMemory<Selene, Helios>::register_output(const OutputPair &output, const uint64_t unlock_block_idx);
+template bool TreeCache<Selene, Helios>::register_output(const OutputPair &output, const uint64_t unlock_block_idx);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
+void TreeCache<C1, C2>::sync_block(const uint64_t block_idx,
     const crypto::hash &block_hash,
     const crypto::hash &prev_block_hash,
     const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block)
@@ -840,13 +840,13 @@ void TreeSyncMemory<C1, C2>::sync_block(const uint64_t block_idx,
 }
 
 // Explicit instantiation
-template void TreeSyncMemory<Selene, Helios>::sync_block(const uint64_t block_idx,
+template void TreeCache<Selene, Helios>::sync_block(const uint64_t block_idx,
     const crypto::hash &block_hash,
     const crypto::hash &prev_block_hash,
     const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSyncMemory<C1, C2>::sync_blocks(const uint64_t start_block_idx,
+void TreeCache<C1, C2>::sync_blocks(const uint64_t start_block_idx,
     const crypto::hash &prev_block_hash,
     const std::vector<crypto::hash> &new_block_hashes,
     const std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> &outs_by_unlock_blocks,
@@ -964,7 +964,7 @@ void TreeSyncMemory<C1, C2>::sync_blocks(const uint64_t start_block_idx,
 }
 
 // Explicit instantiation
-template void TreeSyncMemory<Selene, Helios>::sync_blocks(const uint64_t start_block_idx,
+template void TreeCache<Selene, Helios>::sync_blocks(const uint64_t start_block_idx,
     const crypto::hash &prev_block_hash,
     const std::vector<crypto::hash> &new_block_hashes,
     const std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> &outs_by_unlock_blocks,
@@ -972,7 +972,7 @@ template void TreeSyncMemory<Selene, Helios>::sync_blocks(const uint64_t start_b
     std::vector<uint64_t> &n_new_leaf_tuples_per_block_out);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSyncMemory<C1, C2>::process_synced_blocks(const uint64_t start_block_idx,
+void TreeCache<C1, C2>::process_synced_blocks(const uint64_t start_block_idx,
     const std::vector<crypto::hash> &new_block_hashes,
     const typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension,
     const std::vector<uint64_t> &n_new_leaf_tuples_per_block)
@@ -1102,13 +1102,13 @@ void TreeSyncMemory<C1, C2>::process_synced_blocks(const uint64_t start_block_id
         LOG_ERROR("Cached blocks exceeded max reorg depth");
 }
 
-template void TreeSyncMemory<Selene, Helios>::process_synced_blocks(const uint64_t start_block_idx,
+template void TreeCache<Selene, Helios>::process_synced_blocks(const uint64_t start_block_idx,
     const std::vector<crypto::hash> &new_block_hashes,
     const typename fcmp_pp::curve_trees::CurveTrees<Selene, Helios>::TreeExtension &tree_extension,
     const std::vector<uint64_t> &n_new_leaf_tuples_per_block);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-bool TreeSyncMemory<C1, C2>::pop_block()
+bool TreeCache<C1, C2>::pop_block()
 {
     if (m_cached_blocks.empty())
         return false;
@@ -1208,10 +1208,10 @@ bool TreeSyncMemory<C1, C2>::pop_block()
 }
 
 // Explicit instantiation
-template bool TreeSyncMemory<Selene, Helios>::pop_block();
+template bool TreeCache<Selene, Helios>::pop_block();
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-bool TreeSyncMemory<C1, C2>::get_output_path(const OutputPair &output,
+bool TreeCache<C1, C2>::get_output_path(const OutputPair &output,
     typename CurveTrees<C1, C2>::Path &path_out) const
 {
     path_out.clear();
@@ -1296,12 +1296,12 @@ bool TreeSyncMemory<C1, C2>::get_output_path(const OutputPair &output,
 }
 
 // Explicit instantiation
-template bool TreeSyncMemory<Selene, Helios>::get_output_path(const OutputPair &output,
+template bool TreeCache<Selene, Helios>::get_output_path(const OutputPair &output,
     CurveTrees<Selene, Helios>::Path &path_out) const;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSyncMemory<C1, C2>::init(const uint64_t start_block_idx,
+void TreeCache<C1, C2>::init(const uint64_t start_block_idx,
     const crypto::hash &start_block_hash,
     const uint64_t n_leaf_tuples,
     const fcmp_pp::curve_trees::PathBytes &last_path,
@@ -1399,14 +1399,14 @@ void TreeSyncMemory<C1, C2>::init(const uint64_t start_block_idx,
 }
 
 // Explicit instantiation
-template void TreeSyncMemory<Selene, Helios>::init(const uint64_t start_block_idx,
+template void TreeCache<Selene, Helios>::init(const uint64_t start_block_idx,
     const crypto::hash &start_block_hash,
     const uint64_t n_leaf_tuples,
     const fcmp_pp::curve_trees::PathBytes &last_hashes,
     const OutputsByUnlockBlock &timelocked_outputs);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-crypto::ec_point TreeSyncMemory<C1, C2>::get_tree_root() const
+crypto::ec_point TreeCache<C1, C2>::get_tree_root() const
 {
     CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cache");
 
@@ -1430,20 +1430,20 @@ crypto::ec_point TreeSyncMemory<C1, C2>::get_tree_root() const
 }
 
 // Explicit instantiation
-template crypto::ec_point TreeSyncMemory<Selene, Helios>::get_tree_root() const;
+template crypto::ec_point TreeCache<Selene, Helios>::get_tree_root() const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-uint64_t TreeSyncMemory<C1, C2>::get_n_leaf_tuples() const
+uint64_t TreeCache<C1, C2>::get_n_leaf_tuples() const
 {
     CHECK_AND_ASSERT_THROW_MES(!m_cached_blocks.empty(), "empty cache");
     return m_cached_blocks.back().n_leaf_tuples;
 }
 
 // Explicit instantiation
-template uint64_t TreeSyncMemory<Selene, Helios>::get_n_leaf_tuples() const;
+template uint64_t TreeCache<Selene, Helios>::get_n_leaf_tuples() const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSyncMemory<C1, C2>::clear()
+void TreeCache<C1, C2>::clear()
 {
     m_locked_outputs.clear();
     m_locked_output_refs.clear();
@@ -1453,11 +1453,11 @@ void TreeSyncMemory<C1, C2>::clear()
     m_tree_elem_cache.clear();
     m_cached_blocks.clear();
 }
-template void TreeSyncMemory<Selene, Helios>::clear();
+template void TreeCache<Selene, Helios>::clear();
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes(const uint64_t n_leaf_tuples) const
+typename CurveTrees<C1, C2>::LastHashes TreeCache<C1, C2>::get_last_hashes(const uint64_t n_leaf_tuples) const
 {
     MDEBUG("Getting last hashes on tree with " << n_leaf_tuples << " leaf tuples");
 
@@ -1507,11 +1507,11 @@ typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes(
 }
 
 // Explicit instantiation
-template CurveTrees<Selene, Helios>::LastHashes TreeSyncMemory<Selene, Helios>::get_last_hashes(
+template CurveTrees<Selene, Helios>::LastHashes TreeCache<Selene, Helios>::get_last_hashes(
     const uint64_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::LastChunkChildrenForTrim TreeSyncMemory<C1, C2>::get_last_chunk_children_to_regrow(
+typename CurveTrees<C1, C2>::LastChunkChildrenForTrim TreeCache<C1, C2>::get_last_chunk_children_to_regrow(
     const std::vector<TrimLayerInstructions> &trim_instructions) const
 {
     typename CurveTrees<C1, C2>::LastChunkChildrenForTrim all_children_to_regrow;
@@ -1601,11 +1601,11 @@ typename CurveTrees<C1, C2>::LastChunkChildrenForTrim TreeSyncMemory<C1, C2>::ge
 }
 
 template
-CurveTrees<Selene, Helios>::LastChunkChildrenForTrim TreeSyncMemory<Selene, Helios>::get_last_chunk_children_to_regrow(
+CurveTrees<Selene, Helios>::LastChunkChildrenForTrim TreeCache<Selene, Helios>::get_last_chunk_children_to_regrow(
     const std::vector<TrimLayerInstructions> &trim_instructions) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes_for_trim(
+typename CurveTrees<C1, C2>::LastHashes TreeCache<C1, C2>::get_last_hashes_for_trim(
     const std::vector<TrimLayerInstructions> &trim_instructions) const
 {
     typename CurveTrees<C1, C2>::LastHashes last_hashes;
@@ -1671,11 +1671,11 @@ typename CurveTrees<C1, C2>::LastHashes TreeSyncMemory<C1, C2>::get_last_hashes_
 }
 
 // Explicit instantiation
-template CurveTrees<Selene, Helios>::LastHashes TreeSyncMemory<Selene, Helios>::get_last_hashes_for_trim(
+template CurveTrees<Selene, Helios>::LastHashes TreeCache<Selene, Helios>::get_last_hashes_for_trim(
     const std::vector<TrimLayerInstructions> &trim_instructions) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
-void TreeSyncMemory<C1, C2>::deque_block(const uint64_t n_leaf_tuples_at_block)
+void TreeCache<C1, C2>::deque_block(const uint64_t n_leaf_tuples_at_block)
 {
     if (n_leaf_tuples_at_block == 0)
         return;
