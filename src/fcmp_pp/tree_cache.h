@@ -59,7 +59,7 @@ using LeafIdx       = uint64_t;
 using LayerIdx      = std::size_t;
 using ChildChunkIdx = uint64_t;
 
-using UnlockBlockIdx  = BlockIdx;
+using LastLockedBlockIdx = BlockIdx;
 using CreatedBlockIdx = BlockIdx;
 using NumOutputs      = std::size_t;
 
@@ -147,8 +147,8 @@ struct AssignedLeafIdx final
     END_SERIALIZE()
 };
 
-using LockedOutputsByUnlock  = std::unordered_map<UnlockBlockIdx, std::vector<OutputContext>>;
-using LockedOutputRefs       = std::unordered_map<UnlockBlockIdx, NumOutputs>;
+using LockedOutputsByLastLockedBlock = std::unordered_map<LastLockedBlockIdx, std::vector<OutputContext>>;
+using LockedOutputRefs       = std::unordered_map<LastLockedBlockIdx, NumOutputs>;
 using LockedOutputsByCreated = std::unordered_map<CreatedBlockIdx, LockedOutputRefs>;
 
 using RegisteredOutputs = std::unordered_map<OutputRef, AssignedLeafIdx>;
@@ -179,14 +179,14 @@ public:
             TreeSync<C1, C2>(curve_trees, max_reorg_depth)
     {};
 
-    bool register_output(const OutputPair &output, const uint64_t unlock_block_idx) override;
+    bool register_output(const OutputPair &output, const uint64_t last_locked_block_idx) override;
 
     // TODO: bool cancel_output_registration
 
     void sync_block(const uint64_t block_idx,
         const crypto::hash &block_hash,
         const crypto::hash &prev_block_hash,
-        const OutputsByUnlockBlock &outs_by_unlock_block) override;
+        const OutputsByLastLockedBlock &outs_by_last_locked_block) override;
 
     bool pop_block() override;
 
@@ -198,7 +198,7 @@ public:
         const crypto::hash &start_block_hash,
         const uint64_t n_leaf_tuples,
         const fcmp_pp::curve_trees::PathBytes &last_path,
-        const OutputsByUnlockBlock &timelocked_outputs);
+        const OutputsByLastLockedBlock &timelocked_outputs);
 
     // TODO: make this part of the TreeSync interface
     crypto::ec_point get_tree_root() const;
@@ -217,7 +217,7 @@ public:
     void sync_blocks(const uint64_t start_block_idx,
         const crypto::hash &prev_block_hash,
         const std::vector<crypto::hash> &new_block_hashes,
-        const std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> &outs_by_unlock_blocks,
+        const std::vector<fcmp_pp::curve_trees::OutputsByLastLockedBlock> &outs_by_last_locked_blocks,
         typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension &tree_extension_out,
         std::vector<uint64_t> &n_new_leaf_tuples_per_block_out);
 
@@ -244,7 +244,7 @@ private:
 // State held in memory
 private:
     // Locked outputs in the chain that we use to grow the tree with internally upon unlock
-    LockedOutputsByUnlock m_locked_outputs;
+    LockedOutputsByLastLockedBlock m_locked_outputs;
     LockedOutputsByCreated m_locked_output_refs;
 
     // Keep a global output counter so the caller knows how output id's should be set

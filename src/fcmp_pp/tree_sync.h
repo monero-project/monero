@@ -64,11 +64,11 @@ public:
     //    - if the output is already registered.
     //    - if the TreeSync object has already synced the block in which the output unlocks. The scanner would not
     //      be able to determine the output's position in the tree in this case.
-    virtual bool register_output(const OutputPair &output, const uint64_t unlock_block_idx) = 0;
+    virtual bool register_output(const OutputPair &output, const uint64_t last_locked_block_idx) = 0;
 
     // TODO: bool cancel_output_registration
 
-    // Sync the outputs created in the provided block and grow the tree with outputs that unlock in this block
+    // Sync the outputs created in the provided block and grow the tree with outputs with last locked block block_idx
     // - The block must be contiguous to the most recently synced block
     // - If any registered outputs are present in the new leaf tuples, keeps track of their paths in the tree
     // - Uses the new leaf tuples to update any existing known output paths in the tree
@@ -84,7 +84,7 @@ public:
     virtual void sync_block(const uint64_t block_idx,
         const crypto::hash &block_hash,
         const crypto::hash &prev_block_hash,
-        const fcmp_pp::curve_trees::OutputsByUnlockBlock &outs_by_unlock_block) = 0;
+        const fcmp_pp::curve_trees::OutputsByLastLockedBlock &outs_by_last_locked_block) = 0;
 
     // Trim from the locally synced tree and update any paths as necesary
     // - Returns false if we cannot pop any more blocks (if the max reorg depth is reached, or no more blocks to pop)

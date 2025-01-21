@@ -124,8 +124,8 @@ public:
   virtual crypto::ec_point get_tree_root() const override { return {}; };
   virtual uint64_t get_n_leaf_tuples() const override { return 0; };
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const override { return 0; };
-  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override { return {{}}; };
-  virtual fcmp_pp::curve_trees::OutputsByUnlockBlock get_recent_locked_outputs(uint64_t end_block_idx) const override { return {{}}; };
+  virtual fcmp_pp::curve_trees::OutputsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override { return {{}}; };
+  virtual fcmp_pp::curve_trees::OutputsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const override { return {{}}; };
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image_y&)>) const override { return true; }
   virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override { return true; }
@@ -154,8 +154,8 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block
-                        , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/>& timelocked_outputs
+                        , const fcmp_pp::curve_trees::OutputsByLastLockedBlock& outs_by_last_locked_block
+                        , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
                         ) override { }
   virtual cryptonote::block get_block_from_height(const uint64_t& height) const override { return cryptonote::block(); }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {}

@@ -790,7 +790,7 @@ estim:
 }
 
 void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-    uint64_t num_rct_outs, const crypto::hash& blk_hash, const fcmp_pp::curve_trees::OutputsByUnlockBlock& outs_by_unlock_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/>& timelocked_outputs)
+    uint64_t num_rct_outs, const crypto::hash& blk_hash, const fcmp_pp::curve_trees::OutputsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -818,8 +818,8 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
       throw0(BLOCK_PARENT_DNE("Top block is not new block's parent"));
   }
 
-  // Grow the tree with outputs that unlock at this block height
-  auto unlocked_outputs = this->get_outs_at_unlock_block_id(m_height);
+  // Grow the tree with outputs that are no longer locked once this block is in the chain
+  auto unlocked_outputs = this->get_outs_at_last_locked_block_id(m_height);
   this->grow_tree(std::move(unlocked_outputs));
 
   // Now that we've used the unlocked leaves to grow the tree, we can delete them from the locked outputs table
@@ -874,10 +874,10 @@ void BlockchainLMDB::add_block(const block& blk, size_t block_weight, uint64_t l
   CURSOR(timelocked_outputs)
 
   // Add the locked outputs from this block to the locked outputs and custom timelocked tables
-  for (const auto &unlock_block : outs_by_unlock_block)
+  for (const auto &last_locked_block : outs_by_last_locked_block)
   {
-    const uint64_t last_locked_block_idx = unlock_block.first;
-    for (const auto &locked_output : unlock_block.second)
+    const uint64_t last_locked_block_idx = last_locked_block.first;
+    for (const auto &locked_output : last_locked_block.second)
     {
       MDB_val_set(k_block_id, last_locked_block_idx);
       MDB_val_set(v_output, locked_output);
@@ -1259,9 +1259,9 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   // from the chain, then progress the chain again.
   CURSOR(locked_outputs);
 
-  const uint64_t unlock_block = cryptonote::get_unlock_block_index(ok->data.unlock_time, ok->data.height);
+  const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(ok->data.unlock_time, ok->data.height);
 
-  MDB_val_set(k_block_id, unlock_block);
+  MDB_val_set(k_block_id, last_locked_block);
   MDB_val_set(v_output, ok->output_id);
 
   result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, MDB_GET_BOTH);
@@ -1283,7 +1283,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   // Remove output from custom timelocked outputs table if present
   CURSOR(timelocked_outputs);
 
-  MDB_val_set(k_timelocked_block_id, unlock_block);
+  MDB_val_set(k_timelocked_block_id, last_locked_block);
   MDB_val_set(v_timelocked_output, ok->output_id);
 
   result = mdb_cursor_get(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_GET_BOTH);
@@ -1766,7 +1766,7 @@ void BlockchainLMDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t 
     // be in the outputs tables.
     const auto *o = (mdb_leaf *)v.mv_data;
     MDB_val_set(v_output, o->output_context);
-    MDEBUG("Re-adding locked output_id: " << o->output_context.output_id << " , unlock block: " << trim_block_id);
+    MDEBUG("Re-adding locked output_id: " << o->output_context.output_id << " , last locked block: " << trim_block_id);
     result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to re-add locked output: ", result).c_str()));
@@ -2482,7 +2482,7 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_unlock_block_id(
+std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_last_locked_block_id(
   uint64_t block_id)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -2553,7 +2553,7 @@ void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
     throw1(DB_ERROR(lmdb_error("Error removing locked outputs: ", result).c_str()));
 }
 
-fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked_outputs(uint64_t start_block_idx) const
+fcmp_pp::curve_trees::OutputsByLastLockedBlock BlockchainLMDB::get_custom_timelocked_outputs(uint64_t start_block_idx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2561,7 +2561,7 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   TXN_PREFIX_RDONLY();
   RCURSOR(timelocked_outputs)
 
-  fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
+  fcmp_pp::curve_trees::OutputsByLastLockedBlock outs;
 
   /*
     We expect the timelocked outputs table to be sorted primarily by key, i.e.
@@ -2605,12 +2605,12 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
 
   // 2. Only return outputs that were created BEFORE start_block_idx
   // 2a. Place all output id's in a flat vector
-  using output_id_pair_t = std::pair<uint64_t/*output_id*/, uint64_t/*unlock_block*/>;
+  using output_id_pair_t = std::pair<uint64_t/*output_id*/, uint64_t/*last_locked_block*/>;
   std::vector<output_id_pair_t> output_ids;
-  for (const auto &outs_by_unlock_block : outs)
+  for (const auto &outs_by_last_locked_block : outs)
   {
-    for (const auto &o : outs_by_unlock_block.second)
-      output_ids.push_back({ o.output_id, outs_by_unlock_block.first });
+    for (const auto &o : outs_by_last_locked_block.second)
+      output_ids.push_back({ o.output_id, outs_by_last_locked_block.first });
   }
 
   // 2b. Sort the vector in descending order by output ID, so outputs are ordered most recently created first
@@ -2628,15 +2628,15 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
       break;
 
     // Find the output in the outs container
-    auto blk_it = outs.find(output_id.second/*unlock_block*/);
+    auto blk_it = outs.find(output_id.second/*last_locked_block*/);
 
     // The first one in the vec should be the output id since outputs were added from the table in descending order
     if (blk_it == outs.end())
-      throw0(DB_ERROR("Missing output's unlock block"));
+      throw0(DB_ERROR("Missing output's last locked block"));
     if (blk_it->second.empty())
-      throw0(DB_ERROR("Unlock block missing outputs"));
+      throw0(DB_ERROR("last locked block missing outputs"));
     if (blk_it->second.front().output_id != output_id.first)
-      throw0(DB_ERROR("Output id is not first in outs by unlock block"));
+      throw0(DB_ERROR("Output id is not first in outs by last locked block"));
 
     // Remove the output from outs container
     blk_it->second.erase(blk_it->second.begin());
@@ -2645,9 +2645,9 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   }
 
   // 3. Sort outputs of each last locked block by output id
-  for (auto &outs_by_unlock_block : outs)
+  for (auto &outs_by_last_locked_block : outs)
   {
-    auto &unsorted = outs_by_unlock_block.second;
+    auto &unsorted = outs_by_last_locked_block.second;
     std::sort(unsorted.begin(), unsorted.end(),
       [](const fcmp_pp::curve_trees::OutputContext &a, const fcmp_pp::curve_trees::OutputContext &b)
         {return a.output_id < b.output_id; });
@@ -2658,14 +2658,14 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_custom_timelocked
   return outs;
 }
 
-fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_outputs(uint64_t end_block_idx) const
+fcmp_pp::curve_trees::OutputsByLastLockedBlock BlockchainLMDB::get_recent_locked_outputs(uint64_t end_block_idx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
 
   TXN_PREFIX_RDONLY();
 
-  fcmp_pp::curve_trees::OutputsByUnlockBlock outs;
+  fcmp_pp::curve_trees::OutputsByLastLockedBlock outs;
 
   const uint64_t height = this->height();
   if (height == 0)
@@ -2681,26 +2681,26 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
 
   const uint64_t end_blk_idx = std::min(height - 1, end_block_idx);
 
-  const auto get_out_unlock_blocks = [this, &outs, normal_start_idx](uint64_t b_idx, const crypto::hash, const block &b) -> bool
+  const auto get_last_locked_blocks = [this, &outs, normal_start_idx](uint64_t b_idx, const crypto::hash, const block &b) -> bool
   {
-    // Add output data grouped by unlock block
-    auto add_outs_by_unlock_block = [this, &outs, b_idx](const crypto::hash &tx_hash, const bool is_coinbase)
+    // Add output data grouped by last locked block idx
+    auto add_by_last_locked_block = [this, &outs, b_idx](const crypto::hash &tx_hash, const bool is_coinbase)
     {
       auto out_data = this->get_tx_output_data(tx_hash);
       if (out_data.empty())
         return;
 
-      const uint64_t unlock_block = cryptonote::get_unlock_block_index(out_data.front().data.unlock_time, b_idx);
+      const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(out_data.front().data.unlock_time, b_idx);
 
       // Ignore custom timelocked outputs
-      if (cryptonote::is_custom_timelocked(is_coinbase, unlock_block, b_idx))
+      if (cryptonote::is_custom_timelocked(is_coinbase, last_locked_block, b_idx))
         return;
 
-      auto outs_it = outs.find(unlock_block);
+      auto outs_it = outs.find(last_locked_block);
       if (outs_it == outs.end())
       {
-        outs[unlock_block] = {};
-        outs_it = outs.find(unlock_block);
+        outs[last_locked_block] = {};
+        outs_it = outs.find(last_locked_block);
       }
 
       for (auto &out : out_data)
@@ -2708,19 +2708,19 @@ fcmp_pp::curve_trees::OutputsByUnlockBlock BlockchainLMDB::get_recent_locked_out
     };
 
     // Add coinbase outputs
-    add_outs_by_unlock_block(cryptonote::get_transaction_hash(b.miner_tx), true);
+    add_by_last_locked_block(cryptonote::get_transaction_hash(b.miner_tx), true);
 
     if (normal_start_idx > b_idx)
       return true;
 
     // Add normal outputs
     for (const auto &tx_hash : b.tx_hashes)
-      add_outs_by_unlock_block(tx_hash, false);
+      add_by_last_locked_block(tx_hash, false);
 
     return true;
   };
 
-  for_blocks_range(coinbase_start_idx, end_blk_idx, get_out_unlock_blocks);
+  for_blocks_range(coinbase_start_idx, end_blk_idx, get_last_locked_blocks);
 
   TXN_POSTFIX_RDONLY();
 
@@ -7556,11 +7556,11 @@ void BlockchainLMDB::migrate_5_6()
             .output_pair = std::move(output_pair)
           };
 
-        // Get the block in which the output will unlock
-        const uint64_t unlock_block = cryptonote::get_unlock_block_index(output_data.unlock_time, output_data.height);
+        // Get the output's last locked block
+        const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(output_data.unlock_time, output_data.height);
 
         // Add the output to the locked outputs table
-        MDB_val_set(k_block_id, unlock_block);
+        MDB_val_set(k_block_id, last_locked_block);
         MDB_val_set(v_output, output_context);
 
         // MDB_NODUPDATA because all output id's should be unique
@@ -7571,20 +7571,20 @@ void BlockchainLMDB::migrate_5_6()
 
         // Check if the output is a coinbase output
         bool is_coinbase = false;
-        const bool has_coinbase_unlock_block = unlock_block == (output_data.height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - 1);
-        if (has_coinbase_unlock_block)
+        const bool has_coinbase_last_locked_block = last_locked_block == (output_data.height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - 1);
+        if (has_coinbase_last_locked_block)
         {
-          // Only coinbase outputs could potentially have the coinbase unlock block (see prevalidate_miner_transaction)
+          // Only coinbase outputs could potentially have the coinbase last locked block (see prevalidate_miner_transaction)
           auto toi = this->get_output_tx_and_index_from_global(output_id);
           auto tx = this->get_pruned_tx(toi.first);
           is_coinbase = cryptonote::is_coinbase(tx);
         }
 
         // Add custom timelocked outputs to the timelocked outputs table
-        if (!cryptonote::is_custom_timelocked(is_coinbase, unlock_block, output_data.height))
+        if (!cryptonote::is_custom_timelocked(is_coinbase, last_locked_block, output_data.height))
           continue;
 
-        MDB_val_set(k_timelocked_block_id, unlock_block);
+        MDB_val_set(k_timelocked_block_id, last_locked_block);
         MDB_val_set(v_timelocked_output, output_context);
 
         // MDB_NODUPDATA because all output id's should be unique
@@ -7596,7 +7596,7 @@ void BlockchainLMDB::migrate_5_6()
     }
 
     // 3. Set up the curve trees merkle tree by growing the tree block by block,
-    //    with leaves that unlock in each respective block
+    //    with leaves that are spendable in each respective block
     {
       MINFO("Setting up a merkle tree using existing cryptonote outputs (step 3/3 of full-chain membership proof migration)");
 
@@ -7660,8 +7660,8 @@ void BlockchainLMDB::migrate_5_6()
           }
         }
 
-        // Get the leaf tuples that unlock at the given block
-        auto unlocked_outputs = this->get_outs_at_unlock_block_id(i);
+        // Get leaf tuples of outputs that unlock once i is in the chain, since i is their last locked block
+        auto unlocked_outputs = this->get_outs_at_last_locked_block_id(i);
         this->grow_tree(std::move(unlocked_outputs));
 
         // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table

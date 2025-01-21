@@ -639,25 +639,25 @@ namespace cryptonote
 
     // 1. Custom timelocked outputs created before sync_start_idx with last locked block >= sync_start_idx
     const uint64_t sync_start_idx = init_block_idx + 1;
-    auto custom_outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(sync_start_idx);
+    auto custom_outs_by_last_locked_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(sync_start_idx);
 
     // 2a. Coinbase output contexts created between blocks [init_block_idx - 60, init_block_idx] inclusive
     // 2b. Normal output contexts created between blocks [init_block_idx - 10, init_block_idx] inclusive
-    auto outs_by_unlock_block = m_core.get_blockchain_storage().get_db().get_recent_locked_outputs(init_block_idx);
+    auto outs_by_last_locked_block = m_core.get_blockchain_storage().get_db().get_recent_locked_outputs(init_block_idx);
 
     // 3. Combine all locked outputs into vec
     auto &locked_outputs = init_tree_sync_data.locked_outputs;
-    locked_outputs.reserve(custom_outs_by_unlock_block.size() + outs_by_unlock_block.size());
+    locked_outputs.reserve(custom_outs_by_last_locked_block.size() + outs_by_last_locked_block.size());
 
-    // 3a. Iterate over all custom locked outs and check if unlock block is present in other outs. If so, combine.
-    for (auto &o : custom_outs_by_unlock_block)
+    // 3a. Iterate over all custom locked outs and check if last locked block is present in other outs. If so, combine.
+    for (auto &o : custom_outs_by_last_locked_block)
     {
-      const uint64_t unlock_block = o.first;
+      const uint64_t last_locked_block = o.first;
 
-      auto outs_it = outs_by_unlock_block.find(unlock_block);
-      if (outs_it == outs_by_unlock_block.end())
+      auto outs_it = outs_by_last_locked_block.find(last_locked_block);
+      if (outs_it == outs_by_last_locked_block.end())
       {
-        locked_outputs.push_back({ unlock_block, std::move(o.second) });
+        locked_outputs.push_back({ last_locked_block, std::move(o.second) });
         continue;
       }
 
@@ -671,28 +671,28 @@ namespace cryptonote
         return false;
       }
 
-      locked_outputs.push_back({ unlock_block, std::move(sorted_outs) });
+      locked_outputs.push_back({ last_locked_block, std::move(sorted_outs) });
     }
 
     // 3b. Get the remaining locked outs
-    for (auto &o : outs_by_unlock_block)
+    for (auto &o : outs_by_last_locked_block)
     {
-      const uint64_t unlock_block = o.first;
+      const uint64_t last_locked_block = o.first;
 
-      auto custom_outs_it = custom_outs_by_unlock_block.find(unlock_block);
-      if (custom_outs_it != custom_outs_by_unlock_block.end())
+      auto custom_outs_it = custom_outs_by_last_locked_block.find(last_locked_block);
+      if (custom_outs_it != custom_outs_by_last_locked_block.end())
       {
         // We've already added it in 3a above
         continue;
       }
 
-      locked_outputs.push_back({ unlock_block, std::move(o.second) });
+      locked_outputs.push_back({ last_locked_block, std::move(o.second) });
     }
 
     // 3c. Sort locked outputs by last locked block
     std::sort(locked_outputs.begin(), locked_outputs.end(),
         [](const COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t &a, const COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t &b)
-            { return a.unlock_block < b.unlock_block; });
+            { return a.last_locked_block < b.last_locked_block; });
 
     // 4. N leaf tuples and last chunk at each layer of the tree when init_block_idx was the last block in the chain
     auto last_path = m_core.get_blockchain_storage().get_db().get_last_path(init_block_idx);

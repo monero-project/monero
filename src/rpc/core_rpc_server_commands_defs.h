@@ -249,11 +249,11 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct locked_outputs_t
     {
-      uint64_t unlock_block;
+      uint64_t last_locked_block;
       std::vector<fcmp_pp::curve_trees::OutputContext> outputs;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(unlock_block)
+        KV_SERIALIZE(last_locked_block)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outputs)
       END_KV_SERIALIZE_MAP()
     };
