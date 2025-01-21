@@ -63,14 +63,14 @@ TEST(tree_cache, register_output)
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     // Mock values
-    const uint64_t unlock_block_idx = 1;
+    const uint64_t last_locked_block_idx = 1;
     const auto output = outputs[0].output_pair;
 
     // 2. Register output - valid
-    ASSERT_TRUE(tree_cache->register_output(output, unlock_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
 
     // 3. Register same output again - already registered
-    ASSERT_FALSE(tree_cache->register_output(output, unlock_block_idx));
+    ASSERT_FALSE(tree_cache->register_output(output, last_locked_block_idx));
 
     // 4. Register another output with the same output pubkey as existing, different commitment - valid
     auto output_new_commitment = output;
@@ -79,21 +79,21 @@ TEST(tree_cache, register_output)
     ASSERT_EQ(output_new_commitment.output_pubkey, output.output_pubkey);
     ASSERT_NE(output_new_commitment.commitment, output.commitment);
 
-    ASSERT_TRUE(tree_cache->register_output(output_new_commitment, unlock_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output_new_commitment, last_locked_block_idx));
 
     // 5. Sync the block of outputs
     crypto::hash block_hash{0x01};
     crypto::hash prev_block_hash{};
-    tree_cache->sync_block(0, block_hash, prev_block_hash, {{ unlock_block_idx, outputs }});
+    tree_cache->sync_block(0, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
 
     // 6. Sync 1 more block so the outputs unlock and enter the tree
     prev_block_hash = block_hash;
     block_hash = crypto::hash{0x02};
-    tree_cache->sync_block(unlock_block_idx, block_hash, prev_block_hash, {});
+    tree_cache->sync_block(last_locked_block_idx, block_hash, prev_block_hash, {});
 
     // 7. Register a new output where we already synced the block output unlocks in - invalid
     const auto &new_output = test::generate_random_outputs(*curve_trees, INIT_LEAVES, 1).front().output_pair;
-    ASSERT_FALSE(tree_cache->register_output(new_output, unlock_block_idx));
+    ASSERT_FALSE(tree_cache->register_output(new_output, last_locked_block_idx));
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_cache, sync_block_simple)
@@ -108,21 +108,21 @@ TEST(tree_cache, sync_block_simple)
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     // Mock values
-    const uint64_t unlock_block_idx = 1;
+    const uint64_t last_locked_block_idx = 1;
     const auto output = outputs[0].output_pair;
 
     // 2. Register output
-    ASSERT_TRUE(tree_cache->register_output(output, unlock_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
 
     // 3. Sync the block of outputs
     crypto::hash block_hash{0x01};
     crypto::hash prev_block_hash{};
-    tree_cache->sync_block(0, block_hash, prev_block_hash, {{ unlock_block_idx, outputs }});
+    tree_cache->sync_block(0, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
 
     // 4. Sync 1 more block so the outputs unlock and enter the tree
     prev_block_hash = block_hash;
     block_hash = crypto::hash{0x02};
-    tree_cache->sync_block(unlock_block_idx, block_hash, prev_block_hash, {});
+    tree_cache->sync_block(last_locked_block_idx, block_hash, prev_block_hash, {});
 
     // 5. Get the output's path in the tree
     CurveTreesV1::Path output_path;
@@ -152,36 +152,36 @@ TEST(tree_cache, sync_n_chunks_of_blocks)
 
     // 2. Make chunks of blocks
     std::vector<std::vector<crypto::hash>> chunks_of_block_hashes;
-    std::vector<std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock>> chunks_of_outputs;
+    std::vector<std::vector<fcmp_pp::curve_trees::OutputsByLastLockedBlock>> chunks_of_outputs;
     std::size_t leaf_count = 0;
-    uint64_t unlock_block_idx = 0;
+    uint64_t last_locked_block_idx = 0;
     fcmp_pp::curve_trees::OutputPair output;
     for (std::size_t i = 0; i < N_CHUNKS; ++i)
     {
         std::vector<crypto::hash> block_hashes;
-        std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> outs;
+        std::vector<fcmp_pp::curve_trees::OutputsByLastLockedBlock> outs;
         for (std::size_t j = 0; j < N_BLOCKS_PER_CHUNK; ++j)
         {
             auto outputs = test::generate_random_outputs(*curve_trees, leaf_count, INIT_LEAVES);
             leaf_count += INIT_LEAVES;
-            const auto unlock_block = 1 + i * N_BLOCKS_PER_CHUNK + j;
+            const auto last_locked_block = 1 + i * N_BLOCKS_PER_CHUNK + j;
 
             if (i == rand_chunk && j == rand_block)
             {
-                unlock_block_idx = unlock_block;
+                last_locked_block_idx = last_locked_block;
                 output = outputs[rand_leaf].output_pair;
             }
 
-            outs.push_back({{ unlock_block, std::move(outputs) }});
+            outs.push_back({{ last_locked_block, std::move(outputs) }});
             block_hashes.push_back(mock_block_hash);
         }
         chunks_of_block_hashes.push_back(std::move(block_hashes));
         chunks_of_outputs.push_back(std::move(outs));
     }
-    ASSERT_TRUE(unlock_block_idx > 0);
+    ASSERT_TRUE(last_locked_block_idx > 0);
 
     // 3. Register output
-    ASSERT_TRUE(tree_cache->register_output(output, unlock_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
 
     // 4. Sync the chunks of blocks
     for (std::size_t i = 0; i < N_CHUNKS; ++i)
@@ -250,13 +250,13 @@ TEST(tree_cache, sync_n_blocks_register_n_outputs)
         MDEBUG("Registering output " << n_outputs + output_to_register);
 
         // Register the output
-        const uint64_t unlock_block_idx = block_idx + 1;
-        ASSERT_TRUE(tree_cache->register_output(output, unlock_block_idx));
+        const uint64_t last_locked_block_idx = block_idx + 1;
+        ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
 
         // Sync the outputs generated above
         crypto::hash block_hash;
         crypto::cn_fast_hash(&block_idx, sizeof(std::size_t), block_hash);
-        tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ unlock_block_idx, outputs }});
+        tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
 
         n_unlocked_outputs = n_outputs;
         n_outputs += sync_n_outputs;
@@ -320,7 +320,7 @@ TEST(tree_cache, sync_n_blocks_register_one_output)
             CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
             // Check if this chunk includes the output we're supposed to register
-            const uint64_t unlock_block_idx = block_idx + 1;
+            const uint64_t last_locked_block_idx = block_idx + 1;
             bool just_registered = n_outputs <= i && i < (n_outputs + sync_n_outputs);
             if (just_registered)
             {
@@ -330,7 +330,7 @@ TEST(tree_cache, sync_n_blocks_register_one_output)
                 auto output_to_register = i - n_outputs;
                 const auto output = outputs[output_to_register].output_pair;
 
-                ASSERT_TRUE(tree_cache->register_output(output, unlock_block_idx));
+                ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
 
                 registered = true;
                 registered_output = output;
@@ -339,7 +339,7 @@ TEST(tree_cache, sync_n_blocks_register_one_output)
             // Sync the outputs generated above
             crypto::hash block_hash;
             crypto::cn_fast_hash(&block_idx, sizeof(uint64_t), block_hash);
-            tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ unlock_block_idx, outputs }});
+            tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
 
             n_unlocked_outputs = n_outputs;
             n_outputs += sync_n_outputs;
@@ -408,7 +408,7 @@ TEST(tree_cache, sync_past_max_reorg_depth)
             CHECK_AND_ASSERT_THROW_MES(outputs.size() == sync_n_outputs, "unexpected size of outputs");
 
             // Check if this chunk includes the output we're supposed to register
-            const uint64_t unlock_block_idx = block_idx + 1;
+            const uint64_t last_locked_block_idx = block_idx + 1;
             const bool just_registered = n_outputs <= i && i < (n_outputs + sync_n_outputs);
             if (just_registered)
             {
@@ -426,7 +426,7 @@ TEST(tree_cache, sync_past_max_reorg_depth)
             // Sync the outputs generated above
             crypto::hash block_hash;
             crypto::cn_fast_hash(&block_idx, sizeof(uint64_t), block_hash);
-            tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ unlock_block_idx, outputs }});
+            tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
 
             n_unlocked_outputs = n_outputs;
             n_outputs += sync_n_outputs;
@@ -472,8 +472,8 @@ TEST(tree_cache, reorg_after_register)
 
         fcmp_pp::curve_trees::OutputPair registered_output;
         bool registered = false;
-        uint64_t unlocked_block_idx = 0;
-        crypto::hash unlocked_block_hash;
+        uint64_t last_locked_block_idx = 0;
+        crypto::hash last_locked_block_hash;
 
         crypto::hash prev_block_hash = crypto::hash{};
 
@@ -484,18 +484,18 @@ TEST(tree_cache, reorg_after_register)
         std::vector<uint64_t> n_outputs_synced_by_block;
         while (n_unlocked_outputs < n_leaves_needed)
         {
-            if (registered && block_idx > (unlocked_block_idx + 1))
+            if (registered && block_idx > (last_locked_block_idx + 1))
             {
                 uint64_t cur_block_idx = block_idx;
                 ASSERT_EQ(n_outputs_synced_by_block.size(), block_idx);
 
-                LOG_PRINT_L1("Popping blocks back to block " << unlocked_block_idx + 1 << " , then re-syncing");
+                LOG_PRINT_L1("Popping blocks back to block " << last_locked_block_idx + 1 << " , then re-syncing");
 
                 auto n_outputs_unlocked = [&n_outputs_synced_by_block](uint64_t blk_idx) -> uint64_t
                     { return blk_idx < 2 ? 0 : n_outputs_synced_by_block[blk_idx - 2]; };
 
                 // Pop blocks until the included block is the top block
-                while (cur_block_idx > (unlocked_block_idx + 1))
+                while (cur_block_idx > (last_locked_block_idx + 1))
                 {
                     ASSERT_TRUE(tree_cache->pop_block());
                     --cur_block_idx;
@@ -509,7 +509,7 @@ TEST(tree_cache, reorg_after_register)
                 }
 
                 // Sync back up again until cur_block_idx == block_idx
-                prev_block_hash = unlocked_block_hash;
+                prev_block_hash = last_locked_block_hash;
                 while (cur_block_idx < block_idx)
                 {
                     const auto sync_n_outputs = (cur_block_idx % max_outputs_per_block) + 1;
@@ -522,11 +522,10 @@ TEST(tree_cache, reorg_after_register)
                     // Sync the outputs generated above
                     crypto::hash block_hash;
                     crypto::cn_fast_hash(&cur_block_idx, sizeof(uint64_t), block_hash);
-                    const uint64_t unlock_block_idx = cur_block_idx + 1;
                     tree_cache->sync_block(cur_block_idx,
                         block_hash,
                         prev_block_hash,
-                        {{ unlock_block_idx, outputs }});
+                        {{ cur_block_idx + 1, outputs }});
                     ++cur_block_idx;
 
                     CurveTreesV1::Path output_path;
@@ -550,7 +549,6 @@ TEST(tree_cache, reorg_after_register)
 
             // Check if this chunk includes the output we're supposed to register
             const bool just_registered = n_outputs <= i && i < (n_outputs + sync_n_outputs);
-            const uint64_t unlock_block_idx = block_idx + 1;
             if (just_registered)
             {
                 ASSERT_FALSE(registered);
@@ -562,17 +560,17 @@ TEST(tree_cache, reorg_after_register)
 
                 registered = true;
                 registered_output = output;
-                unlocked_block_idx = unlock_block_idx;
+                last_locked_block_idx = block_idx + 1;
             }
 
-            if (registered && block_idx == unlocked_block_idx)
-                unlocked_block_hash = block_hash;
+            if (registered && block_idx == last_locked_block_idx)
+                last_locked_block_hash = block_hash;
 
             // Sync the outputs generated above
             tree_cache->sync_block(block_idx,
                 block_hash,
                 prev_block_hash,
-                {{ unlock_block_idx, outputs }});
+                {{ block_idx + 1, outputs }});
 
             n_unlocked_outputs = n_outputs;
             n_outputs += sync_n_outputs;
@@ -622,11 +620,11 @@ TEST(tree_cache, register_after_reorg)
         crypto::cn_fast_hash(&block_idx, sizeof(uint64_t), block_hash);
 
         // Sync the outputs generated above
-        const uint64_t unlock_block_idx = block_idx + 1;
+        const uint64_t last_locked_block_idx = block_idx + 1;
         tree_cache->sync_block(block_idx,
             block_hash,
             block_hashes.empty() ? crypto::hash{} : block_hashes.back(),
-            {{ unlock_block_idx, outputs }});
+            {{ last_locked_block_idx, outputs }});
 
         n_unlocked_outputs = n_outputs;
         n_outputs += sync_n_outputs;
@@ -660,11 +658,11 @@ TEST(tree_cache, register_after_reorg)
     crypto::cn_fast_hash(&block_idx, sizeof(uint64_t), block_hash);
 
     // Sync the output generated above
-    const uint64_t unlock_block_idx = block_idx + 1;
+    const uint64_t last_locked_block_idx = block_idx + 1;
     tree_cache->sync_block(block_idx,
         block_hash,
         block_hashes.empty() ? crypto::hash{} : block_hashes.back(),
-        {{ unlock_block_idx, outputs }});
+        {{ last_locked_block_idx, outputs }});
     block_hashes.push_back(block_hash);
     n_unlocked_outputs = n_outputs;
 
@@ -674,8 +672,8 @@ TEST(tree_cache, register_after_reorg)
     ASSERT_TRUE(output_path.leaves.empty() && output_path.c1_layers.empty() && output_path.c2_layers.empty());
 
     // Sync 1 more block so the output unlocks and enters the tree
-    crypto::cn_fast_hash(&unlock_block_idx, sizeof(uint64_t), block_hash);
-    tree_cache->sync_block(unlock_block_idx, block_hash, block_hashes.back(), {});
+    crypto::cn_fast_hash(&last_locked_block_idx, sizeof(uint64_t), block_hash);
+    tree_cache->sync_block(last_locked_block_idx, block_hash, block_hashes.back(), {});
     n_unlocked_outputs += outputs.size();
 
     ASSERT_TRUE(tree_cache->get_output_path(output, output_path));
@@ -692,13 +690,13 @@ TEST(tree_cache, serialization)
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     const uint64_t block_idx = 0;
-    const uint64_t unlock_block_idx = 1;
+    const uint64_t last_locked_block_idx = 1;
     const auto output = outputs[0].output_pair;
-    ASSERT_TRUE(tree_cache->register_output(output, unlock_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
 
     crypto::hash block_hash{0x01};
     crypto::hash prev_block_hash{};
-    tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ unlock_block_idx, outputs }});
+    tree_cache->sync_block(block_idx, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
 
     // 2. Serialize the tree_cache object
     std::string blob;
@@ -716,8 +714,8 @@ TEST(tree_cache, serialization)
     // 5. Sync 1 more block in tree_cache and tree_cache2 so the init outputs unlock and enter the trees
     prev_block_hash = block_hash;
     block_hash = crypto::hash{0x02};
-    tree_cache->sync_block(unlock_block_idx, block_hash, prev_block_hash, {});
-    tree_cache2.sync_block(unlock_block_idx, block_hash, prev_block_hash, {});
+    tree_cache->sync_block(last_locked_block_idx, block_hash, prev_block_hash, {});
+    tree_cache2.sync_block(last_locked_block_idx, block_hash, prev_block_hash, {});
 
     // 6. Make sure output's path is the same across both tree_cache and tree_cache2
     CurveTreesV1::Path output_path;

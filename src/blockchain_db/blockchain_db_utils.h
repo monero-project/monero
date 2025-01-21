@@ -38,10 +38,10 @@
 namespace cryptonote
 {
 
-struct OutsByUnlockBlockMeta
+struct OutsByLastLockedBlockMeta
 {
-    fcmp_pp::curve_trees::OutputsByUnlockBlock outs_by_unlock_block;
-    std::unordered_map<uint64_t/*output_id*/, uint64_t/*unlock block_id*/> timelocked_outputs;
+    fcmp_pp::curve_trees::OutputsByLastLockedBlock outs_by_last_locked_block;
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> timelocked_outputs;
     uint64_t next_output_id;
 };
 
@@ -49,7 +49,7 @@ struct OutsByUnlockBlockMeta
 // instead of cryptonote_basic (where it would seem the better place to put it) to avoid a circular dependency between
 // ringct <> cryptonote_basic.
 // Note that zeroCommitVartime is expensive.
-OutsByUnlockBlockMeta get_outs_by_unlock_block(
+OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
     const cryptonote::transaction &miner_tx,
     const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
     const uint64_t first_output_id,

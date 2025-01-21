@@ -915,7 +915,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     TIME_MEASURE_START(sorting_outputs);
 
     // Sort the outputs by order they appear in the chain
-    // Note: the outputs are expected to be grouped by unlock block
+    // Note: the outputs are expected to be grouped by last locked block
     std::vector<OutputContext> flat_sorted_outputs;
     for (auto &unsorted_outputs : new_outputs)
     {

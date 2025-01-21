@@ -267,9 +267,9 @@ namespace cryptonote
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
 
-  // Returns the block index in which the provided unlock_time unlocks
-  uint64_t get_unlock_block_index(uint64_t unlock_time, uint64_t block_included_in_chain);
-  bool is_custom_timelocked(bool is_coinbase, uint64_t unlock_block_idx, uint64_t block_included_in_chain);
+  // Returns the last locked block index for the provided unlock_time
+  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain);
+  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain);
 
 #define CHECKED_GET_SPECIFIC_VARIANT(variant_var, specific_type, variable_name, fail_return_val) \
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \

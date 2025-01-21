@@ -1950,7 +1950,7 @@ private:
     std::unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
     uint64_t m_sync_blocks_time_ms;
-    uint64_t m_outs_by_unlock_time_ms;
+    uint64_t m_outs_by_last_locked_time_ms;
 
     std::atomic<bool> m_run;
 

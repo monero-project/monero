@@ -1636,21 +1636,21 @@ namespace cryptonote
   }
   //---------------------------------------------------------------
   // TODO: write tests for this func that match with current daemon logic
-  uint64_t get_unlock_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
+  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
   {
-    uint64_t unlock_block_index = 0;
+    uint64_t last_locked_block_index = 0;
 
     const uint64_t default_block_index = get_default_last_locked_block_index(block_included_in_chain);
 
     if (unlock_time == 0)
     {
-      unlock_block_index = default_block_index;
+      last_locked_block_index = default_block_index;
     }
     else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
     {
       // The unlock_time in this case is supposed to be the chain height at which the output unlocks
       // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta
-      unlock_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
+      last_locked_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
     }
     else
     {
@@ -1659,14 +1659,14 @@ namespace cryptonote
       const auto hf_v15_time = 1656629118;
       const auto hf_v15_height = 2689608;
 
-      // Use the last hard fork's time and block combo to convert the time-based timelock into an unlock block
+      // Use the last hard fork's time and block combo to convert the time-based timelock into an last locked block
       // TODO: consider taking into account 60s block times when that was consensus
       if (hf_v15_time > unlock_time)
       {
         const auto seconds_since_unlock = hf_v15_time - unlock_time;
         const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
 
-        unlock_block_index = hf_v15_height > blocks_since_unlock
+        last_locked_block_index = hf_v15_height > blocks_since_unlock
           ? (hf_v15_height - blocks_since_unlock)
           : default_block_index;
       }
@@ -1674,29 +1674,29 @@ namespace cryptonote
       {
         const auto seconds_until_unlock = unlock_time - hf_v15_time;
         const auto blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
-        unlock_block_index = hf_v15_height + blocks_until_unlock;
+        last_locked_block_index = hf_v15_height + blocks_until_unlock;
       }
 
       /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
-          spent before it reaches the unlock_block_index going by the old rules; this is ok. It can't be spent again b/c
+          spent before it reaches the last_locked_block_index going by the old rules; this is ok. It can't be spent again b/c
           it'll have a duplicate key image. It's also possible for an output to unlock by old rules, and then re-lock
-          again at the fork. This is also ok, we just need to be sure that the new hf rules use this unlock_block_index
+          again at the fork. This is also ok, we just need to be sure that the new hf rules use this last_locked_block_index
           starting at the fork for fcmp's.
       */
 
       // TODO: double check the accuracy of this calculation
-      MDEBUG("unlock time: " << unlock_time << " , unlock_block_index: " << unlock_block_index);
+      MDEBUG("unlock time: " << unlock_time << " , last_locked_block_index: " << last_locked_block_index);
     }
 
-    // Can't unlock earlier than the default unlock block
-    return std::max(unlock_block_index, default_block_index);
+    // Can't unlock earlier than the default last locked block
+    return std::max(last_locked_block_index, default_block_index);
   }
   //---------------------------------------------------------------
-  bool is_custom_timelocked(bool is_coinbase, uint64_t unlock_block_idx, uint64_t block_included_in_chain)
+  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain)
   {
     if (is_coinbase)
       return false;
 
-    return unlock_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
+    return last_locked_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
   }
 }

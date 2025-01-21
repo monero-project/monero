@@ -2556,7 +2556,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
-      m_tree_cache.register_output(output_pair, cryptonote::get_unlock_block_index(tx.unlock_time, height));
+      m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
           }
           total_received_1 += amount;
           notify = true;
@@ -2635,7 +2635,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
-      m_tree_cache.register_output(output_pair, cryptonote::get_unlock_block_index(tx.unlock_time, height));
+      m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
           }
           total_received_1 += extra_amount;
           notify = true;
@@ -3336,7 +3336,7 @@ static TreeSyncStartParams tree_sync_reorg_check(const uint64_t parsed_blocks_st
   return TreeSyncStartParams { sync_start_block_idx, start_parsed_block_i, prev_block_hash };
 }
 
-static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_params, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, tools::wallet2::TreeCacheV1 &tree_cache_inout, uint64_t &outs_by_unlock_time_ms_inout, uint64_t &sync_blocks_time_ms_inout, std::vector<crypto::hash> &new_block_hashes_out, fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension_out, std::vector<uint64_t> &new_leaf_tuples_per_block_out)
+static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_params, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, tools::wallet2::TreeCacheV1 &tree_cache_inout, uint64_t &outs_by_last_locked_time_ms_inout, uint64_t &sync_blocks_time_ms_inout, std::vector<crypto::hash> &new_block_hashes_out, fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension_out, std::vector<uint64_t> &new_leaf_tuples_per_block_out)
 {
   TIME_MEASURE_START(sync_blocks_time);
 
@@ -3354,12 +3354,12 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
 
   THROW_WALLET_EXCEPTION_IF(sync_start_block_idx == 0, error::wallet_internal_error, "sync_start_block_idx must be > 0");
 
-  // Collect all outs from all blocks by unlock block
-  TIME_MEASURE_START(collecting_outs_by_unlock_block);
-  std::vector<fcmp_pp::curve_trees::OutputsByUnlockBlock> outs_by_unlock_blocks;
+  // Collect all outs from all blocks by last locked block
+  TIME_MEASURE_START(collecting_outs_by_last_locked_block);
+  std::vector<fcmp_pp::curve_trees::OutputsByLastLockedBlock> outs_by_last_locked_blocks;
 
   new_block_hashes_out.reserve(n_new_blocks);
-  outs_by_unlock_blocks.reserve(n_new_blocks);
+  outs_by_last_locked_blocks.reserve(n_new_blocks);
 
   uint64_t first_output_id = tree_cache_inout.get_output_count();
   for (size_t i = start_parsed_block_i; i < parsed_blocks.size(); ++i)
@@ -3374,29 +3374,29 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
       txs.push_back(std::ref(parsed_blocks[i].txes[j]));
 
     // Note: this function is slow because of zeroCommitVartime
-    auto res = cryptonote::get_outs_by_unlock_block(miner_tx, txs, first_output_id, created_block_idx);
+    auto res = cryptonote::get_outs_by_last_locked_block(miner_tx, txs, first_output_id, created_block_idx);
 
-    outs_by_unlock_blocks.emplace_back(std::move(res.outs_by_unlock_block));
+    outs_by_last_locked_blocks.emplace_back(std::move(res.outs_by_last_locked_block));
     first_output_id = res.next_output_id;
   }
 
-  TIME_MEASURE_FINISH(collecting_outs_by_unlock_block);
+  TIME_MEASURE_FINISH(collecting_outs_by_last_locked_block);
 
   // Get a tree extension with the outputs that will unlock in this chunk of blocks
   tree_cache_inout.sync_blocks(sync_start_block_idx,
     prev_block_hash,
     new_block_hashes_out,
-    outs_by_unlock_blocks,
+    outs_by_last_locked_blocks,
     tree_extension_out,
     new_leaf_tuples_per_block_out);
 
   TIME_MEASURE_FINISH(sync_blocks_time);
 
-  outs_by_unlock_time_ms_inout += collecting_outs_by_unlock_block;
+  outs_by_last_locked_time_ms_inout += collecting_outs_by_last_locked_block;
   sync_blocks_time_ms_inout += sync_blocks_time;
 
   LOG_PRINT_L1("Total time spent building tree: " << sync_blocks_time_ms_inout / 1000
-      << " , time spent collecting outs by unlock time while building tree: " << outs_by_unlock_time_ms_inout / 1000);
+      << " , time spent collecting outs by unlock time while building tree: " << outs_by_last_locked_time_ms_inout / 1000);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
@@ -3439,7 +3439,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // the tree extension, saving any path elements we need for received outputs,
   // and throwing away excess tree elems we won't need to continue syncing.
   tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &tree_extension, &new_leaf_tuples_per_block, tree_sync_start_params]() {
-      tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_unlock_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
+      tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
     });
 
   for (size_t i = 0; i < blocks.size(); ++i)
@@ -3756,9 +3756,9 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
       const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
       MINFO("Initializing wallet tree at block " << init_block_idx << " with block hash " << init_block_hash);
 
-      fcmp_pp::curve_trees::OutputsByUnlockBlock locked_outputs;
+      fcmp_pp::curve_trees::OutputsByLastLockedBlock locked_outputs;
       for (auto &lo : init_tree_sync_data->locked_outputs)
-        locked_outputs[lo.unlock_block] = std::move(lo.outputs);
+        locked_outputs[lo.last_locked_block] = std::move(lo.outputs);
 
       m_tree_cache.init(init_block_idx, init_block_hash, init_tree_sync_data->n_leaf_tuples, init_tree_sync_data->last_path, locked_outputs);
     }
