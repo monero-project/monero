@@ -871,6 +871,13 @@ private:
       bool empty() const { return tx_extra_fields.empty() && primary.empty() && additional.empty(); }
     };
 
+    struct uri_data
+    {
+      std::string address;
+      uint64_t amount;
+      std::string recipient_name;
+    }
+
     struct detached_blockchain_data
     {
       hashchain detached_blockchain;
