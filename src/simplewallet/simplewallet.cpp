@@ -6749,7 +6749,7 @@ bool simple_wallet::transfer_main(int transfer_type, const std::vector<std::stri
 
     if (info.has_payment_id || !payment_id_uri.empty())
     {
-      if (payment_id_seen )
+      if (payment_id_seen)
       {
         fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
         return false;

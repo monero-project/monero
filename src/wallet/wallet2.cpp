@@ -13691,10 +13691,6 @@ std::string wallet2::make_uri(std::vector<uri_data> data, const std::string &pay
       recipients_used = true;
       recipients += epee::net_utils::conver_to_url_format(entry.recipient_name);
     }
-    else
-    {
-      recipients += "NA";
-    }
   }
 
   std::string uri = "monero:" + addresses;
@@ -13736,7 +13732,7 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
   std::string remainder = uri.substr(7);
   const char *ptr = strchr(remainder.c_str(), '?');
   std::string addresses_string = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
-  std::vector<std::string> addresses, recipient_names; // data we will need to parse out
+  std::vector<std::string> addresses, recipient_names;
   std::vector<uint64_t> amounts;
   boost::split(addresses, addresses_string, boost::is_any_of(";"));
 
@@ -13750,7 +13746,7 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
     }
     uri_data recipient_data;
     recipient_data.address = address;
-    recipient_data.amount = 0; // so you dont get junk
+    recipient_data.amount = 0;
     data.push_back(recipient_data);
   }
 
@@ -13823,7 +13819,7 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
 
   if (!recipient_names.empty() && recipient_names.size() != addresses.size())
   {
-    error = "Incorrect recipient name count. If a recipient name is assigned there should be an entry for each recipient. NA may be use as a filler";
+    error = "Incorrect recipient name count. If a recipient name is assigned there should be an entry for each recipient.";
     return false;
   }
   if (!amounts.empty() && amounts.size() != addresses.size())
