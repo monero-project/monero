@@ -876,7 +876,7 @@ private:
       std::string address;
       uint64_t amount;
       std::string recipient_name;
-    }
+    };
 
     struct detached_blockchain_data
     {
