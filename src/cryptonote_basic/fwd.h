@@ -1,4 +1,5 @@
-// Copyright (c) 2020, The Monero Project
+// Copyright (c) 2020-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -33,4 +34,5 @@ namespace cryptonote
   struct block;
   class transaction;
   struct txpool_event;
+  struct tx_block_template_backlog_entry;
 }

@@ -29,13 +29,15 @@
 #include <string>
 
 #include "byte_slice.h"
-#include "parserse_base_utils.h"
+#include "parserse_base_utils.h" /// TODO: (mj-xmr) This will be reduced in an another PR
 #include "portable_storage.h"
 #include "file_io_utils.h"
 #include "span.h"
 
 namespace epee
 {
+  class byte_stream;
+
   namespace serialization
   {
     //-----------------------------------------------------------------------------------------------------------
@@ -127,5 +129,14 @@ namespace epee
       store_t_to_binary(str_in, binary_buff, initial_buffer_size);
       return binary_buff;
     }
+    //-----------------------------------------------------------------------------------------------------------
+    template<class t_struct>
+    bool store_t_to_binary(t_struct& str_in, byte_stream& binary_buff)
+    {
+      portable_storage ps;
+      str_in.store(ps);
+      return ps.store_to_binary(binary_buff);
+    }
+
   }
 }

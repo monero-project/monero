@@ -15,6 +15,7 @@ macro(CHECK_LINKER_FLAG flag VARIABLE)
       ${_cle_source}
       COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS} ${flag}
       CMAKE_FLAGS
+      "-DCMAKE_EXE_LINKER_FLAGS=${flag}"
       OUTPUT_VARIABLE OUTPUT)
     unset(_cle_source)
     set(CMAKE_C_FLAGS ${saved_CMAKE_C_FLAGS})

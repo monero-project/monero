@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,8 +30,6 @@
 
 #include <stdio.h>
 #include <math.h>
-#include "cryptonote_core/blockchain.h"
-#include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/testdb.h"
 
@@ -110,9 +108,6 @@ private:
 }
 
 #define PREFIX_WINDOW(hf_version,window) \
-  std::unique_ptr<cryptonote::Blockchain> bc; \
-  cryptonote::tx_memory_pool txpool(*bc); \
-  bc.reset(new cryptonote::Blockchain(txpool)); \
   struct get_test_options { \
     const std::pair<uint8_t, uint64_t> hard_forks[3]; \
     const cryptonote::test_options test_options = { \
@@ -121,7 +116,9 @@ private:
     }; \
     get_test_options(): hard_forks{std::make_pair(1, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)LONG_TERM_BLOCK_WEIGHT_WINDOW), std::make_pair((uint8_t)0, (uint64_t)0)} {} \
   } opts; \
-  cryptonote::Blockchain *blockchain = bc.get(); \
+  cryptonote::BlockchainAndPool bap; \
+  cryptonote::Blockchain *blockchain = &bap.blockchain; \
+  cryptonote::Blockchain *bc = blockchain; \
   bool r = blockchain->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL); \
   if (!r) \
   { \
@@ -141,7 +138,7 @@ static uint32_t lcg()
 
 static void test(test_t t, uint64_t blocks)
 {
-  PREFIX(10);
+  PREFIX(HF_VERSION_2021_SCALING);
 
   for (uint64_t h = 0; h < LONG_TERM_BLOCK_WEIGHT_WINDOW; ++h)
   {
@@ -180,8 +177,8 @@ static void test(test_t t, uint64_t blocks)
     }
     uint64_t ltw = bc->get_next_long_term_block_weight(w);
     cryptonote::block b;
-    b.major_version = 10;
-    b.minor_version = 10;
+    b.major_version = HF_VERSION_2021_SCALING;
+    b.minor_version = HF_VERSION_2021_SCALING;
     bc->get_db().add_block(std::make_pair(std::move(b), ""), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
 
     if (!bc->update_next_cumulative_weight_limit())

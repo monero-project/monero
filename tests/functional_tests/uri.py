@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #encoding=utf-8
 
-# Copyright (c) 2019-2020 The Monero Project
+# Copyright (c) 2019-2024, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -32,7 +32,6 @@
 """Test URI RPC
 """
 
-from __future__ import print_function
 try:
   from urllib import quote as urllib_quote
 except:
@@ -142,15 +141,11 @@ class URITest():
         assert res.uri.recipient_name == utf8string[0]
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
-        res = wallet.make_uri(address = address, recipient_name = utf8string[0], tx_description = utf8string[1], amount = 1000000000000, payment_id = '1' * 64)
-        assert res.uri == 'monero:' + address + '?tx_payment_id=' + '1' * 64 + '&tx_amount=1.000000000000&recipient_name=' + quoted_utf8string[0] + '&tx_description=' + quoted_utf8string[1]
-        res = wallet.parse_uri(res.uri)
-        assert res.uri.address == address
-        assert res.uri.payment_id == '1' * 64
-        assert res.uri.amount == 1000000000000
-        assert res.uri.tx_description == utf8string[1]
-        assert res.uri.recipient_name == utf8string[0]
-        assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
+        # external payment ids are not supported anymore
+        ok = False
+        try: res = wallet.make_uri(address = address, recipient_name = utf8string[0], tx_description = utf8string[1], amount = 1000000000000, payment_id = '1' * 64)
+        except: ok = True
+        assert ok
 
         # spaces must be encoded as %20
         res = wallet.make_uri(address = address, tx_description = ' ' + utf8string[1] + ' ' + utf8string[0] + ' ', amount = 1000000000000)

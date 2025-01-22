@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -67,7 +67,6 @@ monero_add_library(daemonizer
 target_link_libraries(daemonizer
   PUBLIC
     common
-    ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
   PRIVATE

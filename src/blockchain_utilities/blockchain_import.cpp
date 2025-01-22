@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -40,7 +40,6 @@
 #include "blocks/blocks.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "serialization/binary_utils.h" // dump_binary(), parse_binary()
-#include "serialization/json_utils.h" // dump_json()
 #include "include_base_utils.h"
 #include "cryptonote_core/cryptonote_core.h"
 
@@ -146,7 +145,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
     if (!parse_and_validate_block_from_blob(b.block, block))
     {
       MERROR("Failed to parse block: "
-          << epee::string_tools::pod_to_hex(get_blob_hash(b.block)));
+          << epee::string_tools::buff_to_hex_nodelimer(b.block));
       core.cleanup_handle_incoming_blocks();
       return 1;
     }
@@ -177,8 +176,11 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
       core.handle_incoming_tx(tx_blob, tvc, relay_method::block, true);
       if(tvc.m_verifivation_failed)
       {
-        MERROR("transaction verification failed, tx_id = "
-            << epee::string_tools::pod_to_hex(get_blob_hash(tx_blob.blob)));
+        cryptonote::transaction transaction;
+        if (cryptonote::parse_and_validate_tx_from_blob(tx_blob.blob, transaction))
+          MERROR("Transaction verification failed, tx_id = " << cryptonote::get_transaction_hash(transaction));
+        else
+          MERROR("Transaction verification failed, transaction is unparsable");
         core.cleanup_handle_incoming_blocks();
         return 1;
       }
@@ -192,8 +194,11 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
 
     if(bvc.m_verifivation_failed)
     {
-      MERROR("Block verification failed, id = "
-          << epee::string_tools::pod_to_hex(get_blob_hash(block_entry.block)));
+      cryptonote::block block;
+      if (cryptonote::parse_and_validate_block_from_blob(block_entry.block, block))
+        MERROR("Block verification failed, id = " << cryptonote::get_block_hash(block));
+      else
+        MERROR("Block verification failed, block is unparsable");
       core.cleanup_handle_incoming_blocks();
       return 1;
     }

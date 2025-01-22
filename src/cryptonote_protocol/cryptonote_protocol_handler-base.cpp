@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief This is the place to implement our handlers for protocol network actions, e.g. for ratelimit for download-requests
 
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -43,7 +43,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp> 
 #include "misc_language.h"
-#include "pragma_comp_defs.h"
 #include <algorithm>
 
 

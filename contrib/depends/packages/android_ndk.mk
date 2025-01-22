@@ -1,8 +1,9 @@
 package=android_ndk
-$(package)_version=17b
+$(package)_version=18b
 $(package)_download_path=https://dl.google.com/android/repository/
 $(package)_file_name=android-ndk-r$($(package)_version)-linux-x86_64.zip
-$(package)_sha256_hash=5dfbbdc2d3ba859fed90d0e978af87c71a91a5be1f6e1c40ba697503d48ccecd
+$(package)_sha256_hash=4f61cbe4bbf6406aa5ef2ae871def78010eed6271af72de83f8bd0b07a9fd3fd
+$(package)_patches=api_definition.patch fix_env.patch
 
 define $(package)_set_vars
 $(package)_config_opts_arm=--arch arm
@@ -14,8 +15,14 @@ define $(package)_extract_cmds
   unzip -q $($(1)_source_dir)/$($(package)_file_name)
 endef
 
+define $(package)_preprocess_cmds
+  cd android-ndk-r$($(package)_version) && \
+  patch -p1 < $($(package)_patch_dir)/api_definition.patch && \
+  patch -p1 < $($(package)_patch_dir)/fix_env.patch
+endef
+
 define $(package)_stage_cmds
-  android-ndk-r$($(package)_version)/build/tools/make_standalone_toolchain.py --api 21 \
+  python3 android-ndk-r$($(package)_version)/build/tools/make_standalone_toolchain.py --api 21 \
     --install-dir $(build_prefix) --stl=libc++ $($(package)_config_opts) &&\
   mv $(build_prefix) $($(package)_staging_dir)/$(host_prefix)
 endef

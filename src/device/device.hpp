@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -91,7 +91,6 @@ namespace hw {
     public:
 
         device(): mode(NONE)  {}
-        device(const device &hwdev) {}
         virtual ~device()   {}
 
         explicit virtual operator bool() const = 0;
@@ -178,6 +177,7 @@ namespace hw {
         virtual bool  derive_public_key(const crypto::key_derivation &derivation, const std::size_t output_index, const crypto::public_key &pub,  crypto::public_key &derived_pub) = 0;
         virtual bool  secret_key_to_public_key(const crypto::secret_key &sec, crypto::public_key &pub) = 0;
         virtual bool  generate_key_image(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_image &image) = 0;
+        virtual bool  derive_view_tag(const crypto::key_derivation &derivation, const std::size_t output_index, crypto::view_tag &view_tag) = 0;
 
         // alternative prototypes available in libringct
         rct::key scalarmultKey(const rct::key &P, const rct::key &a)
@@ -223,7 +223,8 @@ namespace hw {
                                                      const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                      std::vector<crypto::public_key> &additional_tx_public_keys,
                                                      std::vector<rct::key> &amount_keys,
-                                                     crypto::public_key &out_eph_public_key) = 0;
+                                                     crypto::public_key &out_eph_public_key,
+                                                     const bool use_view_tags, crypto::view_tag &view_tag) = 0;
 
         virtual bool  mlsag_prehash(const std::string &blob, size_t inputs_size, size_t outputs_size, const rct::keyV &hashes, const rct::ctkeyV &outPk, rct::key &prehash) = 0;
         virtual bool  mlsag_prepare(const rct::key &H, const rct::key &xx, rct::key &a, rct::key &aG, rct::key &aHP, rct::key &rvII) = 0;

@@ -95,11 +95,31 @@ if ( LibUSB_FOUND )
 endif ( LibUSB_FOUND )
 
 if ( LibUSB_FOUND )
-    check_library_exists ( "${LibUSB_LIBRARIES}" usb_open "" LibUSB_FOUND )
-    check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_device_list "" LibUSB_VERSION_1.0 )
-    check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_port_numbers "" LibUSB_VERSION_1.0.16 )
+    if (APPLE)
+        if(DEPENDS)
+            list(APPEND TEST_COMPILE_EXTRA_LIBRARIES "-framework Foundation -framework IOKit -framework Security")
+        else()
+            find_library(COREFOUNDATION CoreFoundation)
+            find_library(IOKIT IOKit)
+            find_library(SECURITY_FRAMEWORK Security)
+            list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${IOKIT})
+            list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${COREFOUNDATION})
+            list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${SECURITY_FRAMEWORK})
 
-    if((STATIC AND UNIX AND NOT APPLE) OR (DEPENDS AND CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+            if(STATIC)
+                find_library(OBJC objc.a)
+                set(LIBUSB_DEP_LINKER ${OBJC})
+                list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${LIBUSB_DEP_LINKER})
+            endif()
+        endif()
+    endif()
+    if (WIN32)
+        list(APPEND TEST_COMPILE_EXTRA_LIBRARIES setupapi)
+    endif()
+    list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${LibUSB_LIBRARIES})
+    set(CMAKE_REQUIRED_LIBRARIES ${TEST_COMPILE_EXTRA_LIBRARIES})
+
+    if((STATIC AND UNIX AND NOT APPLE AND NOT FREEBSD) OR (DEPENDS AND CMAKE_SYSTEM_NAME STREQUAL "Linux") OR ANDROID)
         find_library(LIBUDEV_LIBRARY udev)
         if(LIBUDEV_LIBRARY)
             set(LibUSB_LIBRARIES "${LibUSB_LIBRARIES};${LIBUDEV_LIBRARY}")
@@ -108,37 +128,20 @@ if ( LibUSB_FOUND )
         endif()
     endif()
 
+    check_library_exists ( "${LibUSB_LIBRARIES}" usb_open "" LibUSB_FOUND )
+    check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_device_list "" LibUSB_VERSION_1.0 )
+    check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_port_numbers "" LibUSB_VERSION_1.0.16 )
+
     # Library 1.0.16+ compilation test.
     # The check_library_exists does not work well on Apple with shared libs.
     if (APPLE OR LibUSB_VERSION_1.0.16 OR STATIC)
-        if (APPLE)
-            if(DEPENDS)
-                list(APPEND TEST_COMPILE_EXTRA_LIBRARIES "-framework Foundation -framework IOKit")
-            else()
-                find_library(COREFOUNDATION CoreFoundation)
-                find_library(IOKIT IOKit)
-                list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${IOKIT})
-                list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${COREFOUNDATION})
-
-                if(STATIC)
-                    find_library(OBJC objc.a)
-                    set(LIBUSB_DEP_LINKER ${OBJC})
-                    list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${LIBUSB_DEP_LINKER})
-                endif()
-            endif()
-        endif()
-        if (WIN32)
-            list(APPEND TEST_COMPILE_EXTRA_LIBRARIES setupapi)
-        endif()
-        list(APPEND TEST_COMPILE_EXTRA_LIBRARIES ${LibUSB_LIBRARIES})
-
         try_compile(LibUSB_COMPILE_TEST_PASSED
                 ${CMAKE_BINARY_DIR}
-                "${CMAKE_SOURCE_DIR}/cmake/test-libusb-version.c"
+                "${CMAKE_CURRENT_LIST_DIR}/test-libusb-version.c"
                 CMAKE_FLAGS
                     "-DINCLUDE_DIRECTORIES=${LibUSB_INCLUDE_DIRS}"
                     "-DLINK_DIRECTORIES=${LibUSB_LIBRARIES}"
-                LINK_LIBRARIES ${TEST_COMPILE_EXTRA_LIBRARIES}
+                LINK_LIBRARIES ${LibUSB_LIBRARIES} ${TEST_COMPILE_EXTRA_LIBRARIES}
                 OUTPUT_VARIABLE OUTPUT)
         unset(TEST_COMPILE_EXTRA_LIBRARIES)
         message(STATUS "LibUSB Compilation test: ${LibUSB_COMPILE_TEST_PASSED}")

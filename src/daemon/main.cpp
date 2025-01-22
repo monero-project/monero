@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -83,7 +83,7 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
   }
 
   uint16_t rpc_port;
-  if (!string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
+  if (!epee::string_tools::get_xtype_from_string(rpc_port, rpc_port_str))
   {
     throw std::runtime_error("invalid RPC port " + rpc_port_str);
   }
@@ -143,7 +143,6 @@ int main(int argc, char const * argv[])
 
       command_line::add_arg(visible_options, command_line::arg_help);
       command_line::add_arg(visible_options, command_line::arg_version);
-      command_line::add_arg(visible_options, daemon_args::arg_os_version);
       command_line::add_arg(visible_options, daemon_args::arg_config_file);
 
       // Settings
@@ -152,11 +151,14 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_max_log_file_size);
       command_line::add_arg(core_settings, daemon_args::arg_max_log_files);
       command_line::add_arg(core_settings, daemon_args::arg_max_concurrency);
+      command_line::add_arg(core_settings, daemon_args::arg_proxy);
+      command_line::add_arg(core_settings, daemon_args::arg_proxy_allow_dns_leaks);
       command_line::add_arg(core_settings, daemon_args::arg_public_node);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_ip);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_bind_port);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_pub);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_disabled);
+      command_line::add_arg(core_settings, daemonizer::arg_non_interactive);
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -201,13 +203,6 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    // OS
-    if (command_line::get_arg(vm, daemon_args::arg_os_version))
-    {
-      std::cout << "OS: " << tools::get_os_version_string() << ENDL;
-      return 0;
-    }
-
     std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
     boost::filesystem::path config_path(config);
     boost::system::error_code ec;
@@ -216,6 +211,19 @@ int main(int argc, char const * argv[])
       try
       {
         po::store(po::parse_config_file<char>(config_path.string<std::string>().c_str(), core_settings), vm);
+      }
+      catch (const po::unknown_option &e)
+      {
+        std::string unrecognized_option = e.get_option_name();
+        if (all_options.find_nothrow(unrecognized_option, false))
+        {
+          std::cerr << "Option '" << unrecognized_option << "' is not allowed in the config file, please use it as a command line flag." << std::endl;
+        }
+        else
+        {
+          std::cerr << "Unrecognized option '" << unrecognized_option << "' in config file." << std::endl;
+        }
+        return 1;
       }
       catch (const std::exception &e)
       {

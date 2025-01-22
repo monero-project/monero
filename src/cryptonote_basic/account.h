@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -55,8 +55,6 @@ namespace cryptonote
       KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
     END_KV_SERIALIZE_MAP()
 
-    account_keys& operator=(account_keys const&) = default;
-
     void encrypt(const crypto::chacha_key &key);
     void decrypt(const crypto::chacha_key &key);
     void encrypt_viewkey(const crypto::chacha_key &key);
@@ -82,7 +80,6 @@ namespace cryptonote
     void create_from_keys(const cryptonote::account_public_address& address, const crypto::secret_key& spendkey, const crypto::secret_key& viewkey);
     void create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey);
     bool make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys);
-    void finalize_multisig(const crypto::public_key &spend_public_key);
     const account_keys& get_keys() const;
     std::string get_public_address_str(network_type nettype) const;
     std::string get_public_integrated_address_str(const crypto::hash8 &payment_id, network_type nettype) const;
@@ -98,6 +95,7 @@ namespace cryptonote
     bool store(const std::string& file_path);
 
     void forget_spend_key();
+    void set_spend_key(const crypto::secret_key& spend_secret_key);
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }
 
     void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt(key); }

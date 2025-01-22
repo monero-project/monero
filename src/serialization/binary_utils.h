@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -39,8 +39,7 @@ namespace serialization {
   template <class T>
     bool parse_binary(const std::string &blob, T &v)
     {
-      std::istringstream istr(blob);
-      binary_archive<false> iar(istr);
+      binary_archive<false> iar{epee::strspan<std::uint8_t>(blob)};
       return ::serialization::serialize(iar, v);
     }
 

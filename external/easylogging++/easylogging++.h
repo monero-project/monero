@@ -2026,6 +2026,7 @@ class TypedConfigurations : public base::threading::ThreadSafe {
         ELPP_INTERNAL_ERROR("Unable to get configuration [" << confName << "] for level ["
                             << LevelHelper::convertToString(level) << "]"
                             << std::endl << "Please ensure you have properly configured logger.", false);
+        throw; // The exception has to be rethrown, to abort a branch leading to UB.
       }
     }
     return it->second;

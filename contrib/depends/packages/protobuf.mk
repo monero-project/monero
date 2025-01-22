@@ -1,5 +1,6 @@
 package=protobuf
 $(package)_version=$(native_$(package)_version)
+$(package)_version_protobuf_cpp=$(native_$(package)_version_protobuf_cpp)
 $(package)_download_path=$(native_$(package)_download_path)
 $(package)_file_name=$(native_$(package)_file_name)
 $(package)_sha256_hash=$(native_$(package)_sha256_hash)
@@ -20,12 +21,7 @@ define $(package)_build_cmds
 endef
 
 define $(package)_stage_cmds
-  $(MAKE) DESTDIR=$($(package)_staging_dir) -C src install-libLTLIBRARIES install-nobase_includeHEADERS &&\
-  $(MAKE) DESTDIR=$($(package)_staging_dir) install-pkgconfigDATA
+  $(MAKE) DESTDIR=$($(package)_staging_dir) -C src install-nobase_includeHEADERS &&\
+  $(MAKE) DESTDIR=$($(package)_staging_dir) install-pkgconfigDATA &&\
+  cp src/.libs/libprotobuf.a $($(package)_staging_prefix_dir)/lib/
 endef
-
-define $(package)_postprocess_cmds
-  rm lib/libprotoc.a &&\
-  rm lib/*.la
-endef
-

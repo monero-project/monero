@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -209,5 +209,23 @@ TEST(rolling_median, size)
   {
     m.insert(80 % (i + 1));
     ASSERT_EQ(m.size(), std::min<int>(10, i + 2));
+  }
+}
+
+TEST(rolling_median, copy)
+{
+  epee::misc_utils::rolling_median_t<uint64_t> m(100);
+
+  for (int i = 0; i < 100; ++i)
+    m.insert(rand());
+
+  epee::misc_utils::rolling_median_t<uint64_t> copy(m);
+
+  for (int i = 0; i < 5000; ++i)
+  {
+    uint64_t v = rand();
+    m.insert(v);
+    copy.insert(v);
+    ASSERT_EQ(m.median(), copy.median());
   }
 }

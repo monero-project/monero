@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2018 The Monero Project
+# Copyright (c) 2018-2024, The Monero Project
+
 # 
 # All rights reserved.
 # 
@@ -36,7 +37,6 @@ Test the following RPCs:
 
 """
 
-from __future__ import print_function
 import os
 from framework.daemon import Daemon
 

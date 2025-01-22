@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
 /// @brief This is the original cryptonote protocol network-events handler, modified by us
 
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -35,7 +35,6 @@
 // (may contain code and/or modifications by other developers)
 // developer rfree: this code is caller of our new network code, and is modded; e.g. for rate limiting
 
-#include <boost/interprocess/detail/atomic.hpp>
 #include <list>
 #include <ctime>
 
@@ -153,6 +152,7 @@ namespace cryptonote
             context.m_last_request_time = boost::date_time::not_a_date_time;
             context.m_expect_response = 0;
             context.m_expect_height = 0;
+            context.m_requested_objects.clear();
             context.m_state = cryptonote_connection_context::state_standby; // we'll go back to adding, then (if we can't), download
           }
           else
@@ -280,6 +280,11 @@ namespace cryptonote
       {
         cnx.ip = cnx.host;
         cnx.port = std::to_string(cntxt.m_remote_address.as<epee::net_utils::ipv4_network_address>().port());
+      }
+      else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+      {
+        cnx.ip = cnx.host;
+        cnx.port = std::to_string(cntxt.m_remote_address.as<epee::net_utils::ipv6_network_address>().port());
       }
       cnx.rpc_port = cntxt.m_rpc_port;
       cnx.rpc_credits_per_hash = cntxt.m_rpc_credits_per_hash;
@@ -536,6 +541,10 @@ namespace cryptonote
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
     }
+
+    // load json & DNS checkpoints every 10min/hour respectively,
+    // and verify them with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
     return 1;
   }
@@ -819,6 +828,10 @@ namespace cryptonote
           post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
           MLOG_PEER_STATE("requesting chain");
         }            
+
+        // load json & DNS checkpoints every 10min/hour respectively,
+        // and verify them with respect to what blocks we already have
+        CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
       }
     } 
     else
@@ -971,8 +984,18 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
+    std::unordered_set<blobdata> seen;
     for (const auto &blob: arg.txs)
+    {
       MLOGIF_P2P_MESSAGE(cryptonote::transaction tx; crypto::hash hash; bool ret = cryptonote::parse_and_validate_tx_from_blob(blob, tx, hash);, ret, "Including transaction " << hash);
+      if (seen.find(blob) != seen.end())
+      {
+        LOG_PRINT_CCONTEXT_L1("Duplicate transaction in notification, dropping connection");
+        drop_connection(context, false, false);
+        return 1;
+      }
+      seen.insert(blob);
+    }
 
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
@@ -1012,7 +1035,7 @@ namespace cryptonote
     for (auto& tx : arg.txs)
     {
       tx_verification_context tvc{};
-      if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true))
+      if (!m_core.handle_incoming_tx({tx, crypto::null_hash}, tvc, tx_relay, true) && !tvc.m_no_drop_offense)
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         drop_connection(context, false, false);
@@ -1143,13 +1166,6 @@ namespace cryptonote
     ++m_sync_spans_downloaded;
     m_sync_download_objects_size += size;
     MDEBUG(context << " downloaded " << size << " bytes worth of blocks");
-
-    /*using namespace boost::chrono;
-      auto point = steady_clock::now();
-      auto time_from_epoh = point.time_since_epoch();
-      auto sec = duration_cast< seconds >( time_from_epoh ).count();*/
-
-    //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
 
     if(arg.blocks.empty())
     {
@@ -1776,33 +1792,49 @@ skip:
       return true;
 
     MTRACE("Checking for outgoing syncing peers...");
-    unsigned n_syncing = 0, n_synced = 0;
-    boost::uuids::uuid last_synced_peer_id(boost::uuids::nil_uuid());
+    std::unordered_map<epee::net_utils::zone, unsigned> n_syncing, n_synced;
+    std::unordered_map<epee::net_utils::zone, boost::uuids::uuid> last_synced_peer_id;
+    std::vector<epee::net_utils::zone> zones;
     m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool
     {
       if (!peer_id || context.m_is_income) // only consider connected outgoing peers
         return true;
+
+      const epee::net_utils::zone zone = context.m_remote_address.get_zone();
+      if (n_syncing.find(zone) == n_syncing.end())
+      {
+        n_syncing[zone] = 0;
+        n_synced[zone] = 0;
+        last_synced_peer_id[zone] = boost::uuids::nil_uuid();
+        zones.push_back(zone);
+      }
+
       if (context.m_state == cryptonote_connection_context::state_synchronizing)
-        ++n_syncing;
+        ++n_syncing[zone];
       if (context.m_state == cryptonote_connection_context::state_normal)
       {
-        ++n_synced;
+        ++n_synced[zone];
         if (!context.m_anchor)
-          last_synced_peer_id = context.m_connection_id;
+          last_synced_peer_id[zone] = context.m_connection_id;
       }
       return true;
     });
-    MTRACE(n_syncing << " syncing, " << n_synced << " synced");
 
-    // if we're at max out peers, and not enough are syncing
-    if (n_synced + n_syncing >= m_max_out_peers && n_syncing < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && last_synced_peer_id != boost::uuids::nil_uuid())
+    for (const auto& zone : zones)
     {
-      if (!m_p2p->for_connection(last_synced_peer_id, [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
-        MINFO(ctx << "dropping synced peer, " << n_syncing << " syncing, " << n_synced << " synced");
-        drop_connection(ctx, false, false);
-        return true;
-      }))
-        MDEBUG("Failed to find peer we wanted to drop");
+      const unsigned int max_out_peers = get_max_out_peers(zone);
+      MTRACE("[" << epee::net_utils::zone_to_string(zone) << "] " << n_syncing[zone] << " syncing, " << n_synced[zone] << " synced, " << max_out_peers << " max out peers");
+
+      // if we're at max out peers, and not enough are syncing, drop the last sync'd non-anchor
+      if (n_synced[zone] + n_syncing[zone] >= max_out_peers && n_syncing[zone] < P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT && last_synced_peer_id[zone] != boost::uuids::nil_uuid())
+      {
+        if (!m_p2p->for_connection(last_synced_peer_id[zone], [&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t f)->bool{
+          MINFO(ctx << "dropping synced peer, " << n_syncing[zone] << " syncing, " << n_synced[zone] << " synced, " << max_out_peers << " max out peers");
+          drop_connection(ctx, false, false);
+          return true;
+        }))
+          MDEBUG("Failed to find peer we wanted to drop");
+      }
     }
 
     return true;
@@ -1987,11 +2019,13 @@ skip:
           ++n_peers_on_next_stripe;
         return true;
       });
+      // TODO: investigate tallying by zone and comparing to max out peers by zone
+      const unsigned int max_out_peers = get_max_out_peers(epee::net_utils::zone::public_);
       const uint32_t distance = (peer_stripe + (1<<CRYPTONOTE_PRUNING_LOG_STRIPES) - next_stripe) % (1<<CRYPTONOTE_PRUNING_LOG_STRIPES);
-      if ((n_out_peers >= m_max_out_peers && n_peers_on_next_stripe == 0) || (distance > 1 && n_peers_on_next_stripe <= 2) || distance > 2)
+      if ((n_out_peers >= max_out_peers && n_peers_on_next_stripe == 0) || (distance > 1 && n_peers_on_next_stripe <= 2) || distance > 2)
       {
         MDEBUG(context << "we want seed " << next_stripe << ", and either " << n_out_peers << " is at max out peers ("
-            << m_max_out_peers << ") or distance " << distance << " from " << next_stripe << " to " << peer_stripe <<
+            << max_out_peers << ") or distance " << distance << " from " << next_stripe << " to " << peer_stripe <<
             " is too large and we have only " << n_peers_on_next_stripe << " peers on next seed, dropping connection to make space");
         return true;
       }
@@ -2081,6 +2115,8 @@ skip:
           }
           MDEBUG(context << "Nothing to get from this peer, and it's not ahead of us, all done");
           context.m_state = cryptonote_connection_context::state_normal;
+          if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
+            on_connection_synchronized();
           return true;
         }
         uint64_t next_needed_height = m_block_queue.get_next_needed_height(bc_height);
@@ -2228,6 +2264,8 @@ skip:
           }
           MDEBUG(context << "Nothing to get from this peer, and it's not ahead of us, all done");
           context.m_state = cryptonote_connection_context::state_normal;
+          if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
+            on_connection_synchronized();
           return true;
         }
 
@@ -2310,7 +2348,7 @@ skip:
           const uint32_t peer_stripe = tools::get_pruning_stripe(context.m_pruning_seed);
           const uint32_t first_stripe = tools::get_pruning_stripe(span.first, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES);
           const uint32_t last_stripe = tools::get_pruning_stripe(span.first + span.second - 1, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES);
-          if ((((first_stripe && peer_stripe != first_stripe) || (last_stripe && peer_stripe != last_stripe)) && !m_sync_pruned_blocks) || (m_sync_pruned_blocks && req.prune))
+          if (((first_stripe && peer_stripe != first_stripe) || (last_stripe && peer_stripe != last_stripe)) && !m_sync_pruned_blocks)
           {
             MDEBUG(context << "We need full data, but the peer does not have it, dropping peer");
             return false;
@@ -2419,10 +2457,7 @@ skip:
       if (context.m_remote_blockchain_height >= m_core.get_target_blockchain_height())
       {
         if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
-        {
-          MGINFO_GREEN("SYNCHRONIZED OK");
           on_connection_synchronized();
-        }
       }
       else
       {
@@ -2713,15 +2748,15 @@ skip:
     // send fluffy ones first, we want to encourage people to run that
     if (!fluffyConnections.empty())
     {
-      epee::byte_slice fluffyBlob;
-      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob, 32 * 1024);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, epee::to_span(fluffyBlob), std::move(fluffyConnections));
+      epee::levin::message_writer fluffyBlob{32 * 1024};
+      epee::serialization::store_t_to_binary(fluffy_arg, fluffyBlob.buffer);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
     }
     if (!fullConnections.empty())
     {
-      epee::byte_slice fullBlob;
-      epee::serialization::store_t_to_binary(arg, fullBlob, 128 * 1024);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, epee::to_span(fullBlob), std::move(fullConnections));
+      epee::levin::message_writer fullBlob{128 * 1024};
+      epee::serialization::store_t_to_binary(arg, fullBlob.buffer);
+      m_p2p->relay_notify_to_list(NOTIFY_NEW_BLOCK::ID, std::move(fullBlob), std::move(fullConnections));
     }
 
     return true;
@@ -2811,11 +2846,13 @@ skip:
       }
       return true;
     });
-    const bool use_next = (n_next > m_max_out_peers / 2 && n_subsequent <= 1) || (n_next > 2 && n_subsequent == 0);
+    // TODO: investigate tallying by zone and comparing to max out peers by zone
+    const unsigned int max_out_peers = get_max_out_peers(epee::net_utils::zone::public_);
+    const bool use_next = (n_next > max_out_peers / 2 && n_subsequent <= 1) || (n_next > 2 && n_subsequent == 0);
     const uint32_t ret_stripe = use_next ? subsequent_pruning_stripe: next_pruning_stripe;
     MIDEBUG(const std::string po = get_peers_overview(), "get_next_needed_pruning_stripe: want height " << want_height << " (" <<
         want_height_from_blockchain << " from blockchain, " << want_height_from_block_queue << " from block queue), stripe " <<
-        next_pruning_stripe << " (" << n_next << "/" << m_max_out_peers << " on it and " << n_subsequent << " on " <<
+        next_pruning_stripe << " (" << n_next << "/" << max_out_peers << " on it and " << n_subsequent << " on " <<
         subsequent_pruning_stripe << ", " << n_others << " others) -> " << ret_stripe << " (+" <<
         (ret_stripe - next_pruning_stripe + (1 << CRYPTONOTE_PRUNING_LOG_STRIPES)) % (1 << CRYPTONOTE_PRUNING_LOG_STRIPES) <<
         "), current peers " << po);
@@ -2823,7 +2860,7 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::needs_new_sync_connections() const
+  bool t_cryptonote_protocol_handler<t_core>::needs_new_sync_connections(epee::net_utils::zone zone) const
   {
     const uint64_t target = m_core.get_target_blockchain_height();
     const uint64_t height = m_core.get_current_blockchain_height();
@@ -2831,11 +2868,11 @@ skip:
       return false;
     size_t n_out_peers = 0;
     m_p2p->for_each_connection([&](cryptonote_connection_context& ctx, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
-      if (!ctx.m_is_income)
+      if (!ctx.m_is_income && ctx.m_remote_address.get_zone() == zone)
         ++n_out_peers;
       return true;
     });
-    if (n_out_peers >= m_max_out_peers)
+    if (n_out_peers >= get_max_out_peers(zone))
       return false;
     return true;
   }

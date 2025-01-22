@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,7 +38,6 @@ DISABLE_VS_WARNINGS(4146 4244)
 
 /* Predeclarations */
 
-static void fe_mul(fe, const fe, const fe);
 static void fe_sq(fe, const fe);
 static void ge_madd(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_msub(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
@@ -72,7 +71,7 @@ uint64_t load_4(const unsigned char *in)
 h = 0
 */
 
-static void fe_0(fe h) {
+void fe_0(fe h) {
   h[0] = 0;
   h[1] = 0;
   h[2] = 0;
@@ -375,7 +374,7 @@ Can get away with 11 carries, but then data flow is much deeper.
 With tighter constraints on inputs can squeeze carries into int32.
 */
 
-static void fe_mul(fe h, const fe f, const fe g) {
+void fe_mul(fe h, const fe f, const fe g) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -3830,15 +3829,51 @@ int sc_isnonzero(const unsigned char *s) {
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
 }
 
-int ge_p3_is_point_at_infinity(const ge_p3 *p) {
-  // X = 0 and Y == Z
-  int n;
-  for (n = 0; n < 10; ++n)
+int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
+  // https://eprint.iacr.org/2008/522
+  // X == T == 0 and Y/Z == 1
+  // note: convert all pieces to canonical bytes in case rounding is required (i.e. an element is > q)
+  // note2: even though T = XY/Z is true for valid point representations (implying it isn't necessary to
+  //        test T == 0), the input to this function might NOT be valid, so we must test T == 0
+  char result_X_bytes[32];
+  fe_tobytes((unsigned char*)&result_X_bytes, p->X);
+
+  // X != 0
+  for (int i = 0; i < 32; ++i)
   {
-    if (p->X[n] | p->T[n])
-      return 0;
-    if (p->Y[n] != p->Z[n])
+    if (result_X_bytes[i])
       return 0;
   }
-  return 1;
+
+  char result_T_bytes[32];
+  fe_tobytes((unsigned char*)&result_T_bytes, p->T);
+
+  // T != 0
+  for (int i = 0; i < 32; ++i)
+  {
+    if (result_T_bytes[i])
+      return 0;
+  }
+
+  char result_Y_bytes[32];
+  char result_Z_bytes[32];
+  fe_tobytes((unsigned char*)&result_Y_bytes, p->Y);
+  fe_tobytes((unsigned char*)&result_Z_bytes, p->Z);
+
+  // Y != Z
+  for (int i = 0; i < 32; ++i)
+  {
+    if (result_Y_bytes[i] != result_Z_bytes[i])
+      return 0;
+  }
+
+  // is Y nonzero? then Y/Z == 1
+  for (int i = 0; i < 32; ++i)
+  {
+    if (result_Y_bytes[i] != 0)
+      return 1;
+  }
+
+  // Y/Z = 0/0
+  return 0;
 }

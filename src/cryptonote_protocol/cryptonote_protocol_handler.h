@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer/user in monero.cc project - most of code is from CryptoNote)
 /// @brief This is the original cryptonote protocol network-events handler, modified by us
 
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -39,6 +39,7 @@
 
 #include "byte_slice.h"
 #include "math_helper.h"
+#include "syncobj.h"
 #include "storages/levin_abstract_invoke2.h"
 #include "warnings.h"
 #include "cryptonote_protocol_defs.h"
@@ -46,6 +47,8 @@
 #include "block_queue.h"
 #include "common/perf_timer.h"
 #include "cryptonote_basic/connection_context.h"
+#include "net/levin_base.h"
+#include "p2p/net_node_common.h"
 #include <boost/circular_buffer.hpp>
 
 PUSH_WARNINGS
@@ -111,12 +114,23 @@ namespace cryptonote
     const block_queue &get_block_queue() const { return m_block_queue; }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
-    void set_max_out_peers(unsigned int max) { m_max_out_peers = max; }
+    void set_max_out_peers(epee::net_utils::zone zone, unsigned int max) { CRITICAL_REGION_LOCAL(m_max_out_peers_lock); m_max_out_peers[zone] = max; }
+    unsigned int get_max_out_peers(epee::net_utils::zone zone) const
+    {
+      CRITICAL_REGION_LOCAL(m_max_out_peers_lock);
+      const auto it = m_max_out_peers.find(zone);
+      if (it == m_max_out_peers.end())
+      {
+        MWARNING(epee::net_utils::zone_to_string(zone) << " max out peers not set, using default");
+        return P2P_DEFAULT_CONNECTIONS_COUNT;
+      }
+      return it->second;
+    }
     bool no_sync() const { return m_no_sync; }
     void set_no_sync(bool value) { m_no_sync = value; }
     std::string get_peers_overview() const;
     std::pair<uint32_t, uint32_t> get_next_needed_pruning_stripe() const;
-    bool needs_new_sync_connections() const;
+    bool needs_new_sync_connections(epee::net_utils::zone zone) const;
     bool is_busy_syncing();
 
   private:
@@ -169,7 +183,8 @@ namespace cryptonote
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
     epee::math_helper::once_a_time_seconds<43> m_bad_peer_checker;
-    std::atomic<unsigned int> m_max_out_peers;
+    std::unordered_map<epee::net_utils::zone, unsigned int> m_max_out_peers;
+    mutable epee::critical_section m_max_out_peers_lock;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
     uint64_t m_last_add_end_time;
     uint64_t m_sync_spans_downloaded, m_sync_old_spans_downloaded, m_sync_bad_spans_downloaded;
@@ -195,10 +210,11 @@ namespace cryptonote
       bool post_notify(typename t_parameter::request& arg, cryptonote_connection_context& context)
       {
         LOG_PRINT_L2("[" << epee::net_utils::print_connection_context_short(context) << "] post " << typeid(t_parameter).name() << " -->");
-        epee::byte_slice blob;
-        epee::serialization::store_t_to_binary(arg, blob, 256 * 1024); // optimize for block responses
+
+        epee::levin::message_writer out{256 * 1024}; // optimize for block responses
+        epee::serialization::store_t_to_binary(arg, out.buffer);
         //handler_response_blocks_now(blob.size()); // XXX
-        return m_p2p->invoke_notify_to_peer(t_parameter::ID, epee::to_span(blob), context);
+        return m_p2p->invoke_notify_to_peer(t_parameter::ID, std::move(out), context);
       }
   };
 

@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -41,6 +42,7 @@
 #include <boost/serialization/version.hpp>
 
 #include "net_peerlist_boost_serialization.h"
+#include "common/util.h"
 
 
 namespace nodetool
@@ -199,7 +201,7 @@ namespace nodetool
     if (!out)
     {
       // if failed, try reading in unportable mode
-      boost::filesystem::copy_file(path, path + ".unportable", boost::filesystem::copy_option::overwrite_if_exists);
+      tools::copy_file(path, path + ".unportable");
       src_file.close();
       src_file.open( path , std::ios_base::binary | std::ios_base::in);
       if(src_file.fail())
@@ -289,17 +291,9 @@ namespace nodetool
     copy_peers(peers.anchor, m_peers_anchor.get<by_addr>());
   }
 
-  void peerlist_manager::evict_host_from_white_peerlist(const peerlist_entry& pr)
+  void peerlist_manager::evict_host_from_peerlist(bool use_white, const peerlist_entry& pr)
   {
-    peers_indexed::index<by_time>::type& sorted_index=m_peers_white.get<by_time>();
-    auto i = sorted_index.begin();
-    while (i != sorted_index.end())
-    {
-      if (i->adr.is_same_host(pr.adr))
-        i = sorted_index.erase(i);
-      else
-        ++i;
-    }
+    filter(use_white, [&pr](const peerlist_entry& pe){ return pe.adr.is_same_host(pr.adr); });
   }
 }
 

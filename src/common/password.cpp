@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -185,7 +185,7 @@ namespace
         return false;
       if (verify)
       {
-        std::cout << "Confirm password: ";
+        std::cout << "Confirm password: " << std::flush;
         if (!read_from_tty(pass2, hide_input))
           return false;
         if(pass1!=pass2)

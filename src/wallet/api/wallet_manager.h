@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -95,12 +95,10 @@ public:
     bool setProxy(const std::string &address) override;
 
 private:
-    WalletManagerImpl() {}
+    WalletManagerImpl();
     friend struct WalletManagerFactory;
     net::http::client m_http_client;
     std::string m_errorString;
 };
 
 } // namespace
-
-namespace Bitmonero = Monero;

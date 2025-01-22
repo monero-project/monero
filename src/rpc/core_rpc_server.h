@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -47,10 +47,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon.rpc"
 
-// yes, epee doesn't properly use its full namespace when calling its
-// functions from macros.  *sigh*
-using namespace epee;
-
 namespace cryptonote
 {
   /************************************************************************/
@@ -91,7 +87,8 @@ namespace cryptonote
         const boost::program_options::variables_map& vm,
         const bool restricted,
         const std::string& port,
-        bool allow_rpc_payment
+        bool allow_rpc_payment,
+        const std::string& proxy = {}
       );
     network_type nettype() const { return m_core.get_nettype(); }
 
@@ -147,6 +144,8 @@ namespace cryptonote
         MAP_JON_RPC_WE("on_getblockhash",        on_getblockhash,               COMMAND_RPC_GETBLOCKHASH)
         MAP_JON_RPC_WE("get_block_template",     on_getblocktemplate,           COMMAND_RPC_GETBLOCKTEMPLATE)
         MAP_JON_RPC_WE("getblocktemplate",       on_getblocktemplate,           COMMAND_RPC_GETBLOCKTEMPLATE)
+        MAP_JON_RPC_WE("get_miner_data",         on_getminerdata,               COMMAND_RPC_GETMINERDATA)
+        MAP_JON_RPC_WE_IF("calc_pow",            on_calcpow,                    COMMAND_RPC_CALCPOW, !m_restricted)
         MAP_JON_RPC_WE("add_aux_pow",            on_add_aux_pow,                COMMAND_RPC_ADD_AUX_POW)
         MAP_JON_RPC_WE("submit_block",           on_submitblock,                COMMAND_RPC_SUBMITBLOCK)
         MAP_JON_RPC_WE("submitblock",            on_submitblock,                COMMAND_RPC_SUBMITBLOCK)
@@ -179,6 +178,7 @@ namespace cryptonote
         MAP_JON_RPC_WE("get_output_distribution", on_get_output_distribution, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION)
         MAP_JON_RPC_WE_IF("prune_blockchain",    on_prune_blockchain,           COMMAND_RPC_PRUNE_BLOCKCHAIN, !m_restricted)
         MAP_JON_RPC_WE_IF("flush_cache",         on_flush_cache,                COMMAND_RPC_FLUSH_CACHE, !m_restricted)
+        MAP_JON_RPC_WE("get_txids_loose",        on_get_txids_loose,            COMMAND_RPC_GET_TXIDS_LOOSE)
         MAP_JON_RPC_WE("rpc_access_info",        on_rpc_access_info,            COMMAND_RPC_ACCESS_INFO)
         MAP_JON_RPC_WE("rpc_access_submit_nonce",on_rpc_access_submit_nonce,    COMMAND_RPC_ACCESS_SUBMIT_NONCE)
         MAP_JON_RPC_WE("rpc_access_pay",         on_rpc_access_pay,             COMMAND_RPC_ACCESS_PAY)
@@ -228,6 +228,8 @@ namespace cryptonote
     bool on_getblockcount(const COMMAND_RPC_GETBLOCKCOUNT::request& req, COMMAND_RPC_GETBLOCKCOUNT::response& res, const connection_context *ctx = NULL);
     bool on_getblockhash(const COMMAND_RPC_GETBLOCKHASH::request& req, COMMAND_RPC_GETBLOCKHASH::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_getblocktemplate(const COMMAND_RPC_GETBLOCKTEMPLATE::request& req, COMMAND_RPC_GETBLOCKTEMPLATE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_getminerdata(const COMMAND_RPC_GETMINERDATA::request& req, COMMAND_RPC_GETMINERDATA::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_calcpow(const COMMAND_RPC_CALCPOW::request& req, COMMAND_RPC_CALCPOW::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_add_aux_pow(const COMMAND_RPC_ADD_AUX_POW::request& req, COMMAND_RPC_ADD_AUX_POW::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_submitblock(const COMMAND_RPC_SUBMITBLOCK::request& req, COMMAND_RPC_SUBMITBLOCK::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_generateblocks(const COMMAND_RPC_GENERATEBLOCKS::request& req, COMMAND_RPC_GENERATEBLOCKS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
@@ -254,6 +256,7 @@ namespace cryptonote
     bool on_get_output_distribution(const COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::request& req, COMMAND_RPC_GET_OUTPUT_DISTRIBUTION::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_prune_blockchain(const COMMAND_RPC_PRUNE_BLOCKCHAIN::request& req, COMMAND_RPC_PRUNE_BLOCKCHAIN::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_flush_cache(const COMMAND_RPC_FLUSH_CACHE::request& req, COMMAND_RPC_FLUSH_CACHE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
+    bool on_get_txids_loose(const COMMAND_RPC_GET_TXIDS_LOOSE::request& req, COMMAND_RPC_GET_TXIDS_LOOSE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_rpc_access_info(const COMMAND_RPC_ACCESS_INFO::request& req, COMMAND_RPC_ACCESS_INFO::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_rpc_access_submit_nonce(const COMMAND_RPC_ACCESS_SUBMIT_NONCE::request& req, COMMAND_RPC_ACCESS_SUBMIT_NONCE::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
     bool on_rpc_access_pay(const COMMAND_RPC_ACCESS_PAY::request& req, COMMAND_RPC_ACCESS_PAY::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx = NULL);
@@ -282,13 +285,14 @@ private:
     enum invoke_http_mode { JON, BIN, JON_RPC };
     template <typename COMMAND_TYPE>
     bool use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r);
-    bool get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type &difficulty, uint64_t &height, uint64_t &expected_reward, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp);
+    bool get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type &difficulty, uint64_t &height, uint64_t &expected_reward, uint64_t& cumulative_weight, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp);
     bool check_payment(const std::string &client, uint64_t payment, const std::string &rpc, bool same_ts, std::string &message, uint64_t &credits, std::string &top_hash);
     
     core& m_core;
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
     boost::shared_mutex m_bootstrap_daemon_mutex;
     std::unique_ptr<bootstrap_daemon> m_bootstrap_daemon;
+    std::string m_bootstrap_daemon_proxy;
     bool m_should_use_bootstrap_daemon;
     std::chrono::system_clock::time_point m_bootstrap_height_check_time;
     bool m_was_bootstrap_ever_used;

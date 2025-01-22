@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -63,3 +64,13 @@ namespace net_utils
 } // net_utils
 } // epee
 
+namespace std
+{
+	template<> struct hash<epee::net_utils::zone>
+	{
+		std::size_t operator()(const epee::net_utils::zone _z) const
+		{
+			return static_cast<std::size_t>(_z);
+		}
+	};
+} // std

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -72,7 +72,6 @@ bool test_transaction_generation_and_ring_signature()
   construct_miner_tx(0, 0, 0, 0, 0, miner_acc6.get_keys().m_account_address, tx_mine_6);
 
   //fill inputs entry
-  typedef tx_source_entry::output_entry tx_output_entry;
   std::vector<tx_source_entry> sources;
   sources.resize(sources.size()+1);
   tx_source_entry& src = sources.back();
@@ -103,7 +102,7 @@ bool test_transaction_generation_and_ring_signature()
   destinations.push_back(td);
 
   transaction tx_rc1;
-  bool r = construct_tx(miner_acc2.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_rc1, 0);
+  bool r = construct_tx(miner_acc2.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_rc1);
   CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
 
   crypto::hash pref_hash = get_transaction_prefix_hash(tx_rc1);

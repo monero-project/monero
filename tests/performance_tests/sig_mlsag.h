@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -117,7 +117,7 @@ class test_sig_mlsag
                 sk.dest = r[u];
                 sk.mask = s[u];
 
-                sigs.push_back(proveRctMGSimple(messages[u],pubs,sk,s1[u],C_offsets[u],NULL,NULL,u,hw::get_device("default")));
+                sigs.push_back(proveRctMGSimple(messages[u],pubs,sk,s1[u],C_offsets[u],u,hw::get_device("default")));
             }
 
             return true;

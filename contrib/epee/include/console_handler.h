@@ -196,7 +196,7 @@ namespace epee
         if (m_read_status == state_cancelled)
           return false;
 
-        int retval = ::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100);
+        DWORD retval = ::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100);
         switch (retval)
         {
           case WAIT_FAILED:

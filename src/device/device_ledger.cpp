@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -34,14 +34,15 @@
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 
-#include <boost/thread/locks.hpp> 
-#include <boost/thread/lock_guard.hpp>
-
 namespace hw {
 
   namespace ledger {
 
   #ifdef WITH_DEVICE_LEDGER
+
+    namespace {
+        bool apdu_verbose =true;
+    }
 
     #undef MONERO_DEFAULT_LOG_CATEGORY
     #define MONERO_DEFAULT_LOG_CATEGORY "device.ledger"
@@ -55,10 +56,10 @@ namespace hw {
     }
 
     #define TRACKD MTRACE("hw")
-    #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(mask))==(ok), \
+    #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(msk))==(ok), \
       "Wrong Device Status: " << "0x" << std::hex << (sw) << " (" << Status::to_string(sw) << "), " << \
       "EXPECTED 0x" << std::hex << (ok) << " (" << Status::to_string(ok) << "), " << \
-      "MASK 0x" << std::hex << (mask));
+      "MASK 0x" << std::hex << (msk));
     #define ASSERT_T0(exp)       CHECK_AND_ASSERT_THROW_MES(exp, "Protocol assert failure: "#exp ) ;
     #define ASSERT_X(exp,msg)    CHECK_AND_ASSERT_THROW_MES(exp, msg); 
 
@@ -266,6 +267,7 @@ namespace hw {
     #define INS_DERIVE_PUBLIC_KEY               0x36
     #define INS_DERIVE_SECRET_KEY               0x38
     #define INS_GEN_KEY_IMAGE                   0x3A
+    #define INS_DERIVE_VIEW_TAG                 0x3B
     #define INS_SECRET_KEY_ADD                  0x3C
     #define INS_SECRET_KEY_SUB                  0x3E
     #define INS_GENERATE_KEYPAIR                0x40
@@ -317,10 +319,10 @@ namespace hw {
     //automatic lock one more level on device ensuring the current thread is allowed to use it
     #define AUTO_LOCK_CMD() \
       /* lock both mutexes without deadlock*/ \
-      boost::lock(device_locker, command_locker); \
+      std::lock(device_locker, command_locker); \
       /* make sure both already-locked mutexes are unlocked at the end of scope */ \
-      boost::lock_guard<boost::recursive_mutex> lock1(device_locker, boost::adopt_lock); \
-      boost::lock_guard<boost::mutex> lock2(command_locker, boost::adopt_lock)
+      std::lock_guard<std::recursive_mutex> lock1(device_locker, std::adopt_lock); \
+      std::lock_guard<std::mutex> lock2(command_locker, std::adopt_lock)
 
     //lock the device for a long sequence
     void device_ledger::lock(void) {
@@ -451,13 +453,6 @@ namespace hw {
 
       ASSERT_X(this->length_recv>=3, "Communication error, less than three bytes received. Check your application version.");
 
-      unsigned int device_version = 0;
-      device_version = VERSION(this->buffer_recv[0], this->buffer_recv[1], this->buffer_recv[2]);
-  
-      ASSERT_X (device_version >= MINIMAL_APP_VERSION,  
-                "Unsupported device application version: " << VERSION_MAJOR(device_version)<<"."<<VERSION_MINOR(device_version)<<"."<<VERSION_MICRO(device_version) << 
-                " At least " << MINIMAL_APP_VERSION_MAJOR<<"."<<MINIMAL_APP_VERSION_MINOR<<"."<<MINIMAL_APP_VERSION_MICRO<<" is required.");
-     
       return true;
     }
      
@@ -470,7 +465,10 @@ namespace hw {
       this->length_recv -= 2;
       this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
       logRESP();
-      ASSERT_SW(this->sw,ok,msk);
+      MDEBUG("Device "<< this->id << " exchange: sw: " << this->sw << " expected: " << ok);
+      ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
+      ASSERT_X(sw != SW_PROTOCOL_NOT_SUPPORTED, "Make sure no other program is communicating with the Ledger.");
+      ASSERT_SW(this->sw,ok,mask);
 
       return this->sw;
     }
@@ -487,7 +485,7 @@ namespace hw {
         // cancel on device
         deny = 1;
       } else {
-        ASSERT_SW(this->sw,ok,msk);
+        ASSERT_SW(this->sw,ok,mask);
       }
 
       logRESP();
@@ -518,9 +516,7 @@ namespace hw {
     }
 
     bool device_ledger::init(void) {
-      #ifdef DEBUG_HWDEVICE
       this->controle_device = &hw::get_device("default");
-      #endif
       this->release();
       hw_device.init();      
       MDEBUG( "Device "<<this->id <<" HIDUSB inited");
@@ -530,6 +526,9 @@ namespace hw {
     static const std::vector<hw::io::hid_conn_params> known_devices {
         {0x2c97, 0x0001, 0, 0xffa0}, 
         {0x2c97, 0x0004, 0, 0xffa0},       
+        {0x2c97, 0x0005, 0, 0xffa0},
+        {0x2c97, 0x0006, 0, 0xffa0},
+        {0x2c97, 0x0007, 0, 0xffa0},
     };
 
     bool device_ledger::connect(void) {
@@ -686,7 +685,6 @@ namespace hw {
     /* ======================================================================= */
 
     bool device_ledger::derive_subaddress_public_key(const crypto::public_key &pub, const crypto::key_derivation &derivation, const std::size_t output_index, crypto::public_key &derived_pub){
-        AUTO_LOCK_CMD();
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;
         crypto::key_derivation derivation_x;
@@ -700,7 +698,8 @@ namespace hw {
         log_hexbuffer("derive_subaddress_public_key: [[IN]]  pub       ", pub_x.data, 32);
         log_hexbuffer("derive_subaddress_public_key: [[IN]]  derivation", derivation_x.data, 32);
         log_message  ("derive_subaddress_public_key: [[IN]]  index     ", std::to_string((int)output_index_x));
-        this->controle_device->derive_subaddress_public_key(pub_x, derivation_x,output_index_x,derived_pub_x);
+        if (!this->controle_device->derive_subaddress_public_key(pub_x, derivation_x,output_index_x,derived_pub_x))
+          return false;
         log_hexbuffer("derive_subaddress_public_key: [[OUT]] derived_pub", derived_pub_x.data, 32);
         #endif
 
@@ -708,9 +707,10 @@ namespace hw {
         //If we are in TRANSACTION_PARSE, the given derivation has been retrieved uncrypted (wihtout the help
         //of the device), so continue that way.
         MDEBUG( "derive_subaddress_public_key  : PARSE mode with known viewkey");     
-        crypto::derive_subaddress_public_key(pub, derivation, output_index,derived_pub);
+        if (!crypto::derive_subaddress_public_key(pub, derivation, output_index,derived_pub))
+          return false;
       } else {
-       
+        AUTO_LOCK_CMD();
         int offset = set_command_header_noopt(INS_DERIVE_SUBADDRESS_PUBLIC_KEY);
         //pub
         memmove(this->buffer_send+offset, pub.data, 32);
@@ -739,6 +739,12 @@ namespace hw {
     }
 
     crypto::public_key device_ledger::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+        if (has_view_key) {
+            cryptonote::account_keys keys_{keys};
+            keys_.m_view_secret_key = this->viewkey;
+            return this->controle_device->get_subaddress_spend_public_key(keys_, index);
+        }
+
         AUTO_LOCK_CMD();
         crypto::public_key D;
 
@@ -790,6 +796,12 @@ namespace hw {
     }
 
     cryptonote::account_public_address device_ledger::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
+        if (has_view_key) {
+            cryptonote::account_keys keys_{keys};
+            keys_.m_view_secret_key = this->viewkey;
+            return this->controle_device->get_subaddress(keys_, index);
+        }
+
         AUTO_LOCK_CMD();
         cryptonote::account_public_address address;
 
@@ -1038,7 +1050,6 @@ namespace hw {
     }
 
     bool device_ledger::generate_key_derivation(const crypto::public_key &pub, const crypto::secret_key &sec, crypto::key_derivation &derivation) {
-        AUTO_LOCK_CMD();
         bool r = false;
 
         #ifdef DEBUG_HWDEVICE
@@ -1047,7 +1058,8 @@ namespace hw {
         crypto::key_derivation derivation_x;
         log_hexbuffer("generate_key_derivation: [[IN]]  pub       ", pub_x.data, 32);
         log_hexbuffer("generate_key_derivation: [[IN]]  sec       ", sec_x.data, 32);
-        this->controle_device->generate_key_derivation(pub_x, sec_x, derivation_x);
+        if (!this->controle_device->generate_key_derivation(pub_x, sec_x, derivation_x))
+            return false;
         log_hexbuffer("generate_key_derivation: [[OUT]] derivation", derivation_x.data, 32);
         #endif
 
@@ -1059,6 +1071,7 @@ namespace hw {
         assert(is_fake_view_key(sec));
         r = crypto::generate_key_derivation(pub, this->viewkey, derivation);
       } else {
+        AUTO_LOCK_CMD();
         int offset = set_command_header_noopt(INS_GEN_KEY_DERIVATION);
         //pub
         memmove(this->buffer_send+offset, pub.data, 32);
@@ -1201,7 +1214,8 @@ namespace hw {
         log_hexbuffer("derive_public_key: [[IN]]  derivation  ", derivation_x.data, 32);
         log_message  ("derive_public_key: [[IN]]  output_index", std::to_string(output_index_x));
         log_hexbuffer("derive_public_key: [[IN]]  pub         ", pub_x.data, 32);
-        this->controle_device->derive_public_key(derivation_x, output_index_x, pub_x, derived_pub_x);
+        if (!this->controle_device->derive_public_key(derivation_x, output_index_x, pub_x, derived_pub_x))
+          return false;
         log_hexbuffer("derive_public_key: [[OUT]] derived_pub ", derived_pub_x.data, 32);
         #endif
 
@@ -1296,6 +1310,54 @@ namespace hw {
         #endif
 
         return true;
+    }
+
+    bool device_ledger::derive_view_tag(const crypto::key_derivation &derivation, const std::size_t output_index, crypto::view_tag &view_tag){
+      #ifdef DEBUG_HWDEVICE
+      crypto::key_derivation derivation_x;
+      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
+        derivation_x = derivation;
+      } else {
+        derivation_x = hw::ledger::decrypt(derivation);
+      }
+      const std::size_t            output_index_x = output_index;
+      crypto::view_tag             view_tag_x;
+      log_hexbuffer("derive_view_tag: [[IN]]  derivation  ", derivation_x.data, 32);
+      log_message  ("derive_view_tag: [[IN]]  output_index", std::to_string(output_index_x));
+      this->controle_device->derive_view_tag(derivation_x, output_index_x, view_tag_x);
+      log_hexbuffer("derive_view_tag: [[OUT]] view_tag ", &view_tag_x.data, 1);
+      #endif
+
+      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
+        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved uncrypted (wihtout the help
+        //of the device), so continue that way.
+        MDEBUG( "derive_view_tag  : PARSE mode with known viewkey");
+        crypto::derive_view_tag(derivation, output_index, view_tag);
+      } else {
+        AUTO_LOCK_CMD();
+        int offset = set_command_header_noopt(INS_DERIVE_VIEW_TAG);
+        //derivation
+        this->send_secret((unsigned char*)derivation.data, offset);
+        //index
+        this->buffer_send[offset+0] = output_index>>24;
+        this->buffer_send[offset+1] = output_index>>16;
+        this->buffer_send[offset+2] = output_index>>8;
+        this->buffer_send[offset+3] = output_index>>0;
+        offset += 4;
+
+        this->buffer_send[4] = offset-5;
+        this->length_send = offset;
+        this->exchange();
+
+        //view tag
+        memmove(&view_tag.data, &this->buffer_recv[0], 1);
+      }
+
+      #ifdef DEBUG_HWDEVICE
+      hw::ledger::check1("derive_view_tag", "view_tag", &view_tag_x.data, &view_tag.data);
+      #endif
+
+      return true;
     }
 
     /* ======================================================================= */
@@ -1522,7 +1584,8 @@ namespace hw {
                                                        const bool &need_additional_txkeys,  const std::vector<crypto::secret_key> &additional_tx_keys,
                                                        std::vector<crypto::public_key> &additional_tx_public_keys,
                                                        std::vector<rct::key> &amount_keys,
-                                                       crypto::public_key &out_eph_public_key) {
+                                                       crypto::public_key &out_eph_public_key,
+                                                       bool use_view_tags, crypto::view_tag &view_tag) {
       AUTO_LOCK_CMD();
 
       #ifdef DEBUG_HWDEVICE
@@ -1536,6 +1599,7 @@ namespace hw {
       const boost::optional<cryptonote::account_public_address> change_addr_x = change_addr;
       const size_t                             output_index_x                 = output_index;
       const bool                               need_additional_txkeys_x       = need_additional_txkeys;
+      const bool                               use_view_tags_x                = use_view_tags;
       
       std::vector<crypto::secret_key>    additional_tx_keys_x;
       for (const auto &k: additional_tx_keys) {
@@ -1545,6 +1609,7 @@ namespace hw {
       std::vector<crypto::public_key>          additional_tx_public_keys_x;
       std::vector<rct::key>                    amount_keys_x;
       crypto::public_key                       out_eph_public_key_x;
+      crypto::view_tag                         view_tag_x;
 
       log_message  ("generate_output_ephemeral_keys: [[IN]] tx_version", std::to_string(tx_version_x));
       //log_hexbuffer("generate_output_ephemeral_keys: [[IN]] sender_account_keys.view", sender_account_keys.m_sview_secret_key.data, 32);
@@ -1562,10 +1627,14 @@ namespace hw {
       if(need_additional_txkeys_x) {
         log_hexbuffer("generate_output_ephemeral_keys: [[IN]] additional_tx_keys[oi]", additional_tx_keys_x[output_index].data, 32);
       }
+      log_message  ("generate_output_ephemeral_keys: [[IN]] use_view_tags",  std::to_string(use_view_tags_x));
       this->controle_device->generate_output_ephemeral_keys(tx_version_x, sender_account_keys_x, txkey_pub_x, tx_key_x, dst_entr_x, change_addr_x, output_index_x, need_additional_txkeys_x,  additional_tx_keys_x,
-                                                            additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x);
+                                                            additional_tx_public_keys_x, amount_keys_x, out_eph_public_key_x, use_view_tags_x, view_tag_x);
       if(need_additional_txkeys_x) {
         log_hexbuffer("additional_tx_public_keys_x: [[OUT]] additional_tx_public_keys_x", additional_tx_public_keys_x.back().data, 32);
+      }
+      if(use_view_tags_x) {
+        log_hexbuffer("generate_output_ephemeral_keys: [[OUT]] view_tag", &view_tag_x.data, 1);
       }
       log_hexbuffer("generate_output_ephemeral_keys: [[OUT]] amount_keys ", (char*)amount_keys_x.back().bytes, 32);
       log_hexbuffer("generate_output_ephemeral_keys: [[OUT]] out_eph_public_key ", out_eph_public_key_x.data, 32);
@@ -1620,6 +1689,9 @@ namespace hw {
         memset(&this->buffer_send[offset], 0, 32);
         offset += 32;
       }
+      //use_view_tags
+      this->buffer_send[offset] = use_view_tags;
+      offset++;
 
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
@@ -1650,6 +1722,14 @@ namespace hw {
         recv_len -= 32;
       }
 
+      if (use_view_tags)
+      {
+        ASSERT_X(recv_len>=1, "Not enough data from device");
+        memmove(&view_tag.data, &this->buffer_recv[offset], 1);
+        offset++;
+        recv_len -= 1;
+      }
+
       // add ABPkeys
       this->add_output_key_mapping(dst_entr.addr.m_view_public_key, dst_entr.addr.m_spend_public_key, dst_entr.is_subaddress, is_change,
                                    need_additional_txkeys, output_index,
@@ -1662,6 +1742,9 @@ namespace hw {
         hw::ledger::check32("generate_output_ephemeral_keys", "additional_tx_key", additional_tx_public_keys_x.back().data, additional_tx_public_keys.back().data);
       }
       hw::ledger::check32("generate_output_ephemeral_keys", "out_eph_public_key", out_eph_public_key_x.data, out_eph_public_key.data);
+      if (use_view_tags) {
+        hw::ledger::check1("generate_output_ephemeral_keys", "view_tag", &view_tag_x.data, &view_tag.data);
+      }
       #endif
 
       return true;
@@ -1847,7 +1930,7 @@ namespace hw {
 
         // ======  Aout, Bout, AKout, C, v, k ======
         kv_offset = data_offset;
-        if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG) {
+        if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG || type==rct::RCTTypeBulletproofPlus) {
           C_offset = kv_offset+ (8)*outputs_size;
         } else {
           C_offset = kv_offset+ (32+32)*outputs_size;
@@ -1864,7 +1947,7 @@ namespace hw {
           offset = set_command_header(INS_VALIDATE, 0x02, i+1);
           //options
           this->buffer_send[offset] = (i==outputs_size-1)? 0x00:0x80 ;
-          this->buffer_send[offset] |= (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG)?0x02:0x00;
+          this->buffer_send[offset] |= (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG || type==rct::RCTTypeBulletproofPlus)?0x02:0x00;
           offset += 1;
           //is_subaddress
           this->buffer_send[offset] = outKeys.is_subaddress;
@@ -1885,7 +1968,7 @@ namespace hw {
           memmove(this->buffer_send+offset, data+C_offset,32);
           offset += 32;
           C_offset += 32;
-          if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG) {
+          if (type==rct::RCTTypeBulletproof2 || type==rct::RCTTypeCLSAG || type==rct::RCTTypeBulletproofPlus) {
             //k
             memset(this->buffer_send+offset, 0, 32);
             offset += 32;

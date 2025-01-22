@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2018, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -139,7 +139,7 @@ public:
   void stop_and_deinit();
   void try_init_and_run(boost::optional<unsigned> initial_port=boost::none);
 
-  void mine_blocks(size_t num_blocks, const std::string &miner_address);
+  void mine_blocks(size_t num_blocks, const std::string &miner_address, std::chrono::seconds timeout = std::chrono::seconds(360));
   void start_mining(const std::string &miner_address, uint64_t threads_count=1, bool do_background_mining=false, bool ignore_battery=true);
   void stop_mining();
   uint64_t get_height();

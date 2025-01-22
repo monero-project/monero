@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -28,6 +28,7 @@
 
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include "common/unordered_containers_boost_serialization.h"
 #include "common/command_line.h"
 #include "common/varint.h"
@@ -387,9 +388,7 @@ static bool for_all_transactions(const std::string &filename, uint64_t &start_id
     cryptonote::transaction_prefix tx;
     blobdata bd;
     bd.assign(reinterpret_cast<char*>(v.mv_data), v.mv_size);
-    std::stringstream ss;
-    ss << bd;
-    binary_archive<false> ba(ss);
+    binary_archive<false> ba{epee::strspan<std::uint8_t>(bd)};
     bool r = do_serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
 

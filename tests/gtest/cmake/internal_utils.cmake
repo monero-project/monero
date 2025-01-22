@@ -96,7 +96,7 @@ macro(config_compiler_and_linker)
     set(cxx_no_rtti_flags "-fno-rtti -DGTEST_HAS_RTTI=0")
     set(cxx_strict_flags
       "-Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
-  elseif (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(cxx_base_flags "-Wall -Wshadow -fPIC")
     set(cxx_exception_flags "-fexceptions")
     set(cxx_no_exception_flags "-fno-exceptions")

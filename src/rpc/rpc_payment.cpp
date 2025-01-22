@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <boost/archive/portable_binary_iarchive.hpp>
+#include <boost/filesystem.hpp>
 #include "cryptonote_config.h"
 #include "include_base_utils.h"
 #include "string_tools.h"
@@ -235,10 +236,8 @@ namespace cryptonote
     *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(nonce);
     if (block.major_version >= RX_BLOCK_VERSION)
     {
-      const uint64_t seed_height = is_current ? info.seed_height : info.previous_seed_height;
       const crypto::hash &seed_hash = is_current ? info.seed_hash : info.previous_seed_hash;
-      const uint64_t height = cryptonote::get_block_height(block);
-      crypto::rx_slow_hash(height, seed_height, seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data, 0, 0);
+      crypto::rx_slow_hash(seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data);
     }
     else
     {
@@ -292,12 +291,13 @@ namespace cryptonote
     MINFO("loading rpc payments data from " << state_file_path);
     std::ifstream data;
     data.open(state_file_path, std::ios_base::binary | std::ios_base::in);
+    std::string bytes(std::istream_iterator<char>{data}, std::istream_iterator<char>{});
     if (!data.fail())
     {
       bool loaded = false;
       try
       {
-        binary_archive<false> ar(data);
+        binary_archive<false> ar{epee::strspan<std::uint8_t>(bytes)};
         if (::serialization::serialize(ar, *this))
           if (::serialization::check_stream_state(ar))
             loaded = true;
@@ -305,6 +305,8 @@ namespace cryptonote
       catch (...) {}
       if (!loaded)
       {
+        bytes.clear();
+        bytes.shrink_to_fit();
         try
         {
           boost::archive::portable_binary_iarchive a(data);

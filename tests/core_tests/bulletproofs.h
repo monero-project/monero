@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -211,3 +211,9 @@ struct gen_bp_tx_invalid_bulletproof2_type : public gen_bp_tx_validation_base
   bool generate(std::vector<test_event_entry>& events) const;
 };
 template<> struct get_test_options<gen_bp_tx_invalid_bulletproof2_type>: public get_bp_versioned_test_options<HF_VERSION_CLSAG + 1> {};
+
+struct gen_bp_tx_invalid_clsag_type : public gen_bp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bp_tx_invalid_clsag_type>: public get_bp_versioned_test_options<HF_VERSION_BULLETPROOF_PLUS + 1> {};

@@ -1,0 +1,21 @@
+From a77b066311da42ed7654e39c0356a3b951b2e296 Mon Sep 17 00:00:00 2001
+From: selsta <selsta@sent.at>
+Date: Wed, 10 Nov 2021 02:28:54 +0100
+Subject: [PATCH] windows: add missing include for mingw32
+
+---
+ windows/hid.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/windows/hid.c b/windows/hid.c
+index 24756a4..6d8394c 100644
+--- a/windows/hid.c
++++ b/windows/hid.c
+@@ -33,6 +33,7 @@ typedef LONG NTSTATUS;
+ #endif
+ 
+ #ifdef __MINGW32__
++#include <devpropdef.h>
+ #include <ntdef.h>
+ #include <winbase.h>
+ #endif

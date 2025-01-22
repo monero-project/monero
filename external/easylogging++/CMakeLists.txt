@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2019, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -26,17 +26,25 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 2.8.7)
+cmake_minimum_required(VERSION 3.5)
 
 project(easylogging CXX)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+monero_enable_coverage()
 
 find_package(Threads)
 find_package(Backtrace)
 
+monero_find_all_headers(EASYLOGGING_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}")
+
 add_library(easylogging
-  easylogging++.cc)
+  easylogging++.cc
+  ${EASYLOGGING_HEADERS}
+  )
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")

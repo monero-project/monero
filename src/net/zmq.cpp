@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -134,7 +134,7 @@ namespace zmq
         {
             /* ZMQ documentation states that message parts are atomic - either
                all are received or none are. Looking through ZMQ code and
-               Github discussions indicates that after part 1 is returned,
+               GitHub discussions indicates that after part 1 is returned,
                `EAGAIN` cannot be returned to meet these guarantees. Unit tests
                verify (for the `inproc://` case) that this is the behavior. 
                Therefore, read errors after the first part are treated as a

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,6 +31,7 @@
 #include "memwipe.h"
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/regex.hpp>
 
 namespace hw {
@@ -44,7 +45,10 @@ namespace trezor {
 
     const uint32_t device_trezor_base::DEFAULT_BIP44_PATH[] = {0x8000002c, 0x80000080};
 
-    device_trezor_base::device_trezor_base(): m_callback(nullptr), m_last_msg_type(messages::MessageType_Success) {
+    device_trezor_base::device_trezor_base(): m_callback(nullptr), m_last_msg_type(messages::MessageType_Success),
+                                              m_reply_with_empty_passphrase(false),
+                                              m_always_use_empty_passphrase(false),
+                                              m_seen_passphrase_entry_message(false) {
 #ifdef WITH_TREZOR_DEBUGGING
       m_debug = false;
 #endif
@@ -154,6 +158,9 @@ namespace trezor {
       TREZOR_AUTO_LOCK_DEVICE();
       m_device_session_id.clear();
       m_features.reset();
+      m_seen_passphrase_entry_message = false;
+      m_reply_with_empty_passphrase = false;
+      m_always_use_empty_passphrase = false;
 
       if (m_transport){
         try {
@@ -292,9 +299,6 @@ namespace trezor {
           return true;
         case messages::MessageType_PassphraseRequest:
           on_passphrase_request(input, dynamic_cast<const messages::common::PassphraseRequest*>(input.m_msg.get()));
-          return true;
-        case messages::MessageType_Deprecated_PassphraseStateRequest:
-          on_passphrase_state_request(input, dynamic_cast<const messages::common::Deprecated_PassphraseStateRequest*>(input.m_msg.get()));
           return true;
         case messages::MessageType_PinMatrixRequest:
           on_pin_request(input, dynamic_cast<const messages::common::PinMatrixRequest*>(input.m_msg.get()));
@@ -468,20 +472,9 @@ namespace trezor {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
       MDEBUG("on_passhprase_request");
 
-      // Backward compatibility, migration clause.
-      if (msg->has__on_device() && msg->_on_device()){
-        messages::common::PassphraseAck m;
-        resp = call_raw(&m);
-        return;
-      }
-
-      bool on_device = true;
-      if (msg->has__on_device() && !msg->_on_device()){
-        on_device = false;  // do not enter on device, old devices.
-      }
-
-      if (on_device && m_features && m_features->capabilities_size() > 0){
-        on_device = false;
+      m_seen_passphrase_entry_message = true;
+      bool on_device = false;
+      if (m_features){
         for (auto it = m_features->capabilities().begin(); it != m_features->capabilities().end(); it++) {
           if (*it == messages::management::Features::Capability_PassphraseEntry){
             on_device = true;
@@ -490,19 +483,21 @@ namespace trezor {
       }
 
       boost::optional<epee::wipeable_string> passphrase;
-      TREZOR_CALLBACK_GET(passphrase, on_passphrase_request, on_device);
+      if (m_reply_with_empty_passphrase || m_always_use_empty_passphrase) {
+        MDEBUG("Answering passphrase prompt with an empty passphrase, always use empty: " << m_always_use_empty_passphrase);
+        on_device = false;
+        passphrase = epee::wipeable_string("");
+      } else if (m_passphrase){
+        MWARNING("Answering passphrase prompt with a stored passphrase (do not use; passphrase can be seen by a potential malware / attacker)");
+        on_device = false;
+        passphrase = epee::wipeable_string(m_passphrase.get());
+      } else {
+        TREZOR_CALLBACK_GET(passphrase, on_passphrase_request, on_device);
+      }
 
       messages::common::PassphraseAck m;
       m.set_on_device(on_device);
       if (!on_device) {
-        if (!passphrase && m_passphrase) {
-          passphrase = m_passphrase;
-        }
-
-        if (m_passphrase) {
-          m_passphrase = boost::none;
-        }
-
         if (passphrase) {
           m.set_allocated_passphrase(new std::string(passphrase->data(), passphrase->size()));
         }
@@ -510,21 +505,9 @@ namespace trezor {
 
       const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
         if (m.has_passphrase())
-          memwipe(&(m.mutable_passphrase())[0], m.mutable_passphrase()->size());
+          memwipe(&(*m.mutable_passphrase())[0], m.mutable_passphrase()->size());
       });
 
-      resp = call_raw(&m);
-    }
-
-    void device_trezor_base::on_passphrase_state_request(GenericMessage & resp, const messages::common::Deprecated_PassphraseStateRequest * msg)
-    {
-      MDEBUG("on_passhprase_state_request");
-      CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
-
-      if (msg->has_state()) {
-        m_device_session_id = msg->state();
-      }
-      messages::common::Deprecated_PassphraseStateAck m;
       resp = call_raw(&m);
     }
 

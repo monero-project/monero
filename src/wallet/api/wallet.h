@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -39,6 +39,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition_variable.hpp>
 
+class WalletApiAccessorTest;
 
 namespace Monero {
 class TransactionHistoryImpl;
@@ -89,6 +90,7 @@ public:
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
     bool setPassword(const std::string &password) override;
+    const std::string& getPassword() const override;
     bool setDevicePin(const std::string &password) override;
     bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
@@ -145,8 +147,8 @@ public:
     MultisigState multisig() const override;
     std::string getMultisigInfo() const override;
     std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
-    std::string exchangeMultisigKeys(const std::vector<std::string> &info) override;
-    bool finalizeMultisig(const std::vector<std::string>& extraMultisigInfo) override;
+    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution = false) override;
+    std::string getMultisigKeyExchangeBooster(const std::vector<std::string> &info, const uint32_t threshold, const uint32_t num_signers) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     bool hasMultisigPartialKeyImages() const override;
@@ -167,6 +169,16 @@ public:
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) override;
     bool exportKeyImages(const std::string &filename, bool all = false) override;
     bool importKeyImages(const std::string &filename) override;
+    bool exportOutputs(const std::string &filename, bool all = false) override;
+    bool importOutputs(const std::string &filename) override;
+    bool scanTransactions(const std::vector<std::string> &txids) override;
+
+    bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password = optional<std::string>()) override;
+    BackgroundSyncType getBackgroundSyncType() const override;
+    bool startBackgroundSync() override;
+    bool stopBackgroundSync(const std::string &wallet_password) override;
+    bool isBackgroundSyncing() const override;
+    bool isBackgroundWallet() const override;
 
     virtual void disposeTransaction(PendingTransaction * t) override;
     virtual uint64_t estimateTransactionFee(const std::vector<std::pair<std::string, uint64_t>> &destinations,
@@ -182,6 +194,9 @@ public:
     virtual bool setCacheAttribute(const std::string &key, const std::string &val) override;
     virtual std::string getCacheAttribute(const std::string &key) const override;
 
+    virtual void setOffline(bool offline) override;
+    virtual bool isOffline() const override;
+
     virtual bool setUserNote(const std::string &txid, const std::string &note) override;
     virtual std::string getUserNote(const std::string &txid) const override;
     virtual std::string getTxKey(const std::string &txid) const override;
@@ -192,16 +207,15 @@ public:
     virtual bool checkSpendProof(const std::string &txid, const std::string &message, const std::string &signature, bool &good) const override;
     virtual std::string getReserveProof(bool all, uint32_t account_index, uint64_t amount, const std::string &message) const override;
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const override;
-    virtual std::string signMessage(const std::string &message) override;
+    virtual std::string signMessage(const std::string &message, const std::string &address) override;
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const override;
     virtual std::string signMultisigParticipant(const std::string &message) const override;
     virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const override;
     virtual void startRefresh() override;
     virtual void pauseRefresh() override;
     virtual bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error) override;
+    virtual std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const override;
     virtual std::string getDefaultDataDir() const override;
-    virtual bool lightWalletLogin(bool &isNewWallet) const override;
-    virtual bool lightWalletImportWalletRequest(std::string &payment_id, uint64_t &fee, bool &new_request, bool &request_fulfilled, std::string &payment_address, std::string &status) override;
     virtual bool blackballOutputs(const std::vector<std::string> &outputs, bool add) override;
     virtual bool blackballOutput(const std::string &amount, const std::string &offset) override;
     virtual bool unblackballOutput(const std::string &amount, const std::string &offset) override;
@@ -216,6 +230,9 @@ public:
     virtual bool isKeysFileLocked() override;
     virtual uint64_t coldKeyImageSync(uint64_t &spent, uint64_t &unspent) override;
     virtual void deviceShowAddress(uint32_t accountIndex, uint32_t addressIndex, const std::string &paymentId) override;
+    virtual bool reconnectDevice() override;
+    virtual uint64_t getBytesReceived() override;
+    virtual uint64_t getBytesSent() override;
 
 private:
     void clearStatus() const;
@@ -229,6 +246,7 @@ private:
     bool isNewWallet() const;
     void pendingTxPostProcess(PendingTransactionImpl * pending);
     bool doInit(const std::string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
+    bool checkBackgroundSync(const std::string &message) const;
 
 private:
     friend class PendingTransactionImpl;
@@ -238,11 +256,16 @@ private:
     friend class AddressBookImpl;
     friend class SubaddressImpl;
     friend class SubaddressAccountImpl;
+    friend class ::WalletApiAccessorTest;
 
     std::unique_ptr<tools::wallet2> m_wallet;
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
+    // TODO: harden password handling in the wallet API, see relevant discussion
+    // https://github.com/monero-project/monero-gui/issues/1537
+    // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142
+    // https://github.com/monero-project/monero/pull/8619#issuecomment-1632951461
     std::string m_password;
     std::unique_ptr<TransactionHistoryImpl> m_history;
     std::unique_ptr<Wallet2CallbackImpl> m_wallet2Callback;
@@ -277,7 +300,4 @@ private:
 
 } // namespace
 
-namespace Bitmonero = Monero;
-
 #endif
-

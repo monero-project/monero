@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2019-2020 The Monero Project
+# Copyright (c) 2019-2024, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -36,7 +36,6 @@ Test the following RPCs:
 
 """
 
-from __future__ import print_function
 from framework.wallet import Wallet
 
 class IntegratedAddressTest():
@@ -80,13 +79,11 @@ class IntegratedAddressTest():
         except: fails += 1
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '112233445566778')
         except: fails += 1
-        try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '')
-        except: fails += 1
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '112233445566778g')
         except: fails += 1
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '1122334455667788112233445566778811223344556677881122334455667788')
         except: fails += 1
-        assert fails == 5
+        assert fails == 4
 
         print('Checking bad standard address')
         fails = 0

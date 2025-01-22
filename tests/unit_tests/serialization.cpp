@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -51,17 +51,25 @@
 using namespace std;
 using namespace crypto;
 
+static_assert(!std::is_trivially_copyable<std::vector<unsigned char>>(),
+  "should fail to compile when applying blob serializer");
+static_assert(!std::is_trivially_copyable<std::string>(),
+  "should fail to compile when applying blob serializer");
+
 struct Struct
 {
   int32_t a;
   int32_t b;
   char blob[8];
+
+  bool operator==(const Struct &other) const
+  {
+    return a == other.a && b == other.b && 0 == memcmp(blob, other.blob, sizeof(blob));
+  }
 };
 
 template <class Archive>
-struct serializer<Archive, Struct>
-{
-  static bool serialize(Archive &ar, Struct &s) {
+static bool do_serialize(Archive &ar, Struct &s) {
     ar.begin_object();
     ar.tag("a");
     ar.serialize_int(s.a);
@@ -71,8 +79,7 @@ struct serializer<Archive, Struct>
     ar.serialize_blob(s.blob, sizeof(s.blob));
     ar.end_object();
     return true;
-  }
-};
+}
 
 struct Struct1
 {
@@ -122,6 +129,23 @@ bool try_parse(const string &blob)
   return serialization::parse_binary(blob, s1);
 }
 
+namespace example_namespace
+{
+  struct ADLExampleStruct
+  {
+    std::string msg;
+  };
+
+  template <class Archive>
+  static bool do_serialize(Archive &ar, ADLExampleStruct &aes)
+  {
+    ar.begin_object();
+    FIELD_N("custom_fieldname", aes.msg);
+    ar.end_object();
+    return ar.good();
+  }
+}
+
 TEST(Serialization, BinaryArchiveInts) {
   uint64_t x = 0xff00000000, x1;
 
@@ -132,11 +156,11 @@ TEST(Serialization, BinaryArchiveInts) {
   ASSERT_EQ(8, oss.str().size());
   ASSERT_EQ(string("\0\0\0\0\xff\0\0\0", 8), oss.str());
 
-  istringstream iss(oss.str());
-  binary_archive<false> iar(iss);
+  const std::string s = oss.str();
+  binary_archive<false> iar{epee::strspan<std::uint8_t>(s)};
   iar.serialize_int(x1);
-  ASSERT_EQ(8, iss.tellg());
-  ASSERT_TRUE(iss.good());
+  ASSERT_EQ(8, iar.getpos());
+  ASSERT_TRUE(iar.good());
 
   ASSERT_EQ(x, x1);
 }
@@ -151,10 +175,10 @@ TEST(Serialization, BinaryArchiveVarInts) {
   ASSERT_EQ(6, oss.str().size());
   ASSERT_EQ(string("\x80\x80\x80\x80\xF0\x1F", 6), oss.str());
 
-  istringstream iss(oss.str());
-  binary_archive<false> iar(iss);
+  const std::string s = oss.str();
+  binary_archive<false> iar{epee::strspan<std::uint8_t>(s)};
   iar.serialize_varint(x1);
-  ASSERT_TRUE(iss.good());
+  ASSERT_TRUE(iar.good());
   ASSERT_EQ(x, x1);
 }
 
@@ -594,7 +618,7 @@ TEST(Serialization, serializes_ringct_types)
   destinations.push_back(Pk);
   //compute rct data with mixin 3
   const rct::RCTConfig rct_config{ rct::RangeProofPaddedBulletproof, 2 };
-  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config, hw::get_device("default"));
+  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, 0, 3, rct_config, hw::get_device("default"));
 
   ASSERT_FALSE(s0.p.MGs.empty());
   ASSERT_TRUE(s0.p.CLSAGs.empty());
@@ -619,7 +643,7 @@ TEST(Serialization, serializes_ringct_types)
   ASSERT_EQ(bp0, bp1);
 
   const rct::RCTConfig rct_config_clsag{ rct::RangeProofPaddedBulletproof, 3 };
-  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, NULL, NULL, 0, 3, rct_config_clsag, hw::get_device("default"));
+  s0 = rct::genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, 0, 3, rct_config_clsag, hw::get_device("default"));
 
   ASSERT_FALSE(s0.p.CLSAGs.empty());
   ASSERT_TRUE(s0.p.MGs.empty());
@@ -1089,7 +1113,7 @@ TEST(Serialization, portability_signed_tx)
   ASSERT_TRUE(ptx.selected_transfers.front() == 2);
   // ptx.{key_images, tx_key}
   ASSERT_TRUE(ptx.key_images == "<6c3cd6af97c4070a7aef9b1344e7463e29c7cd245076fdb65da447a34da3ca76> ");
-  ASSERT_TRUE(epee::string_tools::pod_to_hex(ptx.tx_key) == "0100000000000000000000000000000000000000000000000000000000000000");
+  ASSERT_TRUE(epee::string_tools::pod_to_hex(unwrap(unwrap(ptx.tx_key))) == "0100000000000000000000000000000000000000000000000000000000000000");
   // ptx.dests
   ASSERT_TRUE(ptx.dests.size() == 1);
   ASSERT_TRUE(ptx.dests[0].amount == 1400000000000);
@@ -1177,4 +1201,106 @@ TEST(Serialization, difficulty_type)
   a2 >> v_unserialized;
 
   ASSERT_EQ(v_original, v_unserialized);
+}
+
+TEST(Serialization, adl_free_function)
+{
+  std::stringstream ss;
+  json_archive<true> ar(ss);
+
+  const std::string msg = "Howdy, World!";
+  example_namespace::ADLExampleStruct aes{msg};
+
+  ASSERT_TRUE(serialization::serialize(ar, aes));
+
+  //                                                       VVVVVVVVVVVVVVVVVVVVVVVVVV weird string serialization artifact
+  const std::string expected = "{\"custom_fieldname\": " + std::to_string(msg.size()) + '"' + epee::string_tools::buff_to_hex_nodelimer(msg) + "\"}";
+  EXPECT_EQ(expected, ss.str());
+}
+
+using Tuple3 = std::tuple<uint16_t, std::string, uint64_t>;
+using Tuple4 = std::tuple<int32_t, std::string, uint64_t, Struct>;
+
+TEST(Serialization, tuple_3_4_backwards_compatibility)
+{
+  std::string serialized;
+
+  ////////////////////////////////////////
+
+  Tuple3 t3{1876, "Hullabaloo", 1963};
+  EXPECT_TRUE(::serialization::dump_binary(t3, serialized));
+
+  EXPECT_EQ("0354070a48756c6c6162616c6f6fab0f",
+    epee::string_tools::buff_to_hex_nodelimer(serialized));
+
+  Tuple3 t3_recovered;
+  EXPECT_TRUE(::serialization::parse_binary(serialized, t3_recovered));
+  EXPECT_EQ(t3, t3_recovered);
+
+  /////////////////////////////////////////
+
+  Tuple4 t4{1999, "Caneck Caneck", (uint64_t)-1, {20229, 242, {1, 1, 2, 3, 5, 8, 13, 21}}};
+  EXPECT_TRUE(::serialization::dump_binary(t4, serialized));
+
+  EXPECT_EQ("04cf0700000d43616e65636b2043616e65636bffffffffffffffffff01054f0000f20000000101020305080d15",
+    epee::string_tools::buff_to_hex_nodelimer(serialized));
+
+  Tuple4 t4_recovered;
+  EXPECT_TRUE(::serialization::parse_binary(serialized, t4_recovered));
+  EXPECT_EQ(t4, t4_recovered);
+}
+
+struct Tupler
+{
+  std::tuple<> t0;
+  std::tuple<int8_t> t1;
+  std::tuple<uint8_t, int16_t> t2;
+  Tuple3 t3_backcompat;
+  Tuple3 t3_compact;
+  Tuple4 t4_backcompat;
+  Tuple4 t4_compact;
+  std::tuple<uint32_t, std::string, bool, int64_t, Struct> t5;
+
+  BEGIN_SERIALIZE_OBJECT()
+    FIELD(t0)
+    FIELD(t1)
+    FIELD(t2)
+    FIELD(t3_backcompat)
+    TUPLE_COMPACT_FIELD(t3_compact)
+    FIELD(t4_backcompat)
+    TUPLE_COMPACT_FIELD(t4_compact)
+    TUPLE_COMPACT_FIELD(t5)
+  END_SERIALIZE()
+};
+
+bool operator==(const Tupler &a, const Tupler &b)
+{
+  return a.t0 == b.t0 && a.t1 == b.t1 && a.t2 == b.t2 && a.t3_backcompat == b.t3_backcompat &&
+    a.t3_compact == b.t3_compact && a.t4_backcompat == b.t4_backcompat && a.t5 == b.t5;
+}
+
+TEST(Serialization, tuple_many_tuples)
+{
+  Tupler tupler{
+    {},
+    {69},
+    {42, 420},
+    {1876, "Hullabaloo", 1963},
+    {1876, "Hullabaloo", 1963},
+    {1999, "Caneck Caneck", (uint64_t)-1, {20229, 242, {1, 1, 2, 3, 5, 8, 13, 21}}},
+    {1999, "Caneck Caneck", (uint64_t)-1, {20229, 242, {1, 1, 2, 3, 5, 8, 13, 21}}},
+    {72982, "He is now rising from affluence to poverty.", false, 256,
+      {
+        13, 37, { 1, 1, 1, 2, 3, 7, 11, 26 }
+      }
+    }
+  };
+
+  std::string serialized;
+  EXPECT_TRUE(::serialization::dump_binary(tupler, serialized));
+
+  Tupler tupler_recovered;
+  EXPECT_TRUE(::serialization::parse_binary(serialized, tupler_recovered));
+
+  EXPECT_EQ(tupler, tupler_recovered);
 }

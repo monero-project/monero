@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,7 +31,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <type_traits>
 
 namespace epee
@@ -134,18 +133,25 @@ namespace epee
     return {src.data(), src.size()};
   }
 
-  template<typename T>
-  constexpr bool has_padding() noexcept
-  {
-    return !std::is_standard_layout<T>() || alignof(T) != 1;
-  }
-
   //! \return Cast data from `src` as `span<const std::uint8_t>`.
   template<typename T>
   span<const std::uint8_t> to_byte_span(const span<const T> src) noexcept
   {
-    static_assert(!has_padding<T>(), "source type may have padding");
+    static_assert(!std::is_empty<T>(), "empty value types will not work -> sizeof == 1");
+    static_assert(std::is_standard_layout_v<T>, "type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<T>, "type must be trivially copyable with no padding");
     return {reinterpret_cast<const std::uint8_t*>(src.data()), src.size_bytes()}; 
+  }
+
+  //! \return `span<std::uint8_t>` from a STL compatible `src`.
+  template<typename T>
+  constexpr span<std::uint8_t> to_mut_byte_span(T& src)
+  {
+    using value_type = typename T::value_type;
+    static_assert(!std::is_empty<value_type>(), "empty value types will not work -> sizeof == 1");
+    static_assert(std::is_standard_layout_v<value_type>, "value type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<value_type>, "value type must be trivially copyable with no padding");
+    return {reinterpret_cast<std::uint8_t*>(src.data()), src.size() * sizeof(value_type)};
   }
 
   //! \return `span<const std::uint8_t>` which represents the bytes at `&src`.
@@ -153,7 +159,8 @@ namespace epee
   span<const std::uint8_t> as_byte_span(const T& src) noexcept
   {
     static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
-    static_assert(!has_padding<T>(), "source type may have padding");
+    static_assert(std::is_standard_layout_v<T>, "type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<T>, "type must be trivially copyable with no padding");
     return {reinterpret_cast<const std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }
 
@@ -162,15 +169,17 @@ namespace epee
   span<std::uint8_t> as_mut_byte_span(T& src) noexcept
   {
     static_assert(!std::is_empty<T>(), "empty types will not work -> sizeof == 1");
-    static_assert(!has_padding<T>(), "source type may have padding");
+    static_assert(std::is_standard_layout_v<T>, "type must have standard layout");
+    static_assert(std::has_unique_object_representations_v<T>, "type must be trivially copyable with no padding");
     return {reinterpret_cast<std::uint8_t*>(std::addressof(src)), sizeof(T)};
   }
 
   //! make a span from a std::string
-  template<typename T>
-  span<const T> strspan(const std::string &s) noexcept
+  template<typename T, typename U>
+  span<const T> strspan(const U&s) noexcept
   {
-    static_assert(std::is_same<T, char>() || std::is_same<T, unsigned char>() || std::is_same<T, int8_t>() || std::is_same<T, uint8_t>(), "Unexpected type");
+    static_assert(std::is_same<typename U::value_type, char>(), "unexpected source type");
+    static_assert(std::is_same<T, char>() || std::is_same<T, unsigned char>() || std::is_same<T, int8_t>() || std::is_same<T, uint8_t>(), "Unexpected destination type");
     return {reinterpret_cast<const T*>(s.data()), s.size()};
   }
 }

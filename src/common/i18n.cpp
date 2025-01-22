@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -34,6 +34,10 @@
 #include "file_io_utils.h"
 #include "common/i18n.h"
 #include "translation_files.h"
+
+#include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
+#include <algorithm>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "i18n"

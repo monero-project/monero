@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -164,6 +164,10 @@ namespace hw {
 
     void check8(const std::string &msg, const std::string &info, const char *h, const char *d, bool crypted) {
       check(msg, info, h, d, 8, crypted);
+    }
+
+    void check1(const std::string &msg, const std::string &info, const char *h, const char *d, bool crypted) {
+      check(msg, info, h, d, 1, crypted);
     }
     #endif
 

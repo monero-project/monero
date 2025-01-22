@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -32,7 +32,7 @@ set(MONERO_WALLET_CRYPTO_BENCH "auto" CACHE STRING "Select wallet crypto librari
 
 # The docs say this only affects grouping in IDEs
 set(folder "tests")
-set(TEST_DATA_DIR "${CMAKE_CURRENT_LIST_DIR}/data")
+set(TEST_DATA_DIR "${CMAKE_CURRENT_BINARY_DIR}/data")
 
 if (WIN32 AND STATIC)
   add_definitions(-DSTATICLIB)
@@ -72,13 +72,8 @@ else ()
   include_directories(SYSTEM "${CMAKE_CURRENT_SOURCE_DIR}/gtest/include")
 endif (GTest_FOUND)
 
-file(COPY
-  data/wallet_9svHk1.keys
-  data/wallet_9svHk1
-  data/outputs
-  data/unsigned_monero_tx
-  data/signed_monero_tx
-  DESTINATION data)
+message(STATUS "Copying test data directory...")
+file(COPY data DESTINATION .) # Copy data directory from source root to build root
 
 if (CMAKE_BUILD_TYPE STREQUAL "fuzz" OR OSSFUZZ)
   add_subdirectory(fuzz)
@@ -88,7 +83,6 @@ else ()
   add_subdirectory(crypto)
   add_subdirectory(functional_tests)
   add_subdirectory(performance_tests)
-  add_subdirectory(core_proxy)
   add_subdirectory(unit_tests)
   add_subdirectory(difficulty)
   add_subdirectory(block_weight)
@@ -103,8 +97,6 @@ endif()
 if (TREZOR_DEBUG)
   add_subdirectory(trezor)
 endif()
-
-# add_subdirectory(daemon_tests)
 
 set(hash_targets_sources
   hash-target.cpp)
@@ -166,7 +158,6 @@ set(enabled_tests
     block_weight
     hash
     performance_tests
-    core_proxy
     fuzz
     unit_tests)
 

@@ -1,0 +1,15 @@
+CMake 3.10.2 compatibility, see:
+https://github.com/Kitware/CMake/blob/c1e087a9d3af74299d7681c9f9de59e5977a1539/Modules/Platform/Android-Determine.cmake#L105
+
+diff --git a/build/tools/make_standalone_toolchain.py b/build/tools/make_standalone_toolchain.py
+index b8172b2..1984595 100755
+--- a/build/tools/make_standalone_toolchain.py
++++ b/build/tools/make_standalone_toolchain.py
+@@ -208,6 +208,7 @@ def make_clang_scripts(install_dir, triple, api, windows):
+ 
+     target = '-'.join([arch, 'none', os_name, env])
+     common_flags = '-target {}{}'.format(target, api)
++    common_flags += ' -D__ANDROID_API__={}'.format(api)
+ 
+     # We only need mstackrealign to fix issues on 32-bit x86 pre-24. After 24,
+     # this consumes an extra register unnecessarily, which can cause issues for

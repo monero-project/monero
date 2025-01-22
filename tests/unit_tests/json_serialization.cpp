@@ -13,6 +13,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "serialization/json_object.h"
+#include "rpc/daemon_messages.h"
 
 
 namespace test
@@ -51,7 +52,7 @@ namespace test
             if (!cryptonote::find_tx_extra_field_by_type(extra_fields, key_field))
                 throw std::runtime_error{"invalid transaction"};
 
-            for (auto const& input : boost::adaptors::index(source.vout))
+            for (auto const input : boost::adaptors::index(source.vout))
             {
                 source_amount += input.value().amount;
                 auto const& key = boost::get<cryptonote::txout_to_key>(input.value().target);
@@ -77,7 +78,7 @@ namespace test
         std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
         subaddresses[from.m_account_address.m_spend_public_key] = {0,0};
 
-        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, 0, tx_key, extra_keys, rct, { bulletproof ? rct::RangeProofBulletproof : rct::RangeProofBorromean, bulletproof ? 2 : 0 }))
+        if (!cryptonote::construct_tx_and_get_tx_key(from, subaddresses, actual_sources, to, boost::none, {}, tx, tx_key, extra_keys, rct, { bulletproof ? rct::RangeProofBulletproof : rct::RangeProofBorromean, bulletproof ? 2 : 0 }))
             throw std::runtime_error{"transaction construction error"};
 
         return tx;
@@ -121,6 +122,68 @@ TEST(JsonSerialization, InvalidVectorBytes)
 
     std::vector<std::uint8_t> out;
     EXPECT_THROW(cryptonote::json::fromJsonValue(doc, out), cryptonote::json::BAD_INPUT);
+}
+
+TEST(JsonSerialization, DaemonInfo)
+{
+  cryptonote::rpc::DaemonInfo info{};
+  info.height = 154544;
+  info.target_height = 15345435;
+  info.top_block_height = 2344;
+  info.wide_difficulty = cryptonote::difficulty_type{"100000000000000000005443"};
+  info.difficulty = 200376420520695107;
+  info.target = 7657567;
+  info.tx_count = 355;
+  info.tx_pool_size = 45435;
+  info.alt_blocks_count = 43535;
+  info.outgoing_connections_count = 1444;
+  info.incoming_connections_count = 1444;
+  info.white_peerlist_size = 14550;
+  info.grey_peerlist_size = 34324;
+  info.mainnet = true;
+  info.testnet = true;
+  info.stagenet = true;
+  info.nettype = "main";
+  info.top_block_hash = crypto::hash{1};
+  info.wide_cumulative_difficulty = cryptonote::difficulty_type{"200000000000000000005543"};
+  info.cumulative_difficulty = 400752841041384871;
+  info.block_size_limit = 4324234;
+  info.block_weight_limit = 3434;
+  info.block_size_median = 3434;
+  info.adjusted_time = 4535;
+  info.block_weight_median = 43535;
+  info.start_time = 34535;
+  info.version = "1.0";
+
+  const auto info_copy = test_json(info);
+
+  EXPECT_EQ(info.height, info_copy.height);
+  EXPECT_EQ(info.target_height, info_copy.target_height);
+  EXPECT_EQ(info.top_block_height, info_copy.top_block_height);
+  EXPECT_EQ(info.wide_difficulty, info_copy.wide_difficulty);
+  EXPECT_EQ(info.difficulty, info_copy.difficulty);
+  EXPECT_EQ(info.target, info_copy.target);
+  EXPECT_EQ(info.tx_count, info_copy.tx_count);
+  EXPECT_EQ(info.tx_pool_size, info_copy.tx_pool_size);
+  EXPECT_EQ(info.alt_blocks_count, info_copy.alt_blocks_count);
+  EXPECT_EQ(info.outgoing_connections_count, info_copy.outgoing_connections_count);
+  EXPECT_EQ(info.incoming_connections_count, info_copy.incoming_connections_count);
+  EXPECT_EQ(info.white_peerlist_size, info_copy.white_peerlist_size);
+  EXPECT_EQ(info.grey_peerlist_size, info_copy.grey_peerlist_size);
+  EXPECT_EQ(info.mainnet, info_copy.mainnet);
+  EXPECT_EQ(info.testnet, info_copy.testnet);
+  EXPECT_EQ(info.stagenet, info_copy.stagenet);
+  EXPECT_EQ(info.nettype, info_copy.nettype);
+  EXPECT_EQ(info.top_block_hash, info_copy.top_block_hash);
+  EXPECT_EQ(info.wide_cumulative_difficulty, info_copy.wide_cumulative_difficulty);
+  EXPECT_EQ(info.cumulative_difficulty, info_copy.cumulative_difficulty);
+  EXPECT_EQ(info.block_size_limit, info_copy.block_size_limit);
+  EXPECT_EQ(info.block_weight_limit, info_copy.block_weight_limit);
+  EXPECT_EQ(info.block_size_median, info_copy.block_size_median);
+  EXPECT_EQ(info.adjusted_time, info_copy.adjusted_time);
+  EXPECT_EQ(info.block_weight_median, info_copy.block_weight_median);
+  EXPECT_EQ(info.start_time, info_copy.start_time);
+  EXPECT_EQ(info.version, info_copy.version);
 }
 
 TEST(JsonSerialization, MinerTransaction)
@@ -240,3 +303,9 @@ TEST(JsonSerialization, BulletproofTransaction)
     EXPECT_EQ(tx_bytes, tx_copy_bytes);
 }
 
+TEST(JsonRpcSerialization, HandlerFromJson)
+{
+  cryptonote::rpc::FullMessage req_full("{\"jsonrpc\":\"2.0\",\"method\":\"get_hashes_fast\",\"params\":[1]}", true);
+  cryptonote::rpc::GetHashesFast::Request request{};
+  EXPECT_THROW(request.fromJson(req_full.getMessage()), cryptonote::json::WRONG_TYPE);
+}

@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2020, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -29,8 +29,8 @@
 #pragma once
 
 #include <cstdint>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/io_service.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/type_traits/integral_constant.hpp>
@@ -93,7 +93,7 @@ namespace socks
     class client
     {
         boost::asio::ip::tcp::socket proxy_;
-        boost::asio::io_service::strand strand_;
+        boost::asio::strand<boost::asio::ip::tcp::socket::executor_type> strand_;
         std::uint16_t buffer_size_;
         std::uint8_t buffer_[1024];
         socks::version ver_;
@@ -200,6 +200,13 @@ namespace socks
         {
             std::shared_ptr<client> self_;
             void operator()(boost::system::error_code error = boost::system::error_code{});
+        };
+
+        //! Calls `async_close` on `self` at destruction. NOP if `nullptr`.
+        struct close_on_exit
+        {
+            std::shared_ptr<client> self;
+            ~close_on_exit() { async_close{std::move(self)}(); }
         };
     };
 

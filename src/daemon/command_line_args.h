@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -86,16 +86,22 @@ namespace daemon_args
     "daemon_command"
   , "Hidden"
   };
-  const command_line::arg_descriptor<bool> arg_os_version = {
-    "os-version"
-  , "OS for which this executable was compiled"
-  };
   const command_line::arg_descriptor<unsigned> arg_max_concurrency = {
     "max-concurrency"
   , "Max number of threads to use for a parallel job"
   , 0
   };
 
+  const command_line::arg_descriptor<std::string> arg_proxy = {
+    "proxy",
+    "Network communication through proxy: <socks-ip:port> i.e. \"127.0.0.1:9050\"",
+    "",
+  };
+  const command_line::arg_descriptor<bool> arg_proxy_allow_dns_leaks = {
+    "proxy-allow-dns-leaks",
+    "Allow DNS leaks outside of proxy",
+    false,
+  };
   const command_line::arg_descriptor<bool> arg_public_node = {
     "public-node"
   , "Allow other users to use the node as a remote (restricted RPC mode, view-only commands) and advertise it over P2P"

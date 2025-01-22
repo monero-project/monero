@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -102,7 +102,7 @@ namespace trezor {
 
       bool  has_ki_cold_sync() const override { return true; }
       bool  has_tx_cold_sign() const override { return true; }
-      void  set_network_type(cryptonote::network_type network_type) override { this->network_type = network_type; }
+      void  set_network_type(cryptonote::network_type network_type) override { this->m_network_type = network_type; }
       void  set_live_refresh_enabled(bool enabled) { m_live_refresh_enabled = enabled; }
       bool  live_refresh_enabled() const { return m_live_refresh_enabled; }
 
@@ -205,6 +205,26 @@ namespace trezor {
                    const ::tools::wallet2::unsigned_tx_set & unsigned_tx,
                    ::tools::wallet2::signed_tx_set & signed_tx,
                    hw::tx_aux_data & aux_data) override;
+
+      /**
+      * Requests public address, uses empty passphrase if asked for.
+      */
+      bool get_public_address_with_no_passphrase(cryptonote::account_public_address &pubkey) override;
+
+      /**
+       * Reset session ID, restart with a new session.
+       */
+      virtual void reset_session() override;
+
+      /**
+       * Returns true if device already asked for passphrase entry before (i.e., obviously supports passphrase entry)
+       */
+      bool seen_passphrase_entry_prompt() override;
+
+      /**
+       * Uses empty passphrase for all passphrase queries.
+       */
+      void set_use_empty_passphrase(bool use_always_empty_passphrase) override;
     };
 
 #endif

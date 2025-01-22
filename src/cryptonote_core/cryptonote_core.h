@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -40,11 +40,9 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler_common.h"
 #include "cryptonote_protocol/enums.h"
-#include "storages/portable_storage_template_helper.h"
 #include "common/download.h"
 #include "common/command_line.h"
-#include "tx_pool.h"
-#include "blockchain.h"
+#include "blockchain_and_pool.h"
 #include "cryptonote_basic/miner.h"
 #include "cryptonote_basic/connection_context.h"
 #include "warnings.h"
@@ -233,8 +231,15 @@ namespace cryptonote
       *
       * @note see Blockchain::create_block_template
       */
-     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) override;
-     virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) override;
+     virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+
+     /**
+      * @copydoc Blockchain::get_miner_data
+      *
+      * @note see Blockchain::get_miner_data
+      */
+     bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
      /**
       * @brief called when a transaction is relayed.
@@ -276,10 +281,11 @@ namespace cryptonote
       * @param vm command line parameters
       * @param test_options configuration options for testing
       * @param get_checkpoints if set, will be called to get checkpoints data, must return checkpoints data pointer and size or nullptr if there ain't any checkpoints for specific network type
+      * @param allow_dns whether or not to allow DNS requests
       *
       * @return false if one of the init steps fails, otherwise true
       */
-     bool init(const boost::program_options::variables_map& vm, const test_options *test_options = NULL, const GetCheckpointsCallback& get_checkpoints = nullptr);
+     bool init(const boost::program_options::variables_map& vm, const test_options *test_options = NULL, const GetCheckpointsCallback& get_checkpoints = nullptr, bool allow_dns = true);
 
      /**
       * @copydoc Blockchain::reset_and_set_genesis_block
@@ -385,7 +391,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_transactions
       */
-     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs) const;
+     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs, bool pruned = false) const;
 
      /**
       * @copydoc Blockchain::get_transactions
@@ -399,7 +405,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_transactions
       */
-     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<transaction>& txs, std::vector<crypto::hash>& missed_txs) const;
+     bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<transaction>& txs, std::vector<crypto::hash>& missed_txs, bool pruned = false) const;
 
      /**
       * @copydoc Blockchain::get_block_by_hash
@@ -428,6 +434,13 @@ namespace cryptonote
       * @param pprotocol the pointer to set ours as
       */
      void set_cryptonote_protocol(i_cryptonote_protocol* pprotocol);
+
+     /**
+      * @copydoc Blockchain::get_checkpoints
+      *
+      * @note see Blockchain::get_checkpoints()
+      */
+     const checkpoints& get_checkpoints() const;
 
      /**
       * @copydoc Blockchain::set_checkpoints
@@ -496,6 +509,23 @@ namespace cryptonote
      bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_sensitive_txes = false) const;
 
      /**
+      * @copydoc tx_memory_pool::get_pool_transactions_info
+      * @param include_sensitive_txes include private transactions
+      *
+      * @note see tx_memory_pool::get_pool_transactions_info
+      */
+     bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false) const;
+
+     /**
+      * @copydoc tx_memory_pool::get_pool_info
+      * @param include_sensitive_txes include private transactions
+      * @param max_tx_count max allowed added_txs in response
+      *
+      * @note see tx_memory_pool::get_pool_info
+      */
+     bool get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+
+    /**
       * @copydoc tx_memory_pool::get_transactions
       * @param include_sensitive_txes include private transactions
       *
@@ -567,7 +597,7 @@ namespace cryptonote
       *
       * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
 
      /**
       * @copydoc Blockchain::get_tx_outputs_gindexs
@@ -1005,10 +1035,11 @@ namespace cryptonote
       * @brief verify that each ring uses distinct members
       *
       * @param tx the transaction to check
+      * @param hf_version the hard fork version rules to use
       *
       * @return false if any ring uses duplicate members, true otherwise
       */
-     bool check_tx_inputs_ring_members_diff(const transaction& tx) const;
+     bool check_tx_inputs_ring_members_diff(const transaction& tx, const uint8_t hf_version) const;
 
      /**
       * @brief verify that each input key image in a transaction is in
@@ -1026,6 +1057,13 @@ namespace cryptonote
       * @return true
       */
      bool relay_txpool_transactions();
+
+     /**
+      * @brief sends notification of txpool events to subscribers
+      *
+      * @return true on success, false otherwise
+      */
+     bool notify_txpool_event(const epee::span<const cryptonote::blobdata> tx_blobs, epee::span<const crypto::hash> tx_hashes, epee::span<const cryptonote::transaction> txs, const std::vector<bool> &just_broadcasted) const;
 
      /**
       * @brief checks DNS versions
@@ -1059,8 +1097,9 @@ namespace cryptonote
 
      uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
 
-     tx_memory_pool m_mempool; //!< transaction pool instance
-     Blockchain m_blockchain_storage; //!< Blockchain instance
+     BlockchainAndPool m_bap; //! Contains owned instances of Blockchain and tx_memory_pool
+     tx_memory_pool& m_mempool; //!< ref to transaction pool instance in m_bap
+     Blockchain& m_blockchain_storage; //!< ref to Blockchain instance in m_bap
 
      i_cryptonote_protocol* m_pprotocol; //!< cryptonote protocol instance
 

@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -38,7 +39,7 @@
 #include "net/error.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
-#include "string_tools.h"
+#include "string_tools_lexical.h"
 
 namespace net
 {
@@ -47,7 +48,6 @@ namespace net
         constexpr const char tld[] = u8".onion";
         constexpr const char unknown_host[] = "<unknown tor host>";
 
-        constexpr const unsigned v2_length = 16;
         constexpr const unsigned v3_length = 56;
 
         constexpr const char base32_alphabet[] =
@@ -61,7 +61,7 @@ namespace net
             host.remove_suffix(sizeof(tld) - 1);
 
             //! \TODO v3 has checksum, base32 decoding is required to verify it
-            if (host.size() != v2_length && host.size() != v3_length)
+            if (host.size() != v3_length)
                 return {net::error::invalid_tor_address};
             if (host.find_first_not_of(base32_alphabet) != boost::string_ref::npos)
                 return {net::error::invalid_tor_address};
@@ -117,7 +117,6 @@ namespace net
         if (!port.empty() && !epee::string_tools::get_xtype_from_string(porti, std::string{port}))
             return {net::error::invalid_port};
 
-        static_assert(v2_length <= v3_length, "bad internal host size");
         static_assert(v3_length + sizeof(tld) == sizeof(tor_address::host_), "bad internal host size");
         return tor_address{host, porti};
     }
@@ -179,7 +178,6 @@ namespace net
 
     bool tor_address::is_same_host(const tor_address& rhs) const noexcept
     {
-        //! \TODO v2 and v3 should be comparable - requires base32
         return std::strcmp(host_str(), rhs.host_str()) == 0;
     }
 

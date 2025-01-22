@@ -25,6 +25,32 @@
 //
 
 #include "string_tools.h"
+#include "string_tools_lexical.h"
+
+
+// Previously pulled in by ASIO, further cleanup still required ...
+#ifdef _WIN32
+# include <winsock2.h>
+# include <windows.h>
+#endif
+
+#include <locale>
+#include <cstdlib>
+#include <string>
+#include <type_traits>
+#include <system_error>
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/utility/string_ref.hpp>
+#include <boost/filesystem.hpp>
+#include "misc_log_ex.h"
+#include "storages/parserse_base_utils.h"
+#include "hex.h"
+#include "memwipe.h"
+#include "mlocker.h"
+#include "span.h"
+#include "warnings.h"
 
 #include <ctype.h>
 
@@ -59,15 +85,147 @@ namespace string_tools
     return true;
   }
   //----------------------------------------------------------------------------
-  bool validate_hex(uint64_t length, const std::string& str)
+  bool parse_peer_from_string(uint32_t& ip, uint16_t& port, const std::string& addres)
   {
-    if (str.size() != length)
+    //parse ip and address
+    std::string::size_type p = addres.find(':');
+    std::string ip_str, port_str;
+    if(p == std::string::npos)
+    {
+      port = 0;
+      ip_str = addres;
+    }
+    else
+    {
+      ip_str = addres.substr(0, p);
+      port_str = addres.substr(p+1, addres.size());
+    }
+
+    if(!get_ip_int32_from_string(ip, ip_str))
+    {
       return false;
-    for (char c: str)
-      if (!isxdigit(c))
-        return false;
+    }
+
+    if(p != std::string::npos && !get_xtype_from_string(port, port_str))
+    {
+      return false;
+    }
     return true;
   }
+  
+  std::string num_to_string_fast(int64_t val)
+  {
+    /*
+    char  buff[30] = {0};
+    i64toa_s(val, buff, sizeof(buff)-1, 10);
+    return buff;*/
+    return boost::lexical_cast<std::string>(val);
+  }
+	
+	
+    bool compare_no_case(const std::string& str1, const std::string& str2)
+	{
+		
+		return !boost::iequals(str1, str2);
+	}
+	//----------------------------------------------------------------------------
+	 std::string& get_current_module_name()
+	{
+		static std::string module_name;
+		return module_name;
+	}
+	//----------------------------------------------------------------------------
+	 std::string& get_current_module_folder()
+	{	
+		static std::string module_folder;
+		return module_folder;
+	}
+	
+#ifdef _WIN32
+  std::string get_current_module_path()
+  {
+    char pname [5000] = {0};
+    GetModuleFileNameA( NULL, pname, sizeof(pname));
+    pname[sizeof(pname)-1] = 0; //be happy ;)
+    return pname;
+  }
+#endif
+
+  void set_module_name_and_folder(const std::string& path_to_process_)
+  {
+    boost::filesystem::path path_to_process = path_to_process_;
+
+#ifdef _WIN32
+    path_to_process = get_current_module_path();
+#endif 
+
+    get_current_module_name() = path_to_process.filename().string();
+    get_current_module_folder() = path_to_process.parent_path().string();
+  }
+
+	//----------------------------------------------------------------------------
+  std::string pad_string(std::string s, size_t n, char c, bool prepend)
+  {
+    if (s.size() < n)
+    {
+      if (prepend)
+        s = std::string(n - s.size(), c) + s;
+      else
+        s.append(n - s.size(), c);
+    }
+    return s;
+  }
+  
+  std::string get_extension(const std::string& str)
+  {
+    std::string ext_with_dot = boost::filesystem::path(str).extension().string();
+
+    if (ext_with_dot.empty())
+      return {};
+
+    return ext_with_dot.erase(0, 1);
+  }
+
+	//----------------------------------------------------------------------------
+  std::string cut_off_extension(const std::string& str)
+  {
+    return boost::filesystem::path(str).replace_extension("").string();
+  }
+
+#ifdef _WIN32
+  std::wstring utf8_to_utf16(const std::string& str)
+  {
+    if (str.empty())
+      return {};
+    int wstr_size = MultiByteToWideChar(CP_UTF8, 0, &str[0], str.size(), NULL, 0);
+    if (wstr_size == 0)
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    std::wstring wstr(wstr_size, wchar_t{});
+    if (!MultiByteToWideChar(CP_UTF8, 0, &str[0], str.size(), &wstr[0], wstr_size))
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    return wstr;
+  }
+  std::string utf16_to_utf8(const std::wstring& wstr)
+  {
+    if (wstr.empty())
+      return {};
+    int str_size = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], wstr.size(), NULL, 0, NULL, NULL);
+    if (str_size == 0)
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    std::string str(str_size, char{});
+    if (!WideCharToMultiByte(CP_UTF8, 0, &wstr[0], wstr.size(), &str[0], str_size, NULL, NULL))
+    {
+      throw std::runtime_error(std::error_code(GetLastError(), std::system_category()).message());
+    }
+    return str;
+  }
+#endif
 }
 }
 

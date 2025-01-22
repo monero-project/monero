@@ -1,6 +1,7 @@
 #include "net/abstract_http_client.h"
 #include "net/http_base.h"
 #include "net/net_parse_helpers.h"
+#include "misc_log_ex.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
@@ -115,16 +116,6 @@ namespace net_utils
     return result;
   }
   //----------------------------------------------------------------------------------------------------
-  std::string convert_to_url_format_force_all(const std::string& uri)
-  {
-    std::string result;
-
-    for(size_t i = 0; i!= uri.size(); i++)
-    {
-        result += convert(uri[i]);
-    }
-    return result;
-  }
 
 namespace http
 {

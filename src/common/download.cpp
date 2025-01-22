@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,7 +30,6 @@
 #include <atomic>
 #include <boost/filesystem.hpp>
 #include <boost/thread/thread.hpp>
-#include "file_io_utils.h"
 #include "net/http_client.h"
 #include "download.h"
 
@@ -53,7 +52,7 @@ namespace tools
 
     download_thread_control(const std::string &path, const std::string &uri, std::function<void(const std::string&, const std::string&, bool)> result_cb, std::function<bool(const std::string&, const std::string&, size_t, ssize_t)> progress_cb):
         path(path), uri(uri), result_cb(result_cb), progress_cb(progress_cb), stop(false), stopped(false), success(false) {}
-    ~download_thread_control() { if (thread.joinable()) thread.detach(); }
+    ~download_thread_control() { if (thread.joinable()) { thread.detach(); thread = {}; } }
   };
 
   static void download_thread(download_async_handle control)
@@ -73,8 +72,11 @@ namespace tools
     {
       boost::unique_lock<boost::mutex> lock(control->mutex);
       std::ios_base::openmode mode = std::ios_base::out | std::ios_base::binary;
-      uint64_t existing_size = 0;
-      if (epee::file_io_utils::get_file_size(control->path, existing_size) && existing_size > 0)
+      boost::system::error_code ec{};
+      uint64_t existing_size = static_cast<uint64_t>(boost::filesystem::file_size(control->path, ec));
+      if (ec)
+        existing_size = 0;
+      if (existing_size > 0)
       {
         MINFO("Resuming downloading " << control->uri << " to " << control->path << " from " << existing_size);
         mode |= std::ios_base::app;
@@ -293,9 +295,13 @@ namespace tools
     {
       boost::lock_guard<boost::mutex> lock(control->mutex);
       if (control->stopped)
+      {
+        control->thread = {};
         return true;
+      }
     }
     control->thread.join();
+    control->thread = {};
     return true;
   }
 
@@ -305,10 +311,14 @@ namespace tools
     {
       boost::lock_guard<boost::mutex> lock(control->mutex);
       if (control->stopped)
+      {
+        control->thread = {};
         return true;
+      }
       control->stop = true;
     }
     control->thread.join();
+    control->thread = {};
     return true;
   }
 }

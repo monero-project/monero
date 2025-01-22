@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -50,11 +50,8 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  std::string s((const char*)buf, len);
-  std::pair<uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
-  std::stringstream iss;
-  iss << s;
-  binary_archive<false> ar(iss);
+  std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
+  binary_archive<false> ar{{buf, len}};
   ::serialization::serialize(ar, outputs);
   size_t n_outputs = wallet->import_outputs(outputs);
   std::cout << boost::lexical_cast<std::string>(n_outputs) << " outputs imported" << std::endl;

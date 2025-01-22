@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -34,10 +34,10 @@
 #include <algorithm>
 #include <functional>
 #include <boost/endian/conversion.hpp>
-#include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/format.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include "common/apply_permutation.h"
 #include "transport.hpp"
 #include "messages/messages-common.pb.h"
@@ -153,10 +153,15 @@ namespace trezor{
   // Helpers
   //
 
+#define PROTO_MAGIC_SIZE 3
 #define PROTO_HEADER_SIZE 6
 
   static size_t message_size(const google::protobuf::Message &req){
-    return static_cast<size_t>(req.ByteSize());
+#if GOOGLE_PROTOBUF_VERSION < 3006001
+    return size_t(req.ByteSize());
+#else
+    return req.ByteSizeLong();
+#endif
   }
 
   static size_t serialize_message_buffer_size(size_t msg_size) {
@@ -188,7 +193,7 @@ namespace trezor{
     }
 
     serialize_message_header(buff, msg_wire_num, msg_size);
-    if (!req.SerializeToArray(buff + 6, msg_size)){
+    if (!req.SerializeToArray(buff + PROTO_HEADER_SIZE, msg_size)){
       throw exc::EncodingException("Message serialization error");
     }
   }
@@ -247,16 +252,16 @@ namespace trezor{
       throw exc::CommunicationException("Read chunk has invalid size");
     }
 
-    if (memcmp(chunk_buff_raw, "?##", 3) != 0){
+    if (memcmp(chunk_buff_raw, "?##", PROTO_MAGIC_SIZE) != 0){
       throw exc::CommunicationException("Malformed chunk");
     }
 
     uint16_t tag;
     uint32_t len;
-    nread -= 3 + 6;
-    deserialize_message_header(chunk_buff_raw + 3, tag, len);
+    nread -= PROTO_MAGIC_SIZE + PROTO_HEADER_SIZE;
+    deserialize_message_header(chunk_buff_raw + PROTO_MAGIC_SIZE, tag, len);
 
-    epee::wipeable_string data_acc(chunk_buff_raw + 3 + 6, nread);
+    epee::wipeable_string data_acc(chunk_buff_raw + PROTO_MAGIC_SIZE + PROTO_HEADER_SIZE, nread);
     data_acc.reserve(len);
 
     while(nread < len){
@@ -477,7 +482,7 @@ namespace trezor{
     uint16_t msg_tag;
     uint32_t msg_len;
     deserialize_message_header(bin_data->data(), msg_tag, msg_len);
-    if (bin_data->size() != msg_len + 6){
+    if (bin_data->size() != msg_len + PROTO_HEADER_SIZE){
       throw exc::CommunicationException("Response is not well hexcoded");
     }
 
@@ -486,7 +491,7 @@ namespace trezor{
     }
 
     std::shared_ptr<google::protobuf::Message> msg_wrap(MessageMapper::get_message(msg_tag));
-    if (!msg_wrap->ParseFromArray(bin_data->data() + 6, msg_len)){
+    if (!msg_wrap->ParseFromArray(bin_data->data() + PROTO_HEADER_SIZE, msg_len)){
       throw exc::EncodingException("Response is not well hexcoded");
     }
     msg = msg_wrap;
@@ -572,8 +577,13 @@ namespace trezor{
       std::string req = "PINGPING";
       char res[8];
 
-      m_socket->send_to(boost::asio::buffer(req.c_str(), req.size()), m_endpoint);
-      receive(res, 8, nullptr, false, timeout);
+      const auto written = m_socket->send_to(boost::asio::buffer(req.c_str(), req.size()), m_endpoint);
+      if (written != req.size())
+        return false;
+      memset(res, 0, sizeof(res));
+      const auto received = receive(res, 8, nullptr, false, timeout);
+      if (received != 8)
+        return false;
 
       return memcmp(res, "PONGPONG", 8) == 0;
 
@@ -604,8 +614,7 @@ namespace trezor{
     }
 
     udp::resolver resolver(m_io_service);
-    udp::resolver::query query(udp::v4(), m_device_host, std::to_string(m_device_port));
-    m_endpoint = *resolver.resolve(query);
+    m_endpoint = *resolver.resolve(udp::v4(), m_device_host, std::to_string(m_device_port)).begin();
 
     m_socket.reset(new udp::socket(m_io_service));
     m_socket->open(udp::v4());

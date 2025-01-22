@@ -1,5 +1,5 @@
 # Levin Protocol
-This is a document explaining the current design of the levin protocol, as
+This is a document explaining the current design of the Levin protocol, as
 used by Monero. The protocol is largely inherited from cryptonote, but has
 undergone some changes.
 
@@ -9,7 +9,7 @@ extensibility.
 
 One of the goals of this document is to clearly indicate what is being sent
 "on the wire" to identify metadata that could de-anonymize users over I2P/Tor.
-These issues will be addressed as they are found. See `ANONMITY_NETWORKS.md` in
+These issues will be addressed as they are found. See `ANONYMITY_NETWORKS.md` in
 the `docs` folder for any outstanding issues.
 
 > This document does not currently list all data being sent by the monero
@@ -75,7 +75,7 @@ An unsigned 32-bit little endian integer representing the Monero specific
 command being invoked.
 
 ### Return Code
-A signed 32-bit little integer integer representing the response from the peer
+A signed 32-bit little endian integer representing the response from the peer
 from the last command that was invoked. This is `0` for request messages.
 
 ### Flags
@@ -131,7 +131,7 @@ be zero. The first fragment has the `B` bit set, neither `B` nor `E` is set for
 
 ### Dummy
 Dummy messages have the `B` and `E` bits set, the `Q` and `S` bits unset, and
-the `Expect Reponse` field zeroed. When a message of this type is received, the
+the `Expect Response` field zeroed. When a message of this type is received, the
 contents can be safely ignored.
 
 
@@ -149,7 +149,7 @@ contents can be safely ignored.
 #### (`1005` Request) Network State
 #### (`1005` Response) Network State
 #### (`1006` Request) Peer ID
-#### (`1006` Reponse) Peer ID
+#### (`1006` Response) Peer ID
 #### (`1007` Request) Support Flags
 #### (`1007` Response) Support Flags
 

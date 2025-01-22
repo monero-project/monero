@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -37,21 +37,9 @@ set(wallet_sources
   node_rpc_proxy.cpp
   message_store.cpp
   message_transporter.cpp
-  wallet_rpc_payments.cpp
 )
 
-set(wallet_private_headers
-  wallet2.h
-  wallet_args.h
-  wallet_errors.h
-  wallet_rpc_server.h
-  wallet_rpc_server_commands_defs.h
-  wallet_rpc_server_error_codes.h
-  ringdb.h
-  node_rpc_proxy.h
-  message_store.h
-  message_transporter.h
-  wallet_rpc_helpers.h)
+monero_find_all_headers(wallet_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(wallet
   ${wallet_private_headers})
@@ -113,47 +101,6 @@ if(NOT IOS)
     PROPERTY
       OUTPUT_NAME "monero-wallet-rpc")
   install(TARGETS wallet_rpc_server DESTINATION bin)
-endif()
-
-# build and install libwallet_merged only if we building for GUI
-if (BUILD_GUI_DEPS)
-    set(libs_to_merge
-            wallet_api
-            wallet
-            rpc_base
-            multisig
-            blockchain_db
-            cryptonote_core
-            cryptonote_basic
-            mnemonics
-            common
-            cncrypto
-            device
-            hardforks
-            ringct
-            ringct_basic
-            checkpoints
-            version
-            net
-            device_trezor)
-
-    foreach(lib ${libs_to_merge})
-        list(APPEND objlibs $<TARGET_OBJECTS:obj_${lib}>) # matches naming convention in src/CMakeLists.txt
-    endforeach()
-    add_library(wallet_merged STATIC ${objlibs})
-    if(IOS)
-        set(lib_folder lib-${ARCH})
-    else()
-        set(lib_folder lib)
-    endif()
-    install(TARGETS wallet_merged
-        ARCHIVE DESTINATION ${lib_folder})
-
-    install(FILES ${TREZOR_DEP_LIBS}
-            DESTINATION ${lib_folder})
-    file(WRITE "trezor_link_flags.txt" ${TREZOR_DEP_LINKER})
-    install(FILES "trezor_link_flags.txt"
-            DESTINATION ${lib_folder})
 endif()
 
 add_subdirectory(api)

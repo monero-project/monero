@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -68,6 +68,14 @@ namespace epee
 
   std::string to_hex::string(const span<const std::uint8_t> src) { return convert<std::string>(src); }
   epee::wipeable_string to_hex::wipeable_string(const span<const std::uint8_t> src) { return convert<epee::wipeable_string>(src); }
+
+  bool to_hex::buffer(span<char> out, const span<const std::uint8_t> src) noexcept
+  {
+    if (out.size() % 2 != 0 || out.size() / 2 != src.size())
+      return false;
+    to_hex::buffer_unchecked(out.data(), src);
+    return true;
+  }
 
   void to_hex::buffer(std::ostream& out, const span<const std::uint8_t> src)
   {

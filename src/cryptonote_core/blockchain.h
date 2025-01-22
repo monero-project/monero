@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -29,7 +29,8 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/function/function_fwd.hpp>
 #if BOOST_VERSION >= 107400
 #include <boost/serialization/library_version_type.hpp>
@@ -57,6 +58,7 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_tx_utils.h"
+#include "tx_verification_utils.h"
 #include "cryptonote_basic/verification_context.h"
 #include "crypto/hash.h"
 #include "checkpoints/checkpoints.h"
@@ -90,6 +92,9 @@ namespace cryptonote
    */
   typedef std::function<const epee::span<const unsigned char>(cryptonote::network_type network)> GetCheckpointsCallback;
 
+  typedef boost::function<void(uint64_t /* height */, epee::span<const block> /* blocks */)> BlockNotifyCallback;
+  typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -107,13 +112,6 @@ namespace cryptonote
       difficulty_type cumulative_difficulty; //!< the accumulated difficulty after that block
       uint64_t already_generated_coins; //!< the total coins minted after that block
     };
-
-    /**
-     * @brief Blockchain constructor
-     *
-     * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
-     */
-    Blockchain(tx_memory_pool& tx_pool);
 
     /**
      * @brief Blockchain destructor
@@ -154,6 +152,13 @@ namespace cryptonote
      * @return true on success, false if any uninitialization steps fail
      */
     bool deinit();
+
+    /**
+     * @brief get a set of blockchain checkpoint hashes
+     *
+     * @return set of blockchain checkpoint hashes
+     */
+    const checkpoints& get_checkpoints() const { return m_checkpoints; }
 
     /**
      * @brief assign a set of blockchain checkpoint hashes
@@ -367,8 +372,24 @@ namespace cryptonote
      *
      * @return true if block template filled in successfully, else false
      */
-    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
-    bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+    bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+
+    /**
+     * @brief gets data required to create a block template and start mining on it
+     *
+     * @param major_version current hardfork version
+     * @param height current blockchain height
+     * @param prev_id hash of the top block
+     * @param seed_hash seed hash used for RandomX initialization
+     * @param difficulty current mining difficulty
+     * @param median_weight current median block weight
+     * @param already_generated_coins current emission
+     * @param tx_backlog transactions in mempool ready to be mined
+     *
+     * @return true if block template filled in successfully, else false
+     */
+    bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
     /**
      * @brief checks if a block is known about with a given hash
@@ -465,6 +486,7 @@ namespace cryptonote
      * @param qblock_ids the foreign chain's "short history" (see get_short_chain_history)
      * @param blocks return-by-reference the blocks and their transactions
      * @param total_height return-by-reference our current blockchain height
+     * @param top_hash return-by-reference top block hash
      * @param start_height return-by-reference the height of the first block returned
      * @param pruned whether to return full or pruned tx blobs
      * @param max_block_count the max number of blocks to get
@@ -472,7 +494,7 @@ namespace cryptonote
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
@@ -571,6 +593,15 @@ namespace cryptonote
     bool store_blockchain();
 
     /**
+     * @brief expands v2 transaction data from blockchain
+     *
+     * RingCT transactions do not transmit some of their data if it
+     * can be reconstituted by the receiver. This function expands
+     * that implicit data.
+     */
+    static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys);
+
+    /**
      * @brief validates a transaction's inputs
      *
      * validates a transaction's inputs as correctly used and not previously
@@ -609,26 +640,38 @@ namespace cryptonote
      *
      * @param block_reward the current block reward
      * @param median_block_weight the median block weight in the past window
-     * @param version hard fork version for rules and constants to use
      *
      * @return the fee
      */
-    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight, uint8_t version);
+    static uint64_t get_dynamic_base_fee(uint64_t block_reward, size_t median_block_weight);
 
     /**
-     * @brief get dynamic per kB or byte fee estimate for the next few blocks
+     * @brief get four levels of dynamic per byte fee estimate for the next few blocks
      *
      * The dynamic fee is based on the block weight in a past window, and
-     * the current block reward. It is expressed by kB before v8, and
-     * per byte from v8.
+     * the current block reward. It is expressed per byte, and is based on
+     * https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
+     *
+     * @param Mnw min(Msw, 50*Mlw)
+     * @param Mlw The median over the last 99990 and future 10 blocks of max(min(Mbw, 2*Ml), Zm, Ml/2)
+     * @param[out] fees fee estimate levels [Fl, Fn, Fm, Fh]
+     */
+    static void get_dynamic_base_fee_estimate_2021_scaling(uint64_t base_reward, uint64_t Mnw,
+      uint64_t Mlw, std::vector<uint64_t> &fees);
+
+    /**
+     * @brief get four levels of dynamic per byte fee estimate for the next few blocks
+     *
+     * The dynamic fee is based on the block weight in a past window, and
+     * the current block reward. It is expressed per byte, and is based on
+     * https://github.com/ArticMine/Monero-Documents/blob/master/MoneroScaling2021-02.pdf
      * This function calculates an estimate for a dynamic fee which will be
      * valid for the next grace_blocks
      *
      * @param grace_blocks number of blocks we want the fee to be valid for
-     *
-     * @return the fee estimate
+     * @param[out] fees fee estimate levels [Fl, Fn, Fm, Fh]
      */
-    uint64_t get_dynamic_base_fee_estimate(uint64_t grace_blocks) const;
+    void get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees) const;
 
     /**
      * @brief validate a transaction's fee
@@ -721,7 +764,7 @@ namespace cryptonote
     template<class t_ids_container, class t_tx_container, class t_missed_container>
     bool get_split_transactions_blobs(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
     template<class t_ids_container, class t_tx_container, class t_missed_container>
-    bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs) const;
+    bool get_transactions(const t_ids_container& txs_ids, t_tx_container& txs, t_missed_container& missed_txs, bool pruned = false) const;
 
     //debug functions
 
@@ -775,7 +818,14 @@ namespace cryptonote
      *
      * @param notify the notify object to call at every new block
      */
-    void add_block_notify(boost::function<void(std::uint64_t, epee::span<const block>)> &&notify);
+    void add_block_notify(BlockNotifyCallback&& notify);
+
+    /**
+     * @brief sets a miner notify object to call for every new block
+     *
+     * @param notify the notify object to call at every new block
+     */
+    void add_miner_notify(MinerNotifyCallback&& notify);
 
     /**
      * @brief sets a reorg notify object to call for every reorg
@@ -849,6 +899,13 @@ namespace cryptonote
      * @return the height
      */
     uint64_t get_earliest_ideal_height_for_version(uint8_t version) const { return m_hardfork->get_earliest_ideal_height_for_version(version); }
+
+    /**
+     * @brief returns info for all known hard forks
+     *
+     * @return the hardforks
+     */
+    const std::vector<hardfork_t>& get_hardforks() const { return m_hardfork->get_hardforks(); }
 
     /**
      * @brief get information about hardfork voting for a version
@@ -1119,9 +1176,9 @@ namespace cryptonote
     crypto::hash m_difficulty_for_next_block_top_hash;
     difficulty_type m_difficulty_for_next_block;
 
-    boost::asio::io_service m_async_service;
+    boost::asio::io_context m_async_service;
     boost::thread_group m_async_pool;
-    std::unique_ptr<boost::asio::io_service::work> m_async_work_idle;
+    std::unique_ptr<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>> m_async_work_idle;
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
@@ -1146,6 +1203,7 @@ namespace cryptonote
     uint64_t m_btc_height;
     uint64_t m_btc_pool_cookie;
     uint64_t m_btc_expected_reward;
+    uint64_t m_btc_cumulative_weight;
     crypto::hash m_btc_seed_hash;
     uint64_t m_btc_seed_height;
     bool m_btc_valid;
@@ -1157,13 +1215,24 @@ namespace cryptonote
        the callable object has a single `std::shared_ptr` or `std::weap_ptr`
        internally. Whereas, the libstdc++ `std::function` will allocate. */
 
-    std::vector<boost::function<void(std::uint64_t, epee::span<const block>)>> m_block_notifiers;
+    std::vector<BlockNotifyCallback> m_block_notifiers;
+    std::vector<MinerNotifyCallback> m_miner_notifiers;
     std::shared_ptr<tools::Notify> m_reorg_notify;
 
     // for prepare_handle_incoming_blocks
     uint64_t m_prepare_height;
     uint64_t m_prepare_nblocks;
     std::vector<block> *m_prepare_blocks;
+
+    // cache for verifying transaction RCT non semantics
+    mutable rct_ver_cache_t m_rct_ver_cache;
+
+    /**
+     * @brief Blockchain constructor
+     *
+     * @param tx_pool a reference to the transaction pool to be kept by the Blockchain
+     */
+    Blockchain(tx_memory_pool& tx_pool);
 
     /**
      * @brief collects the keys for all outputs being "spent" as an input
@@ -1518,15 +1587,6 @@ namespace cryptonote
     void load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints);
 
     /**
-     * @brief expands v2 transaction data from blockchain
-     *
-     * RingCT transactions do not transmit some of their data if it
-     * can be reconstituted by the receiver. This function expands
-     * that implicit data.
-     */
-    bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys) const;
-
-    /**
      * @brief invalidates any cached block template
      */
     void invalidate_block_template_cache();
@@ -1536,6 +1596,18 @@ namespace cryptonote
      *
      * At some point, may be used to push an update to miners
      */
-    void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie);
+    void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie);
+
+    /**
+     * @brief sends new block notifications to ZMQ `miner_data` subscribers
+     *
+     * @param height current blockchain height
+     * @param seed_hash seed hash to use for mining
+     * @param prev_id hash of new blockchain tip
+     * @param already_generated_coins total coins mined by the network so far
+     */
+    void send_miner_notifications(uint64_t height, const crypto::hash &seed_hash, const crypto::hash &prev_id, uint64_t already_generated_coins);
+
+    friend struct BlockchainAndPool;
   };
 }  // namespace cryptonote

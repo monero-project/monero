@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -256,6 +256,24 @@ int main(int argc, char *argv[]) {
       getvar(input, pubs_count * sizeof(signature), sigs.data());
       get(input, expected);
       actual = check_ring_signature(prefix_hash, image, pubs.data(), pubs_count, sigs.data());
+      if (expected != actual) {
+        goto error;
+      }
+    } else if (cmd == "check_ge_p3_identity") {
+      public_key point;
+      bool expected_bad, expected_good, result_badfunc, result_goodfunc;
+      get(input, point, expected_bad, expected_good);
+      result_badfunc = check_ge_p3_identity_failure(point);
+      result_goodfunc = check_ge_p3_identity_success(point);
+      if (expected_bad != result_badfunc || expected_good != result_goodfunc) {
+        goto error;
+      }
+    } else if (cmd == "derive_view_tag") {
+      key_derivation derivation;
+      size_t output_index;
+      view_tag expected, actual;
+      get(input, derivation, output_index, expected);
+      derive_view_tag(derivation, output_index, actual);
       if (expected != actual) {
         goto error;
       }

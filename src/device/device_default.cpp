@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -263,6 +263,11 @@ namespace hw {
             return true;
         }
 
+        bool device_default::derive_view_tag(const crypto::key_derivation &derivation, const std::size_t output_index, crypto::view_tag &view_tag) {
+            crypto::derive_view_tag(derivation, output_index, view_tag);
+            return true;
+        }
+
         bool device_default::conceal_derivation(crypto::key_derivation &derivation, const crypto::public_key &tx_pub_key, const std::vector<crypto::public_key> &additional_tx_pub_keys, const crypto::key_derivation &main_derivation, const std::vector<crypto::key_derivation> &additional_derivations){
             return true;
         }
@@ -291,7 +296,8 @@ namespace hw {
                                                             const cryptonote::tx_destination_entry &dst_entr, const boost::optional<cryptonote::account_public_address> &change_addr, const size_t output_index,
                                                             const bool &need_additional_txkeys, const std::vector<crypto::secret_key> &additional_tx_keys,
                                                             std::vector<crypto::public_key> &additional_tx_public_keys,
-                                                            std::vector<rct::key> &amount_keys,  crypto::public_key &out_eph_public_key) {
+                                                            std::vector<rct::key> &amount_keys,  crypto::public_key &out_eph_public_key,
+                                                            const bool use_view_tags, crypto::view_tag &view_tag) {
 
             crypto::key_derivation derivation;
 
@@ -311,13 +317,15 @@ namespace hw {
             {
             // sending change to yourself; derivation = a*R
                 r = generate_key_derivation(txkey_pub, sender_account_keys.m_view_secret_key, derivation);
-                CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << txkey_pub << ", " << sender_account_keys.m_view_secret_key << ")");
+                CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << txkey_pub << ", <viewkey>)");
             }
             else
             {
             // sending to the recipient; derivation = r*A (or s*C in the subaddress scheme)
-                r = generate_key_derivation(dst_entr.addr.m_view_public_key, dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : tx_key, derivation);
-                CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation(" << dst_entr.addr.m_view_public_key << ", " << (dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : tx_key) << ")");
+                const crypto::secret_key &tx_privkey{dst_entr.is_subaddress && need_additional_txkeys ? additional_txkey.sec : tx_key};
+                r = generate_key_derivation(dst_entr.addr.m_view_public_key, tx_privkey, derivation);
+                CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to generate_key_derivation("
+                    << dst_entr.addr.m_view_public_key << ", " << crypto::secret_key_explicit_print_ref{tx_privkey} << ")");
             }
 
             if (need_additional_txkeys)
@@ -331,6 +339,12 @@ namespace hw {
                 derivation_to_scalar(derivation, output_index, scalar1);
                 amount_keys.push_back(rct::sk2rct(scalar1));
             }
+
+            if (use_view_tags)
+            {
+                derive_view_tag(derivation, output_index, view_tag);
+            }
+
             r = derive_public_key(derivation, output_index, dst_entr.addr.m_spend_public_key, out_eph_public_key);
             CHECK_AND_ASSERT_MES(r, false, "at creation outs: failed to derive_public_key(" << derivation << ", " << output_index << ", "<< dst_entr.addr.m_spend_public_key << ")");
 

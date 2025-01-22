@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -36,6 +36,14 @@ if(APPLE)
   endif()
 endif()
 
+monero_add_library(cryptonote_format_utils_basic
+  cryptonote_format_utils_basic.cpp
+)
+target_link_libraries(cryptonote_format_utils_basic
+  PUBLIC
+  cncrypto
+)
+
 set(cryptonote_basic_sources
   account.cpp
   connection_context.cpp
@@ -48,20 +56,7 @@ set(cryptonote_basic_sources
 
 set(cryptonote_basic_headers)
 
-set(cryptonote_basic_private_headers
-  account.h
-  account_boost_serialization.h
-  connection_context.h
-  cryptonote_basic.h
-  cryptonote_basic_impl.h
-  cryptonote_boost_serialization.h
-  cryptonote_format_utils.h
-  difficulty.h
-  hardfork.h
-  merge_mining.h
-  miner.h
-  tx_extra.h
-  verification_context.h)
+monero_find_all_headers(cryptonote_basic_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(cryptonote_basic
   ${cryptonote_basic_private_headers})
@@ -74,6 +69,7 @@ target_link_libraries(cryptonote_basic
     common
     cncrypto
     checkpoints
+    cryptonote_format_utils_basic
     device
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}

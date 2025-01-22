@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -107,9 +107,8 @@ static uint32_t lcg()
 }
 
 #define PREFIX_WINDOW(hf_version,window) \
-  std::unique_ptr<cryptonote::Blockchain> bc; \
-  cryptonote::tx_memory_pool txpool(*bc); \
-  bc.reset(new cryptonote::Blockchain(txpool)); \
+  cryptonote::BlockchainAndPool bap; \
+  cryptonote::Blockchain *bc = &bap.blockchain; \
   struct get_test_options { \
     const std::pair<uint8_t, uint64_t> hard_forks[3]; \
     const cryptonote::test_options test_options = { \
@@ -118,8 +117,7 @@ static uint32_t lcg()
     }; \
     get_test_options(): hard_forks{std::make_pair(1, (uint64_t)0), std::make_pair((uint8_t)hf_version, (uint64_t)1), std::make_pair((uint8_t)0, (uint64_t)0)} {} \
   } opts; \
-  cryptonote::Blockchain *blockchain = bc.get(); \
-  bool r = blockchain->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL); \
+  bool r = bc->init(new TestDB(), cryptonote::FAKECHAIN, true, &opts.test_options, 0, NULL); \
   ASSERT_TRUE(r)
 
 #define PREFIX(hf_version) PREFIX_WINDOW(hf_version, TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW)
@@ -401,4 +399,39 @@ TEST(long_term_block_weight, long_growth_spike_and_drop)
   }
   ASSERT_GT(long_term_effective_median_block_weight, 300000 * 1.07);
   ASSERT_LT(long_term_effective_median_block_weight, 300000 * 1.09);
+}
+
+TEST(long_term_block_weight, cache_matches_true_value)
+{
+  PREFIX(16);
+
+  // Add big blocks to increase the block weight limit 
+  for (uint64_t h = 0; h <= 2000; ++h)
+  {
+    size_t w = bc->get_current_cumulative_block_weight_limit();
+    uint64_t ltw = bc->get_next_long_term_block_weight(w);
+    bc->get_db().add_block(std::make_pair(cryptonote::block(), ""), w, ltw, h, h, {});
+    bc->update_next_cumulative_weight_limit();
+  }
+
+  ASSERT_GT(bc->get_current_cumulative_block_weight_limit() * 10/17 , 300000);
+
+  // Add small blocks to the top of the chain
+  for (uint64_t h = 2000; h <= 5001; ++h)
+  {
+    size_t w = (bc->get_current_cumulative_block_weight_median() * 10/17) - 1000;
+    uint64_t ltw = bc->get_next_long_term_block_weight(w);
+    bc->get_db().add_block(std::make_pair(cryptonote::block(), ""), w, ltw, h, h, {});
+    bc->update_next_cumulative_weight_limit();
+  }
+ 
+  // get the weight limit
+  uint64_t weight_limit = bc->get_current_cumulative_block_weight_limit();
+  // refresh the cache
+  bc->m_long_term_block_weights_cache_rolling_median.clear();
+  bc->get_long_term_block_weight_median(bc->get_db().height() - TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW, TEST_LONG_TERM_BLOCK_WEIGHT_WINDOW);
+  bc->update_next_cumulative_weight_limit();
+
+  // make sure the weight limit is the same
+  ASSERT_EQ(weight_limit, bc->get_current_cumulative_block_weight_limit());
 }

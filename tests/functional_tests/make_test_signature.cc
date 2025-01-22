@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,6 +28,7 @@
 
 #include <stdio.h>
 #include "misc_language.h"
+#include "misc_log_ex.h"
 #include "string_tools.h"
 #include "rpc/rpc_payment_signature.h"
 
@@ -47,7 +48,7 @@ int main(int argc, const char **argv)
     crypto::public_key pkey;
     crypto::random32_unbiased((unsigned char*)skey.data);
     crypto::secret_key_to_public_key(skey, pkey);
-    printf("%s %s\n", epee::string_tools::pod_to_hex(skey).c_str(), epee::string_tools::pod_to_hex(pkey).c_str());
+    printf("%s %s\n", epee::to_hex::string({to_bytes(skey), 32}).c_str(), epee::string_tools::pod_to_hex(pkey).c_str());
     return 0;
   }
 

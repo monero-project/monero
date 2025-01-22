@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,95 +31,86 @@
 #include "ringct/rctSigs.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "multisig/multisig.h"
+#include "multisig/multisig_tx_builder_ringct.h"
 #include "common/apply_permutation.h"
 #include "chaingen.h"
 #include "multisig.h"
+
+#include "common/apply_permutation.h"
+#include "crypto/crypto.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 #include "device/device.hpp"
+#include "multisig/multisig.h"
+#include "multisig/multisig_account.h"
+#include "multisig/multisig_kex_msg.h"
+#include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
+
 using namespace epee;
 using namespace crypto;
 using namespace cryptonote;
+using namespace multisig;
 
 //#define NO_MULTISIG
 
-void make_multisig_accounts(std::vector<cryptonote::account_base>& account, uint32_t threshold)
+static bool make_multisig_accounts(std::vector<cryptonote::account_base> &accounts, const uint32_t threshold)
 {
-  std::vector<crypto::secret_key> all_view_keys;
-  std::vector<std::vector<crypto::public_key>> derivations(account.size());
-  //storage for all set of multisig derivations and spend public key (in first round)
-  std::unordered_set<crypto::public_key> exchanging_keys;
+  CHECK_AND_ASSERT_MES(accounts.size() > 0, false, "Invalid multisig scheme");
 
-  for (size_t msidx = 0; msidx < account.size(); ++msidx)
+  std::vector<multisig_account> multisig_accounts;
+  std::vector<crypto::public_key> signers;
+  std::vector<multisig_kex_msg> round_msgs;
+  multisig_accounts.reserve(accounts.size());
+  signers.reserve(accounts.size());
+  round_msgs.reserve(accounts.size());
+
+  // create multisig accounts
+  for (std::size_t account_index{0}; account_index < accounts.size(); ++account_index)
   {
-    crypto::secret_key vkh = cryptonote::get_multisig_blinded_secret_key(account[msidx].get_keys().m_view_secret_key);
-    all_view_keys.push_back(vkh);
+    // create account and collect signer
+    multisig_accounts.emplace_back(
+        multisig_account{
+          get_multisig_blinded_secret_key(accounts[account_index].get_keys().m_spend_secret_key),
+          get_multisig_blinded_secret_key(accounts[account_index].get_keys().m_view_secret_key)
+        }
+      );
 
-    crypto::secret_key skh = cryptonote::get_multisig_blinded_secret_key(account[msidx].get_keys().m_spend_secret_key);
-    crypto::public_key pskh;
-    crypto::secret_key_to_public_key(skh, pskh);
+    signers.emplace_back(multisig_accounts.back().get_base_pubkey());
 
-    derivations[msidx].push_back(pskh);
-    exchanging_keys.insert(pskh);
+    // collect account's first kex msg
+    round_msgs.emplace_back(multisig_accounts.back().get_next_kex_round_msg());
   }
 
-  uint32_t roundsTotal = 1;
-  if (threshold < account.size())
-    roundsTotal = account.size() - threshold;
-
-  //secret multisig keys of every account
-  std::vector<std::vector<crypto::secret_key>> multisig_keys(account.size());
-  std::vector<crypto::secret_key> spend_skey(account.size());
-  std::vector<crypto::public_key> spend_pkey(account.size());
-  for (uint32_t round = 0; round < roundsTotal; ++round)
+  // initialize accounts and collect kex messages for the next round
+  std::vector<multisig_kex_msg> temp_round_msgs(multisig_accounts.size());
+  for (std::size_t account_index{0}; account_index < accounts.size(); ++account_index)
   {
-    std::unordered_set<crypto::public_key> roundKeys;
-    for (size_t msidx = 0; msidx < account.size(); ++msidx)
+    multisig_accounts[account_index].initialize_kex(threshold, signers, round_msgs);
+    temp_round_msgs[account_index] = multisig_accounts[account_index].get_next_kex_round_msg();
+  }
+
+  // perform key exchange rounds
+  while (!multisig_accounts[0].multisig_is_ready())
+  {
+    round_msgs = temp_round_msgs;
+
+    for (std::size_t account_index{0}; account_index < multisig_accounts.size(); ++account_index)
     {
-      // subtracting one's keys from set of all unique keys is the same as key exchange
-      auto myKeys = exchanging_keys;
-      for (const auto& d: derivations[msidx])
-          myKeys.erase(d);
-
-      if (threshold == account.size())
-      {
-        cryptonote::generate_multisig_N_N(account[msidx].get_keys(), std::vector<crypto::public_key>(myKeys.begin(), myKeys.end()), multisig_keys[msidx], (rct::key&)spend_skey[msidx], (rct::key&)spend_pkey[msidx]);
-      }
-      else
-      {
-        derivations[msidx] = cryptonote::generate_multisig_derivations(account[msidx].get_keys(), std::vector<crypto::public_key>(myKeys.begin(), myKeys.end()));
-        roundKeys.insert(derivations[msidx].begin(), derivations[msidx].end());
-      }
+      multisig_accounts[account_index].kex_update(round_msgs);
+      temp_round_msgs[account_index] = multisig_accounts[account_index].get_next_kex_round_msg();
     }
-
-    exchanging_keys = roundKeys;
-    roundKeys.clear();
   }
 
-  std::unordered_set<crypto::public_key> all_multisig_keys;
-  for (size_t msidx = 0; msidx < account.size(); ++msidx)
+  // update accounts post key exchange
+  for (std::size_t account_index{0}; account_index < accounts.size(); ++account_index)
   {
-    std::unordered_set<crypto::secret_key> view_keys(all_view_keys.begin(), all_view_keys.end());
-    view_keys.erase(all_view_keys[msidx]);
-
-    crypto::secret_key view_skey = cryptonote::generate_multisig_view_secret_key(account[msidx].get_keys().m_view_secret_key, std::vector<secret_key>(view_keys.begin(), view_keys.end()));
-    if (threshold < account.size())
-    {
-      multisig_keys[msidx] = cryptonote::calculate_multisig_keys(derivations[msidx]);
-      spend_skey[msidx] = cryptonote::calculate_multisig_signer_key(multisig_keys[msidx]);
-    }
-    account[msidx].make_multisig(view_skey, spend_skey[msidx], spend_pkey[msidx], multisig_keys[msidx]);
-    for (const auto &k: multisig_keys[msidx]) {
-      all_multisig_keys.insert(rct::rct2pk(rct::scalarmultBase(rct::sk2rct(k))));
-    }
+    accounts[account_index].make_multisig(multisig_accounts[account_index].get_common_privkey(),
+      multisig_accounts[account_index].get_base_privkey(),
+      multisig_accounts[account_index].get_multisig_pubkey(),
+      multisig_accounts[account_index].get_multisig_privkeys());
   }
 
-  if (threshold < account.size())
-  {
-    std::vector<crypto::public_key> public_keys(std::vector<crypto::public_key>(all_multisig_keys.begin(), all_multisig_keys.end()));
-    crypto::public_key spend_pkey = cryptonote::generate_multisig_M_N_spend_public_key(public_keys);
-
-    for (size_t msidx = 0; msidx < account.size(); ++msidx)
-      account[msidx].finalize_multisig(spend_pkey);
-  }
+  return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -127,7 +118,7 @@ void make_multisig_accounts(std::vector<cryptonote::account_base>& account, uint
 
 bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
     size_t inputs, size_t mixin, uint64_t amount_paid, bool valid,
-    size_t threshold, size_t total, size_t creator, std::vector<size_t> signers,
+    size_t threshold, size_t total, size_t creator, std::vector<size_t> other_signers,
     const std::function<void(std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations)> &pre_tx,
     const std::function<void(transaction &tx)> &post_tx) const
 {
@@ -136,30 +127,18 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 
   CHECK_AND_ASSERT_MES(total >= 2, false, "Bad scheme");
   CHECK_AND_ASSERT_MES(threshold <= total, false, "Bad scheme");
-#ifdef NO_MULTISIG
-  CHECK_AND_ASSERT_MES(total <= 5, false, "Unsupported scheme");
-#endif
   CHECK_AND_ASSERT_MES(inputs >= 1 && inputs <= 8, false, "Inputs should between 1 and 8");
 
   // given as 1 based for clarity
   --creator;
-  for (size_t &signer: signers)
+  for (size_t &signer: other_signers)
     --signer;
 
   CHECK_AND_ASSERT_MES(creator < total, false, "invalid creator");
-  for (size_t signer: signers)
+  for (size_t signer: other_signers)
     CHECK_AND_ASSERT_MES(signer < total, false, "invalid signer");
 
-#ifdef NO_MULTISIG
-  GENERATE_ACCOUNT(acc0);
-  GENERATE_ACCOUNT(acc1);
-  GENERATE_ACCOUNT(acc2);
-  GENERATE_ACCOUNT(acc3);
-  GENERATE_ACCOUNT(acc4);
-  account_base miner_account[5] = {acc0, acc1, acc2, acc3, acc4};
-#else
   GENERATE_MULTISIG_ACCOUNT(miner_account, threshold, total);
-#endif
 
   MAKE_GENESIS_BLOCK(events, blk_0, miner_account[creator], ts_start);
 
@@ -175,7 +154,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     account_base &account = n < inputs ? miner_account[creator] : miner_accounts[n];
     CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[n], *prev_block, account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-        10, 10, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+        HF_VERSION_BULLETPROOF_PLUS, HF_VERSION_BULLETPROOF_PLUS, prev_block->timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
         false, "Failed to generate block");
     events.push_back(blocks[n]);
@@ -191,7 +170,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       cryptonote::block blk;
       CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk, blk_last, miner_accounts[0],
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version | test_generator::bf_max_outs,
-          10, 10, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+          HF_VERSION_BULLETPROOF_PLUS, HF_VERSION_BULLETPROOF_PLUS, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 1, 4),
           false, "Failed to generate block");
       events.push_back(blk);
@@ -207,14 +186,13 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   {
     tx_pub_key[n] = get_tx_pub_key_from_extra(blocks[n].miner_tx);
     MDEBUG("tx_pub_key: " << tx_pub_key);
-    output_pub_key[n] = boost::get<txout_to_key>(blocks[n].miner_tx.vout[0].target).key;
+    cryptonote::get_output_public_key(blocks[n].miner_tx.vout[0], output_pub_key[n]);
     MDEBUG("output_pub_key: " << output_pub_key);
   }
 
   std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
   subaddresses[miner_account[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
 
-#ifndef NO_MULTISIG
   // create k/L/R/ki for that output we're going to spend
   std::vector<std::vector<std::vector<crypto::secret_key>>> account_k(total);
   std::vector<std::vector<std::vector<crypto::public_key>>> account_L(total);
@@ -227,6 +205,7 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         false, "Mismatched spend public keys");
 
     size_t nlr = threshold < total ? threshold - 1 : 1;
+    nlr *= multisig::signing::kAlphaComponents;
     account_k[msidx].resize(inputs);
     account_L[msidx].resize(inputs);
     account_R[msidx].resize(inputs);
@@ -238,23 +217,23 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       for (size_t n = 0; n < nlr; ++n)
       {
         account_k[msidx][tdidx].push_back(rct::rct2sk(rct::skGen()));
-        cryptonote::generate_multisig_LR(output_pub_key[tdidx], account_k[msidx][tdidx][n], account_L[msidx][tdidx][n], account_R[msidx][tdidx][n]);
+        multisig::generate_multisig_LR(output_pub_key[tdidx], account_k[msidx][tdidx][n], account_L[msidx][tdidx][n], account_R[msidx][tdidx][n]);
       }
-      size_t numki = miner_account[msidx].get_multisig_keys().size();
-      account_ki[msidx][tdidx].resize(numki);
-      for (size_t kiidx = 0; kiidx < numki; ++kiidx)
+      size_t num_account_partial_ki = miner_account[msidx].get_multisig_keys().size();
+      account_ki[msidx][tdidx].resize(num_account_partial_ki);
+      for (size_t kiidx = 0; kiidx < num_account_partial_ki; ++kiidx)
       {
-        r = cryptonote::generate_multisig_key_image(miner_account[msidx].get_keys(), kiidx, output_pub_key[tdidx], account_ki[msidx][tdidx][kiidx]);
+        r = multisig::generate_multisig_key_image(miner_account[msidx].get_keys(), kiidx, output_pub_key[tdidx], account_ki[msidx][tdidx][kiidx]);
         CHECK_AND_ASSERT_MES(r, false, "Failed to generate multisig export key image");
       }
       MDEBUG("Party " << msidx << ":");
-      MDEBUG("spend: sec " << miner_account[msidx].get_keys().m_spend_secret_key << ", pub " << miner_account[msidx].get_keys().m_account_address.m_spend_public_key);
-      MDEBUG("view: sec " << miner_account[msidx].get_keys().m_view_secret_key << ", pub " << miner_account[msidx].get_keys().m_account_address.m_view_public_key);
+      MDEBUG("spend: sec " << crypto::secret_key_explicit_print_ref{miner_account[msidx].get_keys().m_spend_secret_key} << ", pub " << miner_account[msidx].get_keys().m_account_address.m_spend_public_key);
+      MDEBUG("view: sec " << crypto::secret_key_explicit_print_ref{miner_account[msidx].get_keys().m_view_secret_key} << ", pub " << miner_account[msidx].get_keys().m_account_address.m_view_public_key);
       for (const auto &k: miner_account[msidx].get_multisig_keys())
-        MDEBUG("msk: " << k);
+        MDEBUG("msk: " << crypto::secret_key_explicit_print_ref{k});
       for (size_t n = 0; n < account_k[msidx][tdidx].size(); ++n)
       {
-        MDEBUG("k: " << account_k[msidx][tdidx][n]);
+        MDEBUG("k: " << crypto::secret_key_explicit_print_ref{account_k[msidx][tdidx][n]});
         MDEBUG("L: " << account_L[msidx][tdidx][n]);
         MDEBUG("R: " << account_R[msidx][tdidx][n]);
       }
@@ -262,7 +241,6 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
         MDEBUG("ki: " << ki);
     }
   }
-#endif
 
   // create kLRki
   std::vector<rct::multisig_kLRki> kLRkis;
@@ -271,54 +249,23 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   {
     kLRkis.push_back(rct::multisig_kLRki());
     rct::multisig_kLRki &kLRki = kLRkis.back();
-#ifdef NO_MULTISIG
-    kLRki = {rct::zero(), rct::zero(), rct::zero(), rct::zero()};
-#else
-    kLRki.k = rct::sk2rct(account_k[creator][tdidx][0]);
-    kLRki.L = rct::pk2rct(account_L[creator][tdidx][0]);
-    kLRki.R = rct::pk2rct(account_R[creator][tdidx][0]);
-    MDEBUG("Starting with k " << kLRki.k);
-    MDEBUG("Starting with L " << kLRki.L);
-    MDEBUG("Starting with R " << kLRki.R);
-    for (size_t msidx = 0; msidx < total; ++msidx)
-    {
-      if (msidx == creator)
-        continue;
-      if (std::find(signers.begin(), signers.end(), msidx) == signers.end())
-        continue;
-      for (size_t lr = 0; lr < account_L[msidx][tdidx].size(); ++lr)
-      {
-        if (used_L.find(account_L[msidx][tdidx][lr]) == used_L.end())
-        {
-          used_L.insert(account_L[msidx][tdidx][lr]);
-          MDEBUG("Adding L " << account_L[msidx][tdidx][lr] << " (for k " << account_k[msidx][tdidx][lr] << ")");
-          MDEBUG("Adding R " << account_R[msidx][tdidx][lr]);
-          rct::addKeys((rct::key&)kLRki.L, kLRki.L, rct::pk2rct(account_L[msidx][tdidx][lr]));
-          rct::addKeys((rct::key&)kLRki.R, kLRki.R, rct::pk2rct(account_R[msidx][tdidx][lr]));
-          break;
-        }
-      }
-    }
     std::vector<crypto::key_image> pkis;
     for (size_t msidx = 0; msidx < total; ++msidx)
       for (size_t n = 0; n < account_ki[msidx][tdidx].size(); ++n)
         pkis.push_back(account_ki[msidx][tdidx][n]);
-    r = cryptonote::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)kLRki.ki);
+    r = multisig::generate_multisig_composite_key_image(miner_account[0].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)kLRki.ki);
     CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
     MDEBUG("composite ki: " << kLRki.ki);
-    MDEBUG("L: " << kLRki.L);
-    MDEBUG("R: " << kLRki.R);
     for (size_t n = 1; n < total; ++n)
     {
       rct::key ki;
-      r = cryptonote::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)ki);
+      r = multisig::generate_multisig_composite_key_image(miner_account[n].get_keys(), subaddresses, output_pub_key[tdidx], tx_pub_key[tdidx], additional_tx_keys, 0, pkis, (crypto::key_image&)ki);
       CHECK_AND_ASSERT_MES(r, false, "Failed to generate composite key image");
       CHECK_AND_ASSERT_MES(kLRki.ki == ki, false, "Composite key images do not match");
     }
   }
-#endif
 
-  // create a tx: we have 8 outputs, all from coinbase, so "fake" rct - use 2
+  // prepare a tx: we have 8 outputs, all from coinbase, so "fake" rct - use 2
   std::vector<tx_source_entry> sources;
   for (size_t n = 0; n < inputs; ++n)
   {
@@ -336,7 +283,9 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     for (size_t m = 0; m <= mixin; ++m)
     {
       rct::ctkey ctkey;
-      ctkey.dest = rct::pk2rct(boost::get<txout_to_key>(blocks[m].miner_tx.vout[0].target).key);
+      crypto::public_key output_public_key;
+      cryptonote::get_output_public_key(blocks[m].miner_tx.vout[0], output_public_key);
+      ctkey.dest = rct::pk2rct(output_public_key);
       MDEBUG("using " << (m == n ? "real" : "fake") << " input " << ctkey.dest);
       ctkey.mask = rct::commit(blocks[m].miner_tx.vout[0].amount, rct::identity()); // since those are coinbases, the masks are known
       src.outputs.push_back(std::make_pair(m, ctkey));
@@ -347,7 +296,9 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   tx_destination_entry td;
   td.addr = miner_account[creator].get_keys().m_account_address;
   td.amount = amount_paid;
-  std::vector<tx_destination_entry> destinations;
+  std::vector<tx_destination_entry> destinations;  //tx need two outputs since HF_VERSION_MIN_2_OUTPUTS
+  destinations.push_back(td);
+  td.amount = 0;
   destinations.push_back(td);
 
   if (pre_tx)
@@ -355,18 +306,12 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
 
   transaction tx;
   crypto::secret_key tx_key;
-#ifdef NO_MULTISIG
-  rct::multisig_out *msoutp = NULL;
-#else
-  rct::multisig_out msout;
-  rct::multisig_out *msoutp = &msout;
-#endif
   std::vector<crypto::secret_key> additional_tx_secret_keys;
+  crypto::secret_key multisig_tx_key_entropy;
   auto sources_copy = sources;
-  r = construct_tx_and_get_tx_key(miner_account[creator].get_keys(), subaddresses, sources, destinations, boost::none, std::vector<uint8_t>(), tx, 0, tx_key, additional_tx_secret_keys, true, { rct::RangeProofPaddedBulletproof, 2 }, msoutp);
-  CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
+  multisig::signing::tx_builder_ringct_t tx_builder;
+  CHECK_AND_ASSERT_MES(tx_builder.init(miner_account[creator].get_keys(), {}, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 4}, true, false, tx_key, additional_tx_secret_keys, multisig_tx_key_entropy, tx), false, "error: multisig::signing::tx_builder_ringct_t::init");
 
-#ifndef NO_MULTISIG
   // work out the permutation done on sources
   std::vector<size_t> ins_order;
   for (size_t n = 0; n < sources.size(); ++n)
@@ -380,15 +325,50 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
     }
   }
   CHECK_AND_ASSERT_MES(ins_order.size() == sources.size(), false, "Failed to work out sources permutation");
-#endif
 
-#ifndef NO_MULTISIG
+  struct {
+    rct::keyM total_alpha_G;
+    rct::keyM total_alpha_H;
+    rct::keyV c_0;
+    rct::keyV s;
+  } sig;
+  {
+    used_L.clear();
+    sig.total_alpha_G.resize(sources.size(), rct::keyV(multisig::signing::kAlphaComponents, rct::identity()));
+    sig.total_alpha_H.resize(sources.size(), rct::keyV(multisig::signing::kAlphaComponents, rct::identity()));
+    sig.c_0.resize(sources.size());
+    sig.s.resize(sources.size());
+    for (std::size_t i = 0; i < sources.size(); ++i) {
+      rct::keyV alpha(multisig::signing::kAlphaComponents);
+      for (std::size_t m = 0; m < multisig::signing::kAlphaComponents; ++m) {
+        alpha[m] = rct::sk2rct(account_k[creator][ins_order[i]][m]);
+        sig.total_alpha_G[i][m] = rct::pk2rct(account_L[creator][ins_order[i]][m]);
+        sig.total_alpha_H[i][m] = rct::pk2rct(account_R[creator][ins_order[i]][m]);
+        for (size_t j = 0; j < total; ++j) {
+          if (j == creator)
+            continue;
+          if (std::find(other_signers.begin(), other_signers.end(), j) == other_signers.end())
+            continue;
+          for (std::size_t n = 0; n < account_L[j][ins_order[i]].size(); ++n) {
+            if (used_L.find(account_L[j][ins_order[i]][n]) == used_L.end()) {
+              used_L.insert(account_L[j][ins_order[i]][n]);
+              rct::addKeys(sig.total_alpha_G[i][m], sig.total_alpha_G[i][m], rct::pk2rct(account_L[j][ins_order[i]][n]));
+              rct::addKeys(sig.total_alpha_H[i][m], sig.total_alpha_H[i][m], rct::pk2rct(account_R[j][ins_order[i]][n]));
+              break;
+            }
+          }
+        }
+      }
+      CHECK_AND_ASSERT_MES(tx_builder.first_partial_sign(i, sig.total_alpha_G[i], sig.total_alpha_H[i], alpha, sig.c_0[i], sig.s[i]), false, "error: multisig::signing::tx_builder_ringct_t::first_partial_sign");
+    }
+  }
+
   // sign
   std::unordered_set<crypto::secret_key> used_keys;
   const std::vector<crypto::secret_key> &msk0 = miner_account[creator].get_multisig_keys();
   for (const auto &sk: msk0)
-    used_keys.insert(sk);
-  for (size_t signer: signers)
+    used_keys.insert(sk);  //these were used in 'tx_builder.init() -> tx_builder.first_partial_sign()'
+  for (size_t signer: other_signers)
   {
     rct::key skey = rct::zero();
     const std::vector<crypto::secret_key> &msk1 = miner_account[signer].get_multisig_keys();
@@ -402,38 +382,37 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       }
     }
     CHECK_AND_ASSERT_MES(!(skey == rct::zero()), false, "failed to find secret multisig key to sign transaction");
-    std::vector<unsigned int> indices;
-    for (const auto &src: sources_copy)
-      indices.push_back(src.real_output);
-    rct::keyV k;
-    for (size_t tdidx = 0; tdidx < inputs; ++tdidx)
-    {
-      k.push_back(rct::zero());
-      for (size_t n = 0; n < account_k[signer][tdidx].size(); ++n)
-      {
-        crypto::public_key L;
-        rct::scalarmultBase((rct::key&)L, rct::sk2rct(account_k[signer][tdidx][n]));
-        if (used_L.find(L) != used_L.end())
-        {
-          sc_add(k.back().bytes, k.back().bytes, rct::sk2rct(account_k[signer][tdidx][n]).bytes);
+    rct::keyM k(sources.size(), rct::keyV(multisig::signing::kAlphaComponents));
+    for (std::size_t i = 0; i < sources.size(); ++i) {
+      for (std::size_t j = 0; j < multisig::signing::kAlphaComponents; ++j) {
+        for (std::size_t n = 0; n < account_k[signer][i].size(); ++n) {
+          crypto::public_key L;
+          rct::scalarmultBase((rct::key&)L, rct::sk2rct(account_k[signer][i][n]));
+          if (used_L.find(L) != used_L.end()) {
+            k[i][j] = rct::sk2rct(account_k[signer][i][n]);
+            account_k[signer][i][n] = rct::rct2sk(rct::zero());  //demo: always clear nonces from long-term storage after use
+            break;
+          }
         }
+        CHECK_AND_ASSERT_MES(!(k[i][j] == rct::zero()), false, "failed to find k to sign transaction");
       }
-      CHECK_AND_ASSERT_MES(!(k.back() == rct::zero()), false, "failed to find k to sign transaction");
     }
-    tools::apply_permutation(ins_order, indices);
     tools::apply_permutation(ins_order, k);
+    multisig::signing::tx_builder_ringct_t signer_tx_builder;
+    CHECK_AND_ASSERT_MES(signer_tx_builder.init(miner_account[signer].get_keys(), {}, 0, {0}, sources, destinations, {}, {rct::RangeProofPaddedBulletproof, 4}, true, true, tx_key, additional_tx_secret_keys, multisig_tx_key_entropy, tx), false, "error: multisig::signing::tx_builder_ringct_t::init");
 
     MDEBUG("signing with k size " << k.size());
-    MDEBUG("signing with k " << k.back());
+    for (size_t n = 0; n < multisig::signing::kAlphaComponents; ++n)
+      MDEBUG("signing with k " << k.back()[n]);
     MDEBUG("signing with sk " << skey);
     for (const auto &sk: used_keys)
-      MDEBUG("  created with sk " << sk);
-    MDEBUG("signing with c size " << msout.c.size());
-    MDEBUG("signing with c " << msout.c.back());
-    r = rct::signMultisig(tx.rct_signatures, indices, k, msout, skey);
-    CHECK_AND_ASSERT_MES(r, false, "failed to sign transaction");
+      MDEBUG("  created with sk " << crypto::secret_key_explicit_print_ref{sk});
+    CHECK_AND_ASSERT_MES(signer_tx_builder.next_partial_sign(sig.total_alpha_G, sig.total_alpha_H, k, skey, sig.c_0, sig.s), false, "error: multisig::signing::tx_builder_ringct_t::next_partial_sign");
+
+    // in round-robin signing, the last signer finalizes the tx
+    if (signer == other_signers.back())
+      CHECK_AND_ASSERT_MES(signer_tx_builder.finalize_tx(sources, sig.c_0, sig.s, tx), false, "error: multisig::signing::tx_builder_ringct_t::finalize_tx");
   }
-#endif
 
   // verify this tx is really to the expected address
   const crypto::public_key tx_pub_key2 = get_tx_pub_key_from_extra(tx, 0);
@@ -442,10 +421,12 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
   CHECK_AND_ASSERT_MES(r, false, "Failed to generate derivation");
   uint64_t n_outs = 0, amount = 0;
   std::vector<crypto::key_derivation> additional_derivations;
+  crypto::public_key output_public_key;
   for (size_t n = 0; n < tx.vout.size(); ++n)
   {
-    CHECK_AND_ASSERT_MES(typeid(txout_to_key) == tx.vout[n].target.type(), false, "Unexpected tx out type");
-    if (is_out_to_acc_precomp(subaddresses, boost::get<txout_to_key>(tx.vout[n].target).key, derivation, additional_derivations, n, hw::get_device(("default"))))
+    CHECK_AND_ASSERT_MES(typeid(txout_to_tagged_key) == tx.vout[n].target.type(), false, "Unexpected tx out type");
+    cryptonote::get_output_public_key(tx.vout[n], output_public_key);
+    if (is_out_to_acc_precomp(subaddresses, output_public_key, derivation, additional_derivations, n, hw::get_device(("default"))))
     {
       ++n_outs;
       CHECK_AND_ASSERT_MES(tx.vout[n].amount == 0, false, "Destination amount is not zero");
@@ -453,14 +434,14 @@ bool gen_multisig_tx_validation_base::generate_with(std::vector<test_event_entry
       crypto::secret_key scalar1;
       crypto::derivation_to_scalar(derivation, n, scalar1);
       rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[n];
-      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG);
+      rct::ecdhDecode(ecdh_info, rct::sk2rct(scalar1), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
       rct::key C = tx.rct_signatures.outPk[n].mask;
       rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
       CHECK_AND_ASSERT_MES(rct::equalKeys(C, Ctmp), false, "Failed to decode amount");
       amount += rct::h2d(ecdh_info.amount);
     }
   }
-  CHECK_AND_ASSERT_MES(n_outs == 1, false, "Not exactly 1 output was received");
+  CHECK_AND_ASSERT_MES(n_outs == 2, false, "Not exactly 2 outputs were received");
   CHECK_AND_ASSERT_MES(amount == amount_paid, false, "Amount paid was not the expected amount");
 
   if (post_tx)

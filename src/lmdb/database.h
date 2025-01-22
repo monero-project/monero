@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -110,7 +111,7 @@ namespace lmdb
             \return The result of calling `f`.
         */
         template<typename F>
-        typename std::result_of<F(MDB_txn&)>::type try_write(F f, unsigned attempts = 3)
+        auto try_write(F f, unsigned attempts = 3) -> decltype(f(std::declval<MDB_txn&>()))
         {
             for (unsigned i = 0; i < attempts; ++i)
             {
@@ -122,10 +123,13 @@ namespace lmdb
                 const auto wrote = f(*(*txn));
                 if (wrote)
                 {
-                    MONERO_CHECK(commit(std::move(*txn)));
-                    return wrote;
+                    const auto committed = commit(std::move(*txn));
+                    if (committed)
+                      return wrote;
+                    if (committed != lmdb::error(MDB_MAP_FULL))
+                      return committed.error();
                 }
-                if (wrote != lmdb::error(MDB_MAP_FULL))
+                else if (wrote != lmdb::error(MDB_MAP_FULL))
                     return wrote;
 
                 txn->reset();

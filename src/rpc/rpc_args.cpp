@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -149,7 +149,7 @@ namespace cryptonote
     {
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ip, ec);
+      const auto parsed_ip = boost::asio::ip::make_address(config.bind_ip, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ip.name);
@@ -177,7 +177,7 @@ namespace cryptonote
 
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      const auto parsed_ip = boost::asio::ip::address::from_string(config.bind_ipv6_address, ec);
+      const auto parsed_ip = boost::asio::ip::make_address(config.bind_ipv6_address, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_bind_ipv6_address.name);
@@ -198,7 +198,7 @@ namespace cryptonote
     {
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      boost::asio::ip::address::from_string(config.restricted_bind_ip, ec);
+      boost::asio::ip::make_address(config.restricted_bind_ip, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_restricted_bind_ip.name);
@@ -215,7 +215,7 @@ namespace cryptonote
 
       // always parse IP here for error consistency
       boost::system::error_code ec{};
-      boost::asio::ip::address::from_string(config.restricted_bind_ipv6_address, ec);
+      boost::asio::ip::make_address(config.restricted_bind_ipv6_address, ec);
       if (ec)
       {
         LOG_ERROR(tr("Invalid IP address given for --") << arg.rpc_restricted_bind_ipv6_address.name);
@@ -247,12 +247,6 @@ namespace cryptonote
     auto access_control_origins_input = command_line::get_arg(vm, arg.rpc_access_control_origins);
     if (!access_control_origins_input.empty())
     {
-      if (!config.login)
-      {
-        LOG_ERROR(arg.rpc_access_control_origins.name  << tr(" requires RPC server password --") << arg.rpc_login.name << tr(" cannot be empty"));
-        return boost::none;
-      }
-
       std::vector<std::string> access_control_origins;
       boost::split(access_control_origins, access_control_origins_input, boost::is_any_of(","));
       std::for_each(access_control_origins.begin(), access_control_origins.end(), std::bind(&boost::trim<std::string>, std::placeholders::_1, std::locale::classic()));

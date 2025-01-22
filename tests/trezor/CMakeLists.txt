@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2018, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -62,7 +62,7 @@ target_link_libraries(trezor_tests
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
-    ${ZMQ_LIB}
+    PkgConfig::libzmq
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 

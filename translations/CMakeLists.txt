@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020, The Monero Project
+# Copyright (c) 2017-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,7 +26,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 2.8.7)
+cmake_minimum_required(VERSION 3.5)
 
 project(translations)
 
@@ -73,7 +73,7 @@ string(REPLACE ".ts" ".qm" qm_files "${ts_files}")
 
 add_custom_command(TARGET generate_translations_header
   POST_BUILD
-  COMMAND ./generate_translations_header ${qm_files}
+  COMMAND $<TARGET_FILE:generate_translations_header> ${qm_files}
   WORKING_DIRECTORY "${CMAKE_CURRENT_BIN_DIR}"
   COMMENT "Generating embedded translations header")
 

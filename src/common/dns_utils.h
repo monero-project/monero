@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -158,15 +158,6 @@ private:
    */
   // TODO: modify this to accommodate DNSSEC
   std::vector<std::string> get_record(const std::string& url, int record_type, boost::optional<std::string> (*reader)(const char *,size_t), bool& dnssec_available, bool& dnssec_valid);
-
-  /**
-   * @brief Checks a string to see if it looks like a URL
-   *
-   * @param addr the string to be checked
-   *
-   * @return true if it looks enough like a URL, false if not
-   */
-  bool check_address_syntax(const char *addr) const;
 
   DNSResolverData *m_data;
 }; // class DNSResolver

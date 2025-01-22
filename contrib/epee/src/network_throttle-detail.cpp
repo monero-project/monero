@@ -2,7 +2,7 @@
 /// @author rfree (current maintainer in monero.cc project)
 /// @brief implementaion for throttling of connection (count and rate-limit speed etc)
 
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -46,7 +46,6 @@
 #include "misc_log_ex.h" 
 #include <boost/chrono.hpp>
 #include "misc_language.h"
-#include "pragma_comp_defs.h"
 #include <sstream>
 #include <iomanip>
 #include <algorithm>

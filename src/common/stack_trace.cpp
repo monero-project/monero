@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2020, The Monero Project
+// Copyright (c) 2016-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#if !defined __GNUC__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__
+#if !defined __GNUC__ || defined __clang__ || defined __MINGW32__ || defined __MINGW64__ || defined __ANDROID__
 #define USE_UNWIND
 #else
 #define ELPP_FEATURE_CRASH_LOG 1

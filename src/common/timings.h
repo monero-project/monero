@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 #include <string>
+#include <utility>
 #include <vector>
-#include <map>
 
 class TimingsDatabase
 {
@@ -18,17 +18,17 @@ public:
 
 public:
   TimingsDatabase();
-  TimingsDatabase(const std::string &filename);
+  TimingsDatabase(const std::string &filename, const bool load_previous = false);
   ~TimingsDatabase();
 
-  std::vector<instance> get(const char *name) const;
+  const instance* get_most_recent(const char *name) const;
   void add(const char *name, const instance &data);
+  bool save(const bool print_current_time = true);
 
 private:
   bool load();
-  bool save();
 
 private:
   std::string filename;
-  std::multimap<std::string, instance> instances;
+  std::vector<std::pair<std::string, instance>> instances;
 };

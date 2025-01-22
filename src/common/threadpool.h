@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,6 +31,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <cstddef>
+#include <deque>
 #include <functional>
 #include <utility>
 #include <vector>
@@ -42,8 +43,12 @@ namespace tools
 class threadpool
 {
 public:
-  static threadpool& getInstance() {
+  static threadpool& getInstanceForCompute() {
     static threadpool instance;
+    return instance;
+  }
+  static threadpool& getInstanceForIO() {
+    static threadpool instance(8);
     return instance;
   }
   static threadpool *getNewForUnitTests(unsigned max_threads = 0) {

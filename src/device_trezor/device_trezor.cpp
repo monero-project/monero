@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -28,6 +28,8 @@
 //
 
 #include "device_trezor.hpp"
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 namespace hw {
 namespace trezor {
@@ -64,8 +66,8 @@ namespace trezor {
 
     device_trezor::~device_trezor() {
       try {
-        disconnect();
-        release();
+        device_trezor::disconnect();
+        device_trezor::release();
       } catch(std::exception const& e){
         MWARNING("Could not disconnect and release: " << e.what());
       }
@@ -163,7 +165,7 @@ namespace trezor {
         auto res = get_address();
 
         cryptonote::address_parse_info info{};
-        bool r = cryptonote::get_account_address_from_str(info, this->network_type, res->address());
+        bool r = cryptonote::get_account_address_from_str(info, this->m_network_type, res->address());
         CHECK_AND_ASSERT_MES(r, false, "Could not parse returned address. Address parse failed: " + res->address());
         CHECK_AND_ASSERT_MES(!info.is_subaddress, false, "Trezor returned a sub address");
 
@@ -174,6 +176,15 @@ namespace trezor {
         MERROR("Get public address exception: " << e.what());
         return false;
       }
+    }
+
+    bool device_trezor::get_public_address_with_no_passphrase(cryptonote::account_public_address &pubkey) {
+      m_reply_with_empty_passphrase = true;
+      const auto empty_passphrase_reverter = epee::misc_utils::create_scope_leave_handler([&]() {
+        m_reply_with_empty_passphrase = false;
+      });
+
+      return get_public_address(pubkey);
     }
 
     bool device_trezor::get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) {
@@ -202,6 +213,18 @@ namespace trezor {
 
     void device_trezor::display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) {
       get_address(index, payment_id, true);
+    }
+
+    void device_trezor::reset_session() {
+      m_device_session_id.clear();
+    }
+
+    bool device_trezor::seen_passphrase_entry_prompt() {
+      return m_seen_passphrase_entry_message;
+    }
+
+    void device_trezor::set_use_empty_passphrase(bool always_use_empty_passphrase) {
+      m_always_use_empty_passphrase = always_use_empty_passphrase;
     }
 
     /* ======================================================================= */
@@ -301,8 +324,8 @@ namespace trezor {
 
       std::vector<protocol::ki::MoneroTransferDetails> mtds;
       std::vector<protocol::ki::MoneroExportedKeyImage> kis;
-      protocol::ki::key_image_data(wallet, transfers, mtds, client_version() <= 1);
-      protocol::ki::generate_commitment(mtds, transfers, req, client_version() <= 1);
+      protocol::ki::key_image_data(wallet, transfers, mtds);
+      protocol::ki::generate_commitment(mtds, transfers, req);
 
       EVENT_PROGRESS(0.);
       this->set_msg_addr<messages::monero::MoneroKeyImageExportInitRequest>(req.get());
@@ -488,7 +511,7 @@ namespace trezor {
                                 tools::wallet2::signed_tx_set & signed_tx,
                                 hw::tx_aux_data & aux_data)
     {
-      CHECK_AND_ASSERT_THROW_MES(unsigned_tx.transfers.first == 0, "Unsuported non zero offset");
+      CHECK_AND_ASSERT_THROW_MES(std::get<0>(unsigned_tx.transfers) == 0, "Unsupported non zero offset");
 
       TREZOR_AUTO_LOCK_CMD();
       require_connected();
@@ -499,7 +522,7 @@ namespace trezor {
       const size_t num_tx = unsigned_tx.txes.size();
       m_num_transations_to_sign = num_tx;
       signed_tx.key_images.clear();
-      signed_tx.key_images.resize(unsigned_tx.transfers.second.size());
+      signed_tx.key_images.resize(std::get<2>(unsigned_tx.transfers).size());
 
       for(size_t tx_idx = 0; tx_idx < num_tx; ++tx_idx) {
         std::shared_ptr<protocol::tx::Signer> signer;
@@ -543,8 +566,8 @@ namespace trezor {
         cpend.key_images = key_images;
 
         // KI sync
-        for(size_t cidx=0, trans_max=unsigned_tx.transfers.second.size(); cidx < trans_max; ++cidx){
-          signed_tx.key_images[cidx] = unsigned_tx.transfers.second[cidx].m_key_image;
+        for(size_t cidx=0, trans_max=std::get<2>(unsigned_tx.transfers).size(); cidx < trans_max; ++cidx){
+          signed_tx.key_images[cidx] = std::get<2>(unsigned_tx.transfers)[cidx].m_key_image;
         }
 
         size_t num_sources = cdata.tx_data.sources.size();
@@ -556,9 +579,9 @@ namespace trezor {
           CHECK_AND_ASSERT_THROW_MES(src_idx < cdata.tx.vin.size(), "Invalid idx_mapped");
 
           size_t idx_map_src = cdata.tx_data.selected_transfers[idx_mapped];
-          CHECK_AND_ASSERT_THROW_MES(idx_map_src >= unsigned_tx.transfers.first, "Invalid offset");
+          CHECK_AND_ASSERT_THROW_MES(idx_map_src >= std::get<0>(unsigned_tx.transfers), "Invalid offset");
 
-          idx_map_src -= unsigned_tx.transfers.first;
+          idx_map_src -= std::get<0>(unsigned_tx.transfers);
           CHECK_AND_ASSERT_THROW_MES(idx_map_src < signed_tx.key_images.size(), "Invalid key image index");
 
           const auto vini = boost::get<cryptonote::txin_to_key>(cdata.tx.vin[src_idx]);
@@ -612,11 +635,7 @@ namespace trezor {
       }
 
       // Step: sort
-      auto perm_req = signer->step_permutation();
-      if (perm_req){
-        auto perm_ack = this->client_exchange<messages::monero::MoneroTransactionInputsPermutationAck>(perm_req);
-        signer->step_permutation_ack(perm_ack);
-      }
+      signer->sort_ki();
       EVENT_PROGRESS(3, 1, 1);
 
       // Step: input_vini
@@ -674,14 +693,11 @@ namespace trezor {
     unsigned device_trezor::client_version()
     {
       auto trezor_version = get_version();
-      if (trezor_version <= pack_version(2, 0, 10)){
-        throw exc::TrezorException("Trezor firmware 2.0.10 and lower are not supported. Please update.");
+      if (trezor_version < pack_version(2, 5, 2)){
+        throw exc::TrezorException("Minimal Trezor firmware version is 2.5.2. Please update.");
       }
 
-      unsigned client_version = 1;
-      if (trezor_version >= pack_version(2, 3, 1)){
-        client_version = 3;
-      }
+      unsigned client_version = 4;  // since 2.5.2
 
 #ifdef WITH_TREZOR_DEBUGGING
       // Override client version for tests
@@ -716,14 +732,6 @@ namespace trezor {
       CHECK_AND_ASSERT_THROW_MES(init_msg, "TransactionInitRequest is empty");
       CHECK_AND_ASSERT_THROW_MES(init_msg->has_tsx_data(), "TransactionInitRequest has no transaction data");
       CHECK_AND_ASSERT_THROW_MES(m_features, "Device state not initialized");  // make sure the caller did not reset features
-      const bool nonce_required = init_msg->tsx_data().has_payment_id() && init_msg->tsx_data().payment_id().size() > 0;
-
-      if (nonce_required && init_msg->tsx_data().payment_id().size() == 8){
-        // Versions 2.0.9 and lower do not support payment ID
-        if (get_version() <= pack_version(2, 0, 9)) {
-          throw exc::TrezorException("Trezor firmware 2.0.9 and lower does not support transactions with short payment IDs or integrated addresses. Please update.");
-        }
-      }
     }
 
     void device_trezor::transaction_check(const protocol::tx::TData & tdata, const hw::tx_aux_data & aux_data)

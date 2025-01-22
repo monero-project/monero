@@ -1,0 +1,31 @@
+diff --git a/src/llvm/CMakeLists.txt b/src/llvm/CMakeLists.txt
+index ab92717c8..4ad621ea3 100644
+--- a/src/llvm/CMakeLists.txt
++++ b/src/llvm/CMakeLists.txt
+@@ -752,9 +752,10 @@ set(LLVM_SRPM_USER_BINARY_SPECFILE ${CMAKE_CURRENT_SOURCE_DIR}/llvm.spec.in
+ set(LLVM_SRPM_BINARY_SPECFILE ${CMAKE_CURRENT_BINARY_DIR}/llvm.spec)
+ set(LLVM_SRPM_DIR "${CMAKE_CURRENT_BINARY_DIR}/srpm")
+ 
+-# SVN_REVISION and GIT_COMMIT get set by the call to add_version_info_from_vcs.
+-# DUMMY_VAR contains a version string which we don't care about.
+-add_version_info_from_vcs(DUMMY_VAR)
++# A call to add_version_info_from_vcs() was removed, leaving SVN_REVISION
++# and GIT_COMMIT unset. Accordingly, LLVM_RPM_SPEC_REVISION is left empty.
++# This variable appears to be unused. Since it may be used in a future
++# update of native_libtapi this change serves as a precautionairy measure.
+ if ( SVN_REVISION )
+   set(LLVM_RPM_SPEC_REVISION "r${SVN_REVISION}")
+ elseif ( GIT_COMMIT )
+diff --git a/src/llvm/cmake/modules/GenerateVersionFromCVS.cmake b/src/llvm/cmake/modules/GenerateVersionFromCVS.cmake
+index 6b1c71983..e16326ed6 100644
+--- a/src/llvm/cmake/modules/GenerateVersionFromCVS.cmake
++++ b/src/llvm/cmake/modules/GenerateVersionFromCVS.cmake
+@@ -24,7 +24,7 @@ include(VersionFromVCS)
+ set(ENV{TERM} "dumb")
+ 
+ function(append_info name path)
+-  add_version_info_from_vcs(REVISION ${path})
++  set(REVISION "git-0000000")
+   string(STRIP "${REVISION}" REVISION)
+   file(APPEND "${HEADER_FILE}.txt"
+     "#define ${name} \"${REVISION}\"\n")

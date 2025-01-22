@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,17 +38,16 @@ struct debug_archive : public json_archive<W> {
   typedef typename json_archive<W>::stream_type stream_type;
 
   debug_archive(stream_type &s) : json_archive<W>(s) { }
+  stream_type& stream() { return this->stream_; }
 };
 
 template <class T>
-struct serializer<debug_archive<true>, T>
+static inline bool do_serialize(debug_archive<true> &ar, T &v)
 {
-  static void serialize(debug_archive<true> &ar, T &v)
-  {
     ar.begin_object();
     ar.tag(variant_serialization_traits<debug_archive<true>, T>::get_tag());
-    serializer<json_archive<true>, T>::serialize(ar, v);
+    do_serialize(static_cast<json_archive<true>&>(ar), v);
     ar.end_object();
     ar.stream() << std::endl;
-  }
-};
+    return true;
+}

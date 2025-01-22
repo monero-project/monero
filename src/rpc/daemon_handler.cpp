@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, The Monero Project
+// Copyright (c) 2017-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -128,7 +128,7 @@ namespace rpc
   {
     std::vector<std::pair<std::pair<blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, blobdata> > > > blocks;
 
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.start_height, req.prune, true, COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.top_block_hash, res.start_height, req.prune, true, COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "core::find_blockchain_supplement() returned false";
@@ -422,6 +422,16 @@ namespace rpc
         if (!res.error_details.empty()) res.error_details += " and ";
         res.error_details += "too few outputs";
       }
+      if (tvc.m_tx_extra_too_big)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details += "tx_extra too long";
+      }
+      if (tvc.m_nonzero_unlock_time)
+      {
+        if (!res.error_details.empty()) res.error_details += " and ";
+        res.error_details += "non-zero unlock time";
+      }
       if (res.error_details.empty())
       {
         res.error_details = "an unknown issue was found with the transaction";
@@ -509,6 +519,8 @@ namespace rpc
     {
       res.info.target_height = res.info.height;
     }
+
+    m_core.get_blockchain_top(res.info.top_block_height, res.info.top_block_hash);
 
     auto& chain = m_core.get_blockchain_storage();
 
@@ -831,14 +843,11 @@ namespace rpc
   void DaemonHandler::handle(const GetFeeEstimate::Request& req, GetFeeEstimate::Response& res)
   {
     res.hard_fork_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
-    res.estimated_base_fee = m_core.get_blockchain_storage().get_dynamic_base_fee_estimate(req.num_grace_blocks);
 
-    if (res.hard_fork_version < HF_VERSION_PER_BYTE_FEE)
-    {
-       res.size_scale = 1024; // per KiB fee
-       res.fee_mask = 1;
-    }
-    else
+    std::vector<uint64_t> fees;
+    m_core.get_blockchain_storage().get_dynamic_base_fee_estimate_2021_scaling(req.num_grace_blocks, fees);
+    res.estimated_base_fee = fees[0];
+
     {
       res.size_scale = 1; // per byte fee
       res.fee_mask = Blockchain::get_fee_quantization_mask();

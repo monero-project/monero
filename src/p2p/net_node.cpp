@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -93,6 +93,9 @@ namespace
             break;
         case net::i2p_address::get_type_id():
             set = client->set_connect_command(remote.as<net::i2p_address>());
+            break;
+        case epee::net_utils::ipv4_network_address::get_type_id():
+            set = client->set_connect_command(remote.as<epee::net_utils::ipv4_network_address>());
             break;
         default:
             MERROR("Unsupported network address in socks_connect");
@@ -324,7 +327,7 @@ namespace nodetool
     }
 
     boost::optional<boost::asio::ip::tcp::socket>
-    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_service& service, const boost::asio::ip::tcp::endpoint& proxy, const epee::net_utils::network_address& remote)
+    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& proxy, const epee::net_utils::network_address& remote)
     {
         using socket_type = net::socks::client::stream_type::socket;
         using client_result = std::pair<boost::system::error_code, socket_type>;
@@ -339,6 +342,7 @@ namespace nodetool
             }
         };
 
+        net::socks::client::close_on_exit close_client{};
         boost::unique_future<client_result> socks_result{};
         {
             boost::promise<client_result> socks_promise{};
@@ -347,6 +351,7 @@ namespace nodetool
             auto client = net::socks::make_connect_client(
                 boost::asio::ip::tcp::socket{service}, net::socks::version::v4a, notify{std::move(socks_promise)}
              );
+            close_client.self = client;
             if (!start_socks(std::move(client), proxy, remote))
                 return boost::none;
         }
@@ -368,7 +373,10 @@ namespace nodetool
         {
             auto result = socks_result.get();
             if (!result.first)
+            {
+                close_client.self.reset();
                 return {std::move(result.second)};
+            }
 
             MERROR("Failed to make socks connection to " << remote.str() << " (via " << proxy << "): " << result.first.message());
         }

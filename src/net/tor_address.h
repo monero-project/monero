@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -70,7 +71,7 @@ namespace net
         static tor_address unknown() noexcept { return tor_address{}; }
 
         /*!
-            Parse `address` in onion v2 or v3 format with (i.e. x.onion:80)
+            Parse `address` in onion v3 format with (i.e. x.onion:80)
             with `default_port` being used iff port is not specified in
             `address`.
         */

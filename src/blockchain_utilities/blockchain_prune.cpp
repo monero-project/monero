@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -29,11 +30,11 @@
 #include <array>
 #include <lmdb.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
 #include "common/command_line.h"
 #include "common/pruning.h"
 #include "cryptonote_core/cryptonote_core.h"
-#include "cryptonote_core/blockchain.h"
-#include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
 #include "version.h"
 
@@ -49,8 +50,10 @@ using namespace cryptonote;
 static std::string db_path;
 
 // default to fast:1
-static uint64_t records_per_sync = 128;
+static uint64_t records_per_sync = 16 * 65536;
 static const size_t slack = 512 * 1024 * 1024;
+
+static std::vector<bool> is_v1;
 
 static std::error_code replace_file(const boost::filesystem::path& replacement_name, const boost::filesystem::path& replaced_name)
 {
@@ -84,6 +87,14 @@ static void open(MDB_env *&env, const boost::filesystem::path &path, uint64_t db
 static void close(MDB_env *env)
 {
   mdb_env_close(env);
+}
+
+static void mark_v1_tx(const MDB_val &k, const MDB_val &v)
+{
+  const uint64_t tx_id = *(const uint64_t*)k.mv_data;
+  if (tx_id >= is_v1.size())
+    is_v1.resize(tx_id + 1, false);
+  is_v1[tx_id] = cryptonote::is_v1_tx(cryptonote::blobdata_ref{(const char*)v.mv_data, v.mv_size});
 }
 
 static void add_size(MDB_env *env, uint64_t bytes)
@@ -133,7 +144,7 @@ static void check_resize(MDB_env *env, size_t bytes)
     add_size(env, size_used + bytes + 2 * slack - mei.me_mapsize);
 }
 
-static bool resize_point(size_t nrecords, MDB_env *env, MDB_txn **txn, size_t &bytes)
+static bool resize_point(size_t &nrecords, MDB_env *env, MDB_txn **txn, size_t &bytes)
 {
   if (nrecords % records_per_sync && bytes <= slack / 2)
     return false;
@@ -143,10 +154,11 @@ static bool resize_point(size_t nrecords, MDB_env *env, MDB_txn **txn, size_t &b
   dbr = mdb_txn_begin(env, NULL, 0, txn);
   if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
   bytes = 0;
+  nrecords = 0;
   return true;
 }
 
-static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned int flags, unsigned int putflags, int (*cmp)(const MDB_val*, const MDB_val*)=0)
+static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned int flags, unsigned int putflags, int (*cmp)(const MDB_val*, const MDB_val*)=0, void (*f)(const MDB_val&, const MDB_val&) = 0)
 {
   MDB_dbi dbi0, dbi1;
   MDB_txn *txn0, *txn1;
@@ -197,6 +209,11 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
   dbr = mdb_cursor_open(txn1, dbi1, &cur1);
   if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
 
+  if (flags & MDB_DUPSORT)
+    putflags |= MDB_APPENDDUP;
+  else
+    putflags |= MDB_APPEND;
+
   MDB_val k;
   MDB_val v;
   MDB_cursor_op op = MDB_FIRST;
@@ -211,7 +228,8 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
       throw std::runtime_error("Failed to enumerate " + std::string(table) + " records: " + std::string(mdb_strerror(ret)));
 
     bytes += k.mv_size + v.mv_size;
-    if (resize_point(++nrecords, env1, &txn1, bytes))
+    ++nrecords;
+    if (resize_point(nrecords, env1, &txn1, bytes))
     {
       dbr = mdb_cursor_open(txn1, dbi1, &cur1);
       if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
@@ -220,6 +238,9 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
     ret = mdb_cursor_put(cur1, &k, &v, putflags);
     if (ret)
       throw std::runtime_error("Failed to write " + std::string(table) + " record: " + std::string(mdb_strerror(ret)));
+
+    if (f)
+      (*f)(k, v);
   }
 
   mdb_cursor_close(cur1);
@@ -230,17 +251,6 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
   tx_active0 = false;
   mdb_dbi_close(env1, dbi1);
   mdb_dbi_close(env0, dbi0);
-}
-
-static bool is_v1_tx(MDB_cursor *c_txs_pruned, MDB_val *tx_id)
-{
-  MDB_val v;
-  int ret = mdb_cursor_get(c_txs_pruned, tx_id, &v, MDB_SET);
-  if (ret)
-    throw std::runtime_error("Failed to find transaction pruned data: " + std::string(mdb_strerror(ret)));
-  if (v.mv_size == 0)
-    throw std::runtime_error("Invalid transaction pruned data");
-  return cryptonote::is_v1_tx(cryptonote::blobdata_ref{(const char*)v.mv_data, v.mv_size});
 }
 
 static void prune(MDB_env *env0, MDB_env *env1)
@@ -321,7 +331,10 @@ static void prune(MDB_env *env0, MDB_env *env1)
   mdb_dbi_close(env0, dbi0_blocks);
   const uint64_t blockchain_height = stats.ms_entries;
   size_t nrecords = 0, bytes = 0;
+  std::vector<bool> prunable_needed;
 
+  // go through all txes tx indices, recording which ones should have their prunable part retained
+  MINFO("Marking prunable txes");
   MDB_cursor_op op = MDB_FIRST;
   while (1)
   {
@@ -333,7 +346,8 @@ static void prune(MDB_env *env0, MDB_env *env1)
 
     const txindex *ti = (const txindex*)v.mv_data;
     const uint64_t block_height = ti->data.block_id;
-    MDB_val_set(kk, ti->data.tx_id);
+    const uint64_t tx_id = ti->data.tx_id;
+    MDB_val_set(kk, tx_id);
     if (block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height)
     {
       MDEBUG(block_height << "/" << blockchain_height << " is in tip");
@@ -341,26 +355,58 @@ static void prune(MDB_env *env0, MDB_env *env1)
       dbr = mdb_cursor_put(cur1_txs_prunable_tip, &kk, &vv, 0);
       if (dbr) throw std::runtime_error("Failed to write prunable tx tip data: " + std::string(mdb_strerror(dbr)));
       bytes += kk.mv_size + vv.mv_size;
-    }
-    if (tools::has_unpruned_block(block_height, blockchain_height, pruning_seed) || is_v1_tx(cur0_txs_pruned, &kk))
-    {
-      MDB_val vv;
-      dbr = mdb_cursor_get(cur0_txs_prunable, &kk, &vv, MDB_SET);
-      if (dbr) throw std::runtime_error("Failed to read prunable tx data: " + std::string(mdb_strerror(dbr)));
-      bytes += kk.mv_size + vv.mv_size;
-      if (resize_point(++nrecords, env1, &txn1, bytes))
+
+      ++nrecords;
+      if (resize_point(nrecords, env1, &txn1, bytes))
       {
         dbr = mdb_cursor_open(txn1, dbi1_txs_prunable, &cur1_txs_prunable);
         if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
         dbr = mdb_cursor_open(txn1, dbi1_txs_prunable_tip, &cur1_txs_prunable_tip);
         if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
       }
-      dbr = mdb_cursor_put(cur1_txs_prunable, &kk, &vv, 0);
-      if (dbr) throw std::runtime_error("Failed to write prunable tx data: " + std::string(mdb_strerror(dbr)));
+    }
+    if (tx_id >= is_v1.size())
+      throw std::runtime_error("tx_id out of range of is_v1 vector");
+    if (tools::has_unpruned_block(block_height, blockchain_height, pruning_seed) || is_v1[tx_id])
+    {
+      if (tx_id >= prunable_needed.size())
+        prunable_needed.resize(tx_id + 1, false);
+      prunable_needed[tx_id] = true;
     }
     else
     {
       MDEBUG("" << block_height << "/" << blockchain_height << " should be pruned, dropping");
+    }
+  }
+
+  // go through prunable parts, carrying over those we need
+  MINFO("Copying retained prunable data");
+  op = MDB_FIRST;
+  while (1)
+  {
+    int ret = mdb_cursor_get(cur0_txs_prunable, &k, &v, op);
+    op = MDB_NEXT;
+    if (ret == MDB_NOTFOUND)
+      break;
+    if (ret) throw std::runtime_error("Failed to enumerate records: " + std::string(mdb_strerror(ret)));
+
+    const uint64_t tx_id = *(const uint64_t*)k.mv_data;
+    if (tx_id >= prunable_needed.size())
+      throw std::runtime_error("tx_id out of range of prunable_needed vector");
+    if (prunable_needed[tx_id])
+    {
+      dbr = mdb_cursor_put(cur1_txs_prunable, &k, &v, MDB_APPEND);
+      if (dbr) throw std::runtime_error("Failed to write prunable tx data: " + std::string(mdb_strerror(dbr)));
+
+      bytes += k.mv_size + v.mv_size;
+      ++nrecords;
+      if (resize_point(nrecords, env1, &txn1, bytes))
+      {
+        dbr = mdb_cursor_open(txn1, dbi1_txs_prunable, &cur1_txs_prunable);
+        if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+        dbr = mdb_cursor_open(txn1, dbi1_txs_prunable_tip, &cur1_txs_prunable_tip);
+        if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
+      }
     }
   }
 
@@ -416,7 +462,7 @@ static bool parse_db_sync_mode(std::string db_sync_mode, uint64_t &db_flags)
     else if(options[0] == "fastest")
     {
       db_flags = DBF_FASTEST;
-      records_per_sync = 1000; // default to fastest:async:1000
+      // default to fastest:async:N
     }
     else
       return false;
@@ -452,7 +498,7 @@ int main(int argc, char* argv[])
   const command_line::arg_descriptor<std::string> arg_db_sync_mode = {
     "db-sync-mode"
   , "Specify sync option, using format [safe|fast|fastest]:[nrecords_per_sync]."
-  , "fast:1000"
+  , "fast:" + std::to_string(records_per_sync)
   };
   const command_line::arg_descriptor<bool> arg_copy_pruned_database  = {"copy-pruned-database",  "Copy database anyway if already pruned"};
 
@@ -514,22 +560,15 @@ int main(int argc, char* argv[])
   // Use Blockchain instead of lower-level BlockchainDB for two reasons:
   // 1. Blockchain has the init() method for easy setup
   // 2. exporter needs to use get_current_blockchain_height(), get_block_id_by_height(), get_block_by_hash()
-  //
-  // cannot match blockchain_storage setup above with just one line,
-  // e.g.
-  //   Blockchain* core_storage = new Blockchain(NULL);
-  // because unlike blockchain_storage constructor, which takes a pointer to
-  // tx_memory_pool, Blockchain's constructor takes tx_memory_pool object.
   MINFO("Initializing source blockchain (BlockchainDB)");
-  std::array<std::unique_ptr<Blockchain>, 2> core_storage;
-  Blockchain *blockchain = NULL;
-  tx_memory_pool m_mempool(*blockchain);
+  std::array<std::unique_ptr<BlockchainAndPool>, 2> core_storage{
+      std::make_unique<BlockchainAndPool>(),
+      std::make_unique<BlockchainAndPool>()};
+
   boost::filesystem::path paths[2];
   bool already_pruned = false;
   for (size_t n = 0; n < core_storage.size(); ++n)
   {
-    core_storage[n].reset(new Blockchain(m_mempool));
-
     BlockchainDB* db = new_db();
     if (db == NULL)
     {
@@ -574,12 +613,12 @@ int main(int argc, char* argv[])
       MERROR("Error opening database: " << e.what());
       return 1;
     }
-    r = core_storage[n]->init(db, net_type);
+    r = core_storage[n]->blockchain.init(db, net_type);
 
     std::string source_dest = n == 0 ? "source" : "pruned";
     CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize " << source_dest << " blockchain storage");
     MINFO(source_dest << " blockchain storage initialized OK");
-    if (n == 0 && core_storage[0]->get_blockchain_pruning_seed())
+    if (n == 0 && core_storage[0]->blockchain.get_blockchain_pruning_seed())
     {
       if (!opt_copy_pruned_database)
       {
@@ -589,35 +628,36 @@ int main(int argc, char* argv[])
       already_pruned = true;
     }
   }
-  core_storage[0]->deinit();
+  core_storage[0]->blockchain.deinit();
   core_storage[0].reset(NULL);
-  core_storage[1]->deinit();
+  core_storage[1]->blockchain.deinit();
   core_storage[1].reset(NULL);
 
   MINFO("Pruning...");
   MDB_env *env0 = NULL, *env1 = NULL;
   open(env0, paths[0], db_flags, true);
   open(env1, paths[1], db_flags, false);
-  copy_table(env0, env1, "blocks", MDB_INTEGERKEY, MDB_APPEND);
-  copy_table(env0, env1, "block_info", MDB_INTEGERKEY | MDB_DUPSORT| MDB_DUPFIXED, MDB_APPENDDUP, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "blocks", MDB_INTEGERKEY, 0);
+  copy_table(env0, env1, "block_info", MDB_INTEGERKEY | MDB_DUPSORT| MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
   copy_table(env0, env1, "block_heights", MDB_INTEGERKEY | MDB_DUPSORT| MDB_DUPFIXED, 0, BlockchainLMDB::compare_hash32);
   //copy_table(env0, env1, "txs", MDB_INTEGERKEY);
-  copy_table(env0, env1, "txs_pruned", MDB_INTEGERKEY, MDB_APPEND);
-  copy_table(env0, env1, "txs_prunable_hash", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, MDB_APPEND);
+  copy_table(env0, env1, "txs_pruned", MDB_INTEGERKEY, 0, NULL, &mark_v1_tx);
+  copy_table(env0, env1, "txs_prunable_hash", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0);
   // not copied: prunable, prunable_tip
   copy_table(env0, env1, "tx_indices", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_hash32);
-  copy_table(env0, env1, "tx_outputs", MDB_INTEGERKEY, MDB_APPEND);
-  copy_table(env0, env1, "output_txs", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, MDB_APPENDDUP, BlockchainLMDB::compare_uint64);
-  copy_table(env0, env1, "output_amounts", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, MDB_APPENDDUP, BlockchainLMDB::compare_uint64);
-  copy_table(env0, env1, "spent_keys", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, MDB_NODUPDATA, BlockchainLMDB::compare_hash32);
-  copy_table(env0, env1, "txpool_meta", 0, MDB_NODUPDATA, BlockchainLMDB::compare_hash32);
-  copy_table(env0, env1, "txpool_blob", 0, MDB_NODUPDATA, BlockchainLMDB::compare_hash32);
-  copy_table(env0, env1, "hf_versions", MDB_INTEGERKEY, MDB_APPEND);
+  copy_table(env0, env1, "tx_outputs", MDB_INTEGERKEY, 0);
+  copy_table(env0, env1, "output_txs", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "output_amounts", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "spent_keys", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_hash32);
+  copy_table(env0, env1, "txpool_meta", 0, 0, BlockchainLMDB::compare_hash32);
+  copy_table(env0, env1, "txpool_blob", 0, 0, BlockchainLMDB::compare_hash32);
+  copy_table(env0, env1, "alt_blocks", 0, 0, BlockchainLMDB::compare_hash32);
+  copy_table(env0, env1, "hf_versions", MDB_INTEGERKEY, 0);
   copy_table(env0, env1, "properties", 0, 0, BlockchainLMDB::compare_string);
   if (already_pruned)
   {
-    copy_table(env0, env1, "txs_prunable", MDB_INTEGERKEY, MDB_APPEND, BlockchainLMDB::compare_uint64);
-    copy_table(env0, env1, "txs_prunable_tip", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, MDB_NODUPDATA, BlockchainLMDB::compare_uint64);
+    copy_table(env0, env1, "txs_prunable", MDB_INTEGERKEY, 0, BlockchainLMDB::compare_uint64);
+    copy_table(env0, env1, "txs_prunable_tip", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
   }
   else
   {

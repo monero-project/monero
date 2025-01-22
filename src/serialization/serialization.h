@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -50,80 +50,44 @@
 #include <boost/type_traits/integral_constant.hpp>
 #include <boost/mpl/bool.hpp>
 
-/*! \struct is_blob_type 
+#include "common/va_args.h"
+
+/*! \struct is_blob_type / is_blob_forced
  *
- * \brief a descriptor for dispatching serialize
+ * \brief descriptors for dispatching serialize: whether to take byte-wise copy/store to type
  */
 template <class T>
 struct is_blob_type { typedef boost::false_type type; };
 
-/*! \struct has_free_serializer
- *
- * \brief a descriptor for dispatching serialize
- */
 template <class T>
-struct has_free_serializer { typedef boost::true_type type; };
-
-/*! \struct is_basic_type
- *
- * \brief a descriptor for dispatching serialize
- */
-template <class T>
-struct is_basic_type { typedef boost::false_type type; };
-
-template<typename F, typename S>
-struct is_basic_type<std::pair<F,S>> { typedef boost::true_type type; };
-template<>
-struct is_basic_type<std::string> { typedef boost::true_type type; };
-
-/*! \struct serializer
- *
- * \brief ... wouldn't a class be better?
- * 
- * \detailed The logic behind serializing data. Places the archive
- * data into the supplied parameter. This dispatches based on the
- * supplied \a T template parameter's traits of is_blob_type or it is
- * an integral (as defined by the is_integral trait). Depends on the
- * \a Archive parameter to have overloaded the serialize_blob(T v,
- * size_t size) and serialize_int(T v) base on which trait it
- * applied. When the class has neither types, it falls to the
- * overloaded method do_serialize(Archive ar) in T to do the work.
- */
-template <class Archive, class T>
-struct serializer{
-  static bool serialize(Archive &ar, T &v) {
-    return serialize(ar, v, typename boost::is_integral<T>::type(), typename is_blob_type<T>::type(), typename is_basic_type<T>::type());
-  }
-  template<typename A>
-  static bool serialize(Archive &ar, T &v, boost::false_type, boost::true_type, A a) {
-    ar.serialize_blob(&v, sizeof(v));
-    return true;
-  }
-  template<typename A>
-  static bool serialize(Archive &ar, T &v, boost::true_type, boost::false_type, A a) {
-    ar.serialize_int(v);
-    return true;
-  }
-  static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type, boost::false_type) {
-    //serialize_custom(ar, v, typename has_free_serializer<T>::type());
-    return v.do_serialize(ar);
-  }
-  static bool serialize(Archive &ar, T &v, boost::false_type, boost::false_type, boost::true_type) {
-    //serialize_custom(ar, v, typename has_free_serializer<T>::type());
-    return do_serialize(ar, v);
-  }
-  static void serialize_custom(Archive &ar, T &v, boost::true_type) {
-  }
-};
+struct is_blob_forced: std::false_type {};
 
 /*! \fn do_serialize(Archive &ar, T &v)
  *
- * \brief just calls the serialize function defined for ar and v...
+ * \brief main function for dispatching serialization for a given pair of archive and value types
+ * 
+ * Types marked true with is_blob_type<T> will be serialized as a blob, integral types will be
+ * serialized as integers, and types who have a `member_do_serialize` method will be serialized
+ * using that method. Booleans are serialized like blobs.
  */
 template <class Archive, class T>
-inline bool do_serialize(Archive &ar, T &v)
+inline std::enable_if_t<is_blob_type<T>::type::value, bool> do_serialize(Archive &ar, T &v)
 {
-  return ::serializer<Archive, T>::serialize(ar, v);
+  static_assert(std::is_trivially_copyable<T>() || is_blob_forced<T>(),
+    "sanity check: types that can't be trivially copied shouldn't be using the blob serializer");
+  ar.serialize_blob(&v, sizeof(v));
+  return true;
+}
+template <class Archive, class T>
+inline std::enable_if_t<boost::is_integral<T>::value, bool> do_serialize(Archive &ar, T &v)
+{
+  ar.serialize_int(v);
+  return true;
+}
+template <class Archive, class T>
+inline auto do_serialize(Archive &ar, T &v) -> decltype(v.member_do_serialize(ar), true)
+{
+  return v.member_do_serialize(ar);
 }
 template <class Archive>
 inline bool do_serialize(Archive &ar, bool &v)
@@ -131,19 +95,24 @@ inline bool do_serialize(Archive &ar, bool &v)
   ar.serialize_blob(&v, sizeof(v));
   return true;
 }
-
-// Never used in the code base
-// #ifndef __GNUC__
-// #ifndef constexpr
-// #define constexpr
-// #endif
-// #endif
+template <class Archive, class T, typename... Args>
+inline auto do_serialize(Archive &ar, T &v, Args&&... args)
+  -> decltype(do_serialize_object(ar, v, args...), true)
+{
+  ar.begin_object();
+  const bool r = do_serialize_object(ar, v, args...);
+  ar.end_object();
+  return r && ar.good();
+}
 
 /* the following add a trait to a set and define the serialization DSL*/
 
 /*! \macro BLOB_SERIALIZER
  *
  * \brief makes the type have a blob serializer trait defined
+ *
+ * In case your type is not a good candidate to be blob serialized, a static assertion may be thrown
+ * at compile-time.
  */
 #define BLOB_SERIALIZER(T)						\
   template<>								\
@@ -151,15 +120,19 @@ inline bool do_serialize(Archive &ar, bool &v)
     typedef boost::true_type type;					\
   }
 
-/*! \macro FREE_SERIALIZER
+/*! \macro BLOB_SERIALIZER_FORCED
  *
- * \brief adds the has_free_serializer to the type
+ * \brief makes the type have a blob serializer trait defined, even if it isn't trivially copyable
+ *
+ * Caution: do NOT use this macro for your type <T>, unless you are absolutely sure that moving raw
+ * bytes in/out of this type will not cause undefined behavior. Any types with managed memory
+ * (e.g. vector, string, etc) will segfault and/or cause memory errors if you use this macro with
+ * that type.
  */
-#define FREE_SERIALIZER(T)						\
-  template<>								\
-  struct has_free_serializer<T> {					\
-    typedef boost::true_type type;					\
-  }
+#define BLOB_SERIALIZER_FORCED(T) \
+  BLOB_SERIALIZER(T);             \
+  template<>                      \
+  struct is_blob_forced<T>: std::true_type {};
 
 /*! \macro VARIANT_TAG
  *
@@ -181,7 +154,18 @@ inline bool do_serialize(Archive &ar, bool &v)
  */
 #define BEGIN_SERIALIZE()						\
   template <bool W, template <bool> class Archive>			\
-  bool do_serialize(Archive<W> &ar) {
+  bool member_do_serialize(Archive<W> &ar) {
+
+/*! \macro BEGIN_SERIALIZE_FN
+ *
+ * \brief Begins the environment of the DSL as a free function
+ *
+ * Inside, instead of FIELD() and VARINT_FIELD(), use FIELD_F() and
+ * VARINT_FIELD_F(). Otherwise, this macro is similar to BEGIN_SERIALIZE().
+ */
+#define BEGIN_SERIALIZE_FN(stype)                   \
+  template <bool W, template <bool> class Archive>  \
+  bool do_serialize(Archive<W> &ar, stype &v) {
 
 /*! \macro BEGIN_SERIALIZE_OBJECT
  *
@@ -190,7 +174,7 @@ inline bool do_serialize(Archive &ar, bool &v)
  */
 #define BEGIN_SERIALIZE_OBJECT()					\
   template <bool W, template <bool> class Archive>			\
-  bool do_serialize(Archive<W> &ar) {					\
+  bool member_do_serialize(Archive<W> &ar) {					\
     ar.begin_object();							\
     bool r = do_serialize_object(ar);					\
     ar.end_object();							\
@@ -199,42 +183,39 @@ inline bool do_serialize(Archive &ar, bool &v)
   template <bool W, template <bool> class Archive>			\
   bool do_serialize_object(Archive<W> &ar){
 
+/*! \macro BEGIN_SERIALIZE_OBJECT_FN
+ *
+ * \brief Begins the environment of the DSL as a free function in object-style
+ *
+ * Inside, instead of FIELD() and VARINT_FIELD(), use FIELD_F() and
+ * VARINT_FIELD_F(). Otherwise, this macro is similar to
+ * BEGIN_SERIALIZE_OBJECT(), as you should list only field serializations.
+ */
+#define BEGIN_SERIALIZE_OBJECT_FN(stype, ...)                                           \
+  template <bool W, template <bool> class Archive>                                      \
+  bool do_serialize_object(Archive<W> &ar, stype &v VA_ARGS_COMMAPREFIX(__VA_ARGS__)) {
+
 /*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
 #define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec)			\
   ::serialization::detail::prepare_custom_vector_serialization(size, vec, typename Archive<W>::is_saving())
 
-/*! \macro PREPARE_CUSTOM_DEQUE_SERIALIZATION
- */
-#define PREPARE_CUSTOM_DEQUE_SERIALIZATION(size, vec)			\
-  ::serialization::detail::prepare_custom_deque_serialization(size, vec, typename Archive<W>::is_saving())
-
 /*! \macro END_SERIALIZE
  * \brief self-explanatory
  */
 #define END_SERIALIZE()				\
-  return ar.stream().good();			\
+  return ar.good();				\
   }
-
-/*! \macro VALUE(f)
- * \brief the same as FIELD(f)
- */
-#define VALUE(f)					\
-  do {							\
-    ar.tag(#f);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
-  } while(0);
 
 /*! \macro FIELD_N(t,f)
  *
  * \brief serializes a field \a f tagged \a t  
  */
-#define FIELD_N(t, f)					\
+#define FIELD_N(t, f, ...)                                    \
   do {							\
     ar.tag(t);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
+    bool r = do_serialize(ar, f VA_ARGS_COMMAPREFIX(__VA_ARGS__)); \
+    if (!r || !ar.good()) return false;			\
   } while(0);
 
 /*! \macro FIELD(f)
@@ -244,9 +225,15 @@ inline bool do_serialize(Archive &ar, bool &v)
 #define FIELD(f)					\
   do {							\
     ar.tag(#f);						\
-    bool r = ::do_serialize(ar, f);			\
-    if (!r || !ar.stream().good()) return false;	\
+    bool r = do_serialize(ar, f);			\
+    if (!r || !ar.good()) return false;			\
   } while(0);
+
+/*! \macro FIELD_F(f)
+ *
+ * \brief tags the field with the variable name and then serializes it (for use in a free function)
+ */
+#define FIELD_F(f, ...) FIELD_N(#f, v.f VA_ARGS_COMMAPREFIX(__VA_ARGS__))
 
 /*! \macro FIELDS(f)
  *
@@ -254,8 +241,8 @@ inline bool do_serialize(Archive &ar, bool &v)
  */
 #define FIELDS(f)							\
   do {									\
-    bool r = ::do_serialize(ar, f);					\
-    if (!r || !ar.stream().good()) return false;			\
+    bool r = do_serialize(ar, f);					\
+    if (!r || !ar.good()) return false;					\
   } while(0);
 
 /*! \macro VARINT_FIELD(f)
@@ -265,7 +252,7 @@ inline bool do_serialize(Archive &ar, bool &v)
   do {						\
     ar.tag(#f);					\
     ar.serialize_varint(f);			\
-    if (!ar.stream().good()) return false;	\
+    if (!ar.good()) return false;		\
   } while(0);
 
 /*! \macro VARINT_FIELD_N(t, f)
@@ -276,8 +263,14 @@ inline bool do_serialize(Archive &ar, bool &v)
   do {						\
     ar.tag(t);					\
     ar.serialize_varint(f);			\
-    if (!ar.stream().good()) return false;	\
+    if (!ar.good()) return false;		\
   } while(0);
+
+/*! \macro VARINT_FIELD_F(f)
+ *
+ * \brief tags and serializes the varint \a f (for use in a free function)
+ */
+#define VARINT_FIELD_F(f) VARINT_FIELD_N(#f, v.f)
 
 /*! \macro MAGIC_FIELD(m)
  */
@@ -286,7 +279,7 @@ inline bool do_serialize(Archive &ar, bool &v)
   do {						\
     ar.tag("magic");				\
     ar.serialize_blob((void*)magic.data(), magic.size()); \
-    if (!ar.stream().good()) return false;	\
+    if (!ar.good()) return false;		\
     if (magic != m) return false;		\
   } while(0);
 
@@ -297,7 +290,7 @@ inline bool do_serialize(Archive &ar, bool &v)
   do {						\
     ar.tag("version");				\
     ar.serialize_varint(version);		\
-    if (!ar.stream().good()) return false;	\
+    if (!ar.good()) return false;		\
   } while(0);
 
 
@@ -324,25 +317,14 @@ namespace serialization {
       vec.resize(size);
     }
 
-    template <typename T>
-    void prepare_custom_deque_serialization(size_t size, std::deque<T>& vec, const boost::mpl::bool_<true>& /*is_saving*/)
-    {
-    }
-
-    template <typename T>
-    void prepare_custom_deque_serialization(size_t size, std::deque<T>& vec, const boost::mpl::bool_<false>& /*is_saving*/)
-    {
-      vec.resize(size);
-    }
-
     /*! \fn do_check_stream_state
      *
      * \brief self explanatory
      */
-    template<class Stream>
-    bool do_check_stream_state(Stream& s, boost::mpl::bool_<true>, bool noeof)
+    template<class Archive>
+    bool do_check_stream_state(Archive& ar, boost::mpl::bool_<true>, bool noeof)
     {
-      return s.good();
+      return ar.good();
     }
     /*! \fn do_check_stream_state
      *
@@ -350,15 +332,13 @@ namespace serialization {
      *
      * \detailed Also checks to make sure that the stream is not at EOF
      */
-    template<class Stream>
-    bool do_check_stream_state(Stream& s, boost::mpl::bool_<false>, bool noeof)
+    template<class Archive>
+    bool do_check_stream_state(Archive& ar, boost::mpl::bool_<false>, bool noeof)
     {
       bool result = false;
-      if (s.good())
+      if (ar.good())
 	{
-	  std::ios_base::iostate state = s.rdstate();
-	  result = noeof || EOF == s.peek();
-	  s.clear(state);
+	  result = noeof || ar.eof();
 	}
       return result;
     }
@@ -371,7 +351,7 @@ namespace serialization {
   template<class Archive>
   bool check_stream_state(Archive& ar, bool noeof = false)
   {
-    return detail::do_check_stream_state(ar.stream(), typename Archive::is_saving(), noeof);
+    return detail::do_check_stream_state(ar, typename Archive::is_saving(), noeof);
   }
 
   /*! \fn serialize

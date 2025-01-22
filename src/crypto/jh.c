@@ -34,7 +34,7 @@ typedef struct {
 	unsigned long long databitlen;    /*the message size in bits*/
 	unsigned long long datasize_in_buffer;      /*the size of the message remained in buffer; assumed to be multiple of 8bits except for the last partial block at the end of the message*/
 	DATA_ALIGN16(uint64 x[8][2]);     /*the 1024-bit state, ( x[i][0] || x[i][1] ) is the ith row of the state in the pseudocode*/
-	unsigned char buffer[64];         /*the 512-bit message block to be hashed;*/
+	DATA_ALIGN16(unsigned char buffer[64]);         /*the 512-bit message block to be hashed;*/
 } hashState;
 
 
@@ -213,16 +213,24 @@ static void E8(hashState *state)
 /*The compression function F8 */
 static void F8(hashState *state)
 {
-      uint64  i;
+      uint64_t* x = (uint64_t*)state->x;
 
       /*xor the 512-bit message with the fist half of the 1024-bit hash state*/
-      for (i = 0; i < 8; i++)  state->x[i >> 1][i & 1] ^= ((uint64*)state->buffer)[i];
+      for (int i = 0; i < 8; ++i) {
+            uint64 b;
+            memcpy(&b, &state->buffer[i << 3], sizeof(b));
+            x[i] ^= b;
+      }
 
       /*the bijective function E8 */
       E8(state);
 
       /*xor the 512-bit message with the second half of the 1024-bit hash state*/
-      for (i = 0; i < 8; i++)  state->x[(8+i) >> 1][(8+i) & 1] ^= ((uint64*)state->buffer)[i];
+      for (int i = 0; i < 8; ++i) {
+            uint64 b;
+            memcpy(&b, &state->buffer[i << 3], sizeof(b));
+            x[i + 8] ^= b;
+      }
 }
 
 /*before hashing a message, initialize the hash state as H0 */
@@ -240,6 +248,7 @@ static HashReturn Init(hashState *state, int hashbitlen)
             case 224: memcpy(state->x,JH224_H0,128); break;
             case 256: memcpy(state->x,JH256_H0,128); break;
             case 384: memcpy(state->x,JH384_H0,128); break;
+            default:
             case 512: memcpy(state->x,JH512_H0,128); break;
       }
 

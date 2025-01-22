@@ -54,7 +54,6 @@ namespace net_utils
   std::string convert(char val);
   std::string conver_to_url_format(const std::string& uri);
   std::string convert_from_url_format(const std::string& uri);
-  std::string convert_to_url_format_force_all(const std::string& uri);
 
 namespace http
 {
@@ -72,7 +71,6 @@ namespace http
     virtual bool is_connected(bool *ssl = NULL) = 0;
     virtual bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) = 0;
     virtual bool invoke_get(const boost::string_ref uri, std::chrono::milliseconds timeout, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) = 0;
-    virtual bool invoke_post(const boost::string_ref uri, const std::string& body, std::chrono::milliseconds timeout, const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) = 0;
     virtual uint64_t get_bytes_sent() const = 0;
     virtual uint64_t get_bytes_received() const = 0;
   };

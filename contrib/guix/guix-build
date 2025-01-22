@@ -1,0 +1,466 @@
+#!/usr/bin/env bash
+export LC_ALL=C
+set -e -o pipefail
+
+# Source the common prelude, which:
+#   1. Checks if we're at the top directory of the Monero repository
+#   2. Defines a few common functions and variables
+#
+# shellcheck source=libexec/prelude.bash
+source "$(dirname "${BASH_SOURCE[0]}")/libexec/prelude.bash"
+
+###################
+## SANITY CHECKS ##
+###################
+
+################
+# Required non-builtin commands should be invocable
+################
+
+check_tools cat mkdir make getent curl git guix
+
+################
+# GUIX_BUILD_OPTIONS should be empty
+################
+#
+# GUIX_BUILD_OPTIONS is an environment variable recognized by guix commands that
+# can perform builds. This seems like what we want instead of
+# ADDITIONAL_GUIX_COMMON_FLAGS, but the value of GUIX_BUILD_OPTIONS is actually
+# _appended_ to normal command-line options. Meaning that they will take
+# precedence over the command-specific ADDITIONAL_GUIX_<CMD>_FLAGS.
+#
+# This seems like a poor user experience. Thus we check for GUIX_BUILD_OPTIONS's
+# existence here and direct users of this script to use our (more flexible)
+# custom environment variables.
+if [ -n "$GUIX_BUILD_OPTIONS" ]; then
+cat << EOF
+Error: Environment variable GUIX_BUILD_OPTIONS is not empty:
+  '$GUIX_BUILD_OPTIONS'
+
+Unfortunately this script is incompatible with GUIX_BUILD_OPTIONS, please unset
+GUIX_BUILD_OPTIONS and use ADDITIONAL_GUIX_COMMON_FLAGS to set build options
+across guix commands or ADDITIONAL_GUIX_<CMD>_FLAGS to set build options for a
+specific guix command.
+
+See contrib/guix/README.md for more details.
+EOF
+exit 1
+fi
+
+################
+# Checkout git submodules if we haven't already
+################
+
+git submodule update --init --recursive --progress
+
+################
+# The git worktree should not be dirty
+################
+
+if ! git diff-index --quiet HEAD -- && [ -z "$FORCE_DIRTY_WORKTREE" ]; then
+cat << EOF
+ERR: The current git worktree is dirty, which may lead to broken builds.
+
+     Aborting...
+
+Hint: To make your git worktree clean, You may want to:
+      1. Commit your changes,
+      2. Stash your changes, or
+      3. Set the 'FORCE_DIRTY_WORKTREE' environment variable if you insist on
+         using a dirty worktree
+EOF
+exit 1
+fi
+
+mkdir -p "$VERSION_BASE"
+
+################
+# Build directories should not exist
+################
+
+# Default to building for all supported HOSTs (overridable by environment)
+export HOSTS="${HOSTS:-x86_64-linux-gnu
+                       aarch64-linux-gnu
+                       arm-linux-gnueabihf
+                       riscv64-linux-gnu
+                       i686-linux-gnu
+                       x86_64-w64-mingw32
+                       x86_64-unknown-freebsd
+                       x86_64-apple-darwin
+                       aarch64-apple-darwin
+                       aarch64-linux-android}"
+
+# Usage: distsrc_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+distsrc_for_host() {
+    echo "${DISTSRC_BASE}/build/distsrc-${VERSION}-${1}"
+}
+
+# Accumulate a list of build directories that already exist...
+hosts_distsrc_exists=""
+for host in $HOSTS; do
+    if [ -e "$(distsrc_for_host "$host")" ]; then
+        hosts_distsrc_exists+=" ${host}"
+    fi
+done
+
+if [ -n "$hosts_distsrc_exists" ]; then
+# ...so that we can print them out nicely in an error message
+cat << EOF
+ERR: Build directories for this commit already exist for the following platform
+     triples you're attempting to build, probably because of previous builds.
+     Please remove, or otherwise deal with them prior to starting another build.
+
+     Aborting...
+
+Hint: To blow everything away, you may want to use:
+
+  $ ./contrib/guix/guix-clean
+
+Specifically, this will remove all files without an entry in the index,
+excluding the depends download cache, the depends built
+packages cache, the garbage collector roots for Guix environments, and the
+output directory.
+EOF
+for host in $hosts_distsrc_exists; do
+    echo "     ${host} '$(distsrc_for_host "$host")'"
+done
+exit 1
+else
+    mkdir -p "$DISTSRC_BASE"
+fi
+
+################
+# Check that we can connect to the guix-daemon
+################
+
+cat << EOF
+Checking that we can connect to the guix-daemon...
+
+Hint: If this hangs, you may want to try turning your guix-daemon off and on
+      again.
+
+EOF
+if ! guix gc --list-failures > /dev/null; then
+cat << EOF
+
+ERR: Failed to connect to the guix-daemon, please ensure that one is running and
+     reachable.
+EOF
+exit 1
+fi
+
+# Developer note: we could use `guix repl` for this check and run:
+#
+#     (import (guix store)) (close-connection (open-connection))
+#
+# However, the internal API is likely to change more than the CLI invocation
+
+################
+# Services database must have basic entries
+################
+
+if ! getent services http https ftp > /dev/null 2>&1; then
+cat << EOF
+ERR: Your system's C library cannot find service database entries for at least
+     one of the following services: http, https, ftp.
+
+Hint: Most likely, /etc/services does not exist yet (common for docker images
+      and minimal distros), or you don't have permissions to access it.
+
+      If /etc/services does not exist yet, you may want to install the
+      appropriate package for your distro which provides it.
+
+          On Debian/Ubuntu: netbase
+          On Arch Linux: iana-etc
+
+      For more information, see: getent(1), services(5)
+
+EOF
+
+fi
+
+#########
+# SETUP #
+#########
+
+# Determine the maximum number of jobs to run simultaneously (overridable by
+# environment)
+JOBS="${JOBS:-$(nproc)}"
+
+# Usage: host_to_commonname HOST
+#
+#   HOST: The current platform triple we're building for
+#
+host_to_commonname() {
+    case "$1" in
+        *darwin*)  echo osx ;;
+        *mingw*)   echo win ;;
+        *android*) echo android ;;
+        *linux*)   echo linux ;;
+        *freebsd*) echo freebsd ;;
+        *)         exit 1 ;;
+    esac
+}
+
+COMMIT_TIMESTAMP="$(git -c log.showSignature=false log --format=%at -1)"
+
+# Precious directories are those which should not be cleaned between successive
+# guix builds
+depends_precious_dir_names='SOURCES_PATH BASE_CACHE'
+precious_dir_names="${depends_precious_dir_names} OUTDIR_BASE LOGDIR_BASE PROFILES_BASE"
+
+# Usage: contains IFS-SEPARATED-LIST ITEM
+contains() {
+    for i in ${1}; do
+        if [ "$i" = "${2}" ]; then
+            return 0  # Found!
+        fi
+    done
+    return 1
+}
+
+# If the user explicitly specified a precious directory, create it so we
+# can map it into the container
+for precious_dir_name in $precious_dir_names; do
+    precious_dir_path="${!precious_dir_name}"
+    if [ -n "$precious_dir_path" ]; then
+        if [ ! -e "$precious_dir_path" ]; then
+            mkdir -p "$precious_dir_path"
+        elif [ -L "$precious_dir_path" ]; then
+            echo "ERR: ${precious_dir_name} cannot be a symbolic link"
+            exit 1
+        elif [ ! -d "$precious_dir_path" ]; then
+            echo "ERR: ${precious_dir_name} must be a directory"
+            exit 1
+        fi
+    fi
+done
+
+mkdir -p "$VAR_BASE"
+
+# Record the _effective_ values of precious directories such that guix-clean can
+# avoid clobbering them if appropriate.
+#
+# shellcheck disable=SC2046,SC2086
+{
+    # Get precious dir definitions from depends and the environment
+    for precious_dir_name in $precious_dir_names; do
+        if contains "$depends_precious_dir_names" "$precious_dir_name"; then
+            precious_dir_path="$(make -C "${PWD}/contrib/depends" --no-print-directory print-${precious_dir_name})"
+        else
+            precious_dir_path="${!precious_dir_name}"
+        fi
+        echo "${precious_dir_name}=${precious_dir_path}"
+    done
+} > "${VAR_BASE}/precious_dirs"
+
+# Make sure an output and logs directory exists for our builds
+OUTDIR_BASE="${OUTDIR_BASE:-${VERSION_BASE}/output}"
+mkdir -p "$OUTDIR_BASE"
+LOGDIR_BASE="${LOGDIR_BASE:-${VERSION_BASE}/logs}"
+mkdir -p "$LOGDIR_BASE"
+
+# Download the depends sources now as we won't have internet access in the build
+# container
+for host in $HOSTS; do
+    make -C "${PWD}/contrib/depends" -j"$JOBS" download-"$(host_to_commonname "${host}")" ${V:+V=1} ${SOURCES_PATH:+SOURCES_PATH="$SOURCES_PATH"}
+done
+
+# Usage: outdir_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+outdir_for_host() {
+    echo "${OUTDIR_BASE}/${1}"
+}
+
+# Usage: logdir_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+logdir_for_host() {
+    echo "${LOGDIR_BASE}/${1}"
+}
+
+# Usage: profiledir_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+profiledir_for_host() {
+    echo "${PROFILES_BASE}/${1}"
+}
+
+
+#########
+# BUILD #
+#########
+
+# Function to be called when building for host ${1} and the user interrupts the
+# build
+int_trap() {
+cat << EOF
+** INT received while building ${1}, you may want to clean up the relevant
+   work directories (e.g. distsrc-*) before rebuilding
+
+Hint: To blow everything away, you may want to use:
+
+  $ ./contrib/guix/guix-clean
+
+Specifically, this will remove all files without an entry in the index,
+excluding the depends download cache, the depends built
+packages cache, the garbage collector roots for Guix environments, and the
+output directory.
+EOF
+}
+
+# Deterministically build Monero
+# shellcheck disable=SC2153
+for host in $HOSTS; do
+
+    # Display proper warning when the user interrupts the build
+    trap 'int_trap ${host}' INT
+
+    (
+        # Required for 'contrib/guix/manifest.scm' to output the right manifest
+        # for the particular $HOST we're building for
+        export HOST="$host"
+
+
+        # shellcheck disable=SC2030
+cat << EOF
+INFO: Building ${VERSION:?not set} for platform triple ${HOST:?not set}:
+      ...using commit timestamp: ${COMMIT_TIMESTAMP:?not set}
+      ...running at most ${JOBS:?not set} jobs
+      ...from worktree directory: '${PWD}'
+          ...bind-mounted in container to: '/monero'
+      ...in build directory: '$(distsrc_for_host "$HOST")'
+          ...bind-mounted in container to: '$(DISTSRC_BASE=/distsrc-base && distsrc_for_host "$HOST")'
+      ...outputting in: '$(outdir_for_host "$HOST")'
+          ...bind-mounted in container to: '$(OUTDIR_BASE=/outdir-base && outdir_for_host "$HOST")'
+EOF
+
+        rm -f "$(profiledir_for_host "${HOST}")"
+
+        # First run produces a different GUIX_ENVIRONMENT.
+        time-machine environment --manifest="${PWD}/contrib/guix/manifest.scm" \
+                                 --container \
+                                 --pure \
+                                 --no-cwd \
+                                 --cores="$JOBS" \
+                                 --keep-failed \
+                                 --fallback \
+                                 ${SUBSTITUTE_URLS:+--substitute-urls="$SUBSTITUTE_URLS"} \
+                                 ${ADDITIONAL_GUIX_COMMON_FLAGS} ${ADDITIONAL_GUIX_ENVIRONMENT_FLAGS} \
+                                 -- echo "$HOST"
+
+        # Useful for CI environments where you only want to build Guix packages so they
+        # can be cached. Currently unused.
+        if [[ -v DRY_RUN ]]; then
+            echo "Dry run, exiting.."
+            exit 0
+        fi
+
+        # Run the build script 'contrib/guix/libexec/build.sh' in the build
+        # container specified by 'contrib/guix/manifest.scm'.
+        #
+        # Explanation of `guix environment` flags:
+        #
+        #   --container        run command within an isolated container
+        #
+        #     Running in an isolated container minimizes build-time differences
+        #     between machines and improves reproducibility
+        #
+        #   --pure             unset existing environment variables
+        #
+        #     Same rationale as --container
+        #
+        #   --no-cwd           do not share current working directory with an
+        #                      isolated container
+        #
+        #     When --container is specified, the default behavior is to share
+        #     the current working directory with the isolated container at the
+        #     same exact path (e.g. mapping '/home/user/monero/' to
+        #     '/home/user/monero/'). This means that the $PWD inside the
+        #     container becomes a source of irreproducibility. --no-cwd disables
+        #     this behaviour.
+        #
+        #   --share=SPEC       for containers, share writable host file system
+        #                      according to SPEC
+        #
+        #   --share="$PWD"=/monero
+        #
+        #                     maps our current working directory to /monero
+        #                     inside the isolated container, which we later cd
+        #                     into.
+        #
+        #     While we don't want to map our current working directory to the
+        #     same exact path (as this introduces irreproducibility), we do want
+        #     it to be at a _fixed_ path _somewhere_ inside the isolated
+        #     container so that we have something to build. '/monero' was
+        #     chosen arbitrarily.
+        #
+        #   ${SOURCES_PATH:+--share="$SOURCES_PATH"}
+        #
+        #                     make the downloaded depends sources path available
+        #                     inside the isolated container
+        #
+        #     The isolated container has no network access as it's in a
+        #     different network namespace from the main machine, so we have to
+        #     make the downloaded depends sources available to it. The sources
+        #     should have been downloaded prior to this invocation.
+        #
+        #   --keep-failed     keep build tree of failed builds
+        #
+        #     When builds of the Guix environment itself (not Monero)
+        #     fail, it is useful for the build tree to be kept for debugging
+        #     purposes.
+        #
+        #  ${SUBSTITUTE_URLS:+--substitute-urls="$SUBSTITUTE_URLS"}
+        #
+        #                     fetch substitute from SUBSTITUTE_URLS if they are
+        #                     authorized
+        #
+        #    Depending on the user's security model, it may be desirable to use
+        #    substitutes (pre-built packages) from servers that the user trusts.
+        #    Please read the README.md in the same directory as this file for
+        #    more information.
+        #
+        # shellcheck disable=SC2086,SC2031
+        time-machine environment --manifest="${PWD}/contrib/guix/manifest.scm" \
+                                 --container \
+                                 --pure \
+                                 --no-cwd \
+                                 --share="$PWD"=/monero \
+                                 --share="$DISTSRC_BASE"=/distsrc-base \
+                                 --share="$OUTDIR_BASE"=/outdir-base \
+                                 --share="$LOGDIR_BASE"=/logdir-base \
+                                 --expose="$(git rev-parse --git-common-dir)" \
+                                 ${SOURCES_PATH:+--share="$SOURCES_PATH"} \
+                                 ${BASE_CACHE:+--share="$BASE_CACHE"} \
+                                 --cores="$JOBS" \
+                                 --keep-failed \
+                                 --fallback \
+                                 --link-profile \
+                                 --user="user" \
+                                 --root="$(profiledir_for_host "${HOST}")" \
+                                 ${SUBSTITUTE_URLS:+--substitute-urls="$SUBSTITUTE_URLS"} \
+                                 ${ADDITIONAL_GUIX_COMMON_FLAGS} ${ADDITIONAL_GUIX_ENVIRONMENT_FLAGS} \
+                                 -- env HOST="$HOST" \
+                                        VERSION="$VERSION" \
+                                        JOBS="$JOBS" \
+                                        COMMIT_TIMESTAMP="${COMMIT_TIMESTAMP:?unable to determine value}" \
+                                        ${V:+V=1} \
+                                        ${DEPENDS_ONLY:+DEPENDS_ONLY=1} \
+                                        ${SOURCES_PATH:+SOURCES_PATH="$SOURCES_PATH"} \
+                                        ${BASE_CACHE:+BASE_CACHE="$BASE_CACHE"} \
+                                        DISTSRC="$(DISTSRC_BASE=/distsrc-base && distsrc_for_host "$host")" \
+                                        OUTDIR="$(OUTDIR_BASE=/outdir-base && outdir_for_host "$host")" \
+                                        LOGDIR="$(LOGDIR_BASE=/logdir-base && logdir_for_host "$host")" \
+                                        DIST_ARCHIVE_BASE=/outdir-base/dist-archive \
+                                      bash -c "cd /monero && bash contrib/guix/libexec/build.sh"
+    )
+
+done

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -48,6 +48,11 @@ namespace epee {
 }
 
 namespace Monero {
+
+WalletManagerImpl::WalletManagerImpl()
+{
+    tools::set_strict_default_file_permissions(true);
+}
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
                                     const std::string &language, NetworkType nettype, uint64_t kdf_rounds)
@@ -406,5 +411,3 @@ void WalletManagerFactory::setLogCategories(const std::string &categories)
 
 
 }
-
-namespace Bitmonero = Monero;

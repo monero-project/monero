@@ -1,4 +1,5 @@
-# Copyright (c) 2018 The Monero Project
+# Copyright (c) 2018-2024, The Monero Project
+
 # 
 # All rights reserved.
 # 
@@ -32,11 +33,12 @@ from .rpc import JSONRPC
 
 class Daemon(object):
 
-    def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0, restricted_rpc = False):
+    def __init__(self, protocol='http', host='127.0.0.1', port=0, idx=0, restricted_rpc = False, username=None, password=None):
         base = 18480 if restricted_rpc else 18180
         self.host = host
         self.port = port
-        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else base+idx))
+        self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=port if port else base+idx),
+            username, password)
 
     def getblocktemplate(self, address, prev_block = "", client = ""):
         getblocktemplate = {
@@ -52,6 +54,28 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(getblocktemplate)
     get_block_template = getblocktemplate
+
+    def get_miner_data(self):
+        get_miner_data = {
+            'method': 'get_miner_data',
+            'jsonrpc': '2.0', 
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_miner_data)
+
+    def calc_pow(self, major_version, height, block_blob, seed_hash = ''):
+        calc_pow = {
+            'method': 'calc_pow',
+            'params': {
+                'major_version': major_version,
+                'height': height,
+                'block_blob' : block_blob,
+                'seed_hash' : seed_hash,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(calc_pow)
 
     def add_aux_pow(self, blocktemplate_blob, aux_pow, client = ""):
         add_aux_pow = {
@@ -566,6 +590,18 @@ class Daemon(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(flush_cache)
+
+    def get_txids_loose(self, txid_template, num_matching_bits):
+        get_txids_loose = {
+            'method': 'get_txids_loose',
+            'params': {
+                'txid_template': txid_template,
+                'num_matching_bits': num_matching_bits
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_txids_loose)
 
     def sync_txpool(self):
         sync_txpool = {

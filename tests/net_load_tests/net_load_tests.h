@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,7 +32,6 @@
 
 #include <atomic>
 
-#include <boost/asio/io_service.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "include_base_utils.h"
@@ -67,7 +66,7 @@ namespace net_load_tests
     {
     }
 
-    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_slice& buff_out, test_connection_context& context)
+    virtual int invoke(int command, const epee::span<const uint8_t> in_buff, epee::byte_stream& buff_out, test_connection_context& context)
     {
       //m_invoke_counter.inc();
       //std::unique_lock<std::mutex> lock(m_mutex);

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -49,6 +49,7 @@
 #include "misc_language.h"
 #include "ringct/rctTypes.h"
 #include "device/device.hpp"
+#include "cryptonote_basic/fwd.h"
 
 namespace cryptonote
 {
@@ -73,13 +74,27 @@ namespace cryptonote
     crypto::hash hash;
   };
 
+  // outputs <= HF_VERSION_VIEW_TAGS
   struct txout_to_key
   {
-    txout_to_key() { }
+    txout_to_key(): key() { }
     txout_to_key(const crypto::public_key &_key) : key(_key) { }
     crypto::public_key key;
   };
 
+  // outputs >= HF_VERSION_VIEW_TAGS
+  struct txout_to_tagged_key
+  {
+    txout_to_tagged_key(): key(), view_tag() { }
+    txout_to_tagged_key(const crypto::public_key &_key, const crypto::view_tag &_view_tag) : key(_key), view_tag(_view_tag) { }
+    crypto::public_key key;
+    crypto::view_tag view_tag; // optimization to reduce scanning time
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(key)
+      FIELD(view_tag)
+    END_SERIALIZE()
+  };
 
   /* inputs */
 
@@ -136,7 +151,7 @@ namespace cryptonote
 
   typedef boost::variant<txin_gen, txin_to_script, txin_to_scripthash, txin_to_key> txin_v;
 
-  typedef boost::variant<txout_to_script, txout_to_scripthash, txout_to_key> txout_target_v;
+  typedef boost::variant<txout_to_script, txout_to_scripthash, txout_to_key, txout_to_tagged_key> txout_target_v;
 
   //typedef std::pair<uint64_t, txout> out_t;
   struct tx_out
@@ -151,10 +166,6 @@ namespace cryptonote
 
 
   };
-
-  template<typename T> static inline unsigned int getpos(T &ar) { return 0; }
-  template<> inline unsigned int getpos(binary_archive<true> &ar) { return ar.stream().tellp(); }
-  template<> inline unsigned int getpos(binary_archive<false> &ar) { return ar.stream().tellg(); }
 
   class transaction_prefix
   {
@@ -171,7 +182,7 @@ namespace cryptonote
 
     BEGIN_SERIALIZE()
       VARINT_FIELD(version)
-      if(version == 0 || CURRENT_TRANSACTION_VERSION < version) return false;
+      if((version == 0 || CURRENT_TRANSACTION_VERSION < version)) return false;
       VARINT_FIELD(unlock_time)
       FIELD(vin)
       FIELD(vout)
@@ -236,17 +247,17 @@ namespace cryptonote
         set_blob_size_valid(false);
       }
 
-      const unsigned int start_pos = getpos(ar);
+      const auto start_pos = ar.getpos();
 
       FIELDS(*static_cast<transaction_prefix *>(this))
 
       if (std::is_same<Archive<W>, binary_archive<W>>())
-        prefix_size = getpos(ar) - start_pos;
+        prefix_size = ar.getpos() - start_pos;
 
       if (version == 1)
       {
         if (std::is_same<Archive<W>, binary_archive<W>>())
-          unprunable_size = getpos(ar) - start_pos;
+          unprunable_size = ar.getpos() - start_pos;
 
         ar.tag("signatures");
         ar.begin_array();
@@ -284,11 +295,11 @@ namespace cryptonote
         {
           ar.begin_object();
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
-          if (!r || !ar.stream().good()) return false;
+          if (!r || !ar.good()) return false;
           ar.end_object();
 
           if (std::is_same<Archive<W>, binary_archive<W>>())
-            unprunable_size = getpos(ar) - start_pos;
+            unprunable_size = ar.getpos() - start_pos;
 
           if (!pruned && rct_signatures.type != rct::RCTTypeNull)
           {
@@ -296,7 +307,7 @@ namespace cryptonote
             ar.begin_object();
             r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
                 vin.size() > 0 && vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
-            if (!r || !ar.stream().good()) return false;
+            if (!r || !ar.good()) return false;
             ar.end_object();
           }
         }
@@ -320,13 +331,13 @@ namespace cryptonote
         {
           ar.begin_object();
           bool r = rct_signatures.serialize_rctsig_base(ar, vin.size(), vout.size());
-          if (!r || !ar.stream().good()) return false;
+          if (!r || !ar.good()) return false;
           ar.end_object();
         }
       }
       if (!typename Archive<W>::is_saving())
         pruned = true;
-      return ar.stream().good();
+      return ar.good();
     }
 
   private:
@@ -565,6 +576,7 @@ VARIANT_TAG(binary_archive, cryptonote::txin_to_key, 0x2);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_script, 0x0);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_scripthash, 0x1);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_key, 0x2);
+VARIANT_TAG(binary_archive, cryptonote::txout_to_tagged_key, 0x3);
 VARIANT_TAG(binary_archive, cryptonote::transaction, 0xcc);
 VARIANT_TAG(binary_archive, cryptonote::block, 0xbb);
 
@@ -575,6 +587,7 @@ VARIANT_TAG(json_archive, cryptonote::txin_to_key, "key");
 VARIANT_TAG(json_archive, cryptonote::txout_to_script, "script");
 VARIANT_TAG(json_archive, cryptonote::txout_to_scripthash, "scripthash");
 VARIANT_TAG(json_archive, cryptonote::txout_to_key, "key");
+VARIANT_TAG(json_archive, cryptonote::txout_to_tagged_key, "tagged_key");
 VARIANT_TAG(json_archive, cryptonote::transaction, "tx");
 VARIANT_TAG(json_archive, cryptonote::block, "block");
 
@@ -585,5 +598,6 @@ VARIANT_TAG(debug_archive, cryptonote::txin_to_key, "key");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_script, "script");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_scripthash, "scripthash");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_key, "key");
+VARIANT_TAG(debug_archive, cryptonote::txout_to_tagged_key, "tagged_key");
 VARIANT_TAG(debug_archive, cryptonote::transaction, "tx");
 VARIANT_TAG(debug_archive, cryptonote::block, "block");

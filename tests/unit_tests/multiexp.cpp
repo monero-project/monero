@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 // 
 // All rights reserved.
 // 
@@ -260,7 +261,7 @@ TEST(multiexp, scalarmult_triple)
   rct::key res;
   ge_p3 Gp3;
 
-  ge_frombytes_vartime(&Gp3, rct::G.bytes);
+  ASSERT_EQ(ge_frombytes_vartime(&Gp3, rct::G.bytes), 0);
 
   static const rct::key scalars[] = {
     rct::Z,

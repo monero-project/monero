@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -30,6 +31,8 @@
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/filesystem.hpp>
 #include <fstream>
 #include <sstream>
 #include "file_io_utils.h"
@@ -191,9 +194,7 @@ void message_store::unpack_signer_config(const multisig_wallet_state &state, con
 {
   try
   {
-    std::stringstream iss;
-    iss << signer_config;
-    binary_archive<false> ar(iss);
+    binary_archive<false> ar{epee::strspan<std::uint8_t>(signer_config)};
     THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, signers), tools::error::wallet_internal_error, "Failed to serialize signer config");
   }
   catch (...)
@@ -381,9 +382,7 @@ void message_store::process_auto_config_data_message(uint32_t id)
   auto_config_data data;
   try
   {
-    std::stringstream iss;
-    iss << m.content;
-    binary_archive<false> ar(iss);
+    binary_archive<false> ar{epee::strspan<std::uint8_t>(m.content)};
     THROW_WALLET_EXCEPTION_IF(!::serialization::serialize(ar, data), tools::error::wallet_internal_error, "Failed to serialize auto config data");
   }
   catch (...)
@@ -788,9 +787,7 @@ void message_store::read_from_file(const multisig_wallet_state &state, const std
   file_data read_file_data;
   try
   {
-    std::stringstream iss;
-    iss << buf;
-    binary_archive<false> ar(iss);
+    binary_archive<false> ar{epee::strspan<std::uint8_t>(buf)};
     if (::serialization::serialize(ar, read_file_data))
       if (::serialization::check_stream_state(ar))
         loaded = true;
@@ -827,9 +824,7 @@ void message_store::read_from_file(const multisig_wallet_state &state, const std
   loaded = false;
   try
   {
-    std::stringstream iss;
-    iss << decrypted_data;
-    binary_archive<false> ar(iss);
+    binary_archive<false> ar{epee::strspan<std::uint8_t>(decrypted_data)};
     if (::serialization::serialize(ar, *this))
       if (::serialization::check_stream_state(ar))
         loaded = true;

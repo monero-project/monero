@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -43,9 +43,11 @@ set(performance_tests_headers
   generate_keypair.h
   signature.h
   is_out_to_acc.h
+  out_can_be_to_acc.h
   subaddress_expand.h
   range_proof.h
   bulletproof.h
+  bulletproof_plus.h
   crypto_ops.h
   sc_reduce32.h
   sc_check.h
@@ -65,6 +67,7 @@ target_link_libraries(performance_tests
     common
     cncrypto
     epee
+    seraphis_crypto
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})

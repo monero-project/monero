@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -57,6 +57,11 @@ namespace daemonizer
     , T_executor && executor // universal ref
     , boost::program_options::variables_map const & vm
     );
+    
+  const command_line::arg_descriptor<bool> arg_non_interactive = {
+      "non-interactive"
+    , "Run non-interactive"
+    };
 }
 
 #ifdef WIN32

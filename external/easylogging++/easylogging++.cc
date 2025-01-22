@@ -149,6 +149,11 @@ static el::Color colorFromLevel(el::Level level)
 
 static void setConsoleColor(el::Color color, bool bright)
 {
+  static const char *no_color_var = getenv("NO_COLOR");
+  static const bool no_color = no_color_var && *no_color_var; // apparently, NO_COLOR=0 means no color too (as per no-color.org)
+  if (no_color)
+    return;
+
 #if ELPP_OS_WINDOWS
   HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
   switch (color)
@@ -714,9 +719,8 @@ Logger::Logger(const std::string& id, const Configurations& configurations,
 }
 
 Logger::Logger(const Logger& logger) {
-  base::utils::safeDelete(m_typedConfigurations);
   m_id = logger.m_id;
-  m_typedConfigurations = logger.m_typedConfigurations;
+  m_typedConfigurations = logger.m_typedConfigurations ? new base::TypedConfigurations(*logger.m_typedConfigurations) : nullptr;
   m_parentApplicationName = logger.m_parentApplicationName;
   m_isConfigured = logger.m_isConfigured;
   m_configurations = logger.m_configurations;
@@ -728,7 +732,7 @@ Logger& Logger::operator=(const Logger& logger) {
   if (&logger != this) {
     base::utils::safeDelete(m_typedConfigurations);
     m_id = logger.m_id;
-    m_typedConfigurations = logger.m_typedConfigurations;
+    m_typedConfigurations = logger.m_typedConfigurations ? new base::TypedConfigurations(*logger.m_typedConfigurations) : nullptr;
     m_parentApplicationName = logger.m_parentApplicationName;
     m_isConfigured = logger.m_isConfigured;
     m_configurations = logger.m_configurations;
@@ -2490,20 +2494,20 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 
 
 template<typename Transform>
-static inline std::string utf8canonical(const std::string &s, Transform t = [](wint_t c)->wint_t { return c; })
+static inline void utf8canonical(std::string &s, Transform t = [](wint_t c)->wint_t { return c; })
 {
-    std::string sc = "";
     size_t avail = s.size();
     const char *ptr = s.data();
     wint_t cp = 0;
-    int bytes = 1;
+    int rbytes = 1, bytes = -1;
     char wbuf[8], *wptr;
+    size_t w_offset = 0;
     while (avail--)
     {
       if ((*ptr & 0x80) == 0)
       {
         cp = *ptr++;
-        bytes = 1;
+        rbytes = 1;
       }
       else if ((*ptr & 0xe0) == 0xc0)
       {
@@ -2512,7 +2516,7 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         cp = (*ptr++ & 0x1f) << 6;
         cp |= *ptr++ & 0x3f;
         --avail;
-        bytes = 2;
+        rbytes = 2;
       }
       else if ((*ptr & 0xf0) == 0xe0)
       {
@@ -2522,7 +2526,7 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         cp |= (*ptr++ & 0x3f) << 6;
         cp |= *ptr++ & 0x3f;
         avail -= 2;
-        bytes = 3;
+        rbytes = 3;
       }
       else if ((*ptr & 0xf8) == 0xf0)
       {
@@ -2533,7 +2537,7 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         cp |= (*ptr++ & 0x3f) << 6;
         cp |= *ptr++ & 0x3f;
         avail -= 3;
-        bytes = 4;
+        rbytes = 4;
       }
       else
         throw std::runtime_error("Invalid UTF-8");
@@ -2550,6 +2554,9 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
       else
         throw std::runtime_error("Invalid code point UTF-8 transformation");
 
+      if (bytes > rbytes)
+        throw std::runtime_error("In place sanitization requires replacements to not take more space than the original code points");
+
       wptr = wbuf;
       switch (bytes)
       {
@@ -2560,16 +2567,17 @@ static inline std::string utf8canonical(const std::string &s, Transform t = [](w
         default: throw std::runtime_error("Invalid UTF-8");
       }
       *wptr = 0;
-      sc.append(wbuf, bytes);
+      memcpy(&s[w_offset], wbuf, bytes);
+      w_offset += bytes;
       cp = 0;
       bytes = 1;
     }
-    return sc;
+    s.resize(w_offset);
 }
 
 void sanitize(std::string &s)
 {
-  s = utf8canonical(s, [](wint_t c)->wint_t {
+  utf8canonical(s, [](wint_t c)->wint_t {
     if (c == 9 || c == 10 || c == 13)
       return c;
     if (c < 0x20)
@@ -2981,8 +2989,8 @@ void Writer::initializeLogger(Logger *logger, bool needLock) {
 }
 
 void Writer::processDispatch() {
-  static std::atomic_flag in_dispatch;
-  if (in_dispatch.test_and_set())
+  static __thread bool in_dispatch = false;
+  if (in_dispatch)
   {
     if (m_proceed && m_logger != NULL)
     {
@@ -2991,6 +2999,7 @@ void Writer::processDispatch() {
     }
     return;
   }
+  in_dispatch = true;
 #if ELPP_LOGGING_ENABLED
   if (ELPP->hasFlag(LoggingFlag::MultiLoggerSupport)) {
     bool firstDispatched = false;
@@ -3029,7 +3038,7 @@ void Writer::processDispatch() {
     m_logger->releaseLock();
   }
 #endif // ELPP_LOGGING_ENABLED
-  in_dispatch.clear();
+  in_dispatch = false;
 }
 
 void Writer::triggerDispatch(void) {

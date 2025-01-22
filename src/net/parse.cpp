@@ -1,4 +1,5 @@
-// Copyright (c) 2018, The Monero Project
+// Copyright (c) 2018-2024, The Monero Project
+
 //
 // All rights reserved.
 //
@@ -31,12 +32,13 @@
 #include "net/tor_address.h"
 #include "net/i2p_address.h"
 #include "string_tools.h"
+#include "string_tools_lexical.h"
 
 namespace net
 {
     void get_network_address_host_and_port(const std::string& address, std::string& host, std::string& port)
     {
-        // require ipv6 address format "[addr:addr:addr:...:addr]:port"
+        // If IPv6 address format with port "[addr:addr:addr:...:addr]:port"
         if (address.find(']') != std::string::npos)
         {
             host = address.substr(1, address.rfind(']') - 1);
@@ -45,6 +47,12 @@ namespace net
                 port = address.substr(address.rfind(':') + 1);
             }
         }
+        // Else if IPv6 address format without port e.g. "addr:addr:addr:...:addr"
+        else if (std::count(address.begin(), address.end(), ':') >= 2)
+        {
+            host = address;
+        }
+        // Else IPv4, Tor, I2P address or hostname
         else
         {
             host = address.substr(0, address.rfind(':'));
@@ -73,10 +81,10 @@ namespace net
         if (host_str_ref.ends_with(".onion"))
             return tor_address::make(address, default_port);
         if (host_str_ref.ends_with(".i2p"))
-            return i2p_address::make(address, default_port);
+            return i2p_address::make(address);
 
         boost::system::error_code ec;
-        boost::asio::ip::address_v6 v6 = boost::asio::ip::address_v6::from_string(host_str, ec);
+        boost::asio::ip::address_v6 v6 = boost::asio::ip::make_address_v6(host_str, ec);
         ipv6 = !ec;
 
         std::uint16_t port = default_port;

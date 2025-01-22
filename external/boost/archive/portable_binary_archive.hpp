@@ -44,9 +44,16 @@ reverse_bytes(signed char size, char *address){
     char * first = address;
     char * last = first + size - 1;
     for(;first < last;++first, --last){
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow="
+#endif
         char x = *last;
         *last = *first;
         *first = x;
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
     }
 }
 

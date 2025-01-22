@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #encoding=utf-8
 
-# Copyright (c) 2019-2020 The Monero Project
+# Copyright (c) 2019-2024, The Monero Project
 # 
 # All rights reserved.
 # 
@@ -32,7 +32,6 @@
 """Test wallet address book RPC
 """
 
-from __future__ import print_function
 from framework.wallet import Wallet
 
 class AddressBookTest():

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -63,11 +63,11 @@
 #include <cassert>
 #include <iterator>
 #include <limits>
+#include <openssl/evp.h>
 #include <tuple>
 #include <type_traits>
 
 #include "hex.h"
-#include "md5_l.h"
 #include "string_coding.h"
 
 /* This file uses the `u8` prefix and specifies all chars by ASCII numeric
@@ -114,8 +114,8 @@ namespace
       void operator()(const T& arg) const
       {
         const boost::iterator_range<const char*> data(boost::as_literal(arg));
-        md5::MD5Update(
-          std::addressof(ctx),
+        EVP_DigestUpdate(
+          ctx,
           reinterpret_cast<const std::uint8_t*>(data.begin()),
           data.size()
         );
@@ -126,25 +126,25 @@ namespace
       }
       void operator()(const epee::wipeable_string& arg) const
       {
-        md5::MD5Update(
-          std::addressof(ctx),
+        EVP_DigestUpdate(
+          ctx,
           reinterpret_cast<const std::uint8_t*>(arg.data()),
           arg.size()
         );
       }
 
-      md5::MD5_CTX& ctx;
+      EVP_MD_CTX *ctx;
     };
 
     template<typename... T>
     std::array<char, 32> operator()(const T&... args) const
     {      
-      md5::MD5_CTX ctx{};
-      md5::MD5Init(std::addressof(ctx));
-      boost::fusion::for_each(std::tie(args...), update{ctx});
+      std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
+      EVP_DigestInit(ctx.get(), EVP_md5());
+      boost::fusion::for_each(std::tie(args...), update{ctx.get()});
 
       std::array<std::uint8_t, 16> digest{{}};
-      md5::MD5Final(digest.data(), std::addressof(ctx));
+      EVP_DigestFinal(ctx.get(), digest.data(), NULL);
       return epee::to_hex::array(digest);
     }
   };
@@ -209,12 +209,7 @@ namespace
   }
 
   template<typename T>
-  using quoted_result = boost::joined_range<
-    const boost::joined_range<const boost::string_ref, const T>, const boost::string_ref
-  >;
-
-  template<typename T>
-  quoted_result<T> quoted(const T& arg)
+  auto quoted_(const T& arg) // avoid ADL selecting C++14 std::quoted
   {
     return boost::range::join(boost::range::join(ceref(u8"\""), arg), ceref(u8"\""));
   }
@@ -222,15 +217,13 @@ namespace
   //// Digest Authentication
 
   template<typename Digest>
-  typename std::result_of<Digest()>::type generate_a1(
-    Digest digest, const http::login& creds, const boost::string_ref realm)
+  auto generate_a1(Digest digest, const http::login& creds, const boost::string_ref realm)
   {
     return digest(creds.username, u8":", realm, u8":", creds.password);
   }
 
   template<typename Digest>
-  typename std::result_of<Digest()>::type generate_a1(
-    Digest digest, const http::http_client_auth::session& user)
+  auto generate_a1(Digest digest, const http::http_client_auth::session& user)
   {
     return generate_a1(std::move(digest), user.credentials, user.server.realm);
   }
@@ -242,13 +235,13 @@ namespace
   {
     str.append(u8"Digest ");
     add_first_field(str, u8"algorithm", algorithm);
-    add_field(str, u8"nonce", quoted(user.server.nonce));
-    add_field(str, u8"realm", quoted(user.server.realm));
-    add_field(str, u8"response", quoted(response));
-    add_field(str, u8"uri", quoted(uri));
-    add_field(str, u8"username", quoted(user.credentials.username));
+    add_field(str, u8"nonce", quoted_(user.server.nonce));
+    add_field(str, u8"realm", quoted_(user.server.realm));
+    add_field(str, u8"response", quoted_(response));
+    add_field(str, u8"uri", quoted_(uri));
+    add_field(str, u8"username", quoted_(user.credentials.username));
     if (!user.server.opaque.empty())
-      add_field(str, u8"opaque", quoted(user.server.opaque));
+      add_field(str, u8"opaque", quoted_(user.server.opaque));
   }
 
   //! Implements superseded algorithm specified in RFC 2069
@@ -674,8 +667,8 @@ namespace
           Digest::name, (i == 0 ? boost::string_ref{} : sess_algo)
         );
         add_field(out, u8"algorithm", algorithm);
-        add_field(out, u8"realm", quoted(auth_realm));
-        add_field(out, u8"nonce", quoted(nonce));
+        add_field(out, u8"realm", quoted_(auth_realm));
+        add_field(out, u8"nonce", quoted_(nonce));
         add_field(out, u8"stale", is_stale ? ceref("true") : ceref("false"));
         
         fields.push_back(std::make_pair(std::string(server_auth_field), std::move(out)));

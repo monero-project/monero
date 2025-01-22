@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2020, The Monero Project
+// Copyright (c) 2016-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -166,7 +166,7 @@ TEST(logging, glob_prefix)
 TEST(logging, last_precedence)
 {
   init();
-  mlog_set_categories("gobal:FATAL,glo*:DEBUG");
+  mlog_set_categories("global:FATAL,glo*:DEBUG");
   log();
   std::string str;
   ASSERT_TRUE(load_log_to_string(log_filename, str));
@@ -195,3 +195,23 @@ TEST(logging, multiline)
   cleanup();
 }
 
+// These operations might segfault
+TEST(logging, copy_ctor_segfault)
+{
+    const el::Logger log1("id1", nullptr);
+    const el::Logger log2(log1);
+}
+
+TEST(logging, operator_equals_segfault)
+{
+    const el::Logger log1("id1", nullptr);
+    el::Logger log2("id2", nullptr);
+    log2 = log1;
+}
+
+TEST(logging, empty_configurations_throws)
+{
+    el::Logger log1("id1", nullptr);
+    const el::Configurations cfg;
+    EXPECT_ANY_THROW(log1.configure(cfg));
+}

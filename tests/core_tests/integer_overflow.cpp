@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -123,8 +123,8 @@ bool gen_uint_overflow_1::generate(std::vector<test_event_entry>& events) const
   events.push_back(blk_2);
 
   REWIND_BLOCKS(events, blk_2r, blk_2, miner_account);
-  MAKE_TX_LIST_START(events, txs_0, miner_account, bob_account, MONEY_SUPPLY, blk_2);
-  MAKE_TX_LIST(events, txs_0, miner_account, bob_account, MONEY_SUPPLY, blk_2);
+  MAKE_TX_LIST_START(events, txs_0, miner_account, bob_account, MONEY_SUPPLY, blk_2r);
+  MAKE_TX_LIST(events, txs_0, miner_account, bob_account, MONEY_SUPPLY, blk_2r);
   MAKE_NEXT_BLOCK_TX_LIST(events, blk_3, blk_2r, miner_account, txs_0);
   REWIND_BLOCKS(events, blk_3r, blk_3, miner_account);
 
@@ -174,7 +174,7 @@ bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
   destinations.push_back(tx_destination_entry(sources.front().amount - MONEY_SUPPLY - MONEY_SUPPLY + 1 - TESTS_DEFAULT_FEE, bob_addr, false));
 
   cryptonote::transaction tx_1;
-  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_1, 0))
+  if (!construct_tx(miner_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_1))
     return false;
   events.push_back(tx_1);
 
@@ -200,7 +200,7 @@ bool gen_uint_overflow_2::generate(std::vector<test_event_entry>& events) const
   destinations.push_back(de);
 
   cryptonote::transaction tx_2;
-  if (!construct_tx(bob_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_2, 0))
+  if (!construct_tx(bob_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_2))
     return false;
   events.push_back(tx_2);
 

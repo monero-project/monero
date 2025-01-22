@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -126,25 +126,19 @@ bool gen_double_spend_in_tx<txs_keeped_by_block>::generate(std::vector<test_even
   DO_CALLBACK(events, "mark_last_valid_block");
 
   std::vector<cryptonote::tx_source_entry> sources;
-  cryptonote::tx_source_entry se;
-  se.amount = tx_0.vout[0].amount;
-  se.push_output(0, boost::get<cryptonote::txout_to_key>(tx_0.vout[0].target).key, se.amount);
-  se.real_output = 0;
-  se.rct = false;
-  se.real_out_tx_key = get_tx_pub_key_from_extra(tx_0);
-  se.real_output_in_tx_index = 0;
-  sources.push_back(se);
+  CHECK_AND_ASSERT_THROW_MES(fill_tx_sources(sources, events, blk_1r, bob_account, send_amount, 0), "Source find error");
+
   // Double spend!
-  sources.push_back(se);
+  sources.push_back(sources[0]);
 
   cryptonote::tx_destination_entry de;
   de.addr = alice_account.get_keys().m_account_address;
-  de.amount = 2 * se.amount - TESTS_DEFAULT_FEE;
+  de.amount = 2 * send_amount - TESTS_DEFAULT_FEE;
   std::vector<cryptonote::tx_destination_entry> destinations;
   destinations.push_back(de);
 
   cryptonote::transaction tx_1;
-  if (!construct_tx(bob_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_1, 0))
+  if (!construct_tx(bob_account.get_keys(), sources, destinations, boost::none, std::vector<uint8_t>(), tx_1))
     return false;
 
   SET_EVENT_VISITOR_SETT(events, txs_keeped_by_block ? event_visitor_settings::set_txs_keeped_by_block : 0);

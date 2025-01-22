@@ -26,13 +26,10 @@
 // 
 
 #pragma once
-#include <boost/utility/string_ref.hpp>
-#include <chrono>
-#include <string>
-#include "byte_slice.h"
-#include "portable_storage_template_helper.h"
+
 #include "net/http_base.h"
-#include "net/http_server_handlers_map2.h"
+#include "net/jsonrpc_structs.h"
+#include "portable_storage_template_helper.h"
 
 namespace epee
 {
@@ -136,12 +133,5 @@ namespace epee
       epee::json_rpc::error error_struct;
       return invoke_http_json_rpc(uri, method_name, out_struct, result_struct, error_struct, transport, timeout, http_method, req_id);
     }
-
-    template<class t_command, class t_transport>
-    bool invoke_http_json_rpc(const boost::string_ref uri, typename t_command::request& out_struct, typename t_command::response& result_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
-    {
-      return invoke_http_json_rpc(uri, t_command::methodname(), out_struct, result_struct, transport, timeout, http_method, req_id);
-    }
-
-  }
-}
+  } // namespace net_utils
+} // namespace epee

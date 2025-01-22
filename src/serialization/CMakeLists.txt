@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2020, The Monero Project
+# Copyright (c) 2016-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -31,8 +31,7 @@ set(serialization_sources
 
 set(serialization_headers)
 
-set(serialization_private_headers
-  json_object.h)
+monero_find_all_headers(serialization_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(serialization
   ${serialization_private_headers})

@@ -1,5 +1,5 @@
 //#define DBG
-// Copyright (c) 2016, Monero Research Labs
+// Copyright (c) 2016-2024, Monero Research Labs
 //
 // Author: Shen Noether <shen.noether@gmx.com>
 //
@@ -184,6 +184,7 @@ namespace rct {
 
     //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
     // where C= aG + bH
+    key genAmountEncodingFactor(const key &k);
     key genCommitmentMask(const key &sk);
     void ecdhEncode(ecdhTuple & unmasked, const key & sharedSec, bool v2);
     void ecdhDecode(ecdhTuple & masked, const key & sharedSec, bool v2);

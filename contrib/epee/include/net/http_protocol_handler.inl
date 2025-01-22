@@ -206,6 +206,7 @@ namespace net_utils
 		m_config(config),
 		m_want_close(false),
 		m_newlines(0),
+		m_bytes_read(0),
 		m_psnd_hndlr(psnd_hndlr),
 		m_conn_context(conn_context)
 	{
@@ -221,6 +222,7 @@ namespace net_utils
 		m_query_info.clear();
 		m_len_summary = 0;
 		m_newlines = 0;
+		m_bytes_read = 0;
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
@@ -242,6 +244,14 @@ namespace net_utils
 	{
 
 		size_t ndel;
+
+		m_bytes_read += buf.size();
+		if (m_bytes_read > m_config.m_max_content_length)
+		{
+			LOG_ERROR("simple_http_connection_handler::handle_buff_in: Too much data: got " << m_bytes_read);
+			m_state = http_state_error;
+			return false;
+		}
 
 		if(m_cache.size())
 			m_cache += buf;
@@ -376,7 +386,7 @@ namespace net_utils
 			m_query_info.m_http_method_str = result[2];
 			m_query_info.m_full_request_str = result[0];
 
-			m_cache.erase(m_cache.begin(),  to_nonsonst_iterator(m_cache, result[0].second));
+			m_cache.erase(m_cache.begin(), result[0].second);
 
 			m_state = http_state_retriving_header;
 
@@ -668,7 +678,7 @@ namespace net_utils
 		// Cross-origin resource sharing
 		if(m_query_info.m_header_info.m_origin.size())
 		{
-			if (std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), m_query_info.m_header_info.m_origin))
+			if (std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), "*") || std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), m_query_info.m_header_info.m_origin))
 			{
 				buf += "Access-Control-Allow-Origin: ";
 				buf += m_query_info.m_header_info.m_origin;

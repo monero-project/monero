@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2020, The Monero Project
+// Copyright (c) 2019-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -151,8 +151,12 @@ namespace epee
     : byte_slice()
   {
     std::size_t space_needed = 0;
-    for (const auto source : sources)
+    for (const auto& source : sources)
+    {
+      if (std::numeric_limits<std::size_t>::max() - space_needed < source.size())
+        throw std::bad_alloc{};
       space_needed += source.size();
+    }
 
     if (space_needed)
     {
@@ -160,11 +164,11 @@ namespace epee
       span<std::uint8_t> out{reinterpret_cast<std::uint8_t*>(storage.get() + 1), space_needed};
       portion_ = {out.data(), out.size()};
 
-      for (const auto source : sources)
+      for (const auto& source : sources)
       {
+        assert(source.size() <= out.size()); // see check above
         std::memcpy(out.data(), source.data(), source.size());
-        if (out.remove_prefix(source.size()) < source.size())
-          throw std::bad_alloc{}; // size_t overflow on space_needed
+        out.remove_prefix(source.size());
       }
       storage_ = std::move(storage);
     }

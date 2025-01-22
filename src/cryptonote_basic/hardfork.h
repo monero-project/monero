@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -230,6 +230,11 @@ namespace cryptonote
      * @brief returns the size of the voting window in blocks
      */
     uint64_t get_window_size() const { return window_size; }
+
+    /**
+     * @brief returns info for all known hard forks
+     */
+    const std::vector<hardfork_t>& get_hardforks() const { return heights; }
 
   private:
 

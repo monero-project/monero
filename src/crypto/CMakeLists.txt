@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2020, The Monero Project
+# Copyright (c) 2014-2024, The Monero Project
 #
 # All rights reserved.
 #
@@ -29,10 +29,12 @@
 set(crypto_sources
   aesb.c
   blake256.c
+  blake2b.c
   chacha.c
   crypto-ops-data.c
   crypto-ops.c
   crypto.cpp
+  generators.cpp
   groestl.c
   hash-extra-blake.c
   hash-extra-groestl.c
@@ -58,27 +60,7 @@ include_directories(${RANDOMX_INCLUDE})
 
 set(crypto_headers)
 
-set(crypto_private_headers
-  blake256.h
-  chacha.h
-  crypto-ops.h
-  crypto.h
-  generic-ops.h
-  groestl.h
-  groestl_tables.h
-  hash-ops.h
-  hash.h
-  hmac-keccak.h
-  initializer.h
-  jh.h
-  keccak.h
-  oaes_config.h
-  oaes_lib.h
-  random.h
-  skein.h
-  skein_port.h
-  CryptonightR_JIT.h
-  CryptonightR_template.h)
+monero_find_all_headers(crypto_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_private_headers(cncrypto
   ${crypto_private_headers})
@@ -91,7 +73,7 @@ target_link_libraries(cncrypto
     epee
     randomx
     ${Boost_SYSTEM_LIBRARY}
-    ${SODIUM_LIBRARY}
+    ${sodium_LIBRARIES}
   PRIVATE
     ${EXTRA_LIBRARIES})
 
@@ -116,6 +98,7 @@ endif()
 
 # cheat because cmake and ccache hate each other
 set_property(SOURCE CryptonightR_template.S PROPERTY LANGUAGE C)
+set_property(SOURCE CryptonightR_template.S PROPERTY XCODE_EXPLICIT_FILE_TYPE sourcecode.asm)
 
 # Must be done last, because it references libraries in this directory
 add_subdirectory(wallet)

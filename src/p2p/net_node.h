@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,7 +31,7 @@
 #pragma once
 #include <array>
 #include <atomic>
-#include <boost/asio/io_service.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/thread.hpp>
 #include <boost/optional/optional_fwd.hpp>
@@ -48,7 +48,6 @@
 #include "cryptonote_protocol/levin_notify.h"
 #include "warnings.h"
 #include "net/abstract_tcp_server2.h"
-#include "net/levin_protocol_handler.h"
 #include "net/levin_protocol_handler_async.h"
 #include "p2p_protocol_defs.h"
 #include "storages/levin_abstract_invoke2.h"
@@ -104,22 +103,18 @@ namespace nodetool
 
   // hides boost::future and chrono stuff from mondo template file
   boost::optional<boost::asio::ip::tcp::socket>
-  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_service& service, const boost::asio::ip::tcp::endpoint& proxy, const epee::net_utils::network_address& remote);
+  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& proxy, const epee::net_utils::network_address& remote);
 
 
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
     p2p_connection_context_t()
-      : fluff_txs(),
-        flush_time(std::chrono::steady_clock::time_point::max()),
-        peer_id(0),
+      : peer_id(0),
         support_flags(0),
         m_in_timedsync(false)
     {}
 
-    std::vector<cryptonote::blobdata> fluff_txs;
-    std::chrono::steady_clock::time_point flush_time;
     peerid_type peer_id;
     uint32_t support_flags;
     bool m_in_timedsync;
@@ -184,7 +179,7 @@ namespace nodetool
         set_config_defaults();
       }
 
-      network_zone(boost::asio::io_service& public_service)
+      network_zone(boost::asio::io_context& public_service)
         : m_connect(nullptr),
           m_net_server(public_service, epee::net_utils::e_connection_type_P2P),
           m_seed_nodes(),
@@ -259,6 +254,7 @@ namespace nodetool
         m_offline(false),
         is_closing(false),
         m_network_id(),
+        m_enable_dns_seed_nodes(true),
         max_connections(1)
     {}
     virtual ~node_server();
@@ -267,7 +263,7 @@ namespace nodetool
 
     bool run();
     network_zone& add_zone(epee::net_utils::zone zone);
-    bool init(const boost::program_options::variables_map& vm);
+    bool init(const boost::program_options::variables_map& vm, const std::string& proxy = {}, bool proxy_dns_leaks_allowed = {});
     bool deinit();
     bool send_stop_signal();
     uint32_t get_this_peer_port(){return m_listening_port;}
@@ -344,10 +340,9 @@ namespace nodetool
     virtual void on_connection_close(p2p_connection_context& context);
     virtual void callback(p2p_connection_context& context);
     //----------------- i_p2p_endpoint -------------------------------------------------------------
-    virtual bool relay_notify_to_list(int command, const epee::span<const uint8_t> data_buff, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections);
+    virtual bool relay_notify_to_list(int command, epee::levin::message_writer message, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections) final;
     virtual epee::net_utils::zone send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, cryptonote::relay_method tx_relay);
-    virtual bool invoke_command_to_peer(int command, const epee::span<const uint8_t> req_buff, std::string& resp_buff, const epee::net_utils::connection_context_base& context);
-    virtual bool invoke_notify_to_peer(int command, const epee::span<const uint8_t> req_buff, const epee::net_utils::connection_context_base& context);
+    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const epee::net_utils::connection_context_base& context) final;
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
@@ -517,6 +512,7 @@ namespace nodetool
 
     epee::net_utils::ssl_support_t m_ssl_support;
 
+    bool m_enable_dns_seed_nodes;
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;

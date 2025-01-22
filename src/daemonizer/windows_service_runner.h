@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -146,9 +146,6 @@ namespace windows {
       m_handler.run();
 
       on_state_change_request_(SERVICE_CONTROL_STOP);
-
-      // Ensure that the service is uninstalled
-      uninstall_service(m_name);
     }
 
     static void WINAPI on_state_change_request(DWORD control_code)

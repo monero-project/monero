@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2020, The Monero Project
+// Copyright (c) 2014-2024, The Monero Project
 //
 // All rights reserved.
 //
@@ -39,6 +39,9 @@
 #include <queue>
 #include <boost/serialization/version.hpp>
 #include <boost/utility.hpp>
+#include <boost/bimap.hpp>
+#include <boost/bimap/set_of.hpp>
+#include <boost/bimap/multiset_of.hpp>
 
 #include "span.h"
 #include "string_tools.h"
@@ -62,23 +65,33 @@ namespace cryptonote
   //! pair of <transaction fee, transaction hash> for organization
   typedef std::pair<std::pair<double, std::time_t>, crypto::hash> tx_by_fee_and_receive_time_entry;
 
-  class txCompare
+  class txFeeCompare
   {
   public:
-    bool operator()(const tx_by_fee_and_receive_time_entry& a, const tx_by_fee_and_receive_time_entry& b) const
+    bool operator()(const std::pair<double, std::time_t>& a, const std::pair<double, std::time_t>& b) const
     {
       // sort by greatest first, not least
-      if (a.first.first > b.first.first) return true;
-      else if (a.first.first < b.first.first) return false;
-      else if (a.first.second < b.first.second) return true;
-      else if (a.first.second > b.first.second) return false;
-      else if (a.second != b.second) return true;
-      else return false;
+      if (a.first > b.first) return true;
+      if (a.first < b.first) return false;
+
+      if (a.second < b.second) return true;
+      return false;
+    }
+  }; 
+
+  class hashCompare
+  {
+  public:
+    bool operator()(const crypto::hash& a, const crypto::hash& b) const
+    {
+      return memcmp(a.data, b.data, sizeof(crypto::hash)) < 0;
     }
   };
 
   //! container for sorting transactions by fee per unit size
-  typedef std::set<tx_by_fee_and_receive_time_entry, txCompare> sorted_tx_container;
+  typedef boost::bimap<boost::bimaps::multiset_of<std::pair<double, std::time_t>, txFeeCompare>,
+                       boost::bimaps::set_of<crypto::hash, hashCompare>> sorted_tx_container;
+  
 
   /**
    * @brief Transaction pool, handles transactions which are not part of a block
@@ -97,14 +110,6 @@ namespace cryptonote
   class tx_memory_pool: boost::noncopyable
   {
   public:
-    /**
-     * @brief Constructor
-     *
-     * @param bchs a Blockchain class instance, for getting chain info
-     */
-    tx_memory_pool(Blockchain& bchs);
-
-
     /**
      * @copydoc add_tx(transaction&, tx_verification_context&, bool, bool, uint8_t)
      *
@@ -266,6 +271,19 @@ namespace cryptonote
     void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive = false) const;
 
     /**
+     * @brief get (hash, weight, fee) for transactions in the pool - the minimum required information to create a block template
+     *
+     * Not all transactions in the pool will be returned for performance reasons
+     * If there are too many transactions in the pool, only the highest-paying transactions
+     * will be returned - but enough for the miner to create a full block
+     *
+     * @param backlog return-by-reference that data
+     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
+     *
+     */
+    void get_block_template_backlog(std::vector<tx_block_template_backlog_entry>& backlog, bool include_sensitive = false) const;
+
+    /**
      * @brief get a summary statistics of all transaction hashes in the pool
      *
      * @param stats return-by-reference the pool statistics
@@ -344,8 +362,10 @@ namespace cryptonote
      *
      * @param hashes list of tx hashes that are about to be relayed
      * @param tx_relay update how the tx left this node
+     * @param just_broadcasted true if a tx was just broadcasted
+     *
      */
-    void set_relayed(epee::span<const crypto::hash> hashes, relay_method tx_relay);
+    void set_relayed(epee::span<const crypto::hash> hashes, relay_method tx_relay, std::vector<bool> &just_broadcasted);
 
     /**
      * @brief get the total number of transactions in the pool
@@ -397,6 +417,13 @@ namespace cryptonote
      */
     void set_txpool_max_weight(size_t bytes);
 
+    /**
+     * @brief reduce the cumulative txpool weight by the weight provided
+     *
+     * @param weight the weight to reduce the total txpool weight by
+     */
+    void reduce_txpool_weight(size_t weight);
+
 #define CURRENT_MEMPOOL_ARCHIVE_VER    11
 #define CURRENT_MEMPOOL_TX_DETAILS_ARCHIVE_VER    13
 
@@ -406,6 +433,7 @@ namespace cryptonote
     struct tx_details
     {
       transaction tx;  //!< the transaction
+      cryptonote::blobdata tx_blob; //!< the transaction's binary blob
       size_t blob_size;  //!< the transaction's size
       size_t weight;  //!< the transaction's weight
       uint64_t fee;  //!< the transaction's fee amount
@@ -444,14 +472,33 @@ namespace cryptonote
     /**
      * @brief get infornation about a single transaction
      */
-    bool get_transaction_info(const crypto::hash &txid, tx_details &td) const;
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
+
+    /**
+     * @brief get information about multiple transactions
+     */
+    bool get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false) const;
 
     /**
      * @brief get transactions not in the passed set
      */
     bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const;
 
+    /**
+     * @brief get info necessary for update of pool-related info in a wallet, preferably incremental
+     *
+     * @return true on success, false on error
+     */
+    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+
   private:
+
+    /**
+     * @brief Constructor
+     *
+     * @param bchs a Blockchain class instance, for getting chain info
+     */
+    tx_memory_pool(Blockchain& bchs);
 
     /**
      * @brief insert key images into m_spent_key_images
@@ -540,6 +587,7 @@ namespace cryptonote
      *
      * @return true if the transaction is good to go, otherwise false
      */
+    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata_ref &txblob, transaction&tx) const;
     bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata &txblob, transaction&tx) const;
 
     /**
@@ -553,6 +601,10 @@ namespace cryptonote
      * if bytes is 0, use m_txpool_max_weight
      */
     void prune(size_t bytes = 0);
+
+    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time);
+    void remove_tx_from_transient_lists(const cryptonote::sorted_tx_container::iterator& sorted_it, const crypto::hash& txid, bool sensitive);
+    void track_removed_tx(const crypto::hash& txid, bool sensitive);
 
     //TODO: confirm the below comments and investigate whether or not this
     //      is the desired behavior
@@ -586,6 +638,26 @@ private:
 
     std::atomic<uint64_t> m_cookie; //!< incremented at each change
 
+    // Info when transactions entered the pool, accessible by txid
+    std::unordered_map<crypto::hash, time_t> m_added_txs_by_id;
+
+    // Info at what time the pool started to track the adding of transactions
+    time_t m_added_txs_start_time;
+
+    struct removed_tx_info
+    {
+      crypto::hash txid;
+      bool sensitive;
+    };
+
+    // Info about transactions that were removed from the pool, ordered by the time
+    // of deletion
+    std::multimap<time_t, removed_tx_info> m_removed_txs_by_time;
+
+    // Info how far back in time the list of removed tx ids currently reaches
+    // (it gets shorted periodically to prevent overflow)
+    time_t m_removed_txs_start_time;
+
     /**
      * @brief get an iterator to a transaction in the sorted container
      *
@@ -593,7 +665,7 @@ private:
      *
      * @return an iterator, possibly to the end of the container if not found
      */
-    sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id) const;
+    sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id);
 
     //! cache/call Blockchain::check_tx_inputs results
     bool check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx, const crypto::hash &txid, uint64_t &max_used_block_height, crypto::hash &max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false) const;
@@ -616,6 +688,8 @@ private:
 
     //! Next timestamp that a DB check for relayable txes is allowed
     std::atomic<time_t> m_next_check;
+
+    friend struct BlockchainAndPool;
   };
 }
 
