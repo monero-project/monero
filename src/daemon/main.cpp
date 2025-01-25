@@ -243,7 +243,7 @@ int main(int argc, char const * argv[])
     const bool regtest = command_line::get_arg(vm, cryptonote::arg_regtest_on);
     if (testnet + stagenet + regtest > 1)
     {
-      std::cerr << "Can't specify more than one of --tesnet and --stagenet and --regtest" << ENDL;
+      std::cerr << "Can't specify more than one of --testnet and --stagenet and --regtest" << ENDL;
       return 1;
     }
 
