@@ -30,6 +30,8 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "warnings.h"
 #include "crypto-ops.h"
@@ -38,7 +40,6 @@ DISABLE_VS_WARNINGS(4146 4244)
 
 /* Predeclarations */
 
-static void fe_sq(fe, const fe);
 static void ge_madd(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_msub(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_p2_0(ge_p2 *);
@@ -90,7 +91,7 @@ void fe_0(fe h) {
 h = 1
 */
 
-static void fe_1(fe h) {
+void fe_1(fe h) {
   h[0] = 1;
   h[1] = 0;
   h[2] = 0;
@@ -230,7 +231,7 @@ static void fe_cmov(fe f, const fe g, unsigned int b) {
 h = f
 */
 
-static void fe_copy(fe h, const fe f) {
+void fe_copy(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -313,6 +314,39 @@ void fe_invert(fe out, const fe z) {
   return;
 }
 
+// Montgomery's trick
+// https://iacr.org/archive/pkc2004/29470042/29470042.pdf 2.2
+int fe_batch_invert(fe *out, const fe *in, const int n) {
+  if (n == 0) {
+    return 0;
+  }
+
+  // Step 1: collect initial muls
+  fe *init_muls = (fe *) malloc(n * sizeof(fe));
+  if (!init_muls) {
+    return 1;
+  }
+  memcpy(&init_muls[0], &in[0], sizeof(fe));
+  for (int i = 1; i < n; ++i) {
+    fe_mul(init_muls[i], init_muls[i-1], in[i]);
+  }
+
+  // Step 2: get the inverse of all elems multiplied together
+  fe a;
+  fe_invert(a, init_muls[n-1]);
+
+  // Step 3: get each inverse
+  for (int i = n; i > 1; --i) {
+    fe_mul(out[i-1], a, init_muls[i-2]);
+    fe_mul(a, a, in[i-1]);
+  }
+  memcpy(&out[0], &a, sizeof(fe));
+
+  free(init_muls);
+
+  return 0;
+}
+
 /* From fe_isnegative.c */
 
 /*
@@ -323,7 +357,7 @@ Preconditions:
    |f| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
 */
 
-static int fe_isnegative(const fe f) {
+int fe_isnegative(const fe f) {
   unsigned char s[32];
   fe_tobytes(s, f);
   return s[0] & 1;
@@ -604,7 +638,7 @@ Postconditions:
    |h| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
 */
 
-static void fe_neg(fe h, const fe f) {
+void fe_neg(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -654,7 +688,7 @@ Postconditions:
 See fe_mul.c for discussion of implementation strategy.
 */
 
-static void fe_sq(fe h, const fe f) {
+void fe_sq(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -958,7 +992,7 @@ Postconditions:
    |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
 */
 
-static void fe_sub(fe h, const fe f, const fe g) {
+void fe_sub(fe h, const fe f, const fe g) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -1328,16 +1362,9 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
   }
 }
 
-/* From ge_frombytes.c, modified */
+/* From fe_frombytes.c */
 
-int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
-  fe u;
-  fe v;
-  fe vxx;
-  fe check;
-
-  /* From fe_frombytes.c */
-
+int fe_frombytes_vartime(fe y, const unsigned char *s) {
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
   int64_t h2 = load_3(s + 7) << 5;
@@ -1378,18 +1405,31 @@ int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
   carry6 = (h6 + (int64_t) (1<<25)) >> 26; h7 += carry6; h6 -= carry6 << 26;
   carry8 = (h8 + (int64_t) (1<<25)) >> 26; h9 += carry8; h8 -= carry8 << 26;
 
-  h->Y[0] = h0;
-  h->Y[1] = h1;
-  h->Y[2] = h2;
-  h->Y[3] = h3;
-  h->Y[4] = h4;
-  h->Y[5] = h5;
-  h->Y[6] = h6;
-  h->Y[7] = h7;
-  h->Y[8] = h8;
-  h->Y[9] = h9;
+  y[0] = h0;
+  y[1] = h1;
+  y[2] = h2;
+  y[3] = h3;
+  y[4] = h4;
+  y[5] = h5;
+  y[6] = h6;
+  y[7] = h7;
+  y[8] = h8;
+  y[9] = h9;
 
-  /* End fe_frombytes.c */
+  return 0;
+}
+
+/* From ge_frombytes.c, modified */
+
+int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
+  fe u;
+  fe v;
+  fe vxx;
+  fe check;
+
+  if (fe_frombytes_vartime(h->Y, s) != 0) {
+    return -1;
+  }
 
   fe_1(h->Z);
   fe_sq(u, h->Y);
@@ -1606,7 +1646,7 @@ static void ge_precomp_cmov(ge_precomp *t, const ge_precomp *u, unsigned char b)
   fe_cmov(t->xy2d, u->xy2d, b);
 }
 
-static void select(ge_precomp *t, int pos, signed char b) {
+static void _select(ge_precomp *t, int pos, signed char b) {
   ge_precomp minust;
   unsigned char bnegative = negative(b);
   unsigned char babs = b - (((-bnegative) & b) << 1);
@@ -1662,7 +1702,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
 
   ge_p3_0(h);
   for (i = 1; i < 64; i += 2) {
-    select(&t, i / 2, e[i]);
+    _select(&t, i / 2, e[i]);
     ge_madd(&r, h, &t); ge_p1p1_to_p3(h, &r);
   }
 
@@ -1672,7 +1712,7 @@ void ge_scalarmult_base(ge_p3 *h, const unsigned char *a) {
   ge_p2_dbl(&r, &s); ge_p1p1_to_p3(h, &r);
 
   for (i = 0; i < 64; i += 2) {
-    select(&t, i / 2, e[i]);
+    _select(&t, i / 2, e[i]);
     ge_madd(&r, h, &t); ge_p1p1_to_p3(h, &r);
   }
 }
@@ -1953,26 +1993,18 @@ void sc_reduce(unsigned char *s) {
   s[31] = s11 >> 17;
 }
 
-/* New code */
+/* From fe_pow22523.c */
 
-static void fe_divpowm1(fe r, const fe u, const fe v) {
-  fe v3, uv7, t0, t1, t2;
+void fe_pow22523(fe out, const fe z) {
+  fe t0;
+  fe t1;
+  fe t2;
   int i;
 
-  fe_sq(v3, v);
-  fe_mul(v3, v3, v); /* v3 = v^3 */
-  fe_sq(uv7, v3);
-  fe_mul(uv7, uv7, v);
-  fe_mul(uv7, uv7, u); /* uv7 = uv^7 */
-
-  /*fe_pow22523(uv7, uv7);*/
-
-  /* From fe_pow22523.c */
-
-  fe_sq(t0, uv7);
+  fe_sq(t0, z);
   fe_sq(t1, t0);
   fe_sq(t1, t1);
-  fe_mul(t1, uv7, t1);
+  fe_mul(t1, z, t1);
   fe_mul(t0, t0, t1);
   fe_sq(t0, t0);
   fe_mul(t0, t1, t0);
@@ -2011,12 +2043,24 @@ static void fe_divpowm1(fe r, const fe u, const fe v) {
   fe_mul(t0, t1, t0);
   fe_sq(t0, t0);
   fe_sq(t0, t0);
-  fe_mul(t0, t0, uv7);
+  fe_mul(out, t0, z);
+}
 
-  /* End fe_pow22523.c */
-  /* t0 = (uv^7)^((q-5)/8) */
-  fe_mul(t0, t0, v3);
-  fe_mul(r, t0, u); /* u^(m+1)v^(-(m+1)) */
+/* New code */
+
+static void fe_divpowm1(fe r, const fe u, const fe v) {
+  fe v3, uv7;
+
+  fe_sq(v3, v);
+  fe_mul(v3, v3, v); /* v3 = v^3 */
+  fe_sq(uv7, v3);
+  fe_mul(uv7, uv7, v);
+  fe_mul(uv7, uv7, u); /* uv7 = uv^7 */
+
+  fe_pow22523(r, uv7); /* (uv^7)^((q-5)/8) */
+
+  fe_mul(r, r, v3);
+  fe_mul(r, r, u); /* u^(m+1)v^(-(m+1)) */
 }
 
 static void ge_cached_0(ge_cached *r) {
@@ -3876,4 +3920,53 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
 
   // Y/Z = 0/0
   return 0;
+}
+
+// https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
+void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y)
+{
+  // (1/(1-y))*(1+y)
+  fe inv_one_minus_y_mul_one_plus_y;
+  fe_mul(inv_one_minus_y_mul_one_plus_y, inv_one_minus_y, one_plus_y);
+
+  // wei x = (1/(1-y))*(1+y) + (A/3)
+  fe wei_x_fe;
+  fe_add(wei_x_fe, inv_one_minus_y_mul_one_plus_y, fe_a_inv_3);
+  fe_tobytes(wei_x, wei_x_fe);
+}
+
+/*
+Since fe_add and fe_sub enforce the following conditions:
+
+Preconditions:
+   |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+   |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+
+Postconditions:
+   |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+
+We sometimes need to "reduce" field elems when they are in the poscondition's
+larger domain to match the precondition domain. This way we can take the output
+of fe_add or fe_sub and use it as input to another call to fe_add or fe_sub.
+
+We reduce by converting the field elem to its byte repr, then re-deriving the
+field elem from the byte repr.
+*/
+void fe_reduce(fe reduced_f, const fe f)
+{
+  unsigned char f_bytes[32];
+  fe_tobytes(f_bytes, f);
+  fe_frombytes_vartime(reduced_f, f_bytes);
+}
+
+void fe_dbl(fe h, const fe f)
+{
+  // Reduce the input for safety to ensure we meet the preconditions for fe_add
+  fe f_reduced;
+  fe_reduce(f_reduced, f);
+  fe h_res;
+  fe_add(h_res, f_reduced, f_reduced);
+  // Reduce the output for safety to ensure the result can be used as input to
+  // fe_add or fe_sub without an extra call to fe_reduce
+  fe_reduce(h, h_res);
 }
