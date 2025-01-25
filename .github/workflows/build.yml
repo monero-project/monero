@@ -213,6 +213,8 @@ jobs:
       run: sudo ${{env.APT_INSTALL_LINUX}}
     - name: install Python dependencies
       run: pip install requests psutil monotonic zmq deepdiff
+    - name: create dummy disk drives for testing
+      run: tests/create_test_disks.sh >> $GITHUB_ENV
     - name: tests
       env:
         CTEST_OUTPUT_ON_FAILURE: ON
