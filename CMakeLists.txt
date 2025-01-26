@@ -792,8 +792,6 @@ else()
     set(WARNINGS "${WARNINGS} -Wno-error=unused-value -Wno-error=unused-but-set-variable")
     set(MINGW_FLAG "${MINGW_FLAG} -DWIN32_LEAN_AND_MEAN")
     set(Boost_THREADAPI win32)
-    # mingw doesn't support LTO (multiple definition errors at link time)
-    set(USE_LTO_DEFAULT false)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
     if(NOT BUILD_64)
       add_definitions(-DWINVER=0x0600 -D_WIN32_WINNT=0x0600)
@@ -1009,36 +1007,6 @@ else()
 
   # At least some CLANGs default to not enough for monero
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ftemplate-depth=900")
-
-  if(NOT DEFINED USE_LTO_DEFAULT)
-    set(USE_LTO_DEFAULT false)
-  endif()
-  set(USE_LTO ${USE_LTO_DEFAULT} CACHE BOOL "Use Link-Time Optimization (Release mode only)")
-
-  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    # There is a clang bug that does not allow to compile code that uses AES-NI intrinsics if -flto is enabled, so explicitly disable
-    set(USE_LTO false)
-  endif()
-
-
-  if(USE_LTO)
-    set(RELEASE_FLAGS "${RELEASE_FLAGS} -flto")
-    if(STATIC)
-      set(RELEASE_FLAGS "${RELEASE_FLAGS} -ffat-lto-objects")
-    endif()
-    # Since gcc 4.9 the LTO format is non-standard (slim), so we need the gcc-specific ar and ranlib binaries
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND NOT (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4.9.0) AND NOT OPENBSD AND NOT DRAGONFLY)
-      # When invoking cmake on distributions on which gcc's binaries are prefixed
-      # with an arch-specific triplet, the user must specify -DCHOST=<prefix>
-      if (DEFINED CHOST)
-        set(CMAKE_AR "${CHOST}-gcc-ar")
-        set(CMAKE_RANLIB "${CHOST}-gcc-ranlib")
-      else()
-        set(CMAKE_AR "gcc-ar")
-        set(CMAKE_RANLIB "gcc-ranlib")
-      endif()
-    endif()
-  endif()
 
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEBUG_FLAGS}")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEBUG_FLAGS}")
