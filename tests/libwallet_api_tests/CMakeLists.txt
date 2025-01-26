@@ -60,12 +60,10 @@ set_property(TARGET libwallet_api_tests
   PROPERTY
     FOLDER "tests")
 
-if (NOT MSVC)
-  set_property(TARGET libwallet_api_tests
-    APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif ()
+set_property(TARGET libwallet_api_tests
+  APPEND_STRING
+  PROPERTY
+    COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 
 add_test(
   NAME    libwallet_api_tests
