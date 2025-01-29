@@ -120,8 +120,8 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 
 ### Patch requirements
 
-- Maintainers MUST have a Platform account and SHOULD use their real names or a well-known alias.
-- Contributors SHOULD have a Platform account and MAY use their real names or a well-known alias.
+- Maintainers MUST have a Platform account.
+- Contributors SHOULD have a Platform account.
 - A patch SHOULD be a minimal and accurate answer to exactly one identified and agreed problem.
 - A patch MUST adhere to the code style guidelines of the project if these are defined.
 - A patch MUST adhere to the "Evolution of Public Contracts" guidelines defined below.
