@@ -141,7 +141,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Thus, the release history of the project MUST be a list of meaningful issues logged and solved.
 - To work on an issue, a Contributor MUST fork the project repository and then work on their forked repository.
 - To submit a patch, a Contributor MUST create a Platform pull request back to the project.
-- A Contributor MUST NOT commit changes directly to the project.
+- Patches MUST NOT be committed directly to the project.
 - To discuss a patch, people MAY comment on the Platform pull request, on the commit, or elsewhere.
 - To accept or reject a patch, a Maintainer MUST use the Platform interface.
 - Maintainers SHOULD NOT merge their own patches except in exceptional cases, such as non-responsiveness from other Maintainers for an extended period (more than 30 days) or unless urgent as defined by the Monero Maintainers Team.
