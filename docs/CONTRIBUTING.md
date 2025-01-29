@@ -144,6 +144,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - The user who created an issue SHOULD close the issue after checking the patch is successful.
 - Maintainers SHOULD ask for improvements to incorrect patches and SHOULD reject incorrect patches if the Contributor does not respond constructively.
 - Any Contributor who has value judgments on a correct patch SHOULD express these via their own patches.
+- Maintainers SHOULD NOT merge patches that have unaddressed comments.
 
 ### Evolution of public contracts
 
