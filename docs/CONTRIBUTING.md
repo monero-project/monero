@@ -174,7 +174,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 
 ### Project administration
 
-- The project founders MUST act as Administrators to manage the set of project Maintainers.
+- The Monero Core Team MUST act as Administrators to manage the set of project Maintainers.
 - The Administrators MUST ensure their own succession over time by promoting the most effective Maintainers.
 - A new Contributor who makes a correct patch MUST be invited to become a Maintainer.
 - Administrators MAY remove Maintainers who are inactive for an extended period of time, or who repeatedly fail to apply this process accurately.
