@@ -49,6 +49,27 @@ uint64_t get_transaction_weight_limit(uint8_t hf_version);
  */
 bool are_transaction_output_pubkeys_sorted(const transaction_prefix &tx_prefix);
 
+/**
+ * @brief Get the minimum allowed transaction version
+ *
+ * An "unmixable" ring is a ring appearing in block index BI spending a pre-RingCT enote
+ * (i.e. referencible amount != 0) where the minimum required ring size is greater than the total
+ * number of pre-RingCT enotes on-chain at block indices < BI with that same amount.
+ *
+ * @param hf_version hard fork version
+ * @param has_unmixable_ring true iff at least one of the rings in the transaction is "unmixable"
+ * @return the minimum allowed transaction version
+ */
+size_t get_minimum_transaction_version(uint8_t hf_version, bool has_unmixable_ring);
+
+/**
+ * @brief Get the maximum allowed transaction version
+ *
+ * @param hf_version hard fork version
+ * @return the maximum allowed transaction version
+ */
+size_t get_maximum_transaction_version(uint8_t hf_version);
+
 // Modifying this value should not affect consensus. You can adjust it for performance needs
 static constexpr const size_t RCT_VER_CACHE_SIZE = 8192;
 
@@ -129,12 +150,14 @@ bool batch_ver_fcmp_pp_consensus
  *
  * List of checks that we do for each transaction:
  *     1. Check tx blob size < get_max_tx_size()
- *     2. Check tx version != 0
- *     3. Check tx version is less than maximum for given hard fork version
+ *     2. Check tx version >= get_minimum_transaction_version()
+ *     3. Check tx version <= get_maximum_transaction_version()
  *     4. Check tx weight < get_transaction_weight_limit()
  *     5. Passes core::check_tx_semantic()
  *     6. Passes Blockchain::check_tx_outputs()
  *     7. Passes ver_mixed_rct_semantics() [Uses batch RingCT verification when applicable]
+ *     8. Check unlock time is 0 from hardfork v17
+ *     9. Check extra size <= MAX_TX_EXTRA_SIZE from hardfork v17
  *
  * For pool_supplement input:
  * We assume the structure of the pool supplement is already correct: for each value entry, the

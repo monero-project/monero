@@ -194,6 +194,9 @@
 #define HF_VERSION_2021_SCALING                 15
 #define HF_VERSION_FCMP_PLUS_PLUS               17
 #define HF_VERSION_CARROT                       17
+#define HF_VERSION_REJECT_UNLOCK_TIME           17
+#define HF_VERSION_REJECT_LARGE_EXTRA           17
+#define HF_VERSION_REJECT_UNMIXABLE_V1          17
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2

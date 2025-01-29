@@ -3542,15 +3542,14 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
 
   // min/max tx version based on HF, and we accept v1 txes if having a non mixable
-  // TODO: double check sync from genesis
-  const size_t max_tx_version = (hf_version <= 3) ? 1 : 2;
+  const size_t max_tx_version = get_maximum_transaction_version(hf_version);
   if (tx.version > max_tx_version)
   {
     MERROR_VER("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
     tvc.m_verifivation_failed = true;
     return false;
   }
-  const size_t min_tx_version = (n_unmixable > 0 ? 1 : (hf_version >= HF_VERSION_ENFORCE_RCT) ? 2 : 1);
+  const size_t min_tx_version = get_minimum_transaction_version(hf_version, n_unmixable > 0);
   if (tx.version < min_tx_version)
   {
     MERROR_VER("transaction version " << (unsigned)tx.version << " is lower than min accepted version " << min_tx_version);
