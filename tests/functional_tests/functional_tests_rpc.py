@@ -7,6 +7,7 @@ from signal import SIGTERM
 import socket
 import string
 import os
+import time
 
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
 DEFAULT_TESTS = [
@@ -120,23 +121,26 @@ def kill():
     except: pass
 
 # wait for error/startup
-for i in range(10):
-  time.sleep(1)
-  all_open = True
-  for port in ports:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(1)
-    if s.connect_ex(('127.0.0.1', port)) != 0:
-      all_open = False
-      break
+startup_timeout = 10
+deadline = time.monotonic() + startup_timeout
+for port in ports:
+  addr = ('127.0.0.1', port)
+  delay = 0
+  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  try:
+    while True:
+      timeout = deadline - time.monotonic() - delay
+      if timeout <= 0:
+        print('Failed to start wallet or daemon')
+        kill()
+        sys.exit(1)
+      time.sleep(delay)
+      s.settimeout(timeout)
+      if s.connect_ex(addr) == 0:
+        break
+      delay = .1
+  finally:
     s.close()
-  if all_open:
-    break
-
-if not all_open:
-  print('Failed to start wallet or daemon')
-  kill()
-  sys.exit(1)
 
 # online daemons need some time to connect to peers to be ready
 time.sleep(2)
