@@ -13,7 +13,7 @@ on:
 # The below variables reduce repetitions across similar targets
 env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
-  BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build'
+  BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all && cmake --build build --target wallet_api'
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
   APT_SET_CONF: |
         tee -a /etc/apt/apt.conf.d/80-custom << EOF
@@ -94,7 +94,9 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/set-make-job-count
       - name: build
-        run: ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
+        run: ${{env.BUILD_DEFAULT_LINUX}}
 
   build-debian:
     name: 'Debian 10'
@@ -117,7 +119,9 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/set-make-job-count
       - name: build
-        run: ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
+        run: ${{env.BUILD_DEFAULT_LINUX}}
 
 # See the OS labels and monitor deprecations here:
 # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
@@ -154,38 +158,11 @@ jobs:
     - name: install monero dependencies
       run: sudo ${{env.APT_INSTALL_LINUX}}
     - name: build
+      env:
+        CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
       run: |
         ${{env.CCACHE_SETTINGS}}
-        ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
-
-  libwallet-ubuntu:
-    name: "Ubuntu 20.04 (libwallet)"
-    runs-on: ubuntu-20.04
-    env:
-      CCACHE_TEMPDIR: /tmp/.ccache-temp
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    - uses: actions/cache@v4
-      with:
-        path: ~/.ccache
-        key: ccache-${{ runner.os }}-libwallet-${{ github.sha }}
-        restore-keys: ccache-${{ runner.os }}-libwallet-
-    - uses: ./.github/actions/set-make-job-count
-    - name: remove bundled packages
-      run: ${{env.REMOVE_BUNDLED_PACKAGES}}
-    - name: set apt conf
-      run: sudo ${{env.APT_SET_CONF}}
-    - name: update apt
-      run: sudo apt update
-    - name: install monero dependencies
-      run: sudo ${{env.APT_INSTALL_LINUX}}
-    - name: build
-      run: |
-        ${{env.CCACHE_SETTINGS}}
-        cmake .
-        make wallet_api -j${{env.MAKE_JOB_COUNT}}
+        ${{env.BUILD_DEFAULT_LINUX}}
 
   test-ubuntu:
     name: "Ubuntu 20.04 (tests)"
@@ -220,10 +197,12 @@ jobs:
       env:
         CTEST_OUTPUT_ON_FAILURE: ON
         DNS_PUBLIC: tcp://9.9.9.9
+        CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
       run: |
         ${{env.CCACHE_SETTINGS}}
-        ${{env.BUILD_DEFAULT_LINUX}} --parallel ${{env.MAKE_JOB_COUNT}}
+        ${{env.BUILD_DEFAULT_LINUX}}
         cmake --build build --target test
+
 
 # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
 # BUILD_SHARED_LIBS=ON speeds up the linkage part a bit, reduces size, and is the only place where the dynamic linkage is tested.
