@@ -1,5 +1,5 @@
 native_packages := native_protobuf
-packages := boost openssl zeromq expat unbound sodium protobuf
+packages := boost openssl zeromq unbound sodium protobuf
 
 ifneq ($(host_os),android)
 packages += libusb
