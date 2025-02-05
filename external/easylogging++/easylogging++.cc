@@ -1246,9 +1246,9 @@ std::string OS::currentHost(void) {
 
 bool OS::termSupportsColor(void) {
   std::string term = getEnvironmentVariable("TERM", "");
-  return term == "xterm" || term == "xterm-color" || term == "xterm-256color"
-         || term == "screen" || term == "linux" || term == "cygwin"
-         || term == "screen-256color" || term == "screen.xterm-256color";
+  return term == "xterm" || term == "screen" || term == "linux" || term == "cygwin"
+         || term.find("-color") != std::string::npos
+         || term.find("-256color") != std::string::npos;
 }
 
 // DateTime
