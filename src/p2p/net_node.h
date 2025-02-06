@@ -520,6 +520,7 @@ namespace nodetool
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;
+    std::vector<bool> m_asmap;
   };
 
     const int64_t default_limit_up = P2P_DEFAULT_LIMIT_RATE_UP;      // kB/s
@@ -555,6 +556,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<int64_t> arg_limit_rate;
     extern const command_line::arg_descriptor<bool> arg_pad_transactions;
     extern const command_line::arg_descriptor<uint32_t> arg_max_connections_per_ip;
+    extern const command_line::arg_descriptor<std::string> arg_asmap;
 }
 
 POP_WARNINGS

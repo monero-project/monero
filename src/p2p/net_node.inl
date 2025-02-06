@@ -51,6 +51,7 @@
 #include "common/dns_utils.h"
 #include "common/pruning.h"
 #include "net/error.h"
+#include "net/group.h"
 #include "misc_log_ex.h"
 #include "p2p_protocol_defs.h"
 #include "crypto/crypto.h"
@@ -66,17 +67,6 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
 
 #define MIN_WANTED_SEED_NODES 12
-
-static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::asio::ip::address_v6& a)
-{
-  const auto &bytes = a.to_bytes();
-  uint32_t v4 = 0;
-  v4 = (v4 << 8) | bytes[12];
-  v4 = (v4 << 8) | bytes[13];
-  v4 = (v4 << 8) | bytes[14];
-  v4 = (v4 << 8) | bytes[15];
-  return boost::asio::ip::address_v4(v4);
-}
 
 namespace nodetool
 {
@@ -127,6 +117,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_max_connections_per_ip);
+    command_line::add_arg(desc, arg_asmap);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -679,6 +670,10 @@ namespace nodetool
     }
 
     max_connections = command_line::get_arg(vm, arg_max_connections_per_ip);
+
+    auto asmap_path = command_line::get_arg(vm, arg_asmap);
+    if (!asmap_path.empty() && !net::group::read_asmap(asmap_path, m_asmap))
+      return false;
 
     return true;
   }
@@ -1591,25 +1586,9 @@ namespace nodetool
       {
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-          {
-
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-            classB.insert(actual_ip & 0x0000ffff);
-          }
-          else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-            if (actual_ip.is_v4_mapped())
-            {
-              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
-              uint32_t actual_ipv4;
-              memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-              classB.insert(actual_ipv4 & ntohl(0xffff0000));
-            }
-          }
+          auto group = net::group::get_group(cntxt.m_remote_address, m_asmap);
+          if (group)
+            classB.insert(group);
           return true;
         });
       }
@@ -1620,7 +1599,7 @@ namespace nodetool
           boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
           if (actual_ip.is_v4_mapped())
           {
-            boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+            boost::asio::ip::address_v4 v4ip = net::group::make_address_v4_from_v6(actual_ip);
             uint32_t actual_ipv4;
             memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
             return epee::net_utils::ipv4_network_address(actual_ipv4, 0).host_str();
@@ -1635,27 +1614,15 @@ namespace nodetool
       {
         bool skip_duplicate_class_B = step == 0;
         size_t idx = 0, skipped = 0;
-        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string](const peerlist_entry &pe){
+        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string, this](const peerlist_entry &pe){
           if (filtered.size() >= limit)
             return false;
           bool skip = false;
-          if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+          if (skip_duplicate_class_B)
           {
-            const epee::net_utils::network_address na = pe.adr;
-            uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-            skip = classB.find(actual_ip & 0x0000ffff) != classB.end();
-          }
-          else if (skip_duplicate_class_B && pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = pe.adr;
-            const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-            if (actual_ip.is_v4_mapped())
-            {
-              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
-              uint32_t actual_ipv4;
-              memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-              skip = classB.find(actual_ipv4 & ntohl(0xffff0000)) != classB.end();
-            }
+            auto group = net::group::get_group(pe.adr, m_asmap);
+            if (group)
+              skip = classB.find(group) != classB.end();
           }
 
           // consider each host once, to avoid giving undue inflence to hosts running several nodes
@@ -2216,7 +2183,7 @@ namespace nodetool
     }
 
     LOG_DEBUG_CC(context, "REMOTE PEERLIST: remote peerlist size=" << peerlist_.size());
-    LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
+    LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_, m_asmap));
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
       return !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
@@ -2655,7 +2622,7 @@ namespace nodetool
     std::vector<peerlist_entry> pl_gray;
     for (auto& zone : m_network_zones)
       zone.second.m_peerlist.get_peerlist(pl_gray, pl_white);
-    MINFO(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_white) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray) );
+    MINFO(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_white, m_asmap) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray, m_asmap) );
     return true;
   }
   //-----------------------------------------------------------------------------------
