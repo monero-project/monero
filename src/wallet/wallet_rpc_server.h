@@ -41,6 +41,9 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
+#define DEFAULT_AUTO_REFRESH_PERIOD 20 // seconds
+#define REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE 256    // just to split refresh in separate calls to play nicer with other threads
+
 namespace tools
 {
   /************************************************************************/
@@ -53,13 +56,37 @@ namespace tools
 
     static const char* tr(const char* str);
 
-    wallet_rpc_server();
+    wallet_rpc_server(bool no_initial_sync = false);
     ~wallet_rpc_server();
 
     bool init(const boost::program_options::variables_map *vm);
     bool run();
     void stop();
     void set_wallet(wallet2 *cr);
+
+    void set_no_initial_sync(bool no_initial_sync){
+      this->m_no_initial_sync = no_initial_sync;
+    }
+
+    bool get_no_initial_sync() {
+      return m_no_initial_sync;
+    }
+
+    bool auto_refresh_is_disabled() {
+      return this->m_auto_refresh_period == 0;
+    }
+
+    void disable_auto_refresh() {
+      this->m_auto_refresh_period = 0;
+    }
+
+    void set_auto_refresh_period(uint32_t auto_refresh){
+      this->m_auto_refresh_period = auto_refresh;
+    }
+
+    uint32_t get_auto_refresh_period() {
+      return this->m_auto_refresh_period;
+    }
 
   private:
 
@@ -284,8 +311,9 @@ namespace tools
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
       bool m_restricted;
+      bool m_no_initial_sync;
       const boost::program_options::variables_map *m_vm;
-      uint32_t m_auto_refresh_period;
+      uint32_t m_auto_refresh_period = DEFAULT_AUTO_REFRESH_PERIOD;
       boost::posix_time::ptime m_last_auto_refresh_time;
   };
 }
