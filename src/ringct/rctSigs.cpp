@@ -31,13 +31,13 @@
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "common/perf_timer.h"
-#include "common/threadpool.h"
 #include "common/util.h"
 #include "rctSigs.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include <taskflow/taskflow/taskflow.hpp>
 
 using namespace crypto;
 using namespace std;
@@ -1333,14 +1333,13 @@ namespace rct {
         try
         {
           if (semantics) {
-            tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-            tools::threadpool::waiter waiter(tpool);
+            tf::Executor executor(std::thread::hardware_concurrency());
+            tf::Taskflow taskflow;
             std::deque<bool> results(rv.outPk.size(), false);
             DP("range proofs verified?");
             for (size_t i = 0; i < rv.outPk.size(); i++)
-              tpool.submit(&waiter, [&, i] { results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
-            if (!waiter.wait())
-              return false;
+              executor.run(taskflow, [&, i] { results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
+            executor.wait_for_all();
 
             for (size_t i = 0; i < results.size(); ++i) {
               if (!results[i]) {
@@ -1383,8 +1382,8 @@ namespace rct {
       {
         PERF_TIMER(verRctSemanticsSimple);
 
-        tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-        tools::threadpool::waiter waiter(tpool);
+        tf::Executor executor(std::thread::hardware_concurrency());
+        tf::Taskflow taskflow;
         std::deque<bool> results;
         std::vector<const Bulletproof*> bp_proofs;
         std::vector<const BulletproofPlus*> bpp_proofs;
@@ -1468,27 +1467,24 @@ namespace rct {
           else
           {
             for (size_t i = 0; i < rv.p.rangeSigs.size(); i++)
-              tpool.submit(&waiter, [&, i, offset] { results[i+offset] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
+              executor.run(taskflow, [&, i, offset] { results[i+offset] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
             offset += rv.p.rangeSigs.size();
           }
         }
         if (!bpp_proofs.empty() && !verBulletproofPlus(bpp_proofs))
         {
           LOG_PRINT_L1("Aggregate range proof verified failed");
-          if (!waiter.wait())
-            return false;
+          executor.wait_for_all();
           return false;
         }
         if (!bp_proofs.empty() && !verBulletproof(bp_proofs))
         {
           LOG_PRINT_L1("Aggregate range proof verified failed");
-          if (!waiter.wait())
-            return false;
+          executor.wait_for_all();
           return false;
         }
 
-        if (!waiter.wait())
-          return false;
+        executor.wait_for_all();
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
             LOG_PRINT_L1("Range proof verified failed for proof " << i);
@@ -1536,8 +1532,8 @@ namespace rct {
         const size_t threads = std::max(rv.outPk.size(), rv.mixRing.size());
 
         std::deque<bool> results(threads);
-        tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-        tools::threadpool::waiter waiter(tpool);
+        tf::Executor executor(std::thread::hardware_concurrency());
+        tf::Taskflow taskflow;
 
         const keyV &pseudoOuts = bulletproof || bulletproof_plus ? rv.p.pseudoOuts : rv.pseudoOuts;
 
@@ -1546,15 +1542,14 @@ namespace rct {
         results.clear();
         results.resize(rv.mixRing.size());
         for (size_t i = 0 ; i < rv.mixRing.size() ; i++) {
-          tpool.submit(&waiter, [&, i] {
+          executor.run(taskflow, [&, i] {
               if (is_rct_clsag(rv.type))
                   results[i] = verRctCLSAGSimple(message, rv.p.CLSAGs[i], rv.mixRing[i], pseudoOuts[i]);
               else
                   results[i] = verRctMGSimple(message, rv.p.MGs[i], rv.mixRing[i], pseudoOuts[i]);
           });
         }
-        if (!waiter.wait())
-          return false;
+        executor.wait_for_all();
 
         for (size_t i = 0; i < results.size(); ++i) {
           if (!results[i]) {
