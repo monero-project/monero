@@ -16,10 +16,7 @@ $(package)_cxx=$(clangxx_prog)
 endef
 
 define $(package)_preprocess_cmds
-  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub cctools
-endef
-
-define $(package)_preprocess_cmds
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub cctools && \
   patch -p1 < $($(package)_patch_dir)/no-build-date.patch
 endef
 
