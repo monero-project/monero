@@ -29,47 +29,54 @@
 #pragma once
 
 //local headers
-#include "carrot_core/payment_proposal.h"
-#include "crypto/crypto.h"
-#include "ringct/rctTypes.h"
+#include "carrot_tx_builder_types.h"
+#include "span.h"
 
 //third party headers
-#include <boost/multiprecision/cpp_int.hpp>
 
 //standard headers
-#include <functional>
-#include <map>
+#include <set>
 
 //forward declarations
 
 namespace carrot
 {
-struct CarrotSelectedInput
+struct CarrotPreSelectedInput
 {
-    rct::xmr_amount amount;
-    crypto::key_image key_image;
+    CarrotSelectedInput core;
+
+    bool is_external;
+    uint64_t block_index;
 };
-static inline bool operator==(const CarrotSelectedInput &a, const CarrotSelectedInput &b)
+
+enum class InputSelectionPolicy
 {
-    return a.amount == b.amount && a.key_image == b.key_image;
-}
-static inline bool operator!=(const CarrotSelectedInput &a, const CarrotSelectedInput &b)
+    // Most of these schemes are going to be approximate, since finding true optimal solutions for
+    // a lot of these policies boil down to NP-hard problems, like 0-1 knapsack and CMP.
+    TwoInputsPreferOldest,
+    HighestUnlockedBalance,
+    LowestInputCountAndFee,
+    ConsolidateDiscretized,
+    ConsolidateFast,
+    OldestInputs
+};
+
+namespace InputSelectionFlags
 {
-    return !(a == b);
+    static constexpr std::uint32_t ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS = 1 << 0;
+    static constexpr std::uint32_t ALLOW_MIXED_INTERNAL_EXTERNAL             = 1 << 1;
+    static constexpr std::uint32_t IS_KNOWN_FEE_SUBTRACTABLE                 = 1 << 2;
+    static constexpr std::uint32_t ALLOW_DUST                                = 1 << 3;
 }
 
-using select_inputs_func_t = std::function<void(
-        const boost::multiprecision::int128_t&,        // nominal output sum, w/o fee
-        const std::map<std::size_t, rct::xmr_amount>&, // absolute fee per input count
-        const std::size_t,                             // number of normal payment proposals
-        const std::size_t,                             // number of self-send payment proposals
-        std::vector<CarrotSelectedInput>&              // selected inputs result
-    )>;
+// - amount
+// - key image
+// - internal vs external
+// - height
 
-using carve_fees_and_balance_func_t = std::function<void(
-        const boost::multiprecision::int128_t&,       // input sum amount
-        const rct::xmr_amount,                        // fee
-        std::vector<CarrotPaymentProposalV1>&,        // normal payment proposals [inout]
-        std::vector<CarrotPaymentProposalSelfSendV1>& // selfsend payment proposals [inout]
-    )>;
+select_inputs_func_t make_single_transfer_input_selector(
+    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputSelectionPolicy> policies,
+    const std::uint32_t flags,
+    std::set<size_t> *selected_input_indices_out);
 } //namespace carrot

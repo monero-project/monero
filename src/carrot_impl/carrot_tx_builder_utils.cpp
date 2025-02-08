@@ -142,7 +142,11 @@ void make_unsigned_transaction(std::vector<CarrotPaymentProposalV1> &normal_paym
 
     // callback to select inputs given nominal output sum and fee per input count
     std::vector<CarrotSelectedInput> selected_inputs;
-    select_inputs(nominal_output_amount_sum, fee_per_input_count, selected_inputs);
+    select_inputs(nominal_output_amount_sum,
+        fee_per_input_count,
+        normal_payment_proposals_inout.size(),
+        selfsend_payment_proposals_inout.size(),
+        selected_inputs);
 
     // get fee given the number of selected inputs
     // note: this will fail if input selection returned a bad number of inputs
@@ -408,6 +412,8 @@ void make_unsigned_transaction_sweep(
     (
         const boost::multiprecision::int128_t&,
         const std::map<std::size_t, rct::xmr_amount>&,
+        const std::size_t,
+        const std::size_t,
         std::vector<CarrotSelectedInput> &selected_inputs_out
     )
     {

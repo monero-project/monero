@@ -38,6 +38,7 @@
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
+#include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_impl/carrot_tx_format_utils.h"
 #include "common/container_helpers.h"
@@ -259,6 +260,12 @@ struct mock_carrot_or_legacy_keys
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+static crypto::key_image gen_key_image()
+{
+    return rct::rct2ki(rct::pkGen());
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 static bool can_open_fcmp_onetime_address(const crypto::secret_key &address_privkey_g,
     const crypto::secret_key &address_privkey_t,
     const crypto::secret_key &sender_extension_g,
@@ -457,6 +464,8 @@ select_inputs_func_t make_fake_input_selection_callback(size_t num_ins = 0)
 {
     return [num_ins](const boost::multiprecision::int128_t &nominal_output_sum,
         const std::map<std::size_t, rct::xmr_amount> &fee_per_input_count,
+        size_t,
+        size_t,
         std::vector<CarrotSelectedInput> &selected_inputs)
     {
         const size_t nins = num_ins ? num_ins : 1;
@@ -1102,79 +1111,6 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_8)
     subtest_multi_account_transfer_over_transaction(tx_proposal);
 }
 //----------------------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, multi_account_transfer_over_transaction_9)
 {
     // two accounts, both carrot
@@ -1590,5 +1526,63 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
 
     // test
     subtest_multi_account_transfer_over_transaction(tx_proposal);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_TwoInputsPreferOldest_1)
+{
+    const std::vector<CarrotPreSelectedInput> input_candidates = {
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 500,
+                .key_image = gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 72
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 200,
+                .key_image = gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 34
+        }
+    };
+
+    const std::vector<InputSelectionPolicy> policies = { InputSelectionPolicy::TwoInputsPreferOldest };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        &selected_input_indices);
+    
+    boost::multiprecision::int128_t nominal_output_sum = 369;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        {1, 50},
+        {2, 75}
+    };
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
+
+    ASSERT_GT(input_candidates[0].core.amount, nominal_output_sum + fee_by_input_count.crbegin()->second);
+
+    std::vector<CarrotSelectedInput> selected_inputs;
+    input_selector(nominal_output_sum,
+        fee_by_input_count,
+        num_normal_payment_proposals,
+        num_selfsend_payment_proposals,
+        selected_inputs);
+
+    ASSERT_EQ(2, input_candidates.size());
+    ASSERT_EQ(2, selected_inputs.size());
+    EXPECT_NE(input_candidates.at(0).core, input_candidates.at(1).core);
+    EXPECT_NE(selected_inputs.at(0), selected_inputs.at(1));
+    EXPECT_TRUE((selected_inputs.at(0) == input_candidates.at(0).core) ^ (selected_inputs.at(0) == input_candidates[1].core));
+    EXPECT_TRUE((selected_inputs.at(1) == input_candidates.at(0).core) ^ (selected_inputs.at(1) == input_candidates.at(1).core));
 }
 //----------------------------------------------------------------------------------------------------------------------
