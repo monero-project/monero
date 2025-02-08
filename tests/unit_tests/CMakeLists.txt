@@ -136,6 +136,8 @@ set_property(TARGET unit_tests
   PROPERTY
     FOLDER "tests")
 
+monero_use_pch_private(unit_tests pch_unit_tests.h)
+
 if (NOT MSVC)
   set_property(TARGET unit_tests
     APPEND_STRING
