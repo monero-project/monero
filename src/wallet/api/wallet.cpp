@@ -2279,25 +2279,19 @@ void WalletImpl::doRefresh()
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
     do try {
         LOG_PRINT_L3(__FUNCTION__ << ": doRefresh, rescan = "<<rescan);
-        // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
-        // Disable refresh if wallet is disconnected or daemon isn't synced.
-        if (m_wallet->light_wallet() || daemonSynced()) {
-            if(rescan)
-                m_wallet->rescan_blockchain(false);
-            m_wallet->refresh(trustedDaemon());
-            if (!m_synchronized) {
-                m_synchronized = true;
-            }
-            // assuming if we have empty history, it wasn't initialized yet
-            // for further history changes client need to update history in
-            // "on_money_received" and "on_money_sent" callbacks
-            if (m_history->count() == 0) {
-                m_history->refresh();
-            }
-            m_wallet->find_and_save_rings(false);
-        } else {
-           LOG_PRINT_L3(__FUNCTION__ << ": skipping refresh - daemon is not synced");
+        if(rescan)
+            m_wallet->rescan_blockchain(false);
+        m_wallet->refresh(trustedDaemon());
+        if (!m_synchronized) {
+            m_synchronized = true;
         }
+        // assuming if we have empty history, it wasn't initialized yet
+        // for further history changes client need to update history in
+        // "on_money_received" and "on_money_sent" callbacks
+        if (m_history->count() == 0) {
+            m_history->refresh();
+        }
+        m_wallet->find_and_save_rings(false);
     } catch (const std::exception &e) {
         setStatusError(e.what());
         break;
