@@ -102,6 +102,7 @@ set(unit_tests_sources
   vercmp.cpp
   ringdb.cpp
   wallet_storage.cpp
+  wallet_tx_builder.cpp
   wipeable_string.cpp
   is_hdd.cpp
   aligned.cpp

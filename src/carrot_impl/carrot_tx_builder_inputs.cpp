@@ -240,7 +240,7 @@ select_inputs_func_t make_single_transfer_input_selector(
         }
 
         // 5. Calculate misc features
-        const bool must_use_internal = (flags & InputSelectionFlags::ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS) &&
+        const bool must_use_internal = !(flags & InputSelectionFlags::ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS) &&
             (num_normal_payment_proposals != 0);
         const bool prefer_external = num_normal_payment_proposals == 0;
         CHECK_AND_ASSERT_THROW_MES(!must_use_internal || !prefer_external,
@@ -291,20 +291,27 @@ select_inputs_func_t make_single_transfer_input_selector(
         for (size_t policy_idx = 0; policy_idx < policies.size() && selected_inputs_indices.empty(); ++policy_idx)
                 try_dispatch_input_selection_policy(internal_sorted_inputs, policies[policy_idx]);
 
-        // 9. Try dispatching input selection policies in order for mixed (if allowed)
+        // 9. Try dispatching input selection policies in order for external after internal (if not already tried)
+        if (!must_use_internal || !prefer_external)
+        {
+            for (size_t policy_idx = 0; policy_idx < policies.size() && selected_inputs_indices.empty(); ++policy_idx)
+                try_dispatch_input_selection_policy(external_sorted_inputs, policies[policy_idx]);
+        }
+
+        // 10. Try dispatching input selection policies in order for mixed (if allowed)
         if (allow_mixed)
         {
             for (size_t policy_idx = 0; policy_idx < policies.size() && selected_inputs_indices.empty(); ++policy_idx)
                 try_dispatch_input_selection_policy(sorted_inputs, policies[policy_idx]);
         }
 
-        // 10. Sanity check indices
+        // 11. Sanity check indices
         CHECK_AND_ASSERT_THROW_MES(!selected_inputs_indices.empty(),
             "make_single_transfer_input_selector: input selection failed");
         CHECK_AND_ASSERT_THROW_MES(*selected_inputs_indices.crbegin() < input_candidates.size(),
             "make_single_transfer_input_selector: bug: selected inputs index out of range");
 
-        // 11. Do a greedy search for inputs whose amount doesn't pay for itself and drop them, logging debug messages
+        // 12. Do a greedy search for inputs whose amount doesn't pay for itself and drop them, logging debug messages
         //     Note: this also happens to be optimal if the fee difference between each input count is constant
         bool should_search_for_dust = !(flags & InputSelectionFlags::ALLOW_DUST);
         while (should_search_for_dust && selected_inputs_indices.size() > CARROT_MIN_TX_INPUTS)
@@ -330,7 +337,7 @@ select_inputs_func_t make_single_transfer_input_selector(
             }
         }
 
-        // 12. Check the sum of input amounts is great enough
+        // 13. Check the sum of input amounts is great enough
         const size_t num_selected = selected_inputs_indices.size();
         const boost::multiprecision::int128_t required_money = required_money_by_input_count.at(num_selected);
         boost::multiprecision::int128_t input_amount_sum = 0;
@@ -339,7 +346,7 @@ select_inputs_func_t make_single_transfer_input_selector(
         CHECK_AND_ASSERT_THROW_MES(input_amount_sum >= required_money,
             "make_single_transfer_input_selector: bug: input selection returned successful without enough funds");
 
-        // 13. Collect selected inputs
+        // 14. Collect selected inputs
         selected_inputs_out.clear();
         selected_inputs_out.reserve(num_selected);
         for (size_t selected_input_index : selected_inputs_indices)
