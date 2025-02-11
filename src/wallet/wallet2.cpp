@@ -14970,7 +14970,7 @@ std::string wallet2::custom_conver_to_url_format(const std::string &uri) const
   return result;
 }
 //----------------------------------------------------------------------------------------------------
-std::string wallet2::make_uri(std::vector<uri_data> data, const std::string &payment_id, const std::string &tx_description, std::string &error) const
+std::string wallet2::make_uri_v2(std::vector<uri_data> data, const std::string &payment_id, const std::string &tx_description, std::string &error) const
 {
   if (data.empty())
   {
@@ -15065,10 +15065,10 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
     std::vector<tools::wallet2::uri_data> data;
     data.push_back(entry);
 
-    return make_uri(data, payment_id, tx_description, error);
+    return make_uri_v2(data, payment_id, tx_description, error);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std::string &payment_id, std::string &tx_description, std::vector<std::string> &unknown_parameters, std::string &error)
+bool wallet2::parse_uri_v2(const std::string &uri, std::vector<uri_data> &data, std::string &payment_id, std::string &tx_description, std::vector<std::string> &unknown_parameters, std::string &error)
 {
   if (uri.substr(0, 7) != "monero:")
   {
@@ -15224,14 +15224,14 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
 bool wallet2::parse_uri(const std::string& uri, std::string& address, std::string& payment_id, uint64_t& amount, std::string& tx_description, std::string& recipient_name, std::vector<std::string>& unknown_parameters, std::string& error)
 {
   std::vector<tools::wallet2::uri_data> data;
-  if (!parse_uri(uri, data, payment_id, tx_description, unknown_parameters, error))
+  if (!parse_uri_v2(uri, data, payment_id, tx_description, unknown_parameters, error))
   {
     error = "Failed to parse uri";
     return false;
   }
   if (data.size() > 1)
   {
-    error = "Multi-recipient URIs currently unsupported";
+    error = "Multi-recipient URIs currently unsupported; please use parse_uri_v2";
     return false;
   }
   address = data[0].address;

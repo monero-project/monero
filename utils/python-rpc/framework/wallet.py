@@ -987,36 +987,34 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(get_attribute)
 
-
-    def make_uri(self, payments=None, address='', payment_id='', amount=0, tx_description='', recipient_name=''):
-        """
-        Unified make_uri method.
-        
-        If 'payments' is provided (a list), the new multi-recipient format is used (old format, but multi data is separated by semi-colon).
-        Otherwise, if no payments list is provided, the legacy format is assumed and
-        a single payment is created from the legacy parameters (address, amount, recipient_name).
-        
-        Existing parameter names remain unchanged for backwards compatibility.
-        The underlying C++ implementation provides overloads:
-        - make_uri(vector<uri_data>, payment_id, tx_description, error)
-        - make_uri(address, payment_id, amount, tx_description, recipient_name, error)
-        
-        Either provide:
-        #1 payments{address,amount,recipient_name}, payment_id, tx_description (supports multi-uri)
-        #2: address, payment_id, amount, tx_description, recipient_name (obsolete, legacy, kept for backwards-compatibility)
-        Standalone payment IDs are not supported and will result into errors.
-        """
-        # if payments is None or an empty list, assume legacy mode:
-        if not payments:
-            # in legacy mode, the address must be nonempty.
-            if not address:
-                raise Exception("No address provided")
-            payments = [{
-                'address': address,
-                'amount': amount,
-                'recipient_name': recipient_name
-            }]
+    def make_uri(self, address = '', payment_id = '', amount = 0, tx_description = '', recipient_name = ''):
         make_uri = {
+            'method': 'make_uri',
+            'jsonrpc': '2.0',
+            'params': {
+                'address': address,
+                'payment_id': payment_id,
+                'amount': amount,
+                'tx_description': tx_description,
+                'recipient_name': recipient_name,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_uri)
+
+    def parse_uri(self, uri):
+        parse_uri = {
+            'method': 'parse_uri',
+            'jsonrpc': '2.0',
+            'params': {
+                'uri': uri,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(parse_uri)
+    
+    def make_uri_v2(self, payments, payment_id, tx_description):
+        make_uri_v2 = {
             'method': 'make_uri',
             'jsonrpc': '2.0',
             'params': {
@@ -1026,9 +1024,9 @@ class Wallet(object):
             },
             'id': '0'
         }
-        return self.rpc.send_json_rpc_request(make_uri)
+        return self.rpc.send_json_rpc_request(make_uri_v2)
     
-    def parse_uri(self, uri):
+    def parse_uri_v2(self, uri):
         parse_uri = {
             'method': 'parse_uri',
             'jsonrpc': '2.0',

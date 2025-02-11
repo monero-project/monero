@@ -3109,17 +3109,7 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     std::string error;
-    std::vector<tools::wallet2::uri_data> data;
-    for (const tools::wallet_rpc::uri_payment &entry : req.payments)
-    {
-      tools::wallet2::uri_data entry_data;
-      entry_data.address = entry.address;
-      entry_data.amount = entry.amount;
-      entry_data.recipient_name = entry.recipient_name;
-      data.push_back(entry_data);
-    }
-    std::string uri = m_wallet->make_uri(data, req.payment_id, req.tx_description, error);
-
+    std::string uri = m_wallet->make_uri(req.address, req.payment_id, req.amount, req.tx_description, req.recipient_name, error);
     if (uri.empty())
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
@@ -3131,7 +3121,46 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_uri_v2(const wallet_rpc::COMMAND_RPC_MAKE_URI_V2::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI_V2::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    std::string error;
+    std::vector<tools::wallet2::uri_data> data;
+    for (const tools::wallet_rpc::uri_payment &entry : req.payments)
+    {
+      tools::wallet2::uri_data entry_data;
+      entry_data.address = entry.address;
+      entry_data.amount = entry.amount;
+      entry_data.recipient_name = entry.recipient_name;
+      data.push_back(entry_data);
+    }
+    std::string uri = m_wallet->make_uri(data, req.payment_id, req.tx_description, error);
+    
+    if (uri.empty())
+    {
+    er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+    er.message = std::string("Cannot make URI from supplied parameters: ") + error;
+    return false;
+    }
+    
+    res.uri = uri;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_parse_uri(const wallet_rpc::COMMAND_RPC_PARSE_URI::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    std::string error;
+    if (!m_wallet->parse_uri(req.uri, res.uri.address, res.uri.payment_id, res.uri.amount, res.uri.tx_description, res.uri.recipient_name, res.unknown_parameters, error))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = "Error parsing URI: " + error;
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_parse_uri_v2(const wallet_rpc::COMMAND_RPC_PARSE_URI_V2::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI_V2::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
     std::string error;
