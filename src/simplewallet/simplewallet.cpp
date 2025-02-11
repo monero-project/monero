@@ -6535,7 +6535,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     std::string payment_id_uri, tx_description, error;
     std::vector<std::string> unknown_parameters;
     std::vector<tools::wallet2::uri_data> uri_data;
-    bool has_uri = m_wallet->parse_uri(local_args[i], uri_data, payment_id_uri, tx_description, unknown_parameters, error);
+    bool has_uri = m_wallet->parse_uri_v2(local_args[i], uri_data, payment_id_uri, tx_description, unknown_parameters, error);
     if (has_uri)
     {
       
