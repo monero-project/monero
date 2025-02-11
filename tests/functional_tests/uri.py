@@ -312,7 +312,7 @@ class URITest():
         ]
         
         # the RPC should URL-encode these parameters.
-        res = wallet.make_uri_v2(payments=payments, tx_description=special_desc)
+        res = wallet.make_uri_v2(payments=payments, payment_id='', tx_description=special_desc)
         parsed = wallet.parse_uri_v2(res.uri)
         # check that the decoded values match the original.
         for pay in parsed.uri.payments:
