@@ -1015,7 +1015,7 @@ class Wallet(object):
     
     def make_uri_v2(self, payments, payment_id, tx_description):
         make_uri_v2 = {
-            'method': 'make_uri',
+            'method': 'make_uri_v2',
             'jsonrpc': '2.0',
             'params': {
                 'payments': payments,
@@ -1028,7 +1028,7 @@ class Wallet(object):
     
     def parse_uri_v2(self, uri):
         parse_uri = {
-            'method': 'parse_uri',
+            'method': 'parse_uri_v2',
             'jsonrpc': '2.0',
             'params': {
                 'uri': uri,
