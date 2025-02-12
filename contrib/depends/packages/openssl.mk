@@ -1,8 +1,8 @@
 package=openssl
-$(package)_version=3.0.13
+$(package)_version=3.0.16
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=88525753f79d3bec27d2fa7c66aa0b92b3aa9498dafd93d7cfa4b3780cdae313
+$(package)_sha256_hash=57e03c50feab5d31b152af2b764f10379aecd8ee92f16c985983ce4a99f7ef86
 
 # The bundled ranlib in Android NDK 18b inserts timestamps by default.
 # To prevent reproducibility issues, we must enable [D]eterministic mode.
@@ -52,7 +52,8 @@ $(package)_config_opts_x86_64_freebsd=BSD-x86_64
 endef
 
 define $(package)_preprocess_cmds
-  sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info
+  sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info &&\
+  rm -rf doc demos apps test
 endef
 
 define $(package)_config_cmds
