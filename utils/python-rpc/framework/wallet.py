@@ -1013,12 +1013,14 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(parse_uri)
     
-    def make_uri_v2(self, payments, payment_id, tx_description):
+    def make_uri_v2(self, addresses, amounts, recipient_names, payment_id, tx_description):
         make_uri_v2 = {
             'method': 'make_uri_v2',
             'jsonrpc': '2.0',
             'params': {
-                'payments': payments,
+                'addresses': addresses,
+                'amounts': amounts,
+                'recipient_names': recipient_names,
                 'payment_id': payment_id,
                 'tx_description': tx_description,
             },

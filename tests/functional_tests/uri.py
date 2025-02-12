@@ -242,50 +242,44 @@ class URITest():
         utf8string = [u'えんしゅう', u'あまやかす']
 
         # build multi-recipient URI with two payments.
-        payments = [
-            {'address': addr1, 'amount': 500000000000, 'recipient_name': utf8string[0]},
-            {'address': addr2, 'amount': 200000000000, 'recipient_name': utf8string[1]}
-        ]
-        res = wallet.make_uri_v2(payments=payments, payment_id='', tx_description='multi test')
+        addresses = [ addr1, addr2]
+        amounts = [ 500000000000, 200000000000 ]
+        recipient_names = [ utf8string[0], utf8string[1]]
+        res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, payment_id='', tx_description='multi test')
+        
         # expect URI like:
         # monero:addr1;addr2?tx_amount=0.5;0.2&recipient_name=<url_encoded_name1>;<url_encoded_name2>&tx_description=multi%20test
         parsed = wallet.parse_uri_v2(res.uri)
         # verify that both payments are present.
         assert len(parsed.uri.payments) == 2, "Expected 2 payments in multi-recipient URI"
-        assert parsed.uri.payments[0].address == addr1
-        assert parsed.uri.payments[0].amount == 500000000000
-        assert parsed.uri.payments[0].recipient_name == utf8string[0]
-        assert parsed.uri.payments[1].address == addr2
-        assert parsed.uri.payments[1].amount == 200000000000
-        assert parsed.uri.payments[1].recipient_name == utf8string[1]
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 500000000000
+        assert parsed.uri.recipient_names[0] == utf8string[0]
+        assert parsed.uri.address[1] == addr2
+        assert parsed.uri.amount[1] == 200000000000
+        assert parsed.uri.recipient_name[1] == utf8string[1]
         # check tx_description at the top level.
         assert parsed.uri.tx_description == 'multi test'
         assert parsed.uri.payment_id == ''
 
         # build multi-recipient URI with three payments.
-        payments = [
-            {'address': addr1, 'amount': 1000000000000, 'recipient_name': utf8string[0]},
-            {'address': addr2, 'amount': 500000000000,  'recipient_name': utf8string[1]},
-            {'address': addr3, 'amount': 250000000000,  'recipient_name': ''}
-        ]
-        res = wallet.make_uri_v2(payments=payments, payment_id='', tx_description='three pay')
+        addresses = [ addr1, addr2, addr3 ]
+        amounts = [ 1000000000000, 500000000000, 250000000000 ]
+        recipient_names = [ utf8string[0], utf8string[1], '' ]
+        res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, payment_id='', tx_description='three pay')
         parsed = wallet.parse_uri_v2(res.uri)
         assert len(parsed.uri.payments) == 3, "Expected 3 payments in multi-recipient URI"
-        assert parsed.uri.payments[0].address == addr1
-        assert parsed.uri.payments[0].amount == 1000000000000
-        assert parsed.uri.payments[0].recipient_name == utf8string[0]
-        assert parsed.uri.payments[1].address == addr2
-        assert parsed.uri.payments[1].amount == 500000000000
-        assert parsed.uri.payments[1].recipient_name == utf8string[1]
-        assert parsed.uri.payments[2].address == addr3
-        assert parsed.uri.payments[2].amount == 250000000000
-        assert parsed.uri.payments[2].recipient_name == ''
+        assert parsed.uri.address[0] == addr1
+        assert parsed.uri.amount[0] == 1000000000000
+        assert parsed.uri.recipient_name[0] == utf8string[0]
+        assert parsed.uri.address[1] == addr2
+        assert parsed.uri.amount[1] == 500000000000
+        assert parsed.uri.recipient_name[1] == utf8string[1]
+        assert parsed.uri.address[2] == addr3
+        assert parsed.uri.amount[2] == 250000000000
+        assert parsed.uri.recipient_name[2] == ''
         assert parsed.uri.tx_description == 'three pay'
         
-        payments = [
-            {'address': addr1, 'amount': 500000000000, 'recipient_name': 'Alice'},
-            {'address': addr2, 'amount': 0, 'recipient_name': 'Bob'}
-        ]
         # manually build a URI with mismatched amounts (remove Bob's amount).
         # simulate this by concatenating amounts incorrectly.
         # (this step assumes you have control over the output URI; in practice, the server would reject it. For testing, we assume the RPC returns an error.)
@@ -301,32 +295,28 @@ class URITest():
         uri_trailing = 'monero:' + addr1 + ';' + addr2 + ';' + '?tx_amount=0.5;0.2&recipient_name=Alice;Bob'
         # depending on the implementation, a trailing empty value might be dropped.
         parsed = wallet.parse_uri_v2(uri_trailing)
-        assert len(parsed.uri.payments) == 2, "Trailing delimiter should not add empty payment"
+        assert len(parsed.uri.addresses) == 2, "Trailing delimiter should not add empty payment"
 
         # case: special characters in recipient names and descriptions
         special_name = "A&B=Test?"
         special_desc = "Desc with spaces & symbols!"
-        payments = [
-            {'address': addr1, 'amount': 750000000000, 'recipient_name': special_name},
-            {'address': addr2, 'amount': 250000000000, 'recipient_name': special_name}
-        ]
+        addresses = [ addr1, addr2]
+        amounts = [ 750000000000, 250000000000 ]
+        recipient_names = [ special_name, special_name]
         
         # the RPC should URL-encode these parameters.
-        res = wallet.make_uri_v2(payments=payments, payment_id='', tx_description=special_desc)
+        res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, payment_id='', tx_description=special_desc)
         parsed = wallet.parse_uri_v2(res.uri)
         # check that the decoded values match the original.
-        for pay in parsed.uri.payments:
-            assert pay.recipient_name == special_name, "Special characters in recipient name mismatch"
+        for recipient_name in parsed.uri.recipient_names:
+            assert recipient_name == special_name, "Special characters in recipient name mismatch"
         assert parsed.uri.tx_description == special_desc, "Special characters in description mismatch"
         
         # build a well-formed multi-recipient URI and tack on unknown parameters.
-        payments = [
-            {'address': addr1, 'amount': 239390140000000, 'recipient_name': ''}
-        ]
         uri_with_unknown = 'monero:' + addr1 + '?tx_amount=239.39014&foo=bar&baz=quux'
         parsed = wallet.parse_uri_v2(uri_with_unknown)
-        assert parsed.uri.payments[0].address == addr1
-        assert parsed.uri.payments[0].amount == 239390140000000
+        assert parsed.uri.address[0] == addr1
+        assert parsed.uri.amount[0] == 239390140000000
         # unknown parameters should be collected in the unknown_parameters list.
         assert parsed.unknown_parameters == ['foo=bar', 'baz=quux'], "Unknown parameters mismatch"
 

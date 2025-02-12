@@ -14970,24 +14970,32 @@ std::string wallet2::custom_conver_to_url_format(const std::string &uri) const
   return result;
 }
 //----------------------------------------------------------------------------------------------------
-std::string wallet2::make_uri(std::vector<uri_data> data, const std::string &payment_id, const std::string &tx_description, std::string &error) const
+std::string wallet2::make_uri(std::vector<std::string> &addresses, std::vector<std::uint64_t> &amounts, std::vector<std::string> &recipient_names, const std::string &payment_id, const std::string &tx_description, std::string &error) const
 {
-  if (data.empty())
+  if (addresses.empty())
   {
     error = "No recipient data provided.";
     return std::string();
   }
-  std::string addresses = "";
-  std::string amounts = "";
-  bool amounts_used = false;
-  std::string recipients = "";
-  bool recipients_used = false;
-  for (const uri_data& entry : data)
+  
+  if (addresses.size() != amounts.size() || addresses.size() != recipient_names.size())
   {
+    error = "Mismatch between the number of addresses, amounts, and recipient names.";
+    return std::string();
+  }
+
+  std::string addresses_str = "";
+  std::string amounts_str = "";
+  bool amounts_used = false;
+  std::string recipients_str = "";
+  bool recipients_used = false;
+
+  for (size_t i = 0; i < addresses.size(); i++) {
+    std::string &address = addresses[i];
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, nettype(), entry.address))
+    if (!get_account_address_from_str(info, nettype(), address))
     {
-      error = std::string("wrong address: ") + entry.address;
+      error = std::string("wrong address: ") + address;
       return std::string();
     }
     if (info.has_payment_id && !payment_id.empty())
@@ -14995,45 +15003,45 @@ std::string wallet2::make_uri(std::vector<uri_data> data, const std::string &pay
       error = "Separate payment id given with an integrated address";
       return std::string();
     }
-    if (!addresses.empty())
+    if (!addresses_str.empty())
     {
-      addresses += ";";
+      addresses_str += ";";
     }
-    addresses += entry.address;
+    addresses_str += address;
 
-    if (!amounts.empty())
+    if (!amounts_str.empty())
     {
-      amounts += ";";
+      amounts_str += ";";
     }
-    if (entry.amount > 0)
+    if (amounts[i] > 0)
     {
       amounts_used = true;
     }
-    amounts += cryptonote::print_money(entry.amount);
-
-    if (!recipients.empty())
+    amounts_str += cryptonote::print_money(entry.amount);
+    
+    if (!recipients_str.empty())
     {
       recipients += ";";
     }
-    if (!entry.recipient_name.empty())
+    if (!recipient_names[i].empty())
     {
       recipients_used = true;
-      recipients += custom_conver_to_url_format(entry.recipient_name);
+      recipients += custom_conver_to_url_format(recipient_names[i]);
     }
   }
 
-  std::string uri = "monero:" + addresses;
+  std::string uri = "monero:" + addresses_str;
   unsigned int n_fields = 0;
 
   if (amounts_used)
   {
     // URI encoded amount is in decimal units, not atomic units
-    uri += (n_fields++ ? "&" : "?") + std::string("tx_amount=") + amounts;
+    uri += (n_fields++ ? "&" : "?") + std::string("tx_amount=") + amounts_str;
   }
 
   if (recipients_used)
   {
-    uri += (n_fields++ ? "&" : "?") + std::string("recipient_name=") + recipients;
+    uri += (n_fields++ ? "&" : "?") + std::string("recipient_name=") + recipients_str;
   }
 
   if (!tx_description.empty())
@@ -15057,18 +15065,13 @@ std::string wallet2::make_uri(std::vector<uri_data> data, const std::string &pay
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const
 {
-    tools::wallet2::uri_data entry;
-    entry.address = address;
-    entry.amount = amount;
-    entry.recipient_name = recipient_name;
-
-    std::vector<tools::wallet2::uri_data> data;
-    data.push_back(entry);
-
-    return make_uri(data, payment_id, tx_description, error);
+  std::vector<std::string> addresses { address };
+  std::vector<std::uint_64t> amounts { amount };
+  std::vector<std::string> recipient_names { recipient_name};
+  return make_uri(addresses, amounts, recipient_names, payment_id, tx_description, error);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std::string &payment_id, std::string &tx_description, std::vector<std::string> &unknown_parameters, std::string &error)
+bool wallet2::parse_uri(const std::string &uri, std::vector<std::string> &addresses, std::vector<std::uint64_t> &amounts, std::vector<std::string> &recipient_names, std::string &payment_id, std::string &tx_description, std::vector<std::string> &unknown_parameters, std::string &error)
 {
   if (uri.substr(0, 7) != "monero:")
   {
@@ -15079,8 +15082,6 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
   std::string remainder = uri.substr(7);
   const char *ptr = strchr(remainder.c_str(), '?');
   std::string addresses_string = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
-  std::vector<std::string> addresses, recipient_names;
-  std::vector<uint64_t> amounts;
   boost::split(addresses, addresses_string, boost::is_any_of(";"));
   addresses.erase(std::remove(addresses.begin(), addresses.end(), ""), addresses.end());
 
@@ -15090,19 +15091,18 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
     return false;
   }
 
-  for (const std::string& address : addresses)
+  for (const std::string &address : addresses)
   {
     cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, nettype(), address))
+    if (!get_account_address_from_str(info, nettype(), address))
     {
-      error = std::string("URI constains improper address: ") + address;
+      error = std::string("URI contains improper address: ") + address;
       return false;
     }
-    uri_data recipient_data;
-    recipient_data.address = address;
-    recipient_data.amount = 0;
-    data.push_back(recipient_data);
   }
+
+  amounts.assign(addresses.size(), 0);
+  recipient_names.assign(addresses.size(), "");
 
   if (ptr == NULL)
     return true;
@@ -15131,15 +15131,12 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
     {
       std::vector<std::string> amounts_split;
       boost::split(amounts_split, kv[1], boost::is_any_of(";"));
-      size_t expected_size = addresses.size();
       
-      // enforce parameter consistency
-      if (amounts_split.size() != expected_size)
+      if (amounts_split.size() != addresses.size())
       {
         error = "Incorrect tx_amount count";
         return false;
       }
-
 
       for (size_t i = 0; i < amounts_split.size(); i++)
       {
@@ -15149,7 +15146,7 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
           error = std::string("URI has invalid amount: ") + amounts_split[i];
           return false;
         }
-        amounts.push_back(amount);
+        amounts[i] = amount;
       }
     }
     else if (kv[0] == "tx_payment_id")
@@ -15173,10 +15170,7 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
     {
       std::vector<std::string> names_split;
       boost::split(names_split, kv[1], boost::is_any_of(";"));
-      size_t expected_size = addresses.size();
-
-      // enforce parameter consistency
-      if (names_split.size() != expected_size)
+      if (names_split.size() != addresses.size())
       {
         error = "Incorrect recipient_name count";
         return false;
@@ -15184,7 +15178,7 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
 
       for (size_t i = 0; i < names_split.size(); i++)
       {
-        recipient_names.push_back(epee::net_utils::convert_from_url_format(names_split[i]));
+        recipient_names[i] = epee::net_utils::convert_from_url_format(names_split[i]);
       }
     }
     else if (kv[0] == "tx_description")
@@ -15207,36 +15201,28 @@ bool wallet2::parse_uri(const std::string &uri, std::vector<uri_data> &data, std
     error = "Incorrect amount count. Amount count must match address count. Zero may be use as a filler";
     return false;
   }
-  for(size_t i = 0; i < data.size(); i++)
-  {
-    if (!amounts.empty())
-    {
-      data[i].amount = amounts[i];
-    }
-    if (!recipient_names.empty())
-    {
-      data[i].recipient_name = recipient_names[i];
-    }
-  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_uri(const std::string& uri, std::string& address, std::string& payment_id, uint64_t& amount, std::string& tx_description, std::string& recipient_name, std::vector<std::string>& unknown_parameters, std::string& error)
 {
-  std::vector<tools::wallet2::uri_data> data;
-  if (!parse_uri(uri, data, payment_id, tx_description, unknown_parameters, error))
+  std::vector<std::string> addresses;
+  std::vector<std::uint64_t> amounts;
+  std::vector<std::string> recipient_names;
+  
+  if (!parse_uri(uri, addresses, amounts, recipient_names, payment_id, tx_description, unknown_parameters, error))
   {
     error = "Failed to parse uri";
     return false;
   }
-  if (data.size() > 1)
+  if (addresses.size() > 1)
   {
     error = "Multi-recipient URIs currently unsupported in this overload";
     return false;
   }
-  address = data[0].address;
-  amount = data[0].amount;
-  recipient_name = data[0].recipient_name;
+  address = addresses[0];
+  amount = amounts[0];
+  recipient_name = recipient_names[0];
 
   return true;
 }

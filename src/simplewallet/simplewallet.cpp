@@ -6534,14 +6534,16 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     // check for a URI
     std::string payment_id_uri, tx_description, error;
     std::vector<std::string> unknown_parameters;
-    std::vector<tools::wallet2::uri_data> uri_data;
-    bool has_uri = m_wallet->parse_uri(local_args[i], uri_data, payment_id_uri, tx_description, unknown_parameters, error);
+    std::vector<std::string> addresses;
+    std::vector<uint64_t> amounts;
+    std::vector<std::string> recipient_names;
+    bool has_uri = m_wallet->parse_uri(local_args[i], addresses, amounts, recipient_names, payment_id_uri, tx_description, unknown_parameters, error);
     if (has_uri)
     {
       
       for (size_t j = 0; j < uri_data.size(); j++)
       {
-        r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), uri_data[j].address, oa_prompter);
+        r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), addresses[j], oa_prompter);
         if (payment_id_uri.size() == 16)
         {
           if (!tools::wallet2::parse_short_payment_id(payment_id_uri, info.payment_id))
@@ -6551,8 +6553,8 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
           }
           info.has_payment_id = true;
         }
-        de.amount = uri_data[j].amount;
-        de.original = uri_data[j].address;
+        de.amount = amounts[j];
+        de.original = addresses[j];
         if (!r)
         {
           fail_msg_writer() << tr("failed to parse address");

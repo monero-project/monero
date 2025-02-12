@@ -1829,7 +1829,7 @@ namespace wallet_rpc
   {
     std::string address;
     std::string payment_id;
-    uint64_t amount;
+    std::uint64_t amount;
     std::string tx_description;
     std::string recipient_name;
 
@@ -1885,27 +1885,18 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-  struct uri_payment
-  {
-    std::string address;
-    uint64_t amount;
-    std::string recipient_name;
-
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(address)
-      KV_SERIALIZE(amount)
-      KV_SERIALIZE(recipient_name)
-    END_KV_SERIALIZE_MAP()
-  };
-
   struct uri_spec_v2
   {
-    std::vector<uri_payment> payments;
+    std::vector<std::string> addresses;
+    std::vector<std::uint64_t> amounts;
+    std::vector<std::string> recipient_names;
     std::string tx_description;
     std::string payment_id;
 
     BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(payments);
+      KV_SERIALIZE(addresses);
+      KV_SERIALIZE(amounts);
+      KV_SERIALIZE(recipient_names);
       KV_SERIALIZE(tx_description);
       KV_SERIALIZE(payment_id);
     END_KV_SERIALIZE_MAP()
@@ -1915,11 +1906,15 @@ namespace wallet_rpc
   {
     struct request_t
     {
-      std::vector<uri_payment> payments;
+      std::vector<std::string> addresses;
+      std::vector<std::uint64_t> amounts;
+      std::vector<std::string> recipient_names;
       std::string tx_description;
       std::string payment_id;
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(payments);
+        KV_SERIALIZE(addresses);
+        KV_SERIALIZE(amounts);
+        KV_SERIALIZE(recipient_names);
         KV_SERIALIZE(tx_description);
         KV_SERIALIZE(payment_id);
       END_KV_SERIALIZE_MAP()
