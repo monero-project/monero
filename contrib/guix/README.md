@@ -171,9 +171,9 @@ details.
   Override the space-separated list of platform triples for which to perform a
   bootstrappable build.
 
-  _(defaults to "x86\_64-linux-gnu arm-linux-gnueabihf aarch64-linux-gnu
-  riscv64-linux-gnu powerpc64-linux-gnu powerpc64le-linux-gnu
-  x86\_64-w64-mingw32 x86\_64-apple-darwin arm64-apple-darwin")_
+  _(defaults to "x86\_64-linux-gnu aarch64-linux-gnu arm-linux-gnueabihf
+  riscv64-linux-gnu i686-linux-gnu x86\_64-w64-mingw32 x86\_64-unknown-freebsd
+  x86\_64-apple-darwin aarch64-apple-darwin aarch64-linux-android")_
 
 * _**SOURCES_PATH**_
 
@@ -212,7 +212,7 @@ details.
   Override the reference UNIX timestamp used for bit-for-bit reproducibility,
   the variable name conforms to [standard][r12e/source-date-epoch].
 
-  _(defaults to the output of `$(git log --format=%at -1)`)_
+  _(defaults to the output of `git -c log.showSignature=false log --format=%at -1`)_
 
 * _**V**_
 

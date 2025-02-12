@@ -1,5 +1,5 @@
 native_packages := native_protobuf
-packages := boost openssl zeromq expat unbound sodium protobuf
+packages := boost openssl zeromq unbound sodium protobuf
 
 ifneq ($(host_os),android)
 packages += libusb
@@ -16,7 +16,7 @@ packages += ncurses readline
 endif
 
 linux_native_packages :=
-linux_packages := eudev
+linux_packages :=
 
 freebsd_native_packages := freebsd_base
 freebsd_packages :=
