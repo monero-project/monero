@@ -77,10 +77,14 @@ struct mock_carrot_or_legacy_keys
 
     view_incoming_key_ram_borrowed_device k_view_dev;
     view_balance_secret_ram_borrowed_device s_view_balance_dev;
+    generate_address_secret_ram_borrowed_device s_generate_address_dev;
 
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddress_map;
 
-    mock_carrot_or_legacy_keys(): k_view_dev(k_view), s_view_balance_dev(s_view_balance) {}
+    mock_carrot_or_legacy_keys(): k_view_dev(k_view),
+        s_view_balance_dev(s_view_balance),
+        s_generate_address_dev(s_generate_address)
+    {}
 
     const view_balance_secret_device* get_view_balance_device() const
     {
@@ -117,7 +121,7 @@ struct mock_carrot_or_legacy_keys
         {
             make_carrot_subaddress_v1(account_spend_pubkey,
                 account_view_pubkey,
-                s_generate_address,
+                s_generate_address_dev,
                 major_index,
                 minor_index,
                 addr);

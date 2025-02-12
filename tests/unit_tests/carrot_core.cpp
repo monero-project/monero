@@ -94,8 +94,11 @@ struct mock_carrot_keys
 
     view_incoming_key_ram_borrowed_device k_view_dev;
     view_balance_secret_ram_borrowed_device s_view_balance_dev;
+    generate_address_secret_ram_borrowed_device s_generate_address_dev;
 
-    mock_carrot_keys(): k_view_dev(k_view), s_view_balance_dev(s_view_balance)
+    mock_carrot_keys(): k_view_dev(k_view),
+        s_view_balance_dev(s_view_balance),
+        s_generate_address_dev(s_generate_address)
     {}
 
     static mock_carrot_keys generate()
@@ -365,7 +368,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
     CarrotDestinationV1 subaddress;
     make_carrot_subaddress_v1(keys.account_spend_pubkey,
         keys.account_view_pubkey,
-        keys.s_generate_address,
+        keys.s_generate_address_dev,
         j_major,
         j_minor,
         subaddress);
@@ -604,7 +607,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
     CarrotDestinationV1 subaddress;
     make_carrot_subaddress_v1(keys.account_spend_pubkey,
         keys.account_view_pubkey,
-        keys.s_generate_address,
+        keys.s_generate_address_dev,
         j_major,
         j_minor,
         subaddress);
@@ -771,7 +774,7 @@ TEST(carrot_core, subaddress_internal_scan_completeness)
     CarrotDestinationV1 subaddress;
     make_carrot_subaddress_v1(keys.account_spend_pubkey,
         keys.account_view_pubkey,
-        keys.s_generate_address,
+        keys.s_generate_address_dev,
         j_major,
         j_minor,
         subaddress);
@@ -918,7 +921,7 @@ static void subtest_2out_transfer_get_output_enote_proposals_completeness(const 
     {
         make_carrot_subaddress_v1(alice.account_spend_pubkey,
             alice.account_view_pubkey,
-            alice.s_generate_address,
+            alice.s_generate_address_dev,
             alice_j_major,
             alice_j_minor,
             alice_address);
@@ -939,7 +942,7 @@ static void subtest_2out_transfer_get_output_enote_proposals_completeness(const 
     {
         make_carrot_subaddress_v1(bob.account_spend_pubkey,
             bob.account_view_pubkey,
-            bob.s_generate_address,
+            bob.s_generate_address_dev,
             bob_j_major,
             bob_j_minor,
             bob_address);

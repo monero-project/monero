@@ -83,4 +83,18 @@ private:
     const crypto::secret_key &m_s_view_balance;
 };
 
+class generate_address_secret_ram_borrowed_device: public generate_address_secret_device
+{
+public:
+    generate_address_secret_ram_borrowed_device(const crypto::secret_key &s_generate_address):
+        m_s_generate_address(s_generate_address) {}
+
+    void make_index_extension_generator(const std::uint32_t major_index,
+        const std::uint32_t minor_index,
+        crypto::secret_key &address_generator_out) const override;
+
+private:
+    const crypto::secret_key &m_s_generate_address;
+};
+
 } //namespace carrot
