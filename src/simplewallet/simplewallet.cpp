@@ -6541,7 +6541,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     if (has_uri)
     {
       
-      for (size_t j = 0; j < uri_data.size(); j++)
+      for (size_t j = 0; j < addresses.size(); j++)
       {
         r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), addresses[j], oa_prompter);
         if (payment_id_uri.size() == 16)
