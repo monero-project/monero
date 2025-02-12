@@ -15017,16 +15017,16 @@ std::string wallet2::make_uri(std::vector<std::string> &addresses, std::vector<s
     {
       amounts_used = true;
     }
-    amounts_str += cryptonote::print_money(entry.amount);
+    amounts_str += cryptonote::print_money(amounts[i]);
     
     if (!recipients_str.empty())
     {
-      recipients += ";";
+      recipients_str += ";";
     }
     if (!recipient_names[i].empty())
     {
       recipients_used = true;
-      recipients += custom_conver_to_url_format(recipient_names[i]);
+      recipients_str += custom_conver_to_url_format(recipient_names[i]);
     }
   }
 
@@ -15066,7 +15066,7 @@ std::string wallet2::make_uri(std::vector<std::string> &addresses, std::vector<s
 std::string wallet2::make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const
 {
   std::vector<std::string> addresses { address };
-  std::vector<std::uint_64t> amounts { amount };
+  std::vector<std::uint64_t> amounts { amount };
   std::vector<std::string> recipient_names { recipient_name};
   return make_uri(addresses, amounts, recipient_names, payment_id, tx_description, error);
 }
