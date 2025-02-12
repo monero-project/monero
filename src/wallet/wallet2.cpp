@@ -14991,7 +14991,7 @@ std::string wallet2::make_uri(const std::vector<std::string> &addresses, const s
   bool recipients_used = false;
 
   for (size_t i = 0; i < addresses.size(); i++) {
-    std::string &address = addresses[i];
+    const std::string &address = addresses[i];
     cryptonote::address_parse_info info;
     if (!get_account_address_from_str(info, nettype(), address))
     {
