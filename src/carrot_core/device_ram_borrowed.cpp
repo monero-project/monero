@@ -30,6 +30,7 @@
 #include "device_ram_borrowed.h"
 
 //local headers
+#include "address_utils.h"
 #include "enote_utils.h"
 #include "ringct/rctOps.h"
 
@@ -85,6 +86,14 @@ void view_balance_secret_ram_borrowed_device::make_internal_sender_receiver_secr
         enote_ephemeral_pubkey,
         input_context,
         s_sender_receiver_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void generate_address_secret_ram_borrowed_device::make_index_extension_generator(
+    const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::secret_key &address_generator_out) const
+{
+    make_carrot_index_extension_generator(m_s_generate_address, major_index, minor_index, address_generator_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

@@ -206,7 +206,12 @@ public:
         const crypto::public_key account_view_pubkey = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(m_account_spend_pubkey), rct::sk2rct(m_k_view_incoming)));
 
         carrot::CarrotDestinationV1 subaddress;
-        carrot::make_carrot_subaddress_v1(m_account_spend_pubkey, account_view_pubkey, {}, 88, 88, subaddress);
+        carrot::make_carrot_subaddress_v1(m_account_spend_pubkey,
+                account_view_pubkey,
+                carrot::generate_address_secret_ram_borrowed_device({}),
+                88,
+                88,
+                subaddress);
 
         const carrot::CarrotPaymentProposalV1 payment_proposal{
             .destination = subaddress,

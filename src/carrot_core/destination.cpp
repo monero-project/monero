@@ -66,7 +66,7 @@ void make_carrot_main_address_v1(const crypto::public_key &account_spend_pubkey,
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &account_view_pubkey,
-    const crypto::secret_key &s_generate_address,
+    const generate_address_secret_device &s_generate_address_dev,
     const std::uint32_t &j_major,
     const std::uint32_t &j_minor,
     CarrotDestinationV1 &destination_out)
@@ -76,7 +76,7 @@ void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
 
     // s^j_gen = H_32[s_ga](j_major, j_minor)
     crypto::secret_key address_index_generator;
-    make_carrot_index_extension_generator(s_generate_address, j_major, j_minor, address_index_generator);
+    s_generate_address_dev.make_index_extension_generator(j_major, j_minor, address_index_generator);
 
     // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
     crypto::secret_key subaddress_scalar;

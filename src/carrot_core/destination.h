@@ -34,6 +34,7 @@
 //local headers
 #include "core_types.h"
 #include "crypto/crypto.h"
+#include "device.h"
 
 //third party headers
 
@@ -78,14 +79,14 @@ void make_carrot_main_address_v1(const crypto::public_key &account_spend_pubkey,
 * brief: make_carrot_subaddress_v1 - make a destination address
 * param: account_spend_pubkey - K_s = k_gi X + k_ps T
 * param: account_view_pubkey - K_v = k_v K_s
-* param: s_generate_address - s_ga
+* param: s_generate_address_dev - device for s_ga
 * param: j_major -
 * param: j_minor -
 * outparam: destination_out - the full subaddress
 */
 void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &account_view_pubkey,
-    const crypto::secret_key &s_generate_address,
+    const generate_address_secret_device &s_generate_address_dev,
     const std::uint32_t &j_major,
     const std::uint32_t &j_minor,
     CarrotDestinationV1 &destination_out);
