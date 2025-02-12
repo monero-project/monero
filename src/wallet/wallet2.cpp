@@ -14970,7 +14970,7 @@ std::string wallet2::custom_conver_to_url_format(const std::string &uri) const
   return result;
 }
 //----------------------------------------------------------------------------------------------------
-std::string wallet2::make_uri(std::vector<std::string> &addresses, std::vector<std::uint64_t> &amounts, std::vector<std::string> &recipient_names, const std::string &payment_id, const std::string &tx_description, std::string &error) const
+std::string wallet2::make_uri(const std::vector<std::string> &addresses, const std::vector<std::uint64_t> &amounts, const std::vector<std::string> &recipient_names, const std::string &payment_id, const std::string &tx_description, std::string &error) const
 {
   if (addresses.empty())
   {
