@@ -2563,7 +2563,7 @@ std::string WalletImpl::make_uri(const std::string &address, const std::string &
     return m_wallet->make_uri(address, payment_id, amount, tx_description, recipient_name, error);
 }
 
-std::string WalletImpl::make_uri(std::vector<std::string> &addresses, std::vector<std::uint64_t> &amounts, std::vector<std::string> &recipient_names, const std::string &payment_id, const std::string &tx_description, std::string &error) const
+std::string WalletImpl::make_uri(const std::vector<std::string> &addresses, const std::vector<std::uint64_t> &amounts, const std::vector<std::string> &recipient_names, const std::string &payment_id, const std::string &tx_description, std::string &error) const
 {
     return m_wallet->make_uri(addresses, amounts, recipient_names, payment_id, tx_description, error);
 }
