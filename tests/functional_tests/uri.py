@@ -85,20 +85,19 @@ class URITest():
             assert res.uri == 'monero:' + address
             res = wallet.parse_uri(res.uri)
             assert res.uri.address == address
-            assert res.uri.amount == 0
-            assert res.uri.recipient_name == ''
             assert res.uri.payment_id == ''
+            assert res.uri.amount == 0
             assert res.uri.tx_description == ''
-            
+            assert res.uri.recipient_name == ''
             assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
             res = wallet.make_uri(address = address, amount = 11000000000)
             assert res.uri == 'monero:' + address + '?tx_amount=0.011' or res.uri == 'monero:' + address + '?tx_amount=0.011000000000'
             res = wallet.parse_uri(res.uri)
             assert res.uri.address == address
-            assert res.uri.amount == 11000000000
-            assert res.uri.recipient_name == ''
             assert res.uri.payment_id == ''
+            assert res.uri.amount == 11000000000
             assert res.uri.tx_description == ''
+            assert res.uri.recipient_name == ''
             assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
@@ -107,40 +106,40 @@ class URITest():
         assert res.uri == 'monero:' + address + '?tx_description=' + quoted_utf8string[0]
         res = wallet.parse_uri(res.uri)
         assert res.uri.address == address
-        assert res.uri.amount == 0
-        assert res.uri.recipient_name == ''
         assert res.uri.payment_id == ''
+        assert res.uri.amount == 0
         assert res.uri.tx_description == utf8string[0]
+        assert res.uri.recipient_name == ''
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         res = wallet.make_uri(address = address, recipient_name = utf8string[0])
         assert res.uri == 'monero:' + address + '?recipient_name=' + quoted_utf8string[0]
         res = wallet.parse_uri(res.uri)
         assert res.uri.address == address
-        assert res.uri.amount == 0
-        assert res.uri.recipient_name == utf8string[0]
         assert res.uri.payment_id == ''
+        assert res.uri.amount == 0
         assert res.uri.tx_description == ''
+        assert res.uri.recipient_name == utf8string[0]
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         res = wallet.make_uri(address = address, recipient_name = utf8string[0], tx_description = utf8string[1])
         assert res.uri == 'monero:' + address + '?recipient_name=' + quoted_utf8string[0] + '&tx_description=' + quoted_utf8string[1]
         res = wallet.parse_uri(res.uri)
         assert res.uri.address == address
-        assert res.uri.amount == 0
-        assert res.uri.recipient_name == utf8string[0]
         assert res.uri.payment_id == ''
         assert res.uri.tx_description == utf8string[1]
+        assert res.uri.amount == 0
+        assert res.uri.recipient_name == utf8string[0]
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         res = wallet.make_uri(address = address, recipient_name = utf8string[0], tx_description = utf8string[1], amount = 1000000000000)
         assert res.uri == 'monero:' + address + '?tx_amount=1.000000000000&recipient_name=' + quoted_utf8string[0] + '&tx_description=' + quoted_utf8string[1]
         res = wallet.parse_uri(res.uri)
         assert res.uri.address == address
-        assert res.uri.amount == 1000000000000
-        assert res.uri.recipient_name == utf8string[0]
         assert res.uri.payment_id == ''
+        assert res.uri.amount == 1000000000000
         assert res.uri.tx_description == utf8string[1]
+        assert res.uri.recipient_name == utf8string[0]
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         # standalone payment ids are supported but not recommended
@@ -160,20 +159,19 @@ class URITest():
         assert res.uri == 'monero:' + address + '?tx_amount=1.000000000000&tx_description=%20' + quoted_utf8string[1] + '%20' + quoted_utf8string[0] + '%20'
         res = wallet.parse_uri(res.uri)
         assert res.uri.address == address
-        assert res.uri.amount == 1000000000000
-        assert res.uri.recipient_name == ''
         assert res.uri.payment_id == ''
+        assert res.uri.amount == 1000000000000
         assert res.uri.tx_description == ' ' + utf8string[1] + ' ' + utf8string[0] + ' '
+        assert res.uri.recipient_name == ''
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         # the example from the docs
         res = wallet.parse_uri('monero:46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em?tx_amount=239.39014&tx_description=donation')
         assert res.uri.address == '46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em'
-        assert res.uri.amount == 239390140000000
-        assert res.uri.recipient_name == ''
-        assert res.uri.tx_description == 'donation'
-        
         assert res.uri.payment_id == ''
+        assert res.uri.amount == 239390140000000
+        assert res.uri.tx_description == 'donation'
+        assert res.uri.recipient_name == ''
         assert not 'unknown_parameters' in res or len(res.unknown_parameters) == 0
 
         # malformed/invalid
