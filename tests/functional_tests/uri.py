@@ -253,9 +253,9 @@ class URITest():
         assert parsed.uri.addresses[0] == addr1
         assert parsed.uri.amounts[0] == 500000000000
         assert parsed.uri.recipient_names[0] == utf8string[0]
-        assert parsed.uri.address[1] == addr2
-        assert parsed.uri.amount[1] == 200000000000
-        assert parsed.uri.recipient_name[1] == utf8string[1]
+        assert parsed.uri.addresses[1] == addr2
+        assert parsed.uri.amounts[1] == 200000000000
+        assert parsed.uri.recipient_names[1] == utf8string[1]
         # check tx_description at the top level.
         assert parsed.uri.tx_description == 'multi test'
         assert parsed.uri.payment_id == ''
@@ -267,15 +267,15 @@ class URITest():
         res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, payment_id='', tx_description='three pay')
         parsed = wallet.parse_uri_v2(res.uri)
         assert len(parsed.uri.addresses) == 3, "Expected 3 payments in multi-recipient URI"
-        assert parsed.uri.address[0] == addr1
-        assert parsed.uri.amount[0] == 1000000000000
-        assert parsed.uri.recipient_name[0] == utf8string[0]
-        assert parsed.uri.address[1] == addr2
-        assert parsed.uri.amount[1] == 500000000000
-        assert parsed.uri.recipient_name[1] == utf8string[1]
-        assert parsed.uri.address[2] == addr3
-        assert parsed.uri.amount[2] == 250000000000
-        assert parsed.uri.recipient_name[2] == ''
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 1000000000000
+        assert parsed.uri.recipient_names[0] == utf8string[0]
+        assert parsed.uri.addresses[1] == addr2
+        assert parsed.uri.amounts[1] == 500000000000
+        assert parsed.uri.recipient_names[1] == utf8string[1]
+        assert parsed.uri.addresses[2] == addr3
+        assert parsed.uri.amounts[2] == 250000000000
+        assert parsed.uri.recipient_names[2] == ''
         assert parsed.uri.tx_description == 'three pay'
         
         # manually build a URI with mismatched amounts (remove Bob's amount).
@@ -313,8 +313,8 @@ class URITest():
         # build a well-formed multi-recipient URI and tack on unknown parameters.
         uri_with_unknown = 'monero:' + addr1 + '?tx_amount=239.39014&foo=bar&baz=quux'
         parsed = wallet.parse_uri_v2(uri_with_unknown)
-        assert parsed.uri.address[0] == addr1
-        assert parsed.uri.amount[0] == 239390140000000
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 239390140000000
         # unknown parameters should be collected in the unknown_parameters list.
         assert parsed.unknown_parameters == ['foo=bar', 'baz=quux'], "Unknown parameters mismatch"
 
