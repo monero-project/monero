@@ -39,6 +39,7 @@ using namespace cryptonote;
 
 #include <boost/regex.hpp>
 #include <common/apply_permutation.h>
+#include <iomanip>
 #include "common/util.h"
 #include "common/command_line.h"
 #include "trezor_tests.h"

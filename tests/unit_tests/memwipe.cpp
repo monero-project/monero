@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 
+#include <iomanip>
 #include <stdint.h>
 #include "misc_log_ex.h"
 #include "memwipe.h"
