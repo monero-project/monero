@@ -1,0 +1,22 @@
+name: 'set-make-job-count'
+description: 'Set the MAKE_JOB_COUNT environment variable to a value suitable for the host runner'
+runs:
+  using: "composite"
+  steps:
+    # Each job runner requires 2.25 GiB (i.e. 1024 * 9/4 MiB) memory and
+    # a dedicated logical CPU core
+    - name: set-jobs-macOS
+      if: runner.os == 'macOS'
+      run: |
+        echo MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(sysctl -n hw.memsize) * 4 / (1073741824 * 9) )) $(sysctl -n hw.logicalcpu) | sort -n | head -n1) '|' 1) >> $GITHUB_ENV
+      shell: bash
+    - name: set-jobs-windows
+      if: runner.os == 'Windows'
+      run: |
+        echo MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) '|' 1) >> $GITHUB_ENV
+      shell: msys2 {0}
+    - name: set-jobs-linux
+      if: runner.os == 'Linux'
+      run: |
+        echo MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) '|' 1) >> $GITHUB_ENV
+      shell: bash
