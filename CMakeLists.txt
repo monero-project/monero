@@ -1108,6 +1108,12 @@ add_definitions(-DBOOST_ASIO_ENABLE_SEQUENTIAL_STRAND_ALLOCATION)
 add_definitions(-DBOOST_NO_AUTO_PTR)
 add_definitions(-DBOOST_UUID_DISABLE_ALIGNMENT) # This restores UUID's std::has_unique_object_representations property
 
+if(FREEBSD AND DEPENDS)
+  # Boost 1.66.0 fails to detect that we have <string_view>, resulting in an incorrect include.
+  # This line can be removed if Boost is upgraded to > 1.66.0.
+  add_definitions(-DBOOST_ASIO_HAS_STD_STRING_VIEW)
+endif()
+
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
