@@ -305,7 +305,7 @@ namespace rct {
       RCTTypeCLSAG = 5,
       RCTTypeBulletproofPlus = 6,
     };
-    enum RangeProofType { RangeProofBorromean, RangeProofBulletproof, RangeProofMultiOutputBulletproof, RangeProofPaddedBulletproof };
+    enum RangeProofType { RangeProofBorromean, RangeProofPaddedBulletproof };
     struct RCTConfig {
       RangeProofType range_proof_type;
       int bp_version;
