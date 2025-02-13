@@ -132,10 +132,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Oldest supported Ubuntu LTS version
-          - name: Ubuntu 20.04
-            container: ubuntu:20.04
-
           # Most popular Ubuntu LTS version
           - name: Ubuntu 22.04
             container: ubuntu:22.04
@@ -172,11 +168,11 @@ jobs:
 
   test-ubuntu:
     name: "${{ matrix.name }} (tests)"
-    needs: build-ubuntu
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
+          # Oldest supported Ubuntu LTS version
           - name: Ubuntu 20.04
             container: ubuntu:20.04
     container:
