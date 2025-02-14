@@ -271,8 +271,6 @@ chain for " target " development."))
         ;; Build tools
         gnu-make
         libtool
-        autoconf-2.71 ; defaults to 2.69, which does not recognize the aarch64-apple-darwin target
-        automake
         pkg-config
         cmake-minimal
 

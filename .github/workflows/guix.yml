@@ -7,12 +7,14 @@ on:
       - 'contrib/guix/**'
       - '!contrib/**.md'
       - '.github/workflows/guix.yml'
+      - '**/Cargo.lock'
   pull_request:
     paths:
       - 'contrib/depends/**'
       - 'contrib/guix/**'
       - '!contrib/**.md'
       - '.github/workflows/guix.yml'
+      - '**/Cargo.lock'
 
 jobs:
   cache-sources:

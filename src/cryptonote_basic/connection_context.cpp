@@ -29,6 +29,7 @@
 
 #include "connection_context.h"
 
+#include <boost/optional/optional.hpp>
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "p2p/p2p_protocol_defs.h"
 
@@ -68,5 +69,24 @@ namespace cryptonote
       break;
     };
     return std::numeric_limits<size_t>::max();
+  }
+
+  void cryptonote_connection_context::set_state_normal()
+  {
+    m_state = state_normal;
+    m_expected_heights_start = 0;
+    m_needed_objects.clear();
+    m_needed_objects.shrink_to_fit();
+    m_expected_heights.clear();
+    m_expected_heights.shrink_to_fit();
+    m_requested_objects.clear();
+  }
+
+  boost::optional<crypto::hash> cryptonote_connection_context::get_expected_hash(const uint64_t height) const
+  {
+    const auto difference = height - m_expected_heights_start;
+    if (height < m_expected_heights_start || m_expected_heights.size() < difference)
+      return boost::none;
+    return m_expected_heights[difference];
   }
 } // cryptonote

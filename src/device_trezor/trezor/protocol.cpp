@@ -413,8 +413,6 @@ namespace tx {
   static unsigned get_rsig_type(const rct::RCTConfig &rct_config, size_t num_outputs){
     if (rct_config.range_proof_type == rct::RangeProofBorromean){
       return rct::RangeProofBorromean;
-    } else if (num_outputs > BULLETPROOF_MAX_OUTPUTS){
-      return rct::RangeProofMultiOutputBulletproof;
     } else {
       return rct::RangeProofPaddedBulletproof;
     }
@@ -424,7 +422,7 @@ namespace tx {
     size_t amount_batched = 0;
 
     while(amount_batched < num_outputs){
-      if (rsig_type == rct::RangeProofBorromean || rsig_type == rct::RangeProofBulletproof) {
+      if (rsig_type == rct::RangeProofBorromean) {
         batches.push_back(1);
         amount_batched += 1;
 
@@ -434,15 +432,6 @@ namespace tx {
         }
         batches.push_back(num_outputs);
         amount_batched += num_outputs;
-
-      } else if (rsig_type == rct::RangeProofMultiOutputBulletproof){
-        size_t batch_size = 1;
-        while (batch_size * 2 + amount_batched <= num_outputs && batch_size * 2 <= BULLETPROOF_MAX_OUTPUTS){
-          batch_size *= 2;
-        }
-        batch_size = std::min(batch_size, num_outputs - amount_batched);
-        batches.push_back(batch_size);
-        amount_batched += batch_size;
 
       } else {
         throw std::invalid_argument("Unknown rsig type");

@@ -30,7 +30,6 @@
 
 #include <boost/lexical_cast.hpp>
 #include "misc_log_ex.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "rctOps.h"
 using namespace crypto;
 using namespace std;

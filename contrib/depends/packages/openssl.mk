@@ -3,13 +3,11 @@ $(package)_version=3.0.13
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
 $(package)_sha256_hash=88525753f79d3bec27d2fa7c66aa0b92b3aa9498dafd93d7cfa4b3780cdae313
-
-# The bundled ranlib in Android NDK 18b inserts timestamps by default.
-# To prevent reproducibility issues, we must enable [D]eterministic mode.
+$(package)_patches=fix-android.patch
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
-$(package)_config_env_android=ANDROID_NDK_ROOT="$(host_prefix)/native" PATH="$(host_prefix)/native/bin" CC=clang AR=ar RANLIB="ranlib -D"
+$(package)_config_env_android=ANDROID_NDK_ROOT="$(host_prefix)/native" PATH="$(host_prefix)/native/bin"
 $(package)_build_env_android=ANDROID_NDK_ROOT="$(host_prefix)/native"
 $(package)_config_opts=--prefix=$(host_prefix) --openssldir=$(host_prefix)/etc/openssl --libdir=$(host_prefix)/lib
 $(package)_config_opts+=no-capieng
@@ -52,7 +50,8 @@ $(package)_config_opts_x86_64_freebsd=BSD-x86_64
 endef
 
 define $(package)_preprocess_cmds
-  sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info
+  sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info && \
+  patch -p1 < $($(package)_patch_dir)/fix-android.patch
 endef
 
 define $(package)_config_cmds

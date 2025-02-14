@@ -171,23 +171,14 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE4(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofBorromean);
 
   TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, true, rct::RangeProofPaddedBulletproof, 2);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 2, true, rct::RangeProofMultiOutputBulletproof, 2);
   TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, true, rct::RangeProofPaddedBulletproof, 2);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 10, 2, true, rct::RangeProofMultiOutputBulletproof, 2);
   TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofPaddedBulletproof, 2);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 100, 2, true, rct::RangeProofMultiOutputBulletproof, 2);
   TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofPaddedBulletproof, 2);
-  TEST_PERFORMANCE5(filter, p, test_check_tx_signature, 2, 10, true, rct::RangeProofMultiOutputBulletproof, 2);
 
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 64);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 64);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature_aggregated_bulletproofs, 100, 2, 64);
   TEST_PERFORMANCE3(filter, p, test_check_tx_signature_aggregated_bulletproofs, 2, 10, 64);
-
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 62, 4);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 62, 4);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature_aggregated_bulletproofs, 2, 2, 56, 16);
-  TEST_PERFORMANCE4(filter, p, test_check_tx_signature_aggregated_bulletproofs, 10, 2, 56, 16);
 
   TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 1, 0, 1);
   TEST_PERFORMANCE4(filter, p, test_check_hash, 0, 0xffffffffffffffff, 0, 0xffffffffffffffff);

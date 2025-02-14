@@ -48,6 +48,7 @@ set(unit_tests_sources
   dns_resolver.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
+  epee_http_server.cpp
   epee_serialization.cpp
   epee_utils.cpp
   expect.cpp
@@ -136,12 +137,10 @@ set_property(TARGET unit_tests
   PROPERTY
     FOLDER "tests")
 
-if (NOT MSVC)
-  set_property(TARGET unit_tests
-    APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif ()
+set_property(TARGET unit_tests
+  APPEND_STRING
+  PROPERTY
+    COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 
 SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 

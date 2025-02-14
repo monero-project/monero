@@ -127,6 +127,10 @@
 
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT     1000
 #define COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT        20000
+#define DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP       3
+#define DEFAULT_RPC_MAX_CONNECTIONS_PER_PRIVATE_IP      25
+#define DEFAULT_RPC_MAX_CONNECTIONS                     100
+#define DEFAULT_RPC_SOFT_LIMIT_SIZE                     25 * 1024 * 1024 // 25 MiB
 #define MAX_RPC_CONTENT_LENGTH                          1048576 // 1 MB
 
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
@@ -145,8 +149,8 @@
 #define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
 #define P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT            2
 #define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
-#define P2P_DEFAULT_LIMIT_RATE_UP                       2048       // kB/s
-#define P2P_DEFAULT_LIMIT_RATE_DOWN                     8192       // kB/s
+#define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
+#define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour

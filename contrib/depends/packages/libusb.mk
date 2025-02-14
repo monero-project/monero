@@ -10,10 +10,10 @@ endef
 
 define $(package)_set_vars
   $(package)_config_opts=--disable-shared
-  $(package)_config_opts_linux=--with-pic --disable-udev
+  $(package)_config_opts_linux=--disable-udev
   $(package)_config_opts_mingw32=--disable-udev
   $(package)_config_opts_darwin=--disable-udev
-  $(package)_config_opts_freebsd=--with-pic --disable-udev
+  $(package)_config_opts_freebsd=--disable-udev
 endef
 
 define $(package)_config_cmds

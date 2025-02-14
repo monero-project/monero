@@ -45,8 +45,7 @@ jobs:
       - uses: ./.github/actions/set-make-job-count
       - name: install dependencies
         run: |
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq miniupnpc expat libunwind-headers protobuf@21 ccache
-          brew link protobuf@21 boost
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq miniupnpc expat libunwind-headers protobuf ccache
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}
@@ -132,10 +131,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Oldest supported Ubuntu LTS version
-          - name: Ubuntu 20.04
-            container: ubuntu:20.04
-
           # Most popular Ubuntu LTS version
           - name: Ubuntu 22.04
             container: ubuntu:22.04
@@ -172,11 +167,11 @@ jobs:
 
   test-ubuntu:
     name: "${{ matrix.name }} (tests)"
-    needs: build-ubuntu
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
+          # Oldest supported Ubuntu LTS version
           - name: Ubuntu 20.04
             container: ubuntu:20.04
     container:

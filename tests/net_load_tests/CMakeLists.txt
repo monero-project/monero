@@ -72,8 +72,7 @@ target_link_libraries(net_load_tests_srv
 set_property(TARGET net_load_tests_clt net_load_tests_srv
   PROPERTY
     FOLDER "tests")
-if(NOT MSVC)
-  set_property(TARGET net_load_tests_clt net_load_tests_srv APPEND_STRING
-    PROPERTY
-      COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-endif()
+
+set_property(TARGET net_load_tests_clt net_load_tests_srv APPEND_STRING
+  PROPERTY
+    COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
