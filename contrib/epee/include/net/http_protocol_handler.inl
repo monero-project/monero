@@ -208,9 +208,44 @@ namespace net_utils
 		m_newlines(0),
 		m_bytes_read(0),
 		m_psnd_hndlr(psnd_hndlr),
-		m_conn_context(conn_context)
+		m_conn_context(conn_context),
+		m_initialized(false)
 	{
 
+	}
+	//--------------------------------------------------------------------------------------------
+	template<class t_connection_context>
+	simple_http_connection_handler<t_connection_context>::~simple_http_connection_handler()
+	{
+	  try
+	  {
+	    if (m_initialized)
+	    {
+	      CRITICAL_REGION_LOCAL(m_config.m_lock);
+	      if (m_config.m_connection_count)
+	        --m_config.m_connection_count;
+	      auto elem = m_config.m_connections.find(m_conn_context.m_remote_address.host_str());
+	      if (elem != m_config.m_connections.end())
+	      {
+	        if (elem->second == 1 || elem->second == 0)
+	          m_config.m_connections.erase(elem);
+	        else
+	          --(elem->second);
+	      }
+	    }
+	  }
+	  catch (...)
+	  {}
+	}
+	//--------------------------------------------------------------------------------------------
+	template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::after_init_connection()
+	{
+	  CRITICAL_REGION_LOCAL(m_config.m_lock);
+	  ++m_config.m_connections[m_conn_context.m_remote_address.host_str()];
+	  ++m_config.m_connection_count;
+	  m_initialized = true;
+	  return true;
 	}
 	//--------------------------------------------------------------------------------------------
     template<class t_connection_context>
