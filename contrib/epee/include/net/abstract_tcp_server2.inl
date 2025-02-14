@@ -498,10 +498,12 @@ namespace net_utils
       if (m_state.socket.cancel_write) {
         m_state.socket.cancel_write = false;
         m_state.data.write.queue.clear();
+        m_state.data.write.total_bytes = 0;
         state_status_check();
       }
       else if (ec.value()) {
         m_state.data.write.queue.clear();
+        m_state.data.write.total_bytes = 0;
         interrupt();
       }
       else {
@@ -526,8 +528,11 @@ namespace net_utils
 
           start_timer(get_default_timeout(), true);
         }
-        assert(bytes_transferred == m_state.data.write.queue.back().size());
+        const std::size_t byte_count = m_state.data.write.queue.back().size();
+        assert(bytes_transferred == byte_count);
         m_state.data.write.queue.pop_back();
+        m_state.data.write.total_bytes -=
+          std::min(m_state.data.write.total_bytes, byte_count);
         m_state.condition.notify_all();
         start_write();
       }
@@ -671,8 +676,9 @@ namespace net_utils
       return;
     if (m_state.timers.throttle.out.wait_expire)
       return;
-    if (m_state.socket.wait_write)
-      return;
+    // \NOTE See on_terminating() comments
+    //if (m_state.socket.wait_write)
+    // return;
     if (m_state.socket.wait_shutdown)
       return;
     if (m_state.protocol.wait_init)
@@ -730,8 +736,13 @@ namespace net_utils
       return;
     if (m_state.timers.throttle.out.wait_expire)
       return;
-    if (m_state.socket.wait_write)
-      return;
+    // Writes cannot be canceled due to `async_write` being a "composed"
+    // handler. ASIO has new cancellation routines, not available in 1.66, to
+    // handle this situation. The problem is that if cancel is called after an
+    // intermediate handler is queued, the op will not check the cancel flag in
+    // our code, and will instead queue up another write.
+    //if (m_state.socket.wait_write)
+    //  return;
     if (m_state.socket.wait_shutdown)
       return;
     if (m_state.protocol.wait_init)
@@ -758,6 +769,8 @@ namespace net_utils
     std::lock_guard<std::mutex> guard(m_state.lock);
     if (m_state.status != status_t::RUNNING || m_state.socket.wait_handshake)
       return false;
+    if (std::numeric_limits<std::size_t>::max() - m_state.data.write.total_bytes < message.size())
+      return false;
 
     // Wait for the write queue to fall below the max. If it doesn't after a
     // randomized delay, drop the connection.
@@ -775,7 +788,14 @@ namespace net_utils
           std::uniform_int_distribution<>(5000, 6000)(rng)
         );
       };
-      if (m_state.data.write.queue.size() <= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT)
+
+      // The bytes check intentionally does not include incoming message size.
+      // This allows for a soft overflow; a single http response will never fail
+      // this check, but multiple responses could. Clients can avoid this case
+      // by reading the entire response before making another request. P2P
+      // should never hit the MAX_BYTES check (when using default values).
+      if (m_state.data.write.queue.size() <= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT &&
+          m_state.data.write.total_bytes <= static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit)
         return true;
       m_state.data.write.wait_consume = true;
       bool success = m_state.condition.wait_for(
@@ -784,14 +804,23 @@ namespace net_utils
         [this]{
           return (
             m_state.status != status_t::RUNNING ||
-            m_state.data.write.queue.size() <=
-              ABSTRACT_SERVER_SEND_QUE_MAX_COUNT
+            (
+              m_state.data.write.queue.size() <=
+                ABSTRACT_SERVER_SEND_QUE_MAX_COUNT &&
+              m_state.data.write.total_bytes <=
+                static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit
+            )
           );
         }
       );
       m_state.data.write.wait_consume = false;
       if (!success) {
-        terminate();
+        // synchronize with intermediate writes on `m_strand`
+        auto self = connection<T>::shared_from_this();
+        boost::asio::post(m_strand, [this, self] {
+          std::lock_guard<std::mutex> guard(m_state.lock);
+          terminate();
+        });
         return false;
       }
       else
@@ -817,7 +846,9 @@ namespace net_utils
     ) {
       if (!wait_consume())
         return false;
+      const std::size_t byte_count = message.size();
       m_state.data.write.queue.emplace_front(std::move(message));
+      m_state.data.write.total_bytes += byte_count;
       start_write();
     }
     else {
@@ -827,6 +858,7 @@ namespace net_utils
         m_state.data.write.queue.emplace_front(
           message.take_slice(CHUNK_SIZE)
         );
+        m_state.data.write.total_bytes += m_state.data.write.queue.front().size();
         start_write();
       }
     }
@@ -1360,6 +1392,13 @@ namespace net_utils
   {
     assert(m_state != nullptr); // always set in constructor
     m_state->plimit = plimit;
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::set_response_soft_limit(const std::size_t limit)
+  {
+    assert(m_state != nullptr); // always set in constructor
+    m_state->response_soft_limit = limit;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>

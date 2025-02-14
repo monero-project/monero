@@ -64,6 +64,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
 
 #define ABSTRACT_SERVER_SEND_QUE_MAX_COUNT 1000
+#define ABSTRACT_SERVER_SEND_QUE_MAX_BYTES_DEFAULT 100 * 1024 * 1024
 
 namespace epee
 {
@@ -169,6 +170,7 @@ namespace net_utils
         } read;
         struct {
           std::deque<epee::byte_slice> queue;
+          std::size_t total_bytes;
           bool wait_consume;
         } write;
       };
@@ -267,11 +269,17 @@ namespace net_utils
     struct shared_state : connection_basic_shared_state, t_protocol_handler::config_type
     {
       shared_state()
-        : connection_basic_shared_state(), t_protocol_handler::config_type(), pfilter(nullptr), plimit(nullptr), stop_signal_sent(false)
+        : connection_basic_shared_state(),
+          t_protocol_handler::config_type(),
+          pfilter(nullptr),
+          plimit(nullptr),
+          response_soft_limit(ABSTRACT_SERVER_SEND_QUE_MAX_BYTES_DEFAULT), 
+          stop_signal_sent(false)
       {}
 
       i_connection_filter* pfilter;
       i_connection_limit* plimit;
+      std::size_t response_soft_limit;
       bool stop_signal_sent;
     };
 
@@ -378,6 +386,7 @@ namespace net_utils
 
     void set_connection_filter(i_connection_filter* pfilter);
     void set_connection_limit(i_connection_limit* plimit);
+    void set_response_soft_limit(std::size_t limit);
 
     void set_default_remote(epee::net_utils::network_address remote)
     {
