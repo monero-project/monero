@@ -47,6 +47,7 @@
 #include <condition_variable>
 
 #include <boost/asio.hpp>
+#include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -108,8 +109,8 @@ namespace net_utils
     using ec_t = boost::system::error_code;
     using handshake_t = boost::asio::ssl::stream_base::handshake_type;
 
-    using io_context_t = boost::asio::io_service;
-    using strand_t = boost::asio::io_service::strand;
+    using io_context_t = boost::asio::io_context;
+    using strand_t = io_context_t::strand;
     using socket_t = boost::asio::ip::tcp::socket;
 
     using network_throttle_t = epee::net_utils::network_throttle;
@@ -283,13 +284,14 @@ namespace net_utils
       bool stop_signal_sent;
     };
 
-    /// Construct a connection with the given io_service.
-    explicit connection( boost::asio::io_service& io_service,
+    /// Construct a connection with the given io_context.
+    explicit connection( io_context_t& io_context,
                         std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
 			epee::net_utils::ssl_support_t ssl_support);
 
-    explicit connection( boost::asio::ip::tcp::socket&& sock,
+    explicit connection( io_context_t& io_context,
+      boost::asio::ip::tcp::socket&& sock,
 			 std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
 			epee::net_utils::ssl_support_t ssl_support);
@@ -322,7 +324,7 @@ namespace net_utils
     virtual bool close();
     virtual bool call_run_once_service_io();
     virtual bool request_callback();
-    virtual boost::asio::io_service& get_io_service();
+    virtual io_context_t& get_io_context();
     virtual bool add_ref();
     virtual bool release();
     //------------------------------------------------------
@@ -352,7 +354,7 @@ namespace net_utils
     /// serve up files from the given directory.
 
     boosted_tcp_server(t_connection_type connection_type);
-    explicit boosted_tcp_server(boost::asio::io_service& external_io_service, t_connection_type connection_type);
+    explicit boosted_tcp_server(boost::asio::io_context& external_io_context, t_connection_type connection_type);
     ~boosted_tcp_server();
     
     std::map<std::string, t_connection_type> server_type_map;
@@ -365,7 +367,7 @@ namespace net_utils
 	const std::string port_ipv6 = "", const std::string address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
 	ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect);
 
-    /// Run the server's io_service loop.
+    /// Run the server's io_context loop.
     bool run_server(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes());
 
     /// wait for service workers stop
@@ -427,7 +429,7 @@ namespace net_utils
       return connections_count;
     }
 
-    boost::asio::io_service& get_io_service(){return io_service_;}
+    boost::asio::io_context& get_io_context(){return io_context_;}
 
     struct idle_callback_conext_base
     {
@@ -435,7 +437,7 @@ namespace net_utils
 
       virtual bool call_handler(){return true;}
 
-      idle_callback_conext_base(boost::asio::io_service& io_serice):
+      idle_callback_conext_base(boost::asio::io_context& io_serice):
                                                           m_timer(io_serice)
       {}
       boost::asio::deadline_timer m_timer;
@@ -444,7 +446,7 @@ namespace net_utils
     template <class t_handler>
     struct idle_callback_conext: public idle_callback_conext_base
     {
-      idle_callback_conext(boost::asio::io_service& io_serice, t_handler& h, uint64_t period):
+      idle_callback_conext(boost::asio::io_context& io_serice, t_handler& h, uint64_t period):
                                                     idle_callback_conext_base(io_serice),
                                                     m_handler(h)
       {this->m_period = period;}
@@ -460,7 +462,7 @@ namespace net_utils
     template<class t_handler>
     bool add_idle_handler(t_handler t_callback, uint64_t timeout_ms)
       {
-        boost::shared_ptr<idle_callback_conext<t_handler>> ptr(new idle_callback_conext<t_handler>(io_service_, t_callback, timeout_ms));
+        boost::shared_ptr<idle_callback_conext<t_handler>> ptr(new idle_callback_conext<t_handler>(io_context_, t_callback, timeout_ms));
         //needed call handler here ?...
         ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
         ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
@@ -479,14 +481,14 @@ namespace net_utils
     }
 
     template<class t_handler>
-    bool async_call(t_handler t_callback)
+    bool async_call(t_handler&& t_callback)
     {
-      io_service_.post(t_callback);
+      boost::asio::post(io_context_, std::forward<t_handler>(t_callback));
       return true;
     }
 
   private:
-    /// Run the server's io_service loop.
+    /// Run the server's io_context loop.
     bool worker_thread();
     /// Handle completion of an asynchronous accept operation.
     void handle_accept_ipv4(const boost::system::error_code& e);
@@ -497,18 +499,18 @@ namespace net_utils
 
     const std::shared_ptr<typename connection<t_protocol_handler>::shared_state> m_state;
 
-    /// The io_service used to perform asynchronous operations.
+    /// The io_context used to perform asynchronous operations.
     struct worker
     {
       worker()
-        : io_service(), work(io_service)
+        : io_context(), work(io_context.get_executor())
       {}
 
-      boost::asio::io_service io_service;
-      boost::asio::io_service::work work;
+      boost::asio::io_context io_context;
+      boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work;
     };
-    std::unique_ptr<worker> m_io_service_local_instance;
-    boost::asio::io_service& io_service_;    
+    std::unique_ptr<worker> m_io_context_local_instance;
+    boost::asio::io_context& io_context_;    
 
     /// Acceptor used to listen for incoming connections.
     boost::asio::ip::tcp::acceptor acceptor_;

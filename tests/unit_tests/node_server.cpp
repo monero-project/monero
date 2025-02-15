@@ -438,14 +438,14 @@ TEST(cryptonote_protocol_handler, race_condition)
   using connections_t = std::vector<connection_ptr>;
   using shared_state_t = typename connection_t::shared_state;
   using shared_state_ptr = std::shared_ptr<shared_state_t>;
-  using io_context_t = boost::asio::io_service;
+  using io_context_t = boost::asio::io_context;
   using event_t = epee::simple_event;
   using ec_t = boost::system::error_code;
   auto create_conn_pair = [](connection_ptr in, connection_ptr out) {
     using endpoint_t = boost::asio::ip::tcp::endpoint;
     using acceptor_t = boost::asio::ip::tcp::acceptor;
     io_context_t io_context;
-    endpoint_t endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 5262);
+    endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 5262);
     acceptor_t acceptor(io_context);
     ec_t ec;
     acceptor.open(endpoint.protocol(), ec);
@@ -453,7 +453,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     acceptor.bind(endpoint, ec);
     EXPECT_EQ(ec.value(), 0);
-    acceptor.listen(boost::asio::socket_base::max_connections, ec);
+    acceptor.listen(boost::asio::socket_base::max_listen_connections, ec);
     EXPECT_EQ(ec.value(), 0);
     out->socket().open(endpoint.protocol(), ec);
     EXPECT_EQ(ec.value(), 0);
@@ -471,7 +471,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     conn.get_context(context);
     return context.m_connection_id;
   };
-  using work_t = boost::asio::io_service::work;
+  using work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
   using work_ptr = std::shared_ptr<work_t>;
   using workers_t = std::vector<std::thread>;
   using commands_handler_t = epee::levin::levin_commands_handler<context_t>;
@@ -785,7 +785,7 @@ TEST(cryptonote_protocol_handler, race_condition)
   };
 
   io_context_t io_context;
-  work_ptr work = std::make_shared<work_t>(io_context);
+  work_ptr work = std::make_shared<work_t>(io_context.get_executor());
   workers_t workers;
   while (workers.size() < 4) {
     workers.emplace_back([&io_context]{
@@ -822,7 +822,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       auto conn = connections.first;
       auto shared_state = daemon.main.shared_state;
       const auto tag = get_conn_tag(*conn);
-      conn->strand_.post([tag, conn, shared_state, &events]{
+      boost::asio::post(conn->strand_, [tag, conn, shared_state, &events]{
         shared_state->for_connection(tag, [](context_t &context){
           context.m_expect_height = -1;
           context.m_expect_response = -1;
@@ -849,10 +849,10 @@ TEST(cryptonote_protocol_handler, race_condition)
     events.check.raise();
     events.finish.wait();
 
-    connections.first->strand_.post([connections]{
+    boost::asio::post(connections.first->strand_, [connections]{
       connections.first->cancel();
     });
-    connections.second->strand_.post([connections]{
+    boost::asio::post(connections.second->strand_, [connections]{
       connections.second->cancel();
     });
     connections.first.reset();
@@ -896,7 +896,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       work_ptr work;
       workers_t workers;
     } check;
-    check.work = std::make_shared<work_t>(check.io_context);
+    check.work = std::make_shared<work_t>(check.io_context.get_executor());
     while (check.workers.size() < 2) {
       check.workers.emplace_back([&check]{
         check.io_context.run();
@@ -917,7 +917,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       auto conn = daemon.main.conn.back();
       auto shared_state = daemon.main.shared_state;
       const auto tag = get_conn_tag(*conn);
-      conn->strand_.post([tag, conn, shared_state, &events]{
+      boost::asio::post(conn->strand_, [tag, conn, shared_state, &events]{
         shared_state->for_connection(tag, [](context_t &context){
           EXPECT_TRUE(context.m_state == contexts::cryptonote::state_normal);
           return true;
@@ -969,13 +969,13 @@ TEST(cryptonote_protocol_handler, race_condition)
 
     for (;daemon.main.conn.size(); daemon.main.conn.pop_back()) {
       auto conn = daemon.main.conn.back();
-      conn->strand_.post([conn]{
+      boost::asio::post(conn->strand_, [conn]{
         conn->cancel();
       });
     }
     for (;daemon.alt.conn.size(); daemon.alt.conn.pop_back()) {
       auto conn = daemon.alt.conn.back();
-      conn->strand_.post([conn]{
+      boost::asio::post(conn->strand_, [conn]{
         conn->cancel();
       });
     }
@@ -1145,8 +1145,8 @@ TEST(node_server, race_condition)
     using connection_ptr = boost::shared_ptr<connection_t>;
     using shared_state_t = typename connection_t::shared_state;
     using shared_state_ptr = std::shared_ptr<shared_state_t>;
-    using io_context_t = boost::asio::io_service;
-    using work_t = boost::asio::io_service::work;
+    using io_context_t = boost::asio::io_context;
+    using work_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
     using work_ptr = std::shared_ptr<work_t>;
     using workers_t = std::vector<std::thread>;
     using endpoint_t = boost::asio::ip::tcp::endpoint;
@@ -1163,23 +1163,23 @@ TEST(node_server, race_condition)
       static void destroy(epee::levin::levin_commands_handler<context_t>* ptr) { delete ptr; }
     };
     io_context_t io_context;
-    work_ptr work = std::make_shared<work_t>(io_context);
+    work_ptr work = std::make_shared<work_t>(io_context.get_executor());
     workers_t workers;
     while (workers.size() < 4) {
       workers.emplace_back([&io_context]{
         io_context.run();
       });
     }
-    io_context.post([&]{
+    boost::asio::post(io_context, [&]{
       protocol.on_idle();
     });
-    io_context.post([&]{
+    boost::asio::post(io_context, [&]{
       protocol.on_idle();
     });
     shared_state_ptr shared_state = std::make_shared<shared_state_t>();
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
     connection_ptr conn{new connection_t(io_context, shared_state, {}, {})};
-    endpoint_t endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 48080);
+    endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 48080);
     conn->socket().connect(endpoint);
     conn->socket().set_option(boost::asio::ip::tcp::socket::reuse_address(true));
     conn->start({}, {});
@@ -1202,7 +1202,7 @@ TEST(node_server, race_condition)
       P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT
     );
     handshaked.wait();
-    conn->strand_.post([conn]{
+    boost::asio::post(conn->strand_, [conn]{
       conn->cancel();
     });
     conn.reset();

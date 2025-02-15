@@ -71,7 +71,7 @@ namespace socks
             boost::promise<boost::asio::ip::tcp::socket> result{};
             out = result.get_future();
             const auto proxy = net::socks::make_connect_client(
-                boost::asio::ip::tcp::socket{GET_IO_SERVICE(timeout)}, net::socks::version::v4a, future_socket{std::move(result)}
+                boost::asio::ip::tcp::socket{MONERO_GET_EXECUTOR(timeout)}, net::socks::version::v4a, future_socket{std::move(result)}
             );
 
             if (epee::string_tools::get_ip_int32_from_string(ip_address, remote_host))
