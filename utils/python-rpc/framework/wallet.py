@@ -1087,6 +1087,16 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(estimate_tx_size_and_weight)
 
+    def get_default_fee_priority(self):
+        get_default_fee_priority = {
+            'method': 'get_default_fee_priority',
+            'jsonrpc': '2.0',
+            'params': {
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_default_fee_priority)
+
     def get_version(self):
         get_version = {
             'method': 'get_version',
