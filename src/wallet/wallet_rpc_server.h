@@ -159,6 +159,7 @@ namespace tools
         MAP_JON_RPC_WE("set_log_level",      on_set_log_level,      wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL)
         MAP_JON_RPC_WE("set_log_categories", on_set_log_categories, wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES)
         MAP_JON_RPC_WE("estimate_tx_size_and_weight", on_estimate_tx_size_and_weight, wallet_rpc::COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT)
+        MAP_JON_RPC_WE("get_default_fee_priority", on_get_default_fee_priority, wallet_rpc::COMMAND_RPC_GET_DEFAULT_FEE_PRIORITY)
         MAP_JON_RPC_WE("get_version",        on_get_version,        wallet_rpc::COMMAND_RPC_GET_VERSION)
         MAP_JON_RPC_WE("setup_background_sync", on_setup_background_sync, wallet_rpc::COMMAND_RPC_SETUP_BACKGROUND_SYNC)
         MAP_JON_RPC_WE("start_background_sync", on_start_background_sync, wallet_rpc::COMMAND_RPC_START_BACKGROUND_SYNC)
@@ -254,6 +255,7 @@ namespace tools
       bool on_set_log_level(const wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL::request& req, wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_set_log_categories(const wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES::request& req, wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_estimate_tx_size_and_weight(const wallet_rpc::COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT::request& req, wallet_rpc::COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_get_default_fee_priority(const wallet_rpc::COMMAND_RPC_GET_DEFAULT_FEE_PRIORITY::request& req, wallet_rpc::COMMAND_RPC_GET_DEFAULT_FEE_PRIORITY::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_get_version(const wallet_rpc::COMMAND_RPC_GET_VERSION::request& req, wallet_rpc::COMMAND_RPC_GET_VERSION::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_setup_background_sync(const wallet_rpc::COMMAND_RPC_SETUP_BACKGROUND_SYNC::request& req, wallet_rpc::COMMAND_RPC_SETUP_BACKGROUND_SYNC::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_start_background_sync(const wallet_rpc::COMMAND_RPC_START_BACKGROUND_SYNC::request& req, wallet_rpc::COMMAND_RPC_START_BACKGROUND_SYNC::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
