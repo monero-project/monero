@@ -9,6 +9,10 @@ $(package)_config_opts=--enable-static --disable-shared
 $(package)_config_opts+=--prefix=$(host_prefix)
 endef
 
+define $(package)_preprocess_cmds
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub build-aux
+endef
+
 define $(package)_config_cmds
   $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
 endef

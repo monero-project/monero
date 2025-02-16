@@ -50,11 +50,30 @@ set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
 set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
 
+function(split_program input_string program arguments)
+  # CMake < 3.19 only understands setting CMAKE_<LANG>_COMPILER using "<program>" "<arguments>".
+  # https://cmake.org/cmake/help/v3.19/variable/CMAKE_LANG_COMPILER.html#variable:CMAKE_%3CLANG%3E_COMPILER
+
+  string(FIND "${input_string}" " " space_index)
+
+  if(space_index EQUAL -1)
+      set(${program} "${input_string}" PARENT_SCOPE)
+      set(${arguments} "" PARENT_SCOPE)
+  else()
+      string(SUBSTRING "${input_string}" 0 ${space_index} _program)
+      math(EXPR args_index "${space_index} + 1")
+      string(SUBSTRING "${input_string}" ${args_index} -1 _arguments)
+
+      set(${program} "${_program}" PARENT_SCOPE)
+      set(${arguments} "${_arguments}" PARENT_SCOPE)
+  endif()
+endfunction()
+
 # specify the cross compiler to be used. Darwin uses clang provided by the SDK.
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   if(ARCHITECTURE STREQUAL "aarch64")
     SET(CLANG_TARGET "arm64-apple-darwin")
-    SET(CONF_TRIPLE "aarch64-apple-darwin")
+    SET(CONF_TRIPLE "arm64-apple-darwin")
     SET(BUILD_TAG "mac-armv8")
     SET(CMAKE_OSX_ARCHITECTURES "arm64")
     set(ARM ON)
@@ -66,10 +85,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     SET(CMAKE_OSX_ARCHITECTURES "x86_64")
   endif()
   SET(_CMAKE_TOOLCHAIN_PREFIX @prefix@/native/bin/${CONF_TRIPLE}-)
-  SET(CMAKE_C_COMPILER @CC@)
+  split_program("@CC@" CC_DARWIN CC_DARWIN_ARGS)
+  SET(CMAKE_C_COMPILER "${CC_DARWIN}" "${CC_DARWIN_ARGS}")
   SET(CMAKE_C_COMPILER_TARGET ${CLANG_TARGET})
   SET(CMAKE_C_FLAGS_INIT -B${_CMAKE_TOOLCHAIN_PREFIX})
-  SET(CMAKE_CXX_COMPILER @CXX@ -stdlib=libc++)
+  split_program("@CXX@" CXX_DARWIN CXX_DARWIN_ARGS)
+  SET(CMAKE_CXX_COMPILER "${CXX_DARWIN}" "${CXX_DARWIN_ARGS}")
   SET(CMAKE_CXX_COMPILER_TARGET ${CLANG_TARGET})
   SET(CMAKE_CXX_FLAGS_INIT -B${_CMAKE_TOOLCHAIN_PREFIX})
   SET(CMAKE_ASM_COMPILER clang)
@@ -87,14 +108,22 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   SET(LLVM_ENABLE_PIE OFF)
 elseif(TARGET_OS STREQUAL "android")
   SET(ANDROID TRUE)
-  SET(CMAKE_C_COMPILER @CC@)
-  SET(CMAKE_CXX_COMPILER @CXX@)
-else()
-  if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
-    SET(CMAKE_ASM_COMPILER clang)
-    SET(CMAKE_ASM-ATT_COMPILER as)
-  endif()
 
+  split_program("@CC@" CC_ANDROID CC_ANDROID_ARGS)
+  SET(CMAKE_C_COMPILER "${CC_ANDROID}" "${CC_ANDROID_ARGS}")
+
+  split_program("@CXX@" CXX_ANDROID CXX_ANDROID_ARGS)
+  SET(CMAKE_CXX_COMPILER "${CXX_ANDROID}" "${CXX_ANDROID_ARGS}")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+  split_program("@CC@" CC_FREEBSD CC_FREEBSD_ARGS)
+  SET(CMAKE_C_COMPILER "${CC_FREEBSD}" "${CC_FREEBSD_ARGS}")
+
+  split_program("@CXX@" CXX_FREEBSD CXX_FREEBSD_ARGS)
+  SET(CMAKE_CXX_COMPILER "${CXX_FREEBSD}" "${CXX_FREEBSD_ARGS}")
+
+  SET(CMAKE_ASM_COMPILER clang)
+  SET(CMAKE_ASM-ATT_COMPILER as)
+else()
   SET(CMAKE_C_COMPILER @CC@)
   SET(CMAKE_CXX_COMPILER @CXX@)
 endif()
