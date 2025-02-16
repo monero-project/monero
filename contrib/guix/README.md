@@ -173,7 +173,7 @@ details.
 
   _(defaults to "x86\_64-linux-gnu aarch64-linux-gnu arm-linux-gnueabihf
   riscv64-linux-gnu i686-linux-gnu x86\_64-w64-mingw32 x86\_64-unknown-freebsd
-  x86\_64-apple-darwin aarch64-apple-darwin aarch64-linux-android")_
+  x86\_64-apple-darwin arm64-apple-darwin aarch64-linux-android")_
 
 * _**SOURCES_PATH**_
 

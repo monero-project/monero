@@ -9,6 +9,10 @@ define $(package)_set_vars
   $(package)_cxxflags=-std=c++11
 endef
 
+define $(package)_preprocess_cmds
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub config
+endef
+
 define $(package)_config_cmds
   $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
 endef

@@ -15,6 +15,10 @@ define $(package)_set_vars
   $(package)_build_opts=CFLAGS="$($(package)_cflags) $($(package)_cppflags) -fPIC"
 endef
 
+define $(package)_preprocess_cmds
+  cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub support
+endef
+
 define $(package)_config_cmds
   $($(package)_autoconf)
 endef
