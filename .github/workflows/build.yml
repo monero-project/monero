@@ -77,6 +77,25 @@ jobs:
           ${{env.CCACHE_SETTINGS}}
           make release-static-win64 -j${{env.MAKE_JOB_COUNT}}
 
+  build-arch:
+    name: 'Arch Linux'
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: install dependencies
+        run: pacman -Syyu --noconfirm base-devel git cmake boost openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
+      - name: configure git
+        run: git config --global --add safe.directory '*'
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ./.github/actions/set-make-job-count
+      - name: build
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
+        run: ${{env.BUILD_DEFAULT_LINUX}}
+
   build-debian:
     # Oldest supported Debian version
     name: 'Debian 10'
