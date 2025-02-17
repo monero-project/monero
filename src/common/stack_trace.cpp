@@ -34,6 +34,7 @@
 #include "easylogging++/easylogging++.h"
 
 #include <stdexcept>
+#include <iomanip>
 #ifdef USE_UNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
