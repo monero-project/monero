@@ -135,6 +135,13 @@ namespace http
     http::url_content parsed{};
     const bool r = parse_url(address, parsed);
     CHECK_AND_ASSERT_MES(r, false, "failed to parse url: " << address);
+    if (parsed.port == 0)
+    {
+      if (parsed.schema == "http")
+        parsed.port = 80;
+      else if (parsed.schema == "https")
+        parsed.port = 443;
+    }
     set_server(std::move(parsed.host), std::to_string(parsed.port), std::move(user), std::move(ssl_options));
     return true;
   }
