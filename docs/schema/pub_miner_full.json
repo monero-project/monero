@@ -1,0 +1,69 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "definitions": {
+        "binary32": {
+            "type": "string",
+            "description": "32-bytes binary data as hex",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[0-9A-Fa-f]{64}$"
+        },
+        "uint8": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+        },
+        "uint64": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+        }
+    },
+    "title": "json-full-miner_data",
+    "description": "Notification for a new block template",
+    "type": "object",
+    "properties": {
+        "already_generated_coins": {
+            "description": "The current number of coins previously created",
+            "$ref": "#/definitions/uint64"
+        },
+        "difficulty": {
+            "description": "128-bit PoW difficulty as hex",
+            "type": "string",
+            "pattern": "0x[0-9A-Fa-f]+" 
+        },
+        "height": {
+            "description": "Height of block being mined",
+            "$ref": "#/definitions/uint64"
+        },
+        "major_version": { "$ref": "#/definitions/uint8" },
+        "median_weight": { "$ref": "#/definitions/uint64" },
+        "prev_id": {
+            "description": "The cryptographic hash of the last block",
+            "$ref": "#/definitions/binary32"
+        },
+        "seed_hash": { "$ref": "#/definitions/binary32" },
+        "tx_backlog": {
+            "description": "Transactions waiting in the mempool",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fee": { "$ref": "#/definitions/uint64" },
+                    "id": { "$ref": "#/definitions/binary32" },
+                    "weight": { "$ref": "#/definitions/uint64" }
+                },
+                "required": ["fee", "id", "weight"]
+            }
+        }
+    },
+    "required": [
+        "already_generated_coins",
+        "difficulty",
+        "height",
+        "major_version",
+        "median_weight",
+        "prev_id",
+        "seed_hash"
+    ]
+}
