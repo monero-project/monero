@@ -1405,9 +1405,10 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
     LOG_PRINT_L0("Failed to disable NTFS compression on folder: " << filename << ". Error: " << ::GetLastError());
   boost::filesystem::path datafile(filename);
   datafile /= CRYPTONOTE_BLOCKCHAINDATA_FILENAME;
-  boost::filesystem::ofstream(datafile).close(); // touch the file to ensure it exists
+  if (!boost::filesystem::exists(datafile))
+    boost::filesystem::ofstream(datafile).close(); // create the file to see if NTFS compression is enabled beforehand
   if (!disable_ntfs_compression(datafile))
-    throw DB_ERROR("Database file is NTFS compressend and compression could not be disabled");
+    throw DB_ERROR("Database file is NTFS compressed and compression could not be disabled");
 #endif
 
   boost::optional<bool> is_hdd_result = tools::is_hdd(filename.c_str());
