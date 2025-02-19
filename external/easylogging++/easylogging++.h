@@ -1210,7 +1210,9 @@ class OS : base::StaticClass {
   ///
   /// @detail For android systems this is device name with its manufacturer and model seperated by hyphen
   static std::string currentHost(void);
-  /// @brief Whether or not terminal supports colors
+  /// @brief Whether or not the named terminal supports colors
+  static bool termSupportsColor(std::string& term);
+  /// @brief Whether or not the process's current terminal supports colors
   static bool termSupportsColor(void);
 };
 /// @brief Contains utilities for cross-platform date/time. This class make use of el::base::utils::Str
