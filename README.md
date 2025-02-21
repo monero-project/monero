@@ -16,7 +16,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Supporting the project](#supporting-the-project)
   - [License](#license)
   - [Contributing](#contributing)
-  - [Scheduled software upgrades](#scheduled-software-upgrades)
+  - [Scheduled software/network upgrades](#scheduled-softwarenetwork-upgrades)
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
@@ -529,10 +529,6 @@ See [contrib/guix/README.md](contrib/guix/README.md).
 **DISCLAIMER: These packages are not part of this repository or maintained by this project's contributors, and as such, do not go through the same review process to ensure their trustworthiness and security.**
 
 Packages are available for
-
-* Debian Buster
-
-    See the [instructions in the whonix/monero-gui repository](https://gitlab.com/whonix/monero-gui#how-to-install-monero-using-apt-get)
 
 * Debian Bullseye and Sid
 
