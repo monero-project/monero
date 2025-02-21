@@ -1406,6 +1406,37 @@ namespace cryptonote
     CATCH_ENTRY_L0("core::handle_incoming_block()", false);
   }
   //-----------------------------------------------------------------------------------------------
+  bool core::handle_single_incoming_block(const blobdata& block_blob,
+    const block *b,
+    block_verification_context& bvc,
+    pool_supplement& extra_block_txs,
+    bool update_miner_blocktemplate)
+  {
+    // Note: this estimate can be quite far off since fluffy blocks won't contain all their
+    // transactions in the payload, but also this value doesn't *need* to be super precise. It
+    // is used to trigger database backing store syncing once it hits a threshold, and since
+    // we under-count the byte size here, it might result in under-syncing the backing store.
+    // If force refresh is enabled, though, which the user turns on if they are vigilant about
+    // saving each block, then it doesn't matter either way: cleanup_handle_incoming_blocks()
+    // always triggers a sync.
+    size_t block_total_bytes = block_blob.size();
+    for (const auto &t : extra_block_txs.txs_by_txid)
+      block_total_bytes += t.second.second.size();
+
+    // Match each call to prepare_handle_incoming_block_no_preprocess() with a call to
+    // cleanup_handle_incoming_blocks()
+    m_blockchain_storage.prepare_handle_incoming_block_no_preprocess(block_total_bytes);
+    const auto auto_cleanup = epee::misc_utils::create_scope_leave_handler([this](){
+      this->m_blockchain_storage.cleanup_handle_incoming_blocks();
+    });
+
+    return handle_incoming_block(block_blob,
+      b,
+      bvc,
+      extra_block_txs,
+      update_miner_blocktemplate);
+  }
+  //-----------------------------------------------------------------------------------------------
   // Used by the RPC server to check the size of an incoming
   // block_blob
   bool core::check_incoming_block_size(const blobdata& block_blob) const

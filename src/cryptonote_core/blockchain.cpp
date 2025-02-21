@@ -5373,6 +5373,27 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   return true;
 }
 
+void Blockchain::prepare_handle_incoming_block_no_preprocess(const size_t block_byte_estimate)
+{
+  // acquire locks
+  m_tx_pool.lock();
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+
+  // increment sync byte counter to trigger sync against database backing store
+  // later in cleanup_handle_incoming_blocks()
+  m_bytes_to_sync += block_byte_estimate;
+
+  // spin until we start a batch
+  while (!m_db->batch_start(1, block_byte_estimate)) {
+    m_blockchain_lock.unlock();
+    m_tx_pool.unlock();
+    epee::misc_utils::sleep_no_w(1000);
+    m_tx_pool.lock();
+    m_blockchain_lock.lock();
+  }
+  m_batch_success = true;
+}
+
 void Blockchain::add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t &meta)
 {
   m_db->add_txpool_tx(txid, blob, meta);

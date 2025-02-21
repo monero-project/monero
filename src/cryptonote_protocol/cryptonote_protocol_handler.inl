@@ -558,6 +558,22 @@ namespace cryptonote
   template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
+    // If we are synchronizing the node or setting up this connection, then do nothing
+    if(context.m_state != cryptonote_connection_context::state_normal)
+      return 1;
+    if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
+    {
+      LOG_DEBUG_CC(context, "Received new block while syncing, ignored");
+      return 1;
+    }
+
+    // sanity check block blob size
+    if (!m_core.check_incoming_block_size(arg.b.block))
+    {
+      drop_connection(context, false, false);
+      return 1;
+    }
+
     // Parse and quick hash incoming block, dropping the connection on failure
     block new_block;
     crypto::hash new_block_hash;
@@ -578,113 +594,82 @@ namespace cryptonote
     MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
       << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
 
-    // If we are synchronizing the node or setting up this connection, then do nothing
-    if(context.m_state != cryptonote_connection_context::state_normal)
-      return 1;
-    if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
+    // This set allows us to quickly sanity check that the block binds all txs contained in this
+    // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
+    // deterministic block verification failure, the peer will be punished accordingly. For other
+    // cases, *once* valid PoW will be required to perform expensive consensus checks for the txs
+    // inside the block.
+    std::unordered_map<crypto::hash, uint64_t> blk_txids_set;
+    for (size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
+      blk_txids_set.emplace(new_block.tx_hashes[tx_idx], tx_idx);
+
+    // Check for duplicate txids in parsed block blob
+    if (blk_txids_set.size() != new_block.tx_hashes.size())
     {
-      LOG_DEBUG_CC(context, "Received new block while syncing, ignored");
+      MERROR("sent bad block entry: there are duplicate tx hashes in parsed block: "
+        << epee::string_tools::buff_to_hex_nodelimer(arg.b.block));
+      drop_connection(context, false, false);
       return 1;
     }
 
-    // I don't know why we pause mining before we have finished verifying the block, seems like a
-    // DoS vector
-    m_core.pause_mine();
-
+    // Keeping a map of the full transactions provided in this payload allows us to pass them
+    // directly to core::handle_single_incoming_block() -> Blockchain::add_block(), which means we
+    // can skip the mempool for faster block propagation. Later in the function, we will erase all
+    // transactions from the relayed block.
+    pool_supplement extra_block_txs;
+    if (!make_pool_supplement_from_block_entry(arg.b.txs, blk_txids_set, extra_block_txs))
     {
-      // This set allows us to quickly sanity check that the block binds all txs contained in this
-      // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
-      // deterministic block verification failure, the peer will be punished accordingly. For other
-      // cases, *once* valid PoW will be required to perform expensive consensus checks for the txs
-      // inside the block.
-      std::unordered_map<crypto::hash, uint64_t> blk_txids_set;
-      for (size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
-        blk_txids_set.emplace(new_block.tx_hashes[tx_idx], tx_idx);
+      LOG_ERROR_CCONTEXT
+      (
+        "Failed to parse one or more transactions in fluffy block with ID " << new_block_hash <<
+        ", dropping connection"
+      );
 
-      // Check for duplicate txids in parsed block blob
-      if (blk_txids_set.size() != new_block.tx_hashes.size())
+      drop_connection(context, false, false);
+      return 1;
+    }
+
+    // try adding block to the blockchain
+    block_verification_context bvc = {}; 
+    const bool handle_block_res = m_core.handle_single_incoming_block(arg.b.block,
+      &new_block,
+      bvc,
+      extra_block_txs);
+
+    // handle result of attempted block add
+    if (!handle_block_res || bvc.m_verifivation_failed)
+    {
+      if (bvc.m_missing_txs)
       {
-        MERROR("sent bad block entry: there are duplicate tx hashes in parsed block: "
-          << epee::string_tools::buff_to_hex_nodelimer(arg.b.block));
-        return false;
-      }
+        // Block verification failed b/c of missing transactions, so request fluffy block again with
+        // missing transactions (including the ones newly discovered in this fluffy block). Note that
+        // PoW checking happens before missing transactions checks, so if bvc.m_missing_txs is true,
+        // then that means that we passed PoW checking, so a peer can't get us to re-request fluffy
+        // blocks for free.
 
-      // Keeping a map of the full transactions provided in this payload allows us to pass them
-      // directly to core::handle_incoming_block() -> Blockchain::add_block(), which means we can
-      // skip the mempool for faster block propagation. Later in the function, we will erase all
-      // transactions from the relayed block.
-      pool_supplement extra_block_txs;
-      if (!make_pool_supplement_from_block_entry(arg.b.txs, blk_txids_set, extra_block_txs))
-      {
-        LOG_ERROR_CCONTEXT
-        (
-          "Failed to parse one or more transactions in fluffy block with ID " << new_block_hash <<
-          ", dropping connection"
-        );
+        // Instead of requesting missing transactions by hash like BTC,
+        // we do it by index (thanks to a suggestion from moneromooo) because
+        // we're way cooler .. and also because they're smaller than hashes.
+        std::vector<uint64_t> need_tx_indices;
+        need_tx_indices.reserve(new_block.tx_hashes.size());
 
-        drop_connection(context, false, false);
-        m_core.resume_mine();
-        return 1;
-      }
-
-      // We keep this list to pass it into core::prepare_handle_incoming_blocks()
-      std::vector<tx_blob_entry> have_tx;
-      have_tx.reserve(new_block.tx_hashes.size());
-
-      // Instead of requesting missing transactions by hash like BTC, 
-      // we do it by index (thanks to a suggestion from moneromooo) because
-      // we're way cooler .. and also because they're smaller than hashes.
-      // 
-      // Also, remember to pepper some whitespace changes around to bother
-      // moneromooo ... only because I <3 him. 
-      std::vector<uint64_t> need_tx_indices;
-      need_tx_indices.reserve(new_block.tx_hashes.size());
-
-      // Collect:
-      //   1) list of transaction blobs for txids in this block which are known (have_tx)
-      //   2) list of transaction indices in this block where its hash is yet unkown (need_tx_indices)
-      // We also remove tx entrys from extra_block_txs which we already knew about before this notification
-      for (size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
-      {
-        const crypto::hash &tx_hash = new_block.tx_hashes[tx_idx];
-
-        blobdata tx_blob;
-        std::vector<blobdata> tx_blobs;
-        std::vector<crypto::hash> missed_txs;
-        const auto ebt_it = extra_block_txs.txs_by_txid.find(tx_hash);
-        const bool found_in_payload = ebt_it != extra_block_txs.txs_by_txid.cend();
-        if (m_core.get_pool_transaction(tx_hash, tx_blob, relay_category::broadcasted)) // if in public pool
+        // Collect need_tx_indices by polling blockchain storage and mempool storage
+        for (size_t tx_idx = 0; tx_idx < new_block.tx_hashes.size(); ++tx_idx)
         {
-          have_tx.emplace_back(std::move(tx_blob), crypto::null_hash);
-          if (found_in_payload)
-            extra_block_txs.txs_by_txid.erase(ebt_it);
-        }
-        else if (m_core.get_transactions({tx_hash}, tx_blobs, missed_txs)
-            && tx_blobs.size() == 1
-            && missed_txs.empty()) // or if on-chain
-        {
-          have_tx.emplace_back(std::move(tx_blobs.front()), crypto::null_hash);
-          if (found_in_payload)
-            extra_block_txs.txs_by_txid.erase(ebt_it);
-        }
-        else if (found_in_payload) // or if only in fluffy payload
-        {
-          have_tx.emplace_back(ebt_it->second.second, crypto::null_hash);
-        }
-        else // otherwise if txid is completely unknown
-        {
-          need_tx_indices.push_back(tx_idx);
-        }
-      }
-        
-      if(!need_tx_indices.empty()) // drats, we don't have everything..
-      {
-        // Add all newly discovered txs in this fluffy payload to the list that we re-request from
-        // the peer.
-        for (const auto &t : extra_block_txs.txs_by_txid)
-          need_tx_indices.push_back(blk_txids_set.at(t.first));
+          const crypto::hash &tx_hash = new_block.tx_hashes[tx_idx];
 
-        // request non-mempool txs
+          std::vector<cryptonote::blobdata> tx_blobs;
+          std::vector<crypto::hash> missed_txs;
+
+          bool need_tx = !m_core.pool_has_tx(tx_hash);
+          need_tx = need_tx && (!m_core.get_transactions({tx_hash}, tx_blobs, missed_txs, /*pruned=*/true)
+            || !missed_txs.empty());
+
+          if (need_tx)
+            need_tx_indices.push_back(tx_idx);
+        }
+
+        // Make request form
         MDEBUG("We are missing " << need_tx_indices.size() << " txes for this fluffy block");
         for (auto txidx: need_tx_indices)
           MDEBUG("  tx " << new_block.tx_hashes[txidx]);
@@ -692,85 +677,45 @@ namespace cryptonote
         missing_tx_req.block_hash = new_block_hash;
         missing_tx_req.current_blockchain_height = arg.current_blockchain_height;
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
-        
-        m_core.resume_mine();
+
+        // Post NOTIFY_REQUEST_FLUFFY_MISSING_TX request to peer
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_FLUFFY_MISSING_TX: missing_tx_indices.size()=" << missing_tx_req.missing_tx_indices.size() );
         post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
       }
-      else // whoo-hoo we've got em all ..
+      else // failure for some other reason besides missing txs...
       {
-        MDEBUG("We have all needed txes for this fluffy block");
-
-        block_complete_entry b;
-        b.block = arg.b.block;
-        b.txs = std::move(have_tx);
-
-        std::vector<block_complete_entry> blocks;
-        blocks.push_back(b);
-        std::vector<block> pblocks;
-        if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
-        {
-          LOG_PRINT_CCONTEXT_L0("Failure in prepare_handle_incoming_blocks");
-          m_core.resume_mine();
-          return 1;
-        }
-
-        block_verification_context bvc = {};
-        m_core.handle_incoming_block(arg.b.block, &new_block, bvc, extra_block_txs);
-
-        if (!m_core.cleanup_handle_incoming_blocks(true))
-        {
-          LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
-          m_core.resume_mine();
-          return 1;
-        }
-        m_core.resume_mine();
-        
-        if( bvc.m_verifivation_failed )
-        {
-          // If we are missing transactions to verify the block, even after we just checked for
-          // availability, this is an either an internal bug or the mempool is being hammered, not
-          // necessarily from this connection. This needs to be addressed by the devs!
-          if (bvc.m_missing_txs)
-          {
-            LOG_ERROR("Bug or DoS attack!!! Block " << new_block_hash <<
-              " failed verification b/c of missing txs. Please address immediately!");
-            return 1;
-          }
-
-          // If this is just a normal failure, we should punish the peer
-          LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
-          drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
-          return 1;
-        }
-        else if( bvc.m_added_to_main_chain )
-        {
-          // Relay an empty block
-          arg.b.txs.clear();
-          relay_block(arg, context);
-        }
-        else if( bvc.m_marked_as_orphaned )
-        {
-          context.m_needed_objects.clear();
-          context.m_state = cryptonote_connection_context::state_synchronizing;
-          NOTIFY_REQUEST_CHAIN::request r = {};
-          context.m_expect_height = m_core.get_current_blockchain_height();
-          m_core.get_short_chain_history(r.block_ids);
-          handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
-          r.prune = m_sync_pruned_blocks;
-          context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
-          context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
-          MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
-          post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
-          MLOG_PEER_STATE("requesting chain");
-        }            
-
-        // load json & DNS checkpoints every 10min/hour respectively,
-        // and verify them with respect to what blocks we already have
-        CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+        // drop connection and punish peer
+        LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
+        drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
+        return 1;
       }
     }
-        
+    else if( bvc.m_added_to_main_chain )
+    {
+      // Relay an empty block
+      arg.b.txs.clear();
+      relay_block(arg, context);
+    }
+    else if( bvc.m_marked_as_orphaned )
+    {
+      context.m_needed_objects.clear();
+      context.m_state = cryptonote_connection_context::state_synchronizing;
+      NOTIFY_REQUEST_CHAIN::request r = {};
+      context.m_expect_height = m_core.get_current_blockchain_height();
+      m_core.get_short_chain_history(r.block_ids);
+      handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
+      r.prune = m_sync_pruned_blocks;
+      context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
+      MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
+      post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
+      MLOG_PEER_STATE("requesting chain");
+    }
+
+    // load json & DNS checkpoints every 10min/hour respectively,
+    // and verify them with respect to what blocks we already have
+    CHECK_AND_ASSERT_MES(m_core.update_checkpoints(), 1, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+
     return 1;
   }  
   //------------------------------------------------------------------------------------------------------------------------  

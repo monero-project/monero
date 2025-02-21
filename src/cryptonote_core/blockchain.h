@@ -250,6 +250,16 @@ namespace cryptonote
     bool prepare_handle_incoming_blocks(const std::vector<block_complete_entry>  &blocks_entry, std::vector<block> &blocks);
 
     /**
+     * @brief prepare the blockchain for handling an incoming block, without performing preprocessing
+     *
+     * @param block_byte_estimate an estimate of the byte size of the block & its transactions
+     *
+     * This function should *always* be followed up by a call to cleanup_handle_incoming_blocks()
+     * later in the same thread.
+     */
+    void prepare_handle_incoming_block_no_preprocess(const size_t block_byte_estimate);
+
+    /**
      * @brief incoming blocks post-processing, cleanup, and disk sync
      *
      * @param force_sync if true, and Blockchain is handling syncing to disk, always sync

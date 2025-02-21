@@ -127,12 +127,44 @@ namespace cryptonote
       */
      bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
 
-     /**
-      * @brief handles an incoming block
+    /**
+      * @brief handles a single incoming block
       *
       * periodic update to checkpoints is triggered here
       * Attempts to add the block to the Blockchain and, on success,
       * optionally updates the miner's block template.
+      *
+      * Unlike handle_incoming_block(), a write transaction is created in this method, which means
+      * the caller doesn't have to call prepare_handle_incoming_blocks() nor
+      * cleanup_handle_incoming_blocks() surrounding this call.
+      *
+      * @param block_blob the block to be added
+      * @param block the block to be added, or NULL
+      * @param bvc return-by-reference metadata context about the block's validity
+      * @param extra_block_txs txs belonging to this block that may not be in the mempool
+      * @param update_miner_blocktemplate whether or not to update the miner's block template
+      *
+      * @return false if loading new checkpoints fails, or the block is not
+      * added, otherwise true
+      */
+     bool handle_single_incoming_block(const blobdata& block_blob,
+      const block *b,
+      block_verification_context& bvc,
+      pool_supplement& extra_block_txs,
+      bool update_miner_blocktemplate = true);
+
+     /**
+      * @brief handles an incoming block as part of a batch
+      *
+      * periodic update to checkpoints is triggered here
+      * Attempts to add the block to the Blockchain and, on success,
+      * optionally updates the miner's block template.
+      *
+      * Prerequisite: There must be an active write transaction for the blockchain storage on this
+      *               thread. Typically, this is done by calling prepare_handle_incoming_blocks() on
+      *               this thread before calls to handle_incoming_block(). Then, after calls to
+      *               handle_incoming_block(), a call to cleanup_handle_incoming_blocks() is made
+      *               on this thread to either abort or commit the write transaction.
       *
       * @param block_blob the block to be added
       * @param block the block to be added, or NULL
