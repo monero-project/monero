@@ -113,7 +113,7 @@ namespace cryptonote
     void log_connections();
     std::list<connection_info> get_connections();
     const block_queue &get_block_queue() const { return m_block_queue; }
-    const std::uint64_t max_average_of_blocksize_in_queue() {
+    std::uint64_t max_average_of_blocksize_in_queue() {
       std::vector<std::uint64_t> average_blocksize{0};
       m_block_queue.foreach([&](const cryptonote::block_queue::span &span) {
         average_blocksize.push_back(span.size / span.nblocks);

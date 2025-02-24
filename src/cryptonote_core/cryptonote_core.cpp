@@ -170,7 +170,7 @@ namespace cryptonote
   };
   static const command_line::arg_descriptor<size_t> arg_batch_max_weight  = {
     "batch-max-weight"
-    , "How many megabytes to sync in one batch during chain synchronization, default is 20 max"
+    , "How many megabytes to sync in one batch during chain synchronization, default is 10"
   , (BATCH_MAX_WEIGHT)
   };
   static const command_line::arg_descriptor<std::string> arg_check_updates = {
@@ -704,6 +704,11 @@ namespace cryptonote
     if (batch_max_weight > BATCH_MAX_ALLOWED_WEIGHT) {
       MERROR("Error --batch-max-weight cannot be greater than " << BATCH_MAX_ALLOWED_WEIGHT << " [mB]");
       batch_max_weight = BATCH_MAX_ALLOWED_WEIGHT;
+    }
+
+    if (batch_max_weight == 0) {
+      MINFO("Using default --batch-max-weight of " << BATCH_MAX_WEIGHT << " [mB]");
+      batch_max_weight = BATCH_MAX_WEIGHT;
     }
 
     batch_max_weight *= 1000000; // transfer it to byte.
@@ -1245,17 +1250,14 @@ namespace cryptonote
              << " blocks median size is " << median_weight
              << " bytes and the max average blocksize in the queue is " << average_blocksize_of_biggest_batch << " bytes");
       uint64_t projected_blocksize = (average_blocksize_of_biggest_batch > median_weight) ? average_blocksize_of_biggest_batch : median_weight;
+      uint64_t blocks_huge_threshold = (batch_max_weight / 2);
       if ((projected_blocksize * BLOCKS_MEDIAN_WINDOW) < batch_max_weight) {
         res = BLOCKS_MEDIAN_WINDOW;
         MINFO("blocks are tiny, " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
       }
-      else if (projected_blocksize >= batch_max_weight) {
+      else if (projected_blocksize >= blocks_huge_threshold) {
         res = 1;
-        MINFO("blocks are projected to surpass " << batch_max_weight << " bytes, syncing just a single block in next batch");
-      }
-      else if (projected_blocksize > BLOCKS_HUGE_THRESHOLD_SIZE) {
-        res = 1;
-        MINFO("blocks are huge, sync just a single block in next batch");
+        MINFO("blocks are projected to surpass 50% of " << batch_max_weight << " bytes, syncing just a single block in next batch");
       }
       else {
         res = batch_max_weight / projected_blocksize;
