@@ -67,8 +67,8 @@ void make_carrot_main_address_v1(const crypto::public_key &account_spend_pubkey,
 void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &account_view_pubkey,
     const generate_address_secret_device &s_generate_address_dev,
-    const std::uint32_t &j_major,
-    const std::uint32_t &j_minor,
+    const std::uint32_t j_major,
+    const std::uint32_t j_minor,
     CarrotDestinationV1 &destination_out)
 {
     CHECK_AND_ASSERT_THROW_MES(j_major != 0 || j_minor,
