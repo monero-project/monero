@@ -30,12 +30,13 @@
 #include "carrot_tx_builder_utils.h"
 
 //local headers
+#include "carrot_core/output_set_finalization.h"
+#include "carrot_tx_format_utils.h"
 extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
-#include "carrot_core/output_set_finalization.h"
-#include "carrot_tx_format_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "ringct/rctOps.h"
 #include "tx_builder_inputs.h"
 
@@ -52,23 +53,31 @@ namespace carrot
 //-------------------------------------------------------------------------------------------------------------------
 static void append_additional_payment_proposal_if_necessary(
     std::vector<CarrotPaymentProposalV1>& normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
-    const crypto::public_key &change_address_spend_pubkey)
+    std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_inout,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_subaddr_index)
 {
     struct append_additional_payment_proposal_if_necessary_visitor
     {
         void operator()(boost::blank) const {}
         void operator()(const CarrotPaymentProposalV1 &p) const { normal_proposals_inout.push_back(p); }
-        void operator()(const CarrotPaymentProposalSelfSendV1 &p) const { selfsend_proposals_inout.push_back(p); }
+        void operator()(const CarrotPaymentProposalSelfSendV1 &p) const
+        {
+            selfsend_proposals_inout.push_back(CarrotPaymentProposalVerifiableSelfSendV1{
+                .proposal = p,
+                .subaddr_index = change_subaddr_index
+            });
+        }
 
         std::vector<CarrotPaymentProposalV1>& normal_proposals_inout;
-        std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_proposals_inout;
+        std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_proposals_inout;
+        const subaddress_index_extended &change_subaddr_index;
     };
 
     bool have_payment_type_selfsend = false;
-    for (const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals_inout)
+    for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals_inout)
     {
-        if (selfsend_payment_proposal.enote_type == CarrotEnoteType::PAYMENT)
+        if (selfsend_payment_proposal.proposal.enote_type == CarrotEnoteType::PAYMENT)
         {
             have_payment_type_selfsend = true;
             break;
@@ -83,43 +92,52 @@ static void append_additional_payment_proposal_if_necessary(
 
     additional_output_proposal.visit(append_additional_payment_proposal_if_necessary_visitor{
         normal_payment_proposals_inout,
-        selfsend_payment_proposals_inout
+        selfsend_payment_proposals_inout,
+        change_subaddr_index
     });
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-void make_unsigned_transaction(std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
+void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_in,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out)
+    CarrotTransactionProposalV1 &tx_proposal_out)
 {
-    output_amount_blinding_factors_out.clear();
+    tx_proposal_out.extra = extra;
+
+    std::vector<CarrotPaymentProposalV1> &normal_payment_proposals
+        = tx_proposal_out.normal_payment_proposals
+        = normal_payment_proposals_in;
+    std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
+        = tx_proposal_out.selfsend_payment_proposals
+        = selfsend_payment_proposals_in;
 
     // add an additional payment proposal to satisfy scanning/consensus rules, if applicable
-    append_additional_payment_proposal_if_necessary(normal_payment_proposals_inout,
-        selfsend_payment_proposals_inout,
-        account_spend_pubkey);
+    append_additional_payment_proposal_if_necessary(normal_payment_proposals,
+        selfsend_payment_proposals,
+        account_spend_pubkey,
+        {0, 0, AddressDeriveType::Auto}); // @TODO: let callers pass AddressDeriveType as an argument
 
     // generate random X25519 ephemeral pubkeys for selfsend proposals if not explicitly provided in a >2-out tx
-    const size_t num_outs = normal_payment_proposals_inout.size() + selfsend_payment_proposals_inout.size();
+    const size_t num_outs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
     const bool will_shared_ephemeral_pubkey = num_outs == 2;
     if (!will_shared_ephemeral_pubkey)
     {
-        for (CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals_inout)
+        for (CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
         {
-            if (!selfsend_payment_proposal.enote_ephemeral_pubkey)
-                selfsend_payment_proposal.enote_ephemeral_pubkey = gen_x25519_pubkey();
+            if (!selfsend_payment_proposal.proposal.enote_ephemeral_pubkey)
+                selfsend_payment_proposal.proposal.enote_ephemeral_pubkey = gen_x25519_pubkey();
         }
     }
 
     // generate random dummy encrypted payment ID for if none of the normal payment proposals are integrated
-    const encrypted_payment_id_t dummy_encrypted_payment_id = gen_payment_id();
+    tx_proposal_out.dummy_encrypted_payment_id = gen_payment_id();
 
     // calculate size of tx.extra
     const size_t tx_extra_size = get_carrot_default_tx_extra_size(num_outs);
@@ -135,22 +153,22 @@ void make_unsigned_transaction(std::vector<CarrotPaymentProposalV1> &normal_paym
 
     // calculate sum of payment proposal amounts before fee carving
     boost::multiprecision::int128_t nominal_output_amount_sum = 0;
-    for (const CarrotPaymentProposalV1 &normal_proposal : normal_payment_proposals_inout)
+    for (const CarrotPaymentProposalV1 &normal_proposal : normal_payment_proposals)
         nominal_output_amount_sum += normal_proposal.amount;
-    for (const CarrotPaymentProposalSelfSendV1 &selfsend_proposal : selfsend_payment_proposals_inout)
-        nominal_output_amount_sum += selfsend_proposal.amount;
+    for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_proposal : selfsend_payment_proposals)
+        nominal_output_amount_sum += selfsend_proposal.proposal.amount;
 
     // callback to select inputs given nominal output sum and fee per input count
     std::vector<CarrotSelectedInput> selected_inputs;
     select_inputs(nominal_output_amount_sum,
         fee_per_input_count,
-        normal_payment_proposals_inout.size(),
-        selfsend_payment_proposals_inout.size(),
+        normal_payment_proposals.size(),
+        selfsend_payment_proposals.size(),
         selected_inputs);
 
     // get fee given the number of selected inputs
     // note: this will fail if input selection returned a bad number of inputs
-    const rct::xmr_amount fee = fee_per_input_count.at(selected_inputs.size());
+    tx_proposal_out.fee = fee_per_input_count.at(selected_inputs.size());
 
     // calculate input amount sum
     boost::multiprecision::int128_t input_amount_sum = 0;
@@ -158,69 +176,41 @@ void make_unsigned_transaction(std::vector<CarrotPaymentProposalV1> &normal_paym
         input_amount_sum += selected_input.amount;
 
     // callback to balance the outputs with the fee and input sum
-    carve_fees_and_balance(input_amount_sum, fee, normal_payment_proposals_inout, selfsend_payment_proposals_inout);
+    carve_fees_and_balance(input_amount_sum, tx_proposal_out.fee, normal_payment_proposals, selfsend_payment_proposals);
 
     // sanity check balance
-    input_amount_sum -= fee;
-    for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals_inout)
+    input_amount_sum -= tx_proposal_out.fee;
+    for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
         input_amount_sum -= normal_payment_proposal.amount;
-    for (const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals_inout)
-        input_amount_sum -= selfsend_payment_proposal.amount;
+    for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
+        input_amount_sum -= selfsend_payment_proposal.proposal.amount;
     CHECK_AND_ASSERT_THROW_MES(input_amount_sum == 0,
         "make unsigned transaction: post-carved transaction does not balance");
 
-    // sort inputs by key image and get first key image
-    std::sort(selected_inputs.begin(), selected_inputs.end(), [](const auto &a, const auto &b){
-        return compare_input_key_images(a.key_image, b.key_image);
-    });
-    const crypto::key_image &tx_first_key_image = selected_inputs.at(0).key_image;
-
-    // finalize payment proposals into enotes
-    std::vector<RCTOutputEnoteProposal> output_enote_proposals;
-    encrypted_payment_id_t encrypted_payment_id;
-    get_output_enote_proposals(normal_payment_proposals_inout,
-        selfsend_payment_proposals_inout,
-        dummy_encrypted_payment_id,
-        s_view_balance_dev,
-        k_view_dev,
-        account_spend_pubkey,
-        tx_first_key_image,
-        output_enote_proposals,
-        encrypted_payment_id);
-
-    // collect enotes and blinding factors
-    std::vector<CarrotEnoteV1> enotes;
-    enotes.reserve(output_enote_proposals.size());
-    output_amount_blinding_factors_out.reserve(output_enote_proposals.size());
-    for (const RCTOutputEnoteProposal &e : output_enote_proposals)
-    {
-        enotes.push_back(e.enote);
-        output_amount_blinding_factors_out.push_back(e.amount_blinding_factor);
-    }
-
-    // collect key images
-    std::vector<crypto::key_image> key_images;
-    key_images.reserve(selected_inputs.size());
+    // collect and sort key images
+    tx_proposal_out.key_images_sorted.reserve(selected_inputs.size());
     for (const CarrotSelectedInput &selected_input : selected_inputs)
-        key_images.push_back(selected_input.key_image);
-
-    // serialize pruned transaction
-    tx_out = store_carrot_to_transaction_v1(enotes, key_images, fee, encrypted_payment_id);
+        tx_proposal_out.key_images_sorted.push_back(selected_input.key_image);
+    std::sort(tx_proposal_out.key_images_sorted.begin(),
+        tx_proposal_out.key_images_sorted.end(),
+        &compare_input_key_images);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_unsigned_transaction_transfer_subtractable(
-    std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
+void make_carrot_transaction_proposal_v1_transfer_subtractable(
+    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     const std::set<std::size_t> &subtractable_normal_payment_proposals,
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out)
+    CarrotTransactionProposalV1 &tx_proposal_out)
 {
+    std::vector<CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals = selfsend_payment_proposals_in;
+
     // always add implicit selfsend enote, so resultant enotes' amounts mirror given payments set close as possible 
     // note: we always do this, even if the amount ends up being 0 and we already have a selfsend. this is because if we
     //       realize later that the change output we added here has a 0 amount, and we try removing it, then the fee
@@ -229,14 +219,17 @@ void make_unsigned_transaction_transfer_subtractable(
     //       such that we could remove the implicit change output and it happens to balance. IMO, handling this edge
     //       case isn't worth the additional code complexity, and may cause unexpected uniformity issues. The calling
     //       code might expect that transfers to N destinations always produces a transaction with N+1 outputs
-    const bool add_payment_type_selfsend = normal_payment_proposals_inout.empty() &&
-        selfsend_payment_proposals_inout.size() == 1 &&
-        selfsend_payment_proposals_inout.at(0).enote_type == CarrotEnoteType::CHANGE;
+    const bool add_payment_type_selfsend = normal_payment_proposals.empty() &&
+        selfsend_payment_proposals.size() == 1 &&
+        selfsend_payment_proposals.at(0).proposal.enote_type == CarrotEnoteType::CHANGE;
 
-    selfsend_payment_proposals_inout.push_back(CarrotPaymentProposalSelfSendV1{
-        .destination_address_spend_pubkey = account_spend_pubkey,
-        .amount = 0,
-        .enote_type = add_payment_type_selfsend ? CarrotEnoteType::PAYMENT : CarrotEnoteType::CHANGE
+        selfsend_payment_proposals.push_back(CarrotPaymentProposalVerifiableSelfSendV1{
+        .proposal = CarrotPaymentProposalSelfSendV1{
+            .destination_address_spend_pubkey = account_spend_pubkey,
+            .amount = 0,
+            .enote_type = add_payment_type_selfsend ? CarrotEnoteType::PAYMENT : CarrotEnoteType::CHANGE
+        },
+        .subaddr_index = {0, 0, AddressDeriveType::Auto} // @TODO: let callers pass AddressDeriveType as an argument
     });
 
     // define carves fees and balance callback
@@ -249,7 +242,7 @@ void make_unsigned_transaction_transfer_subtractable(
         const boost::multiprecision::int128_t &input_sum_amount,
         const rct::xmr_amount fee,
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
-        std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals
+        std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
     )
     {
         const bool has_subbable_normal = !subtractable_normal_payment_proposals.empty();
@@ -270,17 +263,18 @@ void make_unsigned_transaction_transfer_subtractable(
         // check selfsend proposal invariants
         CHECK_AND_ASSERT_THROW_MES(!selfsend_payment_proposals.empty(),
             "make unsigned transaction transfer subtractable: missing a selfsend proposal");
-        CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposals.back().amount == 0,
+        CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposals.back().proposal.amount == 0,
             "make unsigned transaction transfer subtractable: bug: added implicit change output has non-zero amount");
 
         // start by setting the last selfsend amount equal to (inputs - outputs), before fee
         boost::multiprecision::int128_t implicit_change_amount = input_sum_amount;
         for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
             implicit_change_amount -= normal_payment_proposal.amount;
-        for (const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
-            implicit_change_amount -= selfsend_payment_proposal.amount;
+        for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
+            implicit_change_amount -= selfsend_payment_proposal.proposal.amount;
         
-        selfsend_payment_proposals.back().amount = boost::numeric_cast<rct::xmr_amount>(implicit_change_amount);
+        selfsend_payment_proposals.back().proposal.amount =
+            boost::numeric_cast<rct::xmr_amount>(implicit_change_amount);
 
         // deduct an even fee amount from all subtractable outputs
         const size_t num_subtractble_normal = subtractable_normal_payment_proposals.size();
@@ -296,7 +290,8 @@ void make_unsigned_transaction_transfer_subtractable(
         }
         for (size_t selfsend_sub_idx : subtractable_selfsend_payment_proposals)
         {
-            CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal = selfsend_payment_proposals[selfsend_sub_idx];
+            CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal =
+                selfsend_payment_proposals[selfsend_sub_idx].proposal;
             CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposal.amount >= minimum_subtraction,
                 "make unsigned transaction transfer subtractable: not enough funds in subtractable payment");
             selfsend_payment_proposal.amount -= minimum_subtraction;
@@ -309,7 +304,8 @@ void make_unsigned_transaction_transfer_subtractable(
             if (fee_remainder == 0)
                 break;
 
-            CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal = selfsend_payment_proposals[selfsend_sub_idx];
+            CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal =
+                selfsend_payment_proposals[selfsend_sub_idx].proposal;
             CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposal.amount >= 1,
                 "make unsigned transaction transfer subtractable: not enough funds in subtractable payment");
             selfsend_payment_proposal.amount -= 1;
@@ -346,62 +342,62 @@ void make_unsigned_transaction_transfer_subtractable(
     }; //end carve_fees_and_balance
 
     // make unsigned transaction with fee carving callback
-    make_unsigned_transaction(normal_payment_proposals_inout,
-        selfsend_payment_proposals_inout,
+    make_carrot_transaction_proposal_v1(normal_payment_proposals,
+        selfsend_payment_proposals,
         fee_per_weight,
+        extra,
         std::forward<select_inputs_func_t>(select_inputs),
         std::move(carve_fees_and_balance),
         s_view_balance_dev,
         k_view_dev,
         account_spend_pubkey,
-        tx_out,
-        output_amount_blinding_factors_out);
+        tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_unsigned_transaction_transfer(
-    std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
+void make_carrot_transaction_proposal_v1_transfer(
+    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out)
+    CarrotTransactionProposalV1 &tx_proposal_out)
 {
-    make_unsigned_transaction_transfer_subtractable(
-        normal_payment_proposals_inout,
-        selfsend_payment_proposals_inout,
+    make_carrot_transaction_proposal_v1_transfer_subtractable(
+        normal_payment_proposals,
+        selfsend_payment_proposals,
         fee_per_weight,
+        extra,
         std::forward<select_inputs_func_t>(select_inputs),
         s_view_balance_dev,
         k_view_dev,
         account_spend_pubkey,
         /*subtractable_normal_payment_proposals=*/{},
-        /*subtractable_selfsend_payment_proposals=*/{selfsend_payment_proposals_inout.size()},
-        tx_out,
-        output_amount_blinding_factors_out);
+        /*subtractable_selfsend_payment_proposals=*/{selfsend_payment_proposals.size()},
+        tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_unsigned_transaction_sweep(
-    const tools::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1> &payment_proposal,
+void make_carrot_transaction_proposal_v1_sweep(
+    const CarrotPaymentProposalVariant &payment_proposal,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out)
+    CarrotTransactionProposalV1 &tx_proposal_out)
 {
     // initialize payment proposals list from `payment_proposal`
     std::vector<CarrotPaymentProposalV1> normal_payment_proposals;
-    std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposals;
+    std::vector<CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
     struct add_payment_proposal_visitor
     {
         void operator()(const CarrotPaymentProposalV1 &p) const { normal_payment_proposals.push_back(p); }
-        void operator()(const CarrotPaymentProposalSelfSendV1 &p) const { selfsend_payment_proposals.push_back(p); }
+        void operator()(const CarrotPaymentProposalVerifiableSelfSendV1 &p) const { selfsend_payment_proposals.push_back(p); }
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals;
-        std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals;
+        std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals;
     };
     payment_proposal.visit(add_payment_proposal_visitor{normal_payment_proposals, selfsend_payment_proposals});
 
@@ -426,7 +422,7 @@ void make_unsigned_transaction_sweep(
         const boost::multiprecision::int128_t &input_sum_amount,
         const rct::xmr_amount fee,
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
-        std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals
+        std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
     )
     {
         // get pointer to sweep destination amount
@@ -435,7 +431,7 @@ void make_unsigned_transaction_sweep(
         {
             CHECK_AND_ASSERT_THROW_MES(!selfsend_payment_proposals.empty(),
                 "make unsigned transaction sweep: bug: missing selfsend proposal");
-            amount_ptr = &selfsend_payment_proposals.front().amount;
+            amount_ptr = &selfsend_payment_proposals.front().proposal.amount;
         }
         else
         {
@@ -450,16 +446,64 @@ void make_unsigned_transaction_sweep(
     }; //end carve_fees_and_balance
 
     // make unsigned transaction with sweep carving callback and selected inputs
-    make_unsigned_transaction(normal_payment_proposals,
+    make_carrot_transaction_proposal_v1(normal_payment_proposals,
         selfsend_payment_proposals,
         fee_per_weight,
+        extra,
         std::move(select_inputs),
         std::move(carve_fees_and_balance),
         s_view_balance_dev,
         k_view_dev,
         account_spend_pubkey,
-        tx_out,
-        output_amount_blinding_factors_out);
+        tx_proposal_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const crypto::public_key &account_spend_pubkey,
+    cryptonote::transaction &pruned_tx_out)
+{
+    // collect self-sends proposal cores
+    std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
+    selfsend_payment_proposal_cores.reserve(tx_proposal.selfsend_payment_proposals.size());
+    for (const auto &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
+        selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
+
+    // derive enote proposals
+    std::vector<RCTOutputEnoteProposal> output_enote_proposals;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_enote_proposals(tx_proposal.normal_payment_proposals,
+        selfsend_payment_proposal_cores,
+        tx_proposal.dummy_encrypted_payment_id,
+        s_view_balance_dev,
+        k_view_dev,
+        account_spend_pubkey,
+        tx_proposal.key_images_sorted.at(0),
+        output_enote_proposals,
+        encrypted_payment_id);
+
+    // collect enotes
+    std::vector<CarrotEnoteV1> enotes;
+    enotes.reserve(output_enote_proposals.size());
+    for (const RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
+        enotes.push_back(output_enote_proposal.enote);
+
+    // serialize tx
+    pruned_tx_out = store_carrot_to_transaction_v1(enotes,
+        tx_proposal.key_images_sorted,
+        tx_proposal.fee,
+        encrypted_payment_id);
+
+    // add extra payload and sort
+    if (!tx_proposal.extra.empty())
+    {
+        std::vector<std::uint8_t> sorted_extra;
+        pruned_tx_out.extra.insert(pruned_tx_out.extra.end(), tx_proposal.extra.cbegin(), tx_proposal.extra.cend());
+        CHECK_AND_ASSERT_THROW_MES(cryptonote::sort_tx_extra(pruned_tx_out.extra, sorted_extra),
+            "make_pruned_transaction_from_carrot_proposal_v1: failed to sort ");
+        pruned_tx_out.extra = std::move(sorted_extra);
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

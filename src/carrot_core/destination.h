@@ -68,7 +68,7 @@ static inline bool operator!=(const CarrotDestinationV1 &a, const CarrotDestinat
 
 /**
 * brief: make_carrot_main_address_v1 - make a destination address
-* param: account_spend_pubkey - K_s = k_gi X + k_ps T
+* param: account_spend_pubkey - K_s
 * param: primary_address_view_pubkey - K^0_v = k_v G
 * outparam: destination_out - the full main address
 */
@@ -77,7 +77,7 @@ void make_carrot_main_address_v1(const crypto::public_key &account_spend_pubkey,
     CarrotDestinationV1 &destination_out);
 /**
 * brief: make_carrot_subaddress_v1 - make a destination address
-* param: account_spend_pubkey - K_s = k_gi X + k_ps T
+* param: account_spend_pubkey - K_s
 * param: account_view_pubkey - K_v = k_v K_s
 * param: s_generate_address_dev - device for s_ga
 * param: j_major -
@@ -87,12 +87,12 @@ void make_carrot_main_address_v1(const crypto::public_key &account_spend_pubkey,
 void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const crypto::public_key &account_view_pubkey,
     const generate_address_secret_device &s_generate_address_dev,
-    const std::uint32_t &j_major,
-    const std::uint32_t &j_minor,
+    const std::uint32_t j_major,
+    const std::uint32_t j_minor,
     CarrotDestinationV1 &destination_out);
 /**
 * brief: make_carrot_integrated_address_v1 - make a destination address
-* param: account_spend_pubkey - K_s = k_gi X + k_ps T
+* param: account_spend_pubkey - K_s
 * param: primary_address_view_pubkey - K^0_v = k_v G
 * param: payment_id - pid
 * outparam: destination_out - the full main address

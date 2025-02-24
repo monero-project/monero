@@ -61,49 +61,55 @@ static inline std::size_t get_fcmppp_tx_weight(const std::size_t num_inputs,
 std::size_t get_fcmppp_coinbase_tx_weight(const std::size_t num_outputs,
     const std::size_t tx_extra_size);
 
-void make_unsigned_transaction(std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
+void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out);
+    CarrotTransactionProposalV1 &tx_proposal_out);
 
-void make_unsigned_transaction_transfer_subtractable(
-    std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
+void make_carrot_transaction_proposal_v1_transfer_subtractable(
+    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     const std::set<std::size_t> &subtractable_normal_payment_proposals,
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out);
+    CarrotTransactionProposalV1 &tx_proposal_out);
 
-void make_unsigned_transaction_transfer(
-    std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_inout,
-    std::vector<CarrotPaymentProposalSelfSendV1> &selfsend_payment_proposals_inout,
+void make_carrot_transaction_proposal_v1_transfer(
+    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out);
+    CarrotTransactionProposalV1 &tx_proposal_out);
 
-void make_unsigned_transaction_sweep(
-    const tools::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1> &payment_proposal,
+void make_carrot_transaction_proposal_v1_sweep(
+    const CarrotPaymentProposalVariant &payment_proposal,
     const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
-    cryptonote::transaction &tx_out,
-    std::vector<crypto::secret_key> &output_amount_blinding_factors_out);
+    CarrotTransactionProposalV1 &tx_proposal_out);
+
+void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const crypto::public_key &account_spend_pubkey,
+    cryptonote::transaction &pruned_tx_out);
 
 } //namespace carrot

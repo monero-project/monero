@@ -41,7 +41,7 @@ monero_add_library(carrot_impl
 target_link_libraries(carrot_impl
   PUBLIC
     carrot_core
-    cryptonote_basic
+    cryptonote_format_utils_basic
   PRIVATE
     ${EXTRA_LIBRARIES})
 

@@ -69,6 +69,7 @@ static bool is_transfer_usable_for_input_selection(const wallet2::transfer_detai
 {
     return !td.m_spent
         && td.m_key_image_known
+        && !td.m_key_image_partial
         && !td.m_frozen
         && is_transfer_unlocked_for_next_fcmp_pp_block(td, top_block_index)
         && td.m_subaddr_index.major == from_account
