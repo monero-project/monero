@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2025, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,23 +28,28 @@
 
 #pragma once
 
-extern "C"
+//local headers
+#include "carrot_impl/carrot_tx_builder_inputs.h"
+#include "wallet2.h"
+
+//third party headers
+
+//standard headers
+
+//forward declarations
+
+namespace tools
 {
-#include "crypto-ops.h"
-}
-#include "crypto.h"
-
-namespace crypto
+namespace wallet
 {
-
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-
-} //namespace crypto
+carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
+    const wallet2::transfer_container &transfers,
+    const std::uint32_t from_account,
+    const std::set<std::uint32_t> &from_subaddresses,
+    const rct::xmr_amount ignore_above,
+    const rct::xmr_amount ignore_below,
+    const std::uint64_t top_block_index,
+    const bool allow_carrot_external_inputs_in_normal_transfers,
+    std::set<size_t> &selected_transfer_indices_out);
+} //namespace wallet
+} //namespace tools
