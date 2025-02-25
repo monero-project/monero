@@ -286,14 +286,6 @@ invokes cmake commands as needed.
     make debug
     ```
 
-* **Optional**: to build statically-linked binaries:
-
-    ```bash
-    make release-static
-    ```
-
-Dependencies need to be built with -fPIC. Static libraries usually aren't, so you may have to build them yourself with -fPIC. Refer to their documentation for how to build them.
-
 * **Optional**: build documentation in `doc/html` (omit `HAVE_DOT=YES` if `graphviz` is not installed):
 
     ```bash
@@ -402,7 +394,7 @@ application.
 * To build Monero, run:
 
     ```bash
-    make release-static-win64
+    make release-static -j $(nproc)
     ```
 
    The resulting executables can be found in `build/release/bin`
@@ -411,7 +403,7 @@ application.
 * **Optional**: to build Windows binaries suitable for debugging, run:
 
     ```bash
-    make debug-static-win64
+    make debug -j $(nproc)
     ```
 
    The resulting executables can be found in `build/debug/bin`
@@ -461,18 +453,6 @@ cd ../..
 ```
 
 Then you can run make as usual.
-
-### Building portable statically linked binaries
-
-By default, in either dynamically or statically linked builds, binaries target the specific host processor on which the build happens and are not portable to other processors. Portable binaries can be built using the following targets:
-
-* ```make release-static-linux-x86_64``` builds binaries on Linux on x86_64 portable across POSIX systems on x86_64 processors
-* ```make release-static-linux-i686``` builds binaries on Linux on x86_64 or i686 portable across POSIX systems on i686 processors
-* ```make release-static-linux-armv8``` builds binaries on Linux portable across POSIX systems on armv8 processors
-* ```make release-static-linux-armv7``` builds binaries on Linux portable across POSIX systems on armv7 processors
-* ```make release-static-linux-armv6``` builds binaries on Linux portable across POSIX systems on armv6 processors
-* ```make release-static-win64``` builds binaries on 64-bit Windows portable across 64-bit Windows systems
-* ```make release-static-win32``` builds binaries on 64-bit or 32-bit Windows portable across 32-bit Windows systems
 
 ### Cross Compiling
 
