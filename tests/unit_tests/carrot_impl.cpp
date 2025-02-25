@@ -523,8 +523,6 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
         tx_preproposal.fee_per_weight,
         tx_preproposal.extra_extra,
         make_fake_input_selection_callback(),
-        ss_keys.get_view_balance_device(),
-        &ss_keys.k_view_dev,
         ss_keys.account_spend_pubkey,
         tx_proposal);
 

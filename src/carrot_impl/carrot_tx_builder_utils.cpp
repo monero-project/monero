@@ -104,8 +104,6 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
-    const view_balance_secret_device *s_view_balance_dev,
-    const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     CarrotTransactionProposalV1 &tx_proposal_out)
 {
@@ -202,8 +200,6 @@ void make_carrot_transaction_proposal_v1_transfer_subtractable(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
-    const view_balance_secret_device *s_view_balance_dev,
-    const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     const std::set<std::size_t> &subtractable_normal_payment_proposals,
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
@@ -348,8 +344,6 @@ void make_carrot_transaction_proposal_v1_transfer_subtractable(
         extra,
         std::forward<select_inputs_func_t>(select_inputs),
         std::move(carve_fees_and_balance),
-        s_view_balance_dev,
-        k_view_dev,
         account_spend_pubkey,
         tx_proposal_out);
 }
@@ -360,8 +354,6 @@ void make_carrot_transaction_proposal_v1_transfer(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
-    const view_balance_secret_device *s_view_balance_dev,
-    const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     CarrotTransactionProposalV1 &tx_proposal_out)
 {
@@ -371,8 +363,6 @@ void make_carrot_transaction_proposal_v1_transfer(
         fee_per_weight,
         extra,
         std::forward<select_inputs_func_t>(select_inputs),
-        s_view_balance_dev,
-        k_view_dev,
         account_spend_pubkey,
         /*subtractable_normal_payment_proposals=*/{},
         /*subtractable_selfsend_payment_proposals=*/{selfsend_payment_proposals.size()},
@@ -384,8 +374,6 @@ void make_carrot_transaction_proposal_v1_sweep(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
-    const view_balance_secret_device *s_view_balance_dev,
-    const view_incoming_key_device *k_view_dev,
     const crypto::public_key &account_spend_pubkey,
     CarrotTransactionProposalV1 &tx_proposal_out)
 {
@@ -452,8 +440,6 @@ void make_carrot_transaction_proposal_v1_sweep(
         extra,
         std::move(select_inputs),
         std::move(carve_fees_and_balance),
-        s_view_balance_dev,
-        k_view_dev,
         account_spend_pubkey,
         tx_proposal_out);
 }
