@@ -195,6 +195,41 @@ TEST(logging, multiline)
   cleanup();
 }
 
+class LoggingTermSupportsColorSuite : public testing::TestWithParam<std::tuple<std::string, bool>> {};
+
+TEST_P(LoggingTermSupportsColorSuite, Detection)
+{
+  std::tuple<std::string, bool> param = GetParam();
+  auto term = std::get<0>(param);
+  auto is_color = std::get<1>(param);
+  ASSERT_EQ(el::base::utils::OS::termSupportsColor(term), is_color) << term;
+}
+INSTANTIATE_TEST_SUITE_P(
+    TerminalStrings,
+    LoggingTermSupportsColorSuite,
+    testing::Values(
+        std::make_tuple("", false),
+        // unrecognized terminals
+        std::make_tuple("basic", false),
+        std::make_tuple("vt100", false),
+        // known color terminals
+        std::make_tuple("xterm", true),
+        std::make_tuple("screen", true),
+        std::make_tuple("linux", true),
+        std::make_tuple("cygwin", true),
+        std::make_tuple("xterm-color", true),
+        std::make_tuple("xterm-256color", true),
+        std::make_tuple("screen-256color", true),
+        std::make_tuple("screen.xterm-256color", true),
+        // generic color terminal detection by suffix
+        std::make_tuple("unrecognized-color", true),
+        std::make_tuple("unrecognized-256color", true),
+        std::make_tuple("basic-nocolor", false),
+        std::make_tuple("basic-no256color", false),
+        std::make_tuple("basic-color-unsupported", false),
+        std::make_tuple("basic-256color-unsupported", false)
+    ));
+
 // These operations might segfault
 TEST(logging, copy_ctor_segfault)
 {
