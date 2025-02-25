@@ -26,8 +26,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/iterator/transform_iterator.hpp>
+
 #include "cryptonote_core/blockchain.h"
+#include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/tx_verification_utils.h"
+#include "hardforks/hardforks.h"
 #include "ringct/rctSigs.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -105,10 +109,150 @@ static crypto::hash calc_tx_mixring_hash(const transaction& tx, const rct::ctkey
     return tx_and_mixring_hash;
 }
 
+static bool is_canonical_bulletproof_layout(const std::vector<rct::Bulletproof> &proofs)
+{
+    if (proofs.size() != 1)
+        return false;
+    const size_t sz = proofs[0].V.size();
+    if (sz == 0 || sz > BULLETPROOF_MAX_OUTPUTS)
+        return false;
+    return true;
+}
+
+static bool is_canonical_bulletproof_plus_layout(const std::vector<rct::BulletproofPlus> &proofs)
+{
+    if (proofs.size() != 1)
+        return false;
+    const size_t sz = proofs[0].V.size();
+    if (sz == 0 || sz > BULLETPROOF_PLUS_MAX_OUTPUTS)
+        return false;
+    return true;
+}
+
+template <class TxForwardIt>
+static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt tx_end,
+        tx_verification_context& tvc, std::uint8_t hf_version)
+{
+    std::vector<const rct::rctSig*> rvv;
+    rvv.reserve(static_cast<size_t>(std::distance(tx_begin, tx_end)));
+
+    // We assume transactions have an unmixable ring since it's more permissive. The version is
+    // checked again in Blockchain::check_tx_inputs() with `has_unmixable_ring` actually resolved.
+    const size_t min_tx_version = get_minimum_transaction_version(hf_version, /*has_unmixable_ring=*/true);
+    const size_t max_tx_version = get_maximum_transaction_version(hf_version);
+
+    const size_t tx_weight_limit = get_transaction_weight_limit(hf_version);
+
+    for (; tx_begin != tx_end; ++tx_begin)
+    {
+        const transaction& tx = *tx_begin;
+        const uint64_t blob_size = get_transaction_blob_size(tx);
+
+        // Rule 1
+        if (blob_size > get_max_tx_size())
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_too_big = true;
+            return false;
+        }
+
+        // Rule 2 and Rule 3
+        if (tx.version < min_tx_version || tx.version > max_tx_version)
+        {
+            tvc.m_verifivation_failed = true;
+            return false;
+        }
+
+        // Rule 8
+        if (hf_version >= HF_VERSION_REJECT_UNLOCK_TIME && tx.unlock_time != 0)
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_nonzero_unlock_time = true;
+            return false;
+        }
+
+        // Rule 9
+        if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA && tx.extra.size() > MAX_TX_EXTRA_SIZE)
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_tx_extra_too_big = true;
+            return false;
+        }
+
+        // Rule 4
+        const size_t tx_weight = get_transaction_weight(tx, blob_size);
+        if (hf_version >= HF_VERSION_PER_BYTE_FEE && tx_weight > tx_weight_limit)
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_too_big = true;
+            return false;
+        }
+
+        // Rule 5
+        if (!core::check_tx_semantic(tx, tvc, hf_version))
+            return false;
+
+        // Rule 6
+        if (!Blockchain::check_tx_outputs(tx, tvc, hf_version) || tvc.m_verifivation_failed)
+            return false;
+
+        // We only want to check RingCT semantics if this is actually a RingCT transaction
+        if (tx.version >= 2)
+            rvv.push_back(&tx.rct_signatures);
+    }
+
+    // Rule 7
+    if (!ver_mixed_rct_semantics(std::move(rvv)))
+    {
+        tvc.m_verifivation_failed = true;
+        tvc.m_invalid_input = true;
+        return false;
+    }
+
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace cryptonote
 {
+
+uint64_t get_transaction_weight_limit(const uint8_t hf_version)
+{
+    // from v8, limit a tx to 50% of the minimum block weight
+    if (hf_version >= HF_VERSION_PER_BYTE_FEE)
+        return get_min_block_weight(hf_version) / 2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+    else
+        return get_min_block_weight(hf_version) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+}
+
+size_t get_minimum_transaction_version(uint8_t hf_version, bool has_unmixable_ring)
+{
+    if (hf_version >= HF_VERSION_REJECT_UNMIXABLE_V1)
+    {
+        return 2;
+    }
+    else if (hf_version < HF_VERSION_ENFORCE_RCT)
+    {
+        return 1;
+    }
+    else // HF_VERSION_ENFORCE_RCT <= hf_version < HF_VERSION_REJECT_UNMIXABLE_V1
+    {
+        return has_unmixable_ring ? 1 : 2;
+    }
+}
+
+size_t get_maximum_transaction_version(uint8_t hf_version)
+{
+    if (hf_version >= HF_VERSION_DYNAMIC_FEE)
+    {
+        return 2;
+    }
+    else // hf_version < HF_VERSION_DYNAMIC_FEE
+    {
+        return 1;
+    }
+}
 
 bool ver_rct_non_semantics_simple_cached
 (
@@ -162,6 +306,106 @@ bool ver_rct_non_semantics_simple_cached
     cache.add(tx_mixring_hash);
 
     return true;
+}
+
+bool ver_mixed_rct_semantics(std::vector<const rct::rctSig*> rvv)
+{
+    size_t batch_rv_size = 0; // this acts as an "end" iterator to the last simple batchable sig ptr
+    for (size_t i = 0; i < rvv.size(); ++i)
+    {
+        const rct::rctSig& rv = *rvv[i];
+
+        bool is_batchable_rv = false;
+
+        switch (rv.type)
+        {
+        case rct::RCTTypeNull:
+            // coinbase should not come here, so we reject for all other types
+            MERROR("Unexpected Null rctSig type");
+            return false;
+            break;
+        case rct::RCTTypeSimple:
+            if (!rct::verRctSemanticsSimple(rv))
+            {
+                MERROR("rct signature semantics check failed: type simple");
+                return false;
+            }
+            break;
+        case rct::RCTTypeFull:
+            if (!rct::verRct(rv, /*semantics=*/true))
+            {
+                MERROR("rct signature semantics check failed: type full");
+                return false;
+            }
+            break;
+        case rct::RCTTypeBulletproof:
+        case rct::RCTTypeBulletproof2:
+        case rct::RCTTypeCLSAG:
+            if (!is_canonical_bulletproof_layout(rv.p.bulletproofs))
+            {
+                MERROR("Bulletproof does not have canonical form");
+                return false;
+            }
+            is_batchable_rv = true;
+            break;
+        case rct::RCTTypeBulletproofPlus:
+            if (!is_canonical_bulletproof_plus_layout(rv.p.bulletproofs_plus))
+            {
+                MERROR("Bulletproof_plus does not have canonical form");
+                return false;
+            }
+            is_batchable_rv = true;
+            break;
+        default:
+            MERROR("Unknown rct type: " << rv.type);
+            return false;
+            break;
+        }
+
+        // Save this ring sig for later, as we will attempt simple RCT semantics batch verification
+        if (is_batchable_rv)
+            rvv[batch_rv_size++] = rvv[i];
+    }
+
+    if (batch_rv_size) // if any simple, batchable ring sigs...
+    {
+        rvv.resize(batch_rv_size);
+        if (!rct::verRctSemanticsSimple(rvv))
+        {
+            MERROR("rct signature semantics check failed: simple-style batch verification failed");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
+    std::uint8_t hf_version)
+{
+    return ver_non_input_consensus_templated(&tx, &tx + 1, tvc, hf_version);
+}
+
+bool ver_non_input_consensus(const pool_supplement& ps, tx_verification_context& tvc,
+    const std::uint8_t hf_version)
+{
+    // We already verified the pool supplement for this hard fork version! Yippee!
+    if (ps.nic_verified_hf_version == hf_version)
+        return true;
+
+    const auto it_transform = [] (const decltype(ps.txs_by_txid)::value_type& in)
+        -> const transaction& { return in.second.first; };
+    const auto tx_begin = boost::make_transform_iterator(ps.txs_by_txid.cbegin(), it_transform);
+    const auto tx_end = boost::make_transform_iterator(ps.txs_by_txid.cend(), it_transform);
+
+    // Perform the checks...
+    const bool verified = ver_non_input_consensus_templated(tx_begin, tx_end, tvc, hf_version);
+
+    // Cache the hard fork version on success
+    if (verified)
+        ps.nic_verified_hf_version = hf_version;
+
+    return verified;
 }
 
 } // namespace cryptonote
