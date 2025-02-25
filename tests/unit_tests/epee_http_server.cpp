@@ -125,9 +125,12 @@ TEST(http_server, response_soft_limit)
   {
     dummy::response payload{};
     boost::beast::flat_buffer buffer;
-    http::response<http::basic_string_body<char>> res;
-    http::read(stream, buffer, res, error);
+    http::response_parser<http::basic_string_body<char>> parser;
+    parser.body_limit(payload_size + 1024);
+    http::read(stream, buffer, parser, error);
     EXPECT_FALSE(bool(error));
+    ASSERT_TRUE(parser.is_done());
+    const auto res = parser.release();
     EXPECT_EQ(200u, res.result_int());
     EXPECT_TRUE(epee::serialization::load_t_from_binary(payload, res.body()));
     EXPECT_EQ(payload_size, std::count(payload.payload.begin(), payload.payload.end(), 'f'));
@@ -169,12 +172,13 @@ TEST(http_server, private_ip_limit)
     http::write(streams.back(), req, error);
     EXPECT_FALSE(bool(error));
 
-    dummy::response payload{};
     boost::beast::flat_buffer buffer;
-    http::response<http::basic_string_body<char>> res;
+    http::response_parser<http::basic_string_body<char>> parser;
+    parser.body_limit(payload_size + 1024);
 
-    http::read(streams.back(), buffer, res, error);
+    http::read(streams.back(), buffer, parser, error);
     EXPECT_FALSE(bool(error));
+    EXPECT_TRUE(parser.is_done());
   }
 
   boost::asio::ip::tcp::socket stream{context};
@@ -188,12 +192,12 @@ TEST(http_server, private_ip_limit)
   http::write(stream, req, error);
   failed |= bool(error);
   {
-    dummy::response payload{};
     boost::beast::flat_buffer buffer;
-    http::response<http::basic_string_body<char>> res;
+    http::response_parser<http::basic_string_body<char>> parser;
+    parser.body_limit(payload_size + 1024);
 
     // make sure server ran async_accept code
-    http::read(stream, buffer, res, error);
+    http::read(stream, buffer, parser, error);
   }
   failed |= bool(error);
   EXPECT_TRUE(failed);
