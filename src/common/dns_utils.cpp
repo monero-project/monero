@@ -35,12 +35,14 @@
 #include <set>
 #include <stdlib.h>
 #include "include_base_utils.h"
-#include "common/threadpool.h"
 #include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <boost/thread/thread.hpp>
+#include <taskflow/taskflow/taskflow.hpp>
+
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -487,17 +489,17 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   // send all requests in parallel
   std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
-  tools::threadpool& tpool = tools::threadpool::getInstanceForIO();
-  tools::threadpool::waiter waiter(tpool);
+  tf::Executor executor(std::thread::hardware_concurrency());
+  tf::Taskflow taskflow;
   for (size_t n = 0; n < dns_urls.size(); ++n)
   {
-    tpool.submit(&waiter,[n, dns_urls, &records, &avail, &valid](){
+    executor.run(taskflow, [n, dns_urls, &records, &avail, &valid](){
        const auto res = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]);
        for (const auto &s: res)
          records[n].insert(s);
     });
   }
-  waiter.wait();
+  executor.wait_for_all();
 
   size_t cur_index = first_index;
   do

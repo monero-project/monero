@@ -34,6 +34,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/format.hpp>
+#include <taskflow/taskflow/taskflow.hpp>
 
 #include "include_base_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
@@ -48,7 +49,6 @@
 #include "profile_tools.h"
 #include "file_io_utils.h"
 #include "int-util.h"
-#include "common/threadpool.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core.h"
@@ -3384,9 +3384,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   std::vector < uint64_t > results;
   results.resize(tx.vin.size(), 0);
 
-  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-  tools::threadpool::waiter waiter(tpool);
-  int threads = tpool.get_max_concurrency();
+  int threads = std::thread::hardware_concurrency();
+  tf::Executor executor(threads);
+  tf::Taskflow taskflow;
 
   uint64_t max_used_block_height = 0;
   if (!pmax_used_block_height)
@@ -3433,7 +3433,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       {
         // ND: Speedup
         // 1. Thread ring signature verification if possible.
-        tpool.submit(&waiter, boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])), true);
+        executor.run(taskflow, boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])));
       }
       else
       {
@@ -3455,8 +3455,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     sig_index++;
   }
   if (tx.version == 1 && threads > 1)
-    if (!waiter.wait())
-      return false;
+    executor.wait_for_all();
 
   // enforce min output age
   if (hf_version >= HF_VERSION_ENFORCE_MIN_AGE)
@@ -4925,8 +4924,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     return true;
 
   bool blocks_exist = false;
-  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-  unsigned threads = tpool.get_max_concurrency();
+  unsigned threads = std::thread::hardware_concurrency();
+  tf::Executor executor(threads);
   blocks.resize(blocks_entry.size());
 
   if (1)
@@ -4988,7 +4987,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     {
       m_blocks_longhash_table.clear();
       uint64_t thread_height = height;
-      tools::threadpool::waiter waiter(tpool);
+      tf::Taskflow taskflow;
       m_prepare_height = height;
       m_prepare_nblocks = blocks_entry.size();
       m_prepare_blocks = &blocks;
@@ -4999,12 +4998,11 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
           ++nblocks;
         if (nblocks == 0)
           break;
-        tpool.submit(&waiter, boost::bind(&Blockchain::block_longhash_worker, this, thread_height, epee::span<const block>(&blocks[thread_height - height], nblocks), std::ref(maps[i])), true);
+        executor.run(taskflow, boost::bind(&Blockchain::block_longhash_worker, this, thread_height, epee::span<const block>(&blocks[thread_height - height], nblocks), std::ref(maps[i])));
         thread_height += nblocks;
       }
 
-      if (!waiter.wait())
-        return false;
+      executor.wait_for_all();
       m_prepare_height = 0;
 
       if (m_cancel)
@@ -5132,21 +5130,20 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   }
 
   // gather all the output keys
-  threads = tpool.get_max_concurrency();
+  threads = std::thread::hardware_concurrency();
   if (!m_db->can_thread_bulk_indices())
     threads = 1;
 
   if (threads > 1 && amounts.size() > 1)
   {
-    tools::threadpool::waiter waiter(tpool);
+    tf::Taskflow taskflow;
 
     for (size_t i = 0; i < amounts.size(); i++)
     {
       uint64_t amount = amounts[i];
-      tpool.submit(&waiter, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount])), true);
+      executor.run(taskflow, boost::bind(&Blockchain::output_scan_worker, this, amount, std::cref(offset_map[amount]), std::ref(tx_map[amount])));
     }
-    if (!waiter.wait())
-      return false;
+    executor.wait_for_all();
   }
   else
   {

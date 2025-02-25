@@ -39,7 +39,6 @@ using namespace epee;
 #include "common/util.h"
 #include "common/updates.h"
 #include "common/download.h"
-#include "common/threadpool.h"
 #include "common/command_line.h"
 #include "cryptonote_basic/events.h"
 #include "warnings.h"
@@ -58,6 +57,7 @@ using namespace epee;
 #include "version.h"
 
 #include <boost/filesystem.hpp>
+#include <taskflow/taskflow/taskflow.hpp>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
@@ -1009,11 +1009,11 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
 
-    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-    tools::threadpool::waiter waiter(tpool);
+    tf::Executor executor(std::thread::hardware_concurrency());
+    tf::Taskflow taskflow;
     epee::span<tx_blob_entry>::const_iterator it = tx_blobs.begin();
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
-      tpool.submit(&waiter, [&, i, it] {
+      executor.run(taskflow, [&, i, it] {
         try
         {
           results[i].res = handle_incoming_tx_pre(*it, tvc[i], results[i].tx, results[i].hash);
@@ -1026,8 +1026,7 @@ namespace cryptonote
         }
       });
     }
-    if (!waiter.wait())
-      return false;
+    executor.wait_for_all();
     it = tx_blobs.begin();
     std::vector<bool> already_have(tx_blobs.size(), false);
     for (size_t i = 0; i < tx_blobs.size(); i++, ++it) {
@@ -1045,7 +1044,7 @@ namespace cryptonote
       }
       else
       {
-        tpool.submit(&waiter, [&, i, it] {
+        executor.run(taskflow, [&, i, it] {
           try
           {
             results[i].res = handle_incoming_tx_post(*it, tvc[i], results[i].tx, results[i].hash);
@@ -1059,8 +1058,7 @@ namespace cryptonote
         });
       }
     }
-    if (!waiter.wait())
-      return false;
+    executor.wait_for_all();
 
     std::vector<tx_verification_batch_info> tx_info;
     tx_info.reserve(tx_blobs.size());

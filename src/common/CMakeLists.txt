@@ -42,7 +42,6 @@ set(common_sources
   perf_timer.cpp
   pruning.cpp
   spawn.cpp
-  threadpool.cpp
   updates.cpp
   aligned.c
   timings.cc
