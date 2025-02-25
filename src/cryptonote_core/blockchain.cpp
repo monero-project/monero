@@ -157,7 +157,9 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   auto it = m_scan_table.find(tx_prefix_hash);
   if (it != m_scan_table.end())
   {
-    auto its = it->second.find(tx_in_to_key.k_image);
+    crypto::key_image_y ki_y;
+    crypto::key_image_to_y(tx_in_to_key.k_image, ki_y);
+    auto its = it->second.find(ki_y);
     if (its != it->second.end())
     {
       outputs = its->second;
@@ -223,7 +225,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
         if (count < outputs.size())
           output_index = outputs.at(count);
         else
-          output_index = m_db->get_output_key(tx_in_to_key.amount, i);
+          output_index = m_db->get_output_key(tx_in_to_key.amount, i).data;
 
         // call to the passed boost visitor to grab the public key for the output
         if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, output_index.commitment))
@@ -2235,8 +2237,7 @@ uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
 
 crypto::public_key Blockchain::get_output_key(uint64_t amount, uint64_t global_index) const
 {
-  output_data_t data = m_db->get_output_key(amount, global_index);
-  return data.pubkey;
+  return m_db->get_output_key(amount, global_index).data.pubkey;
 }
 
 //------------------------------------------------------------------
@@ -2287,7 +2288,7 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
 //------------------------------------------------------------------
 void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const
 {
-  const auto o_data = m_db->get_output_key(amount, index);
+  const auto o_data = m_db->get_output_key(amount, index).data;
   key = o_data.pubkey;
   mask = o_data.commitment;
   tx_out_index toi = m_db->get_output_tx_and_index(amount, index);
@@ -2836,7 +2837,9 @@ bool Blockchain::check_for_double_spend(const transaction& tx, key_images_contai
       // if the insert into the block-wide spent keys container succeeds,
       // check the blockchain-wide spent keys container and make sure the
       // key wasn't used in another block already.
-      auto r = m_spent_keys.insert(ki);
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(ki, ki_y);
+      auto r = m_spent_keys.insert(ki_y);
       if(!r.second || m_db->has_key_image(ki))
       {
         //double spend detected
@@ -5077,7 +5080,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       if (its != m_scan_table.end())
         SCAN_TABLE_QUIT("Duplicate tx found from incoming blocks.");
 
-      m_scan_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>());
+      m_scan_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image_y, std::vector<output_data_t>>());
       its = m_scan_table.find(tx_prefix_hash);
       assert(its != m_scan_table.end());
 
@@ -5087,7 +5090,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         const txin_to_key &in_to_key = boost::get < txin_to_key > (txin);
 
         // check for duplicate
-        auto it = its->second.find(in_to_key.k_image);
+        crypto::key_image_y ki_y;
+        crypto::key_image_to_y(in_to_key.k_image, ki_y);
+        auto it = its->second.find(ki_y);
         if (it != its->second.end())
           SCAN_TABLE_QUIT("Duplicate key_image found from incoming blocks.");
 
@@ -5204,7 +5209,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
             break;
         }
 
-        its->second.emplace(in_to_key.k_image, outputs);
+        crypto::key_image_y ki_y;
+        crypto::key_image_to_y(in_to_key.k_image, ki_y);
+        its->second.emplace(ki_y, outputs);
       }
     }
   }
@@ -5503,7 +5510,7 @@ void Blockchain::unlock()
   m_blockchain_lock.unlock();
 }
 
-bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
+bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image_y&)> f) const
 {
   return m_db->for_all_key_images(f);
 }

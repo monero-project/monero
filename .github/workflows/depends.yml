@@ -36,40 +36,61 @@ jobs:
         toolchain:
           - name: "RISCV 64bit"
             host: "riscv64-linux-gnu"
+            rust_host: "riscv64gc-unknown-linux-gnu"
             packages: "g++-riscv64-linux-gnu"
           - name: "ARM v7"
             host: "arm-linux-gnueabihf"
+            rust_host: "armv7-unknown-linux-gnueabihf"
             packages: "g++-arm-linux-gnueabihf"
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
+            rust_host: "aarch64-unknown-linux-gnu"
             packages: "g++-aarch64-linux-gnu"
           - name: "i686 Linux"
             host: "i686-pc-linux-gnu"
+            rust_host: "i686-unknown-linux-gnu"
             packages: "g++-multilib"
           - name: "Win64"
             host: "x86_64-w64-mingw32"
+            rust_host: "x86_64-pc-windows-gnu"
             packages: "g++-mingw-w64-x86-64"
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
+            rust_host: "x86_64-unknown-linux-gnu"
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
+            rust_host: "x86_64-apple-darwin"
             packages: "clang"
           - name: "Cross-Mac aarch64"
             host: "arm64-apple-darwin"
+            rust_host: "aarch64-apple-darwin"
             packages: "clang"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
+            rust_host: "x86_64-unknown-freebsd"
             packages: "clang"
           - name: "ARMv7 Android"
             host: "arm-linux-android"
+            rust_host: "armv7-linux-androideabi"
           - name: "ARMv8 Android"
             host: "aarch64-linux-android"
+            rust_host: "aarch64-linux-android"
     name: ${{ matrix.toolchain.name }}
     steps:
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
       run: apt update; apt -y install build-essential libtool cmake autotools-dev automake pkg-config python3 gperf bsdmainutils curl git ca-certificates unzip ccache ${{ matrix.toolchain.packages }}
+    - name: install rust
+      # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
+      # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
+      # We can't use Rust 1.70 due to LLVM 16 requiring ld >= 2.40 when building for Windows
+      run: |
+          curl -O https://static.rust-lang.org/rustup/archive/1.27.1/x86_64-unknown-linux-gnu/rustup-init
+          echo "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d rustup-init" | sha256sum -c
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain 1.69 --target ${{ matrix.toolchain.rust_host }}
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     - name: configure git
       run: git config --global --add safe.directory '*'
     - uses: actions/checkout@v4
