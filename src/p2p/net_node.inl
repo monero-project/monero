@@ -3004,7 +3004,12 @@ namespace nodetool
     UPNPUrls urls;
     IGDdatas igdData;
     char lanAddress[64];
+#if MINIUPNPC_API_VERSION < 18
     result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+#else
+    char wanAddress[64];
+    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress, wanAddress, sizeof wanAddress);
+#endif
     freeUPNPDevlist(deviceList);
     if (result > 0) {
       if (result == 1) {
@@ -3072,7 +3077,12 @@ namespace nodetool
     UPNPUrls urls;
     IGDdatas igdData;
     char lanAddress[64];
+#if MINIUPNPC_API_VERSION < 18
     result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+#else
+    char wanAddress[64];
+    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress, wanAddress, sizeof wanAddress);
+#endif
     freeUPNPDevlist(deviceList);
     if (result > 0) {
       if (result == 1) {
