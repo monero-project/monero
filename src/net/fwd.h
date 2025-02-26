@@ -34,13 +34,19 @@
 namespace net
 {
     enum class error : int;
+    struct scheme_and_authority;
     class tor_address;
+    struct uri_components;
+    struct user_and_pass;
+    struct userinfo_and_hostport;
     class i2p_address;
 
     namespace socks
     {
         class client;
         template<typename> class connect_handler;
+        struct connector;
+        struct endpoint;
         enum class error : int;
         enum class version : std::uint8_t;
     }
