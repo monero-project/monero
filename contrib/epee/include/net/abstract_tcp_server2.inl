@@ -908,7 +908,7 @@ namespace net_utils
     auto *limit = static_cast<shared_state&>(
       connection_basic::get_state()
     ).plimit;
-    if (limit && limit->is_host_limit(*real_remote))
+    if (is_income && limit && limit->is_host_limit(*real_remote))
       return false;
 
     ec_t ec;
