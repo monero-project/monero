@@ -1543,19 +1543,6 @@ namespace cryptonote
     return m_blockchain_storage.get_block_id_by_height(height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_height_by_id(const crypto::hash& h, uint64_t &block_height_out) const
-  {
-    try
-    {
-      block_height_out = m_blockchain_storage.get_db().get_block_height(h);
-      return true;
-    }
-    catch (const BLOCK_DNE&)
-    {
-      return false;
-    }
-  }
-  //-----------------------------------------------------------------------------------------------
   bool core::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const
   {
     return m_blockchain_storage.get_block_by_hash(h, blk, orphan);

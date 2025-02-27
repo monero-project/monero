@@ -390,16 +390,6 @@ namespace cryptonote
      crypto::hash get_block_id_by_height(uint64_t height) const;
 
      /**
-      * @brief get the height of a block by hash
-      *
-      * @param h the block hash to query
-      * @param[out] block_height_out the height of the block
-      *
-      * @return true if the queried block is in the main chain, false otherwise
-      */
-     bool get_block_height_by_id(const crypto::hash& h, uint64_t &block_height_out) const;
-
-     /**
       * @copydoc Blockchain::get_transactions
       *
       * @note see Blockchain::get_transactions
