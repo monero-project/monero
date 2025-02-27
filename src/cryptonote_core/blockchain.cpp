@@ -2094,7 +2094,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       }
 
       // If new incoming tx in alt block passed verification and entered the pool, notify ZMQ
-      if (!tvc.m_verifivation_failed && tvc.m_added_to_pool)
+      if (tvc.m_added_to_pool)
         notify_txpool_event({txpool_event{
           .tx = tx,
           .hash = txid,
@@ -4336,9 +4336,18 @@ leave:
       }
     }
 
+    // @TODO: We should move this section (checking if the daemon has all txs from the block) to
+    // right after the PoW check. Since it's now expected the node will sometimes not have all txs
+    // in its pool at this point nor the txs included as fluffy txs (and will need to re-request
+    // missing fluffy txs), then the node will sometimes waste cycles doing verification for some
+    // txs twice.
     if (find_tx_failure) // did not find txid in mempool or provided extra block txs
     {
-      MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
+      const bool fully_supplemented_block = extra_block_txs.txs_by_txid.size() >= bl.tx_hashes.size();
+      if (fully_supplemented_block)
+        MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
+      else
+        LOG_PRINT_L2("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
       bvc.m_verifivation_failed = true;
       bvc.m_missing_txs = true;

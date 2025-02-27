@@ -1423,6 +1423,8 @@ namespace cryptonote
     for (const auto &t : extra_block_txs.txs_by_txid)
       block_total_bytes += t.second.second.size();
 
+    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
+
     // Match each call to prepare_handle_incoming_block_no_preprocess() with a call to
     // cleanup_handle_incoming_blocks()
     m_blockchain_storage.prepare_handle_incoming_block_no_preprocess(block_total_bytes);
@@ -1539,6 +1541,19 @@ namespace cryptonote
   crypto::hash core::get_block_id_by_height(uint64_t height) const
   {
     return m_blockchain_storage.get_block_id_by_height(height);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::get_block_height_by_id(const crypto::hash& h, uint64_t &block_height_out) const
+  {
+    try
+    {
+      block_height_out = m_blockchain_storage.get_db().get_block_height(h);
+      return true;
+    }
+    catch (const BLOCK_DNE&)
+    {
+      return false;
+    }
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const

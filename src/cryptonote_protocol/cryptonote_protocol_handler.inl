@@ -594,6 +594,23 @@ namespace cryptonote
     MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
       << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
 
+    // If this fluffy block prev_id references a deep block, we should ignore it.
+    // We will sync to it later if it's actually valid and has more PoW than the main chain.
+    const uint64_t current_height = m_core.get_current_blockchain_height();
+    uint64_t prev_block_height = 0;
+    if (!m_core.get_block_height_by_id(new_block.prev_id, prev_block_height)
+      || prev_block_height + 1 + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE < current_height)
+    {
+      MERROR("Fluffy block is old and/or orphaned, ignoring. prev_id = " << new_block.prev_id);
+      return 1;
+    }
+
+    // Pause mining and resume after block verification to prevent wasted mining cycles while
+    // validating the next block. Needs more research into if this is a DoS vector or not. Invalid
+    // block validation will cause disconnects and bans, so it might not be that bad.
+    m_core.pause_mine();
+    const auto resume_mine_on_leave = epee::misc_utils::create_scope_leave_handler([this](){ m_core.resume_mine(); });
+
     // This set allows us to quickly sanity check that the block binds all txs contained in this
     // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
     // deterministic block verification failure, the peer will be punished accordingly. For other
