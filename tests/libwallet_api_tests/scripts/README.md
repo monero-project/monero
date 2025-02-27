@@ -9,7 +9,7 @@
 * Directory with pre-generated wallets
   (wallet_01.bin, wallet_02.bin,...,wallet_06.bin, some of these wallets might not be used in the tests currently). 
   By default, tests expect these wallets to be in ```/var/monero/testnet_pvt```. 
-  Directory can be overriden with environment variable ```WALLETS_ROOT_DIR=<your_directory_with_wallets>```.
+  Directory can be overridden with environment variable ```WALLETS_ROOT_DIR=<your_directory_with_wallets>```.
   Directory and files should be writable for the user running tests.
 
 

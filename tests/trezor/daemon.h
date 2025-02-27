@@ -60,7 +60,7 @@ public:
   BEGIN_URI_MAP2()
     MAP_URI_AUTO_JON2("/send_raw_transaction", on_send_raw_tx_2, cryptonote::COMMAND_RPC_SEND_RAW_TX)
     MAP_URI_AUTO_JON2("/sendrawtransaction", on_send_raw_tx_2, cryptonote::COMMAND_RPC_SEND_RAW_TX)
-    else {  // Default to parent for non-overriden callbacks
+    else {  // Default to parent for non-overridden callbacks
       return cryptonote::core_rpc_server::handle_http_request_map(query_info, response_info, m_conn_context);
     }
   END_URI_MAP2()
