@@ -705,7 +705,7 @@ namespace trezor {
       if ((env_trezor_client_version = getenv("TREZOR_CLIENT_VERSION")) != nullptr){
         auto succ = epee::string_tools::get_xtype_from_string(client_version, env_trezor_client_version);
         if (succ){
-          MINFO("Trezor client version overriden by TREZOR_CLIENT_VERSION to: " << client_version);
+          MINFO("Trezor client version overridden by TREZOR_CLIENT_VERSION to: " << client_version);
         }
       }
 #endif
