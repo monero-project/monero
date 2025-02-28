@@ -537,7 +537,7 @@ Packages are available for
     ```
 More info and versions in the [Debian package tracker](https://tracker.debian.org/pkg/monero).
 
-* Arch Linux [(via Community packages)](https://www.archlinux.org/packages/community/x86_64/monero/):
+* Arch Linux [(via Extra packages)](https://archlinux.org/packages/extra/x86_64/monero/):
 
     ```bash
     sudo pacman -S monero
@@ -553,16 +553,6 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
 
     ```bash
     guix package -i monero
-    ```
-
-* Gentoo [Monero overlay](https://github.com/gentoo-monero/gentoo-monero)
-
-    ```bash
-    emerge --noreplace eselect-repository
-    eselect repository enable monero
-    emaint sync -r monero
-    echo '*/*::monero ~amd64' >> /etc/portage/package.accept_keywords
-    emerge net-p2p/monero
     ```
 
 * Alpine Linux:
