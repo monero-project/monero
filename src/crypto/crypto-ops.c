@@ -3862,6 +3862,41 @@ int sc_isnonzero(const unsigned char *s) {
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
 }
 
+static void edwardsYZ_to_x25519(unsigned char *xbytes, const fe Y, const fe Z) {
+  // y = Y/Z
+  // x_mont = (1 + y) / (1 - y)
+  //        = (1 + Y/Z) / (1 - Y/Z)
+  //        = (Z + Y) / (Z - Y)
+
+  fe tmp0;
+  fe tmp1;
+  fe_add(tmp0, Z, Y);       // Z + Y
+  fe_sub(tmp1, Z, Y);       // Z - Y
+  fe_invert(tmp1, tmp1);    // 1/(Z - Y)
+  fe_mul(tmp0, tmp0, tmp1); // (Z + Y) / (Z - Y)
+  fe_tobytes(xbytes, tmp0); // tobytes((Z + Y) / (Z - Y))
+}
+
+void ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h)
+{
+  edwardsYZ_to_x25519(xbytes, h->Y, h->Z);
+}
+
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s)
+{
+  fe Y;
+  if (fe_frombytes_vartime(Y, s) != 0) {
+    return -1;
+  }
+
+  fe Z;
+  fe_1(Z);
+
+  edwardsYZ_to_x25519(xbytes, Y, Z);
+
+  return 0;
+}
+
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
   // https://eprint.iacr.org/2008/522
   // X == T == 0 and Y/Z == 1
