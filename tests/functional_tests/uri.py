@@ -43,6 +43,7 @@ class URITest():
     def run_test(self):
       self.create()
       self.test_monero_uri()
+      self.test_monero_multi_uri()
 
     def create(self):
         print('Creating wallet')
@@ -56,7 +57,7 @@ class URITest():
         assert res.seed == seed
 
     def test_monero_uri(self):
-        print('Testing monero: URI')
+        print('Testing monero: URI - single')
         wallet = Wallet()
 
         utf8string = [u'えんしゅう', u'あまやかす']
@@ -223,6 +224,178 @@ class URITest():
         assert res.uri.amount == 239390140000000
         assert res.unknown_parameters == [u'unknown=' + quoted_utf8string[0]], res
 
+
+    def test_monero_multi_uri(self):
+        print('Testing monero: URI - multiple')
+        wallet = Wallet()
+        addr1 = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        addr2 = '4BxSHvcgTwu25WooY4BVmgdcKwZu5EksVZSZkDd6ooxSVVqQ4ubxXkhLF6hEqtw96i9cf3cVfLw8UWe95bdDKfRQeYtPwLm1Jiw7AKt2LY'
+        addr3 = '8AsN91rznfkBGTY8psSNkJBg9SZgxxGGRUhGwRptBhgr5XSQ1XzmA9m8QAnoxydecSh5aLJXdrgXwTDMMZ1AuXsN1EX5Mtm'
+        addr4 = '48yZbMv8qWUtWxG4Jzgr2A49U1h1SeegLeF6pUGUgm8McF6bu8g7QvQyZ6iqJjLQTz8x8BfpwdKwRDR5eU5M4prUJfww8hBPH6aV9dZX2'
+        utf8string = [u'えんしゅう', u'あまやかす']
+        
+        self.test_multi_uri_two_payments(wallet, addr1, addr2, utf8string)
+        self.test_multi_uri_three_payments(wallet, addr1, addr2, addr3, utf8string)
+        self.test_multi_uri_with_mismatched_amounts(wallet, addr1, addr2)
+        self.test_multi_uri_trailing_delimiter(wallet, addr1, addr2)
+        self.test_multi_uri_special_characters(wallet, addr1, addr2)
+        self.test_multi_uri_integrated_addresses(wallet, addr2, addr4)
+        self.test_multi_uri_unknown_parameters(wallet, addr1)
+        self.test_make_uri_single_vs_make_uri_v2_compatibility(wallet, addr1)
+        self.test_old_make_uri_with_parse_uri_v2(wallet, addr2)
+        self.test_make_uri_v2_with_old_parse_uri(wallet, addr3)
+        self.test_unknown_parameters(wallet, addr1)
+            
+    def test_multi_uri_two_payments(self, wallet, addr1, addr2, utf8string):
+        # build multi-recipient URI with two payments.
+        # monero:?output=<addr>;<amount>;<name>&output=<addr2>;<amount2>;<name2>&tx_description=...
+        addresses = [ addr1, addr2]
+        amounts = [ 500000000000, 200000000000 ]
+        recipient_names = [ utf8string[0], utf8string[1]]
+        res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, tx_description='Multi URI test with two payments')
+        
+        parsed = wallet.parse_uri_v2(res.uri)
+        
+        assert len(parsed.uri.addresses) == 2, "Expected 2 payments in multi-recipient URI"
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 500000000000
+        assert parsed.uri.recipient_names[0] == utf8string[0]
+        assert parsed.uri.addresses[1] == addr2
+        assert parsed.uri.amounts[1] == 200000000000
+        assert parsed.uri.recipient_names[1] == utf8string[1]
+        assert parsed.uri.tx_description == 'Multi URI test with two payments'
+        
+    def test_multi_uri_three_payments(self, wallet, addr1, addr2, addr3, utf8string):         
+        # build multi-recipient URI with three payments.
+        addresses = [ addr1, addr2, addr3 ]
+        amounts = [ 1000000000000, 500000000000, 250000000000 ]
+        recipient_names = [ utf8string[0], utf8string[1], '' ]
+        res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, tx_description='Multi URI test with three payments')
+        parsed = wallet.parse_uri_v2(res.uri)
+        
+        assert len(parsed.uri.addresses) == 3, "Expected 3 payments in multi-recipient URI"
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 1000000000000
+        assert parsed.uri.recipient_names[0] == utf8string[0]
+        assert parsed.uri.addresses[1] == addr2
+        assert parsed.uri.amounts[1] == 500000000000
+        assert parsed.uri.recipient_names[1] == utf8string[1]
+        assert parsed.uri.addresses[2] == addr3
+        assert parsed.uri.amounts[2] == 250000000000
+        assert parsed.uri.recipient_names[2] == ''
+        assert parsed.uri.tx_description == 'Multi URI test with three payments'
+    
+    def test_multi_uri_with_mismatched_amounts(self, wallet, addr1, addr2):        
+        uri = 'monero:?output={a1};0.5;Alice&output={a2};;Bob'.format(a1=addr1, a2=addr2)
+        parsed = wallet.parse_uri_v2(uri)
+        
+        # both outputs should parse; second amount should decode to 0
+        assert len(parsed.uri.addresses) == 2, "Expected 2 outputs"
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 500000000000
+        assert parsed.uri.recipient_names[0] == 'Alice'
+        assert parsed.uri.addresses[1] == addr2
+        assert parsed.uri.amounts[1] == 0, "Missing amount should decode to 0"
+        assert parsed.uri.recipient_names[1] == 'Bob'
+        
+    def test_multi_uri_trailing_delimiter(self, wallet, addr1, addr2):
+        uri_trailing = 'monero:?output={a1};0.5;Alice&output={a2};0.2;Bob&'.format(a1=addr1, a2=addr2)
+        parsed = wallet.parse_uri_v2(uri_trailing)
+        
+        assert len(parsed.uri.addresses) == 2, "Trailing delimiter should not add empty payment"
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.addresses[1] == addr2
+    
+    def test_multi_uri_special_characters(self, wallet, addr1, addr2):
+        # case: special characters in recipient names and descriptions
+        special_name = "A&B=Test?"
+        special_desc = "Desc with spaces & symbols!"
+        addresses = [ addr1, addr2]
+        amounts = [ 750000000000, 250000000000 ]
+        recipient_names = [ special_name, special_name]
+    
+        # the RPC should URL-encode these parameters.
+        res = wallet.make_uri_v2(addresses=addresses, amounts=amounts, recipient_names=recipient_names, tx_description=special_desc)
+        parsed = wallet.parse_uri_v2(res.uri)
+        
+        for recipient_name in parsed.uri.recipient_names:
+            assert recipient_name == special_name, "Special characters in recipient name mismatch"
+        assert parsed.uri.tx_description == special_desc, "Special characters in description mismatch"
+    
+    def test_multi_uri_integrated_addresses(self, wallet, addr1, addr2):
+        # build multi-recipient URI with two integrated addresses
+        uri = 'monero:?output={a1};0.1;&output={a2};0.2;'.format(a1=addr1, a2=addr2)
+
+        ok = False
+        try:
+            wallet.parse_uri_v2(uri)
+        except Exception:
+            ok = True
+
+        assert ok, f"Expected rejection for multiple integrated addresses but it parsed: {uri}"
+
+    def test_multi_uri_unknown_parameters(self, wallet, addr1):        
+        # build a well-formed multi-recipient URI and tack on unknown parameters.
+        uri_with_unknown_parameters = 'monero:?output={a};239.39014;&foo=bar&baz=quux'.format(a=addr1)
+        parsed = wallet.parse_uri_v2(uri_with_unknown_parameters)
+        
+        assert parsed.uri.addresses[0] == addr1
+        assert parsed.uri.amounts[0] == 239390140000000
+        assert parsed.unknown_parameters == ['foo=bar', 'baz=quux'], "Unknown parameters mismatch"
+        
+    def test_make_uri_single_vs_make_uri_v2_compatibility(self, wallet, addr):
+        amount = 250000000000  # 0.25
+        name = "Eve"
+        desc = "compatibility test"
+
+        old = wallet.make_uri(address=addr, amount=amount, recipient_name=name, tx_description=desc)
+        new = wallet.make_uri_v2(addresses=[addr], amounts=[amount], recipient_names=[name], tx_description=desc)
+
+        assert old.uri, "old.make_uri returned empty uri"
+        assert new.uri, "new.make_uri_v2 returned empty uri"
+        assert old.uri == new.uri, "make_uri and make_uri_v2 did not produce identical URIs: {} != {}".format(old.uri, new.uri)
+
+    def test_old_make_uri_with_parse_uri_v2(self, wallet, addr):
+        amount = 11000000000
+        name = "Bob"
+        desc = "old->new parse test"
+
+        old = wallet.make_uri(address=addr, amount=amount, recipient_name=name, tx_description=desc)
+        parsed = wallet.parse_uri_v2(old.uri)
+
+        assert len(parsed.uri.addresses) == 1
+        assert parsed.uri.addresses[0] == addr
+        assert parsed.uri.amounts[0] == amount
+        assert parsed.uri.recipient_names[0] == name
+        assert parsed.uri.tx_description == desc
+        assert len(parsed.get('unknown_parameters', [])) == 0
+
+    def test_make_uri_v2_with_old_parse_uri(self, wallet, addr):
+        amount = 500000000000
+        name = "Trent"
+        desc = "new->old parse test"
+
+        new = wallet.make_uri_v2(addresses=[addr], amounts=[amount], recipient_names=[name], tx_description=desc)
+        parsed = wallet.parse_uri(new.uri)
+
+        assert parsed.uri.address == addr
+        assert parsed.uri.amount == amount
+        assert parsed.uri.recipient_name == name
+        assert parsed.uri.tx_description == desc
+        assert parsed.uri.payment_id == ''
+        assert len(parsed.get('unknown_parameters', [])) == 0
+
+    def test_unknown_parameters(self, wallet, addr):
+        old = wallet.make_uri(address=addr, amount=239390140000000, tx_description='donation')
+        uri_with_unknown = old.uri + '&foo=bar&baz=quux'
+
+        parsed_v2 = wallet.parse_uri_v2(uri_with_unknown)
+        assert 'foo=bar' in parsed_v2.unknown_parameters and 'baz=quux' in parsed_v2.unknown_parameters
+
+        v2 = wallet.make_uri_v2(addresses=[addr], amounts=[239390140000000], recipient_names=[''], tx_description='')
+        v2_with_unknown = v2.uri + '&foo=bar&baz=quux'
+        parsed_old = wallet.parse_uri(v2_with_unknown)
+        assert 'foo=bar' in parsed_old.unknown_parameters and 'baz=quux' in parsed_old.unknown_parameters
 
 
 if __name__ == '__main__':
