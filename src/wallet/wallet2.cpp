@@ -14942,6 +14942,34 @@ std::string wallet2::decrypt_with_view_secret_key(const std::string &ciphertext,
   return decrypt(ciphertext, get_account().get_keys().m_view_secret_key, authenticated);
 }
 //----------------------------------------------------------------------------------------------------
+std::string wallet2::custom_conver_to_url_format(const std::string &uri) const
+{
+  std::string s = epee::net_utils::conver_to_url_format(uri);
+
+  // replace '=' with "%3D" and '?' with "%3F".
+  std::string result;
+  result.reserve(s.size());
+
+  for (char c : s)
+  {
+    if (c == '=')
+    {
+      result.append("%3D");
+    }
+    else if (c == '?')
+    {
+      result.append("%3F");
+      }
+      
+    else
+    {
+      result.push_back(c);
+    }      
+  }
+
+  return result;
+}
+//----------------------------------------------------------------------------------------------------
 std::string wallet2::make_uri(const std::vector<std::string> &addresses, const std::vector<std::uint64_t> &amounts, const std::vector<std::string> &recipient_names, const std::string &payment_id, const std::string &tx_description, std::string &error) const
 {
   if (addresses.empty())
