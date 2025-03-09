@@ -14886,6 +14886,19 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
         return false;
       }
     }
+    else if (kv[0] == "version")
+    {
+      if (kv[1] == "2.0")
+      {
+        error = "Unsupported Monero URI version '2.0' - please use independent parse_uri() function, i.e., the v2 version.";
+        return false;
+      }
+      else
+      {
+        error = std::string("Unsupported Monero URI version: ") + kv[1];
+        return false;
+      }
+    }
     else if (kv[0] == "tx_payment_id")
     {
       if (info.has_payment_id)
