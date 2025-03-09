@@ -41,6 +41,17 @@
   bool ret = w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
   ASSERT_EQ(ret, expected);
 
+#define PARSE_MULTI_URI(uri, expected) \
+  std::vector<std::string> addresses; \
+  std::vector<uint64_t> amounts; \
+  std::vector<std::string> recipient_names; \
+  std::string payment_id, description, error; \
+  std::vector<std::string> unknown_parameters; \
+  tools::wallet2 w(cryptonote::TESTNET); \
+  bool ret = w.parse_uri(uri, addresses, amounts, recipient_names, \
+                         payment_id, description, unknown_parameters, error); \
+  ASSERT_EQ(ret, expected);
+
 TEST(uri, empty_string)
 {
   PARSE_URI("", false);
@@ -213,3 +224,95 @@ TEST(uri, url_encoded_once)
   ASSERT_EQ(description, "foo 20");
 }
 
+
+TEST(uri, multiple_addresses_no_params)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS, true);
+  ASSERT_EQ(addresses.size(), 2);
+  ASSERT_EQ(addresses[0], TEST_ADDRESS);
+  ASSERT_EQ(addresses[1], TEST_ADDRESS);
+}
+
+TEST(uri, multiple_addresses_with_amounts)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=0.5;0.2", true);
+  ASSERT_EQ(addresses.size(), 2);
+  ASSERT_EQ(addresses[0], TEST_ADDRESS);
+  ASSERT_EQ(amounts[0], 500000000000);
+  ASSERT_EQ(addresses[1], TEST_ADDRESS);
+  ASSERT_EQ(amounts[1], 200000000000);
+}
+
+TEST(uri, multiple_addresses_with_recipient_names)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?recipient_name=Alice;Bob", true);
+  ASSERT_EQ(addresses.size(), 2);
+  ASSERT_EQ(addresses[0], TEST_ADDRESS);
+  ASSERT_EQ(recipient_names[0], "Alice");
+  ASSERT_EQ(addresses[1], TEST_ADDRESS);
+  ASSERT_EQ(recipient_names[1], "Bob");
+}
+
+TEST(uri, multiple_addresses_with_mismatched_amounts)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=0.5", false);
+}
+
+TEST(uri, multiple_addresses_with_mismatched_recipient_names)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?recipient_name=Alice", false);
+}
+
+TEST(uri, multiple_addresses_with_partial_params)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=0.5;0&recipient_name=Alice;", true);
+  ASSERT_EQ(addresses.size(), 2);
+  ASSERT_EQ(addresses[0], TEST_ADDRESS);
+  ASSERT_EQ(amounts[0], 500000000000);
+  ASSERT_EQ(recipient_names[0], "Alice");
+  ASSERT_EQ(addresses[1], TEST_ADDRESS);
+  ASSERT_EQ(amounts[1], 0);
+  ASSERT_EQ(recipient_names[1], "");
+}
+
+TEST(uri, multiple_addresses_with_unknown_params)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?unknown_param=123;456", true);
+  ASSERT_EQ(unknown_parameters.size(), 1);
+  ASSERT_EQ(unknown_parameters[0], "unknown_param=123;456");
+}
+
+TEST(uri, multiple_addresses_with_payment_id)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_payment_id=1234567890123456789012345678901234567890123456789012345678901234", true);
+  ASSERT_EQ(payment_id, "1234567890123456789012345678901234567890123456789012345678901234");
+}
+
+TEST(uri, multiple_addresses_with_invalid_payment_id)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_payment_id=123456", false);
+}
+
+TEST(uri, multiple_addresses_with_description)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_description=Payment%20for%20services", true);
+  ASSERT_EQ(description, "Payment for services");
+}
+
+TEST(uri, multiple_addresses_mismatched_params)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=0.5&recipient_name=Alice", false);
+}
+
+TEST(uri, multiple_addresses_all_params_correct)
+{
+  PARSE_MULTI_URI("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=0.5;0.2&recipient_name=Alice;Bob&tx_description=Payment%20for%20services", true);
+  ASSERT_EQ(addresses.size(), 2);
+  ASSERT_EQ(addresses[0], TEST_ADDRESS);
+  ASSERT_EQ(amounts[0], 500000000000);
+  ASSERT_EQ(recipient_names[0], "Alice");
+  ASSERT_EQ(addresses[1], TEST_ADDRESS);
+  ASSERT_EQ(amounts[1], 200000000000);
+  ASSERT_EQ(recipient_names[1], "Bob");
+  ASSERT_EQ(description, "Payment for services");
+}
