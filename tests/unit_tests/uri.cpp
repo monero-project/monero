@@ -28,9 +28,11 @@
 
 #include "gtest/gtest.h"
 #include "wallet/wallet2.h"
+#include "wallet/uri.hpp"
 
 #define TEST_ADDRESS "9tTLtauaEKSj7xoVXytVH32R1pLZBk4VV4mZFGEh4wkXhDWqw1soPyf3fGixf1kni31VznEZkWNEza9d5TvjWwq5PaohYHC"
 #define TEST_INTEGRATED_ADDRESS "A4A1uPj4qaxj7xoVXytVH32R1pLZBk4VV4mZFGEh4wkXhDWqw1soPyf3fGixf1kni31VznEZkWNEza9d5TvjWwq5acaPMJfMbn3ReTsBpp"
+#define TEST_INTEGRATED_ADDRESS2 "48UktANa1g71SkdXhHJ72kp4GZf2tvKwBzXjRSe5SZbFxjrjDwpT7obRksYzYpy5KN5wUGagY7q2aqFUDDhYSnA5Z6J82B5XZQGkDox9a"
 // included payment id: <f612cac0b6cb1cda>
 
 #define PARSE_URI(uri, expected) \
@@ -40,6 +42,20 @@
   tools::wallet2 w(cryptonote::TESTNET); \
   bool ret = w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error); \
   ASSERT_EQ(ret, expected);
+
+// newer function that supersedes the parse_uri in wallet2.
+#define PARSE_URI2(uri, expected) \
+  std::vector<std::string> addresses, recipient_names, unknown_parameters; \
+  std::vector<tools::wallet::tx_amount> amounts; \
+  std::string description, error; \
+  bool ret = tools::wallet::parse_uri(uri, addresses, amounts, recipient_names, description, unknown_parameters, error, cryptonote::TESTNET); \
+  ASSERT_EQ(ret, expected);
+
+#define MAKE_URI2(uri_var, addresses, amounts, recipient_names, description, expected) \
+  std::string uri_var; std::string err_##uri_var; \
+  uri_var = tools::wallet::make_uri(addresses, amounts, recipient_names, description, err_##uri_var, cryptonote::TESTNET); \
+  if (expected) ASSERT_TRUE(err_##uri_var.empty()); \
+  else ASSERT_FALSE(err_##uri_var.empty());
 
 TEST(uri, empty_string)
 {
@@ -213,3 +229,145 @@ TEST(uri, url_encoded_once)
   ASSERT_EQ(description, "foo 20");
 }
 
+
+TEST(uri, test_basic_multiple_recipient_uri_parsing)
+{
+  PARSE_URI2("monero:" TEST_ADDRESS "?version=2.0&address=" TEST_ADDRESS "&amount=0.5XMR&label=Alice"
+    "&address=" TEST_ADDRESS "&amount=0.2XMR&label=Bob"
+    "&tx_description=Payment%20for%20services", true);
+
+  ASSERT_EQ(addresses.size(), 3u);
+  ASSERT_EQ(addresses[0], TEST_ADDRESS);
+  ASSERT_EQ(addresses[2], TEST_ADDRESS);
+  ASSERT_EQ((uint64_t)amounts[1].amount, 500000000000ULL);
+  ASSERT_EQ((uint64_t)amounts[2].amount, 200000000000ULL);
+  ASSERT_EQ(recipient_names[1], "Alice");
+  ASSERT_EQ(recipient_names[2], "Bob");
+  ASSERT_EQ(description, "Payment for services");
+
+  {
+    PARSE_URI2("monero:" TEST_ADDRESS "?version=2.0&address=" TEST_ADDRESS "&unknown_param=123;456", true);
+    ASSERT_EQ(unknown_parameters.size(), 1u);
+    ASSERT_EQ(unknown_parameters[0], "unknown_param=123;456");
+  }
+}
+
+TEST(uri, test_parse_uri_v2_with_currencies)
+{
+  struct test_case {
+    const char* uri;
+    uint128 amount;
+    const char* currency;
+  };
+
+  const test_case cases[] = { 
+    { "monero:" TEST_ADDRESS "?version=2.0&amount=0.5BTC", (uint128)50000000ULL, "BTC" },
+    { "monero:" TEST_ADDRESS "?version=2.0&amount=12345.67890123456789ETH", uint128("12345678901234567890000"), "ETH" },
+    { "monero:" TEST_ADDRESS "?version=2.0&amount=12.34EUR", (uint128)1234ULL, "EUR" },
+  };
+
+  for (const auto& c : cases) {
+    PARSE_URI2(c.uri, true);
+    ASSERT_EQ(addresses.size(), 1u);
+    ASSERT_EQ(amounts[0].amount, c.amount);
+    ASSERT_EQ(amounts[0].currency, c.currency);
+  }
+}
+
+TEST(uri, test_make_uri_v2_with_currencies)
+{  
+  std::vector<tools::wallet::tx_amount> make_amounts = {
+    { (uint128)100000000ULL, "BTC" },
+    { (uint128)500000000000ULL, "XMR" }
+  };
+  std::vector<std::string> make_addresses = { TEST_ADDRESS, TEST_ADDRESS };
+  std::vector<std::string> make_recipient_names = { "Alice", "Bob" };
+
+  MAKE_URI2(uri, make_addresses, make_amounts, make_recipient_names, "multi-recipient payout",true);
+  PARSE_URI2(uri, true);
+  ASSERT_EQ(addresses.size(), 2u);
+  ASSERT_EQ(amounts[0].currency, "BTC");
+  ASSERT_EQ((uint64_t)amounts[0].amount, 100000000ULL);
+  ASSERT_EQ(amounts[1].currency, "XMR");
+  ASSERT_EQ((uint64_t)amounts[1].amount, 500000000000ULL);
+
+  make_amounts.pop_back();
+  make_addresses.pop_back();
+  make_recipient_names.pop_back();
+  MAKE_URI2(single_recipient_uri_with_currency, make_addresses, make_amounts, make_recipient_names, "btc payment", true);
+  {
+    PARSE_URI(single_recipient_uri_with_currency, false);
+  }
+}
+
+TEST(uri, test_make_uri_v2_uint64_overload)
+{
+  std::vector<std::string> make_addresses = { TEST_ADDRESS }, make_recipient_names = { "Dave" };
+  std::vector<uint64_t> make_amounts = { 250000000000ULL };
+  MAKE_URI2(uri, make_addresses, make_amounts, make_recipient_names, "quarter", true);
+  PARSE_URI2(uri, true);
+  ASSERT_EQ((uint64_t)amounts[0].amount, 250000000000ULL);
+  ASSERT_EQ(amounts[0].currency, std::string("XMR"));
+  ASSERT_EQ(recipient_names[0], std::string("Dave"));
+}
+
+TEST(uri, test_legacy_and_v2_uri_compatibility)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string error;
+  std::string old_uri = w.make_uri(TEST_ADDRESS, std::string(), 200000000000ULL, "old style", "Bob", error);
+  ASSERT_TRUE(error.empty());
+  {
+    PARSE_URI2(old_uri, true);
+    ASSERT_EQ(addresses.size(), 1u);
+    ASSERT_EQ((uint64_t)amounts[0].amount, 200000000000ULL);
+    ASSERT_EQ(recipient_names[0], std::string("Bob"));
+  }
+
+  std::vector<std::string> addresses = { TEST_ADDRESS }, recipient_names = { "Carol" };
+  std::vector<uint64_t> amounts = { 100000000000ULL };
+
+  MAKE_URI2(new_uri, addresses, amounts, recipient_names, "donation", true);
+  std::string address, payment_id, recipient_name, description;
+  uint64_t amount = 0;
+  std::vector<std::string> unknown_parameters;
+  bool r = w.parse_uri(new_uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error);
+  ASSERT_TRUE(r);
+  ASSERT_EQ(address, TEST_ADDRESS);
+  ASSERT_EQ(amount, 100000000000ULL);
+  ASSERT_EQ(recipient_name, "Carol");
+}
+
+TEST(uri, test_legacy_parse_uri_with_v2_uri)
+{
+  PARSE_URI("monero:" TEST_ADDRESS "?version=2.0&amount=0.5XMR&address=" TEST_ADDRESS, false);
+}
+
+TEST(uri, test_parse_uri_v2_with_partial_params)
+{
+  {
+    PARSE_URI2("monero:" TEST_ADDRESS "?version=2.0&amount=0.5XMR&address=" TEST_ADDRESS, true);
+    ASSERT_EQ(addresses.size(), 2u);
+    ASSERT_EQ((uint64_t)amounts[0].amount, 500000000000ULL);
+    ASSERT_EQ((uint64_t)amounts[1].amount, 0ULL);
+  }
+
+  {
+    PARSE_URI2("monero:" TEST_ADDRESS "?version=2.0&label=Alice&address=" TEST_ADDRESS, true);
+    ASSERT_EQ(recipient_names.size(), 2u);
+    ASSERT_EQ(recipient_names[0], "Alice");
+    ASSERT_EQ(recipient_names[1], "");
+  } 
+}
+
+TEST(uri, test_parse_uri_v2_with_malformed_uri)
+{
+  const char* bad_uris[] = {
+    "monero:" TEST_INTEGRATED_ADDRESS "?version=2.0&address=" TEST_INTEGRATED_ADDRESS2,
+    "monero:" TEST_ADDRESS TEST_ADDRESS "?tx_amount=0.5&recipient_name=Alice",
+  };
+
+  for (auto uri : bad_uris) {
+    PARSE_URI2(uri, false);
+  }
+}
