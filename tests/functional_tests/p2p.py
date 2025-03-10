@@ -44,7 +44,10 @@ class P2PTest():
         self.create()
         self.mine(80)
         self.test_p2p_reorg()
-        self.test_p2p_tx_propagation()
+        txid = self.test_p2p_tx_propagation()
+        self.test_p2p_block_propagation_shared(txid)
+        txid = self.test_p2p_tx_propagation()
+        self.test_p2p_block_propagation_new(txid)
 
     def reset(self):
         print('Resetting blockchain')
@@ -158,7 +161,6 @@ class P2PTest():
             loops -= 1
             assert loops >= 0
 
-
     def test_p2p_tx_propagation(self):
         print('Testing P2P tx propagation')
         daemons = (Daemon(idx=2), Daemon(idx=3))
@@ -201,6 +203,107 @@ class P2PTest():
             time.sleep(min(.2, max_delay))
         npending = len(pending_daemons)
         assert npending == 0, '%d daemons pending' % npending
+
+        return txid
+
+    def test_p2p_block_propagation_shared(self, mempool_txid):
+        print('Testing P2P block propagation with shared TX')
+        daemon2 = Daemon(idx = 2)
+        daemon3 = Daemon(idx = 3)
+
+        # check precondition: txid in daemon2's and daemon3's mempool
+        res = daemon2.get_transaction_pool_hashes()
+        assert mempool_txid in res.get('tx_hashes', [])
+
+        res = daemon3.get_transaction_pool_hashes()
+        assert mempool_txid in res.get('tx_hashes', [])
+
+        # mine block on daemon2
+        res = daemon2.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        block_height = res.height
+
+        # wait until both are synced, or 5 seconds, whichever is first.
+        # the timeout time should be very, very low here since block propagation, unlike tx propagation, is designed
+        # to be as fast as possible.
+        # and since both daemons already have the tx in their mempools, a notification of a new fluffy block, which is
+        # pushed out immediately upon being mined, should result in an instant addition of that block to the chain,
+        # without any round trips.
+        # this test should only fail if you're running it on a potato where PoW verification + check_tx_inputs() takes
+        # more than 5 second.
+        deadline = time.monotonic() + 5
+        result = None
+        while result is None:
+            res2 = daemon2.get_info()
+            res3 = daemon3.get_info()
+            if res2.top_block_hash == res3.top_block_hash:
+                result = True
+            elif time.monotonic() > deadline:
+                result = False
+            else:
+                time.sleep(.25)
+        assert result, "Shared tx block propagation timed out"
+
+        # check the tx is moved to both daemons's blockchains at top block
+        for daemon in [daemon2, daemon3]:
+            res = daemon.get_transaction_pool_hashes()
+            assert not 'tx_hashes' in res or len(res.tx_hashes) == 0
+
+            res = daemon.get_transactions([mempool_txid])
+            assert len(res.get('txs', [])) == 1
+            tx_details = res.txs[0]
+            assert ('in_pool' not in tx_details) or (not tx_details.in_pool)
+            assert tx_details.block_height == block_height
+
+    def test_p2p_block_propagation_new(self, mempool_txid):
+        # there's a big problem with this testcase in that there's not yet a way to prevent daemon's from syncing
+        # mempools only, but still allow block propagation. so there's a good chance that the transaction will be synced
+        # between daemons between when daemon2's mempool is flushed and when daemon3 mines a new block. in this
+        # scenario, this testcase basically just degenerates into test_p2p_block_propagation_shared(). however, if this
+        # one ever fails but test_p2p_block_propagation_shared() passes, then we might have actually caught a problem
+        # with block propagation when one of the daemons is missing a tx(s)
+
+        print('Testing P2P block propagation with (possibly) new TX')
+        daemon2 = Daemon(idx = 2)
+        daemon3 = Daemon(idx = 3)
+
+        # check precondition: txid in daemon3's mempool
+        res = daemon3.get_transaction_pool_hashes()
+        assert mempool_txid in res.get('tx_hashes', [])
+
+        # flush daemon2 mempool
+        daemon2.flush_txpool()
+
+        # mine block on daemon3
+        res = daemon3.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        block_height = res.height
+
+        # wait until both are synced, or 5 seconds, whichever is first.
+        # the timeout time should be very, very low here since block propagation, unlike tx propagation, is designed
+        # to be as fast as possible. however, it might have to be raised if the daemon actually does make a round trip
+        # to request a missing tx in a fluffy block
+        deadline = time.monotonic() + 5
+        result = None
+        while result is None:
+            res2 = daemon2.get_info()
+            res3 = daemon3.get_info()
+            if res2.top_block_hash == res3.top_block_hash:
+                result = True
+            elif time.monotonic() > deadline:
+                result = False
+            else:
+                time.sleep(.25)
+        assert result, "New tx block propagation timed out"
+
+        # check the tx is moved to both daemons's blockchains at top block
+        for daemon in [daemon2, daemon3]:
+            res = daemon.get_transaction_pool_hashes()
+            assert not 'tx_hashes' in res or len(res.tx_hashes) == 0
+
+            res = daemon.get_transactions([mempool_txid])
+            assert len(res.get('txs', [])) == 1
+            tx_details = res.txs[0]
+            assert ('in_pool' not in tx_details) or (not tx_details.in_pool)
+            assert tx_details.block_height == block_height
 
 
 if __name__ == '__main__':

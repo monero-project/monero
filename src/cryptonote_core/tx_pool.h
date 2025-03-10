@@ -113,7 +113,9 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      */
-    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
+      size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+      uint8_t version, uint8_t nic_verified_hf_version = 0);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -128,10 +130,18 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param relayed was this transaction from the network or a local client?
      * @param version the version used to create the transaction
+     * @param nic_verified_hf_version hard fork which "tx" is known to pass non-input consensus test
+     *
+     * If "nic_verified_hf_version" parameter is equal to "version" parameter, then we skip the
+     * asserting `ver_non_input_consensus(tx)`, which greatly speeds up block popping and returning
+     * txs to mempool for txs which we know will pass the test. If nothing is known about how "tx"
+     * passes the non-input consensus tests (e.g. for newly received relayed txs), then leave
+     * "nic_verified_hf_version" as its default value of 0 (there is no v0 fork).
      *
      * @return true if the transaction passes validations, otherwise false
      */
-    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed, uint8_t version);
+    bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+      uint8_t version, uint8_t nic_verified_hf_version = 0);
 
     /**
      * @brief takes a transaction with the given hash from the pool
@@ -145,10 +155,11 @@ namespace cryptonote
      * @param do_not_relay return-by-reference is transaction not to be relayed to the network?
      * @param double_spend_seen return-by-reference was a double spend seen for that transaction?
      * @param pruned return-by-reference is the tx pruned
+     * @param suppress_missing_msgs suppress warning msgs when txid is missing (optional, defaults to `false`)
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen, bool &pruned);
+    bool take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen, bool &pruned, bool suppress_missing_msgs = false);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
