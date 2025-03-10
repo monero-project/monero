@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,23 +28,55 @@
 
 #pragma once
 
-extern "C"
+//local headers
+#include "carrot_tx_builder_types.h"
+#include "span.h"
+
+//third party headers
+
+//standard headers
+#include <set>
+
+//forward declarations
+
+namespace carrot
 {
-#include "crypto-ops.h"
+struct CarrotPreSelectedInput
+{
+    CarrotSelectedInput core;
+
+    bool is_external;
+    uint64_t block_index;
+};
+
+enum class InputSelectionPolicy
+{
+    // Most of these schemes are going to be approximate, since finding true optimal solutions for
+    // a lot of these policies boil down to NP-hard problems, like 0-1 knapsack and CMP.
+    TwoInputsPreferOldest,
+    HighestUnlockedBalance,
+    LowestInputCountAndFee,
+    ConsolidateDiscretized,
+    ConsolidateFast,
+    OldestInputs
+};
+
+namespace InputSelectionFlags
+{
+    static constexpr std::uint32_t ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS = 1 << 0;
+    static constexpr std::uint32_t ALLOW_MIXED_INTERNAL_EXTERNAL             = 1 << 1;
+    static constexpr std::uint32_t IS_KNOWN_FEE_SUBTRACTABLE                 = 1 << 2;
+    static constexpr std::uint32_t ALLOW_DUST                                = 1 << 3;
 }
-#include "crypto.h"
 
-namespace crypto
-{
+// - amount
+// - key image
+// - internal vs external
+// - height
 
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-
-} //namespace crypto
+select_inputs_func_t make_single_transfer_input_selector(
+    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputSelectionPolicy> policies,
+    const std::uint32_t flags,
+    std::set<size_t> *selected_input_indices_out);
+} //namespace carrot

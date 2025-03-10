@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -25,26 +25,37 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
 
-extern "C"
+//local headers
+#include "carrot_core/core_types.h"
+
+//third party headers
+#include <boost/serialization/utility.hpp>
+
+//standard headers
+
+//forward declarations
+
+namespace boost
 {
-#include "crypto-ops.h"
+namespace serialization
+{
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::view_tag_t &x, const boost::serialization::version_type ver)
+{
+    a & x.bytes;
 }
-#include "crypto.h"
-
-namespace crypto
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::encrypted_janus_anchor_t &x, const boost::serialization::version_type ver)
 {
-
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-
-} //namespace crypto
+    a & x.bytes;
+}
+//---------------------------------------------------
+} //namespace serialization
+} //namespace boot
