@@ -1,15 +1,15 @@
 package=boost                                                                                                                                                                                                                      
-$(package)_version=1.66.0
+$(package)_version=1.69.0
 $(package)_download_path=https://archives.boost.io/release/$($(package)_version)/source/
 $(package)_file_name=$(package)_$(subst .,_,$($(package)_version)).tar.gz
-$(package)_sha256_hash=bd0df411efd9a585e5a2212275f8762079fed8842264954675a4fddc46cfcf60
+$(package)_sha256_hash=9a2c2819310839ea373f42d69e733c339b4e9a19deab6bfec448281554aa4dbb
 $(package)_dependencies=libiconv
 $(package)_patches=fix_aroptions.patch fix_arm_arch.patch
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
 $(package)_config_opts_debug=variant=debug
-$(package)_config_opts=--layout=tagged --build-type=complete --user-config=user-config.jam
+$(package)_config_opts+=--layout=system --user-config=user-config.jam
 $(package)_config_opts+=threading=multi link=static -sNO_BZIP2=1 -sNO_ZLIB=1
 $(package)_config_opts_linux=threadapi=pthread runtime-link=shared
 $(package)_config_opts_android=threadapi=pthread runtime-link=static target-os=android
@@ -25,7 +25,7 @@ $(package)_archiver_darwin=$($(package)_libtool)
 $(package)_config_libraries=chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization,locale
 $(package)_cxxflags=-std=c++11
 $(package)_cxxflags_linux=-fPIC
-$(package)_cxxflags_freebsd=-fPIC -DBOOST_ASIO_HAS_STD_STRING_VIEW=1
+$(package)_cxxflags_freebsd=-fPIC
 endef
 
 define $(package)_preprocess_cmds
