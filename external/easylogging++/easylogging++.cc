@@ -1244,11 +1244,19 @@ std::string OS::currentHost(void) {
 #endif  // ELPP_OS_UNIX && !ELPP_OS_ANDROID
 }
 
+static bool endswith(const std::string &s, const std::string &ending)
+{
+    return s.size() >= ending.size() && s.substr(s.size() - ending.size()) == ending;
+}
+
+bool OS::termSupportsColor(std::string& term) {
+  return term == "xterm" || term == "screen" || term == "linux" || term == "cygwin"
+        || endswith(term, "-color") || endswith(term, "-256color");
+}
+
 bool OS::termSupportsColor(void) {
   std::string term = getEnvironmentVariable("TERM", "");
-  return term == "xterm" || term == "xterm-color" || term == "xterm-256color"
-         || term == "screen" || term == "linux" || term == "cygwin"
-         || term == "screen-256color" || term == "screen.xterm-256color";
+  return termSupportsColor(term);
 }
 
 // DateTime
