@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2024, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,23 +28,19 @@
 
 #pragma once
 
-extern "C"
+//local headers
+#include "crypto/crypto.h"
+
+//third party headers
+
+//standard headers
+
+//forward declarations
+
+namespace carrot
 {
-#include "crypto-ops.h"
+static inline bool compare_input_key_images(const crypto::key_image lhs, const crypto::key_image &rhs)
+{
+    return memcmp(lhs.data, rhs.data, sizeof(crypto::key_image)) > 0;
 }
-#include "crypto.h"
-
-namespace crypto
-{
-
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-
-} //namespace crypto
+} //namespace carrot
