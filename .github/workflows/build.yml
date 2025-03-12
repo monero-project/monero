@@ -15,7 +15,7 @@ env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
   BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all && cmake --build build --target wallet_api'
-  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
+  APT_INSTALL_LINUX: 'apt -y install build-essential cargo cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
     Acquire::Retries "3";
@@ -72,7 +72,7 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           update: true
-          install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git pkg-config
+          install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound mingw-w64-x86_64-rust git pkg-config
       - uses: ./.github/actions/set-make-job-count
       - name: build
         run: |
@@ -86,7 +86,7 @@ jobs:
       image: archlinux:latest
     steps:
       - name: install dependencies
-        run: pacman -Syyu --noconfirm base-devel git cmake boost openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
+        run: pacman -Syyu --noconfirm base-devel git rust cmake boost openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v4
@@ -113,6 +113,14 @@ jobs:
         run: apt update
       - name: install monero dependencies
         run: ${{env.APT_INSTALL_LINUX}}
+      - name: install rust
+        # Debian 10 ships Rust 1.41.1. We need >=1.69 to build FCMP++.
+        run: |
+          curl -O https://static.rust-lang.org/rustup/archive/1.27.1/x86_64-unknown-linux-gnu/rustup-init
+          echo "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d rustup-init" | sha256sum -c
+          chmod +x rustup-init
+          ./rustup-init -y --default-toolchain 1.69
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v4
