@@ -26,6 +26,18 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+monero_add_library(blockchain_db_utils
+  blockchain_db_utils.cpp
+)
+
+target_link_libraries(blockchain_db_utils
+  PUBLIC
+    cncrypto
+    cryptonote_basic
+    epee
+    ringct
+)
+
 set(blockchain_db_sources
   blockchain_db.cpp
   lmdb/db_lmdb.cpp
@@ -43,8 +55,10 @@ monero_add_library(blockchain_db
   ${blockchain_db_private_headers})
 target_link_libraries(blockchain_db
   PUBLIC
+    blockchain_db_utils
     common
     cncrypto
+    fcmp_pp
     ringct
     ${LMDB_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
