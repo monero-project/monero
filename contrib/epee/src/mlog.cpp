@@ -395,12 +395,41 @@ void set_console_color(int color, bool bright)
 #endif
     }
     break;
+  case console_colorblind_light_red:
+    {
+#ifdef WIN32
+      int lightRedCode = 12;
+      HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+      SetConsoleTextAttribute(h_stdout, lightRedCode | (bright ? FOREGROUND_INTENSITY:0));
+#else
+      // TODO: Find the equivalent Linux color. Do not merge until this is addressed.
+      if(bright)
+        std::cout << "\033[1;31m";
+      else
+        std::cout << "\033[0;31m";
+#endif
+    }
   case console_color_green:
     {
 #ifdef WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_GREEN | (bright ? FOREGROUND_INTENSITY:0));
 #else
+      if(bright)
+        std::cout << "\033[1;32m";
+      else
+        std::cout << "\033[0;32m";
+#endif
+    }
+    break;
+  case console_colorblind_light_green:
+    {
+#ifdef WIN32
+      int lightGreenCode = 10;
+      HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+      SetConsoleTextAttribute(h_stdout, lightGreenCode | (bright ? FOREGROUND_INTENSITY:0));
+#else
+      // TODO: Find the equivalent Linux color. Do not merge until this is addressed.
       if(bright)
         std::cout << "\033[1;32m";
       else
