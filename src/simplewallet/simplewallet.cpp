@@ -8724,7 +8724,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       }
     }
 
-    auto message_writer = [&m_console_writer](const auto& transfer)
+    auto message_writer = [this](const auto& transfer)
     {
         if (transfer.type == "failed")
         {
@@ -10656,7 +10656,7 @@ void simple_wallet::list_mms_messages(const std::vector<mms::message> &messages)
     const mms::message &m = messages[i];
     const mms::authorized_signer &signer = ms.get_signer(m.signer_index);
     bool highlight = (m.state == mms::message_state::ready_to_send) || (m.state == mms::message_state::waiting);
-    auto message_writer = [&m_console_writer](const auto direction, const bool highlight)
+    auto message_writer = [this](const auto direction, const bool highlight)
     {
         if (direction == mms::message_direction::out)
         {
