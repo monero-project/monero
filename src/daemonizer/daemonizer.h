@@ -32,6 +32,8 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 
+#include <common/command_line.h>
+
 namespace daemonizer
 {
   void init_options(
@@ -60,8 +62,8 @@ namespace daemonizer
     
   const command_line::arg_descriptor<bool> arg_non_interactive = {
       "non-interactive"
-    , "Run non-interactive"
-    };
+      , "Run non-interactive"
+  };
 }
 
 #ifdef WIN32

@@ -75,6 +75,7 @@ target_link_libraries(common
     ${Boost_REGEX_LIBRARY}
     ${Boost_CHRONO_LIBRARY}
   PRIVATE
+    ${EPEE_READLINE}
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
 target_include_directories(common

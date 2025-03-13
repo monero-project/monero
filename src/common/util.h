@@ -126,13 +126,57 @@ namespace tools
 
 #ifdef WIN32
   /**
-   * @brief 
-   *
-   * @param nfolder
-   * @param iscreate
-   *
-   * @return 
-   */
+    * @brief Relaunches the application with administrator privileges.
+    *
+    * Attempts to re-execute the given command with the specified arguments under elevated privileges.
+    *
+    * @param command The executable command to relaunch.
+    * @param arguments The command-line arguments to pass.
+    * @return true if the relaunch was successful, false otherwise.
+    */
+  bool relaunch_as_admin(std::string const &command, std::string const &arguments);
+
+  /**
+    * @brief Ensures the process is running with administrator privileges.
+    *
+    * Checks if the current process has administrative rights and relaunches the process with elevated privileges if needed.
+    *
+    * @param arguments The command-line arguments for the elevated relaunch.
+    * @return true if the process is or has been relaunched as admin, false if the check or relaunch fails.
+    */
+  bool ensure_admin(std::string const &arguments);
+
+  /**
+    * @brief Retrieves the last system error as a human-readable string.
+    *
+    * @return A string describing the last error.
+    */
+  std::string get_last_error();
+
+  /**
+    * @brief Pauses execution to allow the user to read admin-related messages.
+    *
+    * This is used when relaunching the application as an administrator on Windows.
+    */
+  void pause_to_display_admin_window_messages();
+
+  /**
+    * @brief Checks if the current process is running with administrator privileges.
+    *
+    * @param result [out] Set to true if running as admin, false otherwise.
+    * @return true on success, false if there was an error performing the check.
+    */
+  bool check_admin(bool & result);
+
+  /**
+    * @brief Retrieves the path of a special folder.
+    *
+    * For example, CSIDL_APPDATA and CSIDL_COMMON_APPDATA are mapped appropriately.
+    *
+    * @param nfolder An identifier specifying the folder (e.g., CSIDL_APPDATA).
+    * @param iscreate If true, the folder is created if it does not exist.
+    * @return The folder path as a string.
+    */
   std::string get_special_folder_path(int nfolder, bool iscreate);
 #endif
 
