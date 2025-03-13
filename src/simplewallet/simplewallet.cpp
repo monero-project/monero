@@ -5621,7 +5621,7 @@ void simple_wallet::on_money_spent(uint64_t height, const crypto::hash &txid, co
 {
   if (m_locked)
     return;
-  message_writer(console_color_magenta, false) << "\r" <<
+  m_console_writer->GetMagentaMessageWriter() << "\r" <<
     tr("Height ") << height << ", " <<
     tr("txid ") << txid << ", " <<
     tr("spent ") << print_money(amount) << ", " <<
@@ -5990,7 +5990,8 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         const std::pair<std::string, std::string> line = show_outputs_line(heights, blockchain_height, idx);
         extra_string += std::string("\n    ") + tr("Used at heights: ") + line.first + "\n    " + line.second;
       }
-      message_writer(td.m_spent ? console_color_magenta : console_color_green, false) <<
+      auto message_writer = td.m_spent ? m_console_writer->GetMagentaConsoleWriter() : m_console_writer->GetSuccessConsoleWriter();
+      message_writer <<
         boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
         print_money(td.amount()) %
         (td.m_spent ? tr("T") : tr("F")) %
@@ -8711,8 +8712,6 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
   for (const auto& transfer : all_transfers)
   {
-    const auto color = transfer.type == "failed" ? console_color_red : transfer.confirmed ? ((transfer.direction == "in" || transfer.direction == "block") ? console_color_green : console_color_magenta) : console_color_default;
-
     std::string destinations = "-";
     if (!transfer.outputs.empty())
     {
@@ -8725,7 +8724,31 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
       }
     }
 
-    message_writer(color, false) << formatter
+    auto message_writer = [&m_console_writer](const auto& transfer)
+    {
+        if (transfer.type == "failed")
+        {
+            return m_console_writer->GetFailureMessageWriter();
+        }
+        else if (transfer.confirmed)
+        {
+            if (transfer.direction == "in" || transfer.direction == "block")
+            {
+                return m_console_writer->GetSuccessMessageWriter();
+            }
+            else
+            {
+                return m_console_writer->GetMagentaMessageWriter();
+            }
+        }
+        else
+        {
+            return m_console_writer->GetMessageWriter();
+        }
+    }
+    (transfer);
+
+    message_writer << formatter
       % transfer.block
       % transfer.direction
       % transfer.unlocked
@@ -9077,7 +9100,7 @@ void simple_wallet::check_for_messages()
     bool new_message = get_message_store().check_for_messages(get_multisig_wallet_state(), new_messages);
     if (new_message)
     {
-      message_writer(console_color_magenta, true) << tr("MMS received new message");
+      m_console_writer->GetBrightMagentaMessageWriter() << tr("MMS received new message");
       list_mms_messages(new_messages);
       m_cmd_binder.print_prompt();
     }
@@ -10633,7 +10656,19 @@ void simple_wallet::list_mms_messages(const std::vector<mms::message> &messages)
     const mms::message &m = messages[i];
     const mms::authorized_signer &signer = ms.get_signer(m.signer_index);
     bool highlight = (m.state == mms::message_state::ready_to_send) || (m.state == mms::message_state::waiting);
-    message_writer(m.direction == mms::message_direction::out ? console_color_green : console_color_magenta, highlight) <<
+    auto message_writer = [&m_console_writer](const auto direction, const bool highlight)
+    {
+        if (direction == mms::message_direction::out)
+        {
+            return highlight ? m_console_writer->GetBrightGreenMessageWriter() : m_console_writer->GetSuccessMessageWriter();
+        }
+        else
+        {
+            return highlight ? m_console_writer->GetBrightMagentaMessageWriter() : m_console_writer->GetMagentaMessageWriter();
+        }
+    }
+    (m.direction, highlight);
+    message_writer <<
             boost::format("%4s %-4s %-30s %-21s %7s %3s %-15s %-40s") %
             m.id %
             ms.message_direction_to_string(m.direction) %

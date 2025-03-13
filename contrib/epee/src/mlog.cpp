@@ -480,6 +480,22 @@ void set_console_color(int color, bool bright)
     }
     break;
 
+  case console_colorblind_magenta:
+    {
+#ifdef WIN32
+      HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+      int colorblindMagentaCode = 13;
+      SetConsoleTextAttribute(h_stdout, colorblindMagentaCode | (bright ? FOREGROUND_INTENSITY:0));
+#else
+      // TODO: Find the equivalent Linux color. Do not merge until this is addressed.
+      if(bright)
+        std::cout << "\033[1;35m";
+      else
+        std::cout << "\033[0;35m";
+#endif
+    }
+    break;
+
   case console_color_yellow:
     {
 #ifdef WIN32

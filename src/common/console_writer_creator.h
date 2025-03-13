@@ -20,8 +20,11 @@ namespace tools
         virtual scoped_message_writer GetFailureMessageWriter() const = 0;
         virtual scoped_message_writer GetBrightRedMessageWriter() const = 0;
         virtual scoped_message_writer GetBrightGreenMessageWriter() const = 0;
+        virtual scoped_message_writer GetBrightMagentaMessageWriter() const = 0;
+        virtual scoped_message_writer GetMagentaMessageWriter() const = 0;
         scoped_message_writer GetMessageWriter() { return GetCustomMessageWriter(epee::console_color_default); }
-        scoped_message_writer GetCustomMessageWriter(epee:console_colors custom_color) const { return msg_writer(custom_color); }
+        scoped_message_writer GetCustomMessageWriter(epee:console_colors custom_color) const { return msg_writer(custom_color, false); }
+        scoped_message_writer GetBrightCustomMessageWriter(epee:console_colors custom_color) const { return msg_writer(custom_color, true); }
         virtual IMessageWriter() = default;
     };
 
@@ -30,17 +33,21 @@ namespace tools
     public:
         scoped_message_writer GetSuccessMessageWriter() const override { return success_msg_writer(); }
         scoped_message_writer GetFailureMessageWriter() const override { return fail_msg_writer(); }
-        scoped_message_writer GetBrightRedMessageWriter() const override { return msg_writer(epee::console_color_red, true); }
-        scoped_message_writer GetBrightGreenMessageWriter() const override { return msg_writer(epee:console_color_green, true); }
+        scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightMessageWriter(epee::console_color_red); }
+        scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightMessageWriter(epee:console_color_green); }
+        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightMessageWriter(epee::conole_color_magenta); }
+        scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_color_magenta); }
     };
 
     class ColorblindMessageWriter : public IMessageWriter
     {
     public:
-        scoped_message_writer GetSuccessMessageWriter() const override { return msg_writer(epee::console_colorblind_light_green); }
-        scoped_message_writer GetFailureMessageWriter() const override { return msg_writer(epee::console_colorblind_light_red); }
-        scoped_message_writer GetBrightRedMessageWriter() const override { return msg_writer(epee::console_colorblind_light_red, true); }
-        scoped_message_writer GetBrightGreenMessageWriter() const override { return msg_writer(epee::console_colorblind_light_green, true); }
+        scoped_message_writer GetSuccessMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_light_green); }
+        scoped_message_writer GetFailureMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_light_red); }
+        scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_light_red); }
+        scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_light_green); }
+        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightMessageWriter(epee::conole_colorblind_magenta); }
+        scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_magenta); }
     };
 
     class MessageWriterFactory

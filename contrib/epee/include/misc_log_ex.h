@@ -217,6 +217,7 @@ enum console_colors
   console_color_yellow,
   console_colorblind_light_green,
   console_colorblind_light_red,
+  console_colorblind_magenta,
 };
 
 bool is_stdout_a_tty();
