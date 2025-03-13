@@ -2934,7 +2934,7 @@ bool simple_wallet::set_inactivity_lock_timeout(const std::vector<std::string> &
     }
     else
     {
-      tools::m_console_writer->GetFailureMessageWriter() << tr("Invalid number of seconds");
+      m_console_writer->GetFailureMessageWriter() << tr("Invalid number of seconds");
     }
   }
   return true;
