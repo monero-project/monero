@@ -4829,7 +4829,7 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
     if (was_deprecated_wallet)
     {
       // The user had used an older version of the wallet with old style mnemonics.
-      message_writer(console_color_green, false) << "\n" << tr("You had been using "
+      m_console_writer->GetSuccessMessageWriter() << "\n" << tr("You had been using "
         "a deprecated version of the wallet. Please use the new seed that we provide.\n");
     }
     mnemonic_language = get_mnemonic_language();
@@ -5099,7 +5099,7 @@ boost::optional<epee::wipeable_string> simple_wallet::open_wallet(const boost::p
       }
       if (is_deterministic)
       {
-        message_writer(console_color_green, false) << "\n" << tr("You had been using "
+        m_console_writer->GetSuccessMessageWriter() << "\n" << tr("You had been using "
           "a deprecated version of the wallet. Please proceed to upgrade your wallet.\n");
         std::string mnemonic_language = get_mnemonic_language();
         if (mnemonic_language.empty())
@@ -5114,7 +5114,7 @@ boost::optional<epee::wipeable_string> simple_wallet::open_wallet(const boost::p
       }
       else
       {
-        message_writer(console_color_green, false) << "\n" << tr("You had been using "
+        m_console_writer->GetSuccessMessageWriter() << "\n" << tr("You had been using "
           "a deprecated version of the wallet. Your wallet file format is being upgraded now.\n");
         m_wallet->rewrite(m_wallet_file, password);
       }
@@ -5282,7 +5282,7 @@ void simple_wallet::stop_background_mining()
       return;
     }
   }
-  message_writer(console_color_red, false) << tr("Background mining not enabled. Run \"set setup-background-mining 1\" to change.");
+  m_console_writer->GetFailureMessageWriter() << tr("Background mining not enabled. Run \"set setup-background-mining 1\" to change.");
 }
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::check_background_mining(const epee::wipeable_string &password)
@@ -5294,7 +5294,7 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
   tools::wallet2::BackgroundMiningSetupType setup = m_wallet->setup_background_mining();
   if (setup == tools::wallet2::BackgroundMiningNo)
   {
-    message_writer(console_color_red, false) << tr("Background mining not enabled. Run \"set setup-background-mining 1\" to change.");
+    m_console_writer->GetFailureMessageWriter() << tr("Background mining not enabled. Run \"set setup-background-mining 1\" to change.");
     return;
   }
 
@@ -5335,7 +5335,7 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
     if (std::cin.eof() || !command_line::is_yes(accepted)) {
       m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningNo);
       m_wallet->rewrite(m_wallet_file, password);
-      message_writer(console_color_red, false) << tr("Background mining not enabled. Set setup-background-mining to 1 to change.");
+      m_console_writer->GetFailureMessageWriter() << tr("Background mining not enabled. Set setup-background-mining to 1 to change.");
       return;
     }
     m_wallet->setup_background_mining(tools::wallet2::BackgroundMiningYes);
@@ -5567,7 +5567,7 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
   if (burnt != 0) {
     burn << " (" << print_money(amount) << " yet " << print_money(burnt) << " was burnt)";
   }
-  message_writer(console_color_green, false) << "\r" <<
+  m_console_writer->GetSuccessMessageWriter() << "\r" <<
     tr("Height ") << height << ", " <<
     tr("txid ") << txid << ", " <<
     print_money(amount - burnt) << burn.str() << ", " <<
@@ -5599,7 +5599,7 @@ void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
 
     crypto::hash payment_id = crypto::null_hash;
     if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-      message_writer(console_color_red, false) <<
+      m_console_writer->GetFailureMessageWriter() <<
         tr("WARNING: this transaction uses an unencrypted payment ID: these are obsolete and ignored. Use subaddresses instead.");
   }
   if (unlock_time && !cryptonote::is_coinbase(tx))
@@ -5645,7 +5645,7 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
   // can't ask for password from a background thread
   if (!m_in_manual_refresh.load(std::memory_order_relaxed))
   {
-    message_writer(console_color_red, false) << boost::format(tr("Password needed (%s) - use the refresh command")) % reason;
+    m_console_writer->GetFailureMessageWriter() << boost::format(tr("Password needed (%s) - use the refresh command")) % reason;
     m_cmd_binder.print_prompt();
     return boost::none;
   }
@@ -5721,7 +5721,7 @@ void simple_wallet::on_refresh_finished(uint64_t start_height, uint64_t fetched_
 
   std::string accepted = input_line(tr("Do you want to do it now? (Y/Yes/N/No): "));
   if (std::cin.eof() || !command_line::is_yes(accepted)) {
-    message_writer(console_color_red, false) << tr("hw_key_images_sync skipped. Run command manually before a transfer.");
+    m_console_writer->GetFailureMessageWriter() << tr("hw_key_images_sync skipped. Run command manually before a transfer.");
     return;
   }
 
@@ -9194,7 +9194,7 @@ bool simple_wallet::run()
   m_auto_refresh_enabled = !m_wallet->is_offline() && m_wallet->auto_refresh();
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
-  message_writer(console_color_green, false) << "Background refresh thread started";
+  m_console_writer->GetSuccessMessageWriter() << "Background refresh thread started";
   return m_cmd_binder.run_handling([this](){return get_prompt();}, "");
 }
 //----------------------------------------------------------------------------------------------------
