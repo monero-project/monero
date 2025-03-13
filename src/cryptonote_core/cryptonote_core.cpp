@@ -98,15 +98,23 @@ namespace cryptonote
   , 0
   };
   const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir = {
-    "data-dir"
-  , "Specify data directory"
-  , tools::get_default_data_dir()
-  , {{ &arg_testnet_on, &arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-      if (testnet_stagenet[0])
+    "data-dir",
+    "Specify data directory",
+    tools::get_default_data_dir(),  // only applies if user doesn't override
+    {{ &arg_testnet_on, &arg_stagenet_on }},
+    [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
+      // If user set --data-dir explicitly, do not append subfolders
+      if (!defaulted) {
+        return val;
+      }
+      // Otherwise, if testnet or stagenet is toggled, append to the default
+      if (testnet_stagenet[0]) {
         return (boost::filesystem::path(val) / "testnet").string();
-      else if (testnet_stagenet[1])
+      }
+      else if (testnet_stagenet[1]) {
         return (boost::filesystem::path(val) / "stagenet").string();
+      }
+      // If not testnet or stagenet, just use tools::get_default_data_dir()
       return val;
     }
   };
