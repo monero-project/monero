@@ -5990,7 +5990,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
         const std::pair<std::string, std::string> line = show_outputs_line(heights, blockchain_height, idx);
         extra_string += std::string("\n    ") + tr("Used at heights: ") + line.first + "\n    " + line.second;
       }
-      auto message_writer = td.m_spent ? m_console_writer->GetMagentaConsoleWriter() : m_console_writer->GetSuccessConsoleWriter();
+      auto message_writer = td.m_spent ? m_console_writer->GetMagentaMessageWriter() : m_console_writer->GetSuccessMessageWriter();
       message_writer <<
         boost::format("%21s%8s%12s%8s%16u%68s%16u%s") %
         print_money(td.amount()) %
