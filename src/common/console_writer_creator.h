@@ -26,8 +26,8 @@ namespace tools
         virtual ~IMessageWriter() = default;
 
     protected:
-        scoped_message_writer GetCustomMessageWriter(epee:console_colors custom_color) const { return msg_writer(custom_color, false); }
-        scoped_message_writer GetBrightCustomMessageWriter(epee:console_colors custom_color) const { return msg_writer(custom_color, true); }
+        scoped_message_writer GetCustomMessageWriter(epee::console_colors custom_color) const { return msg_writer(custom_color, false); }
+        scoped_message_writer GetBrightCustomMessageWriter(epee::console_colors custom_color) const { return msg_writer(custom_color, true); }
     };
 
     class StandardMessageWriter : public IMessageWriter
