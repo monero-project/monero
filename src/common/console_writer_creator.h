@@ -35,9 +35,9 @@ namespace tools
     public:
         scoped_message_writer GetSuccessMessageWriter() const override { return success_msg_writer(); }
         scoped_message_writer GetFailureMessageWriter() const override { return fail_msg_writer(); }
-        scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightMessageWriter(epee::console_color_red); }
-        scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightMessageWriter(epee:console_color_green); }
-        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightMessageWriter(epee::conole_color_magenta); }
+        scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_color_red); }
+        scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_color_green); }
+        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_color_magenta); }
         scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_color_magenta); }
     };
 
@@ -48,13 +48,14 @@ namespace tools
         scoped_message_writer GetFailureMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_light_red); }
         scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_light_red); }
         scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_light_green); }
-        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightMessageWriter(epee::conole_colorblind_magenta); }
+        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_magenta); }
         scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_magenta); }
     };
 
     class MessageWriterFactory
     {
     public:
+        static std::shared_ptr<IMessageWriter> GetMessageWriter(bool colorblindMode) { return GetMessageWriter(colorblindMode ? ConsoleWriterMode::Colorblind : ConsoleWriterMode::Standard); }
         static std::shared_ptr<IMessageWriter> GetMessageWriter(ConsoleWriterMode mode)
         {
             static std::unordered_map<ConsoleWriterMode, std::shared_ptr<IMessageWriter>> writers

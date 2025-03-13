@@ -326,7 +326,7 @@ namespace
     auto pwd_container = tools::password_container::prompt(verify, prompt);
     if (!pwd_container)
     {
-      m_console_writer->GetFailureMessageWriter() << sw::tr("failed to read password");
+      tools::fail_msg_writer() << sw::tr("failed to read password");
     }
     return pwd_container;
   }
@@ -363,11 +363,6 @@ namespace
   }
 
   // TODO: Remove these three methods.
-  tools::scoped_message_writer success_msg_writer(bool color = false)
-  {
-    return tools::scoped_message_writer(color ? console_color_green : console_color_default, false, std::string(), el::Level::Info);
-  }
-
   tools::scoped_message_writer message_writer(epee::console_colors color = epee::console_color_default, bool bright = false)
   {
     return tools::scoped_message_writer(color, bright);
@@ -417,7 +412,7 @@ namespace
     }
     else
     {
-      m_console_writer->GetFailureMessageWriter() << sw::tr("invalid argument: must be either 0/1, true/false, y/n, yes/no");
+      fail_msg_writer() << sw::tr("invalid argument: must be either 0/1, true/false, y/n, yes/no");
       return false;
     }
   }
@@ -445,7 +440,7 @@ namespace
         return true;
       }
     }
-    m_console_writer->GetFailureMessageWriter() << cryptonote::simple_wallet::tr("failed to parse refresh type");
+    fail_msg_writer() << cryptonote::simple_wallet::tr("failed to parse refresh type");
     return false;
   }
 
@@ -480,7 +475,7 @@ namespace
         return true;
       }
     }
-    m_console_writer->GetFailureMessageWriter() << cryptonote::simple_wallet::tr("failed to parse background sync type");
+    fail_msg_writer() << cryptonote::simple_wallet::tr("failed to parse background sync type");
     return false;
   }
 
@@ -550,7 +545,7 @@ namespace
       uint32_t subaddr_index;
       if(!epee::string_tools::get_xtype_from_string(subaddr_index, subaddr_index_str))
       {
-        m_console_writer->GetFailureMessageWriter() << sw::tr("failed to parse index: ") << subaddr_index_str;
+        fail_msg_writer() << sw::tr("failed to parse index: ") << subaddr_index_str;
         subaddr_indices.clear();
         return false;
       }
@@ -563,7 +558,7 @@ namespace
   {
     auto r = tools::parse_subaddress_lookahead(str);
     if (!r)
-      m_console_writer->GetFailureMessageWriter() << sw::tr("invalid format for subaddress lookahead; must be <major>:<minor>");
+      fail_msg_writer() << sw::tr("invalid format for subaddress lookahead; must be <major>:<minor>");
     return r;
   }
 
@@ -591,7 +586,7 @@ namespace
       {
         if (0 != strncmp(p, "all", 3))
         {
-          m_console_writer->GetFailureMessageWriter() << tr("Failed to parse subtractfeefrom list");
+          fail_msg_writer() << tr("Failed to parse subtractfeefrom list");
           return false;
         }
         subtract_fee_from_all = true;
@@ -599,7 +594,7 @@ namespace
       }
       else if (dest_index > std::numeric_limits<uint32_t>::max())
       {
-        m_console_writer->GetFailureMessageWriter() << tr("Destination index is too large") << ": " << dest_index;
+        fail_msg_writer() << tr("Destination index is too large") << ": " << dest_index;
         return false;
       }
       else
@@ -744,7 +739,7 @@ namespace
     {
       if (boost::ends_with(filename, ".keys"))
       {
-        m_console_writer->GetFailureMessageWriter() << boost::format(sw::tr("File %s likely stores wallet private keys! Use a different file name.")) % filename;
+        fail_msg_writer() << boost::format(sw::tr("File %s likely stores wallet private keys! Use a different file name.")) % filename;
         return false;
       }
       return command_line::is_yes(input_line((boost::format(sw::tr("File %s already exists. Are you sure to overwrite it?")) % filename).str(), true));
@@ -2920,7 +2915,7 @@ bool simple_wallet::set_show_wallet_name_when_locked(const std::vector<std::stri
 bool simple_wallet::set_inactivity_lock_timeout(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
 #ifdef _WIN32
-  tools::m_console_writer->GetFailureMessageWriter() << tr("Inactivity lock timeout disabled on Windows");
+  m_console_writer->GetFailureMessageWriter() << tr("Inactivity lock timeout disabled on Windows");
   return true;
 #endif
   const auto pwd_container = get_and_verify_password();
@@ -3997,7 +3992,7 @@ static bool datestr_to_int(const std::string &heightstr, uint16_t &year, uint8_t
 {
   if (heightstr.size() != 10 || heightstr[4] != '-' || heightstr[7] != '-')
   {
-    m_console_writer->GetFailureMessageWriter() << tr("date format must be YYYY-MM-DD");
+    fail_msg_writer() << tr("date format must be YYYY-MM-DD");
     return false;
   }
   try
@@ -4009,7 +4004,7 @@ static bool datestr_to_int(const std::string &heightstr, uint16_t &year, uint8_t
   }
   catch (const boost::bad_lexical_cast &)
   {
-    m_console_writer->GetFailureMessageWriter() << tr("bad height parameter: ") << heightstr;
+    fail_msg_writer() << tr("bad height parameter: ") << heightstr;
     return false;
   }
   return true;
@@ -4685,7 +4680,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   }
 
   bool useColorblindConsoleWriter = command_line::get_arg(vm, arg_colorblind_console_colors);
-  m_console_writer = tools::MessageWriterFactory::GetMessageWriter(useColorblindConsoleWriter ? tools::ConsoleWriterMode::Colorblind : tools::ConsoleWriterMode::Standard);
+  m_console_writer = tools::MessageWriterFactory::GetMessageWriter(useColorblindConsoleWriter);
 
   return true;
 }
@@ -10503,10 +10498,11 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet"));
 
   std::vector<std::string> command = command_line::get_arg(*vm, arg_command);
+  bool useColorblindConsoleWriter = command_line::get_arg(*vm, arg_colorblind_console_colors);
   if (!command.empty())
   {
     if (!w.process_command(command))
-      m_console_writer->GetFailureMessageWriter() << sw::tr("Unknown command: ") << command.front();
+      tools::MessageWriterFactory::GetMessageWriter(useColorblindConsoleWriter)->GetFailureMessageWriter() << sw::tr("Unknown command: ") << command.front();
     w.stop();
     w.deinit();
   }
