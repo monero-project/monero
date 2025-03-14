@@ -956,10 +956,10 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
-    struct wont_reprocess_recent_txs_via_untrusted_daemon : public scan_tx_error
+    struct wont_reprocess_txs_via_untrusted_daemon : public scan_tx_error
     {
-      explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
-        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
+      explicit wont_reprocess_txs_via_untrusted_daemon(std::string&& loc)
+        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more transactions than the scanned tx")
       {
       }
     };

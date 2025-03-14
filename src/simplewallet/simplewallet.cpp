@@ -3158,7 +3158,7 @@ bool simple_wallet::scan_tx(const std::vector<std::string> &args)
   m_in_manual_refresh.store(true);
   try {
     m_wallet->scan_tx(txids);
-  } catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e) {
+  } catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e) {
     fail_msg_writer() << e.what() << ". Either connect to a trusted daemon by passing --trusted-daemon when starting the wallet, or use rescan_bc to rescan the chain.";
   } catch (const std::exception &e) {
     fail_msg_writer() << e.what();

@@ -1299,7 +1299,7 @@ bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
     {
         m_wallet->scan_tx(txids_u);
     }
-    catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e)
+    catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e)
     {
         setStatusError(e.what());
         return false;

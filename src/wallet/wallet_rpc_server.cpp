@@ -3496,7 +3496,7 @@ namespace tools
 
       try {
           m_wallet->scan_tx(txids);
-      }  catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e) {
+      }  catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e) {
           er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
           er.message = e.what() + std::string(". Either connect to a trusted daemon or rescan the chain.");
           return false;
