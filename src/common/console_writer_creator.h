@@ -55,7 +55,10 @@ namespace tools
     class MessageWriterFactory
     {
     public:
-        static std::shared_ptr<IMessageWriter> GetMessageWriter(bool colorblindMode) { return GetMessageWriter(colorblindMode ? ConsoleWriterMode::Colorblind : ConsoleWriterMode::Standard); }
+        static std::shared_ptr<IMessageWriter> GetMessageWriter(bool colorblindMode) 
+        { 
+            return GetMessageWriter(colorblindMode ? ConsoleWriterMode::Colorblind : ConsoleWriterMode::Standard);
+        }
         static std::shared_ptr<IMessageWriter> GetMessageWriter(ConsoleWriterMode mode)
         {
             static std::unordered_map<ConsoleWriterMode, std::shared_ptr<IMessageWriter>> writers
