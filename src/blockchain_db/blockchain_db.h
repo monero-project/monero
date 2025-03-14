@@ -43,6 +43,7 @@
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
 #include "fcmp_pp/curve_trees.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -1880,6 +1881,9 @@ public:
    * @return custom timelocked outputs grouped by last locked block
    */
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
+
+  // TODO: description
+  virtual std::vector<fcmp_pp::curve_trees::PathBytes> get_path_by_amount_output_id(const std::vector<get_outputs_out> &amount_output_ids) const = 0;
 
   //
   // Hard fork related storage

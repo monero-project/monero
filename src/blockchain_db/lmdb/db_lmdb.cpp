@@ -1830,6 +1830,137 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
   return path_bytes;
 }
 
+std::vector<fcmp_pp::curve_trees::PathBytes> BlockchainLMDB::get_path_by_amount_output_id(const std::vector<get_outputs_out> &amount_output_ids) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+
+  if (amount_output_ids.empty())
+    return {};
+
+  // TODO: de-duplicate db reads where possible (steps 1, 2, 4, 5 can all be de-dup'd especially 5)
+  // TODO: req should be able to include a height, so we return the path as of that specific height
+
+  // 1. Read DB for output metadata {unlock_time, global output id}
+  std::vector<outkey> out_keys;
+  out_keys.reserve(amount_output_ids.size());
+  for (const auto &amount_output_id : amount_output_ids)
+  {
+    out_keys.emplace_back(this->get_output_key(amount_output_id.amount, amount_output_id.index, false/*include_commitment*/));
+  }
+
+  // 2. Determine each output's last locked block
+  std::vector<uint64_t> last_locked_block_idxs;
+  last_locked_block_idxs.reserve(out_keys.size());
+  for (const auto &outkey : out_keys)
+  {
+    const uint64_t last_locked_block_idx = cryptonote::get_last_locked_block_index(outkey.data.unlock_time, outkey.data.height);
+    last_locked_block_idxs.emplace_back(last_locked_block_idx);
+  }
+
+  // 3. Get n leaf tuples at output's last locked block and next block
+  std::vector<std::pair<uint64_t, uint64_t>> n_leaf_tuple_ranges;
+  n_leaf_tuple_ranges.reserve(last_locked_block_idxs.size());
+  const uint64_t cur_n_blocks = this->height();
+  for (const uint64_t block_idx : last_locked_block_idxs)
+  {
+    const uint64_t n_leaf_tuples = block_idx < cur_n_blocks ? this->get_block_n_leaf_tuples(block_idx) : 0;
+
+    const uint64_t next_block_idx = block_idx + 1;
+    const uint64_t next_n_leaf_tuples = next_block_idx < cur_n_blocks ? this->get_block_n_leaf_tuples(next_block_idx) : 0;
+
+    n_leaf_tuple_ranges.push_back({n_leaf_tuples, next_n_leaf_tuples});
+  }
+
+  // 4. Find leaf idxs by output id, using leaf tuple ranges to narrow search
+  std::vector<uint64_t> leaf_idxs;
+  leaf_idxs.reserve(out_keys.size());
+  for (std::size_t i = 0; i < out_keys.size(); ++i)
+  {
+    const auto tuple_range = n_leaf_tuple_ranges[i];
+    // Make sure output's last locked block is in the chain, otherwise skip it since don't expect it to be in the tree
+    if (tuple_range.first == 0 && tuple_range.second == 0)
+      continue;
+    const uint64_t output_id = out_keys[i].output_id;
+    leaf_idxs.emplace_back(this->find_leaf_idx_by_output_id(output_id, tuple_range.first, tuple_range.second));
+  }
+
+  // 5. Use leaf idxs to get paths
+  std::vector<fcmp_pp::curve_trees::PathBytes> paths;
+  paths.reserve(leaf_idxs.size());
+  const uint64_t n_leaf_tuples = this->get_n_leaf_tuples();
+  for (const uint64_t leaf_idx : leaf_idxs)
+  {
+    const auto path_idxs = m_curve_trees->get_path_indexes(n_leaf_tuples, leaf_idx);
+    paths.emplace_back(this->get_path(path_idxs));
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return paths;
+}
+
+uint64_t BlockchainLMDB::find_leaf_idx_by_output_id(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(leaves)
+
+  MDB_val k = zerokval;
+  MDB_val_copy<uint64_t> v_leaf(leaf_idx_start);
+
+  uint64_t n_leaves_checked = 0;
+  uint64_t leaf_idx = 0;
+  bool found_leaf_idx = false;
+  bool done = false;
+  MDB_cursor_op op = MDB_SET;
+  while (!done)
+  {
+    int result = mdb_cursor_get(m_cur_leaves, &k, &v_leaf, op);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get leaf idx by output id: ", result).c_str()));
+    op = MDB_NEXT_MULTIPLE;
+
+    const auto range_begin = ((const mdb_leaf*)v_leaf.mv_data);
+    const auto range_end = range_begin + v_leaf.mv_size / sizeof(mdb_leaf);
+
+    auto it = range_begin;
+
+    // The first MDB_NEXT_MULTIPLE includes the val from MDB_SET, so skip it
+    if (n_leaves_checked == 1)
+      ++it;
+
+    while (it < range_end)
+    {
+      found_leaf_idx = it->output_context.output_id == output_id;
+      if (found_leaf_idx)
+      {
+        leaf_idx = it->leaf_idx;
+        done = true;
+        break;
+      }
+
+      done = leaf_idx_end > 0 && it->leaf_idx >= leaf_idx_end;
+      if (done)
+        break;
+
+      ++n_leaves_checked;
+      ++it;
+    }
+  }
+
+  if (!found_leaf_idx)
+    throw0(DB_ERROR("Did not find leaf idx by output id"));
+
+  TXN_POSTFIX_RDONLY();
+
+  return leaf_idx;
+}
+
 void BlockchainLMDB::trim_block()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

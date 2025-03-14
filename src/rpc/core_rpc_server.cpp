@@ -67,6 +67,7 @@ using namespace epee;
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 5000
+#define MAX_RESTRICTED_PATHS_COUNT 50
 
 #define OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION (3 * 86400) // 3 days max, the wallet requests 1.8 days
 
@@ -1119,6 +1120,41 @@ namespace cryptonote
     }
     res.status = CORE_RPC_STATUS_OK;
     LOG_PRINT_L2("COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES: [" << res.o_indexes.size() << "]");
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_path_by_amount_output_id_bin(const COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::response& res, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_outs);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN>(invoke_http_mode::BIN, "/get_path_by_amount_output_id.bin", req, res, r))
+      return r;
+
+    CHECK_PAYMENT_MIN1(req, res, req.outputs.size() * COST_PER_OUT, false);
+
+    res.status = "Failed";
+
+    const bool restricted = m_restricted && ctx;
+    if (restricted)
+    {
+      if (req.outputs.size() > MAX_RESTRICTED_PATHS_COUNT)
+      {
+        res.status = "Too many paths requested";
+        return true;
+      }
+    }
+
+    try
+    {
+      res.paths = m_core.get_blockchain_storage().get_db().get_path_by_amount_output_id(req.outputs);
+    }
+    catch (...)
+    {
+      res.status = "Failed";
+      return true;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

@@ -669,6 +669,31 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     typedef epee::misc_utils::struct_init<response_t> response;
   };
   //-----------------------------------------------
+  struct COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN
+  {
+    struct request_t: public rpc_access_request_base
+    {
+      std::vector<get_outputs_out> outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_access_request_base)
+        KV_SERIALIZE(outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t: public rpc_access_response_base
+    {
+      std::vector<fcmp_pp::curve_trees::PathBytes> paths;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(rpc_access_response_base)
+        KV_SERIALIZE(paths)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+  //-----------------------------------------------
   struct COMMAND_RPC_SEND_RAW_TX
   {
     struct request_t: public rpc_access_request_base
