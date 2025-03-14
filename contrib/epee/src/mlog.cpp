@@ -402,7 +402,6 @@ void set_console_color(int color, bool bright)
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, lightRedCode | (bright ? FOREGROUND_INTENSITY:0));
 #else
-      // TODO: Find the equivalent Linux color. Do not merge until this is addressed.
       if(bright)
         std::cout << "\033[1;31m";
       else
@@ -429,7 +428,6 @@ void set_console_color(int color, bool bright)
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, lightGreenCode | (bright ? FOREGROUND_INTENSITY:0));
 #else
-      // TODO: Find the equivalent Linux color. Do not merge until this is addressed.
       if(bright)
         std::cout << "\033[1;32m";
       else
@@ -487,11 +485,10 @@ void set_console_color(int color, bool bright)
       int colorblindMagentaCode = 13;
       SetConsoleTextAttribute(h_stdout, colorblindMagentaCode | (bright ? FOREGROUND_INTENSITY:0));
 #else
-      // TODO: Find the equivalent Linux color. Do not merge until this is addressed.
       if(bright)
-        std::cout << "\033[1;35m";
+        std::cout << "\033[38;2;255;0;255m";
       else
-        std::cout << "\033[0;35m";
+        std::cout << "\033[38;2;255;153;255m";
 #endif
     }
     break;
