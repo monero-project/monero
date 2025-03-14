@@ -427,7 +427,7 @@ namespace cryptonote
     bool m_do_not_relay;
     bool m_use_english_language_names;
     
-    std::shared_ptr<tools::IMessageWriter> m_console_writer{ nullptr };
+    std::shared_ptr<tools::IMessageWriter> m_log_writer{ nullptr };
 
     epee::console_handlers_binder m_cmd_binder;
 
