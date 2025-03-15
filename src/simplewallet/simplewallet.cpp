@@ -362,15 +362,21 @@ namespace
     return err;
   }
 
-  // TODO: Remove these three methods.
   tools::scoped_message_writer message_writer(epee::console_colors color = epee::console_color_default, bool bright = false)
   {
-    return tools::scoped_message_writer(color, bright);
+    if (!bright)
+    {
+      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Standard)->GetCustomMessageWriter(color);
+    }
+    else
+    {
+      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Standard)->GetBrightCustomMessageWriter(color);
+    }
   }
 
   tools::scoped_message_writer fail_msg_writer()
   {
-    return tools::scoped_message_writer(console_color_red, true, sw::tr("Error: "), el::Level::Error);
+    return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Standard)->GetFailureMessageWriter();
   }
 
   bool parse_bool(const std::string& s, bool& result)

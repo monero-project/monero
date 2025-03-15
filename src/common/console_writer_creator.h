@@ -23,11 +23,9 @@ namespace tools
         virtual scoped_message_writer GetBrightMagentaMessageWriter() const = 0;
         virtual scoped_message_writer GetMagentaMessageWriter() const = 0;
         scoped_message_writer GetMessageWriter() { return GetCustomMessageWriter(epee::console_color_default); }
-        virtual ~IMessageWriter() = default;
-
-    protected:
         scoped_message_writer GetCustomMessageWriter(epee::console_colors custom_color) const { return msg_writer(custom_color, false); }
         scoped_message_writer GetBrightCustomMessageWriter(epee::console_colors custom_color) const { return msg_writer(custom_color, true); }
+        virtual ~IMessageWriter() = default;
     };
 
     class StandardMessageWriter : public IMessageWriter
