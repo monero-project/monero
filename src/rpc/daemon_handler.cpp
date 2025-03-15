@@ -76,9 +76,11 @@ namespace rpc
       const std::error_code error = wire_read::from_bytes<wire::json_reader>(msg, request);
       if (error)
         return error;
+      if (!request.params)
+        return {wire::error::schema::missing_key};
 
       typename Message::Response response{};
-      handler.handle(request.params, response);
+      handler.handle(*request.params, response);
 
       return getJsonResponse(response, id);
     }

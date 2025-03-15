@@ -2652,7 +2652,7 @@ skip:
   {
     // sort peers between fluffy ones and others
     std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> fluffyConnections;
-    m_p2p->for_each_connection([this, &exclude_context, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
+    m_p2p->for_each_connection([&exclude_context, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
       // peer_id also filters out connections before handshake
       if (peer_id && exclude_context.m_connection_id != context.m_connection_id && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
@@ -2668,7 +2668,7 @@ skip:
     {
       std::error_code error{};
       epee::levin::message_writer fluffyBlob{32 * 1024};
-      if ((error = wire::epee_bin::to_bytes(fluffyBlob.buffer, fluffy_arg)))
+      if ((error = wire::epee_bin::to_bytes(fluffyBlob.buffer, arg)))
         MERROR("Failed to convert to epee bytes: " << error.message());
       else
         m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));

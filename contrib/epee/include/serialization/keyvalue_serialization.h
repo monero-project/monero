@@ -88,7 +88,7 @@ namespace epee
   std::make_tuple(::wire::optional_field(val_name, ::wire::array_as_blob(std::ref(self.variable)))),
 
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT_N(varialble, val_name, default_value) \
-  std;:make_tuple(::wire::optional_field(val_name, ::wire::defaulted(::wire::blob(std::ref(self.varialble)), default_value))
+  std::make_tuple(::wire::optional_field(val_name, ::wire::defaulted(::wire::blob(std::ref(self.varialble)), default_value))),
 
 #define KV_SERIALIZE_ARRAY_N(variable, val_name, constraint) \
   std::make_tuple(::wire::optional_field(val_name, ::wire::array<constraint>(std::ref(self.variable)))),
@@ -97,6 +97,7 @@ namespace epee
 
 #define KV_SERIALIZE(varialble)                           KV_SERIALIZE_N(varialble, #varialble)
 #define KV_SERIALIZE_VAL_POD_AS_BLOB(varialble)           KV_SERIALIZE_VAL_POD_AS_BLOB_N(varialble, #varialble)
+#define KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(varialble, def)  KV_SERIALIZE_VAL_POD_AS_BLOB_OPT_N(varialble, #varialble, def)
 #define KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(varialble)     KV_SERIALIZE_VAL_POD_AS_BLOB(varialble) //skip is_trivially_copyable and is_standard_layout compile time check
 #define KV_SERIALIZE_CONTAINER_POD_AS_BLOB(varialble)     KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(varialble, #varialble)
 #define KV_SERIALIZE_OPT(variable,default_value)          KV_SERIALIZE_OPT_N(variable, #variable, default_value)

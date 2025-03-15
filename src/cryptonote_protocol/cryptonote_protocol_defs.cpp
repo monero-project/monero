@@ -29,6 +29,7 @@
 #include "cryptonote_protocol_defs.h"
 
 #include <boost/range/adaptor/transformed.hpp>
+#include <optional>
 #include <tuple>
 
 #include "serialization/wire/epee.h"
@@ -64,7 +65,7 @@ namespace cryptonote
     }
 
     template<typename F, typename T, typename U>
-    void block_complete_entry_map(F& format, T& self, boost::optional<U>& txs)
+    void block_complete_entry_map(F& format, T& self, std::optional<U>& txs)
     {
       wire::object(format,
         WIRE_FIELD_DEFAULTED(pruned, false),
@@ -97,7 +98,7 @@ namespace cryptonote
   }
   void read_bytes(wire::epee_reader& source, block_complete_entry& dest)
   {
-    boost::optional<std::pair<std::vector<tx_blob_entry>, is_pruned>> txs;
+    std::optional<std::pair<std::vector<tx_blob_entry>, is_pruned>> txs;
     block_complete_entry_map(source, dest, txs);
     if (txs)
       dest.txs = std::move(txs->first);
@@ -106,7 +107,9 @@ namespace cryptonote
   }
   void write_bytes(wire::epee_writer& dest, const block_complete_entry& source)
   {
-    auto txs = boost::make_optional(!source.txs.empty(), std::make_pair(std::cref(source.txs), is_pruned(source.pruned)));
+    std::optional<std::pair<const std::vector<tx_blob_entry>&, is_pruned>> txs;
+    if (!source.txs.empty())
+      txs.emplace(std::cref(source.txs), is_pruned(source.pruned));
     block_complete_entry_map(dest, source, txs);
   }
   WIRE_EPEE_DEFINE_CONVERSION(NOTIFY_NEW_BLOCK::request);

@@ -2540,6 +2540,7 @@ namespace wallet_rpc
   {
     struct request_t
     {
+      using info_limit = wire::max_element_count<2048>;
       std::string password;
       std::vector<std::string> multisig_info;
       uint32_t threshold;
@@ -2547,7 +2548,7 @@ namespace wallet_rpc
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(password)
-        KV_SERIALIZE(multisig_info)
+        KV_SERIALIZE_ARRAY(multisig_info, info_limit)
         KV_SERIALIZE(threshold)
         KV_SERIALIZE(num_signers)
       END_KV_SERIALIZE_MAP()
@@ -2953,6 +2954,7 @@ namespace epee { namespace json_rpc
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_IMPORT_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS);
+  EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_GET_MULTISIG_KEY_EXCHANGE_BOOSTER);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_SIGN_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_SUBMIT_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_GET_VERSION);
@@ -2961,4 +2963,8 @@ namespace epee { namespace json_rpc
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_SET_LOG_LEVEL);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_SET_LOG_CATEGORIES);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_ESTIMATE_TX_SIZE_AND_WEIGHT);
+  EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_SETUP_BACKGROUND_SYNC);
+  EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_START_BACKGROUND_SYNC);
+  EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_STOP_BACKGROUND_SYNC);
+  EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_GET_DEFAULT_FEE_PRIORITY);
 }} // epee // json_rpc

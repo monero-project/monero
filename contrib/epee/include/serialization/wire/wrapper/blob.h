@@ -66,6 +66,21 @@ namespace wire
 
     //! \return `value` with `std::reference_wrapper` removed.
     value_type& get_value() noexcept { return value; }
+
+
+    // Functions used by `defaulted_` wrapper
+
+    value_type& operator=(const value_type& rhs)
+    {
+      get_value() = rhs;
+      return get_value();
+    }
+
+    bool operator==(const value_type& rhs) const
+    { return get_value() == rhs; }
+
+    bool operator!=(const value_type& rhs) const
+    { return get_value() != rhs; }
   };
 
   template<typename T>

@@ -55,7 +55,7 @@ namespace wire
     if (array_count_)
     {
       bytes_.put(tag | SERIALIZE_FLAG_ARRAY);
-      write_varint(array_count_.get());
+      write_varint(*array_count_);
       array_count_.reset();
     }
     else

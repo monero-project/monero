@@ -1,8 +1,8 @@
 #ifndef JSONRPC_STRUCTS_H
 #define	JSONRPC_STRUCTS_H
 
-#include <boost/optional/optional.hpp>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include "serialization/wire/basic_value.h"
 #include "serialization/wire/field.h"
@@ -44,13 +44,12 @@ namespace epee
     template<typename t_param>
     struct request_specific
     {
-      t_param params;
+      std::optional<t_param> params;
 
-      request_specific() : params{} {}
+      request_specific() : params() {}
 
-      // `params` is optional, and we need to default construct in that case
       WIRE_BEGIN_MAP(),
-        WIRE_FIELD_DEFAULTED(params, t_param{})
+        WIRE_OPTIONAL_FIELD(params)
       WIRE_END_MAP()
     };
 
@@ -90,8 +89,8 @@ namespace epee
     {
       std::string jsonrpc;
       wire::basic_value id;
-      boost::optional<t_param> result;
-      boost::optional<error> error_;
+      std::optional<t_param> result;
+      std::optional<error> error_;
 
       response(): jsonrpc(), id(), result(), error_() {}
 
