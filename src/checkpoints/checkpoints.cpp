@@ -32,8 +32,12 @@
 
 #include "common/dns_utils.h"
 #include "string_tools.h"
-#include "storages/portable_storage_template_helper.h" // epee json include
 #include "serialization/keyvalue_serialization.h"
+#include "serialization/wire.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/json.h"
+#include "serialization/wire/wrappers_impl.h"
+#include "storages/portable_storage_template_helper.h" // epee json include
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>
 #include <functional>
@@ -64,9 +68,11 @@ namespace cryptonote
    */
   struct t_hash_json {
     std::vector<t_hashline> hashlines; //!< the checkpoint lines from the file
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(hashlines)
-        END_KV_SERIALIZE_MAP()
+
+    WIRE_DEFINE_CONVERSIONS()
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE_ARRAY(hashlines, wire::min_element_size<sizeof(crypto::hash)>)
+    END_KV_SERIALIZE_MAP()
   };
 
   //---------------------------------------------------------------------------

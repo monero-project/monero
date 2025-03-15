@@ -43,6 +43,8 @@
 #include "serialization/debug_archive.h"
 #include "serialization/crypto.h"
 #include "serialization/keyvalue_serialization.h" // eepe named serialization
+#include "serialization/wire/fwd.h"
+#include "serialization/wire/traits.h"
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
@@ -53,8 +55,12 @@
 
 namespace cryptonote
 {
-  typedef std::vector<crypto::signature> ring_signature;
+  using max_inputs_per_tx = wire::max_element_count<WIRE_MAX_INPUTS_PER_TX>;
+  using max_outputs_per_tx = wire::max_element_count<WIRE_MAX_OUTPUTS_PER_TX>;
 
+  typedef std::vector<crypto::signature> ring_signature;
+  using block_blob_min = wire::min_element_size<73>;
+  using tx_blob_min = wire::min_element_size<42>;
 
   /* outputs */
 
@@ -343,6 +349,7 @@ namespace cryptonote
   private:
     static size_t get_signature_size(const txin_v& tx_in);
   };
+  WIRE_DECLARE_OBJECT(transaction);
 
   inline transaction::transaction(const transaction &t):
     transaction_prefix(t),
@@ -503,7 +510,7 @@ namespace cryptonote
         return false;
     END_SERIALIZE()
   };
-
+  WIRE_DECLARE_OBJECT(block);
 
   /************************************************************************/
   /*                                                                      */
