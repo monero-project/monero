@@ -10473,6 +10473,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_create_address_file);
   command_line::add_arg(desc_params, arg_subaddress_lookahead);
   command_line::add_arg(desc_params, arg_use_english_language_names);
+  command_line::add_arg(desc_params, arg_colorblind_console_colors);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
