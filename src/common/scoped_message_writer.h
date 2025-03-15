@@ -117,14 +117,14 @@ public:
   }
 };
 
-inline scoped_message_writer success_msg_writer(bool color = true)
+inline scoped_message_writer success_msg_writer()
 {
-  return scoped_message_writer(color ? epee::console_color_green : epee::console_color_default, false, std::string(), el::Level::Info);
+  return scoped_message_writer(epee::console_color_green, false, std::string(), el::Level::Info);
 }
 
-inline scoped_message_writer msg_writer(epee::console_colors color = epee::console_color_default)
+inline scoped_message_writer msg_writer(epee::console_colors color = epee::console_color_default, bool highlight = false)
 {
-  return scoped_message_writer(color, false, std::string(), el::Level::Info);
+  return scoped_message_writer(color, highlight, std::string(), el::Level::Info);
 }
 
 inline scoped_message_writer fail_msg_writer()
