@@ -395,7 +395,7 @@ void set_console_color(int color, bool bright)
 #endif
     }
     break;
-  case console_colorblind_light_red:
+  case console_highcontrast_light_red:
     {
 #ifdef WIN32
       int lightRedCode = 12;
@@ -408,6 +408,7 @@ void set_console_color(int color, bool bright)
         std::cout << "\033[0;31m";
 #endif
     }
+    break;
   case console_color_green:
     {
 #ifdef WIN32
@@ -421,7 +422,7 @@ void set_console_color(int color, bool bright)
 #endif
     }
     break;
-  case console_colorblind_light_green:
+  case console_highcontrast_light_green:
     {
 #ifdef WIN32
       int lightGreenCode = 10;
@@ -478,7 +479,7 @@ void set_console_color(int color, bool bright)
     }
     break;
 
-  case console_colorblind_magenta:
+  case console_highcontrast_magenta:
     {
 #ifdef WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);

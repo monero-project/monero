@@ -10,7 +10,7 @@ namespace tools
     enum class ConsoleWriterMode
     {
         Standard,
-        Colorblind,
+        HighContrast,
     };
 
     class IMessageWriter
@@ -39,15 +39,15 @@ namespace tools
         scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_color_magenta); }
     };
 
-    class ColorblindMessageWriter : public IMessageWriter
+    class HighContrastMessageWriter : public IMessageWriter
     {
     public:
-        scoped_message_writer GetSuccessMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_light_green); }
-        scoped_message_writer GetFailureMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_light_red); }
-        scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_light_red); }
-        scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_light_green); }
-        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_colorblind_magenta); }
-        scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_colorblind_magenta); }
+        scoped_message_writer GetSuccessMessageWriter() const override { return GetCustomMessageWriter(epee::console_highcontrast_light_green); }
+        scoped_message_writer GetFailureMessageWriter() const override { return GetCustomMessageWriter(epee::console_highcontrast_light_red); }
+        scoped_message_writer GetBrightRedMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_highcontrast_light_red); }
+        scoped_message_writer GetBrightGreenMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_highcontrast_light_green); }
+        scoped_message_writer GetBrightMagentaMessageWriter() const override { return GetBrightCustomMessageWriter(epee::console_highcontrast_magenta); }
+        scoped_message_writer GetMagentaMessageWriter() const override { return GetCustomMessageWriter(epee::console_highcontrast_magenta); }
     };
 
     class MessageWriterFactory
@@ -55,14 +55,14 @@ namespace tools
     public:
         static std::shared_ptr<IMessageWriter> GetMessageWriter(bool colorblindMode) 
         { 
-            return GetMessageWriter(colorblindMode ? ConsoleWriterMode::Colorblind : ConsoleWriterMode::Standard);
+            return GetMessageWriter(colorblindMode ? ConsoleWriterMode::HighContrast : ConsoleWriterMode::Standard);
         }
         static std::shared_ptr<IMessageWriter> GetMessageWriter(ConsoleWriterMode mode)
         {
             static std::unordered_map<ConsoleWriterMode, std::shared_ptr<IMessageWriter>> writers
             {
                 { ConsoleWriterMode::Standard, std::make_shared<StandardMessageWriter>() },
-                { ConsoleWriterMode::Colorblind, std::make_shared<ColorblindMessageWriter>() }
+                { ConsoleWriterMode::HighContrast, std::make_shared<HighContrastMessageWriter>() }
             };
 
             if (auto writer = writers.find(mode); writer != writers.end())

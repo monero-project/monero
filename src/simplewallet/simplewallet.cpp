@@ -185,7 +185,7 @@ namespace
   const command_line::arg_descriptor<bool> arg_create_address_file = {"create-address-file", sw::tr("Create an address file for new wallets"), false};
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
   const command_line::arg_descriptor<bool> arg_use_english_language_names = {"use-english-language-names", sw::tr("Display English language names"), false};
-  const command_line::arg_descriptor<bool> arg_colorblind_console_colors = { "colorblind", sw::tr("Change console to colorblind-friendly colors"), false };
+  const command_line::arg_descriptor<bool> arg_highcontrast_console_colors = { "highcontrast", sw::tr("Change console to high contrast colors"), true };
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
@@ -366,17 +366,17 @@ namespace
   {
     if (!bright)
     {
-      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Colorblind)->GetCustomMessageWriter(color);
+      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::HighContrast)->GetCustomMessageWriter(color);
     }
     else
     {
-      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Colorblind)->GetBrightCustomMessageWriter(color);
+      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::HighContrast)->GetBrightCustomMessageWriter(color);
     }
   }
 
   tools::scoped_message_writer fail_msg_writer()
   {
-    return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Colorblind)->GetFailureMessageWriter();
+    return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::HighContrast)->GetFailureMessageWriter();
   }
 
   bool parse_bool(const std::string& s, bool& result)
@@ -4685,8 +4685,8 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
       return false;
   }
 
-  bool useColorblindConsoleWriter = command_line::get_arg(vm, arg_colorblind_console_colors);
-  m_log_writer = tools::MessageWriterFactory::GetMessageWriter(useColorblindConsoleWriter);
+  bool useHighContrastConsoleWriter = command_line::get_arg(vm, arg_highcontrast_console_colors);
+  m_log_writer = tools::MessageWriterFactory::GetMessageWriter(useHighContrastConsoleWriter);
 
   return true;
 }
@@ -10473,7 +10473,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_create_address_file);
   command_line::add_arg(desc_params, arg_subaddress_lookahead);
   command_line::add_arg(desc_params, arg_use_english_language_names);
-  command_line::add_arg(desc_params, arg_colorblind_console_colors);
+  command_line::add_arg(desc_params, arg_highcontrast_console_colors);
 
   po::positional_options_description positional_options;
   positional_options.add(arg_command.name, -1);
@@ -10505,11 +10505,11 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(r, 1, sw::tr("Failed to initialize wallet"));
 
   std::vector<std::string> command = command_line::get_arg(*vm, arg_command);
-  bool useColorblindConsoleWriter = command_line::get_arg(*vm, arg_colorblind_console_colors);
+  bool useHighContrastConsoleWriter = command_line::get_arg(*vm, arg_highcontrast_console_colors);
   if (!command.empty())
   {
     if (!w.process_command(command))
-      tools::MessageWriterFactory::GetMessageWriter(useColorblindConsoleWriter)->GetFailureMessageWriter() << sw::tr("Unknown command: ") << command.front();
+      tools::MessageWriterFactory::GetMessageWriter(useHighContrastConsoleWriter)->GetFailureMessageWriter() << sw::tr("Unknown command: ") << command.front();
     w.stop();
     w.deinit();
   }
