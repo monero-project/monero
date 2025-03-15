@@ -133,10 +133,6 @@ namespace cryptonote
 
   namespace
   {
-    template<typename T>
-    rct::rctSigExtended<std::reference_wrapper<T>> make_extended(T& base, const bool prune)
-    { return {std::ref(base), prune}; }
-
     template<typename F, typename T>
     void tx_map(F& format, T& self)
     {

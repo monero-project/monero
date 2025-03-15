@@ -36,6 +36,7 @@
 #include "gtest/gtest.h"
 #include "net/http_server_handlers_map2.h"
 #include "net/http_server_impl_base.h"
+#include "serialization/wire/epee.h"
 #include "storages/portable_storage_template_helper.h"
 
 namespace
@@ -59,6 +60,9 @@ namespace
       std::string payload;
     };
   };
+
+  WIRE_EPEE_DEFINE_CONVERSION(dummy::request);
+  WIRE_EPEE_DEFINE_CONVERSION(dummy::response);
 
   std::string make_payload()
   {

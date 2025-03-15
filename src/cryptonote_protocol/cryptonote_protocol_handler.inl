@@ -2683,7 +2683,7 @@ skip:
     {
       std::error_code error{};
       epee::levin::message_writer fluffyBlob{32 * 1024};
-      if ((error = wire::epee_bin::to_bytes(fluffyBlob.buffer, fluffy_arg)))
+      if ((error = wire::epee_bin::to_bytes(fluffyBlob.buffer, arg)))
         MERROR("Failed to convert to epee bytes: " << error.message());
       else
         m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));

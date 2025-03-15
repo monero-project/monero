@@ -174,7 +174,9 @@
     return true; \
   } \
   uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
-  resp.result.emplace()
+  resp.result.emplace(); \
+  if (!req_.params) \
+    req_.params.emplace()
 
 #define FINALIZE_OBJECTS_TO_JSON(method_name) \
   uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
@@ -191,7 +193,7 @@
   resp.error_.emplace(); \
   MINFO(m_conn_context << "Calling RPC method " << method_name); \
   bool res = false; \
-  try { res = callback_f(req_.params, *resp.result, *resp.error_, &m_conn_context); } \
+  try { res = callback_f(*req_.params, *resp.result, *resp.error_, &m_conn_context); } \
   catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
   if (!res) \
   { \
@@ -212,7 +214,7 @@
   PREPARE_OBJECTS_FROM_JSON(command_type); \
   MINFO(m_conn_context << "calling RPC method " << method_name); \
   bool res = false; \
-  try { res = callback_f(req_.params, *resp.result, &m_conn_context); } \
+  try { res = callback_f(*req_.params, *resp.result, &m_conn_context); } \
   catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
   if (!res) \
   { \

@@ -193,6 +193,7 @@ namespace cryptonote { namespace rpc
         WIRE_FIELD(cumulative_difficulty),
         wire::field("cumulative_difficulty_top64", std::ref(ext.cumulative_difficulty_top64)),
         WIRE_FIELD(block_size_limit),
+        WIRE_FIELD(block_weight_limit),
         WIRE_FIELD(block_size_median),
         WIRE_FIELD(adjusted_time),
         WIRE_FIELD(block_weight_median),

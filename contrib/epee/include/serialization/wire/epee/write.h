@@ -27,9 +27,9 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <cstdint>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -45,7 +45,7 @@ namespace wire
   class epee_writer final : public writer
   {
     epee::byte_stream bytes_; //!< Output sink
-    boost::optional<std::size_t> array_count_; //!< Count for upcoming array
+    std::optional<std::size_t> array_count_; //!< Count for upcoming array
     bool needs_tag_; //!< True iff type tag needs to be written
 
     // Convert built-in types to epee binary tag value
