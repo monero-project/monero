@@ -364,19 +364,21 @@ namespace
 
   tools::scoped_message_writer message_writer(epee::console_colors color = epee::console_color_default, bool bright = false)
   {
+    using namespace tools;
     if (!bright)
     {
-      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::HighContrast)->GetCustomMessageWriter(color);
+      return MessageWriterFactory::GetMessageWriter(ConsoleWriterMode::HighContrast)->GetCustomMessageWriter(color);
     }
     else
     {
-      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::HighContrast)->GetBrightCustomMessageWriter(color);
+      return MessageWriterFactory::GetMessageWriter(ConsoleWriterMode::HighContrast)->GetBrightCustomMessageWriter(color);
     }
   }
 
   tools::scoped_message_writer fail_msg_writer()
   {
-    return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::HighContrast)->GetFailureMessageWriter();
+    using namespace tools;
+    return MessageWriterFactory::GetMessageWriter(ConsoleWriterMode::HighContrast)->GetFailureMessageWriter();
   }
 
   bool parse_bool(const std::string& s, bool& result)
