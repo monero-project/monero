@@ -366,17 +366,17 @@ namespace
   {
     if (!bright)
     {
-      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Standard)->GetCustomMessageWriter(color);
+      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Colorblind)->GetCustomMessageWriter(color);
     }
     else
     {
-      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Standard)->GetBrightCustomMessageWriter(color);
+      return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Colorblind)->GetBrightCustomMessageWriter(color);
     }
   }
 
   tools::scoped_message_writer fail_msg_writer()
   {
-    return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Standard)->GetFailureMessageWriter();
+    return tools::MessageWriterFactory::GetMessageWriter(tools::ConsoleWriterMode::Colorblind)->GetFailureMessageWriter();
   }
 
   bool parse_bool(const std::string& s, bool& result)
