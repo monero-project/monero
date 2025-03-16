@@ -395,39 +395,11 @@ void set_console_color(int color, bool bright)
 #endif
     }
     break;
-  case console_highcontrast_light_red:
-    {
-#ifdef WIN32
-      int lightRedCode = 12;
-      HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-      SetConsoleTextAttribute(h_stdout, lightRedCode | (bright ? FOREGROUND_INTENSITY:0));
-#else
-      if(bright)
-        std::cout << "\033[1;31m";
-      else
-        std::cout << "\033[0;31m";
-#endif
-    }
-    break;
   case console_color_green:
     {
 #ifdef WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_GREEN | (bright ? FOREGROUND_INTENSITY:0));
-#else
-      if(bright)
-        std::cout << "\033[1;32m";
-      else
-        std::cout << "\033[0;32m";
-#endif
-    }
-    break;
-  case console_highcontrast_light_green:
-    {
-#ifdef WIN32
-      int lightGreenCode = 10;
-      HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-      SetConsoleTextAttribute(h_stdout, lightGreenCode | (bright ? FOREGROUND_INTENSITY:0));
 #else
       if(bright)
         std::cout << "\033[1;32m";
@@ -466,20 +438,6 @@ void set_console_color(int color, bool bright)
     break;
 
   case console_color_magenta:
-    {
-#ifdef WIN32
-      HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-      SetConsoleTextAttribute(h_stdout, FOREGROUND_BLUE | FOREGROUND_RED | (bright ? FOREGROUND_INTENSITY:0));
-#else
-      if(bright)
-        std::cout << "\033[1;35m";
-      else
-        std::cout << "\033[0;35m";
-#endif
-    }
-    break;
-
-  case console_highcontrast_magenta:
     {
 #ifdef WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);

@@ -49,7 +49,6 @@
 #include "common/i18n.h"
 #include "common/password.h"
 #include "crypto/crypto.h"  // for definition of crypto::secret_key
-#include "common/console_writer_creator.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
@@ -426,8 +425,6 @@ namespace cryptonote
     uint64_t m_restore_height;  // optional
     bool m_do_not_relay;
     bool m_use_english_language_names;
-    
-    std::shared_ptr<tools::IMessageWriter> m_log_writer{ nullptr };
 
     epee::console_handlers_binder m_cmd_binder;
 
