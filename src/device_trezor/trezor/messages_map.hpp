@@ -44,6 +44,10 @@
 #include <google/protobuf/generated_enum_reflection.h>
 #include "google/protobuf/descriptor.pb.h"
 
+#ifdef PROTOBUF_HAS_ABSEIL
+#include <absl/strings/string_view.h>
+#endif
+
 #include "messages/messages.pb.h"
 
 namespace hw {
@@ -61,6 +65,10 @@ namespace trezor {
     static messages::MessageType get_message_wire_number(const google::protobuf::Message * msg);
     static messages::MessageType get_message_wire_number(const google::protobuf::Message & msg);
     static messages::MessageType get_message_wire_number(const std::string & msg_name);
+
+#ifdef PROTOBUF_HAS_ABSEIL
+    static messages::MessageType get_message_wire_number(const absl::string_view & msg_name); // Protobuf 30 and up
+#endif
 
     template<class t_message=google::protobuf::Message>
     static messages::MessageType get_message_wire_number() {
