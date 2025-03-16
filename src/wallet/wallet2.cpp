@@ -8533,6 +8533,11 @@ uint64_t wallet2::get_base_fee()
   return get_dynamic_base_fee_estimate();
 }
 //----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_base_fee(uint32_t priority)
+{
+  return get_base_fee(FeePriorityUtilities::FromIntegral(priority));
+}
+//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee(FeePriority priority)
 {
   const bool use_2021_scaling = use_fork_rules(HF_VERSION_2021_SCALING, -30 * 1);
