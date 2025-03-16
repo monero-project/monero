@@ -8631,6 +8631,11 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin)
   return mixin;
 }
 //----------------------------------------------------------------------------------------------------
+FeePriority wallet2::adjust_priority(uint32_t priority)
+{
+  return adjust_priority(FeePriorityUtilities::FromIntegral(priority));
+}
+//----------------------------------------------------------------------------------------------------
 FeePriority wallet2::adjust_priority(FeePriority priority)
 {
   if (priority == FeePriority::Default && m_default_priority == FeePriority::Default && auto_low_priority())

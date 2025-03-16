@@ -1660,7 +1660,10 @@ private:
     uint64_t get_min_ring_size();
     uint64_t get_max_ring_size();
     uint64_t adjust_mixin(uint64_t mixin);
-
+    
+    // The overload taking in an integer is kept for backwards compatibility, as this is called from wallet.cpp
+    // after casting from a type (PendingTransaction::FeePriority) which I don't want to touch.
+    FeePriority adjust_priority(uint32_t priority); 
     FeePriority adjust_priority(FeePriority priority);
 
     bool is_unattended() const { return m_unattended; }
