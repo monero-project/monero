@@ -8632,6 +8632,11 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin)
   return mixin;
 }
 //----------------------------------------------------------------------------------------------------
+// `adjust_priority` can be described as follows:
+// If the given priority is the default priority and `auto_low_priority` has been set, return one of the following (in order of preference):
+// (1) Priority 1 aka "unimportant" - When a transaction confirmation is unlikely to be delayed.
+// (2) Priority 2 aka "normal" - When the transaction is likely to benefit from a higher priority.
+// In all other cases, return the original priority unchanged.
 uint32_t wallet2::adjust_priority(uint32_t priority)
 {
   if (priority == 0 && m_default_priority == 0 && auto_low_priority())
@@ -8648,7 +8653,7 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
         MERROR("Bad estimated backlog array size");
         return priority;
       }
-      else if (blocks[0].first > 0)
+      else if (blocks[0].first > 1)
       {
         MINFO("We don't use the low priority because there's a backlog in the tx pool.");
         return 2;
@@ -8693,9 +8698,9 @@ uint32_t wallet2::adjust_priority(uint32_t priority)
       // estimate how 'full' the last N blocks are
       const size_t P = 100 * block_weight_sum / (N * full_reward_zone);
       MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % N % P).str());
-      if (P > 80)
+      if (P > 80 && blocks[0].first > 0)
       {
-        MINFO("We don't use the low priority because recent blocks are quite full.");
+        MINFO("We don't use the low priority because recent blocks and tx pool are quite full.");
         return 2;
       }
       MINFO("We'll use the low priority because probably it's safe to do so.");
