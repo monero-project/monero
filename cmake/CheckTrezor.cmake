@@ -63,6 +63,10 @@ if (USE_DEVICE_TREZOR)
         trezor_fatal_msg("Trezor: protobuf library not found")
     endif()
 
+    if (Protobuf_VERSION VERSION_GREATER_EQUAL 22.0)
+        add_definitions(-DPROTOBUF_HAS_ABSEIL)
+    endif()
+
     if(TREZOR_DEBUG)
         set(USE_DEVICE_TREZOR_DEBUG 1)
         message(STATUS "Trezor: debug build enabled")
