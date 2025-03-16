@@ -8470,7 +8470,7 @@ uint64_t wallet2::estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs
   }
 }
 
-uint64_t wallet2::get_fee_multiplier(FeePriority priority, int fee_algorithm)
+uint64_t wallet2::get_fee_multiplier(FeePriority priority, FeeAlgorithm fee_algorithm)
 {
   static const struct
   {
@@ -8485,7 +8485,7 @@ uint64_t wallet2::get_fee_multiplier(FeePriority priority, int fee_algorithm)
     { FeePriority::Priority, {1, 5, 25, 1000} },
   };
 
-  if (fee_algorithm == -1)
+  if (fee_algorithm == FeeAlgorithm::Unset)
     fee_algorithm = get_fee_algorithm();
 
   // 0 -> default (here, x1 till fee algorithm 2, x4 from it)
@@ -8493,20 +8493,21 @@ uint64_t wallet2::get_fee_multiplier(FeePriority priority, int fee_algorithm)
     priority = m_default_priority;
   if (priority == FeePriority::Default)
   {
-    if (fee_algorithm >= 2)
+    if (fee_algorithm >= FeeAlgorithm::HardforkV5)
       priority = FeePriority::Normal;
     else
       priority = FeePriority::Unimportant;
   }
 
-  THROW_WALLET_EXCEPTION_IF(fee_algorithm < 0 || fee_algorithm > 3, error::invalid_priority);
+  THROW_WALLET_EXCEPTION_IF(fee_algorithm == FeeAlgorithm::Unset || fee_algorithm > FeeAlgorithm::HardforkV8, error::invalid_priority);
 
   // 1 to 3/4 are allowed as priorities
-  const FeePriority max_priority = fee_steps[fee_algorithm].maximum_priority;
+  const int fee_algorithm_index = FeeAlgorithmUtilities::AsIntegral(fee_algorithm);
+  const FeePriority max_priority = fee_steps[fee_algorithm_index].maximum_priority;
   if (priority >= FeePriority::Unimportant && priority <= max_priority)
   {
     const FeePriority adjusted_priority = FeePriorityUtilities::Decrease(priority);
-    return fee_steps[fee_algorithm].fee_multipliers[FeePriorityUtilities::AsIntegral(adjusted_priority)];
+    return fee_steps[fee_algorithm_index].fee_multipliers[FeePriorityUtilities::AsIntegral(adjusted_priority)];
   }
 
   THROW_WALLET_EXCEPTION_IF (false, error::invalid_priority);
@@ -8583,16 +8584,16 @@ uint64_t wallet2::get_fee_quantization_mask()
   return fee_quantization_mask;
 }
 //----------------------------------------------------------------------------------------------------
-int wallet2::get_fee_algorithm()
+FeeAlgorithm wallet2::get_fee_algorithm()
 {
   // changes at v3, v5, v8
   if (use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0))
-    return 3;
+    return FeeAlgorithm::HardforkV8;
   if (use_fork_rules(5, 0))
-    return 2;
+    return FeeAlgorithm::HardforkV5;
   if (use_fork_rules(3, -30 * 14))
-   return 1;
-  return 0;
+   return FeeAlgorithm::HardforkV3;
+  return FeeAlgorithm::PreHardforkV3;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_min_ring_size()
