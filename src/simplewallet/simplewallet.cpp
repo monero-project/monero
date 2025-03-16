@@ -43,6 +43,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <string_view>
 #include <ctype.h>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
@@ -71,6 +72,7 @@
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
+#include "wallet/fee_priority.h"
 #include "version.h"
 #include <stdexcept>
 #include "wallet/message_store.h"
@@ -92,6 +94,8 @@ using namespace cryptonote;
 using boost::lexical_cast;
 namespace po = boost::program_options;
 typedef cryptonote::simple_wallet sw;
+using tools::FeePriority;
+using tools::FeePriorityUtilities;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
@@ -164,7 +168,7 @@ static std::string get_human_readable_timespan(uint64_t seconds);
 
 namespace
 {
-  const std::array<const char* const, 5> allowed_priority_strings = {{"default", "unimportant", "normal", "elevated", "priority"}};
+  const std::array<std::string_view, 5> allowed_priority_strings = FeePriorityUtilities::GetFeePriorityStrings();
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_device = {"generate-from-device", sw::tr("Generate new wallet from device and save it to <arg>"), ""};
@@ -763,17 +767,13 @@ namespace
   }
 }
 
-bool parse_priority(const std::string& arg, uint32_t& priority)
+bool parse_priority(const std::string& arg, FeePriority& priority)
 {
-  auto priority_pos = std::find(
-    allowed_priority_strings.begin(),
-    allowed_priority_strings.end(),
-    arg);
-  if(priority_pos != allowed_priority_strings.end()) {
-    priority = std::distance(allowed_priority_strings.begin(), priority_pos);
-    return true;
-  }
-  return false;
+  const auto priorityOptional = FeePriorityUtilities::FromString(arg);
+  if (!priorityOptional.has_value())
+    return false;
+  priority = priorityOptional.value();
+  return true;
 }
 
 std::string join_priority_strings(const char *delimiter)
@@ -1032,8 +1032,10 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
   message_writer() << (boost::format(tr("Current fee is %s %s per %s")) % print_money(base_fee) % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % base).str();
 
   std::vector<uint64_t> fees;
-  for (uint32_t priority = 1; priority <= 4; ++priority)
+  for (const auto priority : FeePriorityUtilities::GetEnums())
   {
+    if (priority == FeePriority::Default)
+      continue;
     uint64_t mult = m_wallet->get_fee_multiplier(priority);
     fees.push_back(base_fee * typical_size * mult);
   }
@@ -1054,23 +1056,29 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     return true;
   }
 
-  for (uint32_t priority = 1; priority <= 4; ++priority)
+  for (const auto priority : FeePriorityUtilities::GetEnums())
   {
-    uint64_t nblocks_low = blocks[priority - 1].first;
-    uint64_t nblocks_high = blocks[priority - 1].second;
+    if (priority == tools::FeePriority::Default)
+      continue;
+
+    const auto lower_priority = FeePriorityUtilities::Decrease(priority);
+    const auto lower_priority_index = FeePriorityUtilities::AsIntegral(lower_priority);
+    const auto current_priority_index = FeePriorityUtilities::AsIntegral(priority);
+    uint64_t nblocks_low = blocks[lower_priority_index].first;
+    uint64_t nblocks_high = blocks[lower_priority_index].second;
     if (nblocks_low > 0)
     {
       std::string msg;
-      if (priority == m_wallet->get_default_priority() || (m_wallet->get_default_priority() == 0 && priority == 2))
+      if (priority == m_wallet->get_default_priority() || (m_wallet->get_default_priority() == FeePriority::Default && priority == FeePriority::Normal))
         msg = tr(" (current)");
       uint64_t minutes_low = nblocks_low * DIFFICULTY_TARGET_V2 / 60, minutes_high = nblocks_high * DIFFICULTY_TARGET_V2 / 60;
       if (nblocks_high == nblocks_low)
-        message_writer() << (boost::format(tr("%u block (%u minutes) backlog at priority %u%s")) % nblocks_low % minutes_low % priority % msg).str();
+        message_writer() << (boost::format(tr("%u block (%u minutes) backlog at priority %u%s")) % nblocks_low % minutes_low % current_priority_index % msg).str();
       else
-        message_writer() << (boost::format(tr("%u to %u block (%u to %u minutes) backlog at priority %u")) % nblocks_low % nblocks_high % minutes_low % minutes_high % priority).str();
+        message_writer() << (boost::format(tr("%u to %u block (%u to %u minutes) backlog at priority %u")) % nblocks_low % nblocks_high % minutes_low % minutes_high % current_priority_index).str();
     }
     else
-      message_writer() << tr("No backlog at priority ") << priority;
+      message_writer() << tr("No backlog at priority ") << current_priority_index;
   }
   return true;
 }
@@ -2474,7 +2482,7 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
     {
-      m_wallet->set_default_priority(priority);
+      m_wallet->set_default_priority(FeePriorityUtilities::FromIntegral(priority));
       m_wallet->rewrite(m_wallet_file, pwd_container->password());
     }
     return true;
@@ -3711,9 +3719,10 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     if (m_use_english_language_names)
       seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
     std::string priority_string = "invalid";
-    uint32_t priority = m_wallet->get_default_priority();
-    if (priority < allowed_priority_strings.size())
-      priority_string = allowed_priority_strings[priority];
+    const FeePriority priority = m_wallet->get_default_priority();
+    const auto priority_index = FeePriorityUtilities::AsIntegral(priority);
+    if (priority_index < allowed_priority_strings.size())
+      priority_string = FeePriorityUtilities::ToString(priority);
     std::string ask_password_string = "invalid";
     switch (m_wallet->ask_password())
     {
@@ -3735,7 +3744,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "default-ring-size = " << (m_wallet->default_mixin() ? m_wallet->default_mixin() + 1 : 0);
     success_msg_writer() << "auto-refresh = " << m_wallet->auto_refresh();
     success_msg_writer() << "refresh-type = " << get_refresh_type_name(m_wallet->get_refresh_type());
-    success_msg_writer() << "priority = " << priority<< " (" << priority_string << ")";
+    success_msg_writer() << "priority = " << priority_index << " (" << priority_string << ")";
     success_msg_writer() << "ask-password = " << m_wallet->ask_password() << " (" << ask_password_string << ")";
     success_msg_writer() << "unit = " << cryptonote::get_unit(cryptonote::get_default_decimal_point());
     success_msg_writer() << "max-reorg-depth = " << m_wallet->max_reorg_depth();
@@ -6440,7 +6449,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     local_args.erase(local_args.begin());
   }
 
-  uint32_t priority = m_wallet->get_default_priority();
+  FeePriority priority = m_wallet->get_default_priority();
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
@@ -7005,7 +7014,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
     local_args.erase(local_args.begin());
   }
 
-  uint32_t priority = 0;
+  FeePriority priority = FeePriority::Default;
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
@@ -7249,7 +7258,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   std::vector<std::string> local_args = args_;
 
-  uint32_t priority = 0;
+  FeePriority priority = FeePriority::Default;
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
