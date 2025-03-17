@@ -39,9 +39,23 @@ namespace tools
             }
             else
             {
-                const uint32_t integralValue = static_cast<uint32_t>(priority);
+                const uint32_t integralValue = AsIntegral(priority);
                 const auto decrementedIntegralValue = integralValue - 1u;
-                return static_cast<FeePriority>(decrementedIntegralValue);
+                return FromIntegral(decrementedIntegralValue);
+            }
+        }
+
+        static FeePriority Increase(const FeePriority priority)
+        {
+            if (priority == FeePriority::Priority)
+            {
+                return priority;
+            }
+            else
+            {
+                const uint32_t integralValue = AsIntegral(priority);
+                const auto incrementedIntegralValue = integralValue + 1u;
+                return FromIntegral(incrementedIntegralValue);
             }
         }
 
