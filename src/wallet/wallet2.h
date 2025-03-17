@@ -1658,6 +1658,7 @@ private:
     uint64_t get_fee_multiplier(FeePriority priority, FeeAlgorithm fee_algorithm = FeeAlgorithm::Unset);
     uint64_t get_base_fee(FeePriority priority);
     uint64_t get_base_fee();
+    std::vector<uint64_t> get_base_fee_by_priority(uint64_t base_fee, uint64_t typical_size);
     uint64_t get_fee_quantization_mask();
     uint64_t get_min_ring_size();
     uint64_t get_max_ring_size();

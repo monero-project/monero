@@ -74,6 +74,7 @@
 #include "wallet/wallet_args.h"
 #include "wallet/fee_priority.h"
 #include "wallet/fee_level.h"
+#include "wallet/constants.h"
 #include "version.h"
 #include <stdexcept>
 #include "wallet/message_store.h"
@@ -1028,18 +1029,12 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
   const bool per_byte = m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE);
   const uint64_t base_fee = m_wallet->get_base_fee();
   const char *base = per_byte ? "byte" : "kB";
-  const uint64_t typical_size = per_byte ? 2500 : 13;
+  const uint64_t typical_size = per_byte ? tools::TransactionConstants::TypicalTransactionSizeBytes : 13;
   const uint64_t size_granularity = per_byte ? 1 : 1024;
   message_writer() << (boost::format(tr("Current fee is %s %s per %s")) % print_money(base_fee) % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % base).str();
 
-  std::vector<uint64_t> fees;
-  for (const auto priority : FeePriorityUtilities::GetEnums())
-  {
-    if (priority == FeePriority::Default)
-      continue;
-    uint64_t mult = m_wallet->get_fee_multiplier(priority);
-    fees.push_back(base_fee * typical_size * mult);
-  }
+  std::vector<uint64_t> fees = m_wallet->get_base_fee_by_priority(base_fee, typical_size);
+
   tools::BlockRangeBacklogs blocks;
   blocks.reserve(fees.size());
 

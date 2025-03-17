@@ -91,6 +91,7 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
+#include "constants.h"
 
 extern "C"
 {
@@ -8537,6 +8538,19 @@ uint64_t wallet2::get_base_fee()
 uint64_t wallet2::get_base_fee(uint32_t priority)
 {
   return get_base_fee(FeePriorityUtilities::FromIntegral(priority));
+}
+//----------------------------------------------------------------------------------------------------
+std::vector<uint64_t> wallet2::get_base_fee_by_priority(uint64_t base_fee, uint64_t typical_size)
+{
+  std::vector<uint64_t> fees;
+  for (const auto priority : FeePriorityUtilities::GetEnums())
+  {
+    if (priority == FeePriority::Default)
+      continue;
+    uint64_t mult = get_fee_multiplier(priority);
+    fees.push_back(base_fee * typical_size * mult);
+  }
+  return fees;
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee(FeePriority priority)
