@@ -3268,10 +3268,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   if(pmax_used_block_height)
     *pmax_used_block_height = 0;
 
-  // pruned txes are skipped, as they're only allowed in sync-pruned-blocks mode, which is within the builtin hashes
-  if (tx.pruned)
-    return true;
-
   crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
 
   const uint8_t hf_version = m_hardfork->get_current_version();
