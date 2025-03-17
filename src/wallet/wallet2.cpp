@@ -8663,19 +8663,15 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
     try
     {
       // check if there's a backlog in the tx pool
-      const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
-      const uint64_t base_fee = get_base_fee(FeePriority::Unimportant);
-      const double fee_level = base_fee * (use_per_byte_fee ? 1 : (12. / 13. / 1024.));
-      const tools::BlockRangeBacklogs blocks = estimate_backlog({ tools::FeeLevelRange{fee_level, fee_level} });
-      if (blocks.size() != 1)
+      const auto all_priority_fees = get_base_fee_by_priority(get_base_fee(), tools::TransactionConstants::TypicalTransactionSizeBytes);
+      const tools::BlockRangeBacklogs blocks = estimate_backlog(tools::TransactionConstants::TypicalTransactionSizeBytes,
+        tools::TransactionConstants::TypicalTransactionSizeBytes, all_priority_fees);
+      
+      const bool backlog_results_are_valid = blocks.size() == all_priority_fees.size();
+      if (!backlog_results_are_valid)
       {
         MERROR("Bad estimated backlog array size");
         return priority;
-      }
-      else if (blocks.front().GetMaximumBlocksRemaining() > 0)
-      {
-        MINFO("We don't use the low priority because there's a backlog in the tx pool.");
-        return FeePriority::Normal;
       }
 
       // get the current full reward zone
@@ -8686,15 +8682,15 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       const uint64_t full_reward_zone = block_weight_limit / 2;
 
       // get the last N block headers and sum the block sizes
-      const size_t N = 10;
-      if (m_blockchain.size() < N)
+      const size_t last_ten_blocks = 10;
+      if (m_blockchain.size() < last_ten_blocks)
       {
         MERROR("The blockchain is too short");
         return priority;
       }
       cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request getbh_req = AUTO_VAL_INIT(getbh_req);
       cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response getbh_res = AUTO_VAL_INIT(getbh_res);
-      getbh_req.start_height = m_blockchain.size() - N;
+      getbh_req.start_height = m_blockchain.size() - last_ten_blocks;
       getbh_req.end_height = m_blockchain.size() - 1;
 
       {
@@ -8703,7 +8699,7 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
         THROW_ON_RPC_RESPONSE_ERROR(r, {}, getbh_res, "getblockheadersrange", error::get_blocks_error, get_rpc_status(m_trusted_daemon, getbh_res.status));
       }
 
-      if (getbh_res.headers.size() != N)
+      if (getbh_res.headers.size() != last_ten_blocks)
       {
         MERROR("Block headers size is not equivalent to the requested size.");
         return priority;
@@ -8715,20 +8711,40 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       }
 
       // estimate how 'full' the last N blocks are
-      const size_t percentFull = 100 * block_weight_sum / (N * full_reward_zone);
-      MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % N % percentFull).str());
-      if (percentFull < 80)
+      const size_t percent_full = 100 * block_weight_sum / (last_ten_blocks * full_reward_zone);
+      MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % last_ten_blocks % percent_full).str());
+      if (percent_full < 80)
       {
         MINFO("We'll use the low priority because, on average, the blocks are relatively empty.");
         return FeePriority::Unimportant;
       }
       else
       {
-        
-      }
+        /*
+          We know the last 10 blocks are relatively full. Let's consider our steps moving forward:
+          1. If the txpool is empty, there is no need to adjust our priority (do nothing).
+          2. If the txpool contains transactions, we need to assess our priority relative to those transactions
+            a) If the pool is contains over 180 blocks worth of transactions paying as much or more than we are, elevate priority, otherwise
+            b) do nothing.
+        */
+        const bool tx_pool_is_empty = std::all_of(blocks.begin(), blocks.end(), [](const tools::BlockRangeBacklog& backlog) { return backlog.GetMaximumBlocksRemaining() == 0; });
+        if (tx_pool_is_empty)
+          return priority;
 
-        MINFO("We don't use the low priority because recent blocks are quite full.");
-        return FeePriority::Normal;
+        const auto default_priority_index = 1;
+        const auto priority_index = tools::FeePriorityUtilities::AsIntegral(priority) - default_priority_index;
+        const auto blocks_required_to_elevate = 360;
+        auto blocks_to_wait = 0;
+        for (auto i{ priority_index }; i < blocks.size(); ++i)
+        {
+          const auto& block_at_priority = blocks.at(i);
+          const auto blocks_to_wait_at_priority = block_at_priority.GetAverageBlocksRemaining();
+          blocks_to_wait += blocks_to_wait_at_priority;
+          if (blocks_to_wait >= blocks_required_to_elevate)
+            return tools::FeePriorityUtilities::Increase(priority);
+        }
+        return priority;
+      }
     }
     catch (const std::exception &e)
     {
