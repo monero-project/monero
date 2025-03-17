@@ -27,6 +27,7 @@ namespace tools
         // Paying a lower fee requires one to wait longer.
         uint64_t GetMaximumBlocksRemaining() const { return minimum_fee_backlog.blocks_remaining; }
         uint64_t GetMinimumBlocksRemaining() const { return maximum_fee_backlog.blocks_remaining; }
+        uint64_t GetAverageBlocksRemaining() const { (GetMaximumBlocksRemaining() - GetMinimumBlocksRemaining()) / 2 + GetMinimumBlocksRemaining(); }
     };
 
     using BlockRangeBacklogs = std::vector<BlockRangeBacklog>;
