@@ -15182,6 +15182,7 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   {
     THROW_WALLET_EXCEPTION_IF(fee_level.first == 0.0, error::wallet_internal_error, "Invalid 0 fee");
     THROW_WALLET_EXCEPTION_IF(fee_level.second == 0.0, error::wallet_internal_error, "Invalid 0 fee");
+    THROW_WALLET_EXCEPTION_IF(fee_level.second < fee_level.first, error::wallet_internal_error, "Minimum fee cannot be less than maximum fee");
   }
 
   // get txpool backlog
@@ -15201,11 +15202,9 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   THROW_WALLET_EXCEPTION_IF(full_reward_zone == 0, error::wallet_internal_error, "Invalid block weight limit from daemon");
 
   std::vector<std::pair<uint64_t, uint64_t>> blocks;
-  for (const auto &fee_level: fee_levels)
+  for (const auto& [our_fee_byte_min, our_fee_byte_max] : fee_levels)
   {
-    const double our_fee_byte_min = fee_level.first;
-    const double our_fee_byte_max = fee_level.second;
-    uint64_t priority_weight_min = 0, priority_weight_max = 0;
+    uint64_t minfee_weight = 0, maxfee_weight = 0;
     for (const auto &i: res.backlog)
     {
       if (i.weight == 0)
@@ -15215,16 +15214,16 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
       }
       double this_fee_byte = i.fee / (double)i.weight;
       if (this_fee_byte >= our_fee_byte_min)
-        priority_weight_min += i.weight;
+        minfee_weight += i.weight;
       if (this_fee_byte >= our_fee_byte_max)
-        priority_weight_max += i.weight;
+        maxfee_weight += i.weight;
     }
 
-    uint64_t nblocks_min = priority_weight_min / full_reward_zone;
-    uint64_t nblocks_max = priority_weight_max / full_reward_zone;
-    MDEBUG("estimate_backlog: priority_weight " << priority_weight_min << " - " << priority_weight_max << " for "
-        << our_fee_byte_min << " - " << our_fee_byte_max << " piconero byte fee, "
-        << nblocks_min << " - " << nblocks_max << " blocks at block weight " << full_reward_zone);
+    uint64_t nblocks_max = minfee_weight / full_reward_zone;
+    uint64_t nblocks_min = maxfee_weight / full_reward_zone;
+    MDEBUG("estimate_backlog: given a block weight of " << full_reward_zone << " you will need to wait "
+      << nblocks_min << " when paying " << our_fee_byte_max << " piconero per byte and " << nblocks_max
+      << " when paying " << our_fee_byte_min << " piconeros per byte.");
     blocks.push_back(std::make_pair(nblocks_min, nblocks_max));
   }
   return blocks;
