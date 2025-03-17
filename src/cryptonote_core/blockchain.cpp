@@ -4260,7 +4260,7 @@ leave:
       {
         tx = std::move(extra_txs_it->second.first);
         txblob = std::move(extra_txs_it->second.second);
-        tx_weight = get_transaction_weight(tx, txblob.size());
+        tx_weight = tx.pruned ? get_pruned_transaction_weight(tx) : get_transaction_weight(tx, txblob.size());
         fee = get_tx_fee(tx);
         pruned = tx.pruned;
         extra_block_txs.txs_by_txid.erase(extra_txs_it);
