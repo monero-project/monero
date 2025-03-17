@@ -73,6 +73,7 @@
 #include "message_store.h"
 #include "fee_priority.h"
 #include "fee_algorithm.h"
+#include "fee_level.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -1650,8 +1651,8 @@ private:
 
     bool is_synced();
 
-    std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(const std::vector<std::pair<double, double>> &fee_levels);
-    std::vector<std::pair<uint64_t, uint64_t>> estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees);
+    BlockRangeBacklogs estimate_backlog(const FeeLevelRanges &fee_levels);
+    BlockRangeBacklogs estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees);
 
     static uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags, uint64_t base_fee, uint64_t fee_quantization_mask);
     uint64_t get_fee_multiplier(FeePriority priority, FeeAlgorithm fee_algorithm = FeeAlgorithm::Unset);

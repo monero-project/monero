@@ -73,6 +73,7 @@
 #include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
 #include "wallet/fee_priority.h"
+#include "wallet/fee_level.h"
 #include "version.h"
 #include <stdexcept>
 #include "wallet/message_store.h"
@@ -1039,7 +1040,9 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     uint64_t mult = m_wallet->get_fee_multiplier(priority);
     fees.push_back(base_fee * typical_size * mult);
   }
-  std::vector<std::pair<uint64_t, uint64_t>> blocks;
+  tools::BlockRangeBacklogs blocks;
+  blocks.reserve(fees.size());
+
   try
   {
     uint64_t base_size = typical_size * size_granularity;
@@ -1064,8 +1067,9 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     const auto lower_priority = FeePriorityUtilities::Decrease(priority);
     const auto lower_priority_index = FeePriorityUtilities::AsIntegral(lower_priority);
     const auto current_priority_index = FeePriorityUtilities::AsIntegral(priority);
-    uint64_t nblocks_low = blocks[lower_priority_index].first;
-    uint64_t nblocks_high = blocks[lower_priority_index].second;
+    uint64_t nblocks_low = blocks[lower_priority_index].GetMinimumBlocksRemaining();
+    uint64_t nblocks_high = blocks[lower_priority_index].GetMaximumBlocksRemaining();
+
     if (nblocks_low > 0)
     {
       std::string msg;
@@ -6664,15 +6668,16 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
       }
       try
       {
-        std::vector<std::pair<uint64_t, uint64_t>> nblocks = m_wallet->estimate_backlog({std::make_pair(worst_fee_per_byte, worst_fee_per_byte)});
+        const tools::BlockRangeBacklogs nblocks = m_wallet->estimate_backlog({ tools::FeeLevelRange{worst_fee_per_byte, worst_fee_per_byte} });
         if (nblocks.size() != 1)
         {
           prompt << "Internal error checking for backlog. " << tr("Is this okay anyway?");
         }
         else
         {
-          if (nblocks[0].first > m_wallet->get_confirm_backlog_threshold())
-            prompt << (boost::format(tr("There is currently a %u block backlog at that fee level. Is this okay?")) % nblocks[0].first).str();
+          auto blockBacklog = nblocks.front().GetMaximumBlocksRemaining();
+          if (blockBacklog > m_wallet->get_confirm_backlog_threshold())
+            prompt << (boost::format(tr("There is currently a %u block backlog at that fee level. Is this okay?")) % blockBacklog).str();
         }
       }
       catch (const std::exception &e)

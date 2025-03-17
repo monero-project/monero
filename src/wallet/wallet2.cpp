@@ -8652,13 +8652,13 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
       const uint64_t base_fee = get_base_fee(FeePriority::Unimportant);
       const double fee_level = base_fee * (use_per_byte_fee ? 1 : (12. / 13. / 1024.));
-      const std::vector<std::pair<uint64_t, uint64_t>> blocks = estimate_backlog({std::make_pair(fee_level, fee_level)});
+      const tools::BlockRangeBacklogs blocks = estimate_backlog({ tools::FeeLevelRange{fee_level, fee_level} });
       if (blocks.size() != 1)
       {
         MERROR("Bad estimated backlog array size");
         return priority;
       }
-      else if (blocks[0].first > 0)
+      else if (blocks.front().GetMaximumBlocksRemaining() > 0)
       {
         MINFO("We don't use the low priority because there's a backlog in the tx pool.");
         return FeePriority::Normal;
@@ -8666,8 +8666,8 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
 
       // get the current full reward zone
       uint64_t block_weight_limit = 0;
-      const auto result = m_node_rpc_proxy.get_block_weight_limit(block_weight_limit);
-      if (result)
+      const auto error = m_node_rpc_proxy.get_block_weight_limit(block_weight_limit);
+      if (error)
         return priority;
       const uint64_t full_reward_zone = block_weight_limit / 2;
 
@@ -8691,7 +8691,7 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
 
       if (getbh_res.headers.size() != N)
       {
-        MERROR("Bad blockheaders size");
+        MERROR("Block headers size is not equivalent to the requested size.");
         return priority;
       }
       size_t block_weight_sum = 0;
@@ -8701,15 +8701,20 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       }
 
       // estimate how 'full' the last N blocks are
-      const size_t P = 100 * block_weight_sum / (N * full_reward_zone);
-      MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % N % P).str());
-      if (P > 80)
+      const size_t percentFull = 100 * block_weight_sum / (N * full_reward_zone);
+      MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % N % percentFull).str());
+      if (percentFull < 80)
       {
+        MINFO("We'll use the low priority because, on average, the blocks are relatively empty.");
+        return FeePriority::Unimportant;
+      }
+      else
+      {
+        
+      }
+
         MINFO("We don't use the low priority because recent blocks are quite full.");
         return FeePriority::Normal;
-      }
-      MINFO("We'll use the low priority because probably it's safe to do so.");
-      return FeePriority::Unimportant;
     }
     catch (const std::exception &e)
     {
@@ -15186,12 +15191,12 @@ bool wallet2::is_synced()
   return get_blockchain_current_height() >= height;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::vector<std::pair<double, double>> &fee_levels)
+BlockRangeBacklogs wallet2::estimate_backlog(const FeeLevelRanges &fee_levels)
 {
   for (const auto &fee_level: fee_levels)
   {
-    THROW_WALLET_EXCEPTION_IF(fee_level.first == 0.0, error::wallet_internal_error, "Invalid 0 fee");
-    THROW_WALLET_EXCEPTION_IF(fee_level.second == 0.0, error::wallet_internal_error, "Invalid 0 fee");
+    THROW_WALLET_EXCEPTION_IF(fee_level.minimum == 0.0, error::wallet_internal_error, "Invalid 0 fee");
+    THROW_WALLET_EXCEPTION_IF(fee_level.maximum == 0.0, error::wallet_internal_error, "Invalid 0 fee");
   }
 
   // get txpool backlog
@@ -15210,11 +15215,11 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
   uint64_t full_reward_zone = block_weight_limit / 2;
   THROW_WALLET_EXCEPTION_IF(full_reward_zone == 0, error::wallet_internal_error, "Invalid block weight limit from daemon");
 
-  std::vector<std::pair<uint64_t, uint64_t>> blocks;
-  for (const auto &fee_level: fee_levels)
+  BlockRangeBacklogs blocks;
+  blocks.reserve(fee_levels.size());
+
+  for (const auto& [our_fee_byte_min, our_fee_byte_max] : fee_levels)
   {
-    const double our_fee_byte_min = fee_level.first;
-    const double our_fee_byte_max = fee_level.second;
     uint64_t priority_weight_min = 0, priority_weight_max = 0;
     for (const auto &i: res.backlog)
     {
@@ -15230,17 +15235,18 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(const std::
         priority_weight_max += i.weight;
     }
 
-    uint64_t nblocks_min = priority_weight_min / full_reward_zone;
-    uint64_t nblocks_max = priority_weight_max / full_reward_zone;
-    MDEBUG("estimate_backlog: priority_weight " << priority_weight_min << " - " << priority_weight_max << " for "
-        << our_fee_byte_min << " - " << our_fee_byte_max << " piconero byte fee, "
-        << nblocks_min << " - " << nblocks_max << " blocks at block weight " << full_reward_zone);
-    blocks.push_back(std::make_pair(nblocks_min, nblocks_max));
+    uint64_t nblocks_max = priority_weight_min / full_reward_zone;
+    uint64_t nblocks_min = priority_weight_max / full_reward_zone;
+    MDEBUG("estimate_backlog: given a block weight of " << full_reward_zone << " you will need to wait "
+      << nblocks_min << " when paying " << our_fee_byte_max << " piconero per byte and " << nblocks_max
+      << " when paying " << our_fee_byte_min << " piconeros per byte.");
+    
+      blocks.push_back({ BlockBacklog{ our_fee_byte_min, nblocks_max }, BlockBacklog{ our_fee_byte_max, nblocks_min } });
   }
   return blocks;
 }
 //----------------------------------------------------------------------------------------------------
-std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees)
+BlockRangeBacklogs wallet2::estimate_backlog(uint64_t min_tx_weight, uint64_t max_tx_weight, const std::vector<uint64_t> &fees)
 {
   THROW_WALLET_EXCEPTION_IF(min_tx_weight == 0, error::wallet_internal_error, "Invalid 0 fee");
   THROW_WALLET_EXCEPTION_IF(max_tx_weight == 0, error::wallet_internal_error, "Invalid 0 fee");
@@ -15248,11 +15254,13 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
   {
     THROW_WALLET_EXCEPTION_IF(fee == 0, error::wallet_internal_error, "Invalid 0 fee");
   }
-  std::vector<std::pair<double, double>> fee_levels;
+  FeeLevelRanges fee_levels;
+  fee_levels.reserve(fees.size());
+
   for (uint64_t fee: fees)
   {
     double our_fee_byte_min = fee / (double)min_tx_weight, our_fee_byte_max = fee / (double)max_tx_weight;
-    fee_levels.emplace_back(our_fee_byte_min, our_fee_byte_max);
+    fee_levels.push_back({ our_fee_byte_min, our_fee_byte_max });
   }
   return estimate_backlog(fee_levels);
 }
