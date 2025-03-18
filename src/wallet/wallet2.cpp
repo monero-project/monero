@@ -8722,11 +8722,14 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       {
         /*
           We know the last 10 blocks are relatively full. Let's consider our steps moving forward:
-          1. If the txpool is empty, there is no need to adjust our priority (do nothing).
+          1. If the txpool is empty, or we are at Elevated priority, there is no need to adjust our priority (do nothing).
           2. If the txpool contains transactions, we need to assess our priority relative to those transactions
             a) If the pool is contains over 180 blocks worth of transactions paying as much or more than we are, elevate priority, otherwise
             b) do nothing.
         */
+        if (priority == tools::FeePriority::Elevated)
+          return priority;
+
         const bool tx_pool_is_empty = std::all_of(blocks.begin(), blocks.end(), [](const tools::BlockRangeBacklog& backlog) { return backlog.GetMaximumBlocksRemaining() == 0; });
         if (tx_pool_is_empty)
           return priority;
