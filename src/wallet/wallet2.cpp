@@ -8683,19 +8683,14 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
 
       // Condition 1
       const auto blocks_required_to_elevate = 360;
-      auto blocks_to_wait = 0;
-      const auto normal_priority_index = 1;
-      for (auto i{ normal_priority_index }; i < blocks.size(); ++i)
+      const auto normal_priority_index = FeePriorityUtilities::AsIntegral(FeePriority::Normal) - 1;
+      const auto normal_and_greater_block_backlog = blocks.at(normal_priority_index).GetAverageBlocksRemaining();
+      if (normal_and_greater_block_backlog >= blocks_required_to_elevate)
       {
-        const auto& block_at_priority = blocks.at(i);
-        const auto blocks_to_wait_at_priority = block_at_priority.GetAverageBlocksRemaining();
-        blocks_to_wait += blocks_to_wait_at_priority;
-        if (blocks_to_wait >= blocks_required_to_elevate)
-        {
-          MINFO("Uping our priority to Elevated, there is a greater than 360 block backlog at Normal+ priority.");
-          return tools::FeePriority::Elevated;
-        }
+        MINFO("Uping our priority to Elevated, there is a greater than 360 block backlog at Normal+ priority.");
+        return tools::FeePriority::Elevated;
       }
+
 
       // Condition 2
       const auto unimportant_block_backlog = blocks.at(0);
