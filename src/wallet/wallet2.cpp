@@ -8734,11 +8734,10 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
         if (tx_pool_is_empty)
           return priority;
 
-        const auto default_priority_index = 1;
-        const auto priority_index = tools::FeePriorityUtilities::AsIntegral(priority) - default_priority_index;
         const auto blocks_required_to_elevate = 360;
         auto blocks_to_wait = 0;
-        for (auto i{ priority_index }; i < blocks.size(); ++i)
+        const auto normal_priority_index = 1;
+        for (auto i{ normal_priority_index }; i < blocks.size(); ++i)
         {
           const auto& block_at_priority = blocks.at(i);
           const auto blocks_to_wait_at_priority = block_at_priority.GetAverageBlocksRemaining();
