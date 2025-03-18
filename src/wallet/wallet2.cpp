@@ -8663,7 +8663,7 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
     /*
           The following are the new elevation rules:
           1. If we have >= 360 blocks worth of Normal+ fee-paying transactions, adjust to Elevated priority, else
-          2. If we have > 1 block in the transaction pool, adjust to Normal priority, else
+          2. If we have > 0 block in the transaction pool, adjust to Normal priority, else
           3. If the last 10 blocks are 80% full or higher, relative to the reward zone, set to Normal priority, else
           4. keep the existing priority.
     */
