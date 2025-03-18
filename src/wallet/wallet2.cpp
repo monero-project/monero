@@ -8744,7 +8744,7 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
           const auto blocks_to_wait_at_priority = block_at_priority.GetAverageBlocksRemaining();
           blocks_to_wait += blocks_to_wait_at_priority;
           if (blocks_to_wait >= blocks_required_to_elevate)
-            return tools::FeePriorityUtilities::Increase(priority);
+            return tools::FeePriority::Elevated;
         }
         return priority;
       }
