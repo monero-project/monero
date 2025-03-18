@@ -1171,6 +1171,12 @@ namespace tools
       er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
+    else if (!FeePriorityUtilities::IsValid(req.priority))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
+      er.message = "Invalid priority value. Must be between 0 and 4.";
+      return false;
+    }
 
     CHECK_MULTISIG_ENABLED();
 
@@ -1229,6 +1235,12 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME;
       er.message = "Transaction cannot have non-zero unlock time";
+      return false;
+    }
+    else if (!FeePriorityUtilities::IsValid(req.priority))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
+      er.message = "Invalid priority value. Must be between 0 and 4.";
       return false;
     }
 
@@ -1676,6 +1688,12 @@ namespace tools
       er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
+    else if (!FeePriorityUtilities::IsValid(req.priority))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
+      er.message = "Invalid priority value. Must be between 0 and 4.";
+      return false;
+    }
 
     CHECK_MULTISIG_ENABLED();
 
@@ -1740,6 +1758,12 @@ namespace tools
     {
       er.code = WALLET_RPC_ERROR_CODE_NONZERO_UNLOCK_TIME;
       er.message = "Transaction cannot have non-zero unlock time";
+      return false;
+    }
+    else if (!FeePriorityUtilities::IsValid(req.priority))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
+      er.message = "Invalid priority value. Must be between 0 and 4.";
       return false;
     }
 

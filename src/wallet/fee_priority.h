@@ -55,6 +55,11 @@ namespace tools
             return static_cast<FeePriority>(priority);
         }
 
+        static bool IsValid(const uint32_t priority)
+        {
+            return priority <= AsIntegral(FeePriority::Priority);
+        }
+
         static FeePriority Clamp(const FeePriority priority)
         {
             /* Map Default to an actionable priority. */
