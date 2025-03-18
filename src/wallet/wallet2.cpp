@@ -8659,7 +8659,14 @@ FeePriority wallet2::adjust_priority(uint32_t priority)
 FeePriority wallet2::adjust_priority(FeePriority priority)
 {
   if (priority == FeePriority::Default && m_default_priority == FeePriority::Default && auto_low_priority())
-  {
+  {       
+    /*
+          The following are the new elevation rules:
+          1. If we have >= 360 blocks worth of Normal+ fee-paying transactions, adjust to Elevated priority, else
+          2. If we have > 1 block in the transaction pool, adjust to Normal priority, else
+          3. If the last 10 blocks are 80% full or higher, relative to the reward zone, set to Normal priority, else
+          4. keep the existing priority.
+    */
     try
     {
       // check if there's a backlog in the tx pool
@@ -8674,7 +8681,31 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
         return priority;
       }
 
-      // get the current full reward zone
+      // Condition 1
+      const auto blocks_required_to_elevate = 360;
+      auto blocks_to_wait = 0;
+      const auto normal_priority_index = 1;
+      for (auto i{ normal_priority_index }; i < blocks.size(); ++i)
+      {
+        const auto& block_at_priority = blocks.at(i);
+        const auto blocks_to_wait_at_priority = block_at_priority.GetAverageBlocksRemaining();
+        blocks_to_wait += blocks_to_wait_at_priority;
+        if (blocks_to_wait >= blocks_required_to_elevate)
+        {
+          MINFO("Uping our priority to Elevated, there is a greater than 360 block backlog at Normal+ priority.");
+          return tools::FeePriority::Elevated;
+        }
+      }
+
+      // Condition 2
+      const auto unimportant_block_backlog = blocks.at(0);
+      if (unimportant_block_backlog.GetAverageBlocksRemaining() > 0)
+      {
+        MINFO("Uping priority to Normal, there is a backlock of at least 1 block at the Unimportant (low) priority.");
+        return tools::FeePriority::Normal;
+      }
+
+      // Condition 3
       uint64_t block_weight_limit = 0;
       const auto error = m_node_rpc_proxy.get_block_weight_limit(block_weight_limit);
       if (error)
@@ -8713,39 +8744,10 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       // estimate how 'full' the last N blocks are
       const size_t percent_full = 100 * block_weight_sum / (last_ten_blocks * full_reward_zone);
       MINFO((boost::format("The last %d blocks fill roughly %d%% of the full reward zone.") % last_ten_blocks % percent_full).str());
-      if (percent_full < 80)
+      if (percent_full >= 80)
       {
-        MINFO("We'll use the low priority because, on average, the blocks are relatively empty.");
-        return FeePriority::Unimportant;
-      }
-      else
-      {
-        /*
-          We know the last 10 blocks are relatively full. Let's consider our steps moving forward:
-          1. If the txpool is empty, or we are at Elevated priority, there is no need to adjust our priority (do nothing).
-          2. If the txpool contains transactions, we need to assess our priority relative to those transactions
-            a) If the pool is contains over 180 blocks worth of transactions paying as much or more than we are, elevate priority, otherwise
-            b) do nothing.
-        */
-        if (priority == tools::FeePriority::Elevated)
-          return priority;
-
-        const bool tx_pool_is_empty = std::all_of(blocks.begin(), blocks.end(), [](const tools::BlockRangeBacklog& backlog) { return backlog.GetMaximumBlocksRemaining() == 0; });
-        if (tx_pool_is_empty)
-          return priority;
-
-        const auto blocks_required_to_elevate = 360;
-        auto blocks_to_wait = 0;
-        const auto normal_priority_index = 1;
-        for (auto i{ normal_priority_index }; i < blocks.size(); ++i)
-        {
-          const auto& block_at_priority = blocks.at(i);
-          const auto blocks_to_wait_at_priority = block_at_priority.GetAverageBlocksRemaining();
-          blocks_to_wait += blocks_to_wait_at_priority;
-          if (blocks_to_wait >= blocks_required_to_elevate)
-            return tools::FeePriority::Elevated;
-        }
-        return priority;
+        MINFO("We'll use the normal priority because, on average, the blocks are relatively full.");
+        return FeePriority::Normal;
       }
     }
     catch (const std::exception &e)
