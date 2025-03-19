@@ -48,11 +48,11 @@ To run the same tests on a release build, replace `debug` with `release`.
 [TODO]
 Functional tests are located under the `tests/functional_tests` directory.
 
-Building all the tests requires the versioned-dependencies listed in the `requirements.txt` file.
+Building all the tests requires the versioned dependencies listed in the `requirements.txt` file.
 
 To install said dependencies, you must have the python package `virtualenv` installed. 
 
-To read more on how to install `virtualenv` please read [this](https://virtualenv.pypa.io/en/latest/installation.html) short guide.
+To learn more about how to install `virtualenv`, please read [this](https://virtualenv.pypa.io/en/latest/installation.html) short guide.
 
 After `virtualenv` is installed, create your own virtual environment with:
 
@@ -60,7 +60,7 @@ After `virtualenv` is installed, create your own virtual environment with:
 virtualenv venv
 ```
 
-**Note**: You can name your virtual environment anything you want; but, this repository is configured to ignore the contents of venv.
+**Note**: You can name your virtual environment anything you want; but, this repository is only configured to ignore the contents of `venv` and `.venv`.
 
 After activiating your virtual environment, as detailed in the afformentioned fuide, install the required dependencies:
 ```bash
