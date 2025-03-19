@@ -1,0 +1,11 @@
+certifi==2025.1.31
+charset-normalizer==3.4.1
+deepdiff==8.4.2
+idna==3.10
+monotonic==1.6
+orderly-set==5.3.0
+psutil==7.0.0
+pyzmq==26.3.0
+requests==2.32.3
+urllib3==2.3.0
+zmq==0.0.0
