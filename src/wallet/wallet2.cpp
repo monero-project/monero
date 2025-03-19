@@ -8546,6 +8546,7 @@ uint64_t wallet2::get_base_fee(FeePriority priority)
   {
     // clamp and map to 0..3 indices, mapping 0 (default, but should not end up here) to 0, and 1..4 to 0..3
     priority = FeePriorityUtilities::Clamp(priority);
+    priority = FeePriorityUtilities::Decrease(priority);
 
     std::vector<uint64_t> fees;
     boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate_2021_scaling(FEE_ESTIMATE_GRACE_BLOCKS, fees);
