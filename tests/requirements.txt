@@ -1,11 +1,5 @@
-certifi
-charset-normalizer
 deepdiff
-idna
 monotonic
-orderly-set
 psutil
-pyzmq
 requests
-urllib3
 zmq
