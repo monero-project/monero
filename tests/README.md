@@ -66,7 +66,7 @@ virtualenv venv
 
 **Note**: You can name your virtual environment anything you want; but, this repository is only configured to ignore the contents of `venv` and `.venv`.
 
-After activating your virtual environment, as detailed in the afformentioned guide, install the required dependencies:
+After activating your virtual environment, as detailed in the aformentioned guide, install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
