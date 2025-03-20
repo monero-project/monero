@@ -55,7 +55,7 @@ To install said dependencies, it is recommended that you use a virtual environme
 To learn more about how to install `virtualenv`, please read [this](https://virtualenv.pypa.io/en/latest/installation.html) short guide.
 
 ```bash
-python -m pip install --user virtualenv
+python3 -m pip install --user virtualenv
 ```
 
 After `virtualenv` is installed, create your own virtual environment with:
@@ -66,7 +66,7 @@ virtualenv venv
 
 **Note**: You can name your virtual environment anything you want; but, this repository is only configured to ignore the contents of `venv` and `.venv`.
 
-After activiating your virtual environment, as detailed in the afformentioned fuide, install the required dependencies:
+After activating your virtual environment, as detailed in the afformentioned guide, install the required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
