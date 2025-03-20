@@ -3,7 +3,7 @@ charset-normalizer
 deepdiff
 idna
 monotonic
-orderlyset
+orderly-set
 psutil
 pyzmq
 requests
