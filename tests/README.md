@@ -55,7 +55,7 @@ To install said dependencies, it is recommended that you use a virtual environme
 To learn more about how to install `virtualenv`, please read [this](https://virtualenv.pypa.io/en/latest/installation.html) short guide.
 
 ```bash
-pip install virtualenv
+python -m pip install --user virtualenv
 ```
 
 After `virtualenv` is installed, create your own virtual environment with:
