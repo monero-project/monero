@@ -956,17 +956,17 @@ namespace cryptonote
     if (block_sync_size > 0)
       res = block_sync_size;
     else {
-      size_t number_of_blocks = BLOCKS_MEDIAN_WINDOW;
+      size_t number_of_blocks = BLOCKS_MAX_WINDOW;
       std::vector<uint64_t> last_n_blocks_weights;
       m_blockchain_storage.get_last_n_blocks_weights(last_n_blocks_weights, number_of_blocks);
-      uint64_t median_weight = epee::misc_utils::median(last_n_blocks_weights);
-      MINFO("Last " << number_of_blocks
-             << " blocks median size is " << median_weight
+      uint64_t max_weight = *std::max_element(last_n_blocks_weights.begin(), last_n_blocks_weights.end());
+      MINFO("Max block size seen within the last " << number_of_blocks
+             << " blocks is " << max_weight
              << " bytes and the max average blocksize in the queue is " << average_blocksize_of_biggest_batch << " bytes");
-      uint64_t projected_blocksize = (average_blocksize_of_biggest_batch > median_weight) ? average_blocksize_of_biggest_batch : median_weight;
+      uint64_t projected_blocksize = (average_blocksize_of_biggest_batch > max_weight) ? average_blocksize_of_biggest_batch : max_weight;
       uint64_t blocks_huge_threshold = (batch_max_weight / 2);
-      if ((projected_blocksize * BLOCKS_MEDIAN_WINDOW) < batch_max_weight) {
-        res = BLOCKS_MEDIAN_WINDOW;
+      if ((projected_blocksize * BLOCKS_MAX_WINDOW) < batch_max_weight) {
+        res = BLOCKS_MAX_WINDOW;
         MINFO("blocks are tiny, " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
       }
       else if (projected_blocksize >= blocks_huge_threshold) {
@@ -1242,9 +1242,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& max_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
   {
-    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
+    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, seed_hash, difficulty, max_weight, already_generated_coins, tx_backlog);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
