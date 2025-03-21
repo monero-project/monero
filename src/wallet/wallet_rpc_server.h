@@ -53,13 +53,21 @@ namespace tools
 
     static const char* tr(const char* str);
 
-    wallet_rpc_server();
+    wallet_rpc_server(bool no_initial_sync = false);
     ~wallet_rpc_server();
 
     bool init(const boost::program_options::variables_map *vm);
     bool run();
     void stop();
     void set_wallet(wallet2 *cr);
+
+    void set_no_initial_sync(bool no_initial_sync){
+      this->m_no_initial_sync = no_initial_sync;
+    }
+
+    bool get_no_initial_sync() {
+      return m_no_initial_sync;
+    }
 
   private:
 
@@ -286,6 +294,7 @@ namespace tools
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
       bool m_restricted;
+      bool m_no_initial_sync;
       const boost::program_options::variables_map *m_vm;
       uint32_t m_auto_refresh_period;
       boost::posix_time::ptime m_last_auto_refresh_time;
