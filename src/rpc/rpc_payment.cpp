@@ -153,7 +153,7 @@ namespace cryptonote
       extra_nonce = cryptonote::blobdata((const char*)&hash, 4);
       if(!add_extra_nonce_to_tx_extra(new_block.miner_tx.extra, extra_nonce))
         return false;
-      info.previous_block = std::move(info.block);
+      info.previous_block = info.block;
       info.block = std::move(new_block);
       hashing_blob = get_block_hashing_blob(info.block);
       info.previous_hashing_blob = info.hashing_blob;
