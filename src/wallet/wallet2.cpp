@@ -1097,50 +1097,48 @@ uint64_t gamma_picker::pick()
 };
 
 boost::mutex wallet_keys_unlocker::lockers_lock;
-unsigned int wallet_keys_unlocker::lockers = 0;
-wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const boost::optional<tools::password_container> &password):
+std::map<wallet2*, std::size_t> wallet_keys_unlocker::lockers_per_wallet = {};
+wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const epee::wipeable_string *password):
   w(w),
-  locked(password != boost::none)
+  can_relock(password != nullptr)
 {
-  boost::lock_guard<boost::mutex> lock(lockers_lock);
-  if (lockers++ > 0)
-    locked = false;
-  if (!locked || w.is_unattended() || w.ask_password() != tools::wallet2::AskPasswordToDecrypt || w.watch_only() || w.is_background_syncing())
+  static_assert(!std::is_move_assignable_v<wallet2> && !std::is_move_constructible_v<wallet2>,
+    "Keeping track of wallet instances by pointer doesn't work if wallet2 can be moved");
+
+  if (!can_relock
+    || w.is_unattended()
+    || w.ask_password() != tools::wallet2::AskPasswordToDecrypt
+    || w.watch_only()
+    || w.is_background_wallet())
   {
-    locked = false;
+    can_relock = false;
     return;
   }
-  const epee::wipeable_string pass = password->password();
-  w.generate_chacha_key_from_password(pass, key);
-  w.decrypt_keys(key);
-}
 
-wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, bool locked, const epee::wipeable_string &password):
-  w(w),
-  locked(locked)
-{
   boost::lock_guard<boost::mutex> lock(lockers_lock);
-  if (lockers++ > 0)
-    locked = false;
-  if (!locked)
+  if (lockers_per_wallet[std::addressof(w)]++ > 0)
     return;
-  w.generate_chacha_key_from_password(password, key);
+  w.generate_chacha_key_from_password(*password, key);
   w.decrypt_keys(key);
 }
 
 wallet_keys_unlocker::~wallet_keys_unlocker()
 {
+  if (!can_relock)
+    return;
+
   try
   {
     boost::lock_guard<boost::mutex> lock(lockers_lock);
-    if (lockers == 0)
+    wallet2* w_ptr = std::addressof(w);
+    if (lockers_per_wallet[w_ptr] == 0)
     {
       MERROR("There are no lockers in wallet_keys_unlocker dtor");
       return;
     }
-    --lockers;
-    if (!locked)
-      return;
+    if (--lockers_per_wallet[w_ptr] > 0)
+      return; // there are other unlock-ers for this wallet, do nothing for now
+    lockers_per_wallet.erase(w_ptr);
     w.encrypt_keys(key);
   }
   catch (...)
@@ -2178,7 +2176,7 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
       boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
       THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming monero"));
       THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming monero"));
-      m_encrypt_keys_after_refresh.reset(new wallet_keys_unlocker(*this, m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only, *pwd));
+      m_encrypt_keys_after_refresh.reset(new wallet_keys_unlocker(*this, &*pwd));
     }
   }
 
@@ -6459,7 +6457,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, "failed to load keys from buffer");
   }
 
-  wallet_keys_unlocker unlocker(*this, m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && !m_is_background_wallet, password);
+  wallet_keys_unlocker unlocker(*this, &password);
 
   //keys loaded ok!
   //try to load wallet cache. but even if we failed, it is not big problem

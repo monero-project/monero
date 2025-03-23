@@ -113,15 +113,14 @@ private:
   class wallet_keys_unlocker
   {
   public:
-    wallet_keys_unlocker(wallet2 &w, const boost::optional<tools::password_container> &password);
-    wallet_keys_unlocker(wallet2 &w, bool locked, const epee::wipeable_string &password);
+    wallet_keys_unlocker(wallet2 &w, const epee::wipeable_string *password);
     ~wallet_keys_unlocker();
   private:
     wallet2 &w;
-    bool locked;
+    bool can_relock;
     crypto::chacha_key key;
     static boost::mutex lockers_lock;
-    static unsigned int lockers;
+    static std::map<wallet2*, std::size_t> lockers_per_wallet;
   };
 
   class i_wallet2_callback

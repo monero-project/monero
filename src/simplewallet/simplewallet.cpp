@@ -117,7 +117,7 @@ typedef cryptonote::simple_wallet sw;
   LOCK_IDLE_SCOPE(); \
   boost::optional<tools::password_container> pwd_container = boost::none; \
   if (m_wallet->ask_password() && !(pwd_container = get_and_verify_password())) { code; } \
-  tools::wallet_keys_unlocker unlocker(*m_wallet, pwd_container);
+  tools::wallet_keys_unlocker unlocker(*m_wallet, pwd_container ? &pwd_container->password() : nullptr);
 
 #define SCOPED_WALLET_UNLOCK() SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return true;)
 
