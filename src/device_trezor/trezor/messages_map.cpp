@@ -132,5 +132,11 @@ namespace trezor
     return res;
   }
 
+#ifdef PROTOBUF_HAS_ABSEIL
+  messages::MessageType MessageMapper::get_message_wire_number(const absl::string_view& msg_name) {
+    return MessageMapper::get_message_wire_number(std::string{msg_name});
+  }
+#endif
+
 }
 }
