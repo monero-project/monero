@@ -3891,7 +3891,20 @@ namespace tools
       er.message = "Failed to parse view key secret key";
       return false;
     }
-
+    
+    crypto::public_key pkey;
+    if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "failed to verify view key secret key";
+          return false;
+        }
+        
+    if (info.address.m_view_public_key != pkey) {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "view key does not match standard address";
+      return false;
+    }
+      
     if (m_wallet && req.autosave_current)
     {
       try
@@ -3918,6 +3931,20 @@ namespace tools
           er.message = "Failed to parse spend key secret key";
           return false;
         }
+
+        crypto::public_key spkey;
+        if (!crypto::secret_key_to_public_key(spendkey, spkey)) {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message ="failed to verify spend key secret key";
+          return false;
+        }
+        if (info.address.m_spend_public_key != spkey) {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "spend key does not match standard address";
+          return false;
+        }
+
+
         wal->generate(wallet_file, std::move(rc.second).password(), info.address, spendkey, viewkey, false);
         res.info = "Wallet has been generated successfully.";
       }
