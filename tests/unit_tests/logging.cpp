@@ -209,9 +209,10 @@ TEST(logging, operator_equals_segfault)
     log2 = log1;
 }
 
-TEST(logging, empty_configurations_throws)
+TEST(logging, empty_configuration)
 {
     el::Logger log1("id1", nullptr);
     const el::Configurations cfg;
-    EXPECT_ANY_THROW(log1.configure(cfg));
+    EXPECT_NO_THROW(log1.configure(cfg));
+    EXPECT_EQ(log1.typedConfigurations()->filename(el::Level::Info), "");
 }
