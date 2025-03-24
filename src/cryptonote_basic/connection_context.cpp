@@ -85,7 +85,7 @@ namespace cryptonote
   boost::optional<crypto::hash> cryptonote_connection_context::get_expected_hash(const uint64_t height) const
   {
     const auto difference = height - m_expected_heights_start;
-    if (height < m_expected_heights_start || m_expected_heights.size() < difference)
+    if (height < m_expected_heights_start || m_expected_heights.size() <= difference)
       return boost::none;
     return m_expected_heights[difference];
   }
