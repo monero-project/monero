@@ -220,7 +220,7 @@ namespace
         static std::pair<boost::uuids::uuid, typename T::request> get_message(std::deque<received_message>& queue)
         {
             if (queue.empty())
-                throw std::logic_error{"Queue has no received messges"};
+                throw std::logic_error{"Queue has no received messages"};
 
             if (queue.front().command != T::ID)
                 throw std::logic_error{"Unexpected ID at front of message queue"};
