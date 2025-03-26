@@ -736,13 +736,19 @@ include(CheckTrezor)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_FLAG}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_FLAG}")
 
-  set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wno-error=extra -Wno-error=deprecated-declarations -Wno-unused-parameter -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
+  # Define common warnings supported by all compilers
+  set(WARNINGS "-Wall -Wextra -Wpointer-arith -Wundef -Wvla -Wwrite-strings -Wformat -Wformat-security -Wredundant-decls -Wdate-time -Woverloaded-virtual -Wsuggest-override -Wimplicit-fallthrough -Wunreachable-code -Wno-unused-parameter -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=undef -Wno-error=uninitialized")
+
+  # Set compiler-specific warnings
   if(CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Clang-specific warnings
+    set(WARNINGS "${WARNINGS} -Wgnu -Wshadow-field -Wthread-safety -Wloop-analysis -Wunused-member-function -Wconditional-uninitialized -Wdocumentation -Wself-assign -Wno-error=extra")
     if(ARM)
       set(WARNINGS "${WARNINGS} -Wno-error=inline-asm")
     endif()
   else()
-    set(WARNINGS "${WARNINGS} -Wlogical-op -Wno-error=maybe-uninitialized -Wno-error=cpp")
+    # GCC-specific warnings
+    set(WARNINGS "${WARNINGS} -Wlogical-op -Wno-error=maybe-uninitialized -Wno-error=cpp -Wduplicated-branches")
   endif()
   if(MINGW)
     set(WARNINGS "${WARNINGS} -Wno-error=unused-value -Wno-error=unused-but-set-variable")
@@ -788,6 +794,22 @@ include(CheckTrezor)
   add_cxx_flag_if_supported(-Wformat CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(-Wformat-security C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Wformat-security CXX_SECURITY_FLAGS)
+
+  # protection
+  add_c_flag_if_supported(-fno-extended-identifiers C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-fno-extended-identifiers CXX_SECURITY_FLAGS)
+  add_c_flag_if_supported(-fstack-reuse=none C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-fstack-reuse=none CXX_SECURITY_FLAGS)
+
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+      add_c_flag_if_supported("-mbranch-protection=bti" C_SECURITY_FLAGS)
+      add_cxx_flag_if_supported("-mbranch-protection=bti" CXX_SECURITY_FLAGS)
+    else()
+      add_c_flag_if_supported("-mbranch-protection=standard" C_SECURITY_FLAGS)
+      add_cxx_flag_if_supported("-mbranch-protection=standard" CXX_SECURITY_FLAGS)
+    endif()
+  endif()
 
   # -fstack-protector
   if (NOT OPENBSD AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
