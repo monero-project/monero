@@ -3064,7 +3064,7 @@ void read_pool_txs(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &req,
                 [tx_hash](const crypto::hash &e) { return e == tx_hash; });
             if (i != txids.end())
             {
-              txs.push_back(std::make_tuple(tx, tx_hash, tx_entry.double_spend_seen));
+              txs.emplace_back(std::move(tx), tx_hash, tx_entry.double_spend_seen);
             }
             else
             {
@@ -3099,7 +3099,7 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
     cryptonote::transaction tx;
     THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(pool_tx.tx_blob, tx),
         error::wallet_internal_error, "Failed to validate transaction base from daemon");
-    added_pool_txs.push_back(std::make_tuple(tx, pool_tx.tx_hash, pool_tx.double_spend_seen));
+    added_pool_txs.emplace_back(std::move(tx), pool_tx.tx_hash, pool_tx.double_spend_seen);
   }
 
   // getblocks.bin may return more added pool transactions than we're allowed to request in restricted mode
