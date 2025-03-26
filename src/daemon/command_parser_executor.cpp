@@ -929,6 +929,31 @@ bool t_command_parser_executor::sync_info(const std::vector<std::string>& args)
   return m_executor.sync_info();
 }
 
+bool t_command_parser_executor::purge_blocks(const std::vector<std::string>& args)
+{
+  if (args.size() != 1)
+  {
+    std::cout << "Invalid syntax: One parameter expected. For more details, use the help command." << std::endl;
+    return true;
+  }
+
+  try
+  {
+    uint64_t nblocks = boost::lexical_cast<uint64_t>(args[0]);
+    if (nblocks < 1)
+    {
+      std::cout << "Invalid syntax: Number of blocks must be greater than 0. For more details, use the help command." << std::endl;
+      return true;
+    }
+    return m_executor.purge_blocks(nblocks);
+  }
+  catch (const boost::bad_lexical_cast&)
+  {
+    std::cout << "Invalid syntax: Number of blocks must be a number greater than 0. For more details, use the help command." << std::endl;
+  }
+  return true;
+}
+
 bool t_command_parser_executor::pop_blocks(const std::vector<std::string>& args)
 {
   if (args.size() != 1)

@@ -550,7 +550,7 @@ bool Blockchain::deinit()
 //------------------------------------------------------------------
 // This function removes blocks from the top of blockchain.
 // It starts a batch and calls private method pop_block_from_blockchain().
-void Blockchain::pop_blocks(uint64_t nblocks)
+void Blockchain::pop_blocks(uint64_t nblocks, bool purge)
 {
   uint64_t i = 0;
   CRITICAL_REGION_LOCAL(m_tx_pool);
@@ -565,13 +565,13 @@ void Blockchain::pop_blocks(uint64_t nblocks)
       nblocks = std::min(nblocks, blockchain_height - 1);
     while (i < nblocks)
     {
-      pop_block_from_blockchain();
+      pop_block_from_blockchain(purge);
       ++i;
     }
   }
   catch (const std::exception& e)
   {
-    LOG_ERROR("Error when popping blocks after processing " << i << " blocks: " << e.what());
+    LOG_ERROR("Error when popping blocks after processing " << i << " blocks: " << e.what() << ", purge is " << purge);
     if (stop_batch)
       m_db->batch_abort();
     return;
@@ -592,7 +592,7 @@ void Blockchain::pop_blocks(uint64_t nblocks)
 // This function tells BlockchainDB to remove the top block from the
 // blockchain and then returns all transactions (except the miner tx, of course)
 // from it to the tx_pool
-block Blockchain::pop_block_from_blockchain()
+block Blockchain::pop_block_from_blockchain(bool purge)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -608,18 +608,23 @@ block Blockchain::pop_block_from_blockchain()
   const uint8_t previous_hf_version = get_current_hard_fork_version();
   try
   {
-    m_db->pop_block(popped_block, popped_txs);
+    if (purge) {
+      m_db->purge_block();
+    }
+    else {
+      m_db->pop_block(popped_block, popped_txs);
+    }
   }
   // anything that could cause this to throw is likely catastrophic,
   // so we re-throw
   catch (const std::exception& e)
   {
-    LOG_ERROR("Error popping block from blockchain: " << e.what());
+    LOG_ERROR("Error popping block from blockchain: " << e.what() << ", purge is " << purge);
     throw;
   }
   catch (...)
   {
-    LOG_ERROR("Error popping block from blockchain, throwing!");
+    LOG_ERROR("Error popping block from blockchain, purge is " << purge << ", throwing!");
     throw;
   }
 

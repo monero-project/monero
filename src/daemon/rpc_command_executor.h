@@ -154,6 +154,8 @@ public:
 
   bool sync_info();
 
+  bool purge_blocks(uint64_t num_blocks);
+
   bool pop_blocks(uint64_t num_blocks);
 
   bool prune_blockchain();

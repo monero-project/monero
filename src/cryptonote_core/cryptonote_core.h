@@ -510,7 +510,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_pool_transactions_info
       */
-     bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false) const;
+      bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_info

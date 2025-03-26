@@ -1152,6 +1152,18 @@ public:
    */
   virtual void pop_block(block& blk, std::vector<transaction>& txs);
 
+  /**
+   *
+   * @brief purge the top block off the blockchain
+   *
+   * The subclass should remove the most recent block from the blockchain,
+   * along with all transactions, outputs, and other metadata created as
+   * a result of its addition to the blockchain.  Most of this is handled
+   * by the concrete members of the base class provided the subclass correctly
+   * implements remove_* functions.
+   *
+   */
+   virtual void purge_block();
 
   /**
    * @brief check if a transaction with a given hash exists

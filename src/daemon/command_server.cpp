@@ -297,6 +297,12 @@ t_command_server::t_command_server(
     , "Print information about the blockchain sync state."
     );
     m_command_lookup.set_handler(
+      "purge_blocks"
+    , std::bind(&t_command_parser_executor::purge_blocks, &m_parser, p::_1)
+    , "purge_blocks <nblocks>"
+    , "Remove blocks from end of blockchain, it will flush txpool and remove blocks without keeping the transactions"
+    );
+    m_command_lookup.set_handler(
       "pop_blocks"
     , std::bind(&t_command_parser_executor::pop_blocks, &m_parser, p::_1)
     , "pop_blocks <nblocks>"

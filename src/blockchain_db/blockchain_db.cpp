@@ -311,6 +311,12 @@ void BlockchainDB::set_hard_fork(HardFork* hf)
   m_hardfork = hf;
 }
 
+void BlockchainDB::purge_block()
+{
+  get_top_block();
+  remove_block();
+}
+
 void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
 {
   blk = get_top_block();

@@ -1106,8 +1106,9 @@ namespace cryptonote
      * @brief removes blocks from the top of the blockchain
      *
      * @param nblocks number of blocks to be removed
+     * @param purge if fast mode is enabled doesnt add popped txis to pool
      */
-    void pop_blocks(uint64_t nblocks);
+    void pop_blocks(uint64_t nblocks, bool purge = false);
 
     /**
      * @brief checks whether a given block height is included in the precompiled block hash area
@@ -1343,9 +1344,11 @@ namespace cryptonote
     /**
      * @brief removes the most recent block from the blockchain
      *
+     * @param purge if fast mode is enabled doesnt add popped txis to pool
+     *
      * @return the block removed
      */
-    block pop_block_from_blockchain();
+    block pop_block_from_blockchain(bool purge = false);
 
     /**
      * @brief validate and add a new block to the end of the blockchain

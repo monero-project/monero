@@ -241,6 +241,12 @@ class Daemon(object):
         }
         return self.rpc.send_request("/pop_blocks", pop_blocks)
 
+    def purge_blocks(self, nblocks = 1):
+        purge_blocks = {
+            'nblocks' : nblocks,
+        }
+        return self.rpc.send_request("/purge_blocks", purge_blocks)
+
     def start_mining(self, miner_address, threads_count = 0, do_background_mining = False, ignore_battery = False):
         start_mining = {
             'miner_address' : miner_address,

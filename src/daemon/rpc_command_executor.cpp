@@ -40,6 +40,7 @@
 #include "rpc/rpc_payment_signature.h"
 #include "rpc/rpc_version_str.h"
 #include <boost/format.hpp>
+#include "profile_tools.h"
 #include <ctime>
 #include <string>
 
@@ -2317,12 +2318,39 @@ bool t_rpc_command_executor::sync_info()
     return true;
 }
 
+bool t_rpc_command_executor::purge_blocks(uint64_t num_blocks)
+{
+  cryptonote::COMMAND_RPC_POP_BLOCKS::request req;
+  cryptonote::COMMAND_RPC_POP_BLOCKS::response res;
+  std::string fail_message = "purge_blocks failed";
+  TIME_MEASURE_START(purge_blocks_time);
+  req.nblocks = num_blocks;
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->rpc_request(req, res, "/purge_blocks", fail_message.c_str()))
+    {
+      return true;
+    }
+  }
+  else
+  {
+    if (!m_rpc_server->on_purge_blocks(req, res) || res.status != CORE_RPC_STATUS_OK)
+    {
+      tools::fail_msg_writer() << make_error(fail_message, res.status);
+      return true;
+    }
+  }
+  TIME_MEASURE_FINISH(purge_blocks_time);
+  tools::success_msg_writer() << "new height: " << res.height << ", purged " << num_blocks << " blocks, in " << purge_blocks_time << " (ms).";
+  return true;
+}
+
 bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks)
 {
   cryptonote::COMMAND_RPC_POP_BLOCKS::request req;
   cryptonote::COMMAND_RPC_POP_BLOCKS::response res;
   std::string fail_message = "pop_blocks failed";
-
+  TIME_MEASURE_START(pop_blocks_time);
   req.nblocks = num_blocks;
   if (m_is_rpc)
   {
@@ -2339,8 +2367,8 @@ bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks)
       return true;
     }
   }
-  tools::success_msg_writer() << "new height: " << res.height;
-
+  TIME_MEASURE_FINISH(pop_blocks_time);
+  tools::success_msg_writer() << "new height: " << res.height << ", popped " << num_blocks << " blocks, in " << pop_blocks_time << " (ms).";
   return true;
 }
 
