@@ -37,6 +37,7 @@
 #include "verification_context.h"
 #include "difficulty.h"
 #include "math_helper.h"
+#include "serialization/wire/json/base.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -53,6 +54,16 @@ namespace cryptonote
   };
 
   typedef std::function<bool(const cryptonote::block&, uint64_t, const crypto::hash*, unsigned int, crypto::hash&)> get_block_hash_t;
+
+  struct miner_config
+  {
+    uint64_t current_extra_message_index;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(current_extra_message_index)
+    END_KV_SERIALIZE_MAP()
+  };
+  WIRE_JSON_DECLARE_CONVERSION(miner_config);
 
   /************************************************************************/
   /*                                                                      */
@@ -107,16 +118,6 @@ namespace cryptonote
     bool request_block_template();
     void  merge_hr();
     void  update_autodetection();
-    
-    struct miner_config
-    {
-      uint64_t current_extra_message_index;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(current_extra_message_index)
-      END_KV_SERIALIZE_MAP()
-    };
-
 
     std::atomic<bool> m_stop;
     epee::critical_section m_template_lock;

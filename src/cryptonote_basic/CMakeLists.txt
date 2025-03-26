@@ -47,6 +47,7 @@ target_link_libraries(cryptonote_format_utils_basic
 set(cryptonote_basic_sources
   account.cpp
   connection_context.cpp
+  cryptonote_basic.cpp
   cryptonote_basic_impl.cpp
   cryptonote_format_utils.cpp
   difficulty.cpp
@@ -71,6 +72,7 @@ target_link_libraries(cryptonote_basic
     checkpoints
     cryptonote_format_utils_basic
     device
+    epee_wire_json
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
