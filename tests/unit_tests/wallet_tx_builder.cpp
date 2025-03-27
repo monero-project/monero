@@ -47,7 +47,7 @@ static tools::wallet2::transfer_details gen_transfer_details()
         .m_spent = false,
         .m_frozen = false,
         .m_spent_height = 0,
-        .m_key_image = rct::rct2pk(rct::pkGen()),
+        .m_key_image = crypto::key_image{rct::rct2pk(rct::pkGen())},
         .m_mask = rct::skGen(),
         .m_amount = crypto::rand_range<rct::xmr_amount>(0, COIN), // [0, 1] XMR i.e. [0, 1e12] pXMR
         .m_rct = true,
