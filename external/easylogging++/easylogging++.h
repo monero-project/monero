@@ -1093,7 +1093,7 @@ class File : base::StaticClass {
   static std::string extractPathFromFilename(const std::string& fullPath,
       const char* seperator = base::consts::kFilePathSeperator);
   /// @brief builds stripped filename and puts it in buff
-  static void buildStrippedFilename(const char* filename, char buff[], const std::string &commonPrefix = NULL,
+  static void buildStrippedFilename(const char* filename, char buff[], const std::string &commonPrefix = "",
                                     std::size_t limit = base::consts::kSourceFilenameMaxLength);
   /// @brief builds base filename and puts it in buff
   static void buildBaseFilename(const std::string& fullPath, char buff[],
