@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <thread>
 #include <unistd.h>
 #include <cstdio>
 #include <wchar.h>
@@ -56,6 +57,7 @@
 
 #include "unbound.h"
 
+#include "daemonizer/daemonizer.h"
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "wipeable_string.h"
@@ -68,6 +70,7 @@ using namespace epee;
 #include "memwipe.h"
 #include "net/http_client.h"                        // epee::net_utils::...
 #include "readline_buffer.h"
+#include "common/scoped_message_writer.h"
 
 #ifdef WIN32
 #ifndef STRSAFE_NO_DEPRECATE
@@ -76,6 +79,7 @@ using namespace epee;
   #include <windows.h>
   #include <shlobj.h>
   #include <strsafe.h>
+  #include <shellapi.h>
 #else 
   #include <sys/file.h>
   #include <sys/stat.h>
@@ -85,6 +89,7 @@ using namespace epee;
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
 #include <openssl/evp.h>
+#include <boost/filesystem/operations.hpp>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "util"
@@ -114,6 +119,91 @@ static int flock_exnb(int fd)
 
 namespace tools
 {
+#ifdef WIN32
+  bool relaunch_as_admin(std::string const &command,
+                         std::string const &arguments) {
+    SHELLEXECUTEINFO info{};
+    info.cbSize = sizeof(info);
+    info.lpVerb = "runas";
+    info.lpFile = command.c_str();
+    info.lpParameters = arguments.c_str();
+    info.hwnd = nullptr;
+    info.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteEx(&info)) {
+      tools::fail_msg_writer()
+          << "Admin relaunch failed: " << tools::get_last_error();
+      return false;
+    } else {
+      return true;
+    }
+  }
+
+  bool ensure_admin(std::string const &arguments) {
+    bool admin;
+
+    if (!tools::check_admin(admin)) {
+      return false;
+    }
+
+    if (admin) {
+      return true;
+    } else {
+      std::string command = epee::string_tools::get_current_module_path();
+      relaunch_as_admin(command, arguments);
+      return false;
+    }
+  }
+
+  std::string get_last_error() {
+    LPSTR p_error_text = nullptr;
+
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                      FORMAT_MESSAGE_IGNORE_INSERTS,
+                  nullptr, GetLastError(),
+                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                  reinterpret_cast<LPSTR>(&p_error_text), 0, nullptr);
+
+    if (nullptr == p_error_text) {
+      return "";
+    } else {
+      std::string ret{p_error_text};
+      LocalFree(p_error_text);
+      return ret;
+    }
+  }
+
+  // When we relaunch as admin, Windows opens a new window.  This just pauses
+  // to allow the user to read any output.
+  void pause_to_display_admin_window_messages() {
+    std::chrono::milliseconds how_long{1500};
+    std::this_thread::sleep_for(how_long);
+  }
+
+  bool check_admin(bool &result) {
+    BOOL is_admin = FALSE;
+    PSID p_administrators_group = nullptr;
+
+    SID_IDENTIFIER_AUTHORITY nt_authority = SECURITY_NT_AUTHORITY;
+
+    if (!AllocateAndInitializeSid(&nt_authority, 2, SECURITY_BUILTIN_DOMAIN_RID,
+                                  DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0,
+                                  &p_administrators_group)) {
+      tools::fail_msg_writer()
+          << "Security Identifier creation failed: " << get_last_error();
+      return false;
+    }
+
+    if (!CheckTokenMembership(nullptr, p_administrators_group, &is_admin)) {
+      tools::fail_msg_writer()
+          << "Permissions check failed: " << get_last_error();
+      return false;
+    }
+
+    result = is_admin ? true : false;
+
+    return true;
+  }
+#endif
 
   void copy_file(const std::string& from, const std::string& to)
   {
@@ -340,49 +430,106 @@ namespace tools
 #ifdef WIN32
   std::string get_special_folder_path(int nfolder, bool iscreate)
   {
-    WCHAR psz_path[MAX_PATH] = L"";
+#if defined(_WIN32_WINNT) && _WIN32_WINNT >= 0x0600
+    // Code for Windows Vista and later.
+    // Try using SHGetKnownFolderPath for certain folders
+    GUID knownFolderID;
+    bool knownFolderFound = false;
+    if (nfolder == CSIDL_APPDATA)
+    {
+      knownFolderID = FOLDERID_RoamingAppData;
+      knownFolderFound = true;
+    }
+    else if (nfolder == CSIDL_COMMON_APPDATA)
+    {
+      knownFolderID = FOLDERID_ProgramData;
+      knownFolderFound = true;
+    }
 
+    if (knownFolderFound)
+    {
+      PWSTR result = nullptr;
+      HRESULT hr = SHGetKnownFolderPath(knownFolderID, iscreate ? KF_FLAG_CREATE : 0, NULL, &result);
+      if (SUCCEEDED(hr) && result != nullptr)
+      {
+        std::string utf8Path;
+        try
+        {
+          utf8Path = string_tools::utf16_to_utf8(result);
+          MINFO("SHGetKnownFolderPath succeeded; returning " << utf8Path);
+        }
+        catch (const std::exception &e)
+        {
+          MFATAL("Windows path issue: utf16_to_utf8() failed: " << e.what());
+        }
+        CoTaskMemFree(result);
+        return utf8Path;
+      }
+      MFATAL("SHGetKnownFolderPath() failed, falling back to SHGetSpecialFolderPathW.");
+    }
+#else
+    // Fallback for older Windows versions.
+    // If we either don’t recognize nfolder or KnownFolderPath failed, use old SHGetSpecialFolderPathW
+    WCHAR psz_path[MAX_PATH] = L"";
     if (SHGetSpecialFolderPathW(NULL, psz_path, nfolder, iscreate))
     {
       try
       {
+        MINFO("SHGetSpecialFolderPathW succeeded; converting to UTF-8.");
         return string_tools::utf16_to_utf8(psz_path);
       }
       catch (const std::exception &e)
       {
-        MERROR("utf16_to_utf8 failed: " << e.what());
+        MFATAL("Windows path issue: utf16_to_utf8 failed: " << e.what() << " returning empty string.");
         return "";
       }
     }
+#endif
 
-    LOG_ERROR("SHGetSpecialFolderPathW() failed, could not obtain requested path.");
+    // Fallback if everything else fails
+    MFATAL("SHGetSpecialFolderPathW() failed; using fallback logic.");
+    const char* userprofile = getenv("USERPROFILE");
+    if (userprofile && strlen(userprofile) > 0)
+    {
+      MINFO("Returning fallback path = " << userprofile);
+      return std::string(userprofile);
+    }
+
+    MFATAL("get_special_folder_path(): no fallback found, returning empty string.");
     return "";
   }
 #endif
-  
+
   std::string get_default_data_dir()
   {
-    /* Please for the love of god refactor  the ifdefs out of this */
-
-    // namespace fs = boost::filesystem;
-    // Windows < Vista: C:\Documents and Settings\Username\Application Data\CRYPTONOTE_NAME
-    // Windows >= Vista: C:\Users\Username\AppData\Roaming\CRYPTONOTE_NAME
-    // Unix & Mac: ~/.CRYPTONOTE_NAME
-    std::string config_folder;
 
 #ifdef WIN32
-    config_folder = get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME;
-#else
+    bool admin;
+    if (!check_admin(admin))
+    {
+      admin = false;
+    }
+
+    if (admin)
+    {
+      return boost::filesystem::absolute(
+          tools::get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME
+      ).string();
+    }
+    else
+    {
+      return boost::filesystem::absolute(
+          tools::get_special_folder_path(CSIDL_APPDATA, true) + "\\" + CRYPTONOTE_NAME
+      ).string();
+    }
+  #endif
     std::string pathRet;
     char* pszHome = getenv("HOME");
     if (pszHome == NULL || strlen(pszHome) == 0)
       pathRet = "/";
     else
       pathRet = pszHome;
-    config_folder = (pathRet + "/." + CRYPTONOTE_NAME);
-#endif
-
-    return config_folder;
+    return (pathRet + "/." + CRYPTONOTE_NAME);
   }
 
   bool create_directories_if_necessary(const std::string& path)
