@@ -260,7 +260,8 @@ bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuple
     // - The tree extension includes all elements we'll need to add to the existing tree when adding the new leaves
     const auto tree_extension = m_curve_trees.get_tree_extension(old_n_leaf_tuples,
         last_hashes,
-        {std::move(new_outputs)});
+        {std::move(new_outputs)},
+        true/*use_fast_torsion_check*/);
 
     this->log_tree_extension(tree_extension);
 

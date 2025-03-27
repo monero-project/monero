@@ -65,7 +65,7 @@ template Selene::Point get_new_parent<Selene>(const std::unique_ptr<Selene> &cur
 template Helios::Point get_new_parent<Helios>(const std::unique_ptr<Helios> &curve,
     const typename Helios::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
-OutputTuple output_to_tuple(const OutputPair &output_pair)
+OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked, bool use_fast_check)
 {
     const crypto::public_key &output_pubkey = output_pair.output_pubkey;
     const rct::key &commitment              = output_pair.commitment;
@@ -73,41 +73,36 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
     const rct::key &O_key = rct::pk2rct(output_pubkey);
     const rct::key &C_key = commitment;
 
-    TIME_MEASURE_NS_START(ge_frombytes_vartime_ns);
-
-    ge_p3 O_p3, C_p3;
-    if (ge_frombytes_vartime(&O_p3, O_key.bytes) != 0)
-        throw std::runtime_error("output pubkey is invalid");
-    if (ge_frombytes_vartime(&C_p3, C_key.bytes) != 0)
-        throw std::runtime_error("commitment is invalid");
-
-    TIME_MEASURE_NS_FINISH(ge_frombytes_vartime_ns);
-
-    TIME_MEASURE_NS_START(identity_check_ns);
-
-    if (fcmp_pp::mul8_is_identity(O_p3))
-        throw std::runtime_error("O mul8 cannot equal identity");
-    if (fcmp_pp::mul8_is_identity(C_p3))
-        throw std::runtime_error("C mul8 cannot equal identity");
-
-    TIME_MEASURE_NS_FINISH(identity_check_ns);
-
-    TIME_MEASURE_NS_START(check_torsion_ns);
-
-    const bool O_is_torsion_free = fcmp_pp::torsion_check_vartime(O_p3);
-    const bool C_is_torsion_free = fcmp_pp::torsion_check_vartime(C_p3);
-
-    if (!O_is_torsion_free)
-        LOG_PRINT_L2("Output has torsion " << output_pubkey);
-    if (!C_is_torsion_free)
-        LOG_PRINT_L2("Commitment has torsion " << commitment);
-
-    TIME_MEASURE_NS_FINISH(check_torsion_ns);
-
     TIME_MEASURE_NS_START(clear_torsion_ns);
 
-    rct::key O = O_is_torsion_free ? O_key : fcmp_pp::clear_torsion(O_p3);
-    rct::key C = C_is_torsion_free ? C_key : fcmp_pp::clear_torsion(C_p3);
+    rct::key O = O_key;
+    rct::key C = C_key;
+
+    // If the output has already been checked for torsion, then we don't need to clear torsion here
+    // TODO: is there a cleaner torsion approach than this nested if statement?
+    if (!torsion_checked)
+    {
+        // Clear torsion on output if it wasn't already checked for torsion
+        if (!use_fast_check)
+        {
+            if (!fcmp_pp::get_valid_torsion_cleared_point(O_key, O))
+                throw std::runtime_error("O is invalid for insertion to tree");
+            if (!fcmp_pp::get_valid_torsion_cleared_point(C_key, C))
+                throw std::runtime_error("C is invalid for insertion to tree");
+        }
+        else
+        {
+            if (!fcmp_pp::get_valid_torsion_cleared_point_fast(O_key, O))
+                throw std::runtime_error("O is invalid for insertion to tree");
+            if (!fcmp_pp::get_valid_torsion_cleared_point_fast(C_key, C))
+                throw std::runtime_error("C is invalid for insertion to tree");
+        }
+
+        if (O != O_key)
+            LOG_PRINT_L2("Output pubkey has torsion: " << O_key);
+        if (C != C_key)
+            LOG_PRINT_L2("Commitment has torsion: " << C_key);
+    }
 
     TIME_MEASURE_NS_FINISH(clear_torsion_ns);
 
@@ -127,10 +122,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
 
     TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
 
-    LOG_PRINT_L3("ge_frombytes_vartime_ns: " << ge_frombytes_vartime_ns
-        << " , identity_check_ns: "          << identity_check_ns
-        << " , check_torsion_ns: "           << check_torsion_ns
-        << " , clear_torsion_ns: "           << clear_torsion_ns
+    LOG_PRINT_L3("clear_torsion_ns: " << clear_torsion_ns
         << " , derive_key_image_generator_ns: " << derive_key_image_generator_ns);
 
     rct::key I_rct = rct::pt2rct(I);
@@ -598,9 +590,11 @@ static PreLeafTuple output_tuple_to_pre_leaf_tuple(const OutputTuple &o)
     return plt;
 }
 //----------------------------------------------------------------------------------------------------------------------
-static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair)
+static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair,
+    bool torsion_checked = false,
+    bool use_fast_check = false)
 {
-    const auto o = output_to_tuple(output_pair);
+    const auto o = output_to_tuple(output_pair, torsion_checked, use_fast_check);
     return output_tuple_to_pre_leaf_tuple(o);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -691,7 +685,8 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<std::vector<OutputContext>> &&new_outputs)
+    std::vector<std::vector<OutputContext>> &&new_outputs,
+    const bool use_fast_torsion_check)
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_leaf_tuple_idx = old_n_leaf_tuples;
@@ -720,7 +715,10 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     // and place the outputs in a tree extension struct for insertion into the db. We ignore invalid outputs, since
     // they cannot be inserted to the tree.
     std::vector<typename C1::Scalar> flattened_leaves;
-    this->set_valid_leaves(flattened_leaves, tree_extension.leaves.tuples, std::move(flat_sorted_outputs));
+    this->set_valid_leaves(flattened_leaves,
+        tree_extension.leaves.tuples,
+        std::move(flat_sorted_outputs),
+        use_fast_torsion_check);
 
     if (flattened_leaves.empty())
         return tree_extension;
@@ -798,7 +796,8 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 template CurveTrees<Selene, Helios>::TreeExtension CurveTrees<Selene, Helios>::get_tree_extension(
     const uint64_t old_n_leaf_tuples,
     const LastHashes &existing_last_hashes,
-    std::vector<std::vector<OutputContext>> &&new_outputs);
+    std::vector<std::vector<OutputContext>> &&new_outputs,
+    const bool use_fast_torsion_check);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<uint64_t> CurveTrees<C1, C2>::n_elems_per_layer(const uint64_t n_leaf_tuples) const
@@ -1188,7 +1187,8 @@ template<typename C1, typename C2>
 void CurveTrees<C1, C2>::set_valid_leaves(
     std::vector<typename C1::Scalar> &flattened_leaves_out,
     std::vector<OutputContext> &tuples_out,
-    std::vector<OutputContext> &&new_outputs)
+    std::vector<OutputContext> &&new_outputs,
+    const bool use_fast_torsion_check)
 {
     TIME_MEASURE_START(set_valid_leaves);
 
@@ -1217,7 +1217,8 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                     &valid_outputs,
                     &pre_leaves,
                     i,
-                    end
+                    end,
+                    use_fast_torsion_check
                 ]()
                 {
                     for (std::size_t j = i; j < end; ++j)
@@ -1227,8 +1228,14 @@ void CurveTrees<C1, C2>::set_valid_leaves(
                         CHECK_AND_ASSERT_THROW_MES(pre_leaves.size() > j, "unexpected pre_leaves size");
 
                         const auto &output_pair = new_outputs[j].output_pair;
+                        const bool torsion_checked = new_outputs[j].torsion_checked;
 
-                        try { pre_leaves[j] = output_to_pre_leaf_tuple(output_pair); }
+                        try
+                        {
+                            pre_leaves[j] = output_to_pre_leaf_tuple(output_pair,
+                                torsion_checked,
+                                use_fast_torsion_check);
+                        }
                         catch(...)
                         {
                             /* Invalid outputs can't be added to the tree */
