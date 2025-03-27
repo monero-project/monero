@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(ringct_basic_sources
+  accel.cpp
   rctOps.cpp
   rctTypes.cpp
   rctCryptoOps.c
@@ -45,6 +46,7 @@ target_link_libraries(ringct_basic
   PUBLIC
     common
     cncrypto
+    wallet-crypto
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
