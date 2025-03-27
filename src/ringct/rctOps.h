@@ -45,6 +45,7 @@ extern "C" {
 #include "rctCryptoOps.h"
 }
 #include "crypto/crypto.h"
+#include "cryptonote_basic/cryptonote_basic.h"
 
 #include "rctTypes.h"
 

@@ -1023,6 +1023,21 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool tx_outs_checked_for_torsion(const transaction& tx)
+  {
+    for (const auto &o: tx.vout)
+    {
+      // This function only knows about these output types. If there is a new type, we want to check it for torsion too.
+      const bool is_known_output_type = o.target.type() == typeid(txout_to_carrot_v1) || o.target.type() == typeid(txout_to_tagged_key) || o.target.type() == typeid(txout_to_key);
+      CHECK_AND_ASSERT_THROW_MES(is_known_output_type, "unknown variant type: " << o.target.type().name() << "in transaction id=" << get_transaction_hash(tx));
+
+      // We start checking for torsion at consensus with carrot outs
+      if (o.target.type() != typeid(txout_to_carrot_v1))
+        return false;
+    }
+    return true;
+  }
+  //---------------------------------------------------------------
   bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index, hw::device* hwdev)
   {
     // If there is no view tag to check, the output can possibly belong to the account.

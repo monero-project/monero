@@ -120,7 +120,10 @@ struct OutputPair final
 struct OutputContext final
 {
     // Output's global id in the chain, used to insert the output in the tree in the order it entered the chain
-    uint64_t output_id;
+    uint64_t output_id{0};
+    // TODO: consider using a variant instead
+    // True if the output pair elems are guaranteed to not have torsion and are not equal to identity
+    bool torsion_checked{false};
     OutputPair output_pair;
 
     bool operator==(const OutputContext &other) const { return output_id == other.output_id && output_pair == other.output_pair; }
@@ -129,23 +132,26 @@ struct OutputContext final
     inline void serialize(Archive &a, const unsigned int ver)
     {
         a & output_id;
+        a & torsion_checked;
         a & output_pair;
     }
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(output_id)
+        FIELD(torsion_checked)
         FIELD(output_pair)
     END_SERIALIZE()
 
     BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(output_id)
+        KV_SERIALIZE(torsion_checked)
         KV_SERIALIZE(output_pair)
     END_KV_SERIALIZE_MAP()
 };
 #pragma pack(pop)
 
 static_assert(sizeof(OutputPair)    == (32+32),   "db expects 64 bytes for output pairs");
-static_assert(sizeof(OutputContext) == (8+32+32), "db expects 72 bytes for output context");
+static_assert(sizeof(OutputContext) == (8+1+32+32), "db expects 73 bytes for output context");
 
 using OutsByLastLockedBlock = std::unordered_map<uint64_t, std::vector<OutputContext>>;
 
@@ -204,7 +210,7 @@ struct PathIndexes final
 template<typename C>
 typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
 //----------------------------------------------------------------------------------------------------------------------
-OutputTuple output_to_tuple(const OutputPair &output_pair);
+OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked = false, bool use_fast_check = false);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // This class is useful to help update the curve trees merkle tree without needing to keep the entire tree in memory
@@ -317,7 +323,8 @@ public:
     // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
-        std::vector<std::vector<OutputContext>> &&new_outputs);
+        std::vector<std::vector<OutputContext>> &&new_outputs,
+        const bool use_fast_torsion_check = false);
 
     // Calculate the number of elems in each layer of the tree based on the number of leaf tuples
     std::vector<uint64_t> n_elems_per_layer(const uint64_t n_leaf_tuples) const;
@@ -350,7 +357,8 @@ private:
     void set_valid_leaves(
         std::vector<typename C1::Scalar> &flattened_leaves_out,
         std::vector<OutputContext> &tuples_out,
-        std::vector<OutputContext> &&new_outputs);
+        std::vector<OutputContext> &&new_outputs,
+        const bool use_fast_torsion_check = false);
 
     // Helper function used to set the next layer extension used to grow the next layer in the tree
     // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent

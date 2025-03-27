@@ -225,7 +225,9 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
         tx_verification_context& tvc, std::uint8_t hf_version)
 {
     std::vector<const rct::rctSig*> rvv;
+    std::vector<rct::key> pubkeys_and_commitments;
     rvv.reserve(static_cast<size_t>(std::distance(tx_begin, tx_end)));
+    pubkeys_and_commitments.reserve(static_cast<size_t>(std::distance(tx_begin, tx_end)) * 2);
 
     // We assume transactions have an unmixable ring since it's more permissive. The version is
     // checked again in Blockchain::check_tx_inputs() with `has_unmixable_ring` actually resolved.
@@ -290,6 +292,25 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
         // We only want to check RingCT semantics if this is actually a RingCT transaction
         if (tx.version >= 2)
             rvv.push_back(&tx.rct_signatures);
+
+        // Collect pubkeys and commitments for torsion check
+        if (cryptonote::tx_outs_checked_for_torsion(tx))
+        {
+            for (std::size_t i = 0; i < tx.vout.size(); ++i)
+            {
+                crypto::public_key output_pubkey;
+                if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
+                {
+                    tvc.m_verifivation_failed = true;
+                    tvc.m_invalid_output = false;
+                    return false;
+                }
+
+                rct::key pubkey = rct::pk2rct(output_pubkey);
+                pubkeys_and_commitments.emplace_back(std::move(pubkey));
+                pubkeys_and_commitments.emplace_back(rct::getCommitment(tx, i));
+            }
+        }
     }
 
     // Rule 7
@@ -297,6 +318,15 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
     {
         tvc.m_verifivation_failed = true;
         tvc.m_invalid_input = true;
+        return false;
+    }
+
+    // Rule 8
+    // Note: technically this could be threaded with ver_mixed_rct_semantics
+    if (!rct::verPointsForTorsion(pubkeys_and_commitments))
+    {
+        tvc.m_verifivation_failed = true;
+        tvc.m_invalid_output = true;
         return false;
     }
 

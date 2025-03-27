@@ -279,6 +279,8 @@ public:
   bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const override;
   bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const override;
 
+  std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const;
+
   std::vector<crypto::hash> get_txids_loose(const crypto::hash& h, std::uint32_t bits, uint64_t max_num_txs = 0) override;
 
   uint64_t get_tx_count() const override;

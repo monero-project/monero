@@ -201,13 +201,13 @@ namespace
  *
  * spent_keys       input hash   -
  *
- * locked_outputs   block ID     [{output ID, output pubkey, commitment}...]
- * leaves           leaf_idx     {output ID, output pubkey, commitment}
+ * locked_outputs   block ID     [{OutputContext}...]
+ * leaves           leaf_idx     {OutputContext}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  * tree_edges       block ID     [child_chunk_hash]
  * tree_meta        block ID     n_leaf_tuples
  *
- * timelocked_outputs block ID   [{output ID, output pubkey, commitment}...]
+ * timelocked_outputs block ID   [{OutputContext}...]
  *
  * txpool_meta      txn hash     txn metadata
  * txpool_blob      txn hash     txn blob
@@ -1457,7 +1457,7 @@ void BlockchainLMDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curv
   const auto last_hashes = m_curve_trees->tree_edge_to_last_hashes(prev_tree_edge);
 
   // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
-  auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, {std::move(new_outputs)});
+  auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, {std::move(new_outputs)}, false/*use_fast_torsion_check*/);
   if (tree_extension.leaves.tuples.empty())
   {
     save_prev_tree_edge();
@@ -2619,7 +2619,8 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_recent_locked_ou
     // Add output data grouped by last locked block idx
     auto add_by_last_locked_block = [this, &outs, b_idx](const crypto::hash &tx_hash, const bool is_coinbase)
     {
-      auto out_data = this->get_tx_output_data(tx_hash);
+      cryptonote::transaction tx;
+      auto out_data = this->get_tx_output_data(tx_hash, tx);
       if (out_data.empty())
         return;
 
@@ -2636,8 +2637,9 @@ fcmp_pp::curve_trees::OutsByLastLockedBlock BlockchainLMDB::get_recent_locked_ou
         outs_it = outs.find(last_locked_block);
       }
 
+      const bool torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx);
       for (auto &out : out_data)
-        outs_it->second.push_back({ out.output_id, { std::move(out.data.pubkey), std::move(out.data.commitment) }});
+        outs_it->second.push_back({ out.output_id, torsion_checked, { std::move(out.data.pubkey), std::move(out.data.commitment) }});
     };
 
     // Add coinbase outputs
@@ -4486,7 +4488,7 @@ uint64_t BlockchainLMDB::get_tx_unlock_time(const crypto::hash& h) const
   return ret;
 }
 
-std::vector<outkey> BlockchainLMDB::get_tx_output_data(const crypto::hash& h) const
+std::vector<outkey> BlockchainLMDB::get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -4527,12 +4529,11 @@ std::vector<outkey> BlockchainLMDB::get_tx_output_data(const crypto::hash& h) co
   cryptonote::blobdata bd;
   if (!get_pruned_tx_blob(h, bd))
     throw1(TX_DNE(std::string("tx with hash ").append(epee::string_tools::pod_to_hex(h)).append(" not found in db").c_str()));
-  cryptonote::transaction tx;
   if (!parse_and_validate_tx_base_from_blob(bd, tx))
     throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
   amounts.reserve(tx.vout.size());
   for (const auto &out : tx.vout)
-    amounts.push_back(tx.version == 2 ? 0 : out.amount);
+    amounts.push_back(tx.version >= 2 ? 0 : out.amount);
 
   if (amounts.size() != num_amount_output_indices)
     throw0(DB_ERROR("Unexpected size mismatch amount output indices <> vouts"));

@@ -315,6 +315,35 @@ rct::key clear_torsion(const ge_p3 &point) {
     return k_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
+bool get_valid_torsion_cleared_point(const rct::key &point, rct::key &torsion_cleared_out) {
+    ge_p3 p3;
+    if (ge_frombytes_vartime(&p3, point.bytes) != 0)
+        return false;
+    if (mul8_is_identity(p3))
+        return false;
+    torsion_cleared_out = fcmp_pp::clear_torsion(p3);
+    if (torsion_cleared_out == rct::I)
+        return false;
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+// torsion_check_vartime is a risky optimization to avoid needing to clear torsion when not necessary. We label this
+// function "fast" because it uses the optimization. This function should only be used in contexts where the risk is
+// acceptable.
+bool get_valid_torsion_cleared_point_fast(const rct::key &point, rct::key &torsion_cleared_out) {
+    ge_p3 p3;
+    if (ge_frombytes_vartime(&p3, point.bytes) != 0)
+        return false;
+    if (mul8_is_identity(p3))
+        return false;
+    torsion_cleared_out = point;
+    if (!torsion_check_vartime(p3))
+        torsion_cleared_out = fcmp_pp::clear_torsion(p3);
+    if (torsion_cleared_out == rct::I)
+        return false;
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
 bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives) {
     if (pub == rct::I)
         return false;
