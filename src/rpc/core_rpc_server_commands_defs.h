@@ -36,6 +36,7 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
+#include "fcmp_pp/curve_trees.h"
 #include "rpc/rpc_handler.h"
 #include "common/varint.h"
 #include "common/perf_timer.h"
@@ -101,7 +102,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 16
+#define CORE_RPC_VERSION_MINOR 17
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -192,7 +193,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       bool        high_height_ok;
       uint64_t    pool_info_since;
       uint64_t    max_block_count;
-
+      bool        init_tree_sync;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE_OPT(requested_info, (uint8_t)0)
@@ -203,6 +204,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(high_height_ok, false) // default false maintains backwards compatibility for clients that relied on failure on high height
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
         KV_SERIALIZE_OPT(max_block_count, (uint64_t)0)
+        KV_SERIALIZE_OPT(init_tree_sync, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -245,6 +247,37 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       FULL = 2
     };
 
+    struct locked_outputs_t
+    {
+      uint64_t last_locked_block;
+      std::vector<fcmp_pp::curve_trees::OutputContext> outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(last_locked_block)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    struct init_tree_sync_data_t
+    {
+      uint64_t init_block_idx;
+      crypto::hash init_block_hash;
+      /// n leaf tuples in the chain when the chain tip was block init_block_idx
+      uint64_t n_leaf_tuples;
+      /// the last full path in the tree when the chain tip was block init_block_idx
+      fcmp_pp::curve_trees::PathBytes last_path;
+      /// outputs created before init_block_idx with last locked block >= init_block_idx
+      std::vector<locked_outputs_t> locked_outputs;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(init_block_idx)
+        KV_SERIALIZE_VAL_POD_AS_BLOB(init_block_hash)
+        KV_SERIALIZE(n_leaf_tuples)
+        KV_SERIALIZE(last_path)
+        KV_SERIALIZE(locked_outputs)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct response_t: public rpc_access_response_base
     {
       std::vector<block_complete_entry> blocks;
@@ -257,6 +290,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<pool_tx_info> added_pool_txs;
       std::vector<crypto::hash> remaining_added_pool_txids;
       std::vector<crypto::hash> removed_pool_txids;
+      bool included_init_tree_sync_data;
+      init_tree_sync_data_t init_tree_sync_data;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
@@ -275,6 +310,11 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         if (pool_info_extent == POOL_INFO_EXTENT::INCREMENTAL)
         {
           KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
+        }
+        KV_SERIALIZE_OPT(included_init_tree_sync_data, false)
+        if (included_init_tree_sync_data)
+        {
+          KV_SERIALIZE(init_tree_sync_data)
         }
       END_KV_SERIALIZE_MAP()
     };

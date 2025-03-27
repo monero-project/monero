@@ -1,0 +1,14 @@
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/kayabaNerve/crypto-bigint?branch=c-repr"]
+git = "https://github.com/kayabaNerve/crypto-bigint"
+branch = "c-repr"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/kayabaNerve/fcmp-plus-plus"]
+git = "https://github.com/kayabaNerve/fcmp-plus-plus"
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "/rust/vendor"
