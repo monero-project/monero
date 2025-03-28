@@ -39,9 +39,12 @@ namespace crypto
 
 public_key get_G();
 public_key get_H();
+public_key get_T();
 ge_p3 get_G_p3();
 ge_p3 get_H_p3();
+ge_p3 get_T_p3();
 ge_cached get_G_cached();
 ge_cached get_H_cached();
+ge_cached get_T_cached();
 
 } //namespace crypto
