@@ -29,6 +29,7 @@
 set(carrot_impl_sources
   address_device_ram_borrowed.cpp
   address_utils_compat.cpp
+  carrot_tx_builder_inputs.cpp
   carrot_tx_builder_utils.cpp
   carrot_tx_format_utils.cpp
   input_selection.cpp
@@ -43,7 +44,8 @@ monero_add_library(carrot_impl
 target_link_libraries(carrot_impl
   PUBLIC
     carrot_core
-    cryptonote_format_utils_basic
+    cryptonote_basic
+    fcmp_pp
   PRIVATE
     ${EXTRA_LIBRARIES})
 

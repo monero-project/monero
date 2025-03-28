@@ -180,7 +180,7 @@ static cryptonote::tx_source_entry gen_tx_source_entry_fake_members(
             continue;
         used_indices.insert(global_output_index);
         const rct::ctkey output_pair{rct::pkGen(),
-            is_rct ? rct::pkGen() : rct::zeroCommit(in.amount)};
+            is_rct ? rct::pkGen() : rct::zeroCommitVartime(in.amount)};
         res.outputs.push_back({global_output_index, output_pair});
     }
     // sort by index
@@ -311,6 +311,7 @@ static cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
     cryptonote::transaction tx;
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
+    fcmp_pp::ProofParams dummy_fcmp_params;
     const bool r = cryptonote::construct_tx_and_get_tx_key(
         sender_account_keys,
         subaddresses,
@@ -321,6 +322,7 @@ static cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
         tx,
         tx_key,
         additional_tx_keys,
+        dummy_fcmp_params,
         rct,
         rct_config, 
         use_view_tags);
@@ -533,13 +535,12 @@ public:
         w.m_blockchain.push_back(m_parsed_blocks.front().hash);
         w.m_blockchain.trim(m_start_block_index);
 
-        //! TODO: uncomment for FCMP++ integration
-        //w.m_tree_cache.clear();
-        //w.m_tree_cache.init(m_start_block_index,
-        //    m_parsed_blocks.front().hash,
-        //    /*n_leaf_tuples=*/0,
-        //    /*last_path=*/{},
-        //    /*locked_outputs=*/{});
+        w.m_tree_cache.clear();
+        w.m_tree_cache.init(m_start_block_index,
+            m_parsed_blocks.front().hash,
+            /*n_leaf_tuples=*/0,
+            /*last_path=*/{},
+            /*locked_outputs=*/{});
     }
 
     uint8_t hf_version() const
