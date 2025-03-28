@@ -1186,8 +1186,6 @@ void wallet_device_callback::on_progress(const hw::device_progress& event)
 
 wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std::unique_ptr<epee::net_utils::http::http_client_factory> http_client_factory):
   m_http_client(http_client_factory->create()),
-  m_multisig_rescan_info(NULL),
-  m_multisig_rescan_k(NULL),
   m_upper_transaction_weight_limit(0),
   m_run(true),
   m_callback(0),
@@ -2169,7 +2167,7 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
   THROW_WALLET_EXCEPTION_IF(i >= tx.vout.size(), error::wallet_internal_error, "Invalid vout index");
 
   // if keys are encrypted, ask for password
-  if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && !m_multisig_rescan_k && !m_background_syncing)
+  if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && m_multisig_rescan_k.empty() && !m_background_syncing)
   {
     static critical_section password_lock;
     CRITICAL_REGION_LOCAL(password_lock);
@@ -2533,10 +2531,10 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = m_transfers.size() - 1;
             if (m_multisig)
             {
-              THROW_WALLET_EXCEPTION_IF(!m_multisig_rescan_k && m_multisig_rescan_info,
+              THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
                   error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (m_multisig_rescan_info && m_multisig_rescan_info->front().size() >= m_transfers.size())
-                update_multisig_rescan_info(*m_multisig_rescan_k, *m_multisig_rescan_info, m_transfers.size() - 1);
+              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
+                update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
@@ -2608,10 +2606,10 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = kit->second;
             if (m_multisig)
             {
-              THROW_WALLET_EXCEPTION_IF(!m_multisig_rescan_k && m_multisig_rescan_info,
+              THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
                   error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (m_multisig_rescan_info && m_multisig_rescan_info->front().size() >= m_transfers.size())
-                update_multisig_rescan_info(*m_multisig_rescan_k, *m_multisig_rescan_info, m_transfers.size() - 1);
+              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
+                update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
             THROW_WALLET_EXCEPTION_IF(td.get_public_key() != tx_scan_info[o].in_ephemeral.pub, error::wallet_internal_error, "Inconsistent public keys");
 	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
@@ -4223,6 +4221,12 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   m_first_refresh_done = true;
   if (m_background_syncing || m_is_background_wallet)
     m_background_sync_data.first_refresh_done = true;
+
+  m_multisig_rescan_info = std::vector<std::vector<tools::wallet2::multisig_info>>{};
+  for (auto &v: m_multisig_rescan_k)
+    memwipe(v.data(), v.size() * sizeof(v[0]));
+
+  m_multisig_rescan_k = std::vector<std::vector<rct::key>>{};
 
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance (all accounts): " << print_money(balance_all(false)) << ", unlocked: " << print_money(unlocked_balance_all(false)));
 }
@@ -14728,7 +14732,9 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
 
-  std::vector<std::vector<tools::wallet2::multisig_info>> info;
+  if (!m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty())
+    refresh(false);
+
   std::unordered_set<crypto::public_key> seen;
   for (cryptonote::blobdata &data: blobs)
   {
@@ -14794,20 +14800,18 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     }
 
     MINFO(boost::format("%u outputs found") % boost::lexical_cast<std::string>(i.size()));
-    info.push_back(std::move(i));
+    m_multisig_rescan_info.push_back(std::move(i));
   }
 
-  CHECK_AND_ASSERT_THROW_MES(info.size() + 1 <= m_multisig_signers.size() && info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
+  CHECK_AND_ASSERT_THROW_MES(m_multisig_rescan_info.size() + 1 <= m_multisig_signers.size() && m_multisig_rescan_info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
 
-  std::vector<std::vector<rct::key>> k;
-  auto wiper = epee::misc_utils::create_scope_leave_handler([&](){for (auto &v: k) memwipe(v.data(), v.size() * sizeof(v[0]));});
-  k.reserve(m_transfers.size());
+  m_multisig_rescan_k.reserve(m_transfers.size());
   for (const auto &td: m_transfers)
-    k.push_back(td.m_multisig_k);
+    m_multisig_rescan_k.push_back(td.m_multisig_k);
 
   // how many outputs we're going to update
   size_t n_outputs = m_transfers.size();
-  for (const auto &pi: info)
+  for (const auto &pi: m_multisig_rescan_info)
     if (pi.size() < n_outputs)
       n_outputs = pi.size();
 
@@ -14815,7 +14819,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     return 0;
 
   // check signers are consistent
-  for (const auto &pi: info)
+  for (const auto &pi: m_multisig_rescan_info)
   {
     CHECK_AND_ASSERT_THROW_MES(std::find(m_multisig_signers.begin(), m_multisig_signers.end(), pi[0].m_signer) != m_multisig_signers.end(),
         "Signer is not a member of this multisig wallet");
@@ -14824,13 +14828,13 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
   }
 
   // trim data we don't have info for from all participants
-  for (auto &pi: info)
+  for (auto &pi: m_multisig_rescan_info)
     pi.resize(n_outputs);
 
   // sort by signer
-  if (!info.empty() && !info.front().empty())
+  if (!m_multisig_rescan_info.empty() && !m_multisig_rescan_info.front().empty())
   {
-    std::sort(info.begin(), info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
+    std::sort(m_multisig_rescan_info.begin(), m_multisig_rescan_info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
   }
 
   // first pass to determine where to detach the blockchain
@@ -14846,24 +14850,11 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
 
   for (size_t n = 0; n < n_outputs && n < m_transfers.size(); ++n)
   {
-    update_multisig_rescan_info(k, info, n);
+    update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, n);
   }
 
-  m_multisig_rescan_k = &k;
-  m_multisig_rescan_info = &info;
-  try
-  {
 
-    refresh(false);
-  }
-  catch (...)
-  {
-    m_multisig_rescan_info = NULL;
-    m_multisig_rescan_k = NULL;
-    throw;
-  }
-  m_multisig_rescan_info = NULL;
-  m_multisig_rescan_k = NULL;
+  refresh(false);
 
   return n_outputs;
 }
