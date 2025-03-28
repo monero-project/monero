@@ -30,8 +30,8 @@
 #include "tx_builder.h"
 
 //local headers
-#include "carrot_core/config.h"
 #include "carrot_core/device_ram_borrowed.h"
+#include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_impl/input_selection.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -363,7 +363,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
 {
     CHECK_AND_ASSERT_THROW_MES(!input_key_images.empty(),
         "make carrot transaction proposal wallet2 sweep: no key images provided");
-    CHECK_AND_ASSERT_THROW_MES(n_dests <= carrot::CARROT_MAX_TX_INPUTS,
+    CHECK_AND_ASSERT_THROW_MES(n_dests < FCMP_PLUS_PLUS_MAX_OUTPUTS,
         "make carrot transaction proposal wallet2 sweep: too many destinations");
 
     // Check that the key image is available and isn't spent, and collect amounts
@@ -422,6 +422,75 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
         tx_proposal);
 
     return tx_proposal;
+}
+//-------------------------------------------------------------------------------------------------------------------
+carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
+    const wallet2::transfer_details &td,
+    const crypto::secret_key &k_view,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses_map,
+    hw::device &hwdev)
+{
+    //! @TODO: handle Carrot coinbase and non-coinbase enotes
+
+    // K_o
+    const crypto::public_key onetime_address = td.get_public_key();
+
+    // R
+    const crypto::public_key main_tx_pubkey = cryptonote::get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
+    const std::vector<crypto::public_key> additional_tx_pubkeys =
+        cryptonote::get_additional_tx_pub_keys_from_extra(td.m_tx);
+
+    //! @TODO: reject too many additional tx pubkeys??
+
+    std::vector<crypto::key_derivation> ecdhs;
+    ecdhs.reserve(additional_tx_pubkeys.size() + 1);
+
+    // 8 * k_v * R
+    crypto::key_derivation ecdh;
+    if (hwdev.generate_key_derivation(main_tx_pubkey, k_view, ecdh))
+        ecdhs.push_back(ecdh);
+
+    // 8 * k_v * R
+    for (const crypto::public_key &additional_tx_pubkey : additional_tx_pubkeys)
+        if (hwdev.generate_key_derivation(additional_tx_pubkey, k_view, ecdh))
+            ecdhs.push_back(ecdh);
+
+    // Search for (j, K^j_s, k^g_o) s.t. K^j_s = K_o + H_n(8 * k_v * R, output_index)
+    for (const crypto::key_derivation &ecdh : ecdhs)
+    {
+        // K^j_s' = K_o - k^g_o G
+        crypto::public_key nominal_address_spend_pubkey;
+        if (!hwdev.derive_subaddress_public_key(onetime_address,
+                ecdh,
+                td.m_internal_output_index,
+                nominal_address_spend_pubkey))
+            continue;
+
+        // Know about K^j_s?
+        const auto subaddr_it = subaddresses_map.find(nominal_address_spend_pubkey);
+        if (subaddr_it == subaddresses_map.cend())
+            continue;
+
+        // k^g_o = H_n(8 * k_v * R, output_index)
+        //! @TODO: find out if any mainline HWs "conceal" the derived scalar
+        crypto::secret_key sender_extension_g;
+        if (!hwdev.derivation_to_scalar(ecdh, td.m_internal_output_index, sender_extension_g))
+            continue;
+
+        // j
+        const carrot::subaddress_index subaddr_index = {subaddr_it->second.major, subaddr_it->second.minor};
+
+        return carrot::LegacyOutputOpeningHintV1{
+            .onetime_address = onetime_address,
+            .sender_extension_g = sender_extension_g,
+            .subaddr_index = subaddr_index,
+            .amount = td.amount(),
+            .amount_blinding_factor = rct::rct2sk(td.m_mask)
+        };
+    }
+
+    ASSERT_MES_AND_THROW("make sal opening hint from transfer details: cannot find subaddress and sender extension "
+        "for given transfer info");
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet

@@ -130,7 +130,6 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
         case 3: // special enote main address
             get_output_proposal_special_v1(selfsend_payment_proposal.proposal,
                 keys.k_view_incoming_dev,
-                keys.cryptonote_address().address_spend_pubkey,
                 mock::gen_key_image(),
                 std::nullopt,
                 rct_output_enote_proposal);
@@ -141,7 +140,6 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
                 = keys.subaddress(selfsend_payment_proposal.subaddr_index).address_spend_pubkey;
             get_output_proposal_special_v1(selfsend_payment_proposal.proposal,
                 keys.k_view_incoming_dev,
-                keys.cryptonote_address().address_spend_pubkey,
                 mock::gen_key_image(),
                 std::nullopt,
                 rct_output_enote_proposal);
@@ -378,7 +376,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         tx_proposal.dummy_encrypted_payment_id,
         &alice.s_view_balance_dev,
         &alice.k_view_incoming_dev,
-        alice.carrot_account_spend_pubkey,
         tx_proposal.key_images_sorted.at(0),
         output_enote_proposals,
         encrypted_payment_id);

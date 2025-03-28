@@ -49,7 +49,7 @@ rct::key calculate_amount_commitment(const lazy_amount_commitment_t &lazy_amount
         rct::key operator()(const rct::key &C) const { return C; }
         rct::key operator()(const std::pair<rct::xmr_amount, rct::key> &op) const
         { return rct::commit(op.first, op.second); }
-        rct::key operator()(const rct::xmr_amount &a) const { return rct::zeroCommit(a); }
+        rct::key operator()(const rct::xmr_amount &a) const { return rct::zeroCommitVartime(a); }
     };
 
     return lazy_amount_commitment.visit(lazy_amount_commitment_visitor{});

@@ -393,7 +393,6 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
     RCTOutputEnoteProposal output_enote_proposal;
     get_output_proposal_special_v1(selfsend_payment_proposal,
         keys.k_view_incoming_dev,
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
         tx_first_key_image,
         gen_x25519_pubkey(),
         output_enote_proposal);
@@ -481,7 +480,6 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
     RCTOutputEnoteProposal output_enote_proposal;
     get_output_proposal_special_v1(selfsend_payment_proposal,
         keys.k_view_incoming_dev,
-        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
         tx_first_key_image,
         gen_x25519_pubkey(),
         output_enote_proposal);
@@ -740,7 +738,6 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
     RCTOutputEnoteProposal output_enote_proposal;
     get_output_proposal_special_v1(selfsend_payment_proposal,
         keys.k_view_incoming_dev,
-        keys.carrot_account_spend_pubkey,
         tx_first_key_image,
         gen_x25519_pubkey(),
         output_enote_proposal);
@@ -830,7 +827,6 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
     RCTOutputEnoteProposal output_enote_proposal;
     get_output_proposal_special_v1(selfsend_payment_proposal,
         keys.k_view_incoming_dev,
-        keys.carrot_account_spend_pubkey,
         tx_first_key_image,
         gen_x25519_pubkey(),
         output_enote_proposal);

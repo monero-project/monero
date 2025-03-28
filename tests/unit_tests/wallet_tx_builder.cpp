@@ -30,10 +30,12 @@
 #include "gtest/gtest.h"
 
 #include "carrot_core/config.h"
+#include "carrot_impl/carrot_tx_builder_utils.h"
 #include "common/container_helpers.h"
 #include "ringct/rctOps.h"
 #include "wallet/tx_builder.h"
-
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 static tools::wallet2::transfer_details gen_transfer_details()
 {
     return tools::wallet2::transfer_details{
@@ -59,13 +61,15 @@ static tools::wallet2::transfer_details gen_transfer_details()
         .m_uses = {},
     };
 }
-
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 static bool compare_transfer_to_selected_input(const tools::wallet2::transfer_details &td,
     const carrot::CarrotSelectedInput &input)
 {
     return td.m_amount == input.amount && td.m_key_image == input.key_image;
 }
-
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_tx_builder, input_selection_basic)
 {
     std::map<std::size_t, rct::xmr_amount> fee_by_input_count;
@@ -135,3 +139,90 @@ TEST(wallet_tx_builder, input_selection_basic)
     }
     ASSERT_EQ(selected_transfer_indices.size(), matched_transfer_indices.size());
 }
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_transfer_1)
+{
+    cryptonote::account_base alice;
+    alice.generate();
+    cryptonote::account_base bob;
+    bob.generate();
+
+    const tools::wallet2::transfer_container transfers{
+        gen_transfer_details(),
+        gen_transfer_details()};
+
+    const rct::xmr_amount out_amount = rct::randXmrAmount(transfers.front().amount() / 2);
+
+    const std::vector<cryptonote::tx_destination_entry> dsts{
+        cryptonote::tx_destination_entry(out_amount, bob.get_keys().m_account_address, false)
+    };
+
+    const uint64_t top_block_index = std::max(transfers.front().m_block_height, transfers.back().m_block_height)
+        + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+
+    const carrot::CarrotTransactionProposalV1 tx_proposal = tools::wallet::make_carrot_transaction_proposal_wallet2_transfer(
+        transfers,
+        /*subaddress_map=*/{},
+        dsts,
+        /*fee_per_weight=*/1,
+        /*extra=*/{},
+        /*subaddr_account=*/0,
+        /*subaddr_indices=*/{},
+        /*ignore_above=*/MONEY_SUPPLY,
+        /*ignore_below=*/0,
+        top_block_index,
+        alice);
+
+    std::vector<crypto::key_image> expected_key_images{
+        transfers.front().m_key_image,
+        transfers.back().m_key_image};
+    std::sort(expected_key_images.begin(),
+        expected_key_images.end(),
+        &carrot::compare_input_key_images);
+
+    // Assert basic length facts about tx proposal
+    ASSERT_EQ(2, tx_proposal.key_images_sorted.size()); // we always try 2 when available
+    EXPECT_EQ(expected_key_images, tx_proposal.key_images_sorted);
+    ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
+    ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
+    EXPECT_EQ(0, tx_proposal.extra.size());
+
+    // Assert amounts
+    EXPECT_EQ(out_amount, tx_proposal.normal_payment_proposals.front().amount);
+    EXPECT_EQ(out_amount + tx_proposal.selfsend_payment_proposals.front().proposal.amount + tx_proposal.fee,
+        transfers.front().amount() + transfers.back().amount());
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_sweep_1)
+{
+    cryptonote::account_base alice;
+    alice.generate();
+    cryptonote::account_base bob;
+    bob.generate();
+
+    const tools::wallet2::transfer_container transfers{gen_transfer_details()};
+
+    const carrot::CarrotTransactionProposalV1 tx_proposal = tools::wallet::make_carrot_transaction_proposal_wallet2_sweep(
+        transfers,
+        /*subaddress_map=*/{},
+        {transfers.front().m_key_image},
+        bob.get_keys().m_account_address,
+        /*is_subaddress=*/false,
+        /*n_dests=*/1,
+        /*fee_per_weight=*/1,
+        /*extra=*/{},
+        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
+        alice);
+
+    // Assert basic length facts about tx proposal
+    ASSERT_EQ(1, tx_proposal.key_images_sorted.size());
+    EXPECT_EQ(transfers.front().m_key_image, tx_proposal.key_images_sorted.front());
+    ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
+    ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
+    EXPECT_EQ(0, tx_proposal.extra.size());
+
+    // Assert amounts
+    EXPECT_EQ(0, tx_proposal.selfsend_payment_proposals.front().proposal.amount);
+    EXPECT_EQ(transfers.front().amount(), tx_proposal.fee + tx_proposal.normal_payment_proposals.front().amount);
+}
+//----------------------------------------------------------------------------------------------------------------------

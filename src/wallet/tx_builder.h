@@ -29,7 +29,7 @@
 #pragma once
 
 //local headers
-#include "carrot_impl/carrot_tx_builder_types.h"
+#include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "wallet2.h"
 
 //third party headers
@@ -94,5 +94,11 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
     const std::vector<uint8_t>& extra,
     const std::uint64_t top_block_index,
     const cryptonote::account_base &acb);
+
+carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
+    const wallet2::transfer_details &td,
+    const crypto::secret_key &k_view,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses_map,
+    hw::device &hwdev);
 } //namespace wallet
 } //namespace tools
