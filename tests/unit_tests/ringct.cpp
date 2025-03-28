@@ -36,6 +36,8 @@
 
 #include "common/container_helpers.h"
 #include "curve_trees.h"
+#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/prove.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
@@ -628,7 +630,7 @@ TEST(ringct, genRctSimple_fcmppp)
   EXPECT_EQ(n_inputs, sig.p.pseudoOuts.size());
   EXPECT_EQ(fcmp_proof_params.reference_block, sig.p.reference_block);
   EXPECT_EQ(n_tree_layers, sig.p.n_tree_layers);
-  EXPECT_EQ(fcmp_pp::proof_len(n_inputs, n_tree_layers), sig.p.fcmp_pp.size());
+  EXPECT_EQ(fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers), sig.p.fcmp_pp.size());
 
   // verify
   LOG_PRINT_L1("Verifying FCMP++ rctSig semantics");

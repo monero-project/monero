@@ -46,7 +46,7 @@ extern "C" {
 #include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
 #include "fcmp_pp/fcmp_pp_types.h"
-#include "fcmp_pp/prove.h"
+#include "fcmp_pp/proof_len.h"
 #include "hex.h"
 #include "span.h"
 #include "memwipe.h"
@@ -507,7 +507,13 @@ namespace rct {
             // tx, we would need a db read (for n_tree_layers as of the block) in order to de-serialize the FCMP++ proof
             VARINT_FIELD(n_tree_layers)
             ar.tag("fcmp_pp");
-            const std::size_t proof_len = fcmp_pp::proof_len(inputs, n_tree_layers);
+            if (inputs == 0)
+              return false;
+            if (inputs > FCMP_PLUS_PLUS_MAX_INPUTS)
+              return false;
+            if (n_tree_layers == 0)
+              return false;
+            const std::size_t proof_len = fcmp_pp::fcmp_pp_proof_len(inputs, n_tree_layers);
             if (!typename Archive<W>::is_saving())
               fcmp_pp.resize(proof_len);
             if (fcmp_pp.size() != proof_len)

@@ -37,6 +37,8 @@
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "fcmp_pp/fcmp_pp_types.h"
+#include "fcmp_pp/proof_len.h"
 #include "ringct/rctSigs.h"
 #include "serialization/binary_archive.h"
 #include "serialization/json_archive.h"
@@ -1032,7 +1034,7 @@ TEST(Serialization, tx_fcmp_pp)
   const std::size_t n_outputs = 3;
   const uint8_t n_tree_layers = 3;
 
-  const std::size_t proof_len = fcmp_pp::proof_len(n_inputs, n_tree_layers);
+  const std::size_t proof_len = fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers);
   const uint64_t reference_block{1};
 
   const auto make_dummy_fcmp_pp_tx = [proof_len]() -> transaction

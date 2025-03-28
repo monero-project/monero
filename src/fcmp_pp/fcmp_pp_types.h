@@ -30,6 +30,7 @@
 
 #include <vector>
 
+#include "crypto/crypto.h"
 #include "fcmp_pp_rust/fcmp++.h"
 
 // TODO: consolidate more FCMP++ types into this file
@@ -73,6 +74,26 @@ using OutputChunk = ::OutputSlice;
 using FcmpPpSalProof = std::vector<uint8_t>;
 using FcmpMembershipProof = std::vector<uint8_t>;
 using FcmpPpProof = std::vector<uint8_t>;
+
+struct ProofInput final
+{
+    uint8_t *path;
+    uint8_t *output_blinds;
+    std::vector<const uint8_t *> selene_branch_blinds;
+    std::vector<const uint8_t *> helios_branch_blinds;
+};
+
+struct ProofParams final
+{
+    uint64_t reference_block;
+    std::vector<ProofInput> proof_inputs;
+};
+
+struct FcmpVerifyHelperData final
+{
+    uint8_t *tree_root;
+    std::vector<crypto::key_image> key_images;
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

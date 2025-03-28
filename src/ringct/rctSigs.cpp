@@ -35,6 +35,9 @@
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
+#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/prove.h"
+#include "rctSigs.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
@@ -1481,8 +1484,10 @@ done:
             {
               CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for FCMP++");
               CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs are not empty for FCMP++");
-              // WARNING: proof_len is slow
-              CHECK_AND_ASSERT_MES(rv.p.fcmp_pp.size() == fcmp_pp::proof_len(rv.p.pseudoOuts.size(), rv.p.n_tree_layers), false, "Unexpected FCMP++ proof size");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size(), false, "Empty pseudo outs");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() <= FCMP_PLUS_PLUS_MAX_INPUTS, false, "Too many pseudo outs");
+              CHECK_AND_ASSERT_MES(rv.p.n_tree_layers > 0, false, "0 tree layers");
+              CHECK_AND_ASSERT_MES(rv.p.fcmp_pp.size() == fcmp_pp::fcmp_pp_proof_len(rv.p.pseudoOuts.size(), rv.p.n_tree_layers), false, "Unexpected FCMP++ proof size");
             }
             else if (is_rct_clsag(rv.type))
             {

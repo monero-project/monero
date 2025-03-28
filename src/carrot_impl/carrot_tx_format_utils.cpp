@@ -33,6 +33,7 @@
 #include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include "fcmp_pp/proof_len.h"
 
 //third party headers
 
@@ -391,10 +392,11 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
     for (const fcmp_pp::FcmpPpSalProof &sal_proof : sal_proofs)
         CHECK_AND_ASSERT_THROW_MES(sal_proof.size() == FCMP_PP_SAL_PROOF_SIZE_V1,
             "store fcmp proofs to rct prunable v1: sal proof is incorrect size");
-    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == ::fcmp_proof_size(n_inputs, n_tree_layers),
+    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::fcmp_proof_len(n_inputs, n_tree_layers),
         "store fcmp proofs to rct prunable v1: membership proof is incorrect size");
-    const size_t actual_proof_size = membership_proof.size() + (3 * 32 + FCMP_PP_SAL_PROOF_SIZE_V1) * n_inputs;
-    CHECK_AND_ASSERT_THROW_MES(actual_proof_size == fcmp_pp::proof_len(n_inputs, n_tree_layers),
+    const size_t actual_proof_size = membership_proof.size() +
+        (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1) * n_inputs;
+    CHECK_AND_ASSERT_THROW_MES(actual_proof_size == fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers),
         "store fcmp proofs to rct prunable v1: bug: bad length calculation");
 
     // extract C~

@@ -760,7 +760,7 @@ pub unsafe extern "C" fn prove(
 
     let mut buf = vec![];
     fcmp_plus_plus.write(&mut buf).unwrap();
-    assert_eq!(fcmp_pp_proof_size(inputs.len(), n_tree_layers), buf.len());
+    debug_assert_eq!(buf.len(), _slow_fcmp_pp_proof_size(inputs.len(), n_tree_layers));
 
     // Leak the buf into a ptr that the C++ can handle
     // TODO: Use Box::leak instead, and then in destructor convert back to box https://doc.rust-lang.org/std/boxed/struct.Box.html#method.leak
@@ -813,17 +813,18 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(signable_tx_hash: *const u8,
 #[no_mangle]
 pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveInputSlice,
     n_tree_layers: usize,
+    proof_len: usize,
     fcmp_proof_out: *mut u8,
     fcmp_proof_out_len: *mut usize
 ) -> CResult<(), ()> {
     let inputs: &[*const FcmpPpProveInput] = inputs.into();
     let capacity = fcmp_proof_out_len.read();
-    let proof_size = fcmp_proof_size(inputs.len(), n_tree_layers);
-    if capacity < proof_size {
+    debug_assert_eq!(proof_len, _slow_fcmp_proof_size(inputs.len(), n_tree_layers));
+    if capacity < proof_len {
         return CResult::err(())
     }
-    fcmp_proof_out_len.write(proof_size);
-    let mut buf_out = core::slice::from_raw_parts_mut(fcmp_proof_out, proof_size);
+    fcmp_proof_out_len.write(proof_len);
+    let mut buf_out = core::slice::from_raw_parts_mut(fcmp_proof_out, proof_len);
 
     match prove_membership_native(inputs, n_tree_layers) {
         Some(fcmp) => match fcmp.write(&mut buf_out) {
@@ -834,15 +835,14 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveInputSlice,
     }
 }
 
-// TODO: cache a static global table for proof lens by n_inputs and n_tree_layers bc the calc is slow
+// These functions are slow as implemented. We use a table in fcmp_pp/proof_len.h
 #[no_mangle]
-pub extern "C" fn fcmp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
+pub extern "C" fn _slow_fcmp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
     Fcmp::<Curves>::proof_size(n_inputs, n_tree_layers)
 }
 
-// TODO: cache a static global table for proof lens by n_inputs and n_tree_layers bc the calc is slow
 #[no_mangle]
-pub extern "C" fn fcmp_pp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
+pub extern "C" fn _slow_fcmp_pp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
     FcmpPlusPlus::proof_size(n_inputs, n_tree_layers)
 }
 
@@ -872,9 +872,7 @@ unsafe fn fcmp_pp_verify_input_new_inner(
     if n_inputs != key_images.len {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "passed invalid number of inputs"));
     }
-    if proof_len != fcmp_pp_proof_size(n_inputs, n_tree_layers) {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid proof len"));
-    }
+    debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
     let signable_tx_hash = unsafe { core::slice::from_raw_parts(signable_tx_hash, 32) };
     let signable_tx_hash: [u8; 32] = signable_tx_hash.try_into().unwrap();
