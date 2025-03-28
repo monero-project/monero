@@ -33,6 +33,8 @@
 #include "cryptonote_core/tx_verification_utils.h"
 #include "hardforks/hardforks.h"
 #include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/prove.h"
 #include "ringct/rctSigs.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -211,8 +213,7 @@ static bool is_canonical_fcmp_plus_plus_layout(const uint64_t reference_block, c
     const std::size_t act_sz = proof.size();
     if (act_sz == 0)
         return false;
-    // TODO: Warning: this is a slow function as is
-    const std::size_t exp_sz = fcmp_pp::proof_len(n_inputs, n_tree_layers);
+    const std::size_t exp_sz = fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers);
     if (act_sz != exp_sz)
         return false;
     return true;

@@ -38,26 +38,6 @@
 
 namespace fcmp_pp
 {
-struct ProofInput final
-{
-    uint8_t *path;
-    uint8_t *output_blinds;
-    std::vector<const uint8_t *> selene_branch_blinds;
-    std::vector<const uint8_t *> helios_branch_blinds;
-};
-
-struct ProofParams final
-{
-    uint64_t reference_block;
-    std::vector<ProofInput> proof_inputs;
-};
-
-struct FcmpVerifyHelperData final
-{
-    uint8_t *tree_root;
-    std::vector<crypto::key_image> key_images;
-};
-
 //----------------------------------------------------------------------------------------------------------------------
 
 FcmpRerandomizedOutputCompressed rerandomize_output(const OutputBytes output);
@@ -157,6 +137,4 @@ bool verify_membership(const FcmpMembershipProof &fcmp_proof,
     const std::vector<FcmpInputCompressed> &inputs);
 
 bool batch_verify(const std::vector<const uint8_t *> &fcmp_pp_verify_inputs);
-
-std::size_t proof_len(const std::size_t n_inputs, const uint8_t n_tree_layers);
 }//namespace fcmp_pp

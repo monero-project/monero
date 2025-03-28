@@ -31,6 +31,7 @@
 #include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
+#include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
 #include "misc_log_ex.h"
@@ -583,5 +584,26 @@ TEST(fcmp_pp, calculate_fcmp_input_for_rerandomizations_convergence)
         load_sk(rerandomized_output.r_c));
 
     EXPECT_EQ(0, memcmp(&rerandomized_output.input, &recomputed_input, sizeof(FcmpInputCompressed)));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, proof_size_table)
+{
+    const std::size_t MAX_N_LAYERS = (std::size_t) std::numeric_limits<uint8_t>::max();
+    for (std::size_t i = 1; i <= FCMP_PLUS_PLUS_MAX_INPUTS; ++i)
+    {
+        // Uncomment the prints to construct the table
+        // printf("{");
+        for (std::size_t j = 1; j <= MAX_N_LAYERS; ++j)
+        {
+            const std::size_t membership_proof_len = ::_slow_fcmp_proof_size(i, j);
+            const std::size_t fcmp_pp_proof_len = ::_slow_fcmp_pp_proof_size(i, j);
+
+            EXPECT_EQ(fcmp_pp::fcmp_proof_len(i, j), membership_proof_len);
+            EXPECT_EQ(fcmp_pp::fcmp_pp_proof_len(i, j), fcmp_pp_proof_len);
+
+            // printf("%lu, ", membership_proof_len);
+        }
+        // printf("},\n");
+    }
 }
 //----------------------------------------------------------------------------------------------------------------------

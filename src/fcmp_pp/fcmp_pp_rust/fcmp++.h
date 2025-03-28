@@ -39,7 +39,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// https://github.com/kayabaNerve/fcmp-plus-plus/blob/78754718faa21f0a5751fbd30c9495d7f7f5c2b1/networks/monero/ringct/fcmp%2B%2B/src/lib.rs#L273-L274
 #define FCMP_PP_SAL_PROOF_SIZE_V1 (12*32)
+#define FCMP_PP_INPUT_TUPLE_SIZE_V1 (3*32)
 
 
 // ----- deps C bindings -----
@@ -266,18 +268,22 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
  * brief: fcmp_pp_prove_membership - Make a FCMP++ membership proof for N inputs
  * param: inputs - a slice of FCMP provable inputs returned from fcmp_prove_input_new()
  * param: n_tree_layers -
+ * param: proof_len -
  * outparam: fcmp_proof_out - a buffer where the FCMP proof will be written to
  * outparam: fcmp_proof_out_size - the max length of the buffer fcmp_proof_out, is set to written proof size
  * return: an error on failure, nothing otherwise
  */
 CResult fcmp_pp_prove_membership(struct ObjectSlice fcmp_prove_inputs,
                                              uintptr_t n_tree_layers,
+                                             uintptr_t proof_len,
                                              uint8_t fcmp_proof_out[],
                                              uintptr_t *fcmp_proof_out_len);
 
-uintptr_t fcmp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+// The following proof_size functions are tabled through proof_len.h. Use
+// those functions instead.
+uintptr_t _slow_fcmp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
-uintptr_t fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+uintptr_t _slow_fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
 CResult fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
                                              const uint8_t *fcmp_pp_proof,

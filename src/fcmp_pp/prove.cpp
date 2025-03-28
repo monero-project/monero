@@ -32,6 +32,7 @@
 #include "crypto/generators.h"
 #include "fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
+#include "proof_len.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "fcmp_pp"
@@ -333,7 +334,7 @@ FcmpPpProof prove(const crypto::hash &signable_tx_hash,
     // res.value is a void * pointing to a uint8_t *, so cast as a double pointer
     uint8_t **buf = (uint8_t**) res.value;
 
-    const std::size_t proof_size = ::fcmp_pp_proof_size(fcmp_prove_inputs.size(), n_tree_layers);
+    const std::size_t proof_size = fcmp_pp_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
     const FcmpPpProof proof{*buf, *buf + proof_size};
 
     // Free both pointers
@@ -370,11 +371,13 @@ FcmpMembershipProof prove_membership(const std::vector<const uint8_t *> &fcmp_pr
     const std::size_t n_tree_layers)
 {
     FcmpPpSalProof p;
-    p.resize(::fcmp_proof_size(fcmp_prove_inputs.size(), n_tree_layers));
+    const std::size_t proof_len = fcmp_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
+    p.resize(proof_len);
 
     size_t proof_size = p.size();
     auto res = ::fcmp_pp_prove_membership({fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
         n_tree_layers,
+        proof_len,
         &p[0],
         &proof_size);
 
@@ -475,12 +478,6 @@ bool verify_membership(const FcmpMembershipProof &fcmp_proof,
 bool batch_verify(const std::vector<const uint8_t *> &fcmp_pp_verify_inputs)
 {
     return ::fcmp_pp_batch_verify({fcmp_pp_verify_inputs.data(), fcmp_pp_verify_inputs.size()});
-}
-//----------------------------------------------------------------------------------------------------------------------
-std::size_t proof_len(const std::size_t n_inputs, const uint8_t n_tree_layers)
-{
-    static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
-    return ::fcmp_pp_proof_size(n_inputs, (std::size_t) n_tree_layers);
 }
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

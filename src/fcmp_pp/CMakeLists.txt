@@ -29,6 +29,7 @@
 set(fcmp_pp_sources
   curve_trees.cpp
   fcmp_pp_crypto.cpp
+  proof_len.cpp
   prove.cpp
   tower_cycle.cpp
   tree_cache.cpp
