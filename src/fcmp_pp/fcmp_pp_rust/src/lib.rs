@@ -626,11 +626,6 @@ pub unsafe extern "C" fn fcmp_pp_prove_input_new(
     let path = unsafe { path.read() };
     let output_blinds = unsafe { output_blinds.read() };
 
-    assert_eq!(
-        path.output.O(),
-        EdwardsPoint((*x * *EdwardsPoint::generator()) + (*y * *EdwardsPoint(T())))
-    );
-
     // Collect branch blinds
     let c1_branch_blinds: &[*const BranchBlind<<Selene as Ciphersuite>::G>] =
         selene_branch_blinds.into();
