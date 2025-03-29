@@ -33,6 +33,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <string>
+#include <chrono>
 #include "common/util.h"
 #include "net/http_server_impl_base.h"
 #include "math_helper.h"
@@ -287,6 +288,6 @@ namespace tools
       bool m_restricted;
       const boost::program_options::variables_map *m_vm;
       uint32_t m_auto_refresh_period;
-      boost::posix_time::ptime m_last_auto_refresh_time;
+      std::chrono::time_point<std::chrono::steady_clock> m_last_auto_refresh_time;
   };
 }
