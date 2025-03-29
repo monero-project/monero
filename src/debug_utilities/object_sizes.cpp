@@ -110,8 +110,8 @@ int main(int argc, char* argv[])
 
   SL(Monero::WalletImpl);
   SL(Monero::AddressBookRow);
-  SL(Monero::TransactionInfoImpl);
-  SL(Monero::TransactionHistoryImpl);
+  SL(Monero::TransactionInfo);
+  SL(Monero::TransactionHistory);
   SL(Monero::PendingTransactionImpl);
   SL(Monero::UnsignedTransactionImpl);
 
