@@ -48,8 +48,6 @@ set(wallet_api_headers
 set(wallet_api_private_headers
   wallet.h
   wallet_manager.h
-  transaction_info.h
-  transaction_history.h
   pending_transaction.h
   common_defines.h
   address_book.h

@@ -28,123 +28,97 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "transaction_info.h"
-
+#include "wallet/api/wallet2_api.h"
+#include <string>
+#include <ctime>
 
 using namespace std;
 
 namespace Monero {
 
-TransactionInfo::~TransactionInfo() {}
-
-TransactionInfo::Transfer::Transfer(uint64_t _amount, const string &_address)
-    : amount(_amount), address(_address) {}
-
-
-TransactionInfoImpl::TransactionInfoImpl()
-    : m_direction(Direction_Out)
-      , m_pending(false)
-      , m_failed(false)
-      , m_coinbase(false)
-      , m_amount(0)
-      , m_fee(0)
-      , m_blockheight(0)
-      , m_subaddrAccount(0)
-      , m_timestamp(0)
-      , m_confirmations(0)
-      , m_unlock_time(0)
-{
-
-}
-
-TransactionInfoImpl::~TransactionInfoImpl()
-{
-
-}
-
-int TransactionInfoImpl::direction() const
+int TransactionInfo::direction() const
 {
     return m_direction;
 }
 
 
-bool TransactionInfoImpl::isPending() const
+bool TransactionInfo::isPending() const
 {
     return m_pending;
 }
 
-bool TransactionInfoImpl::isFailed() const
+bool TransactionInfo::isFailed() const
 {
     return m_failed;
 }
 
-bool TransactionInfoImpl::isCoinbase() const
+bool TransactionInfo::isCoinbase() const
 {
     return m_coinbase;
 }
 
-uint64_t TransactionInfoImpl::amount() const
+uint64_t TransactionInfo::amount() const
 {
     return m_amount;
 }
 
-uint64_t TransactionInfoImpl::fee() const
+uint64_t TransactionInfo::fee() const
 {
     return m_fee;
 }
 
-uint64_t TransactionInfoImpl::blockHeight() const
+uint64_t TransactionInfo::blockHeight() const
 {
     return m_blockheight;
 }
 
-std::string TransactionInfoImpl::description() const
+const std::string& TransactionInfo::description() const
 {
     return m_description;
 }
 
-std::set<uint32_t> TransactionInfoImpl::subaddrIndex() const
+const std::set<uint32_t>& TransactionInfo::subaddrIndex() const
 {
     return m_subaddrIndex;
 }
 
-uint32_t TransactionInfoImpl::subaddrAccount() const
+uint32_t TransactionInfo::subaddrAccount() const
 {
     return m_subaddrAccount;
 }
 
-string TransactionInfoImpl::label() const
+const string& TransactionInfo::label() const
 {
     return m_label;
 }
 
 
-string TransactionInfoImpl::hash() const
+const string& TransactionInfo::hash() const
 {
     return m_hash;
 }
 
-std::time_t TransactionInfoImpl::timestamp() const
+const std::time_t& TransactionInfo::timestamp() const
 {
     return m_timestamp;
 }
 
-string TransactionInfoImpl::paymentId() const
+const string& TransactionInfo::paymentId() const
 {
     return m_paymentid;
 }
 
-const std::vector<TransactionInfo::Transfer> &TransactionInfoImpl::transfers() const
+const std::vector<TransactionInfo::Transfer> &TransactionInfo::transfers() const
 {
     return m_transfers;
 }
 
-uint64_t TransactionInfoImpl::confirmations() const
+uint64_t TransactionInfo::confirmations() const
 {
     return m_confirmations;
 }
 
-uint64_t TransactionInfoImpl::unlockTime() const
+uint64_t TransactionInfo::unlockTime() const
 {
     return m_unlock_time;
 }

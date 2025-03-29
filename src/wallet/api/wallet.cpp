@@ -32,7 +32,7 @@
 #include "wallet.h"
 #include "pending_transaction.h"
 #include "unsigned_transaction.h"
-#include "transaction_history.h"
+#include "wallet/api/wallet2_api.h"
 #include "address_book.h"
 #include "subaddress.h"
 #include "subaddress_account.h"
@@ -436,7 +436,7 @@ WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     , m_refreshShouldRescan(false)
 {
     m_wallet.reset(new tools::wallet2(static_cast<cryptonote::network_type>(nettype), kdf_rounds, true));
-    m_history.reset(new TransactionHistoryImpl(this));
+    m_history.reset(new TransactionHistory(this));
     m_wallet2Callback.reset(new Wallet2CallbackImpl(this));
     m_wallet->callback(m_wallet2Callback.get());
     m_refreshThreadDone = false;
@@ -2809,8 +2809,7 @@ bool WalletImpl::reconnectDevice()
     return r;
 }
 
-uint64_t WalletImpl::getBytesReceived()
-{
+uint64_t WalletImpl::getBytesReceived() {
     return m_wallet->get_bytes_received();
 }
 

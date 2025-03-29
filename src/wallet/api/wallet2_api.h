@@ -40,9 +40,13 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <optional>
+#include <boost/thread/shared_mutex.hpp>
 
 //  Public interface for libwallet library
 namespace Monero {
+
+class WalletImpl;
 
 enum NetworkType : uint8_t {
     MAINNET = 0,
@@ -166,44 +170,67 @@ struct TransactionInfo
     };
 
     struct Transfer {
-        Transfer(uint64_t _amount, const std::string &address);
-        const uint64_t amount;
-        const std::string address;
+        Transfer(uint64_t amount_, std::string address_) : amount{ amount_ }, address{ address_ } { }
+        uint64_t amount;
+        std::string address;
     };
 
-    virtual ~TransactionInfo() = 0;
-    virtual int  direction() const = 0;
-    virtual bool isPending() const = 0;
-    virtual bool isFailed() const = 0;
-    virtual bool isCoinbase() const = 0;
-    virtual uint64_t amount() const = 0;
-    virtual uint64_t fee() const = 0;
-    virtual uint64_t blockHeight() const = 0;
-    virtual std::string description() const = 0;
-    virtual std::set<uint32_t> subaddrIndex() const = 0;
-    virtual uint32_t subaddrAccount() const = 0;
-    virtual std::string label() const = 0;
-    virtual uint64_t confirmations() const = 0;
-    virtual uint64_t unlockTime() const = 0;
+    int  direction() const;
+    bool isPending() const;
+    bool isFailed() const;
+    bool isCoinbase() const;
+    uint64_t amount() const;
+    uint64_t fee() const;
+    uint64_t blockHeight() const;
+    const std::string& description() const;
+    const std::set<uint32_t>& subaddrIndex() const;
+    uint32_t subaddrAccount() const;
+    const std::string& label() const;
+    uint64_t confirmations() const;
+    uint64_t unlockTime() const;
     //! transaction_id
-    virtual std::string hash() const = 0;
-    virtual std::time_t timestamp() const = 0;
-    virtual std::string paymentId() const = 0;
+    const std::string& hash() const;
+    const std::time_t& timestamp() const;
+    const std::string& paymentId() const;
     //! only applicable for output transactions
-    virtual const std::vector<Transfer> & transfers() const = 0;
+    const std::vector<Transfer> & transfers() const;
+
+    int         m_direction{Direction_Out};
+    bool        m_pending{false};
+    bool        m_failed{false};
+    bool        m_coinbase{false};
+    uint64_t    m_amount{0};
+    uint64_t    m_fee{0};
+    uint64_t    m_blockheight{0};
+    std::string m_description;
+    std::set<uint32_t> m_subaddrIndex;        // always unique index for incoming transfers; can be multiple indices for outgoing transfers
+    uint32_t m_subaddrAccount{0};
+    std::string m_label;
+    std::string m_hash;
+    std::time_t m_timestamp{0};
+    std::string m_paymentid;
+    std::vector<Transfer> m_transfers;
+    uint64_t    m_confirmations{0};
+    uint64_t    m_unlock_time{0};
 };
 /**
  * @brief The TransactionHistory - interface for displaying transaction history
  */
 struct TransactionHistory
 {
-    virtual ~TransactionHistory() = 0;
-    virtual int count() const = 0;
-    virtual TransactionInfo * transaction(int index)  const = 0;
-    virtual TransactionInfo * transaction(const std::string &id) const = 0;
-    virtual std::vector<TransactionInfo*> getAll() const = 0;
-    virtual void refresh() = 0;
-    virtual void setTxNote(const std::string &txid, const std::string &note) = 0;
+    TransactionHistory(WalletImpl* wallet);
+    int count() const;
+    std::optional<TransactionInfo> transaction(int index)  const;
+    std::optional<TransactionInfo> transaction(const std::string &id) const;
+    const std::vector<TransactionInfo>& getAll() const;
+    void refresh();
+    void setTxNote(const std::string &txid, const std::string &note);
+
+private:
+
+    std::vector<TransactionInfo> m_history;
+    WalletImpl *m_wallet;
+    mutable boost::shared_mutex   m_historyMutex;
 };
 
 /**
