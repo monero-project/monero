@@ -27,25 +27,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * ---------------------------------------------------------------------------
  */
+
+#include <assert.h>
 #include <stddef.h>
-#include <time.h> 
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
-
-// OS X, FreeBSD, OpenBSD and NetBSD don't need malloc.h
-#if !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__OpenBSD__) \
-  && !defined(__DragonFly__) && !defined(__NetBSD__)
- #include <malloc.h>
-#endif
-
-// ANDROID, FreeBSD, OpenBSD and NetBSD also don't need timeb.h
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__ANDROID__) \
-  && !defined(__NetBSD__)
- #include <sys/timeb.h>
-#else
- #include <sys/time.h>
-#endif
 
 #ifdef WIN32
 #include <process.h>
@@ -58,7 +44,6 @@
 
 #define OAES_RKEY_LEN 4
 #define OAES_COL_LEN 4
-#define OAES_ROUND_BASE 7
 
 static uint8_t oaes_gf_8[] = {
 	0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36 };
@@ -83,201 +68,68 @@ static uint8_t oaes_sub_byte_value[16][16] = {
 	/*f*/	{ 0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16 },
 };
 
-static OAES_RET oaes_sub_byte( uint8_t * byte )
+static void oaes_sub_byte( uint8_t * byte )
 {
 	size_t _x, _y;
-	
-	if( NULL == byte )
-		return OAES_RET_ARG1;
 
 	_x = _y = *byte;
 	_x &= 0x0f;
 	_y &= 0xf0;
 	_y >>= 4;
 	*byte = oaes_sub_byte_value[_y][_x];
-	
-	return OAES_RET_SUCCESS;
 }
 
-static OAES_RET oaes_word_rot_left( uint8_t word[OAES_COL_LEN] )
+static void oaes_word_rot_left( uint8_t word[OAES_COL_LEN] )
 {
 	uint8_t _temp[OAES_COL_LEN];
-	
-	if( NULL == word )
-		return OAES_RET_ARG1;
 
 	memcpy( _temp, word + 1, OAES_COL_LEN - 1 );
 	_temp[OAES_COL_LEN - 1] = word[0];
 	memcpy( word, _temp, OAES_COL_LEN );
-	
-	return OAES_RET_SUCCESS;
 }
 
-static OAES_RET oaes_key_destroy( oaes_key ** key )
-{
-	if( NULL == *key )
-		return OAES_RET_SUCCESS;
-	
-	if( (*key)->data )
-	{
-		free( (*key)->data );
-		(*key)->data = NULL;
-	}
-	
-	if( (*key)->exp_data )
-	{
-		free( (*key)->exp_data );
-		(*key)->exp_data = NULL;
-	}
-	
-	(*key)->data_len = 0;
-	(*key)->exp_data_len = 0;
-	(*key)->num_keys = 0;
-	(*key)->key_base = 0;
-	free( *key );
-	*key = NULL;
-	
-	return OAES_RET_SUCCESS;
-}
-
-static OAES_RET oaes_key_expand( OAES_CTX * ctx )
+void aes_expand_256key_portable(const uint8_t data[32], uint8_t expanded_key_out[240])
 {
 	size_t _i, _j;
-	oaes_ctx * _ctx = (oaes_ctx *) ctx;
-	
-	if( NULL == _ctx )
-		return OAES_RET_ARG1;
-	
-	if( NULL == _ctx->key )
-		return OAES_RET_NOKEY;
-	
-	_ctx->key->key_base = _ctx->key->data_len / OAES_RKEY_LEN;
-	_ctx->key->num_keys =  _ctx->key->key_base + OAES_ROUND_BASE;
-					
-	_ctx->key->exp_data_len = _ctx->key->num_keys * OAES_RKEY_LEN * OAES_COL_LEN;
-	_ctx->key->exp_data = (uint8_t *)
-			calloc( _ctx->key->exp_data_len, sizeof( uint8_t ));
-	
-	if( NULL == _ctx->key->exp_data )
-		return OAES_RET_MEM;
-	
-	// the first _ctx->key->data_len are a direct copy
-	memcpy( _ctx->key->exp_data, _ctx->key->data, _ctx->key->data_len );
+
+	assert( data != NULL );
+	assert( expanded_key_out != NULL );
+
+	// the first 32 bytes are a direct copy
+	memcpy( expanded_key_out, data, 32 );
+
+	// the rest are set to 0
+	memset( expanded_key_out + 32, 0, 208 );
 
 	// apply ExpandKey algorithm for remainder
-	for( _i = _ctx->key->key_base; _i < _ctx->key->num_keys * OAES_RKEY_LEN; _i++ )
+	for( _i = 8; _i < 15 * OAES_RKEY_LEN; _i++ )
 	{
 		uint8_t _temp[OAES_COL_LEN];
-		
+
 		memcpy( _temp,
-				_ctx->key->exp_data + ( _i - 1 ) * OAES_RKEY_LEN, OAES_COL_LEN );
-		
+				expanded_key_out + ( _i - 1 ) * OAES_RKEY_LEN, OAES_COL_LEN );
+
 		// transform key column
-		if( 0 == _i % _ctx->key->key_base )
+		if( 0 == _i % 8 )
 		{
 			oaes_word_rot_left( _temp );
 
 			for( _j = 0; _j < OAES_COL_LEN; _j++ )
 				oaes_sub_byte( _temp + _j );
 
-			_temp[0] = _temp[0] ^ oaes_gf_8[ _i / _ctx->key->key_base - 1 ];
+			_temp[0] = _temp[0] ^ oaes_gf_8[ _i / 8 - 1 ];
 		}
-		else if( _ctx->key->key_base > 6 && 4 == _i % _ctx->key->key_base )
+		else if( 4 == _i % 8 )
 		{
 			for( _j = 0; _j < OAES_COL_LEN; _j++ )
 				oaes_sub_byte( _temp + _j );
 		}
-		
+
 		for( _j = 0; _j < OAES_COL_LEN; _j++ )
 		{
-			_ctx->key->exp_data[ _i * OAES_RKEY_LEN + _j ] =
-					_ctx->key->exp_data[ ( _i - _ctx->key->key_base ) *
+			expanded_key_out[ _i * OAES_RKEY_LEN + _j ] =
+					expanded_key_out[ ( _i - 8 ) *
 					OAES_RKEY_LEN + _j ] ^ _temp[_j];
 		}
 	}
-	
-	return OAES_RET_SUCCESS;
-}
-
-OAES_RET oaes_key_import_data( OAES_CTX * ctx,
-		const uint8_t * data, size_t data_len )
-{
-	oaes_ctx * _ctx = (oaes_ctx *) ctx;
-	OAES_RET _rc = OAES_RET_SUCCESS;
-	
-	if( NULL == _ctx )
-		return OAES_RET_ARG1;
-	
-	if( NULL == data )
-		return OAES_RET_ARG2;
-	
-	switch( data_len )
-	{
-		case 16:
-		case 24:
-		case 32:
-			break;
-		default:
-			return OAES_RET_ARG3;
-	}
-	
-	if( _ctx->key )
-		oaes_key_destroy( &(_ctx->key) );
-	
-	_ctx->key = (oaes_key *) calloc( sizeof( oaes_key ), 1 );
-	
-	if( NULL == _ctx->key )
-		return OAES_RET_MEM;
-	
-	_ctx->key->data_len = data_len;
-	_ctx->key->data = (uint8_t *)
-			calloc( data_len, sizeof( uint8_t ));
-	
-	if( NULL == _ctx->key->data )
-	{
-		oaes_key_destroy( &(_ctx->key) );
-		return OAES_RET_MEM;
-	}
-
-	memcpy( _ctx->key->data, data, data_len );
-	_rc = _rc || oaes_key_expand( ctx );
-	
-	if( _rc != OAES_RET_SUCCESS )
-	{
-		oaes_key_destroy( &(_ctx->key) );
-		return _rc;
-	}
-	
-	return OAES_RET_SUCCESS;
-}
-
-OAES_CTX * oaes_alloc(void)
-{
-	oaes_ctx * _ctx = (oaes_ctx *) calloc( sizeof( oaes_ctx ), 1 );
-	
-	if( NULL == _ctx )
-		return NULL;
-
-	_ctx->key = NULL;
-
-	return (OAES_CTX *) _ctx;
-}
-
-OAES_RET oaes_free( OAES_CTX ** ctx )
-{
-	oaes_ctx ** _ctx = (oaes_ctx **) ctx;
-
-	if( NULL == _ctx )
-		return OAES_RET_ARG1;
-	
-	if( NULL == *_ctx )
-		return OAES_RET_SUCCESS;
-	
-	if( (*_ctx)->key )
-		oaes_key_destroy( &((*_ctx)->key) );
-
-	free( *_ctx );
-	*_ctx = NULL;
-
-	return OAES_RET_SUCCESS;
 }
