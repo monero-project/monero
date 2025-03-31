@@ -39,7 +39,7 @@ namespace fcmp_pp
 
 static_assert(FCMP_PLUS_PLUS_MAX_INPUTS == 8, "FCMP++ proof len table expects max 8 inputs");
 
-// Constructed using ::_slow_fcmp_proof_size
+// Constructed using ::_slow_membership_proof_size
 // Most of the values in this table aren't realistic (way more layers than ever expected in an honest tx). We place them
 // in the table to not over-complicate the protocol (by restricting n layers), and to prevent a malicious actor from
 // causing a node to have to slowly de-serialize a fake tx with a higher number of layers.
@@ -56,7 +56,7 @@ static const uint32_t PROOF_LEN_TABLE[FCMP_PLUS_PLUS_MAX_INPUTS][std::numeric_li
 };
 
 // Size of the membership proof alone
-std::size_t fcmp_proof_len(const std::size_t n_inputs, const uint8_t n_layers);
+std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_layers);
 
 // Size of the FCMP++ proof (membership proof + spend-auth + linkability proofs & input tuples)
 // https://github.com/kayabaNerve/fcmp-plus-plus/blob/78754718faa21f0a5751fbd30c9495d7f7f5c2b1/networks/monero/ringct/fcmp%2B%2B/src/lib.rs#L273-L274

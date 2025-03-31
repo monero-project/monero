@@ -34,7 +34,7 @@
 namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
-std::size_t fcmp_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
+std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
 {
     CHECK_AND_ASSERT_THROW_MES(n_inputs > 0, "n_inputs must be >0");
     CHECK_AND_ASSERT_THROW_MES(n_layers > 0, "n_layers must be >0");
@@ -50,8 +50,8 @@ std::size_t fcmp_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
 
 std::size_t fcmp_pp_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
 {
-    const std::size_t membership_proof_len = fcmp_proof_len(n_inputs, n_layers);
-    return membership_proof_len + (n_inputs * (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1));
+    return membership_proof_len(n_inputs, n_layers)
+        + (n_inputs * (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1));
 };
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

@@ -404,7 +404,7 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
     for (const fcmp_pp::FcmpPpSalProof &sal_proof : sal_proofs)
         CHECK_AND_ASSERT_THROW_MES(sal_proof.size() == FCMP_PP_SAL_PROOF_SIZE_V1,
             "store fcmp proofs to rct prunable v1: sal proof is incorrect size");
-    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::fcmp_proof_len(n_inputs, n_tree_layers),
+    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::membership_proof_len(n_inputs, n_tree_layers),
         "store fcmp proofs to rct prunable v1: membership proof is incorrect size");
     const size_t actual_proof_size = membership_proof.size() +
         (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1) * n_inputs;

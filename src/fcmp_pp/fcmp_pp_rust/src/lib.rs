@@ -829,7 +829,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveInputSlice,
 ) -> CResult<(), ()> {
     let inputs: &[*const FcmpPpProveInput] = inputs.into();
     let capacity = fcmp_proof_out_len.read();
-    debug_assert_eq!(proof_len, _slow_fcmp_proof_size(inputs.len(), n_tree_layers));
+    debug_assert_eq!(proof_len, _slow_membership_proof_size(inputs.len(), n_tree_layers));
     if capacity < proof_len {
         return CResult::err(())
     }
@@ -847,7 +847,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveInputSlice,
 
 // These functions are slow as implemented. We use a table in fcmp_pp/proof_len.h
 #[no_mangle]
-pub extern "C" fn _slow_fcmp_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
+pub extern "C" fn _slow_membership_proof_size(n_inputs: usize, n_tree_layers: usize) -> usize {
     Fcmp::<Curves>::proof_size(n_inputs, n_tree_layers)
 }
 
