@@ -109,8 +109,7 @@ namespace epee
     constexpr std::size_t size() const noexcept { return len; }
     constexpr std::size_t size_bytes() const noexcept { return size() * sizeof(value_type); }
 
-    T &operator[](size_t idx) noexcept { return ptr[idx]; }
-    const T &operator[](size_t idx) const noexcept { return ptr[idx]; }
+    constexpr T &operator[](size_t idx) const noexcept { return ptr[idx]; }
 
   private:
     T* ptr;

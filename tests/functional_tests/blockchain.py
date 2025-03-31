@@ -49,6 +49,7 @@ class BlockchainTest():
         self.reset()
         self._test_generateblocks(5)
         self._test_alt_chains()
+        self._test_reorg_handling()
 
     def reset(self):
         print('Resetting blockchain')
@@ -340,6 +341,59 @@ class BlockchainTest():
         print('Saving blockchain explicitely')
         daemon.save_bc()
 
+    def _test_reorg_handling(self):
+        print('Testing reorg handling')
+        daemon0 = Daemon(idx = 2)
+        daemon1 = Daemon(idx = 3)
+
+        miner_addr = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+        # Wait until daemons are on the same chain, waiting a max of 60s
+        def wait_until_same_chain():
+            i = 0
+            retry_attempts = 60
+            while i < retry_attempts:
+                res0_info = daemon0.get_info()
+                res1_info = daemon1.get_info()
+
+                if res0_info.height == res1_info.height:
+                    assert res0_info.top_block_hash == res1_info.top_block_hash
+                    return (res0_info, res1_info)
+
+                i += 1
+                time.sleep(1)
+
+            assert False
+
+        wait_until_same_chain()
+
+        # Test various n blocks, some around the default spendable age
+        # Note: starting with 100 because we want the test to include unlocked coinbase outputs
+        for n_block_reorg in [100, 11, 10, 9, 2, 1]:
+            print('Checking', n_block_reorg, 'block reorg')
+
+            # Disconnect the daemons from their peers
+            daemon0.out_peers(0)
+            daemon1.out_peers(0)
+
+            # Generate blocks on each daemon, have the second daemon mine 1 extra block so it has the heavier chain
+            # Note: these two calls could be concurrent to speed this test up
+            daemon0.generateblocks(miner_addr, n_block_reorg)
+            genblocks1_res = daemon1.generateblocks(miner_addr, n_block_reorg+1)
+
+            # Make sure they're on different chains
+            res0_info = daemon0.get_info()
+            res1_info = daemon1.get_info()
+            assert res0_info.top_block_hash != res1_info.top_block_hash
+            assert res1_info.height == (res0_info.height + 1)
+            assert res1_info.height == (genblocks1_res.height + 1)
+
+            # Now re-connect the daemons and wait until daemon0 gets onto daemon1's heavier chain
+            daemon0.out_peers(12)
+            daemon1.out_peers(12)
+
+            (res0_info, res1_info) = wait_until_same_chain()
+            assert res0_info.height == (genblocks1_res.height + 1)
 
 if __name__ == '__main__':
     BlockchainTest().run_test()

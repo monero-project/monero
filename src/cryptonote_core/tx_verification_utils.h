@@ -49,6 +49,7 @@ static constexpr const size_t RCT_VER_CACHE_SIZE = 8192;
 using rct_ver_cache_t = ::tools::data_cache<::crypto::hash, RCT_VER_CACHE_SIZE>;
 
 /**
+ * TODO: update for FCMP param
  * @brief Cached version of rct::verRctNonSemanticsSimple
  *
  * This function will not affect how the transaction is serialized and it will never modify the
@@ -80,6 +81,7 @@ bool ver_rct_non_semantics_simple_cached
 (
     transaction& tx,
     const rct::ctkeyM& mix_ring,
+    const crypto::ec_point& tree_root,
     rct_ver_cache_t& cache,
     std::uint8_t rct_type_to_cache
 );
@@ -106,6 +108,15 @@ struct pool_supplement
     // hard fork. User: If you add an unverified transaction to txs_by_txid, set this field to zero!
     mutable std::uint8_t nic_verified_hf_version = 0;
 };
+
+// TODO: document the function
+bool batch_ver_fcmp_pp_consensus
+(
+    pool_supplement& ps,
+    const std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>>& tree_root_by_block_index,
+    rct_ver_cache_t& cache,
+    const std::uint8_t rct_type_to_cache
+);
 
 /**
  * @brief Verify every non-input consensus rule for a group of non-coinbase transactions

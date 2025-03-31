@@ -30,6 +30,7 @@
 
 #include "string_tools.h"
 #include "blockchain_db.h"
+#include "blockchain_db_utils.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
@@ -179,7 +180,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   bool miner_tx = false;
   crypto::hash tx_hash, tx_prunable_hash;
@@ -230,10 +231,12 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   {
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
+    // note: get_outs_by_last_locked_block mirrors this logic
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
-      rct::key commitment = rct::zeroCommit(vout.amount);
+      // TODO: avoid duplicate zeroCommitVartime call in get_outs_by_last_locked_block
+      rct::key commitment = rct::zeroCommitVartime(vout.amount);
       vout.amount = 0;
       amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
         &commitment);
@@ -244,6 +247,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
+
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 
@@ -267,6 +271,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   time_blk_hash += time1;
 
   uint64_t prev_height = height();
+  const uint64_t total_n_outputs = num_outputs();
 
   // call out to add the transactions
 
@@ -279,6 +284,8 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
+  std::vector<std::reference_wrapper<const transaction>> _txs; // ref wrapper to avoid extra copies
+  _txs.reserve(txs.size());
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
@@ -289,13 +296,20 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
         ++num_rct_outs;
     }
     ++tx_i;
+    _txs.push_back(std::ref(tx.first));
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
 
+  // When adding a block, we also need to keep track of when outputs unlock, so
+  // we can use them to grow the merkle tree used in fcmp's at that point.
+  const auto outs_by_last_locked_block_meta = cryptonote::get_outs_by_last_locked_block(blk.miner_tx, _txs, total_n_outputs, prev_height);
+  const auto &outs_by_last_locked_block = outs_by_last_locked_block_meta.outs_by_last_locked_block;
+  const auto &timelocked_outputs = outs_by_last_locked_block_meta.timelocked_outputs;
+
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
+  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, outs_by_last_locked_block, timelocked_outputs);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 

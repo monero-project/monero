@@ -43,6 +43,7 @@
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
 #include "derive_view_tag.h"
+#include "fe_batch_invert.h"
 #include "ge_frombytes_vartime.h"
 #include "ge_tobytes.h"
 #include "generate_key_derivation.h"
@@ -66,6 +67,9 @@
 #include "multiexp.h"
 #include "sig_mlsag.h"
 #include "sig_clsag.h"
+#include "torsion_ops.h"
+#include "view_scan.h"
+#include "zero_commit.h"
 
 namespace po = boost::program_options;
 
@@ -188,6 +192,18 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE4(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0, 1);
   TEST_PERFORMANCE4(filter, p, test_check_hash, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff);
 
+  // test view scan performance with view tags
+  ParamsShuttleViewScan p_view_scan;
+  p_view_scan.core_params = p.core_params;
+
+  TEST_PERFORMANCE0(filter, p_view_scan, test_view_scan_cn);
+  TEST_PERFORMANCE0(filter, p_view_scan, test_view_scan_cn_optimized);
+  TEST_PERFORMANCE0(filter, p_view_scan, test_view_scan_carrot);
+  p_view_scan.test_view_tag_check = true;
+  TEST_PERFORMANCE0(filter, p_view_scan, test_view_scan_cn);
+  TEST_PERFORMANCE0(filter, p_view_scan, test_view_scan_cn_optimized);
+  TEST_PERFORMANCE0(filter, p_view_scan, test_view_scan_carrot);
+
   TEST_PERFORMANCE0(filter, p, test_is_out_to_acc);
   TEST_PERFORMANCE0(filter, p, test_is_out_to_acc_precomp);
   TEST_PERFORMANCE2(filter, p, test_out_can_be_to_acc, false, true); // no view tag, owned
@@ -198,6 +214,10 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE0(filter, p, test_generate_key_image);
   TEST_PERFORMANCE0(filter, p, test_derive_public_key);
   TEST_PERFORMANCE0(filter, p, test_derive_secret_key);
+  TEST_PERFORMANCE1(filter, p, test_fe_batch_invert, true); // batched
+  TEST_PERFORMANCE1(filter, p, test_fe_batch_invert, false); // individual inversions
+  TEST_PERFORMANCE1(filter, p, test_torsion_ops, true); // check for torsion
+  TEST_PERFORMANCE1(filter, p, test_torsion_ops, false); // clear torsion
   TEST_PERFORMANCE0(filter, p, test_ge_frombytes_vartime);
   TEST_PERFORMANCE0(filter, p, test_ge_tobytes);
   TEST_PERFORMANCE0(filter, p, test_generate_keypair);
@@ -593,6 +613,9 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 8);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 9);
 #endif
+
+  TEST_PERFORMANCE1(filter, p, test_zero_commit, true); // fast
+  TEST_PERFORMANCE1(filter, p, test_zero_commit, false);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 

@@ -193,6 +193,7 @@ target_link_libraries(bulletproof_fuzz_tests
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SERIALIZATION_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
     $ENV{LIB_FUZZING_ENGINE})

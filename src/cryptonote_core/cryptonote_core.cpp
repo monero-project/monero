@@ -1006,11 +1006,13 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::check_tx_inputs_keyimages_diff(const transaction& tx)
   {
-    std::unordered_set<crypto::key_image> ki;
+    std::unordered_set<crypto::key_image_y> ki;
     for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
-      if(!ki.insert(tokey_in.k_image).second)
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(tokey_in.k_image, ki_y);
+      if(!ki.insert(ki_y).second)
         return false;
     }
     return true;
