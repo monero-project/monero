@@ -384,7 +384,7 @@ FcmpMembershipProof prove_membership(const std::vector<uint8_t *> &fcmp_prove_in
     const std::size_t n_tree_layers)
 {
     FcmpPpSalProof p;
-    const std::size_t proof_len = fcmp_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
+    const std::size_t proof_len = membership_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
     p.resize(proof_len);
 
     size_t proof_size = p.size();

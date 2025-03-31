@@ -595,10 +595,10 @@ TEST(fcmp_pp, proof_size_table)
         // printf("{");
         for (std::size_t j = 1; j <= MAX_N_LAYERS; ++j)
         {
-            const std::size_t membership_proof_len = ::_slow_fcmp_proof_size(i, j);
+            const std::size_t membership_proof_len = ::_slow_membership_proof_size(i, j);
             const std::size_t fcmp_pp_proof_len = ::_slow_fcmp_pp_proof_size(i, j);
 
-            EXPECT_EQ(fcmp_pp::fcmp_proof_len(i, j), membership_proof_len);
+            EXPECT_EQ(fcmp_pp::membership_proof_len(i, j), membership_proof_len);
             EXPECT_EQ(fcmp_pp::fcmp_pp_proof_len(i, j), fcmp_pp_proof_len);
 
             // printf("%lu, ", membership_proof_len);

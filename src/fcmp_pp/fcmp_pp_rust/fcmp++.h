@@ -281,7 +281,7 @@ CResult fcmp_pp_prove_membership(struct ObjectSlice fcmp_prove_inputs,
 
 // The following proof_size functions are tabled through proof_len.h. Use
 // those functions instead.
-uintptr_t _slow_fcmp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+uintptr_t _slow_membership_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
 uintptr_t _slow_fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
