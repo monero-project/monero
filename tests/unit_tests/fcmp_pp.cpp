@@ -588,12 +588,11 @@ TEST(fcmp_pp, calculate_fcmp_input_for_rerandomizations_convergence)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, proof_size_table)
 {
-    const std::size_t MAX_N_LAYERS = (std::size_t) std::numeric_limits<uint8_t>::max();
     for (std::size_t i = 1; i <= FCMP_PLUS_PLUS_MAX_INPUTS; ++i)
     {
         // Uncomment the prints to construct the table
         // printf("{");
-        for (std::size_t j = 1; j <= MAX_N_LAYERS; ++j)
+        for (std::size_t j = 1; j <= FCMP_PLUS_PLUS_MAX_LAYERS; ++j)
         {
             const std::size_t membership_proof_len = ::_slow_membership_proof_size(i, j);
             const std::size_t fcmp_pp_proof_len = ::_slow_fcmp_pp_proof_size(i, j);

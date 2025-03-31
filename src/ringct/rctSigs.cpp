@@ -1483,6 +1483,7 @@ done:
               CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size(), false, "Empty pseudo outs");
               CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() <= FCMP_PLUS_PLUS_MAX_INPUTS, false, "Too many pseudo outs");
               CHECK_AND_ASSERT_MES(rv.p.n_tree_layers > 0, false, "0 tree layers");
+              CHECK_AND_ASSERT_MES(rv.p.n_tree_layers <= FCMP_PLUS_PLUS_MAX_LAYERS, false, "Too many layers");
               CHECK_AND_ASSERT_MES(rv.p.fcmp_pp.size() == fcmp_pp::fcmp_pp_proof_len(rv.p.pseudoOuts.size(), rv.p.n_tree_layers), false, "Unexpected FCMP++ proof size");
             }
             else if (is_rct_clsag(rv.type))

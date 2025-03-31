@@ -203,7 +203,7 @@ static bool is_canonical_fcmp_plus_plus_layout(const uint64_t reference_block, c
     if (reference_block == 0)
         return false;
     // Tree must have layers if FCMP++ is included
-    if (n_tree_layers == 0)
+    if (n_tree_layers == 0 || n_tree_layers > FCMP_PLUS_PLUS_MAX_LAYERS)
         return false;
     if (n_inputs == 0 || n_inputs > FCMP_PLUS_PLUS_MAX_INPUTS)
         return false;
