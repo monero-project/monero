@@ -513,6 +513,8 @@ namespace rct {
               return false;
             if (n_tree_layers == 0)
               return false;
+            if (n_tree_layers > FCMP_PLUS_PLUS_MAX_LAYERS)
+              return false;
             const std::size_t proof_len = fcmp_pp::fcmp_pp_proof_len(inputs, n_tree_layers);
             if (!typename Archive<W>::is_saving())
               fcmp_pp.resize(proof_len);
