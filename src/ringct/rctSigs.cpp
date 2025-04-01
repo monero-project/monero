@@ -1772,22 +1772,19 @@ done:
       std::deque<bool> torsion_free;
 
       torsion_free.resize(pts.size());
-      if (!pts.empty())
-      {
-        for (size_t i = 0; i < pts.size(); i++) {
-          tpool.submit(&waiter, [&pts, &torsion_free, i]
+      for (size_t i = 0; i < pts.size(); i++) {
+        tpool.submit(&waiter, [&pts, &torsion_free, i]
+          {
+            const rct::key &point = pts[i];
+            rct::key torsion_cleared_point;
+            if (!fcmp_pp::get_valid_torsion_cleared_point(point, torsion_cleared_point))
             {
-              const rct::key &point = pts[i];
-              rct::key torsion_cleared_point;
-              if (!fcmp_pp::get_valid_torsion_cleared_point(point, torsion_cleared_point))
-              {
-                torsion_free[i] = false;
-                return;
-              }
-              // Point is torsion free if after clearing torsion, it's equal to itself
-              torsion_free[i] = point == torsion_cleared_point;
-            });
-        }
+              torsion_free[i] = false;
+              return;
+            }
+            // Point is torsion free if after clearing torsion, it's equal to itself
+            torsion_free[i] = point == torsion_cleared_point;
+          });
       }
 
       if (!waiter.wait())

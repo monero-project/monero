@@ -104,6 +104,16 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
             LOG_PRINT_L2("Commitment has torsion: " << C_key);
     }
 
+    {
+        // Debug build safety checks
+        rct::key O_debug;
+        rct::key C_debug;
+        assert(fcmp_pp::get_valid_torsion_cleared_point(O_key, O_debug));
+        assert(fcmp_pp::get_valid_torsion_cleared_point(C_key, C_debug));
+        assert(O == O_debug);
+        assert(C == C_debug);
+    }
+
     TIME_MEASURE_NS_FINISH(clear_torsion_ns);
 
     // Redundant check for safety
