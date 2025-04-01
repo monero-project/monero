@@ -58,6 +58,8 @@
 #include "common/varint.h"
 #include "common/pruning.h"
 #include "common/data_cache.h"
+#include "ringct/rctSigs.h"
+#include "tx_verification_utils.h"
 #include "time_helper.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -1395,6 +1397,27 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
       partial_block_reward = true;
     base_reward = money_in_use - fee;
   }
+
+  if (version >= HF_VERSION_FCMP_PLUS_PLUS)
+  {
+    // Collect pubkeys and commitments for torsion check
+    std::vector<rct::key> pubkeys_and_commitments;
+    pubkeys_and_commitments.reserve(b.miner_tx.vout.size() * 2);
+
+    if (cryptonote::tx_outs_checked_for_torsion(b.miner_tx)
+        && !collect_pubkeys_and_commitments(b.miner_tx, pubkeys_and_commitments))
+    {
+        MERROR_VER("failed to collect pubkeys and commitments from miner tx");
+        return false;
+    }
+
+    if (!rct::verPointsForTorsion(pubkeys_and_commitments))
+    {
+        MERROR_VER("miner tx outs have torsion");
+        return false;
+    }
+  }
+
   return true;
 }
 //------------------------------------------------------------------
