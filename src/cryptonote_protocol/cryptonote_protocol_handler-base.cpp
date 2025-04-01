@@ -135,8 +135,6 @@ void cryptonote_protocol_handler_base::handler_response_blocks_now(size_t packet
 	{
 	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
 		network_throttle_manager::get_global_throttle_out().handle_trafic_tcp( packet_size ); // increase counter - global
-		//epee::critical_region_t<decltype(m_throttle_global_lock)> guard(m_throttle_global_lock); // *** critical *** 
-		//m_throttle_global.m_out.handle_trafic_tcp( packet_size ); // increase counter - global
 	}
 }
 
