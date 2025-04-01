@@ -495,7 +495,7 @@ public:
           if(is_response)
           {//response to some invoke 
 
-            epee::critical_region_t<decltype(m_invoke_response_handlers_lock)> invoke_response_handlers_guard(m_invoke_response_handlers_lock);
+            boost::unique_lock invoke_response_handlers_guard(m_invoke_response_handlers_lock);
             if(!m_invoke_response_handlers.empty())
             {//async call scenario
               boost::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front();
