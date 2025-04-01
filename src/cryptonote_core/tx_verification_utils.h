@@ -35,6 +35,14 @@
 
 namespace cryptonote
 {
+/**
+ * @brief Add the tx's output pub keys and commitments to the collection
+ *
+ * @param tx
+ * @param pubkeys_and_commitments_inout the collection by ref
+ * @return successful insert
+ */
+bool collect_pubkeys_and_commitments(const transaction& tx, std::vector<rct::key> &pubkeys_and_commitments_inout);
 
 /**
  * @brief Get the maximum transaction weight for a given hardfork

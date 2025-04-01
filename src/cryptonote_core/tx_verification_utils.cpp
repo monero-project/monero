@@ -294,22 +294,11 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
             rvv.push_back(&tx.rct_signatures);
 
         // Collect pubkeys and commitments for torsion check
-        if (cryptonote::tx_outs_checked_for_torsion(tx))
+        if (cryptonote::tx_outs_checked_for_torsion(tx)
+            && !collect_pubkeys_and_commitments(tx, pubkeys_and_commitments))
         {
-            for (std::size_t i = 0; i < tx.vout.size(); ++i)
-            {
-                crypto::public_key output_pubkey;
-                if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
-                {
-                    tvc.m_verifivation_failed = true;
-                    tvc.m_invalid_output = false;
-                    return false;
-                }
-
-                rct::key pubkey = rct::pk2rct(output_pubkey);
-                pubkeys_and_commitments.emplace_back(std::move(pubkey));
-                pubkeys_and_commitments.emplace_back(rct::getCommitment(tx, i));
-            }
+            tvc.m_verifivation_failed = true;
+            return false;
         }
     }
 
@@ -470,6 +459,22 @@ static bool collect_fcmp_pp_tx_verify_inputs(cryptonote::transaction &tx,
 
 namespace cryptonote
 {
+
+bool collect_pubkeys_and_commitments(const transaction& tx, std::vector<rct::key> &pubkeys_and_commitments_inout)
+{
+    for (std::size_t i = 0; i < tx.vout.size(); ++i)
+    {
+        crypto::public_key output_pubkey;
+        if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
+            return false;
+
+        rct::key pubkey = rct::pk2rct(output_pubkey);
+        pubkeys_and_commitments_inout.emplace_back(std::move(pubkey));
+        pubkeys_and_commitments_inout.emplace_back(rct::getCommitment(tx, i));
+    }
+
+    return true;
+}
 
 uint64_t get_transaction_weight_limit(const uint8_t hf_version)
 {
