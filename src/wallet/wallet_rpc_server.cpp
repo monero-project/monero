@@ -3892,6 +3892,14 @@ namespace tools
       return false;
     }
 
+    hw::device &hwdev = hw::get_device("default");
+    if (!hwdev.verify_keys(viewkey, info.address.m_view_public_key))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "view secret key does not match main address";
+      return false;
+    }
+
     if (m_wallet && req.autosave_current)
     {
       try
@@ -3918,6 +3926,14 @@ namespace tools
           er.message = "Failed to parse spend key secret key";
           return false;
         }
+
+        if (!hwdev.verify_keys(spendkey, info.address.m_spend_public_key))
+        {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "spend secret key does not match main address";
+          return false;
+        }
+
         wal->generate(wallet_file, std::move(rc.second).password(), info.address, spendkey, viewkey, false);
         res.info = "Wallet has been generated successfully.";
       }
