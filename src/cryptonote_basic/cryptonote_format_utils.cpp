@@ -960,8 +960,6 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_output_types(const transaction& tx, const uint8_t hf_version)
   {
-    CHECK_AND_ASSERT_MES(tx.vout.size() > 0, false, "no outputs in transaction");
-
     for (const auto &o: tx.vout)
     {
       if (hf_version > HF_VERSION_CARROT)
@@ -974,14 +972,16 @@ namespace cryptonote
       {
         // during v17, require outputs be of type txout_to_tagged_key OR txout_to_carrot_v1
         // to allow grace period before requiring all to be txout_to_carrot_v1
+        const std::type_info &o_type = o.target.type();
         CHECK_AND_ASSERT_MES(
-          o.target.type() == typeid(txout_to_carrot_v1) || o.target.type() == typeid(txout_to_tagged_key),
-          false, "wrong variant type: " << o.target.type().name()
+          o_type == typeid(txout_to_carrot_v1) || o_type == typeid(txout_to_tagged_key),
+          false, "wrong variant type: " << o_type.name()
           << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
 
         // require all outputs in a tx be of the same type
-        CHECK_AND_ASSERT_MES(o.target.type() == tx.vout[0].target.type(), false, "non-matching variant types: "
-          << o.target.type().name() << " and " << tx.vout[0].target.type().name() << ", "
+        const std::type_info &first_type = tx.vout.at(0).target.type();
+        CHECK_AND_ASSERT_MES(o_type == first_type, false, "non-matching variant types: "
+          << o_type.name() << " and " << first_type.name() << ", "
           << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
       }
       else if (hf_version > HF_VERSION_VIEW_TAGS)
