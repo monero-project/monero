@@ -78,30 +78,30 @@ static void store_carrot_ephemeral_pubkeys_to_extra(const EnoteContainer &enotes
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static mx25519_pubkey &De_ref(CarrotCoinbaseEnoteV1 &e) { return e.enote_ephemeral_pubkey; }
-static mx25519_pubkey &De_ref(CarrotEnoteV1 &e) { return e.enote_ephemeral_pubkey; }
-static mx25519_pubkey &De_ref(mx25519_pubkey &e) { return e; }
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-template <typename EnoteType>
 static bool try_load_carrot_ephemeral_pubkeys_from_extra(const std::vector<cryptonote::tx_extra_field> &extra_fields,
-    std::vector<EnoteType> &enotes_inout)
+    std::vector<mx25519_pubkey> &enote_ephemeral_pubkeys_out)
 {
+    //! @TODO: skip extra vector allocation for tx_pubkeys and copy directly
+    //! @TODO: longterm: skip allocating into std::vector<cryptonote::tx_extra_field> before copying
+
     cryptonote::tx_extra_pub_key tx_pubkey;
     cryptonote::tx_extra_additional_pub_keys tx_pubkeys;
     if (cryptonote::find_tx_extra_field_by_type(extra_fields, tx_pubkey))
     {
-        De_ref(enotes_inout.front()) = raw_byte_convert<mx25519_pubkey>(tx_pubkey.pub_key);
-        De_ref(enotes_inout.back()) = raw_byte_convert<mx25519_pubkey>(tx_pubkey.pub_key);
+        enote_ephemeral_pubkeys_out = {raw_byte_convert<mx25519_pubkey>(tx_pubkey.pub_key)};
         return true;
     }
     else if (cryptonote::find_tx_extra_field_by_type(extra_fields, tx_pubkeys))
     {
-        if (tx_pubkeys.data.size() != enotes_inout.size())
-            return false;
+        enote_ephemeral_pubkeys_out.resize(tx_pubkeys.data.size());
 
-        for (size_t i = 0; i < enotes_inout.size(); ++i)
-            De_ref(enotes_inout[i]) = raw_byte_convert<mx25519_pubkey>(tx_pubkeys.data.at(i));
+        static_assert(sizeof(mx25519_pubkey) == sizeof(crypto::public_key));
+        static_assert(std::is_trivially_copyable_v<mx25519_pubkey>);
+        static_assert(std::is_trivially_copyable_v<crypto::public_key>);
+
+        memcpy(enote_ephemeral_pubkeys_out.data(),
+            tx_pubkeys.data.data(),
+            tx_pubkeys.data.size() * sizeof(mx25519_pubkey));
 
         return true;
     }
@@ -113,6 +113,17 @@ static bool try_load_carrot_ephemeral_pubkeys_from_extra(const std::vector<crypt
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix)
 {
     return tx_prefix.vout.at(0).target.type() == typeid(cryptonote::txout_to_carrot_v1);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool try_load_carrot_extra_v1(
+    const std::vector<std::uint8_t> &tx_extra,
+    std::vector<mx25519_pubkey> &enote_ephemeral_pubkeys_out,
+    std::optional<encrypted_payment_id_t> &encrypted_payment_id_out)
+{
+    std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+    cryptonote::parse_tx_extra(tx_extra, tx_extra_fields);
+
+    return try_load_carrot_extra_v1(tx_extra_fields, enote_ephemeral_pubkeys_out, encrypted_payment_id_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_extra_v1(
@@ -220,6 +231,8 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
 
     if (0 == nins)
         return false; // no input_context
+    else if (2 > nouts)
+        return false; // <2 outs is invalid
     else if (nouts != rv.ecdhInfo.size())
         return false; // incorrect # of encrypted amounts
     else if (nouts != rv.outPk.size())
@@ -265,24 +278,16 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
         enotes_out[i].amount_commitment = rv.outPk.at(i).mask;
     }
 
-    //parse tx_extra
-    std::vector<cryptonote::tx_extra_field> extra_fields;
-    if (!cryptonote::parse_tx_extra(tx.extra, extra_fields))
+    //D_e, pid_enc
+    std::vector<mx25519_pubkey> enote_ephemeral_pubkeys;
+    if (!try_load_carrot_extra_v1(tx.extra, enote_ephemeral_pubkeys, encrypted_payment_id_out))
+        return false;
+    else if (enote_ephemeral_pubkeys.size() > nouts)
         return false;
 
-    //ephemeral pubkeys: D_e
-    if (!try_load_carrot_ephemeral_pubkeys_from_extra(extra_fields, enotes_out))
-        return false;
-
-    //encrypted payment ID: pid_enc
-    encrypted_payment_id_out = std::nullopt;
-    cryptonote::tx_extra_nonce extra_nonce;
-    if (cryptonote::find_tx_extra_field_by_type(extra_fields, extra_nonce))
-    {
-        crypto::hash8 pid_enc_8;
-        if (cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, pid_enc_8))
-            encrypted_payment_id_out.emplace() = raw_byte_convert<encrypted_payment_id_t>(pid_enc_8);
-    }
+    // collect D_e
+    for (size_t i = 0; i < enotes_out.size(); ++i)
+        enotes_out[i].enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(std::min(i, nouts - 1));
 
     return true;
 }
@@ -333,8 +338,10 @@ bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction 
     const size_t nins = tx.vin.size();
     const size_t nouts = tx.vout.size();
 
-    if (1 == nins)
-        return false; // not coinbase
+    if (1 != nins)
+        return false; //not coinbase
+    else if (0 == nouts)
+        return false; //0-out coinbase not allowed
 
     //input
     const cryptonote::txin_gen * const h = boost::strict_get<cryptonote::txin_gen>(&tx.vin.front());
@@ -366,14 +373,17 @@ bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction 
         enotes_out[i].block_index = h->height;
     }
 
-    //parse tx_extra
-    std::vector<cryptonote::tx_extra_field> extra_fields;
-    if (!cryptonote::parse_tx_extra(tx.extra, extra_fields))
+    //D_e, pid_enc
+    std::vector<mx25519_pubkey> enote_ephemeral_pubkeys;
+    std::optional<encrypted_payment_id_t> dummy_encrypted_payment_id;
+    if (!try_load_carrot_extra_v1(tx.extra, enote_ephemeral_pubkeys, dummy_encrypted_payment_id))
+        return false;
+    else if (enote_ephemeral_pubkeys.size() != nouts)
         return false;
 
-    //ephemeral pubkeys: D_e
-    if (!try_load_carrot_ephemeral_pubkeys_from_extra(extra_fields, enotes_out))
-        return false;
+    //collect D_e
+    for (size_t i = 0; i < enotes_out.size(); ++i)
+        enotes_out[i].enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(i);
 
     return true;
 }
