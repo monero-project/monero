@@ -105,28 +105,29 @@ struct view_incoming_key_device
 {
     /**
      * brief: view_key_scalar_mult_ed25519 - do an Ed25519 scalar mult against the incoming view key
+     *   kvP = k_v * P
      * param: P - Ed25519 base point
-     * outparam: kvP = k_v P
+     * outparam: kvP
      * return: true on success, false on failure (e.g. unable to decompress point)
      */
-    virtual bool view_key_scalar_mult_ed25519(const crypto::public_key &P,
-        crypto::public_key &kvP) const = 0;
+    virtual bool view_key_scalar_mult_ed25519(const crypto::public_key &P, crypto::public_key &kvP) const = 0;
 
     /**
      * brief: view_key_scalar_mult_x25519 - do an X25519 scalar mult and cofactor clear against the incoming view key
+     *   kvD = k_v * D
      * param: D - X25519 base point
-     * outparam: kvD = k_v D
+     * outparam: kvD
      * return: true on success, false on failure (e.g. unable to decompress point)
      */
-    virtual bool view_key_scalar_mult_x25519(const mx25519_pubkey &D,
-        mx25519_pubkey &kvD) const = 0;
+    virtual bool view_key_scalar_mult_x25519(const mx25519_pubkey &D, mx25519_pubkey &kvD) const = 0;
 
     /**
      * brief: make_janus_anchor_special - make a janus anchor for "special" enotes
+     *   anchor_sp = H_16(D_e, input_context, Ko, k_v)
      * param: enote_ephemeral_pubkey - D_e
      * param: input_context - input_context
      * param: account_spend_pubkey - K_s
-     * outparam: anchor_special_out - anchor_sp = H_16(D_e, input_context, Ko, k_v)
+     * outparam: anchor_special_out - anchor_sp
      */
     virtual void make_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
@@ -140,9 +141,10 @@ struct view_balance_secret_device
 {
     /**
      * brief: make_internal_view_tag - make an internal view tag, given non-secret data
+     *   vt = H_3(s_vb || input_context || Ko)
      * param: input_context - input_context
      * param: onetime_address - Ko
-     * outparam: view_tag_out - vt = H_3(s_vb || input_context || Ko)
+     * outparam: view_tag_out - vt
      */
     virtual void make_internal_view_tag(const input_context_t &input_context,
         const crypto::public_key &onetime_address,
@@ -150,9 +152,10 @@ struct view_balance_secret_device
 
     /**
      * brief: make_internal_sender_receiver_secret - make internal sender-receiver secret, given non-secret data
+     *   s^ctx_sr = H_32(s_sr, D_e, input_context)
      * param: enote_ephemeral_pubkey - D_e
      * param: input_context - input_context
-     * outparam: s_sender_receiver_out - s_sr = s^ctx_sr = H_32(s_sr, D_e, input_context)
+     * outparam: s_sender_receiver_out - s^ctx_sr
      */
     virtual void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
@@ -165,9 +168,10 @@ struct generate_address_secret_device
 {
     /**
     * brief: make_index_extension_generator - make carrot index extension generator s^j_gen
+    *   s^j_gen = H_32[s_ga](j_major, j_minor)
     * param: major_index - j_major
     * param: minor_index - j_minor
-    * outparam: address_generator_out - s^j_gen = H_32[s_ga](j_major, j_minor)
+    * outparam: address_generator_out - s^j_gen
     */
     virtual void make_index_extension_generator(const std::uint32_t major_index,
         const std::uint32_t minor_index,
