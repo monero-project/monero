@@ -64,6 +64,19 @@ FcmpRerandomizedOutputCompressed rerandomize_output(const OutputBytes output)
     HANDLE_RES_CODE(FcmpRerandomizedOutputCompressed, ::rerandomize_output, output);
 }
 //----------------------------------------------------------------------------------------------------------------------
+FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &onetime_address,
+    const crypto::ec_point &amount_commitment)
+{
+    crypto::ec_point I;
+    crypto::derive_key_image_generator(onetime_address, I);
+
+    return rerandomize_output(OutputBytes{
+        .O_bytes = to_bytes(onetime_address),
+        .I_bytes = to_bytes(I),
+        .C_bytes = to_bytes(amount_commitment)
+    });
+}
+//----------------------------------------------------------------------------------------------------------------------
 FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
     const crypto::ec_point &amount_commitment,
     const crypto::secret_key &r_o,

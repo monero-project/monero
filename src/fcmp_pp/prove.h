@@ -41,6 +41,8 @@ namespace fcmp_pp
 //----------------------------------------------------------------------------------------------------------------------
 
 FcmpRerandomizedOutputCompressed rerandomize_output(const OutputBytes output);
+FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &onetime_address,
+    const crypto::ec_point &amount_commitment);
 
 FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,
     const crypto::ec_point &amount_commitment,
