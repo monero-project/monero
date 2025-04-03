@@ -30,11 +30,13 @@
 
 //local headers
 #include "carrot_impl/carrot_tx_builder_inputs.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "wallet2.h"
 
 //third party headers
 
 //standard headers
+#include <unordered_map>
 
 //forward declarations
 
@@ -98,7 +100,12 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
     const wallet2::transfer_details &td,
     const crypto::secret_key &k_view,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses_map,
     hw::device &hwdev);
+
+std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_transaction_proposal_from_transfer_details(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
+    const wallet2::transfer_container &transfers,
+    const cryptonote::account_keys &acc_keys);
 } //namespace wallet
 } //namespace tools
