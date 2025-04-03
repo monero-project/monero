@@ -33,12 +33,15 @@
 
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/output_set_finalization.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_impl/carrot_tx_format_utils.h"
 #include "carrot_mock_helpers.h"
 #include "common/container_helpers.h"
 #include "crypto/generators.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "fcmp_pp/prove.h"
+#include "wallet/tx_builder.h"
 #include "wallet/wallet2.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -655,7 +658,7 @@ TEST(wallet_scanning, view_scan_special_offline)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
 {
-    // Test that wallet can scan and recover enotes of following type:
+    // Test that wallet can scan enotes and prove SA/L for following types:
     //   a. pre-ringct coinbase
     //   b. pre-ringct
     //   c. ringct coinbase
@@ -703,12 +706,86 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         return boost::multiprecision::int128_t(w.balance(0, true)) - old_balance;
     };
 
+    size_t old_num_m_transfers = 0;
+    const auto verify_sals_of_recent_transfers = [&w, &old_num_m_transfers]() -> bool
+    {
+        // assert m_transfers is monotonic (may change if internal design of wallet2 changes)
+        size_t prev_blk_idx = 0;
+        size_t prev_rct_output_idx = 0;
+        for (const tools::wallet2::transfer_details &td : w.m_transfers)
+        {
+            CHECK_AND_ASSERT_THROW_MES(td.m_block_height >= prev_blk_idx, "m_transfers not monotonic");
+            prev_blk_idx = td.m_block_height;
+            if (td.m_rct)
+            {
+                CHECK_AND_ASSERT_THROW_MES(td.m_global_output_index >= prev_rct_output_idx, "m_transfers not monotonic");
+                prev_rct_output_idx = td.m_global_output_index;
+            }
+        }
+
+        const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
+
+        // note: will skip reorged transfers unless we set num_m_transfers
+        const size_t new_num_m_transfers = w.m_transfers.size();
+        for (size_t i = old_num_m_transfers; i < new_num_m_transfers; ++i)
+        {
+            old_num_m_transfers = new_num_m_transfers; // skip failed SA/Ls for future calls
+
+            LOG_PRINT_L2("Creating & verifying SA/L proof on m_transfers.at(" << i << ")");
+            const tools::wallet2::transfer_details &td = w.m_transfers.at(i);
+
+            const cryptonote::account_keys &acc = w.get_account().get_keys();
+
+            const carrot::OutputOpeningHintVariant opening_hint =
+                tools::wallet::make_sal_opening_hint_from_transfer_details(
+                    td,
+                    acc.m_view_secret_key,
+                    w.m_subaddresses,
+                    acc.get_device());
+
+            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(
+                onetime_address_ref(opening_hint),
+                rct::rct2pt(amount_commitment_ref(opening_hint)));
+
+            const carrot::CarrotOpenableRerandomizedOutputV1 openable_rerandomized_output{
+                .rerandomized_output = rerandomized_output,
+                .opening_hint = opening_hint
+            };
+
+            //! @TODO: carrot hierarchy
+            const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
+                acc.m_account_address.m_spend_public_key,
+                acc.m_view_secret_key);
+
+            fcmp_pp::FcmpPpSalProof sal_proof;
+            crypto::key_image spent_key_image;
+            carrot::make_sal_proof_any_to_legacy_v1(signable_tx_hash,
+                openable_rerandomized_output,
+                acc.m_spend_secret_key,
+                addr_dev,
+                sal_proof,
+                spent_key_image);
+
+            if (spent_key_image != td.m_key_image)
+                return false; // fail verify
+
+            if (!fcmp_pp::verify_sal(signable_tx_hash,
+                    rerandomized_output.input,
+                    spent_key_image,
+                    sal_proof))
+                return false; // fail verify
+        }
+
+        return true;
+    };
+
     // a. push block containing a pre-ringct coinbase output to wallet
     bc.add_block(1, {}, main_addr);
 
     // a. scan pre-ringct coinbase tx
     auto balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(fake_pruned_blockchain::miner_reward, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // b. construct and push a pre-ringct tx
     const rct::xmr_amount amount_b = rct::randXmrAmount(COIN);
@@ -735,6 +812,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // b. scan pre-ringct tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_b, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // c. construct and push a ringct coinbase tx
     bc.add_block(HF_VERSION_DYNAMIC_FEE, {}, main_addr);
@@ -751,6 +829,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // c. scan ringct coinbase tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(fake_pruned_blockchain::miner_reward, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // d. construct and push a ringct long-amount tx
     const rct::xmr_amount amount_d = rct::randXmrAmount(COIN);
@@ -777,6 +856,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // d. scan ringct long-amount tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_d, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // e. construct and push a ringct short-amount tx
     const rct::xmr_amount amount_e = rct::randXmrAmount(COIN);
@@ -803,6 +883,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // e. scan ringct short-amount tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_e, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // f. construct and push a view-tagged ringct coinbase tx
     bc.add_block(HF_VERSION_VIEW_TAGS, {}, main_addr);
@@ -820,6 +901,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // f. scan view-tagged ringct coinbase tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(fake_pruned_blockchain::miner_reward, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // g. construct and push a view-tagged pre-ringct (only possible in unmixable sweep txs) tx
     const rct::xmr_amount amount_g = rct::randXmrAmount(COIN);
@@ -847,6 +929,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // g. scan view-tagged pre-ringct (only possible in unmixable sweep txs) tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_g, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // h. construct and push a view-tagged ringct tx
     const rct::xmr_amount amount_h = rct::randXmrAmount(COIN);
@@ -873,6 +956,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // h. scan ringct view-tagged ringct tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_h, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // i. construct and push a carrot v1 coinbase tx
     bc.add_block(HF_VERSION_CARROT, {}, main_addr);
@@ -890,6 +974,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // i. scan carrot v1 coinbase tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(fake_pruned_blockchain::miner_reward, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // j. construct and push a carrot v1 normal tx
     const rct::xmr_amount amount_j = rct::randXmrAmount(COIN);
@@ -911,6 +996,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // j. scan carrot v1 normal tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_j, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
 
     // k. construct and push a carrot v1 special tx
     const rct::xmr_amount amount_k = rct::randXmrAmount(COIN);
@@ -933,5 +1019,9 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     // k. scan carrot v1 special tx
     balance_diff = wallet_process_new_blocks();
     EXPECT_EQ(amount_k, balance_diff);
+    EXPECT_TRUE(verify_sals_of_recent_transfers());
+
+    // assert we did all SA/L proving
+    ASSERT_EQ(w.m_transfers.size(), old_num_m_transfers);
 }
 //----------------------------------------------------------------------------------------------------------------------
