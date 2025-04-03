@@ -174,7 +174,7 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
     input_candidates_transfer_indices.reserve(transfers.size());
     for (size_t i = 0; i < transfers.size(); ++i)
     {
-        const wallet2::transfer_details& td = transfers.at(i);
+        const wallet2::transfer_details &td = transfers.at(i);
         if (is_transfer_usable_for_input_selection(td,
             from_account,
             from_subaddresses,
@@ -202,7 +202,7 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
             allow_pre_carrot_inputs_in_normal_transfers,
             &selected_transfer_indices_out
             ](
-                const boost::multiprecision::int128_t& nominal_output_sum,
+                const boost::multiprecision::int128_t &nominal_output_sum,
                 const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count,
                 const std::size_t num_normal_payment_proposals,
                 const std::size_t num_selfsend_payment_proposals,
@@ -251,7 +251,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     const std::set<uint32_t> &subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
-    const wallet2::unique_index_container& subtract_fee_from_outputs,
+    const wallet2::unique_index_container &subtract_fee_from_outputs,
     const std::uint64_t top_block_index,
     const cryptonote::account_base &acb)
 {
@@ -361,7 +361,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
     const bool is_subaddress,
     const size_t n_dests,
     const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t>& extra,
+    const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index,
     const cryptonote::account_base &acb)
 {
