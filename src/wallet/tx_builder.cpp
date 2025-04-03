@@ -33,6 +33,7 @@
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/scan.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_impl/carrot_tx_format_utils.h"
@@ -430,9 +431,11 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
     const wallet2::transfer_details &td,
     const crypto::secret_key &k_view,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses_map,
     hw::device &hwdev)
 {
+    // j
+    const carrot::subaddress_index subaddr_index = {td.m_subaddr_index.major, td.m_subaddr_index.minor};
+
     const bool is_carrot = carrot::is_carrot_transaction_v1(td.m_tx);
     if (is_carrot)
     {
@@ -523,15 +526,10 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
                 .tx_first_key_image = tx_first_key_image
             };
 
-            const carrot::subaddress_index_extended subaddr_index{
-                .index = { td.m_subaddr_index.major, td.m_subaddr_index.minor },
-                .derive_type = carrot::AddressDeriveType::PreCarrot //! @TODO:
-            };
-
             return carrot::CarrotOutputOpeningHintV1{
                 .source_enote = enote,
                 .encrypted_payment_id = encrypted_payment_id,
-                .subaddr_index = subaddr_index
+                .subaddr_index = {subaddr_index, carrot::AddressDeriveType::PreCarrot } //! @TODO:
             };
         }
     }
@@ -569,19 +567,11 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
                     nominal_address_spend_pubkey))
                 continue;
 
-            // Know about K^j_s?
-            const auto subaddr_it = subaddresses_map.find(nominal_address_spend_pubkey);
-            if (subaddr_it == subaddresses_map.cend())
-                continue;
-
             // k^g_o = H_n(8 * k_v * R, output_index)
             //! @TODO: find out if any mainline HWs "conceal" the derived scalar
             crypto::secret_key sender_extension_g;
             if (!hwdev.derivation_to_scalar(ecdh, td.m_internal_output_index, sender_extension_g))
                 continue;
-
-            // j
-            const carrot::subaddress_index subaddr_index = {subaddr_it->second.major, subaddr_it->second.minor};
 
             return carrot::LegacyOutputOpeningHintV1{
                 .onetime_address = onetime_address,
@@ -595,6 +585,70 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
         ASSERT_MES_AND_THROW("make sal opening hint from transfer details: cannot find subaddress and sender extension "
             "for given transfer info");
     }
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_transaction_proposal_from_transfer_details(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
+    const wallet2::transfer_container &transfers,
+    const cryptonote::account_keys &acc_keys)
+{
+    const size_t n_inputs = tx_proposal.key_images_sorted.size();
+    CHECK_AND_ASSERT_THROW_MES(rerandomized_outputs.size() == n_inputs,
+        "sign_carrot_transaction_proposal_from_transfer_details: wrong size for rerandomized_outputs");
+
+    std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki;
+
+    const std::unordered_map<crypto::key_image, size_t> unburned_transfers_by_key_image =
+        collect_non_burned_transfers_by_key_image(transfers);
+
+    //! @TODO: carrot hierarchy
+    const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
+        acc_keys.m_account_address.m_spend_public_key,
+        acc_keys.m_view_secret_key);
+
+    crypto::hash signable_tx_hash;
+    carrot::make_signable_tx_hash_from_carrot_transaction_proposal_v1(tx_proposal,
+        /*s_view_balance_dev=*/nullptr,
+        &addr_dev,
+        signable_tx_hash);
+
+    for (size_t input_idx = 0; input_idx < n_inputs; ++input_idx)
+    {
+        const crypto::key_image &ki = tx_proposal.key_images_sorted.at(input_idx);
+
+        const auto transfer_it = unburned_transfers_by_key_image.find(ki);
+        if (transfer_it == unburned_transfers_by_key_image.cend())
+            continue;
+
+        const size_t transfer_idx = transfer_it->second;
+        CHECK_AND_ASSERT_THROW_MES(transfer_idx < transfers.size(),
+            "sign_carrot_transaction_proposal_from_transfer_details: BUG in collect_non_burned_transfers_by_key_image: "
+            "invalid transfer index");
+
+        const wallet2::transfer_details &td = transfers.at(transfer_idx);
+        const carrot::OutputOpeningHintVariant opening_hint =
+            make_sal_opening_hint_from_transfer_details(td, acc_keys.m_view_secret_key, acc_keys.get_device());
+
+        const carrot::CarrotOpenableRerandomizedOutputV1 openable_rerandomized_output{
+            .rerandomized_output = rerandomized_outputs.at(input_idx),
+            .opening_hint = opening_hint
+        };
+
+        //! @TODO: spend device
+        crypto::key_image actual_key_image;
+        carrot::make_sal_proof_any_to_legacy_v1(signable_tx_hash,
+            openable_rerandomized_output,
+            acc_keys.m_spend_secret_key,
+            addr_dev,
+            sal_proofs_by_ki[ki],
+            actual_key_image);
+
+        CHECK_AND_ASSERT_THROW_MES(ki == actual_key_image,
+            "sign_carrot_transaction_proposal_from_transfer_details: key image mismatch after SA/L");
+    }
+
+    return sal_proofs_by_ki;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet
