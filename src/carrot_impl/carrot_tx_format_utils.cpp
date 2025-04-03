@@ -282,12 +282,14 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     std::vector<mx25519_pubkey> enote_ephemeral_pubkeys;
     if (!try_load_carrot_extra_v1(tx.extra, enote_ephemeral_pubkeys, encrypted_payment_id_out))
         return false;
-    else if (enote_ephemeral_pubkeys.size() > nouts)
+
+    const size_t n_ephemeral = enote_ephemeral_pubkeys.size();
+    if (n_ephemeral < 0 || n_ephemeral > nouts)
         return false;
 
     // collect D_e
     for (size_t i = 0; i < enotes_out.size(); ++i)
-        enotes_out[i].enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(std::min(i, nouts - 1));
+        enotes_out[i].enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(std::min(i, n_ephemeral - 1));
 
     return true;
 }
