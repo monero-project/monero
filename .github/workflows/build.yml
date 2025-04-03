@@ -45,7 +45,8 @@ jobs:
       - uses: ./.github/actions/set-make-job-count
       - name: install dependencies
         run: |
-          HOMEBREW_NO_AUTO_UPDATE=1 brew install boost hidapi openssl zmq miniupnpc expat libunwind-headers protobuf ccache
+          brew update
+          brew install --quiet cmake boost hidapi openssl zmq miniupnpc expat libunwind-headers protobuf ccache
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}
