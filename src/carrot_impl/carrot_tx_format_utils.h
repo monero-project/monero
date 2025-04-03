@@ -72,6 +72,10 @@ bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix);
  * outparam: encrypted_payment_id_out - pid_enc
  */
 bool try_load_carrot_extra_v1(
+    const std::vector<std::uint8_t> &tx_extra,
+    std::vector<mx25519_pubkey> &enote_ephemeral_pubkeys_out,
+    std::optional<encrypted_payment_id_t> &encrypted_payment_id_out);
+bool try_load_carrot_extra_v1(
     const std::vector<cryptonote::tx_extra_field> &tx_extra_fields,
     std::vector<mx25519_pubkey> &enote_ephemeral_pubkeys_out,
     std::optional<encrypted_payment_id_t> &encrypted_payment_id_out);
