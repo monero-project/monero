@@ -44,6 +44,11 @@ namespace cryptonote
  */
 uint64_t get_transaction_weight_limit(uint8_t hf_version);
 
+/**
+ * @brief Check whether transaction's output pubkeys are sorted in strictly increasing lexicographical order
+ */
+bool are_transaction_output_pubkeys_sorted(const transaction_prefix &tx_prefix);
+
 // Modifying this value should not affect consensus. You can adjust it for performance needs
 static constexpr const size_t RCT_VER_CACHE_SIZE = 8192;
 
