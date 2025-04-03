@@ -61,11 +61,6 @@ static inline std::size_t get_fcmppp_tx_weight(const std::size_t num_inputs,
 std::size_t get_fcmppp_coinbase_tx_weight(const std::size_t num_outputs,
     const std::size_t tx_extra_size);
 
-static inline bool compare_input_key_images(const crypto::key_image &lhs, const crypto::key_image &rhs)
-{
-    return memcmp(lhs.data, rhs.data, sizeof(crypto::key_image)) > 0;
-}
-
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const rct::xmr_amount fee_per_weight,
@@ -112,10 +107,14 @@ void make_carrot_transaction_proposal_v1_sweep(
     const crypto::public_key &account_spend_pubkey,
     CarrotTransactionProposalV1 &tx_proposal_out);
 
+void make_signable_tx_hash_from_carrot_transaction_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    crypto::hash &signable_tx_hash_out);
+
 void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
-    const crypto::public_key &account_spend_pubkey,
     cryptonote::transaction &pruned_tx_out);
 
 } //namespace carrot

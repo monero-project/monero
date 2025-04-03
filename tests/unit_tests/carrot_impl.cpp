@@ -168,7 +168,6 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
     make_pruned_transaction_from_carrot_proposal_v1(tx_proposal,
         &ss_keys.s_view_balance_dev,
         &ss_keys.k_view_incoming_dev,
-        ss_keys.carrot_account_spend_pubkey,
         tx);
 
     // calculate acceptable fee margin between proposed amount and actual amount for subtractable outputs

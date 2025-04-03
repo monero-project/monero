@@ -37,6 +37,7 @@ extern "C"
 #include "crypto/crypto-ops.h"
 }
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
 
 //third party headers
@@ -205,7 +206,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
         tx_proposal_out.key_images_sorted.push_back(selected_input.key_image);
     std::sort(tx_proposal_out.key_images_sorted.begin(),
         tx_proposal_out.key_images_sorted.end(),
-        &compare_input_key_images);
+        std::greater{}); // consensus rules dictate inputs sorted in *reverse* lexicographical order since v7
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_transaction_proposal_v1_transfer_subtractable(
@@ -474,10 +475,32 @@ void make_carrot_transaction_proposal_v1_sweep(
         tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void make_signable_tx_hash_from_carrot_transaction_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    crypto::hash &signable_tx_hash_out)
+{
+    //! @TODO: there's a more efficient way to do this than constructing&serializing a whole cryptonote::transaction
+    // HW devices will need to implement this function to sign tx proposals, and most of these devices don't have a lot of memory
+
+    cryptonote::transaction pruned_tx;
+    make_pruned_transaction_from_carrot_proposal_v1(tx_proposal,
+        s_view_balance_dev,
+        k_view_dev,
+        pruned_tx);
+
+    //! @TODO: better input number calculation in get_pre_mlsag_hash. possible?
+    pruned_tx.rct_signatures.p.pseudoOuts.resize(pruned_tx.vin.size());
+
+    hw::device &hwdev = hw::get_device("default");
+    const rct::key signable_tx_hash_k = rct::get_pre_mlsag_hash(pruned_tx.rct_signatures, hwdev);
+
+    signable_tx_hash_out = rct::rct2hash(signable_tx_hash_k);
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
-    const crypto::public_key &account_spend_pubkey,
     cryptonote::transaction &pruned_tx_out)
 {
     // collect self-sends proposal cores

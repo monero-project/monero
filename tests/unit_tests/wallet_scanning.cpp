@@ -373,7 +373,6 @@ static cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
     carrot::make_pruned_transaction_from_carrot_proposal_v1(tx_proposal,
         /*s_view_balance_dev=*/nullptr,
         &k_view_dev,
-        acc_keys.m_account_address.m_spend_public_key,
         tx);
 
     return tx;
@@ -740,7 +739,6 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
                 tools::wallet::make_sal_opening_hint_from_transfer_details(
                     td,
                     acc.m_view_secret_key,
-                    w.m_subaddresses,
                     acc.get_device());
 
             const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(

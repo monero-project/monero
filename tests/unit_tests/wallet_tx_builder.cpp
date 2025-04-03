@@ -178,7 +178,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_transfer_1)
         transfers.back().m_key_image};
     std::sort(expected_key_images.begin(),
         expected_key_images.end(),
-        &carrot::compare_input_key_images);
+        std::greater{});
 
     // Assert basic length facts about tx proposal
     ASSERT_EQ(2, tx_proposal.key_images_sorted.size()); // we always try 2 when available
