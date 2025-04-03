@@ -31,8 +31,11 @@
 
 //local headers
 #include "carrot_core/device_ram_borrowed.h"
+#include "carrot_core/enote_utils.h"
+#include "carrot_core/scan.h"
 #include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
+#include "carrot_impl/carrot_tx_format_utils.h"
 #include "carrot_impl/input_selection.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 
@@ -430,67 +433,168 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses_map,
     hw::device &hwdev)
 {
-    //! @TODO: handle Carrot coinbase and non-coinbase enotes
+    const bool is_carrot = carrot::is_carrot_transaction_v1(td.m_tx);
+    if (is_carrot)
+    {
+        std::vector<mx25519_pubkey> enote_ephemeral_pubkeys;
+        std::optional<carrot::encrypted_payment_id_t> encrypted_payment_id;
+        CHECK_AND_ASSERT_THROW_MES(carrot::try_load_carrot_extra_v1(td.m_tx.extra,
+                enote_ephemeral_pubkeys,
+                encrypted_payment_id),
+            "make_sal_opening_hint_from_transfer_details: failed to parse carrot tx extra");
+        CHECK_AND_ASSERT_THROW_MES(!enote_ephemeral_pubkeys.empty(),
+            "make_sal_opening_hint_from_transfer_details: BUG: missing ephemeral pubkeys");
 
-    // K_o
-    const crypto::public_key onetime_address = td.get_public_key();
+        const size_t ephemeral_pubkey_index = std::min(td.m_internal_output_index, enote_ephemeral_pubkeys.size() - 1);
+        const mx25519_pubkey &enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(ephemeral_pubkey_index);
 
-    // R
-    const crypto::public_key main_tx_pubkey = cryptonote::get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
-    const std::vector<crypto::public_key> additional_tx_pubkeys =
+        CHECK_AND_ASSERT_THROW_MES(!td.m_tx.vin.empty(),
+            "make_sal_opening_hint_from_transfer_details: carrot tx prefix missing inputs");
+        const cryptonote::txin_v &first_in = td.m_tx.vin.at(0);
+
+        const cryptonote::tx_out &out = td.m_tx.vout.at(td.m_internal_output_index);
+        const auto &carrot_out = boost::get<cryptonote::txout_to_carrot_v1>(out.target);
+
+        const bool is_coinbase = cryptonote::is_coinbase(td.m_tx);
+        const rct::xmr_amount expected_cleartext_amount = is_coinbase ? td.amount() : 0;
+        CHECK_AND_ASSERT_THROW_MES(out.amount == expected_cleartext_amount,
+            "make_sal_opening_hint_from_transfer_details: output cleartext amount mismatch");
+
+        if (is_coinbase)
+        {
+            const uint64_t block_index = boost::get<cryptonote::txin_gen>(first_in).height;
+            const carrot::CarrotCoinbaseEnoteV1 coinbase_enote{
+                .onetime_address = carrot_out.key,
+                .amount = td.amount(),
+                .anchor_enc = carrot_out.encrypted_janus_anchor,
+                .view_tag = carrot_out.view_tag,
+                .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
+                .block_index = block_index
+            };
+
+            return carrot::CarrotCoinbaseOutputOpeningHintV1{
+                .source_enote = coinbase_enote,
+                .derive_type = carrot::AddressDeriveType::PreCarrot //! @TODO:
+            };
+        }
+        else // !is_coinbase
+        {
+            CHECK_AND_ASSERT_THROW_MES(first_in.type() == typeid(cryptonote::txin_to_key),
+                "make_sal_opening_hint_from_transfer_details: unrecognized input type for carrot v1 tx");
+            const crypto::key_image &tx_first_key_image = boost::get<cryptonote::txin_to_key>(first_in).k_image;
+
+            // recreate amount parts of the enote and pass as non-coinbase carrot enote v1
+
+            // C_a = z G + a H
+            const rct::key amount_commitment = rct::commit(td.amount(), td.m_mask);
+
+            //! @TODO: internal deriv and HW devices
+            carrot::view_incoming_key_ram_borrowed_device k_view_dev(k_view);
+
+            // input_context = "R" || KI_1
+            carrot::input_context_t input_context;
+            carrot::make_carrot_input_context(tx_first_key_image, input_context);
+
+            // s_sr = k_v D_e
+            mx25519_pubkey s_sender_receiver_unctx; //! @TODO: wipe
+            carrot::make_carrot_uncontextualized_shared_key_receiver(k_view_dev,
+                enote_ephemeral_pubkey,
+                s_sender_receiver_unctx);
+
+            // s^ctx_sr = H_32(s_sr, D_e, input_context)
+            crypto::hash s_sender_receiver; //! @TODO: wipe
+            carrot::make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+                enote_ephemeral_pubkey,
+                input_context,
+                s_sender_receiver);
+
+            // a_enc = a XOR m_a
+            const carrot::encrypted_amount_t encrypted_amount = carrot::encrypt_carrot_amount(td.amount(),
+                s_sender_receiver,
+                carrot_out.key);
+
+            const carrot::CarrotEnoteV1 enote{
+                .onetime_address = carrot_out.key,
+                .amount_commitment = amount_commitment,
+                .amount_enc = encrypted_amount,
+                .anchor_enc = carrot_out.encrypted_janus_anchor,
+                .view_tag = carrot_out.view_tag,
+                .enote_ephemeral_pubkey = enote_ephemeral_pubkey,
+                .tx_first_key_image = tx_first_key_image
+            };
+
+            const carrot::subaddress_index_extended subaddr_index{
+                .index = { td.m_subaddr_index.major, td.m_subaddr_index.minor },
+                .derive_type = carrot::AddressDeriveType::PreCarrot //! @TODO:
+            };
+
+            return carrot::CarrotOutputOpeningHintV1{
+                .source_enote = enote,
+                .encrypted_payment_id = encrypted_payment_id,
+                .subaddr_index = subaddr_index
+            };
+        }
+    }
+    else // !is_carrot
+    {
+        // K_o
+        const crypto::public_key onetime_address = td.get_public_key();
+
+        // R
+        const crypto::public_key main_tx_pubkey = cryptonote::get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
+        const std::vector<crypto::public_key> additional_tx_pubkeys =
         cryptonote::get_additional_tx_pub_keys_from_extra(td.m_tx);
 
-    //! @TODO: reject too many additional tx pubkeys??
+        std::vector<crypto::key_derivation> ecdhs;
+        ecdhs.reserve(additional_tx_pubkeys.size() + 1);
 
-    std::vector<crypto::key_derivation> ecdhs;
-    ecdhs.reserve(additional_tx_pubkeys.size() + 1);
-
-    // 8 * k_v * R
-    crypto::key_derivation ecdh;
-    if (hwdev.generate_key_derivation(main_tx_pubkey, k_view, ecdh))
-        ecdhs.push_back(ecdh);
-
-    // 8 * k_v * R
-    for (const crypto::public_key &additional_tx_pubkey : additional_tx_pubkeys)
-        if (hwdev.generate_key_derivation(additional_tx_pubkey, k_view, ecdh))
+        // 8 * k_v * R
+        crypto::key_derivation ecdh;
+        if (hwdev.generate_key_derivation(main_tx_pubkey, k_view, ecdh))
             ecdhs.push_back(ecdh);
 
-    // Search for (j, K^j_s, k^g_o) s.t. K^j_s = K_o + H_n(8 * k_v * R, output_index)
-    for (const crypto::key_derivation &ecdh : ecdhs)
-    {
-        // K^j_s' = K_o - k^g_o G
-        crypto::public_key nominal_address_spend_pubkey;
-        if (!hwdev.derive_subaddress_public_key(onetime_address,
-                ecdh,
-                td.m_internal_output_index,
-                nominal_address_spend_pubkey))
-            continue;
+        // 8 * k_v * R
+        for (const crypto::public_key &additional_tx_pubkey : additional_tx_pubkeys)
+            if (hwdev.generate_key_derivation(additional_tx_pubkey, k_view, ecdh))
+                ecdhs.push_back(ecdh);
 
-        // Know about K^j_s?
-        const auto subaddr_it = subaddresses_map.find(nominal_address_spend_pubkey);
-        if (subaddr_it == subaddresses_map.cend())
-            continue;
+        // Search for (j, K^j_s, k^g_o) s.t. K^j_s = K_o + H_n(8 * k_v * R, output_index)
+        for (const crypto::key_derivation &ecdh : ecdhs)
+        {
+            // K^j_s' = K_o - k^g_o G
+            crypto::public_key nominal_address_spend_pubkey;
+            if (!hwdev.derive_subaddress_public_key(onetime_address,
+                    ecdh,
+                    td.m_internal_output_index,
+                    nominal_address_spend_pubkey))
+                continue;
 
-        // k^g_o = H_n(8 * k_v * R, output_index)
-        //! @TODO: find out if any mainline HWs "conceal" the derived scalar
-        crypto::secret_key sender_extension_g;
-        if (!hwdev.derivation_to_scalar(ecdh, td.m_internal_output_index, sender_extension_g))
-            continue;
+            // Know about K^j_s?
+            const auto subaddr_it = subaddresses_map.find(nominal_address_spend_pubkey);
+            if (subaddr_it == subaddresses_map.cend())
+                continue;
 
-        // j
-        const carrot::subaddress_index subaddr_index = {subaddr_it->second.major, subaddr_it->second.minor};
+            // k^g_o = H_n(8 * k_v * R, output_index)
+            //! @TODO: find out if any mainline HWs "conceal" the derived scalar
+            crypto::secret_key sender_extension_g;
+            if (!hwdev.derivation_to_scalar(ecdh, td.m_internal_output_index, sender_extension_g))
+                continue;
 
-        return carrot::LegacyOutputOpeningHintV1{
-            .onetime_address = onetime_address,
-            .sender_extension_g = sender_extension_g,
-            .subaddr_index = subaddr_index,
-            .amount = td.amount(),
-            .amount_blinding_factor = rct::rct2sk(td.m_mask)
-        };
+            // j
+            const carrot::subaddress_index subaddr_index = {subaddr_it->second.major, subaddr_it->second.minor};
+
+            return carrot::LegacyOutputOpeningHintV1{
+                .onetime_address = onetime_address,
+                .sender_extension_g = sender_extension_g,
+                .subaddr_index = subaddr_index,
+                .amount = td.amount(),
+                .amount_blinding_factor = rct::rct2sk(td.m_mask)
+            };
+        }
+
+        ASSERT_MES_AND_THROW("make sal opening hint from transfer details: cannot find subaddress and sender extension "
+            "for given transfer info");
     }
-
-    ASSERT_MES_AND_THROW("make sal opening hint from transfer details: cannot find subaddress and sender extension "
-        "for given transfer info");
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet
