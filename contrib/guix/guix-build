@@ -444,7 +444,6 @@ EOF
                                  --keep-failed \
                                  --fallback \
                                  --link-profile \
-                                 --user="user" \
                                  --root="$(profiledir_for_host "${HOST}")" \
                                  ${SUBSTITUTE_URLS:+--substitute-urls="$SUBSTITUTE_URLS"} \
                                  ${ADDITIONAL_GUIX_COMMON_FLAGS} ${ADDITIONAL_GUIX_ENVIRONMENT_FLAGS} \
