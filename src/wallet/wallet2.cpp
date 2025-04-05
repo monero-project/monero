@@ -2318,9 +2318,11 @@ void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enot
     {
       boost::optional<epee::wipeable_string> pwd;
       if (m_callback)
-        m_callback->on_get_password(pool ? "output found in pool" : "output received");
-      THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming monero"));
-      THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming monero"));
+        pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
+      THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed,
+        tr("No password provided. Password is needed to compute key image for incoming enotes"));
+      THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed,
+        tr("Invalid password. Password is needed to compute key image for incoming enotes"));
       m_encrypt_keys_after_refresh.reset(new wallet_keys_unlocker(*this, &*pwd));
     }
   }
