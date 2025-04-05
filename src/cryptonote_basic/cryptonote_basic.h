@@ -511,14 +511,16 @@ namespace cryptonote
       hash_valid(b.is_hash_valid()),
       miner_tx(b.miner_tx),
       tx_hashes(b.tx_hashes),
-      hash(b.hash)
+      hash(b.hash),
+      fcmp_pp_tree_root(b.fcmp_pp_tree_root)
     {}
     block(block &&b):
       block_header(std::move(b)),
       hash_valid(b.is_hash_valid()),
       miner_tx(std::move(b.miner_tx)),
       tx_hashes(std::move(b.tx_hashes)),
-      hash(std::move(b.hash))
+      hash(std::move(b.hash)),
+      fcmp_pp_tree_root(std::move(b.fcmp_pp_tree_root))
     {
       b.miner_tx.set_null();
       b.tx_hashes.clear();
@@ -532,6 +534,7 @@ namespace cryptonote
         miner_tx = b.miner_tx;
         tx_hashes = b.tx_hashes;
         hash = b.hash;
+        fcmp_pp_tree_root = b.fcmp_pp_tree_root;
       }
       return *this;
     }
@@ -544,6 +547,7 @@ namespace cryptonote
         miner_tx = std::move(b.miner_tx);
         tx_hashes = std::move(b.tx_hashes);
         hash = std::move(b.hash);
+        fcmp_pp_tree_root = std::move(b.fcmp_pp_tree_root);
         b.miner_tx.set_null();
         b.tx_hashes.clear();
       }
@@ -557,6 +561,8 @@ namespace cryptonote
     transaction miner_tx;
     std::vector<crypto::hash> tx_hashes;
 
+    crypto::ec_point fcmp_pp_tree_root;
+
     // hash cash
     mutable crypto::hash hash;
 
@@ -569,6 +575,8 @@ namespace cryptonote
       FIELD(tx_hashes)
       if (tx_hashes.size() > CRYPTONOTE_MAX_TX_PER_BLOCK)
         return false;
+      if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+        FIELD(fcmp_pp_tree_root)
     END_SERIALIZE()
   };
 

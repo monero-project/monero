@@ -2151,7 +2151,8 @@ namespace cryptonote
     difficulty_type difficulty;
 
     std::vector<tx_block_template_backlog_entry> tx_backlog;
-    if (!m_core.get_miner_data(res.major_version, res.height, prev_id, seed_hash, difficulty, res.median_weight, res.already_generated_coins, tx_backlog))
+    crypto::ec_point fcmp_pp_tree_root{};
+    if (!m_core.get_miner_data(res.major_version, res.height, prev_id, fcmp_pp_tree_root, seed_hash, difficulty, res.median_weight, res.already_generated_coins, tx_backlog))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to get miner data";
@@ -2170,6 +2171,7 @@ namespace cryptonote
     res.prev_id = string_tools::pod_to_hex(prev_id);
     res.seed_hash = string_tools::pod_to_hex(seed_hash);
     res.difficulty = cryptonote::hex(difficulty);
+    res.fcmp_pp_tree_root = string_tools::pod_to_hex(fcmp_pp_tree_root);
 
     res.status = CORE_RPC_STATUS_OK;
     return true;

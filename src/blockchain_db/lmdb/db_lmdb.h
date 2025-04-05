@@ -347,6 +347,8 @@ public:
   void batch_stop() override;
   void batch_abort() override;
 
+  void advance_tree_one_block(const uint64_t blk_idx) override;
+
   void block_wtxn_start() override;
   void block_wtxn_stop() override;
   void block_wtxn_abort() override;

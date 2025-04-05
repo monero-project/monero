@@ -94,7 +94,7 @@ namespace cryptonote
 
   typedef boost::function<void(std::vector<txpool_event>)> TxpoolNotifyCallback;
   typedef boost::function<void(uint64_t /* height */, epee::span<const block> /* blocks */)> BlockNotifyCallback;
-  typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
+  typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const crypto::ec_point& /* fcmp_pp_tree_root */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
 
   /************************************************************************/
   /*                                                                      */
@@ -396,6 +396,7 @@ namespace cryptonote
      * @param major_version current hardfork version
      * @param height current blockchain height
      * @param prev_id hash of the top block
+     * @param fcmp_pp_tree_root FCMP++ root as of when this next block enters the chain
      * @param seed_hash seed hash used for RandomX initialization
      * @param difficulty current mining difficulty
      * @param median_weight current median block weight
@@ -404,7 +405,7 @@ namespace cryptonote
      *
      * @return true if block template filled in successfully, else false
      */
-    bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
+    bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
     /**
      * @brief checks if a block is known about with a given hash
