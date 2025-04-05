@@ -202,6 +202,8 @@ namespace boost
     //------------------
     a & b.miner_tx;
     a & b.tx_hashes;
+    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+      a & b.fcmp_pp_tree_root;
   }
 
   template <class Archive>

@@ -226,6 +226,8 @@ public:
 
     uint64_t get_output_count() const { return m_output_count; }
 
+    crypto::ec_point get_tree_root() const;
+
     // Build the tree extension and all other types needed to grow the cache, returning the state change by ref
     void prepare_to_grow_cache(const uint64_t start_block_idx,
         const crypto::hash &prev_block_hash,

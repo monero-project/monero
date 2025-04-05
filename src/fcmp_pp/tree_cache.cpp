@@ -1309,6 +1309,27 @@ void TreeCache<C1, C2>::clear()
 }
 template void TreeCache<Selene, Helios>::clear();
 //----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+crypto::ec_point TreeCache<C1, C2>::get_tree_root() const
+{
+    const uint64_t n_leaf_tuples = this->get_n_leaf_tuples();
+    if (n_leaf_tuples == 0)
+        return crypto::ec_point{};
+
+    const LeafIdx last_leaf_idx = n_leaf_tuples - 1;
+    const auto child_chunk_idxs = TreeSync<C1, C2>::m_curve_trees->get_child_chunk_indexes(n_leaf_tuples,
+        last_leaf_idx);
+    CHECK_AND_ASSERT_THROW_MES(child_chunk_idxs.size() >= 2, "unexpected empty child chunk indexes");
+    const LayerIdx last_layer_idx = child_chunk_idxs.size() - 2;
+    const auto child_chunk_it = read_child_chunk(last_layer_idx, child_chunk_idxs.back(), m_tree_elem_cache);
+
+    CHECK_AND_ASSERT_THROW_MES(child_chunk_it->second.tree_elems.size() == 1, "unexpected root layer size");
+    return child_chunk_it->second.tree_elems.back();
+}
+
+// Explicit instantiation
+template crypto::ec_point TreeCache<Selene, Helios>::get_tree_root() const;
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::LastHashes TreeCache<C1, C2>::get_last_hashes() const

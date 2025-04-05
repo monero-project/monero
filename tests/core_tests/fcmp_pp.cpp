@@ -224,10 +224,19 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     DO_CALLBACK(events, "mark_invalid_tx");
   events.push_back(rct_txes);
 
+  // To calculate the block's tree root once this next block enters the chain,
+  // we sync an empty block so all outputs staged for insertion in the cache
+  // enter the tree. This assumes no outputs unlock in the same block they are
+  // created. It also assumes we don't need the tree cache after this. We can
+  // call pop_block after reading the root to reverse this if we need the cache
+  // to be in the correct state after this op.
+  tree_cache.sync_block(n_synced_blocks, crypto::hash{}, blocks[n_manual_blocks - 1].hash, {});
+  const crypto::ec_point fcmp_pp_tree_root = tree_cache.get_tree_root();
+
   CHECK_AND_ASSERT_MES(generator.construct_block_manually(blk_txes, blk_last, miner_account,
       test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs | test_generator::bf_tx_fees,
       hf_version, hf_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
-      crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, hf_version, fees),
+      crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, hf_version, fees, fcmp_pp_tree_root),
       false, "Failed to generate block");
   if (!valid)
     DO_CALLBACK(events, "mark_invalid_block");

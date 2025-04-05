@@ -1070,6 +1070,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint8_t major_version;
       uint64_t height;
       std::string prev_id;
+      std::string fcmp_pp_tree_root;
       std::string seed_hash;
       std::string difficulty;
       uint64_t median_weight;
@@ -1095,6 +1096,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(major_version)
         KV_SERIALIZE(height)
         KV_SERIALIZE(prev_id)
+        if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+          KV_SERIALIZE(fcmp_pp_tree_root)
         KV_SERIALIZE(seed_hash)
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(median_weight)

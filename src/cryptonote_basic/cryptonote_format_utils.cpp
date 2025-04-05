@@ -96,6 +96,18 @@ namespace cryptonote
     const uint64_t bp_clawback = (bp_base * n_padded_outputs - bp_size) * 4 / 5;
     return bp_clawback;
   }
+
+  static void get_tree_hash(const std::vector<crypto::hash>& tx_hashes, crypto::hash& h)
+  {
+    tree_hash(tx_hashes.data(), tx_hashes.size(), h);
+  }
+
+  static crypto::hash get_tree_hash(const std::vector<crypto::hash>& tx_hashes)
+  {
+    crypto::hash h = null_hash;
+    get_tree_hash(tx_hashes, h);
+    return h;
+  }
   //---------------------------------------------------------------
   static uint64_t get_transaction_weight_clawback(const transaction &tx, const size_t n_padded_outputs)
   {
@@ -1648,7 +1660,7 @@ namespace cryptonote
   blobdata get_block_hashing_blob(const block& b)
   {
     blobdata blob = t_serializable_object_to_blob(static_cast<block_header>(b));
-    crypto::hash tree_root_hash = get_tx_tree_hash(b);
+    crypto::hash tree_root_hash = get_tree_hash(b);
     blob.append(reinterpret_cast<const char*>(&tree_root_hash), sizeof(tree_root_hash));
     blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
     return blob;
@@ -1791,29 +1803,23 @@ namespace cryptonote
     return t_serializable_object_to_blob(tx, b_blob);
   }
   //---------------------------------------------------------------
-  void get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes, crypto::hash& h)
+  crypto::hash get_tree_hash(const block& b)
   {
-    tree_hash(tx_hashes.data(), tx_hashes.size(), h);
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes)
-  {
-    crypto::hash h = null_hash;
-    get_tx_tree_hash(tx_hashes, h);
-    return h;
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_tx_tree_hash(const block& b)
-  {
-    std::vector<crypto::hash> txs_ids;
-    txs_ids.reserve(1 + b.tx_hashes.size());
+    std::vector<crypto::hash> hashes;
+    hashes.reserve(1 + 1 + b.tx_hashes.size());
+    // 1. FCMP++ root
+    static_assert(sizeof(crypto::hash) == sizeof(crypto::ec_point), "expected sizeof hash == sizeof ec_point");
+    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+      hashes.push_back((crypto::hash&)b.fcmp_pp_tree_root);
+    // 2. Miner tx
     crypto::hash h = null_hash;
     size_t bl_sz = 0;
     CHECK_AND_ASSERT_THROW_MES(get_transaction_hash(b.miner_tx, h, bl_sz), "Failed to calculate transaction hash");
-    txs_ids.push_back(h);
+    hashes.push_back(h);
+    // 3. All other txs
     for(auto& th: b.tx_hashes)
-      txs_ids.push_back(th);
-    return get_tx_tree_hash(txs_ids);
+      hashes.push_back(th);
+    return get_tree_hash(hashes);
   }
   //---------------------------------------------------------------
   bool is_valid_decomposed_amount(uint64_t amount)

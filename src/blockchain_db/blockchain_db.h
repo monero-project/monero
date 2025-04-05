@@ -1807,6 +1807,8 @@ public:
    */
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
+  virtual void advance_tree_one_block(const uint64_t block_idx) = 0;
+
   // TODO: description and make private
   virtual void grow_tree(const uint64_t block_id, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
 
