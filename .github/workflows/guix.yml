@@ -44,7 +44,6 @@ jobs:
           - target: "aarch64-linux-gnu"
           - target: "arm-linux-gnueabihf"
           - target: "riscv64-linux-gnu"
-          - target: "i686-linux-gnu"
           - target: "x86_64-w64-mingw32"
           - target: "x86_64-unknown-freebsd"
           - target: "x86_64-apple-darwin"
