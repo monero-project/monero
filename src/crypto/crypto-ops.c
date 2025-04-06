@@ -2429,6 +2429,14 @@ void sc_0(unsigned char *s) {
   }
 }
 
+void sc_1(unsigned char *s) {
+  int i;
+  s[0] = 1;
+  for (i = 1; i < 32; i++) {
+    s[i] = 0;
+  }
+}
+
 void sc_reduce32(unsigned char *s) {
   int64_t s0 = 2097151 & load_3(s);
   int64_t s1 = 2097151 & (load_4(s + 2) >> 5);
