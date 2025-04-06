@@ -1723,11 +1723,6 @@ private:
     bool unset_ring(const crypto::hash &txid);
     bool find_and_save_rings(bool force = true);
 
-    bool blackball_output(const std::pair<uint64_t, uint64_t> &output);
-    bool set_blackballed_outputs(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, bool add = false);
-    bool unblackball_output(const std::pair<uint64_t, uint64_t> &output);
-    bool is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const;
-
     void freeze(size_t idx);
     void thaw(size_t idx);
     bool frozen(size_t idx) const;
