@@ -18,6 +18,7 @@
              (gnu packages perl)
              (gnu packages pkg-config)
              ((gnu packages python) #:select (python-minimal))
+             (gnu packages rust)
              ((gnu packages tls) #:select (openssl))
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system gnu)
@@ -273,6 +274,8 @@ chain for " target " development."))
         libtool
         pkg-config
         cmake-minimal
+        rust
+        (list rust "cargo")
 
         ;; Scripting
         perl           ; required to build openssl in depends
