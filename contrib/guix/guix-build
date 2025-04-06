@@ -48,6 +48,15 @@ exit 1
 fi
 
 ################
+# Unset environment variables
+################
+
+# contrib/depends uses the HOST environment variable as the build target.
+# It will throw an error if this variable is set to an unrecognized target.
+# Ensure the var is unset so calls to contrib/depends further down don't fail.
+unset HOST
+
+################
 # Checkout git submodules if we haven't already
 ################
 
