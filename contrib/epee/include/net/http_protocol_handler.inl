@@ -28,7 +28,6 @@
 #include <boost/regex.hpp>
 #include <boost/lexical_cast.hpp>
 #include "http_protocol_handler.h"
-#include "reg_exp_definer.h"
 #include "string_tools.h"
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
@@ -59,7 +58,7 @@ namespace net_utils
 		inline
 			bool match_boundary(const std::string& content_type, std::string& boundary)
 		{
-			STATIC_REGEXP_EXPR_1(rexp_match_boundary, "boundary=(.*?)(($)|([;\\s,]))", boost::regex::icase | boost::regex::normal);
+			static const boost::regex rexp_match_boundary("boundary=(.*?)(($)|([;\\s,]))", boost::regex::icase | boost::regex::normal);
 			//											        1
 			boost::smatch result;	
 			if(boost::regex_search(content_type, result, rexp_match_boundary, boost::match_default) && result[0].matched)
@@ -74,7 +73,7 @@ namespace net_utils
 		inline 
 			bool parse_header(std::string::const_iterator it_begin, std::string::const_iterator it_end, multipart_entry& entry)
 		{
-			STATIC_REGEXP_EXPR_1(rexp_mach_field, 
+			static const boost::regex rexp_mach_field(
 				"\n?((Content-Disposition)|(Content-Type)"
 				//  12                     3 
 				"|([\\w-]+?)) ?: ?((.*?)(\r?\n))[^\t ]",	
@@ -399,7 +398,7 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::handle_invoke_query_line()
 	{ 
-		STATIC_REGEXP_EXPR_1(rexp_match_command_line, "^(((OPTIONS)|(GET)|(HEAD)|(POST)|(PUT)|(DELETE)|(TRACE)) (\\S+) HTTP/(\\d+)\\.(\\d+))\r?\n", boost::regex::icase | boost::regex::normal);
+		static const boost::regex rexp_match_command_line("^(((OPTIONS)|(GET)|(HEAD)|(POST)|(PUT)|(DELETE)|(TRACE)) (\\S+) HTTP/(\\d+)\\.(\\d+))\r?\n", boost::regex::icase | boost::regex::normal);
 		//											    123         4     5      6      7     8        9        10          11     12    
 		//size_t match_len = 0;
 		boost::smatch result;	
@@ -546,7 +545,7 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos)
 	{ 
-		STATIC_REGEXP_EXPR_1(rexp_mach_field, 
+		static const boost::regex rexp_mach_field(
 			"\n?((Connection)|(Referer)|(Content-Length)|(Content-Type)|(Transfer-Encoding)|(Content-Encoding)|(Host)|(Cookie)|(User-Agent)|(Origin)"
 			//  12            3         4                5              6                   7                  8      9        10           11
 			"|([\\w-]+?)) ?: ?((.*?)(\r?\n))[^\t ]",	
@@ -601,7 +600,7 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::get_len_from_content_lenght(const std::string& str, size_t& OUT len)
 	{
-		STATIC_REGEXP_EXPR_1(rexp_mach_field, "\\d+", boost::regex::normal);
+		static const boost::regex rexp_mach_field("\\d+", boost::regex::normal);
 		std::string res;
 		boost::smatch result;
 		if(!(boost::regex_search( str, result, rexp_mach_field, boost::match_default) && result[0].matched))

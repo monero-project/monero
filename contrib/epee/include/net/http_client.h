@@ -40,7 +40,6 @@
 #include "http_client_base.h"
 #include "string_tools.h"
 #include "string_tools_lexical.h"
-#include "reg_exp_definer.h"
 #include "abstract_http_client.h"
 #include "http_base.h" 
 #include "http_auth.h"
@@ -696,7 +695,7 @@ namespace net_utils
 			inline
 				bool set_reply_content_encoder()
 			{
-				STATIC_REGEXP_EXPR_1(rexp_match_gzip, "^.*?((gzip)|(deflate))", boost::regex::icase | boost::regex::normal);
+				static const boost::regex rexp_match_gzip("^.*?((gzip)|(deflate))", boost::regex::icase | boost::regex::normal);
 				boost::smatch result;						//   12      3
 				if(boost::regex_search( m_response_info.m_header_info.m_content_encoding, result, rexp_match_gzip, boost::match_default) && result[0].matched)
 				{
@@ -788,7 +787,7 @@ namespace net_utils
 			inline 
 				bool is_connection_close_field(const std::string& str)
 			{
-				STATIC_REGEXP_EXPR_1(rexp_match_close, "^\\s*close", boost::regex::icase | boost::regex::normal);
+				static const boost::regex rexp_match_close("^\\s*close", boost::regex::icase | boost::regex::normal);
 				boost::smatch result;
 				if(boost::regex_search( str, result, rexp_match_close, boost::match_default) && result[0].matched)
 					return true;
@@ -799,7 +798,7 @@ namespace net_utils
 				bool is_multipart_body(const http_header_info& head_info, OUT std::string& boundary)
 			{
 				//Check whether this is multi part - if yes, capture boundary immediately
-				STATIC_REGEXP_EXPR_1(rexp_match_multipart_type, "^\\s*multipart/([\\w\\-]+); boundary=((\"(.*?)\")|(\\\\\"(.*?)\\\\\")|([^\\s;]*))", boost::regex::icase | boost::regex::normal);
+				static const boost::regex rexp_match_multipart_type("^\\s*multipart/([\\w\\-]+); boundary=((\"(.*?)\")|(\\\\\"(.*?)\\\\\")|([^\\s;]*))", boost::regex::icase | boost::regex::normal);
 				boost::smatch result;
 				if(boost::regex_search(head_info.m_content_type, result, rexp_match_multipart_type, boost::match_default) && result[0].matched)
 				{
