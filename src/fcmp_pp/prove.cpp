@@ -380,7 +380,7 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
     return {std::move(p), L};
 }
 //----------------------------------------------------------------------------------------------------------------------
-FcmpMembershipProof prove_membership(const std::vector<const uint8_t *> &fcmp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<uint8_t *> &fcmp_prove_inputs,
     const std::size_t n_tree_layers)
 {
     FcmpPpSalProof p;
