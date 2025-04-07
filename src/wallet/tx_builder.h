@@ -70,7 +70,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     const rct::xmr_amount ignore_below,
     const wallet2::unique_index_container &subtract_fee_from_outputs,
     const std::uint64_t top_block_index,
-    const cryptonote::account_base &acb);
+    const cryptonote::account_keys &acc_keys);
 
 carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_transfer(
     const wallet2::transfer_container &transfers,
@@ -83,7 +83,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
     const std::uint64_t top_block_index,
-    const cryptonote::account_base &acb);
+    const cryptonote::account_keys &acc_keys);
 
 carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_sweep(
     const wallet2::transfer_container &transfers,
@@ -95,7 +95,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index,
-    const cryptonote::account_base &acb);
+    const cryptonote::account_keys &acc_keys);
 
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
     const wallet2::transfer_details &td,
@@ -106,6 +106,14 @@ std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_trans
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
     const wallet2::transfer_container &transfers,
+    const cryptonote::account_keys &acc_keys);
+
+//! @TODO: accept already-calculated rerandomized outputs and their blinds
+cryptonote::transaction finalize_all_proofs_from_transfer_details(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const wallet2::transfer_container &transfers,
+    const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
+    const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
     const cryptonote::account_keys &acc_keys);
 } //namespace wallet
 } //namespace tools

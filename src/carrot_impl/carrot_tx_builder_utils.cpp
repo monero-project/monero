@@ -492,6 +492,9 @@ void make_signable_tx_hash_from_carrot_transaction_proposal_v1(const CarrotTrans
     //! @TODO: better input number calculation in get_pre_mlsag_hash. possible?
     pruned_tx.rct_signatures.p.pseudoOuts.resize(pruned_tx.vin.size());
 
+    // see cryptonote::Blockchain::expand_transaction_2()
+    pruned_tx.rct_signatures.message = rct::hash2rct(cryptonote::get_transaction_prefix_hash(pruned_tx));
+
     hw::device &hwdev = hw::get_device("default");
     const rct::key signable_tx_hash_k = rct::get_pre_mlsag_hash(pruned_tx.rct_signatures, hwdev);
 

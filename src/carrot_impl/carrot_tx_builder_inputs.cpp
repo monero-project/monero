@@ -223,7 +223,6 @@ static void make_sal_proof_nominal_address_carrot_coinbase_v1(const crypto::hash
 
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
-    crypto::public_key address_spend_pubkey;
 
     // first, try do an internal scan of the enote
     const bool scanned = try_ecdh_and_scan_carrot_coinbase_enote(opening_hint.source_enote,

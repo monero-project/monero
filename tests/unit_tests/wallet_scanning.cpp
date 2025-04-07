@@ -75,12 +75,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         const boost::multiprecision::int128_t old_balance = w.balance(0, true);
 
         // note: doesn't handle reorgs
-        std::vector<cryptonote::block_complete_entry> block_entries;
-        std::vector<tools::wallet2::parsed_block> parsed_blocks;
-        bc.get_blocks_data(0, bc.height()-1, block_entries, parsed_blocks); //! @TODO: figure out why starting from refresh_height doesn't work
-        uint64_t blocks_added{};
-        auto output_tracker_cache = w.create_output_tracker_cache();
-        w.process_parsed_blocks(0, block_entries, parsed_blocks, blocks_added, output_tracker_cache);
+        bc.refresh_wallet(w, 0);
 
         // update refresh_height
         refresh_height = bc.height();
@@ -176,11 +171,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         std::vector<cryptonote::tx_destination_entry> dests = {
             cryptonote::tx_destination_entry(amount_b, acc_keys.m_account_address, false)};
         cryptonote::transaction curr_tx = mock::construct_pre_carrot_tx_with_fake_inputs(
-            acc_keys,
-            w.m_subaddresses,
-            /*stripped_sources=*/{},
             dests,
-            acc_keys.m_account_address,
             fee,
             /*hf_version=*/1);
         ASSERT_FALSE(cryptonote::is_coinbase(curr_tx));
@@ -220,11 +211,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         std::vector<cryptonote::tx_destination_entry> dests = {
             cryptonote::tx_destination_entry(amount_d, acc_keys.m_account_address, false)};
         cryptonote::transaction curr_tx = mock::construct_pre_carrot_tx_with_fake_inputs(
-            acc_keys,
-            w.m_subaddresses,
-            /*stripped_sources=*/{},
             dests,
-            acc_keys.m_account_address,
             fee,
             HF_VERSION_DYNAMIC_FEE);
         ASSERT_FALSE(cryptonote::is_coinbase(curr_tx));
@@ -247,11 +234,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         std::vector<cryptonote::tx_destination_entry> dests = {
             cryptonote::tx_destination_entry(amount_e, acc_keys.m_account_address, false)};
         cryptonote::transaction curr_tx = mock::construct_pre_carrot_tx_with_fake_inputs(
-            acc_keys,
-            w.m_subaddresses,
-            /*stripped_sources=*/{},
             dests,
-            acc_keys.m_account_address,
             fee,
             HF_VERSION_SMALLER_BP);
         ASSERT_FALSE(cryptonote::is_coinbase(curr_tx));
@@ -292,11 +275,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         std::vector<cryptonote::tx_destination_entry> dests = {
             cryptonote::tx_destination_entry(amount_g, acc_keys.m_account_address, false)};
         cryptonote::transaction curr_tx = mock::construct_pre_carrot_tx_with_fake_inputs(
-            acc_keys,
-            w.m_subaddresses,
-            /*stripped_sources=*/{},
             dests,
-            acc_keys.m_account_address,
             fee,
             HF_VERSION_VIEW_TAGS,
             /*sweep_unmixable_override=*/true);
@@ -320,11 +299,7 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
         std::vector<cryptonote::tx_destination_entry> dests = {
             cryptonote::tx_destination_entry(amount_h, acc_keys.m_account_address, false)};
         cryptonote::transaction curr_tx = mock::construct_pre_carrot_tx_with_fake_inputs(
-            acc_keys,
-            w.m_subaddresses,
-            /*stripped_sources=*/{},
             dests,
-            acc_keys.m_account_address,
             fee,
             HF_VERSION_VIEW_TAGS);
         ASSERT_FALSE(cryptonote::is_coinbase(curr_tx));
