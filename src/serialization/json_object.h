@@ -57,9 +57,7 @@
 
 #define GET_FROM_JSON_OBJECT(source, dst, key) \
     OBJECT_HAS_MEMBER_OR_THROW(source, #key) \
-    decltype(dst) dstVal##key; \
-    cryptonote::json::fromJsonValue(source[#key], dstVal##key); \
-    dst = dstVal##key;
+    cryptonote::json::fromJsonValue(source[#key], dst)
 
 namespace cryptonote
 {
@@ -377,7 +375,7 @@ inline typename std::enable_if<sfinae::is_vector_like<Vec>::value, void>::type t
   static_assert(!std::is_same<value_type, unsigned char>::value, "encoding an array of unsigned char is faster as hex");
 
   dest.StartArray();
-  for (auto t : vec)
+  for (const auto& t : vec)
     toJsonValue(dest, t);
   dest.EndArray();
 }
