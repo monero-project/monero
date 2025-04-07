@@ -80,4 +80,19 @@ for precious_dirs_file in "${found_precious_dirs_files[@]}"; do
     done < "$precious_dirs_file"
 done
 
+output="$(git clean --dry-run -xdff "${exclude_flags[@]}")"
+
+if [[ -z "${output}" ]]; then
+    echo "Nothing to clean."
+    exit 0
+fi
+
+if [[ -z "${NO_CONFIRM}" ]]; then
+    echo "${output}"
+    read -p "Confirm deletion [y/N]: " confirm
+    if [[ ! "${confirm}" =~ ^[Yy]$ ]]; then
+        exit 0
+    fi
+fi
+
 git clean -xdff "${exclude_flags[@]}"
