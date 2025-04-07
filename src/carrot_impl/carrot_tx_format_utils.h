@@ -124,7 +124,7 @@ bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction 
     std::vector<CarrotCoinbaseEnoteV1> &enotes_out);
 /**
  * brief: store_fcmp_proofs_to_rct_prunable_v1 -
- * param: bulletproofs_plus -
+ * param: bulletproof_plus -
  * param: rerandomized_outputs -
  * param: sal_proofs -
  * param: membership_proof -
@@ -133,7 +133,7 @@ bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction 
  * return: prunable RCT signature data that can be attached to corresponding pruned tx
  */
 rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
-    std::vector<rct::BulletproofPlus> &&bulletproofs_plus,
+    rct::BulletproofPlus &&bulletproof_plus,
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sal_proofs,
     const fcmp_pp::FcmpMembershipProof &membership_proof,

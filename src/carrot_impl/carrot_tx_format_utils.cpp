@@ -284,7 +284,7 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
         return false;
 
     const size_t n_ephemeral = enote_ephemeral_pubkeys.size();
-    if (n_ephemeral < 0 || n_ephemeral > nouts)
+    if (n_ephemeral == 0 || n_ephemeral > nouts)
         return false;
 
     // collect D_e
@@ -391,7 +391,7 @@ bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction 
 }
 //-------------------------------------------------------------------------------------------------------------------
 rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
-    std::vector<rct::BulletproofPlus> &&bulletproofs_plus,
+    rct::BulletproofPlus &&bulletproof_plus,
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sal_proofs,
     const fcmp_pp::FcmpMembershipProof &membership_proof,
@@ -436,7 +436,7 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
         "store fcmp proofs to rct prunable v1: bug: bad proof building");
 
     return rct::rctSigPrunable{
-        .bulletproofs_plus = std::move(bulletproofs_plus),
+        .bulletproofs_plus = {bulletproof_plus},
         .pseudoOuts = std::move(pseudoOuts),
         .reference_block = fcmp_reference_block,
         .n_tree_layers = n_tree_layers,
