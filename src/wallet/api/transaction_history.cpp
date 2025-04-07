@@ -44,8 +44,6 @@ using namespace epee;
 
 namespace Monero {
 
-TransactionHistory::~TransactionHistory() {}
-
 
 TransactionHistoryImpl::TransactionHistoryImpl(WalletImpl *wallet)
     : m_wallet(wallet)

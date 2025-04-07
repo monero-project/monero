@@ -44,8 +44,6 @@ using namespace std;
 
 namespace Monero {
 
-UnsignedTransaction::~UnsignedTransaction() {}
-
 
 UnsignedTransactionImpl::UnsignedTransactionImpl(WalletImpl &wallet)
     : m_wallet(wallet)
