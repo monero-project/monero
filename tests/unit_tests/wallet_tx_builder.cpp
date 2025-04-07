@@ -26,14 +26,23 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "unit_tests_utils.h"
 #include "gtest/gtest.h"
 
 #include "carrot_core/config.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
+#include "carrot_mock_helpers.h"
 #include "common/container_helpers.h"
+#include "cryptonote_core/blockchain.h"
+#include "cryptonote_core/tx_verification_utils.h"
+#include "fake_pruned_blockchain.h"
+#include "fcmp_pp/prove.h"
 #include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
 #include "wallet/tx_builder.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.wallet_scanning"
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 static tools::wallet2::transfer_details gen_transfer_details()
@@ -171,7 +180,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_transfer_1)
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
         top_block_index,
-        alice);
+        alice.get_keys());
 
     std::vector<crypto::key_image> expected_key_images{
         transfers.front().m_key_image,
@@ -212,7 +221,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_sweep_1)
         /*fee_per_weight=*/1,
         /*extra=*/{},
         transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
-        alice);
+        alice.get_keys());
 
     // Assert basic length facts about tx proposal
     ASSERT_EQ(1, tx_proposal.key_images_sorted.size());
@@ -224,5 +233,145 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_sweep_1)
     // Assert amounts
     EXPECT_EQ(0, tx_proposal.selfsend_payment_proposals.front().proposal.amount);
     EXPECT_EQ(transfers.front().amount(), tx_proposal.fee + tx_proposal.normal_payment_proposals.front().amount);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
+{
+    // 1. create fake blockchain
+    // 2. create Alice, Bob wallet2 instance
+    // 3. send a mix of fake-input legacy and carrot txs to Alice
+    // 4. step blockchain forward 10 blocks
+    // 5. scan blockchain with Alice wallet
+    // 6. create carrot transaction proposal
+    // 7. construct proofs for transaction
+    // 8. serialize tx
+    // 9. deserialize tx
+    // 10. check ver_non_input_consensus()
+    // 11. check verRctNonSemanticsSimple()
+    // 12. add Alice's transaction to blockchain
+    // 13. scan blockchain with Bob's wallet and assert money received
+    // 14. scan blockchain with Alice's wallet and assert money left
+
+    // 1.
+    LOG_PRINT_L2("Initiating my imaginary, friendly chain of blocks");
+    mock::fake_pruned_blockchain bc(0);
+
+    // 2.
+    LOG_PRINT_L2("Generating wallets for Alice and Bob, the usual suspects");
+    tools::wallet2 alice(cryptonote::MAINNET, /*kdf_rounds=*/1, /*unattended=*/true);
+    tools::wallet2 bob(cryptonote::MAINNET, /*kdf_rounds=*/1, /*unattended=*/true);
+    alice.set_offline(true);
+    bob.set_offline(true);
+    alice.generate("", "");
+    bob.generate("", "");
+    const cryptonote::account_keys &alice_keys = alice.get_account().get_keys();
+    const cryptonote::account_public_address alice_main_addr = alice.get_account().get_keys().m_account_address;
+    const cryptonote::account_public_address bob_main_addr = bob.get_account().get_keys().m_account_address;
+    bc.init_wallet_for_starting_block(alice);
+    bc.init_wallet_for_starting_block(bob);
+
+    // 3.
+    LOG_PRINT_L2("Sending transactions from the aether to Alice (0)");
+    const rct::xmr_amount amount0 = rct::randXmrAmount(COIN);
+    std::vector<cryptonote::tx_destination_entry> dests0{cryptonote::tx_destination_entry(amount0, alice_main_addr, false)};
+    cryptonote::transaction tx = mock::construct_pre_carrot_tx_with_fake_inputs(dests0, /*fee=*/1234, /*hf_version=*/2);
+    bc.add_block(2, {std::move(tx)}, mock::null_addr);
+    LOG_PRINT_L2("Sending transactions from the aether to Alice (1)");
+    const rct::xmr_amount amount1 = rct::randXmrAmount(COIN);
+    std::vector<cryptonote::tx_destination_entry> dests1{cryptonote::tx_destination_entry(amount1, alice.get_subaddress({0, 13}), true)};
+    cryptonote::account_base aether;
+    aether.generate();
+    tx = mock::construct_carrot_pruned_transaction_fake_inputs({carrot::mock::convert_normal_payment_proposal_v1(dests1.front())}, {}, aether.get_keys());
+    bc.add_block(HF_VERSION_CARROT, {std::move(tx)}, mock::null_addr);
+
+    // 4. 
+    //!@TODO: figure out why membership proving fails if there's fewer leaves than the curve1 width
+    const size_t target_num_outputs = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH * fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH + 7;
+    while (bc.num_outputs() < target_num_outputs)
+        bc.add_block(HF_VERSION_CARROT, {}, mock::null_addr, target_num_outputs - bc.num_outputs());
+
+    LOG_PRINT_L2("Twiddling thumbs");
+    for (size_t i = 0; i < CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW; ++i)
+        bc.add_block(HF_VERSION_CARROT, {}, mock::null_addr);
+
+    // 5.
+    LOG_PRINT_L2("Alice's vision is filled with shadowy keys, hashes, points, rings, trees, curves, chains, all flowing in and out of one another");
+    uint64_t blocks_added = bc.refresh_wallet(alice, 0);
+    ASSERT_EQ(bc.height()-1, blocks_added);
+    ASSERT_EQ(2, alice.m_transfers.size());
+    ASSERT_EQ(amount0 + amount1, alice.balance_all(true)); // really, we care about unlocked_balance_all() for sending, but that call uses RPC
+
+    // 6. 
+    LOG_PRINT_L2("Alice feels pity on Bob and proposes to send his broke ass some dough");
+    const rct::xmr_amount out_amount = rct::randXmrAmount(amount0 + amount1);
+    const carrot::CarrotTransactionProposalV1 tx_proposal = 
+        tools::wallet::make_carrot_transaction_proposal_wallet2_transfer( // stupidly long function name ;(
+            alice.m_transfers,
+            alice.m_subaddresses,
+            {cryptonote::tx_destination_entry(out_amount, bob_main_addr, false)},
+            /*fee_per_weight=*/1,
+            /*extra=*/{},
+            /*subaddr_account=*/0,
+            /*subaddr_indices=*/{},
+            /*ignore_above=*/std::numeric_limits<rct::xmr_amount>::max(),
+            /*ignore_below=*/0,
+            /*top_block_index=*/bc.height()-1,
+            alice_keys);
+
+    // 7.
+    LOG_PRINT_L2("Alice has something to prove");
+    tx = tools::wallet::finalize_all_proofs_from_transfer_details(tx_proposal,
+        alice.m_transfers,
+        alice.m_tree_cache,
+        *alice.m_curve_trees,
+        alice_keys);
+
+    // 8.
+    LOG_PRINT_L2("Hello, Mr. Blobby");
+    const cryptonote::blobdata alicebob_tx_blob = cryptonote::tx_to_blob(tx);
+
+    // 9.
+    LOG_PRINT_L2("Goodbye, Mr. Blobby");
+    cryptonote::transaction alicebob_tx;
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_from_blob(alicebob_tx_blob, alicebob_tx));
+
+    // 10.
+    LOG_PRINT_L2("Bob couldn't believe someone to be so generous in his time of need, so he verifies");
+    ASSERT_GE(bc.hf_version(), HF_VERSION_FCMP_PLUS_PLUS);
+    cryptonote::tx_verification_context tvc{};
+    ASSERT_TRUE(cryptonote::ver_non_input_consensus(alicebob_tx, tvc, bc.hf_version()));
+    EXPECT_FALSE(tvc.m_verifivation_failed);
+
+    // 11.
+    LOG_PRINT_L2("'Perhaps this is valid money that belongs to another chain', Bob postulates");
+    const uint8_t *tree_root = bc.get_fcmp_tree_root_at(bc.height() - 1);
+    ASSERT_TRUE(cryptonote::Blockchain::expand_transaction_2(alicebob_tx,
+        cryptonote::get_transaction_prefix_hash(alicebob_tx),
+        /*pubkeys=*/{},
+        tree_root));
+    EXPECT_TRUE(rct::verRctNonSemanticsSimple(alicebob_tx.rct_signatures));
+
+    // 12.
+    LOG_PRINT_L2("'Chain, chain, chain (Chain, chain, chain)' - Aretha Franklin");
+    const rct::xmr_amount alicebob_tx_fee = alicebob_tx.rct_signatures.txnFee;
+    bc.add_block(HF_VERSION_CARROT, {std::move(alicebob_tx)}, mock::null_addr);
+
+    // 13. 
+    LOG_PRINT_L2("A great day for Bob");
+    ASSERT_EQ(0, bob.balance_all(true));
+    blocks_added = bc.refresh_wallet(bob, 0);
+    ASSERT_EQ(bc.height()-1, blocks_added);
+    ASSERT_EQ(1, bob.m_transfers.size());
+    EXPECT_EQ(out_amount, bob.balance_all(true));
+
+    // 14.
+    LOG_PRINT_L2("Alice obtains the fulfillment that only stems from selfless generosity");
+    const rct::xmr_amount alice_old_balance = alice.balance_all(true);
+    ASSERT_GE(alice_old_balance, out_amount + alicebob_tx_fee);
+    blocks_added = bc.refresh_wallet(alice, 0);
+    ASSERT_EQ(1, blocks_added);
+    const rct::xmr_amount alice_new_balance = alice.balance_all(true);
+    ASSERT_LT(alice_new_balance, alice_old_balance);
+    EXPECT_EQ(alice_new_balance + out_amount + alicebob_tx_fee, alice_old_balance);
 }
 //----------------------------------------------------------------------------------------------------------------------

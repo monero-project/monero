@@ -32,13 +32,23 @@
 //local headers
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/enote_utils.h"
+#include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_impl/carrot_tx_format_utils.h"
 #include "carrot_impl/input_selection.h"
+#include "common/container_helpers.h"
+#include "common/perf_timer.h"
+#include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_core/blockchain.h"
+#include "fcmp_pp/proof_len.cpp"
+#include "fcmp_pp/prove.h"
+#include "fcmp_pp/tower_cycle.h"
+#include "ringct/bulletproofs_plus.h"
+#include "ringct/rctSigs.h"
 
 //third party headers
 
@@ -53,12 +63,22 @@ namespace wallet
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static epee::misc_utils::auto_scope_leave_caller make_fcmp_obj_freer(const std::vector<uint8_t*> &objs)
+{
+    return epee::misc_utils::create_scope_leave_handler([&objs](){
+        for (uint8_t *obj : objs)
+            if (nullptr != obj)
+                free(obj);
+    });
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 static bool is_transfer_unlocked_for_next_fcmp_pp_block(const wallet2::transfer_details &td,
     const uint64_t top_block_index)
 {
     const uint64_t next_block_index = top_block_index + 1;
 
-    // @TODO: handle FCMP++ conversion of UNIX unlock time to block index number
+    //! @TODO: handle FCMP++ conversion of UNIX unlock time to block index number
 
     if (td.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > next_block_index)
         return false;
@@ -141,7 +161,7 @@ std::unordered_map<crypto::key_image, size_t> collect_non_burned_transfers_by_ke
         if (it == best_transfer_index_by_ki.end())
         {
             best_transfer_index_by_ki.insert({td.m_key_image, i});
-            break;
+            continue;
         }
         const wallet2::transfer_details &other_td = transfers.at(it->second);
         if (td.amount() < other_td.amount())
@@ -253,7 +273,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     const rct::xmr_amount ignore_below,
     const wallet2::unique_index_container &subtract_fee_from_outputs,
     const std::uint64_t top_block_index,
-    const cryptonote::account_base &acb)
+    const cryptonote::account_keys &acc_keys)
 {
     // build payment proposals and subtractable info
     std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
@@ -290,7 +310,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
         selected_transfer_indices);
 
     //! @TODO: handle HW devices
-    carrot::view_incoming_key_ram_borrowed_device k_view_incoming_dev(acb.get_keys().m_view_secret_key);
+    carrot::view_incoming_key_ram_borrowed_device k_view_incoming_dev(acc_keys.m_view_secret_key);
 
     carrot::CarrotTransactionProposalV1 tx_proposal;
     if (subtract_fee_from_outputs.size())
@@ -303,7 +323,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
             std::move(select_inputs),
             /*s_view_balance_dev=*/nullptr, //! @TODO: handle carrot
             &k_view_incoming_dev,
-            acb.get_keys().m_account_address.m_spend_public_key,
+            acc_keys.m_account_address.m_spend_public_key,
             subtractable_normal_payment_proposals,
             subtractable_selfsend_payment_proposals,
             tx_proposal);
@@ -318,7 +338,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
             std::move(select_inputs),
             /*s_view_balance_dev=*/nullptr, //! @TODO: handle carrot
             &k_view_incoming_dev,
-            acb.get_keys().m_account_address.m_spend_public_key,
+            acc_keys.m_account_address.m_spend_public_key,
             tx_proposal);
     }
 
@@ -336,7 +356,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
     const std::uint64_t top_block_index,
-    const cryptonote::account_base &acb)
+    const cryptonote::account_keys &acc_keys)
 {
     return make_carrot_transaction_proposal_wallet2_transfer_subtractable(
         transfers,
@@ -350,7 +370,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
         ignore_below,
         /*subtract_fee_from_outputs=*/{},
         top_block_index,
-        acb);
+        acc_keys);
 }
 //-------------------------------------------------------------------------------------------------------------------
 carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_sweep(
@@ -363,7 +383,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index,
-    const cryptonote::account_base &acb)
+    const cryptonote::account_keys &acc_keys)
 {
     CHECK_AND_ASSERT_THROW_MES(!input_key_images.empty(),
         "make carrot transaction proposal wallet2 sweep: no key images provided");
@@ -412,7 +432,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
     }
 
     //! @TODO: handle HW devices
-    carrot::view_incoming_key_ram_borrowed_device k_view_incoming_dev(acb.get_keys().m_view_secret_key);
+    carrot::view_incoming_key_ram_borrowed_device k_view_incoming_dev(acc_keys.m_view_secret_key);
 
     carrot::CarrotTransactionProposalV1 tx_proposal;
     carrot::make_carrot_transaction_proposal_v1_sweep(normal_payment_proposals,
@@ -422,7 +442,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
         std::move(selected_inputs),
         /*s_view_balance_dev=*/nullptr, //! @TODO: handle carrot
         &k_view_incoming_dev,
-        acb.get_keys().m_account_address.m_spend_public_key,
+        acc_keys.m_account_address.m_spend_public_key,
         tx_proposal);
 
     return tx_proposal;
@@ -649,6 +669,380 @@ std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_trans
     }
 
     return sal_proofs_by_ki;
+}
+//-------------------------------------------------------------------------------------------------------------------
+cryptonote::transaction finalize_all_proofs_from_transfer_details(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const wallet2::transfer_container &transfers,
+    const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
+    const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
+    const cryptonote::account_keys &acc_keys)
+{
+    const size_t n_inputs = tx_proposal.key_images_sorted.size();
+    const size_t n_outputs = tx_proposal.normal_payment_proposals.size()
+        + tx_proposal.selfsend_payment_proposals.size();
+    CHECK_AND_ASSERT_THROW_MES(n_inputs, "finalize_all_proofs_from_transfer_details: no inputs");
+
+    LOG_PRINT_L2("finalize_all_proofs_from_transfer_details: make all proofs for transaction proposal: "
+        << n_inputs << "-in " << n_outputs << "-out, with "
+        << tx_proposal.normal_payment_proposals.size() << " normal payment proposals, "
+        << tx_proposal.selfsend_payment_proposals.size() << " self-send payment proposals, and a fee of "
+        << tx_proposal.fee << " pXMR");
+
+    // collect core selfsend proposals
+    std::vector<carrot::CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
+    selfsend_payment_proposal_cores.reserve(tx_proposal.selfsend_payment_proposals.size());
+    for (const auto &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
+        selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
+
+    //! @TODO: HW device
+    carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
+        acc_keys.m_account_address.m_spend_public_key,
+        acc_keys.m_view_secret_key);
+
+    // finalize enotes
+    LOG_PRINT_L3("Getting output enote proposals");
+    std::vector<carrot::RCTOutputEnoteProposal> output_enote_proposals;
+    carrot::encrypted_payment_id_t encrypted_payment_id;
+    carrot::get_output_enote_proposals(tx_proposal.normal_payment_proposals,
+        selfsend_payment_proposal_cores,
+        tx_proposal.dummy_encrypted_payment_id,
+        /*s_view_balance_dev=*/nullptr, //! @TODO: internal
+        &addr_dev,
+        tx_proposal.key_images_sorted.at(0),
+        output_enote_proposals,
+        encrypted_payment_id);
+    CHECK_AND_ASSERT_THROW_MES(output_enote_proposals.size() == n_outputs,
+        "finalize_all_proofs_from_transfer_details: unexpected number of output enote proposals");
+
+    // collect all non-burned inputs owned by wallet
+    const std::unordered_map<crypto::key_image, size_t> unburned_transfers_by_key_image =
+        collect_non_burned_transfers_by_key_image(transfers);
+    LOG_PRINT_L3("Did a burning bug pass, eliminated "
+        << (transfers.size() - unburned_transfers_by_key_image.size())
+        << " eligible transfers");
+
+    // collect output amount blinding factors
+    std::vector<rct::key> output_amount_blinding_factors;
+    output_amount_blinding_factors.reserve(output_enote_proposals.size());
+    for (const carrot::RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
+        output_amount_blinding_factors.push_back(rct::sk2rct(output_enote_proposal.amount_blinding_factor));
+
+    // collect input onetime addresses, amount commitments, and blinding factors
+    std::vector<crypto::public_key> input_onetime_addresses;
+    std::vector<rct::key> input_amount_commitments;
+    std::vector<rct::key> input_amount_blinding_factors;
+    input_onetime_addresses.reserve(n_inputs);
+    input_amount_commitments.reserve(n_inputs);
+    input_amount_blinding_factors.reserve(n_inputs);
+    for (const crypto::key_image &input_ki : tx_proposal.key_images_sorted)
+    {
+        const auto ki_it = unburned_transfers_by_key_image.find(input_ki);
+        CHECK_AND_ASSERT_THROW_MES(ki_it != unburned_transfers_by_key_image.cend(),
+            "finalize_all_proofs_from_transfer_details: cannot find transfer by key image");
+        const size_t transfer_idx = ki_it->second;
+        CHECK_AND_ASSERT_THROW_MES(transfer_idx < transfers.size(),
+            "finalize_all_proofs_from_transfer_details: transfer index out of range");
+        const wallet2::transfer_details &td = transfers.at(transfer_idx);
+        const fcmp_pp::curve_trees::OutputPair input_pair = td.get_output_pair();
+        input_onetime_addresses.push_back(input_pair.output_pubkey);
+        input_amount_commitments.push_back(input_pair.commitment);
+        input_amount_blinding_factors.push_back(td.m_mask);
+    }
+
+    // make rerandomized outputs
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
+    carrot::make_carrot_rerandomized_outputs_nonrefundable(input_onetime_addresses,
+        input_amount_commitments,
+        input_amount_blinding_factors,
+        output_amount_blinding_factors,
+        rerandomized_outputs);
+    
+    // collect FCMP paths
+    std::vector<fcmp_pp::curve_trees::CurveTreesV1::Path> fcmp_paths;
+    fcmp_paths.reserve(n_inputs);
+    for (size_t i = 0; i < n_inputs; ++i)
+    {
+        const fcmp_pp::curve_trees::OutputPair input_pair{input_onetime_addresses.at(i),
+            input_amount_commitments.at(i)};
+        LOG_PRINT_L3("Requesting FCMP path from tree cache for onetime address: " << input_pair.output_pubkey);
+        CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(input_pair, tools::add_element(fcmp_paths)),
+            "finalize_all_proofs_from_transfer_details: failed to get FCMP path from tree cache");
+    }
+
+    // assert properties of FCMP paths
+    CHECK_AND_ASSERT_THROW_MES(fcmp_paths.size(), "finalize_all_proofs_from_transfer_details: missing FCMP paths");
+    const auto &first_fcmp_path = fcmp_paths.at(0);
+    for (const auto &fcmp_path : fcmp_paths)
+    {
+        CHECK_AND_ASSERT_THROW_MES(!fcmp_path.empty(), "finalize_all_proofs_from_transfer_details: FCMP path is empty");
+        CHECK_AND_ASSERT_THROW_MES(!fcmp_path.c1_layers.empty(),
+            "finalize_all_proofs_from_transfer_details: missing hashes");
+        CHECK_AND_ASSERT_THROW_MES(fcmp_path.c1_layers.size() == first_fcmp_path.c1_layers.size(),
+            "finalize_all_proofs_from_transfer_details: FCMP path c1 layers mismatch");
+        CHECK_AND_ASSERT_THROW_MES(fcmp_path.c2_layers.size() == first_fcmp_path.c2_layers.size(),
+            "finalize_all_proofs_from_transfer_details: FCMP path c2 layers mismatch");
+    }
+    const size_t n_tree_layers = first_fcmp_path.c1_layers.size() + first_fcmp_path.c2_layers.size();
+    const bool root_is_c1 = n_tree_layers % 2 == 1;
+    const size_t num_c1_blinds = first_fcmp_path.c1_layers.size() - size_t(root_is_c1);
+    const size_t num_c2_blinds = first_fcmp_path.c2_layers.size() - size_t(!root_is_c1);
+    LOG_PRINT_L3("n_tree_layers: " << n_tree_layers);
+    LOG_PRINT_L3("num_c1_blinds: " << num_c1_blinds);
+    LOG_PRINT_L3("num_c2_blinds: " << num_c2_blinds);
+
+    // start threadpool and waiter
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    tools::threadpool::waiter pre_membership_waiter(tpool);
+
+    // Laid out in n_inputs tuples of (o_blind, i_blind, i_blind_blind, c_blind, Selene blinds, Helios blinds)
+    std::vector<uint8_t*> fcmp_blinds_objs(n_inputs * (4 + num_c1_blinds + num_c2_blinds));
+    const auto blind_freer = make_fcmp_obj_freer(fcmp_blinds_objs);
+
+    LOG_PRINT_L3("Starting proof jobs...");
+    LOG_PRINT_L3("Will submit a total of " << fcmp_blinds_objs.size() << " blind calculations");
+
+    // Submit blinds calculation jobs
+    uint8_t** blinds_obj_ptr = fcmp_blinds_objs.data();
+    for (size_t i = 0; i < n_inputs; ++i)
+    {
+        const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
+        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            PERF_TIMER(blind_o_blind);
+            *blinds_obj_ptr = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));});
+        ++blinds_obj_ptr;
+        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            PERF_TIMER(blind_i_blind);
+            *blinds_obj_ptr = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));});
+        ++blinds_obj_ptr;
+        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            PERF_TIMER(blind_i_blind_blind);
+            *blinds_obj_ptr = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));});
+        ++blinds_obj_ptr;
+        tpool.submit(&pre_membership_waiter, [blinds_obj_ptr, &rerandomized_output]() {
+            PERF_TIMER(blind_c_blind);
+            *blinds_obj_ptr = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));});
+        ++blinds_obj_ptr;
+        for (size_t j = 0; j < num_c1_blinds; ++j)
+        {
+            tpool.submit(&pre_membership_waiter, [blinds_obj_ptr]() {
+                PERF_TIMER(selene_branch_blind);
+                *blinds_obj_ptr = fcmp_pp::selene_branch_blind();});
+            ++blinds_obj_ptr;
+        }
+        for (size_t j = 0; j < num_c2_blinds; ++j)
+        {
+            tpool.submit(&pre_membership_waiter, [blinds_obj_ptr]() {
+                PERF_TIMER(helios_branch_blind);
+                *blinds_obj_ptr = fcmp_pp::helios_branch_blind();});
+            ++blinds_obj_ptr;
+        }
+    }
+    CHECK_AND_ASSERT_THROW_MES(blinds_obj_ptr == fcmp_blinds_objs.data() + fcmp_blinds_objs.size(),
+        "finalize_all_proofs_from_transfer_details: BUG in blinds_obj_ptr (1)");
+
+    // Submit BP+ job
+    rct::BulletproofPlus bpp;
+    tpool.submit(&pre_membership_waiter, [&output_enote_proposals, &output_amount_blinding_factors, &bpp]() {
+        PERF_TIMER(bulletproof_plus_PROVE);
+        std::vector<rct::xmr_amount> output_amounts;
+        output_amounts.reserve(output_enote_proposals.size());
+        for (const carrot::RCTOutputEnoteProposal &output_enote_proposal : output_enote_proposals)
+            output_amounts.push_back(output_enote_proposal.amount);
+        bpp = rct::bulletproof_plus_PROVE(output_amounts, output_amount_blinding_factors);
+    });
+
+    // Submit SA/L jobs
+    //! @TODO: parallelize jobs
+    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs(n_inputs);
+    tpool.submit(&pre_membership_waiter, [&tx_proposal, &rerandomized_outputs, &transfers, &acc_keys, &sal_proofs](){
+        PERF_TIMER(sign_carrot_transaction_proposal_from_transfer_details);
+        std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki =
+            sign_carrot_transaction_proposal_from_transfer_details(
+                tx_proposal, rerandomized_outputs, transfers, acc_keys);
+
+        CHECK_AND_ASSERT_THROW_MES(sal_proofs.size() == tx_proposal.key_images_sorted.size(),
+            "finalize_all_proofs_from_transfer_details: bad SA/L result buffer size");
+
+        for (size_t i = 0; i < sal_proofs.size(); ++i)
+        {
+            const crypto::key_image &ki = tx_proposal.key_images_sorted.at(i);
+            const auto sal_it = sal_proofs_by_ki.find(ki);
+            CHECK_AND_ASSERT_THROW_MES(sal_it != sal_proofs_by_ki.end(),
+                "finalize_all_proofs_from_transfer_details: missing SA/L proof");
+            CHECK_AND_ASSERT_THROW_MES(sal_it->second.size() == FCMP_PP_SAL_PROOF_SIZE_V1,
+                "finalize_all_proofs_from_transfer_details: unexpected SA/L proof size");
+            sal_proofs[i] = std::move(sal_it->second);
+            sal_proofs_by_ki.erase(sal_it);
+        }
+    });
+
+    const uint64_t n_tree_synced_blocks = tree_cache.n_synced_blocks();
+    CHECK_AND_ASSERT_THROW_MES(n_tree_synced_blocks > 0,
+        "finalize_all_proofs_from_transfer_details: no reference block");
+    const uint64_t reference_block = n_tree_synced_blocks - 1;
+
+    // collect Rust API paths
+    std::vector<uint8_t*> fcmp_paths_rust;
+    fcmp_paths_rust.reserve(fcmp_paths.size());
+    const auto path_freer = make_fcmp_obj_freer(fcmp_paths_rust);
+    for (size_t i = 0; i < n_inputs; ++i)
+    {
+        const fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.at(i);
+        const fcmp_pp::curve_trees::OutputPair output_pair = {input_onetime_addresses.at(i),
+            input_amount_commitments.at(i)};
+        const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
+
+        const auto path_for_proof = curve_trees.path_for_proof(fcmp_path, output_tuple);
+
+        const auto helios_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::HeliosT>(
+            path_for_proof.c2_scalar_chunks);
+        const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
+            path_for_proof.c1_scalar_chunks);
+
+        const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+            path_for_proof.output_idx,
+            {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
+            {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
+
+        fcmp_paths_rust.push_back(path_rust);
+    }
+
+    // collect enotes
+    std::vector<carrot::CarrotEnoteV1> enotes(output_enote_proposals.size());
+    for (size_t i = 0; i < enotes.size(); ++i)
+        enotes[i] = output_enote_proposals.at(i).enote;
+
+    // serialize transaction
+    cryptonote::transaction tx = carrot::store_carrot_to_transaction_v1(enotes,
+        tx_proposal.key_images_sorted,
+        tx_proposal.fee,
+        encrypted_payment_id);
+
+    // wait for pre-membership jobs to complete
+    LOG_PRINT_L3("Waiting on jobs...");
+    CHECK_AND_ASSERT_THROW_MES(pre_membership_waiter.wait(),
+        "finalize_all_proofs_from_transfer_details: some prove jobs failed");
+
+    // collect FCMP Rust API proving structures
+    std::vector<uint8_t*> membership_proving_inputs;
+    membership_proving_inputs.reserve(n_inputs);
+    const auto memberin_freer = make_fcmp_obj_freer(membership_proving_inputs);
+    blinds_obj_ptr = fcmp_blinds_objs.data();
+    for (size_t i = 0; i < n_inputs; ++i)
+    {
+        const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
+        const uint8_t *path_rust = fcmp_paths_rust.at(i);
+        uint8_t *output_blinds = fcmp_pp::output_blinds_new(
+            *(blinds_obj_ptr + 0),
+            *(blinds_obj_ptr + 1),
+            *(blinds_obj_ptr + 2),
+            *(blinds_obj_ptr + 3));
+        blinds_obj_ptr += 4;
+        const auto free_output_blinds =
+            epee::misc_utils::create_scope_leave_handler([output_blinds]()
+                { free(output_blinds); });
+
+        std::vector<const uint8_t *> selene_branch_blinds(num_c1_blinds);
+        memcpy(selene_branch_blinds.data(), blinds_obj_ptr, sizeof(selene_branch_blinds[0])*num_c1_blinds);
+        blinds_obj_ptr += num_c1_blinds;
+        std::vector<const uint8_t *> helios_branch_blinds(num_c2_blinds);
+        memcpy(helios_branch_blinds.data(), blinds_obj_ptr, sizeof(helios_branch_blinds[0])*num_c2_blinds);
+        blinds_obj_ptr += num_c2_blinds;
+
+        membership_proving_inputs.push_back(fcmp_pp::fcmp_prove_input_new(
+            rerandomized_output,
+            path_rust,
+            output_blinds,
+            selene_branch_blinds,
+            helios_branch_blinds));
+    }
+    CHECK_AND_ASSERT_THROW_MES(blinds_obj_ptr == fcmp_blinds_objs.data() + fcmp_blinds_objs.size(),
+        "finalize_all_proofs_from_transfer_details: BUG in blinds_obj_ptr (2)");
+
+    // prove membership
+    PERF_TIMER(prove_membership);
+    const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(membership_proving_inputs,
+        n_tree_layers);
+    PERF_TIMER_PAUSE(prove_membership);
+    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::fcmp_proof_len(n_inputs, n_tree_layers),
+        "finalize_all_proofs_from_transfer_details: unexpected FCMP membership proof length");
+
+    // store proofs
+    tx.rct_signatures.p = carrot::store_fcmp_proofs_to_rct_prunable_v1(std::move(bpp),
+        rerandomized_outputs,
+        sal_proofs,
+        membership_proof,
+        reference_block,
+        n_tree_layers);
+    tx.pruned = false;
+    CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.p.fcmp_pp.size() == fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers),
+        "finalize_all_proofs_from_transfer_details: unexpected FCMP++ combined proof length");
+
+    // get FCMP tree root from provided path
+    //! @TODO: make this a method of TreeCacheV1
+    LOG_PRINT_L3("Making tree root from tree cache");
+    uint8_t *fcmp_tree_root = nullptr;
+    const auto tree_root_freer = epee::misc_utils::create_scope_leave_handler([fcmp_tree_root](){
+        if (fcmp_tree_root) free(fcmp_tree_root);});
+    if (n_tree_layers % 2 == 0)
+    {
+        CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c2_layers.empty(), "missing c2 layers");
+        const auto &last_layer = first_fcmp_path.c2_layers.back();
+        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
+        fcmp_tree_root = fcmp_pp::tower_cycle::helios_tree_root(last_layer.back());
+    }
+    else
+    {
+        CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c1_layers.empty(), "missing c1 layers");
+        const auto &last_layer = first_fcmp_path.c1_layers.back();
+        CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
+        fcmp_tree_root = fcmp_pp::tower_cycle::selene_tree_root(last_layer.back());
+    }
+
+    // expand tx
+    LOG_PRINT_L3("Expanding newly signed transaction");
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::expand_transaction_1(tx, /*base_only=*/false),
+        "finalize_all_proofs_from_transfer_details: failed to perform transaction expansion phase 1");
+    const crypto::hash tx_prefix_hash = cryptonote::get_transaction_prefix_hash(tx);
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::Blockchain::expand_transaction_2(tx,
+            tx_prefix_hash,
+            /*pubkeys=*/{},
+            fcmp_tree_root),
+        "finalize_all_proofs_from_transfer_details: failed to perform transaction expansion phase 2");
+
+    // verify consensus rules against cached tree root
+    {
+        LOG_PRINT_L3("Verifying non-input transaction consensus rules");
+        PERF_TIMER(ver_non_input_consensus);
+        cryptonote::tx_verification_context tvc{};
+        CHECK_AND_ASSERT_THROW_MES(cryptonote::ver_non_input_consensus(tx, tvc, HF_VERSION_FCMP_PLUS_PLUS + 1),
+            "finalize_all_proofs_from_transfer_details: ver_non_input_consensus() failed");
+        CHECK_AND_ASSERT_THROW_MES(!tvc.m_verifivation_failed,
+            "finalize_all_proofs_from_transfer_details: ver_non_input_consensus() -> true && tvc.m_verifivation_failed");
+    }
+    {
+        LOG_PRINT_L3("Verifying SA/L transaction proofs");
+        PERF_TIMER(verify_sal);
+        const crypto::hash signable_tx_hash =
+            rct::rct2hash(rct::get_pre_mlsag_hash(tx.rct_signatures, acc_keys.get_device()));
+        for (size_t i = 0; i < n_inputs; ++i)
+        {
+            CHECK_AND_ASSERT_THROW_MES(fcmp_pp::verify_sal(signable_tx_hash,
+                    rerandomized_outputs.at(i).input,
+                    tx_proposal.key_images_sorted.at(i),
+                    sal_proofs.at(i)),
+                "finalize_all_proofs_from_transfer_details: SA/L proof verification failed");
+        }
+    }
+    {
+        LOG_PRINT_L3("Verifying input transaction consensus rules");
+        PERF_TIMER(verRctNonSemanticsSimple);
+        CHECK_AND_ASSERT_THROW_MES(rct::verRctNonSemanticsSimple(tx.rct_signatures),
+            "finalize_all_proofs_from_transfer_details: verRctNonSemanticsSimple() failed");
+    }
+
+    return tx;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet
