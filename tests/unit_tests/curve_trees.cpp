@@ -87,7 +87,7 @@ std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t selene_chu
     const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1(selene_chunk_width, helios_chunk_width);
 
     /* Number of leaves required for tree to reach given depth */
-    n_leaves_out = (uint64_t) selene_chunk_width;
+    n_leaves_out = (uint64_t) (tree_depth > 1 ? selene_chunk_width : 0);
     for (uint64_t i = 1; i < tree_depth; ++i)
     {
         const std::size_t width = i % 2 == 0 ? selene_chunk_width : helios_chunk_width;
