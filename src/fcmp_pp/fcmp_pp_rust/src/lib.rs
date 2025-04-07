@@ -93,6 +93,16 @@ pub extern "C" fn selene_point_from_bytes(selene_point: *const u8) -> SelenePoin
     <Selene>::read_G(&mut selene_point).unwrap()
 }
 
+// Undefined behavior occurs when the data pointer passed to core::slice::from_raw_parts is null,
+// even when len is 0. slice_from_raw_parts_0able() lets you pass p as null, as long as len is 0
+const unsafe fn slice_from_raw_parts_0able<'a, T>(p: *const T, len: usize) -> &'a [T] {
+    if len == 0 {
+        &[]
+    } else {
+        core::slice::from_raw_parts(p, len)
+    }
+}
+
 fn ed25519_point_from_bytes(ed25519_point: *const u8) -> EdwardsPoint {
     let mut ed25519_point = unsafe { core::slice::from_raw_parts(ed25519_point, 32) };
     // TODO: Return an error here (instead of unwrapping)
@@ -186,12 +196,12 @@ pub type HeliosBranchBlindSlice = Slice<*const BranchBlind<<Helios as Ciphersuit
 pub type SeleneBranchBlindSlice = Slice<*const BranchBlind<<Selene as Ciphersuite>::G>>;
 impl<T> From<Slice<T>> for &[T] {
     fn from(slice: Slice<T>) -> Self {
-        unsafe { core::slice::from_raw_parts(slice.buf, slice.len) }
+        unsafe { slice_from_raw_parts_0able(slice.buf, slice.len) }
     }
 }
 impl<T> From<&Slice<T>> for &[T] {
     fn from(slice: &Slice<T>) -> Self {
-        unsafe { core::slice::from_raw_parts(slice.buf, slice.len) }
+        unsafe { slice_from_raw_parts_0able(slice.buf, slice.len) }
     }
 }
 
