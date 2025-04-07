@@ -33,6 +33,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
+#include <chrono>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -60,7 +61,7 @@ using namespace epee;
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
 #define DEFAULT_AUTO_REFRESH_PERIOD 20 // seconds
-#define REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE 256    // just to split refresh in separate calls to play nicer with other threads
+#define REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE 256    // just to split refresh in separate calls to play nicer with other threads
 
 #define CHECK_MULTISIG_ENABLED() \
   do \
@@ -198,24 +199,77 @@ namespace tools
   bool wallet_rpc_server::run()
   {
     m_stop = false;
-    m_net_server.add_idle_handler([this](){
-      if (m_auto_refresh_period == 0) // disabled
+
+    const bool enable_auto_refresh = m_auto_refresh_period != 0;
+    const auto auto_refresh_evaluation_ms = std::chrono::milliseconds(200);
+
+    m_net_server.add_idle_handler([=] { // Implicit capture of this-pointer deprecated in C++20.
+      if (!enable_auto_refresh) // disabled
         return true;
-      if (boost::posix_time::microsec_clock::universal_time() < m_last_auto_refresh_time + boost::posix_time::seconds(m_auto_refresh_period))
+
+      // Check if m_auto_refresh_period seconds have passed since the last refresh attempt.
+      const auto auto_refresh_interval_ms = std::chrono::milliseconds(m_auto_refresh_period * 1'000);
+      if (auto_refresh_interval_ms <= auto_refresh_evaluation_ms)
+      {
+        LOG_PRINT_L0((boost::format(tr("The auto wallet sync evaluation interval of %i ms must be larger than the refresh interval of %i ms"))
+          % auto_refresh_evaluation_ms.count()
+          % auto_refresh_interval_ms.count()).str());
         return true;
+      }
+
+      const auto now = std::chrono::steady_clock::now();
+      if (now < m_last_auto_refresh_time + auto_refresh_interval_ms)
+        return true;
+
       uint64_t blocks_fetched = 0;
-      try {
+      bool refresh_success = false;
+      const auto start = std::chrono::steady_clock::now();
+
+      try
+      {
         bool received_money = false;
-        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE);
-      } catch (const std::exception& ex) {
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE);
+        refresh_success = true;
+      }
+      catch (const std::exception& ex)
+      {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
-      // if we got the max amount of blocks, do not set the last refresh time, we did only part of the refresh and will
-      // continue asap, and only set the last refresh time once the refresh is actually finished
-      if (blocks_fetched < REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE)
-        m_last_auto_refresh_time = boost::posix_time::microsec_clock::universal_time();
+
+      if (blocks_fetched == 0)
+        return true;
+
+      const auto end = std::chrono::steady_clock::now();
+      const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+      if (refresh_success)
+        LOG_PRINT_L3((boost::format(tr("Automated wallet block refresh took %i ms")) % elapsed.count()).str());
+
+      const bool syncing_against_tip_of_chain = blocks_fetched < REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE;
+      if (syncing_against_tip_of_chain)
+      {
+        // At this point, we can poll for a refresh every m_auto_refresh_period seconds.
+        m_last_auto_refresh_time = end;
+      }
+      else
+      {
+        // We are in a state of synchronization, blasting through the maximum chunks of blocks
+        // because we are not at the tip of the chain. In this case, if we update m_last_auto_refresh_time,
+        // we'll need to wait an entire m_refresh_interval_ms before processing the next batch. On the other hand,
+        // if we do not update m_last_auto_refresh_time, we'll never yield (other calls to the RPC will hang)
+        // in the case that elapsed > auto_refresh_evaluation_ms since we'll immediately be scheduled for another block sync.
+        const bool over_one_refresh_period_passed = end > m_last_auto_refresh_time + auto_refresh_interval_ms;
+        if (over_one_refresh_period_passed)
+        {
+          // auto_refresh_interval_ms of straight-blasting through blocks has elapsed without end.
+          // Let's freee up the network thread for between 200ms to 300ms (non-deterministic) to handle other requests.
+          const auto refresh_throttle = auto_refresh_evaluation_ms + std::chrono::milliseconds(100);
+          m_last_auto_refresh_time = end - auto_refresh_interval_ms + refresh_throttle;
+          LOG_PRINT_L3((boost::format(tr("Temporarily throttling wallet block refresh by around %i ms")) % refresh_throttle.count()).str());
+        }
+      }
       return true;
-    }, 1000);
+    }, auto_refresh_evaluation_ms.count());
     m_net_server.add_idle_handler([this](){
       if (m_stop.load(std::memory_order_relaxed))
       {
@@ -325,7 +379,8 @@ namespace tools
     } // end auth enabled
 
     m_auto_refresh_period = DEFAULT_AUTO_REFRESH_PERIOD;
-    m_last_auto_refresh_time = boost::posix_time::min_date_time;
+    const auto over_one_period_ago = std::chrono::steady_clock::now() - std::chrono::seconds(m_auto_refresh_period * 2);
+    m_last_auto_refresh_time = over_one_period_ago;
 
     check_background_mining();
 
