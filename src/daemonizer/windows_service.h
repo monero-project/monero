@@ -38,8 +38,6 @@
 
 namespace windows
 {
-  bool check_admin(bool & result);
-
   bool ensure_admin(
       std::string const & arguments
     );

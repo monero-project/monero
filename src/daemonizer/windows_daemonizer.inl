@@ -86,29 +86,13 @@ namespace daemonizer
 
   inline boost::filesystem::path get_default_data_dir()
   {
-    bool admin;
-    if (!windows::check_admin(admin))
-    {
-      admin = false;
-    }
-    if (admin)
-    {
-      return boost::filesystem::absolute(
-          tools::get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME
-        );
-    }
-    else
-    {
-      return boost::filesystem::absolute(
-          tools::get_special_folder_path(CSIDL_APPDATA, true) + "\\" + CRYPTONOTE_NAME
-        );
-    }
+    return boost::filesystem::absolute(tools::get_default_data_dir());
   }
 
   inline boost::filesystem::path get_relative_path_base(
-      boost::program_options::variables_map const & vm
-    )
-  {
+    boost::program_options::variables_map const & vm
+  )
+{
     if (command_line::has_arg(vm, arg_is_service))
     {
       if (command_line::has_arg(vm, cryptonote::arg_data_dir))
@@ -146,7 +130,7 @@ namespace daemonizer
     }
     else if (command_line::has_arg(vm, arg_install_service))
     {
-      if (windows::ensure_admin(arguments))
+      if (tools::ensure_admin(arguments))
       {
         arguments += " --run-as-service";
         return windows::install_service(executor.name(), arguments);
@@ -154,21 +138,21 @@ namespace daemonizer
     }
     else if (command_line::has_arg(vm, arg_uninstall_service))
     {
-      if (windows::ensure_admin(arguments))
+      if (tools::ensure_admin(arguments))
       {
         return windows::uninstall_service(executor.name());
       }
     }
     else if (command_line::has_arg(vm, arg_start_service))
     {
-      if (windows::ensure_admin(arguments))
+      if (tools::ensure_admin(arguments))
       {
         return windows::start_service(executor.name());
       }
     }
     else if (command_line::has_arg(vm, arg_stop_service))
     {
-      if (windows::ensure_admin(arguments))
+      if (tools::ensure_admin(arguments))
       {
         return windows::stop_service(executor.name());
       }
