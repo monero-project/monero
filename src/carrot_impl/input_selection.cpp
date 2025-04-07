@@ -105,19 +105,19 @@ static void stable_sort_indices_by_block_index(const epee::span<const CarrotPreS
 //-------------------------------------------------------------------------------------------------------------------
 static std::pair<size_t, boost::multiprecision::int128_t> input_count_for_max_usable_money(
     const epee::span<const CarrotPreSelectedInput> input_candidates,
-    const std::set<size_t> selectable_inputs,
-    const std::map<size_t, boost::multiprecision::int128_t> &required_money_by_input_count)
+    const std::set<size_t> &selectable_inputs,
+    const std::map<size_t, rct::xmr_amount> &fee_by_input_count)
 {
     // Returns (N, X) where the X is the sum of the amounts of the greatest N <= CARROT_MAX_TX_INPUTS
-    // inputs from selectable_inputs, maximizing X - R(N). R(N) is the required money for this
-    // transaction, including fee, for given input count N. This should correctly handle "almost-dust":
-    // inputs which are less than the fee, but greater than or equal to the difference of the fee
-    // compared to excluding that input. If this function returns N == 0, then there aren't enough
-    // usable funds, i.e. no N exists such that X - R(N) > 0.
+    // inputs from selectable_inputs, maximizing X - F(N). F(N) is the fee for this transaction,
+    // given input count N. This should correctly handle "almost-dust": inputs which are less than
+    // the fee, but greater than or equal to the difference of the fee compared to excluding that
+    // input. If this function returns N == 0, then there aren't enough usable funds, i.e. no N
+    // exists such that X - F(N) > 0.
 
     size_t num_ins = 0;
     boost::multiprecision::int128_t cumulative_input_sum = 0;
-    boost::multiprecision::int128_t last_required_money = 0;
+    rct::xmr_amount last_fee = 0;
 
     std::vector<size_t> selectable_inputs_vec(selectable_inputs.cbegin(), selectable_inputs.cend());
     stable_sort_indices_by_amount(input_candidates, selectable_inputs_vec);
@@ -125,13 +125,14 @@ static std::pair<size_t, boost::multiprecision::int128_t> input_count_for_max_us
     // for selectable indices in descending amount...
     for (auto it = selectable_inputs_vec.crbegin(); it != selectable_inputs_vec.crend(); ++it)
     {
-        ++num_ins;
-        if (num_ins > CARROT_MAX_TX_INPUTS)
+        if (num_ins == CARROT_MAX_TX_INPUTS)
             break;
+
+        ++num_ins;
 
         const rct::xmr_amount amount = input_candidates[*it].core.amount;
 
-        if (amount < required_money_by_input_count.at(num_ins) - last_required_money)
+        if (amount < fee_by_input_count.at(num_ins) - last_fee)
         {
             // then this input doesn't pay for itself, rollback previous state and break
             // since all next inputs will have same amount or less
@@ -140,6 +141,7 @@ static std::pair<size_t, boost::multiprecision::int128_t> input_count_for_max_us
         }
 
         cumulative_input_sum += amount;
+        last_fee = fee_by_input_count.at(num_ins);
     }
 
     return {num_ins, cumulative_input_sum};
@@ -256,8 +258,9 @@ select_inputs_func_t make_single_transfer_input_selector(
             // Return early if not enough money in this selectable set...
             const auto max_usable_money = input_count_for_max_usable_money(input_candidates,
                     selectable_indices,
-                    required_money_by_input_count);
-            const bool enough_money = max_usable_money.first > 0;
+                    fee_by_input_count);
+            const bool enough_money = max_usable_money.first > 0
+                && max_usable_money.second >= required_money_by_input_count.at(max_usable_money.first);
             if (!enough_money)
                 return;
 
