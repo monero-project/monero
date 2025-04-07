@@ -30,47 +30,19 @@
 
 #pragma once
 
-#include "string_tools.h"
+#include <boost/container/static_vector.hpp>
 
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/difficulty.h"
 #include "crypto/hash.h"
+#include "net/jsonrpc_structs.h"
 #include "rpc/rpc_handler.h"
-#include "common/varint.h"
-#include "common/perf_timer.h"
-
-namespace
-{
-  template<typename T>
-  std::string compress_integer_array(const std::vector<T> &v)
-  {
-    std::string s;
-    s.resize(v.size() * (sizeof(T) * 8 / 7 + 1));
-    char *ptr = (char*)s.data();
-    for (const T &t: v)
-      tools::write_varint(ptr, t);
-    s.resize(ptr - s.data());
-    return s;
-  }
-
-  template<typename T>
-  std::vector<T> decompress_integer_array(const std::string &s)
-  {
-    std::vector<T> v;
-    v.reserve(s.size());
-    int read = 0;
-    const std::string::const_iterator end = s.end();
-    for (std::string::const_iterator i = s.begin(); i != end; std::advance(i, read))
-    {
-      T t;
-      read = tools::read_varint(std::string::const_iterator(i), s.end(), t);
-      CHECK_AND_ASSERT_THROW_MES(read > 0 && read <= 256, "Error decompressing data");
-      v.push_back(t);
-    }
-    return v;
-  }
-}
+#include "serialization/keyvalue_serialization.h"
+#include "serialization/wire/epee/base.h"
+#include "serialization/wire/json/base.h"
+#include "serialization/wire/traits.h"
+#include "string_tools.h"
 
 namespace cryptonote
 {
@@ -105,6 +77,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
+  using max_peers = wire::max_element_count<1024>;
+  using max_spans = wire::max_element_count<4096>;
+
   struct rpc_request_base
   {
     BEGIN_KV_SERIALIZE_MAP()
@@ -130,7 +105,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE_PARENT(rpc_request_base)
-      KV_SERIALIZE(client)
+      KV_SERIALIZE_OPT(client, "")
     END_KV_SERIALIZE_MAP()
   };
 
@@ -171,6 +146,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_HEIGHT);
 
   struct COMMAND_RPC_GET_BLOCKS_FAST
   {
@@ -209,6 +185,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct tx_output_indices
     {
+      // Every tx has at least one output
+      using min_epee_size = wire::min_element_sizeof<uint64_t>;
+ 
       std::vector<uint64_t> indices;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -221,7 +200,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<tx_output_indices> indices;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(indices)
+        KV_SERIALIZE(indices) // use trait below to enforce epee only
       END_KV_SERIALIZE_MAP()
     };
 
@@ -247,6 +226,11 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct response_t: public rpc_access_response_base
     {
+      using max_blocks =
+	wire::max_element_count<COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT>;
+      using min_pool_tx_info =
+	wire::min_element_sizeof<crypto::hash>;
+
       std::vector<block_complete_entry> blocks;
       uint64_t    start_height;
       uint64_t    current_height;
@@ -260,26 +244,20 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(blocks)
+        KV_SERIALIZE_ARRAY(blocks, max_blocks)
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(current_height)
         KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(top_block_hash, crypto::null_hash)
-        KV_SERIALIZE(output_indices)
+        KV_SERIALIZE_ARRAY(output_indices, max_blocks)
         KV_SERIALIZE_OPT(daemon_time, (uint64_t) 0)
         KV_SERIALIZE_OPT(pool_info_extent, (uint8_t) 0)
-        if (pool_info_extent != POOL_INFO_EXTENT::NONE)
-        {
-          KV_SERIALIZE(added_pool_txs)
-          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(remaining_added_pool_txids)
-        }
-        if (pool_info_extent == POOL_INFO_EXTENT::INCREMENTAL)
-        {
-          KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
-        }
+        KV_SERIALIZE_ARRAY(added_pool_txs, min_pool_tx_info) // optional if empty
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids) // optional if empty
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_RPC_GET_BLOCKS_FAST);
 
   struct COMMAND_RPC_GET_BLOCKS_BY_HEIGHT
   {
@@ -296,14 +274,14 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     struct response_t: public rpc_access_response_base
     {
       std::vector<block_complete_entry> blocks;
-
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(blocks)
+        KV_SERIALIZE_ARRAY(blocks, block_blob_min)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_RPC_GET_BLOCKS_BY_HEIGHT);
 
     struct COMMAND_RPC_GET_ALT_BLOCKS_HASHES
     {
@@ -320,12 +298,14 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
             std::vector<std::string> blks_hashes;
 
             BEGIN_KV_SERIALIZE_MAP()
-                KV_SERIALIZE_PARENT(rpc_access_response_base)
-                KV_SERIALIZE(blks_hashes)
+              KV_SERIALIZE_PARENT(rpc_access_response_base)
+              KV_SERIALIZE_ARRAY(blks_hashes, wire::min_element_sizeof<crypto::hash>)
             END_KV_SERIALIZE_MAP()
         };
         typedef epee::misc_utils::struct_init<response_t> response;
     };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_ALT_BLOCKS_HASHES);
+  
   struct COMMAND_RPC_GET_HASHES_FAST
   {
 
@@ -356,6 +336,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_RPC_GET_HASHES_FAST);
   //-----------------------------------------------
   struct COMMAND_RPC_SUBMIT_RAW_TX
   {
@@ -386,6 +367,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       };
       typedef epee::misc_utils::struct_init<response_t> response;
   };
+  std::error_code convert_to_json(std::string&, const COMMAND_RPC_SUBMIT_RAW_TX::request&);
+  std::error_code convert_from_json(epee::span<const char>, COMMAND_RPC_SUBMIT_RAW_TX::response&);
   //-----------------------------------------------
   struct COMMAND_RPC_GET_TRANSACTIONS
   {
@@ -398,7 +381,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(txs_hashes)
+        KV_SERIALIZE_ARRAY(txs_hashes, wire::min_element_sizeof<crypto::hash>)
         KV_SERIALIZE(decode_as_json)
         KV_SERIALIZE_OPT(prune, false)
         KV_SERIALIZE_OPT(split, false)
@@ -408,6 +391,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct entry
     {
+      using min_wire_size =
+	wire::min_element_size<sizeof(crypto::hash) * 2 + tx_blob_min()>;
+
       std::string tx_hash;
       std::string as_hex;
       std::string pruned_as_hex;
@@ -422,33 +408,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t received_timestamp;
       std::vector<uint64_t> output_indices;
       bool relayed;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(tx_hash)
-        KV_SERIALIZE(as_hex)
-        KV_SERIALIZE(pruned_as_hex)
-        KV_SERIALIZE(prunable_as_hex)
-        KV_SERIALIZE(prunable_hash)
-        KV_SERIALIZE(as_json)
-        KV_SERIALIZE(in_pool)
-        KV_SERIALIZE(double_spend_seen)
-        if (!this_ref.in_pool)
-        {
-          KV_SERIALIZE(block_height)
-          KV_SERIALIZE(confirmations)
-          KV_SERIALIZE(block_timestamp)
-          KV_SERIALIZE(output_indices)
-        }
-        else
-        {
-          KV_SERIALIZE(relayed)
-          KV_SERIALIZE(received_timestamp)
-        }
-      END_KV_SERIALIZE_MAP()
     };
 
     struct response_t: public rpc_access_response_base
     {
+      using max_count = wire::max_element_count<1024>;
+
       // older compatibility stuff
       std::vector<std::string> txs_as_hex;  //transactions blobs as hex (old compat)
       std::vector<std::string> txs_as_json; //transactions decoded as json (old compat)
@@ -461,18 +426,22 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(txs_as_hex)
-        KV_SERIALIZE(txs_as_json)
-        KV_SERIALIZE(txs)
-        KV_SERIALIZE(missed_tx)
+        KV_SERIALIZE_ARRAY(txs_as_hex, max_count)
+        KV_SERIALIZE_ARRAY(txs_as_json, max_count)
+        KV_SERIALIZE_ARRAY(txs, entry::min_wire_size)
+        KV_SERIALIZE_ARRAY(missed_tx, wire::min_element_sizeof<crypto::hash>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_OBJECT(COMMAND_RPC_GET_TRANSACTIONS::entry);
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_TRANSACTIONS);
 
   //-----------------------------------------------
   struct COMMAND_RPC_IS_KEY_IMAGE_SPENT
   {
+    using max_request_size = wire::max_element_count<4096>;
+    
     enum STATUS {
       UNSPENT = 0,
       SPENT_IN_BLOCKCHAIN = 1,
@@ -485,7 +454,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(key_images)
+        KV_SERIALIZE_ARRAY(key_images, max_request_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -497,11 +466,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(spent_status)
+        KV_SERIALIZE_ARRAY(spent_status, max_request_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_IS_KEY_IMAGE_SPENT);
 
   //-----------------------------------------------
   struct COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES
@@ -528,9 +498,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES);
   //-----------------------------------------------
   struct get_outputs_out
   {
+    using min_epee_size = wire::min_element_sizeof<uint64_t, uint64_t>;
+    
     uint64_t amount;
     uint64_t index;
 
@@ -549,7 +522,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(outputs)
+        KV_SERIALIZE(outputs) // use trait below to enforce epee only
         KV_SERIALIZE_OPT(get_txid, true)
       END_KV_SERIALIZE_MAP()
     };
@@ -557,6 +530,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct outkey
     {
+      using min_wire_size =
+	wire::min_element_sizeof<crypto::public_key, rct::key, crypto::hash>;
+
       crypto::public_key key;
       rct::key mask;
       bool unlocked;
@@ -578,11 +554,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(outs)
+        KV_SERIALIZE_ARRAY(outs, outkey::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_RPC_GET_OUTPUTS_BIN);
   //-----------------------------------------------
   struct COMMAND_RPC_GET_OUTPUTS
   {
@@ -593,7 +570,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(outputs)
+        KV_SERIALIZE_ARRAY(outputs, wire::max_element_count<4096>)
         KV_SERIALIZE(get_txid)
       END_KV_SERIALIZE_MAP()
     };
@@ -601,6 +578,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct outkey
     {
+      using min_wire_size =
+	wire::min_element_sizeof<crypto::public_key, rct::key, crypto::hash>;
+      
       std::string key;
       std::string mask;
       bool unlocked;
@@ -622,11 +602,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(outs)
+        KV_SERIALIZE_ARRAY(outs, outkey::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_OUTPUTS);
   //-----------------------------------------------
   struct COMMAND_RPC_SEND_RAW_TX
   {
@@ -681,6 +662,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SEND_RAW_TX);
   //-----------------------------------------------
   struct COMMAND_RPC_START_MINING
   {
@@ -709,6 +691,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_START_MINING);
   //-----------------------------------------------
   struct COMMAND_RPC_GET_INFO
   {
@@ -807,7 +790,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
-
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_INFO);
     
   //-----------------------------------------------
   struct COMMAND_RPC_GET_NET_STATS
@@ -840,6 +823,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_NET_STATS);
 
   //-----------------------------------------------
   struct COMMAND_RPC_STOP_MINING
@@ -861,6 +845,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_STOP_MINING);
 
   //-----------------------------------------------
   struct COMMAND_RPC_MINING_STATUS
@@ -913,6 +898,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_MINING_STATUS);
 
   //-----------------------------------------------
   struct COMMAND_RPC_SAVE_BC
@@ -934,11 +920,11 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SAVE_BC);
   
-  //
   struct COMMAND_RPC_GETBLOCKCOUNT
   {
-    typedef std::list<std::string> request;
+    typedef boost::container::static_vector<uint64_t, 1> request;
 
     struct response_t: public rpc_response_base
     {
@@ -954,11 +940,10 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
   struct COMMAND_RPC_GETBLOCKHASH
   {
-    typedef std::vector<uint64_t> request;
+    typedef boost::container::static_vector<uint64_t, 1> request;
 
     typedef std::string response;
   };
-
 
   struct COMMAND_RPC_GETBLOCKTEMPLATE
   {
@@ -1037,6 +1022,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       struct tx_backlog_entry
       {
+	using min_wire_size =
+	  wire::min_element_sizeof<crypto::hash>;
+
         std::string id;
         uint64_t weight;
         uint64_t fee;
@@ -1059,7 +1047,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(median_weight)
         KV_SERIALIZE(already_generated_coins)
-        KV_SERIALIZE(tx_backlog)
+        KV_SERIALIZE_ARRAY(tx_backlog, tx_backlog_entry::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1091,6 +1079,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
   {
     struct aux_pow_t
     {
+      using min_wire_size = wire::min_element_sizeof<crypto::hash>;
+
       std::string id;
       std::string hash;
 
@@ -1108,7 +1098,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
         KV_SERIALIZE(blocktemplate_blob)
-        KV_SERIALIZE(aux_pow)
+        KV_SERIALIZE_ARRAY(aux_pow, aux_pow_t::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1127,7 +1117,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(blockhashing_blob)
         KV_SERIALIZE(merkle_root)
         KV_SERIALIZE(merkle_tree_depth)
-        KV_SERIALIZE(aux_pow)
+        KV_SERIALIZE_ARRAY(aux_pow, aux_pow_t::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1135,7 +1125,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
   struct COMMAND_RPC_SUBMITBLOCK
   {
-    typedef std::vector<std::string> request;
+    typedef boost::container::static_vector<std::string, 1> request;
     
     struct response_t: public rpc_response_base
     {
@@ -1176,7 +1166,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
         KV_SERIALIZE(height)
-        KV_SERIALIZE(blocks)
+        KV_SERIALIZE_ARRAY(blocks, wire::min_element_sizeof<crypto::hash>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1184,6 +1174,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
   
   struct block_header_response
   {
+    using min_wire_size =
+      wire::min_element_size<sizeof(crypto::hash) * 4>;
+
       uint8_t major_version;
       uint8_t minor_version;
       uint64_t timestamp;
@@ -1232,6 +1225,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(miner_tx_hash)
       END_KV_SERIALIZE_MAP()
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GENERATEBLOCKS);
 
   struct COMMAND_RPC_GET_LAST_BLOCK_HEADER
   {
@@ -1270,7 +1264,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE(hash)
-        KV_SERIALIZE(hashes)
+        KV_SERIALIZE_ARRAY(hashes, wire::min_element_sizeof<crypto::hash>)
         KV_SERIALIZE_OPT(fill_pow_hash, false)
       END_KV_SERIALIZE_MAP()
     };
@@ -1284,7 +1278,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(block_header)
-        KV_SERIALIZE(block_headers)
+        KV_SERIALIZE_ARRAY(block_headers, block_header_response::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1346,7 +1340,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(block_header)
         KV_SERIALIZE(miner_tx_hash)
-        KV_SERIALIZE(tx_hashes)
+        KV_SERIALIZE_ARRAY(tx_hashes, wire::min_element_sizeof<crypto::hash>)
         KV_SERIALIZE(blob)
         KV_SERIALIZE(json)
       END_KV_SERIALIZE_MAP()
@@ -1390,6 +1384,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
   struct COMMAND_RPC_GET_PEER_LIST
   {
+    using max_peer_list = wire::max_element_count<4096>;
+
     struct request_t: public rpc_request_base
     {
       bool public_only;
@@ -1410,12 +1406,13 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(white_list)
-        KV_SERIALIZE(gray_list)
+        KV_SERIALIZE_ARRAY(white_list, max_peer_list)
+        KV_SERIALIZE_ARRAY(gray_list, max_peer_list)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_PEER_LIST);
 
   struct public_node
   {
@@ -1457,17 +1454,20 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct response_t: public rpc_response_base
     {
+      using max_node_list = wire::max_element_count<8192>;
+
       std::vector<public_node> gray;
       std::vector<public_node> white;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(gray)
-        KV_SERIALIZE(white)
+        KV_SERIALIZE_ARRAY(gray, max_node_list)
+        KV_SERIALIZE_ARRAY(white, max_node_list)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_PUBLIC_NODES);
 
   struct COMMAND_RPC_SET_LOG_HASH_RATE
   {
@@ -1490,6 +1490,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SET_LOG_HASH_RATE);
 
   struct COMMAND_RPC_SET_LOG_LEVEL
   {
@@ -1512,6 +1513,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SET_LOG_LEVEL);
 
   struct COMMAND_RPC_SET_LOG_CATEGORIES
   {
@@ -1537,9 +1539,13 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SET_LOG_CATEGORIES);
 
   struct tx_info
   {
+    using min_wire_size =
+      wire::min_element_size<sizeof(crypto::hash) + tx_blob_min()>;
+    
     std::string id_hash;
     std::string tx_json; // TODO - expose this data directly
     uint64_t blob_size;
@@ -1579,12 +1585,14 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
   struct spent_key_image_info
   {
+    using min_wire_size = wire::min_element_sizeof<crypto::hash>;
+
     std::string id_hash;
     std::vector<std::string> txs_hashes;
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(id_hash)
-      KV_SERIALIZE(txs_hashes)
+      KV_SERIALIZE_ARRAY(txs_hashes, wire::min_element_sizeof<crypto::hash>)
     END_KV_SERIALIZE_MAP()
   };
 
@@ -1605,12 +1613,13 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(transactions)
-        KV_SERIALIZE(spent_key_images)
+        KV_SERIALIZE_ARRAY(transactions, tx_info::min_wire_size)
+        KV_SERIALIZE_ARRAY(spent_key_images, spent_key_image_info::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_TRANSACTION_POOL);
 
   struct COMMAND_RPC_GET_TRANSACTION_POOL_HASHES_BIN
   {
@@ -1633,6 +1642,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_TRANSACTION_POOL_HASHES_BIN);
 
   struct COMMAND_RPC_GET_TRANSACTION_POOL_HASHES
   {
@@ -1650,11 +1660,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(tx_hashes)
+        KV_SERIALIZE_ARRAY(tx_hashes, wire::min_element_sizeof<crypto::hash>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_TRANSACTION_POOL_HASHES);
 
   struct tx_backlog_entry
   {
@@ -1679,7 +1690,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(backlog)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(backlog) //!< Not big endian safe
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1726,7 +1737,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       KV_SERIALIZE(num_10m)
       KV_SERIALIZE(num_not_relayed)
       KV_SERIALIZE(histo_98pc)
-      KV_SERIALIZE(histo)
+      KV_SERIALIZE_ARRAY(histo, wire::max_element_count<8192>)
       KV_SERIALIZE(num_double_spends)
     END_KV_SERIALIZE_MAP()
   };
@@ -1752,6 +1763,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_TRANSACTION_POOL_STATS);
 
   struct COMMAND_RPC_GET_CONNECTIONS
   {
@@ -1769,7 +1781,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(connections)
+        KV_SERIALIZE_ARRAY(connections, max_peers)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1798,7 +1810,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(headers)
+        KV_SERIALIZE_ARRAY(headers, block_header_response::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1832,6 +1844,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SET_BOOTSTRAP_DAEMON);
 
   struct COMMAND_RPC_STOP_DAEMON
   {
@@ -1851,6 +1864,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_STOP_DAEMON);
   
   struct COMMAND_RPC_GET_LIMIT
   {
@@ -1875,6 +1889,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_GET_LIMIT);
   
   struct COMMAND_RPC_SET_LIMIT
   {
@@ -1902,8 +1917,10 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(limit_down)
       END_KV_SERIALIZE_MAP()
     };
+    
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_SET_LIMIT);
   
   struct COMMAND_RPC_OUT_PEERS
   {
@@ -1931,6 +1948,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_OUT_PEERS);
 
   struct COMMAND_RPC_IN_PEERS
   {
@@ -1957,7 +1975,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
-    
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_IN_PEERS);
+
   struct COMMAND_RPC_HARD_FORK_INFO
   {
     struct request_t: public rpc_access_request_base
@@ -2026,7 +2045,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(bans)
+        KV_SERIALIZE_ARRAY(bans, wire::max_element_count<8192>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2055,7 +2074,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
-        KV_SERIALIZE(bans)
+        KV_SERIALIZE_ARRAY(bans, wire::max_element_count<8192>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2104,7 +2123,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_request_base)
-        KV_SERIALIZE(txids)
+        KV_SERIALIZE_ARRAY(txids, wire::min_element_sizeof<crypto::hash>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2120,6 +2139,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
   struct COMMAND_RPC_GET_OUTPUT_HISTOGRAM
   {
+    using max_amounts = wire::max_element_count<8192>;
+
     struct request_t: public rpc_access_request_base
     {
       std::vector<uint64_t> amounts;
@@ -2130,7 +2151,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(amounts)
+        KV_SERIALIZE_ARRAY(amounts, max_amounts)
         KV_SERIALIZE(min_count)
         KV_SERIALIZE(max_count)
         KV_SERIALIZE(unlocked)
@@ -2164,7 +2185,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(histogram)
+        KV_SERIALIZE_ARRAY(histogram, max_amounts)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2195,6 +2216,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct response_t: public rpc_response_base
     {
+      using max_forks = wire::max_element_count<2048>;
+
       uint32_t version;
       bool release;
       uint64_t current_height;
@@ -2207,7 +2230,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(release)
         KV_SERIALIZE_OPT(current_height, (uint64_t)0)
         KV_SERIALIZE_OPT(target_height, (uint64_t)0)
-        KV_SERIALIZE_OPT(hard_forks, std::vector<hf_entry>())
+        KV_SERIALIZE_ARRAY(hard_forks, max_forks)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2273,7 +2296,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_PARENT(rpc_access_response_base)
         KV_SERIALIZE(fee)
         KV_SERIALIZE_OPT(quantization_mask, (uint64_t)1)
-        KV_SERIALIZE(fees)
+        KV_SERIALIZE_ARRAY(fees, wire::max_element_count<16384>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2291,6 +2314,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct chain_info
     {
+      using min_wire_size = wire::min_element_sizeof<crypto::hash, crypto::hash>;
+
       std::string block_hash;
       uint64_t height;
       uint64_t length;
@@ -2307,7 +2332,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(difficulty)
         KV_SERIALIZE(wide_difficulty)
         KV_SERIALIZE(difficulty_top64)
-        KV_SERIALIZE(block_hashes)
+        KV_SERIALIZE_ARRAY(block_hashes, wire::min_element_sizeof<crypto::hash>)
         KV_SERIALIZE(main_chain_parent_block)
       END_KV_SERIALIZE_MAP()
     };
@@ -2318,7 +2343,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(chains)
+        KV_SERIALIZE_ARRAY(chains, chain_info::min_wire_size)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2360,6 +2385,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_UPDATE);
 
   struct COMMAND_RPC_RELAY_TX
   {
@@ -2369,7 +2395,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(txids)
+        KV_SERIALIZE_ARRAY(txids, wire::min_element_sizeof<crypto::hash>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2437,8 +2463,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(height)
         KV_SERIALIZE(target_height)
         KV_SERIALIZE(next_needed_pruning_seed)
-        KV_SERIALIZE(peers)
-        KV_SERIALIZE(spans)
+        KV_SERIALIZE_ARRAY(peers, max_peers)
+        KV_SERIALIZE_ARRAY(spans, max_spans)
         KV_SERIALIZE(overview)
       END_KV_SERIALIZE_MAP()
     };
@@ -2447,6 +2473,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
   struct COMMAND_RPC_GET_OUTPUT_DISTRIBUTION
   {
+    using max_distributions = wire::max_element_count<1024>;
+
     struct request_t: public rpc_access_request_base
     {
       std::vector<uint64_t> amounts;
@@ -2458,7 +2486,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(amounts)
+        KV_SERIALIZE_ARRAY(amounts, max_distributions)
         KV_SERIALIZE_OPT(from_height, (uint64_t)0)
         KV_SERIALIZE_OPT(to_height, (uint64_t)0)
         KV_SERIALIZE_OPT(cumulative, false)
@@ -2475,39 +2503,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::string compressed_data;
       bool binary;
       bool compress;
-
-      BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(amount)
-        KV_SERIALIZE_N(data.start_height, "start_height")
-        KV_SERIALIZE(binary)
-        KV_SERIALIZE(compress)
-        if (this_ref.binary)
-        {
-          if (is_store)
-          {
-            if (this_ref.compress)
-            {
-              const_cast<std::string&>(this_ref.compressed_data) = compress_integer_array(this_ref.data.distribution);
-              KV_SERIALIZE(compressed_data)
-            }
-            else
-              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
-          }
-          else
-          {
-            if (this_ref.compress)
-            {
-              KV_SERIALIZE(compressed_data)
-              const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = decompress_integer_array<uint64_t>(this_ref.compressed_data);
-            }
-            else
-              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
-          }
-        }
-        else
-          KV_SERIALIZE_N(data.distribution, "distribution")
-        KV_SERIALIZE_N(data.base, "base")
-      END_KV_SERIALIZE_MAP()
     };
 
     struct response_t: public rpc_access_response_base
@@ -2516,11 +2511,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE(distributions)
+        KV_SERIALIZE_ARRAY(distributions, max_distributions)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_EPEE_DECLARE_COMMAND(COMMAND_RPC_GET_OUTPUT_DISTRIBUTION);
 
   struct COMMAND_RPC_ACCESS_INFO
   {
@@ -2640,7 +2636,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(data)
+        KV_SERIALIZE_ARRAY(data, wire::max_element_count<8192>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -2688,7 +2684,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(entries)
+        KV_SERIALIZE_ARRAY(entries, wire::max_element_count<4096>)
         KV_SERIALIZE(hashrate)
       END_KV_SERIALIZE_MAP()
     };
@@ -2746,6 +2742,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
+  WIRE_JSON_DECLARE_COMMAND(COMMAND_RPC_POP_BLOCKS);
 
   struct COMMAND_RPC_PRUNE_BLOCKCHAIN
   {
@@ -2817,10 +2814,95 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
-        KV_SERIALIZE(txids)
+        KV_SERIALIZE_ARRAY(txids, wire::min_element_sizeof<crypto::hash>)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-}
+} // cryptonote
+
+namespace wire
+{
+  // these endpoints are permitted to have an empty read buffer
+
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_HEIGHT::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_INFO::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_NET_STATS::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_STOP_MINING::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_STOP_MINING::response);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_MINING_STATUS::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_SAVE_BC::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_SAVE_BC::response);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GETMINERDATA::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_SET_LOG_HASH_RATE::response);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_SET_LOG_LEVEL::response);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_HASHES_BIN::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_HASHES::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_STATS::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_CONNECTIONS::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_STOP_DAEMON::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_STOP_DAEMON::response);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_LIMIT::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GETBANS::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS::request);
+  WIRE_DECLARE_OPTIONAL_ROOT(cryptonote::COMMAND_RPC_ACCESS_INFO::request);
+
+
+  // array reading defaults for `epee_reader` only !
+
+  using tx_output_indices = cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices;
+  
+  template<>
+  struct default_min_element_size<epee_reader, cryptonote::get_outputs_out>
+    : cryptonote::get_outputs_out::min_epee_size
+  {};
+
+  template<>
+  struct default_min_element_size<epee_reader, tx_output_indices>
+    : tx_output_indices::min_epee_size
+  {};
+} // wire
+
+namespace epee { namespace json_rpc
+{
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GETBLOCKCOUNT);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_INFO);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GETBLOCKHASH);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GETBLOCKTEMPLATE);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GETMINERDATA);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_CALCPOW);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ADD_AUX_POW);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_SUBMITBLOCK);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GENERATEBLOCKS);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HASH);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_BLOCK_HEADER_BY_HEIGHT);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_BLOCK);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_HARD_FORK_INFO);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GETBANS);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_SETBANS);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_BANNED);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_TRANSACTION_POOL_BACKLOG);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_CONNECTIONS);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_VERSION);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_COINBASE_TX_SUM);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_BASE_FEE_ESTIMATE);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_ALTERNATE_CHAINS);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_RELAY_TX);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_SYNC_INFO);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_OUTPUT_DISTRIBUTION);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ACCESS_INFO);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ACCESS_SUBMIT_NONCE);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ACCESS_PAY);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ACCESS_TRACKING);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ACCESS_DATA);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_ACCESS_ACCOUNT);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_PRUNE_BLOCKCHAIN);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_FLUSH_CACHE);
+  EPEE_JSONRPC_DECLARE(cryptonote::COMMAND_RPC_GET_TXIDS_LOOSE);
+}} // epee // json_rpc
