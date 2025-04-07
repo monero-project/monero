@@ -294,7 +294,7 @@ public:
             c2_layers.clear();
         }
 
-        bool empty() { return leaves.empty() && c1_layers.empty() && c2_layers.empty(); }
+        bool empty() const { return leaves.empty() && c1_layers.empty() && c2_layers.empty(); }
     };
 
     // A path ready to be used to construct an FCMP++ proof

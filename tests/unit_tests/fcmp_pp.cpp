@@ -412,7 +412,7 @@ TEST(fcmp_pp, membership_completeness)
         std::set<size_t> selected_indices;
         std::vector<FcmpInputCompressed> fcmp_raw_inputs;
         fcmp_raw_inputs.reserve(num_inputs);
-        std::vector<const uint8_t*> fcmp_provable_inputs;
+        std::vector<uint8_t*> fcmp_provable_inputs;
         fcmp_provable_inputs.reserve(num_inputs);
         while (selected_indices.size() < num_inputs)
         {
@@ -544,8 +544,8 @@ TEST(fcmp_pp, membership_completeness)
         EXPECT_TRUE(fcmp_pp::verify_membership(proof, n_layers, global_tree.get_tree_root(), fcmp_raw_inputs));
 
         // Dealloc
-        for (const uint8_t *input : fcmp_provable_inputs)
-            free(const_cast<uint8_t*>(input));
+        for (uint8_t *input : fcmp_provable_inputs)
+            free(input);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

@@ -91,7 +91,7 @@ struct ProofParams final
 
 struct FcmpVerifyHelperData final
 {
-    uint8_t *tree_root;
+    const uint8_t *tree_root; // borrowing, *not* owning
     std::vector<crypto::key_image> key_images;
 };
 //----------------------------------------------------------------------------------------------------------------------

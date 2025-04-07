@@ -416,8 +416,8 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
 
     // Generate bulletproof+
     LOG_PRINT_L1("Generating Bulletproof+");
-    tx.rct_signatures.p.bulletproofs_plus.push_back(rct::bulletproof_plus_PROVE(output_amounts, output_amount_blinding_factors));
-    ASSERT_EQ(n_outputs, tx.rct_signatures.p.bulletproofs_plus.at(0).V.size());
+    rct::BulletproofPlus bpp = rct::bulletproof_plus_PROVE(output_amounts, output_amount_blinding_factors);
+    ASSERT_EQ(n_outputs, bpp.V.size());
 
     // expand tx and calculate signable tx hash
     LOG_PRINT_L1("Calculating signable tx hash");
@@ -529,7 +529,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
 
     // Make FCMP membership proof
     LOG_PRINT_L1("Generating FCMP++ membership proofs");
-    std::vector<const uint8_t*> fcmp_proof_inputs_rust;
+    std::vector<uint8_t*> fcmp_proof_inputs_rust;
     for (size_t i = 0; i < n_inputs; ++i)
     {
         fcmp_pp::ProofInput &proof_input = fcmp_proof_inputs.at(i);
@@ -550,13 +550,13 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         n_tree_layers);
 
     // Dealloc FCMP proof inputs
-    for (const uint8_t *proof_input : fcmp_proof_inputs_rust)
-      free(const_cast<uint8_t*>(proof_input));
+    for (uint8_t *proof_input : fcmp_proof_inputs_rust)
+      free(proof_input);
 
     // Attach rctSigPrunable to tx
     LOG_PRINT_L1("Storing rctSig prunable");
     const std::uint64_t fcmp_block_reference_index = mock::gen_block_index();
-    tx.rct_signatures.p = store_fcmp_proofs_to_rct_prunable_v1(std::move(tx.rct_signatures.p.bulletproofs_plus),
+    tx.rct_signatures.p = store_fcmp_proofs_to_rct_prunable_v1(std::move(bpp),
         rerandomized_outputs,
         sal_proofs,
         membership_proof,

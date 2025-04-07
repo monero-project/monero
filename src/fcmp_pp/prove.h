@@ -111,7 +111,7 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
     const crypto::secret_key &y,
     const FcmpRerandomizedOutputCompressed &rerandomized_output);
 
-FcmpMembershipProof prove_membership(const std::vector<const uint8_t *> &fcmp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<uint8_t *> &fcmp_prove_inputs,
     const std::size_t n_tree_layers);
 
 uint8_t *fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
