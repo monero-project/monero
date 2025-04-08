@@ -49,6 +49,7 @@
 #include "common/pruning.h"
 #include "common/util.h"
 #include "misc_log_ex.h"
+#include "scope_guard.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -1494,7 +1495,7 @@ namespace cryptonote
           }
 
           bool stopped = false;
-          auto cleanup_on_exit = epee::misc_utils::create_scope_leave_handler([this, &stopped, &context, span_connection_id, start_height]() {
+          epee::unique_scope_guard cleanup_on_exit = [this, &stopped, &context, span_connection_id, start_height]() {
             if (!m_core.cleanup_handle_incoming_blocks())
             {
               LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
@@ -1505,7 +1506,7 @@ namespace cryptonote
               return;
 
             m_block_queue.remove_spans(span_connection_id, start_height);
-          });
+          };
 
           uint64_t block_process_time_full = 0, transactions_process_time_full = 0;
           size_t num_txs = 0, blockidx = 0;
