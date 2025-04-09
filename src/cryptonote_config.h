@@ -212,7 +212,7 @@
 #define FCMP_PLUS_PLUS_MAX_OUTPUTS              8
 
 // Restricting n layers keeps the proof_len table size very small and portable
-// 12 layers means the tree can support over 200 quadrillion outputs
+// 12 layers means the tree can support over 100 quadrillion outputs
 #define FCMP_PLUS_PLUS_MAX_LAYERS               12
 
 #define CRYPTONOTE_PRUNING_STRIPE_SIZE          4096 // the smaller, the smoother the increase
