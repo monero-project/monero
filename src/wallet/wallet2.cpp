@@ -2471,9 +2471,10 @@ void wallet2::process_new_scanned_transaction(
       MWARNING("Found OBSOLETE AND IGNORED unencrypted payment ID: these are bad for privacy, "
         << "use subaddresses or encrypted payment IDs instead");
     }
-    else
+    else if (enote_scan_info->payment_id != payment_id)
     {
       payment_id = enote_scan_info->payment_id;
+      MDEBUG("Found payment ID " << payment_id << " in TX " << txid);
     }
 
     notify = true;

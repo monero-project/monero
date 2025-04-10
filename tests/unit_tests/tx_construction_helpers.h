@@ -81,6 +81,7 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
     std::vector<stripped_down_tx_source_entry_t> &&stripped_sources,
     std::vector<cryptonote::tx_destination_entry> &destinations,
     const boost::optional<cryptonote::account_public_address> &change_addr,
+    const crypto::hash &payment_id,
     const rct::xmr_amount fee,
     const uint8_t hf_version,
     crypto::secret_key &main_tx_privkey_out,

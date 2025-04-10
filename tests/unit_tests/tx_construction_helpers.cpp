@@ -35,6 +35,7 @@
 #include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_impl/carrot_tx_format_utils.h"
 #include "crypto/generators.h"
+#include "wallet/scanning_tools.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.tx_construction_helpers"
@@ -200,6 +201,7 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
     std::vector<stripped_down_tx_source_entry_t> &&stripped_sources,
     std::vector<cryptonote::tx_destination_entry> &destinations,
     const boost::optional<cryptonote::account_public_address> &change_addr,
+    const crypto::hash &payment_id,
     const rct::xmr_amount fee,
     const uint8_t hf_version,
     crypto::secret_key &main_tx_privkey_out,
@@ -301,6 +303,36 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
     // construct tx
     cryptonote::transaction tx;
 
+    // count integrated addresses and check <= 1
+    size_t num_integrated = 0;
+    for (const cryptonote::tx_destination_entry &dst : destinations)
+        num_integrated += dst.is_integrated;
+    CHECK_AND_ASSERT_THROW_MES(num_integrated <= 1, "max 1 integrated address allowed");
+
+    // make put unencrypted payment_id in tx_extra
+    std::vector<uint8_t> extra;
+    if (payment_id != crypto::null_hash)
+    {
+        const bool is_long_payment_id = tools::wallet::is_long_payment_id(payment_id);
+        if (!is_long_payment_id && !num_integrated)
+            MWARNING("Short payment ID provided but no destination marked as integrated");
+
+        cryptonote::tx_extra_nonce extra_nonce;
+        if (is_long_payment_id)
+        {
+            cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce.nonce, payment_id);
+        }
+        else // !is_long_payment_id
+        {
+            crypto::hash8 pid_8;
+            memcpy(&pid_8, &payment_id, sizeof(pid_8));
+            cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce.nonce, pid_8);
+        }
+
+        CHECK_AND_ASSERT_THROW_MES(cryptonote::add_extra_nonce_to_tx_extra(extra, extra_nonce.nonce),
+            "failed to add nonce to tx_extra");
+    }
+
     fcmp_pp::ProofParams dummy_fcmp_params;
     const bool r = cryptonote::construct_tx_and_get_tx_key(
         sender_account_keys,
@@ -308,7 +340,7 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
         sources,
         destinations,
         change_addr,
-        /*extra=*/{},
+        extra,
         tx,
         main_tx_privkey_out,
         additional_tx_privkeys_out,
@@ -337,6 +369,7 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
         std::forward<std::vector<stripped_down_tx_source_entry_t>>(stripped_sources),
         destinations,
         change_addr,
+        crypto::null_hash,
         fee,
         hf_version,
         dummy_main_tx_privkey,
