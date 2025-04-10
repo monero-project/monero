@@ -81,9 +81,9 @@ static bool parse_tx_extra_for_scanning(const std::vector<std::uint8_t> &tx_extr
 
     // 4. extract nonce string
     cryptonote::tx_extra_nonce field_extra_nonce;
-    if (!cryptonote::find_tx_extra_field_by_type(tx_extra_fields, field_extra_nonce))
-        field_extra_nonce.nonce.clear();
-    
+    if (cryptonote::find_tx_extra_field_by_type(tx_extra_fields, field_extra_nonce))
+        tx_extra_nonce_out = std::move(field_extra_nonce.nonce);
+
     return fully_parsed;
 }
 //-------------------------------------------------------------------------------------------------------------------
