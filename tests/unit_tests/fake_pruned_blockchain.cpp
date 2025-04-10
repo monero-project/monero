@@ -420,7 +420,7 @@ uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w, const size_t 
         const uint64_t unlock_block_index = td.m_tx.unlock_time
             ? td.m_tx.unlock_time
             : (td.m_block_height +  CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
-        if (unlock_block_index > this->height())
+        if (unlock_block_index + 1 > this->height())
             continue;
         paths_to_check.push_back({td.m_global_output_index, td.get_output_pair()});
     }
