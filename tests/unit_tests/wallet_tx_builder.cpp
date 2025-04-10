@@ -38,6 +38,7 @@
 #include "fcmp_pp/prove.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctSigs.h"
+#include "tx_construction_helpers.h"
 #include "wallet/tx_builder.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

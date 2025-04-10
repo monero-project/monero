@@ -12159,7 +12159,14 @@ void wallet2::check_tx_key_helper(const cryptonote::transaction &tx, const crypt
 {
   received = 0;
 
-  const auto enote_scan_infos = wallet::view_incoming_scan_transaction(tx, m_account.get_keys(), m_subaddresses);
+  std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(tx.vout.size());
+  wallet::view_incoming_scan_transaction(tx,
+    {&derivation, 1},
+    additional_derivations,
+    m_account.get_keys(),
+    {{address.m_spend_public_key, {}}}, // use a fake subaddress map with just the provided address in it
+    epee::to_mut_span(enote_scan_infos));
+
   for (const auto &enote_scan_info : enote_scan_infos)
     if (enote_scan_info && enote_scan_info->address_spend_pubkey == address.m_spend_public_key)
       received += enote_scan_info->amount; //! @TODO: check overflow

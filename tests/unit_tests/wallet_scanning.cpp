@@ -31,13 +31,84 @@
 #include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/carrot_tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "fake_pruned_blockchain.h"
 #include "fcmp_pp/prove.h"
+#include "tx_construction_helpers.h"
 #include "wallet/tx_builder.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.wallet_scanning"
 
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_scanning, view_scan_as_sender_mainaddr)
+{
+    cryptonote::account_base aether;
+    aether.generate();
+
+    cryptonote::account_base bob;
+    bob.generate();
+    const cryptonote::account_public_address bob_main_addr = bob.get_keys().m_account_address;
+    const crypto::public_key bob_main_spend_pubkey = bob_main_addr.m_spend_public_key;
+
+    const rct::xmr_amount amount = rct::randXmrAmount(10 * COIN);
+
+    const rct::xmr_amount fee = 565678;
+
+    for (uint8_t hf_version = 1; hf_version < HF_VERSION_FCMP_PLUS_PLUS; ++hf_version)
+    {
+        MDEBUG("view_scan_as_sender_mainaddr: hf_version=" << static_cast<int>(hf_version));
+
+        std::vector<cryptonote::tx_destination_entry> destinations{
+            cryptonote::tx_destination_entry(amount, bob_main_addr, false)};
+
+        crypto::secret_key main_tx_privkey;
+        std::vector<crypto::secret_key> additional_tx_privkeys;
+        const cryptonote::transaction tx = mock::construct_pre_carrot_tx_with_fake_inputs(aether.get_keys(),
+            {{aether.get_keys().m_account_address.m_spend_public_key, {0, 0}}},
+            {},
+            destinations,
+            {},
+            fee,
+            hf_version,
+            main_tx_privkey,
+            additional_tx_privkeys);
+
+        ASSERT_EQ(0, additional_tx_privkeys.size());
+        ASSERT_GT(tx.vout.size(), 0);
+
+        // do K_d = 8 * r * K^j_v
+        crypto::key_derivation main_derivation;
+        ASSERT_TRUE(crypto::generate_key_derivation(bob_main_addr.m_view_public_key,
+            main_tx_privkey,
+            main_derivation));
+
+        aether.generate();
+
+        // call view_incoming_scan_transaction with no meaningful key nor subaddresses maps,
+        // just with the proper ECDH
+        std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(tx.vout.size());
+        tools::wallet::view_incoming_scan_transaction(tx,
+            {&main_derivation, 1},
+            {},
+            aether.get_keys(),
+            {{bob_main_spend_pubkey, {}}}, // use a fake subaddress map with just the provided address in it
+            epee::to_mut_span(enote_scan_infos));
+
+        bool matched = false;
+        for (const auto &enote_scan_info : enote_scan_infos)
+        {
+            if (enote_scan_info)
+            {
+                ASSERT_FALSE(matched);
+                ASSERT_EQ(amount, enote_scan_info->amount);
+                ASSERT_EQ(bob_main_spend_pubkey, enote_scan_info->address_spend_pubkey);
+                matched = true;
+            }
+        }
+        ASSERT_TRUE(matched);
+    }
+}
 //----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
 {
