@@ -41,6 +41,9 @@
 #include "crypto/crypto.h"
 #include "crypto/generators.h"
 
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "unit_tests.fcmp_pp"
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 struct OutputContextsAndKeys
@@ -78,6 +81,14 @@ static crypto::secret_key load_sk(const uint8_t b[32])
     crypto::secret_key sk;
     memcpy(sk.data, b, sizeof(sk));
     return sk;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+template <typename T>
+static constexpr bool is_power_of_2(T v)
+{
+    static_assert(std::is_integral_v<T>);
+    return (v > 0) && ((v & (v - 1)) == 0);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -187,6 +198,113 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
     CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed generating random outputs");
 
     return outs;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static cryptonote::transaction make_empty_fcmp_pp_tx_of_size(const size_t n_inputs,
+    const size_t n_outputs,
+    const size_t extra_len,
+    const uint8_t n_tree_layers,
+    const bool max_int_fields)
+{
+    const cryptonote::txin_to_key in{};
+    const cryptonote::txin_v in_v{in};
+
+    const cryptonote::txout_to_carrot_v1 out_targ{};
+    const cryptonote::tx_out out{.target = out_targ};
+
+    // prefix
+    cryptonote::transaction tx{};
+    tx.version = 2;
+    tx.vin = std::vector<cryptonote::txin_v>(n_inputs, in_v);
+    tx.vout = std::vector<cryptonote::tx_out>(n_outputs, out);
+    tx.extra.resize(extra_len);
+
+    // rctSigBase
+    rct::rctSig &rv = tx.rct_signatures;
+    rv.type = rct::RCTTypeFcmpPlusPlus;
+    rv.txnFee = max_int_fields ? std::numeric_limits<rct::xmr_amount>::max() : 0;
+    rv.outPk.resize(n_outputs);
+    rv.ecdhInfo.resize(n_outputs);
+
+    // BulletproofPlus
+    size_t nlr = 0;
+    while ((1u << nlr) < n_outputs)
+      ++nlr;
+    nlr += 6;
+    rct::BulletproofPlus bpp;
+    bpp.L = rct::keyV(nlr);
+    bpp.R = rct::keyV(nlr);
+
+    // rctSigPrunable
+    rv.p.bulletproofs_plus = {bpp};
+    rv.p.pseudoOuts.resize(n_inputs);
+    rv.p.reference_block = max_int_fields ? CRYPTONOTE_MAX_BLOCK_NUMBER : 0;
+    rv.p.n_tree_layers = n_tree_layers;
+    rv.p.fcmp_pp.resize(fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers));
+
+    return tx;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static bool is_canonical_serializable_fcmp_pp_tx(const cryptonote::transaction &tx)
+{
+    // To check canonical-ness: serialize, deserialize, then re-serialize and:
+    //     a. check serialization success
+    //     b. check blob equality
+    //     c. check tx hash equality
+
+    CHECK_AND_ASSERT_MES(tx.version == 2 && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus,
+        false,
+        "not a FCMP++ tx");
+    CHECK_AND_ASSERT_MES(!tx.pruned, false, "not an unpruned tx");
+
+    // a
+    cryptonote::blobdata tx_blob_1;
+    CHECK_AND_ASSERT_MES(cryptonote::tx_to_blob(tx, tx_blob_1), false, "failed to serialize tx");
+
+    crypto::hash tx_hash_1;
+    CHECK_AND_ASSERT_MES(cryptonote::calculate_transaction_hash(tx, tx_hash_1, nullptr),
+        false,
+        "failed to calculate tx hash");
+
+    cryptonote::transaction tx_2;
+    CHECK_AND_ASSERT_MES(cryptonote::parse_and_validate_tx_from_blob(tx_blob_1, tx_2),
+        false,
+        "failed to deserialize tx");
+
+    cryptonote::blobdata tx_blob_2;
+    CHECK_AND_ASSERT_MES(cryptonote::tx_to_blob(tx_2, tx_blob_2), false, "failed to re-serialize tx");
+
+    crypto::hash tx_hash_2;
+    CHECK_AND_ASSERT_MES(cryptonote::calculate_transaction_hash(tx_2, tx_hash_2, nullptr),
+        false,
+        "failed to calculate tx 2 hash");
+
+    // b
+    CHECK_AND_ASSERT_MES(tx_blob_1 == tx_blob_2, false, "re-serialized tx blob differs");
+    // c
+    CHECK_AND_ASSERT_MES(tx_hash_1 == tx_hash_2, false, "deserialized tx hash differs");
+
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static std::map<std::tuple<size_t, size_t, size_t>, uint64_t> get_all_fcmp_tx_weights()
+{
+    // return a map of (n_inputs, n_outputs, extra_len) -> FCMP++ weight for all valid values
+    std::map<std::tuple<size_t, size_t, size_t>, uint64_t> res;
+    for (size_t m = 1; m <= FCMP_PLUS_PLUS_MAX_INPUTS; ++m)
+        for (size_t n = 2; n <= FCMP_PLUS_PLUS_MAX_OUTPUTS; ++n)
+            for (size_t el = 0; el <= MAX_TX_EXTRA_SIZE; ++el)
+                res.insert({{m, n, el},
+                    cryptonote::get_fcmp_pp_transaction_weight_v1(m, n, el)});
+
+    static constexpr size_t expected_n_weights =
+        FCMP_PLUS_PLUS_MAX_INPUTS * (FCMP_PLUS_PLUS_MAX_INPUTS - 1) * (MAX_TX_EXTRA_SIZE + 1);
+    CHECK_AND_ASSERT_THROW_MES(res.size() == expected_n_weights, "bad tx weights counts");
+
+    return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -724,6 +842,7 @@ TEST(fcmp_pp, force_init_gen_u_v)
     GTEST_SKIP() << "Generator reproduction assert statements don't trigger on Release builds";
 #endif
 
+    // these will cause assertion failures in debug mode if the seeds are wrong
     const ge_p3 U_p3 = crypto::get_U_p3();
     const ge_p3 V_p3 = crypto::get_V_p3();
     const ge_cached U_cached = crypto::get_U_cached();
@@ -772,6 +891,205 @@ TEST(fcmp_pp, proof_size_table)
             // printf("%lu, ", membership_proof_len);
         }
         // printf("},\n");
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, proof_size_sub_linearity)
+{
+    // Check that the proof size scales sub-linearly with respect to
+    // n_inputs/n_tree_layers counts using each pair in its row and column as a
+    // reference point
+
+    for (std::size_t i = 1; i <= FCMP_PLUS_PLUS_MAX_INPUTS; ++i)
+    {
+        for (std::size_t j = 1; j <= FCMP_PLUS_PLUS_MAX_LAYERS; ++j)
+        {
+            const std::size_t real_membership_proof_len = fcmp_pp::membership_proof_len(i, j);
+            const std::size_t real_fcmp_pp_proof_len = fcmp_pp::fcmp_pp_proof_len(i, j);
+
+            for (std::size_t i_back = 1; i_back < i; ++i_back)
+            {
+                MDEBUG("proof_size_sub_linearity: " << i << ", " << j << " vs. " << i_back << ", " << j);
+
+                const std::size_t membership_proof_back = fcmp_pp::membership_proof_len(i_back, j);
+                const std::size_t fcmp_pp_proof_len_back = fcmp_pp::fcmp_pp_proof_len(i_back, j);
+
+                const std::size_t i_scaled_membership_proof_len = (i * membership_proof_back) / i_back;
+                EXPECT_LT(real_membership_proof_len, i_scaled_membership_proof_len);
+
+                const std::size_t i_scaled_fcmp_pp_proof_len = (i * fcmp_pp_proof_len_back) / i_back;
+                EXPECT_LT(real_fcmp_pp_proof_len, i_scaled_fcmp_pp_proof_len);
+            }
+
+            for (std::size_t j_back = 1; j_back < j; ++j_back)
+            {
+                MDEBUG("proof_size_sub_linearity: " << i << ", " << j << " vs. " << i << ", " << j_back);
+
+                const std::size_t membership_proof_back = fcmp_pp::membership_proof_len(i, j_back);
+                const std::size_t fcmp_pp_proof_len_back = fcmp_pp::fcmp_pp_proof_len(i, j_back);
+
+                const std::size_t j_scaled_membership_proof_len = (j * membership_proof_back) / j_back;
+                EXPECT_LT(real_membership_proof_len, j_scaled_membership_proof_len);
+
+                const std::size_t j_scaled_fcmp_pp_proof_len = (j * fcmp_pp_proof_len_back) / j_back;
+                EXPECT_LT(real_fcmp_pp_proof_len, j_scaled_fcmp_pp_proof_len);
+            }
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, tx_weight_monotonicity)
+{
+    static_assert(is_power_of_2(FCMP_PLUS_PLUS_MAX_INPUTS), "max input count must be a power of 2");
+    static_assert(is_power_of_2(FCMP_PLUS_PLUS_MAX_OUTPUTS), "max output count must be a power of 2");
+
+    // build up table of weight by in/out/extra count
+    const auto tx_weights = get_all_fcmp_tx_weights();
+
+    // assert that weight calculation is strictly monotonically increasing in all dimensions
+    uint64_t max_weight = 0;
+    for (const auto &p : tx_weights)
+    {
+        size_t m, n, el;
+        std::tie(m, n, el) = p.first;
+        const uint64_t weight = p.second;
+        max_weight = std::max(weight, max_weight);
+        if (m > 1)
+        {
+            const size_t other_weight = tx_weights.at({m - 1, n, el});
+            ASSERT_GT(weight, other_weight);
+        }
+        if (n > 2)
+        {
+            const size_t other_weight = tx_weights.at({m, n - 1, el});
+            ASSERT_GT(weight, other_weight);
+        }
+        if (el > 0)
+        {
+            const size_t other_weight = tx_weights.at({m, n, el - 1});
+            ASSERT_GT(weight, other_weight);
+        }
+    }
+
+    MDEBUG("Max FCMP++ tx weight: " << max_weight);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, tx_weight_pessimism_and_api_integration)
+{
+    // see fake_n_tree_layers comment in cryptonote::get_fcmp_pp_transaction_weight_v1
+    const uint8_t fake_n_tree_layers = 7;
+
+    // build up table of weight by in/out/extra count
+    const auto tx_weights = get_all_fcmp_tx_weights();
+
+    // collect all pairs of valid (n_inputs, n_outputs)
+    std::set<std::pair<size_t, size_t>> valid_inout_counts;
+    for (const auto &p : tx_weights)
+        valid_inout_counts.insert({std::get<0>(p.first), std::get<1>(p.first)});
+    ASSERT_EQ(FCMP_PLUS_PLUS_MAX_INPUTS * (FCMP_PLUS_PLUS_MAX_OUTPUTS - 1), valid_inout_counts.size());
+
+    // for each valid value of tx in/out count...
+    for (const auto &inout_count : valid_inout_counts)
+    {
+        size_t m, n;
+        std::tie(m, n) = inout_count;
+
+        cryptonote::transaction example_tx = make_empty_fcmp_pp_tx_of_size(
+            m,
+            n,
+            /*extra_len=*/0,
+            fake_n_tree_layers,
+            true);
+        ASSERT_TRUE(is_canonical_serializable_fcmp_pp_tx(example_tx));
+        ASSERT_EQ(m, example_tx.vin.size());
+        ASSERT_EQ(n, example_tx.vout.size());
+        ASSERT_EQ(fake_n_tree_layers, example_tx.rct_signatures.p.n_tree_layers);
+        ASSERT_EQ(2, example_tx.version);
+        ASSERT_EQ(rct::RCTTypeFcmpPlusPlus, example_tx.rct_signatures.type);
+        example_tx.extra.reserve(MAX_TX_EXTRA_SIZE);
+
+        // for each valid length of tx_extra...
+        for (size_t el = 0; el <= MAX_TX_EXTRA_SIZE; ++el)
+        {
+            const uint64_t tx_weight = tx_weights.at({m, n, el});
+            MDEBUG("Testing full tx weight for " << m << "-in " << n << "-out " << el << "-byte-extra tx: " << tx_weight);
+
+            // make tx_extra the right size
+            example_tx.extra.resize(el);
+
+            // serialize example tx
+            const cryptonote::blobdata example_tx_blob = cryptonote::tx_to_blob(example_tx);
+
+            // Calculate weight and check that get_transaction_weight() is
+            // equal to get_fcmp_pp_transaction_weight_v1() for FCMP++ txs
+            const uint64_t tx_weight_2nd_api = cryptonote::get_transaction_weight(example_tx, example_tx_blob.size());
+            ASSERT_EQ(tx_weight, tx_weight_2nd_api);
+
+            // Check that the weight calculation is "pessimistic": it should
+            // always be greater than or equal to the actual bytesize
+            EXPECT_GE(tx_weight, example_tx_blob.size());
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, tx_weight_prefix_and_unprunable_byte_accuracy)
+{
+    // build up table of weight by in/out/extra count
+    const auto tx_weights = get_all_fcmp_tx_weights();
+
+    // collect all pairs of valid (n_inputs, n_outputs)
+    std::set<std::pair<size_t, size_t>> valid_inout_counts;
+    for (const auto &p : tx_weights)
+        valid_inout_counts.insert({std::get<0>(p.first), std::get<1>(p.first)});
+    ASSERT_EQ(FCMP_PLUS_PLUS_MAX_INPUTS * (FCMP_PLUS_PLUS_MAX_OUTPUTS - 1), valid_inout_counts.size());
+
+    // for each valid value of tx in/out count...
+    for (const auto &inout_count : valid_inout_counts)
+    {
+        size_t m, n;
+        std::tie(m, n) = inout_count;
+
+        // once with max_int_fields=false, once with max_int_fields=true...
+        for (unsigned max_int_fields = 0; max_int_fields < 2; ++max_int_fields)
+        {
+            cryptonote::transaction example_tx = make_empty_fcmp_pp_tx_of_size(
+                m,
+                n,
+                /*extra_len=*/0,
+                /*n_tree_layers=*/1,
+                max_int_fields);
+            ASSERT_TRUE(is_canonical_serializable_fcmp_pp_tx(example_tx));
+            ASSERT_EQ(m, example_tx.vin.size());
+            ASSERT_EQ(n, example_tx.vout.size());
+            ASSERT_EQ(1, example_tx.rct_signatures.p.n_tree_layers);
+            ASSERT_EQ(2, example_tx.version);
+            ASSERT_EQ(rct::RCTTypeFcmpPlusPlus, example_tx.rct_signatures.type);
+            example_tx.extra.reserve(MAX_TX_EXTRA_SIZE);
+
+            example_tx.pruned = true; // we don't care about prunable stuff in this test
+
+            // for each valid length of tx_extra...
+            for (size_t el = 0; el <= MAX_TX_EXTRA_SIZE; ++el)
+            {
+                MDEBUG("Testing prefix/unprunable weight accuracy for " << m << "-in " << n << "-out " << el << "-byte-extra tx");
+
+                // make tx_extra the right size
+                example_tx.extra.resize(el);
+
+                // serialize example tx
+                const cryptonote::blobdata example_tx_blob = cryptonote::tx_to_blob(example_tx);
+
+                // check that prefix weight is always equal to actual byte size
+                EXPECT_EQ(example_tx.prefix_size, cryptonote::get_fcmp_pp_prefix_weight_v1(m, n, el));
+
+                // check that the unprunable weight is equal to actual byte size when integer fields
+                // are maxed out, and ever so slightly pessimistic (within 9 bytes) if not
+                const uint64_t unprunable_weight = cryptonote::get_fcmp_pp_unprunable_weight_v1(m, n, el);
+                const uint64_t allowed_weight_margin = max_int_fields ? 0 : 9;
+                ASSERT_GE(unprunable_weight, example_tx.unprunable_size);
+                ASSERT_LE(unprunable_weight - example_tx.unprunable_size, allowed_weight_margin);
+            }
+        }
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

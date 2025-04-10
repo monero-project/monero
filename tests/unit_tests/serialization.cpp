@@ -1207,3 +1207,32 @@ TEST(Serialization, tx_fcmp_pp)
     ASSERT_FALSE(serialization::parse_binary(smaller_blob, tx1));
   }
 }
+
+TEST(Serialization, BinaryArchiveConstantVarInts)
+{
+  struct VarIntPair
+  {
+    uint64_t varint;
+    uint64_t len;
+  };
+
+  // If any of these fail, modify tx weight calculations
+  static constexpr VarIntPair constant_varints[] = {
+    { FCMP_PLUS_PLUS_MAX_INPUTS                , 1 },
+    { FCMP_PLUS_PLUS_MAX_OUTPUTS               , 1 },
+    { 127                                      , 1 },
+    { 128                                      , 2 },
+    { MAX_TX_EXTRA_SIZE                        , 2 },
+    { std::numeric_limits<uint64_t>::max() - 1 , 10 /*max_u64_varint_len*/ },
+    { CRYPTONOTE_MAX_BLOCK_NUMBER              , 5 /*max_block_index_varint_len*/ },
+  };
+
+  for (const auto &const_varint : constant_varints)
+  {
+    ostringstream oss;
+    binary_archive<true> oar(oss);
+    oar.serialize_varint(const_varint.varint);
+    ASSERT_TRUE(oss.good());
+    ASSERT_EQ(const_varint.len, oss.str().size());
+  }
+}
