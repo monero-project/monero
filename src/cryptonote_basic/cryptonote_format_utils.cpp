@@ -79,13 +79,10 @@ namespace cryptonote
       ge_p1p1_to_p3(&A2, &tmp3);
       ge_p3_tobytes(&AB, &A2);
   }
-
-  uint64_t get_transaction_weight_clawback(const transaction &tx, size_t n_padded_outputs)
+  //---------------------------------------------------------------
+  static uint64_t get_transaction_weight_clawback(const bool plus, const size_t n_outputs, const size_t n_padded_outputs)
   {
-    const rct::rctSig &rv = tx.rct_signatures;
-    const bool plus = rv.type == rct::RCTTypeBulletproofPlus || rv.type == rct::RCTTypeFcmpPlusPlus;
     const uint64_t bp_base = (32 * ((plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
-    const size_t n_outputs = tx.vout.size();
     if (n_padded_outputs <= 2)
       return 0;
     size_t nlr = 0;
@@ -98,6 +95,14 @@ namespace cryptonote
         + std::to_string(n_padded_outputs) + ", bp_size " + std::to_string(bp_size));
     const uint64_t bp_clawback = (bp_base * n_padded_outputs - bp_size) * 4 / 5;
     return bp_clawback;
+  }
+  //---------------------------------------------------------------
+  static uint64_t get_transaction_weight_clawback(const transaction &tx, const size_t n_padded_outputs)
+  {
+    const rct::rctSig &rv = tx.rct_signatures;
+    const bool plus = rv.type == rct::RCTTypeBulletproofPlus || rv.type == rct::RCTTypeFcmpPlusPlus;
+    const size_t n_outputs = tx.vout.size();
+    return get_transaction_weight_clawback(plus, n_outputs, n_padded_outputs);
   }
   //---------------------------------------------------------------
 }
@@ -419,11 +424,135 @@ namespace cryptonote
     return string_tools::get_xtype_from_string(amount, str_amount);
   }
   //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_prefix_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    CHECK_AND_ASSERT_MES(n_inputs && n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: invalid n_inputs");
+    CHECK_AND_ASSERT_MES(n_outputs >= 2 && n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: invalid n_outputs");
+    CHECK_AND_ASSERT_MES(extra_len <= MAX_TX_EXTRA_SIZE,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: invalid extra_len");
+
+    static constexpr uint64_t txin_to_key_weight = 1 /*amount=0*/ + 1 /*key_offsets.size()=0*/ + 32 /*k_image*/;
+    static constexpr uint64_t txout_to_carrot_weight = 32 /*key*/ + 3 /*view_tag*/ + 16 /*encrypted_janus_anchor*/;
+    static constexpr uint64_t tx_out_weight = 1 /*amount=0*/ + txout_to_carrot_weight + 1 /*txout_target_v tag*/;
+
+    return
+      1 /*version=2*/
+      + 1 /*unlock_time=0*/
+      + 1 /*vin.size()<=FCMP_PLUS_PLUS_MAX_INPUTS*/
+      + n_inputs * (txin_to_key_weight /*txin_to_key*/ + 1 /*txin_v tag*/)
+      + 1 /*vout.size()<=FCMP_PLUS_PLUS_MAX_OUTPUTS*/
+      + (n_outputs * tx_out_weight /*tx_out*/)
+      + (extra_len >= 128 ? 2 : 1) /*extra.size()*/
+      + extra_len;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_unprunable_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    const uint64_t prefix_weight = get_fcmp_pp_prefix_weight_v1(n_inputs, n_outputs, extra_len);
+    if (prefix_weight == std::numeric_limits<uint64_t>::max())
+      return prefix_weight;
+
+    static constexpr uint64_t max_u64_varint_len = 10;        // size of varint storing 2**64-1
+    static constexpr uint64_t rct_sig_base_per_out_weight = 8 /*ecdhInfo.at(i).amount*/ + 32 /*outPk.at(i).mask*/;
+
+    return prefix_weight
+      + 1 /*type*/
+      + max_u64_varint_len /*txnFee*/
+      + (n_outputs * rct_sig_base_per_out_weight);
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_transaction_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    const uint64_t unprunable_weight = get_fcmp_pp_unprunable_weight_v1(n_inputs, n_outputs, extra_len);
+    if (unprunable_weight == std::numeric_limits<uint64_t>::max())
+      return unprunable_weight;
+
+    static constexpr uint64_t max_block_index_varint_len = 5; // size of varint storing CRYPTONOTE_MAX_BLOCK_NUMBER
+
+    static constexpr uint64_t rerandomized_output_weight = FCMP_PP_INPUT_TUPLE_SIZE_V1 + 32 /*C~ AKA pseudoOut*/;
+
+    const uint64_t total_sal_weight = n_inputs * (rerandomized_output_weight + FCMP_PP_SAL_PROOF_SIZE_V1);
+    const uint64_t misc_fcmp_pp_weight = max_block_index_varint_len /*reference_block*/ + 1 /*n_tree_layers*/;
+
+    // Calculate deterministic bulletproofs size (assumes canonical BP format)
+    size_t nrl = 0, n_padded_outputs;
+    while ((n_padded_outputs = (1u << nrl)) < n_outputs)
+      ++nrl;
+    nrl += 6;
+    uint64_t bp_weight = 32 * (6 + 2 * nrl) + 2;
+    bp_weight += 1 /*nbp*/;
+
+    // BP+ clawback to price in linear verification times
+    const uint64_t bp_clawback = get_transaction_weight_clawback(/*plus=*/true, n_outputs, n_padded_outputs);
+    MDEBUG("bulletproof+ clawback: " << bp_clawback);
+    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - bp_clawback > bp_weight,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: overflow with bulletproof clawback");
+    bp_weight += bp_clawback;
+
+    // Much like bulletproofs, the verification time of a FCMP is linear in the number of inputs,
+    // rounded up to the nearest power of 2, so round n_inputs up to power of 2 to price this in
+    size_t n_padded_inputs = 1;
+    while (n_padded_inputs < n_inputs)
+      n_padded_inputs *= 2;
+
+    // There's a few reasons why we treat n_tree_layers as a fixed value for weight calculation:
+    //     a. If we took n_tree_layers into account when calculating weight, then fee calculation
+    //        would be a function of the number of layers in the FCMP tree. This has a couple
+    //        implications:
+    //            i.  To determine the "correct" fee in multi-signer/cold-signer contexts, signers
+    //                would have to transmit and agree upon what the current n_tree_layers value is,
+    //                which complicates these protocols, and is inherently difficult to validate
+    //                for offline signers. It also just complicates the process for normal wallets.
+    //            ii. If signers need guarantees that a signature for a transaction proposal with a
+    //                certain fee isn't reused for similar transaction but with a different
+    //                n_tree_layers, and thus weight, then n_tree_layers would have to be included
+    //                in rctSigBase and hashed into the signable_tx_hash, which means an extra byte
+    //                per pruned transaction when wallets are refreshing. Also, more subjectively,
+    //                putting n_tree_layers into rctSigBase feels misplaced.
+    //     b. Dropping the weight for low values of n_tree_layers directly incentivizes spenders of
+    //        old enotes to use as small a value of n_tree_layers as possible, which hurts their
+    //        anonymity.
+    //
+    // We chose 7 specifically because at the time of writing (9 April 2025), the current layer size
+    // of the Monero mainnet would be 6. 7 is approaching relatively quickly, and would be the value
+    // for many decades at the current tx volume.
+    static constexpr size_t fake_n_tree_layers = 7;
+
+    const uint64_t fcmp_weight_base = fcmp_pp::membership_proof_len(/*n_inputs=*/1, fake_n_tree_layers);
+    const uint64_t fcmp_weight = fcmp_weight_base * n_padded_inputs;
+
+    const uint64_t rct_sig_prunable_weight = bp_weight + total_sal_weight + misc_fcmp_pp_weight + fcmp_weight;
+
+    return unprunable_weight + rct_sig_prunable_weight;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_transaction_weight_v1(const transaction_prefix &tx_prefix)
+  {
+    return get_fcmp_pp_transaction_weight_v1(tx_prefix.vin.size(), tx_prefix.vout.size(), tx_prefix.extra.size());
+  }
+  //---------------------------------------------------------------
   uint64_t get_transaction_weight(const transaction &tx, size_t blob_size)
   {
     CHECK_AND_ASSERT_MES(!tx.pruned, std::numeric_limits<uint64_t>::max(), "get_transaction_weight does not support pruned txes");
+    CHECK_AND_ASSERT_MES(tx.rct_signatures.type <= rct::RCTTypeFcmpPlusPlus,
+      std::numeric_limits<uint64_t>::max(),
+      "get_transaction_weight does not support transactions newer than FCMP++ v1");
     if (tx.version < 2)
       return blob_size;
+    else if (tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus)
+      return get_fcmp_pp_transaction_weight_v1(tx);
     const rct::rctSig &rv = tx.rct_signatures;
     const bool bulletproof = rct::is_rct_bulletproof(rv.type);
     const bool bulletproof_plus = rct::is_rct_bulletproof_plus(rv.type);
@@ -439,6 +568,10 @@ namespace cryptonote
   {
     CHECK_AND_ASSERT_MES(tx.pruned, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support non pruned txes");
     CHECK_AND_ASSERT_MES(tx.version >= 2, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support v1 txes");
+
+    if (tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus)
+      return get_fcmp_pp_transaction_weight_v1(tx);
+
     CHECK_AND_ASSERT_MES(tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus,
         std::numeric_limits<uint64_t>::max(), "Unsupported rct_signatures type in get_pruned_transaction_weight");
     CHECK_AND_ASSERT_MES(!tx.vin.empty(), std::numeric_limits<uint64_t>::max(), "empty vin");
