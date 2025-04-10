@@ -965,7 +965,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(membership_proving_inputs,
         n_tree_layers);
     PERF_TIMER_PAUSE(prove_membership);
-    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::fcmp_proof_len(n_inputs, n_tree_layers),
+    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::membership_proof_len(n_inputs, n_tree_layers),
         "finalize_all_proofs_from_transfer_details: unexpected FCMP membership proof length");
 
     // store proofs

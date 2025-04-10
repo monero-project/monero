@@ -55,8 +55,8 @@ namespace wallet
 //-------------------------------------------------------------------------------------------------------------------
 static bool parse_tx_extra_for_scanning(const std::vector<std::uint8_t> &tx_extra,
     const std::size_t n_outputs,
-    std::vector<crypto::public_key> &main_ephemeral_pubkeys_out,
-    std::vector<crypto::public_key> &additional_ephemeral_pubkeys_out,
+    std::vector<crypto::public_key> &main_tx_ephemeral_pubkeys_out,
+    std::vector<crypto::public_key> &additional_tx_ephemeral_pubkeys_out,
     cryptonote::blobdata &tx_extra_nonce_out)
 {
     // 1. parse extra fields
@@ -67,14 +67,14 @@ static bool parse_tx_extra_for_scanning(const std::vector<std::uint8_t> &tx_extr
     cryptonote::tx_extra_pub_key field_main_pubkey;
     size_t field_main_pubkey_index = 0;
     while (cryptonote::find_tx_extra_field_by_type(tx_extra_fields, field_main_pubkey, field_main_pubkey_index++))
-        main_ephemeral_pubkeys_out.push_back(field_main_pubkey.pub_key);
+        main_tx_ephemeral_pubkeys_out.push_back(field_main_pubkey.pub_key);
 
     // 3. extract additional tx pubkeys
     cryptonote::tx_extra_additional_pub_keys field_additional_pubkeys;
     if (cryptonote::find_tx_extra_field_by_type(tx_extra_fields, field_additional_pubkeys))
     {
         if (field_additional_pubkeys.data.size() == n_outputs)
-            additional_ephemeral_pubkeys_out = std::move(field_additional_pubkeys.data);
+            additional_tx_ephemeral_pubkeys_out = std::move(field_additional_pubkeys.data);
         else
             fully_parsed = false;
     }
@@ -89,20 +89,20 @@ static bool parse_tx_extra_for_scanning(const std::vector<std::uint8_t> &tx_extr
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static bool parse_tx_extra_for_scanning(const cryptonote::transaction_prefix &tx_prefix,
-    std::vector<crypto::public_key> &main_ephemeral_pubkeys_out,
-    std::vector<crypto::public_key> &additional_ephemeral_pubkeys_out,
+    std::vector<crypto::public_key> &main_tx_ephemeral_pubkeys_out,
+    std::vector<crypto::public_key> &additional_tx_ephemeral_pubkeys_out,
     cryptonote::blobdata &tx_extra_nonce_out)
 {
     return parse_tx_extra_for_scanning(tx_prefix.extra,
         tx_prefix.vout.size(),
-        main_ephemeral_pubkeys_out,
-        additional_ephemeral_pubkeys_out,
+        main_tx_ephemeral_pubkeys_out,
+        additional_tx_ephemeral_pubkeys_out,
         tx_extra_nonce_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void perform_ecdh_derivations(const epee::span<const crypto::public_key> main_ephemeral_pubkeys,
-    const epee::span<const crypto::public_key> additional_ephemeral_pubkeys,
+static void perform_ecdh_derivations(const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
+    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
     const cryptonote::account_keys &acc,
     const bool is_carrot,
     std::vector<crypto::key_derivation> &main_derivations_out,
@@ -110,7 +110,7 @@ static void perform_ecdh_derivations(const epee::span<const crypto::public_key> 
 {
     main_derivations_out.clear();
     additional_derivations_out.clear();
-    main_derivations_out.reserve(main_ephemeral_pubkeys.size());
+    main_derivations_out.reserve(main_tx_ephemeral_pubkeys.size());
     additional_derivations_out.reserve(additional_derivations_out.size());
 
     if (is_carrot)
@@ -118,36 +118,36 @@ static void perform_ecdh_derivations(const epee::span<const crypto::public_key> 
         //! @TODO: HW device
         carrot::view_incoming_key_ram_borrowed_device k_view_dev(acc.m_view_secret_key);
     
-        for (const crypto::public_key &main_ephemeral_pubkey : main_ephemeral_pubkeys)
+        for (const crypto::public_key &main_tx_ephemeral_pubkey : main_tx_ephemeral_pubkeys)
         {
             mx25519_pubkey s_sender_receiver_unctx;
             k_view_dev.view_key_scalar_mult_x25519(
-                carrot::raw_byte_convert<mx25519_pubkey>(main_ephemeral_pubkey),
+                carrot::raw_byte_convert<mx25519_pubkey>(main_tx_ephemeral_pubkey),
                 s_sender_receiver_unctx);
             main_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(s_sender_receiver_unctx));
         }
 
-        for (const crypto::public_key &additional_ephemeral_pubkey : additional_ephemeral_pubkeys)
+        for (const crypto::public_key &additional_tx_ephemeral_pubkey : additional_tx_ephemeral_pubkeys)
         {
             mx25519_pubkey s_sender_receiver_unctx;
             k_view_dev.view_key_scalar_mult_x25519(
-                carrot::raw_byte_convert<mx25519_pubkey>(additional_ephemeral_pubkey),
+                carrot::raw_byte_convert<mx25519_pubkey>(additional_tx_ephemeral_pubkey),
                 s_sender_receiver_unctx);
             additional_derivations_out.push_back(carrot::raw_byte_convert<crypto::key_derivation>(s_sender_receiver_unctx));
         }
     }
     else // !is_carrot
     {
-        for (const crypto::public_key &main_ephemeral_pubkey : main_ephemeral_pubkeys)
+        for (const crypto::public_key &main_tx_ephemeral_pubkey : main_tx_ephemeral_pubkeys)
         {
-            acc.get_device().generate_key_derivation(main_ephemeral_pubkey,
+            acc.get_device().generate_key_derivation(main_tx_ephemeral_pubkey,
                 acc.m_view_secret_key,
                 tools::add_element(main_derivations_out));
         }
 
-        for (const crypto::public_key &additional_ephemeral_pubkey : additional_ephemeral_pubkeys)
+        for (const crypto::public_key &additional_tx_ephemeral_pubkey : additional_tx_ephemeral_pubkeys)
         {
-            acc.get_device().generate_key_derivation(additional_ephemeral_pubkey,
+            acc.get_device().generate_key_derivation(additional_tx_ephemeral_pubkey,
                 acc.m_view_secret_key,
                 tools::add_element(additional_derivations_out));
         }
@@ -384,16 +384,16 @@ std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote_dest
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map)
 {
     // 1. parse tx extra
-    std::vector<crypto::public_key> main_ephemeral_pubkeys;
-    std::vector<crypto::public_key> additional_ephemeral_pubkeys;
+    std::vector<crypto::public_key> main_tx_ephemeral_pubkeys;
+    std::vector<crypto::public_key> additional_tx_ephemeral_pubkeys;
     cryptonote::blobdata tx_extra_nonce;
-    parse_tx_extra_for_scanning(tx_prefix, main_ephemeral_pubkeys, additional_ephemeral_pubkeys, tx_extra_nonce);
+    parse_tx_extra_for_scanning(tx_prefix, main_tx_ephemeral_pubkeys, additional_tx_ephemeral_pubkeys, tx_extra_nonce);
 
     // 2. perform ECDH derivations
     std::vector<crypto::key_derivation> main_derivations;
     std::vector<crypto::key_derivation> additional_derivations;
-    perform_ecdh_derivations(epee::to_span(main_ephemeral_pubkeys),
-        epee::to_span(additional_ephemeral_pubkeys),
+    perform_ecdh_derivations(epee::to_span(main_tx_ephemeral_pubkeys),
+        epee::to_span(additional_tx_ephemeral_pubkeys),
         acc,
         carrot::is_carrot_transaction_v1(tx_prefix),
         main_derivations,
@@ -402,8 +402,8 @@ std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote_dest
     // 3. view-scan enote destination
     return try_view_incoming_scan_enote_destination(tx_prefix.vout.at(local_output_index),
         amount_commitment,
-        epee::to_span(main_ephemeral_pubkeys),
-        epee::to_span(additional_ephemeral_pubkeys),
+        epee::to_span(main_tx_ephemeral_pubkeys),
+        epee::to_span(additional_tx_ephemeral_pubkeys),
         tx_extra_nonce,
         tx_prefix.vin.at(0),
         local_output_index,
@@ -543,33 +543,21 @@ std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote(
 //-------------------------------------------------------------------------------------------------------------------
 void view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
+    const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
+    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
+    const cryptonote::blobdata &tx_extra_nonce,
+    const epee::span<const crypto::key_derivation> main_derivations,
+    const std::vector<crypto::key_derivation> &additional_derivations,
     const cryptonote::account_keys &acc,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    const epee::span<std::optional<enote_view_incoming_scan_info_t>> &enote_scan_infos_out)
+    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out)
 {
     const size_t n_outputs = tx.vout.size();
 
     CHECK_AND_ASSERT_THROW_MES(enote_scan_infos_out.size() == n_outputs,
         "view_incoming_scan_transaction: enote scan span wrong length");
 
-    // 1. parse tx extra
-    std::vector<crypto::public_key> main_ephemeral_pubkeys;
-    std::vector<crypto::public_key> additional_ephemeral_pubkeys;
-    cryptonote::blobdata tx_extra_nonce;
-    if (!parse_tx_extra_for_scanning(tx, main_ephemeral_pubkeys, additional_ephemeral_pubkeys, tx_extra_nonce))
-        MWARNING("Transaction extra has unsupported format: " << cryptonote::get_transaction_hash(tx));
-
-    // 2. perform ECDH derivations
-    std::vector<crypto::key_derivation> main_derivations;
-    std::vector<crypto::key_derivation> additional_derivations;
-    perform_ecdh_derivations(epee::to_span(main_ephemeral_pubkeys),
-        epee::to_span(additional_ephemeral_pubkeys),
-        acc,
-        carrot::is_carrot_transaction_v1(tx),
-        main_derivations,
-        additional_derivations);
-
-    // 3. view-incoming scan output enotes
+    // do view-incoming scan for each output enotes
     for (size_t local_output_index = 0; local_output_index < n_outputs; ++local_output_index)
     {
         auto &enote_scan_info = enote_scan_infos_out[local_output_index];
@@ -578,16 +566,78 @@ void view_incoming_scan_transaction(
 
         enote_scan_info = try_view_incoming_scan_enote(enote_destination,
             tx.rct_signatures,
-            epee::to_span(main_ephemeral_pubkeys),
-            epee::to_span(additional_ephemeral_pubkeys),
+            main_tx_ephemeral_pubkeys,
+            additional_tx_ephemeral_pubkeys,
             tx_extra_nonce,
             tx.vin.at(0),
             local_output_index,
-            epee::to_span(main_derivations),
+            main_derivations,
             additional_derivations,
             acc,
             subaddress_map);
     }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void view_incoming_scan_transaction(
+    const cryptonote::transaction &tx,
+    const epee::span<const crypto::key_derivation> custom_main_derivations,
+    const std::vector<crypto::key_derivation> &custom_additional_derivations,
+    const cryptonote::account_keys &acc,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out)
+{
+    // 1. parse tx extra
+    std::vector<crypto::public_key> main_tx_ephemeral_pubkeys;
+    std::vector<crypto::public_key> additional_tx_ephemeral_pubkeys;
+    cryptonote::blobdata tx_extra_nonce;
+    if (!parse_tx_extra_for_scanning(tx, main_tx_ephemeral_pubkeys, additional_tx_ephemeral_pubkeys, tx_extra_nonce))
+        MWARNING("Transaction extra has unsupported format: " << cryptonote::get_transaction_hash(tx));
+
+    // 2. view-incoming scan output enotes
+    view_incoming_scan_transaction(tx,
+        epee::to_span(main_tx_ephemeral_pubkeys),
+        epee::to_span(additional_tx_ephemeral_pubkeys),
+        tx_extra_nonce,
+        custom_main_derivations,
+        custom_additional_derivations,
+        acc,
+        subaddress_map,
+        enote_scan_infos_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void view_incoming_scan_transaction(
+    const cryptonote::transaction &tx,
+    const cryptonote::account_keys &acc,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out)
+{
+    // 1. parse tx extra
+    std::vector<crypto::public_key> main_tx_ephemeral_pubkeys;
+    std::vector<crypto::public_key> additional_tx_ephemeral_pubkeys;
+    cryptonote::blobdata tx_extra_nonce;
+    if (!parse_tx_extra_for_scanning(tx, main_tx_ephemeral_pubkeys, additional_tx_ephemeral_pubkeys, tx_extra_nonce))
+        MWARNING("Transaction extra has unsupported format: " << cryptonote::get_transaction_hash(tx));
+
+    // 2. perform ECDH derivations
+    std::vector<crypto::key_derivation> main_derivations;
+    std::vector<crypto::key_derivation> additional_derivations;
+    perform_ecdh_derivations(epee::to_span(main_tx_ephemeral_pubkeys),
+        epee::to_span(additional_tx_ephemeral_pubkeys),
+        acc,
+        carrot::is_carrot_transaction_v1(tx),
+        main_derivations,
+        additional_derivations);
+
+    // 3. view-incoming scan output enotes
+    view_incoming_scan_transaction(tx,
+        epee::to_span(main_tx_ephemeral_pubkeys),
+        epee::to_span(additional_tx_ephemeral_pubkeys),
+        tx_extra_nonce,
+        epee::to_span(main_derivations),
+        additional_derivations,
+        acc,
+        subaddress_map,
+        enote_scan_infos_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction(

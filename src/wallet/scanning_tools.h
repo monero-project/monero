@@ -121,9 +121,26 @@ std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote(
 
 void view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
+    const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
+    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
+    const cryptonote::blobdata &tx_extra_nonce,
+    const epee::span<const crypto::key_derivation> main_derivations,
+    const std::vector<crypto::key_derivation> &additional_derivations,
     const cryptonote::account_keys &acc,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    const epee::span<std::optional<enote_view_incoming_scan_info_t>> &enote_scan_infos_out);
+    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
+void view_incoming_scan_transaction(
+    const cryptonote::transaction &tx,
+    const epee::span<const crypto::key_derivation> custom_main_derivations,
+    const std::vector<crypto::key_derivation> &custom_additional_derivations,
+    const cryptonote::account_keys &acc,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
+void view_incoming_scan_transaction(
+    const cryptonote::transaction &tx,
+    const cryptonote::account_keys &acc,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
 std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
     const cryptonote::account_keys &acc,
