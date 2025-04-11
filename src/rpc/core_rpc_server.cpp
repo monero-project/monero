@@ -1142,7 +1142,7 @@ namespace cryptonote
 
       if (req.split || req.prune || pruned)
       {
-        // use splitted form with pruned and prunable (filled only when prune=false and the daemon has it), leaving as_hex as empty
+        // use split form with pruned and prunable (filled only when prune=false and the daemon has it), leaving as_hex as empty
         e.pruned_as_hex = string_tools::buff_to_hex_nodelimer(std::get<1>(tx));
         if (!req.prune)
           e.prunable_as_hex = string_tools::buff_to_hex_nodelimer(std::get<3>(tx));
@@ -3589,7 +3589,7 @@ namespace cryptonote
   {
     RPC_TRACKER(get_txids_loose);
 
-    // Maybe don't use bootstrap since this endpoint is meant to retreive TXIDs w/ k-anonymity,
+    // Maybe don't use bootstrap since this endpoint is meant to retrieve TXIDs w/ k-anonymity,
     // so shunting this request to a random node seems counterproductive.
 
 #if BYTE_ORDER == LITTLE_ENDIAN
@@ -3622,7 +3622,7 @@ namespace cryptonote
       error_resp.message = "Could not decode hex txid";
       return false;
     }
-    // Check that txid template is zeroed correctly for number of given matchign bits
+    // Check that txid template is zeroed correctly for number of given matching bits
     else if (search_hash != make_hash32_loose_template(req.num_matching_bits, search_hash))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
