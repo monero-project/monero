@@ -32,6 +32,8 @@
 #include "fcmp_pp/tower_cycle.h"
 #include "unit_tests_utils.h"
 
+#include <set>
+
 using Selene       = fcmp_pp::curve_trees::Selene;
 using Helios       = fcmp_pp::curve_trees::Helios;
 using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
@@ -85,6 +87,9 @@ public:
 
     // Get the path in the tree of the provided leaf idx
     CurveTreesV1::Path get_path_at_leaf_idx(const std::size_t leaf_idx) const;
+
+    // get all leaf indices with given output pair
+    std::set<std::size_t> get_leaf_idxs_with_output_pair(const fcmp_pp::curve_trees::OutputPair &output_pair) const;
 
     uint8_t *get_tree_root() const;
 

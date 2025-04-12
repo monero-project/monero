@@ -462,6 +462,18 @@ CurveTreesV1::Path CurveTreesGlobalTree::get_path_at_leaf_idx(const std::size_t 
     return path_out;
 }
 //----------------------------------------------------------------------------------------------------------------------
+std::set<std::size_t> CurveTreesGlobalTree::get_leaf_idxs_with_output_pair(
+    const fcmp_pp::curve_trees::OutputPair &output_pair) const
+{
+    std::set<std::size_t> leaf_idx;
+    for (std::size_t i = 0; i < m_tree.leaves.size(); ++i)
+    {
+        if (output_pair == m_tree.leaves.at(i))
+            leaf_idx.insert(i);
+    }
+    return leaf_idx;
+}
+//----------------------------------------------------------------------------------------------------------------------
 uint8_t *CurveTreesGlobalTree::get_tree_root() const
 {
     const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
