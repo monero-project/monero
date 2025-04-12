@@ -603,3 +603,130 @@ TEST(wallet_scanning, positive_smallout_main_addr_all_types_outputs)
     ASSERT_EQ(w.m_transfers.size(), old_num_m_transfers);
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_scanning, burned_zombie)
+{
+    // Check that a wallet which receives attempted burn outputs counts all outputs of the same key
+    // image spent when that key image is spent. Those with the same key image which aren't marked
+    // as spent are "burned zombies": they aren't burn and not usable, but they shuffle around in
+    // the internal state and inflate the balance or attract input selection.
+
+    // init blockchain
+    mock::fake_pruned_blockchain bc(0);
+
+    // generate wallet
+    tools::wallet2 w(cryptonote::MAINNET, /*kdf_rounds=*/1, /*unattended=*/true);
+    w.set_offline(true);
+    w.generate("", "");
+    const cryptonote::account_keys &acc_keys = w.get_account().get_keys();
+    const cryptonote::account_public_address main_addr = w.get_account().get_keys().m_account_address;
+    ASSERT_EQ(0, w.balance(0, true));
+    bc.init_wallet_for_starting_block(w); // needed b/c internal logic
+
+    const rct::xmr_amount amount_a = rct::randXmrAmount(COIN) + 1;
+    const rct::xmr_amount amount_b = rct::randXmrAmount(amount_a - 1);
+    const rct::xmr_amount fee = rct::randXmrAmount(COIN);
+
+    // make incoming pre-ringct tx to wallet with amount a
+    cryptonote::transaction incoming_tx_a;
+    {
+        std::vector<cryptonote::tx_destination_entry> dests = {
+            cryptonote::tx_destination_entry(amount_a, main_addr, false)};
+            incoming_tx_a = mock::construct_pre_carrot_tx_with_fake_inputs(
+            dests,
+            fee,
+            /*hf_version=*/1);
+        ASSERT_FALSE(cryptonote::is_coinbase(incoming_tx_a));
+        ASSERT_EQ(1, incoming_tx_a.version);
+        ASSERT_EQ(rct::RCTTypeNull, incoming_tx_a.rct_signatures.type);
+        ASSERT_EQ(typeid(cryptonote::txout_to_key), incoming_tx_a.vout.at(0).target.type());
+        ASSERT_EQ(amount_a, incoming_tx_a.vout.at(0).amount);
+    }
+
+    // make a burn transaction with amount b < a
+    cryptonote::transaction incoming_tx_b = incoming_tx_a;
+    boost::get<cryptonote::txin_to_key>(incoming_tx_b.vin.at(0)).k_image = rct::rct2ki(rct::pkGen());
+    incoming_tx_b.vout[0].amount = amount_b;
+
+    // submit burning transaction first
+    bc.add_block(1, {incoming_tx_b}, mock::null_addr);
+
+    // then submit original transaction
+    bc.add_block(1, {incoming_tx_a}, mock::null_addr);
+
+    // add 10 blocks to put space between sending outgoing tx
+    const cryptonote::tx_out dummy_output{.amount = 5, .target = cryptonote::txout_to_key(rct::rct2pk(rct::pkGen()))};
+    cryptonote::transaction dummy_tx; //! @TODO: remove dummy as prop fixing another bug
+    dummy_tx.version = 1;
+    dummy_tx.unlock_time = 0;
+    dummy_tx.vout.push_back(dummy_output);
+    for (size_t i = 0; i <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE; ++i)
+        bc.add_block(1, {dummy_tx}, mock::null_addr);
+
+    // scan, assert balance is amount a, (NOT a + b) and get key image to received output
+    bc.refresh_wallet(w, 0);
+    ASSERT_EQ(amount_a, w.balance_all(true));
+    uint64_t key_image_offset;
+    std::vector<std::pair<crypto::key_image, crypto::signature>> exported_key_images;
+    std::tie(key_image_offset, exported_key_images) = w.export_key_images(/*all=*/true);
+    ASSERT_EQ(0, key_image_offset);
+    ASSERT_EQ(2, exported_key_images.size());
+    const crypto::key_image &received_key_image = exported_key_images.at(0).first;
+    ASSERT_EQ(received_key_image, exported_key_images.at(1).first);
+
+    // make "outgoing" transaction by including this key image in an input
+    cryptonote::transaction outgoing_tx;
+    {
+        const rct::xmr_amount outgoing_amount = rct::randXmrAmount(amount_a);
+        const rct::xmr_amount outgoing_fee = amount_a - outgoing_amount;
+        std::vector<cryptonote::tx_destination_entry> dests = {
+            cryptonote::tx_destination_entry(outgoing_amount, mock::null_addr, false)};
+        crypto::secret_key main_tx_privkey;
+        std::vector<crypto::secret_key> additional_tx_privkeys;
+        tools::wallet2::transfer_container transfers;
+        w.get_transfers(transfers);
+        ASSERT_EQ(2, transfers.size());
+        const tools::wallet2::transfer_details &input_td = transfers.at(1);
+        const mock::stripped_down_tx_source_entry_t input_src{
+            .is_rct = false,
+            .global_output_index = input_td.m_global_output_index,
+            .onetime_address = input_td.get_public_key(),
+            .real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(input_td.m_tx, input_td.m_pk_index),
+            .local_output_index = 0,
+            .amount = amount_a,
+            .mask = rct::I
+        };
+        outgoing_tx = mock::construct_pre_carrot_tx_with_fake_inputs(acc_keys,
+            w.m_subaddresses,
+            {input_src},
+            dests,
+            /*change_addr=*/{},
+            crypto::null_hash,
+            outgoing_fee,
+            /*hf_version=*/1,
+            main_tx_privkey,
+            additional_tx_privkeys);
+        ASSERT_FALSE(cryptonote::is_coinbase(outgoing_tx));
+        ASSERT_EQ(1, outgoing_tx.version);
+        ASSERT_EQ(1, outgoing_tx.vin.size());
+        ASSERT_EQ(1, outgoing_tx.vout.size());
+        ASSERT_EQ(received_key_image, boost::get<cryptonote::txin_to_key>(outgoing_tx.vin.at(0)).k_image);
+        ASSERT_EQ(rct::RCTTypeNull, outgoing_tx.rct_signatures.type);
+        ASSERT_EQ(typeid(cryptonote::txout_to_key), outgoing_tx.vout.at(0).target.type());
+        ASSERT_EQ(amount_a, boost::get<cryptonote::txin_to_key>(outgoing_tx.vin.at(0)).amount);
+        ASSERT_EQ(outgoing_amount, outgoing_tx.vout.at(0).amount);
+        ASSERT_EQ(outgoing_fee, cryptonote::get_tx_fee(outgoing_tx));
+    }
+
+    // add outgoing tx to chain and wallet scans it
+    bc.add_block(1, {outgoing_tx}, mock::null_addr);
+    bc.refresh_wallet(w, 0);
+
+    // check that the balance drops to 0 and that all transfers are marked spent
+    ASSERT_EQ(0, w.balance_all(true));
+    tools::wallet2::transfer_container post_spend_transfers;
+    w.get_transfers(post_spend_transfers);
+    ASSERT_EQ(2, post_spend_transfers.size());
+    for (const tools::wallet2::transfer_details &td : post_spend_transfers)
+        ASSERT_TRUE(td.m_spent);
+}
+//----------------------------------------------------------------------------------------------------------------------
