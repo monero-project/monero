@@ -399,13 +399,18 @@ std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote_dest
         main_derivations,
         additional_derivations);
 
-    // 3. view-scan enote destination
+    // 3. get first transaction input with a default value
+    const cryptonote::txin_v tx_first_input = !tx_prefix.vin.empty()
+        ? tx_prefix.vin.at(0)
+        : cryptonote::txin_v(cryptonote::txin_to_key{});
+
+    // 4. view-scan enote destination
     return try_view_incoming_scan_enote_destination(tx_prefix.vout.at(local_output_index),
         amount_commitment,
         epee::to_span(main_tx_ephemeral_pubkeys),
         epee::to_span(additional_tx_ephemeral_pubkeys),
         tx_extra_nonce,
-        tx_prefix.vin.at(0),
+        tx_first_input,
         local_output_index,
         epee::to_span(main_derivations),
         additional_derivations,
@@ -564,12 +569,17 @@ void view_incoming_scan_transaction(
 
         const cryptonote::tx_out &enote_destination = tx.vout.at(local_output_index);
 
+        // get first transaction input with a default value
+        const cryptonote::txin_v tx_first_input = !tx.vin.empty()
+            ? tx.vin.at(0)
+            : cryptonote::txin_v(cryptonote::txin_to_key{});
+
         enote_scan_info = try_view_incoming_scan_enote(enote_destination,
             tx.rct_signatures,
             main_tx_ephemeral_pubkeys,
             additional_tx_ephemeral_pubkeys,
             tx_extra_nonce,
-            tx.vin.at(0),
+            tx_first_input,
             local_output_index,
             main_derivations,
             additional_derivations,
