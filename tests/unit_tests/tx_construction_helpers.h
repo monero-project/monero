@@ -59,6 +59,7 @@ cryptonote::transaction construct_miner_tx_fake_reward_1out(const size_t height,
 //----------------------------------------------------------------------------------------------------------------------
 struct stripped_down_tx_source_entry_t
 {
+    bool is_rct;
     uint64_t global_output_index;
     crypto::public_key onetime_address;
     crypto::public_key real_out_tx_key;
