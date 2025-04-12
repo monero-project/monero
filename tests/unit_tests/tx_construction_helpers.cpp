@@ -148,7 +148,6 @@ cryptonote::tx_source_entry gen_tx_source_entry_fake_members(
     const uint64_t max_global_output_index)
 {
     const size_t ring_size = mixin + 1;
-    const bool is_rct = in.mask == rct::I;
 
     CHECK_AND_ASSERT_THROW_MES(in.global_output_index <= max_global_output_index,
         "real global output index too low");
@@ -171,7 +170,7 @@ cryptonote::tx_source_entry gen_tx_source_entry_fake_members(
             continue;
         used_indices.insert(global_output_index);
         const rct::ctkey output_pair{rct::pkGen(),
-            is_rct ? rct::pkGen() : rct::zeroCommitVartime(in.amount)};
+            in.is_rct ? rct::pkGen() : rct::zeroCommitVartime(in.amount)};
         res.outputs.push_back({global_output_index, output_pair});
     }
     // sort by index
@@ -185,11 +184,11 @@ cryptonote::tx_source_entry gen_tx_source_entry_fake_members(
         ++res.real_output;
 
     // copy from in
+    res.rct = in.is_rct;
     res.real_out_tx_key = in.real_out_tx_key;
     res.real_out_additional_tx_keys = in.real_out_additional_tx_keys;
     res.real_output_in_tx_index = in.local_output_index;
     res.amount = in.amount;
-    res.rct = is_rct;
     res.mask = in.mask;
 
     return res;
@@ -280,6 +279,7 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
         CHECK_AND_ASSERT_THROW_MES(r, "failed to generate balancing input");
 
         const stripped_down_tx_source_entry_t balancing_in{
+            .is_rct = rct,
             .global_output_index = crypto::rand_range<uint64_t>(0, max_global_output_index),
             .onetime_address = input_onetime_address,
             .real_out_tx_key = main_tx_keypair.pub,
