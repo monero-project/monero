@@ -2309,7 +2309,7 @@ void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enot
 {
   ki_out = std::nullopt;
 
-  if (m_multisig || m_background_syncing) // no spend privkey
+  if (m_multisig || m_background_syncing || m_watch_only) // no complete spend privkey
     return;
 
   // if keys are encrypted, ask for password
@@ -2453,6 +2453,11 @@ void wallet2::process_new_scanned_transaction(
         << (burning_td->m_spent ? "spent" : "unspent") << " "
         << print_money(burning_td->amount()) << " in tx " << burning_td->m_txid << ", received output ignored");
       continue;
+    }
+    else if (burning_td)
+    {
+      // This new, better transfer "burns" the other one
+      set_spent(ot_it->second, height);
     }
 
     // update local received money counts
