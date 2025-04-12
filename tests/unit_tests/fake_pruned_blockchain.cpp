@@ -114,7 +114,7 @@ static bool compare_leaf_layer(const std::vector<fcmp_pp::curve_trees::OutputTup
 static bool compare_paths_between_tree_cache_and_global_tree(
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const CurveTreesGlobalTree &global_tree,
-    const std::vector<fcmp_pp::curve_trees::OutputContext> &leaves)
+    const std::vector<fcmp_pp::curve_trees::OutputPair> &leaves)
 {
     // this check compares the paths returned by tree_cache and global_tree against each other for a
     // given set of leaves
@@ -123,13 +123,17 @@ static bool compare_paths_between_tree_cache_and_global_tree(
 
     CHECK_AND_ASSERT_MES(tree_cache.get_n_leaf_tuples() == global_tree.get_n_leaf_tuples(), false, 
         "mismatch in number of leaf tuples");
-    for (const OutputContext &leaf : leaves)
+    for (const OutputPair &leaf : leaves)
     {
         CurveTreesV1::Path path_in_cache;
-        CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(leaf.output_pair, path_in_cache),
+        CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(leaf, path_in_cache),
             "could not get path from tree cache");
+        CHECK_AND_ASSERT_THROW_MES(!path_in_cache.empty(), "tree cache path is empty for given output pair");
+        const std::set<std::size_t> global_tree_leaf_idxs = global_tree.get_leaf_idxs_with_output_pair(leaf);
+        CHECK_AND_ASSERT_THROW_MES(!global_tree_leaf_idxs.empty(), "global tree missing given output pair");
         const CurveTreesV1::Path path_in_global =
-            global_tree.get_path_at_leaf_idx(leaf.output_id);
+            global_tree.get_path_at_leaf_idx(*global_tree_leaf_idxs.cbegin()); // use earliest leaf index
+        CHECK_AND_ASSERT_THROW_MES(!path_in_cache.empty(), "global tree path is empty for given output pair");
         CHECK_AND_ASSERT_MES(compare_leaf_layer(path_in_cache.leaves, path_in_global.leaves), false,
             "paths' leaves are not equal");
         CHECK_AND_ASSERT_MES(compare_curve_chunks<Selene>(path_in_cache.c1_layers, path_in_global.c1_layers),
@@ -413,16 +417,16 @@ uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w, const size_t 
     w.process_parsed_blocks(start_height, blk_entries, parsed_blks, blocks_added, output_tracker_cache);
 
     // collect paths_to_check
-    std::vector<fcmp_pp::curve_trees::OutputContext> paths_to_check;
+    std::vector<fcmp_pp::curve_trees::OutputPair> paths_to_check;
     paths_to_check.reserve(w.m_transfers.size());
     for (const tools::wallet2::transfer_details &td : w.m_transfers)
     {
         const uint64_t unlock_block_index = td.m_tx.unlock_time
             ? td.m_tx.unlock_time
             : (td.m_block_height +  CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
-        if (unlock_block_index + 1 > this->height())
+        if (unlock_block_index > this->height())
             continue;
-        paths_to_check.push_back({td.m_global_output_index, td.get_output_pair()});
+        paths_to_check.push_back(td.get_output_pair());
     }
 
     // check effective FCMP tree equality between blockchain and wallet

@@ -659,7 +659,7 @@ TEST(wallet_scanning, burned_zombie)
     dummy_tx.version = 1;
     dummy_tx.unlock_time = 0;
     dummy_tx.vout.push_back(dummy_output);
-    for (size_t i = 0; i <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE; ++i)
+    for (size_t i = 0; i < CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1; ++i)
         bc.add_block(1, {dummy_tx}, mock::null_addr);
 
     // scan, assert balance is amount a, (NOT a + b) and get key image to received output
