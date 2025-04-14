@@ -44,7 +44,7 @@
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/blockchain.h"
-#include "fcmp_pp/proof_len.cpp"
+#include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
 #include "ringct/bulletproofs_plus.h"
