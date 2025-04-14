@@ -83,7 +83,12 @@ static bool is_transfer_unlocked_for_next_fcmp_pp_block(const wallet2::transfer_
     if (td.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > next_block_index)
         return false;
 
-    return true;
+    return true;jeffro256
+    jeffro256
+    authored
+    Apr 14, 2025
+    ·
+    fix tx_builder includes
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
@@ -468,7 +473,8 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
         CHECK_AND_ASSERT_THROW_MES(!enote_ephemeral_pubkeys.empty(),
             "make_sal_opening_hint_from_transfer_details: BUG: missing ephemeral pubkeys");
 
-        const size_t ephemeral_pubkey_index = std::min(td.m_internal_output_index, enote_ephemeral_pubkeys.size() - 1);
+        const size_t ephemeral_pubkey_index = std::min<size_t>(td.m_internal_output_index,
+            enote_ephemeral_pubkeys.size() - 1);
         const mx25519_pubkey &enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(ephemeral_pubkey_index);
 
         CHECK_AND_ASSERT_THROW_MES(!td.m_tx.vin.empty(),
