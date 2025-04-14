@@ -60,7 +60,7 @@ using namespace epee;
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
 
 #define DEFAULT_AUTO_REFRESH_PERIOD 20 // seconds
-#define REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE 256    // just to split refresh in separate calls to play nicer with other threads
+#define REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE 256    // just to split refresh in separate calls to play nicer with other threads
 
 #define CHECK_MULTISIG_ENABLED() \
   do \
@@ -180,7 +180,7 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_restricted(false), m_vm(NULL)
+  wallet_rpc_server::wallet_rpc_server(bool no_initial_sync) : m_wallet(NULL), rpc_login_file(), m_stop(false), m_restricted(false), m_vm(NULL), m_no_initial_sync(no_initial_sync)
   {
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -206,13 +206,13 @@ namespace tools
       uint64_t blocks_fetched = 0;
       try {
         bool received_money = false;
-        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE);
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE);
       } catch (const std::exception& ex) {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
       // if we got the max amount of blocks, do not set the last refresh time, we did only part of the refresh and will
       // continue asap, and only set the last refresh time once the refresh is actually finished
-      if (blocks_fetched < REFRESH_INFICATIVE_BLOCK_CHUNK_SIZE)
+      if (blocks_fetched < REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE)
         m_last_auto_refresh_time = boost::posix_time::microsec_clock::universal_time();
       return true;
     }, 1000);
@@ -3649,7 +3649,17 @@ namespace tools
       er.message = "Failed to open wallet : " + (!er.message.empty() ? er.message : "Unknown.");
       return false;
     }
-
+    try
+    {
+      if (!get_no_initial_sync() && !req.no_initial_sync)
+        wal->refresh(wal->is_trusted_daemon());
+      else
+        LOG_PRINT_L1("no-initial-sync passed. Not syncing the wallet.");
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ERROR(tools::wallet_rpc_server::tr("Initial refresh failed: ") << e.what());
+    }
     if (m_wallet)
       delete m_wallet;
     m_wallet = wal.release();
@@ -4849,7 +4859,7 @@ public:
       const auto password_file = command_line::get_arg(vm, arg_password_file);
       const auto prompt_for_password = command_line::get_arg(vm, arg_prompt_for_password);
       const auto password_prompt = prompt_for_password ? password_prompter : nullptr;
-      const auto no_initial_sync = command_line::get_arg(vm, arg_no_initial_sync);
+      wrpc->set_no_initial_sync(command_line::get_arg(vm, arg_no_initial_sync));
 
       if(!wallet_file.empty() && !from_json.empty())
       {
@@ -4907,8 +4917,10 @@ public:
 
       try
       {
-        if (!no_initial_sync)
+        if (!wrpc->get_no_initial_sync())
           wal->refresh(wal->is_trusted_daemon());
+        else
+          LOG_PRINT_L1("--no-initial-sync passed. Not syncing the wallet.");
       }
       catch (const std::exception& e)
       {
