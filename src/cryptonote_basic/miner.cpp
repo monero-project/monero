@@ -84,6 +84,7 @@ using namespace epee;
 
 #include "miner.h"
 #include "crypto/hash.h"
+#include "thread.h"
 
 
 extern "C" void slow_hash_allocate_state();
@@ -96,6 +97,7 @@ namespace cryptonote
     const command_line::arg_descriptor<std::string> arg_extra_messages =  {"extra-messages-file", "Specify file for extra messages to include into coinbase transactions", "", true};
     const command_line::arg_descriptor<std::string> arg_start_mining =    {"start-mining", "Specify wallet address to mining for", "", true};
     const command_line::arg_descriptor<uint32_t>      arg_mining_threads =  {"mining-threads", "Specify mining threads count", 0, true};
+    const command_line::arg_descriptor<bool>        arg_mining_threads_idle =  {"mining-threads-idle", "Run mining threads at the idle/lowest possible system priority. This is an alternative to the background mining feature.", false, true};
     const command_line::arg_descriptor<bool>        arg_bg_mining_enable =  {"bg-mining-enable", "enable background mining", true, true};
     const command_line::arg_descriptor<bool>        arg_bg_mining_ignore_battery =  {"bg-mining-ignore-battery", "if true, assumes plugged in when unable to query system power status", false, true};    
     const command_line::arg_descriptor<uint64_t>    arg_bg_mining_min_idle_interval_seconds =  {"bg-mining-min-idle-interval", "Specify min lookback interval in seconds for determining idle state", miner::BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS, true};
@@ -121,6 +123,7 @@ namespace cryptonote
     m_total_hashes(0),
     m_do_print_hashrate(false),
     m_do_mining(false),
+    m_threads_idle(false),
     m_current_hash_rate(0),
     m_is_background_mining_enabled(false),
     m_min_idle_seconds(BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS),
@@ -289,6 +292,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_extra_messages);
     command_line::add_arg(desc, arg_start_mining);
     command_line::add_arg(desc, arg_mining_threads);
+    command_line::add_arg(desc, arg_mining_threads_idle);
     command_line::add_arg(desc, arg_bg_mining_enable);
     command_line::add_arg(desc, arg_bg_mining_ignore_battery);    
     command_line::add_arg(desc, arg_bg_mining_min_idle_interval_seconds);
@@ -352,6 +356,11 @@ namespace cryptonote
     if(command_line::has_arg(vm, arg_bg_mining_miner_target_percentage))
       set_mining_target( command_line::get_arg(vm, arg_bg_mining_miner_target_percentage) );
 
+    if(command_line::has_arg(vm, arg_mining_threads_idle))
+    {
+      m_threads_idle = command_line::get_arg(vm, arg_mining_threads_idle);
+    }
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------------
@@ -369,7 +378,7 @@ namespace cryptonote
     return m_threads_total;
   }
   //-----------------------------------------------------------------------------------------------------
-  bool miner::start(const account_public_address& adr, size_t threads_count, bool do_background, bool ignore_battery)
+  bool miner::start(const account_public_address& adr, size_t threads_count, bool threads_idle, bool do_background, bool ignore_battery)
   {
     m_block_reward = 0;
     m_mine_address = adr;
@@ -403,7 +412,13 @@ namespace cryptonote
     
     for(size_t i = 0; i != m_threads_total; i++)
     {
-      m_threads.push_back(boost::thread(m_attrs, boost::bind(&miner::worker_thread, this)));
+      if (threads_idle) {
+        m_threads.push_back(create_background_thread(m_attrs, boost::bind(
+            &miner::worker_thread, this)));
+      } else {
+        m_threads.push_back(boost::thread(m_attrs, boost::bind(
+            &miner::worker_thread, this)));
+      }
     }
 
     if (threads_count == 0)
@@ -413,6 +428,9 @@ namespace cryptonote
 
     if( get_is_background_mining_enabled() )
     {
+      if (threads_idle) {
+        MERROR("Feature --mining-threads-idle is an alternative to background mining and doesn't make sense to be used together.");
+      }
       m_background_mining_thread = boost::thread(m_attrs, boost::bind(&miner::background_worker_thread, this));
       LOG_PRINT_L0("Background mining controller thread started" );
     }
@@ -495,7 +513,7 @@ namespace cryptonote
   {
     if(m_do_mining)
     {
-      start(m_mine_address, m_threads_total, get_is_background_mining_enabled(), get_ignore_battery());
+      start(m_mine_address, m_threads_total, m_threads_idle, get_is_background_mining_enabled(), get_ignore_battery());
     }
   }
   //-----------------------------------------------------------------------------------------------------
