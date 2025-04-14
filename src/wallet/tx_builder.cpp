@@ -83,12 +83,7 @@ static bool is_transfer_unlocked_for_next_fcmp_pp_block(const wallet2::transfer_
     if (td.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > next_block_index)
         return false;
 
-    return true;jeffro256
-    jeffro256
-    authored
-    Apr 14, 2025
-    ·
-    fix tx_builder includes
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
