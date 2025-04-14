@@ -78,7 +78,6 @@ $(package)_objc
 $(package)_objcxx
 $(package)_ar
 $(package)_ranlib
-$(package)_libtool
 $(package)_nm
 $(package)_cflags
 $(package)_cxxflags
