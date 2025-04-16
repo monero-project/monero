@@ -422,7 +422,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // expand tx and calculate signable tx hash
     LOG_PRINT_L1("Calculating signable tx hash");
     hw::device &hwdev = hw::get_device("default");
-    ASSERT_TRUE(cryptonote::expand_transaction_1(tx, /*base_only=*/false));
+    ASSERT_TRUE(cryptonote::expand_transaction_1(tx, /*base_only=*/true));
     const crypto::hash tx_prefix_hash = cryptonote::get_transaction_prefix_hash(tx);
     tx.rct_signatures.message = rct::hash2rct(tx_prefix_hash);
     tx.rct_signatures.p.pseudoOuts.resize(n_inputs); // @TODO: make this not necessary to call get_mlsag_hash
