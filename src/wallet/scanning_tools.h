@@ -29,8 +29,10 @@
 #pragma once
 
 //local headers
-#include "carrot_core/lazy_amount_commitment.h"
+#include "carrot_core/carrot_enote_types.h"
+#include "carrot_core/device.h"
 #include "carrot_impl/subaddress_index.h"
+#include "crypto/crypto.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/subaddress_index.h"
@@ -39,6 +41,7 @@
 //third party headers
 
 //standard headers
+#include <unordered_map>
 #include <optional>
 #include <vector>
 
@@ -50,8 +53,6 @@ namespace wallet
 {
 struct enote_view_incoming_scan_info_t
 {
-    // K_o
-    crypto::public_key onetime_address;
     // k^g_o
     crypto::secret_key sender_extension_g;
     // k^t_o
@@ -68,71 +69,44 @@ struct enote_view_incoming_scan_info_t
     // z
     rct::key amount_blinding_factor;
 
-    // legacy: 8 k_v R, carrot: s^ctx_sr
-    crypto::key_derivation derivation;
-    // i
-    std::size_t local_output_index;
-    //
+    // the cold signing code used to have a bug which added multiple main tx pubkeys to extra
     std::size_t main_tx_pubkey_index;
 };
 
-std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote_destination(
-    const cryptonote::tx_out &enote_destination,
-    const carrot::lazy_amount_commitment_t &lazy_amount_commitment,
-    const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
-    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
-    const cryptonote::blobdata &tx_extra_nonce,
-    const cryptonote::txin_v &first_tx_input,
-    const std::size_t local_output_index,
-    const epee::span<const crypto::key_derivation> main_derivations,
-    const std::vector<crypto::key_derivation> &additional_derivations,
-    const cryptonote::account_keys &acc,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
-std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote_destination(
+struct PreCarrotEnote
+{
+    crypto::public_key onetime_address;
+    boost::optional<crypto::view_tag> view_tag;
+
+    std::size_t local_output_index;
+
+    bool encrypted_amount;
+    bool short_amount;
+    rct::key amount_commitment;
+    rct::ecdhTuple amount;
+};
+
+using MoneroEnoteVariant = tools::variant<PreCarrotEnote,
+    carrot::CarrotCoinbaseEnoteV1,
+    carrot::CarrotEnoteV1>;
+
+std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote_from_prefix(
     const cryptonote::transaction_prefix &tx_prefix,
-    const carrot::lazy_amount_commitment_t &lazy_amount_commitment,
+    const rct::xmr_amount amount,
+    const rct::key &amount_blinding_factor,
     const std::size_t local_output_index,
-    const cryptonote::account_keys &acc,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
-
-bool try_decrypt_enote_amount(const crypto::public_key &onetime_address,
-    const rct::key &enote_amount_commitment,
-    const std::uint8_t rct_type,
-    const rct::ecdhTuple &rct_ecdh_tuple,
-    const crypto::key_derivation &derivation,
-    const std::size_t local_output_index,
-    const crypto::public_key &address_spend_pubkey,
-    hw::device &hwdev,
-    rct::xmr_amount &amount_out,
-    rct::key &amount_blinding_factor_out);
-
-std::optional<enote_view_incoming_scan_info_t> try_view_incoming_scan_enote(
-    const cryptonote::tx_out &enote_destination,
-    const rct::rctSigBase &rct_sig,
-    const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
-    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
-    const cryptonote::blobdata &tx_extra_nonce,
-    const cryptonote::txin_v &first_tx_input,
-    const std::size_t local_output_index,
-    const epee::span<const crypto::key_derivation> main_derivations,
-    const std::vector<crypto::key_derivation> &additional_derivations,
-    const cryptonote::account_keys &acc,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
-
-void view_incoming_scan_transaction(
-    const cryptonote::transaction &tx,
-    const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
-    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
-    const cryptonote::blobdata &tx_extra_nonce,
-    const epee::span<const crypto::key_derivation> main_derivations,
-    const std::vector<crypto::key_derivation> &additional_derivations,
-    const cryptonote::account_keys &acc,
+    const cryptonote::account_public_address &address,
+    const crypto::secret_key &k_view_incoming,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
+    hw::device &hwdev);
+
 void view_incoming_scan_transaction(
     const cryptonote::transaction &tx,
-    const epee::span<const crypto::key_derivation> custom_main_derivations,
-    const std::vector<crypto::key_derivation> &custom_additional_derivations,
+    const epee::span<const crypto::public_key> main_tx_ephemeral_pubkeys,
+    const epee::span<const crypto::public_key> additional_tx_ephemeral_pubkeys,
+    const cryptonote::blobdata &tx_extra_nonce,
+    const epee::span<const crypto::key_derivation> main_derivations,
+    const epee::span<const crypto::key_derivation> additional_derivations,
     const cryptonote::account_keys &acc,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const epee::span<std::optional<enote_view_incoming_scan_info_t>> enote_scan_infos_out);
@@ -145,6 +119,12 @@ std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_t
     const cryptonote::transaction &tx,
     const cryptonote::account_keys &acc,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map);
+
+std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_transaction_as_sender(
+    const cryptonote::transaction &tx,
+    const epee::span<const crypto::key_derivation> custom_main_derivations,
+    const epee::span<const crypto::key_derivation> custom_additional_derivations,
+    const cryptonote::account_public_address &address);
 
 bool is_long_payment_id(const crypto::hash &pid);
 

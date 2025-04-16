@@ -516,8 +516,7 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
             carrot::view_incoming_key_ram_borrowed_device k_view_dev(k_view);
 
             // input_context = "R" || KI_1
-            carrot::input_context_t input_context;
-            carrot::make_carrot_input_context(tx_first_key_image, input_context);
+            const carrot::input_context_t input_context = carrot::make_carrot_input_context(tx_first_key_image);
 
             // s_sr = k_v D_e
             mx25519_pubkey s_sender_receiver_unctx; //! @TODO: wipe
