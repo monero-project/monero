@@ -46,29 +46,11 @@
 #include <optional>
 
 //forward declarations
+namespace carrot { struct CarrotDestinationV1; }
 
 
 namespace carrot
 {
-/**
- * brief: verify_carrot_janus_protection - verify that scanned enote is not attempting a Janus attack, and check pid
- * param: input_context -
- * param: onetime_address - K_o
- * param: k_view_dev -
- * param: nominal_address_spend_pubkey - K^j_s'
- * param: is_main_address_spend_pubkey - true iff K^j_s' is the spend pubkey of one of our main addresses
- * param: enote_ephemeral_pubkey - D_e
- * param: nominal_anchor - anchor'
- * outparam: nominal_payment_id_inout - takes pid', sets to nullpid if not associated to this enote
- */
-bool verify_carrot_janus_protection(const input_context_t &input_context,
-    const crypto::public_key &onetime_address,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &nominal_address_spend_pubkey,
-    const bool is_main_address_spend_pubkey,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
-    const janus_anchor_t &nominal_anchor,
-    payment_id_t &nominal_payment_id_inout);
 /**
  * brief: make_carrot_uncontextualized_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
  *   s_sr = k_v D_e
@@ -82,97 +64,99 @@ bool make_carrot_uncontextualized_shared_key_receiver(
     const mx25519_pubkey &enote_ephemeral_pubkey,
     mx25519_pubkey &s_sender_receiver_unctx_out);
 /**
- * brief: try_scan_carrot_coinbase_enote - attempt full scan process on coinbase enote
+ * brief: try_scan_carrot_coinbase_enote_[sender/receiver] - attempt scan process on coinbase enote
  * param: enote -
- * param: k_view_dev -
- * param: main_address_spend_pubkey - K^0_s
+ * param: destination - (is_subaddress, K^j_s, K^j_v, pid)
+ * param: anchor_norm - anchor_norm
+ * param: enote_ephemeral_privkey - d_e
+ * param: s_sender_receiver_unctx - s_sr
  * param: main_address_spend_pubkeys - {K^0_s, ...}
- * param: sender_extension_g_out - k^g_o
- * param: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_g_out - k^g_o
+ * outparam: sender_extension_g_out - k^t_o
+ * outparam: main_address_spend_pubkey_out - K^0_s, which will be one of main_address_spend_pubkeys
  * return: true iff the scan process succeeded
  */
-bool try_scan_carrot_coinbase_enote(
+bool try_scan_carrot_coinbase_enote_sender(
+    const CarrotCoinbaseEnoteV1 &enote,
+    const CarrotDestinationV1 &destination,
+    const janus_anchor_t &anchor_norm,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out);
+bool try_scan_carrot_coinbase_enote_sender(
+    const CarrotCoinbaseEnoteV1 &enote,
+    const CarrotDestinationV1 &destination,
+    const crypto::secret_key &enote_ephemeral_privkey,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out);
+bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out);
-bool try_scan_carrot_coinbase_enote(
+    crypto::secret_key &sender_extension_t_out,
+    crypto::public_key &main_address_spend_pubkey_out);
+bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out);
-bool try_ecdh_and_scan_carrot_coinbase_enote(
-    const CarrotCoinbaseEnoteV1 &enote,
-    const view_incoming_key_device &k_view_dev,
     const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out);
-bool try_ecdh_and_scan_carrot_coinbase_enote(
-    const CarrotCoinbaseEnoteV1 &enote,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out);
 /**
- * brief: try_scan_carrot_enote_external - attempt full scan process on external enote
+ * brief: try_scan_carrot_enote_external_[sender/receiver] - attempt scan process on external enote
  * param: enote -
  * param: encrypted_payment_id - pid_enc
+ * param: destination - (is_subaddress, K^j_s, K^j_v, pid)
+ * param: anchor_norm - anchor_norm
+ * param: enote_ephemeral_privkey - d_e
  * param: s_sender_receiver_unctx - s_sr
- * param: k_view_dev -
- * param: main_address_spend_pubkey - K^0_s
  * param: main_address_spend_pubkeys - {K^0_s, ...}
- * param: sender_extension_g_out - k^g_o
- * param: sender_extension_g_out - k^t_o
- * param: address_spend_pubkey_out - K^j_s
- * param: amount_out - a
- * param: amount_blinding_factor_out - k_a
- * param: payment_id_out - pid
- * param: enote_type_out - enote_type
+ * param: k_view_dev -
+ * outparam: sender_extension_g_out - k^g_o
+ * outparam: sender_extension_g_out - k^t_o
+ * outparam: address_spend_pubkey_out - K^j_s
+ * outparam: amount_out - a
+ * outparam: amount_blinding_factor_out - k_a
+ * outparam: payment_id_out - pid
+ * outparam: enote_type_out - enote_type
  * return: true iff the scan process succeeded
+ *
+ * warning: the _sender overloads cannot check for Janus protection on special enotes
  */
-bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
+bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const CarrotDestinationV1 &destination,
+    const janus_anchor_t &anchor_norm,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    CarrotEnoteType &enote_type_out,
+    const bool check_pid = true);
+bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const CarrotDestinationV1 &destination,
+    const crypto::secret_key &enote_ephemeral_privkey,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    CarrotEnoteType &enote_type_out,
+    const bool check_pid = true);
+bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const CarrotDestinationV1 &destination,
+    const mx25519_pubkey &s_sender_receiver_unctx,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    CarrotEnoteType &enote_type_out,
+    const bool check_pid = true);
+bool try_scan_carrot_enote_external_receiver(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
     const mx25519_pubkey &s_sender_receiver_unctx,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out);
-bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> &main_address_spend_pubkeys,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out);
-bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out);
-bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> &main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -181,19 +165,19 @@ bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
     payment_id_t &payment_id_out,
     CarrotEnoteType &enote_type_out);
 /**
- * brief: try_scan_carrot_enote_internal - attempt full scan process on internal enote
+ * brief: try_scan_carrot_enote_internal_receiver - attempt scan process on internal enote
  * param: enote -
  * param: s_view_balance_dev -
- * param: sender_extension_g_out - k^g_o
- * param: sender_extension_g_out - k^t_o
- * param: address_spend_pubkey_out - K^j_s
- * param: amount_out - a
- * param: amount_blinding_factor_out - k_a
- * param: enote_type_out - enote_type
- * param: internal_message_out - anchor'
+ * outparam: sender_extension_g_out - k^g_o
+ * outparam: sender_extension_g_out - k^t_o
+ * outparam: address_spend_pubkey_out - K^j_s
+ * outparam: amount_out - a
+ * outparam: amount_blinding_factor_out - k_a
+ * outparam: enote_type_out - enote_type
+ * outparam: internal_message_out - anchor'
  * return: true iff the scan process succeeded
  */
-bool try_scan_carrot_enote_internal(const CarrotEnoteV1 &enote,
+bool try_scan_carrot_enote_internal_receiver(const CarrotEnoteV1 &enote,
     const view_balance_secret_device &s_view_balance_dev,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
@@ -202,28 +186,6 @@ bool try_scan_carrot_enote_internal(const CarrotEnoteV1 &enote,
     crypto::secret_key &amount_blinding_factor_out,
     CarrotEnoteType &enote_type_out,
     janus_anchor_t &internal_message_out);
-/**
- * brief: try_scan_carrot_enote_external_destination_only - attempt external scan process, w/o decrypting
- *                                                          amount or recomputing the amount commitment
- * param: enote -
- * param: encrypted_payment_id - pid_enc
- * param: s_sender_receiver_unctx - s_sr
- * param: k_view_dev -
- * param: main_address_spend_pubkey - K^0_s
- * param: sender_extension_g_out - k^g_o
- * param: sender_extension_g_out - k^t_o
- * param: address_spend_pubkey_out - K^j_s
- * param: payment_id_out - pid
- * return: true iff the scan process (without amount commitment recomputation) succeeded
- */
-bool try_scan_carrot_enote_external_destination_only(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    payment_id_t &payment_id_out);
+//! @TODO: try_scan_carrot_enote_internal_sender(): can't validate burning w/o passing s_sr = s_vb
 
 } //namespace carrot

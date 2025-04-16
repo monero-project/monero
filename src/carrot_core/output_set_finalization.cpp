@@ -194,8 +194,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
         "get output enote proposals: normal payment proposals contain duplicate anchor_norm AKA randomness");
 
     // input_context = "R" || KI_1
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
+    const input_context_t input_context= make_carrot_input_context(tx_first_key_image);
 
     // construct normal enotes
     output_enote_proposals_out.reserve(num_proposals);
@@ -329,8 +328,7 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
         "get coinbase output enotes: normal payment proposals contain duplicate anchor_norm AKA randomness");
 
     // input_context = "C" || IntToBytes256(block_index)
-    input_context_t input_context;
-    make_carrot_input_context_coinbase(block_index, input_context);
+    const input_context_t input_context = make_carrot_input_context_coinbase(block_index);
 
     // construct normal enotes
     output_coinbase_enotes_out.reserve(num_proposals);
