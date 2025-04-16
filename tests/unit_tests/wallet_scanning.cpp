@@ -88,13 +88,10 @@ TEST(wallet_scanning, view_scan_as_sender_mainaddr)
 
         // call view_incoming_scan_transaction with no meaningful key nor subaddresses maps,
         // just with the proper ECDH
-        std::vector<std::optional<tools::wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(tx.vout.size());
-        tools::wallet::view_incoming_scan_transaction(tx,
+        const auto enote_scan_infos =  tools::wallet::view_incoming_scan_transaction_as_sender(tx,
             {&main_derivation, 1},
             {},
-            aether.get_keys(),
-            {{bob_main_spend_pubkey, {}}}, // use a fake subaddress map with just the provided address in it
-            epee::to_mut_span(enote_scan_infos));
+            bob_main_addr);
 
         bool matched = false;
         for (const auto &enote_scan_info : enote_scan_infos)
@@ -203,6 +200,7 @@ TEST(wallet_scanning, view_scan_short_payment_id)
     memcpy(&payment_id, &pid_8, sizeof(pid_8));
 
     ASSERT_FALSE(tools::wallet::is_long_payment_id(payment_id));
+    ASSERT_NE(crypto::null_hash, payment_id);
 
     for (uint8_t hf_version = 1; hf_version < HF_VERSION_FCMP_PLUS_PLUS; ++hf_version)
     {

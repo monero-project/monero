@@ -96,6 +96,7 @@ using namespace epee;
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
 #include "fcmp_pp/tx_utils.h"
+#include "carrot_impl/carrot_tx_format_utils.h"
 
 extern "C"
 {
@@ -2004,6 +2005,19 @@ void wallet2::set_spent(size_t idx, uint64_t height)
   td.m_spent_height = height;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::set_spent(const crypto::key_image &ki, const uint64_t height)
+{
+  // NOTE: There may be multiple transfers which share the same key image!!! However, because we
+  //       mark inferior older outputs as spent when a new, better one comes along inside of
+  //       process_new_scanned_transaction(), then the only transfer which shouldn't be marked as
+  //       spent is the one pointed to in m_key_images. So we should be safe from not marking
+  //       transfers as spent when they should be.
+
+  const auto ki_it = m_key_images.find(ki);
+  CHECK_AND_ASSERT_THROW_MES(ki_it != m_key_images.cend(), "Key image not found in transfers list");
+  set_spent(ki_it->second, height);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::set_unspent(size_t idx)
 {
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "Invalid index");
@@ -2441,10 +2455,18 @@ void wallet2::process_new_scanned_transaction(
 
     received_an_output = true;
 
+    crypto::public_key onetime_address;
+    if (!cryptonote::get_output_public_key(tx.vout.at(local_output_index), onetime_address))
+    {
+      MERROR("Cannot get onetime address for view-scanned enote???");
+      continue;
+    }
+
     // check for burning bug
-    const auto ot_it = m_pub_keys.find(enote_scan_info->onetime_address);
+    const auto ot_it = m_pub_keys.find(onetime_address);
     const transfer_details *burning_td = ot_it != m_pub_keys.cend() ? &m_transfers.at(ot_it->second) : nullptr;
-    const bool should_treat_as_burned = burning_td && burning_td->amount() >= enote_scan_info->amount;
+    const bool should_treat_as_burned = burning_td &&
+      (burning_td->amount() >= enote_scan_info->amount || burning_td->m_spent);
     if (should_treat_as_burned)
     {
       // We already have an older received transfer with a greater-than-or-equal amount
@@ -2516,7 +2538,7 @@ void wallet2::process_new_scanned_transaction(
     if (!td.m_key_image_known)
     {
       // we might have cold signed, and have a mapping to key images
-      const auto i = m_cold_key_images.find(enote_scan_info->onetime_address);
+      const auto i = m_cold_key_images.find(onetime_address);
       if (i != m_cold_key_images.end())
       {
         td.m_key_image = i->second;
@@ -2529,7 +2551,7 @@ void wallet2::process_new_scanned_transaction(
     // update m_key_images, m_pub_keys, and output_tracker_cache
     if (td.m_key_image_known)
       m_key_images[td.m_key_image] = m_transfers.size() - 1;
-    m_pub_keys[enote_scan_info->onetime_address] = m_transfers.size() - 1;
+    m_pub_keys[onetime_address] = m_transfers.size() - 1;
     output_tracker_cache[std::make_pair(tx.vout.at(td.m_internal_output_index).amount, td.m_global_output_index)] =
       m_transfers.size() - 1;
 
@@ -2544,7 +2566,7 @@ void wallet2::process_new_scanned_transaction(
 
     // tell FCMP tree to keep the path for this output
     const fcmp_pp::curve_trees::OutputPair output_pair{
-      .output_pubkey = enote_scan_info->onetime_address,
+      .output_pubkey = onetime_address,
       .commitment = rct::commit(enote_scan_info->amount, enote_scan_info->amount_blinding_factor)
     };
     m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
@@ -12168,13 +12190,10 @@ void wallet2::check_tx_key_helper(const cryptonote::transaction &tx, const crypt
 {
   received = 0;
 
-  std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(tx.vout.size());
-  wallet::view_incoming_scan_transaction(tx,
+  const auto enote_scan_infos = wallet::view_incoming_scan_transaction_as_sender(tx,
     {&derivation, 1},
-    additional_derivations,
-    m_account.get_keys(),
-    {{address.m_spend_public_key, {}}}, // use a fake subaddress map with just the provided address in it
-    epee::to_mut_span(enote_scan_infos));
+    epee::to_span(additional_derivations),
+    address);
 
   for (const auto &enote_scan_info : enote_scan_infos)
     if (enote_scan_info && enote_scan_info->address_spend_pubkey == address.m_spend_public_key)
@@ -13146,12 +13165,19 @@ bool wallet2::verify_with_public_key(const std::string &data, const crypto::publ
 //----------------------------------------------------------------------------------------------------
 crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const
 {
-  const auto enote_scan_info = wallet::try_view_incoming_scan_enote_destination(
+  THROW_WALLET_EXCEPTION_IF(carrot::is_carrot_transaction_v1(td.m_tx),
+    error::wallet_internal_error,
+    "get_tx_pub_key_from_received_outs is not relevant for Carrot txs");
+
+  const auto enote_scan_info = wallet::view_incoming_scan_enote_from_prefix(
     td.m_tx,
-    rct::commit(td.amount(), td.m_mask),
+    td.amount(),
+    td.m_mask,
     td.m_internal_output_index,
-    m_account.get_keys(),
-    m_subaddresses);
+    m_account_public_address,
+    m_account.get_keys().m_view_secret_key,
+    m_subaddresses,
+    m_account.get_device());
 
   const size_t main_tx_pubkey_index = enote_scan_info ? enote_scan_info->main_tx_pubkey_index : 0;
 

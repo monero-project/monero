@@ -150,7 +150,7 @@ static void make_sal_proof_nominal_address_carrot_v1(const crypto::hash &signabl
     bool scanned = false;
     if (s_view_balance_dev)
     {
-        scanned = try_scan_carrot_enote_internal(opening_hint.source_enote,
+        scanned = try_scan_carrot_enote_internal_receiver(opening_hint.source_enote,
             *s_view_balance_dev,
             sender_extension_g,
             sender_extension_t,
@@ -169,10 +169,17 @@ static void make_sal_proof_nominal_address_carrot_v1(const crypto::hash &signabl
     // if that didn't work, try an external scan
     if (!scanned && k_view_incoming_dev)
     {
-        scanned = try_ecdh_and_scan_carrot_enote_external(opening_hint.source_enote,
+        mx25519_pubkey s_sender_receiver_unctx;
+        CHECK_AND_ASSERT_THROW_MES(make_carrot_uncontextualized_shared_key_receiver(*k_view_incoming_dev,
+                opening_hint.source_enote.enote_ephemeral_pubkey,
+                s_sender_receiver_unctx),
+            "make sal proof nominal address carrot v1: failed to do ECDH");
+
+        scanned = try_scan_carrot_enote_external_receiver(opening_hint.source_enote,
             opening_hint.encrypted_payment_id,
+            s_sender_receiver_unctx,
+            {&account_spend_pubkey, 1},
             *k_view_incoming_dev,
-            account_spend_pubkey,
             sender_extension_g,
             sender_extension_t,
             address_spend_pubkey,
@@ -224,9 +231,15 @@ static void make_sal_proof_nominal_address_carrot_coinbase_v1(const crypto::hash
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
 
-    // first, try do an internal scan of the enote
-    const bool scanned = try_ecdh_and_scan_carrot_coinbase_enote(opening_hint.source_enote,
-        k_view_incoming_dev,
+    // first, try do a scan of the enote
+    mx25519_pubkey s_sender_receiver_unctx;
+    CHECK_AND_ASSERT_THROW_MES(make_carrot_uncontextualized_shared_key_receiver(k_view_incoming_dev,
+            opening_hint.source_enote.enote_ephemeral_pubkey,
+            s_sender_receiver_unctx),
+        "make sal proof nominal address carrot coinbase v1: failed to do ECDH");
+
+    const bool scanned = try_scan_carrot_coinbase_enote_receiver(opening_hint.source_enote,
+        s_sender_receiver_unctx,
         account_spend_pubkey,
         sender_extension_g,
         sender_extension_t);
