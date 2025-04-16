@@ -66,6 +66,13 @@ static inline T raw_byte_convert(const U &u)
  */
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix);
 /**
+ * brief: parse_carrot_input_context - try parsing carrot input context from cryptonote transaction components
+ */
+input_context_t parse_carrot_input_context(const cryptonote::txin_gen &txin);
+input_context_t parse_carrot_input_context(const cryptonote::txin_to_key &txin);
+bool parse_carrot_input_context(const cryptonote::txin_v &txin, input_context_t &input_context_out);
+bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix, input_context_t &input_context_out);
+/**
  * try_load_carrot_extra_v1 - load Carrot info which is stored in tx_extra
  * param: tx_extra_fields -
  * outparam: enote_ephemeral_pubkeys_out - D_e
@@ -92,6 +99,18 @@ cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotE
     const rct::xmr_amount fee,
     const encrypted_payment_id_t encrypted_payment_id);
 /**
+ * brief: try_load_carrot_enote_from_transaction_v1 - load one non-coinbase Carrot enote from a cryptonote::transaction
+ * param: tx -
+ * param: enote_ephemeral_pubkeys - D_e
+ * param: local_output_index -
+ * outparam: enote_out -
+ * return: true iff enote was successfully parsed
+ */
+bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx,
+    const epee::span<const mx25519_pubkey> enote_ephemeral_pubkeys,
+    const std::size_t local_output_index,
+    CarrotEnoteV1 &enote_out);
+/**
  * brief: load_carrot_from_transaction_v1 - load non-coinbase Carrot info from a cryptonote::transaction
  * param: tx -
  * outparam: enotes_out -
@@ -114,10 +133,21 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
 cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
     const std::vector<CarrotCoinbaseEnoteV1> &enotes);
 /**
+ * brief: try_load_carrot_coinbase_enote_from_transaction_v1 - load one coinbase Carrot enote from a cryptonote::transaction
+ * param: tx -
+ * param: enote_ephemeral_pubkeys -
+ * param: local_output_index -
+ * outparam: enote_out -
+ * return:  true iff enote was successfully parsed
+ */
+bool try_load_carrot_coinbase_enote_from_transaction_v1(const cryptonote::transaction &tx,
+    const epee::span<const mx25519_pubkey> enote_ephemeral_pubkeys,
+    const std::size_t local_output_index,
+    CarrotCoinbaseEnoteV1 &enote_out);
+/**
  * brief: try_load_carrot_from_coinbase_transaction_v1 - load coinbase Carrot info from a cryptonote::transaction
  * param: tx -
  * outparam: enotes_out -
- * outparam: block_index_out -
  * return: Carrot coinbase enotes and block index contained within a coinbase transaction
  */
 bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction &tx,
