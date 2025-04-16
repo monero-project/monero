@@ -30,6 +30,7 @@
 #include "carrot_tx_format_utils.h"
 
 //local headers
+#include "carrot_core/enote_utils.h"
 #include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
@@ -40,7 +41,7 @@
 //standard headers
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "carrot_impl"
+#define MONERO_DEFAULT_LOG_CATEGORY "carrot_impl.format_utils"
 
 static_assert(sizeof(mx25519_pubkey) == sizeof(crypto::public_key),
     "cannot use crypto::public_key as storage for X25519 keys since size is different");
@@ -113,6 +114,39 @@ static bool try_load_carrot_ephemeral_pubkeys_from_extra(const std::vector<crypt
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix)
 {
     return tx_prefix.vout.at(0).target.type() == typeid(cryptonote::txout_to_carrot_v1);
+}
+//-------------------------------------------------------------------------------------------------------------------
+input_context_t parse_carrot_input_context(const cryptonote::txin_gen &txin)
+{
+    return make_carrot_input_context_coinbase(txin.height);
+}
+//-------------------------------------------------------------------------------------------------------------------
+input_context_t parse_carrot_input_context(const cryptonote::txin_to_key &txin)
+{
+    return make_carrot_input_context(txin.k_image);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool parse_carrot_input_context(const cryptonote::txin_v &txin, input_context_t &input_context_out)
+{
+    struct parse_carrot_input_context_v_visitor
+    {
+        bool operator()(const cryptonote::txin_gen &txin) const
+        { input_context_out = parse_carrot_input_context(txin); return true; }
+        bool operator()(const cryptonote::txin_to_key &txin) const
+        { input_context_out = parse_carrot_input_context(txin); return true; }
+        bool operator()(const cryptonote::txin_to_script&) const { return false; }
+        bool operator()(const cryptonote::txin_to_scripthash&) const { return false; }
+
+        input_context_t &input_context_out;
+    };
+
+    return boost::apply_visitor(parse_carrot_input_context_v_visitor{input_context_out}, txin);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix, input_context_t &input_context_out)
+{
+    CHECK_AND_ASSERT_MES(!tx_prefix.vin.empty(), false, "parse_carrot_input_context: no input available");
+    return parse_carrot_input_context(tx_prefix.vin.at(0), input_context_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_extra_v1(
@@ -217,6 +251,63 @@ cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotE
     return tx;
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool try_load_carrot_enote_from_transaction_v1(const cryptonote::transaction &tx,
+    const epee::span<const mx25519_pubkey> enote_ephemeral_pubkeys,
+    const std::size_t local_output_index,
+    CarrotEnoteV1 &enote_out)
+{
+    const rct::rctSigBase &rv = tx.rct_signatures;
+
+    const size_t nins = tx.vin.size();
+    const size_t nouts = tx.vout.size();
+    const bool shared_ephemeral_pubkey = enote_ephemeral_pubkeys.size() == 1;
+    const size_t ephemeral_pubkey_index = shared_ephemeral_pubkey ? 0 : local_output_index;
+
+    CHECK_AND_ASSERT_MES(nins, false, "try_load_carrot_enote_from_transaction_v1: no inputs");
+    CHECK_AND_ASSERT_MES(ephemeral_pubkey_index < enote_ephemeral_pubkeys.size(),
+        false,
+        "try_load_carrot_enote_from_transaction_v1: not enough ephemeral pubkeys");
+    CHECK_AND_ASSERT_MES(local_output_index < nouts,
+        false,
+        "try_load_carrot_enote_from_transaction_v1: not enough outputs");
+    CHECK_AND_ASSERT_MES(nouts == rv.ecdhInfo.size(),
+        false,
+        "try_load_carrot_enote_from_transaction_v1: ecdhInfo wrong size");
+    CHECK_AND_ASSERT_MES(nouts == rv.outPk.size(),
+        false,
+        "try_load_carrot_enote_from_transaction_v1: outPk wrong size");
+
+    const cryptonote::txout_target_v &t = tx.vout.at(local_output_index).target;
+    const cryptonote::txout_to_carrot_v1 * const c = boost::strict_get<cryptonote::txout_to_carrot_v1>(&t);
+    CHECK_AND_ASSERT_MES(c, false, "try_load_carrot_enote_from_transaction_v1: wrong output type");
+
+    const cryptonote::txin_to_key * const inp = boost::strict_get<cryptonote::txin_to_key>(&tx.vin.at(0));
+    CHECK_AND_ASSERT_MES(inp, false, "try_load_carrot_enote_from_transaction_v1: wrong input type");
+
+    //K_o
+    enote_out.onetime_address = c->key;
+
+    //vt
+    enote_out.view_tag = c->view_tag;
+
+    //anchor_enc
+    enote_out.anchor_enc = c->encrypted_janus_anchor;
+
+    //L_1
+    enote_out.tx_first_key_image = inp->k_image;
+
+    //a_enc
+    memcpy(enote_out.amount_enc.bytes, rv.ecdhInfo.at(local_output_index).amount.bytes, sizeof(encrypted_amount_t));
+
+    //C_a
+    enote_out.amount_commitment = rv.outPk.at(local_output_index).mask;
+
+    //D_e
+    enote_out.enote_ephemeral_pubkey = enote_ephemeral_pubkeys[ephemeral_pubkey_index];
+
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     std::vector<CarrotEnoteV1> &enotes_out,
     std::vector<crypto::key_image> &key_images_out,
@@ -228,15 +319,6 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
 
     const size_t nins = tx.vin.size();
     const size_t nouts = tx.vout.size();
-
-    if (0 == nins)
-        return false; // no input_context
-    else if (2 > nouts)
-        return false; // <2 outs is invalid
-    else if (nouts != rv.ecdhInfo.size())
-        return false; // incorrect # of encrypted amounts
-    else if (nouts != rv.outPk.size())
-        return false; // incorrect # of amount commitments
 
     //inputs
     key_images_out.resize(nins);
@@ -250,34 +332,6 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
         key_images_out[i] = k->k_image;
     }
 
-    //outputs
-    enotes_out.resize(nouts);
-    for (size_t i = 0; i < nouts; ++i)
-    {
-        const cryptonote::txout_target_v &t = tx.vout.at(i).target;
-        const cryptonote::txout_to_carrot_v1 * const c = boost::strict_get<cryptonote::txout_to_carrot_v1>(&t);
-        if (nullptr == c)
-            return false;
-        
-        //K_o
-        enotes_out[i].onetime_address = c->key;
-
-        //vt
-        enotes_out[i].view_tag = c->view_tag;
-
-        //anchor_enc
-        enotes_out[i].anchor_enc = c->encrypted_janus_anchor;
-
-        //L_1
-        enotes_out[i].tx_first_key_image = key_images_out.at(0);
-
-        //a_enc
-        memcpy(enotes_out[i].amount_enc.bytes, rv.ecdhInfo.at(i).amount.bytes, sizeof(encrypted_amount_t));
-    
-        //C_a
-        enotes_out[i].amount_commitment = rv.outPk.at(i).mask;
-    }
-
     //D_e, pid_enc
     std::vector<mx25519_pubkey> enote_ephemeral_pubkeys;
     if (!try_load_carrot_extra_v1(tx.extra, enote_ephemeral_pubkeys, encrypted_payment_id_out))
@@ -287,9 +341,11 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
     if (n_ephemeral == 0 || n_ephemeral > nouts)
         return false;
 
-    // collect D_e
-    for (size_t i = 0; i < enotes_out.size(); ++i)
-        enotes_out[i].enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(std::min(i, n_ephemeral - 1));
+    //outputs
+    enotes_out.resize(nouts);
+    for (size_t i = 0; i < nouts; ++i)
+        if (!try_load_carrot_enote_from_transaction_v1(tx, epee::to_span(enote_ephemeral_pubkeys), i, enotes_out[i]))
+            return false;
 
     return true;
 }
@@ -334,46 +390,52 @@ cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
     return tx;
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool try_load_carrot_coinbase_enote_from_transaction_v1(const cryptonote::transaction &tx,
+    const epee::span<const mx25519_pubkey> enote_ephemeral_pubkeys,
+    const std::size_t local_output_index,
+    CarrotCoinbaseEnoteV1 &enote_out)
+{
+    CHECK_AND_ASSERT_MES(!tx.vin.empty(), false, "try_load_carrot_coinbase_enote_from_transaction_v1: no inputs");
+    const cryptonote::txin_gen * const inp = boost::strict_get<cryptonote::txin_gen>(&tx.vin.at(0));
+    CHECK_AND_ASSERT_MES(inp, false, "try_load_carrot_coinbase_enote_from_transaction_v1: wrong input type");
+
+    //block_index
+    enote_out.block_index = inp->height;
+
+    CHECK_AND_ASSERT_MES(local_output_index < tx.vout.size(),
+        false,
+        "try_load_carrot_coinbase_enote_from_transaction_v1: not enough outputs");
+    const cryptonote::tx_out &o = tx.vout.at(local_output_index);
+
+    //a
+    enote_out.amount = o.amount;
+
+    const cryptonote::txout_to_carrot_v1 * const c = boost::strict_get<cryptonote::txout_to_carrot_v1>(&o.target);
+    CHECK_AND_ASSERT_MES(c, false, "try_load_carrot_coinbase_enote_from_transaction_v1: wrong output type");
+
+    //K_o
+    enote_out.onetime_address = c->key;
+
+    //vt
+    enote_out.view_tag = c->view_tag;
+
+    //anchor_enc
+    enote_out.anchor_enc = c->encrypted_janus_anchor;
+
+    CHECK_AND_ASSERT_MES(local_output_index < enote_ephemeral_pubkeys.size(),
+        false,
+        "try_load_carrot_coinbase_enote_from_transaction_v1: no enough ephemeral pubkeys");
+
+    //D_e
+    enote_out.enote_ephemeral_pubkey = enote_ephemeral_pubkeys[local_output_index];
+
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction &tx,
     std::vector<CarrotCoinbaseEnoteV1> &enotes_out)
 {
-    const size_t nins = tx.vin.size();
     const size_t nouts = tx.vout.size();
-
-    if (1 != nins)
-        return false; //not coinbase
-    else if (0 == nouts)
-        return false; //0-out coinbase not allowed
-
-    //input
-    const cryptonote::txin_gen * const h = boost::strict_get<cryptonote::txin_gen>(&tx.vin.front());
-    if (nullptr == h)
-        return false;
-
-    //outputs
-    enotes_out.resize(nouts);
-    for (size_t i = 0; i < nouts; ++i)
-    {
-        //a
-        enotes_out[i].amount = tx.vout.at(i).amount;
-
-        const cryptonote::txout_target_v &t = tx.vout.at(i).target;
-        const cryptonote::txout_to_carrot_v1 * const c = boost::strict_get<cryptonote::txout_to_carrot_v1>(&t);
-        if (nullptr == c)
-            return false;
-
-        //K_o
-        enotes_out[i].onetime_address = c->key;
-
-        //vt
-        enotes_out[i].view_tag = c->view_tag;
-
-        //anchor_enc
-        enotes_out[i].anchor_enc = c->encrypted_janus_anchor;
-
-        //block_index
-        enotes_out[i].block_index = h->height;
-    }
 
     //D_e, pid_enc
     std::vector<mx25519_pubkey> enote_ephemeral_pubkeys;
@@ -383,9 +445,14 @@ bool try_load_carrot_from_coinbase_transaction_v1(const cryptonote::transaction 
     else if (enote_ephemeral_pubkeys.size() != nouts)
         return false;
 
-    //collect D_e
-    for (size_t i = 0; i < enotes_out.size(); ++i)
-        enotes_out[i].enote_ephemeral_pubkey = enote_ephemeral_pubkeys.at(i);
+    //outputs
+    enotes_out.resize(nouts);
+    for (size_t i = 0; i < nouts; ++i)
+        if (!try_load_carrot_coinbase_enote_from_transaction_v1(tx,
+                epee::to_span(enote_ephemeral_pubkeys),
+                i,
+                enotes_out[i]))
+            return false;
 
     return true;
 }
