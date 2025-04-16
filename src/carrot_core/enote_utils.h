@@ -47,18 +47,16 @@ namespace carrot
 
 /**
  * brief: make_carrot_enote_ephemeral_privkey - enote ephemeral privkey k_e for Carrot enotes
- *   d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid))
+ *   d_e = H_n(anchor_norm, input_context, K^j_s, pid))
  * param: anchor_norm - anchor_norm
  * param: input_context - input_context
  * param: address_spend_pubkey - K^j_s
- * param: address_view_pubkey - K^j_v
  * param: payment_id - pid
  * outparam: enote_ephemeral_privkey_out - k_e
  */
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const input_context_t &input_context,
     const crypto::public_key &address_spend_pubkey,
-    const crypto::public_key &address_view_pubkey,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out);
 /**
@@ -78,6 +76,19 @@ void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &eno
  */
 void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
+    mx25519_pubkey &enote_ephemeral_pubkey_out);
+/**
+ * brief: make_carrot_enote_ephemeral_pubkey - make enote ephemeral pubkey D_e for either either address type
+ *   [is_subaddress]: D_e = d_e ConvertPointE(K^j_s)
+ *   [!is_subaddress]: D_e = d_e B
+ * param: enote_ephemeral_privkey - d_e
+ * param: address_spend_pubkey - K^j_s
+ * param: is_subaddress -
+ * outparam: enote_ephemeral_pubkey_out - D_e
+ */
+void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
+    const crypto::public_key &address_spend_pubkey,
+    const bool is_subaddress,
     mx25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * brief: make_carrot_uncontextualized_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
@@ -117,16 +128,16 @@ void make_carrot_view_tag(const unsigned char s_sender_receiver_unctx[32],
 * brief: make_carrot_input_context_coinbase - input context for a sender-receiver secret (coinbase txs)
 *    input_context = "C" || IntToBytes256(block_index)
 * param: block_index - block index of the coinbase tx
-* outparam: input_context_out - "C" || IntToBytes256(block_index)
+* return: input_context
 */
-void make_carrot_input_context_coinbase(const std::uint64_t block_index, input_context_t &input_context_out);
+input_context_t make_carrot_input_context_coinbase(const std::uint64_t block_index);
 /**
 * brief: make_carrot_input_context - input context for a sender-receiver secret (standard RingCT txs)
 *    input_context = "R" || KI_1
 * param: first_rct_key_image - KI_1, the first spent RingCT key image in a tx
-* outparam: input_context_out - "S" || KI_1
+* return: input_context
 */
-void make_carrot_input_context(const crypto::key_image &first_rct_key_image, input_context_t &input_context_out);
+input_context_t make_carrot_input_context(const crypto::key_image &first_rct_key_image);
 /**
 * brief: make_carrot_sender_receiver_secret - contextualized sender-receiver secret s^ctx_sr
 *    s^ctx_sr = H_32(s_sr, D_e, input_context)
@@ -370,20 +381,18 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out);
 /**
- * brief: verify_carrot_external_janus_protection - check normal external enote is Janus safe (i.e. can recompute D_e)
+ * brief: verify_carrot_normal_janus_protection - check normal external enote is Janus safe (i.e. can recompute D_e)
  * param: nominal_anchor - anchor'
  * param: input_context -
  * param: nominal_address_spend_pubkey - K^j_s'
- * param: nominal_address_view_pubkey - K^j_v'
  * param: is_subaddress -
  * param: nominal_payment_id - pid'
  * param: enote_ephemeral_pubkey - D_e
  * return: true if this normal external enote is safe from Janus attacks
  */
-bool verify_carrot_external_janus_protection(const janus_anchor_t &nominal_anchor,
+bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
-    const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
     const mx25519_pubkey &enote_ephemeral_pubkey);

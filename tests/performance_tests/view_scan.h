@@ -236,11 +236,11 @@ public:
         rct::xmr_amount recovered_amount;
         carrot::payment_id_t recovered_payment_id;
         carrot::CarrotEnoteType recovered_enote_type;
-        if (!carrot::try_scan_carrot_enote_external(m_enote,
+        if (!carrot::try_scan_carrot_enote_external_receiver(m_enote,
                 m_encrypted_payment_id,
                 s_sender_receiver_unctx,
+                {&m_account_spend_pubkey, 1},
                 m_k_view_dev,
-                m_account_spend_pubkey,
                 _1,
                 _2,
                 recovered_address_spend_pubkey,
@@ -280,11 +280,11 @@ public:
         rct::xmr_amount recovered_amount;
         carrot::payment_id_t recovered_payment_id;
         carrot::CarrotEnoteType recovered_enote_type;
-        const bool scan_success = carrot::try_scan_carrot_enote_external(m_enote,
+        const bool scan_success = carrot::try_scan_carrot_enote_external_receiver(m_enote,
             m_encrypted_payment_id,
             s_sender_receiver_unctx,
+            {&m_account_spend_pubkey, 1},
             m_k_view_dev,
-            m_account_spend_pubkey,
             _1,
             _2,
             recovered_address_spend_pubkey,

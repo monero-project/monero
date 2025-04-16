@@ -305,7 +305,7 @@ void mock_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
 {
     res.clear();
 
-    // We support receives to both the new and odl K^0_s
+    // We support receives to both the new and old K^0_s
     const crypto::public_key main_address_spend_pubkeys[2] = {
         keys.carrot_account_spend_pubkey,
         keys.legacy_acb.get_keys().m_account_address.m_spend_public_key
@@ -324,11 +324,11 @@ void mock_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
         mock_scan_result_t scan_result{};
         scan_result.output_index = output_index;
 
-        if (try_scan_carrot_enote_external(enote,
+        if (try_scan_carrot_enote_external_receiver(enote,
             encrypted_payment_id,
             s_sr,
-            keys.k_view_incoming_dev,
             {main_address_spend_pubkeys, 2},
+            keys.k_view_incoming_dev,
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
             scan_result.address_spend_pubkey,
@@ -348,7 +348,7 @@ void mock_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
         const CarrotEnoteV1 &enote = enotes.at(output_index);
 
         mock_scan_result_t scan_result{};
-        const bool r = try_scan_carrot_enote_internal(enote,
+        const bool r = try_scan_carrot_enote_internal_receiver(enote,
             keys.s_view_balance_dev,
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
@@ -372,6 +372,12 @@ void mock_scan_coinbase_enote_set(const std::vector<CarrotCoinbaseEnoteV1> &coin
 {
     res.clear();
 
+    // We support receives to both the new and old K^0_s
+    const crypto::public_key main_address_spend_pubkeys[2] = {
+        keys.carrot_account_spend_pubkey,
+        keys.legacy_acb.get_keys().m_account_address.m_spend_public_key
+    };
+
     for (size_t output_index = 0; output_index < coinbase_enotes.size(); ++output_index)
     {
         const CarrotCoinbaseEnoteV1 &enote = coinbase_enotes.at(output_index);
@@ -384,27 +390,18 @@ void mock_scan_coinbase_enote_set(const std::vector<CarrotCoinbaseEnoteV1> &coin
         scan_result.enote_type = CarrotEnoteType::PAYMENT;
         scan_result.internal_message = janus_anchor_t{};
 
-        if (try_ecdh_and_scan_carrot_coinbase_enote(enote,
-            keys.k_view_incoming_dev,
-            keys.carrot_account_spend_pubkey,
-            scan_result.sender_extension_g,
-            scan_result.sender_extension_t))
-        {
-            scan_result.address_spend_pubkey = keys.carrot_account_spend_pubkey;
-            res.push_back(scan_result);
-            continue;
-        }
+        mx25519_pubkey s_sender_receiver_unctx;
+        make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
+            enote.enote_ephemeral_pubkey,
+            s_sender_receiver_unctx);
 
-        // We do a double external scan here to check anchor_sp against both the legacy K_s
-        // and new K_s. This is inefficient and less secure against Janus attacks, but it allows
-        // completeness for now when we use hybrid key structures
-        if (try_ecdh_and_scan_carrot_coinbase_enote(coinbase_enotes.at(output_index),
-            keys.k_view_incoming_dev,
-            keys.legacy_acb.get_keys().m_account_address.m_spend_public_key,
+        if (try_scan_carrot_coinbase_enote_receiver(enote,
+            s_sender_receiver_unctx,
+            {main_address_spend_pubkeys, 2},
             scan_result.sender_extension_g,
-            scan_result.sender_extension_t))
+            scan_result.sender_extension_t,
+            scan_result.address_spend_pubkey))
         {
-            scan_result.address_spend_pubkey = keys.legacy_acb.get_keys().m_account_address.m_spend_public_key;
             res.push_back(scan_result);
             continue;
         }

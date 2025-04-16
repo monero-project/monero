@@ -132,11 +132,11 @@ TEST(carrot_core, main_address_normal_scan_completeness)
     crypto::secret_key recovered_amount_blinding_factor;
     encrypted_payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
-    const bool scan_success = try_scan_carrot_enote_external(enote_proposal.enote,
+    const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
         encrypted_payment_id,
         s_sender_receiver_unctx,
+        {&keys.carrot_account_spend_pubkey, 1},
         keys.k_view_incoming_dev,
-        keys.carrot_account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
         recovered_address_spend_pubkey,
@@ -202,11 +202,11 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
     crypto::secret_key recovered_amount_blinding_factor;
     encrypted_payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
-    const bool scan_success = try_scan_carrot_enote_external(enote_proposal.enote,
+    const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
         encrypted_payment_id,
         s_sender_receiver_unctx,
+        {&keys.carrot_account_spend_pubkey, 1},
         keys.k_view_incoming_dev,
-        keys.carrot_account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
         recovered_address_spend_pubkey,
@@ -269,11 +269,11 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
     crypto::secret_key recovered_amount_blinding_factor;
     encrypted_payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
-    const bool scan_success = try_scan_carrot_enote_external(enote_proposal.enote,
+    const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
         encrypted_payment_id,
         s_sender_receiver_unctx,
+        {&keys.carrot_account_spend_pubkey, 1},
         keys.k_view_incoming_dev,
-        keys.carrot_account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t,
         recovered_address_spend_pubkey,
@@ -340,11 +340,11 @@ TEST(carrot_core, main_address_special_scan_completeness)
         crypto::secret_key recovered_amount_blinding_factor;
         encrypted_payment_id_t recovered_payment_id;
         CarrotEnoteType recovered_enote_type;
-        const bool scan_success = try_scan_carrot_enote_external(enote_proposal.enote,
+        const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
             std::nullopt,
             s_sender_receiver_unctx,
+            {&keys.carrot_account_spend_pubkey, 1},
             keys.k_view_incoming_dev,
-            keys.carrot_account_spend_pubkey,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
             recovered_address_spend_pubkey,
@@ -417,11 +417,11 @@ TEST(carrot_core, subaddress_special_scan_completeness)
         crypto::secret_key recovered_amount_blinding_factor;
         encrypted_payment_id_t recovered_payment_id;
         CarrotEnoteType recovered_enote_type;
-        const bool scan_success = try_scan_carrot_enote_external(enote_proposal.enote,
+        const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
             std::nullopt,
             s_sender_receiver_unctx,
+            {&keys.carrot_account_spend_pubkey, 1},
             keys.k_view_incoming_dev,
-            keys.carrot_account_spend_pubkey,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
             recovered_address_spend_pubkey,
@@ -487,7 +487,7 @@ TEST(carrot_core, main_address_internal_scan_completeness)
         crypto::secret_key recovered_amount_blinding_factor;
         CarrotEnoteType recovered_enote_type;
         janus_anchor_t recovered_internal_message;
-        const bool scan_success = try_scan_carrot_enote_internal(enote_proposal.enote,
+        const bool scan_success = try_scan_carrot_enote_internal_receiver(enote_proposal.enote,
             keys.s_view_balance_dev,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
@@ -557,7 +557,7 @@ TEST(carrot_core, subaddress_internal_scan_completeness)
         crypto::secret_key recovered_amount_blinding_factor;
         CarrotEnoteType recovered_enote_type;
         janus_anchor_t recovered_internal_message;
-        const bool scan_success = try_scan_carrot_enote_internal(enote_proposal.enote,
+        const bool scan_success = try_scan_carrot_enote_internal_receiver(enote_proposal.enote,
             keys.s_view_balance_dev,
             recovered_sender_extension_g,
             recovered_sender_extension_t,
@@ -606,14 +606,19 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
 
     ASSERT_EQ(proposal.amount, enote.amount);
 
+    mx25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
+        enote.enote_ephemeral_pubkey,
+        s_sender_receiver_unctx);
+
     crypto::secret_key recovered_sender_extension_g;
     crypto::secret_key recovered_sender_extension_t;
-    const bool scan_success = try_ecdh_and_scan_carrot_coinbase_enote(enote,
-        keys.k_view_incoming_dev,
+    const bool scan_success = try_scan_carrot_coinbase_enote_receiver(enote,
+        s_sender_receiver_unctx,
         keys.carrot_account_spend_pubkey,
         recovered_sender_extension_g,
         recovered_sender_extension_t);
-    
+
     ASSERT_TRUE(scan_success);
 
     // check spendability
@@ -677,8 +682,7 @@ static void subtest_2out_transfer_get_output_enote_proposals_completeness(const 
 
     // generate input context
     const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // outgoing payment proposal to bob
     const CarrotPaymentProposalV1 bob_payment_proposal = CarrotPaymentProposalV1{

@@ -110,11 +110,11 @@ static void unittest_legacy_scan_enote_set(const std::vector<CarrotEnoteV1> &eno
             s_sr);
 
         unittest_legacy_scan_result_t scan_result{};
-        const bool r = try_scan_carrot_enote_external(enote,
+        const bool r = try_scan_carrot_enote_external_receiver(enote,
             encrypted_payment_id,
             s_sr,
+            {&acb.get_keys().m_account_address.m_spend_public_key, 1},
             view_incoming_key_ram_borrowed_device(acb.get_keys().m_view_secret_key),
-            acb.get_keys().m_account_address.m_spend_public_key,
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
             scan_result.address_spend_pubkey,
@@ -164,8 +164,7 @@ static void subtest_legacy_2out_transfer_get_output_enote_proposals_completeness
 
     // generate input context
     const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // outgoing payment proposal to bob
     const CarrotPaymentProposalV1 bob_payment_proposal = CarrotPaymentProposalV1{

@@ -63,12 +63,11 @@ static crypto::secret_key get_enote_ephemeral_privkey(const janus_anchor_t rando
     const CarrotDestinationV1 &destination,
     const input_context_t &input_context)
 {
-    // d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid))
+    // d_e = H_n(anchor_norm, input_context, K^j_s, pid))
     crypto::secret_key enote_ephemeral_privkey;
     make_carrot_enote_ephemeral_privkey(randomness,
         input_context,
         destination.address_spend_pubkey,
-        destination.address_view_pubkey,
         destination.payment_id,
         enote_ephemeral_privkey);
 
@@ -80,7 +79,7 @@ static mx25519_pubkey get_enote_ephemeral_pubkey(const janus_anchor_t randomness
     const CarrotDestinationV1 &destination,
     const input_context_t &input_context)
 {
-    // d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid))
+    // d_e = H_n(anchor_norm, input_context, K^j_s, pid))
     const crypto::secret_key enote_ephemeral_privkey{get_enote_ephemeral_privkey(randomness,
         destination,
         input_context)};
@@ -240,8 +239,7 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
         "get coinbase output proposal v1: integrated addresses aren't allowed as destinations of coinbase outputs");
 
     // 2. coinbase input context
-    input_context_t input_context;
-    make_carrot_input_context_coinbase(block_index, input_context);
+    const input_context_t input_context= make_carrot_input_context_coinbase(block_index);
 
     // 3. make D_e and do external ECDH
     mx25519_pubkey s_sender_receiver_unctx; auto dhe_wiper = auto_wiper(s_sender_receiver_unctx);
@@ -292,8 +290,7 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
         "jamtis payment proposal: invalid randomness for janus anchor (zero).");
 
     // 2. input context: input_context = "R" || KI_1
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // 3. make D_e and do external ECDH
     mx25519_pubkey s_sender_receiver_unctx; auto dhe_wiper = auto_wiper(s_sender_receiver_unctx);
@@ -341,8 +338,7 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
         "get output proposal special v1: internal messages are only for internal selfsends, not special selfsends");
 
     // 2. input context: input_context = "R" || KI_1
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // 3. D_e
     const bool missing_enote_ephemeral_pubkeys = !proposal.enote_ephemeral_pubkey && !other_enote_ephemeral_pubkey;
@@ -409,8 +405,7 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
     // @TODO
 
     // 2. input_context = "R" || KI_1
-    input_context_t input_context;
-    make_carrot_input_context(tx_first_key_image, input_context);
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
     // 3. D_e
     const bool missing_enote_ephemeral_pubkeys = !proposal.enote_ephemeral_pubkey && !other_enote_ephemeral_pubkey;

@@ -92,20 +92,19 @@ static rct::xmr_amount dec_amount(const encrypted_amount_t &encrypted_amount, co
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const input_context_t &input_context,
     const crypto::public_key &address_spend_pubkey,
-    const crypto::public_key &address_view_pubkey,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out)
 {
-    // k_e = (H_64(anchor_norm, input_context, K^j_s, K^j_v, pid)) mod l
+    // k_e = (H_64(anchor_norm, input_context, K^j_s, pid)) mod l
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_EPHEMERAL_PRIVKEY>(
-        anchor_norm, input_context, address_spend_pubkey, address_view_pubkey, payment_id);
+        anchor_norm, input_context, address_spend_pubkey, payment_id);
     derive_scalar(transcript.data(), transcript.size(), nullptr, &enote_ephemeral_privkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &enote_ephemeral_privkey,
     mx25519_pubkey &enote_ephemeral_pubkey_out)
 {
-    // D_e = d_e G
+    // D_e = d_e B
     mx25519_scmul_base(get_mx25519_impl(),
         &enote_ephemeral_pubkey_out,
         reinterpret_cast<const mx25519_privkey*>(&enote_ephemeral_privkey));
@@ -125,6 +124,25 @@ void make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &eno
 
     // D_e = ConvertPointE(K_e)
     ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &D_e_in_ed25519);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
+    const crypto::public_key &address_spend_pubkey,
+    const bool is_subaddress,
+    mx25519_pubkey &enote_ephemeral_pubkey_out)
+{
+    if (is_subaddress)
+    {
+        // D_e = d_e ConvertPointE(K^j_s)
+        make_carrot_enote_ephemeral_pubkey_subaddress(enote_ephemeral_privkey,
+            address_spend_pubkey,
+            enote_ephemeral_pubkey_out);
+    }
+    else // !is_subaddress
+    {
+        // D_e = d_e B
+        make_carrot_enote_ephemeral_pubkey_cryptonote(enote_ephemeral_privkey, enote_ephemeral_pubkey_out);
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &k_view,
@@ -172,19 +190,22 @@ void make_carrot_view_tag(const unsigned char s_sender_receiver_unctx[32],
     derive_bytes_3(transcript.data(), transcript.size(), s_sender_receiver_unctx, &view_tag_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_input_context_coinbase(const std::uint64_t block_index, input_context_t &input_context_out)
+input_context_t make_carrot_input_context_coinbase(const std::uint64_t block_index)
 {
     // input_context = "C" || IntToBytes256(block_index)
-    memset(input_context_out.bytes, 0, sizeof(input_context_t));
-    input_context_out.bytes[0] = CARROT_DOMAIN_SEP_INPUT_CONTEXT_COINBASE;
-    memcpy_swap64le(input_context_out.bytes + 1, &block_index, 1);
+    input_context_t input_context{};
+    input_context.bytes[0] = CARROT_DOMAIN_SEP_INPUT_CONTEXT_COINBASE;
+    memcpy_swap64le(input_context.bytes + 1, &block_index, 1);
+    return input_context;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_input_context(const crypto::key_image &first_rct_key_image, input_context_t &input_context_out)
+input_context_t make_carrot_input_context(const crypto::key_image &first_rct_key_image)
 {
     // input_context = "R" || KI_1
-    input_context_out.bytes[0] = CARROT_DOMAIN_SEP_INPUT_CONTEXT_RINGCT;
-    memcpy(input_context_out.bytes + 1, first_rct_key_image.data, sizeof(crypto::key_image));
+    input_context_t input_context{};
+    input_context.bytes[0] = CARROT_DOMAIN_SEP_INPUT_CONTEXT_RINGCT;
+    memcpy(input_context.bytes + 1, first_rct_key_image.data, sizeof(crypto::key_image));
+    return input_context;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_sender_receiver_secret(const unsigned char s_sender_receiver_unctx[32],
@@ -464,32 +485,27 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver,
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool verify_carrot_external_janus_protection(const janus_anchor_t &nominal_anchor,
+bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
-    const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
     const mx25519_pubkey &enote_ephemeral_pubkey)
 {
-    // d_e' = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid))
+    // d_e' = H_n(anchor_norm, input_context, K^j_s, pid))
     crypto::secret_key nominal_enote_ephemeral_privkey;
     make_carrot_enote_ephemeral_privkey(nominal_anchor,
         input_context,
         nominal_address_spend_pubkey,
-        nominal_address_view_pubkey,
         nominal_payment_id,
         nominal_enote_ephemeral_privkey);
-    
+
     // recompute D_e' for d_e' and address type
     mx25519_pubkey nominal_enote_ephemeral_pubkey;
-    if (is_subaddress)
-        make_carrot_enote_ephemeral_pubkey_subaddress(nominal_enote_ephemeral_privkey,
-            nominal_address_spend_pubkey,
-            nominal_enote_ephemeral_pubkey);
-    else // cryptonote address
-        make_carrot_enote_ephemeral_pubkey_cryptonote(nominal_enote_ephemeral_privkey,
-            nominal_enote_ephemeral_pubkey);
+    make_carrot_enote_ephemeral_pubkey(nominal_enote_ephemeral_privkey,
+        nominal_address_spend_pubkey,
+        is_subaddress,
+        nominal_enote_ephemeral_pubkey);
 
     // D_e' ?= D_e
     return 0 == memcmp(&nominal_enote_ephemeral_pubkey, &enote_ephemeral_pubkey, sizeof(mx25519_pubkey));

@@ -32,10 +32,10 @@
 #include "scan.h"
 
 //local headers
-#include "crypto/generators.h"
+#include "destination.h"
 #include "enote_utils.h"
-#include "lazy_amount_commitment.h"
 #include "ringct/rctOps.h"
+#include "scan_unsafe.h"
 
 //third party headers
 
@@ -56,153 +56,85 @@ static bool is_main_address_spend_pubkey(const crypto::public_key &address_spend
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void scan_carrot_dest_info(const crypto::public_key &onetime_address,
-    const rct::key &amount_commitment,
-    const encrypted_janus_anchor_t &encrypted_janus_anchor,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const crypto::hash &s_sender_receiver,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    payment_id_t &payment_id_out,
-    janus_anchor_t &nominal_janus_anchor_out)
+static crypto::secret_key make_enote_ephemeral_privkey_sender(const janus_anchor_t &anchor_norm,
+    const CarrotDestinationV1 &destination,
+    const input_context_t &input_context)
 {
-    // k^o_g = H_n("..g..", s^ctx_sr, C_a)
-    make_carrot_onetime_address_extension_g(s_sender_receiver,
-        amount_commitment,
-        sender_extension_g_out);
-
-    // k^o_t = H_n("..t..", s^ctx_sr, C_a)
-    make_carrot_onetime_address_extension_t(s_sender_receiver,
-        amount_commitment,
-        sender_extension_t_out);
-
-    // K^j_s = Ko - K^o_ext = Ko - (k^o_g G + k^o_t T)
-    recover_address_spend_pubkey(onetime_address,
-        s_sender_receiver,
-        amount_commitment,
-        address_spend_pubkey_out);
-
-    // pid = pid_enc XOR m_pid, if applicable
-    if (encrypted_payment_id)
-        payment_id_out = decrypt_legacy_payment_id(*encrypted_payment_id, s_sender_receiver, onetime_address);
-    else
-        payment_id_out = null_payment_id;
-
-    // anchor = anchor_enc XOR m_anchor
-    nominal_janus_anchor_out = decrypt_carrot_anchor(encrypted_janus_anchor,
-        s_sender_receiver,
-        onetime_address);
+    // d_e = H_n(anchor_norm, input_context, K^j_s, pid))
+    crypto::secret_key enote_ephemeral_privkey;
+    make_carrot_enote_ephemeral_privkey(anchor_norm,
+        input_context,
+        destination.address_spend_pubkey,
+        destination.payment_id,
+        enote_ephemeral_privkey);
+    return enote_ephemeral_privkey;
 }
 //-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static bool try_scan_carrot_external_noamount(const crypto::public_key &onetime_address,
-    const lazy_amount_commitment_t &lazy_amount_commitment,
-    const encrypted_janus_anchor_t &encrypted_janus_anchor,
-    const view_tag_t view_tag,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const input_context_t &input_context,
+static bool try_scan_carrot_coinbase_enote_checked(
+    const CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
-    crypto::hash &s_sender_receiver_out,
+    const epee::span<const crypto::public_key> main_addresss_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    payment_id_t &payment_id_out)
+    crypto::public_key &address_spend_pubkey_out)
 {
-    // if vt' != vt, then FAIL
-    if (!test_carrot_view_tag(s_sender_receiver_unctx.data, input_context, onetime_address, view_tag))
+    // s^ctx_sr, k^g_o, k^g_t, K^j_s, pid, anchor
+    janus_anchor_t nominal_janus_anchor;
+    if (!try_scan_carrot_coinbase_enote_no_janus(enote,
+            s_sender_receiver_unctx,
+            sender_extension_g_out,
+            sender_extension_t_out,
+            address_spend_pubkey_out,
+            nominal_janus_anchor))
         return false;
 
-    // s^ctx_sr = H_32(s_sr, D_e, input_context)
-    make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
-        enote_ephemeral_pubkey,
-        input_context,
-        s_sender_receiver_out);
+    if (!is_main_address_spend_pubkey(address_spend_pubkey_out, main_addresss_spend_pubkeys))
+        return false;
 
-    // get C_a
-    const rct::key amount_commitment = calculate_amount_commitment(lazy_amount_commitment);
-
-    // k^g_o, k^t_o, K^j_s', pid', anchor'
-    janus_anchor_t nominal_janus_anchor;
-    scan_carrot_dest_info(onetime_address,
-        amount_commitment,
-        encrypted_janus_anchor,
-        encrypted_payment_id,
-        s_sender_receiver_out,
-        sender_extension_g_out,
-        sender_extension_t_out,
+    return verify_carrot_normal_janus_protection(nominal_janus_anchor,
+        make_carrot_input_context_coinbase(enote.block_index),
         address_spend_pubkey_out,
-        payment_id_out,
-        nominal_janus_anchor);
-
-    return verify_carrot_janus_protection(input_context,
-        onetime_address,
-        k_view_dev,
-        address_spend_pubkey_out,
-        is_main_address_spend_pubkey(address_spend_pubkey_out, main_address_spend_pubkeys),
-        enote_ephemeral_pubkey,
-        nominal_janus_anchor,
-        payment_id_out);
+        /*is_subaddress=*/false,
+        null_payment_id,
+        enote.enote_ephemeral_pubkey);
 }
 //-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-bool verify_carrot_janus_protection(const input_context_t &input_context,
-    const crypto::public_key &onetime_address,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &nominal_address_spend_pubkey,
-    const bool is_main_address_spend_pubkey,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
-    const janus_anchor_t &nominal_anchor,
-    payment_id_t &nominal_payment_id_inout)
+static bool try_scan_carrot_enote_external_normal_checked(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const mx25519_pubkey &s_sender_receiver_unctx,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    crypto::public_key &address_spend_pubkey_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    payment_id_t &payment_id_out,
+    CarrotEnoteType &enote_type_out,
+    janus_anchor_t &nominal_janus_anchor_out,
+    bool &verified_normal_janus)
 {
-    // make K^j_v'
-    crypto::public_key nominal_address_view_pubkey;
-    if (is_main_address_spend_pubkey)
-    {
-        // K^j_v' = k_v G
-        if (!k_view_dev.view_key_scalar_mult_ed25519(crypto::get_G(), nominal_address_view_pubkey))
-            return false;
-    }
-    else // subaddress
-    {
-        // K^j_v' = k_v K^j_s'
-        if (!k_view_dev.view_key_scalar_mult_ed25519(nominal_address_spend_pubkey, nominal_address_view_pubkey))
-            return false;
-    }
+    if (!try_scan_carrot_enote_external_no_janus(enote,
+            encrypted_payment_id,
+            s_sender_receiver_unctx,
+            sender_extension_g_out,
+            sender_extension_t_out,
+            address_spend_pubkey_out,
+            amount_out,
+            amount_blinding_factor_out,
+            payment_id_out,
+            enote_type_out,
+            nominal_janus_anchor_out))
+        return false;
 
-    // if can recompute D_e with pid', then PASS
-    if (verify_carrot_external_janus_protection(nominal_anchor,
-            input_context,
-            nominal_address_spend_pubkey, 
-            nominal_address_view_pubkey,
-            !is_main_address_spend_pubkey,
-            nominal_payment_id_inout,
-            enote_ephemeral_pubkey))
-        return true;
+    verified_normal_janus = verify_carrot_normal_janus_protection(
+        make_carrot_input_context(enote.tx_first_key_image),
+        address_spend_pubkey_out,
+        !is_main_address_spend_pubkey(address_spend_pubkey_out, main_address_spend_pubkeys),
+        enote.enote_ephemeral_pubkey,
+        nominal_janus_anchor_out,
+        payment_id_out);
 
-    // if can recompute D_e with null pid, then PASS
-    nominal_payment_id_inout = null_payment_id;
-    if (verify_carrot_external_janus_protection(nominal_anchor,
-            input_context,
-            nominal_address_spend_pubkey, 
-            nominal_address_view_pubkey,
-            !is_main_address_spend_pubkey,
-            null_payment_id,
-            enote_ephemeral_pubkey))
-        return true;
-
-    // anchor_sp = H_16(D_e, input_context, Ko, k_v)
-    janus_anchor_t expected_special_anchor;
-    k_view_dev.make_janus_anchor_special(enote_ephemeral_pubkey,
-        input_context,
-        onetime_address,
-        expected_special_anchor);
-
-    // attempt special janus check: anchor_sp ?= anchor'
-    return expected_special_anchor == nominal_anchor;
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool make_carrot_uncontextualized_shared_key_receiver(
@@ -213,129 +145,186 @@ bool make_carrot_uncontextualized_shared_key_receiver(
     return k_view_dev.view_key_scalar_mult_x25519(enote_ephemeral_pubkey, s_sender_receiver_unctx_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_scan_carrot_coinbase_enote(
+bool try_scan_carrot_coinbase_enote_sender(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
+    const CarrotDestinationV1 &destination,
+    const janus_anchor_t &anchor_norm,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out)
 {
-    return try_scan_carrot_coinbase_enote(
-        enote,
-        s_sender_receiver_unctx,
-        k_view_dev,
-        {&main_address_spend_pubkey, 1},
+    const crypto::secret_key enote_ephemeral_privkey = make_enote_ephemeral_privkey_sender(anchor_norm,
+        destination,
+        make_carrot_input_context_coinbase(enote.block_index));
+
+    return try_scan_carrot_coinbase_enote_sender(enote,
+        destination,
+        enote_ephemeral_privkey,
         sender_extension_g_out,
         sender_extension_t_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_scan_carrot_coinbase_enote(
+bool try_scan_carrot_coinbase_enote_sender(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const CarrotDestinationV1 &destination,
+    const crypto::secret_key &enote_ephemeral_privkey,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out)
 {
-    // input_context
-    input_context_t input_context;
-    make_carrot_input_context_coinbase(enote.block_index, input_context);
+    // s_sr = d_e ConvertPointE(K^j_v)
+    mx25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+        destination.address_view_pubkey,
+        s_sender_receiver_unctx);
 
-    // s^ctx_sr, k^g_o, k^g_t, K^j_s, pid, and Janus verification
-    crypto::public_key nominal_address_spend_pubkey;
-    crypto::hash dummy_s_sender_receiver;
-    payment_id_t dummy_payment_id;
-    if (!try_scan_carrot_external_noamount(enote.onetime_address,
-            enote.amount,
-            enote.anchor_enc,
-            enote.view_tag,
-            enote.enote_ephemeral_pubkey,
-            std::nullopt,
-            input_context,
+    crypto::public_key dummy_main_address_spend_pubkey;
+    if (!try_scan_carrot_coinbase_enote_checked(enote,
             s_sender_receiver_unctx,
-            k_view_dev,
-            main_address_spend_pubkeys,
-            dummy_s_sender_receiver,
+            {&destination.address_spend_pubkey, 1},
             sender_extension_g_out,
             sender_extension_t_out,
-            nominal_address_spend_pubkey,
-            dummy_payment_id))
+            dummy_main_address_spend_pubkey))
         return false;
 
-    // if K^j_s' != K_s, then FAIL
-    // - We have no "hard target" in the amount commitment, so if we want deterministic enote
-    //   scanning without a subaddress table, we reject all non-main addresses in coinbase enotes
-    return is_main_address_spend_pubkey(nominal_address_spend_pubkey, main_address_spend_pubkeys);
+    // this should've already been checked, but just for good measure...
+    return dummy_main_address_spend_pubkey == destination.address_spend_pubkey;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_ecdh_and_scan_carrot_coinbase_enote(const CarrotCoinbaseEnoteV1 &enote,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out)
-{
-    return try_ecdh_and_scan_carrot_coinbase_enote(enote,
-        k_view_dev,
-        {&main_address_spend_pubkey, 1},
-        sender_extension_g_out,
-        sender_extension_t_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool try_ecdh_and_scan_carrot_coinbase_enote(
+bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
-    const view_incoming_key_device &k_view_dev,
+    const mx25519_pubkey &s_sender_receiver_unctx,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out)
+    crypto::secret_key &sender_extension_t_out,
+    crypto::public_key &main_address_spend_pubkey_out)
 {
-    // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver_unctx;
-    if (!make_carrot_uncontextualized_shared_key_receiver(k_view_dev,
-            enote.enote_ephemeral_pubkey,
-            s_sender_receiver_unctx))
-        return false;
-
-    return try_scan_carrot_coinbase_enote(enote,
+    return try_scan_carrot_coinbase_enote_checked(enote,
         s_sender_receiver_unctx,
-        k_view_dev,
         main_address_spend_pubkeys,
         sender_extension_g_out,
-        sender_extension_t_out);
+        sender_extension_t_out,
+        main_address_spend_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+bool try_scan_carrot_coinbase_enote_receiver(
+    const CarrotCoinbaseEnoteV1 &enote,
     const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out)
+    crypto::secret_key &sender_extension_t_out)
 {
-    return try_scan_carrot_enote_external(enote,
-        encrypted_payment_id,
+    crypto::public_key dummy_main_address_spend_pubkey;
+    return try_scan_carrot_coinbase_enote_receiver(
+        enote,
         s_sender_receiver_unctx,
-        k_view_dev,
         {&main_address_spend_pubkey, 1},
         sender_extension_g_out,
         sender_extension_t_out,
-        address_spend_pubkey_out,
-        amount_out,
-        amount_blinding_factor_out,
-        payment_id_out,
-        enote_type_out);
+        dummy_main_address_spend_pubkey);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
+bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const CarrotDestinationV1 &destination,
+    const janus_anchor_t &anchor_norm,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    CarrotEnoteType &enote_type_out,
+    const bool check_pid)
+{
+    const crypto::secret_key enote_ephemeral_privkey = make_enote_ephemeral_privkey_sender(anchor_norm,
+        destination,
+        make_carrot_input_context(enote.tx_first_key_image));
+
+    return try_scan_carrot_enote_external_sender(enote,
+        encrypted_payment_id,
+        destination,
+        enote_ephemeral_privkey,
+        sender_extension_g_out,
+        sender_extension_t_out,
+        amount_out,
+        amount_blinding_factor_out,
+        enote_type_out,
+        check_pid);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const CarrotDestinationV1 &destination,
+    const crypto::secret_key &enote_ephemeral_privkey,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    CarrotEnoteType &enote_type_out,
+    const bool check_pid)
+{
+    // s_sr = d_e ConvertPointE(K^j_v)
+    mx25519_pubkey s_sender_receiver_unctx;
+    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+        destination.address_view_pubkey,
+        s_sender_receiver_unctx);
+
+    return try_scan_carrot_enote_external_sender(enote,
+        encrypted_payment_id,
+        destination,
+        s_sender_receiver_unctx,
+        sender_extension_g_out,
+        sender_extension_t_out,
+        amount_out,
+        amount_blinding_factor_out,
+        enote_type_out,
+        check_pid);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const CarrotDestinationV1 &destination,
+    const mx25519_pubkey &s_sender_receiver_unctx,
+    crypto::secret_key &sender_extension_g_out,
+    crypto::secret_key &sender_extension_t_out,
+    rct::xmr_amount &amount_out,
+    crypto::secret_key &amount_blinding_factor_out,
+    CarrotEnoteType &enote_type_out,
+    const bool check_pid)
+{
+    crypto::public_key recovered_address_spend_pubkey;
+    payment_id_t recovered_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t dummy_janus_anchor;
+    bool verified_normal_janus = false;
+    if (!try_scan_carrot_enote_external_normal_checked(enote,
+            encrypted_payment_id,
+            s_sender_receiver_unctx,
+            {&destination.address_spend_pubkey, 1},
+            sender_extension_g_out,
+            sender_extension_t_out,
+            recovered_address_spend_pubkey,
+            amount_out,
+            amount_blinding_factor_out,
+            recovered_payment_id,
+            recovered_enote_type,
+            dummy_janus_anchor,
+            verified_normal_janus))
+        return false;
+    else if (!verified_normal_janus)
+        return false;
+    else if (recovered_address_spend_pubkey != destination.address_spend_pubkey)
+        return false;
+    else if (check_pid && recovered_payment_id != destination.payment_id)
+        return false;
+    else if (recovered_enote_type != CarrotEnoteType::PAYMENT)
+        return false;
+
+    return true;
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool try_scan_carrot_enote_external_receiver(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
     const mx25519_pubkey &s_sender_receiver_unctx,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> &main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -344,99 +333,34 @@ bool try_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
     payment_id_t &payment_id_out,
     CarrotEnoteType &enote_type_out)
 {
-    // input_context
-    input_context_t input_context;
-    make_carrot_input_context(enote.tx_first_key_image, input_context);
-
-    // s^ctx_sr, k^g_o, k^g_t, K^j_s, pid, and Janus verification
-    crypto::hash s_sender_receiver;
-    if (!try_scan_carrot_external_noamount(enote.onetime_address,
-            enote.amount_commitment,
-            enote.anchor_enc,
-            enote.view_tag,
-            enote.enote_ephemeral_pubkey,
+    janus_anchor_t nominal_janus_anchor;
+    bool verified_normal_janus = false;
+    if (!try_scan_carrot_enote_external_normal_checked(enote,
             encrypted_payment_id,
-            input_context,
             s_sender_receiver_unctx,
-            k_view_dev,
             main_address_spend_pubkeys,
-            s_sender_receiver,
             sender_extension_g_out,
             sender_extension_t_out,
             address_spend_pubkey_out,
-            payment_id_out))
+            amount_out,
+            amount_blinding_factor_out,
+            payment_id_out,
+            enote_type_out,
+            nominal_janus_anchor,
+            verified_normal_janus))
         return false;
 
-    // enote_type, a, z
-    return try_get_carrot_amount(s_sender_receiver,
-        enote.amount_enc,
-        enote.onetime_address,
-        address_spend_pubkey_out,
-        enote.amount_commitment,
-        enote_type_out,
-        amount_out,
-        amount_blinding_factor_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out)
-{
-    return try_ecdh_and_scan_carrot_enote_external(enote,
-        encrypted_payment_id,
-        k_view_dev,
-        {&main_address_spend_pubkey, 1},
-        sender_extension_g_out,
-        sender_extension_t_out,
-        address_spend_pubkey_out,
-        amount_out,
-        amount_blinding_factor_out,
-        payment_id_out,
-        enote_type_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool try_ecdh_and_scan_carrot_enote_external(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const view_incoming_key_device &k_view_dev,
-    const epee::span<const crypto::public_key> &main_address_spend_pubkeys,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    rct::xmr_amount &amount_out,
-    crypto::secret_key &amount_blinding_factor_out,
-    payment_id_t &payment_id_out,
-    CarrotEnoteType &enote_type_out)
-{
-    // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver_unctx;
-    if (!make_carrot_uncontextualized_shared_key_receiver(k_view_dev,
+    if (!verified_normal_janus && !verify_carrot_special_janus_protection(enote.tx_first_key_image,
             enote.enote_ephemeral_pubkey,
-            s_sender_receiver_unctx))
+            enote.onetime_address,
+            k_view_dev,
+            nominal_janus_anchor))
         return false;
 
-    return try_scan_carrot_enote_external(enote,
-        encrypted_payment_id,
-        s_sender_receiver_unctx,
-        k_view_dev,
-        main_address_spend_pubkeys,
-        sender_extension_g_out,
-        sender_extension_t_out,
-        address_spend_pubkey_out,
-        amount_out,
-        amount_blinding_factor_out,
-        payment_id_out,
-        enote_type_out);
+    return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool try_scan_carrot_enote_internal(const CarrotEnoteV1 &enote,
+bool try_scan_carrot_enote_internal_receiver(const CarrotEnoteV1 &enote,
     const view_balance_secret_device &s_view_balance_dev,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
@@ -447,8 +371,7 @@ bool try_scan_carrot_enote_internal(const CarrotEnoteV1 &enote,
     janus_anchor_t &internal_message_out)
 {
     // input_context
-    input_context_t input_context;
-    make_carrot_input_context(enote.tx_first_key_image, input_context);
+    const input_context_t input_context = make_carrot_input_context(enote.tx_first_key_image);
 
     // vt = H_3(s_sr || input_context || Ko)
     view_tag_t nominal_view_tag;
@@ -464,63 +387,17 @@ bool try_scan_carrot_enote_internal(const CarrotEnoteV1 &enote,
         input_context,
         s_sender_receiver);
 
-    // k^g_o, k^t_o, K^j_s', pid', anchor'
-    payment_id_t dummy_payment_id;
-    scan_carrot_dest_info(enote.onetime_address,
-        enote.amount_commitment,
-        enote.anchor_enc,
-        std::nullopt,
+    return try_scan_carrot_enote_internal_burnt(enote,
         s_sender_receiver,
         sender_extension_g_out,
         sender_extension_t_out,
         address_spend_pubkey_out,
-        dummy_payment_id,
+        amount_out,
+        amount_blinding_factor_out,
+        enote_type_out,
         internal_message_out);
 
     // janus protection checks are not needed for internal scans
-
-    // enote_type, a, z
-    return try_get_carrot_amount(s_sender_receiver,
-        enote.amount_enc,
-        enote.onetime_address,
-        address_spend_pubkey_out,
-        enote.amount_commitment,
-        enote_type_out,
-        amount_out,
-        amount_blinding_factor_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-bool try_scan_carrot_enote_external_destination_only(const CarrotEnoteV1 &enote,
-    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
-    const view_incoming_key_device &k_view_dev,
-    const crypto::public_key &main_address_spend_pubkey,
-    crypto::secret_key &sender_extension_g_out,
-    crypto::secret_key &sender_extension_t_out,
-    crypto::public_key &address_spend_pubkey_out,
-    payment_id_t &payment_id_out)
-{
-    // input_context
-    input_context_t input_context;
-    make_carrot_input_context(enote.tx_first_key_image, input_context);
-
-    // s^ctx_sr, k^g_o, k^g_t, K^j_s, pid, and Janus verification
-    crypto::hash s_sender_receiver;
-    return try_scan_carrot_external_noamount(enote.onetime_address,
-        enote.amount_commitment,
-        enote.anchor_enc,
-        enote.view_tag,
-        enote.enote_ephemeral_pubkey,
-        encrypted_payment_id,
-        input_context,
-        s_sender_receiver_unctx,
-        k_view_dev,
-        {&main_address_spend_pubkey, 1},
-        s_sender_receiver,
-        sender_extension_g_out,
-        sender_extension_t_out,
-        address_spend_pubkey_out,
-        payment_id_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
