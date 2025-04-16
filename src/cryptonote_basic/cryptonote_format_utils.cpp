@@ -1067,7 +1067,14 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------
-  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::device &hwdev, const boost::optional<crypto::view_tag>& view_tag_opt)
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(
+    const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses,
+    const crypto::public_key& out_key,
+    const crypto::key_derivation& derivation,
+    const epee::span<const crypto::key_derivation> additional_derivations,
+    size_t output_index,
+    hw::device &hwdev,
+    const boost::optional<crypto::view_tag>& view_tag_opt)
   {
     // try the shared tx pubkey
     crypto::public_key subaddress_spendkey;
@@ -1092,6 +1099,24 @@ namespace cryptonote
       }
     }
     return boost::none;
+  }
+  //---------------------------------------------------------------
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(
+    const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses,
+    const crypto::public_key& out_key,
+    const crypto::key_derivation& derivation,
+    const std::vector<crypto::key_derivation>& additional_derivations,
+    size_t output_index,
+    hw::device &hwdev,
+    const boost::optional<crypto::view_tag>& view_tag_opt)
+  {
+    return is_out_to_acc_precomp(subaddresses,
+      out_key,
+      derivation,
+      epee::to_span(additional_derivations),
+      output_index,
+      hwdev,
+      view_tag_opt);
   }
   //---------------------------------------------------------------
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered)
