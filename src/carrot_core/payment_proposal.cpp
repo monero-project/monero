@@ -104,7 +104,7 @@ static void get_normal_proposal_ecdh_parts(const CarrotPaymentProposalV1 &propos
     mx25519_pubkey &enote_ephemeral_pubkey_out,
     mx25519_pubkey &s_sender_receiver_unctx_out)
 {
-    // 1. d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid))
+    // 1. d_e = H_n(anchor_norm, input_context, K^j_s, pid))
     const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(proposal.randomness,
         proposal.destination,
         input_context);
@@ -133,7 +133,7 @@ static void get_output_proposal_parts(const crypto::hash &s_sender_receiver,
     encrypted_amount_t &encrypted_amount_out,
     encrypted_payment_id_t &encrypted_payment_id_out)
 {
-    // 1. k_a = H_n(s^ctx_sr, enote_type) if !coinbase, else 1
+    // 1. k_a = H_n(s^ctx_sr, a, K^j_s, enote_type) if !coinbase, else 1
     if (coinbase_amount_commitment)
         sc_1(to_bytes(amount_blinding_factor_out));
     else
