@@ -1009,6 +1009,17 @@ namespace cryptonote
           << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
       }
     }
+
+    // during v17, require non-coinbase carrot txs use FCMP++ and legacy use BP+
+    if (hf_version == HF_VERSION_CARROT && !cryptonote::is_coinbase(tx) && tx.vout.size())
+    {
+      const auto &o = tx.vout.front();
+      CHECK_AND_ASSERT_MES(
+        (o.target.type() == typeid(txout_to_carrot_v1) && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus) ||
+        (o.target.type() == typeid(txout_to_tagged_key) && tx.rct_signatures.type == rct::RCTTypeBulletproofPlus),
+        false, "mismatched output type to tx proof type in transaction id=" << get_transaction_hash(tx));
+    }
+
     return true;
   }
   //---------------------------------------------------------------
