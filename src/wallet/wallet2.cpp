@@ -1112,10 +1112,12 @@ wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const epee::wipeable_stri
     return;
   }
 
+  w.generate_chacha_key_from_password(*password, key);
+
   boost::lock_guard<boost::mutex> lock(lockers_lock);
   if (lockers_per_wallet[std::addressof(w)]++ > 0)
     return;
-  w.generate_chacha_key_from_password(*password, key);
+
   w.decrypt_keys(key);
 }
 
@@ -5408,7 +5410,7 @@ bool wallet2::is_key_encryption_enabled() const
   return !is_unattended()
     && ask_password() == tools::wallet2::AskPasswordToDecrypt
     && !watch_only()
-    && is_background_wallet();
+    && !is_background_syncing();
 }
 
 void wallet2::encrypt_keys(const crypto::chacha_key &key)
