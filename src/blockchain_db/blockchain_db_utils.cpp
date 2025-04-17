@@ -66,23 +66,19 @@ static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &
     {
         const auto &out = tx.vout[i];
 
-        crypto::public_key output_public_key;
-        if (!cryptonote::get_output_public_key(out, output_public_key))
-            throw std::runtime_error("Could not get an output public key from a tx output.");
-
         static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
             "Revisit this section and update for the new tx version.");
         CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
 
         TIME_MEASURE_NS_START(getting_commitment);
 
-        rct::key commitment = rct::getCommitment(tx, i);
+        rct::ctkey ctKey = rct::getCtKey(tx, i);
 
         TIME_MEASURE_NS_FINISH(getting_commitment);
 
         auto output_pair = fcmp_pp::curve_trees::OutputPair{
-                .output_pubkey = std::move(output_public_key),
-                .commitment    = std::move(commitment)
+                .output_pubkey = std::move(rct::rct2pk(ctKey.dest)),
+                .commitment    = std::move(ctKey.mask)
             };
 
         const uint64_t output_id = first_output_id + i;

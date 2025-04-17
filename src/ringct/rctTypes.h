@@ -325,7 +325,7 @@ namespace rct {
         //pairs that you mix with
         keyV pseudoOuts; //C - for simple rct
         std::vector<ecdhTuple> ecdhInfo;
-        ctkeyV outPk;
+        mutable ctkeyV outPk; // mutable so that getCtKey can expand it
         xmr_amount txnFee; // contains b
 
         rctSigBase() :

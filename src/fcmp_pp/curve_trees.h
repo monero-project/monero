@@ -123,8 +123,13 @@ struct OutputContext final
     uint64_t output_id{0};
     // TODO: consider using a variant instead
     // True if the output pair elems are guaranteed to not have torsion and are not equal to identity
-    bool torsion_checked{false};
+    uint8_t torsion_checked{0};
     OutputPair output_pair;
+
+    // Using uint8_t for torsion_checked because sizeof(bool) is platform-dependent: https://github.com/seraphis-migration/monero/pull/20#discussion_r2027787352
+    // These static asserts ensure booleans cast to the expected uint8_t value and vice versa
+    static_assert((uint8_t) 0 == (uint8_t) false && (uint8_t) 1 == (uint8_t) true, "Unexpected bool <> uint8_t casting");
+    static_assert((bool) ((uint8_t) 0) == false && (bool) ((uint8_t) 1) == true, "Unexpected uint8_t <> bool casting");
 
     bool operator==(const OutputContext &other) const { return output_id == other.output_id && output_pair == other.output_pair; }
 

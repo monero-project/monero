@@ -464,13 +464,11 @@ bool collect_pubkeys_and_commitments(const transaction& tx, std::vector<rct::key
 {
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
-        crypto::public_key output_pubkey;
-        if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
-            return false;
-
-        rct::key pubkey = rct::pk2rct(output_pubkey);
-        pubkeys_and_commitments_inout.emplace_back(std::move(pubkey));
-        pubkeys_and_commitments_inout.emplace_back(rct::getCommitment(tx, i));
+        rct::ctkey ctKey;
+        try { ctKey = rct::getCtKey(tx, i); }
+        catch (...) { return false; }
+        pubkeys_and_commitments_inout.emplace_back(std::move(ctKey.dest));
+        pubkeys_and_commitments_inout.emplace_back(std::move(ctKey.mask));
     }
 
     return true;
