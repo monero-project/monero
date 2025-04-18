@@ -252,7 +252,8 @@ public:
     uint8_t minor_ver = 0, uint64_t timestamp = 0, const crypto::hash& prev_id = crypto::hash(),
     const cryptonote::difficulty_type& diffic = 1, const cryptonote::transaction& miner_tx = cryptonote::transaction(),
     const std::vector<crypto::hash>& tx_hashes = std::vector<crypto::hash>(), size_t txs_sizes = 0, size_t max_outs = 999,
-    uint8_t hf_version = 1, uint64_t fees = 0, const crypto::ec_point& fcmp_pp_tree_root = crypto::ec_point{});
+    uint8_t hf_version = 1, uint64_t fees = 0, const uint8_t fcmp_pp_n_tree_layres = 0,
+    const crypto::ec_point& fcmp_pp_tree_root = crypto::ec_point{});
   bool construct_block_manually_tx(cryptonote::block& blk, const cryptonote::block& prev_block,
     const cryptonote::account_base& miner_acc, const std::vector<crypto::hash>& tx_hashes, size_t txs_size);
   void fill_nonce(cryptonote::block& blk, const cryptonote::difficulty_type& diffic, uint64_t height);

@@ -267,7 +267,7 @@ namespace cryptonote
   bool block_to_blob(const block& b, blobdata& b_blob);
   blobdata tx_to_blob(const transaction& b);
   bool tx_to_blob(const transaction& b, blobdata& b_blob);
-  crypto::hash get_tree_hash(const block& b);
+  crypto::hash get_block_content_hash(const block& b);
   bool is_valid_decomposed_amount(uint64_t amount);
   void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached);
 

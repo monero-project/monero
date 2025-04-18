@@ -95,7 +95,7 @@ class zmq_pub
     /*! Send a `ZMQ_PUB` notification for a new miner data.
         Thread-safe.
         \return Number of ZMQ messages sent to relay. */
-    std::size_t send_miner_data(uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::ec_point& fcmp_pp_tree_root, const crypto::hash& seed_hash, difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<tx_block_template_backlog_entry>& tx_backlog);
+    std::size_t send_miner_data(uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const uint8_t fcmp_pp_n_tree_layers, const crypto::ec_point& fcmp_pp_tree_root, const crypto::hash& seed_hash, difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
     /*! Send a `ZMQ_PUB` notification for new tx(es) being added to the local
         pool. Thread-safe.
@@ -113,7 +113,7 @@ class zmq_pub
     struct miner_data
     {
       std::weak_ptr<zmq_pub> self_;
-      void operator()(uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::ec_point& fcmp_pp_tree_root, const crypto::hash& seed_hash, difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<tx_block_template_backlog_entry>& tx_backlog) const;
+      void operator()(uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const uint8_t fcmp_pp_n_tree_layers, const crypto::ec_point& fcmp_pp_tree_root, const crypto::hash& seed_hash, difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<tx_block_template_backlog_entry>& tx_backlog) const;
     };
 
     //! Callable for `send_txpool_add` with weak ownership to `zmq_pub` object.

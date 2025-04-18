@@ -505,6 +505,7 @@ namespace cryptonote
 
   public:
     block(): block_header(), hash_valid(false) {}
+<<<<<<< HEAD
 
     block(const block &b):
       block_header(b),
@@ -512,6 +513,7 @@ namespace cryptonote
       miner_tx(b.miner_tx),
       tx_hashes(b.tx_hashes),
       hash(b.hash),
+      fcmp_pp_n_tree_layers(b.fcmp_pp_n_tree_layers),
       fcmp_pp_tree_root(b.fcmp_pp_tree_root)
     {}
     block(block &&b):
@@ -520,6 +522,7 @@ namespace cryptonote
       miner_tx(std::move(b.miner_tx)),
       tx_hashes(std::move(b.tx_hashes)),
       hash(std::move(b.hash)),
+      fcmp_pp_n_tree_layers(fcmp_pp_n_tree_layers),
       fcmp_pp_tree_root(std::move(b.fcmp_pp_tree_root))
     {
       b.miner_tx.set_null();
@@ -534,6 +537,7 @@ namespace cryptonote
         miner_tx = b.miner_tx;
         tx_hashes = b.tx_hashes;
         hash = b.hash;
+        fcmp_pp_n_tree_layers = b.fcmp_pp_n_tree_layers;
         fcmp_pp_tree_root = b.fcmp_pp_tree_root;
       }
       return *this;
@@ -547,12 +551,20 @@ namespace cryptonote
         miner_tx = std::move(b.miner_tx);
         tx_hashes = std::move(b.tx_hashes);
         hash = std::move(b.hash);
+        fcmp_pp_n_tree_layers = b.fcmp_pp_n_tree_layers;
         fcmp_pp_tree_root = std::move(b.fcmp_pp_tree_root);
         b.miner_tx.set_null();
         b.tx_hashes.clear();
       }
       return *this;
     }
+||||||| parent of 967fa48e2 (Include n tree layers in PoW block hash as well)
+    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes), fcmp_pp_tree_root(b.fcmp_pp_tree_root) { if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } }
+    block &operator=(const block &b) { block_header::operator=(b); hash_valid = false; miner_tx = b.miner_tx; tx_hashes = b.tx_hashes; fcmp_pp_tree_root = b.fcmp_pp_tree_root; if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } return *this; }
+=======
+    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes), fcmp_pp_n_tree_layers(b.fcmp_pp_n_tree_layers), fcmp_pp_tree_root(b.fcmp_pp_tree_root) { if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } }
+    block &operator=(const block &b) { block_header::operator=(b); hash_valid = false; miner_tx = b.miner_tx; tx_hashes = b.tx_hashes; fcmp_pp_n_tree_layers = b.fcmp_pp_n_tree_layers; fcmp_pp_tree_root = b.fcmp_pp_tree_root; if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } return *this; }
+>>>>>>> 967fa48e2 (Include n tree layers in PoW block hash as well)
     void invalidate_hashes() { set_hash_valid(false); }
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
     void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
@@ -561,6 +573,8 @@ namespace cryptonote
     transaction miner_tx;
     std::vector<crypto::hash> tx_hashes;
 
+    // We include both n tree layers and the root so SPV nodes can verify FCMP++ proofs
+    uint8_t fcmp_pp_n_tree_layers;
     crypto::ec_point fcmp_pp_tree_root;
 
     // hash cash
@@ -576,7 +590,12 @@ namespace cryptonote
       if (tx_hashes.size() > CRYPTONOTE_MAX_TX_PER_BLOCK)
         return false;
       if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+      {
+        FIELD(fcmp_pp_n_tree_layers)
+        if (fcmp_pp_n_tree_layers > FCMP_PLUS_PLUS_MAX_LAYERS)
+          return false;
         FIELD(fcmp_pp_tree_root)
+      }
     END_SERIALIZE()
   };
 

@@ -2113,7 +2113,7 @@ uint64_t BlockchainLMDB::get_block_n_leaf_tuples(const uint64_t block_idx) const
   return n_leaf_tuples;
 }
 
-std::size_t BlockchainLMDB::get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const
+uint8_t BlockchainLMDB::get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const
 {
   const std::vector<crypto::ec_point> tree_edge = this->get_tree_edge(blk_idx);
   if (tree_edge.empty())
@@ -2122,7 +2122,8 @@ std::size_t BlockchainLMDB::get_tree_root_at_blk_idx(const uint64_t blk_idx, cry
     return 0;
   }
   tree_root_out = tree_edge.back();
-  return tree_edge.size();
+  static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
+  return (uint8_t) tree_edge.size();
 }
 
 bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const

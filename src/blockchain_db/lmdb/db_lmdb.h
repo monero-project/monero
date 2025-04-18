@@ -456,7 +456,7 @@ private:
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
-  virtual std::size_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
+  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
 
   std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const;
 
