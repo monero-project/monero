@@ -64,12 +64,6 @@ static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
-        const auto &out = tx.vout[i];
-
-        static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
-            "Revisit this section and update for the new tx version.");
-        CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
-
         TIME_MEASURE_NS_START(getting_commitment);
 
         rct::ctkey ctKey = rct::getCtKey(tx, i);
