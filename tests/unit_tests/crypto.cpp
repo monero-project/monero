@@ -474,17 +474,43 @@ TEST(Crypto, fe_constants)
   ASSERT_TRUE(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
 }
 
-TEST(Crypto, torsion_check_pass)
+TEST(Crypto, torsion_check_pass_random)
 {
-  const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
-  ge_p3 x;
-  ASSERT_EQ(ge_frombytes_vartime(&x, (const unsigned char*)kp.pub.data), 0);
-  const rct::key k = rct::pk2rct(kp.pub);
-  ASSERT_TRUE(rct::isInMainSubgroup(k));
-  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
-  ASSERT_TRUE(fcmp_pp::torsion_check_vartime(x));
-  const rct::key cleared = fcmp_pp::clear_torsion(x);
-  ASSERT_EQ(k, cleared);
+  for (int i = 0; i < 1000; ++i)
+  {
+    const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+    ge_p3 x;
+    ASSERT_EQ(ge_frombytes_vartime(&x, (const unsigned char*)kp.pub.data), 0);
+    const rct::key k = rct::pk2rct(kp.pub);
+    ASSERT_TRUE(rct::isInMainSubgroup(k));
+    ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+    ASSERT_TRUE(fcmp_pp::torsion_check_vartime(x));
+    const rct::key cleared = fcmp_pp::clear_torsion(x);
+    ASSERT_EQ(k, cleared);
+  }
+}
+
+TEST(Crypto, torsion_check_pass_hardcoded)
+{
+  static constexpr const char *torsion_free_points[] = {
+    // Fails in check_e_u_w without correctly implemented fe_compare
+    "785eda585dca4f3d27976106008ccfbca13146c8b21b8c7e4909032639a776e1",
+    // Fails in inv_psi2 without correctly implemented fe_compare
+    "9a7b10563aa266032cd075f4e347f348a3841ae4f41572633351a97dd44066b4"
+  };
+
+  for (const auto point : torsion_free_points)
+  {
+    rct::key k;
+    epee::string_tools::hex_to_pod(point, k);
+    ge_p3 x;
+    ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
+    ASSERT_TRUE(rct::isInMainSubgroup(k));
+    ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+    ASSERT_TRUE(fcmp_pp::torsion_check_vartime(x));
+    const rct::key cleared = fcmp_pp::clear_torsion(x);
+    ASSERT_EQ(k, cleared);
+  }
 }
 
 TEST(Crypto, torsion_check_torsioned_point)

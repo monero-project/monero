@@ -51,6 +51,17 @@
 //     printf("\n");
 // }
 
+static bool fe_compare(const fe a, const fe b)
+{
+    unsigned char a_bytes[32];
+    unsigned char b_bytes[32];
+
+    fe_tobytes(a_bytes, a);
+    fe_tobytes(b_bytes, b);
+
+    return memcmp(a_bytes, b_bytes, sizeof(a_bytes)) == 0;
+}
+
 static bool sqrt_ext(fe y, const fe x)
 {
     fe y_res;
@@ -67,7 +78,7 @@ static bool sqrt_ext(fe y, const fe x)
     fe c;
     fe_mul(c, x2, b_sq);
 
-    if (memcmp(c, fe_one, sizeof(fe)) == 0 || memcmp(c, fe_m1, sizeof(fe)) == 0)
+    if (fe_compare(c, fe_one) || fe_compare(c, fe_m1))
     {
         fe_0(c);
         c[0] = 3;
@@ -85,7 +96,7 @@ static bool sqrt_ext(fe y, const fe x)
 
     fe y_sq;
     fe_sq(y_sq, y_res);
-    bool r = memcmp(x, y_sq, sizeof(fe)) == 0;
+    bool r = fe_compare(x, y_sq);
 
     fe_copy(y, y_res);
     return r;
@@ -127,7 +138,7 @@ static void inv_psi1(fe e_out, fe u_out, fe w_out, const fe e, const fe u, const
         fe neg_u_dbl;
         fe_dbl(neg_u_dbl, u);
         fe_neg(neg_u_dbl, neg_u_dbl);
-        if (memcmp(tt_sq, neg_u_dbl, sizeof(fe)) == 0) {
+        if (fe_compare(tt_sq, neg_u_dbl)) {
             fe_mul(tt, tt, fe_sqrtm1);
         }
 
@@ -221,7 +232,7 @@ static bool check_e_u_w(const fe e, const fe u, const fe w)
     fe_add(sum, sum, B_mul_e_sq_sq);
     fe_reduce(sum, sum);
 
-    if (memcmp(u_w_sq, sum, sizeof(fe)) != 0) {
+    if (!fe_compare(u_w_sq, sum)) {
         return false;
     }
 
