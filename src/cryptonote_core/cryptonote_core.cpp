@@ -1215,9 +1215,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
   {
-    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, fcmp_pp_tree_root, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
+    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const

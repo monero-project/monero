@@ -1660,8 +1660,8 @@ namespace cryptonote
   blobdata get_block_hashing_blob(const block& b)
   {
     blobdata blob = t_serializable_object_to_blob(static_cast<block_header>(b));
-    crypto::hash tree_root_hash = get_tree_hash(b);
-    blob.append(reinterpret_cast<const char*>(&tree_root_hash), sizeof(tree_root_hash));
+    crypto::hash block_content_hash = get_block_content_hash(b);
+    blob.append(reinterpret_cast<const char*>(&block_content_hash), sizeof(block_content_hash));
     blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
     return blob;
   }
@@ -1803,20 +1803,24 @@ namespace cryptonote
     return t_serializable_object_to_blob(tx, b_blob);
   }
   //---------------------------------------------------------------
-  crypto::hash get_tree_hash(const block& b)
+  crypto::hash get_block_content_hash(const block& b)
   {
     std::vector<crypto::hash> hashes;
-    hashes.reserve(1 + 1 + b.tx_hashes.size());
-    // 1. FCMP++ root
+    hashes.reserve(1 + 1 + 1 + b.tx_hashes.size());
+    // 1. n tree layers in FCMP++ tree
+    static_assert(sizeof(crypto::hash) >= sizeof(uint8_t), "crypto::hash is too small");
+    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+      hashes.push_back(crypto::hash{static_cast<char>(b.fcmp_pp_n_tree_layers)});
+    // 2. FCMP++ tree root
     static_assert(sizeof(crypto::hash) == sizeof(crypto::ec_point), "expected sizeof hash == sizeof ec_point");
     if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
       hashes.push_back((crypto::hash&)b.fcmp_pp_tree_root);
-    // 2. Miner tx
+    // 3. Miner tx
     crypto::hash h = null_hash;
     size_t bl_sz = 0;
     CHECK_AND_ASSERT_THROW_MES(get_transaction_hash(b.miner_tx, h, bl_sz), "Failed to calculate transaction hash");
     hashes.push_back(h);
-    // 3. All other txs
+    // 4. All other txs
     for(auto& th: b.tx_hashes)
       hashes.push_back(th);
     return get_tree_hash(hashes);

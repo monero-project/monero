@@ -1684,7 +1684,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
   {
-    m_db->get_tree_root_at_blk_idx(height, b.fcmp_pp_tree_root);
+    b.fcmp_pp_n_tree_layers = m_db->get_tree_root_at_blk_idx(height, b.fcmp_pp_tree_root);
   }
 
   size_t txs_weight;
@@ -1820,21 +1820,20 @@ bool Blockchain::create_block_template(block& b, const account_public_address& m
   return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
 }
 //------------------------------------------------------------------
-bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
 {
   prev_id = m_db->top_block_hash(&height);
   ++height;
 
   major_version = m_hardfork->get_ideal_version(height);
 
-  const uint8_t cur_version = m_hardfork->get_current_version();
-
+  fcmp_pp_n_tree_layers = 0;
   fcmp_pp_tree_root = crypto::ec_point{};
-  if (cur_version >= HF_VERSION_FCMP_PLUS_PLUS)
-    m_db->get_tree_root_at_blk_idx(height, fcmp_pp_tree_root);
+  if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    fcmp_pp_n_tree_layers = m_db->get_tree_root_at_blk_idx(height, fcmp_pp_tree_root);
 
   seed_hash = crypto::null_hash;
-  if (cur_version >= RX_BLOCK_VERSION)
+  if (major_version >= RX_BLOCK_VERSION)
   {
     uint64_t seed_height, next_height;
     crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -2625,12 +2624,11 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
       "tx included reference block that was too high");
 
   // Get the tree root and n tree layers at provided block
-  const std::size_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
+  const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
 
   // Make sure the provided n tree layers matches expected
   // IMPORTANT!
-  static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
-  CHECK_AND_ASSERT_MES((std::size_t)tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
+  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
       "tx included incorrect number of tree layers");
 
   return true;
@@ -4371,14 +4369,14 @@ leave:
 
   TIME_MEASURE_START(t3);
 
-  // Make sure the block uses the correct FCMP++ tree root
+  // Make sure the block uses the correct FCMP++ tree root and n tree layers
   if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
   {
     crypto::ec_point fcmp_pp_tree_root;
-    m_db->get_tree_root_at_blk_idx(blockchain_height, fcmp_pp_tree_root);
-    if (bl.fcmp_pp_tree_root != fcmp_pp_tree_root)
+    const uint8_t n_tree_layers = m_db->get_tree_root_at_blk_idx(blockchain_height, fcmp_pp_tree_root);
+    if (bl.fcmp_pp_n_tree_layers != n_tree_layers || bl.fcmp_pp_tree_root != fcmp_pp_tree_root)
     {
-      MERROR_VER("Block with id: " << id << " used incorrect FCMP++ tree root");
+      MERROR_VER("Block with id: " << id << " used incorrect FCMP++ n tree layers or tree root");
       bvc.m_verifivation_failed = true;
       goto leave;
     }
@@ -5995,13 +5993,14 @@ void Blockchain::send_miner_notifications(uint64_t height, const crypto::hash &s
   std::vector<tx_block_template_backlog_entry> tx_backlog;
   m_tx_pool.get_block_template_backlog(tx_backlog);
 
+  uint8_t fcmp_pp_n_tree_layers = 0;
   crypto::ec_point fcmp_pp_tree_root{};
-  if (m_hardfork->get_current_version() >= HF_VERSION_FCMP_PLUS_PLUS)
-    m_db->get_tree_root_at_blk_idx(height, fcmp_pp_tree_root);
+  if (major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    fcmp_pp_n_tree_layers = m_db->get_tree_root_at_blk_idx(height, fcmp_pp_tree_root);
 
   for (const auto& notifier : m_miner_notifiers)
   {
-    notifier(major_version, height, prev_id, fcmp_pp_tree_root, seed_hash, diff, median_weight, already_generated_coins, tx_backlog);
+    notifier(major_version, height, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root, seed_hash, diff, median_weight, already_generated_coins, tx_backlog);
   }
 }
 

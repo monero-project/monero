@@ -1820,7 +1820,7 @@ public:
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
   virtual uint64_t get_n_leaf_tuples() const = 0;
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
-  virtual std::size_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const = 0;
+  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const = 0;
 
   /**
    * @brief return custom timelocked outputs after the provided block idx
