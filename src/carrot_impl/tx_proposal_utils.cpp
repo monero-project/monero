@@ -171,7 +171,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     std::map<size_t, rct::xmr_amount> fee_per_input_count;
     for (size_t num_ins = 1; num_ins <= CARROT_MAX_TX_INPUTS; ++num_ins)
     {
-        const uint64_t tx_weight = get_fcmppp_tx_weight(num_ins, num_outs, tx_extra_size);
+        const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(num_ins, num_outs, tx_extra_size);
         CHECK_AND_ASSERT_THROW_MES(tx_weight != std::numeric_limits<uint64_t>::max(),
             "make_carrot_transaction_proposal_v1: invalid weight returned for ins=" << num_ins
             << " outs=" << num_outs << " extra_size=" << tx_extra_size);
