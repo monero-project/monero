@@ -74,14 +74,6 @@ using carve_fees_and_balance_func_t = std::function<void(
 
 std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
 
-static inline std::size_t get_fcmppp_tx_weight(const std::size_t num_inputs,
-    const std::size_t num_outputs,
-    const std::size_t tx_extra_size)
-{
-    // @TODO: actually implement
-    return 200 + num_inputs * 1000 + num_outputs * 100 + tx_extra_size;
-}
-
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
     const rct::xmr_amount fee_per_weight,
