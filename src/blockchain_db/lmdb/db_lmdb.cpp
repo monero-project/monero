@@ -1370,10 +1370,7 @@ void BlockchainLMDB::add_spent_key(const crypto::key_image& k_image)
 
   CURSOR(spent_keys)
 
-  crypto::key_image_y k_image_y;
-  crypto::key_image_to_y(k_image, k_image_y);
-
-  MDB_val k = {sizeof(k_image_y), (void *)&k_image_y};
+  MDB_val k = {sizeof(k_image), (void *)&k_image};
   if (auto result = mdb_cursor_put(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_NODUPDATA)) {
     if (result == MDB_KEYEXIST)
       throw1(KEY_IMAGE_EXISTS("Attempting to add spent key image that's already in the db"));
@@ -1390,10 +1387,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
 
   CURSOR(spent_keys)
 
-  crypto::key_image_y k_image_y;
-  crypto::key_image_to_y(k_image, k_image_y);
-
-  MDB_val k = {sizeof(k_image_y), (void *)&k_image_y};
+  MDB_val k = {sizeof(k_image), (void *)&k_image};
   auto result = mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH);
   if (result != 0 && result != MDB_NOTFOUND)
       throw1(DB_ERROR(lmdb_error("Error finding spent key to remove", result).c_str()));
@@ -5071,17 +5065,14 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   TXN_PREFIX_RDONLY();
   RCURSOR(spent_keys);
 
-  crypto::key_image_y img_y;
-  crypto::key_image_to_y(img, img_y);
-
-  MDB_val k = {sizeof(img_y), (void *)&img_y};
+  MDB_val k = {sizeof(img), (void *)&img};
   ret = (mdb_cursor_get(m_cur_spent_keys, (MDB_val *)&zerokval, &k, MDB_GET_BOTH) == 0);
 
   TXN_POSTFIX_RDONLY();
   return ret;
 }
 
-bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_image_y&)> f) const
+bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -5102,8 +5093,8 @@ bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_ima
       break;
     if (ret < 0)
       throw0(DB_ERROR("Failed to enumerate key images"));
-    const crypto::key_image_y k_image_y = *(const crypto::key_image_y*)v.mv_data;
-    if (!f(k_image_y)) {
+    const crypto::key_image k_image = *(const crypto::key_image*)v.mv_data;
+    if (!f(k_image)) {
       fret = false;
       break;
     }
@@ -7219,117 +7210,14 @@ void BlockchainLMDB::migrate_5_6()
 
   MGINFO_YELLOW("Migrating blockchain from DB version 5 to 6 - this may take a while:");
 
-  MDB_dbi o_spent_keys = m_spent_keys;
   MDB_dbi m_tmp_last_output;
   do
   {
-    // 1. Migrate key images to the new key image definition
-    {
-      MINFO("Migrating key images (step 1/3 of full-chain membership proof migration)");
-
-      if (!m_batch_transactions)
-        set_batch_transactions(true);
-      const std::size_t BATCH_SIZE = 10000;
-      // Since step 3/3 in migration deletes block info records from the db, can't use num blocks batch size, otherwise
-      // get_estimated_batch_size can fail to read block weight by height
-      batch_start();
-      txn.m_txn = m_write_txn->m_txn;
-
-      /* the spent_keys table name is the same but the old version and new version
-      * have different data. Create a new table. We want the name to be similar
-      * to the old name so that it will occupy the same location in the DB.
-      */
-      lmdb_db_open(txn, "spent_keyr", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keyr");
-      mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
-
-      MDB_cursor *c_new_spent_keys, *c_old_spent_keys;
-      MDB_val k, v_img;
-      MDB_cursor_op op = MDB_FIRST;
-
-      uint64_t n_old_key_images;
-      {
-        MDB_stat db_stats;
-        if ((result = mdb_stat(txn, o_spent_keys, &db_stats)))
-          throw0(DB_ERROR(lmdb_error("Failed to query m_spent_keys: ", result).c_str()));
-        n_old_key_images = db_stats.ms_entries;
-      }
-
-      uint64_t n_new_key_images;
-      {
-        MDB_stat db_stats;
-        if ((result = mdb_stat(txn, m_spent_keys, &db_stats)))
-          throw0(DB_ERROR(lmdb_error("Failed to query m_spent_keys: ", result).c_str()));
-        n_new_key_images = db_stats.ms_entries;
-      }
-
-      const uint64_t n_key_images = n_old_key_images + n_new_key_images;
-
-      i = n_new_key_images;
-      while (i < n_key_images)
-      {
-        if (!(i % BATCH_SIZE))
-        {
-          if (i)
-          {
-            LOGIF(el::Level::Info)
-            {
-              const uint64_t percent = std::min((i * 100) / n_key_images, (uint64_t)99);
-              std::cout << i << " / " << n_key_images << " key images (" << percent << "% of step 1/3)  \r" << std::flush;
-            }
-
-            // Start a new batch so resizing can occur as needed
-            batch_stop();
-            batch_start();
-            txn.m_txn = m_write_txn->m_txn;
-          }
-
-          // Open all cursors
-          result = mdb_cursor_open(txn, m_spent_keys, &c_new_spent_keys);
-          if (result)
-            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for spent_keyr: ", result).c_str()));
-          result = mdb_cursor_open(txn, o_spent_keys, &c_old_spent_keys);
-          if (result)
-            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for spent_keys: ", result).c_str()));
-          op = MDB_FIRST;
-        }
-
-        // Get old key image and use it to set the new key image y
-        result = mdb_cursor_get(c_old_spent_keys, &k, &v_img, op);
-        op = MDB_NEXT;
-        if (result)
-          throw0(DB_ERROR(lmdb_error("Failed to get a record from spent_keys: ", result).c_str()));
-        const crypto::key_image k_image = *(const crypto::key_image*)v_img.mv_data;
-
-        crypto::key_image_y k_image_y;
-        crypto::key_image_to_y(k_image, k_image_y);
-
-        MDB_val k_y = {sizeof(k_image_y), (void *)&k_image_y};
-        if (auto result = mdb_cursor_put(c_new_spent_keys, (MDB_val *)&zerokval, &k_y, MDB_NODUPDATA)) {
-          if (result == MDB_KEYEXIST)
-            throw1(KEY_IMAGE_EXISTS("Attempting to add spent key image that's already in the db"));
-          else
-            throw1(DB_ERROR(lmdb_error("Error adding spent key image to db transaction: ", result).c_str()));
-        }
-
-        /* we delete the old records immediately, so the overall DB and mapsize should not be
-        * larger than it needs to be.
-        * This is a little slower than just letting mdb_drop() delete it all at the end, but
-        * it saves a significant amount of disk space.
-        */
-        result = mdb_cursor_del(c_old_spent_keys, 0);
-        if (result)
-          throw0(DB_ERROR(lmdb_error("Failed to delete a record from block_info: ", result).c_str()));
-
-        ++i;
-      }
-      batch_stop();
-    }
-
-    // 2. Prepare all valid outputs to be inserted into the merkle tree and
+    // 1. Prepare all valid outputs to be inserted into the merkle tree and
     //    place them in a locked outputs table. The key to this new table is the
     //    block id in which the outputs unlock.
     {
-      MINFO("Setting up a locked outputs table (step 2/3 of full-chain membership proof migration)");
+      MINFO("Setting up a locked outputs table (step 1/2 of full-chain membership proof migration)");
 
       result = mdb_txn_begin(m_env, NULL, 0, txn);
       if (result)
@@ -7362,7 +7250,7 @@ void BlockchainLMDB::migrate_5_6()
             LOGIF(el::Level::Info)
             {
               const uint64_t percent = std::min((i * 100) / n_outputs, (uint64_t)99);
-              std::cout << i << " / " << n_outputs << " outputs (" << percent << "% of step 2/3)  \r" << std::flush;
+              std::cout << i << " / " << n_outputs << " outputs (" << percent << "% of step 1/2)  \r" << std::flush;
             }
 
             // Update last output read
@@ -7539,10 +7427,10 @@ void BlockchainLMDB::migrate_5_6()
       }
     }
 
-    // 3. Set up the curve trees merkle tree by growing the tree block by block,
+    // 2. Set up the curve trees merkle tree by growing the tree block by block,
     //    with leaves that are spendable in each respective block
     {
-      MINFO("Setting up a merkle tree using existing cryptonote outputs (step 3/3 of full-chain membership proof migration)");
+      MINFO("Setting up a merkle tree using existing cryptonote outputs (step 2/2 of full-chain membership proof migration)");
 
       if (!m_batch_transactions)
         set_batch_transactions(true);
@@ -7563,7 +7451,7 @@ void BlockchainLMDB::migrate_5_6()
             LOGIF(el::Level::Info)
             {
               const uint64_t percent = std::min((i * 100) / n_blocks, (uint64_t)99);
-              std::cout << i << " / " << n_blocks << " blocks (" << percent << "% of step 3/3)  \r" << std::flush;
+              std::cout << i << " / " << n_blocks << " blocks (" << percent << "% of step 2/2)  \r" << std::flush;
             }
 
             batch_stop();
@@ -7625,22 +7513,6 @@ void BlockchainLMDB::migrate_5_6()
   result = mdb_put(txn, m_properties, &vk, &v, 0);
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to update version for the db: ", result).c_str()));
-
-  // Drop the old spent keys table. We keep it until here so we know if the key image migration is complete.
-  result = mdb_drop(txn, o_spent_keys, 1);
-  if (result)
-    throw0(DB_ERROR(lmdb_error("Failed to delete old spent_keys table: ", result).c_str()));
-
-  // Rename the spent keyr table to the new spent keys table
-  MDB_cursor *c_cur;
-  result = mdb_cursor_open(txn, m_spent_keys, &c_cur);
-  if (result)
-    throw0(DB_ERROR(lmdb_error("Failed to open a cursor for spent_keyr: ", result).c_str()));
-  RENAME_DB("spent_keyr");
-  mdb_dbi_close(m_env, m_spent_keys);
-
-  lmdb_db_open(txn, "spent_keys", MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
-  mdb_set_dupsort(txn, m_spent_keys, compare_hash32);
 
   // We only needed the temp last output table for this migration, drop it
   result = mdb_drop(txn, m_tmp_last_output, 1);

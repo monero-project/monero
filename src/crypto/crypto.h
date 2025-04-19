@@ -79,10 +79,6 @@ namespace crypto {
     friend class crypto_ops;
   };
 
-  POD_CLASS key_image_y: ec_point {
-    friend class crypto_ops;
-  };
-
   POD_CLASS signature {
     ec_scalar c, r;
     friend class crypto_ops;
@@ -98,7 +94,7 @@ namespace crypto {
 
   static_assert(sizeof(ec_point) == 32 && sizeof(ec_scalar) == 32 &&
     sizeof(public_key) == 32 && sizeof(public_key_memsafe) == 32 && sizeof(secret_key) == 32 &&
-    sizeof(key_derivation) == 32 && sizeof(key_image) == 32 && sizeof(key_image_y) == 32 &&
+    sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
     sizeof(signature) == 64 && sizeof(view_tag) == 1, "Invalid structure size");
 
   class crypto_ops {
@@ -147,10 +143,6 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
     static void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
     friend void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
-    static bool key_image_to_y(const key_image &, key_image_y &);
-    friend bool key_image_to_y(const key_image &, key_image_y &);
-    static void key_image_from_y(const key_image_y &, const bool, key_image &);
-    friend void key_image_from_y(const key_image_y &, const bool, key_image &);
   };
 
   void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes);
@@ -311,21 +303,6 @@ namespace crypto {
     crypto_ops::derive_view_tag(derivation, output_index, vt);
   }
 
-  /** Clear the sign bit on the key image (i.e. get just the y coordinate).
-   * Return true if the sign bit is set, false if not.
-   * Since fcmp's allow construction of key images with sign bit cleared, while
-   * the same key image with sign bit set may already exist in the chain, we
-   * prevent double spends by converting all existing key images in the chain to
-   * their y coordinate and preventing duplicate key image y's.
-   */
-  inline bool key_image_to_y(const key_image &ki, key_image_y &ki_y) {
-    return crypto_ops::key_image_to_y(ki, ki_y);
-  }
-
-  inline void key_image_from_y(const key_image_y &ki_y, const bool sign, key_image &ki) {
-    return crypto_ops::key_image_from_y(ki_y, sign, ki);
-  }
-
   inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
@@ -342,9 +319,6 @@ namespace crypto {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
   inline std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
-  }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::key_image_y &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
   inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
@@ -364,8 +338,6 @@ namespace crypto {
   inline bool operator>(const public_key &p1, const public_key &p2) { return p2 < p1; }
   inline bool operator<(const key_image &p1, const key_image &p2) { return memcmp(&p1, &p2, sizeof(key_image)) < 0; }
   inline bool operator>(const key_image &p1, const key_image &p2) { return p2 < p1; }
-  inline bool operator<(const key_image_y &p1, const key_image_y &p2) { return memcmp(&p1, &p2, sizeof(key_image_y)) < 0; }
-  inline bool operator>(const key_image_y &p1, const key_image_y &p2) { return p2 < p1; }
 }
 
 // type conversions for easier calls to sc_add(), sc_sub(), hash functions
@@ -379,6 +351,5 @@ CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)
 CRYPTO_MAKE_HASHABLE(key_image)
-CRYPTO_MAKE_HASHABLE(key_image_y)
 CRYPTO_MAKE_COMPARABLE(signature)
 CRYPTO_MAKE_COMPARABLE(view_tag)
