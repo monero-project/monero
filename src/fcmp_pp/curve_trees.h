@@ -86,10 +86,10 @@ struct GrowLayerInstructions final
 };
 
 // Output pub key and commitment, ready to be converted to a leaf tuple
-// - From {output_pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
+// - From {output_pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
 // - Output pairs do NOT necessarily have torsion cleared. We need the output pubkey as it exists in the chain in order
-//   to derive the correct I (when deriving {O.x, I.x, C.x}). Torsion clearing O before deriving I from O would enable
-//   spending a torsioned output once before the fcmp++ fork and again with a different key image via fcmp++.
+//   to derive the correct I (when deriving {O.x,O.y,I.x,I.y,C.x,C.y}). Torsion clearing O before deriving I from O
+//   would enable spending a torsioned output once before FCMP++ fork and again with a different key image via FCMP++.
 #pragma pack(push, 1)
 struct OutputPair final
 {
@@ -173,9 +173,9 @@ struct OutputTuple final
 // Struct composed of ec elems needed to get a full-fledged leaf tuple
 struct PreLeafTuple final
 {
-    fcmp_pp::EdYDerivatives O_pre_x;
-    fcmp_pp::EdYDerivatives I_pre_x;
-    fcmp_pp::EdYDerivatives C_pre_x;
+    fcmp_pp::EdDerivatives O_derivatives;
+    fcmp_pp::EdDerivatives I_derivatives;
+    fcmp_pp::EdDerivatives C_derivatives;
 };
 
 struct ChunkBytes final
@@ -244,14 +244,18 @@ public:
     // Tuple that composes a single leaf in the tree
     struct LeafTuple final
     {
-        // Output ed25519 point x-coordinate
+        // Output ed25519 point wei x and y coordinates
         typename C1::Scalar O_x;
-        // Key image generator x-coordinate
+        typename C1::Scalar O_y;
+        // Key image generator wei x and y coordinates
         typename C1::Scalar I_x;
-        // Commitment x-coordinate
+        typename C1::Scalar I_y;
+        // Commitment wei x and y coordinates
         typename C1::Scalar C_x;
+        typename C1::Scalar C_y;
     };
-    static const std::size_t LEAF_TUPLE_SIZE = 3;
+    static const std::size_t LEAF_TUPLE_POINTS = 3;
+    static const std::size_t LEAF_TUPLE_SIZE = LEAF_TUPLE_POINTS * 2;
     static_assert(sizeof(LeafTuple) == (sizeof(typename C1::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
     // Contiguous leaves in the tree, starting a specified start_idx in the leaf layer
@@ -318,10 +322,12 @@ public:
     };
 //member functions
 public:
-    // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,I.x,C.x}
+    // Convert output pairs into leaf tuples, from {output pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
     LeafTuple leaf_tuple(const OutputPair &output_pair) const;
 
-    // Flatten leaves [(O.x, I.x, C.x),(O.x, I.x, C.x),...] -> [O.x, I.x, C.x, O.x, I.x, C.x...]
+    // Flatten leaves
+    // From: [{O.x,O.y,I.x,I.y,C.x,C.y},{O.x,O.y,I.x,I.y,C.x,C.y},...]
+    // To: [O.x,O.y,I.x,I.y,C.x,C.y,O.x,O.y,I.x,I.y,C.x,C.y...]
     std::vector<typename C1::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
 
     // Take in the existing number of leaf tuples and the existing last hash in each layer in the tree, as well as new

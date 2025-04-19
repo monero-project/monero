@@ -703,11 +703,17 @@ void CurveTreesGlobalTree::log_tree_extension(const CurveTreesV1::TreeExtension 
         const auto leaf = m_curve_trees.leaf_tuple(output_pair);
 
         const auto O_x = m_curve_trees.m_c1->to_string(leaf.O_x);
+        const auto O_y = m_curve_trees.m_c1->to_string(leaf.O_y);
+
         const auto I_x = m_curve_trees.m_c1->to_string(leaf.I_x);
+        const auto I_y = m_curve_trees.m_c1->to_string(leaf.I_y);
+
         const auto C_x = m_curve_trees.m_c1->to_string(leaf.C_x);
+        const auto C_y = m_curve_trees.m_c1->to_string(leaf.C_y);
 
         MDEBUG("Leaf tuple idx " << (tree_extension.leaves.start_leaf_tuple_idx + (i * CurveTreesV1::LEAF_TUPLE_SIZE))
-            << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
+            << " : { O_x: " << O_x << " , O_y: " << O_y << " , I_x: " << I_x << " , I_y: " << I_y
+            << " , C_x: " << C_x << " , C_y: " << C_y << " }");
     }
 
     bool parent_is_c1 = true;
@@ -759,10 +765,16 @@ void CurveTreesGlobalTree::log_tree()
         const auto leaf = m_curve_trees.leaf_tuple(m_tree.leaves[i]);
 
         const auto O_x = m_curve_trees.m_c1->to_string(leaf.O_x);
-        const auto I_x = m_curve_trees.m_c1->to_string(leaf.I_x);
-        const auto C_x = m_curve_trees.m_c1->to_string(leaf.C_x);
+        const auto O_y = m_curve_trees.m_c1->to_string(leaf.O_y);
 
-        MDEBUG("Leaf idx " << i << " : { O_x: " << O_x << " , I_x: " << I_x << " , C_x: " << C_x << " }");
+        const auto I_x = m_curve_trees.m_c1->to_string(leaf.I_x);
+        const auto I_y = m_curve_trees.m_c1->to_string(leaf.I_y);
+
+        const auto C_x = m_curve_trees.m_c1->to_string(leaf.C_x);
+        const auto C_y = m_curve_trees.m_c1->to_string(leaf.C_y);
+
+        MDEBUG("Leaf idx " << i << " : { O_x: " << O_x << " , O_y: " << O_y << " , I_x: " << I_x << " , I_y: " << I_y
+            << " , C_x: " << C_x << " , C_y: " << C_y << " }");
     }
 
     bool parent_is_c1 = true;
@@ -839,7 +851,7 @@ TEST(curve_trees, grow_tree)
 TEST(curve_trees, trim_tree)
 {
     // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
-    static const std::size_t selene_chunk_width = 3;
+    static const std::size_t selene_chunk_width = 2;
     static const std::size_t helios_chunk_width = 3;
     static const std::size_t tree_depth = 4;
 

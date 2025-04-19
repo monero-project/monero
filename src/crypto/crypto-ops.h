@@ -153,6 +153,7 @@ extern const fe fe_fffb2;
 extern const fe fe_fffb3;
 extern const fe fe_fffb4;
 extern const fe fe_a_inv_3;
+extern const fe fe_c;
 extern const fe fe_one;
 extern const fe fe_m1;
 extern const fe fe_inv2;
@@ -195,7 +196,7 @@ void fe_1(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
 
-void fe_ed_y_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y);
+void fe_ed_derivatives_to_wei_x_y(unsigned char *wei_x, unsigned char *wei_y, const fe inv_one_minus_y, const fe one_plus_y, const fe inv_one_minus_y_mul_x);
 
 void fe_reduce(fe reduced_f, const fe f);
 void fe_dbl(fe h, const fe f);
