@@ -104,7 +104,7 @@ namespace rpc
     bool double_spend_seen;
   };
 
-  typedef std::unordered_map<crypto::key_image_y, std::vector<crypto::hash> > key_images_with_tx_hashes;
+  typedef std::unordered_map<crypto::key_image, std::vector<crypto::hash> > key_images_with_tx_hashes;
 
   struct output_amount_count
   {

@@ -1728,7 +1728,7 @@ public:
    *
    * @return false if the function returns false for any key image, otherwise true
    */
-  virtual bool for_all_key_images(std::function<bool(const crypto::key_image_y&)>) const = 0;
+  virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const = 0;
 
   /**
    * @brief runs a function over a range of blocks

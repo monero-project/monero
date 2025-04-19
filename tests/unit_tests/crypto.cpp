@@ -348,30 +348,6 @@ TEST(Crypto, generator_consistency)
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
 }
 
-TEST(Crypto, key_image_y)
-{
-  const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
-  crypto::key_image ki;
-  crypto::generate_key_image(kp.pub, kp.sec, ki);
-
-  crypto::key_image_y ki_y;
-  bool sign = crypto::key_image_to_y(ki, ki_y);
-
-  static_assert(sizeof(crypto::key_image) == sizeof(crypto::key_image_y), "unequal key image <> key image y size");
-  if (memcmp(ki.data, ki_y.data, sizeof(crypto::key_image)) == 0)
-    ASSERT_FALSE(sign);
-  else
-    ASSERT_TRUE(sign);
-
-  // decoded y coordinate should be the same
-  fe y_from_ki;
-  fe y_from_ki_y;
-  ASSERT_EQ(fe_frombytes_vartime(y_from_ki, (unsigned char*)ki.data), 0);
-  ASSERT_EQ(fe_frombytes_vartime(y_from_ki_y, (unsigned char*)ki_y.data), 0);
-
-  ASSERT_EQ(memcmp(y_from_ki, y_from_ki_y, sizeof(fe)), 0);
-}
-
 TEST(Crypto, batch_inversion)
 {
   const std::size_t MAX_TEST_ELEMS = 1000;
