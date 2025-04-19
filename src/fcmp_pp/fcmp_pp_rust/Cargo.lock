@@ -71,7 +71,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "ciphersuite"
 version = "0.4.1"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "blake2",
  "dalek-ff-group",
@@ -160,7 +160,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -197,12 +197,13 @@ dependencies = [
 [[package]]
 name = "ec-divisors"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "dalek-ff-group",
  "ff",
  "group",
  "hex",
+ "monero-io",
  "rand_core",
  "std-shims",
  "subtle",
@@ -278,7 +279,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "blake2",
  "digest",
@@ -291,7 +292,7 @@ dependencies = [
 [[package]]
 name = "full-chain-membership-proofs"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -315,7 +316,7 @@ checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
 [[package]]
 name = "generalized-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -328,7 +329,7 @@ dependencies = [
 [[package]]
 name = "generalized-bulletproofs-circuit-abstraction"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "ciphersuite",
  "generalized-bulletproofs",
@@ -339,7 +340,7 @@ dependencies = [
 [[package]]
 name = "generalized-bulletproofs-ec-gadgets"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "ciphersuite",
  "generalized-bulletproofs-circuit-abstraction",
@@ -401,7 +402,7 @@ dependencies = [
 [[package]]
 name = "helioselene"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "crypto-bigint",
  "dalek-ff-group",
@@ -462,7 +463,7 @@ dependencies = [
 [[package]]
 name = "minimal-ed448"
 version = "0.4.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "crypto-bigint",
  "ff",
@@ -477,7 +478,7 @@ dependencies = [
 [[package]]
 name = "monero-fcmp-plus-plus"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "blake2",
  "ciphersuite",
@@ -502,7 +503,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -516,7 +517,7 @@ dependencies = [
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "curve25519-dalek",
  "std-shims",
@@ -525,7 +526,7 @@ dependencies = [
 [[package]]
 name = "monero-primitives"
 version = "0.1.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -538,7 +539,7 @@ dependencies = [
 [[package]]
 name = "multiexp"
 version = "0.4.0"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "ff",
  "group",
@@ -720,7 +721,7 @@ dependencies = [
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/j-berman/fcmp-plus-plus#74805e54938117423f3e4aec94d3bdab7c2cf9f0"
+source = "git+https://github.com/j-berman/fcmp-plus-plus#2bbb12e17835a54c2d3915388673eada9f6847f5"
 dependencies = [
  "hashbrown",
  "spin",
