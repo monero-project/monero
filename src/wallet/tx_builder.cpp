@@ -267,7 +267,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
-    const uint32_t subaddr_account,
+    const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
@@ -345,13 +345,49 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     return tx_proposal;
 }
 //-------------------------------------------------------------------------------------------------------------------
+carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_transfer_subtractable(
+    wallet2 &w,
+    const std::vector<cryptonote::tx_destination_entry> &dsts,
+    const std::uint32_t priority,
+    const std::vector<uint8_t> &extra,
+    const std::uint32_t subaddr_account,
+    const std::set<uint32_t> &subaddr_indices,
+    const rct::xmr_amount ignore_above,
+    const rct::xmr_amount ignore_below,
+    const wallet2::unique_index_container &subtract_fee_from_outputs)
+{
+    wallet2::transfer_container transfers;
+    w.get_transfers(transfers);
+
+    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+
+    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
+    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
+        "make_carrot_transaction_proposal_wallet2_transfer_subtractable: chain height is 0, there is no top block");
+    const std::uint64_t top_block_index = current_chain_height - 1;
+
+    return make_carrot_transaction_proposal_wallet2_transfer_subtractable(
+        transfers,
+        w.get_subaddress_map_ref(),
+        dsts,
+        fee_per_weight,
+        extra,
+        subaddr_account,
+        subaddr_indices,
+        ignore_above,
+        ignore_below,
+        subtract_fee_from_outputs,
+        top_block_index,
+        w.get_account().get_keys());
+}
+//-------------------------------------------------------------------------------------------------------------------
 carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_transfer(
     const wallet2::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
-    const uint32_t subaddr_account,
+    const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
@@ -371,6 +407,40 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
         /*subtract_fee_from_outputs=*/{},
         top_block_index,
         acc_keys);
+}
+//-------------------------------------------------------------------------------------------------------------------
+carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_transfer(
+    wallet2 &w,
+    const std::vector<cryptonote::tx_destination_entry> &dsts,
+    const std::uint32_t priority,
+    const std::vector<uint8_t> &extra,
+    const std::uint32_t subaddr_account,
+    const std::set<uint32_t> &subaddr_indices,
+    const rct::xmr_amount ignore_above,
+    const rct::xmr_amount ignore_below)
+{
+    wallet2::transfer_container transfers;
+    w.get_transfers(transfers);
+
+    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+
+    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
+    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
+        "make_carrot_transaction_proposal_wallet2_transfer: chain height is 0, there is no top block");
+    const std::uint64_t top_block_index = current_chain_height - 1;
+
+    return make_carrot_transaction_proposal_wallet2_transfer(
+        transfers,
+        w.get_subaddress_map_ref(),
+        dsts,
+        fee_per_weight,
+        extra,
+        subaddr_account,
+        subaddr_indices,
+        ignore_above,
+        ignore_below,
+        top_block_index,
+        w.get_account().get_keys());
 }
 //-------------------------------------------------------------------------------------------------------------------
 carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_sweep(
@@ -446,6 +516,38 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
         tx_proposal);
 
     return tx_proposal;
+}
+//-------------------------------------------------------------------------------------------------------------------
+carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_sweep(
+    wallet2 &w,
+    const std::vector<crypto::key_image> &input_key_images,
+    const cryptonote::account_public_address &address,
+    const bool is_subaddress,
+    const size_t n_dests,
+    const std::uint32_t priority,
+    const std::vector<uint8_t> &extra)
+{
+    wallet2::transfer_container transfers;
+    w.get_transfers(transfers);
+
+    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+
+    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
+    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
+        "make_carrot_transaction_proposal_wallet2_transfer: chain height is 0, there is no top block");
+    const std::uint64_t top_block_index = current_chain_height - 1;
+
+    return make_carrot_transaction_proposal_wallet2_sweep(
+        transfers,
+        w.get_subaddress_map_ref(),
+        input_key_images,
+        address,
+        is_subaddress,
+        n_dests,
+        fee_per_weight,
+        extra,
+        top_block_index,
+        w.get_account().get_keys());
 }
 //-------------------------------------------------------------------------------------------------------------------
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
