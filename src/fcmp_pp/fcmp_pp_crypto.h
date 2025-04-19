@@ -37,11 +37,12 @@ extern "C"
 namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
-// Field elems needed to get wei x coord
-struct EdYDerivatives final
+// Field elems needed to get wei x and y coords
+struct EdDerivatives final
 {
     fe one_plus_y;
     fe one_minus_y;
+    fe one_minus_y_mul_x;
 };
 //----------------------------------------------------------------------------------------------------------------------
 // TODO: tests for these functions
@@ -51,8 +52,8 @@ bool torsion_check_vartime(const ge_p3 &point);
 rct::key clear_torsion(const ge_p3 &point);
 bool get_valid_torsion_cleared_point(const rct::key &point, rct::key &torsion_cleared_out);
 bool get_valid_torsion_cleared_point_fast(const rct::key &point, rct::key &torsion_cleared_out);
-bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives);
-void ed_y_derivatives_to_wei_x(const EdYDerivatives &ed_y_derivatives, rct::key &wei_x);
+bool point_to_ed_derivatives(const rct::key &pub, EdDerivatives &ed_derivatives);
+bool ed_derivatives_to_wei_x_y(const EdDerivatives &ed_derivatives, rct::key &wei_x, rct::key &wei_y);
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x);
 /**
  * brief - scalarmult_and_add - Q = P + a * A

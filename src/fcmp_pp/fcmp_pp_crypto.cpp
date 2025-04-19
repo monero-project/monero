@@ -31,6 +31,8 @@
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 
+#include <stdlib.h>
+
 // static void print_bytes(const fe f)
 // {
 //     unsigned char bytes[32];
@@ -344,32 +346,58 @@ bool get_valid_torsion_cleared_point_fast(const rct::key &point, rct::key &torsi
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool point_to_ed_y_derivatives(const rct::key &pub, EdYDerivatives &ed_y_derivatives) {
+bool point_to_ed_derivatives(const rct::key &pub, EdDerivatives &ed_derivatives) {
     if (pub == rct::I)
         return false;
-    fe y;
-    if (fe_frombytes_vartime(y, pub.bytes) != 0)
+    // fe y;
+    ge_p3 p3;
+    if (ge_frombytes_vartime(&p3, pub.bytes) != 0)
         return false;
     fe one;
     fe_1(one);
     // (1+y),(1-y)
-    fe_add(ed_y_derivatives.one_plus_y, one, y);
-    fe_sub(ed_y_derivatives.one_minus_y, one, y);
+    fe_add(ed_derivatives.one_plus_y, one, p3.Y);
+    fe_sub(ed_derivatives.one_minus_y, one, p3.Y);
+    // (1-y) * x
+    fe_mul(ed_derivatives.one_minus_y_mul_x, ed_derivatives.one_minus_y, p3.X);
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
-void ed_y_derivatives_to_wei_x(const EdYDerivatives &pre_wei_x, rct::key &wei_x) {
-    fe inv_one_minus_y;
-    fe_invert(inv_one_minus_y, pre_wei_x.one_minus_y);
-    fe_ed_y_derivatives_to_wei_x(wei_x.bytes, inv_one_minus_y, pre_wei_x.one_plus_y);
+bool ed_derivatives_to_wei_x_y(const EdDerivatives &ed_derivatives, rct::key &wei_x, rct::key &wei_y) {
+    // Get inverse of (1-y) and ((1-y)*x)
+    fe *fe_batch = (fe *) malloc(2 * sizeof(fe));
+    if (!fe_batch)
+        return false;
+
+    fe *inv_res = (fe *) malloc(2 * sizeof(fe));
+    if (!inv_res)
+        return false;
+
+    memcpy(&fe_batch[0], &ed_derivatives.one_minus_y, sizeof(fe));
+    memcpy(&fe_batch[1], &ed_derivatives.one_minus_y_mul_x, sizeof(fe));
+
+    if (fe_batch_invert(inv_res, fe_batch, 2) != 0)
+        return false;
+
+    fe_ed_derivatives_to_wei_x_y(
+        wei_x.bytes,
+        wei_y.bytes,
+        inv_res[0]/*(1/(1-y))*/,
+        ed_derivatives.one_plus_y,
+        inv_res[1]/*(1/((1-y)*x))*/);
+
+    free(fe_batch);
+    free(inv_res);
+
+    return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
 bool point_to_wei_x(const rct::key &pub, rct::key &wei_x) {
-    EdYDerivatives ed_y_derivatives;
-    if (!point_to_ed_y_derivatives(pub, ed_y_derivatives))
+    EdDerivatives ed_derivatives;
+    if (!point_to_ed_derivatives(pub, ed_derivatives))
         return false;
-    ed_y_derivatives_to_wei_x(ed_y_derivatives, wei_x);
-    return true;
+    rct::key _;
+    return ed_derivatives_to_wei_x_y(ed_derivatives, wei_x, _);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

@@ -465,6 +465,13 @@ TEST(Crypto, fe_constants)
   fe sqrtm1;
   ASSERT_TRUE(fcmp_pp::sqrt(sqrtm1, a));
 
+  // c = sqrt(-(A + 2))
+  fe c;
+  fe_sub(c, fe_ma, fe_2);
+  fe_reduce(c, c);
+  ASSERT_TRUE(fcmp_pp::sqrt(c, c));
+  fe_reduce(c, c);
+
   ASSERT_TRUE(memcmp(fe_d,       D,           sizeof(fe)) == 0);
   ASSERT_TRUE(memcmp(fe_a_sub_d, a_minus_D,   sizeof(fe)) == 0);
   ASSERT_TRUE(memcmp(fe_a0,      A,           sizeof(fe)) == 0);
@@ -472,6 +479,7 @@ TEST(Crypto, fe_constants)
   ASSERT_TRUE(memcmp(fe_msqrt2b, neg_sqrt_2b, sizeof(fe)) == 0);
   ASSERT_TRUE(memcmp(fe_inv2,    inv_2,       sizeof(fe)) == 0);
   ASSERT_TRUE(memcmp(fe_sqrtm1,  sqrtm1,      sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(fe_c,       c,           sizeof(fe)) == 0);
 }
 
 TEST(Crypto, torsion_check_pass_random)
