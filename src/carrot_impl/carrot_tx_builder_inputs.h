@@ -38,6 +38,7 @@
 //third party headers
 
 //standard headers
+#include <variant>
 
 //forward declarations
 
@@ -95,7 +96,7 @@ struct CarrotCoinbaseOutputOpeningHintV1
     AddressDeriveType derive_type;
 };
 
-using OutputOpeningHintVariant = tools::variant<
+using OutputOpeningHintVariant = std::variant<
         LegacyOutputOpeningHintV1,
         CarrotOutputOpeningHintV1,
         CarrotCoinbaseOutputOpeningHintV1

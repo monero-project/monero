@@ -260,7 +260,7 @@ static void make_sal_proof_nominal_address_carrot_coinbase_v1(const crypto::hash
 //-------------------------------------------------------------------------------------------------------------------
 const crypto::public_key &onetime_address_ref(const OutputOpeningHintVariant &opening_hint)
 {
-    struct onetime_address_ref_visitor: public tools::variant_static_visitor<const crypto::public_key &>
+    struct onetime_address_ref_visitor
     {
         const crypto::public_key &operator()(const LegacyOutputOpeningHintV1 &h) const
         { return h.onetime_address; }
@@ -270,12 +270,12 @@ const crypto::public_key &onetime_address_ref(const OutputOpeningHintVariant &op
         { return h.source_enote.onetime_address; }
     };
 
-    return opening_hint.visit(onetime_address_ref_visitor{});
+    return std::visit(onetime_address_ref_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
 rct::key amount_commitment_ref(const OutputOpeningHintVariant &opening_hint)
 {
-    struct amount_commitment_ref_visitor: public tools::variant_static_visitor<rct::key>
+    struct amount_commitment_ref_visitor
     {
         rct::key operator()(const LegacyOutputOpeningHintV1 &h) const
         { return rct::commit(h.amount, rct::sk2rct(h.amount_blinding_factor)); }
@@ -285,7 +285,7 @@ rct::key amount_commitment_ref(const OutputOpeningHintVariant &opening_hint)
         { return rct::zeroCommitVartime(h.source_enote.amount); }
     };
 
-    return opening_hint.visit(amount_commitment_ref_visitor{});
+    return std::visit(amount_commitment_ref_visitor{}, opening_hint);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_rerandomized_outputs_nonrefundable(const std::vector<crypto::public_key> &input_onetime_addresses,
@@ -582,7 +582,7 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
         crypto::key_image &key_image_out;
     };
 
-    return openable_rerandomized_output.opening_hint.visit(
+    return std::visit(
         make_sal_proof_any_to_legacy_v1_visitor{
             signable_tx_hash,
             openable_rerandomized_output.rerandomized_output,
@@ -590,7 +590,8 @@ void make_sal_proof_any_to_legacy_v1(const crypto::hash &signable_tx_hash,
             addr_dev,
             sal_proof_out,
             key_image_out
-        }
+        },
+        openable_rerandomized_output.opening_hint
     );
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -648,7 +649,7 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
         crypto::key_image &key_image_out;
     };
 
-    return openable_rerandomized_output.opening_hint.visit(
+    return std::visit(
         make_sal_proof_any_to_carrot_v1_visitor{
             signable_tx_hash,
             openable_rerandomized_output.rerandomized_output,
@@ -659,7 +660,8 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
             s_generate_address_dev,
             sal_proof_out,
             key_image_out
-        }
+        },
+        openable_rerandomized_output.opening_hint
     );
 }
 //-------------------------------------------------------------------------------------------------------------------
