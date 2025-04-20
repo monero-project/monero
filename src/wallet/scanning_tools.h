@@ -86,7 +86,7 @@ struct PreCarrotEnote
     rct::ecdhTuple amount;
 };
 
-using MoneroEnoteVariant = tools::variant<PreCarrotEnote,
+using MoneroEnoteVariant = std::variant<PreCarrotEnote,
     carrot::CarrotCoinbaseEnoteV1,
     carrot::CarrotEnoteV1>;
 

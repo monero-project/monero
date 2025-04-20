@@ -537,15 +537,18 @@ std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote(
         hw::device &hwdev;
     };
 
-    return enote.visit(view_incoming_scan_enote_visitor{local_output_index,
-        tx_extra_nonce,
-        encrypted_payment_id,
-        main_derivations,
-        additional_derivations,
-        address,
-        k_view_dev,
-        subaddress_map,
-        hwdev});
+    return std::visit(
+        view_incoming_scan_enote_visitor{local_output_index,
+            tx_extra_nonce,
+            encrypted_payment_id,
+            main_derivations,
+            additional_derivations,
+            address,
+            k_view_dev,
+            subaddress_map,
+            hwdev
+        },
+        enote);
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_enote(
