@@ -1068,6 +1068,9 @@ private:
     void max_reorg_depth(uint64_t depth) {m_max_reorg_depth = depth; m_tree_cache.set_max_reorg_depth(depth);}
     uint64_t max_reorg_depth() const {return m_max_reorg_depth;}
 
+    const TreeCacheV1 &get_tree_cache_ref() const { return m_tree_cache; }
+    const CurveTreesV1 &get_curve_trees_ref() const { return *m_curve_trees; }
+
     bool deinit();
     bool init(std::string daemon_address,
       boost::optional<epee::net_utils::http::login> daemon_login = boost::none,
