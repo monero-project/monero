@@ -351,7 +351,8 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
 }
 //-------------------------------------------------------------------------------------------------------------------
 cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
-    const std::vector<CarrotCoinbaseEnoteV1> &enotes)
+    const std::vector<CarrotCoinbaseEnoteV1> &enotes,
+    const cryptonote::blobdata &extra_nonce)
 {
     const size_t nouts = enotes.size();
     const std::uint64_t block_index = enotes.at(0).block_index;
@@ -384,8 +385,13 @@ cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
     //ephemeral pubkeys: D_e
     store_carrot_ephemeral_pubkeys_to_extra(enotes, tx.extra);
 
-    //we don't need to sort tx_extra since we only added one field
-    //if you add more tx_extra fields here in the future, then please sort <3
+    //add extra_nonce to tx_extra
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::add_extra_nonce_to_tx_extra(tx.extra, extra_nonce),
+        "store_carrot_to_coinbase_transaction_v1: failed to add extra nonce to tx_extra");
+
+    // sort tx_extra
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::sort_tx_extra(tx.extra, tx.extra),
+        "store_carrot_to_coinbase_transaction_v1: failed to sort tx_extra");
 
     return tx;
 }
