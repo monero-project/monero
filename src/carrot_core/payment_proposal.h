@@ -97,6 +97,14 @@ bool operator==(const CarrotPaymentProposalV1 &a, const CarrotPaymentProposalV1 
 bool operator==(const CarrotPaymentProposalSelfSendV1 &a, const CarrotPaymentProposalSelfSendV1 &b);
 
 /**
+* brief: get_enote_ephemeral_privkey - get the proposal's enote ephemeral privkey d_e
+* param: proposal -
+* param: input_context -
+* return: d_e
+*/
+crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposalV1 &proposal,
+    const input_context_t &input_context);
+/**
 * brief: get_enote_ephemeral_pubkey - get the proposal's enote ephemeral pubkey D_e
 * param: proposal -
 * param: input_context -
