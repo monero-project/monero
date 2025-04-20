@@ -71,6 +71,7 @@
 #include "common/json_util.h"
 #include "ringct/rctSigs.h"
 #include "multisig/multisig.h"
+#include "wallet/tx_builder.h"
 #include "wallet/wallet_args.h"
 #include "wallet/fee_priority.h"
 #include "version.h"
@@ -1453,7 +1454,10 @@ bool simple_wallet::import_multisig_main(const std::vector<std::string> &args, b
 bool simple_wallet::accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs)
 {
   std::string extra_message;
-  return accept_loaded_tx([&txs](){return txs.m_ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.m_ptx[n].construction_data;}, extra_message);
+  return accept_loaded_tx(
+    [&txs](){return txs.m_ptx.size();},
+    [&txs](size_t n)->const auto&{return std::get<tools::wallet2::tx_construction_data>(txs.m_ptx[n].construction_data);},
+    extra_message);
 }
 
 bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
@@ -6190,7 +6194,9 @@ bool simple_wallet::process_ring_members(const std::vector<tools::wallet2::pendi
   for (size_t n = 0; n < ptx_vector.size(); ++n)
   {
     const cryptonote::transaction& tx = ptx_vector[n].tx;
-    const tools::wallet2::tx_construction_data& construction_data = ptx_vector[n].construction_data;
+    if (tx.rct_signatures.type >= rct::RCTTypeFcmpPlusPlus)
+      continue;
+    const auto& construction_data = std::get<tools::wallet2::tx_construction_data>(ptx_vector[n].construction_data);
     if (verbose)
       ostr << boost::format(tr("\nTransaction %llu/%llu: txid=%s")) % (n + 1) % ptx_vector.size() % cryptonote::get_transaction_hash(tx);
     // for each input
@@ -6713,8 +6719,8 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         {
           prompt << tr("\nTransaction ") << (n + 1) << "/" << ptx_vector.size() << ":\n";
           subaddr_indices.clear();
-          for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
-            subaddr_indices.insert(i);
+          for (const std::size_t selected_transfer : ptx_vector.at(n).selected_transfers)
+            subaddr_indices.insert(m_wallet->get_transfer_details(selected_transfer).m_subaddr_index.minor);
           for (uint32_t i : subaddr_indices)
             prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)
@@ -7143,8 +7149,8 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
     {
       prompt << tr("\nTransaction ") << (n + 1) << "/" << ptx_vector.size() << ":\n";
       subaddr_indices.clear();
-      for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
-        subaddr_indices.insert(i);
+      for (const std::size_t selected_transfer : ptx_vector.at(n).selected_transfers)
+        subaddr_indices.insert(m_wallet->get_transfer_details(selected_transfer).m_subaddr_index.minor);
       for (uint32_t i : subaddr_indices)
         prompt << boost::format(tr("Spending from address index %d\n")) % i;
       if (subaddr_indices.size() > 1)
@@ -7757,7 +7763,10 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::signed_tx_set &txs)
   std::string extra_message;
   if (!txs.key_images.empty())
     extra_message = (boost::format("%u key images to import. ") % (unsigned)txs.key_images.size()).str();
-  return accept_loaded_tx([&txs](){return txs.ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.ptx[n].construction_data;}, extra_message);
+  return accept_loaded_tx(
+    [&txs](){return txs.ptx.size();},
+    [&txs](size_t n)->const auto&{return std::get<tools::wallet2::tx_construction_data>(txs.ptx[n].construction_data);},
+    extra_message);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sign_transfer(const std::vector<std::string> &args_)
