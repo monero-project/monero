@@ -31,9 +31,13 @@
 #pragma once
 
 //local headers
-#include "carrot_core/core_types.h"
+#include "carrot_chain_serialization.h"
+#include "carrot_core/payment_proposal.h"
+#include "carrot_tx_builder_types.h"
+#include "subaddress_index.h"
 
 //third party headers
+#include <boost/serialization/optional_shim.hpp>
 #include <boost/serialization/utility.hpp>
 
 //standard headers
@@ -46,6 +50,12 @@ namespace serialization
 {
 //---------------------------------------------------
 template <class Archive>
+inline void serialize(Archive &a, mx25519_pubkey &x, const boost::serialization::version_type ver)
+{
+    a & x.data;
+}
+//---------------------------------------------------
+template <class Archive>
 inline void serialize(Archive &a, carrot::view_tag_t &x, const boost::serialization::version_type ver)
 {
     a & x.bytes;
@@ -55,6 +65,71 @@ template <class Archive>
 inline void serialize(Archive &a, carrot::encrypted_janus_anchor_t &x, const boost::serialization::version_type ver)
 {
     a & x.bytes;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::encrypted_payment_id_t &x, const boost::serialization::version_type ver)
+{
+    a & x.bytes;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotDestinationV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.address_spend_pubkey;
+    a & x.address_view_pubkey;
+    a & x.is_subaddress;
+    a & x.payment_id;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotPaymentProposalV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.destination;
+    a & x.amount;
+    a & x.randomness;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotPaymentProposalSelfSendV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.destination_address_spend_pubkey;
+    a & x.amount;
+    a & x.enote_type;
+    a & x.enote_ephemeral_pubkey;
+    a & x.internal_message;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::subaddress_index &x, const boost::serialization::version_type ver)
+{
+    a & x.major;
+    a & x.minor;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::subaddress_index_extended &x, const boost::serialization::version_type ver)
+{
+    a & x.index;
+    a & x.derive_type;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotPaymentProposalVerifiableSelfSendV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.proposal;
+    a & x.subaddr_index;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotTransactionProposalV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.key_images_sorted;
+    a & x.normal_payment_proposals;
+    a & x.selfsend_payment_proposals;
+    a & x.dummy_encrypted_payment_id;
+    a & x.fee;
+    a & x.extra;
 }
 //---------------------------------------------------
 } //namespace serialization
