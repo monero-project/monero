@@ -2005,19 +2005,6 @@ void wallet2::set_spent(size_t idx, uint64_t height)
   td.m_spent_height = height;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::set_spent(const crypto::key_image &ki, const uint64_t height)
-{
-  // NOTE: There may be multiple transfers which share the same key image!!! However, because we
-  //       mark inferior older outputs as spent when a new, better one comes along inside of
-  //       process_new_scanned_transaction(), then the only transfer which shouldn't be marked as
-  //       spent is the one pointed to in m_key_images. So we should be safe from not marking
-  //       transfers as spent when they should be.
-
-  const auto ki_it = m_key_images.find(ki);
-  CHECK_AND_ASSERT_THROW_MES(ki_it != m_key_images.cend(), "Key image not found in transfers list");
-  set_spent(ki_it->second, height);
-}
-//----------------------------------------------------------------------------------------------------
 void wallet2::set_unspent(size_t idx)
 {
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "Invalid index");
