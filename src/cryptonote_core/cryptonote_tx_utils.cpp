@@ -34,6 +34,7 @@
 #include "string_tools.h"
 using namespace epee;
 
+#include "carrot_impl/carrot_tx_format_utils.h"
 #include "common/apply_permutation.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_config.h"
@@ -80,17 +81,6 @@ namespace cryptonote
     tx.vout.clear();
     tx.extra.clear();
 
-    keypair txkey = keypair::generate(hw::get_device("default"));
-    add_tx_pub_key_to_extra(tx, txkey.pub);
-    if(!extra_nonce.empty())
-      if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
-        return false;
-    if (!sort_tx_extra(tx.extra, tx.extra))
-      return false;
-
-    txin_gen in;
-    in.height = height;
-
     uint64_t block_reward;
     if(!get_block_reward(median_weight, current_block_weight, already_generated_coins, block_reward, hard_fork_version))
     {
@@ -103,6 +93,39 @@ namespace cryptonote
       ", fee " << fee);
 #endif
     block_reward += fee;
+
+    const bool do_carrot = hard_fork_version >= HF_VERSION_CARROT;
+    if (do_carrot)
+    {
+      try
+      {
+        carrot::CarrotDestinationV1 destination;
+        carrot::make_carrot_main_address_v1(miner_address.m_spend_public_key,
+          miner_address.m_view_public_key,
+          destination);
+
+        tx = carrot::make_single_enote_carrot_coinbase_transaction_v1(destination, block_reward, height, extra_nonce);
+        tx.invalidate_hashes();
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to construct Carrot coinbase transaction: " << e.what());
+        return false;
+      }
+
+      return true;
+    }
+
+    keypair txkey = keypair::generate(hw::get_device("default"));
+    add_tx_pub_key_to_extra(tx, txkey.pub);
+    if(!extra_nonce.empty())
+      if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+        return false;
+    if (!sort_tx_extra(tx.extra, tx.extra))
+      return false;
+
+    txin_gen in;
+    in.height = height;
 
     // from hard fork 2, we cut out the low significant digits. This makes the tx smaller, and
     // keeps the paid amount almost the same. The unpaid remainder gets pushed back to the
