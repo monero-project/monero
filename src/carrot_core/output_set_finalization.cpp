@@ -193,9 +193,6 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     CHECK_AND_ASSERT_THROW_MES(has_unique_randomness,
         "get output enote proposals: normal payment proposals contain duplicate anchor_norm AKA randomness");
 
-    // input_context = "R" || KI_1
-    const input_context_t input_context= make_carrot_input_context(tx_first_key_image);
-
     // construct normal enotes
     output_enote_proposals_out.reserve(num_proposals);
     for (size_t i = 0; i < normal_payment_proposals.size(); ++i)
@@ -326,9 +323,6 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     const bool has_unique_randomness = randomnesses.size() == normal_payment_proposals.size();
     CHECK_AND_ASSERT_THROW_MES(has_unique_randomness,
         "get coinbase output enotes: normal payment proposals contain duplicate anchor_norm AKA randomness");
-
-    // input_context = "C" || IntToBytes256(block_index)
-    const input_context_t input_context = make_carrot_input_context_coinbase(block_index);
 
     // construct normal enotes
     output_coinbase_enotes_out.reserve(num_proposals);

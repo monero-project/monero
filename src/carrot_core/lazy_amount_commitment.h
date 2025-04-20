@@ -29,20 +29,20 @@
 #pragma once
 
 //local headers
-#include "common/variant.h"
 #include "ringct/rctTypes.h"
 
 //third party headers
 
 //standard headers
 #include <utility>
+#include <variant>
 
 //forward declarations
 
 
 namespace carrot
 {
-using lazy_amount_commitment_t = tools::variant<
+using lazy_amount_commitment_t = std::variant<
         rct::key,                             // C
         std::pair<rct::xmr_amount, rct::key>, // (a, z) s.t. C = z G + a H
         rct::xmr_amount                       // a s.t. C = G + a H  
