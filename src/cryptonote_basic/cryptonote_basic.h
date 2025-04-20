@@ -505,7 +505,6 @@ namespace cryptonote
 
   public:
     block(): block_header(), hash_valid(false) {}
-<<<<<<< HEAD
 
     block(const block &b):
       block_header(b),
@@ -558,13 +557,6 @@ namespace cryptonote
       }
       return *this;
     }
-||||||| parent of 967fa48e2 (Include n tree layers in PoW block hash as well)
-    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes), fcmp_pp_tree_root(b.fcmp_pp_tree_root) { if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } }
-    block &operator=(const block &b) { block_header::operator=(b); hash_valid = false; miner_tx = b.miner_tx; tx_hashes = b.tx_hashes; fcmp_pp_tree_root = b.fcmp_pp_tree_root; if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } return *this; }
-=======
-    block(const block &b): block_header(b), hash_valid(false), miner_tx(b.miner_tx), tx_hashes(b.tx_hashes), fcmp_pp_n_tree_layers(b.fcmp_pp_n_tree_layers), fcmp_pp_tree_root(b.fcmp_pp_tree_root) { if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } }
-    block &operator=(const block &b) { block_header::operator=(b); hash_valid = false; miner_tx = b.miner_tx; tx_hashes = b.tx_hashes; fcmp_pp_n_tree_layers = b.fcmp_pp_n_tree_layers; fcmp_pp_tree_root = b.fcmp_pp_tree_root; if (b.is_hash_valid()) { hash = b.hash; set_hash_valid(true); } return *this; }
->>>>>>> 967fa48e2 (Include n tree layers in PoW block hash as well)
     void invalidate_hashes() { set_hash_valid(false); }
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
     void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
