@@ -74,7 +74,7 @@ bool construct_miner_tx_fake_reward_1out(const size_t height,
             height,
             coinbase_enotes);
 
-        tx = carrot::store_carrot_to_coinbase_transaction_v1(coinbase_enotes);
+        tx = carrot::store_carrot_to_coinbase_transaction_v1(coinbase_enotes, "");
     }
     else // !is_carrot
     {
