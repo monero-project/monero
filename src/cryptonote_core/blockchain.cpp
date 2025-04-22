@@ -68,6 +68,8 @@
 
 using namespace crypto;
 
+static constexpr const std::uint8_t RCT_CACHE_TYPE = rct::RCTTypeFcmpPlusPlus;
+
 //#include "serialization/json_archive.h"
 
 /* TODO:
@@ -158,7 +160,9 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   auto it = m_scan_table.find(tx_prefix_hash);
   if (it != m_scan_table.end())
   {
-    auto its = it->second.find(tx_in_to_key.k_image);
+    crypto::key_image_y ki_y;
+    crypto::key_image_to_y(tx_in_to_key.k_image, ki_y);
+    auto its = it->second.find(ki_y);
     if (its != it->second.end())
     {
       outputs = its->second;
@@ -224,7 +228,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
         if (count < outputs.size())
           output_index = outputs.at(count);
         else
-          output_index = m_db->get_output_key(tx_in_to_key.amount, i);
+          output_index = m_db->get_output_key(tx_in_to_key.amount, i).data;
 
         // call to the passed boost visitor to grab the public key for the output
         if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, output_index.commitment))
@@ -2280,8 +2284,7 @@ uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
 
 crypto::public_key Blockchain::get_output_key(uint64_t amount, uint64_t global_index) const
 {
-  output_data_t data = m_db->get_output_key(amount, global_index);
-  return data.pubkey;
+  return m_db->get_output_key(amount, global_index).data.pubkey;
 }
 
 //------------------------------------------------------------------
@@ -2332,7 +2335,7 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
 //------------------------------------------------------------------
 void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint64_t& index, crypto::public_key& key, rct::key& mask, bool& unlocked) const
 {
-  const auto o_data = m_db->get_output_key(amount, index);
+  const auto o_data = m_db->get_output_key(amount, index).data;
   key = o_data.pubkey;
   mask = o_data.commitment;
   tx_out_index toi = m_db->get_output_tx_and_index(amount, index);
@@ -2543,6 +2546,85 @@ static bool fill(BlockchainDB *db, const crypto::hash &tx_hash, tx_blob_entry &t
       }
     }
   }
+  return true;
+}
+//------------------------------------------------------------------
+static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::transaction &tx, crypto::ec_point &tree_root_out)
+{
+  tree_root_out = crypto::ec_point{};
+  if (!rct::is_rct_fcmp(tx.rct_signatures.type))
+    return true;
+
+  // Make sure reference block exists in the chain
+  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
+      "tx included reference block that was too high");
+
+  // Get the tree root and n tree layers at provided block
+  const std::size_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
+
+  // Make sure the provided n tree layers matches expected
+  // IMPORTANT!
+  static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
+  CHECK_AND_ASSERT_MES((std::size_t)tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
+      "tx included incorrect number of tree layers");
+
+  return true;
+}
+//------------------------------------------------------------------
+static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
+  const cryptonote::transaction &tx,
+  std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>> &tree_root_by_block_idx_inout)
+{
+  if (!rct::is_rct_fcmp(tx.rct_signatures.type))
+    return true;
+
+  const uint64_t ref_block_index = tx.rct_signatures.p.reference_block;
+
+  // See if we already have this block's tree root
+  auto tree_root_it = tree_root_by_block_idx_inout.find(ref_block_index);
+  if (tree_root_it != tree_root_by_block_idx_inout.end())
+  {
+    // cache hit
+    if (tree_root_it->second.second == tx.rct_signatures.p.n_tree_layers)
+      return true;
+
+    MERROR_VER("Tx included incorrect n tree layers");
+    return false;
+  }
+
+  // Get ref block's tree root from the db
+  crypto::ec_point tree_root;
+  if (!get_fcmp_tx_tree_root(db, tx, tree_root))
+  {
+    MERROR_VER("Failed to get referenced tree root");
+    return false;
+  }
+
+  tree_root_by_block_idx_inout[ref_block_index] = {std::move(tree_root), tx.rct_signatures.p.n_tree_layers};
+  return true;
+}
+//------------------------------------------------------------------
+static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db, pool_supplement &extra_block_txs, rct_ver_cache_t &cache_inout)
+{
+  // 1. Collect referenced tree roots
+  std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>> tree_root_by_block_idx;
+  for (const auto &extra_tx : extra_block_txs.txs_by_txid)
+  {
+    const cryptonote::transaction &tx = extra_tx.second.first;
+    if (!set_fcmp_tx_tree_root(db, tx, tree_root_by_block_idx))
+    {
+      MERROR_VER("Failed to set FCMP tx tree root");
+      return false;
+    }
+  }
+
+  // 2. Batch verify FCMP++'s, caching verified txs
+  if (!batch_ver_fcmp_pp_consensus(extra_block_txs, tree_root_by_block_idx, cache_inout, RCT_CACHE_TYPE))
+  {
+    MERROR_VER("Failed to batch verify FCMP++ txs");
+    return false;
+  }
+
   return true;
 }
 //------------------------------------------------------------------
@@ -2882,7 +2964,9 @@ bool Blockchain::check_for_double_spend(const transaction& tx, key_images_contai
       // if the insert into the block-wide spent keys container succeeds,
       // check the blockchain-wide spent keys container and make sure the
       // key wasn't used in another block already.
-      auto r = m_spent_keys.insert(ki);
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(ki, ki_y);
+      auto r = m_spent_keys.insert(ki_y);
       if(!r.second || m_db->has_key_image(ki))
       {
         //double spend detected
@@ -3146,6 +3230,30 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
+  // from v17, allow FCMP++
+  if (hf_version < HF_VERSION_FCMP_PLUS_PLUS) {
+    if (tx.version >= 2) {
+      const bool is_fcmp_pp = tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus;
+      if (is_fcmp_pp || !tx.rct_signatures.p.fcmp_pp.empty() || tx.rct_signatures.p.reference_block != 0 || tx.rct_signatures.p.n_tree_layers != 0)
+      {
+        MERROR("FCMP++ not allowed before v" << std::to_string(HF_VERSION_FCMP_PLUS_PLUS));
+        tvc.m_invalid_output = true;
+        return false;
+      }
+    }
+  }
+
+  // from v18, allow only FCMP++
+  if (hf_version > HF_VERSION_FCMP_PLUS_PLUS) {
+    const bool is_fcmp_pp = tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus;
+    if (!is_fcmp_pp)
+    {
+      MERROR("FCMP++ required after v" << std::to_string(HF_VERSION_FCMP_PLUS_PLUS));
+      tvc.m_invalid_output = true;
+      return false;
+    }
+  }
+
   // from v15, require view tags on outputs
   if (!check_output_types(tx, hf_version))
   {
@@ -3167,7 +3275,7 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
   }
   return false;
 }
-bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys)
+bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys, uint8_t *tree_root)
 {
   PERF_TIMER(expand_transaction_2);
   CHECK_AND_ASSERT_MES(tx.version == 2, false, "Transaction version is not 2");
@@ -3206,6 +3314,11 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
       }
     }
   }
+  else if (rv.type == rct::RCTTypeFcmpPlusPlus)
+  {
+    CHECK_AND_ASSERT_MES(pubkeys.empty(), false, "non-empty pubkeys");
+    CHECK_AND_ASSERT_MES(rv.mixRing.empty(), false, "non-empty mixRing");
+  }
   else
   {
     CHECK_AND_ASSERT_MES(false, false, "Unsupported rct tx type: " + boost::lexical_cast<std::string>(rv.type));
@@ -3242,6 +3355,20 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
       for (size_t n = 0; n < tx.vin.size(); ++n)
       {
         rv.p.CLSAGs[n].I = rct::ki2rct(boost::get<txin_to_key>(tx.vin[n]).k_image);
+      }
+    }
+  }
+  else if (rv.type == rct::RCTTypeFcmpPlusPlus)
+  {
+    if (!tx.pruned)
+    {
+      CHECK_AND_ASSERT_MES(tree_root != nullptr, false, "tree_root is null");
+      rv.p.fcmp_ver_helper_data.tree_root = tree_root;
+      rv.p.fcmp_ver_helper_data.key_images.reserve(tx.vin.size());
+      for (size_t n = 0; n < tx.vin.size(); ++n)
+      {
+        crypto::key_image ki = boost::get<txin_to_key>(tx.vin[n]).k_image;
+        rv.p.fcmp_ver_helper_data.key_images.emplace_back(std::move(ki));
       }
     }
   }
@@ -3285,11 +3412,33 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
   }
 
-  // from hard fork 2, we require mixin at least 2 unless one output cannot mix with 2 others
-  // if one output cannot mix with 2 others, we accept at most 1 output that can mix
-  if (hf_version >= 2)
+  size_t n_unmixable = 0;
+
+  // after FCMP++ hard fork, require all inputs have 0 mixin
+  if (hf_version > HF_VERSION_FCMP_PLUS_PLUS)
   {
-    size_t n_unmixable = 0, n_mixable = 0;
+    for (const auto& txin : tx.vin)
+    {
+      if (txin.type() == typeid(txin_to_key))
+      {
+        const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+        if (!in_to_key.key_offsets.empty())
+        {
+          MERROR_VER("Tx " << get_transaction_hash(tx) << " has non-empty ring after FCMP++ fork");
+          tvc.m_invalid_input = true;
+          return false;
+        }
+      }
+    }
+  }
+  else if (hf_version >= 2)
+  {
+    // At HF_VERSION_FCMP_PLUS_PLUS, temporarily allow either 0 ring size or
+    // 16 to allow the transition to FCMP++.
+    // from hard fork 2 to HF_VERSION_FCMP_PLUS_PLUS, we require mixin at least
+    // 2 unless one output cannot mix with 2 others if one output cannot mix
+    // with 2 others, we accept at most 1 output that can mix
+    size_t n_mixable = 0;
     size_t min_actual_mixin = std::numeric_limits<size_t>::max();
     size_t max_actual_mixin = 0;
     const size_t min_mixin = hf_version >= HF_VERSION_MIN_MIXIN_15 ? 15 : hf_version >= HF_VERSION_MIN_MIXIN_10 ? 10 : hf_version >= HF_VERSION_MIN_MIXIN_6 ? 6 : hf_version >= HF_VERSION_MIN_MIXIN_4 ? 4 : 2;
@@ -3299,6 +3448,12 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       if (txin.type() == typeid(txin_to_key))
       {
         const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
+        if (in_to_key.key_offsets.empty())
+        {
+          min_actual_mixin = 0;
+          continue;
+        }
+
         if (in_to_key.amount == 0)
         {
           // always consider rct inputs mixable. Even if there's not enough rct
@@ -3335,11 +3490,16 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       }
     }
 
-    // The only circumstance where ring sizes less than expected are
-    // allowed is when spending unmixable non-RCT outputs in the chain.
-    // Caveat: at HF_VERSION_MIN_MIXIN_15, temporarily allow ring sizes
+    // Before HF_VERSION_FCMP_PLUS_PLUS, the only circumstance where ring sizes
+    // less than expected are allowed is when spending unmixable non-RCT outputs
+    // in the chain.
+    // At HF_VERSION_MIN_MIXIN_15, temporarily allow ring sizes
     // of 11 to allow a grace period in the transition to larger ring size.
-    if (min_actual_mixin < min_mixin && !(hf_version == HF_VERSION_MIN_MIXIN_15 && min_actual_mixin == 10))
+    if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS && min_actual_mixin == 0 && max_actual_mixin == 0)
+    {
+      // 0 ring size is allowed at HF_VERSION_FCMP_PLUS_PLUS
+    }
+    else if (min_actual_mixin < min_mixin && !(hf_version == HF_VERSION_MIN_MIXIN_15 && min_actual_mixin == 10))
     {
       if (n_unmixable == 0)
       {
@@ -3363,22 +3523,23 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       tvc.m_low_mixin = true;
       return false;
     }
+  }
 
-    // min/max tx version based on HF, and we accept v1 txes if having a non mixable
-    const size_t max_tx_version = (hf_version <= 3) ? 1 : 2;
-    if (tx.version > max_tx_version)
-    {
-      MERROR_VER("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
-    const size_t min_tx_version = (n_unmixable > 0 ? 1 : (hf_version >= HF_VERSION_ENFORCE_RCT) ? 2 : 1);
-    if (tx.version < min_tx_version)
-    {
-      MERROR_VER("transaction version " << (unsigned)tx.version << " is lower than min accepted version " << min_tx_version);
-      tvc.m_verifivation_failed = true;
-      return false;
-    }
+  // min/max tx version based on HF, and we accept v1 txes if having a non mixable
+  // TODO: double check sync from genesis
+  const size_t max_tx_version = (hf_version <= 3) ? 1 : 2;
+  if (tx.version > max_tx_version)
+  {
+    MERROR_VER("transaction version " << (unsigned)tx.version << " is higher than max accepted version " << max_tx_version);
+    tvc.m_verifivation_failed = true;
+    return false;
+  }
+  const size_t min_tx_version = (n_unmixable > 0 ? 1 : (hf_version >= HF_VERSION_ENFORCE_RCT) ? 2 : 1);
+  if (tx.version < min_tx_version)
+  {
+    MERROR_VER("transaction version " << (unsigned)tx.version << " is lower than min accepted version " << min_tx_version);
+    tvc.m_verifivation_failed = true;
+    return false;
   }
 
   // from v7, sorted ins
@@ -3419,9 +3580,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     CHECK_AND_ASSERT_MES(txin.type() == typeid(txin_to_key), false, "wrong type id in tx input at Blockchain::check_tx_inputs");
     const txin_to_key& in_to_key = boost::get<txin_to_key>(txin);
 
-    // make sure tx output has key offset(s) (is signed to be used)
-    CHECK_AND_ASSERT_MES(in_to_key.key_offsets.size(), false, "empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
-
     if(have_tx_keyimg_as_spent(in_to_key.k_image))
     {
       MERROR_VER("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(in_to_key.k_image));
@@ -3429,11 +3587,28 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
+    if (rct::is_rct_fcmp(tx.rct_signatures.type))
+    {
+      // All FCMP tx inputs should have 0 amount
+      CHECK_AND_ASSERT_MES(in_to_key.amount == 0, false, "non-0 amount on FCMP tx input in transaction with id " << get_transaction_hash(tx));
+
+      // No need to check ring signature members for FCMP txs
+      CHECK_AND_ASSERT_MES(in_to_key.key_offsets.empty(), false, "non-empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
+      // No referenced pubkeys, key_offsets should all be empty
+      pubkeys.clear();
+      // IMPORTANT: continue so that key image spend check still executes for all key images
+      continue;
+    }
+
+    // The rest of this function concerns ring signature validation
     if (tx.version == 1)
     {
       // basically, make sure number of inputs == number of signatures
       CHECK_AND_ASSERT_MES(sig_index < tx.signatures.size(), false, "wrong transaction: not signature entry for input with index= " << sig_index);
     }
+
+    // make sure tx output has key offset(s) (is signed to be used)
+    CHECK_AND_ASSERT_MES(in_to_key.key_offsets.size(), false, "empty in_to_key.key_offsets in transaction with id " << get_transaction_hash(tx));
 
     // make sure that output being spent matches up correctly with the
     // signature spending it.
@@ -3486,8 +3661,11 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         false, "Transaction spends at least one output which is too young");
   }
 
+  // Read the db for the tree root for FCMP txs
+  crypto::ec_point ref_tree_root{};
+  CHECK_AND_ASSERT_MES(get_fcmp_tx_tree_root(m_db, tx, ref_tree_root), false, "failed to get tree root");
+
   // Warn that new RCT types are present, and thus the cache is not being used effectively
-  static constexpr const std::uint8_t RCT_CACHE_TYPE = rct::RCTTypeBulletproofPlus;
   if (tx.rct_signatures.type > RCT_CACHE_TYPE)
   {
     MWARNING("RCT cache is not caching new verification results. Please update RCT_CACHE_TYPE!");
@@ -3530,8 +3708,9 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     case rct::RCTTypeBulletproof2:
     case rct::RCTTypeCLSAG:
     case rct::RCTTypeBulletproofPlus:
+    case rct::RCTTypeFcmpPlusPlus:
     {
-      if (!ver_rct_non_semantics_simple_cached(tx, pubkeys, m_rct_ver_cache, RCT_CACHE_TYPE))
+      if (!ver_rct_non_semantics_simple_cached(tx, pubkeys, ref_tree_root, m_rct_ver_cache, RCT_CACHE_TYPE))
       {
         MERROR_VER("Failed to check ringct signatures!");
         return false;
@@ -3540,7 +3719,7 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
     }
     case rct::RCTTypeFull:
     {
-      if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys))
+      if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys, nullptr))
       {
         MERROR_VER("Failed to expand rct signatures!");
         return false;
@@ -4138,6 +4317,19 @@ leave:
     if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
     {
       MERROR_VER("Pool supplement provided for block with id: " << id << " failed to pass validation");
+      bvc.m_verifivation_failed = true;
+      goto leave;
+    }
+  }
+
+  // Batch verify FCMP++'s, they'll be cached
+#if defined(PER_BLOCK_CHECKPOINT)
+  if (!fast_check)
+#endif
+  {
+    if (!batch_verify_fcmp_pp_txs(m_db, extra_block_txs, m_rct_ver_cache))
+    {
+      MERROR_VER("Failed to batch verify FCMP++ txs");
       bvc.m_verifivation_failed = true;
       goto leave;
     }
@@ -5168,7 +5360,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       if (its != m_scan_table.end())
         SCAN_TABLE_QUIT("Duplicate tx found from incoming blocks.");
 
-      m_scan_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>());
+      m_scan_table.emplace(tx_prefix_hash, std::unordered_map<crypto::key_image_y, std::vector<output_data_t>>());
       its = m_scan_table.find(tx_prefix_hash);
       assert(its != m_scan_table.end());
 
@@ -5178,7 +5370,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         const txin_to_key &in_to_key = boost::get < txin_to_key > (txin);
 
         // check for duplicate
-        auto it = its->second.find(in_to_key.k_image);
+        crypto::key_image_y ki_y;
+        crypto::key_image_to_y(in_to_key.k_image, ki_y);
+        auto it = its->second.find(ki_y);
         if (it != its->second.end())
           SCAN_TABLE_QUIT("Duplicate key_image found from incoming blocks.");
 
@@ -5295,7 +5489,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
             break;
         }
 
-        its->second.emplace(in_to_key.k_image, outputs);
+        crypto::key_image_y ki_y;
+        crypto::key_image_to_y(in_to_key.k_image, ki_y);
+        its->second.emplace(ki_y, outputs);
       }
     }
   }
@@ -5637,7 +5833,7 @@ void Blockchain::unlock()
   m_blockchain_lock.unlock();
 }
 
-bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
+bool Blockchain::for_all_key_images(std::function<bool(const crypto::key_image_y&)> f) const
 {
   return m_db->for_all_key_images(f);
 }

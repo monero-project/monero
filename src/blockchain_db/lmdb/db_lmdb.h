@@ -30,6 +30,7 @@
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
+#include "fcmp_pp/curve_trees.h"
 #include "ringct/rctTypes.h"
 #include <boost/thread/tss.hpp>
 
@@ -64,6 +65,14 @@ typedef struct mdb_txn_cursors
 
   MDB_cursor *m_txc_spent_keys;
 
+  MDB_cursor *m_txc_locked_outputs;
+  MDB_cursor *m_txc_leaves;
+  MDB_cursor *m_txc_layers;
+  MDB_cursor *m_txc_tree_edges;
+  MDB_cursor *m_txc_tree_meta;
+
+  MDB_cursor *m_txc_timelocked_outputs;
+
   MDB_cursor *m_txc_txpool_meta;
   MDB_cursor *m_txc_txpool_blob;
 
@@ -87,6 +96,12 @@ typedef struct mdb_txn_cursors
 #define m_cur_tx_indices	m_cursors->m_txc_tx_indices
 #define m_cur_tx_outputs	m_cursors->m_txc_tx_outputs
 #define m_cur_spent_keys	m_cursors->m_txc_spent_keys
+#define m_cur_locked_outputs	m_cursors->m_txc_locked_outputs
+#define m_cur_leaves		m_cursors->m_txc_leaves
+#define m_cur_layers		m_cursors->m_txc_layers
+#define m_cur_tree_edges  m_cursors->m_txc_tree_edges
+#define m_cur_tree_meta   m_cursors->m_txc_tree_meta
+#define m_cur_timelocked_outputs	m_cursors->m_txc_timelocked_outputs
 #define m_cur_txpool_meta	m_cursors->m_txc_txpool_meta
 #define m_cur_txpool_blob	m_cursors->m_txc_txpool_blob
 #define m_cur_alt_blocks	m_cursors->m_txc_alt_blocks
@@ -109,6 +124,12 @@ typedef struct mdb_rflags
   bool m_rf_tx_indices;
   bool m_rf_tx_outputs;
   bool m_rf_spent_keys;
+  bool m_rf_locked_outputs;
+  bool m_rf_leaves;
+  bool m_rf_layers;
+  bool m_rf_tree_edges;
+  bool m_rf_tree_meta;
+  bool m_rf_timelocked_outputs;
   bool m_rf_txpool_meta;
   bool m_rf_txpool_blob;
   bool m_rf_alt_blocks;
@@ -183,7 +204,7 @@ struct mdb_txn_safe
 class BlockchainLMDB : public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=true);
+  BlockchainLMDB(bool batch_transactions=true, std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> curve_trees = fcmp_pp::curve_trees::curve_trees_v1());
   ~BlockchainLMDB();
 
   virtual void open(const std::string& filename, const int mdb_flags=0);
@@ -251,6 +272,8 @@ public:
 
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const;
 
+  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h) const;
+
   virtual bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const;
   virtual bool get_pruned_tx_blobs_from(const crypto::hash& h, size_t count, std::vector<cryptonote::blobdata> &bd) const;
@@ -266,9 +289,10 @@ public:
 
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const;
 
+  virtual uint64_t num_outputs() const;
   virtual uint64_t get_num_outputs(const uint64_t& amount) const;
 
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
+  virtual outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const;
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const;
 
   virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const;
@@ -303,7 +327,7 @@ public:
 
   virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const txpool_tx_meta_t&, const cryptonote::blobdata_ref*)> f, bool include_blob = false, relay_category category = relay_category::broadcasted) const;
 
-  virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const;
+  virtual bool for_all_key_images(std::function<bool(const crypto::key_image_y&)>) const;
   virtual bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const;
   virtual bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const;
   virtual bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const;
@@ -353,8 +377,20 @@ public:
 
   // helper functions
   static int compare_uint64(const MDB_val *a, const MDB_val *b);
+  static int compare_uint8(const MDB_val *a, const MDB_val *b);
   static int compare_hash32(const MDB_val *a, const MDB_val *b);
   static int compare_string(const MDB_val *a, const MDB_val *b);
+
+  // make private
+  virtual void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
+
+  virtual void trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_id);
+
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
+
+  fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const;
+
+  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -370,6 +406,8 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
+                , const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block
+                , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
                 );
 
   virtual void remove_block();
@@ -399,7 +437,47 @@ private:
 
   virtual void remove_spent_key(const crypto::key_image& k_image);
 
-  uint64_t num_outputs() const;
+  template<typename C>
+  crypto::ec_point grow_layer(const std::unique_ptr<C> &curve,
+    const std::vector<fcmp_pp::curve_trees::LayerExtension<C>> &layer_extensions,
+    const uint64_t c_idx,
+    const uint64_t layer_idx);
+
+  void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge);
+
+  void del_tree_meta(const uint64_t block_idx);
+
+  void trim_layer(const uint64_t new_n_elems_in_layer, const uint64_t layer_idx);
+
+  virtual void trim_block();
+
+  virtual uint64_t get_n_leaf_tuples() const;
+
+  uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
+
+  virtual std::size_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
+
+  std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const;
+
+  template<typename C_CHILD, typename C_PARENT>
+  bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
+    const std::unique_ptr<C_PARENT> &c_parent,
+    const uint64_t child_layer_idx,
+    const uint64_t chunk_width) const;
+
+  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_id(uint64_t block_id);
+
+  void del_locked_outs_at_block_id(uint64_t block_id);
+
+  uint64_t get_tree_block_idx() const;
+
+  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const;
+
+  // Returns:
+  // - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
+  // - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
+  // - the outputs are grouped by last locked block idx
+  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
 
   // Hard fork
   virtual void set_hard_fork_version(uint64_t height, uint8_t version);
@@ -441,6 +519,9 @@ private:
   // migrate from DB version 4 to 5
   void migrate_4_5();
 
+  // migrate from DB version 5 to 6
+  void migrate_5_6();
+
   void cleanup_batch();
 
 private:
@@ -462,6 +543,14 @@ private:
   MDB_dbi m_output_amounts;
 
   MDB_dbi m_spent_keys;
+
+  MDB_dbi m_locked_outputs;
+  MDB_dbi m_leaves;
+  MDB_dbi m_layers;
+  MDB_dbi m_tree_edges;
+  MDB_dbi m_tree_meta;
+
+  MDB_dbi m_timelocked_outputs;
 
   MDB_dbi m_txpool_meta;
   MDB_dbi m_txpool_blob;

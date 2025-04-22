@@ -93,5 +93,8 @@ namespace crypto {
   constexpr static crypto::hash8 null_hash8 = {};
 }
 
+inline const unsigned char* to_bytes(const crypto::hash &h) { return &reinterpret_cast<const unsigned char&>(h); }
+inline unsigned char* to_bytes(crypto::hash &h) { return &reinterpret_cast<unsigned char&>(h); }
+
 CRYPTO_MAKE_HASHABLE(hash)
 CRYPTO_MAKE_COMPARABLE(hash8)

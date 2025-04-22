@@ -474,7 +474,9 @@ namespace cryptonote
     for(const auto& in: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
-      std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
+      crypto::key_image_y ki_y;
+      const bool ki_sign = crypto::key_image_to_y(txin.k_image, ki_y);
+      auto& kei_image_set = m_spent_key_images[ki_y];
 
       // Only allow multiple txes per key-image if kept-by-block. Only allow
       // the same txid if going from local/stem->fluff.
@@ -482,14 +484,14 @@ namespace cryptonote
       if (tx_relay != relay_method::block)
       {
         const bool one_txid =
-          (kei_image_set.empty() || (kei_image_set.size() == 1 && *(kei_image_set.cbegin()) == id));
+          (kei_image_set.empty() || (kei_image_set.size() == 1 && (*(kei_image_set.cbegin())).tx_hash == id));
         CHECK_AND_ASSERT_MES(one_txid, false, "internal error: tx_relay=" << unsigned(tx_relay)
                                            << ", kei_image_set.size()=" << kei_image_set.size() << ENDL << "txin.k_image=" << txin.k_image << ENDL
                                            << "tx_id=" << id);
       }
 
       const bool new_or_previously_private =
-        kei_image_set.insert(id).second ||
+        kei_image_set.insert({id, ki_sign}).second ||
         !m_blockchain.txpool_tx_matches_category(id, relay_category::legacy);
       CHECK_AND_ASSERT_MES(new_or_previously_private, false, "internal error: try to insert duplicate iterator in key_image set");
     }
@@ -508,14 +510,16 @@ namespace cryptonote
     for(const txin_v& vi: tx.vin)
     {
       CHECKED_GET_SPECIFIC_VARIANT(vi, const txin_to_key, txin, false);
-      auto it = m_spent_key_images.find(txin.k_image);
+      crypto::key_image_y ki_y;
+      const bool ki_sign = crypto::key_image_to_y(txin.k_image, ki_y);
+      auto it = m_spent_key_images.find(ki_y);
       CHECK_AND_ASSERT_MES(it != m_spent_key_images.end(), false, "failed to find transaction input in key images. img=" << txin.k_image << ENDL
                                     << "transaction id = " << actual_hash);
-      std::unordered_set<crypto::hash>& key_image_set =  it->second;
+      auto& key_image_set = it->second;
       CHECK_AND_ASSERT_MES(key_image_set.size(), false, "empty key_image set, img=" << txin.k_image << ENDL
         << "transaction id = " << actual_hash);
 
-      auto it_in_set = key_image_set.find(actual_hash);
+      auto it_in_set = key_image_set.find({actual_hash, ki_sign});
       CHECK_AND_ASSERT_MES(it_in_set != key_image_set.end(), false, "transaction id not found in key_image set, img=" << txin.k_image << ENDL
         << "transaction id = " << actual_hash);
       key_image_set.erase(it_in_set);
@@ -1049,7 +1053,7 @@ namespace cryptonote
     backlog.clear();
     uint64_t w = 0;
 
-    std::unordered_set<crypto::key_image> k_images;
+    std::unordered_set<crypto::key_image_y> k_images;
 
     for (const tx_block_template_backlog_entry& e : tmp)
     {
@@ -1212,19 +1216,40 @@ namespace cryptonote
     }, true, category);
 
     for (const key_images_container::value_type& kee : m_spent_key_images) {
-      const crypto::key_image& k_image = kee.first;
-      const std::unordered_set<crypto::hash>& kei_image_set = kee.second;
-      spent_key_image_info ki;
-      ki.id_hash = epee::string_tools::pod_to_hex(k_image);
-      for (const crypto::hash& tx_id_hash : kei_image_set)
+      // id_hash corresponds to key image as the daemon received it, so we need
+      // to derive key image from key_image_y and sign bit to prevent a breaking
+      // change to clients. After the fcmp fork, all key images should have sign
+      // bit cleared so this can be cleaned up further.
+      const crypto::key_image_y& k_image_y = kee.first;
+      const auto& kei_image_set = kee.second;
+      spent_key_image_info ki_info_sign;
+      spent_key_image_info ki_info_no_sign;
+      for (const auto& ki_context : kei_image_set)
       {
-        if (m_blockchain.txpool_tx_matches_category(tx_id_hash, category))
-          ki.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_id_hash));
+        const crypto::hash &tx_hash = ki_context.tx_hash;
+        const bool sign = ki_context.sign;
+        if (m_blockchain.txpool_tx_matches_category(tx_hash, category))
+        {
+          crypto::key_image ki;
+          crypto::key_image_from_y(k_image_y, sign, ki);
+          if (sign)
+          {
+            ki_info_sign.id_hash = epee::string_tools::pod_to_hex(ki);
+            ki_info_sign.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_hash));
+          }
+          else
+          {
+            ki_info_no_sign.id_hash = epee::string_tools::pod_to_hex(ki);
+            ki_info_no_sign.txs_hashes.push_back(epee::string_tools::pod_to_hex(tx_hash));
+          }
+        }
       }
 
       // Only return key images for which we have at least one tx that we can show for them
-      if (!ki.txs_hashes.empty())
-        key_image_infos.push_back(std::move(ki));
+      if (!ki_info_sign.txs_hashes.empty())
+        key_image_infos.push_back(std::move(ki_info_sign));
+      if (!ki_info_no_sign.txs_hashes.empty())
+        key_image_infos.push_back(std::move(ki_info_no_sign));
     }
     return true;
   }
@@ -1264,11 +1289,11 @@ namespace cryptonote
 
     for (const key_images_container::value_type& kee : m_spent_key_images) {
       std::vector<crypto::hash> tx_hashes;
-      const std::unordered_set<crypto::hash>& kei_image_set = kee.second;
-      for (const crypto::hash& tx_id_hash : kei_image_set)
+      const auto& kei_image_set = kee.second;
+      for (const auto& ki_context : kei_image_set)
       {
-        if (m_blockchain.txpool_tx_matches_category(tx_id_hash, relay_category::broadcasted))
-          tx_hashes.push_back(tx_id_hash);
+        if (m_blockchain.txpool_tx_matches_category(ki_context.tx_hash, relay_category::broadcasted))
+          tx_hashes.push_back(ki_context.tx_hash);
       }
 
       if (!tx_hashes.empty())
@@ -1287,11 +1312,13 @@ namespace cryptonote
     for (const auto& image : key_images)
     {
       bool is_spent = false;
-      const auto found = m_spent_key_images.find(image);
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(image, ki_y);
+      const auto found = m_spent_key_images.find(ki_y);
       if (found != m_spent_key_images.end())
       {
-        for (const crypto::hash& tx_hash : found->second)
-          is_spent |= m_blockchain.txpool_tx_matches_category(tx_hash, relay_category::broadcasted);
+        for (const auto& ki_context : found->second)
+          is_spent |= m_blockchain.txpool_tx_matches_category(ki_context.tx_hash, relay_category::broadcasted);
       }
       spent.push_back(is_spent);
     }
@@ -1352,12 +1379,14 @@ namespace cryptonote
   bool tx_memory_pool::have_tx_keyimg_as_spent(const crypto::key_image& key_im, const crypto::hash& txid) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    const auto found = m_spent_key_images.find(key_im);
+    crypto::key_image_y ki_y;
+    crypto::key_image_to_y(key_im, ki_y);
+    const auto found = m_spent_key_images.find(ki_y);
     if (found != m_spent_key_images.end() && !found->second.empty())
     {
       // If another tx is using the key image, always return as spent.
       // See `insert_key_images`.
-      if (1 < found->second.size() || *(found->second.cbegin()) != txid)
+      if (1 < found->second.size() || (*(found->second.cbegin())).tx_hash != txid)
         return true;
       return m_blockchain.txpool_tx_matches_category(txid, relay_category::legacy);
     }
@@ -1442,23 +1471,27 @@ namespace cryptonote
     return is_transaction_ready_to_go(txd, txid, cryptonote::blobdata_ref{txblob.data(), txblob.size()}, tx);
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::have_key_images(const std::unordered_set<crypto::key_image>& k_images, const transaction_prefix& tx)
+  bool tx_memory_pool::have_key_images(const std::unordered_set<crypto::key_image_y>& k_images, const transaction_prefix& tx)
   {
     for(size_t i = 0; i!= tx.vin.size(); i++)
     {
       CHECKED_GET_SPECIFIC_VARIANT(tx.vin[i], const txin_to_key, itk, false);
-      if(k_images.count(itk.k_image))
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(itk.k_image, ki_y);
+      if(k_images.count(ki_y))
         return true;
     }
     return false;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::append_key_images(std::unordered_set<crypto::key_image>& k_images, const transaction_prefix& tx)
+  bool tx_memory_pool::append_key_images(std::unordered_set<crypto::key_image_y>& k_images, const transaction_prefix& tx)
   {
     for(size_t i = 0; i!= tx.vin.size(); i++)
     {
       CHECKED_GET_SPECIFIC_VARIANT(tx.vin[i], const txin_to_key, itk, false);
-      auto i_res = k_images.insert(itk.k_image);
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(itk.k_image, ki_y);
+      auto i_res = k_images.insert(ki_y);
       CHECK_AND_ASSERT_MES(i_res.second, false, "internal error: key images pool cache - inserted duplicate image in set: " << itk.k_image);
     }
     return true;
@@ -1473,11 +1506,14 @@ namespace cryptonote
     for(size_t i = 0; i!= tx.vin.size(); i++)
     {
       CHECKED_GET_SPECIFIC_VARIANT(tx.vin[i], const txin_to_key, itk, void());
-      const key_images_container::const_iterator it = m_spent_key_images.find(itk.k_image);
+      crypto::key_image_y ki_y;
+      crypto::key_image_to_y(itk.k_image, ki_y);
+      const key_images_container::const_iterator it = m_spent_key_images.find(ki_y);
       if (it != m_spent_key_images.end())
       {
-        for (const crypto::hash &txid: it->second)
+        for (const auto &ki_context: it->second)
         {
+          const auto &txid = ki_context.tx_hash;
           txpool_tx_meta_t meta;
           if (!m_blockchain.get_txpool_tx_meta(txid, meta))
           {
@@ -1561,7 +1597,7 @@ namespace cryptonote
     size_t max_total_weight_pre_v5 = (130 * median_weight) / 100 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     size_t max_total_weight_v5 = 2 * median_weight - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     size_t max_total_weight = version >= 5 ? max_total_weight_v5 : max_total_weight_pre_v5;
-    std::unordered_set<crypto::key_image> k_images;
+    std::unordered_set<crypto::key_image_y> k_images;
 
     LOG_PRINT_L2("Filling block template, median weight " << median_weight << ", " << m_txs_by_fee_and_receive_time.size() << " txes in the pool");
 

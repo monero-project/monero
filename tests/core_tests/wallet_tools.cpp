@@ -32,7 +32,8 @@ void wallet_accessor_test::set_account(tools::wallet2 * wallet, cryptonote::acco
 void wallet_accessor_test::process_parsed_blocks(tools::wallet2 * wallet, uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, uint64_t& blocks_added)
 {
   if (wallet != nullptr) {
-    wallet->process_parsed_blocks(start_height, blocks, parsed_blocks, blocks_added);
+    auto output_tracker_cache = wallet->create_output_tracker_cache();
+    wallet->process_parsed_blocks(start_height, blocks, parsed_blocks, blocks_added, output_tracker_cache);
   }
 }
 
@@ -292,5 +293,6 @@ bool construct_tx_rct(tools::wallet2 * sender_wallet, std::vector<cryptonote::tx
   std::vector<crypto::secret_key> additional_tx_keys;
   std::vector<tx_destination_entry> destinations_copy = destinations;
   rct::RCTConfig rct_config = {range_proof_type, bp_version};
-  return construct_tx_and_get_tx_key(sender_wallet->get_account().get_keys(), subaddresses, sources, destinations_copy, change_addr, extra, tx, tx_key, additional_tx_keys, rct, rct_config);
+  fcmp_pp::ProofParams fcmp_pp_params = {};
+  return construct_tx_and_get_tx_key(sender_wallet->get_account().get_keys(), subaddresses, sources, destinations_copy, change_addr, extra, tx, tx_key, additional_tx_keys, fcmp_pp_params, rct, rct_config);
 }
