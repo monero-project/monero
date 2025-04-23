@@ -244,7 +244,8 @@ std::size_t CurveTreesGlobalTree::get_n_leaf_tuples() const
 //----------------------------------------------------------------------------------------------------------------------
 bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples,
-    const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs)
+    const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs,
+    const bool audit_tree)
 {
     CHECK_AND_ASSERT_MES(new_outputs.size() == new_n_leaf_tuples, false, "unexpected n new outputs");
 
@@ -267,6 +268,9 @@ bool CurveTreesGlobalTree::grow_tree(const std::size_t expected_old_n_leaf_tuple
     this->extend_tree(tree_extension);
 
     this->log_tree();
+
+    if (!audit_tree)
+        return true;
 
     // Validate tree structure and all hashes
     const std::size_t expected_n_leaf_tuples = old_n_leaf_tuples + new_n_leaf_tuples;

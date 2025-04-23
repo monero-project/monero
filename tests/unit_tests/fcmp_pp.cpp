@@ -29,6 +29,7 @@
 #include "gtest/gtest.h"
 
 #include "common/container_helpers.h"
+#include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
 #include "fcmp_pp/proof_len.h"
@@ -135,41 +136,55 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
     const std::size_t new_n_leaf_tuples)
 {
     OutputContextsAndKeys outs;
-    outs.x_vec.reserve(new_n_leaf_tuples);
-    outs.y_vec.reserve(new_n_leaf_tuples);
-    outs.outputs.reserve(new_n_leaf_tuples);
+    outs.x_vec.resize(new_n_leaf_tuples);
+    outs.y_vec.resize(new_n_leaf_tuples);
+    outs.outputs.resize(new_n_leaf_tuples);
 
-    for (std::size_t i = 0; i < new_n_leaf_tuples; ++i)
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    tools::threadpool::waiter waiter(tpool);
+
+    const std::size_t batch_size = 1 + (new_n_leaf_tuples / (std::size_t)tpool.get_max_concurrency());
+    for (std::size_t i = 0; i < new_n_leaf_tuples; i+= batch_size)
     {
-        const std::uint64_t output_id = old_n_leaf_tuples + i;
+        const std::size_t end = std::min(i + batch_size, new_n_leaf_tuples);
+        tpool.submit(&waiter, [&outs, i, end, old_n_leaf_tuples]()
+        {
+            for (std::size_t j = i; j < end; ++j)
+            {
+                const std::uint64_t output_id = old_n_leaf_tuples + j;
 
-        // Generate random output tuple
-        crypto::secret_key o,c;
-        crypto::public_key O,C;
-        crypto::generate_keys(O, o, o, false);
-        crypto::generate_keys(C, c, c, false);
+                // Generate random output tuple
+                // Note: lock contention slows this down quite a bit
+                crypto::secret_key o,c;
+                crypto::public_key O,C;
+                crypto::generate_keys(O, o, o, false);
+                crypto::generate_keys(C, c, c, false);
 
-        rct::key C_key = rct::pk2rct(C);
-        auto output_pair = fcmp_pp::curve_trees::OutputPair{
-                .output_pubkey = std::move(O),
-                .commitment    = std::move(C_key)
-            };
+                rct::key C_key = rct::pk2rct(C);
+                auto output_pair = fcmp_pp::curve_trees::OutputPair{
+                        .output_pubkey = std::move(O),
+                        .commitment    = std::move(C_key)
+                    };
 
-        auto output_context = fcmp_pp::curve_trees::OutputContext{
-                .output_id   = output_id,
-                .output_pair = std::move(output_pair)
-            };
+                auto output_context = fcmp_pp::curve_trees::OutputContext{
+                        .output_id   = output_id,
+                        .output_pair = std::move(output_pair)
+                    };
 
-        // Output pubkey O = xG + yT
-        // In this test, x is o, y is zero
-        crypto::secret_key x = std::move(o);
-        crypto::secret_key y;
-        sc_0((unsigned char *)y.data);
+                // Output pubkey O = xG + yT
+                // In this test, x is o, y is zero
+                crypto::secret_key x = std::move(o);
+                crypto::secret_key y;
+                sc_0((unsigned char *)y.data);
 
-        outs.x_vec.emplace_back(std::move(x));
-        outs.y_vec.emplace_back(std::move(y));
-        outs.outputs.emplace_back(std::move(output_context));
+                outs.x_vec[j] = std::move(x);
+                outs.y_vec[j] = std::move(y);
+                outs.outputs[j] = std::move(output_context);
+            }
+        });
     }
+
+    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed generating random outputs");
 
     return outs;
 }
@@ -177,11 +192,9 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, prove)
 {
-    static const std::size_t N_INPUTS = 8;
-
     static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
     static const std::size_t helios_chunk_width = fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH;
-    static const std::size_t tree_depth = 3;
+    static const std::size_t tree_depth = 4;
 
     LOG_PRINT_L1("Test prove with selene chunk width " << selene_chunk_width
         << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth);
@@ -197,7 +210,8 @@ TEST(fcmp_pp, prove)
     // Init tree in memory
     CurveTreesGlobalTree global_tree(*curve_trees);
     const auto new_outputs = generate_random_outputs(*curve_trees, 0, min_leaves_needed_for_tree_depth);
-    ASSERT_TRUE(global_tree.grow_tree(0, min_leaves_needed_for_tree_depth, new_outputs.outputs));
+    LOG_PRINT_L1("Finished generating random outputs");
+    ASSERT_TRUE(global_tree.grow_tree(0, min_leaves_needed_for_tree_depth, new_outputs.outputs, false/*audit_tree*/));
 
     LOG_PRINT_L1("Finished initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
 
@@ -207,97 +221,109 @@ TEST(fcmp_pp, prove)
     std::vector<const uint8_t *> selene_branch_blinds;
     std::vector<const uint8_t *> helios_branch_blinds;
 
-    std::vector<const uint8_t *> fcmp_prove_inputs;
-    std::vector<crypto::key_image> key_images;
-    std::vector<crypto::ec_point> pseudo_outs;
+    CHECK_AND_ASSERT_THROW_MES(global_tree.get_n_leaf_tuples() >= FCMP_PLUS_PLUS_MAX_INPUTS, "too few leaves");
 
-    // Create proof for every leaf in the tree
-    for (std::size_t leaf_idx = 0; leaf_idx < global_tree.get_n_leaf_tuples(); ++leaf_idx)
+    // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
+    for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
     {
-        LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
+        std::vector<const uint8_t *> fcmp_prove_inputs;
+        std::vector<crypto::key_image> key_images;
+        std::vector<crypto::ec_point> pseudo_outs;
 
-        const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
-        const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
+        std::unordered_set<std::size_t> selected_indices;
 
-        const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
-        const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
+        while (fcmp_prove_inputs.size() < n_inputs)
+        {
+            // Generate a random unique leaf tuple index within the tree
+            const size_t leaf_idx = crypto::rand_idx(global_tree.get_n_leaf_tuples());
+            if (selected_indices.count(leaf_idx))
+                continue;
+            else
+                selected_indices.insert(leaf_idx);
 
-        // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
-        // LOG_PRINT_L1("Passed the audit...\n");
+            LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
 
-        const auto x = (uint8_t *) new_outputs.x_vec[leaf_idx].data;
-        const auto y = (uint8_t *) new_outputs.y_vec[leaf_idx].data;
+            const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
+            const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
 
-        // Leaves
-        const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
+            const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
+            const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
-        const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(OutputBytes{
-            .O_bytes = output_tuple.O.bytes,
-            .I_bytes = output_tuple.I.bytes,
-            .C_bytes = output_tuple.C.bytes
-        });
+            // ASSERT_TRUE(curve_trees->audit_path(path, output_pair, global_tree.get_n_leaf_tuples()));
+            // LOG_PRINT_L1("Passed the audit...\n");
 
-        pseudo_outs.emplace_back(rct::rct2pt(load_key(rerandomized_output.input.C_tilde)));
+            const auto x = (uint8_t *) new_outputs.x_vec[leaf_idx].data;
+            const auto y = (uint8_t *) new_outputs.y_vec[leaf_idx].data;
 
-        key_images.emplace_back();
-        crypto::generate_key_image(rct::rct2pk(path.leaves[output_idx].O),
-            new_outputs.x_vec[leaf_idx],
-            key_images.back());
+            // Leaves
+            const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
 
-        // Set path
-        const auto helios_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::HeliosT>(
-            path_for_proof.c2_scalar_chunks);
-        const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
-            path_for_proof.c1_scalar_chunks);
+            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(OutputBytes{
+                .O_bytes = output_tuple.O.bytes,
+                .I_bytes = output_tuple.I.bytes,
+                .C_bytes = output_tuple.C.bytes
+            });
 
-        const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
-            path_for_proof.output_idx,
-            {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
-            {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
+            pseudo_outs.emplace_back(rct::rct2pt(load_key(rerandomized_output.input.C_tilde)));
 
-        // Collect blinds for rerandomized output
-        const auto o_blind = fcmp_pp::o_blind(rerandomized_output);
-        const auto i_blind = fcmp_pp::i_blind(rerandomized_output);
-        const auto i_blind_blind = fcmp_pp::i_blind_blind(rerandomized_output);
-        const auto c_blind = fcmp_pp::c_blind(rerandomized_output);
+            key_images.emplace_back();
+            crypto::generate_key_image(rct::rct2pk(path.leaves[output_idx].O),
+                new_outputs.x_vec[leaf_idx],
+                key_images.back());
 
-        const auto blinded_o_blind = fcmp_pp::blind_o_blind(o_blind);
-        const auto blinded_i_blind = fcmp_pp::blind_i_blind(i_blind);
-        const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
-        const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
+            // Set path
+            const auto helios_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::HeliosT>(
+                path_for_proof.c2_scalar_chunks);
+            const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
+                path_for_proof.c1_scalar_chunks);
 
-        const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
-            blinded_i_blind,
-            blinded_i_blind_blind,
-            blinded_c_blind);
+            const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+                path_for_proof.output_idx,
+                {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
+                {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
 
-        // Cache branch blinds
-        if (selene_branch_blinds.empty())
-            for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
-                selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
+            // Collect blinds for rerandomized output
+            const auto o_blind = fcmp_pp::o_blind(rerandomized_output);
+            const auto i_blind = fcmp_pp::i_blind(rerandomized_output);
+            const auto i_blind_blind = fcmp_pp::i_blind_blind(rerandomized_output);
+            const auto c_blind = fcmp_pp::c_blind(rerandomized_output);
 
-        if (helios_branch_blinds.empty())
-            for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
-                helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+            const auto blinded_o_blind = fcmp_pp::blind_o_blind(o_blind);
+            const auto blinded_i_blind = fcmp_pp::blind_i_blind(i_blind);
+            const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
+            const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-        auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
-            y,
-            rerandomized_output,
-            path_rust,
-            output_blinds,
-            selene_branch_blinds,
-            helios_branch_blinds);
+            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+                blinded_i_blind,
+                blinded_i_blind_blind,
+                blinded_c_blind);
 
-        fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
-        if (fcmp_prove_inputs.size() < N_INPUTS)
-            continue;
+            // Cache branch blinds
+            if (selene_branch_blinds.empty())
+                for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
+                    selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
 
-        // This test does not have outputs, but this is where this would go if it did
-        // fcmp_pp::balance_last_pseudo_out(sum_output_masks, fcmp_prove_inputs);
+            if (helios_branch_blinds.empty())
+                for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
+                    helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
 
-        LOG_PRINT_L1("Constructing proof and verifying");
+            auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
+                y,
+                rerandomized_output,
+                path_rust,
+                output_blinds,
+                selene_branch_blinds,
+                helios_branch_blinds);
+
+            fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
+
+            // This test does not have outputs, but this is where this would go if it did
+            // fcmp_pp::balance_last_pseudo_out(sum_output_masks, fcmp_prove_inputs);
+        }
+
+        LOG_PRINT_L1("Constructing proof and verifying (n_inputs=" << n_inputs << ")");
         const crypto::hash tx_hash{};
-        const std::size_t n_layers = 1 + tree_depth;
+        const std::size_t n_layers = curve_trees->n_layers(global_tree.get_n_leaf_tuples());
         const auto proof = fcmp_pp::prove(
                 tx_hash,
                 fcmp_prove_inputs,
@@ -313,10 +339,6 @@ TEST(fcmp_pp, prove)
                 key_images
             );
         ASSERT_TRUE(verify);
-
-        fcmp_prove_inputs.clear();
-        pseudo_outs.clear();
-        key_images.clear();
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
