@@ -107,7 +107,14 @@ void make_carrot_transaction_proposal_v1_sweep(
     const crypto::public_key &account_spend_pubkey,
     CarrotTransactionProposalV1 &tx_proposal_out);
 
-void make_signable_tx_hash_from_carrot_transaction_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
+    encrypted_payment_id_t &encrypted_payment_id_out,
+    std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out = nullptr);
+
+void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     crypto::hash &signable_tx_hash_out);

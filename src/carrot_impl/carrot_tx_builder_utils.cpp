@@ -159,8 +159,13 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     std::map<size_t, rct::xmr_amount> fee_per_input_count;
     for (size_t num_ins = 1; num_ins <= CARROT_MAX_TX_INPUTS; ++num_ins)
     {
-        const size_t tx_weight = get_fcmppp_tx_weight(num_ins, num_outs, tx_extra_size);
-        const rct::xmr_amount fee = tx_weight * fee_per_weight; // @TODO: check for overflow here
+        const uint64_t tx_weight = get_fcmppp_tx_weight(num_ins, num_outs, tx_extra_size);
+        CHECK_AND_ASSERT_THROW_MES(tx_weight != std::numeric_limits<uint64_t>::max(),
+            "make_carrot_transaction_proposal_v1: invalid weight returned for ins=" << num_ins
+            << " outs=" << num_outs << " extra_size=" << tx_extra_size);
+        CHECK_AND_ASSERT_THROW_MES(std::numeric_limits<uint64_t>::max() / tx_weight > fee_per_weight,
+            "make_carrot_transaction_proposal_v1: overflow in fee calculation");
+        const rct::xmr_amount fee = tx_weight * fee_per_weight;
         fee_per_input_count.emplace(num_ins, fee);
     }
 
@@ -475,7 +480,32 @@ void make_carrot_transaction_proposal_v1_sweep(
         tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_signable_tx_hash_from_carrot_transaction_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
+    encrypted_payment_id_t &encrypted_payment_id_out,
+    std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out)
+{
+    // collect self-sends proposal cores
+    std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
+    selfsend_payment_proposal_cores.reserve(tx_proposal.selfsend_payment_proposals.size());
+    for (const auto &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
+        selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
+
+    // derive enote proposals
+    get_output_enote_proposals(tx_proposal.normal_payment_proposals,
+        selfsend_payment_proposal_cores,
+        tx_proposal.dummy_encrypted_payment_id,
+        s_view_balance_dev,
+        k_view_dev,
+        tx_proposal.key_images_sorted.at(0),
+        output_enote_proposals_out,
+        encrypted_payment_id_out,
+        payment_proposal_order_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     crypto::hash &signable_tx_hash_out)
@@ -506,21 +536,12 @@ void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProp
     const view_incoming_key_device *k_view_dev,
     cryptonote::transaction &pruned_tx_out)
 {
-    // collect self-sends proposal cores
-    std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
-    selfsend_payment_proposal_cores.reserve(tx_proposal.selfsend_payment_proposals.size());
-    for (const auto &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
-        selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
-
     // derive enote proposals
     std::vector<RCTOutputEnoteProposal> output_enote_proposals;
     encrypted_payment_id_t encrypted_payment_id;
-    get_output_enote_proposals(tx_proposal.normal_payment_proposals,
-        selfsend_payment_proposal_cores,
-        tx_proposal.dummy_encrypted_payment_id,
+    get_output_enote_proposals_from_proposal_v1(tx_proposal,
         s_view_balance_dev,
         k_view_dev,
-        tx_proposal.key_images_sorted.at(0),
         output_enote_proposals,
         encrypted_payment_id);
 
