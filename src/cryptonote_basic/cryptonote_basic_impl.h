@@ -108,7 +108,7 @@ namespace cryptonote {
     , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
     );
 
-  bool is_coinbase(const transaction& tx);
+  bool is_coinbase(const transaction_prefix& tx);
 
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
