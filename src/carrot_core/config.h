@@ -68,7 +68,7 @@ static constexpr const unsigned char CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR[] = "Ca
 
 // Carrot misc constants
 static constexpr const unsigned int CARROT_MIN_TX_OUTPUTS = 2;
-static constexpr const unsigned int CARROT_MAX_TX_OUTPUTS = 16;
+static constexpr const unsigned int CARROT_MAX_TX_OUTPUTS = 8;
 static constexpr const unsigned int CARROT_MIN_TX_INPUTS = 1;
-static constexpr const unsigned int CARROT_MAX_TX_INPUTS = 16;
+static constexpr const unsigned int CARROT_MAX_TX_INPUTS = 8;
 } //namespace carrot
