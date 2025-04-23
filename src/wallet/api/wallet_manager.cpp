@@ -43,10 +43,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
 
-namespace epee {
-    unsigned int g_test_dbg_lock_sleep = 0;
-}
-
 namespace Monero {
 
 WalletManagerImpl::WalletManagerImpl()
