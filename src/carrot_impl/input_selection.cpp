@@ -47,6 +47,21 @@ namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static std::ostream &operator<<(std::ostream &os, const CarrotSelectedInput &input)
+{
+    os << "{ key_image = '" << input.key_image << "', amount = " << cryptonote::print_money(input.amount) << " }";
+    return os;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static std::ostream &operator<<(std::ostream &os, const CarrotPreSelectedInput &input)
+{
+    os << "{ core = " << input.core << ", block_index = " << input.block_index
+        << ", carrot = " << !input.is_pre_carrot << ", external = " << input.is_external << " }";
+    return os;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 static int compare_input_candidate_same_ki(const CarrotPreSelectedInput &lhs, const CarrotPreSelectedInput &rhs)
 {
     CHECK_AND_ASSERT_THROW_MES(lhs.core.key_image == rhs.core.key_image,
@@ -174,6 +189,16 @@ select_inputs_func_t make_single_transfer_input_selector(
         const std::size_t num_selfsend_payment_proposals,
         std::vector<CarrotSelectedInput> &selected_inputs_out)
     {
+        CHECK_AND_ASSERT_THROW_MES(!fee_by_input_count.empty(),
+            "make_single_transfer_input_selector: no provided allowed input count");
+
+        MDEBUG("Running single transfer input selector with " << input_candidates.size() << " candidates and "
+            << policies.size() << " policies, for " << num_normal_payment_proposals << " normal payment proposals, "
+            << num_selfsend_payment_proposals << " self-send payment proposals, "
+            << cryptonote::print_money(boost::numeric_cast<boost::multiprecision::uint128_t>(nominal_output_sum))
+            << " output sum, and fee range " << cryptonote::print_money(fee_by_input_count.cbegin()->second)
+            << "-" << cryptonote::print_money(fee_by_input_count.crbegin()->second));
+
         // 1. Compile map of best input candidates by key image to mitigate the "burning bug" for legacy enotes
         std::unordered_map<crypto::key_image, size_t> best_input_by_key_image;
         for (size_t i = 0; i < input_candidates.size(); ++i)
@@ -265,6 +290,16 @@ select_inputs_func_t make_single_transfer_input_selector(
                 && max_usable_money.second >= required_money_by_input_count.at(max_usable_money.first);
             if (!enough_money)
                 return;
+
+            const boost::multiprecision::uint128_t max_usable_money_u128 =
+                boost::numeric_cast<boost::multiprecision::uint128_t>(max_usable_money.second);
+            MDEBUG("Trying to dispatch input selection on " << selectable_indices.size() <<
+                "-input subset with max usable money: " << cryptonote::print_money(max_usable_money_u128) << " XMR");
+            for (const size_t selectable_index : selectable_indices)
+            {
+                const CarrotPreSelectedInput &input_candidate = input_candidates[selectable_index];
+                MDEBUG("    " << input_candidate);
+            }
 
             // For each passed policy and while not already selected inputs, dispatch policy...
             for (size_t policy_idx = 0; policy_idx < policies.size() && selected_inputs_indices.empty(); ++policy_idx)
