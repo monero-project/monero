@@ -91,6 +91,7 @@ namespace cryptonote
 
   struct tx_extra_pub_key
   {
+    // while marked `crypto::public_key`, which usually means Ed25519, this will hold an X25519 pubkey in Carrot txs
     crypto::public_key pub_key;
 
     BEGIN_SERIALIZE()
@@ -158,6 +159,7 @@ namespace cryptonote
   // per-output additional tx pubkey for multi-destination transfers involving at least one subaddress
   struct tx_extra_additional_pub_keys
   {
+    // same as tx_extra_pub_key, this is a vector of X25519 pubkeys in Carrot txs
     std::vector<crypto::public_key> data;
 
     BEGIN_SERIALIZE()

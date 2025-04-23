@@ -458,12 +458,6 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_to_script& txin
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txin_to_scripthash& txin)
 {
   dest.StartObject();
-
-  INSERT_INTO_JSON_OBJECT(dest, prev, txin.prev);
-  INSERT_INTO_JSON_OBJECT(dest, prevout, txin.prevout);
-  INSERT_INTO_JSON_OBJECT(dest, script, txin.script);
-  INSERT_INTO_JSON_OBJECT(dest, sigset, txin.sigset);
-
   dest.EndObject();
 }
 
@@ -474,11 +468,6 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_to_scripthash& 
   {
     throw WRONG_TYPE("json object");
   }
-
-  GET_FROM_JSON_OBJECT(val, txin.prev, prev);
-  GET_FROM_JSON_OBJECT(val, txin.prevout, prevout);
-  GET_FROM_JSON_OBJECT(val, txin.script, script);
-  GET_FROM_JSON_OBJECT(val, txin.sigset, sigset);
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txin_to_key& txin)
@@ -505,25 +494,27 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::txin_to_key& txin)
 }
 
 
-void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txout_to_script& txout)
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txout_to_carrot_v1& txout)
 {
   dest.StartObject();
 
-  INSERT_INTO_JSON_OBJECT(dest, keys, txout.keys);
-  INSERT_INTO_JSON_OBJECT(dest, script, txout.script);
+  INSERT_INTO_JSON_OBJECT(dest, key, txout.key);
+  INSERT_INTO_JSON_OBJECT(dest, view_tag, txout.view_tag);
+  INSERT_INTO_JSON_OBJECT(dest, encrypted_janus_anchor, txout.encrypted_janus_anchor);
 
   dest.EndObject();
 }
 
-void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_script& txout)
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_carrot_v1& txout)
 {
   if (!val.IsObject())
   {
     throw WRONG_TYPE("json object");
   }
 
-  GET_FROM_JSON_OBJECT(val, txout.keys, keys);
-  GET_FROM_JSON_OBJECT(val, txout.script, script);
+  GET_FROM_JSON_OBJECT(val, txout.key, key);
+  GET_FROM_JSON_OBJECT(val, txout.view_tag, view_tag);
+  GET_FROM_JSON_OBJECT(val, txout.encrypted_janus_anchor, encrypted_janus_anchor);
 }
 
 
@@ -606,9 +597,9 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
     {
       INSERT_INTO_JSON_OBJECT(dest, to_tagged_key, output);
     }
-    void operator()(cryptonote::txout_to_script const& output) const
+    void operator()(cryptonote::txout_to_carrot_v1 const& output) const
     {
-      INSERT_INTO_JSON_OBJECT(dest, to_script, output);
+      INSERT_INTO_JSON_OBJECT(dest, to_carrot_v1, output);
     }
     void operator()(cryptonote::txout_to_scripthash const& output) const
     {
@@ -650,9 +641,9 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_out& txout)
       fromJsonValue(elem.value, tmpVal);
       txout.target = std::move(tmpVal);
     }
-    else if (elem.name == "to_script")
+    else if (elem.name == "to_carrot_v1")
     {
-      cryptonote::txout_to_script tmpVal;
+      cryptonote::txout_to_carrot_v1 tmpVal;
       fromJsonValue(elem.value, tmpVal);
       txout.target = std::move(tmpVal);
     }
