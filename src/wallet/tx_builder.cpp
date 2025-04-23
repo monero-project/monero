@@ -73,20 +73,6 @@ static epee::misc_utils::auto_scope_leave_caller make_fcmp_obj_freer(const std::
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static bool is_transfer_unlocked_for_next_fcmp_pp_block(const wallet2::transfer_details &td,
-    const uint64_t top_block_index)
-{
-    const uint64_t next_block_index = top_block_index + 1;
-
-    //! @TODO: handle FCMP++ conversion of UNIX unlock time to block index number
-
-    if (td.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > next_block_index)
-        return false;
-
-    return true;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
 static bool is_transfer_usable_for_input_selection(const wallet2::transfer_details &td,
     const std::uint32_t from_account,
     const std::set<std::uint32_t> from_subaddresses,
@@ -94,11 +80,14 @@ static bool is_transfer_usable_for_input_selection(const wallet2::transfer_detai
     const rct::xmr_amount ignore_below,
     const uint64_t top_block_index)
 {
+    const uint64_t last_locked_block_index = cryptonote::get_last_locked_block_index(
+        td.m_tx.unlock_time, td.m_block_height);
+
     return !td.m_spent
         && td.m_key_image_known
         && !td.m_key_image_partial
         && !td.m_frozen
-        && is_transfer_unlocked_for_next_fcmp_pp_block(td, top_block_index)
+        && last_locked_block_index <= top_block_index
         && td.m_subaddr_index.major == from_account
         && (from_subaddresses.empty() || from_subaddresses.count(td.m_subaddr_index.minor) == 1)
         && td.amount() >= ignore_below
@@ -359,7 +348,12 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_tra
     wallet2::transfer_container transfers;
     w.get_transfers(transfers);
 
+    const bool use_per_byte_fee = w.use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
+    CHECK_AND_ASSERT_THROW_MES(use_per_byte_fee,
+        "make_carrot_transaction_proposal_wallet2_transfer_subtractable: not using per-byte base fee");
+
     const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+    MDEBUG("fee_per_weight = " << fee_per_weight << ", from priority = " << priority);
 
     const std::uint64_t current_chain_height = w.get_blockchain_current_height();
     CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
@@ -867,17 +861,21 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     {
         const fcmp_pp::curve_trees::OutputPair input_pair{input_onetime_addresses.at(i),
             input_amount_commitments.at(i)};
-        LOG_PRINT_L3("Requesting FCMP path from tree cache for onetime address: " << input_pair.output_pubkey);
-        CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(input_pair, tools::add_element(fcmp_paths)),
+        const size_t selected_transfer = unburned_transfers_by_key_image.at(tx_proposal.key_images_sorted.at(i));
+
+        MDEBUG("Requesting FCMP path from tree cache for onetime address " << input_pair.output_pubkey
+            << " and block index " << transfers.at(selected_transfer).m_block_height);
+        fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = tools::add_element(fcmp_paths);
+        CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(input_pair, fcmp_path),
             "finalize_all_proofs_from_transfer_details: failed to get FCMP path from tree cache");
+        CHECK_AND_ASSERT_THROW_MES(!fcmp_path.empty(), "finalize_all_proofs_from_transfer_details: FCMP path is empty");
     }
 
-    // assert properties of FCMP paths
+    // assert dimension properties of FCMP paths
     CHECK_AND_ASSERT_THROW_MES(fcmp_paths.size(), "finalize_all_proofs_from_transfer_details: missing FCMP paths");
     const auto &first_fcmp_path = fcmp_paths.at(0);
     for (const auto &fcmp_path : fcmp_paths)
     {
-        CHECK_AND_ASSERT_THROW_MES(!fcmp_path.empty(), "finalize_all_proofs_from_transfer_details: FCMP path is empty");
         CHECK_AND_ASSERT_THROW_MES(!fcmp_path.c1_layers.empty(),
             "finalize_all_proofs_from_transfer_details: missing hashes");
         CHECK_AND_ASSERT_THROW_MES(fcmp_path.c1_layers.size() == first_fcmp_path.c1_layers.size(),
