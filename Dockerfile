@@ -1,7 +1,7 @@
 # Multistage docker build, requires docker 17.05
 
 # builder stage
-FROM ubuntu:20.04 as builder
+FROM ubuntu:20.04 AS builder
 
 RUN set -ex && \
     apt-get update && \
