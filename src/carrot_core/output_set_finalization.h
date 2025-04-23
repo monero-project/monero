@@ -95,6 +95,8 @@ tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1
  * param: tx_first_key_image - KI_1
  * outparam: output_enote_proposals_out -
  * outparam: encrypted_payment_id_out - pid_enc
+ * outparam: payment_proposal_order_out - (is self-send, payment idx) pairs which specify order of proposals
+ *                                        converted to output enotes (OPTIONAL)
  * throw: std::runtime_error if the payment proposals do not represent a valid tx output set, or if no devices
  * 
  * If s_view_balance_dev is not NULL, then the selfsend payments are converted into *internal* enotes.
@@ -107,7 +109,8 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     const view_incoming_key_device *k_view_dev,
     const crypto::key_image &tx_first_key_image,
     std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
-    encrypted_payment_id_t &encrypted_payment_id_out);
+    encrypted_payment_id_t &encrypted_payment_id_out,
+    std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out = nullptr);
 /**
  * brief: get_coinbase_output_enotes - convert a *finalized* set of payment proposals into coinbase output enotes
  * param: normal_payment_proposals -

@@ -159,17 +159,22 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     const view_incoming_key_device *k_view_dev,
     const crypto::key_image &tx_first_key_image,
     std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
-    encrypted_payment_id_t &encrypted_payment_id_out)
+    encrypted_payment_id_t &encrypted_payment_id_out,
+    std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out)
 {
     output_enote_proposals_out.clear();
+    encrypted_payment_id_out = null_payment_id;
+    if (payment_proposal_order_out)
+        payment_proposal_order_out->clear();
 
     // assert payment proposals numbers
-    const size_t num_proposals = normal_payment_proposals.size() + selfsend_payment_proposals.size();
+    const size_t num_selfsend_proposals = selfsend_payment_proposals.size();
+    const size_t num_proposals = normal_payment_proposals.size() + num_selfsend_proposals;
     CHECK_AND_ASSERT_THROW_MES(num_proposals >= CARROT_MIN_TX_OUTPUTS, 
         "get output enote proposals: too few payment proposals");
     CHECK_AND_ASSERT_THROW_MES(num_proposals <= CARROT_MAX_TX_OUTPUTS,
         "get output enote proposals: too many payment proposals");
-    CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposals.size(),
+    CHECK_AND_ASSERT_THROW_MES(num_selfsend_proposals,
         "get output enote proposals: no selfsend payment proposal");
 
     // assert there is a max of 1 integrated address payment proposals
@@ -193,15 +198,28 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     CHECK_AND_ASSERT_THROW_MES(has_unique_randomness,
         "get output enote proposals: normal payment proposals contain duplicate anchor_norm AKA randomness");
 
+    // for each output:  (enote proposal        ,         is ss?,  payment idx )
+    std::vector<std::pair<RCTOutputEnoteProposal, std::pair<bool, size_t>>> sortable_data;
+    sortable_data.reserve(num_proposals);
+
+    // D^other_e
+    std::optional<mx25519_pubkey> other_enote_ephemeral_pubkey;
+
     // construct normal enotes
-    output_enote_proposals_out.reserve(num_proposals);
     for (size_t i = 0; i < normal_payment_proposals.size(); ++i)
     {
+        auto &output_entry = tools::add_element(sortable_data);
+        output_entry.second = {false, i};
+
         encrypted_payment_id_t encrypted_payment_id;
         get_output_proposal_normal_v1(normal_payment_proposals[i],
             tx_first_key_image,
-            tools::add_element(output_enote_proposals_out),
+            output_entry.first,
             encrypted_payment_id);
+
+        // if 1 normal, and 2 self-send, set D^other_e equal to this D_e
+        if (num_proposals == 2)
+            other_enote_ephemeral_pubkey = output_entry.first.enote.enote_ephemeral_pubkey;
 
         // set pid_enc from integrated address proposal pic_enc
         const bool is_integrated = normal_payment_proposals[i].destination.payment_id != null_payment_id;
@@ -217,13 +235,20 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
         encrypted_payment_id_out = *dummy_encrypted_payment_id;
     }
 
-    // construct selfsend enotes, preferring internal enotes over special enotes when possible
-    for (const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
+    // if 0 normal, and 2 self-send, set D^other_e equal to whichever *has* a D_e
+    if (num_proposals == 2 && num_selfsend_proposals == 2)
     {
-        const std::optional<mx25519_pubkey> other_enote_ephemeral_pubkey =
-            (num_proposals == 2 && output_enote_proposals_out.size())
-                ? output_enote_proposals_out.at(0).enote.enote_ephemeral_pubkey
-                : std::optional<mx25519_pubkey>{};
+        const size_t present_ephem_pk_index = selfsend_payment_proposals.at(0).enote_ephemeral_pubkey ? 0 : 1;
+        other_enote_ephemeral_pubkey = selfsend_payment_proposals.at(present_ephem_pk_index).enote_ephemeral_pubkey;
+    }
+
+    // construct selfsend enotes, preferring internal enotes over special enotes when possible
+    for (size_t i = 0; i < num_selfsend_proposals; ++i)
+    {
+        const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal = selfsend_payment_proposals.at(i);
+
+        auto &output_entry = tools::add_element(sortable_data);
+        output_entry.second = {true, i};
 
         if (s_view_balance_dev != nullptr)
         {
@@ -231,7 +256,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
                 *s_view_balance_dev,
                 tx_first_key_image,
                 other_enote_ephemeral_pubkey,
-                tools::add_element(output_enote_proposals_out));
+                output_entry.first);
         }
         else if (k_view_dev != nullptr)
         {
@@ -239,13 +264,29 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
                 *k_view_dev,
                 tx_first_key_image,
                 other_enote_ephemeral_pubkey,
-                tools::add_element(output_enote_proposals_out));
+                output_entry.first);
         }
         else // neither k_v nor s_vb device passed
         {
             ASSERT_MES_AND_THROW(
                 "get output enote proposals: neither a view-balance nor view-incoming device was provided");
         }
+    }
+
+    // sort enotes by K_o
+    const auto sort_output_enote_proposal = [](const auto &a, const auto &b) -> bool
+        { return a.first.enote.onetime_address < b.first.enote.onetime_address; };
+    std::sort(sortable_data.begin(), sortable_data.end(), sort_output_enote_proposal);
+
+    // collect output_enote_proposals_out and payment_proposal_order_out
+    output_enote_proposals_out.reserve(num_proposals);
+    if (payment_proposal_order_out)
+        payment_proposal_order_out->reserve(num_proposals);
+    for (const auto &output_entry : sortable_data)
+    {
+        output_enote_proposals_out.push_back(output_entry.first);
+        if (payment_proposal_order_out)
+            payment_proposal_order_out->push_back(output_entry.second);
     }
 
     // assert uniqueness of D_e if >2-out, shared otherwise. also check D_e is not trivial
@@ -265,13 +306,8 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     CHECK_AND_ASSERT_THROW_MES(!(num_proposals != 2 && !has_unique_ephemeral_pubkeys),
         "get output enote proposals: this >2-out set contains duplicate enote ephemeral pubkeys");
 
-    // sort enotes by K_o
-    const auto sort_output_enote_proposal = [](const RCTOutputEnoteProposal &a, const RCTOutputEnoteProposal &b)
-        -> bool { return a.enote.onetime_address < b.enote.onetime_address; };
-    std::sort(output_enote_proposals_out.begin(), output_enote_proposals_out.end(), sort_output_enote_proposal);
-
     // assert uniqueness of K_o
-    CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(output_enote_proposals_out, sort_output_enote_proposal),
+    CHECK_AND_ASSERT_THROW_MES(tools::is_sorted_and_unique(sortable_data, sort_output_enote_proposal),
         "get output enote proposals: this set contains duplicate onetime addresses");
 
     // assert all K_o lie in prime order subgroup
