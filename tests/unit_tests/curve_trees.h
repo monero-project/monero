@@ -80,7 +80,8 @@ public:
     // Grow tree by provided new_n_leaf_tuples
     bool grow_tree(const std::size_t expected_old_n_leaf_tuples,
         const std::size_t new_n_leaf_tuples,
-        const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs);
+        const std::vector<fcmp_pp::curve_trees::OutputContext> &new_outputs,
+        const bool audit_tree = true);
 
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
     bool audit_tree(const std::size_t expected_n_leaf_tuples) const;
