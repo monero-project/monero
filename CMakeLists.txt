@@ -360,6 +360,7 @@ else()
   message(STATUS "Building without build tag")
 endif()
 
+option(MANUAL_SUBMODULES "Skip submodule up-to-date checks" OFF)
 if(NOT MANUAL_SUBMODULES)
   find_package(Git)
   if(GIT_FOUND)
