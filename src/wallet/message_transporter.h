@@ -35,6 +35,7 @@
 #include "net/http_server_impl_base.h"
 #include "net/http_client.h"
 #include "net/abstract_http_client.h"
+#include "serialization/wire/json/base.h"
 #include "common/util.h"
 #include "wipeable_string.h"
 #include <vector>
@@ -79,6 +80,7 @@ struct transport_message_t
   END_KV_SERIALIZE_MAP()
 };
 typedef epee::misc_utils::struct_init<transport_message_t> transport_message;
+WIRE_JSON_DECLARE_CONVERSION(transport_message);
 
 class message_transporter
 {

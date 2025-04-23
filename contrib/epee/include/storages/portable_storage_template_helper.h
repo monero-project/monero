@@ -29,9 +29,10 @@
 #include <string>
 
 #include "byte_slice.h"
-#include "parserse_base_utils.h" /// TODO: (mj-xmr) This will be reduced in an another PR
-#include "portable_storage.h"
+#include "byte_stream.h"
 #include "file_io_utils.h"
+#include "serialization/wire/epee/base.h"
+#include "serialization/wire/json/base.h"
 #include "span.h"
 
 namespace epee
@@ -44,12 +45,7 @@ namespace epee
     template<class t_struct>
     bool load_t_from_json(t_struct& out, const std::string& json_buff)
     {
-      portable_storage ps;
-      bool rs = ps.load_from_json(json_buff);
-      if(!rs)
-        return false;
-
-      return out.load(ps);
+      return !wire::json::from_bytes(to_span(json_buff), out);
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
@@ -63,19 +59,17 @@ namespace epee
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
-    bool store_t_to_json(t_struct& str_in, std::string& json_buff, size_t indent = 0, bool insert_newlines = true)
+    bool store_t_to_json(t_struct& str_in, std::string& json_buff)
     {
-      portable_storage ps;
-      str_in.store(ps);
-      ps.dump_as_json(json_buff, indent, insert_newlines);
-      return true;
+      json_buff.clear();
+      return !wire::json::to_bytes(json_buff, str_in);
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
-    std::string store_t_to_json(t_struct& str_in, size_t indent = 0, bool insert_newlines = true)
+    std::string store_t_to_json(t_struct& str_in)
     {
       std::string json_buff;
-      store_t_to_json(str_in, json_buff, indent, insert_newlines);
+      store_t_to_json(str_in, json_buff); //, indent, insert_newlines);
       return json_buff;
     }
     //-----------------------------------------------------------------------------------------------------------
@@ -88,14 +82,9 @@ namespace epee
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
-    bool load_t_from_binary(t_struct& out, const epee::span<const uint8_t> binary_buff, const epee::serialization::portable_storage::limits_t *limits = NULL)
+    bool load_t_from_binary(t_struct& out, const epee::span<const uint8_t> binary_buff)
     {
-      portable_storage ps;
-      bool rs = ps.load_from_binary(binary_buff, limits);
-      if(!rs)
-        return false;
-
-      return out.load(ps);
+      return !wire::epee_bin::from_bytes(binary_buff, out);
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
@@ -117,9 +106,14 @@ namespace epee
     template<class t_struct>
     bool store_t_to_binary(t_struct& str_in, byte_slice& binary_buff, size_t initial_buffer_size = 8192)
     {
-      portable_storage ps;
-      str_in.store(ps);
-      return ps.store_to_binary(binary_buff, initial_buffer_size);
+      binary_buff = nullptr;
+
+      byte_stream buf{};
+      buf.reserve(initial_buffer_size);
+      if (wire::epee_bin::to_bytes(buf, str_in))
+        return false;
+      binary_buff = byte_slice{std::move(buf)};
+      return true;
     }
     //-----------------------------------------------------------------------------------------------------------
     template<class t_struct>
@@ -133,9 +127,7 @@ namespace epee
     template<class t_struct>
     bool store_t_to_binary(t_struct& str_in, byte_stream& binary_buff)
     {
-      portable_storage ps;
-      str_in.store(ps);
-      return ps.store_to_binary(binary_buff);
+      return !wire::epee_bin::to_bytes(binary_buff, str_in);
     }
 
   }

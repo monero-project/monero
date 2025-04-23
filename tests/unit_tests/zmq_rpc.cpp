@@ -36,11 +36,13 @@
 #include "cryptonote_basic/events.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "json_serialization.h"
+#include "net/jsonrpc_structs.h"
 #include "net/zmq.h"
 #include "rpc/message.h"
 #include "rpc/zmq_pub.h"
 #include "rpc/zmq_server.h"
-#include "serialization/json_object.h"
+#include "serialization/wire/json/read.h"
+#include "serialization/wire/wrappers_impl.h"
 
 #define MASSERT(...)                                                      \
   if (!(__VA_ARGS__))                                                     \
@@ -48,30 +50,31 @@
 
 TEST(ZmqFullMessage, InvalidRequest)
 {
-  EXPECT_THROW(
-    (cryptonote::rpc::FullMessage{"{\"jsonrpc\":\"2.0\",\"id\":0,\"params\":[]}", true}),
-    cryptonote::json::MISSING_KEY
-  );
-  EXPECT_THROW(
-    (cryptonote::rpc::FullMessage{"{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":3,\"params\":[]}", true}),
-    cryptonote::json::WRONG_TYPE
-  );
+  static constexpr const char invalid1[] = "{\"jsonrpc\":\"2.0\",\"id\":0,\"params\":[]}";
+  static constexpr const char invalid2[] = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":3,\"params\":[]}";
+
+  epee::json_rpc::request_generic request{};
+  EXPECT_EQ(wire::error::schema::missing_key, wire::json::from_bytes(invalid1, request));
+  EXPECT_EQ(wire::error::schema::string, wire::json::from_bytes(invalid2, request));
 }
 
 TEST(ZmqFullMessage, Request)
 {
-  static constexpr const char request[] = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"foo\",\"params\":[]}";
-  EXPECT_NO_THROW(
-    (cryptonote::rpc::FullMessage{request, true})
-  );
+  static constexpr const char request[] = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"foo\",\"params\":[1,2,3]}";
 
-  cryptonote::rpc::FullMessage parsed{request, true};
-  EXPECT_STREQ("foo", parsed.getRequestType().c_str());
+  epee::json_rpc::request_generic parsed{};
+  EXPECT_FALSE(wire::json::from_bytes(request, parsed));
+  EXPECT_STREQ("foo", parsed.method.c_str());
 }
 
 namespace
 {
-  using published_json = std::pair<std::string, rapidjson::Document>;
+  struct published_json
+  {
+    std::string endpoint;
+    std::string json;
+    rapidjson::Document doc;
+  };
 
   constexpr const char inproc_pub[] = "inproc://dummy_pub";
 
@@ -112,8 +115,9 @@ namespace
         throw std::runtime_error{"Invalid ZMQ/Pub message"};
 
       out.emplace_back();
-      out.back().first = {message.c_str(), split};
-      if (out.back().second.Parse(split + 1).HasParseError())
+      out.back().endpoint = {message.c_str(), split};
+      out.back().json = split + 1;
+      if (out.back().doc.Parse(out.back().json.c_str()).HasParseError())
         throw std::runtime_error{"Failed to parse ZMQ/Pub message"};
     }
 
@@ -122,19 +126,19 @@ namespace
 
   testing::AssertionResult compare_full_txpool(epee::span<const cryptonote::txpool_event> events, const published_json& pub)
   {
-    MASSERT(pub.first == "json-full-txpool_add");
-    MASSERT(pub.second.IsArray());
-    MASSERT(pub.second.Size() <= events.size());
+    MASSERT(pub.endpoint == "json-full-txpool_add");
+    MASSERT(pub.doc.IsArray());
+    MASSERT(pub.doc.Size() <= events.size());
 
     std::size_t i = 0;
     for (const cryptonote::txpool_event& event : events)
     {
-      MASSERT(i <= pub.second.Size());
+      MASSERT(i <= pub.doc.Size());
       if (!event.res)
         continue;
 
       cryptonote::transaction tx{};
-      cryptonote::json::fromJsonValue(pub.second[i], tx);
+      MASSERT(!wire_read::from_bytes<wire::json_reader>(epee::to_span(pub.json), tx));
 
       crypto::hash id{};
       MASSERT(cryptonote::get_transaction_hash(event.tx, id));
@@ -147,23 +151,32 @@ namespace
 
   testing::AssertionResult compare_minimal_txpool(epee::span<const cryptonote::txpool_event> events, const published_json& pub)
   {
-    MASSERT(pub.first == "json-minimal-txpool_add");
-    MASSERT(pub.second.IsArray());
-    MASSERT(pub.second.Size() <= events.size());
+    MASSERT(pub.endpoint == "json-minimal-txpool_add");
+    MASSERT(pub.doc.IsArray());
+    MASSERT(pub.doc.Size() <= events.size());
 
     std::size_t i = 0;
     for (const cryptonote::txpool_event& event : events)
     {
-      MASSERT(i <= pub.second.Size());
+      MASSERT(i <= pub.doc.Size());
       if (!event.res)
         continue;
 
       std::size_t actual_size = 0;
       crypto::hash actual_id{};
 
-      MASSERT(pub.second[i].IsObject());
-      GET_FROM_JSON_OBJECT(pub.second[i], actual_id, id);
-      GET_FROM_JSON_OBJECT(pub.second[i], actual_size, blob_size);
+      MASSERT(pub.doc[i].IsObject());
+      MASSERT(pub.doc[i].HasMember("blob_size"));
+      MASSERT(pub.doc[i].HasMember("id"));
+
+      const auto& json_size = pub.doc[i]["blob_size"];
+      const auto& json_id = pub.doc[i]["id"];
+
+      MASSERT(json_size.IsUint64());
+      MASSERT(json_id.IsString());
+
+      actual_size = json_size.GetUint64();
+      MASSERT(epee::from_hex::to_buffer(epee::as_mut_byte_span(actual_id), {json_id.GetString(), json_id.GetStringLength()}));
 
       std::size_t expected_size = 0;
       crypto::hash expected_id{};
@@ -177,11 +190,13 @@ namespace
 
   testing::AssertionResult compare_full_block(const epee::span<const cryptonote::block> expected, const published_json& pub)
   {
-    MASSERT(pub.first == "json-full-chain_main");
-    MASSERT(pub.second.IsArray());
+    MASSERT(pub.endpoint == "json-full-chain_main");
+    MASSERT(pub.doc.IsArray());
+    MASSERT(pub.doc.Size() == expected.size());
 
     std::vector<cryptonote::block> actual;
-    cryptonote::json::fromJsonValue(pub.second, actual);
+    auto array = wire::array<wire::max_element_count<100>>(std::ref(actual));
+    MASSERT(!wire_read::from_bytes<wire::json_reader>(epee::to_span(pub.json), array));
 
     MASSERT(expected.size() == actual.size());
 
@@ -198,16 +213,35 @@ namespace
 
   testing::AssertionResult compare_minimal_block(std::size_t height, const epee::span<const cryptonote::block> expected, const published_json& pub)
   {
-    MASSERT(pub.first == "json-minimal-chain_main");
-    MASSERT(pub.second.IsObject());
+    MASSERT(pub.endpoint == "json-minimal-chain_main");
+    MASSERT(pub.doc.IsObject());
     MASSERT(!expected.empty());
 
     std::size_t actual_height = 0;
     crypto::hash actual_prev_id{};
     std::vector<crypto::hash> actual_ids{};
-    GET_FROM_JSON_OBJECT(pub.second, actual_height, first_height);
-    GET_FROM_JSON_OBJECT(pub.second, actual_prev_id, first_prev_id);
-    GET_FROM_JSON_OBJECT(pub.second, actual_ids, ids);
+
+    MASSERT(pub.doc.HasMember("first_height"));
+    MASSERT(pub.doc.HasMember("first_prev_id"));
+    MASSERT(pub.doc.HasMember("ids"));
+
+    const auto& json_height = pub.doc["first_height"];
+    const auto& json_id = pub.doc["first_prev_id"];
+    const auto& json_ids = pub.doc["ids"];
+
+    MASSERT(json_height.IsUint64());
+    MASSERT(json_id.IsString());
+    MASSERT(json_ids.IsArray());
+
+    actual_height = json_height.GetUint64();
+    MASSERT(epee::from_hex::to_buffer(epee::as_mut_byte_span(actual_prev_id), {json_id.GetString(), json_id.GetStringLength()}));
+
+    for (const auto& elem : json_ids.GetArray())
+    {
+      actual_ids.emplace_back();
+      MASSERT(elem.IsString());
+      MASSERT(epee::from_hex::to_buffer(epee::as_mut_byte_span(actual_ids.back()), {elem.GetString(), elem.GetStringLength()}));
+    }
 
     MASSERT(height == actual_height);
     MASSERT(expected[0].prev_id == actual_prev_id);
@@ -304,7 +338,7 @@ namespace
       : cryptonote::rpc::RpcHandler()
     {}
 
-    virtual epee::byte_slice handle(std::string&& request) override final
+    virtual expect<epee::byte_slice> handle(boost::string_ref) override final
     {
       throw std::logic_error{"not implemented"};
     }
