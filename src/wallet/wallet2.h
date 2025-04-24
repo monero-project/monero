@@ -122,7 +122,7 @@ private:
     ~wallet_keys_unlocker();
   private:
     wallet2 &w;
-    bool can_relock;
+    bool should_relock;
     crypto::chacha_key key;
     static boost::mutex lockers_lock;
     static std::map<wallet2*, std::size_t> lockers_per_wallet;
@@ -950,11 +950,6 @@ private:
 
   private:
     /*!
-     * \brief Decrypts the account keys
-     * \return an RAII reencryptor for the account keys
-     */
-    epee::misc_utils::auto_scope_leave_caller decrypt_account_for_multisig(const epee::wipeable_string &password);
-    /*!
      * \brief Creates an uninitialized multisig account
      * \outparam: the uninitialized multisig account
      */
@@ -1058,6 +1053,7 @@ private:
     cryptonote::account_base& get_account(){return m_account;}
     const cryptonote::account_base& get_account()const{return m_account;}
 
+    bool is_key_encryption_enabled() const;
     void encrypt_keys(const crypto::chacha_key &key);
     void encrypt_keys(const epee::wipeable_string &password);
     void decrypt_keys(const crypto::chacha_key &key);
@@ -1677,8 +1673,6 @@ private:
     uint64_t get_base_fee(uint32_t);
 
     bool is_unattended() const { return m_unattended; }
-    bool is_spendkey_encryption_enabled() const
-    { return m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && !m_multisig && !m_is_background_wallet; }
 
     std::pair<size_t, uint64_t> estimate_tx_size_and_weight(bool use_rct, int n_inputs, int ring_size, int n_outputs, size_t extra_size);
 
