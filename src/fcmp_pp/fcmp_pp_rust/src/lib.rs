@@ -570,7 +570,7 @@ unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveInput], n_tree_lay
         .flatten()
         .collect();
 
-    let branches = Branches::new(paths).unwrap();
+    let branches = Branches::new(paths)?;
 
     assert_eq!(branches.necessary_c1_blinds(), c1_branch_blinds.len());
     assert_eq!(branches.necessary_c2_blinds(), c2_branch_blinds.len());
@@ -580,7 +580,7 @@ unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveInput], n_tree_lay
 
     let blinded_branches = branches
         .blind(output_blinds, c1_branch_blinds, c2_branch_blinds)
-        .unwrap();
+        .ok()?;
 
     Fcmp::prove(&mut OsRng, FCMP_PARAMS(), blinded_branches).ok()
 }
