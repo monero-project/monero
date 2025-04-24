@@ -730,7 +730,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_8)
             .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
             .enote_type = CarrotEnoteType::CHANGE
         },
-        .subaddr_index = {4, 19}
+        .subaddr_index = {{4, 19}}
     };
 
     // specify fee per weight
@@ -943,7 +943,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_12)
             .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
             .enote_type = CarrotEnoteType::CHANGE
         },
-        .subaddr_index = {4, 19}
+        .subaddr_index = {{4, 19}}
     }, true};
 
     // specify fee per weight
@@ -1153,7 +1153,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
             .amount = crypto::rand_idx<rct::xmr_amount>(1000000),
             .enote_type = CarrotEnoteType::CHANGE
         },
-        .subaddr_index = {4, 19}
+        .subaddr_index = {{4, 19}}
     }, true};
 
     // specify fee per weight
