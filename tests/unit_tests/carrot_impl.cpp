@@ -1193,7 +1193,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_TwoInputsPreferOldest_1)
         epee::to_span(policies),
         flags,
         &selected_input_indices);
-    
+
     boost::multiprecision::int128_t nominal_output_sum = 369;
 
     const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
@@ -1219,5 +1219,211 @@ TEST(carrot_impl, make_single_transfer_input_selector_TwoInputsPreferOldest_1)
     EXPECT_NE(selected_inputs.at(0), selected_inputs.at(1));
     EXPECT_TRUE((selected_inputs.at(0) == input_candidates.at(0).core) ^ (selected_inputs.at(0) == input_candidates[1].core));
     EXPECT_TRUE((selected_inputs.at(1) == input_candidates.at(0).core) ^ (selected_inputs.at(1) == input_candidates.at(1).core));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
+{
+    const std::vector<CarrotPreSelectedInput> input_candidates = {
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 500,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 72
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 200,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 34
+        }
+    };
+
+    const std::vector<input_selection_policy_t> policies = { &carrot::ispolicy::select_greedy_aging };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        &selected_input_indices);
+
+    boost::multiprecision::int128_t nominal_output_sum = 369;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        {1, 50},
+        {2, 75}
+    };
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
+
+    ASSERT_GT(input_candidates[0].core.amount, nominal_output_sum + fee_by_input_count.crbegin()->second);
+
+    std::vector<CarrotSelectedInput> selected_inputs;
+    input_selector(nominal_output_sum,
+        fee_by_input_count,
+        num_normal_payment_proposals,
+        num_selfsend_payment_proposals,
+        selected_inputs);
+
+    // sometimes we choose 2 for default, sometimes 1 for default
+    ASSERT_EQ(2, input_candidates.size());
+    ASSERT_EQ(selected_inputs.size(), selected_input_indices.size());
+    if (selected_inputs.size() == 2)
+    {
+        EXPECT_NE(input_candidates.at(0).core, input_candidates.at(1).core);
+        EXPECT_NE(selected_inputs.at(0), selected_inputs.at(1));
+        EXPECT_TRUE((selected_inputs.at(0) == input_candidates.at(0).core) ^ (selected_inputs.at(0) == input_candidates[1].core));
+        EXPECT_TRUE((selected_inputs.at(1) == input_candidates.at(0).core) ^ (selected_inputs.at(1) == input_candidates.at(1).core));
+    }
+    else
+    {
+        ASSERT_EQ(std::set<size_t>{0}, selected_input_indices);
+        ASSERT_EQ(input_candidates.at(0).core, selected_inputs.at(0));
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_2)
+{
+    const std::vector<CarrotPreSelectedInput> input_candidates = {
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 500,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 72
+        }
+    };
+
+    const std::vector<input_selection_policy_t> policies = { &carrot::ispolicy::select_greedy_aging };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        &selected_input_indices);
+
+    boost::multiprecision::int128_t nominal_output_sum = 369;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        {1, 50},
+        {2, 75}
+    };
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
+
+    ASSERT_GT(input_candidates[0].core.amount, nominal_output_sum + fee_by_input_count.crbegin()->second);
+
+    std::vector<CarrotSelectedInput> selected_inputs;
+    input_selector(nominal_output_sum,
+        fee_by_input_count,
+        num_normal_payment_proposals,
+        num_selfsend_payment_proposals,
+        selected_inputs);
+
+    ASSERT_EQ(1, input_candidates.size());
+    ASSERT_EQ(std::set<size_t>{0}, selected_input_indices);
+    ASSERT_EQ(std::vector<CarrotSelectedInput>{input_candidates.at(0).core}, selected_inputs);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
+{
+    // Give 5 input candidates, only 3 are needed to fill order. 4 should be used since it's the next power of 2
+    // They should be the four oldest
+
+    const std::vector<CarrotPreSelectedInput> input_candidates = {
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 55
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 22
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 11
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 88
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 100,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 72
+        }
+    };
+
+    const std::vector<input_selection_policy_t> policies = { &carrot::ispolicy::select_greedy_aging };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        &selected_input_indices);
+
+    boost::multiprecision::int128_t nominal_output_sum = 223;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        {1, 10},
+        {2, 20},
+        {3, 29},
+        {4, 37},
+        {5, 44},
+        {6, 50},
+        {7, 55},
+        {8, 59},
+    };
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
+
+    std::vector<CarrotSelectedInput> selected_inputs;
+    input_selector(nominal_output_sum,
+        fee_by_input_count,
+        num_normal_payment_proposals,
+        num_selfsend_payment_proposals,
+        selected_inputs);
+
+    ASSERT_EQ(4, selected_input_indices.size()); // discretization yay
+    ASSERT_EQ(4, selected_inputs.size());
+    std::set<crypto::key_image> selected_kis;
+    for (const CarrotSelectedInput &selected_input : selected_inputs)
+        selected_kis.insert(selected_input.key_image);
+    ASSERT_EQ(4, selected_kis.size());
+
+    // this particular set of 4 indices is the indices of the 4 oldest inputs
+    ASSERT_EQ(std::set<size_t>({0, 1, 2, 4}), selected_input_indices);
 }
 //----------------------------------------------------------------------------------------------------------------------
