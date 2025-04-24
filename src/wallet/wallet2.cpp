@@ -3379,8 +3379,9 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
       tx_output_idx += tx.vout.size();
     }
   }
-  if (!scan_blocks_waiter.wait())
-    MERROR("Failed to scan block's tx outputs, the wallet may miss owned enotes");
+  THROW_WALLET_EXCEPTION_IF(!scan_blocks_waiter.wait(),
+    error::wallet_internal_error,
+    "Exception in enote / key image scanning threadpool");
 
   size_t current_index = start_height;
   tx_output_idx = 0;
