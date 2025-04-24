@@ -229,8 +229,8 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
                 std::vector<carrot::CarrotSelectedInput> &selected_inputs_outs
             ){
                 const std::vector<carrot::input_selection_policy_t> policies{
-                    &carrot::ispolicy::select_two_inputs_prefer_oldest
-                }; // @TODO
+                    &carrot::ispolicy::select_greedy_aging
+                };
 
                 // TODO: not all carrot is internal
                 std::uint32_t flags = 0;
