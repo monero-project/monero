@@ -77,8 +77,21 @@ select_inputs_func_t make_single_transfer_input_selector(
 
 namespace ispolicy
 {
+std::vector<std::size_t> get_input_counts_in_preferred_order();
+
 void select_two_inputs_prefer_oldest(
     const epee::span<const CarrotPreSelectedInput>,
+    const std::set<std::size_t>&,
+    const std::map<size_t, boost::multiprecision::int128_t>&,
+    std::set<std::size_t>&);
+
+void select_greedy_aging_fixed_count(const std::size_t fixed_n_inputs,
+    const epee::span<const CarrotPreSelectedInput>,
+    const std::set<std::size_t>&,
+    const std::map<size_t, boost::multiprecision::int128_t>&,
+    std::set<std::size_t>&);
+
+void select_greedy_aging(const epee::span<const CarrotPreSelectedInput>,
     const std::set<std::size_t>&,
     const std::map<size_t, boost::multiprecision::int128_t>&,
     std::set<std::size_t>&);
