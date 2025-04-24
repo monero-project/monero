@@ -122,7 +122,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     append_additional_payment_proposal_if_necessary(normal_payment_proposals,
         selfsend_payment_proposals,
         account_spend_pubkey,
-        {0, 0, AddressDeriveType::Auto}); // @TODO: let callers pass AddressDeriveType as an argument
+        {{0, 0}, AddressDeriveType::Auto}); // @TODO: let callers pass AddressDeriveType as an argument
 
     const size_t num_outs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
     CHECK_AND_ASSERT_THROW_MES(num_outs >= CARROT_MIN_TX_OUTPUTS,
@@ -242,7 +242,7 @@ void make_carrot_transaction_proposal_v1_transfer_subtractable(
             .amount = 0,
             .enote_type = add_payment_type_selfsend ? CarrotEnoteType::PAYMENT : CarrotEnoteType::CHANGE
         },
-        .subaddr_index = {0, 0, AddressDeriveType::Auto} // @TODO: let callers pass AddressDeriveType as an argument
+        .subaddr_index = {{0, 0}, AddressDeriveType::Auto} // @TODO: let callers pass AddressDeriveType as an argument
     });
 
     // define carves fees and balance callback
