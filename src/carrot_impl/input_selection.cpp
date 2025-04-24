@@ -31,6 +31,8 @@
 
 //local headers
 #include "carrot_core/config.h"
+#include "common/container_helpers.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "misc_log_ex.h"
 
 //third party headers
@@ -384,6 +386,29 @@ select_inputs_func_t make_single_transfer_input_selector(
 //-------------------------------------------------------------------------------------------------------------------
 namespace ispolicy
 {
+//-------------------------------------------------------------------------------------------------------------------
+std::vector<std::size_t> get_input_counts_in_preferred_order()
+{
+    // 1 or 2 randomly, then
+    // other ascending non-zero powers of 2, then
+    // other ascending non-zero numbers
+
+    //! @TODO: MRL discussion about 2 vs 1 default input count when 1 input can pay. If we default to 1, then that may
+    // reveal more information about the amount, and reveals that one can't pay with 1 output when using 2. Vice versa,
+    // if we default to 2, then that means that one only owns 1 output when using 1. It may be the most advantageous to
+    // randomly switch between preferring 1 vs 2. See: https://lavalle.pl/planning/node437.html
+
+    static_assert(CARROT_MAX_TX_INPUTS == FCMP_PLUS_PLUS_MAX_INPUTS, "inconsistent input count max limit");
+    static_assert(CARROT_MIN_TX_INPUTS == 1 && CARROT_MAX_TX_INPUTS == 8,
+        "refactor this function for different input count limits");
+
+    const bool random_bit = 0 == (crypto::rand<uint8_t>() & 0x01);
+    if (random_bit)
+        return {2, 1, 4, 8, 3, 5, 6, 7};
+    else
+        return {1, 2, 4, 8, 3, 5, 6, 7};
+}
+//-------------------------------------------------------------------------------------------------------------------
 void select_two_inputs_prefer_oldest(const epee::span<const CarrotPreSelectedInput> input_candidates,
     const std::set<size_t> &selectable_inputs,
     const std::map<size_t, boost::multiprecision::int128_t> &required_money_by_input_count,
@@ -437,6 +462,108 @@ void select_two_inputs_prefer_oldest(const epee::span<const CarrotPreSelectedInp
         // we found a match !
         selected_inputs_indices_out = {low_bi_input, *other_it};
         return;
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void select_greedy_aging_fixed_count(const std::size_t fixed_n_inputs,
+    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const std::set<std::size_t> &selectable_inputs,
+    const std::map<size_t, boost::multiprecision::int128_t> &required_money_by_input_count,
+    std::set<std::size_t> &selected_inputs_indices_out)
+{
+    selected_inputs_indices_out.clear();
+
+    CHECK_AND_ASSERT_MES(fixed_n_inputs,, "select_greedy_aging: fixed_n_inputs must be non-zero");
+    CHECK_AND_ASSERT_MES(fixed_n_inputs <= selectable_inputs.size(),,
+        "select_greedy_aging: not enough inputs: " << selectable_inputs.size() << '/' << fixed_n_inputs);
+    CHECK_AND_ASSERT_MES(required_money_by_input_count.count(fixed_n_inputs),,
+        "select_greedy_aging: input count " << fixed_n_inputs << "not allowed");
+
+    // Sort selectable inputs by amount
+    std::vector<std::size_t> selectable_inputs_by_amount(selectable_inputs.cbegin(), selectable_inputs.cend());
+    stable_sort_indices_by_amount(input_candidates, selectable_inputs_by_amount);
+
+    // Select highest amount inputs and collect ordered multi-map of block indices of current selected inputs
+    boost::multiprecision::uint128_t input_amount_sum = 0;
+    std::multimap<std::uint64_t, std::size_t> selected_indices_by_block_index;
+    for (size_t i = 0; i < fixed_n_inputs; ++i)
+    {
+        const std::size_t selectable_idx = selectable_inputs_by_amount.at(selectable_inputs_by_amount.size() - i - 1);
+        const CarrotPreSelectedInput &input = input_candidates[selectable_idx];
+        input_amount_sum += input.core.amount;
+        selected_inputs_indices_out.insert(selectable_idx);
+        selected_indices_by_block_index.emplace(input.block_index, selectable_idx);
+    }
+
+    // Check enough money
+    const boost::multiprecision::uint128_t required_money =
+        boost::numeric_cast<boost::multiprecision::uint128_t>(required_money_by_input_count.at(fixed_n_inputs));
+    if (input_amount_sum < required_money)
+    {
+        MDEBUG("not enough money in " << fixed_n_inputs << " inputs: " << cryptonote::print_money(input_amount_sum));
+        selected_inputs_indices_out.clear();
+        return;
+    }
+
+    // Right now, we have the highest amount inputs selected. Perform a greedy search to replace the newest inputs
+    // with the oldest possible input that still provides enough money
+    for (auto bi_it = selected_indices_by_block_index.rbegin(); bi_it != selected_indices_by_block_index.rend();)
+    {
+        std::uint64_t min_block_index = bi_it->first;
+        size_t input_of_min_block_index_input = bi_it->second;
+        const boost::multiprecision::uint128_t surplus = input_amount_sum - required_money;
+        const rct::xmr_amount currently_selected_amount = input_candidates[bi_it->second].core.amount;
+        const rct::xmr_amount lowest_replacement_amount = (currently_selected_amount > surplus)
+            ? boost::numeric_cast<rct::xmr_amount>(currently_selected_amount - surplus) : 0;
+        const auto lower_amount_it = std::lower_bound(selectable_inputs_by_amount.cbegin(),
+            selectable_inputs_by_amount.cend(), lowest_replacement_amount);
+        for (auto amount_it = lower_amount_it; amount_it != selectable_inputs_by_amount.cend(); ++amount_it)
+        {
+            const std::size_t potential_replacement_idx = *amount_it;
+            if (selected_inputs_indices_out.count(potential_replacement_idx))
+                continue;
+            const CarrotPreSelectedInput &potential_replacement_input = input_candidates[potential_replacement_idx];
+            if (potential_replacement_input.block_index < min_block_index)
+            {
+                min_block_index = potential_replacement_input.block_index;
+                input_of_min_block_index_input = potential_replacement_idx;
+            }
+        }
+
+        if (input_of_min_block_index_input != bi_it->second) // i.e. found a replacement
+        {
+            selected_inputs_indices_out.erase(bi_it->second);
+            selected_inputs_indices_out.insert(input_of_min_block_index_input);
+            bi_it = tools::reverse_erase(selected_indices_by_block_index, bi_it);
+            selected_indices_by_block_index.emplace(min_block_index, input_of_min_block_index_input);
+            input_amount_sum -= currently_selected_amount;
+            input_amount_sum += input_candidates[input_of_min_block_index_input].core.amount;
+            CHECK_AND_ASSERT_THROW_MES(input_amount_sum >= required_money,
+                "select_greedy_aging: BUG: replaced an input with one of too low amount");
+        }
+        else // no replacement, go to next input
+        {
+            ++bi_it;
+        }
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void select_greedy_aging(const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const std::set<std::size_t> &selectable_inputs,
+    const std::map<size_t, boost::multiprecision::int128_t> &required_money_by_input_count,
+    std::set<std::size_t> &selected_inputs_indices_out)
+{
+    selected_inputs_indices_out.clear();
+
+    for (const std::size_t n_inputs : get_input_counts_in_preferred_order())
+    {
+        select_greedy_aging_fixed_count(n_inputs,
+            input_candidates,
+            selectable_inputs,
+            required_money_by_input_count,
+            selected_inputs_indices_out);
+        if (!selected_inputs_indices_out.empty())
+            return;
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
