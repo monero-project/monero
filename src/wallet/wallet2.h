@@ -1673,8 +1673,6 @@ private:
     uint64_t get_base_fee(uint32_t);
 
     bool is_unattended() const { return m_unattended; }
-    bool is_spendkey_encryption_enabled() const
-    { return m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && !m_multisig && !m_is_background_wallet; }
 
     std::pair<size_t, uint64_t> estimate_tx_size_and_weight(bool use_rct, int n_inputs, int ring_size, int n_outputs, size_t extra_size);
 

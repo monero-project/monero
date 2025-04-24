@@ -2327,7 +2327,7 @@ void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enot
     return;
 
   // if keys are encrypted, ask for password
-  if (is_spendkey_encryption_enabled())
+  if (is_key_encryption_enabled())
   {
     static critical_section password_lock;
     CRITICAL_REGION_LOCAL(password_lock);
