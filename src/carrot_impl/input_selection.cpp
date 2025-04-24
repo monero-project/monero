@@ -471,6 +471,9 @@ void select_greedy_aging_fixed_count(const std::size_t fixed_n_inputs,
     const std::map<size_t, boost::multiprecision::int128_t> &required_money_by_input_count,
     std::set<std::size_t> &selected_inputs_indices_out)
 {
+    MTRACE(__func__ << ": fixed_n_inputs=" << fixed_n_inputs << ", selectable_inputs.size()="
+        << selectable_inputs.size());
+
     selected_inputs_indices_out.clear();
 
     CHECK_AND_ASSERT_MES(fixed_n_inputs,, "select_greedy_aging: fixed_n_inputs must be non-zero");
