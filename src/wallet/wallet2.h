@@ -1811,7 +1811,25 @@ private:
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password);
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password, boost::optional<crypto::chacha_key>& keys_to_encrypt);
     void load_wallet_cache(const bool use_fs, const std::string& cache_buf = "");
-    void scan_key_image(const wallet::enote_view_incoming_scan_info_t &enote_scan_info, bool pool, std::optional<crypto::key_image> &ki_out);
+    /*!
+     * \brief Calculate key image for view-scanned enote, requesting password and decrypting spend privkey if applicable
+     * \param enote_scan_info view-scanned information for enote
+     * \param pool true iff enote was found in pool, only matters for password prompt
+     * \param[out] ki_out key image result, equal to std::nullopt when calculation failed or isn't possible
+     * \param[inout] password_failure_inout if false, then skips password request. Set to true when password callback fails
+     * \throw error::password_needed if password callback fails
+     *
+     * If the password callback is successful, then the wallet spend privkey is decrypted and the unlocker guard is
+     * stored in `m_encrypt_keys_after_refresh`. To re-encrypt the spend privkey, you will need to call
+     * `m_encrypt_keys_after_refresh.reset()`. The access to the `password_failure_inout` is thread-safe, and a batch
+     * of concurrent calls to `scan_key_image()` with the same referenced boolean in `password_failure_inout` will only
+     * call the password callback once in total on any individual failure.
+     */
+    void scan_key_image(const wallet::enote_view_incoming_scan_info_t &enote_scan_info,
+      const bool pool,
+      std::optional<crypto::key_image> &ki_out,
+      bool &password_failure_inout);
+
     void process_new_transaction(
         const crypto::hash &txid,
         const cryptonote::transaction& tx,
@@ -2074,6 +2092,8 @@ private:
     crypto::chacha_key m_cache_key;
     boost::optional<crypto::chacha_key> m_custom_background_key = boost::none;
     std::shared_ptr<wallet_keys_unlocker> m_encrypt_keys_after_refresh;
+    /// synchronizes access to m_encrypt_keys_after_refresh and password callback
+    boost::mutex m_refresh_mutex;
 
     bool m_unattended;
     bool m_devices_registered;

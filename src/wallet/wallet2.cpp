@@ -2306,7 +2306,8 @@ bool wallet2::spends_one_of_ours(const cryptonote::transaction &tx) const
 //----------------------------------------------------------------------------------------------------
 void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enote_scan_info,
   const bool pool,
-  std::optional<crypto::key_image> &ki_out)
+  std::optional<crypto::key_image> &ki_out,
+  bool &password_failure_inout)
 {
   ki_out = std::nullopt;
 
@@ -2316,18 +2317,19 @@ void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enot
   // if keys are encrypted, ask for password
   if (is_key_encryption_enabled())
   {
-    static critical_section password_lock;
-    CRITICAL_REGION_LOCAL(password_lock);
+    boost::lock_guard password_failure_lock(m_refresh_mutex);
     if (!m_encrypt_keys_after_refresh)
     {
       boost::optional<epee::wipeable_string> pwd;
-      if (m_callback)
+      if (m_callback && !password_failure_inout)
         pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
+      password_failure_inout = true;
       THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed,
         tr("No password provided. Password is needed to compute key image for incoming enotes"));
       THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed,
         tr("Invalid password. Password is needed to compute key image for incoming enotes"));
       m_encrypt_keys_after_refresh.reset(new wallet_keys_unlocker(*this, &*pwd));
+      password_failure_inout = false;
     }
   }
 
@@ -2357,10 +2359,11 @@ void wallet2::process_new_transaction(
       this->m_subaddresses);
 
   // if view-incoming scan was successful, try deriving the key image
+  bool password_failure = false;
   std::vector<std::optional<crypto::key_image>> output_key_images(n_outputs);
   for (size_t i = 0; i < n_outputs; ++i)
     if (enote_scan_infos.at(i))
-      scan_key_image(*enote_scan_infos.at(i), pool, output_key_images[i]);
+      scan_key_image(*enote_scan_infos.at(i), pool, output_key_images[i], password_failure);
 
   // create output tracker cache from scratch
   // this is kind of slow, but in the cases where this function is called (i.e. not normal block syncing), it's okay
@@ -3341,8 +3344,8 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // define view-incoming scan and key image derivation job
   std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(num_tx_outputs);
   std::vector<std::optional<crypto::key_image>> output_key_images(num_tx_outputs);
-  std::atomic<bool> password_is_needed = false;
-  auto tx_scan_job = [this, &enote_scan_infos, &output_key_images, &password_is_needed]
+  bool password_failure = false;
+  auto tx_scan_job = [this, &enote_scan_infos, &output_key_images, &password_failure]
     (const cryptonote::transaction &tx, size_t tx_output_idx)
   {
     const size_t output_span_end = tx_output_idx + tx.vout.size();
@@ -3359,18 +3362,10 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     // if view-incoming scan was successful, try deriving the key image
     for (size_t i = tx_output_idx; i < output_span_end; ++i)
     {
-      if (enote_scan_infos.at(i))
-      {
-        try
-        {
-          scan_key_image(*enote_scan_infos.at(i), /*pool=*/false, output_key_images[i]);
-        }
-        catch (const error::password_needed &e)
-        {
-          password_is_needed.store(true);
-          throw e;
-        }
-      }
+      if (!enote_scan_infos.at(i))
+        continue;
+
+      scan_key_image(*enote_scan_infos.at(i), /*pool=*/false, output_key_images[i], password_failure);
     }
   }; //tx_scan_job
 
@@ -3394,10 +3389,11 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   }
   if (!scan_blocks_waiter.wait())
   {
-    THROW_WALLET_EXCEPTION_IF(password_is_needed.load(), error::password_needed);
+    THROW_WALLET_EXCEPTION_IF(password_failure, error::password_needed);
     THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Unrecognized exception in enote scanning threadpool");
   }
 
+  // Start processing blockchain entries with scanned outputs
   size_t current_index = start_height;
   tx_output_idx = 0;
   for (size_t i = 0; i < blocks.size(); ++i)
@@ -3818,6 +3814,7 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
   process_txs.clear();
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    boost::lock_guard refresh_lock(m_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -3891,6 +3888,7 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
 {
   MTRACE("update_pool_state_from_pool_data start");
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    boost::lock_guard refresh_lock(m_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -4144,6 +4142,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   start_height = 0;
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    boost::lock_guard refresh_lock(m_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
