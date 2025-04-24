@@ -3341,7 +3341,8 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // define view-incoming scan and key image derivation job
   std::vector<std::optional<wallet::enote_view_incoming_scan_info_t>> enote_scan_infos(num_tx_outputs);
   std::vector<std::optional<crypto::key_image>> output_key_images(num_tx_outputs);
-  auto tx_scan_job = [this, &enote_scan_infos, &output_key_images]
+  std::atomic<bool> password_is_needed = false;
+  auto tx_scan_job = [this, &enote_scan_infos, &output_key_images, &password_is_needed]
     (const cryptonote::transaction &tx, size_t tx_output_idx)
   {
     const size_t output_span_end = tx_output_idx + tx.vout.size();
@@ -3357,8 +3358,20 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
 
     // if view-incoming scan was successful, try deriving the key image
     for (size_t i = tx_output_idx; i < output_span_end; ++i)
+    {
       if (enote_scan_infos.at(i))
-        scan_key_image(*enote_scan_infos.at(i), /*pool=*/false, output_key_images[i]);
+      {
+        try
+        {
+          scan_key_image(*enote_scan_infos.at(i), /*pool=*/false, output_key_images[i]);
+        }
+        catch (const error::password_needed &e)
+        {
+          password_is_needed.store(true);
+          throw e;
+        }
+      }
+    }
   }; //tx_scan_job
 
   // create tx scanning jobs for all relevant tx outputs in all blocks
@@ -3379,9 +3392,11 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
       tx_output_idx += tx.vout.size();
     }
   }
-  THROW_WALLET_EXCEPTION_IF(!scan_blocks_waiter.wait(),
-    error::wallet_internal_error,
-    "Exception in enote / key image scanning threadpool");
+  if (!scan_blocks_waiter.wait())
+  {
+    THROW_WALLET_EXCEPTION_IF(password_is_needed.load(), error::password_needed);
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Unrecognized exception in enote scanning threadpool");
+  }
 
   size_t current_index = start_height;
   tx_output_idx = 0;
