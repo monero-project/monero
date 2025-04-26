@@ -68,6 +68,14 @@ And so on...
 - Network Protection: Anti-51% attack measures
 - Consensus: Proof of Work (PoW)
 
+### Community & Support
+- Website: https://funero.network
+- Explorer: https://explorer.funero.network 
+- Mining Pool: https://pool.funero.network
+- Discord: https://discord.gg/funero
+- Twitter: @FuneroCoin
+- Telegram: @FuneroOfficial
+
 ### Mining Schedule
 
 The mining schedule follows a halving pattern where block rewards are reduced by 50% every 250,000 blocks:
