@@ -33,6 +33,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(wallet_api_sources
   wallet.cpp
   wallet_manager.cpp
+  enote_details.cpp
   transaction_info.cpp
   transaction_history.cpp
   pending_transaction.cpp
@@ -48,6 +49,7 @@ set(wallet_api_headers
 set(wallet_api_private_headers
   wallet.h
   wallet_manager.h
+  enote_details.h
   transaction_info.h
   transaction_history.h
   pending_transaction.h
