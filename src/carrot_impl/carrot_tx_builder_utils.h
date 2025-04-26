@@ -42,13 +42,7 @@
 namespace carrot
 {
 
-static inline std::size_t get_carrot_default_tx_extra_size(const std::size_t num_outputs)
-{
-    // @TODO: actually implement
-    return num_outputs * (32 + 1) + (8 + 2);
-}
-
-std::size_t get_carrot_coinbase_default_tx_extra_size(const std::size_t num_outputs);
+std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
 
 static inline std::size_t get_fcmppp_tx_weight(const std::size_t num_inputs,
     const std::size_t num_outputs,
@@ -57,9 +51,6 @@ static inline std::size_t get_fcmppp_tx_weight(const std::size_t num_inputs,
     // @TODO: actually implement
     return 200 + num_inputs * 1000 + num_outputs * 100 + tx_extra_size;
 }
-
-std::size_t get_fcmppp_coinbase_tx_weight(const std::size_t num_outputs,
-    const std::size_t tx_extra_size);
 
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,

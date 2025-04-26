@@ -98,6 +98,30 @@ static void append_additional_payment_proposal_if_necessary(
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
+{
+    CHECK_AND_ASSERT_THROW_MES(n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
+        "get_carrot_default_tx_extra_size: n_outputs too high");
+    CHECK_AND_ASSERT_THROW_MES(n_outputs >= CARROT_MIN_TX_OUTPUTS,
+        "get_carrot_default_tx_extra_size: n_outputs too low");
+
+    static constexpr std::uint64_t enc_pid_extra_field_size =
+        8 /*pid*/
+        + 1 /*TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID*/
+        + 1 /*nonce.size()*/
+        + 1 /*tx_extra_field variant tag*/;
+
+    static constexpr std::uint64_t x25519_pubkey_size = 32;
+    const std::size_t n_ephemeral = (n_outputs == 2) ? 1 : n_outputs;
+    const bool use_additional = n_ephemeral > 1;
+    const std::uint64_t ephemeral_pubkeys_field_size =
+        1 /*tx_extra_field variant tag*/
+        + (use_additional ? 1 : 0) /*vector size if applicable*/
+        + (n_ephemeral * x25519_pubkey_size) /*actual pubkeys*/;
+
+    return enc_pid_extra_field_size + ephemeral_pubkeys_field_size;
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_in,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
     const rct::xmr_amount fee_per_weight,
@@ -152,8 +176,8 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     // generate random dummy encrypted payment ID for if none of the normal payment proposals are integrated
     tx_proposal_out.dummy_encrypted_payment_id = gen_payment_id();
 
-    // calculate size of tx.extra
-    const size_t tx_extra_size = get_carrot_default_tx_extra_size(num_outs);
+    // calculate the final size of tx.extra
+    const size_t tx_extra_size = get_carrot_default_tx_extra_size(num_outs) + extra.size();
 
     // calculate the concrete fee for this transaction for each possible valid input count
     std::map<size_t, rct::xmr_amount> fee_per_input_count;
