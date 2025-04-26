@@ -7,6 +7,9 @@ Funero is a privacy-focused cryptocurrency with the following specifications:
 - Total Supply: 150,000,000 FNRO
 - Genesis Block Reward: 50,000 FNRO
 - Block Reward: Decreasing with emission speed factor of 7
+- Block Time: 3 minutes (180 seconds)
+- Difficulty Adjustment: Every 25 blocks
+- Initial Difficulty: 0
 - Hardfork Interval: Every 250,000 blocks
 - Symbol: FNRO
 - Privacy: Based on Ring Signatures, RingCT, and Stealth Addresses
@@ -27,7 +30,7 @@ make release
 ## Running
 
 ```bash
-./build/release/bin/monerod
+./build/release/bin/funerod
 ```
 
 ## License
@@ -39,7 +42,6 @@ See [LICENSE](LICENSE).
 If you want to help out, see [CONTRIBUTING](docs/CONTRIBUTING.md) for a set of guidelines.
 
 ## Scheduled software/network upgrades
-
 Monero uses a scheduled software/network upgrade (hard fork) mechanism to implement new features into the Monero software and network. This means that users of Monero (end users and service providers) should run current versions and upgrade their software when new releases are available. Software upgrades occur when new features are developed and implemented in the codebase. Network upgrades occur in tandem with software upgrades that modify the consensus rules of the Monero network. The required software for network upgrades will be available prior to the scheduled network upgrade date. Please check the repository prior to this date for the proper Monero software version. Below is the historical schedule and the projected schedule for the next upgrade.
 Dates are provided in the format YYYY-MM-DD. The "Minimum" is the software version that follows the new consensus rules. The "Recommended" version may include bug fixes and other new features that do not affect the consensus rules.
 
@@ -65,7 +67,7 @@ Dates are provided in the format YYYY-MM-DD. The "Minimum" is the software versi
 
 X's indicate that these details have not been determined as of commit date.
 
-\* indicates estimate as of commit date
+* indicates estimate as of commit date
 
 ## Release staging schedule and protocol
 
@@ -506,17 +508,17 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
 
 Packaging for your favorite distribution would be a welcome contribution!
 
-## Running monerod
+## Running funerod
 
 The build places the binary in `bin/` sub-directory within the build directory
 from which cmake was invoked (repository root by default). To run in the
 foreground:
 
 ```bash
-./bin/monerod
+./bin/funerod
 ```
 
-To list all available options, run `./bin/monerod --help`.  Options can be
+To list all available options, run `./bin/funerod --help`.  Options can be
 specified either on the command line or in a configuration file passed by the
 `--config-file` argument.  To specify an option in the configuration file, add
 a line with the syntax `argumentname=value`, where `argumentname` is the name
@@ -525,7 +527,7 @@ of the argument without the leading dashes, for example, `log-level=1`.
 To run in background:
 
 ```bash
-./bin/monerod --log-file monerod.log --detach
+./bin/funerod --log-file funerod.log --detach
 ```
 
 To run as a systemd service, copy
@@ -588,36 +590,7 @@ to add a rule to allow this connection too, in addition to telling torsocks to
 allow inbound connections. Full example:
 
 ```bash
-sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
-DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
-    --## Pruning
-
-As of April 2022, the full Funero blockchain file is about 130 GB. One can store a pruned blockchain, which is about 45 GB.
-A pruned blockchain can only serve part of the historical chain data to other peers, but is otherwise identical in
-functionality to the full blockchain.
-To use a pruned blockchain, it is best to start the initial sync with `--prune-blockchain`. However, it is also possible
-to prune an existing blockchain using the `monero-blockchain-prune` tool or using the `--prune-blockchain` `monerod` option
-with an existing chain. If an existing chain exists, pruning will temporarily require disk space to store both the full
-and pruned blockchains.
-
-For more detailed information see the ['Pruning' entry in the Moneropedia](https://www.getmonero.org/resources/moneropedia/pruning.html)
-
-## Debugging
-
-This section contains general instructions for debugging failed installs or problems encountered with Funero. First, ensure you are running the latest version built from the GitHub repo.
-
-### Obtaining stack traces and core dumps on Unix systems
-
-We generally use the tool `gdb` (GNU debugger) to provide stack trace functionality, and `ulimit` to provide core dumps in builds which crash or segfault.
-
-* To use `gdb` in order to obtain a stack trace for a build that has stalled:
-
-Run the build.
-
-Once it stalls, enter the following command:
-
-```bash
-gdb /path/to/monerod `pidof monerod`
+sudo iptables -I OUTPUT 2 -p tcp -d gdb /path/to/monerod `pidof monerod`
 ```
 
 Type `thread apply all bt` within gdb in order to obtain the stack trace
@@ -648,11 +621,11 @@ coredumpctl -1 gdb
 
 #### To run Funero within gdb:
 
-Type `gdb /path/to/monerod`
+Type `gdb /path/to/funerod`
 
 Pass command-line options with `--args` followed by the relevant arguments
 
-Type `run` to run monerod
+Type `run` to run funerod
 
 ### Analysing memory corruption
 
@@ -670,7 +643,7 @@ You can then run the Funero tools normally. Performance will typically halve.
 
 #### valgrind
 
-Install valgrind and run as `valgrind /path/to/monerod`. It will be very slow.
+Install valgrind and run as `valgrind /path/to/funerod`. It will be very slow.
 
 ### LMDB
 

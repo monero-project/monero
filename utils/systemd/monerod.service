@@ -1,10 +1,10 @@
 [Unit]
-Description=Monero Full Node
+Description=Funero Full Node
 After=network-online.target
 
 [Service]
-User=monero
-Group=monero
+User=funero
+Group=funero
 WorkingDirectory=~
 StateDirectory=monero
 LogsDirectory=monero
