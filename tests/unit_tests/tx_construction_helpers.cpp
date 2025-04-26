@@ -432,7 +432,7 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
         tx_proposal);
 
     cryptonote::transaction tx;
-    carrot::make_pruned_transaction_from_carrot_proposal_v1(tx_proposal,
+    carrot::make_pruned_transaction_from_proposal_v1(tx_proposal,
         /*s_view_balance_dev=*/nullptr,
         &k_view_dev,
         tx);

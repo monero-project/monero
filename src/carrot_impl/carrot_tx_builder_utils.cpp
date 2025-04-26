@@ -514,7 +514,7 @@ void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &t
     // HW devices will need to implement this function to sign tx proposals, and most of these devices don't have a lot of memory
 
     cryptonote::transaction pruned_tx;
-    make_pruned_transaction_from_carrot_proposal_v1(tx_proposal,
+    make_pruned_transaction_from_proposal_v1(tx_proposal,
         s_view_balance_dev,
         k_view_dev,
         pruned_tx);
@@ -531,7 +531,7 @@ void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &t
     signable_tx_hash_out = rct::rct2hash(signable_tx_hash_k);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     cryptonote::transaction &pruned_tx_out)
@@ -563,7 +563,7 @@ void make_pruned_transaction_from_carrot_proposal_v1(const CarrotTransactionProp
         std::vector<std::uint8_t> sorted_extra;
         pruned_tx_out.extra.insert(pruned_tx_out.extra.end(), tx_proposal.extra.cbegin(), tx_proposal.extra.cend());
         CHECK_AND_ASSERT_THROW_MES(cryptonote::sort_tx_extra(pruned_tx_out.extra, sorted_extra),
-            "make_pruned_transaction_from_carrot_proposal_v1: failed to sort ");
+            "make_pruned_transaction_from_proposal_v1: failed to sort tx extra");
         pruned_tx_out.extra = std::move(sorted_extra);
     }
 }
