@@ -1,4 +1,5 @@
 Funero Fun Fork From Monero
+![ChatGPT Image Apr 26, 2025, 06_01_47 PM](https://github.com/user-attachments/assets/c86bd6e6-d051-4723-b4d1-7002f68a4e14)
 
 Copyright (c) 2014-2024, The Monero Project
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
