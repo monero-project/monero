@@ -1,0 +1,21 @@
+[Unit]
+Description=Funero Full Node
+After=network-online.target
+
+[Service]
+User=funero
+Group=funero
+WorkingDirectory=~
+StateDirectory=funero
+LogsDirectory=funero
+
+Type=forking
+ExecStart=/usr/bin/funerod --config-file /etc/funerod.conf --detach
+PIDFile=/run/funerod/funerod.pid
+StandardOutput=null
+StandardError=null
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
