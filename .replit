@@ -19,7 +19,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "make release-test -j $(nproc)"
+args = "make release-test -j2"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
