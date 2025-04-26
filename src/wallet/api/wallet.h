@@ -33,11 +33,13 @@
 
 #include "wallet/api/wallet2_api.h"
 #include "wallet/wallet2.h"
+#include "wipeable_string.h"
 
 #include <string>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition_variable.hpp>
+#include <string_view>
 
 class WalletApiAccessorTest;
 
@@ -94,8 +96,7 @@ public:
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
-    bool setPassword(const std::string &password) override;
-    const std::string& getPassword() const override;
+    bool setPassword(const std::string_view &old_password, const std::string_view &new_password) override;
     bool setDevicePin(const std::string &password) override;
     bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
@@ -107,7 +108,7 @@ public:
     std::string publicMultisigSignerKey() const override;
     std::string path() const override;
     void stop() override;
-    bool store(const std::string &path) override;
+    bool store(const std::string &path, const optional<std::string_view> &password = optional<std::string_view>()) override;
     std::string filename() const override;
     std::string keysFilename() const override;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") override;
@@ -151,9 +152,9 @@ public:
 
     MultisigState multisig() const override;
     std::string getMultisigInfo() const override;
-    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
-    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution = false) override;
-    std::string getMultisigKeyExchangeBooster(const std::vector<std::string> &info, const uint32_t threshold, const uint32_t num_signers) override;
+    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const std::string_view &password) override;
+    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const std::string_view &password, const bool force_update_use_with_caution = false) override;
+    std::string getMultisigKeyExchangeBooster(const std::vector<std::string> &info, const uint32_t threshold, const uint32_t num_signers, const std::string_view &password) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     bool hasMultisigPartialKeyImages() const override;
@@ -417,11 +418,6 @@ private:
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
-    // TODO: harden password handling in the wallet API, see relevant discussion
-    // https://github.com/monero-project/monero-gui/issues/1537
-    // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142
-    // https://github.com/monero-project/monero/pull/8619#issuecomment-1632951461
-    std::string m_password;
     std::unique_ptr<TransactionHistoryImpl> m_history;
     std::unique_ptr<Wallet2CallbackImpl> m_wallet2Callback;
     std::unique_ptr<AddressBookImpl>  m_addressBook;
