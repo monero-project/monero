@@ -397,7 +397,7 @@ TEST_F(WalletManagerTest, WalletManagerMovesWallet)
             (boost::filesystem::temp_directory_path() / (std::string(WALLET_NAME) + ".moved")).string();
     Utils::deleteWallet(WALLET_NAME_MOVED);
     std::string seed1 = wallet1->seed();
-    ASSERT_TRUE(wallet1->store(WALLET_NAME_MOVED));
+    ASSERT_TRUE(wallet1->store(WALLET_NAME_MOVED, WALLET_PASS));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
     Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_MOVED, WALLET_PASS, WALLET_NETWORK_TYPE);
@@ -413,7 +413,7 @@ TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
     Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
-    ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
+    ASSERT_TRUE(wallet1->setPassword(WALLET_PASS, WALLET_PASS2));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
@@ -451,7 +451,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromSeed)
     Monero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, WALLET_PASS, seed1, Monero::NetworkType::MAINNET, 0);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->mainAddress() == address1);
-    ASSERT_TRUE(wallet2->store(WALLET_NAME_COPY));
+    ASSERT_TRUE(wallet2->store(WALLET_NAME_COPY, WALLET_PASS));
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
     Monero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, Monero::NetworkType::MAINNET);
     ASSERT_TRUE(wallet3->status() == Monero::Wallet::Status_Ok);
@@ -470,7 +470,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromKeys)
     Monero::Wallet * wallet2 = wmgr->createWalletFromKeys(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET, 0, address1, viewkey1, spendkey1);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->mainAddress() == address1);
-    ASSERT_TRUE(wallet2->store(WALLET_NAME_COPY));
+    ASSERT_TRUE(wallet2->store(WALLET_NAME_COPY, WALLET_PASS));
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
     Monero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, Monero::NetworkType::MAINNET);
     ASSERT_TRUE(wallet3->status() == Monero::Wallet::Status_Ok);
@@ -486,7 +486,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
     std::string address1 = wallet1->mainAddress();
 
     ASSERT_TRUE(wallet1->store(""));
-    ASSERT_TRUE(wallet1->store(WALLET_NAME_COPY));
+    ASSERT_TRUE(wallet1->store(WALLET_NAME_COPY, WALLET_PASS));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
@@ -502,7 +502,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
     std::string seed1 = wallet1->seed();
     std::string address1 = wallet1->mainAddress();
 
-    ASSERT_TRUE(wallet1->store(WALLET_NAME_WITH_DIR));
+    ASSERT_TRUE(wallet1->store(WALLET_NAME_WITH_DIR, WALLET_PASS));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
     wallet1 = wmgr->openWallet(WALLET_NAME_WITH_DIR, WALLET_PASS, WALLET_NETWORK_TYPE);
