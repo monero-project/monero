@@ -1133,6 +1133,7 @@ private:
     void set_subaddress_label(const cryptonote::subaddress_index &index, const std::string &label);
     void set_subaddress_lookahead(size_t major, size_t minor);
     std::pair<size_t, size_t> get_subaddress_lookahead() const { return {m_subaddress_lookahead_major, m_subaddress_lookahead_minor}; }
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &get_subaddress_map_ref() const { return m_subaddresses; }
     /*!
      * \brief Tells if the wallet file is deprecated.
      */
