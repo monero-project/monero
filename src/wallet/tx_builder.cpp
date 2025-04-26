@@ -730,7 +730,7 @@ std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_trans
         acc_keys.m_view_secret_key);
 
     crypto::hash signable_tx_hash;
-    carrot::make_signable_tx_hash_from_carrot_transaction_proposal_v1(tx_proposal,
+    carrot::make_signable_tx_hash_from_proposal_v1(tx_proposal,
         /*s_view_balance_dev=*/nullptr,
         &addr_dev,
         signable_tx_hash);
