@@ -540,8 +540,7 @@ struct Wallet
     virtual std::string errorString() const = 0; //deprecated: use safe alternative statusWithErrorString
     //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
     virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
-    virtual bool setPassword(const std::string &password) = 0;
-    virtual const std::string& getPassword() const = 0;
+    virtual bool setPassword(const epee::wipeable_string &old_password, const epee::wipeable_string &new_password) = 0;
     virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };
     virtual bool setDevicePassphrase(const std::string &passphrase) { (void)passphrase; return false; };
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
@@ -605,9 +604,10 @@ struct Wallet
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
+     * \param password - wallet password, only needed if path is not empty (default: empty optional)
      * \return
      */
-    virtual bool store(const std::string &path) = 0;
+    virtual bool store(const std::string &path, const optional<epee::wipeable_string> password = optional<epee::wipeable_string>()) = 0;
     /*!
      * \brief filename - returns wallet filename
      * \return
@@ -886,14 +886,14 @@ struct Wallet
      * @param threshold - number of required signers to make valid transaction. Must be <= number of participants
      * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
      */
-    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
+    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const epee::wipeable_string &password) = 0;
     /**
      * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
      * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
      * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages
      * @return new info string if more rounds required or an empty string if wallet creation is done
      */
-    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution) = 0;
+    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const epee::wipeable_string &password, const bool force_update_use_with_caution) = 0;
     /**
      * @brief exportMultisigImages - exports transfers' key images
      * @param images - output paramter for hex encoded array of images
@@ -1573,6 +1573,16 @@ struct Wallet
         const std::vector<std::string> &ssl_allowed_fingerprints_str = {},
         bool ssl_allow_any_cert = false,
         const std::string &proxy = "") = 0;
+    /**
+    * brief: verifyPassword -
+    * param: password   - password to verify
+    * param: kdf_rounds - number of rounds for key derivation function (default: 1)
+    * return: true if succeeded
+    * note: sets status error on fail
+    *       This function automatically locks/unlocks the keys file as needed.
+    *       When possible use this instead of WalletManager::verifyWalletPassword()
+    */
+    virtual bool verifyPassword(const epee::wipeable_string &password, std::uint64_t kdf_rounds = 1) = 0;
 };
 
 /**
@@ -1605,6 +1615,7 @@ struct WalletManager
      * \param  listener       Wallet listener to set to the wallet after creation
      * \return                Wallet instance (Wallet::status() needs to be called to check if opened successfully)
      */
+    virtual Wallet * openWallet(const std::string &path, const epee::wipeable_string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) = 0;
     virtual Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) = 0;
     Wallet * openWallet(const std::string &path, const std::string &password, bool testnet = false)     // deprecated
     {

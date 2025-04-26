@@ -33,6 +33,7 @@
 
 #include "wallet/api/wallet2_api.h"
 #include "wallet/wallet2.h"
+#include "wipeable_string.h"
 
 #include <string>
 #include <boost/thread/mutex.hpp>
@@ -59,6 +60,7 @@ public:
                 const std::string &language);
     bool createWatchOnly(const std::string &path, const std::string &password,
                             const std::string &language) const override;
+    bool open(const std::string &path, const epee::wipeable_string &password);
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path,const std::string &password,
                             const std::string &seed, const std::string &seed_offset = {});
@@ -89,8 +91,7 @@ public:
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
-    bool setPassword(const std::string &password) override;
-    const std::string& getPassword() const override;
+    bool setPassword(const epee::wipeable_string &old_password, const epee::wipeable_string &new_password) override;
     bool setDevicePin(const std::string &password) override;
     bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
@@ -102,7 +103,7 @@ public:
     std::string publicMultisigSignerKey() const override;
     std::string path() const override;
     void stop() override;
-    bool store(const std::string &path) override;
+    bool store(const std::string &path, const optional<epee::wipeable_string> password = optional<epee::wipeable_string>()) override;
     std::string filename() const override;
     std::string keysFilename() const override;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") override;
@@ -282,6 +283,7 @@ public:
     bool getAllowMismatchedDaemonVersion() const override;
     void setAllowMismatchedDaemonVersion(bool allow_mismatch) override;
     bool setDaemon(const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, const std::string &ssl_support = "autodetect", const std::string &ssl_private_key_path = "", const std::string &ssl_certificate_path = "", const std::string &ssl_ca_file_path = "", const std::vector<std::string> &ssl_allowed_fingerprints_str = {}, bool ssl_allow_any_cert = false, const std::string &proxy = "") override;
+    bool verifyPassword(const epee::wipeable_string &password, std::uint64_t kdf_rounds = 1) override;
 
 private:
     void clearStatus() const;
@@ -322,11 +324,6 @@ private:
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
-    // TODO: harden password handling in the wallet API, see relevant discussion
-    // https://github.com/monero-project/monero-gui/issues/1537
-    // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142
-    // https://github.com/monero-project/monero/pull/8619#issuecomment-1632951461
-    std::string m_password;
     std::unique_ptr<TransactionHistoryImpl> m_history;
     std::unique_ptr<Wallet2CallbackImpl> m_wallet2Callback;
     std::unique_ptr<AddressBookImpl>  m_addressBook;
