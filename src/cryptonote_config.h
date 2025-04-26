@@ -51,9 +51,11 @@
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
 // MONEY_SUPPLY - total number coins to be generated
-#define MONEY_SUPPLY                                    ((uint64_t)(-1))
-#define EMISSION_SPEED_FACTOR_PER_MINUTE                (20)
+#define MONEY_SUPPLY                                    ((uint64_t)150000000000000000) // 150 million coins
+#define GENESIS_BLOCK_REWARD                            ((uint64_t)50000000000000) // 50,000 coins
+#define EMISSION_SPEED_FACTOR_PER_MINUTE                (7)
 #define FINAL_SUBSIDY_PER_MINUTE                        ((uint64_t)300000000000) // 3 * pow(10, 11)
+#define HARDFORK_INTERVAL                               ((uint64_t)250000) // Hardfork every 250,000 blocks
 
 #define CRYPTONOTE_REWARD_BLOCKS_WINDOW                 100
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2    60000 //size of block (bytes) after which reward for block calculated using block size
