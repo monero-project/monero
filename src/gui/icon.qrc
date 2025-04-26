@@ -1,0 +1,7 @@
+
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/icons">
+        <file>images/funero_icon.png</file>
+    </qresource>
+</RCC>
