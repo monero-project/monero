@@ -16,12 +16,57 @@ Funero is a privacy-focused cryptocurrency with the following specifications:
 
 ## Tokenomics
 
+### Main Network (Mainnet)
 - Total Supply: 150,000,000 FNRO
 - Genesis Block Reward: 50,000 FNRO
 - Standard Block Reward: 7 FNRO 
 - Block Time: 3 minutes
 - Halving: Every 250,000 blocks (approximately 520 days)
 - Difficulty: Starts at 0, adjusts every 25 blocks
+
+### Test Network (Testnet)
+- Total Supply: 150,000,000 FNRO
+- Genesis Block Reward: 50,000 FNRO
+- Standard Block Reward: 7 FNRO
+- Block Time: 3 minutes
+- Halving: Every 250,000 blocks
+- Difficulty: Starts at 0, adjusts every 25 blocks
+- P2P Default Port: 38080 
+- RPC Default Port: 38081
+
+### Mining Schedule Details
+- Initial block reward: 7 FNRO
+- First halving (after 250,000 blocks): 3.5 FNRO
+- Second halving (after 500,000 blocks): 1.75 FNRO
+- Third halving (after 750,000 blocks): 0.875 FNRO
+And so on...
+
+### Time Calculations
+- Block time: 3 minutes
+- Blocks per day: 480 blocks
+- Days until first halving: ~520 days
+- Estimated years for distribution: ~15 years
+
+### Emission Schedule
+- Genesis Block: 50,000 FNRO
+- First year (175,200 blocks): ~1,226,400 FNRO
+- First Halving Total Supply: ~1,799,993 FNRO
+  * Genesis Block: 50,000 FNRO
+  * Regular Blocks (249,999 × 7): 1,749,993 FNRO
+
+### Technical Details
+- Algorithm: RandomX (ASIC Resistant)
+- Ring Signatures: Yes (Privacy Feature)
+- Ring Size: 11
+- Stealth Addresses: Enabled
+- Dynamic Block Size: Yes
+- Dynamic Fees: Yes
+
+### Network Security
+- Initial Difficulty: 0
+- Difficulty Adjustment: Every 25 blocks
+- Network Protection: Anti-51% attack measures
+- Consensus: Proof of Work (PoW)
 
 ### Mining Schedule
 
@@ -48,9 +93,32 @@ The difficulty adjustment ensures network security by adjusting every 25 blocks 
 
 ## Building
 
+### Building Mainnet
 ```bash
 make release
 ```
+
+### Building Testnet
+```bash
+make release-test
+```
+
+### Running Testnet Node
+```bash
+./build/release/bin/funerod --testnet
+```
+
+### Running Testnet Wallet
+```bash
+./build/release/bin/funero-wallet-cli --testnet
+```
+
+### Testnet Connection Settings
+- P2P Port: 38080
+- RPC Port: 38081
+- Testnet Seed Nodes:
+  * testnet.funero.network:38080
+  * test.funero.network:38080
 
 ## Running
 
