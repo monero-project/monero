@@ -14,12 +14,37 @@ Funero is a privacy-focused cryptocurrency with the following specifications:
 - Symbol: FNRO
 - Privacy: Based on Ring Signatures, RingCT, and Stealth Addresses
 
-## Features
+## Tokenomics
 
+- Total Supply: 150,000,000 FNRO
+- Genesis Block Reward: 50,000 FNRO
+- Standard Block Reward: 7 FNRO 
+- Block Time: 3 minutes
+- Halving: Every 250,000 blocks (approximately 520 days)
+- Difficulty: Starts at 0, adjusts every 25 blocks
+
+### Mining Schedule
+
+The mining schedule follows a halving pattern where block rewards are reduced by 50% every 250,000 blocks:
+
+- Initial Block Reward: 7 FNRO
+- After 250,000 blocks: 3.5 FNRO
+- After 500,000 blocks: 1.75 FNRO
+And so on...
+
+With a 3-minute block time:
+- First halving occurs after ~520 days
+- Second halving occurs after ~1040 days
+- Mining will continue until total supply is reached
+
+The difficulty adjustment ensures network security by adjusting every 25 blocks based on the network hashrate.
+
+### Features
+
+- Ticker: FNRO
 - Private transactions
-- Secure blockchain
-- ASIC-resistant mining algorithm
-- Regular protocol upgrades through planned hardforks
+- Secure proof-of-work algorithm
+- Dynamic difficulty adjustment
 
 ## Building
 
@@ -76,6 +101,7 @@ Approximately three months prior to a scheduled software upgrade, a branch from 
 ## Compiling Funero from source
 
 ### Dependencies
+
 (This section remains largely the same,  replace "Monero" with "Funero" where appropriate.  The dependency list likely needs no change)
 
 The following table summarizes the tools and libraries required to build. A
@@ -570,14 +596,7 @@ setting the following configuration parameters and environment variables:
    connect from remote hosts. On other systems, it may be needed for local wallets
    as well.
 * Do NOT pass `--detach` when running through torsocks with systemd, (see
-  [utils/systemd/monerod.service](utils/systemd/monerod.service) for details).
-* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
-  then use `--untrusted-daemon` unless it is your own hidden service.
-
-Example command line to start monerod through Tor:
-
-```bash
-DNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
+  [utils/systemd/monerod.service](utils/systemdDNS_PUBLIC=tcp torsocks monerod --p2p-bind-ip 127.0.0.1 --no-igd
 ```
 
 A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed
