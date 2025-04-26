@@ -165,7 +165,7 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
 
     // make unsigned transaction
     cryptonote::transaction tx;
-    make_pruned_transaction_from_carrot_proposal_v1(tx_proposal,
+    make_pruned_transaction_from_proposal_v1(tx_proposal,
         &ss_keys.s_view_balance_dev,
         &ss_keys.k_view_incoming_dev,
         tx);
