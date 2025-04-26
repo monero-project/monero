@@ -1,0 +1,10 @@
+modules = ["cpp-clang14", "c-clang14", "python-3.12", "bash", "dotnet-7.0", "dotnet-8.0", "bun-1.1", "bun-1.0", "clojure-1.12", "dart-3.5", "dart-2.18", "deno-2", "deno-1", "elixir-1_15", "elixir-1_17", "go-1.21", "go-1.20", "go-1.19", "gcloud", "haskell-ghc9.0", "haskell-ghc9.4", "haskell-ghc9.2", "hermit-0.38.2", "java-graalvm22.3", "lua-5.2", "nix", "nodejs-23", "nodejs-22", "nodejs-20", "nodejs-19", "nodejs-18", "nodejs-16", "nodejs-14", "php-8.3", "php-8.2", "php-8.1", "postgresql-17", "postgresql-16", "python-3.9", "python-3.8", "python-base-3.11", "python-3.10", "qbasic", "r-4.4", "r-4.2", "replit-rtld-loader", "ruby-3.1", "ruby-3.2", "rust-nightly", "rust-stable", "svelte-kit-node-20", "swift-5.8", "swift-5.6", "typescript-language-server", "docker", "python-with-prybar-3.10", "nodejs-with-prybar-18", "zig-0.11", "ruff", "pyright-extended", "pyright", "web", "vue-node-18", "vue-node-20"]
+compile = "make"
+run = "make release-static -j $(nproc)"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+build = ["sh", "-c", "make"]
+run = ["sh", "-c", "make release-static -j $(nproc)"]
