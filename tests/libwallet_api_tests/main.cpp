@@ -356,7 +356,7 @@ TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
     Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
     std::string seed1 = wallet1->seed();
-    ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
+    ASSERT_TRUE(wallet1->setPassword(WALLET_PASS, WALLET_PASS2));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2, Monero::NetworkType::MAINNET);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);

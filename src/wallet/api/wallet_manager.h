@@ -31,6 +31,7 @@
 
 #include "wallet/api/wallet2_api.h"
 #include "net/http.h"
+#include "wipeable_string.h"
 #include <string>
 
 namespace Monero {
@@ -40,6 +41,7 @@ class WalletManagerImpl : public WalletManager
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1) override;
+    Wallet * openWallet(const std::string &path, const epee::wipeable_string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) override;
     Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,

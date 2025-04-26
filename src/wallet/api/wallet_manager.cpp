@@ -62,7 +62,7 @@ Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::stri
     return wallet;
 }
 
-Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds, WalletListener * listener)
+Wallet *WalletManagerImpl::openWallet(const std::string &path, const epee::wipeable_string &password, NetworkType nettype, uint64_t kdf_rounds, WalletListener * listener)
 {
     WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
     wallet->setListener(listener);
@@ -74,6 +74,10 @@ Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string
     //Refresh addressBook
     wallet->addressBook()->refresh(); 
     return wallet;
+}
+Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds, WalletListener * listener)
+{
+    return openWallet(path, epee::wipeable_string(password), nettype, kdf_rounds, listener);
 }
 
 Wallet *WalletManagerImpl::recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight)
