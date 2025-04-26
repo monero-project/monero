@@ -8,3 +8,19 @@ channel = "stable-24_05"
 [deployment]
 build = ["sh", "-c", "make"]
 run = ["sh", "-c", "make release-static -j $(nproc)"]
+
+[workflows]
+runButton = "Build Testnet"
+
+[[workflows.workflow]]
+name = "Build Testnet"
+author = 41977751
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "make release-test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd build/release/bin && ./funerod --testnet"
