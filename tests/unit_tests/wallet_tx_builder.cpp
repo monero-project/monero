@@ -170,7 +170,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_transfer_1)
     const uint64_t top_block_index = std::max(transfers.front().m_block_height, transfers.back().m_block_height)
         + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
-    const carrot::CarrotTransactionProposalV1 tx_proposal = tools::wallet::make_carrot_transaction_proposal_wallet2_transfer(
+    const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
         transfers,
         /*subaddress_map=*/{},
         dsts,
@@ -180,8 +180,12 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposal_wallet2_transfer_1)
         /*subaddr_indices=*/{},
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
+        {},
         top_block_index,
         alice.get_keys());
+
+    ASSERT_EQ(1, tx_proposals.size());
+    const carrot::CarrotTransactionProposalV1 tx_proposal = tx_proposals.at(0);
 
     std::vector<crypto::key_image> expected_key_images{
         transfers.front().m_key_image,
@@ -305,8 +309,8 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
     // 6. 
     LOG_PRINT_L2("Alice feels pity on Bob and proposes to send his broke ass some dough");
     const rct::xmr_amount out_amount = rct::randXmrAmount(amount0 + amount1);
-    const carrot::CarrotTransactionProposalV1 tx_proposal = 
-        tools::wallet::make_carrot_transaction_proposal_wallet2_transfer( // stupidly long function name ;(
+    const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = 
+        tools::wallet::make_carrot_transaction_proposals_wallet2_transfer( // stupidly long function name ;(
             alice.m_transfers,
             alice.m_subaddresses,
             {cryptonote::tx_destination_entry(out_amount, bob_main_addr, false)},
@@ -316,8 +320,12 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
             /*subaddr_indices=*/{},
             /*ignore_above=*/std::numeric_limits<rct::xmr_amount>::max(),
             /*ignore_below=*/0,
+            {},
             /*top_block_index=*/bc.height()-1,
             alice_keys);
+    
+    ASSERT_EQ(1, tx_proposals.size());
+    const carrot::CarrotTransactionProposalV1 tx_proposal = tx_proposals.at(0);
 
     // 7.
     LOG_PRINT_L2("Alice has something to prove");
