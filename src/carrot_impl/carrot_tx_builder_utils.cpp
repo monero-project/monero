@@ -101,9 +101,9 @@ static void append_additional_payment_proposal_if_necessary(
 std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
 {
     CHECK_AND_ASSERT_THROW_MES(n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
-        "get_carrot_default_tx_extra_size: n_outputs too high");
+        "get_carrot_default_tx_extra_size: n_outputs too high: " << n_outputs);
     CHECK_AND_ASSERT_THROW_MES(n_outputs >= CARROT_MIN_TX_OUTPUTS,
-        "get_carrot_default_tx_extra_size: n_outputs too low");
+        "get_carrot_default_tx_extra_size: n_outputs too low: " << n_outputs);
 
     static constexpr std::uint64_t enc_pid_extra_field_size =
         8 /*pid*/
@@ -238,7 +238,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
         std::greater{}); // consensus rules dictate inputs sorted in *reverse* lexicographical order since v7
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_transaction_proposal_v1_transfer_subtractable(
+void make_carrot_transaction_proposal_v1_transfer(
     const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
     const rct::xmr_amount fee_per_weight,
@@ -287,6 +287,12 @@ void make_carrot_transaction_proposal_v1_transfer_subtractable(
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
     )
     {
+        // shadow subtractable_selfsend_payment_proposals and adjust for default case (no subtractable provided)
+        const auto &subtractable_selfsend_payment_proposals_ref = subtractable_selfsend_payment_proposals;
+        std::set<std::size_t> subtractable_selfsend_payment_proposals = subtractable_selfsend_payment_proposals_ref;
+        if (subtractable_selfsend_payment_proposals.empty())
+            subtractable_selfsend_payment_proposals.insert(selfsend_payment_proposals.size() - 1);
+
         const bool has_subbable_normal = !subtractable_normal_payment_proposals.empty();
         const bool has_subbable_selfsend = !subtractable_selfsend_payment_proposals.empty();
         const size_t num_normal = normal_payment_proposals.size();
@@ -393,31 +399,6 @@ void make_carrot_transaction_proposal_v1_transfer_subtractable(
         s_view_balance_dev,
         k_view_dev,
         account_spend_pubkey,
-        tx_proposal_out);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_carrot_transaction_proposal_v1_transfer(
-    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
-    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
-    select_inputs_func_t &&select_inputs,
-    const view_balance_secret_device *s_view_balance_dev,
-    const view_incoming_key_device *k_view_dev,
-    const crypto::public_key &account_spend_pubkey,
-    CarrotTransactionProposalV1 &tx_proposal_out)
-{
-    make_carrot_transaction_proposal_v1_transfer_subtractable(
-        normal_payment_proposals,
-        selfsend_payment_proposals,
-        fee_per_weight,
-        extra,
-        std::forward<select_inputs_func_t>(select_inputs),
-        s_view_balance_dev,
-        k_view_dev,
-        account_spend_pubkey,
-        /*subtractable_normal_payment_proposals=*/{},
-        /*subtractable_selfsend_payment_proposals=*/{selfsend_payment_proposals.size()},
         tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------

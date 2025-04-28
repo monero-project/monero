@@ -358,6 +358,8 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         &alice.s_view_balance_dev,
         &alice.k_view_incoming_dev,
         alice.carrot_account_spend_pubkey,
+        {},
+        {},
         tx_proposal);
 
     ASSERT_EQ(n_outputs, tx_proposal.normal_payment_proposals.size() + tx_proposal.selfsend_payment_proposals.size());

@@ -429,6 +429,8 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
         /*s_view_balance_dev=*/nullptr,
         &k_view_dev,
         acc_keys.m_account_address.m_spend_public_key,
+        {},
+        {},
         tx_proposal);
 
     cryptonote::transaction tx;
