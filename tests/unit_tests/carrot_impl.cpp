@@ -161,6 +161,8 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
         &ss_keys.s_view_balance_dev,
         &ss_keys.k_view_incoming_dev,
         ss_keys.carrot_account_spend_pubkey,
+        {},
+        {},
         tx_proposal);
 
     // make unsigned transaction
