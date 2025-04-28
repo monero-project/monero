@@ -162,13 +162,10 @@ void for_all_in_map_erase_if(std::unordered_map<KeyT, ValueT> &map_inout, PredT 
 
 /// erase with a reverse iterator
 /// returned iterator is (pos + 1) if pos hadn't been erased
-template <typename ContainerT, typename ReverseIteratorT>
-ReverseIteratorT reverse_erase(ContainerT &container, ReverseIteratorT pos)
+template <typename ContainerT, typename FwdIterT>
+std::reverse_iterator<FwdIterT> reverse_erase(ContainerT &container, std::reverse_iterator<FwdIterT> pos)
 {
-    static_assert(std::is_same_v<ReverseIteratorT, typename ContainerT::reverse_iterator>
-        || std::is_same_v<ReverseIteratorT, typename ContainerT::const_reverse_iterator>);
-
-    return ReverseIteratorT(container.erase((++pos).base()));
+    return std::reverse_iterator<FwdIterT>(container.erase((++pos).base()));
 }
 
 } //namespace tools
