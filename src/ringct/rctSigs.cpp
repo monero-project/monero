@@ -1751,29 +1751,15 @@ done:
       return decodeRctSimple(rv, sk, i, mask, hwdev);
     }
 
-    ctkey getCtKey(const cryptonote::transaction &tx, const std::size_t output_idx) {
-      if (tx.rct_signatures.outPk.size() > output_idx)
-      {
-        return tx.rct_signatures.outPk[output_idx];
-      }
-
-      // Expand tx.rct_signatures.outPk to include the output pubkey and commitment, so that we don't have to call
-      // the expensive zeroCommitVartime multiple times unnecessarily.
-      // If we don't expand outPk in order of its outputs, then the if statement above could return the incorrect mask.
-      CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() == output_idx, "must expand outPk in order");
-
-      // We expect all txs to have outPk expanded already, except for coinbase and v1 txs
+    key getCommitment(const cryptonote::transaction &tx, const std::size_t output_idx) {
       const bool miner_tx = cryptonote::is_coinbase(tx);
-      CHECK_AND_ASSERT_THROW_MES(miner_tx || tx.version < 2, "unexpected tx missing commitment");
-
-      crypto::public_key output_public_key;
-      CHECK_AND_ASSERT_THROW_MES(tx.vout.size() > output_idx, "tx.vout too small");
-      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(tx.vout[output_idx], output_public_key),
-        "failed to get output public key");
-
-      auto outPk = ctkey{.dest = rct::pk2rct(output_public_key), .mask = zeroCommitVartime(tx.vout[output_idx].amount)};
-      tx.rct_signatures.outPk.emplace_back(std::move(outPk));
-      return tx.rct_signatures.outPk.back();
+      if (miner_tx || tx.version < 2)
+      {
+        CHECK_AND_ASSERT_THROW_MES(tx.vout.size() > output_idx, "unexpected size of vout");
+        return zeroCommitVartime(tx.vout[output_idx].amount);
+      }
+      CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > output_idx, "unexpected size of outPk");
+      return tx.rct_signatures.outPk[output_idx].mask;
     }
 
     bool verPointsForTorsion(const std::vector<key> & pts) {

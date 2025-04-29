@@ -304,8 +304,12 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
                 parsed_block_with_unlocked_miner_tx.block.miner_tx;
             for (size_t local_output_index = 0; local_output_index < unlocked_miner_tx.vout.size(); ++local_output_index)
             {
-                const rct::ctkey ctkey = rct::getCtKey(unlocked_miner_tx, local_output_index);
-                const fcmp_pp::curve_trees::OutputPair output_pair{rct::rct2pk(ctkey.dest), ctkey.mask};
+                const cryptonote::tx_out &o = unlocked_miner_tx.vout.at(local_output_index);
+                crypto::public_key output_pubkey;
+                CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(o, output_pubkey),
+                    "cannot get output pubkey");
+                const rct::key amount_commitment = rct::zeroCommitVartime(o.amount);
+                const fcmp_pp::curve_trees::OutputPair output_pair{output_pubkey, amount_commitment};
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
                 const uint64_t global_output_index =
@@ -323,8 +327,13 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
             const cryptonote::transaction &unlocked_tx = parsed_block_with_unlocked_txs.txes.at(tx_index);
             for (size_t local_output_index = 0; local_output_index < unlocked_tx.vout.size(); ++local_output_index)
             {
-                const rct::ctkey ctkey = rct::getCtKey(unlocked_tx, local_output_index);
-                const fcmp_pp::curve_trees::OutputPair output_pair{rct::rct2pk(ctkey.dest), ctkey.mask};
+                const cryptonote::tx_out &o = unlocked_tx.vout.at(local_output_index);
+                crypto::public_key output_pubkey;
+                CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(o, output_pubkey),
+                    "cannot get output pubkey");
+                const rct::key amount_commitment = o.amount
+                    ? rct::zeroCommitVartime(o.amount) : unlocked_tx.rct_signatures.outPk.at(local_output_index).mask;
+                const fcmp_pp::curve_trees::OutputPair output_pair{output_pubkey, amount_commitment};
                 if (!is_valid_output_pair_for_tree(output_pair))
                     continue;
                 const uint64_t global_output_index =
