@@ -31,6 +31,7 @@
 
 //local headers
 #include "carrot_core/enote_utils.h"
+#include "carrot_core/payment_proposal.h"
 #include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
@@ -394,6 +395,28 @@ cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
         "store_carrot_to_coinbase_transaction_v1: failed to sort tx_extra");
 
     return tx;
+}
+//-------------------------------------------------------------------------------------------------------------------
+cryptonote::transaction make_single_enote_carrot_coinbase_transaction_v1(const CarrotDestinationV1 &destination,
+    const rct::xmr_amount block_reward,
+    const std::uint64_t block_index,
+    const cryptonote::blobdata &extra_nonce)
+{
+    CHECK_AND_ASSERT_THROW_MES(!destination.is_subaddress,
+        "make_single_enote_carrot_coinbase_transaction_v1: subaddress are not allowed in miner transactions");
+    CHECK_AND_ASSERT_THROW_MES(destination.payment_id == null_payment_id,
+        "make_single_enote_carrot_coinbase_transaction_v1: integrated addresses are not allowed in miner transactions");
+
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = destination,
+        .amount = block_reward,
+        .randomness = gen_janus_anchor()
+    };
+
+    std::vector<CarrotCoinbaseEnoteV1> enotes(1);
+    get_coinbase_output_proposal_v1(payment_proposal, block_index, enotes.front());
+
+    return store_carrot_to_coinbase_transaction_v1(enotes, extra_nonce);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_coinbase_enote_from_transaction_v1(const cryptonote::transaction &tx,

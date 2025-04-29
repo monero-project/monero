@@ -30,6 +30,7 @@
 
 //local headers
 #include "carrot_core/carrot_enote_types.h"
+#include "carrot_core/destination.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/tx_extra.h"
@@ -133,6 +134,18 @@ bool try_load_carrot_from_transaction_v1(const cryptonote::transaction &tx,
  */
 cryptonote::transaction store_carrot_to_coinbase_transaction_v1(
     const std::vector<CarrotCoinbaseEnoteV1> &enotes,
+    const cryptonote::blobdata &extra_nonce);
+/**
+ * brief: make_single_enote_carrot_coinbase_transaction_v1 - store one coinbase Carrot enote to a cryptonote::transaction
+ * param: destination -
+ * param: block_reward -
+ * param: block_index -
+ * param: extra_nonce -
+ * return: a full coinbase transaction containing given Carrot information
+ */
+cryptonote::transaction make_single_enote_carrot_coinbase_transaction_v1(const CarrotDestinationV1 &destination,
+    const rct::xmr_amount block_reward,
+    const std::uint64_t block_index,
     const cryptonote::blobdata &extra_nonce);
 /**
  * brief: try_load_carrot_coinbase_enote_from_transaction_v1 - load one coinbase Carrot enote from a cryptonote::transaction
