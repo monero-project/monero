@@ -78,7 +78,7 @@ void threadpool::create(unsigned int max_threads) {
   size_t i = max ? max - 1 : 0;
   running = true;
   while(i--) {
-    threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this, false)));
+    threads.push_back(boost::thread(attrs, boost::bind(&threadpool::run, this, nullptr)));
   }
 }
 
@@ -129,11 +129,16 @@ threadpool::waiter::~waiter()
 }
 
 bool threadpool::waiter::wait() {
-  pool.run(true);
+  pool.run(this);
   boost::unique_lock<boost::mutex> lock(mt);
   while(num)
     cv.wait(lock);
   return !error();
+}
+
+int threadpool::waiter::get_num() {
+  const boost::lock_guard lock(mt);
+  return num;
 }
 
 void threadpool::waiter::inc() {
@@ -148,17 +153,18 @@ void threadpool::waiter::dec() {
     cv.notify_all();
 }
 
-void threadpool::run(bool flush) {
+void threadpool::run(waiter *flush_waiter) {
   boost::unique_lock<boost::mutex> lock(mutex);
   while (running) {
     entry e;
     while(queue.empty() && running)
     {
-      if (flush)
+      if (flush_waiter)
         return;
       has_work.wait(lock);
     }
     if (!running) break;
+    if (flush_waiter && flush_waiter->get_num() == 0) break;
 
     active++;
     e = std::move(queue.front());
