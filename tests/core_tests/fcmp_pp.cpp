@@ -224,13 +224,17 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     DO_CALLBACK(events, "mark_invalid_tx");
   events.push_back(rct_txes);
 
-  // To calculate the block's tree root once this next block enters the chain,
-  // we sync an empty block so all outputs staged for insertion in the cache
-  // enter the tree. This assumes no outputs unlock in the same block they are
-  // created. It also assumes we don't need the tree cache after this. We can
-  // call pop_block after reading the root to reverse this if we need the cache
-  // to be in the correct state after this op.
-  tree_cache.sync_block(n_synced_blocks, crypto::hash{}, blocks[n_manual_blocks - 1].hash, {});
+  // To calculate the tree root needed for the block header,
+  // we sync empty blocks so all outputs staged for insertion in the cache
+  // enter the tree. This assumes assumes we don't need the tree cache after
+  // this. We can call pop_block after reading the root to reverse this
+  // if we need the cache to be in the correct state after this op.
+  const uint64_t new_block_idx = n_synced_blocks;
+  tree_cache.sync_block(new_block_idx, crypto::hash{}, blocks[n_manual_blocks - 1].hash, {});
+  uint64_t synced_blk_idx = new_block_idx;
+  while (tree_cache.n_synced_blocks() < cryptonote::get_default_last_locked_block_index(new_block_idx))
+    tree_cache.sync_block(++synced_blk_idx, crypto::hash{}, crypto::hash{}, {});
+
   crypto::ec_point fcmp_pp_tree_root;
   const uint8_t fcmp_pp_n_tree_layers = tree_cache.get_tree_root(fcmp_pp_tree_root);
 
