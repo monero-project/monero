@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <stdio.h>
 #include <memory>
