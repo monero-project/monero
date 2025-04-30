@@ -82,7 +82,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const rct::xmr_amount ignore_below,
     const wallet2::unique_index_container &subtract_fee_from_outputs);
 
-carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_sweep(
+std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     const wallet2::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const std::vector<crypto::key_image> &input_key_images,
@@ -93,7 +93,7 @@ carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_swe
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index,
     const cryptonote::account_keys &acc_keys);
-carrot::CarrotTransactionProposalV1 make_carrot_transaction_proposal_wallet2_sweep(
+    std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     wallet2 &w,
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
