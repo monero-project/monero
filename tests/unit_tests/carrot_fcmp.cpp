@@ -355,8 +355,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
                 });
             }
         },
-        &alice.s_view_balance_dev,
-        &alice.k_view_incoming_dev,
         alice.carrot_account_spend_pubkey,
         {},
         {},

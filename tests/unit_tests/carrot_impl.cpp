@@ -158,8 +158,6 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
         tx_preproposal.fee_per_weight,
         tx_preproposal.extra_extra,
         make_fake_input_selection_callback(),
-        &ss_keys.s_view_balance_dev,
-        &ss_keys.k_view_incoming_dev,
         ss_keys.carrot_account_spend_pubkey,
         {},
         {},
