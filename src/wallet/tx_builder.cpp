@@ -534,6 +534,94 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         w.get_account().get_keys());
 }
 //-------------------------------------------------------------------------------------------------------------------
+std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
+    const wallet2::transfer_container &transfers,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const cryptonote::account_public_address &address,
+    const bool is_subaddress,
+    const size_t n_dests,
+    const rct::xmr_amount fee_per_weight,
+    const std::vector<uint8_t> &extra,
+    const std::uint32_t subaddr_account,
+    const std::set<uint32_t> &subaddr_indices,
+    const std::uint64_t top_block_index,
+    const cryptonote::account_keys &acc_keys)
+{
+    const std::unordered_map<crypto::key_image, size_t> unburned_transfers_by_key_image =
+        collect_non_burned_transfers_by_key_image(transfers);
+
+    std::vector<crypto::key_image> input_key_images;
+    input_key_images.reserve(transfers.size());
+    for (std::size_t transfer_idx = 0; transfer_idx < transfers.size(); ++transfer_idx)
+    {
+        const wallet2::transfer_details &td = transfers.at(transfer_idx);
+
+        if (!is_transfer_usable_for_input_selection(td,
+                subaddr_account,
+                subaddr_indices,
+                MONEY_SUPPLY,
+                0,
+                top_block_index))
+            continue;
+
+        const auto ki_it = unburned_transfers_by_key_image.find(td.m_key_image);
+        if (ki_it == unburned_transfers_by_key_image.cend())
+            continue;
+        else if (ki_it->second != transfer_idx)
+            continue;
+
+        input_key_images.push_back(td.m_key_image);
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(!input_key_images.empty(), __func__ << ": no usable transfers to sweep");
+
+    return make_carrot_transaction_proposals_wallet2_sweep(
+        transfers,
+        subaddress_map,
+        input_key_images,
+        address,
+        is_subaddress,
+        n_dests,
+        fee_per_weight,
+        extra,
+        top_block_index,
+        acc_keys);
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
+    wallet2 &w,
+    const cryptonote::account_public_address &address,
+    const bool is_subaddress,
+    const size_t n_dests,
+    const std::uint32_t priority,
+    const std::vector<uint8_t> &extra,
+    const std::uint32_t subaddr_account,
+    const std::set<uint32_t> &subaddr_indices)
+{
+    wallet2::transfer_container transfers;
+    w.get_transfers(transfers);
+
+    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+
+    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
+    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
+        "make_carrot_transaction_proposals_wallet2_sweep: chain height is 0, there is no top block");
+    const std::uint64_t top_block_index = current_chain_height - 1;
+
+    return make_carrot_transaction_proposals_wallet2_sweep_all(
+        transfers,
+        w.get_subaddress_map_ref(),
+        address,
+        is_subaddress,
+        n_dests,
+        fee_per_weight,
+        extra,
+        subaddr_account,
+        subaddr_indices,
+        top_block_index,
+        w.get_account().get_keys());
+}
+//-------------------------------------------------------------------------------------------------------------------
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(
     const wallet2::transfer_details &td,
     const crypto::secret_key &k_view,
