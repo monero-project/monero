@@ -1506,7 +1506,7 @@ namespace tools
         }
 
         for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n) {
-          tx_constructions.push_back(std::get<tools::wallet2::tx_construction_data>(exported_txs.m_ptx[n].construction_data));
+          tx_constructions.push_back(std::get<wallet2::tx_construction_data>(exported_txs.m_ptx[n].construction_data));
         }
       }
       catch (const std::exception &e) {
