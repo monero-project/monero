@@ -342,6 +342,153 @@ TEST(fcmp_pp, prove)
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, verify)
+{
+    const uint8_t n_layers = 7;
+
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+    const auto new_outputs = generate_random_outputs(*curve_trees, 0, curve_trees->m_c1_width);
+    CHECK_AND_ASSERT_THROW_MES(curve_trees->m_c1_width >= FCMP_PLUS_PLUS_MAX_INPUTS,
+        "test expects max inputs < m_c1_width");
+
+    // Instantiate dummy path
+    const auto path = curve_trees->get_dummy_path(new_outputs.outputs, n_layers);
+
+    // Make sure the path is correct
+    uint64_t expected_n_leaves = curve_trees->m_c1_width;
+    for (uint8_t i = 1; i < n_layers; ++i)
+        expected_n_leaves *= (i % 2 != 0) ? curve_trees->m_c2_width : curve_trees->m_c1_width;
+    printf("EXPECTED N LEAVES: %lu\n", expected_n_leaves);
+    ASSERT_EQ(curve_trees->n_layers(expected_n_leaves), n_layers);
+    ASSERT_TRUE(curve_trees->audit_path(path, new_outputs.outputs.front().output_pair, expected_n_leaves));
+
+    const auto tree_root = n_layers % 2 == 0
+        ? fcmp_pp::tower_cycle::helios_tree_root(path.c2_layers.back().back())
+        : fcmp_pp::tower_cycle::selene_tree_root(path.c1_layers.back().back());
+
+    // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
+    const size_t expected_num_selene_branch_blinds = n_layers / 2;
+    LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
+    std::vector<const uint8_t *> selene_branch_blinds;
+    for (size_t i = 0; i < expected_num_selene_branch_blinds; ++i)
+        selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
+
+    const size_t expected_num_helios_branch_blinds = (n_layers - 1) / 2;
+    LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
+    std::vector<const uint8_t *> helios_branch_blinds;
+    for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
+        helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+
+    // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
+    for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
+    {
+        std::vector<const uint8_t *> fcmp_prove_inputs;
+        std::vector<crypto::key_image> key_images;
+        std::vector<crypto::ec_point> pseudo_outs;
+
+        std::unordered_set<std::size_t> selected_indices;
+
+        while (fcmp_prove_inputs.size() < n_inputs)
+        {
+            // Generate a random unique leaf tuple index within the tree
+            const size_t leaf_idx = crypto::rand_idx(curve_trees->m_c1_width);
+            if (selected_indices.count(leaf_idx))
+                continue;
+            else
+                selected_indices.insert(leaf_idx);
+
+            LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
+
+            const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
+            const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
+            const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
+
+            const auto x = (uint8_t *) new_outputs.x_vec[leaf_idx].data;
+            const auto y = (uint8_t *) new_outputs.y_vec[leaf_idx].data;
+
+            // Leaves
+            const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
+
+            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(OutputBytes{
+                .O_bytes = output_tuple.O.bytes,
+                .I_bytes = output_tuple.I.bytes,
+                .C_bytes = output_tuple.C.bytes
+            });
+
+            pseudo_outs.emplace_back(rct::rct2pt(load_key(rerandomized_output.input.C_tilde)));
+
+            key_images.emplace_back();
+            crypto::generate_key_image(rct::rct2pk(path.leaves[output_idx].O),
+                new_outputs.x_vec[leaf_idx],
+                key_images.back());
+
+            // Set path
+            const auto helios_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::HeliosT>(
+                path_for_proof.c2_scalar_chunks);
+            const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
+                path_for_proof.c1_scalar_chunks);
+
+            const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+                path_for_proof.output_idx,
+                {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
+                {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
+
+            // Collect blinds for rerandomized output
+            const auto o_blind = fcmp_pp::o_blind(rerandomized_output);
+            const auto i_blind = fcmp_pp::i_blind(rerandomized_output);
+            const auto i_blind_blind = fcmp_pp::i_blind_blind(rerandomized_output);
+            const auto c_blind = fcmp_pp::c_blind(rerandomized_output);
+
+            const auto blinded_o_blind = fcmp_pp::blind_o_blind(o_blind);
+            const auto blinded_i_blind = fcmp_pp::blind_i_blind(i_blind);
+            const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
+            const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
+
+            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+                blinded_i_blind,
+                blinded_i_blind_blind,
+                blinded_c_blind);
+
+            // Cache branch blinds
+            if (selene_branch_blinds.empty())
+                for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
+                    selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
+
+            if (helios_branch_blinds.empty())
+                for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
+                    helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+
+            auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
+                y,
+                rerandomized_output,
+                path_rust,
+                output_blinds,
+                selene_branch_blinds,
+                helios_branch_blinds);
+
+            fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
+        }
+
+        LOG_PRINT_L1("Constructing proof and verifying (n_inputs=" << n_inputs << ")");
+        const crypto::hash tx_hash{};
+        const auto proof = fcmp_pp::prove(
+                tx_hash,
+                fcmp_prove_inputs,
+                n_layers
+            );
+
+        bool verify = fcmp_pp::verify(
+                tx_hash,
+                proof,
+                n_layers,
+                tree_root,
+                pseudo_outs,
+                key_images
+            );
+        ASSERT_TRUE(verify);
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, sal_completeness)
 {
     // O, I, C, L
