@@ -31,6 +31,7 @@
 #pragma once
 #include <tuple>
 #include "serialization.h"
+#include <cstdint>
 
 namespace serialization
 {

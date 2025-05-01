@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "cryptonote_basic/blobdatatype.h"
 #include "common/data_cache.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/verification_context.h"

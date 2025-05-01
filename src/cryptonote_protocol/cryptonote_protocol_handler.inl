@@ -36,9 +36,13 @@
 // developer rfree: this code is caller of our new network code, and is modded; e.g. for rate limiting
 
 #include <boost/optional/optional.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
 #include <list>
 #include <ctime>
 
+#include <cryptonote_core/cryptonote_core.h>
+#include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "net/network_throttle-detail.hpp"

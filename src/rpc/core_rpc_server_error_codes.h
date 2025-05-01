@@ -30,6 +30,8 @@
 
 #pragma  once 
 
+#include "misc_log_ex.h"
+#include <cstddef>
 
 #define CORE_RPC_ERROR_CODE_WRONG_PARAM           -1
 #define CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT        -2

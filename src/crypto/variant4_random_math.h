@@ -1,6 +1,13 @@
 #ifndef VARIANT4_RANDOM_MATH_H
 #define VARIANT4_RANDOM_MATH_H
 
+#include <stdint.h>
+#include <stddef.h>
+#include <memory.h>
+
+#include "int-util.h"
+#include "hash-ops.h"
+
 // Register size can be configured to either 32 bit (uint32_t) or 64 bit (uint64_t)
 typedef uint32_t v4_reg;
 

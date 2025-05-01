@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include <string>
+
 // the loose definitions of types in this file are, well, loose.
 //
 // these helpers aren't here for absolute type certainty at compile-time,

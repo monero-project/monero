@@ -28,8 +28,10 @@
 
 #pragma once
 
+#include "daemonizer/daemonizer.h"
 #include "common/scoped_message_writer.h"
 #include "common/util.h"
+#include "common/command_line.h"
 #include "daemonizer/posix_fork.h"
 
 #include <boost/filesystem/operations.hpp>
