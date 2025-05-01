@@ -1103,6 +1103,84 @@ template std::vector<crypto::ec_point> CurveTrees<Selene, Helios>::calc_hashes_f
     const typename CurveTrees<Selene, Helios>::Path &path,
     const bool replace_last_hash) const;
 //----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTreesV1::Path CurveTrees<Selene, Helios>::get_dummy_path(
+    const std::vector<fcmp_pp::curve_trees::OutputContext> &outputs,
+    uint8_t n_layers) const
+{
+    CHECK_AND_ASSERT_THROW_MES(m_c1_width == outputs.size(), "dummy path expects outputs == m_c1_width");
+
+    CurveTreesV1::Path path;
+
+    // Leaves
+    std::vector<fcmp_pp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples;
+    for (const auto &o : outputs)
+    {
+        path.leaves.push_back(fcmp_pp::curve_trees::output_to_tuple(o.output_pair));
+        leaf_tuples.push_back(this->leaf_tuple(o.output_pair));
+    }
+
+    // First c1 layer
+    path.c1_layers.push_back({});
+    path.c1_layers.back().push_back({});
+    const auto flat_leaves = this->flatten_leaves(std::move(leaf_tuples));
+    hash_first_chunk(m_c1, nullptr, nullptr, 0, flat_leaves, flat_leaves.size(), path.c1_layers.back().back());
+    for (std::size_t i = 1; n_layers > 1 && i < m_c2_width; ++i)
+    {
+        path.c1_layers.back().push_back(m_c1->hash_init_point());
+    }
+
+    // Rest of the tree
+    bool parent_is_c2 = true;
+    for (uint8_t i = 1; i < n_layers; ++i)
+    {
+        if (parent_is_c2)
+        {
+            path.c2_layers.push_back({});
+
+            // Convert Selene points to Helios scalars
+            std::vector<Helios::Scalar> c2_scalars;
+            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_c1,
+                path.c1_layers.back(),
+                c2_scalars);
+
+            // Get hash of prior layer chunk
+            path.c2_layers.back().push_back({});
+            hash_first_chunk(m_c2, nullptr, nullptr, 0, c2_scalars, c2_scalars.size(), path.c2_layers.back().back());
+
+            // Set dummy values for rest of the chunk
+            for (std::size_t j = 1; (i + 1) < n_layers && j < m_c1_width; ++j)
+            {
+                path.c2_layers.back().push_back(m_c2->hash_init_point());
+            }
+        }
+        else
+        {
+            path.c1_layers.push_back({});
+
+            // Convert Helios points to Selene scalars
+            std::vector<Selene::Scalar> c1_scalars;
+            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_c2,
+                path.c2_layers.back(),
+                c1_scalars);
+
+            // Get hash of prior layer chunk
+            path.c1_layers.back().push_back({});
+            hash_first_chunk(m_c1, nullptr, nullptr, 0, c1_scalars, c1_scalars.size(), path.c1_layers.back().back());
+
+            // Set dummy values for rest of the chunk
+            for (std::size_t j = 1; (i + 1) < n_layers && j < m_c2_width; ++j)
+            {
+                path.c1_layers.back().push_back(m_c1->hash_init_point());
+            }
+        }
+
+        parent_is_c2 = !parent_is_c2;
+    }
+
+    return path;
+};
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTrees private member functions
 //----------------------------------------------------------------------------------------------------------------------

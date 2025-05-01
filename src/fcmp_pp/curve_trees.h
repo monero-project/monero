@@ -343,6 +343,8 @@ public:
     PathForProof path_for_proof(const Path &path, const OutputTuple &output_tuple) const;
 
     std::vector<crypto::ec_point> calc_hashes_from_path(const Path &path, const bool replace_last_hash = false) const;
+
+    Path get_dummy_path(const std::vector<fcmp_pp::curve_trees::OutputContext> &outputs, uint8_t n_layers) const;
 private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(
