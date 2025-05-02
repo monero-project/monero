@@ -178,7 +178,7 @@ public:
     // A helpful struct useful to prepare a state change to the cache, and then use it to change the cache
     struct CacheStateChange final
     {
-        uint64_t n_outputs_observed;
+        uint64_t n_outputs_observed{0};
         LockedOutsByLastLockedBlock locked_outputs;
         LockedOutputsByCreated locked_output_refs;
         typename fcmp_pp::curve_trees::CurveTrees<C1, C2>::TreeExtension tree_extension;
