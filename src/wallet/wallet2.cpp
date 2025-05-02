@@ -3207,13 +3207,18 @@ static TreeSyncStartParams tree_sync_reorg_check(const uint64_t parsed_blocks_st
   return TreeSyncStartParams { sync_start_block_idx, start_parsed_block_i, prev_block_hash };
 }
 
-static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_params, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, tools::wallet2::TreeCacheV1 &tree_cache_inout, uint64_t &outs_by_last_locked_time_ms_inout, uint64_t &sync_blocks_time_ms_inout, std::vector<crypto::hash> &new_block_hashes_out, fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension_out, std::vector<uint64_t> &new_leaf_tuples_per_block_out)
+static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_params,
+    const std::vector<tools::wallet2::parsed_block> &parsed_blocks,
+    const tools::wallet2::TreeCacheV1 &tree_cache,
+    uint64_t &outs_by_last_locked_time_ms_inout,
+    uint64_t &sync_blocks_time_ms_inout,
+    std::vector<crypto::hash> &new_block_hashes_out,
+    fcmp_pp::curve_trees::TreeCacheV1::CacheStateChange &cache_state_change_out)
 {
   TIME_MEASURE_START(sync_blocks_time);
 
   new_block_hashes_out.clear();
-  new_leaf_tuples_per_block_out.clear();
-  tree_extension_out = fcmp_pp::curve_trees::CurveTreesV1::TreeExtension{};
+  cache_state_change_out = {};
 
   const uint64_t sync_start_block_idx = tree_sync_start_params.start_block_idx;
   const uint64_t start_parsed_block_i = tree_sync_start_params.start_parsed_block_i;
@@ -3232,7 +3237,7 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
   new_block_hashes_out.reserve(n_new_blocks);
   outs_by_last_locked_blocks.reserve(n_new_blocks);
 
-  uint64_t first_output_id = tree_cache_inout.get_output_count();
+  uint64_t first_output_id = tree_cache.get_output_count();
   for (size_t i = start_parsed_block_i; i < parsed_blocks.size(); ++i)
   {
     const uint64_t created_block_idx = sync_start_block_idx + (i - start_parsed_block_i);
@@ -3254,12 +3259,11 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
   TIME_MEASURE_FINISH(collecting_outs_by_last_locked_block);
 
   // Get a tree extension with the outputs that will unlock in this chunk of blocks
-  tree_cache_inout.prepare_to_sync_blocks(sync_start_block_idx,
+  tree_cache.prepare_to_grow_cache(sync_start_block_idx,
     prev_block_hash,
     new_block_hashes_out,
     outs_by_last_locked_blocks,
-    tree_extension_out,
-    new_leaf_tuples_per_block_out);
+    cache_state_change_out);
 
   TIME_MEASURE_FINISH(sync_blocks_time);
 
@@ -3304,15 +3308,14 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   const auto tree_sync_start_params = tree_sync_reorg_check(start_height, parsed_blocks, n_blocks_already_synced, m_blockchain, m_max_reorg_depth, m_tree_cache);
 
   std::vector<crypto::hash> new_block_hashes;
-  fcmp_pp::curve_trees::CurveTreesV1::TreeExtension tree_extension;
-  std::vector<uint64_t> new_leaf_tuples_per_block;
+  fcmp_pp::curve_trees::TreeCacheV1::CacheStateChange tree_cache_state_change;
 
   // Get the tree extension in parallel to identifying receives in the rest of
   // this function. After identifying receives in parallel, we'll then process
   // the tree extension, saving any path elements we need for received outputs,
   // and throwing away excess tree elems we won't need to continue syncing.
-  tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &tree_extension, &new_leaf_tuples_per_block, tree_sync_start_params]() {
-      tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
+  tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &tree_cache_state_change, tree_sync_start_params]() {
+      tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_cache_state_change);
     });
 
   const auto tree_sync_post_check = epee::misc_utils::create_scope_leave_handler([&, this]() {
@@ -3438,34 +3441,49 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     }
     else
     {
-      // Finish processing synced blocks on tree
-      m_tree_cache.process_synced_blocks(tree_sync_start_params.start_block_idx, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
+      LOG_PRINT_L2("Caught an error in the scanner, restoring the tree cache");
+
+      // Finish growing the cache with the state change. We skip shrinking the
+      // cache to the reorg depth in case we need to revert the tree to an
+      // earlier block below.
+      m_tree_cache.grow_cache(tree_sync_start_params.start_block_idx,
+        new_block_hashes,
+        std::move(tree_cache_state_change),
+        true/*skip_shrink_to_reorg_depth*/);
 
       // We had an error in the scanner. Next time the scanner runs, it starts
       // from where it left off. We need to make sure the scanner state matches
       // the tree sync state, so that they start from the same place. Thus, we
       // pop from the tree sync cache until they've synced the same # of blocks.
-      // The reason we call process_synced_blocks above is because
-      // prepare_to_sync_blocks modifies cache state and requires the
-      // corresponding call to process_synced_blocks to complete before popping.
-      // This could be done in a simpler way.
+      // The reason we call grow_cache first is because it is faster/simpler
+      // to add the tree elems in memory first and then remove them.
       while (m_tree_cache.n_synced_blocks() > m_blockchain.size())
       {
+        // Note: it would be fastest to implement popping back to a specific block
         THROW_WALLET_EXCEPTION_IF(!m_tree_cache.pop_block(), error::wallet_internal_error, "Failed to pop block from tree cache");
       }
+
+      // We make sure to call this *after* in case the cache still has more
+      // elems than the reorg depth. We don't call it *before*
+      // (or inside grow_cache) because we may have needed to revert the tree
+      // back to a block before the reorg depth when popping above.
+      m_tree_cache.shrink_to_reorg_depth();
+
+      LOG_PRINT_L2("Finished restoring the tree cache");
     }
 
     std::rethrow_exception(std::current_exception());
     return;
   }
 
-  // Now that we've processed all received outputs, call process_synced_blocks
+  // Now that we've processed all received outputs, call grow_cache
   // to save the elems we need from the tree, and get rid of the rest of the
   // tree elems we no longer need.
   LOG_PRINT_L3("Building the tree...");
   THROW_WALLET_EXCEPTION_IF(!tree_sync_blocks_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
   LOG_PRINT_L3("Done waiting on tree build");
-  m_tree_cache.process_synced_blocks(tree_sync_start_params.start_block_idx, new_block_hashes, tree_extension, new_leaf_tuples_per_block);
+  m_tree_cache.grow_cache(tree_sync_start_params.start_block_idx, new_block_hashes, std::move(tree_cache_state_change));
+  LOG_PRINT_L3("Done growing the tree cache");
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(bool trusted_daemon)

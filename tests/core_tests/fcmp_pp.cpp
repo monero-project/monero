@@ -123,10 +123,9 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(blocks[0].miner_tx.unlock_time, 0));
 
   // Build the tree, keeping track of output's path in the tree
-  fcmp_pp::curve_trees::CurveTreesV1::TreeExtension tree_extension;
-  std::vector<uint64_t> n_new_leaf_tuples_per_block;
-  tree_cache.prepare_to_sync_blocks(0, {}, new_block_hashes, outs_by_last_locked_blocks, tree_extension, n_new_leaf_tuples_per_block);
-  tree_cache.process_synced_blocks(0, new_block_hashes, tree_extension, n_new_leaf_tuples_per_block);
+  fcmp_pp::curve_trees::TreeCacheV1::CacheStateChange tree_cache_state_change;
+  tree_cache.prepare_to_grow_cache(0, {}, new_block_hashes, outs_by_last_locked_blocks, tree_cache_state_change);
+  tree_cache.grow_cache(0, new_block_hashes, std::move(tree_cache_state_change));
   const uint64_t n_synced_blocks = tree_cache.n_synced_blocks();
   if (n_synced_blocks == 0)
   {
