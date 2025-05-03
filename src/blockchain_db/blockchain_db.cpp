@@ -33,7 +33,6 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
-#include "ringct/rctSigs.h"
 
 #include "lmdb/db_lmdb.h"
 
