@@ -59,6 +59,18 @@ namespace tools
       );
     }
 
+    t_rpc_client(
+        const std::string &daemon_addr
+      , boost::optional<epee::net_utils::http::login> user
+      , epee::net_utils::ssl_options_t ssl_options
+      )
+      : m_http_client{}
+    {
+      m_http_client.set_server(
+        daemon_addr, std::move(user), std::move(ssl_options)
+      );
+    }
+
     template <typename T_req, typename T_res>
     bool basic_json_rpc_request(
         T_req & req
@@ -115,6 +127,33 @@ namespace tools
     }
 
     template <typename T_req, typename T_res>
+    bool basic_rpc_request(
+        T_req & req
+      , T_res & res
+      , std::string const & relative_url
+      )
+    {
+      t_http_connection connection(&m_http_client);
+
+      bool ok = connection.is_open();
+      if (!ok)
+      {
+        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
+        return false;
+      }
+      ok = epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
+      if (!ok)
+      {
+        fail_msg_writer() << "basic_rpc_request: Daemon request failed";
+        return false;
+      }
+      else
+      {
+        return true;
+      }
+    }
+
+    template <typename T_req, typename T_res>
     bool rpc_request(
         T_req & req
       , T_res & res
@@ -146,6 +185,77 @@ namespace tools
     {
       t_http_connection connection(&m_http_client);
       return connection.is_open();
+    }
+  };
+
+  class t_daemon_rpc_client final
+  {
+  private:
+    t_rpc_client m_rpc_client;
+  public:
+    t_daemon_rpc_client(
+        const std::string &daemon_addr
+      , const boost::optional<epee::net_utils::http::login> &daemon_login
+      , const epee::net_utils::ssl_options_t ssl_support
+      )
+      : m_rpc_client{daemon_addr, daemon_login, ssl_support}
+    {
+    }
+
+    cryptonote::COMMAND_RPC_GET_HEIGHT::response get_height()
+    {
+      cryptonote::COMMAND_RPC_GET_HEIGHT::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GET_HEIGHT::response res = AUTO_VAL_INIT(res);
+      CHECK_AND_ASSERT_THROW_MES(m_rpc_client.basic_rpc_request(req, res, "/get_height"), "failed to get height");
+      return res;
+    }
+
+    cryptonote::COMMAND_RPC_POP_BLOCKS::response pop_blocks(uint64_t nblocks = 1)
+    {
+      cryptonote::COMMAND_RPC_POP_BLOCKS::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_POP_BLOCKS::response res = AUTO_VAL_INIT(res);
+      req.nblocks = nblocks;
+      CHECK_AND_ASSERT_THROW_MES(m_rpc_client.basic_rpc_request(req, res, "/pop_blocks"), "failed to pop blocks");
+      return res;
+    }
+
+    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response get_transactions(const std::vector<std::string> &txs_hashes)
+    {
+      cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
+      req.txs_hashes = txs_hashes;
+      req.decode_as_json = false;
+      CHECK_AND_ASSERT_THROW_MES(m_rpc_client.basic_rpc_request(req, res, "/get_transactions"), "failed to get transactions");
+      return res;
+    }
+
+    cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::response flush_txpool()
+    {
+      cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::response res = AUTO_VAL_INIT(res);
+      CHECK_AND_ASSERT_THROW_MES(m_rpc_client.basic_json_rpc_request(req, res, "flush_txpool"), "failed to flush txpool");
+      return res;
+    }
+
+    cryptonote::COMMAND_RPC_GENERATEBLOCKS::response generateblocks(const std::string &address, uint64_t amount_of_blocks)
+    {
+      cryptonote::COMMAND_RPC_GENERATEBLOCKS::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GENERATEBLOCKS::response res = AUTO_VAL_INIT(res);
+      req.amount_of_blocks = amount_of_blocks;
+      req.wallet_address = address;
+      req.prev_block = "";
+      req.starting_nonce = 0;
+      CHECK_AND_ASSERT_THROW_MES(m_rpc_client.basic_json_rpc_request(req, res, "generateblocks"), "failed to generate blocks");
+      return res;
+    }
+
+    cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::response get_last_block_header()
+    {
+      cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GET_LAST_BLOCK_HEADER::response res = AUTO_VAL_INIT(res);
+      req.client = "";
+      CHECK_AND_ASSERT_THROW_MES(m_rpc_client.basic_json_rpc_request(req, res, "get_last_block_header"), "failed to get last block header");
+      return res;
     }
   };
 }
