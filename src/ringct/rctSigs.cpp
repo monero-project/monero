@@ -37,7 +37,6 @@
 #include "common/util.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
-#include "rctSigs.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
