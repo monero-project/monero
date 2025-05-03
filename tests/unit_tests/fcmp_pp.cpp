@@ -33,6 +33,7 @@
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
+#include "fcmp_pp/ffi_types.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
@@ -494,9 +495,9 @@ TEST(fcmp_pp, verify)
 
     const size_t expected_num_helios_branch_blinds = (n_layers - 1) / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
-    std::vector<const uint8_t *> helios_branch_blinds;
+    std::vector<fcmp_pp::ffi::HeliosBranchBlind> helios_branch_blinds;
     for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
-        helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+        helios_branch_blinds.emplace_back(fcmp_pp::ffi::HeliosBranchBlind());
 
     // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
     for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
@@ -573,9 +574,9 @@ TEST(fcmp_pp, verify)
                 for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
                     selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
 
-            if (helios_branch_blinds.empty())
-                for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
-                    helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+            std::vector<const uint8_t*> helios_blinds;
+            for (const auto &hbb : helios_branch_blinds)
+                helios_blinds.push_back(hbb.get());
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
@@ -583,7 +584,7 @@ TEST(fcmp_pp, verify)
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
-                helios_branch_blinds);
+                helios_blinds);
 
             fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
         }
