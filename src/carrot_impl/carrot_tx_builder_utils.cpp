@@ -405,6 +405,10 @@ void make_carrot_transaction_proposal_v1_sweep(
     const crypto::public_key &account_spend_pubkey,
     CarrotTransactionProposalV1 &tx_proposal_out)
 {
+    // sanity check payment proposals are provided
+    CHECK_AND_ASSERT_THROW_MES(normal_payment_proposals.size() || selfsend_payment_proposals.size(),
+        "make carrot transaction proposal v1 sweep: no payment proposals provided");
+
     // sanity check that all payment proposal amounts are 0
     for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
     {
@@ -416,6 +420,10 @@ void make_carrot_transaction_proposal_v1_sweep(
         CHECK_AND_ASSERT_THROW_MES(selfsend_payment_proposal.proposal.amount == 0,
             "make carrot transaction proposal v1 sweep: payment proposal amount not 0");
     }
+
+    // sanity check that either normal payment proposals XOR selfsend are provided, not both
+    CHECK_AND_ASSERT_THROW_MES(bool(normal_payment_proposals.size()) ^ bool(selfsend_payment_proposals.size()),
+        "make carrot transaction proposal v1 sweep: both normal and self-send payment proposals are provided");
 
     const bool is_selfsend_sweep = !selfsend_payment_proposals.empty();
 
@@ -445,11 +453,12 @@ void make_carrot_transaction_proposal_v1_sweep(
         const size_t n_outputs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
         std::vector<rct::xmr_amount*> amount_ptrs;
         amount_ptrs.reserve(n_outputs);
-        for (CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
-            amount_ptrs.push_back(&normal_payment_proposal.amount);
         if (is_selfsend_sweep)
             for (CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
                 amount_ptrs.push_back(&selfsend_payment_proposal.proposal.amount);
+        else
+            for (CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
+                amount_ptrs.push_back(&normal_payment_proposal.amount);
         std::shuffle(amount_ptrs.begin(), amount_ptrs.end(), crypto::random_device{});
 
         // disburse amount equally amongst modifiable amounts
