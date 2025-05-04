@@ -489,6 +489,86 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
     EXPECT_EQ(n_dests, n_actual_dests);
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_6)
+{
+    // 2-dest, 2-out sweep to self
+
+    cryptonote::account_base alice;
+    alice.generate();
+
+    // generate transfers list
+    static constexpr size_t n_transfers = 5;
+    tools::wallet2::transfer_container transfers;
+    transfers.reserve(n_transfers);
+    for (size_t i = 0; i < n_transfers; ++i)
+        transfers.push_back(gen_transfer_details());
+
+    // generate random indices into transfer list
+    static constexpr size_t n_selected_transfers = 3;
+    static_assert(n_selected_transfers < n_transfers);
+    std::set<size_t> selected_transfer_indices;
+    while (selected_transfer_indices.size() < n_selected_transfers)
+        selected_transfer_indices.insert(crypto::rand_idx(n_transfers));
+
+    // generate map of amounts by key image, key image vector, and height of chain
+    std::vector<crypto::key_image> selected_key_images;
+    std::unordered_map<crypto::key_image, rct::xmr_amount> amounts_by_ki;
+    uint64_t top_block_index = 0;
+    for (const size_t selected_transfer_index : selected_transfer_indices)
+    {
+        const tools::wallet2::transfer_details &td = transfers.at(selected_transfer_index);
+        selected_key_images.push_back(td.m_key_image);
+        amounts_by_ki.emplace(td.m_key_image, td.amount());
+        top_block_index = std::max(top_block_index, td.m_block_height);
+    }
+    top_block_index += CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+
+    ASSERT_EQ(n_selected_transfers, selected_key_images.size());
+    ASSERT_EQ(n_selected_transfers, amounts_by_ki.size());
+
+    const size_t n_dests = 2;
+
+    // make tx proposals
+    const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
+        transfers,
+        /*subaddress_map=*/{{alice.get_keys().m_account_address.m_spend_public_key, {}}},
+        selected_key_images,
+        alice.get_keys().m_account_address,
+        /*is_subaddress=*/false,
+        /*n_dests=*/n_dests,
+        /*fee_per_weight=*/1,
+        /*extra=*/{},
+        top_block_index,
+        alice.get_keys());
+    ASSERT_EQ(1, tx_proposals.size());
+    const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
+
+    std::set<crypto::key_image> actual_seen_kis;
+
+    ASSERT_EQ(n_selected_transfers, tx_proposal.key_images_sorted.size());
+    ASSERT_EQ(0, tx_proposal.normal_payment_proposals.size());
+    ASSERT_EQ(2, tx_proposal.selfsend_payment_proposals.size());
+    EXPECT_EQ(0, tx_proposal.extra.size());
+
+    rct::xmr_amount tx_inputs_amount = 0;
+    for (const crypto::key_image &ki : tx_proposal.key_images_sorted)
+    {
+        ASSERT_TRUE(amounts_by_ki.count(ki));
+        ASSERT_FALSE(actual_seen_kis.count(ki));
+        actual_seen_kis.insert(ki);
+        tx_inputs_amount += amounts_by_ki.at(ki);
+    }
+    const rct::xmr_amount output_amount_0 = tx_proposal.selfsend_payment_proposals.at(0).proposal.amount;
+    const rct::xmr_amount output_amount_1 = tx_proposal.selfsend_payment_proposals.at(1).proposal.amount;
+    const rct::xmr_amount tx_outputs_amount = tx_proposal.fee + output_amount_0 + output_amount_1;
+    ASSERT_EQ(tx_inputs_amount, tx_outputs_amount);
+    ASSERT_LE(std::max(output_amount_0, output_amount_1) - std::min(output_amount_0, output_amount_1), 1);
+
+    const carrot::CarrotEnoteType enote_type_0 = tx_proposal.selfsend_payment_proposals.at(0).proposal.enote_type;
+    const carrot::CarrotEnoteType enote_type_1 = tx_proposal.selfsend_payment_proposals.at(1).proposal.enote_type;
+    ASSERT_NE(enote_type_0, enote_type_1);
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
 {
     // 1. create fake blockchain
