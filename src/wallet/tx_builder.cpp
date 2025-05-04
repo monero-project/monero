@@ -541,6 +541,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     const wallet2::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
+    const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests,
@@ -563,7 +564,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         if (!is_transfer_usable_for_input_selection(td,
                 subaddr_account,
                 subaddr_indices,
-                MONEY_SUPPLY,
+                only_below ? only_below : MONEY_SUPPLY,
                 0,
                 top_block_index))
             continue;
@@ -594,6 +595,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     wallet2 &w,
+    const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests,
@@ -615,6 +617,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     return make_carrot_transaction_proposals_wallet2_sweep_all(
         transfers,
         w.get_subaddress_map_ref(),
+        only_below,
         address,
         is_subaddress,
         n_dests,
