@@ -94,6 +94,8 @@ struct mock_carrot_and_legacy_keys
 
     CarrotDestinationV1 subaddress(const subaddress_index_extended &subaddress_index) const;
 
+    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddress_map_cn() const;
+
     // brief: opening_for_subaddress - return (k^g_a, k^t_a) for j s.t. K^j_s = (k^g_a * G + k^t_a * T)
     void opening_for_subaddress(const subaddress_index_extended &subaddress_index,
         crypto::secret_key &address_privkey_g_out,
@@ -177,7 +179,10 @@ std::uint64_t gen_block_index();
 //----------------------------------------------------------------------------------------------------------------------
 CarrotDestinationV1 convert_destination_v1(const cryptonote::tx_destination_entry &cn_dst);
 //----------------------------------------------------------------------------------------------------------------------
-CarrotPaymentProposalV1 convert_normal_payment_proposal_v1(const cryptonote::tx_destination_entry &cn_dst);
+cryptonote::tx_destination_entry convert_destination_v1(const CarrotDestinationV1 &dst, const rct::xmr_amount amount);
+//----------------------------------------------------------------------------------------------------------------------
+CarrotPaymentProposalV1 convert_normal_payment_proposal_v1(const cryptonote::tx_destination_entry &cn_dst,
+    const janus_anchor_t randomness = gen_janus_anchor());
 //----------------------------------------------------------------------------------------------------------------------
 CarrotPaymentProposalSelfSendV1 convert_selfsend_payment_proposal_v1(const cryptonote::tx_destination_entry &cn_dst);
 //----------------------------------------------------------------------------------------------------------------------

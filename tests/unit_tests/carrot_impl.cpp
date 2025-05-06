@@ -159,6 +159,7 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
         tx_preproposal.extra_extra,
         make_fake_input_selection_callback(),
         ss_keys.carrot_account_spend_pubkey,
+        {{0, 0}, AddressDeriveType::Carrot},
         {},
         {},
         tx_proposal);

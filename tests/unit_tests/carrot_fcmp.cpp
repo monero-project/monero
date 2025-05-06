@@ -356,6 +356,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             }
         },
         alice.carrot_account_spend_pubkey,
+        {{0, 0}, AddressDeriveType::Carrot},
         {},
         {},
         tx_proposal);
