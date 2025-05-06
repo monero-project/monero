@@ -103,6 +103,17 @@ CarrotDestinationV1 mock_carrot_and_legacy_keys::subaddress(const subaddress_ind
     return addr;
 }
 //----------------------------------------------------------------------------------------------------------------------
+std::unordered_map<crypto::public_key, cryptonote::subaddress_index> mock_carrot_and_legacy_keys::subaddress_map_cn() const
+{
+    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> res;
+    for (const auto &p : subaddress_map)
+        if (p.second.derive_type == AddressDeriveType::PreCarrot)
+            res.emplace(p.first, cryptonote::subaddress_index{p.second.index.major, p.second.index.minor});
+    CHECK_AND_ASSERT_THROW_MES(!res.empty(),
+        "mock_carrot_and_legacy_keys::subaddress_map_cn: subaddress map does not contain pre-carrot subaddresses");
+    return res;
+}
+//----------------------------------------------------------------------------------------------------------------------
 void mock_carrot_and_legacy_keys::opening_for_subaddress(const subaddress_index_extended &subaddress_index,
     crypto::secret_key &address_privkey_g_out,
     crypto::secret_key &address_privkey_t_out,
@@ -506,12 +517,20 @@ CarrotDestinationV1 convert_destination_v1(const cryptonote::tx_destination_entr
     };
 }
 //----------------------------------------------------------------------------------------------------------------------
-CarrotPaymentProposalV1 convert_normal_payment_proposal_v1(const cryptonote::tx_destination_entry &cn_dst)
+cryptonote::tx_destination_entry convert_destination_v1(const CarrotDestinationV1 &dst, const rct::xmr_amount amount)
+{
+    return cryptonote::tx_destination_entry(amount,
+        {dst.address_spend_pubkey, dst.address_view_pubkey},
+        dst.is_subaddress);
+}
+//----------------------------------------------------------------------------------------------------------------------
+CarrotPaymentProposalV1 convert_normal_payment_proposal_v1(const cryptonote::tx_destination_entry &cn_dst,
+    const janus_anchor_t randomness)
 {
     return CarrotPaymentProposalV1{
         .destination = convert_destination_v1(cn_dst),
         .amount = cn_dst.amount,
-        .randomness = gen_janus_anchor()
+        .randomness = randomness
     };
 }
 //----------------------------------------------------------------------------------------------------------------------

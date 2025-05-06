@@ -128,7 +128,8 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
-    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_address_index,
     CarrotTransactionProposalV1 &tx_proposal_out)
 {
     tx_proposal_out.extra = extra;
@@ -143,8 +144,8 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     // add an additional payment proposal to satisfy scanning/consensus rules, if applicable
     append_additional_payment_proposal_if_necessary(normal_payment_proposals,
         selfsend_payment_proposals,
-        account_spend_pubkey,
-        {{0, 0}, AddressDeriveType::Auto}); // @TODO: let callers pass AddressDeriveType as an argument
+        change_address_spend_pubkey,
+        change_address_index);
 
     const size_t num_outs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
     CHECK_AND_ASSERT_THROW_MES(num_outs >= CARROT_MIN_TX_OUTPUTS,
@@ -242,7 +243,8 @@ void make_carrot_transaction_proposal_v1_transfer(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
-    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_address_index,
     const std::set<std::size_t> &subtractable_normal_payment_proposals,
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
     CarrotTransactionProposalV1 &tx_proposal_out)
@@ -261,13 +263,13 @@ void make_carrot_transaction_proposal_v1_transfer(
         selfsend_payment_proposals.size() == 1 &&
         selfsend_payment_proposals.at(0).proposal.enote_type == CarrotEnoteType::CHANGE;
 
-        selfsend_payment_proposals.push_back(CarrotPaymentProposalVerifiableSelfSendV1{
+    selfsend_payment_proposals.push_back(CarrotPaymentProposalVerifiableSelfSendV1{
         .proposal = CarrotPaymentProposalSelfSendV1{
-            .destination_address_spend_pubkey = account_spend_pubkey,
+            .destination_address_spend_pubkey = change_address_spend_pubkey,
             .amount = 0,
             .enote_type = add_payment_type_selfsend ? CarrotEnoteType::PAYMENT : CarrotEnoteType::CHANGE
         },
-        .subaddr_index = {{0, 0}, AddressDeriveType::Auto} // @TODO: let callers pass AddressDeriveType as an argument
+        .subaddr_index = change_address_index
     });
 
     // define carves fees and balance callback
@@ -392,7 +394,8 @@ void make_carrot_transaction_proposal_v1_transfer(
         extra,
         std::forward<select_inputs_func_t>(select_inputs),
         std::move(carve_fees_and_balance),
-        account_spend_pubkey,
+        change_address_spend_pubkey,
+        change_address_index,
         tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -402,7 +405,8 @@ void make_carrot_transaction_proposal_v1_sweep(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
-    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_address_index,
     CarrotTransactionProposalV1 &tx_proposal_out)
 {
     // sanity check payment proposals are provided
@@ -480,7 +484,8 @@ void make_carrot_transaction_proposal_v1_sweep(
         extra,
         std::move(select_inputs),
         std::move(carve_fees_and_balance),
-        account_spend_pubkey,
+        change_address_spend_pubkey,
+        change_address_index,
         tx_proposal_out);
 }
 //-------------------------------------------------------------------------------------------------------------------

@@ -59,7 +59,7 @@ static tools::wallet2::transfer_details gen_transfer_details()
         .m_spent_height = 0,
         .m_key_image = crypto::key_image{rct::rct2pk(rct::pkGen())},
         .m_mask = rct::skGen(),
-        .m_amount = crypto::rand_range<rct::xmr_amount>(0, COIN), // [0, 1] XMR i.e. [0, 1e12] pXMR
+        .m_amount = crypto::rand_range<rct::xmr_amount>(COIN, 2 * COIN), // [1, 2] XMR i.e. [1e12, 2e12] pXMR
         .m_rct = true,
         .m_key_image_known = true,
         .m_key_image_request = false,
@@ -170,7 +170,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_1)
 
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
         transfers,
-        /*subaddress_map=*/{},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         dsts,
         /*fee_per_weight=*/1,
         /*extra=*/{},
@@ -200,6 +200,97 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_1)
         transfers.front().amount());
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
+{
+    carrot::mock::mock_carrot_and_legacy_keys alice;
+    alice.generate();
+    carrot::mock::mock_carrot_and_legacy_keys bob;
+    bob.generate();
+
+    static constexpr uint32_t spending_subaddr_account = 2;
+    static_assert(spending_subaddr_account);
+
+    tools::wallet2::transfer_container transfers;
+    std::uint64_t top_block_index = 0;
+    std::unordered_map<crypto::key_image, std::size_t> allowed_transfers;
+    for (size_t i = 0; i < FCMP_PLUS_PLUS_MAX_INPUTS + 2; ++i)
+    {
+        tools::wallet2::transfer_details &td = tools::add_element(transfers);
+        td = gen_transfer_details();
+        td.m_subaddr_index.major = (i % 2 == 0) ? spending_subaddr_account : (spending_subaddr_account - 1);
+        td.m_subaddr_index.minor = crypto::rand_range<std::uint32_t>(0, carrot::mock::MAX_SUBADDRESS_MINOR_INDEX);
+        top_block_index = std::max(top_block_index, td.m_block_height);
+
+        if (td.m_subaddr_index.major == spending_subaddr_account)
+            allowed_transfers.emplace(td.m_key_image, i);
+    }
+    top_block_index += CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+
+    const rct::xmr_amount out_amount = COIN * 3 / 4;
+
+    const std::vector<cryptonote::tx_destination_entry> dsts{
+        carrot::mock::convert_destination_v1(bob.cryptonote_address(), out_amount)
+    };
+
+    const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
+        transfers,
+        alice.subaddress_map_cn(),
+        dsts,
+        /*fee_per_weight=*/1,
+        /*extra=*/{},
+        /*subaddr_account=*/spending_subaddr_account,
+        /*subaddr_indices=*/{},
+        /*ignore_above=*/MONEY_SUPPLY,
+        /*ignore_below=*/0,
+        {},
+        top_block_index,
+        alice.legacy_acb.get_keys());
+
+    ASSERT_EQ(1, tx_proposals.size());
+    const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
+
+    // Assert basic length facts about tx proposal
+    ASSERT_LE(tx_proposal.key_images_sorted.size(), 2);
+    ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
+    ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
+    EXPECT_EQ(0, tx_proposal.extra.size());
+
+    const carrot::CarrotPaymentProposalV1 &normal_payment_proposal = tx_proposal.normal_payment_proposals.at(0);
+    const carrot::CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal = tx_proposal.selfsend_payment_proposals.at(0);
+
+    // Assert that selected transfers have spending_subaddr_account subaddr major index
+    boost::multiprecision::uint128_t in_sum = 0;
+    for (std::size_t in_idx = 0; in_idx < tx_proposal.key_images_sorted.size(); ++in_idx)
+    {
+        const crypto::key_image &ki = tx_proposal.key_images_sorted.at(in_idx);
+        if (in_idx > 0)
+        {
+            ASSERT_LT(ki, tx_proposal.key_images_sorted.at(in_idx - 1));
+        }
+        ASSERT_EQ(1, allowed_transfers.count(ki));
+        const tools::wallet2::transfer_details &td = transfers.at(allowed_transfers.at(ki));
+        ASSERT_EQ(spending_subaddr_account, td.m_subaddr_index.major);
+        in_sum += td.amount();
+    }
+
+    // Assert balanced amounts
+    boost::multiprecision::uint128_t out_sum = tx_proposal.fee;
+    out_sum += normal_payment_proposal.amount;
+    out_sum += selfsend_payment_proposal.proposal.amount;
+    ASSERT_EQ(in_sum, out_sum);
+
+    // Assert pubkeys/subaddr indices/amounts of payment proposals
+    EXPECT_EQ(carrot::mock::convert_normal_payment_proposal_v1(dsts.at(0), normal_payment_proposal.randomness), normal_payment_proposal);
+    EXPECT_NE(normal_payment_proposal.randomness, carrot::janus_anchor_t{});
+    EXPECT_EQ(spending_subaddr_account, selfsend_payment_proposal.subaddr_index.index.major);
+    EXPECT_EQ(0, selfsend_payment_proposal.subaddr_index.index.minor);
+    EXPECT_EQ(alice.subaddress({{spending_subaddr_account, 0}, carrot::AddressDeriveType::PreCarrot}).address_spend_pubkey,
+        selfsend_payment_proposal.proposal.destination_address_spend_pubkey);
+    EXPECT_EQ(carrot::CarrotEnoteType::CHANGE, selfsend_payment_proposal.proposal.enote_type);
+    EXPECT_FALSE(selfsend_payment_proposal.proposal.internal_message);
+    EXPECT_FALSE(selfsend_payment_proposal.proposal.enote_ephemeral_pubkey);
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_1)
 {
     cryptonote::account_base alice;
@@ -211,7 +302,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_1)
 
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
         transfers,
-        /*subaddress_map=*/{},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         {transfers.front().m_key_image},
         bob.get_keys().m_account_address,
         /*is_subaddress=*/false,
@@ -246,7 +337,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_2)
 
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
         transfers,
-        /*subaddress_map=*/{},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         {transfers.front().m_key_image},
         bob.get_keys().m_account_address,
         /*is_subaddress=*/false,
@@ -289,7 +380,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_3)
 
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
         transfers,
-        /*subaddress_map=*/{{alice.get_keys().m_account_address.m_spend_public_key, {}}},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         {transfers.front().m_key_image},
         alice.get_keys().m_account_address,
         /*is_subaddress=*/false,
@@ -365,7 +456,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
     // make tx proposals
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
         transfers,
-        /*subaddress_map=*/{},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         selected_key_images,
         bob.get_keys().m_account_address,
         /*is_subaddress=*/false,
@@ -448,7 +539,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
     // make tx proposals
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
         transfers,
-        /*subaddress_map=*/{{alice.get_keys().m_account_address.m_spend_public_key, {}}},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         selected_key_images,
         alice.get_keys().m_account_address,
         /*is_subaddress=*/false,
@@ -531,7 +622,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_6)
     // make tx proposals
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(
         transfers,
-        /*subaddress_map=*/{{alice.get_keys().m_account_address.m_spend_public_key, {}}},
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         selected_key_images,
         alice.get_keys().m_account_address,
         /*is_subaddress=*/false,

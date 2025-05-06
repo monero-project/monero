@@ -58,7 +58,8 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
     carve_fees_and_balance_func_t &&carve_fees_and_balance,
-    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_address_index,
     CarrotTransactionProposalV1 &tx_proposal_out);
 
 void make_carrot_transaction_proposal_v1_transfer(
@@ -67,7 +68,8 @@ void make_carrot_transaction_proposal_v1_transfer(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     select_inputs_func_t &&select_inputs,
-    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_address_index,
     const std::set<std::size_t> &subtractable_normal_payment_proposals,
     const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
     CarrotTransactionProposalV1 &tx_proposal_out);
@@ -78,7 +80,8 @@ void make_carrot_transaction_proposal_v1_sweep(
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     std::vector<CarrotSelectedInput> &&selected_inputs,
-    const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &change_address_spend_pubkey,
+    const subaddress_index_extended &change_address_index,
     CarrotTransactionProposalV1 &tx_proposal_out);
 
 void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,

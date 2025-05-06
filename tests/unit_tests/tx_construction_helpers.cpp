@@ -427,6 +427,7 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
         /*extra=*/{},
         std::move(select_inputs),
         acc_keys.m_account_address.m_spend_public_key,
+        {{0, 0}, carrot::AddressDeriveType::PreCarrot},
         {},
         {},
         tx_proposal);
