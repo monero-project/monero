@@ -38,5 +38,5 @@
 
 void hash_extra_skein(const void *data, size_t length, char *hash) {
   // No need to check for failure b/c skein_hash only fails for invalid hash size
-  skein_hash(SKEIN_HASH_BITLEN, data, 8 * length, (uint8_t*)hash);
+  skein_hash(SKEIN_HASH_BITLEN, (const BitSequence *)data, 8 * length, (uint8_t*)hash);
 }

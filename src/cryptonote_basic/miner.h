@@ -37,6 +37,8 @@
 #include "verification_context.h"
 #include "difficulty.h"
 #include "math_helper.h"
+#include "syncobj.h"
+#include "cryptonote_basic/blobdatatype.h"
 #ifdef _WIN32
 #include <windows.h>
 #endif

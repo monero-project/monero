@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include "blockchain_db.h"
+
 namespace cryptonote
 {
     // This class is meant to create a batch when none currently exists.
