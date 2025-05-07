@@ -1188,7 +1188,8 @@ private:
     bool load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx_set &exported_txs) const;
     bool parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsigned_tx_set &exported_txs) const;
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
-    bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func);
+    bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func, signed_tx_set *signed_tx_set_out = nullptr, bool do_handle_key_images = true);
+    void insert_cold_key_images(std::unordered_map<crypto::public_key, crypto::key_image> &cold_key_images);
     std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs = {});     // pass subaddr_indices by value on purpose
     std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, uint32_t priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
     std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, uint32_t priority, const std::vector<uint8_t>& extra);
@@ -1542,6 +1543,8 @@ private:
     uint64_t get_num_rct_outputs();
     size_t get_num_transfer_details() const { return m_transfers.size(); }
     const transfer_details &get_transfer_details(size_t idx) const;
+    // similar to get_transfer_details(ki) below, but uses outputs pubkey instead of key image and this method is public
+    size_t get_output_index(const crypto::public_key &pk) const;
 
     uint8_t get_current_hard_fork();
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
@@ -1629,8 +1632,10 @@ private:
     std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> export_blockchain() const;
     void import_blockchain(const std::tuple<size_t, crypto::hash, std::vector<crypto::hash>> &bc);
     bool export_key_images(const std::string &filename, bool all = false) const;
+    std::string export_key_images_to_str(bool all = false) const;
     std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> export_key_images(bool all = false) const;
     uint64_t import_key_images(const std::vector<std::pair<crypto::key_image, crypto::signature>> &signed_key_images, size_t offset, uint64_t &spent, uint64_t &unspent, bool check_spent = true);
+    std::uint64_t import_key_images_from_str(const std::string &key_images_str, std::uint64_t &spent, std::uint64_t &unspent);
     uint64_t import_key_images(const std::string &filename, uint64_t &spent, uint64_t &unspent);
     bool import_key_images(std::vector<crypto::key_image> key_images, size_t offset=0, boost::optional<std::unordered_set<size_t>> selected_transfers=boost::none);
     bool import_key_images(signed_tx_set & signed_tx, size_t offset=0, bool only_selected_transfers=false);
