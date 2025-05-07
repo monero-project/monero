@@ -3197,6 +3197,22 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_uri_v2(const wallet_rpc::COMMAND_RPC_MAKE_URI_V2::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI_V2::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    std::string error;
+    std::string uri = m_wallet->make_uri(req.addresses, req.amounts, req.recipient_names, req.tx_description, error);
+    if (uri.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = std::string("Cannot make URI from supplied parameters: ") + error;
+      return false;
+    }
+    
+    res.uri = uri;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_parse_uri(const wallet_rpc::COMMAND_RPC_PARSE_URI::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
@@ -3207,6 +3223,26 @@ namespace tools
       er.message = "Error parsing URI: " + error;
       return false;
     }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_parse_uri_v2(const wallet_rpc::COMMAND_RPC_PARSE_URI_V2::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI_V2::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (!m_wallet) return not_open(er);
+    std::string error;
+    std::vector<std::string> addresses;
+    std::vector<uint64_t> amounts;
+    std::vector<std::string> recipient_names;
+    if (!m_wallet->parse_uri(req.uri, addresses, amounts, recipient_names, res.uri.tx_description, res.unknown_parameters, error))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = "Error parsing URI: " + error;
+      return false;
+    }
+
+    res.uri.addresses = addresses;
+    res.uri.amounts = amounts;
+    res.uri.recipient_names = recipient_names;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

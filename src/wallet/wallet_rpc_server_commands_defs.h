@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 28
+#define WALLET_RPC_VERSION_MINOR 29
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1875,6 +1875,74 @@ namespace wallet_rpc
     struct response_t
     {
       uri_spec uri;
+      std::vector<std::string> unknown_parameters;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+        KV_SERIALIZE(unknown_parameters)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct uri_spec_v2
+  {
+    std::vector<std::string> addresses;
+    std::vector<uint64_t> amounts;
+    std::vector<std::string> recipient_names;
+    std::string tx_description;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(addresses);
+      KV_SERIALIZE(amounts);
+      KV_SERIALIZE(recipient_names);
+      KV_SERIALIZE(tx_description);
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_MAKE_URI_V2
+  {
+    struct request_t
+    {
+      std::vector<std::string> addresses;
+      std::vector<uint64_t> amounts;
+      std::vector<std::string> recipient_names;
+      std::string tx_description;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(addresses);
+        KV_SERIALIZE(amounts);
+        KV_SERIALIZE(recipient_names);
+        KV_SERIALIZE(tx_description);
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_PARSE_URI_V2
+  {
+    struct request_t
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      uri_spec_v2 uri;
       std::vector<std::string> unknown_parameters;
 
       BEGIN_KV_SERIALIZE_MAP()
