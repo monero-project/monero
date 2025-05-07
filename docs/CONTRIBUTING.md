@@ -116,7 +116,6 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - All contributions to the project source code ("patches") MUST use the same license as the project.
 - All patches are owned by their authors. There MUST NOT be any copyright assignment process.
 - The copyrights in the project MUST be owned collectively by all its Contributors.
-- Each Contributor MUST be responsible for identifying themselves in the project Contributor list.
 
 ### Patch requirements
 
