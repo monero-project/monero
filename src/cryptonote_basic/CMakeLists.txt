@@ -71,6 +71,7 @@ target_link_libraries(cryptonote_basic
     checkpoints
     cryptonote_format_utils_basic
     device
+    ringct_basic
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
