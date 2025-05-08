@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 14
+#define CORE_RPC_VERSION_MINOR 15
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -232,6 +232,7 @@ namespace cryptonote
       std::vector<block_complete_entry> blocks;
       uint64_t    start_height;
       uint64_t    current_height;
+      crypto::hash top_block_hash;
       std::vector<block_output_indices> output_indices;
       uint64_t    daemon_time;
       uint8_t     pool_info_extent;
@@ -244,6 +245,7 @@ namespace cryptonote
         KV_SERIALIZE(blocks)
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(current_height)
+        KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(top_block_hash, crypto::null_hash)
         KV_SERIALIZE(output_indices)
         KV_SERIALIZE_OPT(daemon_time, (uint64_t) 0)
         KV_SERIALIZE_OPT(pool_info_extent, (uint8_t) 0)
