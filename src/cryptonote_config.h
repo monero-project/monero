@@ -211,8 +211,11 @@
 // TODO: settle on figures here
 // https://gist.github.com/kayabaNerve/dbbadf1f2b0f4e04732fc5ac559745b7
 // https://gist.github.com/Rucknium/784b243d75184333144a92b3258788f6
-#define FCMP_PLUS_PLUS_MAX_INPUTS               8
-#define FCMP_PLUS_PLUS_MAX_OUTPUTS              8
+// Discussions on PoW-enabled relay for high input txs:
+// https://libera.monerologs.net/monero-research-lab/20250430#c522449-c522790
+// https://libera.monerologs.net/no-wallet-left-behind/20250505#c523568-c523686
+#define FCMP_PLUS_PLUS_MAX_INPUTS               128
+#define FCMP_PLUS_PLUS_MAX_OUTPUTS              16
 
 // Restricting n layers keeps the proof_len table size very small and portable
 // 12 layers means the tree can support over 100 quadrillion outputs

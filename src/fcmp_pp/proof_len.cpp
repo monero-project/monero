@@ -41,11 +41,11 @@ std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_lay
     CHECK_AND_ASSERT_THROW_MES(n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS, "n_inputs must be <= FCMP_PLUS_PLUS_MAX_INPUTS");
     CHECK_AND_ASSERT_THROW_MES(n_layers <= FCMP_PLUS_PLUS_MAX_LAYERS, "n_layers must be <= FCMP_PLUS_PLUS_MAX_LAYERS");
 
-    static_assert(sizeof(uint16_t) * FCMP_PLUS_PLUS_MAX_INPUTS * FCMP_PLUS_PLUS_MAX_LAYERS == sizeof(PROOF_LEN_TABLE),
+    static_assert(sizeof(uint32_t) * FCMP_PLUS_PLUS_MAX_INPUTS * FCMP_PLUS_PLUS_MAX_LAYERS == sizeof(PROOF_LEN_TABLE),
         "unexpected table size");
 
-    // This will break platforms with < 16-bit word size. One solution is to use uint16_t for the proof len everywhere
-    static_assert(sizeof(std::size_t) >= sizeof(uint16_t), "cannot cast uint16_t to size_t");
+    // This will break platforms with < 32-bit word size. One solution is to use uint32_t for the proof len everywhere
+    static_assert(sizeof(std::size_t) >= sizeof(uint32_t), "cannot cast uint32_t to size_t");
     return (std::size_t) PROOF_LEN_TABLE[n_inputs-1][n_layers-1];
 };
 

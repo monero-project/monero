@@ -1178,78 +1178,246 @@ template std::vector<crypto::ec_point> CurveTrees<Selene, Helios>::calc_hashes_f
     const bool replace_last_hash) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<>
-CurveTreesV1::Path CurveTrees<Selene, Helios>::get_dummy_path(
+CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
     const std::vector<fcmp_pp::curve_trees::OutputContext> &outputs,
     uint8_t n_layers) const
 {
-    CHECK_AND_ASSERT_THROW_MES(m_c1_width == outputs.size(), "dummy path expects outputs == m_c1_width");
+    CHECK_AND_ASSERT_THROW_MES(this->n_layers(outputs.size()) <= n_layers, "n_layers is too low");
 
-    CurveTreesV1::Path path;
+    // Require outputs fit into whole chunks to simplify last chunk handling
+    CHECK_AND_ASSERT_THROW_MES((outputs.size() % m_c1_width) == 0, "expect outputs to fit into whole chunks");
+
+    CurveTreesV1::ConsolidatedPaths paths;
+    if (outputs.empty())
+        return paths;
 
     // Leaves
-    std::vector<fcmp_pp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples;
-    for (const auto &o : outputs)
+    for (uint64_t i = 0; i < outputs.size(); ++i)
     {
-        path.leaves.push_back(fcmp_pp::curve_trees::output_to_tuple(o.output_pair));
-        leaf_tuples.push_back(this->leaf_tuple(o.output_pair));
+        auto leaf_tuple = fcmp_pp::curve_trees::output_to_tuple(outputs[i].output_pair);
+
+        const uint64_t leaf_chunk_idx = i / m_c1_width;
+        auto it = paths.leaves_by_chunk_idx.find(leaf_chunk_idx);
+        if (it == paths.leaves_by_chunk_idx.end())
+        {
+            paths.leaves_by_chunk_idx[leaf_chunk_idx] = {std::move(leaf_tuple)};
+            continue;
+        }
+        it->second.emplace_back(std::move(leaf_tuple));
     }
 
     // First c1 layer
-    path.c1_layers.push_back({});
-    path.c1_layers.back().push_back({});
-    const auto flat_leaves = this->flatten_leaves(std::move(leaf_tuples));
-    hash_first_chunk(m_c1, nullptr, nullptr, 0, flat_leaves, flat_leaves.size(), path.c1_layers.back().back());
-    for (std::size_t i = 1; n_layers > 1 && i < m_c2_width; ++i)
     {
-        path.c1_layers.back().push_back(m_c1->hash_init_point());
+        paths.c1_layers.push_back({});
+        auto &c1_layer = paths.c1_layers.back();
+
+        std::size_t leaf_chunk_idx = 0;
+        std::size_t chunk_n = 0;
+
+        auto leaves_by_chunk_it = paths.leaves_by_chunk_idx.find(leaf_chunk_idx);
+        while (leaves_by_chunk_it != paths.leaves_by_chunk_idx.end())
+        {
+            // Flatten leaves
+            std::vector<fcmp_pp::curve_trees::CurveTreesV1::LeafTuple> leaf_tuples;
+            for (const auto &leaf : leaves_by_chunk_it->second)
+                leaf_tuples.push_back(output_tuple_to_leaf_tuple(leaf));
+            const auto flat_leaves = this->flatten_leaves(std::move(leaf_tuples));
+
+            // Prepare to insert hash into the container
+            auto c1_layer_it = c1_layer.find(chunk_n);
+            if (c1_layer_it == c1_layer.end())
+            {
+                // Start new chunk if needed
+                c1_layer[chunk_n] = {};
+                c1_layer_it = c1_layer.find(chunk_n);;
+            }
+
+            // Hash the leaves
+            c1_layer_it->second.push_back({});
+            hash_first_chunk(m_c1, nullptr, nullptr, 0, flat_leaves, flat_leaves.size(), c1_layer_it->second.back());
+
+            // Get ready to hash next chunk of leaves
+            if (c1_layer_it->second.size() == m_c2_width)
+                ++chunk_n;
+            leaves_by_chunk_it = paths.leaves_by_chunk_idx.find(++leaf_chunk_idx);
+        }
+
+        // Fill out the last chunk with 0's as needed
+        auto last_chunk_it = paths.c1_layers.back().find(chunk_n);
+        if (last_chunk_it == paths.c1_layers.back().end())
+            last_chunk_it = paths.c1_layers.back().find(chunk_n - 1);
+        CHECK_AND_ASSERT_THROW_MES(last_chunk_it != paths.c1_layers.back().end(), "missing last c1 layer");
+        while (n_layers > 1 && last_chunk_it->second.size() < m_c2_width)
+            last_chunk_it->second.push_back(m_c1->hash_init_point());
     }
 
     // Rest of the tree
     bool parent_is_c2 = true;
-    for (uint8_t i = 1; i < n_layers; ++i)
+    std::size_t n_c2_chunks = 0;
+    for (uint8_t l = 1; l < n_layers; ++l)
     {
+        std::size_t prev_layer_i = 0;
+        std::size_t chunk_n = 0;
+
         if (parent_is_c2)
         {
-            path.c2_layers.push_back({});
+            paths.c2_layers.push_back({});
+            auto &c2_layer = paths.c2_layers.back();
 
-            // Convert Selene points to Helios scalars
-            std::vector<Helios::Scalar> c2_scalars;
-            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_c1,
-                path.c1_layers.back(),
-                c2_scalars);
+            auto prev_layer_it = paths.c1_layers.back().find(prev_layer_i);
+            auto prev_layer_child_it = prev_layer_it->second.begin();
 
-            // Get hash of prior layer chunk
-            path.c2_layers.back().push_back({});
-            hash_first_chunk(m_c2, nullptr, nullptr, 0, c2_scalars, c2_scalars.size(), path.c2_layers.back().back());
-
-            // Set dummy values for rest of the chunk
-            for (std::size_t j = 1; (i + 1) < n_layers && j < m_c1_width; ++j)
+            while (prev_layer_it != paths.c1_layers.back().end())
             {
-                path.c2_layers.back().push_back(m_c2->hash_init_point());
+                std::vector<Selene::Point> c1_points;
+                for (std::size_t j = 0; j < m_c2_width; ++j)
+                {
+                    c1_points.push_back(*prev_layer_child_it);
+                    ++prev_layer_child_it;
+                    if (prev_layer_child_it != prev_layer_it->second.end())
+                        continue;
+                    ++prev_layer_i;
+                    prev_layer_it = paths.c1_layers.back().find(prev_layer_i);
+                    if (prev_layer_it == paths.c1_layers.back().end())
+                        break;
+                    prev_layer_child_it = prev_layer_it->second.begin();
+                }
+
+                // Convert Selene points to Helios scalars
+                std::vector<Helios::Scalar> c2_scalars;
+                fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Selene, Helios>(m_c1, c1_points, c2_scalars);
+
+                // Prepare to insert hash into the container
+                auto c2_layer_it = c2_layer.find(chunk_n);
+                if (c2_layer_it == c2_layer.end())
+                {
+                    // Start new chunk if needed
+                    c2_layer[chunk_n] = {};
+                    c2_layer_it = c2_layer.find(chunk_n);;
+                }
+
+                // Get hash of prior layer chunk
+                c2_layer_it->second.push_back({});
+                hash_first_chunk(m_c2, nullptr, nullptr, 0, c2_scalars, c2_scalars.size(), c2_layer_it->second.back());
+
+                if (c2_layer_it->second.size() == m_c1_width)
+                    ++chunk_n;
             }
+
+            // Fill out the last chunk with 0's for non-root
+            auto last_chunk_it = paths.c2_layers.back().find(chunk_n);
+            if (last_chunk_it == paths.c2_layers.back().end())
+                last_chunk_it = paths.c2_layers.back().find(chunk_n - 1);
+            CHECK_AND_ASSERT_THROW_MES(last_chunk_it != paths.c2_layers.back().end(), "missing last c2 layer");
+            while ((l + 1) < n_layers && last_chunk_it->second.size() < m_c1_width)
+                last_chunk_it->second.push_back(m_c2->hash_init_point());
         }
         else
         {
-            path.c1_layers.push_back({});
+            paths.c1_layers.push_back({});
+            auto &c1_layer = paths.c1_layers.back();
 
-            // Convert Helios points to Selene scalars
-            std::vector<Selene::Scalar> c1_scalars;
-            fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_c2,
-                path.c2_layers.back(),
-                c1_scalars);
+            auto prev_layer_it = paths.c2_layers.back().find(prev_layer_i);
+            auto prev_layer_child_it = prev_layer_it->second.begin();
 
-            // Get hash of prior layer chunk
-            path.c1_layers.back().push_back({});
-            hash_first_chunk(m_c1, nullptr, nullptr, 0, c1_scalars, c1_scalars.size(), path.c1_layers.back().back());
-
-            // Set dummy values for rest of the chunk
-            for (std::size_t j = 1; (i + 1) < n_layers && j < m_c2_width; ++j)
+            while (prev_layer_it != paths.c2_layers.back().end())
             {
-                path.c1_layers.back().push_back(m_c1->hash_init_point());
+                std::vector<Helios::Point> c2_points;
+                for (std::size_t j = 0; j < m_c1_width; ++j)
+                {
+                    c2_points.push_back(*prev_layer_child_it);
+                    ++prev_layer_child_it;
+                    if (prev_layer_child_it != prev_layer_it->second.end())
+                        continue;
+                    ++prev_layer_i;
+                    prev_layer_it = paths.c2_layers.back().find(prev_layer_i);
+                    if (prev_layer_it == paths.c2_layers.back().end())
+                        break;
+                    prev_layer_child_it = prev_layer_it->second.begin();
+                }
+
+                // Convert Helios points to Selene scalars
+                std::vector<Selene::Scalar> c1_scalars;
+                fcmp_pp::tower_cycle::extend_scalars_from_cycle_points<Helios, Selene>(m_c2, c2_points, c1_scalars);
+
+                // Prepare to insert hash into the container
+                auto c1_layer_it = c1_layer.find(chunk_n);
+                if (c1_layer_it == c1_layer.end())
+                {
+                    // Start new chunk if needed
+                    c1_layer[chunk_n] = {};
+                    c1_layer_it = c1_layer.find(chunk_n);;
+                }
+
+                // Get hash of prior layer chunk
+                c1_layer_it->second.push_back({});
+                hash_first_chunk(m_c1, nullptr, nullptr, 0, c1_scalars, c1_scalars.size(), c1_layer_it->second.back());
+
+                if (c1_layer_it->second.size() == m_c2_width)
+                    ++chunk_n;
             }
+
+            // Fill out the last chunk with 0's for non-root layer
+            auto last_chunk_it = paths.c1_layers.back().find(chunk_n);
+            if (last_chunk_it == paths.c1_layers.back().end())
+                last_chunk_it = paths.c1_layers.back().find(chunk_n - 1);
+            CHECK_AND_ASSERT_THROW_MES(last_chunk_it != paths.c1_layers.back().end(), "missing last c1 layer");
+            while ((l + 1) < n_layers && last_chunk_it->second.size() < m_c2_width)
+                last_chunk_it->second.push_back(m_c1->hash_init_point());
         }
 
         parent_is_c2 = !parent_is_c2;
+    }
+
+    return paths;
+};
+//----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTreesV1::Path CurveTrees<Selene, Helios>::get_single_dummy_path(
+    const CurveTreesV1::ConsolidatedPaths &dummy_paths,
+    const uint64_t n_leaf_tuples,
+    const uint64_t leaf_tuple_idx) const
+{
+    CurveTreesV1::Path path;
+    const auto path_idxs = this->get_path_indexes(n_leaf_tuples, leaf_tuple_idx);
+
+    // Leaves
+    const uint64_t leaf_child_idx = path_idxs.leaf_range.first / m_c1_width;
+    const auto leaf_it = dummy_paths.leaves_by_chunk_idx.find(leaf_child_idx);
+    CHECK_AND_ASSERT_THROW_MES(leaf_it != dummy_paths.leaves_by_chunk_idx.end(), "dummy missing leaf chunk");
+    CHECK_AND_ASSERT_THROW_MES((path_idxs.leaf_range.first + leaf_it->second.size()) == path_idxs.leaf_range.second,
+        "dummy leaves size mismatch");
+    path.leaves = leaf_it->second;
+
+    // All other layers
+    bool parent_is_c1 = true;
+    std::size_t c1_idx = 0, c2_idx = 0;
+    for (uint8_t l = 0; l < path_idxs.layers.size(); ++l)
+    {
+        const auto start = path_idxs.layers[l].first;
+        const auto end = path_idxs.layers[l].second;
+
+        const uint64_t child_idx = start / (parent_is_c1 ? m_c2_width : m_c1_width);
+        if (parent_is_c1)
+        {
+            CHECK_AND_ASSERT_THROW_MES(dummy_paths.c1_layers.size() > c1_idx, "dummy c1 layers too small");
+            const auto chunk_it = dummy_paths.c1_layers[c1_idx].find(child_idx);
+            CHECK_AND_ASSERT_THROW_MES((start + chunk_it->second.size()) == end, "dummy c1 layer size mismatch");
+            path.c1_layers.push_back(chunk_it->second);
+
+            ++c1_idx;
+        }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(dummy_paths.c2_layers.size() > c2_idx, "dummy c2 layers too small");
+            const auto chunk_it = dummy_paths.c2_layers[c2_idx].find(child_idx);
+            CHECK_AND_ASSERT_THROW_MES((start + chunk_it->second.size()) == end, "dummy c2 layer size mismatch");
+            path.c2_layers.push_back(chunk_it->second);
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
     }
 
     return path;

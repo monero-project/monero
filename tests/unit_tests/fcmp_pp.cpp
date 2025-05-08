@@ -477,23 +477,26 @@ TEST(fcmp_pp, verify)
     const uint8_t n_layers = 7;
 
     const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
-    const auto new_outputs = generate_random_outputs(*curve_trees, 0, curve_trees->m_c1_width);
-    CHECK_AND_ASSERT_THROW_MES(curve_trees->m_c1_width >= FCMP_PLUS_PLUS_MAX_INPUTS,
-        "test expects max inputs < m_c1_width");
 
-    // Instantiate dummy path
-    const auto path = curve_trees->get_dummy_path(new_outputs.outputs, n_layers);
+    // Generate full chunks of outputs, enough to construct a tx with max inputs
+    std::size_t n_generated_outputs = FCMP_PLUS_PLUS_MAX_INPUTS;
+    if (n_generated_outputs % curve_trees->m_c1_width)
+        n_generated_outputs = curve_trees->m_c1_width * ((n_generated_outputs / curve_trees->m_c1_width) + 1);
+    const auto new_outputs = generate_random_outputs(*curve_trees, 0, n_generated_outputs);
 
-    // Make sure the path is correct
+    // Make sure we generated enough outputs and calculate expected n leaves in a dummy tree
     uint64_t expected_n_leaves = curve_trees->m_c1_width;
     for (uint8_t i = 1; i < n_layers; ++i)
         expected_n_leaves *= (i % 2 != 0) ? curve_trees->m_c2_width : curve_trees->m_c1_width;
     ASSERT_EQ(curve_trees->n_layers(expected_n_leaves), n_layers);
-    ASSERT_TRUE(curve_trees->audit_path(path, new_outputs.outputs.front().output_pair, expected_n_leaves));
+    ASSERT_GE(expected_n_leaves, new_outputs.outputs.size());
+
+    // Instantiate dummy paths
+    const auto paths = curve_trees->get_dummy_paths(new_outputs.outputs, n_layers);
 
     const auto tree_root = n_layers % 2 == 0
-        ? fcmp_pp::helios_tree_root(path.c2_layers.back().back())
-        : fcmp_pp::selene_tree_root(path.c1_layers.back().back());
+        ? fcmp_pp::helios_tree_root(paths.c2_layers.back().find(0)->second.back())
+        : fcmp_pp::selene_tree_root(paths.c1_layers.back().find(0)->second.back());
 
     // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
     const size_t expected_num_selene_branch_blinds = n_layers / 2;
@@ -510,6 +513,11 @@ TEST(fcmp_pp, verify)
 
     const crypto::hash signable_tx_hash{};
 
+    // Reuse inputs across runs to minimize time to construct
+    std::vector<const uint8_t *> fcmp_prove_inputs;
+    std::vector<crypto::key_image> key_images;
+    std::vector<crypto::ec_point> pseudo_outs;
+
     // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
     for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
     {
@@ -524,7 +532,7 @@ TEST(fcmp_pp, verify)
         while (fcmp_pp_prove_inputs.size() < n_inputs)
         {
             // Generate a random unique leaf tuple index within the tree
-            const size_t leaf_idx = crypto::rand_idx(curve_trees->m_c1_width);
+            const size_t leaf_idx = crypto::rand_idx(new_outputs.outputs.size());
             if (selected_indices.count(leaf_idx))
                 continue;
             else
@@ -532,12 +540,20 @@ TEST(fcmp_pp, verify)
 
             LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
 
-            const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
-            const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[output_idx].O), path.leaves[output_idx].C};
+            const uint64_t leaf_chunk_idx = leaf_idx / curve_trees->m_c1_width;
+            const auto leaf_offset = leaf_idx % curve_trees->m_c1_width;
+            const auto &leaf_chunk = paths.leaves_by_chunk_idx.find(leaf_chunk_idx)->second;
+            const auto &leaf = leaf_chunk[leaf_offset];
+
+            const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(leaf.O), leaf.C};
             const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
 
             const auto &x = new_outputs.x_vec[leaf_idx];
             const auto &y = new_outputs.y_vec[leaf_idx];
+
+            // Construct single path from dummy paths
+            const auto path = curve_trees->get_single_dummy_path(paths, expected_n_leaves, leaf_idx);
+            ASSERT_TRUE(curve_trees->audit_path(path, output_pair, expected_n_leaves));
 
             // Leaves
             const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
@@ -548,7 +564,7 @@ TEST(fcmp_pp, verify)
             pseudo_outs.emplace_back(rct::rct2pt(load_key(rerandomized_output.input.C_tilde)));
 
             key_images.emplace_back();
-            crypto::generate_key_image(rct::rct2pk(path.leaves[output_idx].O),
+            crypto::generate_key_image(rct::rct2pk(leaf.O),
                 new_outputs.x_vec[leaf_idx],
                 key_images.back());
 
@@ -610,6 +626,7 @@ TEST(fcmp_pp, verify)
             membership_proof,
             n_layers);
 
+        LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
         bool verify = fcmp_pp::verify(
                 signable_tx_hash,
                 fcmp_pp_proof,

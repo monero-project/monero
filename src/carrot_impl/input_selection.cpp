@@ -105,6 +105,13 @@ static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_
         fee_by_input_count);
 }
 //-------------------------------------------------------------------------------------------------------------------
+template <typename T>
+static constexpr bool is_power_of_2(T v)
+{
+    static_assert(std::is_integral_v<T>);
+    return (v > 0) && ((v & (v - 1)) == 0);
+}
+//-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 int compare_input_candidate_same_ota(const InputCandidate &lhs, const InputCandidate &rhs)
 {
@@ -295,14 +302,33 @@ std::vector<std::size_t> get_input_counts_in_preferred_order()
     // default to 1 over 2 always then there's scenarios where we net save tx fees and proving time.
 
     static_assert(CARROT_MAX_TX_INPUTS == FCMP_PLUS_PLUS_MAX_INPUTS, "inconsistent input count max limit");
-    static_assert(CARROT_MIN_TX_INPUTS == 1 && CARROT_MAX_TX_INPUTS == 8,
-        "refactor this function for different input count limits");
+    static_assert(CARROT_MIN_TX_INPUTS == 1 && CARROT_MAX_TX_INPUTS >= 2,
+        "Expect at lesat 1 input and >= 2 max inputs");
 
     const bool random_bit = 0 == (crypto::rand<uint8_t>() & 0x01);
-    if (random_bit)
-        return {2, 1, 4, 8, 3, 5, 6, 7};
-    else
-        return {1, 2, 4, 8, 3, 5, 6, 7};
+    std::vector<std::size_t> preferred_counts = random_bit
+        ? std::vector<std::size_t>{2, 1}
+        : std::vector<std::size_t>{1, 2};
+
+    // Get all powers of 2, > 2, up to max inputs. Prefer powers of 2 over non-powers of 2 for tx uniformity
+    std::vector<std::size_t> powers_of_2;
+    std::size_t cur_power_of_2 = 4;
+    while (cur_power_of_2 < CARROT_MAX_TX_INPUTS)
+    {
+        preferred_counts.push_back(cur_power_of_2);
+        cur_power_of_2 <<= 1;
+    }
+
+    // Now get the remaining non-powers of 2
+    for (std::size_t i = 3; i < CARROT_MAX_TX_INPUTS; ++i)
+    {
+        if (is_power_of_2(i))
+            continue;
+        preferred_counts.push_back(i);
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(preferred_counts.size() == CARROT_MAX_TX_INPUTS, "unexpeced preferred counts");
+    return preferred_counts;
 }
 //-------------------------------------------------------------------------------------------------------------------
 select_inputs_func_t make_single_transfer_input_selector(
