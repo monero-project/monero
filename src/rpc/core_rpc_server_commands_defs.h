@@ -88,7 +88,7 @@ namespace cryptonote
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 14
+#define CORE_RPC_VERSION_MINOR 15
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -176,6 +176,7 @@ namespace cryptonote
       uint64_t    start_height;
       bool        prune;
       bool        no_miner_tx;
+      bool        high_height_ok;
       uint64_t    pool_info_since;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
@@ -184,6 +185,7 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(prune)
         KV_SERIALIZE_OPT(no_miner_tx, false)
+        KV_SERIALIZE_OPT(high_height_ok, false) // default false maintains backwards compatibility for clients that relied on failure on high height
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
       END_KV_SERIALIZE_MAP()
     };
