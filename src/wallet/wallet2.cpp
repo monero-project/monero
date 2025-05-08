@@ -7364,29 +7364,25 @@ namespace
 // their ordering, but it could become more murky if we add scores later.
 float wallet2::get_output_relatedness(const transfer_details &td0, const transfer_details &td1) const
 {
-  int dh;
+  const int64_t dh = td0.m_block_height > td1.m_block_height ? td0.m_block_height - td1.m_block_height : td1.m_block_height - td0.m_block_height;
 
-  // expensive test, and same tx will fall onto the same block height below
-  if (td0.m_txid == td1.m_txid)
-    return 1.0f;
+  // don't think these are particularly related
+  if (dh >= 10)
+    return 0.0f;
 
-  // same block height -> possibly tx burst, or same tx (since above is disabled)
-  dh = td0.m_block_height > td1.m_block_height ? td0.m_block_height - td1.m_block_height : td1.m_block_height - td0.m_block_height;
-  if (dh == 0)
-    return 0.9f;
+  // similar block heights
+  if (dh > 1)
+    return 0.2f;
 
   // adjacent blocks -> possibly tx burst
   if (dh == 1)
     return 0.8f;
 
-  // could extract the payment id, and compare them, but this is a bit expensive too
+  // expensive test, and same tx will fall onto the same block height below
+  if (td0.m_txid == td1.m_txid)
+    return 1.0f;
 
-  // similar block heights
-  if (dh < 10)
-    return 0.2f;
-
-  // don't think these are particularly related
-  return 0.0f;
+  return 0.9f;
 }
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_indices, const std::vector<size_t>& selected_transfers, bool smallest) const
@@ -10287,20 +10283,38 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
 
   LOG_PRINT_L2("pick_preferred_rct_inputs: needed_money " << print_money(needed_money));
 
-  // try to find a rct input of enough size
+  // This vector will hold only indices of spendable transfers to speed up double output checks
+  std::vector<size_t> spendable_transfer_indices;
+  spendable_transfer_indices.reserve(m_transfers.size());
+
+  // try to find a single rct input of enough size or collect otherwise spendable transfers
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details& td = m_transfers[i];
-    if (!is_spent(td, false) && !td.m_frozen && td.is_rct() && td.amount() >= needed_money && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
+    if
+    (
+      !is_spent(td, false) &&
+      !td.m_frozen &&
+      td.is_rct() &&
+      is_transfer_unlocked(td) &&
+      td.m_subaddr_index.major == subaddr_account &&
+      subaddr_indices.count(td.m_subaddr_index.minor) == 1 &&
+      !td.m_key_image_partial &&
+      td.amount() <= m_ignore_outputs_above &&
+      td.amount() >= m_ignore_outputs_below
+    )
     {
-      if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below)
+      if (td.amount() >= needed_money)
       {
-        MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
-        continue;
+        LOG_PRINT_L2("We can use " << i << " alone: " << print_money(td.amount()));
+        picks.push_back(i);
+        return picks;
       }
-      LOG_PRINT_L2("We can use " << i << " alone: " << print_money(td.amount()));
-      picks.push_back(i);
-      return picks;
+      else
+      {
+        // Amount is not enough on its own, but it may be enough in addition to another
+        spendable_transfer_indices.push_back(i);
+      }
     }
   }
 
@@ -10308,26 +10322,16 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
   // this could be made better by picking one of the outputs to be a small one, since those
   // are less useful since often below the needed money, so if one can be used in a pair,
   // it gets rid of it for the future
-  for (size_t i = 0; i < m_transfers.size(); ++i)
+  for (size_t si = 0; si < spendable_transfer_indices.size(); ++si)
   {
-    const transfer_details& td = m_transfers[i];
-    if (!is_spent(td, false) && !td.m_frozen && !td.m_key_image_partial && td.is_rct() && is_transfer_unlocked(td) && td.m_subaddr_index.major == subaddr_account && subaddr_indices.count(td.m_subaddr_index.minor) == 1)
-    {
-      if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below)
-      {
-        MDEBUG("Ignoring output " << i << " of amount " << print_money(td.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
-        continue;
-      }
+      const size_t i = spendable_transfer_indices[si];
+      const transfer_details& td = m_transfers[i];
       LOG_PRINT_L2("Considering input " << i << ", " << print_money(td.amount()));
-      for (size_t j = i + 1; j < m_transfers.size(); ++j)
+      for (size_t sj = si + 1; sj < spendable_transfer_indices.size(); ++sj)
       {
+        const size_t j = spendable_transfer_indices[sj];
         const transfer_details& td2 = m_transfers[j];
-        if (td2.amount() > m_ignore_outputs_above || td2.amount() < m_ignore_outputs_below)
-        {
-          MDEBUG("Ignoring output " << j << " of amount " << print_money(td2.amount()) << " which is outside prescribed range [" << print_money(m_ignore_outputs_below) << ", " << print_money(m_ignore_outputs_above) << "]");
-          continue;
-        }
-        if (!is_spent(td2, false) && !td2.m_frozen && !td2.m_key_image_partial && td2.is_rct() && td.amount() + td2.amount() >= needed_money && is_transfer_unlocked(td2) && td2.m_subaddr_index == td.m_subaddr_index)
+        if (td.amount() + td2.amount() >= needed_money && td2.m_subaddr_index == td.m_subaddr_index)
         {
           // update our picks if those outputs are less related than any we
           // already found. If the same, don't update, and oldest suitable outputs
@@ -10349,7 +10353,6 @@ std::vector<size_t> wallet2::pick_preferred_rct_inputs(uint64_t needed_money, ui
           }
         }
       }
-    }
   }
 
   return picks;
