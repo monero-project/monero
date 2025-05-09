@@ -96,7 +96,7 @@ using namespace epee;
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
 #include "fcmp_pp/tx_utils.h"
-#include "carrot_impl/carrot_tx_format_utils.h"
+#include "carrot_impl/format_utils.h"
 
 extern "C"
 {

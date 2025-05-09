@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2025, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,61 +29,17 @@
 #pragma once
 
 //local headers
-#include "carrot_tx_builder_types.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "tx_proposal.h"
 
 //third party headers
 
 //standard headers
-#include <cstddef>
 
 //forward declarations
 
 namespace carrot
 {
-
-std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
-
-static inline std::size_t get_fcmppp_tx_weight(const std::size_t num_inputs,
-    const std::size_t num_outputs,
-    const std::size_t tx_extra_size)
-{
-    // @TODO: actually implement
-    return 200 + num_inputs * 1000 + num_outputs * 100 + tx_extra_size;
-}
-
-void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
-    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
-    select_inputs_func_t &&select_inputs,
-    carve_fees_and_balance_func_t &&carve_fees_and_balance,
-    const crypto::public_key &change_address_spend_pubkey,
-    const subaddress_index_extended &change_address_index,
-    CarrotTransactionProposalV1 &tx_proposal_out);
-
-void make_carrot_transaction_proposal_v1_transfer(
-    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
-    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
-    select_inputs_func_t &&select_inputs,
-    const crypto::public_key &change_address_spend_pubkey,
-    const subaddress_index_extended &change_address_index,
-    const std::set<std::size_t> &subtractable_normal_payment_proposals,
-    const std::set<std::size_t> &subtractable_selfsend_payment_proposals,
-    CarrotTransactionProposalV1 &tx_proposal_out);
-
-void make_carrot_transaction_proposal_v1_sweep(
-    const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
-    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
-    const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
-    std::vector<CarrotSelectedInput> &&selected_inputs,
-    const crypto::public_key &change_address_spend_pubkey,
-    const subaddress_index_extended &change_address_index,
-    CarrotTransactionProposalV1 &tx_proposal_out);
-
 void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
@@ -100,5 +56,4 @@ void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
     cryptonote::transaction &pruned_tx_out);
-
 } //namespace carrot

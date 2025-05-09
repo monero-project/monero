@@ -29,62 +29,36 @@
 #pragma once
 
 //local headers
-#include "carrot_chain_serialization.h"
 #include "carrot_core/payment_proposal.h"
-#include "serialization/crypto.h"
-#include "serialization/optional.h"
 #include "subaddress_index.h"
-#include "tx_proposal.h"
 
 //third party headers
 
 //standard headers
+#include <vector>
 
 //forward declarations
 
-BLOB_SERIALIZER(carrot::payment_id_t);
+namespace carrot
+{
+struct CarrotPaymentProposalVerifiableSelfSendV1
+{
+    CarrotPaymentProposalSelfSendV1 proposal;
+    subaddress_index_extended subaddr_index;
+};
 
-BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotDestinationV1)
-    FIELD_F(address_spend_pubkey)
-    FIELD_F(address_view_pubkey)
-    FIELD_F(is_subaddress)
-    FIELD_F(payment_id)
-END_SERIALIZE()
+/**
+ * brief: CarrotTransactionProposalV1
+ */
+struct CarrotTransactionProposalV1
+{
+    std::vector<crypto::key_image> key_images_sorted;
 
-BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotPaymentProposalV1)
-    FIELD_F(destination)
-    VARINT_FIELD_F(amount)
-    FIELD_F(randomness)
-END_SERIALIZE()
+    std::vector<CarrotPaymentProposalV1> normal_payment_proposals;
+    std::vector<CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
+    encrypted_payment_id_t dummy_encrypted_payment_id;
+    rct::xmr_amount fee;
 
-BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotPaymentProposalSelfSendV1)
-    FIELD_F(destination_address_spend_pubkey)
-    VARINT_FIELD_F(amount)
-    VARINT_FIELD_F(enote_type)
-    FIELD_F(enote_ephemeral_pubkey)
-    FIELD_F(internal_message)
-END_SERIALIZE()
-
-BEGIN_SERIALIZE_OBJECT_FN(carrot::subaddress_index)
-    VARINT_FIELD_F(major)
-    VARINT_FIELD_F(minor)
-END_SERIALIZE()
-
-BEGIN_SERIALIZE_OBJECT_FN(carrot::subaddress_index_extended)
-    FIELD_F(index)
-    VARINT_FIELD_F(derive_type)
-END_SERIALIZE()
-
-BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotPaymentProposalVerifiableSelfSendV1)
-    FIELD_F(proposal)
-    FIELD_F(subaddr_index)
-END_SERIALIZE()
-
-BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotTransactionProposalV1)
-    FIELD_F(key_images_sorted)
-    FIELD_F(normal_payment_proposals)
-    FIELD_F(selfsend_payment_proposals)
-    FIELD_F(dummy_encrypted_payment_id)
-    VARINT_FIELD_F(fee)
-    FIELD_F(extra)
-END_SERIALIZE()
+    std::vector<std::uint8_t> extra;
+};
+} //namespace carrot

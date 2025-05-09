@@ -31,9 +31,9 @@
 //local headers
 #include "address_device.h"
 #include "carrot_core/carrot_enote_types.h"
-#include "carrot_tx_builder_types.h"
 #include "fcmp_pp/curve_trees.h"
 #include "span.h"
+#include "tx_proposal.h"
 
 //third party headers
 

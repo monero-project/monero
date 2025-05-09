@@ -35,7 +35,7 @@
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/lazy_amount_commitment.h"
 #include "carrot_core/scan.h"
-#include "carrot_impl/carrot_tx_format_utils.h"
+#include "carrot_impl/format_utils.h"
 #include "common/container_helpers.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
