@@ -31,6 +31,7 @@
 
 //local headers
 #include "carrot_core/enote_utils.h"
+#include "carrot_core/exceptions.h"
 #include "carrot_core/payment_proposal.h"
 #include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -114,6 +115,7 @@ static bool try_load_carrot_ephemeral_pubkeys_from_extra(const std::vector<crypt
 //-------------------------------------------------------------------------------------------------------------------
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix)
 {
+    CARROT_CHECK_AND_THROW(tx_prefix.vout.size(), too_few_outputs, "transaction prefix contains no outputs");
     return tx_prefix.vout.at(0).target.type() == typeid(cryptonote::txout_to_carrot_v1);
 }
 //-------------------------------------------------------------------------------------------------------------------

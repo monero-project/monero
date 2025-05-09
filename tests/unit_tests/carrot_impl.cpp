@@ -30,6 +30,7 @@
 
 #include <boost/multiprecision/cpp_int.hpp>
 
+#include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_impl/carrot_tx_builder_utils.h"
@@ -109,7 +110,7 @@ struct unittest_transaction_preproposal
 //----------------------------------------------------------------------------------------------------------------------
 select_inputs_func_t make_fake_input_selection_callback(size_t num_ins = 0)
 {
-    return [num_ins](const boost::multiprecision::int128_t &nominal_output_sum,
+    return [num_ins](const boost::multiprecision::uint128_t &nominal_output_sum,
         const std::map<std::size_t, rct::xmr_amount> &fee_per_input_count,
         size_t,
         size_t,
@@ -1164,28 +1165,14 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
     subtest_multi_account_transfer_over_transaction(tx_proposal);
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(carrot_impl, make_single_transfer_input_selector_TwoInputsPreferOldest_1)
+TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_1)
 {
+    // no input candidates, should throw `not_enough_money`
+
     const std::vector<CarrotPreSelectedInput> input_candidates = {
-        CarrotPreSelectedInput {
-            .core = CarrotSelectedInput {
-                .amount = 500,
-                .key_image = mock::gen_key_image(),
-            },
-            .is_external = false,
-            .block_index = 72
-        },
-        CarrotPreSelectedInput {
-            .core = CarrotSelectedInput {
-                .amount = 200,
-                .key_image = mock::gen_key_image(),
-            },
-            .is_external = false,
-            .block_index = 34
-        }
     };
 
-    const std::vector<input_selection_policy_t> policies = { &carrot::ispolicy::select_two_inputs_prefer_oldest };
+    const std::vector<input_selection_policy_t> policies = { input_selection_policy_t{} };
 
     const uint32_t flags = 0;
 
@@ -1195,7 +1182,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_TwoInputsPreferOldest_1)
         flags,
         &selected_input_indices);
 
-    boost::multiprecision::int128_t nominal_output_sum = 369;
+    const boost::multiprecision::uint128_t nominal_output_sum = 369;
 
     const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
         {1, 50},
@@ -1205,21 +1192,119 @@ TEST(carrot_impl, make_single_transfer_input_selector_TwoInputsPreferOldest_1)
     const size_t num_normal_payment_proposals = 1;
     const size_t num_selfsend_payment_proposals = 1;
 
-    ASSERT_GT(input_candidates[0].core.amount, nominal_output_sum + fee_by_input_count.crbegin()->second);
+    std::vector<CarrotSelectedInput> selected_inputs;
+    EXPECT_THROW(input_selector(nominal_output_sum,
+            fee_by_input_count,
+            num_normal_payment_proposals,
+            num_selfsend_payment_proposals,
+            selected_inputs),
+        not_enough_money);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_2)
+{
+    // 1 input candidates w/ strictly less than nominal output sum, should throw `not_enough_money`
+
+    const std::vector<CarrotPreSelectedInput> input_candidates = {
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = 222,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 23
+        },
+    };
+
+    const std::vector<input_selection_policy_t> policies = { input_selection_policy_t{} };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        &selected_input_indices);
+
+    const boost::multiprecision::uint128_t nominal_output_sum = 369;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        {1, 50},
+        {2, 75}
+    };
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
 
     std::vector<CarrotSelectedInput> selected_inputs;
-    input_selector(nominal_output_sum,
-        fee_by_input_count,
-        num_normal_payment_proposals,
-        num_selfsend_payment_proposals,
-        selected_inputs);
+    EXPECT_THROW(input_selector(nominal_output_sum,
+            fee_by_input_count,
+            num_normal_payment_proposals,
+            num_selfsend_payment_proposals,
+            selected_inputs),
+        not_enough_money);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
+{
+    // 2 input candidates who sum is strictly greater than the required money for a 1-in tx, but
+    // strictly less than the required money for a 2-out tx, should throw `not_enough_usable_money`
 
-    ASSERT_EQ(2, input_candidates.size());
-    ASSERT_EQ(2, selected_inputs.size());
-    EXPECT_NE(input_candidates.at(0).core, input_candidates.at(1).core);
-    EXPECT_NE(selected_inputs.at(0), selected_inputs.at(1));
-    EXPECT_TRUE((selected_inputs.at(0) == input_candidates.at(0).core) ^ (selected_inputs.at(0) == input_candidates[1].core));
-    EXPECT_TRUE((selected_inputs.at(1) == input_candidates.at(0).core) ^ (selected_inputs.at(1) == input_candidates.at(1).core));
+    const rct::xmr_amount nominal_output_sum = 369;
+
+    const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
+        {1, 50},
+        {2, 75}
+    };
+
+    const rct::xmr_amount required_1in = fee_by_input_count.at(1) + nominal_output_sum;
+    const rct::xmr_amount required_2in = fee_by_input_count.at(2) + nominal_output_sum;
+    ASSERT_GT(required_1in, 0);
+    ASSERT_GT(required_2in, required_1in + 1);
+
+    const rct::xmr_amount input_sum_target = (required_2in + required_1in) / 2;
+    const rct::xmr_amount inamount_0 = rct::randXmrAmount(required_1in);
+    const rct::xmr_amount inamount_1 = input_sum_target - inamount_0;
+
+    const std::vector<CarrotPreSelectedInput> input_candidates = {
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = inamount_0,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 3407684
+        },
+        CarrotPreSelectedInput {
+            .core = CarrotSelectedInput {
+                .amount = inamount_1,
+                .key_image = mock::gen_key_image(),
+            },
+            .is_external = false,
+            .block_index = 4867043
+        },
+    };
+
+    const std::vector<input_selection_policy_t> policies = { input_selection_policy_t{} };
+
+    const uint32_t flags = 0;
+
+    std::set<size_t> selected_input_indices;
+    select_inputs_func_t input_selector = make_single_transfer_input_selector(epee::to_span(input_candidates),
+        epee::to_span(policies),
+        flags,
+        &selected_input_indices);
+
+    const size_t num_normal_payment_proposals = 1;
+    const size_t num_selfsend_payment_proposals = 1;
+
+    std::vector<CarrotSelectedInput> selected_inputs;
+    EXPECT_THROW(input_selector(nominal_output_sum,
+            fee_by_input_count,
+            num_normal_payment_proposals,
+            num_selfsend_payment_proposals,
+            selected_inputs),
+        not_enough_usable_money);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
@@ -1253,7 +1338,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
         flags,
         &selected_input_indices);
 
-    boost::multiprecision::int128_t nominal_output_sum = 369;
+    const boost::multiprecision::uint128_t nominal_output_sum = 369;
 
     const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
         {1, 50},
@@ -1312,7 +1397,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_2)
         flags,
         &selected_input_indices);
 
-    boost::multiprecision::int128_t nominal_output_sum = 369;
+    const boost::multiprecision::uint128_t nominal_output_sum = 369;
 
     const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
         {1, 50},
@@ -1347,6 +1432,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
             },
+            .is_pre_carrot = false,
             .is_external = false,
             .block_index = 55
         },
@@ -1355,6 +1441,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
             },
+            .is_pre_carrot = false,
             .is_external = false,
             .block_index = 22
         },
@@ -1363,6 +1450,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
             },
+            .is_pre_carrot = false,
             .is_external = false,
             .block_index = 11
         },
@@ -1371,6 +1459,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
             },
+            .is_pre_carrot = false,
             .is_external = false,
             .block_index = 88
         },
@@ -1379,6 +1468,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
             },
+            .is_pre_carrot = false,
             .is_external = false,
             .block_index = 72
         }
@@ -1394,7 +1484,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
         flags,
         &selected_input_indices);
 
-    boost::multiprecision::int128_t nominal_output_sum = 223;
+    const boost::multiprecision::uint128_t nominal_output_sum = 223;
 
     const std::map<size_t, rct::xmr_amount> fee_by_input_count = {
         {1, 10},

@@ -66,7 +66,7 @@ struct CarrotPaymentProposalVerifiableSelfSendV1
 };
 
 using select_inputs_func_t = std::function<void(
-        const boost::multiprecision::int128_t&,        // nominal output sum, w/o fee
+        const boost::multiprecision::uint128_t&,       // nominal output sum, w/o fee
         const std::map<std::size_t, rct::xmr_amount>&, // absolute fee per input count
         const std::size_t,                             // number of normal payment proposals
         const std::size_t,                             // number of self-send payment proposals
@@ -74,7 +74,7 @@ using select_inputs_func_t = std::function<void(
     )>;
 
 using carve_fees_and_balance_func_t = std::function<void(
-        const boost::multiprecision::int128_t&,                 // input sum amount
+        const boost::multiprecision::uint128_t&,                // input sum amount
         const rct::xmr_amount,                                  // fee
         std::vector<CarrotPaymentProposalV1>&,                  // normal payment proposals [inout]
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1>& // selfsend payment proposals [inout]
