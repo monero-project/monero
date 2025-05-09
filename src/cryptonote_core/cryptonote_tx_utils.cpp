@@ -34,7 +34,7 @@
 #include "string_tools.h"
 using namespace epee;
 
-#include "carrot_impl/carrot_tx_format_utils.h"
+#include "carrot_impl/format_utils.h"
 #include "common/apply_permutation.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_config.h"

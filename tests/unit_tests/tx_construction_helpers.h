@@ -29,7 +29,8 @@
 #pragma once
 
 //local headers
-#include "carrot_impl/carrot_tx_builder_types.h"
+#include "carrot_core/payment_proposal.h"
+#include "carrot_impl/tx_proposal.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 
 //third party headers

@@ -84,19 +84,6 @@ static void stable_sort_indices_by_amount(const epee::span<const CarrotPreSelect
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void stable_sort_indices_by_block_index(const epee::span<const CarrotPreSelectedInput> input_candidates,
-    std::vector<size_t> &indices_inout)
-{
-    std::stable_sort(indices_inout.begin(), indices_inout.end(),
-        [input_candidates](const std::size_t a, const std::size_t b) -> bool
-        {
-            CARROT_CHECK_AND_THROW(a < input_candidates.size() && b < input_candidates.size(),
-                std::out_of_range, "input candidate index out of range");
-            return input_candidates[a].block_index < input_candidates[b].block_index;
-        });
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
 static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_max_usable_money(
     const epee::span<const CarrotPreSelectedInput> input_candidates,
     const std::set<std::size_t> &selectable_inputs,
@@ -463,7 +450,7 @@ select_inputs_func_t make_single_transfer_input_selector(
 
                 // Filter all dust out of subset unless ALLOW_DUST flag is provided
                 std::set<std::size_t> candidate_subset_filtered = input_candidate_subset;
-                if (!(flags * ALLOW_DUST))
+                if (!(flags & ALLOW_DUST))
                 {
                     const rct::xmr_amount dust_threshold = fee_by_input_count.at(n_inputs)
                         - (n_inputs > CARROT_MIN_TX_INPUTS ? fee_by_input_count.at(n_inputs - 1) : 0);

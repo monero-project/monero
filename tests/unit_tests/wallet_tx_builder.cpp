@@ -29,7 +29,6 @@
 #include "gtest/gtest.h"
 
 #include "carrot_core/config.h"
-#include "carrot_impl/carrot_tx_builder_utils.h"
 #include "carrot_mock_helpers.h"
 #include "common/container_helpers.h"
 #include "cryptonote_core/blockchain.h"

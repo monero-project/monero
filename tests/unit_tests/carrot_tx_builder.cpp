@@ -29,7 +29,7 @@
 #include "gtest/gtest.h"
 
 #include "carrot_impl/address_device_ram_borrowed.h"
-#include "carrot_impl/carrot_tx_builder_inputs.h"
+#include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
 #include "fcmp_pp/prove.h"
 

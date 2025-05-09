@@ -29,7 +29,7 @@
 #pragma once
 
 //local headers
-#include "carrot_tx_builder_types.h"
+#include "tx_proposal_utils.h"
 
 //third party headers
 

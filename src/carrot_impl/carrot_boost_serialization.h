@@ -33,8 +33,8 @@
 //local headers
 #include "carrot_chain_serialization.h"
 #include "carrot_core/payment_proposal.h"
-#include "carrot_tx_builder_types.h"
 #include "subaddress_index.h"
+#include "tx_proposal.h"
 
 //third party headers
 #include <boost/serialization/optional_shim.hpp>

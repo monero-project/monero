@@ -27,7 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //paired header
-#include "carrot_tx_format_utils.h"
+#include "format_utils.h"
 
 //local headers
 #include "carrot_core/enote_utils.h"

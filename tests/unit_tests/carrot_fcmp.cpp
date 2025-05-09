@@ -30,10 +30,10 @@
 
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
-#include "carrot_impl/carrot_tx_builder_inputs.h"
-#include "carrot_impl/carrot_tx_builder_utils.h"
-#include "carrot_impl/carrot_tx_format_utils.h"
+#include "carrot_impl/format_utils.h"
 #include "carrot_impl/input_selection.h"
+#include "carrot_impl/tx_builder_inputs.h"
+#include "carrot_impl/tx_proposal_utils.h"
 #include "carrot_mock_helpers.h"
 #include "common/container_helpers.h"
 #include "crypto/generators.h"

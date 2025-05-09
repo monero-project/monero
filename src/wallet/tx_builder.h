@@ -29,7 +29,8 @@
 #pragma once
 
 //local headers
-#include "carrot_impl/carrot_tx_builder_inputs.h"
+#include "carrot_impl/tx_builder_inputs.h"
+#include "carrot_impl/tx_proposal_utils.h"
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "wallet2.h"
 

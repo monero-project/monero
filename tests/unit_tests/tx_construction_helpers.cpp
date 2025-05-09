@@ -32,8 +32,9 @@
 //local headers
 #include "carrot_core/device_ram_borrowed.h"
 #include "carrot_core/output_set_finalization.h"
-#include "carrot_impl/carrot_tx_builder_utils.h"
-#include "carrot_impl/carrot_tx_format_utils.h"
+#include "carrot_impl/format_utils.h"
+#include "carrot_impl/tx_builder_outputs.h"
+#include "carrot_impl/tx_proposal_utils.h"
 #include "crypto/generators.h"
 #include "wallet/scanning_tools.h"
 
