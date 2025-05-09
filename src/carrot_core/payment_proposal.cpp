@@ -32,6 +32,7 @@
 //local headers
 #include "int-util.h"
 #include "enote_utils.h"
+#include "exceptions.h"
 #include "misc_language.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
@@ -42,7 +43,7 @@
 
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "carrot"
+#define MONERO_DEFAULT_LOG_CATEGORY "carrot.pp"
 
 namespace carrot
 {
@@ -237,12 +238,12 @@ void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
     CarrotCoinbaseEnoteV1 &output_enote_out)
 {
     // 1. sanity checks
-    CHECK_AND_ASSERT_THROW_MES(proposal.randomness != null_anchor,
-        "get coinbase output proposal v1: invalid randomness for janus anchor (zero).");
-    CHECK_AND_ASSERT_THROW_MES(!proposal.destination.is_subaddress,
-        "get coinbase output proposal v1: subaddresses aren't allowed as destinations of coinbase outputs");
-    CHECK_AND_ASSERT_THROW_MES(proposal.destination.payment_id == null_payment_id,
-        "get coinbase output proposal v1: integrated addresses aren't allowed as destinations of coinbase outputs");
+    CARROT_CHECK_AND_THROW(proposal.randomness != null_anchor,
+        missing_randomness, "invalid randomness for janus anchor (zero).");
+    CARROT_CHECK_AND_THROW(!proposal.destination.is_subaddress,
+        bad_address_type, "subaddresses aren't allowed as destinations of coinbase outputs");
+    CARROT_CHECK_AND_THROW(proposal.destination.payment_id == null_payment_id,
+        bad_address_type, "integrated addresses aren't allowed as destinations of coinbase outputs");
 
     // 2. coinbase input context
     const input_context_t input_context= make_carrot_input_context_coinbase(block_index);
@@ -292,8 +293,8 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
     encrypted_payment_id_t &encrypted_payment_id_out)
 {
     // 1. sanity checks
-    CHECK_AND_ASSERT_THROW_MES(proposal.randomness != null_anchor,
-        "jamtis payment proposal: invalid randomness for janus anchor (zero).");
+    CARROT_CHECK_AND_THROW(proposal.randomness != null_anchor,
+        missing_randomness, "invalid randomness for janus anchor (zero).");
 
     // 2. input context: input_context = "R" || KI_1
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
@@ -340,8 +341,8 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
     RCTOutputEnoteProposal &output_enote_out)
 {
     // 1. sanity checks
-    CHECK_AND_ASSERT_THROW_MES(!proposal.internal_message,
-        "get output proposal special v1: internal messages are only for internal selfsends, not special selfsends");
+    CARROT_CHECK_AND_THROW(!proposal.internal_message,
+        component_out_of_order, "internal messages are only for internal selfsends, not special selfsends");
 
     // 2. input context: input_context = "R" || KI_1
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
@@ -351,18 +352,17 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
     const bool mismatched_enote_ephemeral_pubkeys = proposal.enote_ephemeral_pubkey &&
         other_enote_ephemeral_pubkey &&
         memcmp(&*proposal.enote_ephemeral_pubkey, &*other_enote_ephemeral_pubkey, sizeof(mx25519_pubkey));
-    CHECK_AND_ASSERT_THROW_MES(!missing_enote_ephemeral_pubkeys,
-        "get output proposal special v1: no enote ephemeral pubkey provided");
-    CHECK_AND_ASSERT_THROW_MES(!mismatched_enote_ephemeral_pubkeys,
-        "get output proposal special v1: mismatched enote ephemeral pubkeys provided");
+    CARROT_CHECK_AND_THROW(!missing_enote_ephemeral_pubkeys,
+        missing_components, "no enote ephemeral pubkey provided");
+    CARROT_CHECK_AND_THROW(!mismatched_enote_ephemeral_pubkeys,
+        component_out_of_order, "mismatched enote ephemeral pubkeys provided");
     const mx25519_pubkey enote_ephemeral_pubkey = proposal.enote_ephemeral_pubkey.value_or(
         other_enote_ephemeral_pubkey.value_or(mx25519_pubkey{}));
 
     // 4. s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx; auto ecdh_wiper = auto_wiper(s_sender_receiver_unctx);
-    CHECK_AND_ASSERT_THROW_MES(k_view_dev.view_key_scalar_mult_x25519(enote_ephemeral_pubkey,
-        s_sender_receiver_unctx),
-        "get output proposal special v1: HW device failed to perform ECDH with ephemeral pubkey");
+    CARROT_CHECK_AND_THROW(k_view_dev.view_key_scalar_mult_x25519(enote_ephemeral_pubkey, s_sender_receiver_unctx),
+        crypto_function_failed, "HW device failed to perform ECDH with ephemeral pubkey");
 
     // 5. build the output enote address pieces
     crypto::hash s_sender_receiver; auto q_wiper = auto_wiper(s_sender_receiver);
@@ -418,10 +418,10 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
     const bool mismatched_enote_ephemeral_pubkeys = proposal.enote_ephemeral_pubkey &&
         other_enote_ephemeral_pubkey &&
         memcmp(&*proposal.enote_ephemeral_pubkey, &*other_enote_ephemeral_pubkey, sizeof(mx25519_pubkey));
-    CHECK_AND_ASSERT_THROW_MES(!missing_enote_ephemeral_pubkeys,
-        "get output proposal internal v1: no enote ephemeral pubkey provided");
-    CHECK_AND_ASSERT_THROW_MES(!mismatched_enote_ephemeral_pubkeys,
-        "get output proposal internal v1: mismatched enote ephemeral pubkeys provided");
+    CARROT_CHECK_AND_THROW(!missing_enote_ephemeral_pubkeys,
+        missing_components, "no enote ephemeral pubkey provided");
+    CARROT_CHECK_AND_THROW(!mismatched_enote_ephemeral_pubkeys,
+        component_out_of_order, "mismatched enote ephemeral pubkeys provided");
     const mx25519_pubkey enote_ephemeral_pubkey = proposal.enote_ephemeral_pubkey.value_or(
         other_enote_ephemeral_pubkey.value_or(mx25519_pubkey{}));
 
