@@ -31,6 +31,7 @@
 
 //local headers
 #include "address_utils.h"
+#include "exceptions.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
 
@@ -39,7 +40,7 @@
 //standard headers
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
-#define MONERO_DEFAULT_LOG_CATEGORY "carrot"
+#define MONERO_DEFAULT_LOG_CATEGORY "carrot.dest"
 
 namespace carrot
 {
@@ -71,8 +72,8 @@ void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     const std::uint32_t j_minor,
     CarrotDestinationV1 &destination_out)
 {
-    CHECK_AND_ASSERT_THROW_MES(j_major != 0 || j_minor,
-        "make carrot subaddress v1: j cannot be 0 for a subaddress, only for main addresses");
+    CARROT_CHECK_AND_THROW(j_major || j_minor,
+        bad_address_type, "j cannot be 0 for a subaddress, only for main addresses");
 
     // s^j_gen = H_32[s_ga](j_major, j_minor)
     crypto::secret_key address_index_generator;

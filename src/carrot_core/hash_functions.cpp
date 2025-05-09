@@ -35,6 +35,7 @@ extern "C"
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/blake2b.h"
+#include "exceptions.h"
 #include "misc_log_ex.h"
 
 //third party headers
@@ -56,13 +57,13 @@ static void hash_base(const void *derivation_key,  //32 bytes
     void *hash_out,
     const std::size_t out_length)
 {
-    CHECK_AND_ASSERT_THROW_MES(blake2b(hash_out,
+    CARROT_CHECK_AND_THROW(blake2b(hash_out,
             out_length,
             data,
             data_length,
             derivation_key,
             derivation_key ? 32 : 0) == 0,
-        "carrot hash base: blake2b failed.");
+        crypto_function_failed, "carrot hash base: blake2b failed");
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
