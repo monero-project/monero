@@ -193,7 +193,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     }
 
     // calculate sum of payment proposal amounts before fee carving
-    boost::multiprecision::int128_t nominal_output_amount_sum = 0;
+    boost::multiprecision::uint128_t nominal_output_amount_sum = 0;
     for (const CarrotPaymentProposalV1 &normal_proposal : normal_payment_proposals)
         nominal_output_amount_sum += normal_proposal.amount;
     for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_proposal : selfsend_payment_proposals)
@@ -212,7 +212,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     tx_proposal_out.fee = fee_per_input_count.at(selected_inputs.size());
 
     // calculate input amount sum
-    boost::multiprecision::int128_t input_amount_sum = 0;
+    boost::multiprecision::uint128_t input_amount_sum = 0;
     for (const CarrotSelectedInput &selected_input : selected_inputs)
         input_amount_sum += selected_input.amount;
 
@@ -279,7 +279,7 @@ void make_carrot_transaction_proposal_v1_transfer(
         &subtractable_selfsend_payment_proposals
     ]
     (
-        const boost::multiprecision::int128_t &input_sum_amount,
+        const boost::multiprecision::uint128_t &input_sum_amount,
         const rct::xmr_amount fee,
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
@@ -313,7 +313,7 @@ void make_carrot_transaction_proposal_v1_transfer(
             "make unsigned transaction transfer subtractable: bug: added implicit change output has non-zero amount");
 
         // start by setting the last selfsend amount equal to (inputs - outputs), before fee
-        boost::multiprecision::int128_t implicit_change_amount = input_sum_amount;
+        boost::multiprecision::uint128_t implicit_change_amount = input_sum_amount;
         for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
             implicit_change_amount -= normal_payment_proposal.amount;
         for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals)
@@ -434,7 +434,7 @@ void make_carrot_transaction_proposal_v1_sweep(
     // define input selection callback, which is just a shuttle for `selected_inputs`
     select_inputs_func_t select_inputs = [&selected_inputs]
     (
-        const boost::multiprecision::int128_t&,
+        const boost::multiprecision::uint128_t&,
         const std::map<std::size_t, rct::xmr_amount>&,
         const std::size_t,
         const std::size_t,
@@ -447,7 +447,7 @@ void make_carrot_transaction_proposal_v1_sweep(
     // define carves fees and balance callback
     carve_fees_and_balance_func_t carve_fees_and_balance = [is_selfsend_sweep]
     (
-        const boost::multiprecision::int128_t &input_sum_amount,
+        const boost::multiprecision::uint128_t &input_sum_amount,
         const rct::xmr_amount fee,
         std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals
@@ -466,7 +466,7 @@ void make_carrot_transaction_proposal_v1_sweep(
         std::shuffle(amount_ptrs.begin(), amount_ptrs.end(), crypto::random_device{});
 
         // disburse amount equally amongst modifiable amounts
-        const boost::multiprecision::int128_t output_sum_amount = input_sum_amount - fee;
+        const boost::multiprecision::uint128_t output_sum_amount = input_sum_amount - fee;
         const rct::xmr_amount minimum_sweep_amount =
             boost::numeric_cast<rct::xmr_amount>(output_sum_amount / amount_ptrs.size());
         const size_t num_remaining =

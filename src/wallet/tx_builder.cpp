@@ -249,7 +249,7 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
                     .amount = td.amount(),
                     .key_image = td.m_key_image
                 },
-                .is_pre_carrot = true, //! @TODO: handle post-Carrot enotes in transfer_details
+                .is_pre_carrot = !carrot::is_carrot_transaction_v1(td.m_tx),
                 .is_external = true, //! @TODO: derive this info from field in transfer_details
                 .block_index = td.m_block_height
             });
@@ -264,7 +264,7 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
             allow_pre_carrot_inputs_in_normal_transfers,
             &selected_transfer_indices_out
             ](
-                const boost::multiprecision::int128_t &nominal_output_sum,
+                const boost::multiprecision::uint128_t &nominal_output_sum,
                 const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count,
                 const std::size_t num_normal_payment_proposals,
                 const std::size_t num_selfsend_payment_proposals,
@@ -274,7 +274,6 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
                     &carrot::ispolicy::select_greedy_aging
                 };
 
-                // TODO: not all carrot is internal
                 std::uint32_t flags = 0;
                 if (allow_carrot_external_inputs_in_normal_transfers)
                     flags |= carrot::InputSelectionFlags::ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS;

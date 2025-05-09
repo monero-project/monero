@@ -65,6 +65,9 @@ static inline T raw_byte_convert(const U &u)
 
 /**
  * is_carrot_transaction_v1 - determine whether a transaction uses the Carrot addressing protocol
+ * param: tx_prefix -
+ * return: true iff this tx_prefix represents a v1 Carrot tx
+ * throw: too_few_outputs - iff tx_prefix.vout.empty()
  */
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix);
 /**

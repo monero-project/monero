@@ -48,9 +48,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 static tools::wallet2::transfer_details gen_transfer_details()
 {
+    cryptonote::transaction carrot_tx;
+    carrot_tx.vout.push_back(cryptonote::tx_out{.target = cryptonote::txout_to_carrot_v1{}});
+
     return tools::wallet2::transfer_details{
         .m_block_height = crypto::rand_idx<uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER),
-        .m_tx = {},
+        .m_tx = carrot_tx,
         .m_txid = crypto::rand<crypto::hash>(),
         .m_internal_output_index = crypto::rand_idx<uint64_t>(carrot::CARROT_MAX_TX_OUTPUTS),
         .m_global_output_index = crypto::rand_idx<uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER * 1000ull),
@@ -86,7 +89,7 @@ TEST(wallet_tx_builder, input_selection_basic)
     for (size_t i = carrot::CARROT_MIN_TX_INPUTS; i <= carrot::CARROT_MAX_TX_INPUTS; ++i)
         fee_by_input_count[i] = 30680000 * i - i*i;
 
-    const boost::multiprecision::int128_t nominal_output_sum = 4444444444444; // 4.444... XMR 
+    const boost::multiprecision::uint128_t nominal_output_sum = 4444444444444; // 4.444... XMR 
 
     // add 10 random transfers
     tools::wallet2::transfer_container transfers;
