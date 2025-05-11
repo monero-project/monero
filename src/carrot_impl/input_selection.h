@@ -40,7 +40,7 @@
 
 namespace carrot
 {
-struct CarrotPreSelectedInput
+struct InputCandidate
 {
     CarrotSelectedInput core;
 
@@ -62,12 +62,22 @@ namespace InputSelectionFlags
     static constexpr std::uint32_t ALLOW_DUST                                  = 1 << 5;
 }
 
+/**
+ * brief: input_selection_policy_t - a functor which implements N-input selection on a subset of candidates
+ * param: input_candidates -
+ * param: selectable_input_indices - subset of indices in `input_candidates` allowed to select from
+ * param: n_inputs - exact number of selected inputs should return
+ * param: required_money - sum of amounts of selected inputs should be greater than or equal to this value
+ * outparam: selected_inputs_indices_out - `n_inputs` subset of `selectable_input_indices`, of selected input indices
+ *
+ * To signify selection failure, `selected_inputs_indices_out` should be empty after end of call.
+ */
 using input_selection_policy_t = std::function<void(
-    epee::span<const CarrotPreSelectedInput>,        // input candidates
-    const std::set<std::size_t>&,                    // selectable subset indices
-    std::size_t,                                     // input count
-    const boost::multiprecision::uint128_t&,         // required money for input count
-    std::set<std::size_t>&                           // selected indices
+    epee::span<const InputCandidate> input_candidates,
+    const std::set<std::size_t> &selectable_input_indices,
+    std::size_t n_inputs,
+    const boost::multiprecision::uint128_t &required_money,
+    std::set<std::size_t> &selected_inputs_indices_out
 )>;
 
 /**
@@ -83,11 +93,11 @@ using input_selection_policy_t = std::function<void(
  *     3. Is pre-Carrot enote? (`false` is better for spending QFS)
  *     4. Is external enote?  (`false` is better for spending QFS)
  */
-int compare_input_candidate_same_ki(const CarrotPreSelectedInput &lhs, const CarrotPreSelectedInput &rhs);
+int compare_input_candidate_same_ki(const InputCandidate &lhs, const InputCandidate &rhs);
 /**
  * brief: form_preferred_input_candidate_subsets - make subsets of input candidates to try selection in preferred order
  * param: input_candidates - slice to user-provided input candidates
- * param: flags - values in InputSelectionFlags namespace OR'ed together
+ * param: flags - see InputSelectionFlags namespace
  * param: is_normal_transfer - true iff num normal non-dummy payments in tx to perform selection for is >= 1
  * return: ordered list of subsets (represented by 0-based indices) of input_candidates to try selection on
  *
@@ -134,7 +144,7 @@ int compare_input_candidate_same_ki(const CarrotPreSelectedInput &lhs, const Car
  * internal due to the lack of the view-balance secret s_vb in legacy key hierarchies.
  */
 std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
-    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputCandidate> input_candidates,
     const std::uint32_t flags,
     const bool is_normal_transfer);
 /**
@@ -145,16 +155,37 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
  * function is to determine the order in which we should try to select a certain number of inputs.
  */
 std::vector<std::size_t> get_input_counts_in_preferred_order();
-
+/**
+ * brief: make_single_transfer_input_selector - a customizable input selector for single (i.e. not batched) transfers
+ * param: input_candidates -
+ * param: policies - slice of ISPs to attempt selection on, in order of user's preference
+ * param: flags - see InputSelectionFlags namespace
+ * outparam: selected_input_indices_out - selected indices into `input_candidates` (optional)
+ * return: input selector functor
+ *
+ * The returned input selector considers provided input candidates, and creates subsets of the
+ * candidates as according to `form_preferred_input_candidate_subsets`. Then, in the order of input
+ * counts as according to `get_input_counts_in_preferred_order`, finds the first pair (subset, input
+ * count) that contains enough "usable" money: a sum of money great enough to pay the nominal output
+ * sum, plus any required fees as according to the input count. Once that is found, ISPs are
+ * dispatched in provided user order until one succeeds. If none succeed for that pair, then the
+ * whole of input selection fails, we do not move onto the next (subset, input count) pair.
+ *
+ * SAFETY: The lifetime of objects referenced by `input_candidates` and `selected_input_indices_out`
+ *         (if not null) must be valid at least as long as as the last call to the returned functor.
+ */
 select_inputs_func_t make_single_transfer_input_selector(
-    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputCandidate> input_candidates,
     const epee::span<const input_selection_policy_t> policies,
     const std::uint32_t flags,
     std::set<size_t> *selected_input_indices_out);
 
 namespace ispolicy
 {
-void select_greedy_aging(const epee::span<const CarrotPreSelectedInput>,
+/**
+ * brief: select_greedy_aging - an ISP which generally attempts to select old outputs, but isn't necessarily optimal
+ */
+void select_greedy_aging(const epee::span<const InputCandidate>,
     const std::set<std::size_t>&,
     std::size_t,
     const boost::multiprecision::uint128_t&,

@@ -228,8 +228,8 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
     const bool allow_pre_carrot_inputs_in_normal_transfers,
     std::set<size_t> &selected_transfer_indices_out)
 {
-    // Collect transfer_container into a `std::vector<carrot::CarrotPreSelectedInput>` for usable inputs
-    std::vector<carrot::CarrotPreSelectedInput> input_candidates;
+    // Collect transfer_container into a `std::vector<carrot::InputCandidate>` for usable inputs
+    std::vector<carrot::InputCandidate> input_candidates;
     std::vector<size_t> input_candidates_transfer_indices;
     input_candidates.reserve(transfers.size());
     input_candidates_transfer_indices.reserve(transfers.size());
@@ -243,7 +243,7 @@ carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
             ignore_below,
             top_block_index))
         {
-            input_candidates.push_back(carrot::CarrotPreSelectedInput{
+            input_candidates.push_back(carrot::InputCandidate{
                 .core = carrot::CarrotSelectedInput{
                     .amount = td.amount(),
                     .key_image = td.m_key_image
