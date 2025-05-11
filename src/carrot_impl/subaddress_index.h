@@ -39,9 +39,14 @@
 
 namespace carrot
 {
+/**
+ * brief: subaddress_index -
+ */
 struct subaddress_index
 {
+    // j_major
     std::uint32_t major;
+    // j_minor
     std::uint32_t minor;
 
     bool is_subaddress() const
@@ -58,6 +63,9 @@ static inline bool operator!=(const subaddress_index a, const subaddress_index b
     return !(a == b);
 }
 
+/**
+ * brief: AddressDeriveType - used in hybrid key hierarchies to specify how to derive subaddresses for the same index
+ */
 enum class AddressDeriveType
 {
     Auto,

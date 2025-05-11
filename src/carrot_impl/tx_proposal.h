@@ -41,6 +41,12 @@
 
 namespace carrot
 {
+/**
+ * brief: CarrotPaymentProposalVerifiableSelfSendV1 - A selfsend payment proposal, verified to an owned address
+ *
+ * The `subaddr_index` field is intended to be be used to derive
+ * `proposal.destination_address_spend_pubkey`, without the need for a subaddress lookahead table.
+ */
 struct CarrotPaymentProposalVerifiableSelfSendV1
 {
     CarrotPaymentProposalSelfSendV1 proposal;
@@ -48,7 +54,17 @@ struct CarrotPaymentProposalVerifiableSelfSendV1
 };
 
 /**
- * brief: CarrotTransactionProposalV1
+ * brief: CarrotTransactionProposalV1 - A specification on how to construct a Carrot transaction, minus key material
+ *
+ * The fields in `CarrotTransactionProposalV1` are chosen as what is the absolute minimum amount of
+ * information required to verifiably, in a human-meaningful way, reconstruct the "signable
+ * transaction hash". The signable transaction hash, (usually written `signable_tx_hash` in code),
+ * is the actual 32-byte message that the FCMP++ Spend-Authorization & Linkability (SA/L) proofs
+ * sign and verify against. In situations where the signing device may be separate from the device
+ * formulating the transaction (e.g. cold signing, hardware devices, multisig, etc), this struct
+ * can be passed amongst signers so that the signers can actually verifying what they are signing.
+ *
+ * For exact details on what goes into the signable transaction hash, see `rct::get_pre_mlsag_hash`.
  */
 struct CarrotTransactionProposalV1
 {

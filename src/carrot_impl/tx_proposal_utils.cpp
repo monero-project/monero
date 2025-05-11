@@ -70,13 +70,8 @@ static void append_additional_payment_proposal_if_necessary(
 
     bool have_payment_type_selfsend = false;
     for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : selfsend_payment_proposals_inout)
-    {
         if (selfsend_payment_proposal.proposal.enote_type == CarrotEnoteType::PAYMENT)
-        {
             have_payment_type_selfsend = true;
-            break;
-        }
-    }
 
     const auto additional_output_proposal = get_additional_output_proposal(normal_payment_proposals_inout.size(),
         selfsend_payment_proposals_inout.size(),

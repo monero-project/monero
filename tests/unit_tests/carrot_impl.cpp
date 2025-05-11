@@ -1170,7 +1170,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_1)
 {
     // no input candidates, should throw `not_enough_money`
 
-    const std::vector<CarrotPreSelectedInput> input_candidates = {
+    const std::vector<InputCandidate> input_candidates = {
     };
 
     const std::vector<input_selection_policy_t> policies = { input_selection_policy_t{} };
@@ -1206,8 +1206,8 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_2)
 {
     // 1 input candidates w/ strictly less than nominal output sum, should throw `not_enough_money`
 
-    const std::vector<CarrotPreSelectedInput> input_candidates = {
-        CarrotPreSelectedInput {
+    const std::vector<InputCandidate> input_candidates = {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 222,
                 .key_image = mock::gen_key_image(),
@@ -1267,8 +1267,8 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
     const rct::xmr_amount inamount_0 = rct::randXmrAmount(required_1in);
     const rct::xmr_amount inamount_1 = input_sum_target - inamount_0;
 
-    const std::vector<CarrotPreSelectedInput> input_candidates = {
-        CarrotPreSelectedInput {
+    const std::vector<InputCandidate> input_candidates = {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = inamount_0,
                 .key_image = mock::gen_key_image(),
@@ -1276,7 +1276,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
             .is_external = false,
             .block_index = 3407684
         },
-        CarrotPreSelectedInput {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = inamount_1,
                 .key_image = mock::gen_key_image(),
@@ -1310,8 +1310,8 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
 {
-    const std::vector<CarrotPreSelectedInput> input_candidates = {
-        CarrotPreSelectedInput {
+    const std::vector<InputCandidate> input_candidates = {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 500,
                 .key_image = mock::gen_key_image(),
@@ -1319,7 +1319,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
             .is_external = false,
             .block_index = 72
         },
-        CarrotPreSelectedInput {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 200,
                 .key_image = mock::gen_key_image(),
@@ -1377,8 +1377,8 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_2)
 {
-    const std::vector<CarrotPreSelectedInput> input_candidates = {
-        CarrotPreSelectedInput {
+    const std::vector<InputCandidate> input_candidates = {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 500,
                 .key_image = mock::gen_key_image(),
@@ -1427,8 +1427,8 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
     // Give 5 input candidates, only 3 are needed to fill order. 4 should be used since it's the next power of 2
     // They should be the four oldest
 
-    const std::vector<CarrotPreSelectedInput> input_candidates = {
-        CarrotPreSelectedInput {
+    const std::vector<InputCandidate> input_candidates = {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
@@ -1437,7 +1437,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
             .is_external = false,
             .block_index = 55
         },
-        CarrotPreSelectedInput {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
@@ -1446,7 +1446,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
             .is_external = false,
             .block_index = 22
         },
-        CarrotPreSelectedInput {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
@@ -1455,7 +1455,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
             .is_external = false,
             .block_index = 11
         },
-        CarrotPreSelectedInput {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
                 .key_image = mock::gen_key_image(),
@@ -1464,7 +1464,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
             .is_external = false,
             .block_index = 88
         },
-        CarrotPreSelectedInput {
+        InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
                 .key_image = mock::gen_key_image(),

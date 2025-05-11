@@ -55,7 +55,7 @@ static std::ostream &operator<<(std::ostream &os, const CarrotSelectedInput &inp
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static std::ostream &operator<<(std::ostream &os, const CarrotPreSelectedInput &input)
+static std::ostream &operator<<(std::ostream &os, const InputCandidate &input)
 {
     os << "{ core = " << input.core << ", block_index = " << input.block_index
         << ", carrot = " << !input.is_pre_carrot << ", external = " << input.is_external << " }";
@@ -71,7 +71,7 @@ static std::set<size_t> set_union(const std::set<size_t> &a, const std::set<size
 };
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static void stable_sort_indices_by_amount(const epee::span<const CarrotPreSelectedInput> input_candidates,
+static void stable_sort_indices_by_amount(const epee::span<const InputCandidate> input_candidates,
     std::vector<size_t> &indices_inout)
 {
     std::stable_sort(indices_inout.begin(), indices_inout.end(),
@@ -85,7 +85,7 @@ static void stable_sort_indices_by_amount(const epee::span<const CarrotPreSelect
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_max_usable_money(
-    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputCandidate> input_candidates,
     const std::set<std::size_t> &selectable_inputs,
     std::size_t max_num_input_count,
     const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count)
@@ -139,7 +139,7 @@ static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-int compare_input_candidate_same_ki(const CarrotPreSelectedInput &lhs, const CarrotPreSelectedInput &rhs)
+int compare_input_candidate_same_ki(const InputCandidate &lhs, const InputCandidate &rhs)
 {
     CARROT_CHECK_AND_THROW(lhs.core.key_image == rhs.core.key_image,
         component_out_of_order, "this function is not meant to compare inputs of different key images");
@@ -174,7 +174,7 @@ int compare_input_candidate_same_ki(const CarrotPreSelectedInput &lhs, const Car
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
-    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputCandidate> input_candidates,
     const std::uint32_t flags,
     const bool is_normal_transfer)
 {
@@ -190,7 +190,7 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
     std::unordered_map<crypto::key_image, std::size_t> best_input_by_key_image;
     for (size_t i = 0; i < input_candidates.size(); ++i)
     {
-        const CarrotPreSelectedInput &input_candidate = input_candidates[i];
+        const InputCandidate &input_candidate = input_candidates[i];
         auto it = best_input_by_key_image.find(input_candidate.core.key_image);
         if (it == best_input_by_key_image.end())
         {
@@ -198,7 +198,7 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
         }
         else
         {
-            const CarrotPreSelectedInput &other_input_candidate = input_candidates[it->second];
+            const InputCandidate &other_input_candidate = input_candidates[it->second];
             if (compare_input_candidate_same_ki(other_input_candidate, input_candidate) < 0)
                 it->second = i;
         }
@@ -338,7 +338,7 @@ std::vector<std::size_t> get_input_counts_in_preferred_order()
 }
 //-------------------------------------------------------------------------------------------------------------------
 select_inputs_func_t make_single_transfer_input_selector(
-    const epee::span<const CarrotPreSelectedInput> input_candidates,
+    const epee::span<const InputCandidate> input_candidates,
     const epee::span<const input_selection_policy_t> policies,
     const std::uint32_t flags,
     std::set<size_t> *selected_input_indices_out)
@@ -379,7 +379,7 @@ select_inputs_func_t make_single_transfer_input_selector(
 
         // 4. Quick check of total money and single tx input count limited total money
         boost::multiprecision::uint128_t total_candidate_money = 0;
-        for (const CarrotPreSelectedInput &input_candidate : input_candidates)
+        for (const InputCandidate &input_candidate : input_candidates)
             total_candidate_money += input_candidate.core.amount;
         CARROT_CHECK_AND_THROW(total_candidate_money >= absolute_minimum_required_money,
             not_enough_money,
@@ -424,7 +424,7 @@ select_inputs_func_t make_single_transfer_input_selector(
                 "-input subset with tx max usable money: " << cryptonote::print_money(max_usable_money.second));
             for (const std::size_t selectable_index : input_candidate_subset)
             {
-                const CarrotPreSelectedInput &input_candidate = input_candidates[selectable_index];
+                const InputCandidate &input_candidate = input_candidates[selectable_index];
                 MDEBUG("    " << input_candidate);
             }
 
@@ -518,7 +518,7 @@ select_inputs_func_t make_single_transfer_input_selector(
 namespace ispolicy
 {
 //-------------------------------------------------------------------------------------------------------------------
-void select_greedy_aging(const epee::span<const CarrotPreSelectedInput> input_candidates,
+void select_greedy_aging(const epee::span<const InputCandidate> input_candidates,
     const std::set<std::size_t> &selectable_inputs,
     const std::size_t n_inputs,
     const boost::multiprecision::uint128_t &required_money,
@@ -542,7 +542,7 @@ void select_greedy_aging(const epee::span<const CarrotPreSelectedInput> input_ca
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const std::size_t selectable_idx = selectable_inputs_by_amount.at(selectable_inputs_by_amount.size() - i - 1);
-        const CarrotPreSelectedInput &input = input_candidates[selectable_idx];
+        const InputCandidate &input = input_candidates[selectable_idx];
         input_amount_sum += input.core.amount;
         selected_inputs_indices_out.insert(selectable_idx);
         selected_indices_by_block_index.emplace(input.block_index, selectable_idx);
@@ -573,7 +573,7 @@ void select_greedy_aging(const epee::span<const CarrotPreSelectedInput> input_ca
             const std::size_t potential_replacement_idx = *amount_it;
             if (selected_inputs_indices_out.count(potential_replacement_idx))
                 continue;
-            const CarrotPreSelectedInput &potential_replacement_input = input_candidates[potential_replacement_idx];
+            const InputCandidate &potential_replacement_input = input_candidates[potential_replacement_idx];
             if (potential_replacement_input.block_index < min_block_index)
             {
                 min_block_index = potential_replacement_input.block_index;
