@@ -50,6 +50,7 @@
 #include "net/levin_base.h"
 #include "p2p/net_node_common.h"
 #include <boost/circular_buffer.hpp>
+#include <atomic>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -112,6 +113,17 @@ namespace cryptonote
     void log_connections();
     std::list<connection_info> get_connections();
     const block_queue &get_block_queue() const { return m_block_queue; }
+    std::uint64_t max_average_of_blocksize_in_queue()
+    {
+      std::vector<std::uint64_t> average_blocksize{0};
+      m_block_queue.foreach([&](const cryptonote::block_queue::span &span)
+      {
+        average_blocksize.push_back(span.size / span.nblocks);
+        return true; // we don't care about the return value
+      });
+      MINFO("Maximum average of blocksize for current batches : " << *std::max_element(average_blocksize.begin(), average_blocksize.end()));
+      return *std::max_element(average_blocksize.begin(), average_blocksize.end());
+    }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
     void set_max_out_peers(epee::net_utils::zone zone, unsigned int max) { CRITICAL_REGION_LOCAL(m_max_out_peers_lock); m_max_out_peers[zone] = max; }
