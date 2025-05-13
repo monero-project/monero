@@ -1751,15 +1751,17 @@ done:
       return decodeRctSimple(rv, sk, i, mask, hwdev);
     }
 
-    key getCommitment(const cryptonote::transaction &tx, const std::size_t output_idx) {
+    bool getCommitment(const cryptonote::transaction &tx, const std::size_t output_idx, rct::key &c_out) {
       const bool miner_tx = cryptonote::is_coinbase(tx);
       if (miner_tx || tx.version < 2)
       {
-        CHECK_AND_ASSERT_THROW_MES(tx.vout.size() > output_idx, "unexpected size of vout");
-        return zeroCommitVartime(tx.vout[output_idx].amount);
+        CHECK_AND_ASSERT_MES(tx.vout.size() > output_idx, false, "unexpected size of vout");
+        c_out = zeroCommitVartime(tx.vout[output_idx].amount);
+        return true;
       }
-      CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.outPk.size() > output_idx, "unexpected size of outPk");
-      return tx.rct_signatures.outPk[output_idx].mask;
+      CHECK_AND_ASSERT_MES(tx.rct_signatures.outPk.size() > output_idx, false, "unexpected size of outPk");
+      c_out = tx.rct_signatures.outPk[output_idx].mask;
+      return true;
     }
 
     bool verPointsForTorsion(const std::vector<key> & pts) {

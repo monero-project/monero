@@ -237,7 +237,9 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     {
       cryptonote::tx_out vout = tx.vout[i];
       // TODO: avoid multiple expensive zeroCommitVartime call here + get_outs_by_last_locked_block + ver_non_input_consensus
-      rct::key commitment = rct::getCommitment(tx, i);
+      rct::key commitment;
+      if (!rct::getCommitment(tx, i, commitment))
+        throw std::runtime_error("Failed to get miner tx commitment, aborting");
       vout.amount = 0;
       amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
         &commitment);

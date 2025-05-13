@@ -467,10 +467,14 @@ bool collect_pubkeys_and_commitments(const transaction& tx, std::vector<rct::key
         crypto::public_key output_pubkey;
         if (!cryptonote::get_output_public_key(tx.vout[i], output_pubkey))
             return false;
-
         rct::key pubkey = rct::pk2rct(output_pubkey);
-        pubkeys_and_commitments_inout.emplace_back(std::move(pubkey));
-        pubkeys_and_commitments_inout.emplace_back(rct::getCommitment(tx, i));
+
+        rct::key commitment;
+        if (!rct::getCommitment(tx, i, commitment))
+            return false;
+
+        pubkeys_and_commitments_inout.emplace_back(pubkey);
+        pubkeys_and_commitments_inout.emplace_back(commitment);
     }
 
     return true;
