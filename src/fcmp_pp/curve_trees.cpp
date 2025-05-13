@@ -73,8 +73,6 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
     const rct::key &O_key = rct::pk2rct(output_pubkey);
     const rct::key &C_key = commitment;
 
-    TIME_MEASURE_NS_START(clear_torsion_ns);
-
     rct::key O = O_key;
     rct::key C = C_key;
 
@@ -82,6 +80,8 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
     // TODO: is there a cleaner torsion approach than this nested if statement?
     if (!torsion_checked)
     {
+        TIME_MEASURE_NS_START(clear_torsion_ns);
+
         // Clear torsion on output if it wasn't already checked for torsion
         if (!use_fast_check)
         {
@@ -102,6 +102,10 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
             LOG_PRINT_L2("Output pubkey has torsion: " << O_key);
         if (C != C_key)
             LOG_PRINT_L2("Commitment has torsion: " << C_key);
+
+        TIME_MEASURE_NS_FINISH(clear_torsion_ns);
+
+        LOG_PRINT_L3("clear_torsion_ns: " << clear_torsion_ns);
     }
 
     {
@@ -113,8 +117,6 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
         assert(O == O_debug);
         assert(C == C_debug);
     }
-
-    TIME_MEASURE_NS_FINISH(clear_torsion_ns);
 
     // Redundant check for safety
     if (O == rct::I)
@@ -132,8 +134,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
 
     TIME_MEASURE_NS_FINISH(derive_key_image_generator_ns);
 
-    LOG_PRINT_L3("clear_torsion_ns: " << clear_torsion_ns
-        << " , derive_key_image_generator_ns: " << derive_key_image_generator_ns);
+    LOG_PRINT_L3("derive_key_image_generator_ns: " << derive_key_image_generator_ns);
 
     rct::key I_rct = rct::pt2rct(I);
 

@@ -34,7 +34,6 @@
 //local headers
 #include "common/container_helpers.h"
 #include "ringct/rctOps.h"
-#include "ringct/rctSigs.h"
 #include "tx_construction_helpers.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
