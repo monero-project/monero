@@ -68,13 +68,22 @@ struct CarrotPaymentProposalVerifiableSelfSendV1
  */
 struct CarrotTransactionProposalV1
 {
+    /// Key images sorted in std::greater order
     std::vector<crypto::key_image> key_images_sorted;
 
+    /// Payment proposals to be converted into output enotes
     std::vector<CarrotPaymentProposalV1> normal_payment_proposals;
     std::vector<CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
+
+    /// This field should be uniformly randomly generated. It is used to populate the encrypted
+    /// payment ID field in the transaction when none of `normal_payment_proposals` are addressed
+    /// to integrated addresses.
     encrypted_payment_id_t dummy_encrypted_payment_id;
+    /// Fee to miner
     rct::xmr_amount fee;
 
+    /// This field is truly "extra". It should contain only tx.extra fields that aren't present in a
+    /// normal Carrot transaction, i.e. NOT ephemeral pubkeys nor encrypted PIDs
     std::vector<std::uint8_t> extra;
 };
 } //namespace carrot
