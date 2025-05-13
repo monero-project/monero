@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 
+#include "carrot_impl/tx_proposal_utils.h"
 #include "common/container_helpers.h"
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -1089,6 +1090,46 @@ TEST(fcmp_pp, tx_weight_prefix_and_unprunable_byte_accuracy)
                 ASSERT_GE(unprunable_weight, example_tx.unprunable_size);
                 ASSERT_LE(unprunable_weight - example_tx.unprunable_size, allowed_weight_margin);
             }
+        }
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, dump_tx_bytesizes)
+{
+    for (unsigned max_int_fields = 0; max_int_fields < 2; ++max_int_fields)
+    {
+        for (uint8_t n_tree_layers = 6; n_tree_layers <= 7; ++n_tree_layers)
+        {
+            std::cout << "layers=" << static_cast<int>(n_tree_layers) << " ";
+            if (max_int_fields)
+                std::cout << "maxvarint,";
+            else
+                std::cout << "minvarint,";
+
+            for (std::size_t n = 2; n <= FCMP_PLUS_PLUS_MAX_OUTPUTS; ++n)
+                std::cout << n << ',';
+            std::cout << '\n';
+
+            for (std::size_t m = 1; m <= FCMP_PLUS_PLUS_MAX_INPUTS; ++m)
+            {
+                std::cout << m << ',';
+                for (std::size_t n = 2; n <= FCMP_PLUS_PLUS_MAX_OUTPUTS; ++n)
+                {
+                    cryptonote::transaction example_tx = make_empty_fcmp_pp_tx_of_size(
+                        m,
+                        n,
+                        carrot::get_carrot_default_tx_extra_size(n),
+                        n_tree_layers,
+                        max_int_fields);
+
+                    const cryptonote::blobdata serialized_blob = cryptonote::tx_to_blob(example_tx);
+
+                    std::cout << serialized_blob.size() << ',';
+                }
+                std::cout << '\n';
+            }
+
+            std::cout << "-----------------------------------------\n";
         }
     }
 }
