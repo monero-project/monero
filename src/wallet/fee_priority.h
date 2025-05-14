@@ -52,6 +52,11 @@ namespace tools
 
         static fee_priority FromIntegral(const uint32_t priority)
         {
+            if (priority >= AsIntegral(fee_priority::Priority))
+            {
+                return fee_priority::Priority;
+            }
+
             return static_cast<fee_priority>(priority);
         }
 
