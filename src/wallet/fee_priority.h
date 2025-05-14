@@ -27,10 +27,10 @@ namespace tools
         using EnumStringsType = std::array<std::string_view, 5>;
         using EnumsType = std::array<FeePriority, 5>;
 
-        static inline const EnumStringsType strings_ = { { "default", "unimportant", "normal", "elevated", "priority" } };
-        static inline const EnumsType enums_ = { { FeePriority::Default, FeePriority::Unimportant, FeePriority::Normal, FeePriority::Elevated, FeePriority::Priority } };
-
     public:
+        static inline constexpr EnumStringsType feePriorityStrings_ = { { "default", "unimportant", "normal", "elevated", "priority" } };
+        static inline constexpr EnumsType enums_ = { { FeePriority::Default, FeePriority::Unimportant, FeePriority::Normal, FeePriority::Elevated, FeePriority::Priority } };
+
         static FeePriority Decrease(const FeePriority priority)
         {
             if (priority == FeePriority::Default)
@@ -76,20 +76,18 @@ namespace tools
         static std::string_view ToString(const FeePriority priority)
         {
             const auto integralValue = AsIntegral(priority);
-            return strings_.at(integralValue);
+            return feePriorityStrings_.at(integralValue);
         }
 
         static std::optional<FeePriority> FromString(const std::string& str)
         {
-            const auto strIterator = std::find(strings_.begin(), strings_.end(), str);
-            if (strIterator == strings_.end())
+            const auto strIterator = std::find(feePriorityStrings_.begin(), feePriorityStrings_.end(), str);
+            if (strIterator == feePriorityStrings_.end())
                 return std::nullopt;
 
-            const auto distance = std::distance(strings_.begin(), strIterator);
+            const auto distance = std::distance(feePriorityStrings_.begin(), strIterator);
             return enums_.at(distance);
         }
 
-        static const EnumStringsType GetFeePriorityStrings() { return strings_; }
-        static const EnumsType GetEnums() { return enums_; }
     };
 }

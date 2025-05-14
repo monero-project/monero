@@ -168,7 +168,7 @@ static std::string get_human_readable_timespan(uint64_t seconds);
 
 namespace
 {
-  const std::array<std::string_view, 5> allowed_priority_strings = FeePriorityUtilities::GetFeePriorityStrings();
+  const std::array<std::string_view, 5> allowed_priority_strings = FeePriorityUtilities::feePriorityStrings_;
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_device = {"generate-from-device", sw::tr("Generate new wallet from device and save it to <arg>"), ""};
@@ -1032,7 +1032,7 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
   message_writer() << (boost::format(tr("Current fee is %s %s per %s")) % print_money(base_fee) % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % base).str();
 
   std::vector<uint64_t> fees;
-  for (const auto priority : FeePriorityUtilities::GetEnums())
+  for (const auto priority : FeePriorityUtilities::enums_)
   {
     if (priority == FeePriority::Default)
       continue;
@@ -1056,7 +1056,7 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     return true;
   }
 
-  for (const auto priority : FeePriorityUtilities::GetEnums())
+  for (const auto priority : FeePriorityUtilities::enums_)
   {
     if (priority == tools::FeePriority::Default)
       continue;
