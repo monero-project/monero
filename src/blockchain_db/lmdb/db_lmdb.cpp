@@ -1495,7 +1495,7 @@ void BlockchainLMDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curv
   for (uint64_t i = 0; i < n_layers; ++i)
   {
     const uint64_t layer_idx = c1_idx + c2_idx;
-    MDEBUG("Growing layer " << layer_idx);
+    MTRACE("Growing layer " << layer_idx);
 
     if (parent_is_c1)
     {
@@ -1623,6 +1623,9 @@ void BlockchainLMDB::save_tree_meta(const uint64_t block_idx, const uint64_t n_l
   mdb_tree_meta tree_meta;
   tree_meta.n_leaf_tuples = n_leaf_tuples;
   MDB_val_set(v_meta, tree_meta);
+
+  MDEBUG("Saving tree meta for block idx " << block_idx << " (n_leaf_tuples=" << n_leaf_tuples
+    << ", root=" << (tree_edge.size() ? tree_edge.back() : crypto::ec_point{}) << ")");
 
   result = mdb_cursor_put(m_cur_tree_meta, &k_meta, &v_meta, MDB_NOOVERWRITE);
   if (result != MDB_SUCCESS)
@@ -1779,7 +1782,7 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
     MDB_cursor_op op = MDB_GET_BOTH;
     for (std::size_t i = layer_idx_range.first; i < layer_idx_range.second; ++i)
     {
-      MDEBUG("Getting child at layer_idx: " << layer_idx << " , idx: " << i);
+      MTRACE("Getting child at layer_idx: " << layer_idx << " , idx: " << i);
 
       int result = mdb_cursor_get(m_cur_layers, &k, &v, op);
       op = MDB_NEXT_DUP;
