@@ -4607,7 +4607,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetUint(m_default_mixin);
   json.AddMember("default_mixin", value2, json.GetAllocator());
 
-  value2.SetUint(boost::numeric_cast<unsigned>(FeePriorityUtilities::AsIntegral(m_default_priority)));
+  value2.SetUint(boost::numeric_cast<unsigned>(fee_priority_utilities::AsIntegral(m_default_priority)));
   json.AddMember("default_priority", value2, json.GetAllocator());
 
   value2.SetInt(m_auto_refresh ? 1 :0);
@@ -5072,13 +5072,13 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
     if (field_default_priority_found)
     {
-      m_default_priority = FeePriorityUtilities::FromIntegral(boost::numeric_cast<uint32_t>(field_default_priority));
+      m_default_priority = fee_priority_utilities::FromIntegral(boost::numeric_cast<uint32_t>(field_default_priority));
     }
     else
     {
       GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
       if (field_default_fee_multiplier_found)
-        m_default_priority = FeePriorityUtilities::FromIntegral(boost::numeric_cast<uint32_t>(field_default_fee_multiplier));
+        m_default_priority = fee_priority_utilities::FromIntegral(boost::numeric_cast<uint32_t>(field_default_fee_multiplier));
       else
         m_default_priority = fee_priority::Default;
     }
@@ -8508,8 +8508,8 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
   const fee_priority max_priority = fee_steps[fee_algorithm_index].maximum_priority;
   if (priority >= fee_priority::Unimportant && priority <= max_priority)
   {
-    const fee_priority adjusted_priority = FeePriorityUtilities::Decrease(priority);
-    return fee_steps[fee_algorithm_index].fee_multipliers[FeePriorityUtilities::AsIntegral(adjusted_priority)];
+    const fee_priority adjusted_priority = fee_priority_utilities::Decrease(priority);
+    return fee_steps[fee_algorithm_index].fee_multipliers[fee_priority_utilities::AsIntegral(adjusted_priority)];
   }
 
   THROW_WALLET_EXCEPTION_IF (false, error::invalid_priority);
@@ -8538,7 +8538,7 @@ uint64_t wallet2::get_base_fee()
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee(uint32_t priority)
 {
-  return get_base_fee(FeePriorityUtilities::FromIntegral(priority));
+  return get_base_fee(fee_priority_utilities::FromIntegral(priority));
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_base_fee(fee_priority priority)
@@ -8547,8 +8547,8 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
   if (use_2021_scaling)
   {
     // clamp and map to 0..3 indices, mapping 0 (default, but should not end up here) to 0, and 1..4 to 0..3
-    priority = FeePriorityUtilities::Clamp(priority);
-    priority = FeePriorityUtilities::Decrease(priority);
+    priority = fee_priority_utilities::Clamp(priority);
+    priority = fee_priority_utilities::Decrease(priority);
 
     std::vector<uint64_t> fees;
     boost::optional<std::string> result = m_node_rpc_proxy.get_dynamic_base_fee_estimate_2021_scaling(FEE_ESTIMATE_GRACE_BLOCKS, fees);
@@ -8558,7 +8558,7 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
       return FEE_PER_BYTE;
     }
 
-    const auto priority_index = FeePriorityUtilities::AsIntegral(priority);
+    const auto priority_index = fee_priority_utilities::AsIntegral(priority);
     if (priority_index >= fees.size())
     {
       MERROR("Failed to determine base fee for priority " << priority_index << ", using default");
@@ -8642,7 +8642,7 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin)
 //----------------------------------------------------------------------------------------------------
 fee_priority wallet2::adjust_priority(uint32_t priority)
 {
-  return adjust_priority(FeePriorityUtilities::FromIntegral(priority));
+  return adjust_priority(fee_priority_utilities::FromIntegral(priority));
 }
 //----------------------------------------------------------------------------------------------------
 fee_priority wallet2::adjust_priority(fee_priority priority)

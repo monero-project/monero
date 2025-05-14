@@ -95,7 +95,7 @@ using boost::lexical_cast;
 namespace po = boost::program_options;
 typedef cryptonote::simple_wallet sw;
 using tools::fee_priority;
-using tools::FeePriorityUtilities;
+using tools::fee_priority_utilities;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
@@ -168,7 +168,7 @@ static std::string get_human_readable_timespan(uint64_t seconds);
 
 namespace
 {
-  const std::array<std::string_view, 5> allowed_priority_strings = FeePriorityUtilities::feePriorityStrings_;
+  const std::array<std::string_view, 5> allowed_priority_strings = fee_priority_utilities::feePriorityStrings_;
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_device = {"generate-from-device", sw::tr("Generate new wallet from device and save it to <arg>"), ""};
@@ -769,7 +769,7 @@ namespace
 
 bool parse_priority(const std::string& arg, fee_priority& priority)
 {
-  const auto priorityOptional = FeePriorityUtilities::FromString(arg);
+  const auto priorityOptional = fee_priority_utilities::FromString(arg);
   if (!priorityOptional.has_value())
     return false;
   priority = priorityOptional.value();
@@ -1032,7 +1032,7 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
   message_writer() << (boost::format(tr("Current fee is %s %s per %s")) % print_money(base_fee) % cryptonote::get_unit(cryptonote::get_default_decimal_point()) % base).str();
 
   std::vector<uint64_t> fees;
-  for (const auto priority : FeePriorityUtilities::enums_)
+  for (const auto priority : fee_priority_utilities::enums_)
   {
     if (priority == fee_priority::Default)
       continue;
@@ -1056,14 +1056,14 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     return true;
   }
 
-  for (const auto priority : FeePriorityUtilities::enums_)
+  for (const auto priority : fee_priority_utilities::enums_)
   {
     if (priority == tools::fee_priority::Default)
       continue;
 
-    const auto lower_priority = FeePriorityUtilities::Decrease(priority);
-    const auto lower_priority_index = FeePriorityUtilities::AsIntegral(lower_priority);
-    const auto current_priority_index = FeePriorityUtilities::AsIntegral(priority);
+    const auto lower_priority = fee_priority_utilities::Decrease(priority);
+    const auto lower_priority_index = fee_priority_utilities::AsIntegral(lower_priority);
+    const auto current_priority_index = fee_priority_utilities::AsIntegral(priority);
     uint64_t nblocks_low = blocks[lower_priority_index].first;
     uint64_t nblocks_high = blocks[lower_priority_index].second;
     if (nblocks_low > 0)
@@ -2471,7 +2471,7 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
       if (!found)
       {
         priority = boost::lexical_cast<int>(args[1]);
-        if (priority < FeePriorityUtilities::AsIntegral(fee_priority::Unimportant) || priority > FeePriorityUtilities::AsIntegral(fee_priority::Priority))
+        if (priority < fee_priority_utilities::AsIntegral(fee_priority::Unimportant) || priority > fee_priority_utilities::AsIntegral(fee_priority::Priority))
         {
           fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
           return true;
@@ -2482,7 +2482,7 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
     const auto pwd_container = get_and_verify_password();
     if (pwd_container)
     {
-      m_wallet->set_default_priority(FeePriorityUtilities::FromIntegral(priority));
+      m_wallet->set_default_priority(fee_priority_utilities::FromIntegral(priority));
       m_wallet->rewrite(m_wallet_file, pwd_container->password());
     }
     return true;
@@ -3720,8 +3720,8 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
     std::string priority_string = "invalid";
     const fee_priority priority = m_wallet->get_default_priority();
-    priority_string = FeePriorityUtilities::ToString(priority);
-    const auto priority_index = FeePriorityUtilities::AsIntegral(priority);
+    priority_string = fee_priority_utilities::ToString(priority);
+    const auto priority_index = fee_priority_utilities::AsIntegral(priority);
     std::string ask_password_string = "invalid";
     switch (m_wallet->ask_password())
     {

@@ -4,6 +4,6 @@ namespace tools
 {
     std::ostream& operator<<(std::ostream& os, const fee_priority priority)
     {
-        return os << FeePriorityUtilities::ToString(priority);
+        return os << fee_priority_utilities::ToString(priority);
     }
 }

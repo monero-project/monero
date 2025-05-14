@@ -1171,7 +1171,7 @@ namespace tools
       er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
-    else if (!FeePriorityUtilities::IsValid(req.priority))
+    else if (!fee_priority_utilities::IsValid(req.priority))
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
       er.message = "Invalid priority value. Must be between 0 and 4.";
@@ -1189,7 +1189,7 @@ namespace tools
     try
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
-      const fee_priority priority = m_wallet->adjust_priority(FeePriorityUtilities::FromIntegral(req.priority));
+      const fee_priority priority = m_wallet->adjust_priority(fee_priority_utilities::FromIntegral(req.priority));
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, priority, extra, req.account_index, req.subaddr_indices, req.subtract_fee_from_outputs);
 
       if (ptx_vector.empty())
@@ -1237,7 +1237,7 @@ namespace tools
       er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
-    else if (!FeePriorityUtilities::IsValid(req.priority))
+    else if (!fee_priority_utilities::IsValid(req.priority))
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
       er.message = "Invalid priority value. Must be between 0 and 4.";
@@ -1255,7 +1255,7 @@ namespace tools
     try
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
-      const fee_priority priority = m_wallet->adjust_priority(FeePriorityUtilities::FromIntegral(req.priority));
+      const fee_priority priority = m_wallet->adjust_priority(fee_priority_utilities::FromIntegral(req.priority));
       LOG_PRINT_L2("on_transfer_split calling create_transactions_2");
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_2(dsts, mixin, priority, extra, req.account_index, req.subaddr_indices);
       LOG_PRINT_L2("on_transfer_split called create_transactions_2");
@@ -1688,7 +1688,7 @@ namespace tools
       er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
-    else if (!FeePriorityUtilities::IsValid(req.priority))
+    else if (!fee_priority_utilities::IsValid(req.priority))
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
       er.message = "Invalid priority value. Must be between 0 and 4.";
@@ -1728,7 +1728,7 @@ namespace tools
     try
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
-      const fee_priority priority = m_wallet->adjust_priority(FeePriorityUtilities::FromIntegral(req.priority));
+      const fee_priority priority = m_wallet->adjust_priority(fee_priority_utilities::FromIntegral(req.priority));
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_all(req.below_amount, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, priority, extra, req.account_index, subaddr_indices);
 
       return fill_response(ptx_vector, req.get_tx_keys, res.tx_key_list, res.amount_list, res.amounts_by_dest_list, res.fee_list, res.weight_list, res.multisig_txset, res.unsigned_txset, req.do_not_relay,
@@ -1760,7 +1760,7 @@ namespace tools
       er.message = "Transaction cannot have non-zero unlock time";
       return false;
     }
-    else if (!FeePriorityUtilities::IsValid(req.priority))
+    else if (!fee_priority_utilities::IsValid(req.priority))
     {
       er.code = WALLET_RPC_ERROR_CODE_INVALID_FEE_PRIORITY;
       er.message = "Invalid priority value. Must be between 0 and 4.";
@@ -1797,7 +1797,7 @@ namespace tools
     try
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
-      const fee_priority priority = m_wallet->adjust_priority(FeePriorityUtilities::FromIntegral(req.priority));
+      const fee_priority priority = m_wallet->adjust_priority(fee_priority_utilities::FromIntegral(req.priority));
       std::vector<wallet2::pending_tx> ptx_vector = m_wallet->create_transactions_single(ki, dsts[0].addr, dsts[0].is_subaddress, req.outputs, mixin, priority, extra);
 
       if (ptx_vector.empty())
@@ -4817,7 +4817,7 @@ namespace tools
         er.message = "Failed to get adjusted fee priority";
         return false;
       }
-      res.priority = FeePriorityUtilities::AsIntegral(priority);
+      res.priority = fee_priority_utilities::AsIntegral(priority);
     }
     catch (const std::exception& e)
     {

@@ -23,7 +23,7 @@ namespace tools
 
     std::ostream& operator<<(std::ostream& os, const fee_priority priority);
 
-    class FeePriorityUtilities
+    class fee_priority_utilities
     {
     private:
         using EnumStringsType = std::array<std::string_view, 5>;
