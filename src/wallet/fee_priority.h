@@ -10,7 +10,7 @@
 
 namespace tools
 {
-    enum class FeePriority : uint32_t
+    enum class fee_priority : uint32_t
     {
         Default = 0,
         Unimportant, /* Low */
@@ -19,53 +19,53 @@ namespace tools
         Priority, /* Very High */
     };
 
-    std::ostream& operator<<(std::ostream& os, const FeePriority priority);
+    std::ostream& operator<<(std::ostream& os, const fee_priority priority);
 
     class FeePriorityUtilities
     {
     private:
         using EnumStringsType = std::array<std::string_view, 5>;
-        using EnumsType = std::array<FeePriority, 5>;
+        using EnumsType = std::array<fee_priority, 5>;
 
     public:
         static inline constexpr EnumStringsType feePriorityStrings_ = { { "default", "unimportant", "normal", "elevated", "priority" } };
-        static inline constexpr EnumsType enums_ = { { FeePriority::Default, FeePriority::Unimportant, FeePriority::Normal, FeePriority::Elevated, FeePriority::Priority } };
+        static inline constexpr EnumsType enums_ = { { fee_priority::Default, fee_priority::Unimportant, fee_priority::Normal, fee_priority::Elevated, fee_priority::Priority } };
 
-        static FeePriority Decrease(const FeePriority priority)
+        static fee_priority Decrease(const fee_priority priority)
         {
-            if (priority == FeePriority::Default)
+            if (priority == fee_priority::Default)
             {
-                return FeePriority::Default;
+                return fee_priority::Default;
             }
             else
             {
                 const uint32_t integralValue = static_cast<uint32_t>(priority);
                 const auto decrementedIntegralValue = integralValue - 1u;
-                return static_cast<FeePriority>(decrementedIntegralValue);
+                return static_cast<fee_priority>(decrementedIntegralValue);
             }
         }
 
-        static uint32_t AsIntegral(const FeePriority priority)
+        static uint32_t AsIntegral(const fee_priority priority)
         {
             return static_cast<uint32_t>(priority);
         }
 
-        static FeePriority FromIntegral(const uint32_t priority)
+        static fee_priority FromIntegral(const uint32_t priority)
         {
-            return static_cast<FeePriority>(priority);
+            return static_cast<fee_priority>(priority);
         }
 
         static bool IsValid(const uint32_t priority)
         {
-            return priority <= AsIntegral(FeePriority::Priority);
+            return priority <= AsIntegral(fee_priority::Priority);
         }
 
-        static FeePriority Clamp(const FeePriority priority)
+        static fee_priority Clamp(const fee_priority priority)
         {
             /* Map Default to an actionable priority. */
-            if (priority == FeePriority::Default)
+            if (priority == fee_priority::Default)
             {
-                return FeePriority::Unimportant;
+                return fee_priority::Unimportant;
             }
             else
             {
@@ -73,13 +73,13 @@ namespace tools
             }
         }
 
-        static std::string_view ToString(const FeePriority priority)
+        static std::string_view ToString(const fee_priority priority)
         {
             const auto integralValue = AsIntegral(priority);
             return feePriorityStrings_.at(integralValue);
         }
 
-        static std::optional<FeePriority> FromString(const std::string& str)
+        static std::optional<fee_priority> FromString(const std::string& str)
         {
             const auto strIterator = std::find(feePriorityStrings_.begin(), feePriorityStrings_.end(), str);
             if (strIterator == feePriorityStrings_.end())

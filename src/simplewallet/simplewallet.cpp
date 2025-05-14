@@ -94,7 +94,7 @@ using namespace cryptonote;
 using boost::lexical_cast;
 namespace po = boost::program_options;
 typedef cryptonote::simple_wallet sw;
-using tools::FeePriority;
+using tools::fee_priority;
 using tools::FeePriorityUtilities;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -767,7 +767,7 @@ namespace
   }
 }
 
-bool parse_priority(const std::string& arg, FeePriority& priority)
+bool parse_priority(const std::string& arg, fee_priority& priority)
 {
   const auto priorityOptional = FeePriorityUtilities::FromString(arg);
   if (!priorityOptional.has_value())
@@ -1034,7 +1034,7 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
   std::vector<uint64_t> fees;
   for (const auto priority : FeePriorityUtilities::enums_)
   {
-    if (priority == FeePriority::Default)
+    if (priority == fee_priority::Default)
       continue;
     uint64_t mult = m_wallet->get_fee_multiplier(priority);
     fees.push_back(base_fee * typical_size * mult);
@@ -1058,7 +1058,7 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
 
   for (const auto priority : FeePriorityUtilities::enums_)
   {
-    if (priority == tools::FeePriority::Default)
+    if (priority == tools::fee_priority::Default)
       continue;
 
     const auto lower_priority = FeePriorityUtilities::Decrease(priority);
@@ -1069,7 +1069,7 @@ bool simple_wallet::print_fee_info(const std::vector<std::string> &args/* = std:
     if (nblocks_low > 0)
     {
       std::string msg;
-      if (priority == m_wallet->get_default_priority() || (m_wallet->get_default_priority() == FeePriority::Default && priority == FeePriority::Normal))
+      if (priority == m_wallet->get_default_priority() || (m_wallet->get_default_priority() == fee_priority::Default && priority == fee_priority::Normal))
         msg = tr(" (current)");
       uint64_t minutes_low = nblocks_low * DIFFICULTY_TARGET_V2 / 60, minutes_high = nblocks_high * DIFFICULTY_TARGET_V2 / 60;
       if (nblocks_high == nblocks_low)
@@ -3719,7 +3719,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     if (m_use_english_language_names)
       seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
     std::string priority_string = "invalid";
-    const FeePriority priority = m_wallet->get_default_priority();
+    const fee_priority priority = m_wallet->get_default_priority();
     const auto priority_index = FeePriorityUtilities::AsIntegral(priority);
     if (priority_index < allowed_priority_strings.size())
       priority_string = FeePriorityUtilities::ToString(priority);
@@ -6449,7 +6449,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     local_args.erase(local_args.begin());
   }
 
-  FeePriority priority = m_wallet->get_default_priority();
+  fee_priority priority = m_wallet->get_default_priority();
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
@@ -7014,7 +7014,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
     local_args.erase(local_args.begin());
   }
 
-  FeePriority priority = FeePriority::Default;
+  fee_priority priority = fee_priority::Default;
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 
@@ -7258,7 +7258,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   std::vector<std::string> local_args = args_;
 
-  FeePriority priority = FeePriority::Default;
+  fee_priority priority = fee_priority::Default;
   if (local_args.size() > 0 && parse_priority(local_args[0], priority))
     local_args.erase(local_args.begin());
 

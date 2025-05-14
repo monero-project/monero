@@ -1198,7 +1198,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_print_ring_members(false),
   m_store_tx_info(true),
   m_default_mixin(0),
-  m_default_priority(FeePriority::Default),
+  m_default_priority(fee_priority::Default),
   m_refresh_type(RefreshOptimizeCoinbase),
   m_auto_refresh(true),
   m_first_refresh_done(false),
@@ -4938,7 +4938,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_print_ring_members = false;
     m_store_tx_info = true;
     m_default_mixin = 0;
-    m_default_priority = FeePriority::Default;
+    m_default_priority = fee_priority::Default;
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
     m_refresh_from_block_height = 0;
@@ -5071,15 +5071,15 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
     if (field_default_priority_found)
     {
-      m_default_priority = static_cast<FeePriority>(field_default_priority);
+      m_default_priority = static_cast<fee_priority>(field_default_priority);
     }
     else
     {
       GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
       if (field_default_fee_multiplier_found)
-        m_default_priority = static_cast<FeePriority>(field_default_fee_multiplier);
+        m_default_priority = static_cast<fee_priority>(field_default_fee_multiplier);
       else
-        m_default_priority = FeePriority::Default;
+        m_default_priority = fee_priority::Default;
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, auto_refresh, int, Int, false, true);
     m_auto_refresh = field_auto_refresh;
@@ -8470,43 +8470,43 @@ uint64_t wallet2::estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs
   }
 }
 
-uint64_t wallet2::get_fee_multiplier(FeePriority priority, FeeAlgorithm fee_algorithm)
+uint64_t wallet2::get_fee_multiplier(fee_priority priority, FeeAlgorithm fee_algorithm)
 {
   static const struct
   {
-    FeePriority maximum_priority; // Determines the maximum priority available for said fee algorithm.
+    fee_priority maximum_priority; // Determines the maximum priority available for said fee algorithm.
     uint64_t fee_multipliers[4]; // Determines the fee multiplier applied at various priorities for said fee algorithm.
   }
   fee_steps[] =
   {
-    { FeePriority::Elevated, {1, 2, 3} },
-    { FeePriority::Elevated, {1, 20, 166} },
-    { FeePriority::Priority, {1, 4, 20, 166} },
-    { FeePriority::Priority, {1, 5, 25, 1000} },
+    { fee_priority::Elevated, {1, 2, 3} },
+    { fee_priority::Elevated, {1, 20, 166} },
+    { fee_priority::Priority, {1, 4, 20, 166} },
+    { fee_priority::Priority, {1, 5, 25, 1000} },
   };
 
   if (fee_algorithm == FeeAlgorithm::Unset)
     fee_algorithm = get_fee_algorithm();
 
   // 0 -> default (here, x1 till fee algorithm 2, x4 from it)
-  if (priority == FeePriority::Default)
+  if (priority == fee_priority::Default)
     priority = m_default_priority;
-  if (priority == FeePriority::Default)
+  if (priority == fee_priority::Default)
   {
     if (fee_algorithm >= FeeAlgorithm::HardforkV5)
-      priority = FeePriority::Normal;
+      priority = fee_priority::Normal;
     else
-      priority = FeePriority::Unimportant;
+      priority = fee_priority::Unimportant;
   }
 
   THROW_WALLET_EXCEPTION_IF(fee_algorithm == FeeAlgorithm::Unset || fee_algorithm > FeeAlgorithm::HardforkV8, error::invalid_priority);
 
   // 1 to 3/4 are allowed as priorities
   const int fee_algorithm_index = FeeAlgorithmUtilities::AsIntegral(fee_algorithm);
-  const FeePriority max_priority = fee_steps[fee_algorithm_index].maximum_priority;
-  if (priority >= FeePriority::Unimportant && priority <= max_priority)
+  const fee_priority max_priority = fee_steps[fee_algorithm_index].maximum_priority;
+  if (priority >= fee_priority::Unimportant && priority <= max_priority)
   {
-    const FeePriority adjusted_priority = FeePriorityUtilities::Decrease(priority);
+    const fee_priority adjusted_priority = FeePriorityUtilities::Decrease(priority);
     return fee_steps[fee_algorithm_index].fee_multipliers[FeePriorityUtilities::AsIntegral(adjusted_priority)];
   }
 
@@ -8539,7 +8539,7 @@ uint64_t wallet2::get_base_fee(uint32_t priority)
   return get_base_fee(FeePriorityUtilities::FromIntegral(priority));
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_base_fee(FeePriority priority)
+uint64_t wallet2::get_base_fee(fee_priority priority)
 {
   const bool use_2021_scaling = use_fork_rules(HF_VERSION_2021_SCALING, -30 * 1);
   if (use_2021_scaling)
@@ -8638,20 +8638,20 @@ uint64_t wallet2::adjust_mixin(uint64_t mixin)
   return mixin;
 }
 //----------------------------------------------------------------------------------------------------
-FeePriority wallet2::adjust_priority(uint32_t priority)
+fee_priority wallet2::adjust_priority(uint32_t priority)
 {
   return adjust_priority(FeePriorityUtilities::FromIntegral(priority));
 }
 //----------------------------------------------------------------------------------------------------
-FeePriority wallet2::adjust_priority(FeePriority priority)
+fee_priority wallet2::adjust_priority(fee_priority priority)
 {
-  if (priority == FeePriority::Default && m_default_priority == FeePriority::Default && auto_low_priority())
+  if (priority == fee_priority::Default && m_default_priority == fee_priority::Default && auto_low_priority())
   {
     try
     {
       // check if there's a backlog in the tx pool
       const bool use_per_byte_fee = use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
-      const uint64_t base_fee = get_base_fee(FeePriority::Unimportant);
+      const uint64_t base_fee = get_base_fee(fee_priority::Unimportant);
       const double fee_level = base_fee * (use_per_byte_fee ? 1 : (12/(double)13 / (double)1024));
       const std::vector<std::pair<uint64_t, uint64_t>> blocks = estimate_backlog({std::make_pair(fee_level, fee_level)});
       if (blocks.size() != 1)
@@ -8662,7 +8662,7 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       else if (blocks[0].first > 0)
       {
         MINFO("We don't use the low priority because there's a backlog in the tx pool.");
-        return FeePriority::Normal;
+        return fee_priority::Normal;
       }
 
       // get the current full reward zone
@@ -8707,10 +8707,10 @@ FeePriority wallet2::adjust_priority(FeePriority priority)
       if (P > 80)
       {
         MINFO("We don't use the low priority because recent blocks are quite full.");
-        return FeePriority::Normal;
+        return fee_priority::Normal;
       }
       MINFO("We'll use the low priority because probably it's safe to do so.");
-      return FeePriority::Unimportant;
+      return fee_priority::Unimportant;
     }
     catch (const std::exception &e)
     {
@@ -10431,7 +10431,7 @@ static uint32_t get_count_above(const std::vector<wallet2::transfer_details> &tr
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, FeePriority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
@@ -11199,7 +11199,7 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, c
   return true;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, FeePriority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -11272,7 +11272,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   return create_transactions_from(address, is_subaddress, outputs, unused_transfers_indices, unused_dust_indices, fake_outs_count, priority, extra);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, FeePriority priority, const std::vector<uint8_t>& extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra)
 {
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -11293,7 +11293,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
   return create_transactions_from(address, is_subaddress, outputs, unused_transfers_indices, unused_dust_indices, fake_outs_count, priority, extra);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, FeePriority priority, const std::vector<uint8_t>& extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
@@ -11762,7 +11762,7 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()
   const bool hf1_rules = use_fork_rules(2, 10); // first hard fork has version 2
   tx_dust_policy dust_policy(hf1_rules ? 0 : ::config::DEFAULT_DUST_THRESHOLD);
 
-  const uint64_t base_fee  = get_base_fee(FeePriority::Unimportant);
+  const uint64_t base_fee  = get_base_fee(fee_priority::Unimportant);
 
   // may throw
   std::vector<size_t> unmixable_outputs = select_available_unmixable_outputs();
@@ -11783,7 +11783,7 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()
       unmixable_transfer_outputs.push_back(n);
   }
 
-  return create_transactions_from(m_account_public_address, false, 1, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, FeePriority::Unimportant, std::vector<uint8_t>());
+  return create_transactions_from(m_account_public_address, false, 1, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, fee_priority::Unimportant, std::vector<uint8_t>());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::discard_unmixable_outputs()
