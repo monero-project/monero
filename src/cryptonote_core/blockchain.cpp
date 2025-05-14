@@ -4694,7 +4694,7 @@ leave:
   TIME_MEASURE_START(advance_tree);
 
   static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "Expect a non-0 spendable age");
-  try { m_db->advance_tree_one_block(new_height-1); }
+  try { m_db->advance_tree(new_height-1); }
   catch (const std::exception& e)
   {
     LOG_ERROR("Failed to advance tree at block with hash: " << id << ", what = " << e.what());
