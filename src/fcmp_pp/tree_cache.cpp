@@ -201,7 +201,7 @@ static void cache_leaf_chunk(const ChildChunkIdx chunk_idx,
 
     CHECK_AND_ASSERT_THROW_MES(end_leaf_idx > start_leaf_idx, "start_leaf_idx is too high");
 
-    LOG_PRINT_L3("Caching leaves at chunk_idx: " << chunk_idx
+    MTRACE("Caching leaves at chunk_idx: " << chunk_idx
         << " , start_leaf_idx: "           << start_leaf_idx
         << " , end_leaf_idx: "             << end_leaf_idx
         << " , bump_ref_count: "           << bump_ref_count
@@ -274,7 +274,7 @@ static void cache_path_chunk(const std::unique_ptr<C> &curve,
     const ChildChunkIdx end_chunk_idx   = std::min(start_chunk_idx + parent_width, n_layer_elems);
     CHECK_AND_ASSERT_THROW_MES(end_chunk_idx > start_chunk_idx, "end_chunk_idx is too low");
 
-    LOG_PRINT_L3("Caching path elems at layer_idx: " << layer_idx
+    MTRACE("Caching path elems at layer_idx: " << layer_idx
         << " , parent_idx: "                   << parent_idx
         << " , start_chunk_idx: "              << start_chunk_idx
         << " , end_chunk_idx: "                << end_chunk_idx
@@ -304,7 +304,7 @@ static void cache_path_chunk(const std::unique_ptr<C> &curve,
         }
     }
 
-    LOG_PRINT_L3("layer_cache_hit: "        << layer_cache_hit
+    MTRACE("layer_cache_hit: "        << layer_cache_hit
         << " , cache_hit: "           << cache_hit
         << " , cached_chunk_size: "   << cached_chunk_size);
 
@@ -353,7 +353,7 @@ static ChildChunkCache::const_iterator read_child_chunk(const std::size_t layer_
     const ChildChunkIdx child_chunk_idx,
     const TreeElemCache &tree_elem_cache)
 {
-    MDEBUG("Reading cached layer " << layer_idx << " and child chunk idx " << child_chunk_idx);
+    MTRACE("Reading cached layer " << layer_idx << " and child chunk idx " << child_chunk_idx);
 
     const auto layer_it = tree_elem_cache.find(layer_idx);
     CHECK_AND_ASSERT_THROW_MES(layer_it != tree_elem_cache.end(), "missing cached layer");
@@ -369,7 +369,7 @@ static ChildChunkCache::iterator get_child_chunk_it(const std::size_t layer_idx,
     const ChildChunkIdx child_chunk_idx,
     TreeElemCache &tree_elem_cache)
 {
-    MDEBUG("Reading cached layer " << layer_idx << " and child chunk idx " << child_chunk_idx);
+    MTRACE("Reading cached layer " << layer_idx << " and child chunk idx " << child_chunk_idx);
 
     auto layer_it = tree_elem_cache.find(layer_idx);
     CHECK_AND_ASSERT_THROW_MES(layer_it != tree_elem_cache.end(), "missing cached layer");
@@ -427,7 +427,7 @@ static void cache_path_chunks(const LeafIdx leaf_idx,
     for (LayerIdx layer_idx = 0; layer_idx < n_layers; ++layer_idx)
     {
         const ChildChunkIdx parent_idx = child_chunk_idxs[layer_idx + 1];
-        MDEBUG("Caching tree elems from layer_idx " << layer_idx << " parent_idx " << parent_idx);
+        MTRACE("Caching tree elems from layer_idx " << layer_idx << " parent_idx " << parent_idx);
 
         if (c1_idx == c2_idx /*c2 parent*/)
         {
@@ -484,7 +484,7 @@ static void update_existing_last_hashes(const std::shared_ptr<CurveTrees<C1, C2>
     for (LayerIdx layer_idx = 0; layer_idx < n_layers; ++layer_idx)
     {
         const ChildChunkIdx last_parent_idx = child_chunk_idxs[layer_idx + 1];
-        MDEBUG("Updating existing last hash from layer_idx " << layer_idx << " last_parent_idx " << last_parent_idx);
+        MTRACE("Updating existing last hash from layer_idx " << layer_idx << " last_parent_idx " << last_parent_idx);
 
         if (c1_idx == c2_idx /*c2 parent*/)
         {
@@ -520,7 +520,7 @@ static void remove_leaf_chunk_ref(const ChildChunkIdx chunk_idx, LeafCache &leaf
     CHECK_AND_ASSERT_THROW_MES(leaf_chunk_it->second.ref_count != 0, "leaf chunk has 0 ref count");
 
     leaf_chunk_it->second.ref_count -= 1;
-    MDEBUG("Removing leaf chunk " << chunk_idx << " , updated ref count: " << leaf_chunk_it->second.ref_count);
+    MTRACE("Removing leaf chunk " << chunk_idx << " , updated ref count: " << leaf_chunk_it->second.ref_count);
 
     // If the ref count is 0, garbage collect it
     if (leaf_chunk_it->second.ref_count == 0)
@@ -541,7 +541,7 @@ static void remove_path_chunk_ref(const LayerIdx layer_idx,
     CHECK_AND_ASSERT_THROW_MES(cache_chunk_it->second.ref_count != 0, "chunk has 0 ref count");
 
     cache_chunk_it->second.ref_count -= 1;
-    MDEBUG("Removing ref to chunk " << chunk_idx << " in layer " << layer_idx
+    MTRACE("Removing ref to chunk " << chunk_idx << " in layer " << layer_idx
         << " , updated ref count: " << cache_chunk_it->second.ref_count);
 
     // If the chunk's ref count is 0, garbage collect it
@@ -625,7 +625,7 @@ static void reduce_cached_last_chunks(const uint64_t new_n_leaf_tuples,
         const std::size_t new_chunk_size = chunk_offset == 0 ? parent_width : chunk_offset;
         CHECK_AND_ASSERT_THROW_MES(new_chunk_size > 0, "new_chunk_size is too small");
 
-        MDEBUG("Reducing cached last chunk in layer_idx: " << layer_idx
+        MTRACE("Reducing cached last chunk in layer_idx: " << layer_idx
             << " , parent_idx: "                           << parent_idx
             << " , n_layer_elems: "                        << n_layer_elems
             << " , new_chunk_size: "                       << new_chunk_size);
@@ -963,8 +963,9 @@ void TreeCache<C1, C2>::grow_cache(const uint64_t start_block_idx,
 
         const LeafIdx start_leaf_tuple_idx = tree_extension.leaves.start_leaf_tuple_idx + tuple_idx_start_slice;
 
-        MDEBUG("Processing synced block " << new_block_hashes[i]
-            << " , n_leaf_tuples: " << n_leaf_tuples
+        MDEBUG("Processing synced block "  << new_block_hashes[i]
+            << " , block idx: "            << start_block_idx + i
+            << " , n_leaf_tuples: "        << n_leaf_tuples
             << " , start_leaf_tuple_idx: " << start_leaf_tuple_idx);
 
         // Check if any registered outputs are present in the tree extension. If so, we assign the output its leaf idx
@@ -1071,7 +1072,7 @@ bool TreeCache<C1, C2>::pop_block()
     const uint64_t old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
     const BlockIdx pop_block_idx = m_cached_blocks.back().blk_idx;
 
-    LOG_PRINT_L2("Popping block " << pop_block_idx << " , " << m_cached_blocks.back().blk_hash << " from tree cache");
+    MDEBUG("Popping block " << pop_block_idx << " , " << m_cached_blocks.back().blk_hash << " from tree cache");
 
     this->deque_block(old_n_leaf_tuples);
     m_cached_blocks.pop_back();
@@ -1312,7 +1313,7 @@ template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::LastHashes TreeCache<C1, C2>::get_last_hashes() const
 {
     const uint64_t n_leaf_tuples = this->get_n_leaf_tuples();
-    MDEBUG("Getting last hashes on tree with " << n_leaf_tuples << " leaf tuples");
+    MTRACE("Getting last hashes on tree with " << n_leaf_tuples << " leaf tuples");
 
     typename CurveTrees<C1, C2>::LastHashes last_hashes;
     if (n_leaf_tuples == 0)
@@ -1367,7 +1368,7 @@ bool TreeCache<C1, C2>::get_leaf_path(const uint64_t n_leaf_tuples,
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples <= this->get_n_leaf_tuples(), "n_leaf_tuples is too high");
     CHECK_AND_ASSERT_THROW_MES(n_leaf_tuples > leaf_idx, "leaf_idx too high");
 
-    MDEBUG("Getting path at leaf_idx: " << leaf_idx << " , tree has " << n_leaf_tuples << " leaf tuples");
+    MTRACE("Getting path at leaf_idx: " << leaf_idx << " , tree has " << n_leaf_tuples << " leaf tuples");
 
     const auto path_indexes = TreeSync<C1, C2>::m_curve_trees->get_path_indexes(n_leaf_tuples, leaf_idx);
     const auto child_chunk_idxs = TreeSync<C1, C2>::m_curve_trees->get_child_chunk_indexes(n_leaf_tuples, leaf_idx);

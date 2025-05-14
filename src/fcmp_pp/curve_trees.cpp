@@ -51,7 +51,7 @@ template<typename C>
 typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children)
 {
     for (std::size_t i = 0; i < new_children.len; ++i)
-        MDEBUG("Hashing " << curve->to_string(new_children.buf[i]));
+        MTRACE("Hashing " << curve->to_string(new_children.buf[i]));
 
     return curve->hash_grow(
             curve->hash_init_point(),
@@ -178,7 +178,7 @@ static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(c
         // layer (the start_idx would be 0)
         if (children.start_idx > 0)
         {
-            MDEBUG("Updating root layer and including the existing root in next children");
+            MTRACE("Updating root layer and including the existing root in next children");
             child_scalars_out.emplace_back(c_child->point_to_cycle_scalar(*last_root));
         }
     }
@@ -210,11 +210,11 @@ static void hash_first_chunk(const std::unique_ptr<C> &curve,
     const auto chunk_start = new_child_scalars.data();
     const typename C::Chunk chunk{chunk_start, chunk_size};
 
-    MDEBUG("First chunk existing_hash: " << curve->to_string(existing_hash) << " , start_offset: " << start_offset
+    MTRACE("First chunk existing_hash: " << curve->to_string(existing_hash) << " , start_offset: " << start_offset
         << " , prior_child_after_offset: " << curve->to_string(prior_child_after_offset));
 
     for (std::size_t i = 0; i < chunk_size; ++i)
-        MDEBUG("Hashing child in first chunk " << curve->to_string(chunk_start[i]));
+        MTRACE("Hashing child in first chunk " << curve->to_string(chunk_start[i]));
 
     // Do the hash
     auto chunk_hash = curve->hash_grow(
@@ -224,7 +224,7 @@ static void hash_first_chunk(const std::unique_ptr<C> &curve,
             chunk
         );
 
-    MDEBUG("First chunk result: " << curve->to_string(chunk_hash) << " , chunk_size: " << chunk_size);
+    MTRACE("First chunk result: " << curve->to_string(chunk_hash) << " , chunk_size: " << chunk_size);
 
     // We've got our hash
     hash_out = std::move(chunk_hash);
@@ -241,11 +241,11 @@ static void hash_next_chunk(const std::unique_ptr<C> &curve,
     const typename C::Chunk chunk{chunk_start, chunk_size};
 
     for (std::size_t i = 0; i < chunk_size; ++i)
-        MDEBUG("Child chunk_start_idx " << chunk_start_idx << " hashing child " << curve->to_string(chunk_start[i]));
+        MTRACE("Child chunk_start_idx " << chunk_start_idx << " hashing child " << curve->to_string(chunk_start[i]));
 
     auto chunk_hash = get_new_parent(curve, chunk);
 
-    MDEBUG("Child chunk_start_idx " << chunk_start_idx << " result: " << curve->to_string(chunk_hash)
+    MTRACE("Child chunk_start_idx " << chunk_start_idx << " result: " << curve->to_string(chunk_hash)
         << " , chunk_size: " << chunk_size);
 
     // We've got our hash
@@ -280,7 +280,7 @@ static LayerExtension<C> hash_children_chunks(const std::unique_ptr<C> &curve,
 
     parents_out.hashes.resize(n_chunks);
 
-    MDEBUG("First chunk_size: "          << first_chunk_size
+    MTRACE("First chunk_size: "          << first_chunk_size
         << " , num new child scalars: "  << new_child_scalars.size()
         << " , start_offset: "           << start_offset
         << " , parent layer start idx: " << parents_out.start_idx
@@ -424,7 +424,7 @@ static GrowLayerInstructions get_grow_layer_instructions(const uint64_t old_tota
     }
 
     // Done
-    MDEBUG("parent_chunk_width: "                   << parent_chunk_width
+    MTRACE("parent_chunk_width: "                   << parent_chunk_width
         << " , old_total_children: "                << old_total_children
         << " , new_total_children: "                << new_total_children
         << " , old_total_parents: "                 << old_total_parents
@@ -489,7 +489,7 @@ static GrowLayerInstructions get_leaf_layer_grow_instructions(const uint64_t old
         --next_parent_start_index;
     }
 
-    MDEBUG("parent_chunk_width: "                   << leaf_layer_chunk_width
+    MTRACE("parent_chunk_width: "                   << leaf_layer_chunk_width
         << " , old_total_children: "                << old_total_children
         << " , new_total_children: "                << new_total_children
         << " , old_total_parents: "                 << old_total_parents
@@ -651,7 +651,7 @@ static typename C_PARENT::Point get_chunk_hash(const std::unique_ptr<C_CHILD> &c
     const typename C_PARENT::Chunk chunk{scalars.data(), scalars.size()};
     const typename C_PARENT::Point hash = get_new_parent(c_parent, chunk);
 
-    MDEBUG("Hash result: " << c_parent->to_string(hash));
+    MTRACE("Hash result: " << c_parent->to_string(hash));
 
     ++c_idx_inout;
     return hash;
@@ -727,7 +727,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 
     TIME_MEASURE_START(hashing_leaves);
 
-    MDEBUG("Getting extension for layer 0");
+    MTRACE("Getting extension for layer 0");
     auto grow_layer_instructions = get_leaf_layer_grow_instructions(
         old_n_leaf_tuples,
         tree_extension.leaves.tuples.size(),
@@ -762,7 +762,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     TIME_MEASURE_START(hashing_layers);
     while (grow_layer_instructions.new_total_parents > 1)
     {
-        MDEBUG("Getting extension for layer " << (c1_last_idx + c2_last_idx + 1));
+        MTRACE("Getting extension for layer " << (c1_last_idx + c2_last_idx + 1));
 
         const uint64_t new_total_children = grow_layer_instructions.new_total_parents;
 
@@ -839,7 +839,7 @@ PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples, c
 {
     PathIndexes path_indexes_out;
 
-    MDEBUG("Getting path indexes for leaf_tuple_idx: " << leaf_tuple_idx << " , n_leaf_tuples: " << n_leaf_tuples);
+    MTRACE("Getting path indexes for leaf_tuple_idx: " << leaf_tuple_idx << " , n_leaf_tuples: " << n_leaf_tuples);
 
     const auto child_chunk_indexes = this->get_child_chunk_indexes(n_leaf_tuples, leaf_tuple_idx);
     if (child_chunk_indexes.empty())
@@ -872,7 +872,7 @@ PathIndexes CurveTrees<C1, C2>::get_path_indexes(const uint64_t n_leaf_tuples, c
         const uint64_t start_range = child_chunk_idx * parent_chunk_width;
         const uint64_t end_range = std::min(n_children, start_range + parent_chunk_width);
 
-        MDEBUG("start_range: "           << start_range
+        MTRACE("start_range: "           << start_range
             << " , end_range: "          << end_range
             << " , parent_chunk_width: " << parent_chunk_width
             << " , n_children: "         << n_children);
@@ -1045,7 +1045,7 @@ std::vector<crypto::ec_point> CurveTrees<C1, C2>::calc_hashes_from_path(
     CHECK_AND_ASSERT_THROW_MES(leaves.size() <= m_c1_width, "too many leaves");
 
     {
-        MDEBUG("Hashing leaves");
+        MTRACE("Hashing leaves");
 
         // Collect leaves so we can hash them
         std::vector<typename C1::Scalar> leaf_scalars;
@@ -1063,14 +1063,14 @@ std::vector<crypto::ec_point> CurveTrees<C1, C2>::calc_hashes_from_path(
         const typename C1::Point leaf_parent_hash = get_new_parent<C1>(m_c1, leaf_chunk);
 
         c1_hashes.push_back(leaf_parent_hash);
-        MDEBUG("c1 hash result: " << m_c1->to_string(c1_hashes.back()));
+        MTRACE("c1 hash result: " << m_c1->to_string(c1_hashes.back()));
     }
 
     // Continue hashing every layer chunk until there are no more layers
     std::size_t c1_idx = 0, c2_idx = 0;
     for (std::size_t i = 1; i < n_layers; ++i)
     {
-        MDEBUG("Hashing layer " << i);
+        MTRACE("Hashing layer " << i);
         if (c1_idx == c2_idx /*c2 parent*/)
         {
             auto hash = get_chunk_hash(m_c1, m_c2, c1_layers, replace_last_hash, c1_hashes.back(), c1_idx);
