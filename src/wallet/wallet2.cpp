@@ -40,6 +40,7 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -4606,7 +4607,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetUint(m_default_mixin);
   json.AddMember("default_mixin", value2, json.GetAllocator());
 
-  value2.SetUint(static_cast<unsigned>(m_default_priority));
+  value2.SetUint(boost::numeric_cast<unsigned>(FeePriorityUtilities::AsIntegral(m_default_priority)));
   json.AddMember("default_priority", value2, json.GetAllocator());
 
   value2.SetInt(m_auto_refresh ? 1 :0);
@@ -5071,13 +5072,13 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_priority, unsigned int, Uint, false, 0);
     if (field_default_priority_found)
     {
-      m_default_priority = static_cast<fee_priority>(field_default_priority);
+      m_default_priority = FeePriorityUtilities::FromIntegral(boost::numeric_cast<uint32_t>(field_default_priority));
     }
     else
     {
       GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, default_fee_multiplier, unsigned int, Uint, false, 0);
       if (field_default_fee_multiplier_found)
-        m_default_priority = static_cast<fee_priority>(field_default_fee_multiplier);
+        m_default_priority = FeePriorityUtilities::FromIntegral(boost::numeric_cast<uint32_t>(field_default_fee_multiplier));
       else
         m_default_priority = fee_priority::Default;
     }
@@ -8472,12 +8473,13 @@ uint64_t wallet2::estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs
 
 uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_algorithm)
 {
-  static const struct
+  struct fee_step
   {
     fee_priority maximum_priority; // Determines the maximum priority available for said fee algorithm.
     uint64_t fee_multipliers[4]; // Determines the fee multiplier applied at various priorities for said fee algorithm.
-  }
-  fee_steps[] =
+  };
+
+  static const fee_step fee_steps[] =
   {
     { fee_priority::Elevated, {1, 2, 3} },
     { fee_priority::Elevated, {1, 20, 166} },
@@ -8499,10 +8501,10 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
       priority = fee_priority::Unimportant;
   }
 
-  THROW_WALLET_EXCEPTION_IF(fee_algorithm == fee_algorithm::Unset || fee_algorithm > fee_algorithm::HardforkV8, error::invalid_priority);
+  const auto fee_algorithm_index = fee_algorithm_utilities::AsIntegral(fee_algorithm);
+  THROW_WALLET_EXCEPTION_IF(fee_algorithm_index < 0 || fee_algorithm_index > std::size(fee_steps), error::invalid_priority);
 
   // 1 to 3/4 are allowed as priorities
-  const int fee_algorithm_index = fee_algorithm_utilities::AsIntegral(fee_algorithm);
   const fee_priority max_priority = fee_steps[fee_algorithm_index].maximum_priority;
   if (priority >= fee_priority::Unimportant && priority <= max_priority)
   {
