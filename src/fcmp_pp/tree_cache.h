@@ -226,6 +226,9 @@ public:
 
     uint64_t get_output_count() const { return m_output_count; }
 
+    // Gets the tree root and n_tree_layers for the tree currently cached in the TreeCache. If the TreeCache's tip is
+    // block index n, then this will return the tree root and n_tree_layers for the tree composed of all valid spendable
+    // outputs in the chain when the chain tip is block index n.
     uint8_t get_tree_root(crypto::ec_point &tree_root_out) const;
 
     // Build the tree extension and all other types needed to grow the cache, returning the state change by ref

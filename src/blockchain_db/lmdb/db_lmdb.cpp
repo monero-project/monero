@@ -1392,7 +1392,7 @@ void BlockchainLMDB::remove_spent_key(const crypto::key_image& k_image)
   }
 }
 
-void BlockchainLMDB::advance_tree_one_block(const uint64_t blk_idx)
+void BlockchainLMDB::advance_tree(const uint64_t blk_idx)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1403,21 +1403,24 @@ void BlockchainLMDB::advance_tree_one_block(const uint64_t blk_idx)
   // If we're advancing the genesis block, make sure to initialize the tree
   if (blk_idx == 0)
   {
+    // TODO: include a pre-check that tree meta is empty
+
     // We grow the first blocks with empty outputs, since no outputs in this range should be spendable yet
     for (uint64_t new_blk_idx = blk_idx; new_blk_idx < earliest_last_locked_block; ++new_blk_idx)
     {
       this->grow_tree(new_blk_idx, {});
     }
   }
+  // TODO: include a pre-check that earliest_last_locked_block == last block idx + 1 in tree meta (when blk_idx != 0)
 
   // Now we can advance the tree 1 block
-  auto unlocked_outputs = this->get_outs_at_last_locked_block_id(earliest_last_locked_block);
+  auto unlocked_outputs = this->get_outs_at_last_locked_block_idx(earliest_last_locked_block);
 
   // Grow the tree with outputs that are spendable once the earliest_last_locked_block is in the chain
   this->grow_tree(earliest_last_locked_block, std::move(unlocked_outputs));
 
   // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table
-  this->del_locked_outs_at_block_id(earliest_last_locked_block);
+  this->del_locked_outs_at_block_idx(earliest_last_locked_block);
 }
 
 void BlockchainLMDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs)
@@ -2385,8 +2388,8 @@ bool BlockchainLMDB::audit_layer(const std::unique_ptr<C_CHILD> &c_child,
   return audit_complete;
 }
 
-std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_last_locked_block_id(
-  uint64_t block_id)
+std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_last_locked_block_idx(
+  uint64_t block_idx)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2394,7 +2397,7 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   TXN_PREFIX_RDONLY();
   RCURSOR(locked_outputs)
 
-  MDB_val_set(k_block_id, block_id);
+  MDB_val_set(k_block_idx, block_idx);
   MDB_val v_output;
 
   // Get all the locked outputs at the provided block id
@@ -2403,16 +2406,16 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   MDB_cursor_op op = MDB_SET;
   while (1)
   {
-    int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, op);
+    int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_idx, &v_output, op);
     if (result == MDB_NOTFOUND)
       break;
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get next locked outputs: ", result).c_str()));
     op = MDB_NEXT_MULTIPLE;
 
-    const uint64_t blk_id = *(const uint64_t*)k_block_id.mv_data;
-    if (blk_id != block_id)
-      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_id)).c_str()));
+    const uint64_t blk_id = *(const uint64_t*)k_block_idx.mv_data;
+    if (blk_id != block_idx)
+      throw0(DB_ERROR(("Blk id " + std::to_string(blk_id) + " not the expected" + std::to_string(block_idx)).c_str()));
 
     const auto range_begin = ((const fcmp_pp::curve_trees::OutputContext*)v_output.mv_data);
     const auto range_end = range_begin + v_output.mv_size / sizeof(fcmp_pp::curve_trees::OutputContext);
@@ -2435,7 +2438,7 @@ std::vector<fcmp_pp::curve_trees::OutputContext> BlockchainLMDB::get_outs_at_las
   return outs;
 }
 
-void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
+void BlockchainLMDB::del_locked_outs_at_block_idx(uint64_t block_idx)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2443,9 +2446,9 @@ void BlockchainLMDB::del_locked_outs_at_block_id(uint64_t block_id)
 
   CURSOR(locked_outputs)
 
-  MDB_val_set(k_block_id, block_id);
+  MDB_val_set(k_block_idx, block_idx);
 
-  int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, NULL, MDB_SET);
+  int result = mdb_cursor_get(m_cur_locked_outputs, &k_block_idx, NULL, MDB_SET);
   if (result == MDB_NOTFOUND)
     return;
   if (result != MDB_SUCCESS)
@@ -7475,7 +7478,7 @@ void BlockchainLMDB::migrate_5_6()
           }
         }
 
-        this->advance_tree_one_block(i);
+        this->advance_tree(i);
 
         LOGIF(el::Level::Info)
         {
