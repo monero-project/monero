@@ -2471,7 +2471,7 @@ bool simple_wallet::set_default_priority(const std::vector<std::string> &args/* 
       if (!found)
       {
         priority = boost::lexical_cast<int>(args[1]);
-        if (priority < 1 || priority > 4)
+        if (priority < FeePriorityUtilities::AsIntegral(fee_priority::Unimportant) || priority > FeePriorityUtilities::AsIntegral(fee_priority::Priority))
         {
           fail_msg_writer() << tr("priority must be either 0, 1, 2, 3, or 4, or one of: ") << join_priority_strings(", ");
           return true;
