@@ -13,6 +13,7 @@ namespace tools
 {
     enum class fee_priority : uint32_t
     {
+        // If adding or removing an enumeation, ensure to update enums_ and feePriorityString_ in the class below.
         Default = 0,
         Unimportant, /* Low */
         Normal, /* Medium */
