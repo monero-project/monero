@@ -3720,9 +3720,8 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
       seed_language = crypto::ElectrumWords::get_english_name_for(seed_language);
     std::string priority_string = "invalid";
     const fee_priority priority = m_wallet->get_default_priority();
+    priority_string = FeePriorityUtilities::ToString(priority);
     const auto priority_index = FeePriorityUtilities::AsIntegral(priority);
-    if (priority_index < allowed_priority_strings.size())
-      priority_string = FeePriorityUtilities::ToString(priority);
     std::string ask_password_string = "invalid";
     switch (m_wallet->ask_password())
     {
