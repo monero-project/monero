@@ -38,7 +38,7 @@
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
-#include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
 
 using namespace epee;
 
