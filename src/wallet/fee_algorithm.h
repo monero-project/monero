@@ -2,7 +2,7 @@
 
 namespace tools
 {
-    enum class FeeAlgorithm : int
+    enum class fee_algorithm : int
     {
         Unset = -1,
         PreHardforkV3, /* Original */
@@ -11,10 +11,10 @@ namespace tools
         HardforkV8,
     };
 
-    class FeeAlgorithmUtilities
+    class fee_algorithm_utilities
     {
     public:
-        static int AsIntegral(const FeeAlgorithm algorithm)
+        static int AsIntegral(const fee_algorithm algorithm)
         {
             return static_cast<int>(algorithm);
         }
