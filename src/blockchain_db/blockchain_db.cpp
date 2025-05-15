@@ -30,7 +30,6 @@
 
 #include "string_tools.h"
 #include "blockchain_db.h"
-#include "blockchain_db_utils.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
@@ -181,7 +180,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   bool miner_tx = false;
   crypto::hash tx_hash, tx_prunable_hash;
@@ -232,17 +231,15 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
   {
     // miner v2 txes have their coinbase output in one single out to save space,
     // and we store them as rct outputs with an identity mask
-    // note: get_outs_by_last_locked_block mirrors this logic
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
-      // TODO: avoid multiple expensive zeroCommitVartime call here + get_outs_by_last_locked_block + ver_non_input_consensus
-      rct::key commitment;
-      if (!rct::getCommitment(tx, i, commitment))
+      const auto commitment_it = transparent_amount_commitments.find(vout.amount);
+      if (commitment_it == transparent_amount_commitments.end())
         throw std::runtime_error("Failed to get miner tx commitment, aborting");
       vout.amount = 0;
       amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
-        &commitment);
+        &commitment_it->second);
     }
     else
     {
@@ -260,6 +257,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
                                 , const std::vector<std::pair<transaction, blobdata>>& txs
+                                , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                                 )
 {
   const block &blk = blck.first;
@@ -282,31 +280,31 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  add_transaction(blk_hash, blk.miner_tx, epee::strspan<std::uint8_t>(miner_bd));
+  add_transaction(blk_hash, blk.miner_tx, epee::strspan<std::uint8_t>(miner_bd), transparent_amount_commitments);
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
-  std::vector<std::reference_wrapper<const transaction>> _txs; // ref wrapper to avoid extra copies
-  _txs.reserve(txs.size());
+  std::vector<std::reference_wrapper<const transaction>> tx_refs = {std::ref(blk.miner_tx)}; // ref wrapper to avoid extra copies
+  tx_refs.reserve(txs.size());
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    add_transaction(blk_hash, tx.first, epee::strspan<std::uint8_t>(tx.second), &tx_hash);
+    add_transaction(blk_hash, tx.first, epee::strspan<std::uint8_t>(tx.second), transparent_amount_commitments, &tx_hash);
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
         ++num_rct_outs;
     }
     ++tx_i;
-    _txs.push_back(std::ref(tx.first));
+    tx_refs.push_back(std::ref(tx.first));
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
 
   // When adding a block, we also need to keep track of when outputs unlock, so
   // we can use them to grow the merkle tree used in fcmp's at that point.
-  const auto outs_by_last_locked_block_meta = cryptonote::get_outs_by_last_locked_block(blk.miner_tx, _txs, total_n_outputs, prev_height);
+  const auto outs_by_last_locked_block_meta = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, total_n_outputs, prev_height);
   const auto &outs_by_last_locked_block = outs_by_last_locked_block_meta.outs_by_last_locked_block;
   const auto &timelocked_outputs = outs_by_last_locked_block_meta.timelocked_outputs;
 

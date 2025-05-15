@@ -51,10 +51,10 @@
 #include "include_base_utils.h"
 using namespace epee;
 
-#include "blockchain_db/blockchain_db_utils.h"
 #include "cryptonote_config.h"
 #include "hardforks/hardforks.h"
 #include "cryptonote_core/tx_sanity_check.h"
+#include "cryptonote_core/tx_verification_utils.h"
 #include "wallet2.h"
 #include "wallet_args.h"
 #include "wallet2_basic/wallet2_boost_serialization.h"
@@ -3258,6 +3258,7 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
 
   // Collect all outs from all blocks by last locked block
   TIME_MEASURE_START(collecting_outs_by_last_locked_block);
+  std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
   std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs_by_last_locked_blocks;
 
   new_block_hashes_out.reserve(n_new_blocks);
@@ -3270,13 +3271,14 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
     new_block_hashes_out.push_back(parsed_blocks[i].block.hash);
 
     const auto &miner_tx = std::ref(parsed_blocks[i].block.miner_tx);
-    std::vector<std::reference_wrapper<const cryptonote::transaction>> txs;
-    txs.reserve(parsed_blocks[i].txes.size());
+    std::vector<std::reference_wrapper<const cryptonote::transaction>> tx_refs = {std::ref(miner_tx)};
+    tx_refs.reserve(1 + parsed_blocks[i].txes.size());
     for (size_t j = 0; j < parsed_blocks[i].txes.size(); ++j)
-      txs.push_back(std::ref(parsed_blocks[i].txes[j]));
+      tx_refs.push_back(std::ref(parsed_blocks[i].txes[j]));
 
-    // Note: this function is slow because of zeroCommitVartime
-    auto res = cryptonote::get_outs_by_last_locked_block(miner_tx, txs, first_output_id, created_block_idx);
+    // Slow: collect transparent amount commitments
+    cryptonote::collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+    auto res = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, created_block_idx);
 
     outs_by_last_locked_blocks.emplace_back(std::move(res.outs_by_last_locked_block));
     first_output_id = res.next_output_id;

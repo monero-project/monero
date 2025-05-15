@@ -487,10 +487,19 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
           cumulative_difficulty = bp.cumulative_difficulty;
           coins_generated = bp.coins_generated;
 
+          std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
+          {
+            std::vector<std::reference_wrapper<const transaction>> tx_refs = {std::ref(b.miner_tx)};
+            tx_refs.reserve(txs.size());
+            for (const auto &tx : txs)
+              tx_refs.push_back(std::ref(tx.first));
+            cryptonote::collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+          }
+
           try
           {
             uint64_t long_term_block_weight = core.get_blockchain_storage().get_next_long_term_block_weight(block_weight);
-            core.get_blockchain_storage().get_db().add_block(std::make_pair(b, block_to_blob(b)), block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
+            core.get_blockchain_storage().get_db().add_block(std::make_pair(b, block_to_blob(b)), block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs, transparent_amount_commitments);
           }
           catch (const std::exception& e)
           {

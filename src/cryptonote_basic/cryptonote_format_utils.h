@@ -135,6 +135,7 @@ namespace cryptonote
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
   uint64_t get_outs_money_amount(const transaction& tx);
   bool get_output_public_key(const cryptonote::tx_out& out, crypto::public_key& output_public_key);
+  bool get_commitment(const transaction& tx, std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out);
   boost::optional<crypto::view_tag> get_output_view_tag(const cryptonote::tx_out& out);
   bool check_inputs_types_supported(const transaction& tx);
   bool check_outs_valid(const transaction& tx);
@@ -278,6 +279,19 @@ namespace cryptonote
   // Returns the last locked block index for the provided unlock_time
   uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain);
   bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain);
+
+  struct OutsByLastLockedBlockMeta
+  {
+    fcmp_pp::curve_trees::OutsByLastLockedBlock outs_by_last_locked_block;
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> timelocked_outputs;
+    uint64_t next_output_id;
+  };
+
+  OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_output_id,
+    const uint64_t block_idx);
 
 #define CHECKED_GET_SPECIFIC_VARIANT(variant_var, specific_type, variable_name, fail_return_val) \
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \

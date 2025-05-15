@@ -117,6 +117,49 @@ namespace cryptonote
     return get_transaction_weight_clawback(plus, n_outputs, n_padded_outputs);
   }
   //---------------------------------------------------------------
+  // Helper function to group outputs by last locked block idx
+  static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &tx,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t &first_output_id,
+    const uint64_t block_idx,
+    fcmp_pp::curve_trees::OutsByLastLockedBlock &outs_by_last_locked_block_inout,
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> &timelocked_outputs_inout)
+  {
+    const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(tx.unlock_time, block_idx);
+    const bool has_custom_timelock = cryptonote::is_custom_timelocked(cryptonote::is_coinbase(tx),
+      last_locked_block,
+      block_idx);
+
+    for (std::size_t i = 0; i < tx.vout.size(); ++i)
+    {
+      const uint64_t output_id = first_output_id + i;
+      const auto &out = tx.vout[i];
+
+      crypto::public_key output_public_key;
+      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(out, output_public_key),
+          "failed to get out pubkey");
+
+      rct::key commitment;
+      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
+          "failed to get tx commitment");
+
+      const fcmp_pp::curve_trees::OutputContext output_context{
+              .output_id       = output_id,
+              .torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx),
+              .output_pair     = fcmp_pp::curve_trees::OutputPair{output_public_key, commitment}
+          };
+
+      if (has_custom_timelock)
+      {
+          timelocked_outputs_inout[output_id] = last_locked_block;
+      }
+
+      outs_by_last_locked_block_inout[last_locked_block].emplace_back(output_context);
+    }
+
+    return tx.vout.size();
+  }
+  //---------------------------------------------------------------
 }
 
 namespace cryptonote
@@ -1076,6 +1119,28 @@ namespace cryptonote
       : boost::optional<crypto::view_tag>();
   }
   //---------------------------------------------------------------
+  bool get_commitment(const transaction& tx, std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out)
+  {
+    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
+      "Revisit this section and update for the new tx version.");
+    CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
+
+    if (tx.version >= 2 && !cryptonote::is_coinbase(tx))
+    {
+      CHECK_AND_ASSERT_MES(tx.rct_signatures.outPk.size() > o_idx, false, "get_commitment: o_idx must be < tx.rct_signatures.outPk.size()");
+      c_out = tx.rct_signatures.outPk.at(o_idx).mask;
+      return true;
+    }
+
+    // tx version 1 OR miner tx
+    // return the pre-calculated transparent amount commitment
+    CHECK_AND_ASSERT_MES(tx.vout.size() > o_idx, false, "get_commitment: o_idx must be < tx.vout.size()");
+    const auto it = transparent_amount_commitments.find(tx.vout.at(o_idx).amount);
+    CHECK_AND_ASSERT_MES(it != transparent_amount_commitments.end(), false, "get_commitment: transparent amount commitment missing");
+    c_out = it->second;
+    return true;
+  }
+  //---------------------------------------------------------------
   std::string short_hash_str(const crypto::hash& h)
   {
     std::string res = string_tools::pod_to_hex(h);
@@ -1931,5 +1996,28 @@ namespace cryptonote
       return false;
 
     return last_locked_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
+  }
+  //---------------------------------------------------------------
+  OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_output_id,
+    const uint64_t block_idx)
+  {
+    OutsByLastLockedBlockMeta outs_by_last_locked_block_meta_out;
+    outs_by_last_locked_block_meta_out.next_output_id = first_output_id;
+
+    for (const auto &tx : txs)
+    {
+      outs_by_last_locked_block_meta_out.next_output_id += set_tx_outs_by_last_locked_block(
+        tx.get(),
+        transparent_amount_commitments,
+        outs_by_last_locked_block_meta_out.next_output_id,
+        block_idx,
+        outs_by_last_locked_block_meta_out.outs_by_last_locked_block,
+        outs_by_last_locked_block_meta_out.timelocked_outputs);
+    }
+
+    return outs_by_last_locked_block_meta_out;
   }
 }
