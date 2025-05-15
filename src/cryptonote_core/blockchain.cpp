@@ -2051,7 +2051,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     std::vector<std::reference_wrapper<const transaction>> extra_tx_refs;
     extra_tx_refs.reserve(extra_block_txs.txs_by_txid.size());
     for (const auto &extra_tx : extra_block_txs.txs_by_txid)
-      extra_tx_refs.push_back(std::ref(extra_tx.second.first));
+      extra_tx_refs.push_back(std::cref(extra_tx.second.first));
     collect_transparent_amount_commitments(extra_tx_refs, transparent_amount_commitments);
 
     // Now that we have the PoW verification out of the way, verify all pool supplement txs
@@ -4395,7 +4395,7 @@ leave:
     std::vector<std::reference_wrapper<const transaction>> extra_tx_refs;
     extra_tx_refs.reserve(extra_block_txs.txs_by_txid.size());
     for (const auto &extra_tx : extra_block_txs.txs_by_txid)
-      extra_tx_refs.push_back(std::ref(extra_tx.second.first));
+      extra_tx_refs.push_back(std::cref(extra_tx.second.first));
     collect_transparent_amount_commitments(extra_tx_refs, transparent_amount_commitments);
 
     tx_verification_context tvc{};
@@ -4629,10 +4629,10 @@ leave:
   TIME_MEASURE_START(tac);
 
   // Collect tx refs to avoid extra copies
-  std::vector<std::reference_wrapper<const transaction>> tx_refs = {std::ref(bl.miner_tx)};
+  std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(bl.miner_tx)};
   tx_refs.reserve(1 + txs.size());
   for (const auto &tx : txs)
-    tx_refs.push_back(std::ref(tx.first));
+    tx_refs.push_back(std::cref(tx.first));
 
   // Collect all remaining transparent amount commitments
   collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
