@@ -1337,7 +1337,7 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
 }
 //------------------------------------------------------------------
 // This function validates the miner transaction reward
-bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version)
+bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   //validate reward
@@ -1403,7 +1403,7 @@ bool Blockchain::validate_miner_transaction(const block& b, size_t cumulative_bl
     pubkeys_and_commitments.reserve(b.miner_tx.vout.size() * 2);
 
     if (cryptonote::tx_outs_checked_for_torsion(b.miner_tx)
-        && !collect_pubkeys_and_commitments(b.miner_tx, pubkeys_and_commitments))
+        && !collect_pubkeys_and_commitments(b.miner_tx, transparent_amount_commitments, pubkeys_and_commitments))
     {
         MERROR_VER("failed to collect pubkeys and commitments from miner tx");
         return false;
@@ -2046,9 +2046,17 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     }
     bei.cumulative_difficulty += current_diff;
 
+    // Collect transparent amount commitments
+    std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
+    std::vector<std::reference_wrapper<const transaction>> extra_tx_refs;
+    extra_tx_refs.reserve(extra_block_txs.txs_by_txid.size());
+    for (const auto &extra_tx : extra_block_txs.txs_by_txid)
+      extra_tx_refs.push_back(std::ref(extra_tx.second.first));
+    collect_transparent_amount_commitments(extra_tx_refs, transparent_amount_commitments);
+
     // Now that we have the PoW verification out of the way, verify all pool supplement txs
     tx_verification_context tvc{};
-    if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
+    if (!ver_non_input_consensus(extra_block_txs, transparent_amount_commitments, tvc, hf_version))
     {
       MERROR_VER("Transaction pool supplement verification failure for alt block " << id);
       bvc.m_verifivation_failed = true;
@@ -4372,14 +4380,27 @@ leave:
     goto leave;
   }
 
+  // Start collecting transparent amount commitments. We'll need them for the following:
+  //  1. To verify the commitments don't have torsion (is this even possible for a transparent amount?)
+  //  2. To add each v2 coinbase output to the db
+  //  3. To add the output to the curve tree
+  std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
+
   // verify all non-input consensus rules for txs inside the pool supplement (if not inside checkpoint zone)
 #if defined(PER_BLOCK_CHECKPOINT)
   if (!fast_check)
 #endif
   {
+    // Collect ref wrappers to avoid copies
+    std::vector<std::reference_wrapper<const transaction>> extra_tx_refs;
+    extra_tx_refs.reserve(extra_block_txs.txs_by_txid.size());
+    for (const auto &extra_tx : extra_block_txs.txs_by_txid)
+      extra_tx_refs.push_back(std::ref(extra_tx.second.first));
+    collect_transparent_amount_commitments(extra_tx_refs, transparent_amount_commitments);
+
     tx_verification_context tvc{};
     // If fail non-input consensus rule checking...
-    if (!ver_non_input_consensus(extra_block_txs, tvc, hf_version))
+    if (!ver_non_input_consensus(extra_block_txs, transparent_amount_commitments, tvc, hf_version))
     {
       MERROR_VER("Pool supplement provided for block with id: " << id << " failed to pass validation");
       bvc.m_verifivation_failed = true;
@@ -4604,10 +4625,24 @@ leave:
     cumulative_block_weight = m_blocks_hash_check[blockchain_height].second;
   }
 
+
+  TIME_MEASURE_START(tac);
+
+  // Collect tx refs to avoid extra copies
+  std::vector<std::reference_wrapper<const transaction>> tx_refs = {std::ref(bl.miner_tx)};
+  tx_refs.reserve(1 + txs.size());
+  for (const auto &tx : txs)
+    tx_refs.push_back(std::ref(tx.first));
+
+  // Collect all remaining transparent amount commitments
+  collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+
+  TIME_MEASURE_FINISH(tac);
+
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
-  if(!validate_miner_transaction(bl, cumulative_block_weight, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, m_hardfork->get_current_version()))
+  if(!validate_miner_transaction(bl, cumulative_block_weight, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, m_hardfork->get_current_version(), transparent_amount_commitments))
   {
     MERROR_VER("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
@@ -4643,7 +4678,7 @@ leave:
     {
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
       cryptonote::blobdata bd = cryptonote::block_to_blob(bl);
-      new_height = m_db->add_block(std::make_pair(std::move(bl), std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
+      new_height = m_db->add_block(std::make_pair(std::move(bl), std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs, transparent_amount_commitments);
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {
@@ -4711,8 +4746,8 @@ leave:
         << cumulative_block_weight << " p/t: " << block_processing_time << " ("
         << target_calculating_time << "/" << longhash_calculating_time << "/"
         << t1 << "/" << t2 << "/" << t3 << "/" << t_exists << "/" << t_pool
-        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << addblock
-        << "/" << advance_tree << ")ms");
+        << "/" << t_checktx << "/" << t_dblspnd << "/" << tac << "/" << vmt
+        << "/" << addblock << "/" << advance_tree << ")ms");
   }
 
   bvc.m_added_to_main_chain = true;

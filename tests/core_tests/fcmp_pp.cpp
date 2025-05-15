@@ -33,7 +33,8 @@
 #include "ringct/rctSigs.h"
 #include "ringct/bulletproofs_plus.h"
 #include "chaingen.h"
-#include "blockchain_db/blockchain_db_utils.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_core/tx_verification_utils.h"
 #include "fcmp_pp/curve_trees.h"
 #include "fcmp_pp/tree_cache.h"
 #include "device/device.hpp"
@@ -96,13 +97,15 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   // Build the FCMP++ curve tree
   TreeCacheV1 tree_cache(fcmp_pp::curve_trees::curve_trees_v1());
   std::vector<crypto::hash> new_block_hashes;
+  std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
   std::vector<fcmp_pp::curve_trees::OutsByLastLockedBlock> outs_by_last_locked_blocks;
   uint64_t first_output_id = 0;
   for (uint64_t blk_idx = 0; blk_idx < (1 + n_manual_blocks); ++blk_idx)
   {
     const auto &blk = blk_idx == 0 ? blk_0 : blocks[blk_idx - 1];
     new_block_hashes.push_back(blk.hash);
-    auto outs_meta = cryptonote::get_outs_by_last_locked_block(blk.miner_tx, {}, first_output_id, blk_idx);
+    cryptonote::collect_transparent_amount_commitments({std::ref(blk.miner_tx)}, transparent_amount_commitments);
+    auto outs_meta = cryptonote::get_outs_by_last_locked_block({std::ref(blk.miner_tx)}, transparent_amount_commitments, first_output_id, blk_idx);
     outs_by_last_locked_blocks.emplace_back(std::move(outs_meta.outs_by_last_locked_block));
     first_output_id = outs_meta.next_output_id;
   }

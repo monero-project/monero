@@ -542,6 +542,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       ),
       stat.diff,
       stat.reward,
+      {},
       {}
     );
     core.get_blockchain_storage().get_db().advance_tree(new_height - 1);

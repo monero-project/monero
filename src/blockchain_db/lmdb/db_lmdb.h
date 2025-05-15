@@ -338,7 +338,8 @@ public:
                             , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
-                            , const std::vector<std::pair<transaction, blobdata>>& txs
+                            , const std::vector<std::pair<transaction, blobdata>>& txs,
+                            , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                             ) override;
 
   void set_batch_transactions(bool batch_transactions) override;

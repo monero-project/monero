@@ -596,10 +596,11 @@ protected:
    * @param blk_hash hash of the block which has the transaction
    * @param tx the transaction to add
    * @param blob for `tx`
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -847,6 +848,7 @@ public:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param txs the transactions in the block
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
    *
    * @return the height of the chain post-addition
    */
@@ -856,6 +858,7 @@ public:
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<std::pair<transaction, blobdata>>& txs
+                            , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                             );
 
   /**

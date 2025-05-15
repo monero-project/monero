@@ -5576,7 +5576,7 @@ void BlockchainLMDB::block_rtxn_abort() const
 }
 
 uint64_t BlockchainLMDB::add_block(const std::pair<block, blobdata>& blk, size_t block_weight, uint64_t long_term_block_weight, const difficulty_type& cumulative_difficulty, const uint64_t& coins_generated,
-    const std::vector<std::pair<transaction, blobdata>>& txs)
+    const std::vector<std::pair<transaction, blobdata>>& txs, const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -5594,7 +5594,7 @@ uint64_t BlockchainLMDB::add_block(const std::pair<block, blobdata>& blk, size_t
 
   try
   {
-    BlockchainDB::add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
+    BlockchainDB::add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs, transparent_amount_commitments);
   }
   catch (const DB_ERROR_TXN_START& e)
   {
@@ -6593,7 +6593,8 @@ void BlockchainLMDB::migrate_0_1()
         throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
 
       const auto miner_blob = tx_to_blob(b.miner_tx);
-      add_transaction(null_hash, b.miner_tx, epee::strspan<std::uint8_t>(miner_blob));
+      // Empty transparent amount commitments is ok bc only needed for v2 txs, which v0 db's can't have
+      add_transaction(null_hash, b.miner_tx, epee::strspan<std::uint8_t>(miner_blob), {});
       for (unsigned int j = 0; j<b.tx_hashes.size(); j++) {
         transaction tx;
         hk.mv_data = &b.tx_hashes[j];
@@ -6603,7 +6604,7 @@ void BlockchainLMDB::migrate_0_1()
         bd = {reinterpret_cast<char*>(v.mv_data), v.mv_size};
         if (!parse_and_validate_tx_from_blob(bd, tx))
           throw0(DB_ERROR("Failed to parse tx from blob retrieved from the db"));
-        add_transaction(null_hash, std::move(tx), epee::strspan<std::uint8_t>(bd), &b.tx_hashes[j]);
+        add_transaction(null_hash, std::move(tx), epee::strspan<std::uint8_t>(bd), {}, &b.tx_hashes[j]);
         result = mdb_cursor_del(c_txs, 0);
         if (result)
           throw0(DB_ERROR(lmdb_error("Failed to get record from txs: ", result).c_str()));
