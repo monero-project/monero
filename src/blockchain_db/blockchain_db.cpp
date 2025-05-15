@@ -284,8 +284,8 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
-  std::vector<std::reference_wrapper<const transaction>> tx_refs = {std::ref(blk.miner_tx)}; // ref wrapper to avoid extra copies
-  tx_refs.reserve(txs.size());
+  std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(blk.miner_tx)};
+  tx_refs.reserve(1 + txs.size());
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
@@ -296,7 +296,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
         ++num_rct_outs;
     }
     ++tx_i;
-    tx_refs.push_back(std::ref(tx.first));
+    tx_refs.push_back(std::cref(tx.first));
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;

@@ -104,8 +104,9 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   {
     const auto &blk = blk_idx == 0 ? blk_0 : blocks[blk_idx - 1];
     new_block_hashes.push_back(blk.hash);
-    cryptonote::collect_transparent_amount_commitments({std::ref(blk.miner_tx)}, transparent_amount_commitments);
-    auto outs_meta = cryptonote::get_outs_by_last_locked_block({std::ref(blk.miner_tx)}, transparent_amount_commitments, first_output_id, blk_idx);
+    std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(blk.miner_tx)};
+    cryptonote::collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+    auto outs_meta = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, blk_idx);
     outs_by_last_locked_blocks.emplace_back(std::move(outs_meta.outs_by_last_locked_block));
     first_output_id = outs_meta.next_output_id;
   }
