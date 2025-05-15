@@ -181,8 +181,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_1)
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
         {},
-        top_block_index,
-        alice.get_keys());
+        top_block_index);
 
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 tx_proposal = tx_proposals.at(0);
@@ -245,8 +244,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
         /*ignore_above=*/MONEY_SUPPLY,
         /*ignore_below=*/0,
         {},
-        top_block_index,
-        alice.legacy_acb.get_keys());
+        top_block_index);
 
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
@@ -311,8 +309,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_1)
         /*n_dests=*/1,
         /*fee_per_weight=*/1,
         /*extra=*/{},
-        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
-        alice.get_keys());
+        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
@@ -346,8 +343,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_2)
         /*n_dests=*/FCMP_PLUS_PLUS_MAX_OUTPUTS - 1,
         /*fee_per_weight=*/1,
         /*extra=*/{},
-        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
-        alice.get_keys());
+        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
@@ -389,8 +385,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_3)
         /*n_dests=*/FCMP_PLUS_PLUS_MAX_OUTPUTS,
         /*fee_per_weight=*/1,
         /*extra=*/{},
-        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE,
-        alice.get_keys());
+        transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
@@ -465,8 +460,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
         /*n_dests=*/n_dests,
         /*fee_per_weight=*/1,
         /*extra=*/{},
-        top_block_index,
-        alice.get_keys());
+        top_block_index);
     ASSERT_EQ(4, tx_proposals.size());
 
     std::set<crypto::key_image> actual_seen_kis;
@@ -548,8 +542,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
         /*n_dests=*/n_dests,
         /*fee_per_weight=*/1,
         /*extra=*/{},
-        top_block_index,
-        alice.get_keys());
+        top_block_index);
     ASSERT_EQ(8, tx_proposals.size());
 
     std::set<crypto::key_image> actual_seen_kis;
@@ -631,8 +624,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_6)
         /*n_dests=*/n_dests,
         /*fee_per_weight=*/1,
         /*extra=*/{},
-        top_block_index,
-        alice.get_keys());
+        top_block_index);
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
@@ -743,8 +735,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
             /*ignore_above=*/std::numeric_limits<rct::xmr_amount>::max(),
             /*ignore_below=*/0,
             {},
-            /*top_block_index=*/bc.height()-1,
-            alice_keys);
+            /*top_block_index=*/bc.height()-1);
     
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 tx_proposal = tx_proposals.at(0);
