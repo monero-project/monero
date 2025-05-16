@@ -1641,8 +1641,11 @@ private:
     template<typename T=std::string> T decrypt(const std::string &ciphertext, const crypto::secret_key &skey, bool authenticated = true) const;
     std::string decrypt_with_view_secret_key(const std::string &ciphertext, bool authenticated = true) const;
 
+    std::string custom_convert_to_url_format(const std::string &uri) const;
+    std::string make_uri(const std::vector<std::string> &addresses, const std::vector<uint64_t> &amounts, const std::vector<std::string> &recipient_names, const std::string &tx_description, std::string &error) const;
     std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const;
     bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
+    bool parse_uri(const std::string &uri, std::vector<std::string> &addresses, std::vector<uint64_t> &amounts, std::vector<std::string> &recipient_names, std::string &tx_description, std::vector<std::string> &unknown_parameters, std::string &error);
 
     uint64_t get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day);    // 1<=month<=12, 1<=day<=31
 
