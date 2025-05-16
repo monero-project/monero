@@ -284,8 +284,6 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
   crypto::hash tx_hash = crypto::null_hash;
-  std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(blk.miner_tx)};
-  tx_refs.reserve(1 + txs.size());
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
@@ -296,20 +294,13 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
         ++num_rct_outs;
     }
     ++tx_i;
-    tx_refs.push_back(std::cref(tx.first));
   }
   TIME_MEASURE_FINISH(time1);
   time_add_transaction += time1;
 
-  // When adding a block, we also need to keep track of when outputs unlock, so
-  // we can use them to grow the merkle tree used in fcmp's at that point.
-  const auto outs_by_last_locked_block_meta = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, total_n_outputs, prev_height);
-  const auto &outs_by_last_locked_block = outs_by_last_locked_block_meta.outs_by_last_locked_block;
-  const auto &timelocked_outputs = outs_by_last_locked_block_meta.timelocked_outputs;
-
   // call out to subclass implementation to add the block & metadata
   time1 = epee::misc_utils::get_tick_count();
-  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash, outs_by_last_locked_block, timelocked_outputs);
+  add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, num_rct_outs, blk_hash);
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 

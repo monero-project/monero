@@ -109,6 +109,7 @@ public:
   virtual cryptonote::tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const override { return cryptonote::tx_out_index(); }
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<cryptonote::tx_out_index> &indices) const override {}
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<cryptonote::output_data_t> &outputs, bool allow_partial = false) const override {}
+  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const override { return std::vector<outkey>{}; }
   virtual bool can_thread_bulk_indices() const override { return false; }
   virtual std::vector<std::vector<uint64_t>> get_tx_amount_output_indices(const uint64_t tx_index, size_t n_txes) const override { return std::vector<std::vector<uint64_t>>(); }
   virtual bool has_key_image(const crypto::key_image& img) const override { return false; }
@@ -119,7 +120,8 @@ public:
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) override {}
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
-  virtual void advance_tree(const uint64_t block_idx) override {}
+  virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) override {};
+  virtual void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs) override {}
   virtual void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) override {};
   virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const override { return {0, fcmp_pp::curve_trees::PathBytes{}}; };
   virtual void trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_id) override {};
@@ -128,7 +130,6 @@ public:
   virtual uint64_t get_n_leaf_tuples() const override { return 0; };
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const override { return 0; };
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override { return {{}}; };
-  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const override { return {{}}; };
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override { return true; }
   virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override { return true; }
@@ -157,8 +158,6 @@ public:
                         , const uint64_t& coins_generated
                         , uint64_t num_rct_outs
                         , const crypto::hash& blk_hash
-                        , const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block
-                        , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
                         ) override { }
   virtual cryptonote::block get_block_from_height(const uint64_t& height) const override { return cryptonote::block(); }
   virtual void set_hard_fork_version(uint64_t height, uint8_t version) override {}

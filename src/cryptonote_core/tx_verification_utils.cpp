@@ -777,9 +777,8 @@ bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc
     std::uint8_t hf_version)
 {
     // Get tx's transparent amount commitments
-    std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(tx)};
     std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
-    collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+    collect_transparent_amount_commitments({std::cref(tx)}, transparent_amount_commitments);
 
     return ver_non_input_consensus_templated(&tx, &tx + 1, transparent_amount_commitments, tvc, hf_version);
 }

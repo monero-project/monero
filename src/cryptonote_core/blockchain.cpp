@@ -2438,6 +2438,70 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
   }
 }
 //------------------------------------------------------------------
+fcmp_pp::curve_trees::OutsByLastLockedBlock Blockchain::get_recent_locked_outputs(uint64_t end_block_idx) const
+{
+  LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  db_rtxn_guard rtxn_guard(m_db);
+
+  fcmp_pp::curve_trees::OutsByLastLockedBlock outs;
+
+  const uint64_t height = m_db->height();
+  if (height == 0)
+    return outs;
+
+  const uint64_t coinbase_start_idx = CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW > end_block_idx
+    ? 0
+    : end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
+
+  const uint64_t normal_start_idx = CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > end_block_idx
+    ? 0
+    : end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+
+  const uint64_t end_blk_idx = std::min(height - 1, end_block_idx);
+
+  const auto get_outs_from_block = [this, &outs, normal_start_idx](uint64_t b_idx, const crypto::hash, const block &b) -> bool
+  {
+    auto get_outs_from_tx = [this, &outs, b_idx](const crypto::hash &tx_hash, const bool is_coinbase)
+    {
+      // Get tx outputs' last locked block and data necessary to rebuild curve tree
+      cryptonote::transaction tx;
+      const auto out_data = m_db->get_tx_output_data(tx_hash, tx);
+      if (out_data.empty())
+        return;
+      const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(out_data.front().data.unlock_time, b_idx);
+
+      // Ignore custom timelocked outputs
+      if (cryptonote::is_custom_timelocked(is_coinbase, last_locked_block, b_idx))
+        return;
+
+      const bool torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx);
+      for (auto &out : out_data)
+      {
+        const fcmp_pp::curve_trees::OutputContext output_context{ out.output_id, torsion_checked, {out.data.pubkey, out.data.commitment}};
+        outs[last_locked_block].emplace_back(output_context);
+      }
+    };
+
+    // Add coinbase outputs
+    get_outs_from_tx(cryptonote::get_transaction_hash(b.miner_tx), true);
+
+    if (normal_start_idx > b_idx)
+      return true;
+
+    // Add normal outputs
+    for (const auto &tx_hash : b.tx_hashes)
+      get_outs_from_tx(tx_hash, false);
+
+    return true;
+  };
+
+  m_db->for_blocks_range(coinbase_start_idx, end_blk_idx, get_outs_from_block);
+
+  return outs;
+}
+//------------------------------------------------------------------
 // This function takes a list of block hashes from another node
 // on the network to find where the split point is between us and them.
 // This is used to see what to send another node that needs to sync.
@@ -2678,6 +2742,42 @@ static bool batch_verify_fcmp_pp_txs(const BlockchainDB *db, pool_supplement &ex
   }
 
   return true;
+}
+//------------------------------------------------------------------
+static void handle_fcmp_tree(BlockchainDB *db, const uint64_t block_idx, const uint64_t first_output_id, const std::vector<std::reference_wrapper<const transaction>> &tx_refs, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments)
+{
+  // Collect outs by last locked block to add to the db
+  OutsByLastLockedBlockMeta new_locked_outs = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, block_idx);
+
+  // Get the outputs with default last locked block
+  const uint64_t default_last_locked_block = cryptonote::get_default_last_locked_block_index(block_idx);
+  auto new_default_locked_outs_it = new_locked_outs.outs_by_last_locked_block.find(default_last_locked_block);
+  const auto new_default_locked_outs = new_default_locked_outs_it != new_locked_outs.outs_by_last_locked_block.end()
+    ? std::move(new_default_locked_outs_it->second)
+    : std::vector<fcmp_pp::curve_trees::OutputContext>{};
+
+  // Insert the new locked outputs into the db, excluding outputs created in
+  // this block with default last locked block. Outputs with default last locked
+  // block will be added to the tree immediately below. Outputs with last
+  // locked block higher than the default will be added to the locked outputs
+  // tables, staged for insertion to the tree later.
+  new_locked_outs.outs_by_last_locked_block.erase(default_last_locked_block);
+  db->add_locked_outs(new_locked_outs.outs_by_last_locked_block, new_locked_outs.timelocked_outputs);
+
+  // Assume we just added block n. The soonest that outputs from block n can be
+  // included in the chain is in block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE. So
+  // we grow the tree with these outputs (and any others with last locked block
+  // n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1). We then expect this tree root
+  // be included in block header n+1. This way miners will build on top of the
+  // tree root usable in FCMP++'s in a future block. After block
+  // n + (CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1) is added to the chain, SPV
+  // clients syncing just block headers will have a solid assurance that the
+  // root usable to construct FCMP++ proofs is the correct root, since it will
+  // have 9 blocks of PoW on top of it.
+  // To be clear, block header n+1 includes the tree root usable to spend
+  // outputs with last locked block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1.
+  static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "Expect a non-0 spendable age");
+  db->advance_tree(block_idx, new_default_locked_outs);
 }
 //------------------------------------------------------------------
 //TODO: return type should be void, throw on exception
@@ -4669,6 +4769,8 @@ leave:
   if(precomputed)
     block_processing_time += m_fake_pow_calc_time;
 
+  const uint64_t first_output_id = m_db->num_outputs();
+
   rtxn_guard.stop();
   TIME_MEASURE_START(addblock);
   uint64_t new_height = 0;
@@ -4703,6 +4805,13 @@ leave:
     LOG_ERROR("Blocks that failed verification should not reach here");
   }
 
+  if (new_height == 0)
+  {
+    LOG_ERROR("handle_block_to_main_chain: unexpected new_height == 0");
+    bvc.m_verifivation_failed = true;
+    return false;
+  }
+
   TIME_MEASURE_FINISH(addblock);
 
   // do this after updating the hard fork state since the weight limit may change due to fork
@@ -4713,23 +4822,9 @@ leave:
     return false;
   }
 
-  // Assume we just added block n. The soonest that outputs from block n can be
-  // included in the chain is in block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE. So
-  // we grow the tree with these outputs (and any others with last locked block
-  // n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1). We then expect this tree root
-  // be included in block header n+1. This way miners will build on top of the
-  // tree root usable in FCMP++'s in a future block. After block
-  // n + (CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1) is added to the chain, SPV
-  // clients syncing just block headers will have a solid assurance that the
-  // root usable to construct FCMP++ proofs is the correct root, since it will
-  // have 9 blocks of PoW on top of it.
-  // To be clear, block header n+1 includes the tree root usable to spend
-  // outputs with last locked block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1.
-
   TIME_MEASURE_START(advance_tree);
 
-  static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "Expect a non-0 spendable age");
-  try { m_db->advance_tree(new_height-1); }
+  try { handle_fcmp_tree(m_db, new_height-1, first_output_id, tx_refs, transparent_amount_commitments); }
   catch (const std::exception& e)
   {
     LOG_ERROR("Failed to advance tree at block with hash: " << id << ", what = " << e.what());

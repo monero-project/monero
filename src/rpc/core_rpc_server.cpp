@@ -643,7 +643,7 @@ namespace cryptonote
 
     // 2a. Coinbase output contexts created between blocks [init_block_idx - 60, init_block_idx] inclusive
     // 2b. Normal output contexts created between blocks [init_block_idx - 10, init_block_idx] inclusive
-    auto outs_by_last_locked_block = m_core.get_blockchain_storage().get_db().get_recent_locked_outputs(init_block_idx);
+    auto outs_by_last_locked_block = m_core.get_blockchain_storage().get_recent_locked_outputs(init_block_idx);
 
     // 3. Combine all locked outputs into vec
     auto &locked_outputs = init_tree_sync_data.locked_outputs;
