@@ -1820,6 +1820,33 @@ public:
   virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
   virtual uint64_t get_n_leaf_tuples() const = 0;
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
+
+  /**
+   * @brief return tree's root and n_tree_layers at a specific block idx
+   *
+   * Gets the tree root and n_tree_layers composed of all valid spendable
+   * outputs when blk_idx is the tip of the chain.
+   *
+   * If the chain tip is block index n, and `blk_idx == n`, then this will
+   * return the tree root and n layers in a tree composed of all valid
+   * spendable outputs in the chain at that time.
+   *
+   * If the chain tip is block index n, and `blk_idx == n-1`, then this will
+   * return the tree root and n layers in a tree composed of all valid
+   * spendable outputs in the chain *when the chain tip was block index n - 1*.
+   *
+   * Note that the tree stored in the database may not match up with the tree
+   * root returned here, since the tree stored in the db may have grown past
+   * the chain tip's tree, with outputs that will unlock in future blocks.
+   *
+   * This function throws if the db does not have a tree root stored for the
+   * given blk_idx.
+   *
+   * @param blk_idx the state of the tree as of this block index
+   * @param tree_root_out return-by-reference tree root
+   *
+   * @return n tree layers when blk_idx was chain tip
+   */
   virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const = 0;
 
   /**

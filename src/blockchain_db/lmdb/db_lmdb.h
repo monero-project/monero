@@ -456,11 +456,6 @@ private:
 
   uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
 
-  // Gets the tree root and n_tree_layers composed of all valid spendable outputs when blk_idx is the tip of the chain.
-  // If the chain tip is block index n, and `blk_idx == n`, then this will return the tree root and n layers for the
-  // tree composed of all valid spendable outputs in the chain at that time. Note that the tree stored in the database
-  // may not match up with the tree root returned here, since the tree stored in the database may have grown past the
-  // current tip, with outputs that will unlock in future blocks.
   virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
 
   std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const;
