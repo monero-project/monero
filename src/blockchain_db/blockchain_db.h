@@ -422,8 +422,6 @@ private:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param blk_hash the hash of the block
-   * @param outs_by_last_locked_block the outputs from this block to add to the merkle tree
-   * @param timelocked_outputs the outputs from this block that are custom timelocked
    */
   virtual void add_block( const block& blk
                 , size_t block_weight
@@ -432,8 +430,6 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& blk_hash
-                , const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block
-                , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
                 ) = 0;
 
   /**
@@ -1515,7 +1511,19 @@ public:
    * @param outputs return-by-reference a list of outputs' metadata
    */
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const = 0;
-  
+
+  /**
+   * @brief fetches tx out data with the given hash
+   *
+   * If the transaction does not exist, the subclass should throw TX_DNE.
+   *
+   * @param h the hash to look for
+   * @param tx return-by-reference pruned transaction
+   *
+   * @return the transaction's associated output data
+   */
+  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const = 0;
+
   /*
    * FIXME: Need to check with git blame and ask what this does to
    * document it
@@ -1810,7 +1818,19 @@ public:
    */
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
-  virtual void advance_tree(const uint64_t block_idx) = 0;
+  /**
+   * @brief add outs to locked outputs tables
+   *
+   * If any of this cannot be done, the subclass should throw the corresponding
+   * subclass of DB_EXCEPTION
+   *
+   * @param outs_by_last_locked_block outs grouped by last locked block
+   * @param timelocked_outputs custom timelocked outputs
+   *
+   */
+  virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) = 0;
+
+  virtual void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs) = 0;
 
   // TODO: description and make private
   virtual void grow_tree(const uint64_t block_id, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs) = 0;
@@ -1860,18 +1880,6 @@ public:
    * @return custom timelocked outputs grouped by last locked block
    */
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
-
-  /**
-   * @brief return recent timelocked outputs after the provided end_block_idx
-   *
-   * @param end_block_idx
-   *
-   * @return
-   *  - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
-   *  - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
-   *  - the outputs are grouped by last locked block idx
-   */
-  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const = 0;
 
   //
   // Hard fork related storage

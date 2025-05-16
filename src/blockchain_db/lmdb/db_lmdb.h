@@ -338,7 +338,7 @@ public:
                             , uint64_t long_term_block_weight
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
-                            , const std::vector<std::pair<transaction, blobdata>>& txs,
+                            , const std::vector<std::pair<transaction, blobdata>>& txs
                             , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                             ) override;
 
@@ -348,7 +348,7 @@ public:
   void batch_stop() override;
   void batch_abort() override;
 
-  void advance_tree(const uint64_t blk_idx) override;
+  void advance_tree(const uint64_t blk_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs) override;
 
   void block_wtxn_start() override;
   void block_wtxn_stop() override;
@@ -408,9 +408,17 @@ private:
                 , const uint64_t& coins_generated
                 , uint64_t num_rct_outs
                 , const crypto::hash& block_hash
+<<<<<<< HEAD
                 , const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block
                 , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
                 ) override;
+||||||| parent of edcb0e8f8 (fcmp++: don't store locked outputs just to delete them)
+                , const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block
+                , const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs
+                );
+=======
+                );
+>>>>>>> edcb0e8f8 (fcmp++: don't store locked outputs just to delete them)
 
   void remove_block() override;
 
@@ -438,6 +446,8 @@ private:
   void add_spent_key(const crypto::key_image& k_image) override;
 
   void remove_spent_key(const crypto::key_image& k_image) override;
+
+  virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs);
 
   template<typename C>
   crypto::ec_point grow_layer(const std::unique_ptr<C> &curve,
@@ -474,12 +484,6 @@ private:
   uint64_t get_tree_block_idx() const;
 
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const;
-
-  // Returns:
-  // - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
-  // - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
-  // - the outputs are grouped by last locked block idx
-  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
 
   // Hard fork
   void set_hard_fork_version(uint64_t height, uint8_t version) override;

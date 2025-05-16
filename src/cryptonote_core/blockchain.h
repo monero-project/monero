@@ -600,6 +600,20 @@ namespace cryptonote
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const;
 
     /**
+     * @brief returns recently created locked outputs, excluding custom timelocked outputs
+     *
+     * Returns:
+     * - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
+     * - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
+     * - the outputs are grouped by last locked block idx
+     *
+     * @param end_block_idx the terminating block (recently locked outputs created before this block)
+     *
+     * @return outputs grouped by last locked block idx
+     */
+    fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
+
+    /**
      * @brief stores the blockchain
      *
      * If Blockchain is handling storing of the blockchain (rather than BlockchainDB),
@@ -1450,7 +1464,7 @@ namespace cryptonote
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments = {});
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch

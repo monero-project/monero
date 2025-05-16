@@ -34,6 +34,7 @@
 #include "ringct/rctOps.h"
 #include "string_tools.h"
 
+#include <algorithm>
 #include <stdlib.h>
 
 namespace fcmp_pp
@@ -729,8 +730,13 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     std::vector<OutputContext> flat_sorted_outputs;
     for (auto &unsorted_outputs : new_outputs)
     {
-        const auto sort_fn = [](const OutputContext &a, const OutputContext &b) { return a.output_id < b.output_id; };
+        const auto sort_fn = [](const OutputContext &a, const OutputContext &b){return a.output_id < b.output_id;};
         std::sort(unsorted_outputs.begin(), unsorted_outputs.end(), sort_fn);
+
+        // No duplicates allowed
+        const auto dup_check = [](const OutputContext &a, const OutputContext &b){return a.output_id == b.output_id;};
+        CHECK_AND_ASSERT_THROW_MES(std::adjacent_find(unsorted_outputs.begin(), unsorted_outputs.end(), dup_check)
+            == unsorted_outputs.end(), "get_tree_extension: duplicate output id's");
 
         flat_sorted_outputs.insert(flat_sorted_outputs.end(),
             std::make_move_iterator(unsorted_outputs.begin()),
