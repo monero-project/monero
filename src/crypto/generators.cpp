@@ -39,6 +39,7 @@ extern "C"
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
+#include <string_view>
 
 namespace crypto
 {
@@ -68,14 +69,35 @@ constexpr public_key G = bytes_to<public_key>({ 0x58, 0x66, 0x66, 0x66, 0x66, 0x
 //pedersen commitment generator H: toPoint(cn_fast_hash(G))
 constexpr public_key H = bytes_to<public_key>({ 0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1,
     0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94 });
+//seraphis generator T: keccak_to_pt(keccak("Monero Generator T"))
+constexpr public_key T = bytes_to<public_key>({ 0x96, 0x6f, 0xc6, 0x6b, 0x82, 0xcd, 0x56, 0xcf, 0x85, 0xea, 0xec, 0x80, 0x1c,
+    0x42, 0x84, 0x5f, 0x5f, 0x40, 0x88, 0x78, 0xd1, 0x56, 0x1e, 0x00, 0xd3, 0xd7, 0xde, 0xd2, 0x79, 0x4d, 0x09, 0x4f });
 static ge_p3 G_p3;
 static ge_p3 H_p3;
+static ge_p3 T_p3;
 static ge_cached G_cached;
 static ge_cached H_cached;
+static ge_cached T_cached;
 
 // misc
 static std::once_flag init_gens_once_flag;
 
+//-------------------------------------------------------------------------------------------------------------------
+// hash-to-point: H_p(x) = 8*point_from_bytes(keccak(x))
+//-------------------------------------------------------------------------------------------------------------------
+static void hash_to_point(const hash &x, crypto::ec_point &point_out)
+{
+    hash h;
+    ge_p3 temp_p3;
+    ge_p2 temp_p2;
+    ge_p1p1 temp_p1p1;
+
+    cn_fast_hash(reinterpret_cast<const unsigned char*>(&x), sizeof(hash), h);
+    ge_fromfe_frombytes_vartime(&temp_p2, reinterpret_cast<const unsigned char*>(&h));
+    ge_mul8(&temp_p1p1, &temp_p2);
+    ge_p1p1_to_p3(&temp_p3, &temp_p1p1);
+    ge_p3_tobytes(to_bytes(point_out), &temp_p3);
+}
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static public_key reproduce_generator_G()
@@ -120,6 +142,18 @@ static public_key reproduce_generator_H()
     return reproduced_H;
 }
 //-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static public_key reproduce_generator_T()
+{
+    // U = H_p(keccak("Monero Generator T"))
+    const std::string_view T_seed{"Monero Generator T"};
+    const hash T_temp_hash{cn_fast_hash(T_seed.data(), T_seed.size())};
+    public_key reproduced_T;
+    hash_to_point(T_temp_hash, reproduced_T);
+
+    return reproduced_T;
+}
+//-------------------------------------------------------------------------------------------------------------------
 // Make generators, but only once
 //-------------------------------------------------------------------------------------------------------------------
 static void init_gens()
@@ -130,21 +164,26 @@ static void init_gens()
         // sanity check the generators
         static_assert(static_cast<unsigned char>(G.data[0]) == 0x58, "compile-time constant sanity check");
         static_assert(static_cast<unsigned char>(H.data[0]) == 0x8b, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(T.data[0]) == 0x96, "compile-time constant sanity check");
 
         // build ge_p3 representations of generators
         const int G_deserialize = ge_frombytes_vartime(&G_p3, to_bytes(G));
         const int H_deserialize = ge_frombytes_vartime(&H_p3, to_bytes(H));
+        const int T_deserialize = ge_frombytes_vartime(&T_p3, to_bytes(T));
 
         (void)G_deserialize; assert(G_deserialize == 0);
         (void)H_deserialize; assert(H_deserialize == 0);
+        (void)T_deserialize; assert(T_deserialize == 0);
 
         // get cached versions
         ge_p3_to_cached(&G_cached, &G_p3);
         ge_p3_to_cached(&H_cached, &H_p3);
+        ge_p3_to_cached(&T_cached, &T_p3);
 
         // in debug mode, check that generators are reproducible
         (void)reproduce_generator_G; assert(reproduce_generator_G() == G);
         (void)reproduce_generator_H; assert(reproduce_generator_H() == H);
+        (void)reproduce_generator_T; assert(reproduce_generator_T() == T);
 
     });
 }
@@ -159,6 +198,11 @@ public_key get_H()
     return H;
 }
 //-------------------------------------------------------------------------------------------------------------------
+public_key get_T()
+{
+    return T;
+}
+//-------------------------------------------------------------------------------------------------------------------
 ge_p3 get_G_p3()
 {
     init_gens();
@@ -171,6 +215,12 @@ ge_p3 get_H_p3()
     return H_p3;
 }
 //-------------------------------------------------------------------------------------------------------------------
+ge_p3 get_T_p3()
+{
+    init_gens();
+    return T_p3;
+}
+//-------------------------------------------------------------------------------------------------------------------
 ge_cached get_G_cached()
 {
     init_gens();
@@ -181,6 +231,12 @@ ge_cached get_H_cached()
 {
     init_gens();
     return H_cached;
+}
+//-------------------------------------------------------------------------------------------------------------------
+ge_cached get_T_cached()
+{
+    init_gens();
+    return T_cached;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace crypto
