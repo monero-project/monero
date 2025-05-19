@@ -189,7 +189,7 @@ static void subtest_legacy_2out_transfer_get_output_enote_proposals_completeness
     encrypted_payment_id_t encrypted_payment_id;
     get_output_enote_proposals({bob_payment_proposal},
         {alice_payment_proposal},
-        gen_payment_id(),
+        gen_encrypted_payment_id(),
         nullptr,
         &alive_k_v_dev,
         tx_first_key_image,
