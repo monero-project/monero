@@ -86,7 +86,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index);
@@ -95,7 +95,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra);
 
@@ -105,7 +105,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -116,7 +116,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,

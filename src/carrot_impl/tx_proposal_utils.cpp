@@ -30,6 +30,7 @@
 #include "tx_proposal_utils.h"
 
 //local headers
+#include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "misc_log_ex.h"
@@ -169,7 +170,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
 
     // calculate the concrete fee for this transaction for each possible valid input count
     std::map<size_t, rct::xmr_amount> fee_per_input_count;
-    for (size_t num_ins = 1; num_ins <= CARROT_MAX_TX_INPUTS; ++num_ins)
+    for (size_t num_ins = CARROT_MIN_TX_INPUTS; num_ins <= CARROT_MAX_TX_INPUTS; ++num_ins)
     {
         const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(num_ins, num_outs, tx_extra_size);
         CHECK_AND_ASSERT_THROW_MES(tx_weight != std::numeric_limits<uint64_t>::max(),
@@ -197,8 +198,14 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
         selected_inputs);
 
     // get fee given the number of selected inputs
-    // note: this will fail if input selection returned a bad number of inputs
-    tx_proposal_out.fee = fee_per_input_count.at(selected_inputs.size());
+    const std::size_t n_inputs = selected_inputs.size();
+    CARROT_CHECK_AND_THROW(n_inputs >= CARROT_MIN_TX_INPUTS,
+        too_few_inputs, "input selection returned too few inputs: " << n_inputs);
+    CARROT_CHECK_AND_THROW(n_inputs <= CARROT_MAX_TX_OUTPUTS,
+        too_few_inputs, "input selection returned too many inputs: " << n_inputs);
+    CARROT_CHECK_AND_THROW(fee_per_input_count.count(n_inputs),
+        carrot_logic_error, "BUG: fee_per_input_count populated with holes, missing: " << n_inputs);
+    tx_proposal_out.fee = fee_per_input_count.at(n_inputs);
 
     // calculate input amount sum
     boost::multiprecision::uint128_t input_amount_sum = 0;
