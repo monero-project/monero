@@ -435,16 +435,16 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index)
 {
     const size_t n_inputs = input_key_images.size();
-    CHECK_AND_ASSERT_THROW_MES(n_inputs,
-        __func__ << ": no key images provided");
-    CHECK_AND_ASSERT_THROW_MES(n_dests,
-        __func__ << ": n_dests is zero");
+    CARROT_CHECK_AND_THROW(n_inputs, carrot::too_few_inputs, "no key images provided");
+    CARROT_CHECK_AND_THROW(n_dests_per_tx, carrot::too_few_outputs, "sweep must have at least one destination");
+    CARROT_CHECK_AND_THROW(n_dests_per_tx <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
+        carrot::too_many_outputs, "too many sweep destinations per transaction");
 
     // Check that the key image is usable and isn't spent, collect amounts, and get subaddress account index
     std::vector<rct::xmr_amount> input_amounts;
@@ -472,85 +472,50 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         = find_change_address_spend_pubkey(subaddress_map, subaddr_account);
 
     // get 1 payment proposal corresponding to (address, is_subaddres)
-    std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposal;
-    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposal;
-    const bool is_selfsend_dest = build_payment_proposals(normal_payment_proposal,
-        selfsend_payment_proposal,
-        cryptonote::tx_destination_entry(/*amount=*/0, address, is_subaddress),
-        subaddress_map);
-    CHECK_AND_ASSERT_THROW_MES((is_selfsend_dest && selfsend_payment_proposal.size() == 1)
-            || (!is_selfsend_dest && normal_payment_proposal.size() == 1),
-        __func__ << ": BUG in build_payment_proposals: incorrect count for payment proposal lists");
-
-    // in/out/tx count calculations
-    const size_t max_dsts_per_tx = FCMP_PLUS_PLUS_MAX_OUTPUTS - (size_t(!is_selfsend_dest));
-    const size_t min_n_dests = div_ceil<size_t>(n_inputs, FCMP_PLUS_PLUS_MAX_INPUTS);
-    const size_t max_n_dests = n_inputs * max_dsts_per_tx;
-    CHECK_AND_ASSERT_THROW_MES(n_dests >= min_n_dests,
-        __func__ << ": not enough destinations (" << n_dests << ") for number of inputs to be spent ("
-        << n_inputs << ")");
-    CHECK_AND_ASSERT_THROW_MES(n_dests <= max_n_dests,
-        __func__ << ": too many destinations (" << n_dests << ") for number of inputs to be spent ("
-        << n_inputs << ")");
-
-    const size_t n_txs = std::max(div_ceil(n_dests, max_dsts_per_tx), min_n_dests);
-    CHECK_AND_ASSERT_THROW_MES(n_txs, __func__ << ": BUG: calculated target num of txs to be 0");
-
-    struct sweep_tx_outlay_t
+    std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
+    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
+    for (size_t i = 0; i < n_dests_per_tx; ++i)
     {
-        std::vector<carrot::CarrotSelectedInput> selected_inputs;
-        size_t n_tx_dests;
-    };
-
-    // build list of sweep_tx_outlay_t's
-    std::vector<sweep_tx_outlay_t> tx_outlays(n_txs);
-    size_t input_idx = 0;
-    for (size_t tx_idx = 0; tx_idx < tx_outlays.size(); ++tx_idx)
-    {
-        sweep_tx_outlay_t &tx_outlay = tx_outlays[tx_idx];
-
-        const size_t n_remaining_inputs = n_inputs - input_idx;
-        const size_t n_tx_inputs = std::min(div_ceil(n_inputs, n_txs), n_remaining_inputs);
-        const size_t n_tx_dests = n_dests / n_txs + ((tx_idx < (n_dests % n_txs)) ? 1 : 0);
-
-        const size_t max_input_idx = input_idx + n_tx_inputs;
-        tx_outlay.selected_inputs.reserve(n_tx_inputs);
-        for (; input_idx < max_input_idx; ++input_idx)
-            tx_outlay.selected_inputs.push_back({input_amounts.at(input_idx), input_key_images.at(input_idx)});
-
-        tx_outlay.n_tx_dests = n_tx_dests;
+        const bool is_selfsend_dest = build_payment_proposals(normal_payment_proposals,
+            selfsend_payment_proposals,
+            cryptonote::tx_destination_entry(/*amount=*/0, address, is_subaddress),
+            subaddress_map);
+        CHECK_AND_ASSERT_THROW_MES((is_selfsend_dest && selfsend_payment_proposals.size() == i+1)
+                || (!is_selfsend_dest && normal_payment_proposals.size() == i+1),
+            __func__ << ": BUG in build_payment_proposals: incorrect count for payment proposal lists");
     }
+    CARROT_CHECK_AND_THROW(normal_payment_proposals.size() < FCMP_PLUS_PLUS_MAX_OUTPUTS,
+        carrot::too_many_outputs, "too many *outgoing* sweep destinations per tx, we also need 1 self-send output");
 
-    //! @TODO: sanity check tx_outlays
-
-    // convert sweep outlays into transaction proposals
-    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals;
-    tx_proposals.reserve(tx_outlays.size());
-    for (sweep_tx_outlay_t &sweep_outlay : tx_outlays)
+    // make `n_txs` tx proposals with `n_output` payment proposals each
+    const size_t n_txs = div_ceil<size_t>(n_inputs, FCMP_PLUS_PLUS_MAX_INPUTS);
+    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals(n_txs);
+    size_t ki_idx = 0;
+    for (carrot::CarrotTransactionProposalV1 &tx_proposal : tx_proposals)
     {
-        std::vector<carrot::CarrotPaymentProposalV1> tx_normal_payment_proposals;
-        std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> tx_selfsend_payment_proposals;
-        if (is_selfsend_dest)
-            tx_selfsend_payment_proposals.resize(sweep_outlay.n_tx_dests, selfsend_payment_proposal.at(0));
-        else
-            tx_normal_payment_proposals.resize(sweep_outlay.n_tx_dests, normal_payment_proposal.at(0));
-
         // if a 2-selfsend, 2-out tx, flip one of the enote types to get unique derivations
-        if (tx_selfsend_payment_proposals.size() == 2)
-            tx_selfsend_payment_proposals.back().proposal.enote_type = carrot::CarrotEnoteType::CHANGE;
+        if (selfsend_payment_proposals.size() == 2)
+            selfsend_payment_proposals.back().proposal.enote_type = carrot::CarrotEnoteType::CHANGE;
 
-        carrot::CarrotTransactionProposalV1 tx_proposal;
-        carrot::make_carrot_transaction_proposal_v1_sweep(tx_normal_payment_proposals,
-            tx_selfsend_payment_proposals,
+        // collect inputs for this tx
+        const size_t ki_idx_end = std::min<size_t>(n_inputs, ki_idx + FCMP_PLUS_PLUS_MAX_INPUTS);
+        std::vector<carrot::CarrotSelectedInput> selected_inputs;
+        selected_inputs.reserve(n_inputs - ki_idx_end);
+        for (; ki_idx < ki_idx_end; ++ki_idx)
+            selected_inputs.push_back({input_amounts.at(ki_idx), input_key_images.at(ki_idx)});
+
+        carrot::make_carrot_transaction_proposal_v1_sweep(normal_payment_proposals,
+            selfsend_payment_proposals,
             fee_per_weight,
             extra,
-            std::move(sweep_outlay.selected_inputs),
+            std::move(selected_inputs),
             change_address_spend_pubkey,
             {{subaddr_account, 0}, carrot::AddressDeriveType::PreCarrot}, //! @TODO: handle Carrot keys
             tx_proposal);
-
-        tx_proposals.push_back(std::move(tx_proposal));
     }
+
+    CARROT_CHECK_AND_THROW(ki_idx == input_key_images.size(),
+        carrot::carrot_logic_error, "BUG: sweep_all did not consume the correct num of key images while iterating");
 
     return tx_proposals;
 }
@@ -560,7 +525,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::vector<crypto::key_image> &input_key_images,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra)
 {
@@ -580,7 +545,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         input_key_images,
         address,
         is_subaddress,
-        n_dests,
+        n_dests_per_tx,
         fee_per_weight,
         extra,
         top_block_index);
@@ -592,7 +557,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -633,7 +598,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         input_key_images,
         address,
         is_subaddress,
-        n_dests,
+        n_dests_per_tx,
         fee_per_weight,
         extra,
         top_block_index);
@@ -644,7 +609,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const rct::xmr_amount only_below,
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
-    const size_t n_dests,
+    const size_t n_dests_per_tx,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -666,7 +631,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         only_below,
         address,
         is_subaddress,
-        n_dests,
+        n_dests_per_tx,
         fee_per_weight,
         extra,
         subaddr_account,
