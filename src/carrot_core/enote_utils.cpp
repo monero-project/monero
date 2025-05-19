@@ -89,6 +89,17 @@ static rct::xmr_amount dec_amount(const encrypted_amount_t &encrypted_amount, co
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+template <typename Pid,
+    typename OtherPid = std::conditional_t<std::is_same_v<Pid, payment_id_t>, encrypted_payment_id_t, payment_id_t>>
+static OtherPid convert_payment_id(const Pid &v)
+{
+    static_assert(sizeof(Pid) == PAYMENT_ID_BYTES);
+    OtherPid conv;
+    memcpy(&conv, &v, PAYMENT_ID_BYTES);
+    return conv;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const input_context_t &input_context,
     const crypto::public_key &address_spend_pubkey,
@@ -369,7 +380,7 @@ encrypted_payment_id_t encrypt_legacy_payment_id(const payment_id_t payment_id,
     make_carrot_payment_id_encryption_mask(s_sender_receiver, onetime_address, mask);
 
     // pid_enc = pid XOR m_pid
-    return payment_id ^ mask;
+    return convert_payment_id(payment_id) ^ mask;
 }
 //-------------------------------------------------------------------------------------------------------------------
 payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_payment_id,
@@ -381,7 +392,7 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_pa
     make_carrot_payment_id_encryption_mask(s_sender_receiver, onetime_address, mask);
 
     // pid = pid_enc XOR m_pid
-    return encrypted_payment_id ^ mask;
+    return convert_payment_id(encrypted_payment_id ^ mask);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,

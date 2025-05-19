@@ -163,7 +163,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out)
 {
     output_enote_proposals_out.clear();
-    encrypted_payment_id_out = null_payment_id;
+    encrypted_payment_id_out = {{0}};
     if (payment_proposal_order_out)
         payment_proposal_order_out->clear();
 

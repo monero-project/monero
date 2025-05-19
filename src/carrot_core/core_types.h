@@ -78,7 +78,10 @@ struct payment_id_t final
 static constexpr payment_id_t null_payment_id{{0}};
 
 /// legacy encrypted payment ID
-using encrypted_payment_id_t = payment_id_t;
+struct encrypted_payment_id_t final
+{
+    unsigned char bytes[PAYMENT_ID_BYTES];
+};
 
 /// carrot view tags
 constexpr std::size_t VIEW_TAG_BYTES{3};
@@ -111,6 +114,11 @@ bool operator==(const payment_id_t &a, const payment_id_t &b);
 static inline bool operator!=(const payment_id_t &a, const payment_id_t &b) { return !(a == b); }
 payment_id_t operator^(const payment_id_t &a, const payment_id_t &b);
 
+/// overloaded operators: encrypted payment ID
+bool operator==(const encrypted_payment_id_t &a, const encrypted_payment_id_t &b);
+static inline bool operator!=(const encrypted_payment_id_t &a, const encrypted_payment_id_t &b) { return !(a == b); }
+encrypted_payment_id_t operator^(const encrypted_payment_id_t &a, const encrypted_payment_id_t &b);
+
 /// overloaded operators: input context
 bool operator==(const input_context_t &a, const input_context_t &b);
 static inline bool operator!=(const input_context_t &a, const input_context_t &b) { return !(a == b); }
@@ -121,8 +129,10 @@ static inline bool operator!=(const view_tag_t &a, const view_tag_t &b) { return
 
 /// generate a random janus anchor
 janus_anchor_t gen_janus_anchor();
-/// generate a random (non-zero) payment ID
+/// generate a random (non-null) payment ID
 payment_id_t gen_payment_id();
+/// generate a random encrypted payment ID
+encrypted_payment_id_t gen_encrypted_payment_id();
 /// generate a random view tag
 view_tag_t gen_view_tag();
 /// generate a random input context
