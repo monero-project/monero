@@ -103,7 +103,7 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
         bool push_coinbase = false;
         CarrotCoinbaseEnoteV1 coinbase_enote;
         RCTOutputEnoteProposal rct_output_enote_proposal;
-        encrypted_payment_id_t encrypted_payment_id = null_payment_id;
+        encrypted_payment_id_t encrypted_payment_id;
 
         const unsigned int enote_derive_type = i % 7;
         switch (enote_derive_type)
@@ -168,7 +168,7 @@ static const CarrotOutputContextsAndKeys generate_random_carrot_outputs(
             output_pair.output_pair.output_pubkey = coinbase_enote.onetime_address;
             output_pair.output_pair.commitment = rct::zeroCommitVartime(coinbase_enote.amount);
             outs.enotes.push_back(coinbase_enote);
-            outs.encrypted_payment_ids.push_back(null_payment_id);
+            outs.encrypted_payment_ids.emplace_back();
         }
         else
         {
@@ -640,7 +640,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     LOG_PRINT_L1("Bob scanning");
     std::vector<mock::mock_scan_result_t> bob_scan_results;
     mock::mock_scan_enote_set(parsed_enotes,
-        parsed_encrypted_payment_id.value_or(null_payment_id),
+        parsed_encrypted_payment_id.value_or(encrypted_payment_id_t{}),
         bob,
         bob_scan_results);
     ASSERT_EQ(bob_payment_proposals.size(), bob_scan_results.size());

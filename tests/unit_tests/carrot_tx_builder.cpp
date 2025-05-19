@@ -403,7 +403,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
     mock::mock_scan_enote_set({enote},
-        null_payment_id,
+        gen_encrypted_payment_id(),
         keys,
         scan_results);
 
@@ -490,7 +490,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
     mock::mock_scan_enote_set({enote},
-        null_payment_id,
+        gen_encrypted_payment_id(),
         keys,
         scan_results);
 
@@ -748,7 +748,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
     mock::mock_scan_enote_set({enote},
-        null_payment_id,
+        gen_encrypted_payment_id(),
         keys,
         scan_results);
 
@@ -837,7 +837,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
     mock::mock_scan_enote_set({enote},
-        null_payment_id,
+        gen_encrypted_payment_id(),
         keys,
         scan_results);
 
@@ -923,7 +923,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
     mock::mock_scan_enote_set({enote},
-        null_payment_id,
+        gen_encrypted_payment_id(),
         keys,
         scan_results);
 
@@ -1012,7 +1012,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
     // scan enote to get sender extensions and calculate expected key image
     std::vector<mock::mock_scan_result_t> scan_results;
     mock::mock_scan_enote_set({enote},
-        null_payment_id,
+        gen_encrypted_payment_id(),
         keys,
         scan_results);
 
