@@ -132,7 +132,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
     crypto::public_key recovered_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    encrypted_payment_id_t recovered_payment_id;
+    payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
     const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
         encrypted_payment_id,
@@ -202,7 +202,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
     crypto::public_key recovered_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    encrypted_payment_id_t recovered_payment_id;
+    payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
     const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
         encrypted_payment_id,
@@ -269,7 +269,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
     crypto::public_key recovered_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    encrypted_payment_id_t recovered_payment_id;
+    payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
     const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
         encrypted_payment_id,
@@ -340,7 +340,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
         crypto::public_key recovered_address_spend_pubkey;
         rct::xmr_amount recovered_amount;
         crypto::secret_key recovered_amount_blinding_factor;
-        encrypted_payment_id_t recovered_payment_id;
+        payment_id_t recovered_payment_id;
         CarrotEnoteType recovered_enote_type;
         const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
             std::nullopt,
@@ -417,7 +417,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
         crypto::public_key recovered_address_spend_pubkey;
         rct::xmr_amount recovered_amount;
         crypto::secret_key recovered_amount_blinding_factor;
-        encrypted_payment_id_t recovered_payment_id;
+        payment_id_t recovered_payment_id;
         CarrotEnoteType recovered_enote_type;
         const bool scan_success = try_scan_carrot_enote_external_receiver(enote_proposal.enote,
             std::nullopt,
@@ -705,7 +705,7 @@ static void subtest_2out_transfer_get_output_enote_proposals_completeness(const 
     // calculate dummy encrypted pid
     const std::optional<encrypted_payment_id_t> dummy_encrypted_pid = bob_integrated
         ? std::optional<encrypted_payment_id_t>{}
-        : gen_payment_id();
+        : gen_encrypted_payment_id();
 
     // turn payment proposals into enotes, passing dummy pid_enc if bob isn't integrated
     std::vector<RCTOutputEnoteProposal> enote_proposals;
