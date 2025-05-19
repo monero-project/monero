@@ -115,37 +115,29 @@ Helios::Scalar Helios::zero_scalar() const
 //----------------------------------------------------------------------------------------------------------------------
 crypto::ec_scalar Selene::to_bytes(const Selene::Scalar &scalar) const
 {
-    auto bytes = ::selene_scalar_to_bytes(scalar);
     crypto::ec_scalar res;
-    memcpy(&res, bytes, 32);
-    free(bytes);
+    ::selene_scalar_to_bytes(&scalar, ::to_bytes(res));
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 crypto::ec_scalar Helios::to_bytes(const Helios::Scalar &scalar) const
 {
-    auto bytes = ::helios_scalar_to_bytes(scalar);
     crypto::ec_scalar res;
-    memcpy(&res, bytes, 32);
-    free(bytes);
+    ::helios_scalar_to_bytes(&scalar, ::to_bytes(res));
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 crypto::ec_point Selene::to_bytes(const Selene::Point &point) const
 {
-    auto bytes = ::selene_point_to_bytes(point);
     crypto::ec_point res;
-    memcpy(&res, bytes, 32);
-    free(bytes);
+    ::selene_point_to_bytes(&point, ::to_bytes(res));
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
 crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
 {
-    auto bytes = ::helios_point_to_bytes(point);
     crypto::ec_point res;
-    memcpy(&res, bytes, 32);
-    free(bytes);
+    ::helios_point_to_bytes(&point, ::to_bytes(res));
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
