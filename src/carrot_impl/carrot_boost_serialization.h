@@ -68,6 +68,12 @@ inline void serialize(Archive &a, carrot::encrypted_janus_anchor_t &x, const boo
 }
 //---------------------------------------------------
 template <class Archive>
+inline void serialize(Archive &a, carrot::payment_id_t &x, const boost::serialization::version_type ver)
+{
+    a & x.bytes;
+}
+//---------------------------------------------------
+template <class Archive>
 inline void serialize(Archive &a, carrot::encrypted_payment_id_t &x, const boost::serialization::version_type ver)
 {
     a & x.bytes;

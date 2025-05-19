@@ -42,7 +42,19 @@
 
 //forward declarations
 
-BLOB_SERIALIZER(carrot::payment_id_t);
+BEGIN_SERIALIZE_OBJECT_FN(carrot::payment_id_t)
+    bool is_null = v == carrot::null_payment_id;
+    FIELD(is_null)
+    if (is_null)
+    {
+        v = carrot::null_payment_id;
+    }
+    else
+    {
+        ar.tag("data");
+        ar.serialize_blob(&v, sizeof(v));
+    }
+END_SERIALIZE()
 
 BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotDestinationV1)
     FIELD_F(address_spend_pubkey)
