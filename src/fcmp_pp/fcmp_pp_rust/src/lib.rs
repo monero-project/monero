@@ -58,23 +58,27 @@ fn c_u8_32(bytes: [u8; 32]) -> *const u8 {
 }
 
 #[no_mangle]
-pub extern "C" fn helios_scalar_to_bytes(helios_scalar: HeliosScalar) -> *const u8 {
-    c_u8_32(helios_scalar.to_repr())
+pub unsafe extern "C" fn helios_scalar_to_bytes(helios_scalar: *const HeliosScalar, bytes_out: *mut u8) {
+    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
+    bytes_out.clone_from_slice(&(&*helios_scalar).to_repr());
 }
 
 #[no_mangle]
-pub extern "C" fn selene_scalar_to_bytes(selene_scalar: SeleneScalar) -> *const u8 {
-    c_u8_32(selene_scalar.to_repr())
+pub unsafe extern "C" fn selene_scalar_to_bytes(selene_scalar: *const SeleneScalar, bytes_out: *mut u8) {
+    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
+    bytes_out.clone_from_slice(&(&*selene_scalar).to_repr());
 }
 
 #[no_mangle]
-pub extern "C" fn helios_point_to_bytes(helios_point: HeliosPoint) -> *const u8 {
-    c_u8_32(helios_point.to_bytes())
+pub unsafe extern "C" fn helios_point_to_bytes(helios_point: *const HeliosPoint, bytes_out: *mut u8) {
+    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
+    bytes_out.clone_from_slice(&(&*helios_point).to_bytes());
 }
 
 #[no_mangle]
-pub extern "C" fn selene_point_to_bytes(selene_point: SelenePoint) -> *const u8 {
-    c_u8_32(selene_point.to_bytes())
+pub unsafe extern "C" fn selene_point_to_bytes(selene_point: *const SelenePoint, bytes_out: *mut u8) {
+    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
+    bytes_out.clone_from_slice(&(&*selene_point).to_bytes());
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
