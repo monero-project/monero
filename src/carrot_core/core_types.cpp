@@ -92,6 +92,16 @@ payment_id_t operator^(const payment_id_t &a, const payment_id_t &b)
     return xor_bytes(a, b);
 }
 //-------------------------------------------------------------------------------------------------------------------
+bool operator==(const encrypted_payment_id_t &a, const encrypted_payment_id_t &b)
+{
+    return memcmp(&a, &b, sizeof(encrypted_payment_id_t)) == 0;
+}
+//-------------------------------------------------------------------------------------------------------------------
+encrypted_payment_id_t operator^(const encrypted_payment_id_t &a, const encrypted_payment_id_t &b)
+{
+    return xor_bytes(a, b);
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool operator==(const input_context_t &a, const input_context_t &b)
 {
     return memcmp(&a, &b, sizeof(input_context_t)) == 0;
@@ -109,7 +119,17 @@ janus_anchor_t gen_janus_anchor()
 //-------------------------------------------------------------------------------------------------------------------
 payment_id_t gen_payment_id()
 {
-    return crypto::rand<payment_id_t>();
+    while (true)
+    {
+        const payment_id_t res = crypto::rand<payment_id_t>();
+        if (res != null_payment_id)
+            return res;
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+encrypted_payment_id_t gen_encrypted_payment_id()
+{
+    return crypto::rand<encrypted_payment_id_t>();
 }
 //-------------------------------------------------------------------------------------------------------------------
 view_tag_t gen_view_tag()
