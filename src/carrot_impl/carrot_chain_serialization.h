@@ -40,3 +40,4 @@
 
 BLOB_SERIALIZER(carrot::view_tag_t);
 BLOB_SERIALIZER(carrot::encrypted_janus_anchor_t);
+BLOB_SERIALIZER(carrot::encrypted_payment_id_t);

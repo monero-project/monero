@@ -163,7 +163,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     }
 
     // generate random dummy encrypted payment ID for if none of the normal payment proposals are integrated
-    tx_proposal_out.dummy_encrypted_payment_id = gen_payment_id();
+    tx_proposal_out.dummy_encrypted_payment_id = gen_encrypted_payment_id();
 
     // calculate the final size of tx.extra
     const size_t tx_extra_size = get_carrot_default_tx_extra_size(num_outs) + extra.size();
