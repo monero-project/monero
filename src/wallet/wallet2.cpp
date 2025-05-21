@@ -57,6 +57,8 @@ using namespace epee;
 #include "cryptonote_core/tx_sanity_check.h"
 #include "wallet2.h"
 #include "wallet_args.h"
+#include "wallet2_basic/wallet2_boost_serialization.h"
+#include "wallet2_basic/wallet2_cocobo_serialization.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "net/parse.h"
 #include "rpc/core_rpc_server_commands_defs.h"
