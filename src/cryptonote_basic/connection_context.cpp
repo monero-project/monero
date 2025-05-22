@@ -65,6 +65,10 @@ namespace cryptonote
       return 1024 * 1024; // 1 MB
     case cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT::ID:
       return 1024 * 1024 * 4; // 4 MB
+    case cryptonote::NOTIFY_TX_POOL_INV::ID:
+      return 1024 * 1024 * 16; // 16 MB
+    case cryptonote::NOTIFY_REQUEST_TX_POOL_TXS::ID:
+      return 1024 * 1024 * 16; // 16 MB
     default:
       break;
     };
