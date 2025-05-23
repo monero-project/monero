@@ -167,6 +167,8 @@ struct ChunkBytes final
 {
     std::vector<crypto::ec_point> chunk_bytes;
 
+    bool operator==(const ChunkBytes &other) const { return chunk_bytes == other.chunk_bytes; }
+
     BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(chunk_bytes)
     END_KV_SERIALIZE_MAP()
@@ -176,6 +178,8 @@ struct PathBytes final
 {
     std::vector<OutputContext> leaves;
     std::vector<ChunkBytes> layer_chunks;
+
+    bool operator==(const PathBytes &other) const {return leaves == other.leaves && layer_chunks == other.layer_chunks;}
 
     BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(leaves)
@@ -343,11 +347,15 @@ public:
 
     TreeRootShared get_tree_root_from_bytes(const std::size_t n_layers, const crypto::ec_point &tree_root) const;
 
+    Path path_bytes_to_path(const PathBytes &path_bytes) const;
+
     PathForProof path_for_proof(const Path &path, const OutputTuple &output_tuple) const;
 
     std::vector<crypto::ec_point> calc_hashes_from_path(const Path &path, const bool replace_last_hash = false) const;
 
     Path get_dummy_path(const std::vector<fcmp_pp::curve_trees::OutputContext> &outputs, uint8_t n_layers) const;
+
+    TreeExtension path_to_tree_extension(const PathBytes &path_bytes, const PathIndexes &path_idxs) const;
 private:
     // Multithreaded helper function to convert outputs to leaf tuples and set leaves on tree extension
     void set_valid_leaves(

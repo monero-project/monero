@@ -1874,12 +1874,173 @@ bool has_nonrequested_tx_at_height_or_above_requested(uint64_t height, const std
   return false;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced, const uint64_t skip_to_height, const bool skipping_forwards,
+  const std::unordered_set<crypto::hash> &txids, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, const std::unordered_set<crypto::hash> &detached_tx_hashes,
+  const std::vector<process_tx_entry_t> &scan_tx_entries, const std::vector<process_tx_entry_t> &rescan_tx_entries)
+{
+  // If the wallet has unlocked receives it has already processed, we need to
+  // be sure to request its paths too. We get the output's global output id
+  // from the daemon, and then use global output id to request path data.
+  const auto need_path_data = [n_blocks_synced, skip_to_height](const transfer_details &td) -> bool
+  {
+    // Only need path data for unlocked outputs aka outputs already in the tree
+    return cryptonote::get_last_locked_block_index(td.m_tx.unlock_time, td.m_block_height) < std::max(n_blocks_synced, skip_to_height);
+  };
+
+  const auto td_to_output_pair = [](const transfer_details &td) -> fcmp_pp::curve_trees::OutputPair
+  {
+    return fcmp_pp::curve_trees::OutputPair{
+      .output_pubkey = td.get_public_key(),
+      .commitment    = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommitVartime(td.amount())
+    };
+  };
+
+  // We need path data for *all* prior receives that we have not already scanned
+  std::unordered_set<crypto::hash> extra_tx_hashes_we_need_path_data_for;
+  tx_entry_data extra_txs_we_need_path_data_for;
+  if (skipping_forwards)
+  {
+    for (const auto &td : m_transfers)
+    {
+      // Check if we've scanned the tx already
+      if (txids.find(td.m_txid) != txids.end())
+        continue;
+      if (tx_hashes_to_reprocess.find(td.m_txid) != tx_hashes_to_reprocess.end())
+        continue;
+
+      // We have not already scanned this tx, and we cleared the cache.
+      // So re-register the output with the tree cache.
+      m_tree_cache.register_output(td_to_output_pair(td));
+
+      // If the output is not in the tree, we don't need its path data
+      if (!need_path_data(td))
+        continue;
+      extra_tx_hashes_we_need_path_data_for.insert(td.m_txid);
+    }
+
+    if (extra_tx_hashes_we_need_path_data_for.size())
+      extra_txs_we_need_path_data_for = this->get_tx_entries(extra_tx_hashes_we_need_path_data_for);
+  }
+
+  // Collect global output id's for outputs we need path data for
+  std::vector<uint64_t> global_output_ids;
+  std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
+  const auto push_if_unlocked = [&](const transfer_details &td)
+  {
+    // Need paths for outputs that are spendable (i.e. unlocked)
+    if (!need_path_data(td))
+      return;
+
+    // Find the output's global output id among the requested txs
+    const auto tx_it = txids.find(td.m_txid);
+    const auto tx_hashes_to_reprocess_it = tx_hashes_to_reprocess.find(td.m_txid);
+    const auto extra_tx_hashes_we_need_path_data_for_it = extra_tx_hashes_we_need_path_data_for.find(td.m_txid);
+    THROW_WALLET_EXCEPTION_IF(tx_it == txids.end()
+      && tx_hashes_to_reprocess_it == tx_hashes_to_reprocess.end()
+      && extra_tx_hashes_we_need_path_data_for_it == extra_tx_hashes_we_need_path_data_for.end(),
+      error::wallet_internal_error, "Missing tx we need path data for");
+
+    const auto find_global_output_id = [&td](const std::vector<process_tx_entry_t> &entries) -> uint64_t
+    {
+      for (const auto &entry : entries)
+      {
+        if (entry.tx_hash == td.m_txid)
+          return entry.tx_entry.global_output_ids.at(td.m_internal_output_index);
+      }
+      THROW_WALLET_EXCEPTION(error::wallet_internal_error, "tx entries missing expected tx");
+    };
+
+    if (tx_it != txids.end())
+    {
+      global_output_ids.push_back(find_global_output_id(scan_tx_entries));
+    }
+    else if (tx_hashes_to_reprocess_it != extra_tx_hashes_we_need_path_data_for.end())
+    {
+      global_output_ids.push_back(find_global_output_id(rescan_tx_entries));
+    }
+    else
+    {
+      global_output_ids.push_back(find_global_output_id(extra_txs_we_need_path_data_for.tx_entries));
+    }
+
+    output_pairs.emplace_back(td_to_output_pair(td));
+  };
+
+  // Collect global output id's for outputs we need paths for
+  if (skipping_forwards)
+  {
+    // Collect *all* the received global output id's and request their paths
+    global_output_ids.reserve(m_transfers.size());
+    output_pairs.reserve(m_transfers.size());
+    for (const auto &td : m_transfers)
+      push_if_unlocked(td);
+  }
+  else
+  {
+    // Collect received global output id's for *newly* identified receives
+    global_output_ids.reserve(txids.size());
+    output_pairs.reserve(txids.size());
+    for (const auto &td : m_transfers)
+      if (txids.find(td.m_txid) != txids.end() && detached_tx_hashes.find(td.m_txid) == detached_tx_hashes.end())
+        push_if_unlocked(td);
+  }
+  THROW_WALLET_EXCEPTION_IF(output_pairs.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of output pairs to global output id's");
+
+  // Get all the paths from daemon using collected global output id's
+  // TODO: get consolidated paths
+  std::vector<cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response::path_entry> paths;
+  paths.reserve(global_output_ids.size());
+  static constexpr std::size_t N_PATHS_PER_REQ = 50; // MAX_RESTRICTED_PATHS_COUNT
+  uint64_t n_leaf_tuples = 0;
+  for (std::size_t i = 0; i < global_output_ids.size(); i += N_PATHS_PER_REQ)
+  {
+    cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request req = AUTO_VAL_INIT(req);
+    cryptonote::COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response res = AUTO_VAL_INIT(res);
+
+    req.as_of_n_blocks = std::max(n_blocks_synced, skip_to_height);
+
+    req.global_output_ids.reserve(N_PATHS_PER_REQ);
+    const std::size_t end_j = std::min(i + N_PATHS_PER_REQ, global_output_ids.size());
+    for (std::size_t j = i; j < end_j; ++j)
+    {
+      req.global_output_ids.push_back(std::move(global_output_ids.at(j)));
+    }
+
+    {
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+      bool r = net_utils::invoke_http_bin("/get_path_by_global_output_id.bin", req, res, *m_http_client, rpc_timeout);
+      THROW_WALLET_EXCEPTION_IF(!r || res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "Failed to get paths by global output id from daemon");
+      THROW_WALLET_EXCEPTION_IF(res.paths.size() != req.global_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths in request for paths by global output id");
+      THROW_WALLET_EXCEPTION_IF(n_leaf_tuples > 0 && n_leaf_tuples != res.n_leaf_tuples, error::wallet_internal_error, "Unexpected different n_leaf_tuples across responses");
+      n_leaf_tuples = res.n_leaf_tuples;
+    }
+
+    for (auto &path_entry : res.paths)
+    {
+      // Since all requested paths should be for outputs that are unlocked, we expect non-empty paths in the resp
+      THROW_WALLET_EXCEPTION_IF(path_entry.path.leaves.empty() || path_entry.path.layer_chunks.empty(), error::wallet_internal_error, "Unexpected empty path");
+      paths.emplace_back(std::move(path_entry));
+    }
+  }
+  THROW_WALLET_EXCEPTION_IF(paths.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths to global output id's");
+
+  // Now process paths returned above
+  for (std::size_t i = 0; i < paths.size(); ++i)
+  {
+    // Audit each path returned by daemon
+    const auto path = m_curve_trees->path_bytes_to_path(paths.at(i).path);
+    THROW_WALLET_EXCEPTION_IF(!m_curve_trees->audit_path(path, output_pairs.at(i), n_leaf_tuples),
+      error::wallet_internal_error, "Path returned by daemon failed audit");
+
+    // Add the output's path to the tree cache
+    m_tree_cache.force_add_output_path(output_pairs.at(i), paths.at(i).leaf_idx, paths.at(i).path, n_leaf_tuples);
+  }
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
 {
   THROW_WALLET_EXCEPTION_IF(m_background_syncing || m_is_background_wallet, error::wallet_internal_error,
     "cannot scan tx from background wallet");
-
-  // FIXME: check m_rpc_version and fail if version is too low
 
   // Get the transactions from daemon in batches sorted lowest height to highest
   tx_entry_data txs_to_scan = get_tx_entries(txids);
@@ -1916,8 +2077,9 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // the process_new_transaction implementation requires transactions to be
   // processed in blockchain order. If a user misses a tx, they should either
   // use rescan_bc, or manually scan missed txs with scan_tx.
-  const uint64_t skip_to_height = txs_to_scan.highest_height + 1;
-  const bool skipping_forwards = skip_to_height > m_blockchain.size();
+  const uint64_t skip_to_height = std::max(txs_to_scan.highest_height + 1, m_skip_to_height);
+  const uint64_t n_blocks_synced = m_blockchain.size();
+  const bool skipping_forwards = skip_to_height > n_blocks_synced;
   if (skipping_forwards)
   {
     // With FCMP++, if we skip scanning forwards, then we're going to need path
@@ -1930,11 +2092,15 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
       has_nonrequested_tx_at_height_or_above_requested(0, txids, m_transfers, m_payments, m_confirmed_txs),
       error::wont_reprocess_txs_via_untrusted_daemon
     );
+
+    // We clear the tree cache here before processing scan txs. We'll restore
+    // all the wallet's received paths after processing scan txs.
+    m_tree_cache.clear();
   }
 
   // Detach the blockchain in preparation to re-process txs
   detached_blockchain_data dbd;
-  dbd.original_chain_size = m_blockchain.size();
+  dbd.original_chain_size = n_blocks_synced;
   if (txs_to_scan.highest_height > 0)
   {
     LOG_PRINT_L0("Re-processing wallet's existing txs (if any) starting from height " << txs_to_scan.lowest_height);
@@ -1955,87 +2121,16 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   process_scan_txs(txs_to_scan, txs_to_reprocess, tx_hashes_to_reprocess, dbd);
   reattach_blockchain(m_blockchain, dbd);
 
-  // TODO: new function sync_tree_cache_for_scan_tx
-  // Assume the wallet has scanned this portion of chain   [....]
-  // scan_tx is called with a, b, and c                  [a..b....c..]
-  // All of a, b, and c have unlocked and are in the tree
-  // We need to be sure to request paths for a, b, and c and register respective outputs with tree cache
-  std::vector<get_outputs_out> amount_output_ids;
-  std::vector<fcmp_pp::curve_trees::OutputPair> output_pairs;
-  const auto push_if_unlocked = [skip_to_height, &amount_output_ids, &output_pairs](const transfer_details &td, const uint64_t n_blocks)
-  {
-    // Only need to get paths of outputs that are spendable (i.e. unlocked)
-    if (cryptonote::get_last_locked_block_index(td.m_tx.unlock_time, td.m_block_height) >= std::max(n_blocks, skip_to_height))
-      return;
-    amount_output_ids.push_back({td.is_rct() ? 0 : td.amount(), td.m_global_output_index});
-
-    fcmp_pp::curve_trees::OutputPair output_pair{
-      .output_pubkey = td.get_public_key(),
-      .commitment = td.is_rct() ? rct::commit(td.amount(), td.m_mask) : rct::zeroCommitVartime(td.amount())
-    };
-    output_pairs.emplace_back(std::move(output_pair));
-  };
-
-  // Collect amount output id's for outputs we need paths for
-  if (skipping_forwards)
-  {
-    // Collect *all* the received amount output id's and request their paths
-    amount_output_ids.reserve(m_transfers.size());
-    output_pairs.reserve(m_transfers.size());
-    for (const auto &td : m_transfers)
-      push_if_unlocked(td, m_blockchain.size());
-  }
-  else
-  {
-    // Place all newly scanned txs in an unordered set for quick lookup
-    std::unordered_set<crypto::hash> new_txs;
-    for (const auto &tx_entry : txs_to_scan.tx_entries)
-      new_txs.insert(tx_entry.tx_hash);
-
-    // Collect received amount output id's of newly scanned txs
-    amount_output_ids.reserve(new_txs.size());
-    output_pairs.reserve(new_txs.size());
-    for (const auto &td : m_transfers)
-      if (new_txs.find(td.m_txid) != new_txs.end())
-        push_if_unlocked(td, m_blockchain.size());
-  }
-
-  // Get all the paths with collected amount output id's
-  // FIXME: Request should include height at which path is good for so we're certain the paths are tied to expected height
-  // in the tree cache
-  std::vector<fcmp_pp::curve_trees::PathBytes> paths;
-  paths.reserve(amount_output_ids.size());
-  static constexpr std::size_t N_PATHS_PER_REQ = 50; // MAX_RESTRICTED_PATHS_COUNT
-  for (std::size_t i = 0; i < amount_output_ids.size(); i += N_PATHS_PER_REQ)
-  {
-    cryptonote::COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::request req = AUTO_VAL_INIT(req);
-    cryptonote::COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::response res = AUTO_VAL_INIT(res);
-    req.outputs.reserve(N_PATHS_PER_REQ);
-
-    const std::size_t end_j = std::min(i + N_PATHS_PER_REQ, amount_output_ids.size());
-    for (std::size_t j = i; j < end_j; ++j)
-    {
-      req.outputs.push_back(std::move(amount_output_ids[j]));
-    }
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_bin("/get_path_by_amount_output_id.bin", req, res, *m_http_client, rpc_timeout);
-      THROW_WALLET_EXCEPTION_IF(!r || res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "Failed to get paths by amount output id from daemon");
-      THROW_WALLET_EXCEPTION_IF(res.paths.size() != req.outputs.size(), error::wallet_internal_error, "Mismatched number of paths in request for paths by amount output id");
-    }
-
-    for (auto &path : res.paths)
-      paths.emplace_back(std::move(path));
-  }
-  THROW_WALLET_EXCEPTION_IF(paths.size() != amount_output_ids.size(), error::wallet_internal_error, "Mismatched number of paths to amount output id");
-
-  // TODO: make sure every output pair is present in each path, and make sure each path is correct
-  // TODO: Set paths in the tree cache, being sure to register each output
-  for (std::size_t i = 0; paths.size(); ++i)
-  {
-    // m_tree_cache.sync_path(output_pairs[i], paths[i]);
-  }
+  // Assume the wallet has scanned this portion of chain   [.tx1..]
+  // scan_tx is called with tx0 and tx2                [tx0..tx1....tx2]
+  // All of tx0, tx1, and tx2 have unlocked and are in the tree
+  // We need to be sure to request paths for tx0, tx1, and tx2
+  // It's obvious why we would need tx0 and tx2 since the wallet has not seen
+  // them before. Not as obvious for tx1. We need tx1's path because we're
+  // skipping the scanner forwards (since tx2 is ahead of where we had prior
+  // scanned), and therefore we need to get tx1's latest path.
+  this->handle_needed_path_data(n_blocks_synced, skip_to_height, skipping_forwards, txids, tx_hashes_to_reprocess,
+    dbd.detached_tx_hashes, txs_to_scan.tx_entries, txs_to_reprocess.tx_entries);
 
   // Set all data necessary to skip the scanner forwards on next refresh loop
   if (skipping_forwards)
@@ -2054,9 +2149,7 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
     catch (...) { MERROR("Failed getting block header at height " << txs_to_scan.highest_height); }
 
     // The wallet's blockchain state will now sync from the expected height correctly on next refresh loop
-
-    // TODO: be sure to set the right-edge of the tree at skip_to_height while maintaining known paths
-    // TODO: we can purge refs for non-owned paths, since they'll never get purged otherwise
+    // The tree cache will re-initialize from skip_to_height on next refresh loop
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -2663,7 +2756,7 @@ void wallet2::process_new_scanned_transaction(
       .output_pubkey = onetime_address,
       .commitment = rct::commit(enote_scan_info->amount, enote_scan_info->amount_blinding_factor)
     };
-    m_tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(tx.unlock_time, height));
+    m_tree_cache.register_output(output_pair);
 
     // money received callbacks
     LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
@@ -3382,6 +3475,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
   THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(start_height), error::out_of_hashchain_bounds_error);
+  assert_top_block_match(m_blockchain, m_tree_cache);
 
   tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
 
@@ -6527,6 +6621,15 @@ bool wallet2::check_version(uint32_t *version, bool *wallet_is_outdated, bool *d
     return false;
   }
 
+<<<<<<< HEAD
+||||||| parent of e22a72cf0 (fcmp++: scan_tx & RPC for path by global output id)
+  // check wallet compatibility with daemon's hard fork version
+=======
+  // FIXME: FCMP++ compatible wallets must point to FCMP++ compatible daemons in order to sync init_tree_sync_data to
+  // start building the tree correctly. scan_tx also expects to use new endpoints.
+
+  // check wallet compatibility with daemon's hard fork version
+>>>>>>> e22a72cf0 (fcmp++: scan_tx & RPC for path by global output id)
   if (!m_allow_mismatched_daemon_version)
   {
     if (rpc_version < MAKE_CORE_RPC_VERSION(3, 17))
