@@ -378,7 +378,10 @@ public:
 
   bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const override;
 
-  virtual std::vector<fcmp_pp::curve_trees::PathBytes> get_path_by_amount_output_id(const std::vector<get_outputs_out> &amount_output_ids) const;
+  virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+    const uint64_t as_of_n_blocks,
+    std::vector<uint64_t> &leaf_idxs_out,
+    std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const;
 
   // helper functions
   static int compare_uint64(const MDB_val *a, const MDB_val *b);

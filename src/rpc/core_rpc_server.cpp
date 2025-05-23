@@ -632,9 +632,9 @@ namespace cryptonote
     END_SERIALIZE()
   };
   //------------------------------------------------------------------------------------------------------------------------------
-  static bool set_init_tree_sync_data(const uint64_t init_block_idx, const crypto::hash &init_hash, const core &m_core, COMMAND_RPC_GET_BLOCKS_FAST::response &res)
+  static bool set_init_tree_sync_data(const uint64_t init_block_idx, const crypto::hash &init_hash, const core &m_core, COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t &init_tree_sync_data)
   {
-    COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t init_tree_sync_data = AUTO_VAL_INIT(init_tree_sync_data);
+    init_tree_sync_data = COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t{};
     init_tree_sync_data.init_block_idx = init_block_idx;
     init_tree_sync_data.init_block_hash = init_hash;
 
@@ -701,8 +701,6 @@ namespace cryptonote
     init_tree_sync_data.last_path = std::move(last_path.second);
 
     MDEBUG("Set init tree sync data, blk " << init_tree_sync_data.init_block_idx << " , hash " << init_tree_sync_data.init_block_hash);
-    res.init_tree_sync_data = std::move(init_tree_sync_data);
-    res.included_init_tree_sync_data = true;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -826,7 +824,7 @@ namespace cryptonote
           res.top_block_hash = last_block_hash;
 
           // Get the data necessary to start syncing the tree from the current tip
-          if (req.init_tree_sync && !set_init_tree_sync_data(last_block_height, last_block_hash, m_core, res))
+          if (req.init_tree_sync && !set_init_tree_sync_data(last_block_height, last_block_hash, m_core, res.init_tree_sync_data))
           {
             res.status = "Failed";
             return true;
@@ -924,7 +922,7 @@ namespace cryptonote
       }
 
       // Get the data necessary to start syncing the tree from the provided height
-      if (!set_init_tree_sync_data(res.start_height, init_block_hash, m_core, res))
+      if (!set_init_tree_sync_data(res.start_height, init_block_hash, m_core, res.init_tree_sync_data))
       {
         res.status = "Failed";
         return true;
@@ -1123,21 +1121,21 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_get_path_by_amount_output_id_bin(const COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::response& res, const connection_context *ctx)
+  bool core_rpc_server::on_get_path_by_global_output_id_bin(const COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_outs);
     bool r;
-    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN>(invoke_http_mode::BIN, "/get_path_by_amount_output_id.bin", req, res, r))
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN>(invoke_http_mode::BIN, "/get_path_by_global_output_id.bin", req, res, r))
       return r;
 
-    CHECK_PAYMENT_MIN1(req, res, req.outputs.size() * COST_PER_OUT, false);
+    CHECK_PAYMENT_MIN1(req, res, req.global_output_ids.size() * COST_PER_OUT, false);
 
     res.status = "Failed";
 
     const bool restricted = m_restricted && ctx;
     if (restricted)
     {
-      if (req.outputs.size() > MAX_RESTRICTED_PATHS_COUNT)
+      if (req.global_output_ids.size() > MAX_RESTRICTED_PATHS_COUNT)
       {
         res.status = "Too many paths requested";
         return true;
@@ -1146,7 +1144,12 @@ namespace cryptonote
 
     try
     {
-      res.paths = m_core.get_blockchain_storage().get_db().get_path_by_amount_output_id(req.outputs);
+      std::vector<uint64_t> leaf_idxs;
+      std::vector<fcmp_pp::curve_trees::PathBytes> paths;
+      res.n_leaf_tuples = m_core.get_blockchain_storage().get_db().get_path_by_global_output_id(req.global_output_ids, req.as_of_n_blocks, leaf_idxs, paths);
+      res.paths.reserve(leaf_idxs.size());
+      for (std::size_t i = 0; i < leaf_idxs.size(); ++i)
+        res.paths.emplace_back(COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response::path_entry{ leaf_idxs.at(i), std::move(paths.at(i)) });
     }
     catch (...)
     {
@@ -1389,11 +1392,25 @@ namespace cryptonote
       // output indices too if not in pool
       if (pool_tx_hashes.find(tx_hash) == pool_tx_hashes.end())
       {
-        bool r = m_core.get_tx_outputs_gindexs(tx_hash, e.output_indices);
-        if (!r)
+        std::vector<cryptonote::outkey> tx_outs_data;
+        try
         {
+          cryptonote::transaction _;
+          tx_outs_data = m_core.get_blockchain_storage().get_db().get_tx_output_data(tx_hash, _);
+        }
+        catch (...)
+        {
+          MERROR("Failed to get tx output data for " << tx_hash);
           res.status = "Failed";
           return true;
+        }
+
+        e.output_indices.reserve(tx_outs_data.size());
+        e.global_output_ids.reserve(tx_outs_data.size());
+        for (const auto &tx_out_data : tx_outs_data)
+        {
+          e.output_indices.push_back(tx_out_data.amount_index);
+          e.global_output_ids.push_back(tx_out_data.output_id);
         }
       }
     }

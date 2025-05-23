@@ -120,7 +120,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   const auto &output_pubkey = boost::get<txout_to_key>(spending_out.target).key;
   const rct::key C = rct::zeroCommitVartime(spending_out.amount);
   const fcmp_pp::curve_trees::OutputPair output_pair{.output_pubkey = output_pubkey, .commitment = C};
-  tree_cache.register_output(output_pair, cryptonote::get_last_locked_block_index(blocks[0].miner_tx.unlock_time, 0));
+  tree_cache.register_output(output_pair);
 
   // Build the tree, keeping track of output's path in the tree
   fcmp_pp::curve_trees::TreeCacheV1::CacheStateChange tree_cache_state_change;

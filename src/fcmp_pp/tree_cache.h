@@ -158,7 +158,7 @@ public:
             TreeSync<C1, C2>(curve_trees, max_reorg_depth)
     {};
 
-    bool register_output(const OutputPair &output, const uint64_t last_locked_block_idx) override;
+    bool register_output(const OutputPair &output) override;
 
     // TODO: bool cancel_output_registration
 
@@ -173,6 +173,8 @@ public:
 
 // Public functions not part of TreeSync interface
 public:
+    // Note: it's possible that the cache already contains force added paths from force_add_output_path. Calling init
+    // does not get rid of those already added paths.
     void init(const uint64_t start_block_idx,
         const crypto::hash &start_block_hash,
         const uint64_t n_leaf_tuples,
@@ -216,6 +218,12 @@ public:
 
     // Clear all state
     void clear();
+
+    // Force add a path to the cache without re-constructing it via sync
+    void force_add_output_path(const OutputPair &output,
+        const LeafIdx leaf_idx,
+        const PathBytes &path_bytes,
+        const uint64_t n_leaf_tuples);
 
 // Internal helper functions
 private:

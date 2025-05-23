@@ -1055,6 +1055,41 @@ bool CurveTrees<Selene, Helios>::audit_path(const CurveTrees<Selene, Helios>::Pa
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTrees<Selene, Helios>::Path CurveTrees<Selene, Helios>::path_bytes_to_path(const PathBytes &path_bytes) const
+{
+    typename CurveTrees<Selene, Helios>::Path path;
+
+    // Leaves
+    path.leaves.reserve(path_bytes.leaves.size());
+    for (const auto &leaf : path_bytes.leaves)
+        path.leaves.emplace_back(output_to_tuple(leaf.output_pair, leaf.torsion_checked));
+
+    // Layers
+    bool parent_is_c1 = true;
+    for (const auto &layer : path_bytes.layer_chunks)
+    {
+        if (parent_is_c1)
+        {
+            path.c1_layers.emplace_back();
+            path.c1_layers.back().reserve(layer.chunk_bytes.size());
+            for (const auto &elem : layer.chunk_bytes)
+                path.c1_layers.back().emplace_back(m_c1->from_bytes(elem));
+        }
+        else
+        {
+            path.c2_layers.emplace_back();
+            path.c2_layers.back().reserve(layer.chunk_bytes.size());
+            for (const auto &elem : layer.chunk_bytes)
+                path.c2_layers.back().emplace_back(m_c2->from_bytes(elem));
+        }
+
+        parent_is_c1 = !parent_is_c1;
+    }
+
+    return path;
+}
+//----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 std::vector<crypto::ec_point> CurveTrees<C1, C2>::calc_hashes_from_path(
     const typename CurveTrees<C1, C2>::Path &path,
@@ -1218,6 +1253,61 @@ CurveTreesV1::Path CurveTrees<Selene, Helios>::get_dummy_path(
 
     return path;
 };
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::path_to_tree_extension(const PathBytes &path_bytes,
+    const PathIndexes &path_idxs) const
+{
+    typename CurveTrees<C1, C2>::TreeExtension tree_extension;
+    tree_extension.leaves = typename CurveTrees<C1, C2>::Leaves{
+            .start_leaf_tuple_idx = path_idxs.leaf_range.first,
+            .tuples               = path_bytes.leaves
+        };
+
+    uint8_t layer_idx = 0;
+    bool parent_is_c1 = true;
+    for (const auto &chunk : path_bytes.layer_chunks)
+    {
+        // Get the start indexes and expected size of the last chunk
+        const auto &idx_range = path_idxs.layers.at(layer_idx);
+        const uint64_t start_idx = idx_range.first;
+        const uint64_t end_idx = idx_range.second;
+
+        CHECK_AND_ASSERT_THROW_MES(end_idx > start_idx,
+            "path_to_tree_extension: unexpected end_idx <= start_idx");
+        CHECK_AND_ASSERT_THROW_MES(chunk.chunk_bytes.size() == (end_idx - start_idx),
+            "path_to_tree_extension: size mismatch last chunk");
+
+        if (parent_is_c1)
+        {
+            LayerExtension<C1> layer_ext;
+            layer_ext.start_idx = start_idx;
+            layer_ext.update_existing_last_hash = false;
+            for (const auto &child : chunk.chunk_bytes)
+                layer_ext.hashes.emplace_back(m_c1->from_bytes(child));
+            tree_extension.c1_layer_extensions.emplace_back(std::move(layer_ext));
+        }
+        else
+        {
+            LayerExtension<C2> layer_ext;
+            layer_ext.start_idx = start_idx;
+            layer_ext.update_existing_last_hash = false;
+            for (const auto &child : chunk.chunk_bytes)
+                layer_ext.hashes.emplace_back(m_c2->from_bytes(child));
+            tree_extension.c2_layer_extensions.emplace_back(std::move(layer_ext));
+        }
+
+        ++layer_idx;
+        parent_is_c1 = !parent_is_c1;
+    }
+
+    return tree_extension;
+}
+
+// Explicit instantiation
+template CurveTrees<Selene, Helios>::TreeExtension CurveTrees<Selene, Helios>::path_to_tree_extension(
+    const PathBytes &path_bytes,
+    const PathIndexes &path_idxs) const;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTrees private member functions

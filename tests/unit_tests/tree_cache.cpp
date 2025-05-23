@@ -67,10 +67,10 @@ TEST(tree_cache, register_output)
     const auto output = outputs[0].output_pair;
 
     // 2. Register output - valid
-    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output));
 
     // 3. Register same output again - already registered
-    ASSERT_FALSE(tree_cache->register_output(output, last_locked_block_idx));
+    ASSERT_FALSE(tree_cache->register_output(output));
 
     // 4. Register another output with the same output pubkey as existing, different commitment - valid
     auto output_new_commitment = output;
@@ -79,7 +79,7 @@ TEST(tree_cache, register_output)
     ASSERT_EQ(output_new_commitment.output_pubkey, output.output_pubkey);
     ASSERT_NE(output_new_commitment.commitment, output.commitment);
 
-    ASSERT_TRUE(tree_cache->register_output(output_new_commitment, last_locked_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output_new_commitment));
 
     // 5. Sync the block of outputs
     crypto::hash block_hash{0x01};
@@ -93,7 +93,7 @@ TEST(tree_cache, register_output)
 
     // 7. Register a new output where we already synced the block output unlocks in - invalid
     const auto &new_output = test::generate_random_outputs(*curve_trees, INIT_LEAVES, 1).front().output_pair;
-    ASSERT_FALSE(tree_cache->register_output(new_output, last_locked_block_idx));
+    ASSERT_FALSE(tree_cache->register_output(new_output));
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_cache, sync_block_simple)
@@ -112,7 +112,7 @@ TEST(tree_cache, sync_block_simple)
     const auto output = outputs[0].output_pair;
 
     // 2. Register output
-    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output));
 
     // 3. Sync the block of outputs
     crypto::hash block_hash{0x01};
@@ -181,7 +181,7 @@ TEST(tree_cache, sync_n_chunks_of_blocks)
     ASSERT_TRUE(last_locked_block_idx > 0);
 
     // 3. Register output
-    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output));
 
     // 4. Sync the chunks of blocks
     for (std::size_t i = 0; i < N_CHUNKS; ++i)
@@ -248,7 +248,7 @@ TEST(tree_cache, sync_n_blocks_register_n_outputs)
 
         // Register the output
         const uint64_t last_locked_block_idx = block_idx + 1;
-        ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
+        ASSERT_TRUE(tree_cache->register_output(output));
 
         // Sync the outputs generated above
         crypto::hash block_hash;
@@ -327,7 +327,7 @@ TEST(tree_cache, sync_n_blocks_register_one_output)
                 auto output_to_register = i - n_outputs;
                 const auto output = outputs[output_to_register].output_pair;
 
-                ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
+                ASSERT_TRUE(tree_cache->register_output(output));
 
                 registered = true;
                 registered_output = output;
@@ -414,7 +414,7 @@ TEST(tree_cache, sync_past_max_reorg_depth)
                 auto output_to_register = i - n_outputs;
                 const auto output = outputs[output_to_register].output_pair;
 
-                ASSERT_TRUE(tree_cache->register_output(output, block_idx));
+                ASSERT_TRUE(tree_cache->register_output(output));
 
                 registered = true;
                 registered_output = output;
@@ -553,7 +553,7 @@ TEST(tree_cache, reorg_after_register)
                 auto output_to_register = i - n_outputs;
                 const auto output = outputs[output_to_register].output_pair;
 
-                ASSERT_TRUE(tree_cache->register_output(output, block_idx));
+                ASSERT_TRUE(tree_cache->register_output(output));
 
                 registered = true;
                 registered_output = output;
@@ -648,7 +648,7 @@ TEST(tree_cache, register_after_reorg)
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == 1, "unexpected size of outputs");
 
     const auto output = outputs[0].output_pair;
-    ASSERT_TRUE(tree_cache->register_output(output, block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output));
 
     // Block metadata
     crypto::hash block_hash;
@@ -689,7 +689,7 @@ TEST(tree_cache, serialization)
     const uint64_t block_idx = 0;
     const uint64_t last_locked_block_idx = 1;
     const auto output = outputs[0].output_pair;
-    ASSERT_TRUE(tree_cache->register_output(output, last_locked_block_idx));
+    ASSERT_TRUE(tree_cache->register_output(output));
 
     crypto::hash block_hash{0x01};
     crypto::hash prev_block_hash{};

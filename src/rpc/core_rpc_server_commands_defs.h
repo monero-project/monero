@@ -253,6 +253,11 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t last_locked_block;
       std::vector<fcmp_pp::curve_trees::OutputContext> outputs;
 
+      bool operator==(const locked_outputs_t& other) const
+      {
+        return last_locked_block == other.last_locked_block && outputs == other.outputs;
+      }
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(last_locked_block)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(outputs)
@@ -261,14 +266,23 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct init_tree_sync_data_t
     {
-      uint64_t init_block_idx;
-      crypto::hash init_block_hash;
+      uint64_t init_block_idx{0};
+      crypto::hash init_block_hash{crypto::null_hash};
       /// n leaf tuples in the chain when the chain tip was block init_block_idx
-      uint64_t n_leaf_tuples;
+      uint64_t n_leaf_tuples{0};
       /// the last full path in the tree when the chain tip was block init_block_idx
       fcmp_pp::curve_trees::PathBytes last_path;
       /// outputs created before init_block_idx with last locked block >= init_block_idx
       std::vector<locked_outputs_t> locked_outputs;
+
+      bool operator==(const init_tree_sync_data_t& other) const
+      {
+        return init_block_idx == other.init_block_idx
+          && init_block_hash  == other.init_block_hash
+          && n_leaf_tuples    == other.n_leaf_tuples
+          && last_path        == other.last_path
+          && locked_outputs   == other.locked_outputs;
+      }
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(init_block_idx)
@@ -291,7 +305,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       std::vector<pool_tx_info> added_pool_txs;
       std::vector<crypto::hash> remaining_added_pool_txids;
       std::vector<crypto::hash> removed_pool_txids;
-      bool included_init_tree_sync_data;
       init_tree_sync_data_t init_tree_sync_data;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -312,11 +325,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         {
           KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids)
         }
-        KV_SERIALIZE_OPT(included_init_tree_sync_data, false)
-        if (included_init_tree_sync_data)
-        {
-          KV_SERIALIZE(init_tree_sync_data)
-        }
+        KV_SERIALIZE_OPT(init_tree_sync_data, init_tree_sync_data_t{})
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -462,6 +471,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t block_timestamp;
       uint64_t received_timestamp;
       std::vector<uint64_t> output_indices;
+      std::vector<uint64_t> global_output_ids; // not tethered to amount
       bool relayed;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -485,6 +495,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
           KV_SERIALIZE(relayed)
           KV_SERIALIZE(received_timestamp)
         }
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB_OPT(global_output_ids, std::vector<uint64_t>{})
       END_KV_SERIALIZE_MAP()
     };
 
@@ -669,25 +680,41 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     typedef epee::misc_utils::struct_init<response_t> response;
   };
   //-----------------------------------------------
-  struct COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN
+  struct COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN
   {
     struct request_t: public rpc_access_request_base
     {
-      std::vector<get_outputs_out> outputs;
+      uint64_t as_of_n_blocks;
+      std::vector<uint64_t> global_output_ids;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE(outputs)
+        KV_SERIALIZE_OPT(as_of_n_blocks, (uint64_t)0)
+        KV_SERIALIZE(global_output_ids)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
     struct response_t: public rpc_access_response_base
     {
-      std::vector<fcmp_pp::curve_trees::PathBytes> paths;
+      uint64_t n_leaf_tuples;
+
+      struct path_entry
+      {
+        uint64_t leaf_idx{0};
+        fcmp_pp::curve_trees::PathBytes path;
+
+        BEGIN_KV_SERIALIZE_MAP()
+          KV_SERIALIZE(leaf_idx)
+          KV_SERIALIZE(path)
+        END_KV_SERIALIZE_MAP()
+      };
+
+      std::vector<path_entry> paths;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
+        KV_SERIALIZE(n_leaf_tuples)
         KV_SERIALIZE(paths)
       END_KV_SERIALIZE_MAP()
     };

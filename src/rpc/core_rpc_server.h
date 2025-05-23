@@ -108,7 +108,7 @@ namespace cryptonote
       MAP_URI_AUTO_BIN2("/gethashes.bin", on_get_hashes, COMMAND_RPC_GET_HASHES_FAST)
       MAP_URI_AUTO_BIN2("/get_o_indexes.bin", on_get_indexes, COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES)      
       MAP_URI_AUTO_BIN2("/get_outs.bin", on_get_outs_bin, COMMAND_RPC_GET_OUTPUTS_BIN)
-      MAP_URI_AUTO_BIN2("/get_path_by_amount_output_id.bin", on_get_path_by_amount_output_id_bin, COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN)
+      MAP_URI_AUTO_BIN2("/get_path_by_global_output_id.bin", on_get_path_by_global_output_id_bin, COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN)
       MAP_URI_AUTO_JON2("/get_transactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
       MAP_URI_AUTO_JON2("/gettransactions", on_get_transactions, COMMAND_RPC_GET_TRANSACTIONS)
       MAP_URI_AUTO_JON2("/get_alt_blocks_hashes", on_get_alt_blocks_hashes, COMMAND_RPC_GET_ALT_BLOCKS_HASHES)
@@ -206,7 +206,7 @@ namespace cryptonote
     bool on_mining_status(const COMMAND_RPC_MINING_STATUS::request& req, COMMAND_RPC_MINING_STATUS::response& res, const connection_context *ctx = NULL);
     bool on_get_outs_bin(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res, const connection_context *ctx = NULL);
     bool on_get_outs(const COMMAND_RPC_GET_OUTPUTS::request& req, COMMAND_RPC_GET_OUTPUTS::response& res, const connection_context *ctx = NULL);
-    bool on_get_path_by_amount_output_id_bin(const COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_AMOUNT_OUTPUT_ID_BIN::response& res, const connection_context *ctx = NULL);
+    bool on_get_path_by_global_output_id_bin(const COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response& res, const connection_context *ctx = NULL);
     bool on_get_info(const COMMAND_RPC_GET_INFO::request& req, COMMAND_RPC_GET_INFO::response& res, const connection_context *ctx = NULL);
     bool on_get_net_stats(const COMMAND_RPC_GET_NET_STATS::request& req, COMMAND_RPC_GET_NET_STATS::response& res, const connection_context *ctx = NULL);
     bool on_save_bc(const COMMAND_RPC_SAVE_BC::request& req, COMMAND_RPC_SAVE_BC::response& res, const connection_context *ctx = NULL);

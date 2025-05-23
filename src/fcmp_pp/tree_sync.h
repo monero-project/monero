@@ -60,11 +60,8 @@ public:
 
     // Registers an output with the TreeSync object so that syncing will keep track of the output's path in the tree
     // - Returns true on successful new insertion
-    // - Returns false:
-    //    - if the output is already registered.
-    //    - if the TreeSync object has already synced the block in which the output unlocks. The scanner would not
-    //      be able to determine the output's position in the tree in this case.
-    virtual bool register_output(const OutputPair &output, const uint64_t last_locked_block_idx) = 0;
+    // - Returns false if the output is already registered.
+    virtual bool register_output(const OutputPair &output) = 0;
 
     // TODO: bool cancel_output_registration
 
