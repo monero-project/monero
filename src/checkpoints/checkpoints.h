@@ -130,6 +130,14 @@ namespace cryptonote
     uint64_t get_max_height() const;
 
     /**
+     * @brief gets the highest checkpoint height less than the given block height
+     *
+     * @param block_height the reference block height
+     * @return the nearest checkpoint height below block_height, or 0 if none
+     */
+    uint64_t get_nearest_checkpoint_height(uint64_t block_height) const;
+
+    /**
      * @brief gets the checkpoints container
      *
      * @return a const reference to the checkpoints container
