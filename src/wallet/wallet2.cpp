@@ -4017,8 +4017,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? m_transfers.back().m_txid : null_hash;
   std::list<crypto::hash> short_chain_history;
-  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-  tools::threadpool::waiter waiter(tpool);
+  tools::threadpool& io_tpool = tools::threadpool::getInstanceForIO();
+  tools::threadpool::waiter io_waiter(io_tpool);
   uint64_t blocks_start_height;
   std::vector<cryptonote::block_complete_entry> blocks;
   std::vector<parsed_block> parsed_blocks;
@@ -4090,7 +4090,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         break;
       }
       if (!last)
-        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
+        io_tpool.submit(&io_waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
 
       if (!first)
       {
@@ -4129,7 +4129,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         }
         blocks_fetched += added_blocks;
       }
-      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      THROW_WALLET_EXCEPTION_IF(!io_waiter.wait(), error::wallet_internal_error, "Exception in io thread pool");
 
       // handle error from async fetching thread
       if (error)
@@ -4163,28 +4163,28 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     catch (const tools::error::password_needed&)
     {
       blocks_fetched += added_blocks;
-      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      THROW_WALLET_EXCEPTION_IF(!io_waiter.wait(), error::wallet_internal_error, "Exception in io thread pool");
       throw;
     }
     catch (const error::deprecated_rpc_access&)
     {
-      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      THROW_WALLET_EXCEPTION_IF(!io_waiter.wait(), error::wallet_internal_error, "Exception in io thread pool");
       throw;
     }
     catch (const error::reorg_depth_error&)
     {
-      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      THROW_WALLET_EXCEPTION_IF(!io_waiter.wait(), error::wallet_internal_error, "Exception in io thread pool");
       throw;
     }
     catch (const error::incorrect_fork_version&)
     {
-      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      THROW_WALLET_EXCEPTION_IF(!io_waiter.wait(), error::wallet_internal_error, "Exception in io thread pool");
       throw;
     }
     catch (const std::exception&)
     {
       blocks_fetched += added_blocks;
-      THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+      THROW_WALLET_EXCEPTION_IF(!io_waiter.wait(), error::wallet_internal_error, "Exception in io thread pool");
       if(try_count < 3)
       {
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
