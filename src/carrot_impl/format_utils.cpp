@@ -56,10 +56,10 @@ template <class EnoteContainer>
 static void store_carrot_ephemeral_pubkeys_to_extra(const EnoteContainer &enotes, std::vector<uint8_t> &extra_inout)
 {
     const size_t nouts = enotes.size();
-    const bool use_shared_ephemeral_pubkey = nouts == 2 && 0 == memcmp(
+    const bool use_shared_ephemeral_pubkey = nouts == 1 || (nouts == 2 && 0 == memcmp(
             &enotes.front().enote_ephemeral_pubkey,
             &enotes.back().enote_ephemeral_pubkey, 
-            sizeof(mx25519_pubkey));
+            sizeof(mx25519_pubkey)));
     bool success = true;
     if (use_shared_ephemeral_pubkey)
     {

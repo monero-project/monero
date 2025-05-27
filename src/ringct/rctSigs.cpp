@@ -1114,35 +1114,18 @@ done:
     
     //RCT simple    
     //for post-rct only
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk, const std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs, const fcmp_pp::ProofParams &fcmp_pp_params, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk, const RCTConfig &rct_config, hw::device &hwdev) {
         const bool bulletproof_or_plus = rct_config.range_proof_type > RangeProofBorromean;
-        const bool is_fcmp_pp = rct_config.bp_version == 0 || rct_config.bp_version >= 5;
+        const bool is_fcmp_pp = rct_config.bp_version >= 5;
+        CHECK_AND_ASSERT_THROW_MES(!is_fcmp_pp, "cannot use genRctSimple for FCMP++ tx");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
-        if (!is_fcmp_pp)
-        {
-          CHECK_AND_ASSERT_THROW_MES(index.size() == inSk.size(), "Different number of index/inSk");
-          CHECK_AND_ASSERT_THROW_MES(mixRing.size() == inSk.size(), "Different number of mixRing/inSk");
-          for (size_t n = 0; n < mixRing.size(); ++n) {
-            CHECK_AND_ASSERT_THROW_MES(index[n] < mixRing[n].size(), "Bad index into mixRing");
-          }
-        }
-        else // is_fcmp_pp
-        {
-          CHECK_AND_ASSERT_THROW_MES(rerandomized_outputs.size() > 0, "Empty rerandomized_outputs");
-          CHECK_AND_ASSERT_THROW_MES(rerandomized_outputs.size() == inamounts.size(), "Different number of rerandomized_outputs/inamounts");
-          CHECK_AND_ASSERT_THROW_MES(fcmp_pp_params.proof_inputs.size() > 0, "Empty FCMP++ proof inputs");
-          CHECK_AND_ASSERT_THROW_MES(fcmp_pp_params.proof_inputs.size() == inamounts.size(), "Different number of proof inputs/inamounts");
-          for (size_t n = 0; n < fcmp_pp_params.proof_inputs.size(); ++n) {
-            const auto &c1_branch_blinds = fcmp_pp_params.proof_inputs[n].selene_branch_blinds;
-            const auto &c2_branch_blinds = fcmp_pp_params.proof_inputs[n].helios_branch_blinds;
-            const auto &first_c1_branch_blinds = fcmp_pp_params.proof_inputs[0].selene_branch_blinds;
-            const auto &first_c2_branch_blinds = fcmp_pp_params.proof_inputs[0].helios_branch_blinds;
-            CHECK_AND_ASSERT_THROW_MES(c1_branch_blinds.size() == first_c1_branch_blinds.size(), "Bad c1_branch_blinds size");
-            CHECK_AND_ASSERT_THROW_MES(c2_branch_blinds.size() == first_c2_branch_blinds.size(), "Bad c2_branch_blinds size");
-          }
+        CHECK_AND_ASSERT_THROW_MES(index.size() == inSk.size(), "Different number of index/inSk");
+        CHECK_AND_ASSERT_THROW_MES(mixRing.size() == inSk.size(), "Different number of mixRing/inSk");
+        for (size_t n = 0; n < mixRing.size(); ++n) {
+          CHECK_AND_ASSERT_THROW_MES(index[n] < mixRing[n].size(), "Bad index into mixRing");
         }
 
         rctSig rv;
@@ -1151,9 +1134,6 @@ done:
           switch (rct_config.bp_version)
           {
             case 0:
-            case 5:
-              rv.type = RCTTypeFcmpPlusPlus;
-              break;
             case 4:
               rv.type = RCTTypeBulletproofPlus;
               break;
@@ -1249,89 +1229,9 @@ done:
         rv.txnFee = txnFee;
 //        TODO: unused ??
 //        key txnFeeKey = scalarmultH(d2h(rv.txnFee));
+        rv.mixRing = mixRing;
         keyV &pseudoOuts = bulletproof_or_plus ? rv.p.pseudoOuts : rv.pseudoOuts;
         pseudoOuts.resize(inamounts.size());
-
-        if (is_fcmp_pp)
-        {
-          // TODO: maybe balance before calling?
-          // // Check balance, since we don't automatically balance FCMP inputs here
-          // key balance = sumout;
-          // for (const ctkey &in_sk : inSk)
-          //   sc_sub(balance.bytes, balance.bytes, in_sk.mask.bytes);
-          // for (const FcmpRerandomizedOutputCompressed &rerandomized_output : rerandomized_outputs)
-          //   sc_sub(balance.bytes, balance.bytes, rerandomized_output.r_c);
-          // CHECK_AND_ASSERT_THROW_MES(balance == rct::Z,
-          //   "FCMP input blinding factors don't balance with output amount blinding factors");
-
-          xmr_amount balance_amount = rv.txnFee;
-          for (const xmr_amount outamount : outamounts)
-            balance_amount += outamount;
-          for (const xmr_amount inamount : inamounts)
-            balance_amount -= inamount;
-          CHECK_AND_ASSERT_THROW_MES(balance_amount == 0,
-            "FCMP input amounts don't balance with output amounts");
-
-          // TODO: separate function once this is finalized
-          std::vector<const uint8_t *> fcmp_prove_inputs;
-          fcmp_prove_inputs.reserve(inamounts.size());
-          key sum_input_masks = zero();
-          for (i = 0; i < inamounts.size(); i++)
-          {
-            // Collect x and y
-            const uint8_t *x = (uint8_t *) inSk[i].dest.bytes;
-
-            // TODO: carrot uses the y. It's 0 when not implemented
-            crypto::secret_key ySk;
-            sc_0((unsigned char *)ySk.data);
-            const uint8_t *y = (uint8_t *) ySk.data;
-
-            const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
-            const auto &fcmp_pp_input = fcmp_pp_params.proof_inputs[i];
-
-            // store C~
-            memcpy(&pseudoOuts[i], &rerandomized_output.input.C_tilde, sizeof(rct::key));
-
-            // Collecting sum of input masks to balance the last pseudo out
-            sc_add(sum_input_masks.bytes, sum_input_masks.bytes, inSk[i].mask.bytes);
-
-            // TODO: separate SAL from membership proof. Implement SAL in hw device interface
-            auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
-                y,
-                rerandomized_output,
-                fcmp_pp_input.path,
-                fcmp_pp_input.output_blinds,
-                fcmp_pp_input.selene_branch_blinds,
-                fcmp_pp_input.helios_branch_blinds);
-
-            fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
-          }
-
-          // Now we need to update the last pseudo out to make sure sum of the input masks == sum of output masks
-          fcmp_pp::balance_last_pseudo_out(sum_input_masks.bytes, sumout.bytes, fcmp_prove_inputs);
-          pseudoOuts.back() = rct::pt2rct(fcmp_pp::read_input_pseudo_out(fcmp_prove_inputs.back()));
-
-          const key full_message = get_pre_mlsag_hash(rv,hwdev);
-
-          const std::size_t n_tree_layers = 1
-              + fcmp_pp_params.proof_inputs.back().selene_branch_blinds.size()
-              + fcmp_pp_params.proof_inputs.back().helios_branch_blinds.size();
-
-          static_assert(sizeof(std::size_t) >= sizeof(uint8_t), "unexpected size of size_t");
-          rv.p.n_tree_layers = (uint8_t) n_tree_layers;
-
-          rv.p.fcmp_pp = fcmp_pp::prove(
-                  rct::rct2hash(full_message),
-                  fcmp_prove_inputs,
-                  n_tree_layers
-              );
-
-          rv.p.reference_block = fcmp_pp_params.reference_block;
-          return rv;
-        }
-
-        // mixRing is for non-FCMP++ txs (FCMP++ got rid of rings)
-        rv.mixRing = mixRing;
         if (is_rct_clsag(rv.type))
             rv.p.CLSAGs.resize(inamounts.size());
         else
@@ -1366,7 +1266,7 @@ done:
         return rv;
     }
 
-    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, const keyV &amount_keys, const std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs, const fcmp_pp::ProofParams &fcmp_pp_params, xmr_amount txnFee, unsigned int mixin, const RCTConfig &rct_config, hw::device &hwdev) {
+    rctSig genRctSimple(const key &message, const ctkeyV & inSk, const ctkeyV & inPk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, const keyV &amount_keys, xmr_amount txnFee, unsigned int mixin, const RCTConfig &rct_config, hw::device &hwdev) {
         std::vector<unsigned int> index;
         index.resize(inPk.size());
         ctkeyM mixRing;
@@ -1376,7 +1276,7 @@ done:
           mixRing[i].resize(mixin+1);
           index[i] = populateFromBlockchainSimple(mixRing[i], inPk[i], mixin);
         }
-        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, index, outSk, rerandomized_outputs, fcmp_pp_params, rct_config, hwdev);
+        return genRctSimple(message, inSk, destinations, inamounts, outamounts, txnFee, mixRing, amount_keys, index, outSk, rct_config, hwdev);
     }
 
     //RingCT protocol

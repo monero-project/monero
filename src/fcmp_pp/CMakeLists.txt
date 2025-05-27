@@ -32,8 +32,7 @@ set(fcmp_pp_sources
   proof_len.cpp
   prove.cpp
   tower_cycle.cpp
-  tree_cache.cpp
-  tx_utils.cpp)
+  tree_cache.cpp)
 
 monero_find_all_headers(fcmp_pp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 

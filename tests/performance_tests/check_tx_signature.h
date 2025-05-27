@@ -72,8 +72,7 @@ public:
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
     rct::RCTConfig rct_config{range_proof_type, bp_version};
-    fcmp_pp::ProofParams fcmp_pp_params = {};
-    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, tx_key, additional_tx_keys, fcmp_pp_params, rct, rct_config))
+    if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_tx, tx_key, additional_tx_keys, rct, rct_config))
       return false;
 
     get_transaction_prefix_hash(m_tx, m_tx_prefix_hash);
@@ -134,12 +133,10 @@ public:
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
     subaddresses[this->m_miners[this->real_source_idx].get_keys().m_account_address.m_spend_public_key] = {0,0};
 
-    fcmp_pp::ProofParams fcmp_pp_params = {};
-
     m_txes.resize(a_num_txes);
     for (size_t n = 0; n < a_num_txes; ++n)
     {
-      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes[n], tx_key, additional_tx_keys, fcmp_pp_params, true, {rct::RangeProofPaddedBulletproof, 2}))
+      if (!construct_tx_and_get_tx_key(this->m_miners[this->real_source_idx].get_keys(), subaddresses, this->m_sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), m_txes[n], tx_key, additional_tx_keys, true, {rct::RangeProofPaddedBulletproof, 2}))
         return false;
     }
 

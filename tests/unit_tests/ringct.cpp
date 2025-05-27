@@ -410,240 +410,6 @@ TEST(ringct, CLSAG)
   ASSERT_TRUE(rct::verRctCLSAGSimple(message,clsag,pubs,Cout));
 }
 
-TEST(ringct, genRctSimple_fcmppp)
-{
-  const key message = crypto::rand<key>();
-  const size_t n_inputs = crypto::rand_range(1, FCMP_PLUS_PLUS_MAX_INPUTS);
-  const size_t n_outputs = crypto::rand_range(1, FCMP_PLUS_PLUS_MAX_OUTPUTS);
-
-  const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
-  const std::size_t helios_chunk_width = fcmp_pp::curve_trees::HELIOS_CHUNK_WIDTH;
-  const std::size_t tree_depth = 3;
-  const std::size_t n_tree_layers = tree_depth + 1;
-  const size_t expected_num_selene_branch_blinds = (tree_depth + 1) / 2;
-  const size_t expected_num_helios_branch_blinds = tree_depth / 2;
-
-  // generate tree ...
-  LOG_PRINT_L1("Test FCMP++ genRctSimple() with selene chunk width " << selene_chunk_width
-    << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth
-    << ", number of inputs " << n_inputs << ", number of outputs " << n_outputs);
-
-  uint64_t min_leaves_needed_for_tree_depth = 0;
-  const auto curve_trees = test::init_curve_trees_test(selene_chunk_width,
-      helios_chunk_width,
-      tree_depth,
-      min_leaves_needed_for_tree_depth);
-
-  LOG_PRINT_L1("Initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
-
-  // Init tree in memory
-  CurveTreesGlobalTree global_tree(*curve_trees);
-  const auto new_outputs = generate_random_outputs(*curve_trees,
-      0,
-      min_leaves_needed_for_tree_depth
-    );
-  ASSERT_TRUE(global_tree.grow_tree(0, min_leaves_needed_for_tree_depth, new_outputs.outputs));
-
-  LOG_PRINT_L1("Finished initializing tree with " << min_leaves_needed_for_tree_depth << " leaves");
-
-  ASSERT_GT(min_leaves_needed_for_tree_depth, n_inputs);
-
-  // collect inputs info...
-  std::vector<size_t> picked_leaf_idxs;
-  picked_leaf_idxs.reserve(n_inputs);
-  std::vector<xmr_amount> in_amounts(n_inputs); // a
-  ctkeyV in_sks(n_inputs); // (x, z)
-  ctkeyV pre_rand_input_pairs(n_inputs); // (O = x G, C = z G + a H)...
-  std::vector<crypto::key_image> key_images(n_inputs);
-  xmr_amount input_amount_sum = 0;
-  for (size_t i = 0; i < n_inputs; ++i)
-  {
-    // select a unique output index in the tree
-    size_t picked_leaf_idx;
-    while (true)
-    {
-      picked_leaf_idx = crypto::rand_idx(min_leaves_needed_for_tree_depth);
-      const auto pick_it = std::find(picked_leaf_idxs.cbegin(), picked_leaf_idxs.cend(), picked_leaf_idx);
-      if (pick_it == picked_leaf_idxs.cend())
-      {
-        picked_leaf_idxs.push_back(picked_leaf_idx);
-        break;
-      }
-    }
-
-    in_amounts[i] = new_outputs.amount_vec.at(picked_leaf_idx);
-    in_sks[i].dest = rct::sk2rct(new_outputs.x_vec.at(picked_leaf_idx));
-    in_sks[i].mask = rct::sk2rct(new_outputs.z_vec.at(picked_leaf_idx));
-    pre_rand_input_pairs[i].dest = rct::pk2rct(new_outputs.outputs.at(picked_leaf_idx).output_pair.output_pubkey);
-    pre_rand_input_pairs[i].mask = new_outputs.outputs.at(picked_leaf_idx).output_pair.commitment;
-    crypto::generate_key_image(new_outputs.outputs.at(picked_leaf_idx).output_pair.output_pubkey,
-      new_outputs.x_vec.at(picked_leaf_idx),
-      key_images[i]);
-
-    input_amount_sum += in_amounts[i];
-  }
-
-  // generate outputs...
-  xmr_amount output_amount_sum_remaining = input_amount_sum;
-  std::vector<xmr_amount> out_amounts(n_outputs);
-  keyV amount_keys(n_outputs); // "amount keys" are seeds for the amount blinding factor and amount encryption mask
-  keyV onetime_addresses(n_outputs);
-  for (size_t i = 0; i < n_outputs; ++i)
-  {
-    out_amounts[i] = output_amount_sum_remaining ? randXmrAmount(output_amount_sum_remaining) : 0;
-    amount_keys[i] = skGen();
-    onetime_addresses[i] = pkGen();
-
-    output_amount_sum_remaining -= out_amounts[i];
-  }
-  const xmr_amount fee = output_amount_sum_remaining;
-  LOG_PRINT_L1("fee: " << fee);
-
-  // rerandomize inputs
-  std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-  make_balanced_rerandomized_output_set_rct(pre_rand_input_pairs,
-    in_sks,
-    amount_keys,
-    rerandomized_outputs);
-
-  // Make FCMP++ paths
-  LOG_PRINT_L1("Calculating FCMP paths");
-  std::vector<fcmp_pp::ProofInput> fcmp_pp_proof_inputs(n_inputs);
-  for (size_t i = 0; i < n_inputs; ++i)
-  {
-    const size_t leaf_idx = picked_leaf_idxs.at(i);
-    const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
-    const std::size_t path_leaf_idx = picked_leaf_idxs.at(i) % curve_trees->m_c1_width;
-
-    const fcmp_pp::curve_trees::OutputPair output_pair = {rct::rct2pk(path.leaves[path_leaf_idx].O),
-        path.leaves[path_leaf_idx].C};
-    const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
-
-    const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
-
-    const auto helios_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::HeliosT>(
-      path_for_proof.c2_scalar_chunks);
-    const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
-      path_for_proof.c1_scalar_chunks);
-
-    const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
-      path_for_proof.output_idx,
-        {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
-        {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
-
-    fcmp_pp_proof_inputs[i].path = path_rust;
-  }
-
-  // make FCMP++ blinds
-  LOG_PRINT_L1("Calculating branch and output blinds");
-  for (size_t i = 0; i < n_inputs; ++i)
-  {
-    fcmp_pp::ProofInput &proof_input = fcmp_pp_proof_inputs[i];
-    const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
-
-    // calculate individual blinds
-    uint8_t *blinded_o_blind = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));
-    uint8_t *blinded_i_blind = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));
-    uint8_t *blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));
-    uint8_t *blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));
-
-    // make output blinds
-    proof_input.output_blinds = fcmp_pp::output_blinds_new(
-      blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
-
-    // generate selene blinds
-    proof_input.selene_branch_blinds.reserve(expected_num_selene_branch_blinds);
-    for (size_t j = 0; j < expected_num_selene_branch_blinds; ++j)
-      proof_input.selene_branch_blinds.push_back(fcmp_pp::selene_branch_blind());
-
-    // generate helios blinds
-    proof_input.helios_branch_blinds.reserve(expected_num_helios_branch_blinds);
-    for (size_t j = 0; j < expected_num_helios_branch_blinds; ++j)
-      proof_input.helios_branch_blinds.push_back(fcmp_pp::helios_branch_blind());
-
-    // dealloc individual blinds
-    free(blinded_o_blind);
-    free(blinded_i_blind);
-    free(blinded_i_blind_blind);
-    free(blinded_c_blind);
-  }
-
-  // make FCMP++ params
-  const fcmp_pp::ProofParams fcmp_proof_params{
-    .reference_block = crypto::rand_idx<uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER),
-    .proof_inputs = std::move(fcmp_pp_proof_inputs)
-  };
-
-  // make RCT config
-  const RCTConfig rct_config{
-    .range_proof_type = RangeProofPaddedBulletproof,
-    .bp_version = 5
-  };
-
-  hw::device &hwdev = hw::get_device("default");
-
-  // gen FCMP++ RingCT sig
-  LOG_PRINT_L1("Calling genRctSimple");
-  ctkeyV outSk;
-  rctSig sig = genRctSimple(message,
-    in_sks,
-    onetime_addresses,
-    in_amounts,
-    out_amounts,
-    fee,
-    /*mixring=*/{},
-    amount_keys,
-    /*mixring_indices=*/{},
-    outSk,
-    rerandomized_outputs,
-    fcmp_proof_params,
-    rct_config,
-    hwdev
-  );
-
-  // dealloc
-  for (const auto &proof_input : fcmp_proof_params.proof_inputs)
-  {
-    free(proof_input.path);
-    free(proof_input.output_blinds);
-    for (const auto &selene_branch_blind : proof_input.selene_branch_blinds)
-      free(const_cast<uint8_t*>(selene_branch_blind));
-    for (const auto &helios_branch_blind : proof_input.helios_branch_blinds)
-      free(const_cast<uint8_t*>(helios_branch_blind));
-  }
-
-  // test base fields
-  ASSERT_EQ(RCTTypeFcmpPlusPlus, sig.type);
-  EXPECT_EQ(message, sig.message);
-  EXPECT_EQ(0, sig.mixRing.size());
-  EXPECT_EQ(0, sig.pseudoOuts.size());
-  EXPECT_EQ(n_outputs, sig.ecdhInfo.size());
-  EXPECT_EQ(n_outputs, sig.outPk.size());
-  EXPECT_EQ(fee, sig.txnFee);
-
-  // test prunable fields
-  EXPECT_EQ(0, sig.p.rangeSigs.size());
-  EXPECT_EQ(0, sig.p.bulletproofs.size());
-  EXPECT_EQ(1, sig.p.bulletproofs_plus.size()); // padded to next highest power of 2
-  EXPECT_EQ(0, sig.p.MGs.size());
-  EXPECT_EQ(0, sig.p.CLSAGs.size());
-  EXPECT_EQ(n_inputs, sig.p.pseudoOuts.size());
-  EXPECT_EQ(fcmp_proof_params.reference_block, sig.p.reference_block);
-  EXPECT_EQ(n_tree_layers, sig.p.n_tree_layers);
-  EXPECT_EQ(fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers), sig.p.fcmp_pp.size());
-
-  // verify
-  LOG_PRINT_L1("Verifying FCMP++ rctSig semantics");
-  EXPECT_TRUE(verRctSemanticsSimple(sig));
-
-  LOG_PRINT_L1("Verifying FCMP++ rctSig non-semantics");
-  const auto tree_root = global_tree.get_tree_root();
-  sig.p.fcmp_ver_helper_data.key_images = key_images;
-  sig.p.fcmp_ver_helper_data.tree_root = tree_root;
-  EXPECT_TRUE(verRctNonSemanticsSimple(sig));
-  free(tree_root);
-}
-
 TEST(ringct, range_proofs)
 {
         //Ring CT Stuff
@@ -690,7 +456,7 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(ok);
 
         //compute rct data with mixin 3
-        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, {}, {}, 0, 3, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, 0, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRctSimple(s));
@@ -707,7 +473,7 @@ TEST(ringct, range_proofs)
 
 
         //compute rct data with mixin 3
-        s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, {}, {}, 0, 3, rct_config, hw::get_device("default"));
+        s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, 0, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRctSimple(s));
@@ -755,7 +521,7 @@ TEST(ringct, range_proofs_with_fee)
         const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
 
         //compute rct data with mixin 3
-        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, {}, {}, 1, 3, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, 1, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_TRUE(verRctSimple(s));
@@ -772,7 +538,7 @@ TEST(ringct, range_proofs_with_fee)
 
 
         //compute rct data with mixin 3
-        s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, {}, {}, 500, 3, rct_config, hw::get_device("default"));
+        s = genRctSimple(rct::zero(), sc, pc, destinations, inamounts, amounts, amount_keys, 500, 3, rct_config, hw::get_device("default"));
 
         //verify rct data
         ASSERT_FALSE(verRctSimple(s));
@@ -831,7 +597,7 @@ TEST(ringct, simple)
         xmr_amount txnfee = 1;
 
         const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, {}, {}, txnfee, 2, rct_config, hw::get_device("default"));
+        rctSig s = genRctSimple(message, sc, pc, destinations,inamounts, outamounts, amount_keys, txnfee, 2, rct_config, hw::get_device("default"));
 
         //verify ring ct signature
         ASSERT_TRUE(verRctSimple(s));
@@ -893,7 +659,7 @@ static rct::rctSig make_sample_simple_rct_sig(int n_inputs, const uint64_t input
     }
 
     const rct::RCTConfig rct_config { RangeProofBorromean, 0 };
-    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, {}, {}, fee, 3, rct_config, hw::get_device("default"));
+    return genRctSimple(rct::zero(), sc, pc, destinations, inamounts, outamounts, amount_keys, fee, 3, rct_config, hw::get_device("default"));
 }
 
 static bool range_proof_test(bool expected_valid,
