@@ -47,12 +47,12 @@ namespace tools
             }
         }
 
-        static uint32_t AsIntegral(const fee_priority priority)
+        static constexpr uint32_t AsIntegral(const fee_priority priority)
         {
             return static_cast<uint32_t>(priority);
         }
 
-        static fee_priority FromIntegral(const uint32_t priority)
+        static constexpr fee_priority FromIntegral(const uint32_t priority)
         {
             if (priority >= AsIntegral(fee_priority::Priority))
             {
@@ -69,10 +69,17 @@ namespace tools
 
         static fee_priority Clamp(const fee_priority priority)
         {
-            /* Map Default to an actionable priority. */
-            if (priority == fee_priority::Default)
+            const auto highest = AsIntegral(fee_priority::Priority);
+            const auto lowest = AsIntegral(fee_priority::Default);
+            const auto current = AsIntegral(priority);
+
+            if (current < lowest)
             {
-                return fee_priority::Unimportant;
+                return fee_priority::Default;
+            }
+            else if (current > highest)
+            {
+                return fee_priority::Priority;
             }
             else
             {
@@ -80,9 +87,22 @@ namespace tools
             }
         }
 
+        static fee_priority ClampModified(const fee_priority priority)
+        {
+            /* Map Default to an actionable priority. */
+            if (priority == fee_priority::Default)
+            {
+                return fee_priority::Unimportant;
+            }
+            else
+            {
+                return Clamp(priority);
+            }
+        }
+
         static std::string_view ToString(const fee_priority priority)
         {
-            const auto integralValue = AsIntegral(priority);
+            const auto integralValue = AsIntegral(Clamp(priority));
             return feePriorityStrings_.at(integralValue);
         }
 

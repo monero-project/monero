@@ -8479,7 +8479,7 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
     uint64_t fee_multipliers[4]; // Determines the fee multiplier applied at various priorities for said fee algorithm.
   };
 
-  static const fee_step fee_steps[] =
+  static constexpr fee_step fee_steps[] =
   {
     { fee_priority::Elevated, {1, 2, 3} },
     { fee_priority::Elevated, {1, 20, 166} },
@@ -8502,7 +8502,7 @@ uint64_t wallet2::get_fee_multiplier(fee_priority priority, fee_algorithm fee_al
   }
 
   const auto fee_algorithm_index = fee_algorithm_utilities::AsIntegral(fee_algorithm);
-  THROW_WALLET_EXCEPTION_IF(fee_algorithm_index < 0 || fee_algorithm_index > std::size(fee_steps), error::invalid_priority);
+  THROW_WALLET_EXCEPTION_IF(fee_algorithm_index < 0 || fee_algorithm_index > static_cast<int>(std::size(fee_steps)), error::invalid_priority);
 
   // 1 to 3/4 are allowed as priorities
   const fee_priority max_priority = fee_steps[fee_algorithm_index].maximum_priority;
@@ -8547,7 +8547,7 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
   if (use_2021_scaling)
   {
     // clamp and map to 0..3 indices, mapping 0 (default, but should not end up here) to 0, and 1..4 to 0..3
-    priority = fee_priority_utilities::Clamp(priority);
+    priority = fee_priority_utilities::ClampModified(priority);
     priority = fee_priority_utilities::Decrease(priority);
 
     std::vector<uint64_t> fees;
