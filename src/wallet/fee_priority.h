@@ -23,15 +23,13 @@ namespace tools
 
     std::ostream& operator<<(std::ostream& os, const fee_priority priority);
 
-    class fee_priority_utilities
+    namespace fee_priority_utilities
     {
-    private:
         using EnumStringsType = std::array<std::string_view, 5>;
         using EnumsType = std::array<fee_priority, 5>;
 
-    public:
-        static inline constexpr EnumStringsType feePriorityStrings_ = { { "default", "unimportant", "normal", "elevated", "priority" } };
-        static inline constexpr EnumsType enums_ = { { fee_priority::Default, fee_priority::Unimportant, fee_priority::Normal, fee_priority::Elevated, fee_priority::Priority } };
+        inline constexpr EnumStringsType feePriorityStrings_ = { { "default", "unimportant", "normal", "elevated", "priority" } };
+        inline constexpr EnumsType enums_ = { { fee_priority::Default, fee_priority::Unimportant, fee_priority::Normal, fee_priority::Elevated, fee_priority::Priority } };
 
         static fee_priority Decrease(const fee_priority priority)
         {
@@ -116,5 +114,5 @@ namespace tools
             return enums_.at(distance);
         }
 
-    };
+    }
 }

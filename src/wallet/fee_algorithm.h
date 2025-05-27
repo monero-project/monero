@@ -11,12 +11,11 @@ namespace tools
         HardforkV8,
     };
 
-    class fee_algorithm_utilities
+    namespace fee_algorithm_utilities
     {
-    public:
         static int AsIntegral(const fee_algorithm algorithm)
         {
             return static_cast<int>(algorithm);
         }
-    };
+    }
 }
