@@ -534,7 +534,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     const stat::chain &stat
   ){
     core.get_blockchain_storage().get_db().batch_start({}, {});
-    core.get_blockchain_storage().get_db().add_block(
+    uint64_t new_height = core.get_blockchain_storage().get_db().add_block(
       {block, cryptonote::block_to_blob(block)},
       cryptonote::get_transaction_weight(block.miner_tx),
       core.get_blockchain_storage().get_next_long_term_block_weight(
@@ -544,6 +544,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       stat.reward,
       {}
     );
+    core.get_blockchain_storage().get_db().advance_tree(new_height - 1);
     core.get_blockchain_storage().get_db().batch_stop();
   };
   struct messages {

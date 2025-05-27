@@ -334,7 +334,6 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
             "failed to add nonce to tx_extra");
     }
 
-    fcmp_pp::ProofParams dummy_fcmp_params;
     const bool r = cryptonote::construct_tx_and_get_tx_key(
         sender_account_keys,
         sender_subaddress_map,
@@ -345,7 +344,6 @@ cryptonote::transaction construct_pre_carrot_tx_with_fake_inputs(
         tx,
         main_tx_privkey_out,
         additional_tx_privkeys_out,
-        dummy_fcmp_params,
         rct,
         rct_config, 
         use_view_tags);

@@ -1708,10 +1708,9 @@ tsx_builder * tsx_builder::construct_pending_tx(tools::wallet2::pending_tx &ptx,
 
   auto sources_copy = m_sources;
   auto change_addr = m_from->get_account().get_keys().m_account_address;
-  fcmp_pp::ProofParams fcmp_pp_params = {};
   bool r = construct_tx_and_get_tx_key(m_from->get_account().get_keys(), subaddresses, m_sources, destinations_copy,
                                        change_addr, extra ? extra.get() : std::vector<uint8_t>(), tx, tx_key,
-                                       additional_tx_keys, fcmp_pp_params, true, m_rct_config, this->m_tester->cur_hf() >= HF_VERSION_VIEW_TAGS);
+                                       additional_tx_keys, true, m_rct_config, this->m_tester->cur_hf() >= HF_VERSION_VIEW_TAGS);
   CHECK_AND_ASSERT_THROW_MES(r, "Transaction construction failed");
 
   // Selected transfers permutation

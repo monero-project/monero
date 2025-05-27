@@ -226,7 +226,7 @@ namespace cryptonote
     return addr.m_view_public_key;
   }
   //---------------------------------------------------------------
-  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, fcmp_pp::ProofParams &fcmp_pp_params, bool rct, const rct::RCTConfig &rct_config, bool shuffle_outs, bool use_view_tags)
+  bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, bool shuffle_outs, bool use_view_tags)
   {
     hw::device &hwdev = sender_account_keys.get_device();
 
@@ -246,7 +246,8 @@ namespace cryptonote
     tx.extra = extra;
     crypto::public_key txkey_pub;
 
-    const bool is_fcmp_pp = rct && (rct_config.bp_version == 0 || rct_config.bp_version >= 5);
+    const bool is_fcmp_pp = rct && rct_config.bp_version >= 5;
+    CHECK_AND_ASSERT_THROW_MES(!is_fcmp_pp, "Cannot construct FCMP++ tx with construct_tx_with_tx_key, use Carrot tx builders instead");
 
     // if we have a stealth payment id, find it and encrypt it with the tx key now
     std::vector<tx_extra_field> tx_extra_fields;
@@ -367,21 +368,8 @@ namespace cryptonote
 
       //put key image into tx input
       txin_to_key input_to_key;
-      input_to_key.k_image = img;
-
-      if (is_fcmp_pp)
-      {
-        // Amount should be 0 for all FCMP txs
-        input_to_key.amount = 0;
-        // FIXME: triple check tx does not have anything saved that indicates the output spent
-        // Don't save key_offsets for FCMP++ txs, since we don't use ring sigs anymore
-        input_to_key.key_offsets.clear();
-        tx.vin.push_back(input_to_key);
-        continue;
-      }
-
-      CHECK_AND_ASSERT_THROW_MES(rct_config.bp_version < 5, "Unexpected bp version when constructing tx");
       input_to_key.amount = src_entr.amount;
+      input_to_key.k_image = img;
 
       //fill outputs array and use relative offsets
       for(const tx_source_entry::output_entry& out_entry: src_entr.outputs)
@@ -409,10 +397,6 @@ namespace cryptonote
       std::swap(tx.vin[i0], tx.vin[i1]);
       std::swap(in_contexts[i0], in_contexts[i1]);
       std::swap(sources[i0], sources[i1]);
-      if (fcmp_pp_params.proof_inputs.size())
-      {
-        std::swap(fcmp_pp_params.proof_inputs[i0], fcmp_pp_params.proof_inputs[i1]);
-      }
     });
 
     // figure out if we need to make additional tx pubkeys
@@ -629,17 +613,11 @@ namespace cryptonote
       for (size_t i = 0; i < tx.vout.size(); ++i)
         tx.vout[i].amount = 0;
 
-      // Collect rerandomized outputs
-      std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-      rerandomized_outputs.reserve(sources.size());
-      for (size_t i = 0; i < sources.size(); ++i)
-        rerandomized_outputs.push_back(sources[i].rerandomized_output);
-
       crypto::hash tx_prefix_hash;
       get_transaction_prefix_hash(tx, tx_prefix_hash, hwdev);
       rct::ctkeyV outSk;
       if (use_simple_rct)
-        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, index, outSk, rerandomized_outputs, fcmp_pp_params, rct_config, hwdev);
+        tx.rct_signatures = rct::genRctSimple(rct::hash2rct(tx_prefix_hash), inSk, destinations, inamounts, outamounts, amount_in - amount_out, mixRing, amount_keys, index, outSk, rct_config, hwdev);
       else
         tx.rct_signatures = rct::genRct(rct::hash2rct(tx_prefix_hash), inSk, destinations, outamounts, mixRing, amount_keys, sources[0].real_output, outSk, rct_config, hwdev); // same index assumption
       memwipe(inSk.data(), inSk.size() * sizeof(rct::ctkey));
@@ -654,7 +632,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, fcmp_pp::ProofParams &fcmp_pp_params, bool rct, const rct::RCTConfig &rct_config, bool use_view_tags)
+  bool construct_tx_and_get_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, crypto::secret_key &tx_key, std::vector<crypto::secret_key> &additional_tx_keys, bool rct, const rct::RCTConfig &rct_config, bool use_view_tags)
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
@@ -691,7 +669,7 @@ namespace cryptonote
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
      fcmp_pp::ProofParams fcmp_pp_params = {};
-     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, tx_key, additional_tx_keys, fcmp_pp_params, false, { rct::RangeProofBorromean, 0});
+     return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0});
   }
   //---------------------------------------------------------------
   bool generate_genesis_block(

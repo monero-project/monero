@@ -35,11 +35,9 @@
 #include "chaingen.h"
 #include "blockchain_db/blockchain_db_utils.h"
 #include "fcmp_pp/curve_trees.h"
-#include "fcmp_pp/fcmp_pp_types.h"
-#include "fcmp_pp/prove.h"
 #include "fcmp_pp/tree_cache.h"
-#include "fcmp_pp/tx_utils.h"
 #include "device/device.hpp"
+#include "wallet/tx_builder.h"
 
 using namespace epee;
 using namespace crypto;
@@ -54,7 +52,6 @@ using TreeCacheV1 = fcmp_pp::curve_trees::TreeCache<Selene, Helios>;
 
 bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
     size_t n_txes, const uint64_t *amounts_paid, bool valid, const rct::RCTConfig &rct_config, uint8_t hf_version,
-    const std::function<bool(std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations, size_t tx_idx)> &pre_tx,
     const std::function<bool(transaction &tx, size_t tx_idx)> &post_tx) const
 {
   uint64_t ts_start = 1338224400;
@@ -138,20 +135,48 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   cryptonote::block blk_txes;
   std::vector<crypto::hash> starting_rct_tx_hashes;
   uint64_t fees = 0;
-  std::vector<tx_source_entry> sources;
-  fcmp_pp::ProofParams fcmp_pp_params;
-  fcmp_pp_params.reference_block = n_synced_blocks - 1;
+  rct_txes.resize(rct_txes.size() + 1);
 
-  sources.resize(1);
-  tx_source_entry& src = sources.back();
+  // Generate key image
+  const crypto::public_key in_tx_pub_key = cryptonote::get_tx_pub_key_from_extra(blocks[0].miner_tx);
+  const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs{{ miner_accounts[0].get_keys().m_account_address.m_spend_public_key, {0,0} }};
+  cryptonote::keypair in_ephemeral;
+  crypto::key_image key_image;
+  bool r = cryptonote::generate_key_image_helper(
+      miner_accounts[0].get_keys(),
+      subaddrs,
+      output_pubkey,
+      in_tx_pub_key,
+      {},
+      o_idx,
+      in_ephemeral,
+      key_image,
+      hw::get_device("default"));
+  CHECK_AND_ASSERT_MES(r, false, "Failed to generate key image");
 
-  src.amount = spending_out.amount;
-  src.push_output(0, output_pubkey, src.amount);
-  src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[0].miner_tx);
-  src.real_output = 0;
-  src.real_output_in_tx_index = o_idx;
-  src.mask = rct::identity();
-  src.rct = false;
+  // Source
+  const tools::wallet2::transfer_details wallet2_td{
+      .m_block_height = 0,
+      .m_tx = blocks[0].miner_tx,
+      .m_txid = blocks[0].hash,
+      .m_internal_output_index = o_idx,
+      .m_global_output_index = o_idx,
+      .m_spent = false,
+      .m_frozen = false,
+      .m_spent_height = 0,
+      .m_key_image = key_image,
+      .m_mask = rct::identity(),
+      .m_amount = spending_out.amount,
+      .m_rct = false,
+      .m_key_image_known = true,
+      .m_key_image_request = false,
+      .m_pk_index = 0,
+      .m_subaddr_index = {},
+      .m_key_image_partial = false,
+      .m_multisig_k = {},
+      .m_multisig_info = {},
+      .m_uses = {},
+    };
 
   //fill outputs entry
   tx_destination_entry td;
@@ -163,29 +188,25 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     destinations.push_back(td);
   }
 
-  if (pre_tx && !pre_tx(sources, destinations, 0))
-  {
-    MDEBUG("pre_tx returned failure");
-    return false;
-  }
+  const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
+      {wallet2_td},
+      subaddrs,
+      destinations,
+      /*fee_per_weight=*/10000000, // This is just a mock value to pass the test
+      /*extra=*/{},
+      /*subaddr_account=*/0,
+      /*subaddr_indices=*/{},
+      /*ignore_above=*/MONEY_SUPPLY,
+      /*ignore_below=*/0,
+      {},
+      n_synced_blocks - 1);
+  CHECK_AND_ASSERT_MES(tx_proposals.size() == 1, false, "Expected 1 tx proposal");
 
-  // Re-randomize output
-  const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(output_pair);
-  src.rerandomized_output = fcmp_pp::rerandomize_output(output_tuple.to_output_bytes());
-
-  // Set FCMP++ params
-  fcmp_pp_params.proof_inputs.emplace_back();
-  const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
-  bool r = fcmp_pp::set_fcmp_pp_proof_input(output_pair, tree_cache, src.rerandomized_output, curve_trees, fcmp_pp_params.proof_inputs.back());
-  CHECK_AND_ASSERT_MES(r, false, "failed to set FCMP++ prove input");
-
-  crypto::secret_key tx_key;
-  std::vector<crypto::secret_key> additional_tx_keys;
-  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
-  subaddresses[miner_accounts[0].get_keys().m_account_address.m_spend_public_key] = {0,0};
-  rct_txes.resize(rct_txes.size() + 1);
-  r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddresses, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), rct_txes.back(), tx_key, additional_tx_keys, fcmp_pp_params, true, rct_config, true);
-  CHECK_AND_ASSERT_MES(r, false, "failed to construct transaction");
+  rct_txes.back() = tools::wallet::finalize_all_proofs_from_transfer_details(tx_proposals.front(),
+      {wallet2_td},
+      tree_cache,
+      *fcmp_pp::curve_trees::curve_trees_v1(),
+      miner_accounts[0].get_keys());
 
   if (post_tx && !post_tx(rct_txes.back(), 0))
   {
@@ -196,25 +217,6 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   //events.push_back(rct_txes.back());
   starting_rct_tx_hashes.push_back(get_transaction_hash(rct_txes.back()));
   LOG_PRINT_L0("Test tx: " << obj_to_json_str(rct_txes.back()));
-
-  for (int o = 0; amounts_paid[o] != (uint64_t)-1; ++o)
-  {
-    crypto::key_derivation derivation;
-    bool r = crypto::generate_key_derivation(destinations[o].addr.m_view_public_key, tx_key, derivation);
-    CHECK_AND_ASSERT_MES(r, false, "Failed to generate key derivation");
-    crypto::secret_key amount_key;
-    crypto::derivation_to_scalar(derivation, o, amount_key);
-    rct::key rct_tx_mask;
-    const uint8_t type = rct_txes.back().rct_signatures.type;
-    if (rct::is_rct_simple(type))
-      rct::decodeRctSimple(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
-    else
-      rct::decodeRct(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
-  }
-
-  while (amounts_paid[0] != (size_t)-1)
-    ++amounts_paid;
-  ++amounts_paid;
 
   uint64_t fee = 0;
   get_tx_fee(rct_txes.back(), fee);
@@ -255,7 +257,7 @@ bool gen_fcmp_pp_tx_valid_at_fork::generate(std::vector<test_event_entry>& event
 {
   const uint64_t amounts_paid[] = {5000, 5000, (uint64_t)-1};
   const rct::RCTConfig rct_config = { rct::RangeProofPaddedBulletproof, 5 };
-  return generate_with(events, 1, amounts_paid, true, rct_config, HF_VERSION_FCMP_PLUS_PLUS, NULL, NULL);
+  return generate_with(events, 1, amounts_paid, true, rct_config, HF_VERSION_FCMP_PLUS_PLUS, NULL);
 }
 
 // TODO: verification
