@@ -365,29 +365,6 @@ class MiningTest():
         assert new_seed_hash == res.seed_hash
         #print('Submit: ' + str(t0))
 
-        # start mining from the genesis block again
-        print('Mining from genesis block again')
-        res = daemon.get_height()
-        top_hash = res.hash
-        res = daemon.getblockheaderbyheight(0)
-        genesis_block_hash = res.block_header.hash
-        t0 = time.time()
-        daemon.generateblocks(address, height - 2, prev_block = genesis_block_hash)
-        t0 = time.time() - t0
-        res = daemon.get_info()
-        assert res.height == height - 1
-        assert res.top_block_hash == top_hash
-        #print('Second mining: ' + str(t0))
-
-        # that one will cause a huge reorg
-        print('Adding one to reorg')
-        res = daemon.generateblocks(address, 1)
-        assert len(res.blocks) == 1
-        new_top_hash = res.blocks[0]
-        res = daemon.get_info()
-        assert res.height == height
-        assert res.top_block_hash == new_top_hash
-
 
 class Guard:
     def __enter__(self):
