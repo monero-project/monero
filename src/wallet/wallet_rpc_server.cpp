@@ -200,15 +200,15 @@ namespace tools
   {
     m_stop = false;
 
-    const bool enable_auto_refresh = m_auto_refresh_period != 0;
     const auto auto_refresh_evaluation_ms = std::chrono::milliseconds(200);
 
     m_net_server.add_idle_handler([=] { // Implicit capture of this-pointer deprecated in C++20.
-      if (!enable_auto_refresh) // disabled
+      const auto auto_refresh_period = m_auto_refresh_period.load(std::memory_order_relaxed);
+      if (auto_refresh_period == 0) // disabled
         return true;
 
       // Check if m_auto_refresh_period seconds have passed since the last refresh attempt.
-      const auto auto_refresh_interval_ms = std::chrono::milliseconds(m_auto_refresh_period * 1'000);
+      const auto auto_refresh_interval_ms = std::chrono::milliseconds(auto_refresh_period * 1'000);
       if (auto_refresh_interval_ms <= auto_refresh_evaluation_ms)
       {
         LOG_PRINT_L0((boost::format(tr("The auto wallet sync evaluation interval of %i ms must be larger than the refresh interval of %i ms"))
@@ -235,9 +235,6 @@ namespace tools
       {
         LOG_ERROR("Exception at while refreshing, what=" << ex.what());
       }
-
-      if (blocks_fetched == 0)
-        return true;
 
       const auto end = std::chrono::steady_clock::now();
       const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -378,8 +375,8 @@ namespace tools
       assert(bool(http_login));
     } // end auth enabled
 
-    m_auto_refresh_period = DEFAULT_AUTO_REFRESH_PERIOD;
-    const auto over_one_period_ago = std::chrono::steady_clock::now() - std::chrono::seconds(m_auto_refresh_period * 2);
+    m_auto_refresh_period.store(DEFAULT_AUTO_REFRESH_PERIOD, std::memory_order_relaxed);
+    const auto over_one_period_ago = std::chrono::steady_clock::now() - std::chrono::seconds(m_auto_refresh_period.load(std::memory_order_relaxed) * 2);
     m_last_auto_refresh_time = over_one_period_ago;
 
     check_background_mining();
@@ -3415,8 +3412,9 @@ namespace tools
     }
     try
     {
-      m_auto_refresh_period = req.enable ? req.period ? req.period : DEFAULT_AUTO_REFRESH_PERIOD : 0;
-      MINFO("Auto refresh now " << (m_auto_refresh_period ? std::to_string(m_auto_refresh_period) + " seconds" : std::string("disabled")));
+      const auto new_period = req.enable ? req.period ? req.period : DEFAULT_AUTO_REFRESH_PERIOD : 0;
+      m_auto_refresh_period.store(new_period, std::memory_order_relaxed);
+      MINFO("Auto refresh now " << (new_period ? std::to_string(new_period) + " seconds" : std::string("disabled")));
       return true;
     }
     catch (const std::exception& e)
