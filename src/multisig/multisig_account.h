@@ -78,7 +78,7 @@ namespace multisig
   * 
   * Note on MULTISIG_MAX_SIGNERS: During key exchange, participants will have up to '(N - 1) choose (N - M)'
   *   key shares. If N is large, then the max number of key shares (when M = (N-1)/2) can be huge. A limit of N <= 16 was
-  *   arbitrarily chosen as a power of 2 that can accomodate the vast majority of practical use-cases. To increase the
+  *   arbitrarily chosen as a power of 2 that can accommodate the vast majority of practical use-cases. To increase the
   *   limit, FROST-style key aggregation should be used instead (it is more efficient than DH-based key generation
   *   when N - M > 1).
   * 
