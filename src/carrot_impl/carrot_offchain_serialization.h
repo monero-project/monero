@@ -31,8 +31,10 @@
 //local headers
 #include "carrot_chain_serialization.h"
 #include "carrot_core/payment_proposal.h"
+#include "serialization/binary_archive.h"
 #include "serialization/crypto.h"
 #include "serialization/optional.h"
+#include "serialization/variant.h"
 #include "subaddress_index.h"
 #include "tx_proposal.h"
 
@@ -42,6 +44,7 @@
 
 //forward declarations
 
+BLOB_SERIALIZER(carrot::encrypted_amount_t);
 BLOB_SERIALIZER(carrot::payment_id_t);
 
 BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotDestinationV1)
@@ -75,16 +78,72 @@ BEGIN_SERIALIZE_OBJECT_FN(carrot::subaddress_index_extended)
     VARINT_FIELD_F(derive_type)
 END_SERIALIZE()
 
+BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotEnoteV1)
+    FIELD_F(onetime_address)
+    FIELD_F(amount_commitment)
+    FIELD_F(amount_enc)
+    FIELD_F(anchor_enc)
+    FIELD_F(view_tag)
+    FIELD_F(enote_ephemeral_pubkey)
+    FIELD_F(tx_first_key_image)
+END_SERIALIZE()
+
+BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotCoinbaseEnoteV1)
+    FIELD_F(onetime_address)
+    VARINT_FIELD_F(amount)
+    FIELD_F(anchor_enc)
+    FIELD_F(view_tag)
+    FIELD_F(enote_ephemeral_pubkey)
+    VARINT_FIELD_F(block_index)
+END_SERIALIZE()
+
+BEGIN_SERIALIZE_OBJECT_FN(carrot::LegacyOutputOpeningHintV1)
+    FIELD_F(onetime_address)
+    FIELD_F(ephemeral_tx_pubkey)
+    FIELD_F(subaddr_index)
+    VARINT_FIELD_F(amount)
+    FIELD_F(amount_blinding_factor)
+    VARINT_FIELD_F(local_output_index)
+END_SERIALIZE()
+
+BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotOutputOpeningHintV1)
+    FIELD_F(source_enote)
+    FIELD_F(encrypted_payment_id)
+    FIELD_F(subaddr_index)
+END_SERIALIZE()
+
+BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotOutputOpeningHintV2)
+    FIELD_F(onetime_address)
+    FIELD_F(amount_commitment)
+    FIELD_F(anchor_enc)
+    FIELD_F(view_tag)
+    FIELD_F(enote_ephemeral_pubkey)
+    FIELD_F(tx_first_key_image)
+    VARINT_FIELD_F(amount)
+    FIELD_F(encrypted_payment_id)
+    FIELD_F(subaddr_index)
+END_SERIALIZE()
+
+BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotCoinbaseOutputOpeningHintV1)
+    FIELD_F(source_enote)
+    VARINT_FIELD_F(derive_type)
+END_SERIALIZE()
+
 BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotPaymentProposalVerifiableSelfSendV1)
     FIELD_F(proposal)
     FIELD_F(subaddr_index)
 END_SERIALIZE()
 
 BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotTransactionProposalV1)
-    FIELD_F(key_images_sorted)
+    FIELD_F(input_proposals)
     FIELD_F(normal_payment_proposals)
     FIELD_F(selfsend_payment_proposals)
     FIELD_F(dummy_encrypted_payment_id)
     VARINT_FIELD_F(fee)
     FIELD_F(extra)
 END_SERIALIZE()
+
+VARIANT_TAG(binary_archive, carrot::LegacyOutputOpeningHintV1, 0x80);
+VARIANT_TAG(binary_archive, carrot::CarrotOutputOpeningHintV1, 0x81);
+VARIANT_TAG(binary_archive, carrot::CarrotOutputOpeningHintV2, 0x82);
+VARIANT_TAG(binary_archive, carrot::CarrotCoinbaseOutputOpeningHintV1, 0x83);

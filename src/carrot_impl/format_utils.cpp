@@ -30,6 +30,7 @@
 #include "format_utils.h"
 
 //local headers
+#include "carrot_core/config.h"
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/payment_proposal.h"
@@ -150,6 +151,30 @@ bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix,
 {
     CHECK_AND_ASSERT_MES(!tx_prefix.vin.empty(), false, "parse_carrot_input_context: no input available");
     return parse_carrot_input_context(tx_prefix.vin.at(0), input_context_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
+{
+    CHECK_AND_ASSERT_THROW_MES(n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
+        "get_carrot_default_tx_extra_size: n_outputs too high: " << n_outputs);
+    CHECK_AND_ASSERT_THROW_MES(n_outputs >= CARROT_MIN_TX_OUTPUTS,
+        "get_carrot_default_tx_extra_size: n_outputs too low: " << n_outputs);
+
+    static constexpr std::uint64_t enc_pid_extra_field_size =
+        8 /*pid*/
+        + 1 /*TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID*/
+        + 1 /*nonce.size()*/
+        + 1 /*tx_extra_field variant tag*/;
+
+    static constexpr std::uint64_t x25519_pubkey_size = 32;
+    const std::size_t n_ephemeral = (n_outputs == 2) ? 1 : n_outputs;
+    const bool use_additional = n_ephemeral > 1;
+    const std::uint64_t ephemeral_pubkeys_field_size =
+        1 /*tx_extra_field variant tag*/
+        + (use_additional ? 1 : 0) /*vector size if applicable*/
+        + (n_ephemeral * x25519_pubkey_size) /*actual pubkeys*/;
+
+    return enc_pid_extra_field_size + ephemeral_pubkeys_field_size;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_extra_v1(

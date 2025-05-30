@@ -33,6 +33,7 @@
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "format_utils.h"
 #include "misc_log_ex.h"
 
 //third party headers
@@ -87,30 +88,6 @@ static void append_additional_payment_proposal_if_necessary(
     });
 }
 //-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
-{
-    CHECK_AND_ASSERT_THROW_MES(n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
-        "get_carrot_default_tx_extra_size: n_outputs too high: " << n_outputs);
-    CHECK_AND_ASSERT_THROW_MES(n_outputs >= CARROT_MIN_TX_OUTPUTS,
-        "get_carrot_default_tx_extra_size: n_outputs too low: " << n_outputs);
-
-    static constexpr std::uint64_t enc_pid_extra_field_size =
-        8 /*pid*/
-        + 1 /*TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID*/
-        + 1 /*nonce.size()*/
-        + 1 /*tx_extra_field variant tag*/;
-
-    static constexpr std::uint64_t x25519_pubkey_size = 32;
-    const std::size_t n_ephemeral = (n_outputs == 2) ? 1 : n_outputs;
-    const bool use_additional = n_ephemeral > 1;
-    const std::uint64_t ephemeral_pubkeys_field_size =
-        1 /*tx_extra_field variant tag*/
-        + (use_additional ? 1 : 0) /*vector size if applicable*/
-        + (n_ephemeral * x25519_pubkey_size) /*actual pubkeys*/;
-
-    return enc_pid_extra_field_size + ephemeral_pubkeys_field_size;
-}
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals_in,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_in,
@@ -224,13 +201,10 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     CHECK_AND_ASSERT_THROW_MES(input_amount_sum == 0,
         "make_carrot_transaction_proposal_v1: post-carved transaction does not balance");
 
-    // collect and sort key images
-    tx_proposal_out.key_images_sorted.reserve(selected_inputs.size());
+    // collect input proposals
+    tx_proposal_out.input_proposals.reserve(selected_inputs.size());
     for (const CarrotSelectedInput &selected_input : selected_inputs)
-        tx_proposal_out.key_images_sorted.push_back(selected_input.key_image);
-    std::sort(tx_proposal_out.key_images_sorted.begin(),
-        tx_proposal_out.key_images_sorted.end(),
-        std::greater{}); // consensus rules dictate inputs sorted in *reverse* lexicographical order since v7
+        tx_proposal_out.input_proposals.push_back(selected_input.input);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_transaction_proposal_v1_transfer(

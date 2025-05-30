@@ -30,6 +30,7 @@
 #include "tx_builder_outputs.h"
 
 //local headers
+#include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "format_utils.h"
@@ -45,9 +46,42 @@
 namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
+void get_sorted_input_key_images_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const key_image_device &key_image_dev,
+    std::vector<crypto::key_image> &sorted_key_images_out,
+    std::vector<std::size_t> *order_out)
+{
+    const std::size_t n_inputs = tx_proposal.input_proposals.size();
+    sorted_key_images_out.clear();
+    sorted_key_images_out.reserve(n_inputs);
+    if (order_out)
+    {
+        order_out->clear();
+        order_out->reserve(n_inputs);
+    }
+
+    // derive key images
+    std::vector<std::pair<crypto::key_image, std::size_t>> sortable_data;
+    sortable_data.reserve(tx_proposal.input_proposals.size());
+    for (std::size_t i = 0; i < n_inputs; ++i)
+        sortable_data.emplace_back(key_image_dev.derive_key_image(tx_proposal.input_proposals.at(i)), i);
+
+    // sort key images
+    std::sort(sortable_data.begin(), sortable_data.end(), std::greater{});
+
+    // collect result
+    for (const auto &p : sortable_data)
+    {
+        sorted_key_images_out.push_back(p.first);
+        if (order_out)
+            order_out->push_back(p.second);
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
 void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
+    const crypto::key_image &tx_first_key_image,
     std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
     encrypted_payment_id_t &encrypted_payment_id_out,
     std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out)
@@ -64,7 +98,29 @@ void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposal
         tx_proposal.dummy_encrypted_payment_id,
         s_view_balance_dev,
         k_view_dev,
-        tx_proposal.key_images_sorted.at(0),
+        tx_first_key_image,
+        output_enote_proposals_out,
+        encrypted_payment_id_out,
+        payment_proposal_order_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
+    std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
+    encrypted_payment_id_t &encrypted_payment_id_out,
+    std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out)
+{
+    // derive input key images
+    std::vector<crypto::key_image> sorted_input_key_images;
+    get_sorted_input_key_images_from_proposal_v1(tx_proposal, key_image_dev, sorted_input_key_images);
+    CARROT_CHECK_AND_THROW(!sorted_input_key_images.empty(), too_few_inputs, "No inputs in proposal");
+
+    get_output_enote_proposals_from_proposal_v1(tx_proposal,
+        s_view_balance_dev,
+        k_view_dev,
+        sorted_input_key_images.at(0),
         output_enote_proposals_out,
         encrypted_payment_id_out,
         payment_proposal_order_out);
@@ -73,6 +129,7 @@ void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposal
 void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
     crypto::hash &signable_tx_hash_out)
 {
     //! @TODO: there's a more efficient way to do this than constructing&serializing a whole cryptonote::transaction
@@ -82,6 +139,7 @@ void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &t
     make_pruned_transaction_from_proposal_v1(tx_proposal,
         s_view_balance_dev,
         k_view_dev,
+        key_image_dev,
         pruned_tx);
 
     //! @TODO: better input number calculation in get_pre_mlsag_hash. possible?
@@ -99,14 +157,21 @@ void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &t
 void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
+    const std::vector<crypto::key_image> &sorted_input_key_images,
     cryptonote::transaction &pruned_tx_out)
 {
+    const std::size_t n_inputs = tx_proposal.input_proposals.size();
+    CARROT_CHECK_AND_THROW(n_inputs, too_few_inputs, "No inputs in proposal");
+    CARROT_CHECK_AND_THROW(sorted_input_key_images.size() == n_inputs,
+        too_few_inputs, "Mismatching size of transaction input proposal and passed input key images");
+
     // derive enote proposals
     std::vector<RCTOutputEnoteProposal> output_enote_proposals;
     encrypted_payment_id_t encrypted_payment_id;
     get_output_enote_proposals_from_proposal_v1(tx_proposal,
         s_view_balance_dev,
         k_view_dev,
+        sorted_input_key_images.at(0),
         output_enote_proposals,
         encrypted_payment_id);
 
@@ -118,7 +183,7 @@ void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 
 
     // serialize tx
     pruned_tx_out = store_carrot_to_transaction_v1(enotes,
-        tx_proposal.key_images_sorted,
+        sorted_input_key_images,
         tx_proposal.fee,
         encrypted_payment_id);
 
@@ -131,6 +196,23 @@ void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 
             "make_pruned_transaction_from_proposal_v1: failed to sort tx extra");
         pruned_tx_out.extra = std::move(sorted_extra);
     }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
+    cryptonote::transaction &pruned_tx_out)
+{
+    // derive input key images
+    std::vector<crypto::key_image> sorted_input_key_images;
+    get_sorted_input_key_images_from_proposal_v1(tx_proposal, key_image_dev, sorted_input_key_images);
+
+    make_pruned_transaction_from_proposal_v1(tx_proposal,
+        s_view_balance_dev,
+        k_view_dev,
+        sorted_input_key_images,
+        pruned_tx_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

@@ -50,7 +50,8 @@ namespace carrot
 //-------------------------------------------------------------------------------------------------------------------
 static std::ostream &operator<<(std::ostream &os, const CarrotSelectedInput &input)
 {
-    os << "{ key_image = '" << input.key_image << "', amount = " << cryptonote::print_money(input.amount) << " }";
+    os << "{ onetime address = '" << onetime_address_ref(input.input)
+        << "', amount = " << cryptonote::print_money(input.amount) << " }";
     return os;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -139,9 +140,9 @@ static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-int compare_input_candidate_same_ki(const InputCandidate &lhs, const InputCandidate &rhs)
+int compare_input_candidate_same_ota(const InputCandidate &lhs, const InputCandidate &rhs)
 {
-    CARROT_CHECK_AND_THROW(lhs.core.key_image == rhs.core.key_image,
+    CARROT_CHECK_AND_THROW(onetime_address_ref(lhs.core.input) == onetime_address_ref(rhs.core.input),
         component_out_of_order, "this function is not meant to compare inputs of different key images");
 
     // First prefer the higher amount,
@@ -186,27 +187,28 @@ std::vector<std::set<std::size_t>> form_preferred_input_candidate_subsets(
     CARROT_CHECK_AND_THROW(!confused_qfs, std::invalid_argument,
         "It does not make sense to allow pre-carrot inputs in normal transfers, but not external carrot inputs.");
 
-    // 1. Compile map of best input candidates by key image to mitigate the "burning bug" for legacy enotes
-    std::unordered_map<crypto::key_image, std::size_t> best_input_by_key_image;
+    // 1. Compile map of best input candidates by onetime address to mitigate the "burning bug" for legacy enotes
+    std::unordered_map<crypto::public_key, std::size_t> best_input_by_onetime_address;
     for (size_t i = 0; i < input_candidates.size(); ++i)
     {
         const InputCandidate &input_candidate = input_candidates[i];
-        auto it = best_input_by_key_image.find(input_candidate.core.key_image);
-        if (it == best_input_by_key_image.end())
+        const crypto::public_key onetime_address = onetime_address_ref(input_candidate.core.input);
+        auto it = best_input_by_onetime_address.find(onetime_address);
+        if (it == best_input_by_onetime_address.end())
         {
-           best_input_by_key_image[input_candidate.core.key_image] = i;
+           best_input_by_onetime_address[onetime_address] = i;
         }
         else
         {
             const InputCandidate &other_input_candidate = input_candidates[it->second];
-            if (compare_input_candidate_same_ki(other_input_candidate, input_candidate) < 0)
+            if (compare_input_candidate_same_ota(other_input_candidate, input_candidate) < 0)
                 it->second = i;
         }
     }
 
     // 2. Collect set of non-burned inputs
     std::set<std::size_t> all_non_burned_inputs;
-    for (const auto &best_input : best_input_by_key_image)
+    for (const auto &best_input : best_input_by_onetime_address)
         all_non_burned_inputs.insert(best_input.second);
 
     // 3. Partition into:

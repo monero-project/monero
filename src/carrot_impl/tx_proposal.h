@@ -30,7 +30,7 @@
 
 //local headers
 #include "carrot_core/payment_proposal.h"
-#include "subaddress_index.h"
+#include "output_opening_types.h"
 
 //third party headers
 
@@ -41,6 +41,9 @@
 
 namespace carrot
 {
+
+using InputProposalV1 = OutputOpeningHintVariant;
+
 /**
  * brief: CarrotPaymentProposalVerifiableSelfSendV1 - A selfsend payment proposal, verified to an owned address
  *
@@ -68,8 +71,8 @@ struct CarrotPaymentProposalVerifiableSelfSendV1
  */
 struct CarrotTransactionProposalV1
 {
-    /// Key images sorted in std::greater order
-    std::vector<crypto::key_image> key_images_sorted;
+    /// Spent enote and corresponding opening info per input
+    std::vector<InputProposalV1> input_proposals;
 
     /// Payment proposals to be converted into output enotes
     std::vector<CarrotPaymentProposalV1> normal_payment_proposals;
