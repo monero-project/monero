@@ -60,6 +60,7 @@ CARROT_DEFINE_SIMPLE_ERROR_TYPE(crypto_function_failed,    carrot_runtime_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(not_enough_money,          carrot_runtime_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(not_enough_usable_money,   carrot_runtime_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(unexpected_scan_failure,   carrot_runtime_error)
+CARROT_DEFINE_SIMPLE_ERROR_TYPE(burnt_enote,               carrot_runtime_error)
 
 /// one needs to include misc_log_ex.h to use the following macros
 #define CARROT_THROW(errtype, message) {      \
