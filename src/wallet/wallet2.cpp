@@ -14315,8 +14315,6 @@ process:
       create_one_off_subaddress(td.m_subaddr_index);
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    if (should_expand(td.m_subaddr_index))
-      expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
     td.m_key_image_request = true;
     td.m_key_image_partial = false;
@@ -14419,8 +14417,6 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
       create_one_off_subaddress(td.m_subaddr_index);
     bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    if (should_expand(td.m_subaddr_index))
-      expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
     td.m_key_image_request = true;
     td.m_key_image_partial = false;
