@@ -47,14 +47,18 @@
 //----------------------------------------------------------------------------------------------------------------------
 static tools::wallet2::transfer_details gen_transfer_details()
 {
-    cryptonote::transaction carrot_tx;
-    carrot_tx.vout.push_back(cryptonote::tx_out{.target = cryptonote::txout_to_carrot_v1{}});
+    cryptonote::transaction carrot_tx{};
+    carrot_tx.version = 2;
+    carrot_tx.vin.push_back(cryptonote::txin_to_key{.k_image = carrot::mock::gen_key_image()});
+    carrot_tx.vout.push_back(cryptonote::tx_out{.target = cryptonote::txout_to_carrot_v1{
+        .key = carrot::mock::gen_public_key()}});
+    cryptonote::add_tx_pub_key_to_extra(carrot_tx.extra, {});
 
     return tools::wallet2::transfer_details{
         .m_block_height = crypto::rand_idx<uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER),
         .m_tx = carrot_tx,
         .m_txid = crypto::rand<crypto::hash>(),
-        .m_internal_output_index = crypto::rand_idx<uint64_t>(carrot::CARROT_MAX_TX_OUTPUTS),
+        .m_internal_output_index = crypto::rand_idx(carrot_tx.vout.size()),
         .m_global_output_index = crypto::rand_idx<uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER * 1000ull),
         .m_spent = false,
         .m_frozen = false,
@@ -78,7 +82,7 @@ static tools::wallet2::transfer_details gen_transfer_details()
 static bool compare_transfer_to_selected_input(const tools::wallet2::transfer_details &td,
     const carrot::CarrotSelectedInput &input)
 {
-    return td.m_amount == input.amount && td.m_key_image == input.key_image;
+    return td.m_amount == input.amount && input.input == tools::wallet::make_sal_opening_hint_from_transfer_details(td);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -186,11 +190,9 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_1)
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 tx_proposal = tx_proposals.at(0);
 
-    std::vector<crypto::key_image> expected_key_images{transfers.front().m_key_image};
-
     // Assert basic length facts about tx proposal
-    ASSERT_EQ(1, tx_proposal.key_images_sorted.size()); // we always try 2 when available
-    EXPECT_EQ(expected_key_images, tx_proposal.key_images_sorted);
+    ASSERT_EQ(1, tx_proposal.input_proposals.size()); // we always try 2 when available
+    EXPECT_EQ(transfers.front().get_public_key(), onetime_address_ref(tx_proposal.input_proposals.at(0)));
     ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
     ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
     EXPECT_EQ(0, tx_proposal.extra.size());
@@ -213,7 +215,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
 
     tools::wallet2::transfer_container transfers;
     std::uint64_t top_block_index = 0;
-    std::unordered_map<crypto::key_image, std::size_t> allowed_transfers;
+    std::unordered_map<crypto::public_key, std::size_t> allowed_transfers;
     for (size_t i = 0; i < FCMP_PLUS_PLUS_MAX_INPUTS + 2; ++i)
     {
         tools::wallet2::transfer_details &td = tools::add_element(transfers);
@@ -223,7 +225,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
         top_block_index = std::max(top_block_index, td.m_block_height);
 
         if (td.m_subaddr_index.major == spending_subaddr_account)
-            allowed_transfers.emplace(td.m_key_image, i);
+            allowed_transfers.emplace(td.get_public_key(), i);
     }
     top_block_index += CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
@@ -250,7 +252,7 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
     // Assert basic length facts about tx proposal
-    ASSERT_LE(tx_proposal.key_images_sorted.size(), 2);
+    ASSERT_LE(tx_proposal.input_proposals.size(), 2);
     ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
     ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
     EXPECT_EQ(0, tx_proposal.extra.size());
@@ -260,15 +262,11 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
 
     // Assert that selected transfers have spending_subaddr_account subaddr major index
     boost::multiprecision::uint128_t in_sum = 0;
-    for (std::size_t in_idx = 0; in_idx < tx_proposal.key_images_sorted.size(); ++in_idx)
+    for (std::size_t in_idx = 0; in_idx < tx_proposal.input_proposals.size(); ++in_idx)
     {
-        const crypto::key_image &ki = tx_proposal.key_images_sorted.at(in_idx);
-        if (in_idx > 0)
-        {
-            ASSERT_LT(ki, tx_proposal.key_images_sorted.at(in_idx - 1));
-        }
-        ASSERT_EQ(1, allowed_transfers.count(ki));
-        const tools::wallet2::transfer_details &td = transfers.at(allowed_transfers.at(ki));
+        const crypto::public_key &ota = onetime_address_ref(tx_proposal.input_proposals.at(in_idx));
+        ASSERT_EQ(1, allowed_transfers.count(ota));
+        const tools::wallet2::transfer_details &td = transfers.at(allowed_transfers.at(ota));
         ASSERT_EQ(spending_subaddr_account, td.m_subaddr_index.major);
         in_sum += td.amount();
     }
@@ -314,8 +312,8 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_1)
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
     // Assert basic length facts about tx proposal
-    ASSERT_EQ(1, tx_proposal.key_images_sorted.size());
-    EXPECT_EQ(transfers.front().m_key_image, tx_proposal.key_images_sorted.front());
+    ASSERT_EQ(1, tx_proposal.input_proposals.size());
+    EXPECT_EQ(transfers.front().get_public_key(), onetime_address_ref(tx_proposal.input_proposals.front()));
     ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
     ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
     EXPECT_EQ(0, tx_proposal.extra.size());
@@ -348,8 +346,8 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_2)
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
     // Assert basic length facts about tx proposal
-    ASSERT_EQ(1, tx_proposal.key_images_sorted.size());
-    EXPECT_EQ(transfers.front().m_key_image, tx_proposal.key_images_sorted.front());
+    ASSERT_EQ(1, tx_proposal.input_proposals.size());
+    EXPECT_EQ(transfers.front().get_public_key(), onetime_address_ref(tx_proposal.input_proposals.front()));
     ASSERT_EQ(FCMP_PLUS_PLUS_MAX_OUTPUTS - 1, tx_proposal.normal_payment_proposals.size());
     ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
     EXPECT_EQ(0, tx_proposal.extra.size());
@@ -390,8 +388,8 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_3)
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
     // Assert basic length facts about tx proposal
-    ASSERT_EQ(1, tx_proposal.key_images_sorted.size());
-    EXPECT_EQ(transfers.front().m_key_image, tx_proposal.key_images_sorted.front());
+    ASSERT_EQ(1, tx_proposal.input_proposals.size());
+    EXPECT_EQ(transfers.front().get_public_key(), onetime_address_ref(tx_proposal.input_proposals.front()));
     ASSERT_EQ(0, tx_proposal.normal_payment_proposals.size());
     ASSERT_EQ(FCMP_PLUS_PLUS_MAX_OUTPUTS, tx_proposal.selfsend_payment_proposals.size());
     EXPECT_EQ(0, tx_proposal.extra.size());
@@ -434,19 +432,19 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
 
     // generate map of amounts by key image, key image vector, and height of chain
     std::vector<crypto::key_image> selected_key_images;
-    std::unordered_map<crypto::key_image, rct::xmr_amount> amounts_by_ki;
+    std::unordered_map<crypto::public_key, rct::xmr_amount> amounts_by_ota;
     uint64_t top_block_index = 0;
     for (const size_t selected_transfer_index : selected_transfer_indices)
     {
         const tools::wallet2::transfer_details &td = transfers.at(selected_transfer_index);
         selected_key_images.push_back(td.m_key_image);
-        amounts_by_ki.emplace(td.m_key_image, td.amount());
+        amounts_by_ota.emplace(td.get_public_key(), td.amount());
         top_block_index = std::max(top_block_index, td.m_block_height);
     }
     top_block_index += CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
     ASSERT_EQ(n_selected_transfers, selected_key_images.size());
-    ASSERT_EQ(n_selected_transfers, amounts_by_ki.size());
+    ASSERT_EQ(n_selected_transfers, amounts_by_ota.size());
 
     const size_t n_dests_per_tx = 4;
 
@@ -463,30 +461,31 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
         top_block_index);
     ASSERT_EQ(4, tx_proposals.size());
 
-    std::set<crypto::key_image> actual_seen_kis;
+    std::set<crypto::public_key> actual_seen_otas;
     size_t n_actual_inputs = 0;
     for (const carrot::CarrotTransactionProposalV1 &tx_proposal : tx_proposals)
     {
-        ASSERT_LE(tx_proposal.key_images_sorted.size(), FCMP_PLUS_PLUS_MAX_INPUTS);
+        ASSERT_LE(tx_proposal.input_proposals.size(), FCMP_PLUS_PLUS_MAX_INPUTS);
         ASSERT_EQ(n_dests_per_tx, tx_proposal.normal_payment_proposals.size());
         ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
         ASSERT_EQ(0, tx_proposal.selfsend_payment_proposals.at(0).proposal.amount);
         EXPECT_EQ(0, tx_proposal.extra.size());
 
         rct::xmr_amount tx_inputs_amount = 0;
-        for (const crypto::key_image &ki : tx_proposal.key_images_sorted)
+        for (const auto &input_proposal : tx_proposal.input_proposals)
         {
-            ASSERT_TRUE(amounts_by_ki.count(ki));
-            ASSERT_FALSE(actual_seen_kis.count(ki));
-            actual_seen_kis.insert(ki);
-            tx_inputs_amount += amounts_by_ki.at(ki);
+            const crypto::public_key ota = onetime_address_ref(input_proposal);
+            ASSERT_TRUE(amounts_by_ota.count(ota));
+            ASSERT_FALSE(actual_seen_otas.count(ota));
+            actual_seen_otas.insert(ota);
+            tx_inputs_amount += amounts_by_ota.at(ota);
         }
         rct::xmr_amount tx_outputs_amount = tx_proposal.fee;
         for (const carrot::CarrotPaymentProposalV1 &normal_payment_proposal : tx_proposal.normal_payment_proposals)
             tx_outputs_amount += normal_payment_proposal.amount;
         ASSERT_EQ(tx_inputs_amount, tx_outputs_amount);
 
-        n_actual_inputs += tx_proposal.key_images_sorted.size();
+        n_actual_inputs += tx_proposal.input_proposals.size();
     }
 
     EXPECT_EQ(n_selected_transfers, n_actual_inputs);
@@ -515,19 +514,19 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
 
     // generate map of amounts by key image, key image vector, and height of chain
     std::vector<crypto::key_image> selected_key_images;
-    std::unordered_map<crypto::key_image, rct::xmr_amount> amounts_by_ki;
+    std::unordered_map<crypto::public_key, rct::xmr_amount> amounts_by_ota;
     uint64_t top_block_index = 0;
     for (const size_t selected_transfer_index : selected_transfer_indices)
     {
         const tools::wallet2::transfer_details &td = transfers.at(selected_transfer_index);
         selected_key_images.push_back(td.m_key_image);
-        amounts_by_ki.emplace(td.m_key_image, td.amount());
+        amounts_by_ota.emplace(td.get_public_key(), td.amount());
         top_block_index = std::max(top_block_index, td.m_block_height);
     }
     top_block_index += CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
     ASSERT_EQ(n_selected_transfers, selected_key_images.size());
-    ASSERT_EQ(n_selected_transfers, amounts_by_ki.size());
+    ASSERT_EQ(n_selected_transfers, amounts_by_ota.size());
 
     const size_t n_dests_per_tx = 8;
 
@@ -544,11 +543,11 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
         top_block_index);
     ASSERT_EQ(8, tx_proposals.size());
 
-    std::set<crypto::key_image> actual_seen_kis;
+    std::set<crypto::public_key> actual_seen_otas;
     size_t n_actual_inputs = 0;
     for (const carrot::CarrotTransactionProposalV1 &tx_proposal : tx_proposals)
     {
-        ASSERT_LE(tx_proposal.key_images_sorted.size(), FCMP_PLUS_PLUS_MAX_INPUTS);
+        ASSERT_LE(tx_proposal.input_proposals.size(), FCMP_PLUS_PLUS_MAX_INPUTS);
         ASSERT_EQ(n_dests_per_tx == 1 ? 1 : 0, tx_proposal.normal_payment_proposals.size());
         ASSERT_EQ(n_dests_per_tx, tx_proposal.selfsend_payment_proposals.size());
         if (!tx_proposal.normal_payment_proposals.empty())
@@ -558,19 +557,20 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
         EXPECT_EQ(0, tx_proposal.extra.size());
 
         rct::xmr_amount tx_inputs_amount = 0;
-        for (const crypto::key_image &ki : tx_proposal.key_images_sorted)
+        for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
         {
-            ASSERT_TRUE(amounts_by_ki.count(ki));
-            ASSERT_FALSE(actual_seen_kis.count(ki));
-            actual_seen_kis.insert(ki);
-            tx_inputs_amount += amounts_by_ki.at(ki);
+            const crypto::public_key ota = onetime_address_ref(input_proposal);
+            ASSERT_TRUE(amounts_by_ota.count(ota));
+            ASSERT_FALSE(actual_seen_otas.count(ota));
+            actual_seen_otas.insert(ota);
+            tx_inputs_amount += amounts_by_ota.at(ota);
         }
         rct::xmr_amount tx_outputs_amount = tx_proposal.fee;
         for (const carrot::CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
             tx_outputs_amount += selfsend_payment_proposal.proposal.amount;
         ASSERT_EQ(tx_inputs_amount, tx_outputs_amount);
 
-        n_actual_inputs += tx_proposal.key_images_sorted.size();
+        n_actual_inputs += tx_proposal.input_proposals.size();
     }
 
     EXPECT_EQ(n_selected_transfers, n_actual_inputs);
@@ -599,19 +599,19 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_6)
 
     // generate map of amounts by key image, key image vector, and height of chain
     std::vector<crypto::key_image> selected_key_images;
-    std::unordered_map<crypto::key_image, rct::xmr_amount> amounts_by_ki;
+    std::unordered_map<crypto::public_key, rct::xmr_amount> amounts_by_ota;
     uint64_t top_block_index = 0;
     for (const size_t selected_transfer_index : selected_transfer_indices)
     {
         const tools::wallet2::transfer_details &td = transfers.at(selected_transfer_index);
         selected_key_images.push_back(td.m_key_image);
-        amounts_by_ki.emplace(td.m_key_image, td.amount());
+        amounts_by_ota.emplace(td.get_public_key(), td.amount());
         top_block_index = std::max(top_block_index, td.m_block_height);
     }
     top_block_index += CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
 
     ASSERT_EQ(n_selected_transfers, selected_key_images.size());
-    ASSERT_EQ(n_selected_transfers, amounts_by_ki.size());
+    ASSERT_EQ(n_selected_transfers, amounts_by_ota.size());
 
     const size_t n_dests_per_tx = 2;
 
@@ -629,20 +629,21 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_6)
     ASSERT_EQ(1, tx_proposals.size());
     const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
 
-    std::set<crypto::key_image> actual_seen_kis;
+    std::set<crypto::public_key> actual_seen_otas;
 
-    ASSERT_EQ(n_selected_transfers, tx_proposal.key_images_sorted.size());
+    ASSERT_EQ(n_selected_transfers, tx_proposal.input_proposals.size());
     ASSERT_EQ(0, tx_proposal.normal_payment_proposals.size());
     ASSERT_EQ(2, tx_proposal.selfsend_payment_proposals.size());
     EXPECT_EQ(0, tx_proposal.extra.size());
 
     rct::xmr_amount tx_inputs_amount = 0;
-    for (const crypto::key_image &ki : tx_proposal.key_images_sorted)
+    for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
     {
-        ASSERT_TRUE(amounts_by_ki.count(ki));
-        ASSERT_FALSE(actual_seen_kis.count(ki));
-        actual_seen_kis.insert(ki);
-        tx_inputs_amount += amounts_by_ki.at(ki);
+        const crypto::public_key ota = onetime_address_ref(input_proposal);
+        ASSERT_TRUE(amounts_by_ota.count(ota));
+        ASSERT_FALSE(actual_seen_otas.count(ota));
+        actual_seen_otas.insert(ota);
+        tx_inputs_amount += amounts_by_ota.at(ota);
     }
     const rct::xmr_amount output_amount_0 = tx_proposal.selfsend_payment_proposals.at(0).proposal.amount;
     const rct::xmr_amount output_amount_1 = tx_proposal.selfsend_payment_proposals.at(1).proposal.amount;

@@ -54,6 +54,16 @@ namespace
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+static carrot::OutputOpeningHintVariant gen_output_opening_hint()
+{
+    return carrot::CarrotOutputOpeningHintV1{
+        .source_enote = carrot::mock::gen_carrot_enote_v1(),
+        .encrypted_payment_id = carrot::gen_encrypted_payment_id(),
+        .subaddr_index = carrot::mock::gen_subaddress_index_extended()
+    };
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 static void unittest_scan_enote_set_multi_account(const std::vector<CarrotEnoteV1> &enotes,
     const encrypted_payment_id_t encrypted_payment_id,
     const epee::span<const mock::mock_carrot_and_legacy_keys * const> accounts,
@@ -127,12 +137,11 @@ select_inputs_func_t make_fake_input_selection_callback(size_t num_ins = 0)
         for (size_t i = 0; i < nins - 1; ++i)
         {
             const rct::xmr_amount current_in_amount = in_amount_sum_64 ? crypto::rand_idx(in_amount_sum_64) : 0;
-            const crypto::key_image current_key_image = rct::rct2ki(rct::pkGen());
-            selected_inputs.push_back({current_in_amount, current_key_image});
+            selected_inputs.push_back({current_in_amount, gen_output_opening_hint()});
             in_amount_sum_64 -= current_in_amount;
         }
 
-        selected_inputs.push_back({in_amount_sum_64, rct::rct2ki(rct::pkGen())});
+        selected_inputs.push_back({in_amount_sum_64, gen_output_opening_hint()});
     };
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -171,6 +180,7 @@ static void subtest_multi_account_transfer_over_transaction(const unittest_trans
     make_pruned_transaction_from_proposal_v1(tx_proposal,
         &ss_keys.s_view_balance_dev,
         &ss_keys.k_view_incoming_dev,
+        mock::dummy_key_image_device{},
         tx);
 
     // calculate acceptable fee margin between proposed amount and actual amount for subtractable outputs
@@ -1210,7 +1220,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_2)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 222,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_external = false,
             .block_index = 23
@@ -1271,7 +1281,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = inamount_0,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_external = false,
             .block_index = 3407684
@@ -1279,7 +1289,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = inamount_1,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_external = false,
             .block_index = 4867043
@@ -1314,7 +1324,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 500,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_external = false,
             .block_index = 72
@@ -1322,7 +1332,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_1)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 200,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_external = false,
             .block_index = 34
@@ -1381,7 +1391,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_2)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 500,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_external = false,
             .block_index = 72
@@ -1431,7 +1441,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_pre_carrot = false,
             .is_external = false,
@@ -1440,7 +1450,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_pre_carrot = false,
             .is_external = false,
@@ -1449,7 +1459,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_pre_carrot = false,
             .is_external = false,
@@ -1458,7 +1468,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_pre_carrot = false,
             .is_external = false,
@@ -1467,7 +1477,7 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
         InputCandidate {
             .core = CarrotSelectedInput {
                 .amount = 100,
-                .key_image = mock::gen_key_image(),
+                .input = gen_output_opening_hint(),
             },
             .is_pre_carrot = false,
             .is_external = false,
@@ -1510,10 +1520,10 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
 
     ASSERT_EQ(4, selected_input_indices.size()); // discretization yay
     ASSERT_EQ(4, selected_inputs.size());
-    std::set<crypto::key_image> selected_kis;
+    std::set<crypto::public_key> selected_otas;
     for (const CarrotSelectedInput &selected_input : selected_inputs)
-        selected_kis.insert(selected_input.key_image);
-    ASSERT_EQ(4, selected_kis.size());
+        selected_otas.insert(onetime_address_ref(selected_input.input));
+    ASSERT_EQ(4, selected_otas.size());
 
     // this particular set of 4 indices is the indices of the 4 oldest inputs
     ASSERT_EQ(std::set<size_t>({0, 1, 2, 4}), selected_input_indices);

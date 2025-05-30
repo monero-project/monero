@@ -35,6 +35,7 @@
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/tx_proposal_utils.h"
+#include "carrot_mock_helpers.h"
 #include "crypto/generators.h"
 #include "wallet/scanning_tools.h"
 
@@ -412,8 +413,8 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
     )
     {
         const auto in_amount = boost::numeric_cast<rct::xmr_amount>(nominal_output_sum + fee_by_input_count.at(1));
-        const crypto::key_image ki = rct::rct2ki(rct::pkGen());
-        select_inputs_out = {carrot::CarrotSelectedInput{.amount = in_amount, .key_image = ki}};
+        const carrot::CarrotOutputOpeningHintV1 fake_input{carrot::mock::gen_carrot_enote_v1()};
+        select_inputs_out = {carrot::CarrotSelectedInput{.amount = in_amount, .input = fake_input}};
     };
 
     const carrot::view_incoming_key_ram_borrowed_device k_view_dev(acc_keys.m_view_secret_key);
@@ -431,10 +432,16 @@ cryptonote::transaction construct_carrot_pruned_transaction_fake_inputs(
         {},
         tx_proposal);
 
+    std::vector<crypto::key_image> fake_input_key_images;
+    fake_input_key_images.reserve(tx_proposal.input_proposals.size());
+    for (std::size_t i = 0; i < tx_proposal.input_proposals.size(); ++i)
+        fake_input_key_images.push_back(carrot::mock::gen_key_image());
+
     cryptonote::transaction tx;
     carrot::make_pruned_transaction_from_proposal_v1(tx_proposal,
         /*s_view_balance_dev=*/nullptr,
         &k_view_dev,
+        fake_input_key_images,
         tx);
 
     return tx;

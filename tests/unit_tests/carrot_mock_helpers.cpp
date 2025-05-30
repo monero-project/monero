@@ -30,6 +30,7 @@
 #include "carrot_mock_helpers.h"
 
 //local headers
+#include "carrot_core/hash_functions.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 
 //third party headers
@@ -309,6 +310,24 @@ AddressDeriveType mock_carrot_and_legacy_keys::resolve_derive_type(const Address
     return derive_type == AddressDeriveType::Auto ? default_derive_type : derive_type;
 }
 //----------------------------------------------------------------------------------------------------------------------
+crypto::key_image dummy_key_image_device::derive_key_image(const OutputOpeningHintVariant &opening_hint) const
+{
+    static constexpr unsigned char domain_separator[]
+        = "One for the money, two for the better green, 3,4-methylenedioxymethamphetamine";
+    static_assert(sizeof(domain_separator) > 1);
+    unsigned char data[sizeof(domain_separator) + sizeof(crypto::public_key)] = {0};
+    memcpy(data, &domain_separator, sizeof(domain_separator));
+    const crypto::public_key ota = onetime_address_ref(opening_hint);
+    memcpy(data + sizeof(domain_separator), &ota, sizeof(ota));
+    unsigned char h[32];
+    derive_bytes_32(data, sizeof(data), nullptr, h);
+    ge_p2 KI_p2;
+    ge_fromfe_frombytes_vartime(&KI_p2, h); // fancy, if not really necessary
+    crypto::key_image KI;
+    ge_tobytes(to_bytes(KI), &KI_p2);
+    return KI;
+}
+//----------------------------------------------------------------------------------------------------------------------
 void mock_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
     const encrypted_payment_id_t encrypted_payment_id,
     const mock_carrot_and_legacy_keys &keys,
@@ -471,6 +490,11 @@ bool compare_scan_result(const mock_scan_result_t &scan_res,
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
+crypto::public_key gen_public_key()
+{
+    return rct::rct2pk(rct::pkGen());
+}
+//----------------------------------------------------------------------------------------------------------------------
 crypto::key_image gen_key_image()
 {
     return rct::rct2ki(rct::pkGen());
@@ -491,6 +515,31 @@ subaddress_index gen_subaddress_index()
 subaddress_index_extended gen_subaddress_index_extended(const AddressDeriveType derive_type)
 {
     return {gen_subaddress_index(), derive_type};
+}
+//----------------------------------------------------------------------------------------------------------------------
+CarrotEnoteV1 gen_carrot_enote_v1()
+{
+    return CarrotEnoteV1{
+        .onetime_address = gen_public_key(),
+        .amount_commitment = rct::pkGen(),
+        .amount_enc = gen_encrypted_amount(),
+        .anchor_enc = gen_janus_anchor(),
+        .view_tag = gen_view_tag(),
+        .enote_ephemeral_pubkey = gen_x25519_pubkey(),
+        .tx_first_key_image = gen_key_image()
+    };
+}
+//----------------------------------------------------------------------------------------------------------------------
+CarrotCoinbaseEnoteV1 gen_carrot_coinbase_enote_v1()
+{
+    return CarrotCoinbaseEnoteV1{
+        .onetime_address = gen_public_key(),
+        .amount = COIN + rct::randXmrAmount(COIN),
+        .anchor_enc = gen_janus_anchor(),
+        .view_tag = gen_view_tag(),
+        .enote_ephemeral_pubkey = gen_x25519_pubkey(),
+        .block_index = crypto::rand_idx<std::uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER)
+    };
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::vector<CarrotEnoteV1> collect_enotes(const std::vector<RCTOutputEnoteProposal> &output_enote_proposals)

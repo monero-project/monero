@@ -50,34 +50,38 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
 
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
+    // k_e, K_e
+    crypto::secret_key enote_ephemeral_privkey;
+    crypto::public_key enote_ephemeral_pubkey;
+    crypto::generate_keys(enote_ephemeral_pubkey, enote_ephemeral_privkey);
+
+    // 8 k_e K^0_v
+    crypto::key_derivation kd;
+    ASSERT_TRUE(crypto::generate_key_derivation(addr.address_view_pubkey, enote_ephemeral_privkey, kd));
+
+    // K_o = K^0_s + Hs1(8 k_e K^0_v, i) G
+    const std::size_t local_output_index = 2;
+    crypto::public_key onetime_address;
+    crypto::derive_public_key(kd, local_output_index, addr.address_spend_pubkey, onetime_address);
+
     // a
     const rct::xmr_amount amount = crypto::rand<rct::xmr_amount>();
     // z
     const rct::key amount_blinding_factor = rct::skGen();
-    // k^g_o
-    const crypto::secret_key sender_extension_g = mock::gen_secret_key();
-
-    // K_o = K^0_s + k^g_o G
-    rct::key onetime_address;
-    rct::addKeys1(onetime_address,
-        rct::sk2rct(sender_extension_g),
-        rct::pk2rct(addr.address_spend_pubkey));
 
     // C_a = z G + a H
     const rct::key amount_commitment = rct::commit(amount, amount_blinding_factor);
 
     const LegacyOutputOpeningHintV1 opening_hint{
-        .onetime_address = rct::rct2pk(onetime_address),
-        .sender_extension_g = sender_extension_g,
+        .onetime_address = onetime_address,
+        .ephemeral_tx_pubkey = enote_ephemeral_pubkey,
         .subaddr_index = {0, 0},
         .amount = amount,
-        .amount_blinding_factor = rct::rct2sk(amount_blinding_factor)
+        .amount_blinding_factor = amount_blinding_factor,
+        .local_output_index = local_output_index
     };
 
-    const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
-        sender_extension_g,
-        crypto::null_skey,
-        rct::rct2pk(onetime_address));
+    const crypto::key_image expected_key_image = keys.key_image_dev.derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -95,7 +99,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_legacy_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -129,6 +133,22 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
 
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
 
+    // k_e, K_e = k_e K^j_s
+    crypto::secret_key enote_ephemeral_privkey;
+    crypto::public_key enote_ephemeral_pubkey;
+    crypto::generate_keys(enote_ephemeral_pubkey, enote_ephemeral_privkey);
+    enote_ephemeral_pubkey = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(addr.address_spend_pubkey),
+        rct::sk2rct(enote_ephemeral_privkey)));
+
+    // 8 k_e K^j_v
+    crypto::key_derivation kd;
+    ASSERT_TRUE(crypto::generate_key_derivation(addr.address_view_pubkey, enote_ephemeral_privkey, kd));
+
+    // K_o = K^j_s + Hs1(8 k_e K^0_v, i) G
+    const std::size_t local_output_index = 0;
+    crypto::public_key onetime_address;
+    crypto::derive_public_key(kd, local_output_index, addr.address_spend_pubkey, onetime_address);
+
     // a
     const rct::xmr_amount amount = crypto::rand<rct::xmr_amount>();
     // z
@@ -136,27 +156,19 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     // k^g_o
     const crypto::secret_key sender_extension_g = mock::gen_secret_key();
 
-    // K_o = K^0_s + k^g_o G
-    rct::key onetime_address;
-    rct::addKeys1(onetime_address,
-        rct::sk2rct(sender_extension_g),
-        rct::pk2rct(addr.address_spend_pubkey));
-
     // C_a = z G + a H
     const rct::key amount_commitment = rct::commit(amount, amount_blinding_factor);
 
     const LegacyOutputOpeningHintV1 opening_hint{
-        .onetime_address = rct::rct2pk(onetime_address),
-        .sender_extension_g = sender_extension_g,
+        .onetime_address = onetime_address,
+        .ephemeral_tx_pubkey = enote_ephemeral_pubkey,
         .subaddr_index = subaddress_index.index,
         .amount = amount,
-        .amount_blinding_factor = rct::rct2sk(amount_blinding_factor)
+        .amount_blinding_factor = amount_blinding_factor,
+        .local_output_index = local_output_index
     };
 
-    const crypto::key_image expected_key_image = keys.derive_key_image(addr.address_spend_pubkey,
-        sender_extension_g,
-        crypto::null_skey,
-        rct::rct2pk(onetime_address));
+    const crypto::key_image expected_key_image = keys.key_image_dev.derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -174,7 +186,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_legacy_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -261,7 +273,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_normal)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -351,7 +363,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_normal)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -441,7 +453,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_subaddr_special)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -528,7 +540,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_legacy_v1_mainaddr_special)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -611,7 +623,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_normal)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
@@ -700,7 +712,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_normal)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
@@ -786,7 +798,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_special)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
@@ -875,7 +887,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_special)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
@@ -961,7 +973,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_mainaddr_internal)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
@@ -1050,7 +1062,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_to_carrot_v1_subaddr_internal)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
@@ -1133,7 +1145,7 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_legacy_v1)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_coinbase_to_legacy_v1(signable_tx_hash,
+    make_sal_proof_any_to_legacy_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.legacy_acb.get_keys().m_spend_secret_key,
@@ -1209,12 +1221,14 @@ TEST(carrot_tx_builder, make_sal_proof_carrot_coinbase_to_carrot_v1)
     // make SA/L proof for spending aforementioned enote
     fcmp_pp::FcmpPpSalProof sal_proof;
     crypto::key_image actual_key_image;
-    make_sal_proof_carrot_coinbase_to_carrot_v1(signable_tx_hash,
+    make_sal_proof_any_to_carrot_v1(signable_tx_hash,
         rerandomized_outputs.front(),
         opening_hint,
         keys.k_prove_spend,
         keys.k_generate_image,
+        keys.s_view_balance_dev,
         keys.k_view_incoming_dev,
+        keys.s_generate_address_dev,
         sal_proof,
         actual_key_image);
 
