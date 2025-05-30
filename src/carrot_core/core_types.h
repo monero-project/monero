@@ -129,6 +129,8 @@ static inline bool operator!=(const view_tag_t &a, const view_tag_t &b) { return
 
 /// generate a random janus anchor
 janus_anchor_t gen_janus_anchor();
+/// generate a random encrypted amount
+encrypted_amount_t gen_encrypted_amount();
 /// generate a random (non-null) payment ID
 payment_id_t gen_payment_id();
 /// generate a random encrypted payment ID

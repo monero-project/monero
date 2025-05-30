@@ -117,6 +117,11 @@ janus_anchor_t gen_janus_anchor()
     return crypto::rand<janus_anchor_t>();
 }
 //-------------------------------------------------------------------------------------------------------------------
+encrypted_amount_t gen_encrypted_amount()
+{
+    return crypto::rand<encrypted_amount_t>();
+}
+//-------------------------------------------------------------------------------------------------------------------
 payment_id_t gen_payment_id()
 {
     while (true)
