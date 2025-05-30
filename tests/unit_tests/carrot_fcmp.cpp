@@ -30,9 +30,12 @@
 
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/input_selection.h"
+#include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/tx_builder_inputs.h"
+#include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/tx_proposal_utils.h"
 #include "carrot_mock_helpers.h"
 #include "common/container_helpers.h"
@@ -351,7 +354,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             {
                 key_images_out.push_back(CarrotSelectedInput{
                     .amount = std::get<0>(info.second),
-                    .key_image = info.first
+                    .input = std::get<4>(info.second)
                 });
             }
         },
@@ -368,6 +371,12 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     for (const CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal : tx_proposal.selfsend_payment_proposals)
         selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
 
+    // derive input key images
+    std::vector<crypto::key_image> sorted_input_key_images;
+    carrot::get_sorted_input_key_images_from_proposal_v1(tx_proposal,
+        alice.key_image_dev,
+        sorted_input_key_images);
+
     // derive output enote set
     LOG_PRINT_L1("Deriving enotes");
     std::vector<RCTOutputEnoteProposal> output_enote_proposals;
@@ -377,7 +386,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         tx_proposal.dummy_encrypted_payment_id,
         &alice.s_view_balance_dev,
         &alice.k_view_incoming_dev,
-        tx_proposal.key_images_sorted.at(0),
+        sorted_input_key_images.at(0),
         output_enote_proposals,
         encrypted_payment_id);
 
@@ -390,7 +399,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::vector<CarrotEnoteV1> output_enotes;
     for (size_t i = 0; i < n_inputs; ++i)
     {
-        const input_info_t &input_info = input_info_by_ki.at(tx_proposal.key_images_sorted.at(i));
+        const input_info_t &input_info = input_info_by_ki.at(sorted_input_key_images.at(i));
         input_onetime_addresses.push_back(std::get<3>(input_info));
         input_amount_commitments.push_back(std::get<2>(input_info));
         input_amount_blinding_factors.push_back(std::get<1>(input_info));
@@ -405,7 +414,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // make pruned tx
     LOG_PRINT_L1("Storing carrot to transaction");
     cryptonote::transaction tx = store_carrot_to_transaction_v1(output_enotes,
-        tx_proposal.key_images_sorted,
+        sorted_input_key_images,
         tx_proposal.fee,
         encrypted_payment_id);
 
@@ -444,13 +453,9 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
     for (size_t i = 0; i < n_inputs; ++i)
     {
-        const CarrotOpenableRerandomizedOutputV1 openable_opening_hint{
-            .rerandomized_output = rerandomized_outputs.at(i),
-            .opening_hint = std::get<4>(input_info_by_ki.at(tx_proposal.key_images_sorted.at(i)))
-        };
-
         make_sal_proof_any_to_carrot_v1(signable_tx_hash,
-            openable_opening_hint,
+            rerandomized_outputs.at(i),
+            std::get<4>(input_info_by_ki.at(sorted_input_key_images.at(i))),
             alice.k_prove_spend,
             alice.k_generate_image,
             alice.s_view_balance_dev,
@@ -471,7 +476,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     std::vector<fcmp_pp::ProofInput> fcmp_proof_inputs(n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
-        const size_t leaf_idx = std::get<5>(input_info_by_ki.at(tx_proposal.key_images_sorted.at(i)));
+        const size_t leaf_idx = std::get<5>(input_info_by_ki.at(sorted_input_key_images.at(i)));
         const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
         const std::size_t path_leaf_idx = leaf_idx % curve_trees->m_c1_width;
 

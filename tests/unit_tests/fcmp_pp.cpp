@@ -28,7 +28,7 @@
 
 #include "gtest/gtest.h"
 
-#include "carrot_impl/tx_proposal_utils.h"
+#include "carrot_impl/format_utils.h"
 #include "common/container_helpers.h"
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"

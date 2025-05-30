@@ -36,6 +36,8 @@
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_core/scan.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/key_image_device_composed.h"
 #include "carrot_impl/subaddress_index.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/account.h"
@@ -59,35 +61,78 @@ static constexpr std::uint32_t MAX_SUBADDRESS_MINOR_INDEX = 20;
 //----------------------------------------------------------------------------------------------------------------------
 struct mock_carrot_and_legacy_keys
 {
+    // legacy privkeys and pubkeys
     cryptonote::account_base legacy_acb;
 
+    // carrot secret keys (minus k_v, which is shared with legacy k_v)
     crypto::secret_key s_master;
     crypto::secret_key k_prove_spend;
     crypto::secret_key s_view_balance;
     crypto::secret_key k_generate_image;
     crypto::secret_key s_generate_address;
 
+    // carrot public keys (minus K^0_v, which is shared with legacy K^0_v)
     crypto::public_key carrot_account_spend_pubkey;
     crypto::public_key carrot_account_view_pubkey;
 
+    // RAM devices galore
     view_incoming_key_ram_borrowed_device k_view_incoming_dev;
     view_balance_secret_ram_borrowed_device s_view_balance_dev;
+    generate_image_key_ram_borrowed_device k_generate_image_dev;
     generate_address_secret_ram_borrowed_device s_generate_address_dev;
+    cryptonote_hierarchy_address_device_ram_borrowed cn_addr_dev;
+    carrot_hierarchy_address_device_ram_borrowed carrot_addr_dev;
+    hybrid_hierarchy_address_device_composed hybrid_addr_dev;
+    key_image_device_composed key_image_dev;
 
     std::unordered_map<crypto::public_key, subaddress_index_extended> subaddress_map;
 
     AddressDeriveType default_derive_type;
 
-    mock_carrot_and_legacy_keys(): k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
+    mock_carrot_and_legacy_keys():
+        k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
         s_view_balance_dev(s_view_balance),
-        s_generate_address_dev(s_generate_address)
+        k_generate_image_dev(k_generate_image),
+        s_generate_address_dev(s_generate_address),
+        cn_addr_dev(legacy_acb.get_keys().m_account_address.m_spend_public_key, legacy_acb.get_keys().m_view_secret_key),
+        carrot_addr_dev(carrot_account_spend_pubkey, carrot_account_view_pubkey, legacy_acb.get_keys().m_account_address.m_view_public_key, s_generate_address),
+        hybrid_addr_dev(&cn_addr_dev, &carrot_addr_dev),
+        key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
     {}
 
-    mock_carrot_and_legacy_keys(const mock_carrot_and_legacy_keys &k) = delete;
-    mock_carrot_and_legacy_keys(mock_carrot_and_legacy_keys&&) = delete;
+    mock_carrot_and_legacy_keys(const mock_carrot_and_legacy_keys &k):
+        k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
+        s_view_balance_dev(s_view_balance),
+        k_generate_image_dev(k_generate_image),
+        s_generate_address_dev(s_generate_address),
+        cn_addr_dev(legacy_acb.get_keys().m_account_address.m_spend_public_key, legacy_acb.get_keys().m_view_secret_key),
+        carrot_addr_dev(carrot_account_spend_pubkey, carrot_account_view_pubkey, legacy_acb.get_keys().m_account_address.m_view_public_key, s_generate_address),
+        hybrid_addr_dev(&cn_addr_dev, &carrot_addr_dev),
+        key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
+    {
+        *this = k;
+    }
 
-    mock_carrot_and_legacy_keys& operator=(const mock_carrot_and_legacy_keys&) = delete;
-    mock_carrot_and_legacy_keys& operator=(mock_carrot_and_legacy_keys&&) = delete;
+    mock_carrot_and_legacy_keys& operator=(const mock_carrot_and_legacy_keys &k)
+    {
+        if (&k == this)
+            return *this;
+
+        legacy_acb = k.legacy_acb;
+        s_master = k.s_master;
+        k_prove_spend = k.k_prove_spend;
+        s_view_balance = k.s_view_balance;
+        k_generate_image = k.k_generate_image;
+        s_generate_address = k.s_generate_address;
+
+        carrot_account_spend_pubkey = k.carrot_account_spend_pubkey;
+        carrot_account_view_pubkey = k.carrot_account_view_pubkey;
+
+        subaddress_map = k.subaddress_map;
+        default_derive_type = k.default_derive_type;
+
+        return *this;
+    }
 
     CarrotDestinationV1 cryptonote_address(const payment_id_t payment_id = null_payment_id,
         const AddressDeriveType derive_type = AddressDeriveType::Auto) const;
@@ -129,6 +174,12 @@ struct mock_carrot_and_legacy_keys
     AddressDeriveType resolve_derive_type(const AddressDeriveType derive_type) const;
 };
 //----------------------------------------------------------------------------------------------------------------------
+struct dummy_key_image_device: public key_image_device
+{
+    /// Key image device which returns an unpredictable but deterministic key image for a given onetime address
+    crypto::key_image derive_key_image(const OutputOpeningHintVariant &opening_hint) const override;
+};
+//----------------------------------------------------------------------------------------------------------------------
 struct mock_scan_result_t
 {
     crypto::public_key address_spend_pubkey;
@@ -165,6 +216,8 @@ bool compare_scan_result(const mock_scan_result_t &scan_res,
     const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal,
     const rct::xmr_amount allowed_fee_margin_opt = 0);
 //----------------------------------------------------------------------------------------------------------------------
+crypto::public_key gen_public_key();
+//----------------------------------------------------------------------------------------------------------------------
 crypto::key_image gen_key_image();
 //----------------------------------------------------------------------------------------------------------------------
 crypto::secret_key gen_secret_key();
@@ -172,6 +225,10 @@ crypto::secret_key gen_secret_key();
 subaddress_index gen_subaddress_index();
 //----------------------------------------------------------------------------------------------------------------------
 subaddress_index_extended gen_subaddress_index_extended(const AddressDeriveType derive_type = AddressDeriveType::Auto);
+//----------------------------------------------------------------------------------------------------------------------
+CarrotEnoteV1 gen_carrot_enote_v1();
+//----------------------------------------------------------------------------------------------------------------------
+CarrotCoinbaseEnoteV1 gen_carrot_coinbase_enote_v1();
 //----------------------------------------------------------------------------------------------------------------------
 std::vector<CarrotEnoteV1> collect_enotes(const std::vector<RCTOutputEnoteProposal> &output_enote_proposals);
 //----------------------------------------------------------------------------------------------------------------------
