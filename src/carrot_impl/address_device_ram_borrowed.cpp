@@ -31,6 +31,7 @@
 
 //local headers
 #include "address_utils_compat.h"
+#include "carrot_core/address_utils.h"
 
 //third party headers
 
@@ -51,6 +52,90 @@ void cryptonote_hierarchy_address_device_ram_borrowed::make_legacy_subaddress_ex
         major_index,
         minor_index,
         legacy_subaddress_extension_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+carrot_hierarchy_address_device_ram_borrowed::carrot_hierarchy_address_device_ram_borrowed(
+        const crypto::public_key &account_spend_pubkey,
+        const crypto::public_key &account_view_pubkey,
+        const crypto::public_key &main_address_view_pubkey,
+        const crypto::secret_key &s_generate_address)
+    :
+        m_account_spend_pubkey(account_spend_pubkey),
+        m_account_view_pubkey(account_view_pubkey),
+        m_main_address_view_pubkey(main_address_view_pubkey),
+        m_s_generate_address(s_generate_address)
+{}
+//-------------------------------------------------------------------------------------------------------------------
+void carrot_hierarchy_address_device_ram_borrowed::make_index_extension_generator(const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::secret_key &address_generator_out) const
+{
+    make_carrot_index_extension_generator(m_s_generate_address, major_index, minor_index, address_generator_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+crypto::public_key carrot_hierarchy_address_device_ram_borrowed::get_carrot_account_spend_pubkey() const
+{
+    return m_account_spend_pubkey;
+}
+//-------------------------------------------------------------------------------------------------------------------
+crypto::public_key carrot_hierarchy_address_device_ram_borrowed::get_carrot_account_view_pubkey() const
+{
+    return m_account_view_pubkey;
+}
+//-------------------------------------------------------------------------------------------------------------------
+crypto::public_key carrot_hierarchy_address_device_ram_borrowed::get_carrot_main_address_view_pubkey() const
+{
+    return m_main_address_view_pubkey;
+}
+//-------------------------------------------------------------------------------------------------------------------
+hybrid_hierarchy_address_device_composed::hybrid_hierarchy_address_device_composed(
+        const cryptonote_hierarchy_address_device *cn_addr_dev,
+        const carrot_hierarchy_address_device *carrot_addr_dev)
+    :
+        m_cn_addr_dev(cn_addr_dev),
+        m_carrot_addr_dev(carrot_addr_dev)
+{}
+//-------------------------------------------------------------------------------------------------------------------
+bool hybrid_hierarchy_address_device_composed::supports_address_derivation_type(AddressDeriveType derive_type) const
+{
+    switch (derive_type)
+    {
+        case AddressDeriveType::PreCarrot:
+            return m_cn_addr_dev;
+        case AddressDeriveType::Carrot:
+            return m_carrot_addr_dev;
+        case AddressDeriveType::Auto:
+            return m_cn_addr_dev || m_carrot_addr_dev;
+        default:
+            throw device_error("Default",
+                "hybrid_hierarchy_address_device_composed",
+                "supports_address_derivation_type",
+                "unrecognized derive type", -1);
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+const cryptonote_hierarchy_address_device &hybrid_hierarchy_address_device_composed::access_cryptonote_hierarchy_device() const
+{
+    if (!m_cn_addr_dev)
+    {
+        throw device_error("Default",
+            "hybrid_hierarchy_address_device_composed",
+            "access_cryptonote_hierarchy_device",
+            "cryptonote sub-device unavailable", -1);
+    }
+    return *m_cn_addr_dev;
+}
+//-------------------------------------------------------------------------------------------------------------------
+const carrot_hierarchy_address_device &hybrid_hierarchy_address_device_composed::access_carrot_hierarchy_device() const
+{
+    if (!m_carrot_addr_dev)
+    {
+        throw device_error("Default",
+            "hybrid_hierarchy_address_device_composed",
+            "access_carrot_hierarchy_device",
+            "carrot sub-device unavailable", -1);
+    }
+    return *m_carrot_addr_dev;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

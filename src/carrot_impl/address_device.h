@@ -88,9 +88,9 @@ struct hybrid_hierarchy_address_device
 {
     virtual bool supports_address_derivation_type(AddressDeriveType derive_type) const = 0;
 
-    virtual cryptonote_hierarchy_address_device &access_cryptonote_hierarchy_device() const = 0;
+    virtual const cryptonote_hierarchy_address_device &access_cryptonote_hierarchy_device() const = 0;
 
-    virtual carrot_hierarchy_address_device &access_carrot_hierarchy_device() const = 0;
+    virtual const carrot_hierarchy_address_device &access_carrot_hierarchy_device() const = 0;
 
     virtual ~hybrid_hierarchy_address_device() = default;
 };

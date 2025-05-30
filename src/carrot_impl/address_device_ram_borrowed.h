@@ -63,4 +63,47 @@ struct cryptonote_hierarchy_address_device_ram_borrowed:
 protected:
     const crypto::public_key &m_cryptonote_account_spend_pubkey;
 };
+
+class carrot_hierarchy_address_device_ram_borrowed: public carrot_hierarchy_address_device
+{
+public:
+    carrot_hierarchy_address_device_ram_borrowed(
+        const crypto::public_key &account_spend_pubkey,
+        const crypto::public_key &account_view_pubkey,
+        const crypto::public_key &main_address_view_pubkey,
+        const crypto::secret_key &s_generate_address);
+
+    void make_index_extension_generator(const std::uint32_t major_index,
+        const std::uint32_t minor_index,
+        crypto::secret_key &address_generator_out) const override;
+
+    crypto::public_key get_carrot_account_spend_pubkey() const override;
+
+    crypto::public_key get_carrot_account_view_pubkey() const override;
+
+    crypto::public_key get_carrot_main_address_view_pubkey() const override;
+
+protected:
+    const crypto::public_key &m_account_spend_pubkey;
+    const crypto::public_key &m_account_view_pubkey;
+    const crypto::public_key &m_main_address_view_pubkey;
+    const crypto::secret_key &m_s_generate_address;
+};
+
+class hybrid_hierarchy_address_device_composed: public hybrid_hierarchy_address_device
+{
+public:
+    hybrid_hierarchy_address_device_composed(const cryptonote_hierarchy_address_device *cn_addr_dev,
+        const carrot_hierarchy_address_device *carrot_addr_dev);
+
+    bool supports_address_derivation_type(AddressDeriveType derive_type) const override;
+
+    const cryptonote_hierarchy_address_device &access_cryptonote_hierarchy_device() const override;
+
+    const carrot_hierarchy_address_device &access_carrot_hierarchy_device() const override;
+
+protected:
+    const cryptonote_hierarchy_address_device *m_cn_addr_dev;
+    const carrot_hierarchy_address_device *m_carrot_addr_dev;
+};
 } //namespace carrot
