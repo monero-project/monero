@@ -38,8 +38,6 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/optional/optional.hpp>
 #include "serialization/serialization.h"
-#include "cryptonote_basic/cryptonote_boost_serialization.h"
-#include "cryptonote_basic/account_boost_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "common/i18n.h"
 #include "common/command_line.h"
@@ -352,7 +350,7 @@ namespace mms
     void stop() { m_run.store(false, std::memory_order_relaxed); m_transporter.stop(); }
 
     void write_to_file(const multisig_wallet_state &state, const std::string &filename);
-    void read_from_file(const multisig_wallet_state &state, const std::string &filename, bool load_deprecated_formats = false);
+    void read_from_file(const multisig_wallet_state &state, const std::string &filename);
 
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
@@ -417,89 +415,4 @@ namespace mms
     std::string account_address_to_string(const cryptonote::account_public_address &account_address) const;
     void save(const multisig_wallet_state &state);
   };
-}
-
-BOOST_CLASS_VERSION(mms::file_data, 0)
-BOOST_CLASS_VERSION(mms::message_store, 0)
-BOOST_CLASS_VERSION(mms::message, 0)
-BOOST_CLASS_VERSION(mms::file_transport_message, 0)
-BOOST_CLASS_VERSION(mms::authorized_signer, 1)
-BOOST_CLASS_VERSION(mms::auto_config_data, 0)
-
-namespace boost
-{
-  namespace serialization
-  {
-    template <class Archive>
-    inline void serialize(Archive &a, mms::file_data &x, const boost::serialization::version_type ver)
-    {
-      a & x.magic_string;
-      a & x.file_version;
-      a & x.iv;
-      a & x.encrypted_data;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, mms::message &x, const boost::serialization::version_type ver)
-    {
-      a & x.id;
-      a & x.type;
-      a & x.direction;
-      a & x.content;
-      a & x.created;
-      a & x.modified;
-      a & x.sent;
-      a & x.signer_index;
-      a & x.hash;
-      a & x.state;
-      a & x.wallet_height;
-      a & x.round;
-      a & x.signature_count;
-      a & x.transport_id;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, mms::authorized_signer &x, const boost::serialization::version_type ver)
-    {
-      a & x.label;
-      a & x.transport_address;
-      a & x.monero_address_known;
-      a & x.monero_address;
-      a & x.me;
-      a & x.index;
-      if (ver < 1)
-      {
-        return;
-      }
-      a & x.auto_config_token;
-      a & x.auto_config_public_key;
-      a & x.auto_config_secret_key;
-      a & x.auto_config_transport_address;
-      a & x.auto_config_running;  
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, mms::auto_config_data &x, const boost::serialization::version_type ver)
-    {
-      a & x.label;
-      a & x.transport_address;
-      a & x.monero_address;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, mms::file_transport_message &x, const boost::serialization::version_type ver)
-    {
-      a & x.sender_address;
-      a & x.iv;
-      a & x.encryption_public_key;
-      a & x.internal_message;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, crypto::chacha_iv &x, const boost::serialization::version_type ver)
-    {
-      a & x.data;
-    }
-
-  }
 }
