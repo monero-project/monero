@@ -180,4 +180,17 @@ struct generate_address_secret_device
     virtual ~generate_address_secret_device() = default;
 };
 
+struct generate_image_key_device
+{
+    /**
+     * brief: generate_image_scalar_mult_hash_to_point - 
+     *   [carrot] L_partial = k_gi Hp(K_o)
+     *   [legacy] L_partial = k_s Hp(K_o)
+     * param: onetime_address - K_o
+     * return: L_partial
+     */
+    virtual crypto::ec_point generate_image_scalar_mult_hash_to_point(
+        const crypto::public_key &onetime_address) const = 0;
+};
+
 } //namespace carrot

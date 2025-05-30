@@ -94,4 +94,15 @@ void generate_address_secret_ram_borrowed_device::make_index_extension_generator
     make_carrot_index_extension_generator(m_s_generate_address, major_index, minor_index, address_generator_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
+crypto::ec_point generate_image_key_ram_borrowed_device::generate_image_scalar_mult_hash_to_point(
+    const crypto::public_key &onetime_address) const
+{
+    // I = Hp(K_o)
+    crypto::ec_point key_image_generator;
+    crypto::derive_key_image_generator(onetime_address, key_image_generator);
+
+    // L_partial = k_gi I
+    return rct::rct2pt(rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(m_k_generate_image)));
+}
+//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
