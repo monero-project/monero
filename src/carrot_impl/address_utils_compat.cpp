@@ -77,39 +77,14 @@ void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
     crypto::hash_to_scalar(data, sizeof(data), legacy_subaddress_extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &k_view,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
+void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subaddress_extension,
     const crypto::public_key &account_spend_pubkey,
     crypto::public_key &legacy_subaddress_spend_pubkey_out)
 {
-    // k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
-    crypto::secret_key subaddress_extension;
-    make_legacy_subaddress_extension(k_view, major_index, minor_index, subaddress_extension);
-
     // K^j_s = K_s + k^j_subext G
     rct::key res_k;
-    rct::addKeys1(res_k, rct::sk2rct(subaddress_extension), rct::pk2rct(account_spend_pubkey));
+    rct::addKeys1(res_k, rct::sk2rct(legacy_subaddress_extension), rct::pk2rct(account_spend_pubkey));
     legacy_subaddress_spend_pubkey_out = rct::rct2pk(res_k);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void make_legacy_subaddress_view_pubkey(const crypto::secret_key &k_view,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
-    const crypto::public_key &account_spend_pubkey,
-    crypto::public_key &legacy_subaddress_view_pubkey_out)
-{
-    // K^j_s = K_s + k^j_subext G
-    crypto::public_key address_spend_pubkey;
-    make_legacy_subaddress_spend_pubkey(k_view,
-        major_index,
-        minor_index,
-        account_spend_pubkey,
-        address_spend_pubkey);
-
-    // K^j_v = k_v K^j_s
-    legacy_subaddress_view_pubkey_out = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(address_spend_pubkey),
-        rct::sk2rct(k_view)));
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

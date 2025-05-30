@@ -55,30 +55,11 @@ void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
 /**
  * brief: make_legacy_subaddress_spend_pubkey - K^j_s
  *   K^j_s = K_s + k^j_subext G
- * param: k_view - k_v
- * param: major_index - j_major
- * param: minor_index - j_minor
+ * param: legacy_subaddress_extension_out - k^j_subext
  * param: account_spend_pubkey - K_s
  * outparam: legacy_subaddress_spend_pubkey_out - K^j_s
  */
-void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &k_view,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
+void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subaddress_extension,
     const crypto::public_key &account_spend_pubkey,
     crypto::public_key &legacy_subaddress_spend_pubkey_out);
-/**
- * brief: make_legacy_subaddress_view_pubkey - K^j_v
- *   K^j_v = k_v K^j_s
- * param: k_view - k_v
- * param: major_index - j_major
- * param: minor_index - j_minor
- * param: account_spend_pubkey - K_s
- * outparam: legacy_subaddress_view_pubkey_out - K^j_v
- */
-void make_legacy_subaddress_view_pubkey(const crypto::secret_key &k_view,
-    const std::uint32_t major_index,
-    const std::uint32_t minor_index,
-    const crypto::public_key &account_spend_pubkey,
-    crypto::public_key &legacy_subaddress_view_pubkey_out);
-
 } //namespace carrot
