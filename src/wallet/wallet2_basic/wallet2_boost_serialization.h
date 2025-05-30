@@ -32,7 +32,6 @@
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_basic/account_boost_serialization.h"
 #include "wallet2_types.h"
-#include "wallet2_storage.h"
 
 //third party headers
 #include <boost/serialization/deque.hpp>
@@ -415,134 +414,6 @@ inline void serialize(Archive& a, wallet2_basic::background_sync_data_t &x, cons
     a & x.subaddress_lookahead_minor;
     a & x.wallet_refresh_type;
 }
-
-template <class Archive>
-void serialize(Archive& a, wallet2_basic::cache_data& x, const unsigned int ver)
-{
-    using namespace wallet2_basic;
-    uint64_t dummy_refresh_height = 0; // moved to keys file
-    if(ver < 5)
-        return;
-    if (ver < 19)
-    {
-        std::vector<crypto::hash> blockchain;
-        a & blockchain;
-        x.m_blockchain.clear();
-        for (const auto &b: blockchain)
-        {
-            x.m_blockchain.push_back(b);
-        }
-    }
-    else
-    {
-        a & x.m_blockchain;
-    }
-    a & x.m_transfers;
-    a & x.m_account_public_address;
-    a & x.m_key_images;
-    if(ver < 6)
-        return;
-    a & x.m_unconfirmed_txs;
-    if(ver < 7)
-        return;
-    a & x.m_payments;
-    if(ver < 8)
-        return;
-    a & x.m_tx_keys;
-    if(ver < 9)
-        return;
-    a & x.m_confirmed_txs;
-    if(ver < 11)
-        return;
-    a & dummy_refresh_height;
-    if(ver < 12)
-        return;
-    a & x.m_tx_notes;
-    if(ver < 13)
-        return;
-    if (ver < 17)
-    {
-        // we're loading an old version, where m_unconfirmed_payments was a std::map
-        std::unordered_map<crypto::hash, payment_details> m;
-        a & m;
-        x.m_unconfirmed_payments.clear();
-        for (const auto& i : m)
-            x.m_unconfirmed_payments.insert({i.first, pool_payment_details{i.second, false}});
-    }
-    if(ver < 14)
-        return;
-    if(ver < 15)
-    {
-        // we're loading an older wallet without a pubkey map, rebuild it
-        x.m_pub_keys.clear();
-        for (size_t i = 0; i < x.m_transfers.size(); ++i)
-        {
-            const transfer_details &td = x.m_transfers[i];
-            x.m_pub_keys.emplace(td.get_public_key(), i);
-        }
-        return;
-    }
-    a & x.m_pub_keys;
-    if(ver < 16)
-        return;
-    a & x.m_address_book;
-    if(ver < 17)
-        return;
-    if (ver < 22)
-    {
-        // we're loading an old version, where m_unconfirmed_payments payload was payment_details
-        std::unordered_multimap<crypto::hash, payment_details> m;
-        a & m;
-        x.m_unconfirmed_payments.clear();
-        for (const auto &i: m)
-            x.m_unconfirmed_payments.insert({i.first, pool_payment_details{i.second, false}});
-    }
-    if(ver < 18)
-        return;
-    a & x.m_scanned_pool_txs[0];
-    a & x.m_scanned_pool_txs[1];
-    if (ver < 20)
-        return;
-    a & x.m_subaddresses;
-    std::unordered_map<cryptonote::subaddress_index, crypto::public_key> dummy_subaddresses_inv;
-    a & dummy_subaddresses_inv;
-    a & x.m_subaddress_labels;
-    a & x.m_additional_tx_keys;
-    if(ver < 21)
-        return;
-    a & x.m_attributes;
-    if(ver < 22)
-        return;
-    a & x.m_unconfirmed_payments;
-    if(ver < 23)
-        return;
-    a & (std::pair<std::map<std::string, std::string>, std::vector<std::string>>&) x.m_account_tags;
-    if(ver < 24)
-        return;
-    a & x.m_ring_history_saved;
-    if(ver < 25)
-        return;
-    a & x.m_last_block_reward;
-    if(ver < 26)
-        return;
-    a & x.m_tx_device;
-    if(ver < 27)
-        return;
-    a & x.m_device_last_key_image_sync;
-    if(ver < 28)
-        return;
-    a & x.m_cold_key_images;
-    if(ver < 29)
-        return;
-    crypto::secret_key dummy_rpc_client_secret_key; // Compatibility for old RPC payment system
-    a & dummy_rpc_client_secret_key;
-    if(ver < 30)
-    {
-        x.m_has_ever_refreshed_from_node = false;
-        return;
-    }
-    a & x.m_has_ever_refreshed_from_node;
-}
 } // namespace serialization
 } // namespace boost
 
@@ -557,4 +428,3 @@ BOOST_CLASS_VERSION(wallet2_basic::pool_payment_details, 1)
 BOOST_CLASS_VERSION(wallet2_basic::address_book_row, 18)
 BOOST_CLASS_VERSION(wallet2_basic::background_synced_tx_t, 0)
 BOOST_CLASS_VERSION(wallet2_basic::background_sync_data_t, 0)
-BOOST_CLASS_VERSION(wallet2_basic::cache_data, 32)
