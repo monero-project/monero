@@ -30,6 +30,7 @@
 
 //local headers
 #include "wallet2_types.h"
+#include "wallet2_storage.h"
 
 //third party headers
 
@@ -165,5 +166,51 @@ BEGIN_SERIALIZE_OBJECT_FN(background_sync_data_t)
     VARINT_FIELD_F(subaddress_lookahead_major)
     VARINT_FIELD_F(subaddress_lookahead_minor)
     VARINT_FIELD_F(wallet_refresh_type)
+END_SERIALIZE()
+
+BEGIN_SERIALIZE_OBJECT_FN(cache_data)
+    MAGIC_FIELD("monero wallet cache")
+    VERSION_FIELD(3)
+    FIELD_F(m_blockchain)
+    FIELD_F(m_transfers)
+    FIELD_F(m_account_public_address)
+    FIELD_F(m_key_images)
+    FIELD_F(m_unconfirmed_txs)
+    FIELD_F(m_payments)
+    FIELD_F(m_tx_keys)
+    FIELD_F(m_confirmed_txs)
+    FIELD_F(m_tx_notes)
+    FIELD_F(m_unconfirmed_payments)
+    FIELD_F(m_pub_keys)
+    FIELD_F(m_address_book)
+    FIELD_F(m_scanned_pool_txs[0])
+    FIELD_F(m_scanned_pool_txs[1])
+    FIELD_F(m_subaddresses)
+    FIELD_F(m_subaddress_labels)
+    FIELD_F(m_additional_tx_keys)
+    FIELD_F(m_attributes)
+    FIELD_F(m_account_tags)
+    FIELD_F(m_ring_history_saved)
+    FIELD_F(m_last_block_reward)
+    FIELD_F(m_tx_device)
+    FIELD_F(m_device_last_key_image_sync)
+    FIELD_F(m_cold_key_images)
+    crypto::secret_key dummy_rpc_client_secret_key; // Compatibility for old RPC payment system
+    FIELD_N("m_rpc_client_secret_key", dummy_rpc_client_secret_key)
+    if (version < 1)
+    {
+        v.m_has_ever_refreshed_from_node = false;
+        return true;
+    }
+    FIELD_F(m_has_ever_refreshed_from_node)
+    if (version < 2)
+    {
+        v.m_background_sync_data = wallet2_basic::background_sync_data_t{};
+        return true;
+    }
+    FIELD_F(m_background_sync_data)
+    if (version < 3)
+        return true;
+    FIELD_F(m_tree_cache)
 END_SERIALIZE()
 } //namespace wallet2_basic
