@@ -46,11 +46,11 @@ namespace carrot
 struct CarrotSelectedInput
 {
     rct::xmr_amount amount;
-    crypto::key_image key_image;
+    InputProposalV1 input;
 };
 static inline bool operator==(const CarrotSelectedInput &a, const CarrotSelectedInput &b)
 {
-    return a.amount == b.amount && a.key_image == b.key_image;
+    return a.amount == b.amount && onetime_address_ref(a.input) == onetime_address_ref(b.input);
 }
 static inline bool operator!=(const CarrotSelectedInput &a, const CarrotSelectedInput &b)
 {
@@ -71,8 +71,6 @@ using carve_fees_and_balance_func_t = std::function<void(
         std::vector<CarrotPaymentProposalV1>&,                  // normal payment proposals [inout]
         std::vector<CarrotPaymentProposalVerifiableSelfSendV1>& // selfsend payment proposals [inout]
     )>;
-
-std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
 
 void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
     const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,

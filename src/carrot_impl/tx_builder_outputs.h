@@ -30,6 +30,7 @@
 
 //local headers
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "key_image_device.h"
 #include "tx_proposal.h"
 
 //third party headers
@@ -40,6 +41,17 @@
 
 namespace carrot
 {
+/**
+ * brief: get_sorted_input_key_images_from_proposal_v1 -
+ * param: tx_proposal -
+ * param: key_image_dev -
+ * outparam: sorted_key_images_out -
+ * outparam: order_out - order of input proposals in key image list [OPTIONAL]
+ */
+void get_sorted_input_key_images_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const key_image_device &key_image_dev,
+    std::vector<crypto::key_image> &sorted_key_images_out,
+    std::vector<std::size_t> *order_out = nullptr);
 /**
  * brief: get_output_enote_proposals_from_proposal_v1 - get_output_enote_proposals for transaction proposals
  * param: tx_proposal - transaction proposal
@@ -52,6 +64,14 @@ namespace carrot
 void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
+    const crypto::key_image &tx_first_key_image,
+    std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
+    encrypted_payment_id_t &encrypted_payment_id_out,
+    std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out = nullptr);
+void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
     std::vector<RCTOutputEnoteProposal> &output_enote_proposals_out,
     encrypted_payment_id_t &encrypted_payment_id_out,
     std::vector<std::pair<bool, std::size_t>> *payment_proposal_order_out = nullptr);
@@ -65,16 +85,25 @@ void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposal
 void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
     crypto::hash &signable_tx_hash_out);
 /**
  * brief: make_pruned_transaction_from_proposal_v1 - make pruned Carrot/FCMP++ transaction from tx proposal and keys
  * param: tx_proposal - transaction proposal
  * param: s_view_balance_dev - device for s_vb (optional)
  * param: k_view_dev - device for k_v (optional)
+ * param: sorted_input_key_images -
+ * param: key_image_dev - device for deriving key images
  * outparam: pruned_tx_out - pruned Carrot/FCMP++ transaction represented by transaction proposal
  */
 void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
+    const std::vector<crypto::key_image> &sorted_input_key_images,
+    cryptonote::transaction &pruned_tx_out);
+void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
     cryptonote::transaction &pruned_tx_out);
 } //namespace carrot

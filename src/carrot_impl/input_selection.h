@@ -81,7 +81,7 @@ using input_selection_policy_t = std::function<void(
 )>;
 
 /**
- * brief: compare_input_candidate_same_ki - compare two input candidates who share a key image; we can only choose one!
+ * brief: compare_input_candidate_same_ota - compare two input candidates who share a OTA; we can only choose one!
  * param: lhs -
  * param: rhs -
  * return: 1 if lhs is better, -1 if rhs is better, 0 if neutral
@@ -93,7 +93,7 @@ using input_selection_policy_t = std::function<void(
  *     3. Is pre-Carrot enote? (`false` is better for spending QFS)
  *     4. Is external enote?  (`false` is better for spending QFS)
  */
-int compare_input_candidate_same_ki(const InputCandidate &lhs, const InputCandidate &rhs);
+int compare_input_candidate_same_ota(const InputCandidate &lhs, const InputCandidate &rhs);
 /**
  * brief: form_preferred_input_candidate_subsets - make subsets of input candidates to try selection in preferred order
  * param: input_candidates - slice to user-provided input candidates

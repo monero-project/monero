@@ -78,7 +78,13 @@ input_context_t parse_carrot_input_context(const cryptonote::txin_to_key &txin);
 bool parse_carrot_input_context(const cryptonote::txin_v &txin, input_context_t &input_context_out);
 bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix, input_context_t &input_context_out);
 /**
- * try_load_carrot_extra_v1 - load Carrot info which is stored in tx_extra
+ * brief: get_carrot_default_tx_extra_size - get default size of tx_extra for a Carrot v1 tx with no custom fields
+ * param: n_outputs -
+ * return: default size of tx_extra for a Carrot v1 tx with no custom fields
+ */
+std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
+/**
+ * brief: try_load_carrot_extra_v1 - load Carrot info which is stored in tx_extra
  * param: tx_extra_fields -
  * outparam: enote_ephemeral_pubkeys_out - D_e
  * outparam: encrypted_payment_id_out - pid_enc

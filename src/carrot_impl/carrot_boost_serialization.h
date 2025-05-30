@@ -68,6 +68,12 @@ inline void serialize(Archive &a, carrot::encrypted_janus_anchor_t &x, const boo
 }
 //---------------------------------------------------
 template <class Archive>
+inline void serialize(Archive &a, carrot::encrypted_amount_t &x, const boost::serialization::version_type ver)
+{
+    a & x.bytes;
+}
+//---------------------------------------------------
+template <class Archive>
 inline void serialize(Archive &a, carrot::payment_id_t &x, const boost::serialization::version_type ver)
 {
     a & x.bytes;
@@ -121,6 +127,69 @@ inline void serialize(Archive &a, carrot::subaddress_index_extended &x, const bo
 }
 //---------------------------------------------------
 template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotEnoteV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.onetime_address;
+    a & x.amount_commitment;
+    a & x.amount_enc;
+    a & x.anchor_enc;
+    a & x.view_tag;
+    a & x.enote_ephemeral_pubkey;
+    a & x.tx_first_key_image;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotCoinbaseEnoteV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.onetime_address;
+    a & x.amount;
+    a & x.anchor_enc;
+    a & x.view_tag;
+    a & x.enote_ephemeral_pubkey;
+    a & x.block_index;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::LegacyOutputOpeningHintV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.onetime_address;
+    a & x.ephemeral_tx_pubkey;
+    a & x.subaddr_index;
+    a & x.amount;
+    a & x.amount_blinding_factor;
+    a & x.local_output_index;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotOutputOpeningHintV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.source_enote;
+    a & x.encrypted_payment_id;
+    a & x.subaddr_index;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotOutputOpeningHintV2 &x, const boost::serialization::version_type ver)
+{
+    a & x.onetime_address;
+    a & x.amount_commitment;
+    a & x.anchor_enc;
+    a & x.view_tag;
+    a & x.enote_ephemeral_pubkey;
+    a & x.tx_first_key_image;
+    a & x.amount;
+    a & x.encrypted_payment_id;
+    a & x.subaddr_index;
+}
+//---------------------------------------------------
+template <class Archive>
+inline void serialize(Archive &a, carrot::CarrotCoinbaseOutputOpeningHintV1 &x, const boost::serialization::version_type ver)
+{
+    a & x.source_enote;
+    a & x.derive_type;
+}
+//---------------------------------------------------
+template <class Archive>
 inline void serialize(Archive &a, carrot::CarrotPaymentProposalVerifiableSelfSendV1 &x, const boost::serialization::version_type ver)
 {
     a & x.proposal;
@@ -130,7 +199,7 @@ inline void serialize(Archive &a, carrot::CarrotPaymentProposalVerifiableSelfSen
 template <class Archive>
 inline void serialize(Archive &a, carrot::CarrotTransactionProposalV1 &x, const boost::serialization::version_type ver)
 {
-    a & x.key_images_sorted;
+    a & x.input_proposals;
     a & x.normal_payment_proposals;
     a & x.selfsend_payment_proposals;
     a & x.dummy_encrypted_payment_id;
