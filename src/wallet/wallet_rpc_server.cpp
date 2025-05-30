@@ -1890,18 +1890,6 @@ namespace tools
     }
     catch(...) {}
 
-    if (!loaded && !m_restricted)
-    {
-      try
-      {
-        std::istringstream iss(blob);
-        boost::archive::portable_binary_iarchive ar(iss);
-        ar >> ptx;
-        loaded = true;
-      }
-      catch (...) {}
-    }
-
     if (!loaded)
     {
       er.code = WALLET_RPC_ERROR_CODE_BAD_TX_METADATA;
