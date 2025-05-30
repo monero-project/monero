@@ -31,6 +31,7 @@
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet_sources
+  hot_cold.cpp
   wallet2.cpp
   wallet_args.cpp
   ringdb.cpp
@@ -109,3 +110,4 @@ if(NOT IOS)
 endif()
 
 add_subdirectory(api)
+add_subdirectory(wallet2_basic)

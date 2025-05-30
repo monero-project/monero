@@ -29,6 +29,7 @@
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet2_basic_sources
+    wallet2_storage.cpp
 )
 
 set(wallet2_basic_headers
@@ -48,9 +49,9 @@ monero_add_library(wallet2_basic
     ${wallet2_basic_private_headers})
 target_link_libraries(wallet2_basic
     PUBLIC
-        common
-        cryptonote_core
+        cryptonote_basic
         device_trezor
+        fcmp_pp
         ${Boost_LOCALE_LIBRARY}
         ${ICU_LIBRARIES}
         ${Boost_SERIALIZATION_LIBRARY}

@@ -72,6 +72,8 @@
 #include "serialization/containers.h"
 #include "scanning_tools.h"
 
+#include "hot_cold.h"
+#include "tx_builder.h"
 #include "wallet_errors.h"
 #include "wallet2_basic/wallet2_types.h"
 #include "common/password.h"
@@ -270,46 +272,7 @@ private:
     };
 
     using transfer_details = wallet2_basic::transfer_details;
-
-    struct exported_transfer_details
-    {
-      crypto::public_key m_pubkey;
-      uint64_t m_internal_output_index;
-      uint64_t m_global_output_index;
-      crypto::public_key m_tx_pubkey;
-      union
-      {
-        struct
-        {
-          uint8_t m_spent: 1;
-          uint8_t m_frozen: 1;
-          uint8_t m_rct: 1;
-          uint8_t m_key_image_known: 1;
-          uint8_t m_key_image_request: 1; // view wallets: we want to request it; cold wallets: it was requested
-          uint8_t m_key_image_partial: 1;
-        };
-        uint8_t flags;
-      } m_flags;
-      uint64_t m_amount;
-      std::vector<crypto::public_key> m_additional_tx_keys;
-      uint32_t m_subaddr_index_major;
-      uint32_t m_subaddr_index_minor;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
-        if (version < 1)
-          return false;
-        FIELD(m_pubkey)
-        VARINT_FIELD(m_internal_output_index)
-        VARINT_FIELD(m_global_output_index)
-        FIELD(m_tx_pubkey)
-        FIELD(m_flags.flags)
-        VARINT_FIELD(m_amount)
-        FIELD(m_additional_tx_keys)
-        VARINT_FIELD(m_subaddr_index_major)
-        VARINT_FIELD(m_subaddr_index_minor)
-      END_SERIALIZE()
-    };
+    using exported_transfer_details = wallet::exported_pre_carrot_transfer_details;
 
     typedef std::vector<uint64_t> amounts_container;
     using payment_details = wallet2_basic::payment_details;
@@ -324,158 +287,14 @@ private:
     using unconfirmed_transfer_details = wallet2_basic::unconfirmed_transfer_details;
     using confirmed_transfer_details = wallet2_basic::confirmed_transfer_details;
 
-    struct tx_construction_data
-    {
-      std::vector<cryptonote::tx_source_entry> sources;
-      cryptonote::tx_destination_entry change_dts;
-      std::vector<cryptonote::tx_destination_entry> splitted_dsts; // split, includes change
-      std::vector<size_t> selected_transfers;
-      std::vector<uint8_t> extra;
-      uint64_t unlock_time;
-      bool use_rct;
-      rct::RCTConfig rct_config;
-      bool use_view_tags;
-      std::vector<cryptonote::tx_destination_entry> dests; // original setup, does not include change
-      uint32_t subaddr_account;   // subaddress account of your wallet to be used in this transfer
-      std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
-
-      enum construction_flags_ : uint8_t
-      {
-        _use_rct          = 1 << 0, // 00000001
-        _use_view_tags    = 1 << 1  // 00000010
-        // next flag      = 1 << 2  // 00000100
-        // ...
-        // final flag     = 1 << 7  // 10000000
-      };
-      uint8_t construction_flags;
-
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(sources)
-        FIELD(change_dts)
-        FIELD(splitted_dsts)
-        FIELD(selected_transfers)
-        FIELD(extra)
-        FIELD(unlock_time)
-
-        // converted `use_rct` field into construction_flags when view tags
-        // were introduced to maintain backwards compatibility
-        if (!typename Archive<W>::is_saving())
-        {
-          FIELD_N("use_rct", construction_flags)
-          use_rct = (construction_flags & _use_rct) > 0;
-          use_view_tags = (construction_flags & _use_view_tags) > 0;
-        }
-        else
-        {
-          construction_flags = 0;
-          if (use_rct)
-            construction_flags ^= _use_rct;
-          if (use_view_tags)
-            construction_flags ^= _use_view_tags;
-
-          FIELD_N("use_rct", construction_flags)
-        }
-
-        FIELD(rct_config)
-        FIELD(dests)
-        FIELD(subaddr_account)
-        FIELD(subaddr_indices)
-      END_SERIALIZE()
-    };
+    using tx_construction_data = wallet::tx_construction_data;
 
     typedef std::vector<transfer_details> transfer_container;
     typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
     typedef std::set<uint32_t> unique_index_container;
 
-    struct multisig_sig
-    {
-      rct::rctSig sigs;
-      std::unordered_set<crypto::public_key> ignore;
-      std::unordered_set<rct::key> used_L;
-      std::unordered_set<crypto::public_key> signing_keys;
-      rct::multisig_out msout;
-
-      rct::keyM total_alpha_G;
-      rct::keyM total_alpha_H;
-      rct::keyV c_0;
-      rct::keyV s;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
-        if (version < 1)
-          return false;
-        FIELD(sigs)
-        FIELD(ignore)
-        FIELD(used_L)
-        FIELD(signing_keys)
-        FIELD(msout)
-        FIELD(total_alpha_G)
-        FIELD(total_alpha_H)
-        FIELD(c_0)
-        FIELD(s)
-      END_SERIALIZE()
-    };
-
-    // The convention for destinations is:
-    // dests does not include change
-    // splitted_dsts (in construction_data) does
-    struct pending_tx
-    {
-      cryptonote::transaction tx;
-      uint64_t dust, fee;
-      bool dust_added_to_fee;
-      cryptonote::tx_destination_entry change_dts;
-      std::vector<size_t> selected_transfers;
-      std::string key_images;
-      crypto::secret_key tx_key;
-      std::vector<crypto::secret_key> additional_tx_keys;
-      std::vector<cryptonote::tx_destination_entry> dests;
-      std::vector<multisig_sig> multisig_sigs;
-      crypto::secret_key multisig_tx_key_entropy;
-      uint32_t subaddr_account;            // subaddress account of your wallet to be used in this transfer
-      std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
-
-      using tx_reconstruct_variant_t = std::variant<
-          tx_construction_data,
-          carrot::CarrotTransactionProposalV1
-        >;
-      tx_reconstruct_variant_t construction_data;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(2)
-        FIELD(tx)
-        FIELD(dust)
-        FIELD(fee)
-        FIELD(dust_added_to_fee)
-        FIELD(change_dts)
-        FIELD(selected_transfers)
-        FIELD(key_images)
-        FIELD(tx_key)
-        FIELD(additional_tx_keys)
-        FIELD(dests)
-        if (version < 2)
-        {
-          tx_construction_data pre_carrot_construction_data;
-          FIELD_N("construction_data", pre_carrot_construction_data)
-          construction_data = pre_carrot_construction_data;
-          subaddr_account = pre_carrot_construction_data.subaddr_account;
-          subaddr_indices = pre_carrot_construction_data.subaddr_indices;
-        }
-        else // version >= 2
-        {
-          FIELD(construction_data)
-          FIELD(subaddr_account)
-          FIELD(subaddr_indices)
-        }
-        FIELD(multisig_sigs)
-        if (version < 1)
-        {
-          multisig_tx_key_entropy = crypto::null_skey;
-          return true;
-        }
-        FIELD(multisig_tx_key_entropy)
-      END_SERIALIZE()
-    };
+    using multisig_sig = wallet::multisig_sig;
+    using pending_tx = wallet::pending_tx;
 
     // The term "Unsigned tx" is not really a tx since it's not signed yet.
     // It doesnt have tx hash, key and the integrated address is not separated into addr + payment id.
