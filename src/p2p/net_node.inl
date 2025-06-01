@@ -422,6 +422,25 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  uint64_t node_server<t_payload_net_handler>::get_host_fail_score(const epee::net_utils::network_address &address)
+  {
+    if(!address.is_blockable())
+      return 0;
+    CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
+    const auto i = m_host_fails_score.find(address.host_str());
+    return i == m_host_fails_score.end() ? 0 : i->second;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  uint64_t node_server<t_payload_net_handler>::get_host_fail_score_unlocked(const epee::net_utils::network_address &address)
+  {
+    if(!address.is_blockable())
+      return 0;
+    const auto i = m_host_fails_score.find(address.host_str());
+    return i == m_host_fails_score.end() ? 0 : i->second;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_command_line(
       const boost::program_options::variables_map& vm
     )
@@ -1556,6 +1575,10 @@ namespace nodetool
         continue;
       }
 
+      if (get_host_fail_score(pe.adr) > 0) {
+        continue;
+      }
+
       MDEBUG("Selected peer: " << peerid_to_string(pe.id) << " " << pe.adr.str()
                                << "[peer_type=" << anchor
                                << "] first_seen: " << epee::misc_utils::get_time_interval_string(time(NULL) - pe.first_seen));
@@ -1635,8 +1658,10 @@ namespace nodetool
       for (int step = 0; step < 2; ++step)
       {
         bool skip_duplicate_class_B = step == 0;
+        bool skip_failing = step == 0;
         size_t idx = 0, skipped = 0;
-        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string](const peerlist_entry &pe){
+        CRITICAL_REGION_LOCAL(m_host_fails_score_lock); // we'll call get_host_fail_score in the callback with the peerlist lock held
+        zone.m_peerlist.foreach (use_white_list, [&classB, &filtered, &idx, &skipped, skip_duplicate_class_B, skip_failing, limit, next_needed_pruning_stripe, &hosts_added, &get_host_string, this](const peerlist_entry &pe){
           if (filtered.size() >= limit)
             return false;
           bool skip = false;
@@ -1657,6 +1682,12 @@ namespace nodetool
               memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
               skip = classB.find(actual_ipv4 & ntohl(0xffff0000)) != classB.end();
             }
+          }
+
+          if (!skip && skip_failing)
+          {
+            if (get_host_fail_score_unlocked(pe.adr) > 0)
+              skip = true;
           }
 
           // consider each host once, to avoid giving undue inflence to hosts running several nodes
