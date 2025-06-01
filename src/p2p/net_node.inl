@@ -1414,6 +1414,9 @@ namespace nodetool
     }
 
 
+    if (!m_use_ipv6 && na.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+      return false;
+
     MDEBUG("Connecting to " << na.str() << "(peer_type=" << peer_type << ", last_seen: "
         << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
         << ")...");
@@ -1658,6 +1661,9 @@ namespace nodetool
               skip = classB.find(actual_ipv4 & ntohl(0xffff0000)) != classB.end();
             }
           }
+
+          if (!skip && !m_use_ipv6 && pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+            skip = true;
 
           // consider each host once, to avoid giving undue inflence to hosts running several nodes
           if (!skip)
@@ -2935,6 +2941,8 @@ namespace nodetool
 
       peerlist_entry pe{};
       if (!zone.second.m_peerlist.get_random_gray_peer(pe))
+        continue;
+      if (!m_use_ipv6 && pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
         continue;
 
       if (!check_connection_and_handshake_with_peer(pe.adr, pe.last_seen))
