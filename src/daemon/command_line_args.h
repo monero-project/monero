@@ -80,7 +80,7 @@ namespace daemon_args
   };
   const command_line::arg_descriptor<std::string> arg_log_level = {
     "log-level"
-  , ""
+  , "0-4 or categories"
   , ""
   };
   const command_line::arg_descriptor<std::vector<std::string>> arg_command = {
