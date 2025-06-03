@@ -2492,8 +2492,13 @@ void wallet2::process_new_scanned_transaction(
     const rct::xmr_amount extra_received_money = enote_scan_info->amount - (burning_td ? burning_td->amount() : 0);
     const cryptonote::subaddress_index subaddr_index_cn{
         enote_scan_info->subaddr_index->index.major, enote_scan_info->subaddr_index->index.minor};
-    tx_money_got_in_outs[subaddr_index_cn] += extra_received_money;
-    tx_amounts_individual_outs[subaddr_index_cn].push_back(extra_received_money);
+
+    // Only count >0 amount outs
+    if (enote_scan_info->amount > 0)
+    {
+      tx_money_got_in_outs[subaddr_index_cn] += extra_received_money;
+      tx_amounts_individual_outs[subaddr_index_cn].push_back(extra_received_money);
+    }
 
     // set payment id
     const bool ignore_long_pid = block_version >= IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION;
@@ -2536,7 +2541,6 @@ void wallet2::process_new_scanned_transaction(
     td.m_mask = enote_scan_info->amount_blinding_factor;
     td.m_rct = tx.version >= 2;
     td.m_frozen = false;
-    set_unspent(m_transfers.size() - 1);
 
     // update m_transfers key image values
     td.m_key_image_known = bool(output_key_images[local_output_index]);
@@ -2553,6 +2557,8 @@ void wallet2::process_new_scanned_transaction(
     }
     td.m_key_image_request = m_watch_only; // for view wallets, that flag means "we want to request it"
     td.m_key_image_partial = m_multisig;
+
+    set_unspent(m_transfers.size() - 1);
 
     // update m_key_images, m_pub_keys, and output_tracker_cache
     if (td.m_key_image_known)
@@ -2579,7 +2585,7 @@ void wallet2::process_new_scanned_transaction(
 
     // money received callbacks
     LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
-    if (!ignore_callbacks && 0 != m_callback)
+    if (!ignore_callbacks && 0 != m_callback && td.m_amount > 0)
       m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
   }
 
@@ -6779,7 +6785,8 @@ void wallet2::process_background_cache_on_open()
   {
     const background_sync_data_t background_sync_data = m_background_sync_data;
     const hashchain blockchain = m_blockchain;
-    process_background_cache(background_sync_data, blockchain, m_last_block_reward);
+    const TreeCacheV1 tree_cache = m_tree_cache;
+    process_background_cache(background_sync_data, blockchain, m_last_block_reward, tree_cache);
 
     // Reset the background cache after processing
     reset_background_sync_data(m_background_sync_data);
@@ -6826,7 +6833,7 @@ void wallet2::process_background_cache_on_open()
     background_w2->prepare_file_names(background_wallet_file);
     background_w2->load_wallet_cache(true/*use_fs*/);
 
-    process_background_cache(background_w2->m_background_sync_data, background_w2->m_blockchain, background_w2->m_last_block_reward);
+    process_background_cache(background_w2->m_background_sync_data, background_w2->m_blockchain, background_w2->m_last_block_reward, background_w2->m_tree_cache);
 
     // Reset the background cache after processing
     store_background_cache(m_custom_background_key.get(), true/*do_reset_background_sync_data*/);
@@ -7234,9 +7241,27 @@ uint64_t wallet2::unlocked_balance_all(bool strict, uint64_t *blocks_to_unlock, 
   return r;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers) const
+void wallet2::get_transfers(wallet2::transfer_container& incoming_transfers, const bool include_all) const
 {
-  incoming_transfers = m_transfers;
+  if (include_all)
+  {
+    incoming_transfers = m_transfers;
+    return;
+  }
+
+  // Ignore internal transfers that we believe users don't need to be exposed to
+  incoming_transfers.clear();
+  incoming_transfers.reserve(m_transfers.size());
+
+  for (const auto &td : m_transfers)
+  {
+    // Exclude 0-amount Carrot change outputs. These were added to enable incoming view keys to identify all spend txs,
+    // including 0-change spends.
+    if (!td.amount() && carrot::is_carrot_transaction_v1(td.m_tx) && m_confirmed_txs.find(td.m_txid) != m_confirmed_txs.end())
+      continue;
+
+    incoming_transfers.push_back(td);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::payment_details>& payments, uint64_t min_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
@@ -7617,6 +7642,12 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
     crypto::hash8 payment_id8 = null_hash8;
     if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
     {
+      if (carrot::is_carrot_transaction_v1(ptx.tx))
+      {
+        // FIXME: Carrot payment ID scan
+        MERROR("Decrypt Carrot payment id not yet implemented in get_payment_id");
+        return crypto::null_hash;
+      }
       if (ptx.dests.empty())
       {
         MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
@@ -13715,7 +13746,7 @@ bool wallet2::import_key_images(signed_tx_set & signed_tx, size_t offset, bool o
   would enable the 3rd party to deduce that a tx is spending an output at least
   X old when the key image is included in the chain.
 */
-void wallet2::process_background_cache(const background_sync_data_t &background_sync_data, const hashchain &background_synced_chain, uint64_t last_block_reward)
+void wallet2::process_background_cache(const background_sync_data_t &background_sync_data, const hashchain &background_synced_chain, uint64_t last_block_reward, const TreeCacheV1 &background_tree_cache)
 {
   // We expect the spend key to be in a decrypted state while
   // m_processing_background_cache is true
@@ -13804,6 +13835,7 @@ void wallet2::process_background_cache(const background_sync_data_t &background_
 
   m_blockchain = background_synced_chain;
   m_last_block_reward = last_block_reward;
+  m_tree_cache = background_tree_cache;
 
   MDEBUG("Finished processing background sync data");
 }
@@ -14063,6 +14095,7 @@ void wallet2::stop_background_sync(const epee::wipeable_string &wallet_password,
   const background_sync_data_t background_sync_data = m_background_sync_data;
   const hashchain background_synced_chain = m_blockchain;
   const uint64_t last_block_reward = m_last_block_reward;
+  const TreeCacheV1 tree_cache = m_tree_cache;
 
   if (m_background_sync_type == BackgroundSyncCustomPassword && !m_wallet_file.empty())
   {
@@ -14081,7 +14114,7 @@ void wallet2::stop_background_sync(const epee::wipeable_string &wallet_password,
     keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]{encrypt_keys(wallet_password);});
 
   // Now we can use the decrypted spend key to process background cache
-  process_background_cache(background_sync_data, background_synced_chain, last_block_reward);
+  process_background_cache(background_sync_data, background_synced_chain, last_block_reward, tree_cache);
 
   // Reset the background cache after processing
   reset_background_sync_data(m_background_sync_data);
