@@ -29,6 +29,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
+import math
 import util_resources
 import pprint
 from deepdiff import DeepDiff
@@ -72,6 +73,7 @@ class TransferTest():
         self.create()
         self.mine()
         self.transfer()
+        # TODO: self.bad_transfer() (test error handling, e.g. no unlocked outputs triggering "no input candidates provided")
         self.check_get_bulk_payments()
         self.check_get_payments()
         self.check_double_spend_detection()
@@ -1356,8 +1358,7 @@ class TransferTest():
     def check_background_sync(self):
         daemon = Daemon()
 
-        print('TODO: FCMP++/Carrot Testing background sync')
-        return
+        print('FCMP++/Carrot Testing background sync')
 
         # Some helper functions
         def stop_with_wrong_inputs(wallet, wallet_password, seed = ''):
@@ -1433,10 +1434,11 @@ class TransferTest():
         tx = [x for x in transfers.out if x.txid == txid]
         assert len(tx) == 1
         tx = tx[0]
-        assert tx.amount == amount - fee
+        amount_received = tx.amount
+        assert amount_received == amount - fee
         assert tx.fee == fee
         assert len(tx.destinations) == 1
-        assert tx.destinations[0].amount == amount - fee
+        assert tx.destinations[0].amount == amount_received
         assert tx.destinations[0].address == dst
         incoming_transfers = sender_wallet.incoming_transfers(transfer_type = 'all')
         assert len([x for x in incoming_transfers.transfers if x.tx_hash == spent_txid and x.key_image == ki and x.spent]) == 1
@@ -1586,7 +1588,7 @@ class TransferTest():
         tx = [x for x in transfers['in'] if x.txid == txid]
         assert len(tx) == 1
         tx = tx[0]
-        assert tx.amount == amount - fee
+        assert tx.amount == amount_received
         assert tx.fee == fee
         incoming_transfers = receiver_wallet.incoming_transfers(transfer_type = 'all')
         assert len([x for x in incoming_transfers.transfers if x.tx_hash == txid and x.key_image == '' and not x.spent]) == 1
@@ -1646,6 +1648,45 @@ class TransferTest():
         restore_wallet(receiver_wallet, seeds[1], restore_height = 0)
         receiver_wallet.refresh()
         assert_correct_transfers(receiver_wallet, transfers, incoming_transfers, expected_receiver_balance)
+
+        # Send after background sync
+        for background_sync_type in [reuse_password, custom_password]:
+            # Make sure receiver funds are unlocked
+            daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 10)
+
+            print("Testing ", background_sync_type)
+
+            # Restore, set up background sync, refresh
+            restore_wallet(receiver_wallet, seeds[1], filename = 'test2', password = 'test_password')
+            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
+            receiver_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = background_cache_password)
+            receiver_wallet.start_background_sync()
+            receiver_wallet.refresh()
+
+            # Transfer from receiver back to sender
+            receiver_wallet.stop_background_sync(wallet_password = 'test_password', seed = seeds[1])
+            sender_addr = sender_wallet.get_address().address
+            sending_amount = math.floor(amount_received / 4)
+            assert receiver_wallet.get_balance().unlocked_balance > sending_amount
+            dst = {'address': sender_addr, 'amount': sending_amount}
+            res = receiver_wallet.transfer([dst])
+            assert len(res.tx_hash) == 32*2
+            txid = res.tx_hash
+            expected_sender_balance += sending_amount
+
+            # Make sure sender wallet can see it
+            daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
+            sender_wallet.refresh()
+
+            transfers = sender_wallet.get_transfers()
+            tx = [x for x in transfers['in'] if x.txid == txid]
+            assert len(tx) == 1
+            tx = tx[0]
+            assert tx.amount == sending_amount
+            assert tx.address == sender_addr
+            incoming_transfers = sender_wallet.incoming_transfers(transfer_type = 'all')
+            assert len([x for x in incoming_transfers.transfers if x.tx_hash == txid]) == 1
+            assert sender_wallet.get_balance().balance == expected_sender_balance
 
         # Clean up
         util_resources.remove_wallet_files('test1')

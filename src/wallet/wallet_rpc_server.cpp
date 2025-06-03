@@ -601,7 +601,7 @@ namespace tools
         unlocked_balance_per_subaddress_per_account[req.account_index] = m_wallet->unlocked_balance_per_subaddress(req.account_index, req.strict);
       }
       std::vector<tools::wallet2::transfer_details> transfers;
-      m_wallet->get_transfers(transfers);
+      m_wallet->get_transfers(transfers, false/*include_all*/);
       for (const auto& p : balance_per_subaddress_per_account)
       {
         uint32_t account_index = p.first;
@@ -660,7 +660,7 @@ namespace tools
         req_address_index = req.address_index;
       }
       tools::wallet2::transfer_container transfers;
-      m_wallet->get_transfers(transfers);
+      m_wallet->get_transfers(transfers, false/*include_all*/);
       for (uint32_t i : req_address_index)
       {
         THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(req.account_index), error::address_index_outofbound);
@@ -2229,7 +2229,7 @@ namespace tools
     }
 
     wallet2::transfer_container transfers;
-    m_wallet->get_transfers(transfers);
+    m_wallet->get_transfers(transfers, false/*include_all*/);
 
     for (const auto& td : transfers)
     {
