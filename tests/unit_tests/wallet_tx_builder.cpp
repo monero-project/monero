@@ -723,7 +723,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
 
     // 6. 
     LOG_PRINT_L2("Alice feels pity on Bob and proposes to send his broke ass some dough");
-    const rct::xmr_amount out_amount = rct::randXmrAmount(amount0 + amount1);
+    const rct::xmr_amount out_amount = rct::randXmrAmount(amount0 + amount1) / 2; // divide by 2 to make sure Alice has enough for the fee
     const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = 
         tools::wallet::make_carrot_transaction_proposals_wallet2_transfer( // stupidly long function name ;(
             alice.m_transfers,
