@@ -5681,7 +5681,7 @@ mdb_env_close0(MDB_env *env, int excl)
 		/* Clearing readers is done in this function because
 		 * me_txkey with its destructor must be disabled first.
 		 *
-		 * We skip the the reader mutex, so we touch only
+		 * We skip the reader mutex, so we touch only
 		 * data owned by this process (me_close_readers and
 		 * our readers), and clear each reader atomically.
 		 */
