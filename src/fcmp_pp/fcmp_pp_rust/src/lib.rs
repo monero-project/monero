@@ -52,9 +52,8 @@ pub extern "C" fn selene_hash_init_point() -> SelenePoint {
     SELENE_HASH_INIT()
 }
 
-fn to_box_raw_u8<T>(obj: T) -> *mut u8 {
-    let arr_ptr = Box::into_raw(Box::new(obj));
-    arr_ptr as *mut u8
+fn new_box_raw<T>(obj: T) -> *mut T {
+    Box::into_raw(Box::new(obj))
 }
 
 // https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw
@@ -544,7 +543,9 @@ pub extern "C" fn helios_branch_blind() -> CResult<BranchBlind<<Helios as Cipher
 /// be null. Also be sure to clean up the branch blind with
 /// free_helios_branch_blind below.
 #[no_mangle]
-pub unsafe extern "C" fn helios_branch_blind2(branch_blind_out: *mut *mut u8) -> c_int {
+pub unsafe extern "C" fn new_helios_branch_blind(
+    branch_blind_out: *mut *mut BranchBlind::<<Helios as Ciphersuite>::G>,
+) -> c_int {
     let scalar_decomp = ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng));
     let Some(scalar_decomp) = scalar_decomp else {
         return -1;
@@ -553,7 +554,7 @@ pub unsafe extern "C" fn helios_branch_blind2(branch_blind_out: *mut *mut u8) ->
     let branch_blind =
         BranchBlind::<<Helios as Ciphersuite>::G>::new(HELIOS_GENERATORS().h(), scalar_decomp);
 
-    unsafe { *branch_blind_out = to_box_raw_u8(branch_blind) };
+    unsafe { *branch_blind_out = new_box_raw(branch_blind) };
 
     0
 }

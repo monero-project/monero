@@ -28,8 +28,6 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "fcmp_pp_rust/fcmp++.h"
 #include "misc_log_ex.h"
 
@@ -40,39 +38,19 @@ namespace ffi
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 
-class HeliosBranchBlind
-{
-public:
-    HeliosBranchBlind()
-    {
-        CHECK_AND_ASSERT_THROW_MES(::helios_branch_blind2(&ptr) == 0, "Failed to construct helios branch blind");
+// FFI types instantiated on the Rust side must be free'd back on the Rust side. We wrap them in a unique ptr with a
+// custom deleter that calls the respective Rust free fn.
+#define DEFINE_FCMP_FFI_TYPE(raw_t, new_fn, free_fn)                                              \
+    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept { ::free_fn(p); } }; \
+    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                                 \
+    raw_t raw_t##New()                                                                            \
+    {                                                                                             \
+        ::raw_t##Unsafe* raw_ptr;                                                                 \
+        CHECK_AND_ASSERT_THROW_MES(::new_fn(&raw_ptr) == 0, "Failed to construct " << #raw_t);    \
+        return raw_t(raw_ptr);                                                                    \
     };
 
-    // Disable copying/assigning
-    HeliosBranchBlind(const HeliosBranchBlind&) = delete;
-    HeliosBranchBlind& operator=(const HeliosBranchBlind&) = delete;
-    HeliosBranchBlind& operator=(HeliosBranchBlind&& other) = delete;
-
-    // Move constructor
-    HeliosBranchBlind(HeliosBranchBlind&& other) noexcept
-        : ptr(other.ptr)
-    {
-        // Set blind_ptr to nullptr so destructor doesn't run after move. Let the new owner handle destruction.
-        other.ptr = nullptr;
-    };
-
-    ~HeliosBranchBlind()
-    {
-        if (ptr == nullptr)
-            return;
-        ::free_helios_branch_blind(ptr);
-    };
-
-    const uint8_t *get() const { return const_cast<uint8_t*>(ptr); }
-
-private:
-    uint8_t *ptr;
-};
+DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind, new_helios_branch_blind, free_helios_branch_blind);
 
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace ffi

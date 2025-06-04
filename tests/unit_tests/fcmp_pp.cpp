@@ -497,7 +497,7 @@ TEST(fcmp_pp, verify)
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
     std::vector<fcmp_pp::ffi::HeliosBranchBlind> helios_branch_blinds;
     for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
-        helios_branch_blinds.emplace_back(fcmp_pp::ffi::HeliosBranchBlind());
+        helios_branch_blinds.emplace_back(fcmp_pp::ffi::HeliosBranchBlindNew());
 
     // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
     for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
@@ -576,7 +576,7 @@ TEST(fcmp_pp, verify)
 
             std::vector<const uint8_t*> helios_blinds;
             for (const auto &hbb : helios_branch_blinds)
-                helios_blinds.push_back(hbb.get());
+                helios_blinds.push_back((uint8_t*)hbb.get());
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
