@@ -1654,8 +1654,6 @@ class TransferTest():
             # Make sure receiver funds are unlocked
             daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 10)
 
-            print("Testing ", background_sync_type)
-
             # Restore, set up background sync, refresh
             restore_wallet(receiver_wallet, seeds[1], filename = 'test2', password = 'test_password')
             background_cache_password = None if background_sync_type == reuse_password else 'background_password'
