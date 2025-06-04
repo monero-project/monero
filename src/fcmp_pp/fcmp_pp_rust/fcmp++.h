@@ -145,6 +145,8 @@ struct ObjectSlice
   uintptr_t len;
 };
 
+struct HeliosBranchBlindUnsafe;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -219,9 +221,9 @@ CResult output_blinds_new(const uint8_t *o_blind,
 CResult helios_branch_blind(void);
 CResult selene_branch_blind(void);
 
-int helios_branch_blind2(uint8_t **branch_blind_out);
+int new_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
 
-void free_helios_branch_blind(uint8_t *helios_branch_blind);
+void free_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
 
 CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
                                         const uint8_t *path,
