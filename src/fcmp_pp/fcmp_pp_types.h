@@ -69,6 +69,28 @@ using OutputBytes = ::OutputBytes;
 using OutputChunk = ::OutputSlice;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+// FFI types
+//----------------------------------------------------------------------------------------------------------------------
+// FFI types instantiated on the Rust side must be destroyed back on the Rust side. We wrap them in a unique ptr with a
+// custom deleter that calls the respective Rust destroy fn.
+#define DEFINE_FCMP_FFI_TYPE(raw_t)                                                 \
+    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept; };    \
+    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                   \
+    raw_t raw_t##Gen();                                                             \
+    std::vector<const raw_t##Unsafe *> raw_t##Slice(const std::vector<raw_t> &vec);
+
+// Macro to instantiate an FFI-compatible slice from a vector of FCMP FFI type. Instantiates a vector in local scope
+// so it remains in scope while the slice points to it, making sure memory addresses remain contiguous.
+#define MAKE_FFI_SLICE(slice_name, raw_t, vec)                             \
+    std::vector<const raw_t##Unsafe *> raw_t##Vector;                      \
+    raw_t##Vector.reserve(vec.size());                                     \
+    for (const raw_t &elem : vec)                                          \
+        raw_t##Vector.push_back(elem.get());                               \
+    ::raw_t##Slice slice_name{raw_t##Vector.data(), raw_t##Vector.size()};
+
+DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind);
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // C++ types
 //----------------------------------------------------------------------------------------------------------------------
 // Byte buffer containing the fcmp++ proof
@@ -81,7 +103,7 @@ struct ProofInput final
     uint8_t *path;
     uint8_t *output_blinds;
     std::vector<const uint8_t *> selene_branch_blinds;
-    std::vector<const uint8_t *> helios_branch_blinds;
+    std::vector<HeliosBranchBlind> helios_branch_blinds;
 };
 
 struct ProofParams final
@@ -95,18 +117,6 @@ struct FcmpVerifyHelperData final
     const uint8_t *tree_root; // borrowing, *not* owning
     std::vector<crypto::key_image> key_images;
 };
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-// FFI types
-//----------------------------------------------------------------------------------------------------------------------
-// FFI types instantiated on the Rust side must be destroyed back on the Rust side. We wrap them in a unique ptr with a
-// custom deleter that calls the respective Rust destroy fn.
-#define DEFINE_FCMP_FFI_TYPE(raw_t)                                              \
-    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept; }; \
-    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                \
-    raw_t raw_t##Gen();
-
-DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

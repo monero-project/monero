@@ -57,7 +57,7 @@ fn new_box_raw<T>(obj: T) -> *mut T {
 }
 
 // https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw
-fn free_box<T>(ptr: *mut T) {
+fn destroy_box<T>(ptr: *mut T) {
     let _ = unsafe { Box::from_raw(ptr) };
 }
 
@@ -527,14 +527,6 @@ pub unsafe extern "C" fn output_blinds_new(
 
 //---------------------------------------------- BranchBlind
 
-#[no_mangle]
-pub extern "C" fn helios_branch_blind() -> CResult<BranchBlind<<Helios as Ciphersuite>::G>, ()> {
-    CResult::ok(BranchBlind::<<Helios as Ciphersuite>::G>::new(
-        HELIOS_GENERATORS().h(),
-        ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ))
-}
-
 /// # Safety
 ///
 /// This function allocates a branch blind on the heap via Box::new, then
@@ -567,7 +559,7 @@ pub unsafe extern "C" fn generate_helios_branch_blind(
 pub unsafe extern "C" fn destroy_helios_branch_blind(
     branch_blind: *mut BranchBlind<<Helios as Ciphersuite>::G>,
 ) {
-    free_box(branch_blind);
+    destroy_box(branch_blind);
 }
 
 #[no_mangle]

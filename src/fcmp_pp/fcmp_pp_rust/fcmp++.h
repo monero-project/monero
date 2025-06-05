@@ -147,6 +147,12 @@ struct ObjectSlice
 
 struct HeliosBranchBlindUnsafe;
 
+struct HeliosBranchBlindSlice
+{
+  const struct HeliosBranchBlindUnsafe * const *buf;
+  uintptr_t len;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -218,7 +224,6 @@ CResult output_blinds_new(const uint8_t *o_blind,
                                              const uint8_t *i_blind_blind,
                                              const uint8_t *c_blind);
 
-CResult helios_branch_blind(void);
 CResult selene_branch_blind(void);
 
 int generate_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
@@ -229,7 +234,7 @@ CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rera
                                         const uint8_t *path,
                                         const uint8_t *output_blinds,
                                         struct ObjectSlice selene_branch_blinds,
-                                        struct ObjectSlice helios_branch_blinds);
+                                        struct HeliosBranchBlindSlice helios_branch_blinds);
 
 CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const uint8_t *y,
@@ -237,7 +242,7 @@ CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const uint8_t *path,
                                              const uint8_t *output_blinds,
                                              struct ObjectSlice selene_branch_blinds,
-                                             struct ObjectSlice helios_branch_blinds);
+                                             struct HeliosBranchBlindSlice helios_branch_blinds);
 
 CResult balance_last_pseudo_out(const uint8_t *sum_input_masks,
                                              const uint8_t *sum_output_masks,

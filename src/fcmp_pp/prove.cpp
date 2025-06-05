@@ -290,23 +290,19 @@ uint8_t *selene_branch_blind()
     return handle_res_ptr(__func__, res);
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *helios_branch_blind()
-{
-    const auto res = ::helios_branch_blind();
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
 uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const uint8_t *path,
     const uint8_t *output_blinds,
     const std::vector<const uint8_t *> &selene_branch_blinds,
-    const std::vector<const uint8_t *> &helios_branch_blinds)
+    const std::vector<HeliosBranchBlind> &helios_branch_blinds)
 {
+    MAKE_FFI_SLICE(helios_branch_blind_slice, HeliosBranchBlind, helios_branch_blinds);
+
     auto res = ::fcmp_prove_input_new(&rerandomized_output,
         path,
         output_blinds,
         {selene_branch_blinds.data(), selene_branch_blinds.size()},
-        {helios_branch_blinds.data(), helios_branch_blinds.size()});
+        helios_branch_blind_slice);
 
     return handle_res_ptr(__func__, res);
 }
@@ -317,15 +313,17 @@ uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     const uint8_t *path,
     const uint8_t *output_blinds,
     const std::vector<const uint8_t *> &selene_branch_blinds,
-    const std::vector<const uint8_t *> &helios_branch_blinds)
+    const std::vector<HeliosBranchBlind> &helios_branch_blinds)
 {
+    MAKE_FFI_SLICE(helios_branch_blind_slice, HeliosBranchBlind, helios_branch_blinds);
+
     auto res = ::fcmp_pp_prove_input_new(x,
         y,
         &rerandomized_output,
         path,
         output_blinds,
         {selene_branch_blinds.data(), selene_branch_blinds.size()},
-        {helios_branch_blinds.data(), helios_branch_blinds.size()});
+        helios_branch_blind_slice);
 
     return handle_res_ptr(__func__, res);
 }
