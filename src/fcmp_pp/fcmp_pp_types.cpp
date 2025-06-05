@@ -47,6 +47,7 @@ namespace fcmp_pp
     };
 
 IMPLEMENT_FCMP_FFI_TYPE(HeliosBranchBlind, generate_helios_branch_blind, destroy_helios_branch_blind);
+IMPLEMENT_FCMP_FFI_TYPE(SeleneBranchBlind, generate_selene_branch_blind, destroy_selene_branch_blind);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

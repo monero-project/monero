@@ -338,7 +338,7 @@ TEST(fcmp_pp, prove)
     const auto tree_root = global_tree.get_tree_root();
 
     // Keep them cached across runs
-    std::vector<const uint8_t *> selene_branch_blinds;
+    std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
     std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
 
     CHECK_AND_ASSERT_THROW_MES(global_tree.get_n_leaf_tuples() >= FCMP_PLUS_PLUS_MAX_INPUTS, "too few leaves");
@@ -421,7 +421,7 @@ TEST(fcmp_pp, prove)
             // Cache branch blinds
             if (selene_branch_blinds.empty())
                 for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
-                    selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
+                    selene_branch_blinds.emplace_back(fcmp_pp::SeleneBranchBlindGen());
 
             if (helios_branch_blinds.empty())
                 for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
@@ -489,9 +489,9 @@ TEST(fcmp_pp, verify)
     // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
     const size_t expected_num_selene_branch_blinds = n_layers / 2;
     LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
-    std::vector<const uint8_t *> selene_branch_blinds;
+    std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
     for (size_t i = 0; i < expected_num_selene_branch_blinds; ++i)
-        selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
+        selene_branch_blinds.emplace_back(fcmp_pp::SeleneBranchBlindGen());
 
     const size_t expected_num_helios_branch_blinds = (n_layers - 1) / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
@@ -568,11 +568,6 @@ TEST(fcmp_pp, verify)
                 blinded_i_blind,
                 blinded_i_blind_blind,
                 blinded_c_blind);
-
-            // Cache branch blinds
-            if (selene_branch_blinds.empty())
-                for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
-                    selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
@@ -677,9 +672,9 @@ TEST(fcmp_pp, membership_completeness)
     // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
     const size_t expected_num_selene_branch_blinds = (tree_depth + 1) / 2;
     LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
-    std::vector<const uint8_t *> selene_branch_blinds;
+    std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
     for (size_t i = 0; i < expected_num_selene_branch_blinds; ++i)
-        selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
+        selene_branch_blinds.emplace_back(fcmp_pp::SeleneBranchBlindGen());
 
     const size_t expected_num_helios_branch_blinds = tree_depth / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");

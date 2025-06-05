@@ -146,10 +146,17 @@ struct ObjectSlice
 };
 
 struct HeliosBranchBlindUnsafe;
+struct SeleneBranchBlindUnsafe;
 
 struct HeliosBranchBlindSliceUnsafe
 {
   const struct HeliosBranchBlindUnsafe * const *buf;
+  uintptr_t len;
+};
+
+struct SeleneBranchBlindSliceUnsafe
+{
+  const struct SeleneBranchBlindUnsafe * const *buf;
   uintptr_t len;
 };
 
@@ -224,16 +231,16 @@ CResult output_blinds_new(const uint8_t *o_blind,
                                              const uint8_t *i_blind_blind,
                                              const uint8_t *c_blind);
 
-CResult selene_branch_blind(void);
-
 int generate_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
+int generate_selene_branch_blind(struct SeleneBranchBlindUnsafe **branch_blind_out);
 
 void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
+void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_blind);
 
 CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
                                         const uint8_t *path,
                                         const uint8_t *output_blinds,
-                                        struct ObjectSlice selene_branch_blinds,
+                                        struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 
 CResult fcmp_pp_prove_input_new(const uint8_t *x,
@@ -241,7 +248,7 @@ CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
                                              const uint8_t *path,
                                              const uint8_t *output_blinds,
-                                             struct ObjectSlice selene_branch_blinds,
+                                             struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                              struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 
 CResult balance_last_pseudo_out(const uint8_t *sum_input_masks,

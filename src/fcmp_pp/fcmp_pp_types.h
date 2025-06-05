@@ -90,6 +90,7 @@ using OutputChunk = ::OutputSlice;
     ::raw_t##SliceUnsafe slice_name{raw_t##Vector.data(), raw_t##Vector.size()};
 
 DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind);
+DEFINE_FCMP_FFI_TYPE(SeleneBranchBlind);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types
@@ -103,7 +104,7 @@ struct ProofInput final
 {
     uint8_t *path;
     uint8_t *output_blinds;
-    std::vector<const uint8_t *> selene_branch_blinds;
+    std::vector<SeleneBranchBlind> selene_branch_blinds;
     std::vector<HeliosBranchBlind> helios_branch_blinds;
 };
 

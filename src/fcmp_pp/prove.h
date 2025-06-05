@@ -79,12 +79,10 @@ uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
     const uint8_t *blinded_i_blind_blind,
     const uint8_t *blinded_c_blind);
 
-uint8_t *selene_branch_blind();
-
 uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const uint8_t *path,
     const uint8_t *output_blinds,
-    const std::vector<const uint8_t *> &selene_branch_blinds,
+    const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds);
 
 uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
@@ -92,7 +90,7 @@ uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const uint8_t *path,
     const uint8_t *output_blinds,
-    const std::vector<const uint8_t *> &selene_branch_blinds,
+    const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds);
 
 void balance_last_pseudo_out(const uint8_t *sum_input_masks,
