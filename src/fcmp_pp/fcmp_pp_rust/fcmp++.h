@@ -147,7 +147,7 @@ struct ObjectSlice
 
 struct HeliosBranchBlindUnsafe;
 
-struct HeliosBranchBlindSlice
+struct HeliosBranchBlindSliceUnsafe
 {
   const struct HeliosBranchBlindUnsafe * const *buf;
   uintptr_t len;
@@ -234,7 +234,7 @@ CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rera
                                         const uint8_t *path,
                                         const uint8_t *output_blinds,
                                         struct ObjectSlice selene_branch_blinds,
-                                        struct HeliosBranchBlindSlice helios_branch_blinds);
+                                        struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 
 CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const uint8_t *y,
@@ -242,7 +242,7 @@ CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const uint8_t *path,
                                              const uint8_t *output_blinds,
                                              struct ObjectSlice selene_branch_blinds,
-                                             struct HeliosBranchBlindSlice helios_branch_blinds);
+                                             struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 
 CResult balance_last_pseudo_out(const uint8_t *sum_input_masks,
                                              const uint8_t *sum_output_masks,

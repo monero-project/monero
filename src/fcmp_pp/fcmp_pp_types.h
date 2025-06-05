@@ -80,13 +80,14 @@ using OutputChunk = ::OutputSlice;
     std::vector<const raw_t##Unsafe *> raw_t##Slice(const std::vector<raw_t> &vec);
 
 // Macro to instantiate an FFI-compatible slice from a vector of FCMP FFI type. Instantiates a vector in local scope
-// so it remains in scope while the slice points to it, making sure memory addresses remain contiguous.
-#define MAKE_FFI_SLICE(slice_name, raw_t, vec)                             \
-    std::vector<const raw_t##Unsafe *> raw_t##Vector;                      \
-    raw_t##Vector.reserve(vec.size());                                     \
-    for (const raw_t &elem : vec)                                          \
-        raw_t##Vector.push_back(elem.get());                               \
-    ::raw_t##Slice slice_name{raw_t##Vector.data(), raw_t##Vector.size()};
+// so it remains in scope while the slice points to it, making sure memory addresses remain contiguous. The slice is
+// only usable within local scope, hence "TEMP".
+#define MAKE_TEMP_FFI_SLICE(raw_t, vec, slice_name)                              \
+    std::vector<const raw_t##Unsafe *> raw_t##Vector;                            \
+    raw_t##Vector.reserve(vec.size());                                           \
+    for (const raw_t &elem : vec)                                                \
+        raw_t##Vector.push_back(elem.get());                                     \
+    ::raw_t##SliceUnsafe slice_name{raw_t##Vector.data(), raw_t##Vector.size()};
 
 DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind);
 //----------------------------------------------------------------------------------------------------------------------

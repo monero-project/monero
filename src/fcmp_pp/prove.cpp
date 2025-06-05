@@ -296,7 +296,7 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
     const std::vector<const uint8_t *> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
 {
-    MAKE_FFI_SLICE(helios_branch_blind_slice, HeliosBranchBlind, helios_branch_blinds);
+    MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
     auto res = ::fcmp_prove_input_new(&rerandomized_output,
         path,
@@ -315,7 +315,7 @@ uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     const std::vector<const uint8_t *> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
 {
-    MAKE_FFI_SLICE(helios_branch_blind_slice, HeliosBranchBlind, helios_branch_blinds);
+    MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
     auto res = ::fcmp_pp_prove_input_new(x,
         y,
