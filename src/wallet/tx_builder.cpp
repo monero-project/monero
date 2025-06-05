@@ -995,7 +995,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     tools::threadpool::waiter pre_membership_waiter(tpool);
 
     // Laid out in n_inputs tuples of (o_blind, i_blind, i_blind_blind, c_blind, Selene blinds, Helios blinds)
-    std::vector<uint8_t*> fcmp_blinds_objs(n_inputs * (4 + num_c1_blinds + num_c2_blinds));
+    std::vector<uint8_t*> fcmp_blinds_objs(n_inputs * (4 + num_c1_blinds));
     const auto blind_freer = make_fcmp_obj_freer(fcmp_blinds_objs);
 
     LOG_PRINT_L3("Starting proof jobs...");
@@ -1003,7 +1003,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
 
     // Submit blinds calculation jobs
     uint8_t** blinds_obj_ptr = fcmp_blinds_objs.data();
-    std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds(num_c2_blinds);
+    std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds(num_c2_blinds * n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
@@ -1032,9 +1032,9 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         }
         for (size_t j = 0; j < num_c2_blinds; ++j)
         {
-            tpool.submit(&pre_membership_waiter, [&helios_branch_blinds, j]() {
+            tpool.submit(&pre_membership_waiter, [&helios_branch_blinds, num_c2_blinds, i, j]() {
                 PERF_TIMER(helios_branch_blind);
-                helios_branch_blinds[j] = fcmp_pp::HeliosBranchBlindGen();});
+                helios_branch_blinds[(i * num_c2_blinds) + j] = fcmp_pp::HeliosBranchBlindGen();});
         }
     }
     CHECK_AND_ASSERT_THROW_MES(blinds_obj_ptr == fcmp_blinds_objs.data() + fcmp_blinds_objs.size(),
