@@ -545,7 +545,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       {},
       {}
     );
-    core.get_blockchain_storage().get_db().advance_tree(new_height - 1);
+    core.get_blockchain_storage().get_db().advance_tree(new_height - 1, {});
     core.get_blockchain_storage().get_db().batch_stop();
   };
   struct messages {
