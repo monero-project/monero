@@ -33,7 +33,7 @@
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "curve_trees.h"
-#include "fcmp_pp/ffi_types.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
@@ -495,9 +495,9 @@ TEST(fcmp_pp, verify)
 
     const size_t expected_num_helios_branch_blinds = (n_layers - 1) / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
-    std::vector<fcmp_pp::ffi::HeliosBranchBlind> helios_branch_blinds;
+    std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
     for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
-        helios_branch_blinds.emplace_back(fcmp_pp::ffi::HeliosBranchBlindNew());
+        helios_branch_blinds.emplace_back(fcmp_pp::HeliosBranchBlindGen());
 
     // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
     for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)

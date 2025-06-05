@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "crypto/crypto.h"
@@ -94,6 +95,18 @@ struct FcmpVerifyHelperData final
     const uint8_t *tree_root; // borrowing, *not* owning
     std::vector<crypto::key_image> key_images;
 };
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// FFI types
+//----------------------------------------------------------------------------------------------------------------------
+// FFI types instantiated on the Rust side must be destroyed back on the Rust side. We wrap them in a unique ptr with a
+// custom deleter that calls the respective Rust destroy fn.
+#define DEFINE_FCMP_FFI_TYPE(raw_t)                                              \
+    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept; }; \
+    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                \
+    raw_t raw_t##Gen();
+
+DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

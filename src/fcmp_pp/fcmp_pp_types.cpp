@@ -26,32 +26,27 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once
+#include "fcmp_pp_types.h"
 
-#include "fcmp_pp_rust/fcmp++.h"
 #include "misc_log_ex.h"
 
 namespace fcmp_pp
 {
-namespace ffi
-{
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-
-// FFI types instantiated on the Rust side must be free'd back on the Rust side. We wrap them in a unique ptr with a
-// custom deleter that calls the respective Rust free fn.
-#define DEFINE_FCMP_FFI_TYPE(raw_t, new_fn, free_fn)                                              \
-    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept { ::free_fn(p); } }; \
-    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                                 \
-    raw_t raw_t##New()                                                                            \
-    {                                                                                             \
-        ::raw_t##Unsafe* raw_ptr;                                                                 \
-        CHECK_AND_ASSERT_THROW_MES(::new_fn(&raw_ptr) == 0, "Failed to construct " << #raw_t);    \
-        return raw_t(raw_ptr);                                                                    \
+// FFI types
+//----------------------------------------------------------------------------------------------------------------------
+#define IMPLEMENT_FCMP_FFI_TYPE(raw_t, gen_fn, destroy_fn)                                    \
+    void raw_t##Deleter::operator()(raw_t##Unsafe *p) const noexcept { ::destroy_fn(p); };    \
+                                                                                              \
+    raw_t raw_t##Gen()                                                                        \
+    {                                                                                         \
+        ::raw_t##Unsafe* raw_ptr;                                                             \
+        CHECK_AND_ASSERT_THROW_MES(::gen_fn(&raw_ptr) == 0, "Failed to generate " << #raw_t); \
+        return raw_t(raw_ptr);                                                                \
     };
 
-DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind, new_helios_branch_blind, free_helios_branch_blind);
-
+IMPLEMENT_FCMP_FFI_TYPE(HeliosBranchBlind, generate_helios_branch_blind, destroy_helios_branch_blind);
 //----------------------------------------------------------------------------------------------------------------------
-}//namespace ffi
+//----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

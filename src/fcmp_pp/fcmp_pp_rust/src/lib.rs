@@ -541,9 +541,9 @@ pub extern "C" fn helios_branch_blind() -> CResult<BranchBlind<<Helios as Cipher
 /// gets its raw pointer via Box::into_raw, then sets the input pointer's
 /// address to point to the raw box pointer. The input parameter must not
 /// be null. Also be sure to clean up the branch blind with
-/// free_helios_branch_blind below.
+/// destroy_helios_branch_blind below.
 #[no_mangle]
-pub unsafe extern "C" fn new_helios_branch_blind(
+pub unsafe extern "C" fn generate_helios_branch_blind(
     branch_blind_out: *mut *mut BranchBlind::<<Helios as Ciphersuite>::G>,
 ) -> c_int {
     let scalar_decomp = ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng));
@@ -564,7 +564,7 @@ pub unsafe extern "C" fn new_helios_branch_blind(
 /// This function assumes that branch_blind was allocated on the heap via
 /// Box::into_raw(Box::new())
 #[no_mangle]
-pub unsafe extern "C" fn free_helios_branch_blind(
+pub unsafe extern "C" fn destroy_helios_branch_blind(
     branch_blind: *mut BranchBlind<<Helios as Ciphersuite>::G>,
 ) {
     free_box(branch_blind);
