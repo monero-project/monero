@@ -339,7 +339,7 @@ TEST(fcmp_pp, prove)
 
     // Keep them cached across runs
     std::vector<const uint8_t *> selene_branch_blinds;
-    std::vector<const uint8_t *> helios_branch_blinds;
+    std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
 
     CHECK_AND_ASSERT_THROW_MES(global_tree.get_n_leaf_tuples() >= FCMP_PLUS_PLUS_MAX_INPUTS, "too few leaves");
 
@@ -425,7 +425,7 @@ TEST(fcmp_pp, prove)
 
             if (helios_branch_blinds.empty())
                 for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
-                    helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+                    helios_branch_blinds.emplace_back(fcmp_pp::HeliosBranchBlindGen());
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
@@ -574,17 +574,13 @@ TEST(fcmp_pp, verify)
                 for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
                     selene_branch_blinds.emplace_back(fcmp_pp::selene_branch_blind());
 
-            std::vector<const uint8_t*> helios_blinds;
-            for (const auto &hbb : helios_branch_blinds)
-                helios_blinds.push_back((uint8_t*)hbb.get());
-
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
                 rerandomized_output,
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
-                helios_blinds);
+                helios_branch_blinds);
 
             fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
         }
@@ -687,9 +683,9 @@ TEST(fcmp_pp, membership_completeness)
 
     const size_t expected_num_helios_branch_blinds = tree_depth / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
-    std::vector<const uint8_t *> helios_branch_blinds;
+    std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
     for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
-        helios_branch_blinds.emplace_back(fcmp_pp::helios_branch_blind());
+        helios_branch_blinds.emplace_back(fcmp_pp::HeliosBranchBlindGen());
 
     // For every supported input size...
     for (size_t num_inputs = 1; num_inputs <= MAX_NUM_INPUTS; ++num_inputs)

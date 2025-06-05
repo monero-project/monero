@@ -524,7 +524,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         // generate helios blinds
         proof_input.helios_branch_blinds.reserve(expected_num_helios_branch_blinds);
         for (size_t j = 0; j < expected_num_helios_branch_blinds; ++j)
-            proof_input.helios_branch_blinds.push_back(fcmp_pp::helios_branch_blind());
+            proof_input.helios_branch_blinds.push_back(fcmp_pp::HeliosBranchBlindGen());
 
         // dealloc individual blinds
         free(blinded_o_blind);
@@ -548,8 +548,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         free(proof_input.path);
         free(proof_input.output_blinds);
         for (const uint8_t *branch_blind : proof_input.selene_branch_blinds)
-            free(const_cast<uint8_t*>(branch_blind));
-        for (const uint8_t *branch_blind : proof_input.helios_branch_blinds)
             free(const_cast<uint8_t*>(branch_blind));
     }
     const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(fcmp_proof_inputs_rust,
