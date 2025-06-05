@@ -221,9 +221,9 @@ CResult output_blinds_new(const uint8_t *o_blind,
 CResult helios_branch_blind(void);
 CResult selene_branch_blind(void);
 
-int new_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
+int generate_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
 
-void free_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
+void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
 
 CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
                                         const uint8_t *path,
