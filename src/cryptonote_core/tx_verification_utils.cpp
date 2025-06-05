@@ -486,8 +486,8 @@ bool collect_pubkeys_and_commitments(const transaction& tx,
 }
 
 void collect_transparent_amount_commitments(
-    const std::vector<std::reference_wrapper<const cryptonote::transaction>>& txs,
-    std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments_inout)
+    const std::vector<std::reference_wrapper<const transaction>> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
 {
     // Note: we do not clear transparent_amount_commitments_inout because it may be a rolling cache
 
@@ -505,6 +505,45 @@ void collect_transparent_amount_commitments(
                 transparent_amount_commitments_inout[amount] = rct::zeroCommitVartime(amount);
         }
     }
+}
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + tx_pairs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : tx_pairs)
+        tx_refs.push_back(std::cref(tx.first));
+    collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments_inout);
+    return tx_refs;
+}
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<transaction> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + txs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : txs)
+        tx_refs.push_back(std::cref(tx));
+    collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments_inout);
+    return tx_refs;
+}
+
+void collect_transparent_amount_commitments(
+    const std::unordered_map<crypto::hash, std::pair<transaction, blobdata>> &txs_by_txid,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(txs_by_txid.size());
+    for (const auto &tx_pair : txs_by_txid)
+      tx_refs.push_back(std::cref(tx_pair.second.first));
+    collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments_inout);
 }
 
 uint64_t get_transaction_weight_limit(const uint8_t hf_version)
