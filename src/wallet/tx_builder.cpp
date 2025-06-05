@@ -995,7 +995,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     tools::threadpool::waiter pre_membership_waiter(tpool);
 
     // Laid out in n_inputs tuples of (o_blind, i_blind, i_blind_blind, c_blind, Selene blinds, Helios blinds)
-    std::vector<uint8_t*> fcmp_blinds_objs(n_inputs * (4 + num_c1_blinds));
+    std::vector<uint8_t*> fcmp_blinds_objs(n_inputs * 4);
     const auto blind_freer = make_fcmp_obj_freer(fcmp_blinds_objs);
 
     LOG_PRINT_L3("Starting proof jobs...");
@@ -1003,6 +1003,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
 
     // Submit blinds calculation jobs
     uint8_t** blinds_obj_ptr = fcmp_blinds_objs.data();
+    std::vector<fcmp_pp::SeleneBranchBlind> flat_selene_branch_blinds(num_c1_blinds * n_inputs);
     std::vector<fcmp_pp::HeliosBranchBlind> flat_helios_branch_blinds(num_c2_blinds * n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
@@ -1025,10 +1026,9 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         ++blinds_obj_ptr;
         for (size_t j = 0; j < num_c1_blinds; ++j)
         {
-            tpool.submit(&pre_membership_waiter, [blinds_obj_ptr]() {
+            tpool.submit(&pre_membership_waiter, [&flat_selene_branch_blinds, num_c1_blinds, i, j]() {
                 PERF_TIMER(selene_branch_blind);
-                *blinds_obj_ptr = fcmp_pp::selene_branch_blind();});
-            ++blinds_obj_ptr;
+                flat_selene_branch_blinds[(i * num_c1_blinds) + j] = fcmp_pp::SeleneBranchBlindGen();});
         }
         for (size_t j = 0; j < num_c2_blinds; ++j)
         {
@@ -1147,9 +1147,12 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
             epee::misc_utils::create_scope_leave_handler([output_blinds]()
                 { free(output_blinds); });
 
-        std::vector<const uint8_t *> selene_branch_blinds(num_c1_blinds);
-        memcpy(selene_branch_blinds.data(), blinds_obj_ptr, sizeof(selene_branch_blinds[0])*num_c1_blinds);
-        blinds_obj_ptr += num_c1_blinds;
+        std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
+        for (size_t j = 0; j < num_c1_blinds; ++j)
+        {
+            const size_t flat_idx = (i * num_c1_blinds) + j;
+            selene_branch_blinds.emplace_back(std::move(flat_selene_branch_blinds.at(flat_idx)));
+        }
 
         std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
         for (size_t j = 0; j < num_c2_blinds; ++j)

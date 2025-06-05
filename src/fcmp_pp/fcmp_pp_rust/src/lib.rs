@@ -562,12 +562,39 @@ pub unsafe extern "C" fn destroy_helios_branch_blind(
     destroy_box(branch_blind);
 }
 
+/// # Safety
+///
+/// This function allocates a branch blind on the heap via Box::new, then
+/// gets its raw pointer via Box::into_raw, then sets the input pointer's
+/// address to point to the raw box pointer. The input parameter must not
+/// be null. Also be sure to clean up the branch blind with
+/// destroy_selene_branch_blind below.
 #[no_mangle]
-pub extern "C" fn selene_branch_blind() -> CResult<BranchBlind<<Selene as Ciphersuite>::G>, ()> {
-    CResult::ok(BranchBlind::<<Selene as Ciphersuite>::G>::new(
-        SELENE_GENERATORS().h(),
-        ScalarDecomposition::new(<Selene as Ciphersuite>::F::random(&mut OsRng)).unwrap(),
-    ))
+pub unsafe extern "C" fn generate_selene_branch_blind(
+    branch_blind_out: *mut *mut BranchBlind::<<Selene as Ciphersuite>::G>,
+) -> c_int {
+    let scalar_decomp = ScalarDecomposition::new(<Selene as Ciphersuite>::F::random(&mut OsRng));
+    let Some(scalar_decomp) = scalar_decomp else {
+        return -1;
+    };
+
+    let branch_blind =
+        BranchBlind::<<Selene as Ciphersuite>::G>::new(SELENE_GENERATORS().h(), scalar_decomp);
+
+    unsafe { *branch_blind_out = new_box_raw(branch_blind) };
+
+    0
+}
+
+/// # Safety
+///
+/// This function assumes that branch_blind was allocated on the heap via
+/// Box::into_raw(Box::new())
+#[no_mangle]
+pub unsafe extern "C" fn destroy_selene_branch_blind(
+    branch_blind: *mut BranchBlind<<Selene as Ciphersuite>::G>,
+) {
+    destroy_box(branch_blind);
 }
 
 //-------------------------------------------------------------------------------------- Fcmp
