@@ -2048,11 +2048,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
     // Collect transparent amount commitments
     std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
-    std::vector<std::reference_wrapper<const transaction>> extra_tx_refs;
-    extra_tx_refs.reserve(extra_block_txs.txs_by_txid.size());
-    for (const auto &extra_tx : extra_block_txs.txs_by_txid)
-      extra_tx_refs.push_back(std::cref(extra_tx.second.first));
-    collect_transparent_amount_commitments(extra_tx_refs, transparent_amount_commitments);
+    collect_transparent_amount_commitments(extra_block_txs.txs_by_txid, transparent_amount_commitments);
 
     // Now that we have the PoW verification out of the way, verify all pool supplement txs
     tx_verification_context tvc{};
@@ -4491,12 +4487,7 @@ leave:
   if (!fast_check)
 #endif
   {
-    // Collect ref wrappers to avoid copies
-    std::vector<std::reference_wrapper<const transaction>> extra_tx_refs;
-    extra_tx_refs.reserve(extra_block_txs.txs_by_txid.size());
-    for (const auto &extra_tx : extra_block_txs.txs_by_txid)
-      extra_tx_refs.push_back(std::cref(extra_tx.second.first));
-    collect_transparent_amount_commitments(extra_tx_refs, transparent_amount_commitments);
+    collect_transparent_amount_commitments(extra_block_txs.txs_by_txid, transparent_amount_commitments);
 
     tx_verification_context tvc{};
     // If fail non-input consensus rule checking...
@@ -4728,14 +4719,8 @@ leave:
 
   TIME_MEASURE_START(tac);
 
-  // Collect tx refs to avoid extra copies
-  std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(bl.miner_tx)};
-  tx_refs.reserve(1 + txs.size());
-  for (const auto &tx : txs)
-    tx_refs.push_back(std::cref(tx.first));
-
   // Collect all remaining transparent amount commitments
-  collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+  const auto tx_refs = collect_transparent_amount_commitments(bl.miner_tx, txs, transparent_amount_commitments);
 
   TIME_MEASURE_FINISH(tac);
 

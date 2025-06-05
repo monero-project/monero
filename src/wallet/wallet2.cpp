@@ -3270,14 +3270,8 @@ static void tree_sync_blocks_async(const TreeSyncStartParams &tree_sync_start_pa
     const uint64_t created_block_idx = sync_start_block_idx + (i - start_parsed_block_i);
     new_block_hashes_out.push_back(parsed_blocks[i].block.hash);
 
-    const auto &miner_tx = std::ref(parsed_blocks[i].block.miner_tx);
-    std::vector<std::reference_wrapper<const transaction>> tx_refs{std::cref(miner_tx)};
-    tx_refs.reserve(1 + parsed_blocks[i].txes.size());
-    for (size_t j = 0; j < parsed_blocks[i].txes.size(); ++j)
-      tx_refs.push_back(std::cref(parsed_blocks[i].txes[j]));
-
     // Slow: collect transparent amount commitments
-    cryptonote::collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments);
+    const auto tx_refs = cryptonote::collect_transparent_amount_commitments(parsed_blocks[i].block.miner_tx, parsed_blocks[i].txes, transparent_amount_commitments);
     auto res = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, created_block_idx);
 
     outs_by_last_locked_blocks.emplace_back(std::move(res.outs_by_last_locked_block));
