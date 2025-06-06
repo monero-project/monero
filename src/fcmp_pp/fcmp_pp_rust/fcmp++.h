@@ -268,20 +268,6 @@ CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rera
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 
-CResult fcmp_pp_prove_input_new(const uint8_t *x,
-                                             const uint8_t *y,
-                                             const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
-                                             const struct PathUnsafe *path,
-                                             const struct OutputBlindsUnsafe *output_blinds,
-                                             struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
-                                             struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
-
-CResult balance_last_pseudo_out(const uint8_t *sum_input_masks,
-                                             const uint8_t *sum_output_masks,
-                                             struct ObjectSlice fcmp_prove_inputs);
-
-uint8_t *read_input_pseudo_out(const uint8_t *fcmp_prove_input);
-
 CResult prove(const uint8_t *signable_tx_hash,
                                              struct ObjectSlice fcmp_prove_inputs,
                                              uintptr_t n_tree_layers);

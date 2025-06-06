@@ -193,35 +193,6 @@ void make_balanced_rerandomized_output_set(
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
-void balance_last_pseudo_out(const uint8_t *sum_input_masks,
-    const uint8_t *sum_output_masks,
-    std::vector<const uint8_t *> &fcmp_prove_inputs_inout)
-{
-    auto res = ::balance_last_pseudo_out(
-        sum_input_masks,
-        sum_output_masks,
-        {fcmp_prove_inputs_inout.data(), fcmp_prove_inputs_inout.size()});
-
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to update last pseudo out");
-    }
-
-    fcmp_prove_inputs_inout.pop_back();
-    fcmp_prove_inputs_inout.emplace_back((uint8_t *)res.value);
-}
-
-crypto::ec_point read_input_pseudo_out(const uint8_t *fcmp_prove_input)
-{
-    uint8_t * res_ptr = ::read_input_pseudo_out(fcmp_prove_input);
-    crypto::ec_point res;
-    static_assert(sizeof(crypto::ec_point) == 32, "unexpected size of crypto::ec_point");
-    memcpy(&res, res_ptr, sizeof(crypto::ec_point));
-    free(res_ptr);
-    return res;
-}
-//----------------------------------------------------------------------------------------------------------------------
 SeleneScalar o_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output)
 {
     HANDLE_RES_CODE(SeleneScalar, ::o_blind, &rerandomized_output);
@@ -252,28 +223,6 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
     MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
     auto res = ::fcmp_prove_input_new(&rerandomized_output,
-        path.get(),
-        output_blinds.get(),
-        selene_branch_blind_slice,
-        helios_branch_blind_slice);
-
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
-uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
-    const uint8_t *y,
-    const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const fcmp_pp::Path &path,
-    const fcmp_pp::OutputBlinds &output_blinds,
-    const std::vector<SeleneBranchBlind> &selene_branch_blinds,
-    const std::vector<HeliosBranchBlind> &helios_branch_blinds)
-{
-    MAKE_TEMP_FFI_SLICE(SeleneBranchBlind, selene_branch_blinds, selene_branch_blind_slice);
-    MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
-
-    auto res = ::fcmp_pp_prove_input_new(x,
-        y,
-        &rerandomized_output,
         path.get(),
         output_blinds.get(),
         selene_branch_blind_slice,
