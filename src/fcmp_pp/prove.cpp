@@ -242,18 +242,9 @@ SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
     HANDLE_RES_CODE(SeleneScalar, ::c_blind, &rerandomized_output);
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
-    const uint8_t *blinded_i_blind,
-    const uint8_t *blinded_i_blind_blind,
-    const uint8_t *blinded_c_blind)
-{
-    auto res = ::output_blinds_new(blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
 uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const fcmp_pp::Path &path,
-    const uint8_t *output_blinds,
+    const fcmp_pp::OutputBlinds &output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
 {
@@ -262,7 +253,7 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
 
     auto res = ::fcmp_prove_input_new(&rerandomized_output,
         path.get(),
-        output_blinds,
+        output_blinds.get(),
         selene_branch_blind_slice,
         helios_branch_blind_slice);
 
@@ -273,7 +264,7 @@ uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     const uint8_t *y,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
     const fcmp_pp::Path &path,
-    const uint8_t *output_blinds,
+    const fcmp_pp::OutputBlinds &output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
 {
@@ -284,7 +275,7 @@ uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
         y,
         &rerandomized_output,
         path.get(),
-        output_blinds,
+        output_blinds.get(),
         selene_branch_blind_slice,
         helios_branch_blind_slice);
 

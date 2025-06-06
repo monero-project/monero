@@ -1130,14 +1130,11 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     {
         const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
         const fcmp_pp::Path &path_rust = fcmp_paths_rust.at(i);
-        uint8_t *output_blinds = fcmp_pp::output_blinds_new(
-            (uint8_t*)blinded_o_blinds.at(i).get(),
-            (uint8_t*)blinded_i_blinds.at(i).get(),
-            (uint8_t*)blinded_i_blind_blinds.at(i).get(),
-            (uint8_t*)blinded_c_blinds.at(i).get());
-        const auto free_output_blinds =
-            epee::misc_utils::create_scope_leave_handler([output_blinds]()
-                { free(output_blinds); });
+        const fcmp_pp::OutputBlinds output_blinds = fcmp_pp::output_blinds_new(
+            blinded_o_blinds.at(i),
+            blinded_i_blinds.at(i),
+            blinded_i_blind_blinds.at(i),
+            blinded_c_blinds.at(i));
 
         std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
         for (size_t j = 0; j < num_c1_blinds; ++j)

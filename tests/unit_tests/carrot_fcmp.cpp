@@ -513,10 +513,10 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         auto blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));
 
         // make output blinds
-        proof_input.output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
-            (uint8_t*)blinded_i_blind.get(),
-            (uint8_t*)blinded_i_blind_blind.get(),
-            (uint8_t*)blinded_c_blind.get());
+        proof_input.output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+            blinded_i_blind,
+            blinded_i_blind_blind,
+            blinded_c_blind);
 
         // generate selene blinds
         proof_input.selene_branch_blinds.reserve(expected_num_selene_branch_blinds);
@@ -541,7 +541,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             proof_input.output_blinds,
             proof_input.selene_branch_blinds,
             proof_input.helios_branch_blinds));
-        free(proof_input.output_blinds);
     }
     const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(fcmp_proof_inputs_rust,
         n_tree_layers);

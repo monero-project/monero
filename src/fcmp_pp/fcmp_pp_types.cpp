@@ -89,6 +89,19 @@ IMPLEMENT_FCMP_FFI_TYPE(BlindedCBlind,
     blind_c_blind(&c_blind, &raw_ptr),
     destroy_blinded_c_blind);
 
+// Output blinds
+IMPLEMENT_FCMP_FFI_TYPE(OutputBlinds,
+    output_blinds_new(const BlindedOBlind &blinded_o_blind,
+        const BlindedIBlind &blinded_i_blind,
+        const BlindedIBlindBlind &blinded_i_blind_blind,
+        const BlindedCBlind &blinded_c_blind),
+    output_blinds_new(blinded_o_blind.get(),
+        blinded_i_blind.get(),
+        blinded_i_blind_blind.get(),
+        blinded_c_blind.get(),
+        &raw_ptr),
+    destroy_output_blinds);
+
 // Tree root
 IMPLEMENT_FCMP_FFI_SHARED_TYPE(TreeRoot,
     helios_tree_root(const HeliosPoint &helios_point),

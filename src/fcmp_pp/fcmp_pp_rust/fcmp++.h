@@ -157,6 +157,8 @@ struct BlindedIBlindUnsafe;
 struct BlindedIBlindBlindUnsafe;
 struct BlindedCBlindUnsafe;
 
+struct OutputBlindsUnsafe;
+
 struct HeliosBranchBlindSliceUnsafe
 {
   const struct HeliosBranchBlindUnsafe * const *buf;
@@ -246,10 +248,13 @@ void destroy_blinded_i_blind(struct BlindedIBlindUnsafe *blinded_i_blind);
 void destroy_blinded_i_blind_blind(struct BlindedIBlindBlindUnsafe *blinded_i_blind_blind);
 void destroy_blinded_c_blind(struct BlindedCBlindUnsafe *blinded_c_blind);
 
-CResult output_blinds_new(const uint8_t *o_blind,
-                                             const uint8_t *i_blind,
-                                             const uint8_t *i_blind_blind,
-                                             const uint8_t *c_blind);
+int output_blinds_new(const struct BlindedOBlindUnsafe *blinded_o_blind,
+                                             const struct BlindedIBlindUnsafe *blinded_i_blind,
+                                             const struct BlindedIBlindBlindUnsafe *blinded_i_blind_blind,
+                                             const struct BlindedCBlindUnsafe *blidned_c_blind,
+                                             struct OutputBlindsUnsafe **output_blinds_out);
+
+void destroy_output_blinds(struct OutputBlindsUnsafe *output_blinds);
 
 int generate_helios_branch_blind(struct HeliosBranchBlindUnsafe **branch_blind_out);
 int generate_selene_branch_blind(struct SeleneBranchBlindUnsafe **branch_blind_out);
@@ -259,7 +264,7 @@ void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_b
 
 CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
                                         const struct PathUnsafe *path,
-                                        const uint8_t *output_blinds,
+                                        const struct OutputBlindsUnsafe *output_blinds,
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 
@@ -267,7 +272,7 @@ CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const uint8_t *y,
                                              const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
                                              const struct PathUnsafe *path,
-                                             const uint8_t *output_blinds,
+                                             const struct OutputBlindsUnsafe *output_blinds,
                                              struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                              struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
 

@@ -102,6 +102,9 @@ DEFINE_FCMP_FFI_TYPE(BlindedIBlind, blind_i_blind(const SeleneScalar &));
 DEFINE_FCMP_FFI_TYPE(BlindedIBlindBlind, blind_i_blind_blind(const SeleneScalar &));
 DEFINE_FCMP_FFI_TYPE(BlindedCBlind, blind_c_blind(const SeleneScalar &));
 
+DEFINE_FCMP_FFI_TYPE(OutputBlinds,
+    output_blinds_new(const BlindedOBlind &, const BlindedIBlind &, const BlindedIBlindBlind &, const BlindedCBlind &));
+
 DEFINE_FCMP_FFI_SHARED_TYPE(TreeRoot, helios_tree_root(const HeliosPoint &), selene_tree_root(const SelenePoint &));
 
 DEFINE_FCMP_FFI_TYPE(Path,
@@ -118,7 +121,7 @@ using FcmpPpProof = std::vector<uint8_t>;
 struct ProofInput final
 {
     Path path;
-    uint8_t *output_blinds;
+    OutputBlinds output_blinds;
     std::vector<SeleneBranchBlind> selene_branch_blinds;
     std::vector<HeliosBranchBlind> helios_branch_blinds;
 };
