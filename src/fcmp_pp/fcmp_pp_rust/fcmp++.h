@@ -148,6 +148,11 @@ struct ObjectSlice
 struct HeliosBranchBlindUnsafe;
 struct SeleneBranchBlindUnsafe;
 
+struct BlindedOBlindUnsafe;
+struct BlindedIBlindUnsafe;
+struct BlindedIBlindBlindUnsafe;
+struct BlindedCBlindUnsafe;
+
 struct HeliosBranchBlindSliceUnsafe
 {
   const struct HeliosBranchBlindUnsafe * const *buf;
@@ -221,10 +226,15 @@ int i_blind_blind(const struct FcmpRerandomizedOutputCompressed *rerandomized_ou
 int c_blind(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
   struct SeleneScalar *c_blind_out);
 
-CResult blind_o_blind(const struct SeleneScalar *o_blind);
-CResult blind_i_blind(const struct SeleneScalar *i_blind);
-CResult blind_i_blind_blind(const struct SeleneScalar *i_blind_blind);
-CResult blind_c_blind(const struct SeleneScalar *c_blind);
+int blind_o_blind(const struct SeleneScalar *o_blind, struct BlindedOBlindUnsafe **blinded_o_blind_out);
+int blind_i_blind(const struct SeleneScalar *i_blind, struct BlindedIBlindUnsafe **blinded_i_blind_out);
+int blind_i_blind_blind(const struct SeleneScalar *i_blind_blind, struct BlindedIBlindBlindUnsafe **blinded_i_blind_blind_out);
+int blind_c_blind(const struct SeleneScalar *c_blind, struct BlindedCBlindUnsafe **blinded_c_blind_out);
+
+void destroy_blinded_o_blind(struct BlindedOBlindUnsafe *blinded_o_blind);
+void destroy_blinded_i_blind(struct BlindedIBlindUnsafe *blinded_i_blind);
+void destroy_blinded_i_blind_blind(struct BlindedIBlindBlindUnsafe *blinded_i_blind_blind);
+void destroy_blinded_c_blind(struct BlindedCBlindUnsafe *blinded_c_blind);
 
 CResult output_blinds_new(const uint8_t *o_blind,
                                              const uint8_t *i_blind,

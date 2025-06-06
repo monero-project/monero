@@ -36,18 +36,44 @@ namespace fcmp_pp
 //----------------------------------------------------------------------------------------------------------------------
 // FFI types
 //----------------------------------------------------------------------------------------------------------------------
-#define IMPLEMENT_FCMP_FFI_TYPE(raw_t, gen_fn, destroy_fn)                                    \
-    void raw_t##Deleter::operator()(raw_t##Unsafe *p) const noexcept { ::destroy_fn(p); };    \
-                                                                                              \
-    raw_t raw_t##Gen()                                                                        \
-    {                                                                                         \
-        ::raw_t##Unsafe* raw_ptr;                                                             \
-        CHECK_AND_ASSERT_THROW_MES(::gen_fn(&raw_ptr) == 0, "Failed to generate " << #raw_t); \
-        return raw_t(raw_ptr);                                                                \
+#define IMPLEMENT_FCMP_FFI_TYPE(raw_t, cpp_fn, rust_fn, destroy_fn)                        \
+    void raw_t##Deleter::operator()(raw_t##Unsafe *p) const noexcept { ::destroy_fn(p); }; \
+                                                                                           \
+    raw_t cpp_fn                                                                           \
+    {                                                                                      \
+        ::raw_t##Unsafe* raw_ptr;                                                          \
+        CHECK_AND_ASSERT_THROW_MES(::rust_fn == 0, "Failed to generate " << #raw_t);       \
+        return raw_t(raw_ptr);                                                             \
     };
 
-IMPLEMENT_FCMP_FFI_TYPE(HeliosBranchBlind, generate_helios_branch_blind, destroy_helios_branch_blind);
-IMPLEMENT_FCMP_FFI_TYPE(SeleneBranchBlind, generate_selene_branch_blind, destroy_selene_branch_blind);
+// Branch blinds
+IMPLEMENT_FCMP_FFI_TYPE(HeliosBranchBlind,
+    gen_helios_branch_blind(),
+    generate_helios_branch_blind(&raw_ptr),
+    destroy_helios_branch_blind);
+IMPLEMENT_FCMP_FFI_TYPE(SeleneBranchBlind,
+    gen_selene_branch_blind(),
+    generate_selene_branch_blind(&raw_ptr),
+    destroy_selene_branch_blind);
+
+// Blinded blinds
+IMPLEMENT_FCMP_FFI_TYPE(BlindedOBlind,
+    blind_o_blind(const SeleneScalar &o_blind),
+    blind_o_blind(&o_blind, &raw_ptr),
+    destroy_blinded_o_blind);
+IMPLEMENT_FCMP_FFI_TYPE(BlindedIBlind,
+    blind_i_blind(const SeleneScalar &i_blind),
+    blind_i_blind(&i_blind, &raw_ptr),
+    destroy_blinded_i_blind);
+IMPLEMENT_FCMP_FFI_TYPE(BlindedIBlindBlind,
+    blind_i_blind_blind(const SeleneScalar &i_blind_blind),
+    blind_i_blind_blind(&i_blind_blind, &raw_ptr),
+    destroy_blinded_i_blind_blind);
+IMPLEMENT_FCMP_FFI_TYPE(BlindedCBlind,
+    blind_c_blind(const SeleneScalar &c_blind),
+    blind_c_blind(&c_blind, &raw_ptr),
+    destroy_blinded_c_blind);
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

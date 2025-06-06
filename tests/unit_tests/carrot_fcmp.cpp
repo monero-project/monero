@@ -507,30 +507,26 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
 
         // calculate individual blinds
-        uint8_t *blinded_o_blind = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));
-        uint8_t *blinded_i_blind = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));
-        uint8_t *blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));
-        uint8_t *blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));
+        auto blinded_o_blind = fcmp_pp::blind_o_blind(fcmp_pp::o_blind(rerandomized_output));
+        auto blinded_i_blind = fcmp_pp::blind_i_blind(fcmp_pp::i_blind(rerandomized_output));
+        auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(fcmp_pp::i_blind_blind(rerandomized_output));
+        auto blinded_c_blind = fcmp_pp::blind_c_blind(fcmp_pp::c_blind(rerandomized_output));
 
         // make output blinds
-        proof_input.output_blinds = fcmp_pp::output_blinds_new(
-            blinded_o_blind, blinded_i_blind, blinded_i_blind_blind, blinded_c_blind);
+        proof_input.output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
+            (uint8_t*)blinded_i_blind.get(),
+            (uint8_t*)blinded_i_blind_blind.get(),
+            (uint8_t*)blinded_c_blind.get());
 
         // generate selene blinds
         proof_input.selene_branch_blinds.reserve(expected_num_selene_branch_blinds);
         for (size_t j = 0; j < expected_num_selene_branch_blinds; ++j)
-            proof_input.selene_branch_blinds.push_back(fcmp_pp::SeleneBranchBlindGen());
+            proof_input.selene_branch_blinds.push_back(fcmp_pp::gen_selene_branch_blind());
 
         // generate helios blinds
         proof_input.helios_branch_blinds.reserve(expected_num_helios_branch_blinds);
         for (size_t j = 0; j < expected_num_helios_branch_blinds; ++j)
-            proof_input.helios_branch_blinds.push_back(fcmp_pp::HeliosBranchBlindGen());
-
-        // dealloc individual blinds
-        free(blinded_o_blind);
-        free(blinded_i_blind);
-        free(blinded_i_blind_blind);
-        free(blinded_c_blind);
+            proof_input.helios_branch_blinds.push_back(fcmp_pp::gen_helios_branch_blind());
     }
 
     // Make FCMP membership proof
