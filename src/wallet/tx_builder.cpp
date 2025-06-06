@@ -1082,9 +1082,8 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     const uint64_t reference_block = n_tree_synced_blocks - 1;
 
     // collect Rust API paths
-    std::vector<uint8_t*> fcmp_paths_rust;
+    std::vector<fcmp_pp::Path> fcmp_paths_rust;
     fcmp_paths_rust.reserve(fcmp_paths.size());
-    const auto path_freer = make_fcmp_obj_freer(fcmp_paths_rust);
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.at(i);
@@ -1099,12 +1098,12 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
             path_for_proof.c1_scalar_chunks);
 
-        const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+        auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
             path_for_proof.output_idx,
             {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
             {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
 
-        fcmp_paths_rust.push_back(path_rust);
+        fcmp_paths_rust.emplace_back(std::move(path_rust));
     }
 
     // collect enotes
@@ -1130,7 +1129,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
-        const uint8_t *path_rust = fcmp_paths_rust.at(i);
+        const fcmp_pp::Path &path_rust = fcmp_paths_rust.at(i);
         uint8_t *output_blinds = fcmp_pp::output_blinds_new(
             (uint8_t*)blinded_o_blinds.at(i).get(),
             (uint8_t*)blinded_i_blinds.at(i).get(),

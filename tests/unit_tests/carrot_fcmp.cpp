@@ -491,12 +491,12 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const auto selene_scalar_chunks = fcmp_pp::tower_cycle::scalar_chunks_to_chunk_vector<fcmp_pp::SeleneT>(
             path_for_proof.c1_scalar_chunks);
 
-        const auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
+        auto path_rust = fcmp_pp::path_new({path_for_proof.leaves.data(), path_for_proof.leaves.size()},
             path_for_proof.output_idx,
             {helios_scalar_chunks.data(), helios_scalar_chunks.size()},
             {selene_scalar_chunks.data(), selene_scalar_chunks.size()});
 
-        fcmp_proof_inputs[i].path = path_rust;
+        fcmp_proof_inputs[i].path = std::move(path_rust);
     }
 
     // make FCMP blinds
@@ -541,7 +541,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             proof_input.output_blinds,
             proof_input.selene_branch_blinds,
             proof_input.helios_branch_blinds));
-        free(proof_input.path);
         free(proof_input.output_blinds);
     }
     const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(fcmp_proof_inputs_rust,

@@ -97,6 +97,15 @@ IMPLEMENT_FCMP_FFI_SHARED_TYPE(TreeRoot,
     selene_tree_root(selene_point, &raw_ptr),
     destroy_tree_root);
 
+// Path
+IMPLEMENT_FCMP_FFI_TYPE(Path,
+    path_new(const OutputChunk &output_chunk,
+        std::size_t output_idx,
+        const HeliosT::ScalarChunks &helios_layer_chunks,
+        const SeleneT::ScalarChunks &selene_layer_chunks),
+    path_new(output_chunk, output_idx, helios_layer_chunks, selene_layer_chunks, &raw_ptr),
+    destroy_path);
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
