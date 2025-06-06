@@ -28,7 +28,6 @@
 
 #pragma once
 
-#include "common/unordered_containers_boost_serialization.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "curve_trees.h"
@@ -40,9 +39,6 @@
 #include "serialization/serialization.h"
 #include "tree_sync.h"
 
-#include <boost/serialization/deque.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/version.hpp>
 #include <deque>
 #include <memory>
 #include <unordered_map>
@@ -72,14 +68,6 @@ struct BlockMeta final
     BlockHash blk_hash;
     uint64_t n_leaf_tuples;
 
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & blk_hash;
-        a & blk_idx;
-        a & n_leaf_tuples;
-    }
-
     BEGIN_SERIALIZE_OBJECT()
         FIELD(blk_idx)
         FIELD(blk_hash)
@@ -96,13 +84,6 @@ struct CachedLeafChunk final
     std::vector<OutputPair> leaves;
     uint64_t ref_count;
 
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & leaves;
-        a & ref_count;
-    }
-
     BEGIN_SERIALIZE_OBJECT()
         FIELD(leaves)
         FIELD(ref_count)
@@ -113,13 +94,6 @@ struct CachedTreeElemChunk final
 {
     std::vector<crypto::ec_point> tree_elems;
     uint64_t ref_count;
-
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & tree_elems;
-        a & ref_count;
-    }
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(tree_elems)
@@ -134,13 +108,6 @@ struct AssignedLeafIdx final
 
     void assign_leaf(const LeafIdx idx) { leaf_idx = idx; assigned_leaf_idx = true; }
     void unassign_leaf() { leaf_idx = 0; assigned_leaf_idx = false; }
-
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & assigned_leaf_idx;
-        a & leaf_idx;
-    }
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(assigned_leaf_idx)
@@ -289,18 +256,6 @@ private:
 
 // Serialization
 public:
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & m_locked_outputs;
-        a & m_locked_output_refs;
-        a & m_output_count;
-        a & m_registered_outputs;
-        a & m_leaf_cache;
-        a & m_tree_elem_cache;
-        a & m_cached_blocks;
-    }
-
     BEGIN_SERIALIZE_OBJECT()
         VERSION_FIELD(TREE_CACHE_VERSION)
         FIELD(m_locked_outputs)
@@ -320,24 +275,3 @@ using TreeCacheV1 = TreeCache<Selene, Helios>;
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace curve_trees
 }//namespace fcmp_pp
-
-// Since BOOST_CLASS_VERSION does not work for templated class, implement it
-namespace boost
-{
-namespace serialization
-{
-template<typename C1, typename C2>
-struct version<fcmp_pp::curve_trees::TreeCache<C1, C2>>
-{
-    typedef mpl::int_<fcmp_pp::curve_trees::TREE_CACHE_VERSION> type;
-    typedef mpl::integral_c_tag tag;
-    static constexpr int value = version::type::value;
-    BOOST_MPL_ASSERT((
-        boost::mpl::less<
-            boost::mpl::int_<fcmp_pp::curve_trees::TREE_CACHE_VERSION>,
-            boost::mpl::int_<256>
-        >
-    ));
-};
-}
-}

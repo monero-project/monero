@@ -968,9 +968,6 @@ private:
         return;
       }
       a & m_background_sync_data;
-      if(ver < 32)
-        return;
-      a & m_tree_cache;
     }
 
     BEGIN_SERIALIZE_OBJECT()
@@ -1719,7 +1716,7 @@ private:
     TreeCacheV1 m_tree_cache;
   };
 }
-BOOST_CLASS_VERSION(tools::wallet2, 32)
+BOOST_CLASS_VERSION(tools::wallet2, 31)
 
 namespace tools
 {
