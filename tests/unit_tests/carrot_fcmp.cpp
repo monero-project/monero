@@ -619,7 +619,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // Verify all RingCT non-semantics
     LOG_PRINT_L1("Verify RingCT non-semantics consensus rules");
     ASSERT_TRUE(rct::verRctNonSemanticsSimple(deserialized_tx.rct_signatures));
-    free(tree_root);
 
     // Load carrot from tx
     LOG_PRINT_L1("Parsing carrot info from deserialized transaction");

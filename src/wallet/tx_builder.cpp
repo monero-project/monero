@@ -46,6 +46,7 @@
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/blockchain.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
@@ -1183,22 +1184,20 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     // get FCMP tree root from provided path
     //! @TODO: make this a method of TreeCacheV1
     LOG_PRINT_L3("Making tree root from tree cache");
-    uint8_t *fcmp_tree_root = nullptr;
-    const auto tree_root_freer = epee::misc_utils::create_scope_leave_handler([fcmp_tree_root](){
-        if (fcmp_tree_root) free(fcmp_tree_root);});
+    fcmp_pp::TreeRoot fcmp_tree_root;
     if (n_tree_layers % 2 == 0)
     {
         CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c2_layers.empty(), "missing c2 layers");
         const auto &last_layer = first_fcmp_path.c2_layers.back();
         CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
-        fcmp_tree_root = fcmp_pp::tower_cycle::helios_tree_root(last_layer.back());
+        fcmp_tree_root = fcmp_pp::helios_tree_root(last_layer.back());
     }
     else
     {
         CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c1_layers.empty(), "missing c1 layers");
         const auto &last_layer = first_fcmp_path.c1_layers.back();
         CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
-        fcmp_tree_root = fcmp_pp::tower_cycle::selene_tree_root(last_layer.back());
+        fcmp_tree_root = fcmp_pp::selene_tree_root(last_layer.back());
     }
 
     // expand tx

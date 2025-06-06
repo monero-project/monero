@@ -42,8 +42,23 @@ namespace fcmp_pp
     raw_t cpp_fn                                                                           \
     {                                                                                      \
         ::raw_t##Unsafe* raw_ptr;                                                          \
-        CHECK_AND_ASSERT_THROW_MES(::rust_fn == 0, "Failed to generate " << #raw_t);       \
+        CHECK_AND_ASSERT_THROW_MES(::rust_fn == 0, "Failed " << #rust_fn);                 \
         return raw_t(raw_ptr);                                                             \
+    };
+
+#define IMPLEMENT_FCMP_FFI_SHARED_TYPE(raw_t, cpp_fn1, rust_fn1, cpp_fn2, rust_fn2, destroy_fn) \
+    raw_t cpp_fn1                                                                               \
+    {                                                                                           \
+        ::raw_t##Unsafe* raw_ptr;                                                               \
+        CHECK_AND_ASSERT_THROW_MES(::rust_fn1 == 0, "Failed " << #rust_fn1);                    \
+        return raw_t(raw_ptr, ::destroy_fn);                                                    \
+    };                                                                                          \
+                                                                                                \
+    raw_t cpp_fn2                                                                               \
+    {                                                                                           \
+        ::raw_t##Unsafe* raw_ptr;                                                               \
+        CHECK_AND_ASSERT_THROW_MES(::rust_fn2 == 0, "Failed " << #rust_fn2);                    \
+        return raw_t(raw_ptr, ::destroy_fn);                                                    \
     };
 
 // Branch blinds
@@ -73,6 +88,14 @@ IMPLEMENT_FCMP_FFI_TYPE(BlindedCBlind,
     blind_c_blind(const SeleneScalar &c_blind),
     blind_c_blind(&c_blind, &raw_ptr),
     destroy_blinded_c_blind);
+
+// Tree root
+IMPLEMENT_FCMP_FFI_SHARED_TYPE(TreeRoot,
+    helios_tree_root(const HeliosPoint &helios_point),
+    helios_tree_root(helios_point, &raw_ptr),
+    selene_tree_root(const SelenePoint &selene_point),
+    selene_tree_root(selene_point, &raw_ptr),
+    destroy_tree_root);
 
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

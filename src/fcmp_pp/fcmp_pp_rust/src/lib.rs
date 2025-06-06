@@ -192,15 +192,41 @@ pub extern "C" fn selene_zero_scalar() -> SeleneScalar {
     SeleneScalar::ZERO
 }
 
+/// # Safety
+///
+/// This function expects a non-null pointer to TreeRootUnsafe in tree_root_out.
 #[no_mangle]
-pub extern "C" fn selene_tree_root(selene_point: SelenePoint) -> *const u8 {
-    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C1(selene_point))) as *const u8
+pub unsafe extern "C" fn selene_tree_root(
+    selene_point: SelenePoint,
+    tree_root_out: *mut *mut TreeRoot<Selene, Helios>,
+) -> c_int {
+    if tree_root_out.is_null() {
+        return -1;
+    }
+
+    let tree_root = TreeRoot::<Selene, Helios>::C1(selene_point);
+    unsafe { *tree_root_out = new_box_raw(tree_root) };
+    0
 }
 
+/// # Safety
+///
+/// This function expects a non-null pointer to TreeRootUnsafe in tree_root_out.
 #[no_mangle]
-pub extern "C" fn helios_tree_root(helios_point: HeliosPoint) -> *const u8 {
-    Box::into_raw(Box::new(TreeRoot::<Selene, Helios>::C2(helios_point))) as *const u8
+pub unsafe extern "C" fn helios_tree_root(
+    helios_point: HeliosPoint,
+    tree_root_out: *mut *mut TreeRoot<Selene, Helios>,
+) -> c_int {
+    if tree_root_out.is_null() {
+        return -1;
+    }
+
+    let tree_root = TreeRoot::<Selene, Helios>::C2(helios_point);
+    unsafe { *tree_root_out = new_box_raw(tree_root) };
+    0
 }
+
+destroy_fn!(destroy_tree_root, TreeRoot::<Selene, Helios>);
 
 #[allow(non_snake_case)]
 #[repr(C)]

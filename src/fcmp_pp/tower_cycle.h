@@ -148,9 +148,6 @@ void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
     const std::vector<typename C_POINTS::Point> &points,
     std::vector<typename C_SCALARS::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *selene_tree_root(const Selene::Point &point);
-uint8_t *helios_tree_root(const Helios::Point &point);
-//----------------------------------------------------------------------------------------------------------------------
 template<typename C>
 std::vector<typename C::Chunk> scalar_chunks_to_chunk_vector(
     const std::vector<std::vector<typename C::Scalar>> &scalar_chunks);

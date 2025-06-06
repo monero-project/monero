@@ -768,7 +768,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
 
     // 11.
     LOG_PRINT_L2("'Perhaps this is valid money that belongs to another chain', Bob postulates");
-    const uint8_t *tree_root = bc.get_fcmp_tree_root_at(bc.height() - 1);
+    const auto tree_root = bc.get_fcmp_tree_root_at(bc.height() - 1);
     ASSERT_TRUE(cryptonote::Blockchain::expand_transaction_2(alicebob_tx,
         cryptonote::get_transaction_prefix_hash(alicebob_tx),
         /*pubkeys=*/{},

@@ -479,7 +479,7 @@ std::set<std::size_t> CurveTreesGlobalTree::get_leaf_idxs_with_output_pair(
     return leaf_idx;
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *CurveTreesGlobalTree::get_tree_root() const
+fcmp_pp::TreeRoot CurveTreesGlobalTree::get_tree_root() const
 {
     const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
 
@@ -491,14 +491,14 @@ uint8_t *CurveTreesGlobalTree::get_tree_root() const
         CHECK_AND_ASSERT_THROW_MES(!m_tree.c2_layers.empty(), "missing c2 layers");
         const auto &last_layer = m_tree.c2_layers.back();
         CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c2 root");
-        return fcmp_pp::tower_cycle::helios_tree_root(last_layer.back());
+        return fcmp_pp::helios_tree_root(last_layer.back());
     }
     else
     {
         CHECK_AND_ASSERT_THROW_MES(!m_tree.c1_layers.empty(), "missing c1 layers");
         const auto &last_layer = m_tree.c1_layers.back();
         CHECK_AND_ASSERT_THROW_MES(last_layer.size() == 1, "unexpected n elems in c1 root");
-        return fcmp_pp::tower_cycle::selene_tree_root(last_layer.back());
+        return fcmp_pp::selene_tree_root(last_layer.back());
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
