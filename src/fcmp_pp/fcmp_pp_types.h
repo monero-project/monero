@@ -73,11 +73,10 @@ using OutputChunk = ::OutputSlice;
 //----------------------------------------------------------------------------------------------------------------------
 // FFI types instantiated on the Rust side must be destroyed back on the Rust side. We wrap them in a unique ptr with a
 // custom deleter that calls the respective Rust destroy fn.
-#define DEFINE_FCMP_FFI_TYPE(raw_t)                                                 \
-    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept; };    \
-    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                   \
-    raw_t raw_t##Gen();                                                             \
-    std::vector<const raw_t##Unsafe *> raw_t##Slice(const std::vector<raw_t> &vec);
+#define DEFINE_FCMP_FFI_TYPE(raw_t, cpp_fn)                                      \
+    struct raw_t##Deleter { void operator()(raw_t##Unsafe *p) const noexcept; }; \
+    using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                \
+    raw_t cpp_fn;
 
 // Macro to instantiate an FFI-compatible slice from a vector of FCMP FFI type. Instantiates a vector in local scope
 // so it remains in scope while the slice points to it, making sure memory addresses remain contiguous. The slice is
@@ -89,8 +88,14 @@ using OutputChunk = ::OutputSlice;
         raw_t##Vector.push_back(elem.get());                                     \
     ::raw_t##SliceUnsafe slice_name{raw_t##Vector.data(), raw_t##Vector.size()};
 
-DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind);
-DEFINE_FCMP_FFI_TYPE(SeleneBranchBlind);
+DEFINE_FCMP_FFI_TYPE(HeliosBranchBlind, gen_helios_branch_blind());
+DEFINE_FCMP_FFI_TYPE(SeleneBranchBlind, gen_selene_branch_blind());
+
+DEFINE_FCMP_FFI_TYPE(BlindedOBlind, blind_o_blind(const SeleneScalar &));
+DEFINE_FCMP_FFI_TYPE(BlindedIBlind, blind_i_blind(const SeleneScalar &));
+DEFINE_FCMP_FFI_TYPE(BlindedIBlindBlind, blind_i_blind_blind(const SeleneScalar &));
+DEFINE_FCMP_FFI_TYPE(BlindedCBlind, blind_c_blind(const SeleneScalar &));
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types

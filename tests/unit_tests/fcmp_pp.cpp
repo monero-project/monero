@@ -413,19 +413,19 @@ TEST(fcmp_pp, prove)
             const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
             const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
-                blinded_i_blind,
-                blinded_i_blind_blind,
-                blinded_c_blind);
+            const auto output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
+                (uint8_t*)blinded_i_blind.get(),
+                (uint8_t*)blinded_i_blind_blind.get(),
+                (uint8_t*)blinded_c_blind.get());
 
             // Cache branch blinds
             if (selene_branch_blinds.empty())
                 for (std::size_t i = 0; i < helios_scalar_chunks.size(); ++i)
-                    selene_branch_blinds.emplace_back(fcmp_pp::SeleneBranchBlindGen());
+                    selene_branch_blinds.emplace_back(fcmp_pp::gen_selene_branch_blind());
 
             if (helios_branch_blinds.empty())
                 for (std::size_t i = 0; i < selene_scalar_chunks.size(); ++i)
-                    helios_branch_blinds.emplace_back(fcmp_pp::HeliosBranchBlindGen());
+                    helios_branch_blinds.emplace_back(fcmp_pp::gen_helios_branch_blind());
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
@@ -491,13 +491,13 @@ TEST(fcmp_pp, verify)
     LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
     std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
     for (size_t i = 0; i < expected_num_selene_branch_blinds; ++i)
-        selene_branch_blinds.emplace_back(fcmp_pp::SeleneBranchBlindGen());
+        selene_branch_blinds.emplace_back(fcmp_pp::gen_selene_branch_blind());
 
     const size_t expected_num_helios_branch_blinds = (n_layers - 1) / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
     std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
     for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
-        helios_branch_blinds.emplace_back(fcmp_pp::HeliosBranchBlindGen());
+        helios_branch_blinds.emplace_back(fcmp_pp::gen_helios_branch_blind());
 
     // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
     for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
@@ -564,10 +564,10 @@ TEST(fcmp_pp, verify)
             const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
             const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
-                blinded_i_blind,
-                blinded_i_blind_blind,
-                blinded_c_blind);
+            const auto output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
+                (uint8_t*)blinded_i_blind.get(),
+                (uint8_t*)blinded_i_blind_blind.get(),
+                (uint8_t*)blinded_c_blind.get());
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
@@ -674,13 +674,13 @@ TEST(fcmp_pp, membership_completeness)
     LOG_PRINT_L1("Calculating " << expected_num_selene_branch_blinds << " Selene branch blinds");
     std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
     for (size_t i = 0; i < expected_num_selene_branch_blinds; ++i)
-        selene_branch_blinds.emplace_back(fcmp_pp::SeleneBranchBlindGen());
+        selene_branch_blinds.emplace_back(fcmp_pp::gen_selene_branch_blind());
 
     const size_t expected_num_helios_branch_blinds = tree_depth / 2;
     LOG_PRINT_L1("Calculating " << expected_num_helios_branch_blinds << " Helios branch blinds");
     std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
     for (size_t i = 0; i < expected_num_helios_branch_blinds; ++i)
-        helios_branch_blinds.emplace_back(fcmp_pp::HeliosBranchBlindGen());
+        helios_branch_blinds.emplace_back(fcmp_pp::gen_helios_branch_blind());
 
     // For every supported input size...
     for (size_t num_inputs = 1; num_inputs <= MAX_NUM_INPUTS; ++num_inputs)
@@ -789,10 +789,10 @@ TEST(fcmp_pp, membership_completeness)
             const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
             const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
-                blinded_i_blind,
-                blinded_i_blind_blind,
-                blinded_c_blind);
+            const auto output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
+                (uint8_t*)blinded_i_blind.get(),
+                (uint8_t*)blinded_i_blind_blind.get(),
+                (uint8_t*)blinded_c_blind.get());
             
             // make provable FCMP input
             fcmp_provable_inputs.push_back(fcmp_pp::fcmp_prove_input_new(rerandomized_output,
@@ -805,10 +805,6 @@ TEST(fcmp_pp, membership_completeness)
             fcmp_raw_inputs.push_back(rerandomized_output.input);
 
             // Dealloc
-            free(blinded_o_blind);
-            free(blinded_i_blind);
-            free(blinded_i_blind_blind);
-            free(blinded_c_blind);
             free(output_blinds);
         }
 

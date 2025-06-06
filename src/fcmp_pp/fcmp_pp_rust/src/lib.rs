@@ -61,6 +61,21 @@ fn destroy_box<T>(ptr: *mut T) {
     let _ = unsafe { Box::from_raw(ptr) };
 }
 
+macro_rules! destroy_fn {
+    ($fn_name:ident, $type:ty) => {
+        /// # Safety
+        ///
+        /// This function assumes that the obj was allocated on the heap via
+        /// Box::into_raw(Box::new())
+        #[no_mangle]
+        pub unsafe extern "C" fn $fn_name(
+            obj: *mut $type,
+        ) {
+            destroy_box(obj);
+        }
+    };
+}
+
 fn c_u8_32(bytes: [u8; 32]) -> *const u8 {
     let arr_ptr = Box::into_raw(Box::new(bytes));
     arr_ptr as *const u8
@@ -396,14 +411,25 @@ pub unsafe extern "C" fn o_blind(rerandomized_output_bytes: *const u8,
 #[no_mangle]
 pub unsafe extern "C" fn blind_o_blind(
     o_blind: *const Scalar,
-) -> CResult<OBlind<EdwardsPoint>, ()> {
-    if let Some(o_blind) = ScalarDecomposition::new(o_blind.read()) {
-        let blind = OBlind::new(EdwardsPoint(T()), o_blind);
-        CResult::ok(blind)
-    } else {
-        CResult::err(())
+    blinded_o_blind_out: *mut *mut OBlind<EdwardsPoint>,
+) -> c_int {
+    if blinded_o_blind_out.is_null() {
+        return -1;
     }
+
+    let scalar_decomp = ScalarDecomposition::new(*o_blind);
+    let Some(scalar_decomp) = scalar_decomp else {
+        return -2;
+    };
+
+    let blinded_o_blind = OBlind::new(EdwardsPoint(T()), scalar_decomp);
+
+    unsafe { *blinded_o_blind_out = new_box_raw(blinded_o_blind) };
+
+    0
 }
+
+destroy_fn!(destroy_blinded_o_blind, OBlind<EdwardsPoint>);
 
 //---------------------------------------------- CBlind
 
@@ -424,19 +450,30 @@ pub unsafe extern "C" fn c_blind(rerandomized_output_bytes: *const u8,
 
 /// # Safety
 ///
-/// This function assumes that the scalar being passed in input is from
-/// allocated on the heap has been returned through a CResult instance.
+/// This function assumes that the scalar being passed in input was
+/// allocated on the heap and returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn blind_c_blind(
     c_blind: *const Scalar,
-) -> CResult<CBlind<EdwardsPoint>, ()> {
-    if let Some(c_blind) = ScalarDecomposition::new(c_blind.read()) {
-        let blind = CBlind::new(EdwardsPoint::generator(), c_blind);
-        CResult::ok(blind)
-    } else {
-        CResult::err(())
+    blinded_c_blind_out: *mut *mut CBlind<EdwardsPoint>,
+) -> c_int {
+    if blinded_c_blind_out.is_null() {
+        return -1;
     }
+
+    let scalar_decomp = ScalarDecomposition::new(*c_blind);
+    let Some(scalar_decomp) = scalar_decomp else {
+        return -2;
+    };
+
+    let blinded_c_blind = CBlind::new(EdwardsPoint::generator(), scalar_decomp);
+
+    unsafe { *blinded_c_blind_out = new_box_raw(blinded_c_blind) };
+
+    0
 }
+
+destroy_fn!(destroy_blinded_c_blind, CBlind<EdwardsPoint>);
 
 //---------------------------------------------- IBlind
 
@@ -457,19 +494,34 @@ pub unsafe extern "C" fn i_blind(rerandomized_output_bytes: *const u8,
 
 /// # Safety
 ///
-/// This function assumes that the scalar being passed in input is from
-/// allocated on the heap has been returned through a CResult instance.
+/// This function assumes that the scalar being passed in input was
+/// allocated on the heap and returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn blind_i_blind(
     i_blind: *const Scalar,
-) -> CResult<IBlind<EdwardsPoint>, ()> {
-    if let Some(i_blind) = ScalarDecomposition::new(i_blind.read()) {
-        let blind = IBlind::new(EdwardsPoint(FCMP_U()), EdwardsPoint(FCMP_V()), i_blind);
-        CResult::ok(blind)
-    } else {
-        CResult::err(())
+    blinded_i_blind_out: *mut *mut IBlind<EdwardsPoint>,
+) -> c_int {
+    if blinded_i_blind_out.is_null() {
+        return -1;
     }
+
+    let scalar_decomp = ScalarDecomposition::new(*i_blind);
+    let Some(scalar_decomp) = scalar_decomp else {
+        return -2;
+    };
+
+    let blinded_i_blind = IBlind::new(
+        EdwardsPoint(FCMP_U()),
+        EdwardsPoint(FCMP_V()),
+        scalar_decomp,
+    );
+
+    unsafe { *blinded_i_blind_out = new_box_raw(blinded_i_blind) };
+
+    0
 }
+
+destroy_fn!(destroy_blinded_i_blind, IBlind<EdwardsPoint>);
 
 //---------------------------------------------- IBlindBlind
 
@@ -490,19 +542,30 @@ pub unsafe extern "C" fn i_blind_blind(rerandomized_output_bytes: *const u8,
 
 /// # Safety
 ///
-/// This function assumes that the scalar being passed in input is from
-/// allocated on the heap has been returned through a CResult instance.
+/// This function assumes that the scalar being passed in input was
+/// allocated on the heap and returned through a CResult instance.
 #[no_mangle]
 pub unsafe extern "C" fn blind_i_blind_blind(
     i_blind_blind: *const Scalar,
-) -> CResult<IBlindBlind<EdwardsPoint>, ()> {
-    if let Some(i_blind_blind) = ScalarDecomposition::new(i_blind_blind.read()) {
-        let blind = IBlindBlind::new(EdwardsPoint(T()), i_blind_blind);
-        CResult::ok(blind)
-    } else {
-        CResult::err(())
+    blinded_i_blind_blind_out: *mut *mut IBlindBlind<EdwardsPoint>,
+) -> c_int {
+    if blinded_i_blind_blind_out.is_null() {
+        return -1;
     }
+
+    let scalar_decomp = ScalarDecomposition::new(*i_blind_blind);
+    let Some(scalar_decomp) = scalar_decomp else {
+        return -2;
+    };
+
+    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(T()), scalar_decomp);
+
+    unsafe { *blinded_i_blind_blind_out = new_box_raw(blinded_i_blind_blind) };
+
+    0
 }
+
+destroy_fn!(destroy_blinded_i_blind_blind, IBlindBlind<EdwardsPoint>);
 
 //---------------------------------------------- OutputBlinds
 
@@ -517,11 +580,12 @@ pub unsafe extern "C" fn output_blinds_new(
     i_blind_blind: *const IBlindBlind<EdwardsPoint>,
     c_blind: *const CBlind<EdwardsPoint>,
 ) -> CResult<OutputBlinds<EdwardsPoint>, ()> {
+    // Clone so that even if the underlying blinds get dropped, the object remains valid
     CResult::ok(OutputBlinds::new(
-        o_blind.read(),
-        i_blind.read(),
-        i_blind_blind.read(),
-        c_blind.read(),
+        (*o_blind).clone(),
+        (*i_blind).clone(),
+        (*i_blind_blind).clone(),
+        (*c_blind).clone(),
     ))
 }
 
@@ -536,11 +600,15 @@ pub unsafe extern "C" fn output_blinds_new(
 /// destroy_helios_branch_blind below.
 #[no_mangle]
 pub unsafe extern "C" fn generate_helios_branch_blind(
-    branch_blind_out: *mut *mut BranchBlind::<<Helios as Ciphersuite>::G>,
+    branch_blind_out: *mut *mut BranchBlind<<Helios as Ciphersuite>::G>,
 ) -> c_int {
+    if branch_blind_out.is_null() {
+        return -1;
+    }
+
     let scalar_decomp = ScalarDecomposition::new(<Helios as Ciphersuite>::F::random(&mut OsRng));
     let Some(scalar_decomp) = scalar_decomp else {
-        return -1;
+        return -2;
     };
 
     let branch_blind =
@@ -553,17 +621,6 @@ pub unsafe extern "C" fn generate_helios_branch_blind(
 
 /// # Safety
 ///
-/// This function assumes that branch_blind was allocated on the heap via
-/// Box::into_raw(Box::new())
-#[no_mangle]
-pub unsafe extern "C" fn destroy_helios_branch_blind(
-    branch_blind: *mut BranchBlind<<Helios as Ciphersuite>::G>,
-) {
-    destroy_box(branch_blind);
-}
-
-/// # Safety
-///
 /// This function allocates a branch blind on the heap via Box::new, then
 /// gets its raw pointer via Box::into_raw, then sets the input pointer's
 /// address to point to the raw box pointer. The input parameter must not
@@ -571,11 +628,15 @@ pub unsafe extern "C" fn destroy_helios_branch_blind(
 /// destroy_selene_branch_blind below.
 #[no_mangle]
 pub unsafe extern "C" fn generate_selene_branch_blind(
-    branch_blind_out: *mut *mut BranchBlind::<<Selene as Ciphersuite>::G>,
+    branch_blind_out: *mut *mut BranchBlind<<Selene as Ciphersuite>::G>,
 ) -> c_int {
+    if branch_blind_out.is_null() {
+        return -1;
+    }
+
     let scalar_decomp = ScalarDecomposition::new(<Selene as Ciphersuite>::F::random(&mut OsRng));
     let Some(scalar_decomp) = scalar_decomp else {
-        return -1;
+        return -2;
     };
 
     let branch_blind =
@@ -586,16 +647,14 @@ pub unsafe extern "C" fn generate_selene_branch_blind(
     0
 }
 
-/// # Safety
-///
-/// This function assumes that branch_blind was allocated on the heap via
-/// Box::into_raw(Box::new())
-#[no_mangle]
-pub unsafe extern "C" fn destroy_selene_branch_blind(
-    branch_blind: *mut BranchBlind<<Selene as Ciphersuite>::G>,
-) {
-    destroy_box(branch_blind);
-}
+destroy_fn!(
+    destroy_helios_branch_blind,
+    BranchBlind<<Helios as Ciphersuite>::G>
+);
+destroy_fn!(
+    destroy_selene_branch_blind,
+    BranchBlind<<Selene as Ciphersuite>::G>
+);
 
 //-------------------------------------------------------------------------------------- Fcmp
 

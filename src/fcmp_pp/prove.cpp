@@ -242,30 +242,6 @@ SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
     HANDLE_RES_CODE(SeleneScalar, ::c_blind, &rerandomized_output);
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *blind_o_blind(const SeleneScalar &o_blind)
-{
-    auto res = ::blind_o_blind(&o_blind);
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
-uint8_t *blind_i_blind(const SeleneScalar &i_blind)
-{
-    auto res = ::blind_i_blind(&i_blind);
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
-uint8_t *blind_i_blind_blind(const SeleneScalar &i_blind_blind)
-{
-    auto res = ::blind_i_blind_blind(&i_blind_blind);
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
-uint8_t *blind_c_blind(const SeleneScalar &c_blind)
-{
-    auto res = ::blind_c_blind(&c_blind);
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
 uint8_t *path_new(const OutputChunk &leaves,
     std::size_t output_idx,
     const HeliosT::ScalarChunks &helios_layer_chunks,
