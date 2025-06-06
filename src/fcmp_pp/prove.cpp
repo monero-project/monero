@@ -242,15 +242,6 @@ SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
     HANDLE_RES_CODE(SeleneScalar, ::c_blind, &rerandomized_output);
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *path_new(const OutputChunk &leaves,
-    std::size_t output_idx,
-    const HeliosT::ScalarChunks &helios_layer_chunks,
-    const SeleneT::ScalarChunks &selene_layer_chunks)
-{
-    auto res = ::path_new(leaves, output_idx, helios_layer_chunks, selene_layer_chunks);
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
 uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
     const uint8_t *blinded_i_blind,
     const uint8_t *blinded_i_blind_blind,
@@ -261,7 +252,7 @@ uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
 }
 //----------------------------------------------------------------------------------------------------------------------
 uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const uint8_t *path,
+    const fcmp_pp::Path &path,
     const uint8_t *output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
@@ -270,7 +261,7 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
     MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
     auto res = ::fcmp_prove_input_new(&rerandomized_output,
-        path,
+        path.get(),
         output_blinds,
         selene_branch_blind_slice,
         helios_branch_blind_slice);
@@ -281,7 +272,7 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
 uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     const uint8_t *y,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const uint8_t *path,
+    const fcmp_pp::Path &path,
     const uint8_t *output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
@@ -292,7 +283,7 @@ uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     auto res = ::fcmp_pp_prove_input_new(x,
         y,
         &rerandomized_output,
-        path,
+        path.get(),
         output_blinds,
         selene_branch_blind_slice,
         helios_branch_blind_slice);

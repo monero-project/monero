@@ -131,10 +131,9 @@ const unsafe fn slice_from_raw_parts_0able<'a, T>(p: *const T, len: usize) -> &'
     }
 }
 
-fn ed25519_point_from_bytes(ed25519_point: *const u8) -> EdwardsPoint {
+fn ed25519_point_from_bytes(ed25519_point: *const u8) -> std::io::Result<EdwardsPoint> {
     let mut ed25519_point = unsafe { core::slice::from_raw_parts(ed25519_point, 32) };
-    // TODO: Return an error here (instead of unwrapping)
-    <Ed25519>::read_G(&mut ed25519_point).unwrap()
+    <Ed25519>::read_G(&mut ed25519_point)
 }
 
 fn ed25519_scalar_from_bytes(ed25519_scalar: *const u8) -> Scalar {
@@ -354,27 +353,29 @@ pub unsafe extern "C" fn path_new(
     output_idx: usize,
     helios_layer_chunks: HeliosScalarChunks,
     selene_layer_chunks: SeleneScalarChunks,
-) -> CResult<Path<Curves>, ()> {
+    path_out: *mut *mut Path<Curves>,
+) -> c_int {
+    if path_out.is_null() {
+        return -1;
+    }
+    if output_idx >= leaves.len {
+        return -2;
+    }
+
     // Collect decompressed leaves
-    let leaves: &[OutputBytes] = leaves.into();
-    let leaves: Vec<Output> = leaves
-        .iter()
-        .map(|x| {
-            // TODO: don't unwrap, error
-            Output::new(
-                ed25519_point_from_bytes(x.O),
-                ed25519_point_from_bytes(x.I),
-                ed25519_point_from_bytes(x.C),
-            )
-            .unwrap()
-        })
-        .collect();
+    let leaves_slice: &[OutputBytes] = leaves.into();
+    let mut leaves: Vec<Output> = Vec::with_capacity(leaves_slice.len());
+    #[allow(non_snake_case)]
+    for leaf in leaves_slice {
+        let Ok(O) = ed25519_point_from_bytes(leaf.O) else { return -3; };
+        let Ok(I) = ed25519_point_from_bytes(leaf.I) else { return -3; };
+        let Ok(C) = ed25519_point_from_bytes(leaf.C) else { return -3; };
+
+        let Ok(new_output) = Output::new(O, I, C) else { return -4 };
+        leaves.push(new_output);
+    }
 
     // Output
-    if output_idx >= leaves.len() {
-        // TODO: return error instead of panic
-        panic!("output_idx is too high");
-    }
     let output = leaves[output_idx];
 
     // Collect helios layer chunks
@@ -406,27 +407,31 @@ pub unsafe extern "C" fn path_new(
         curve_2_layers,
         curve_1_layers,
     };
-    CResult::ok(path)
+    unsafe { *path_out = new_box_raw(path); };
+    0
 }
+
+destroy_fn!(destroy_path, Path<Curves>);
 
 //-------------------------------------------------------------------------------------- Blindings
 
 //---------------------------------------------- RerandomizedOutput
 
 #[no_mangle]
+#[allow(non_snake_case)]
 pub unsafe extern "C" fn rerandomize_output(output: OutputBytes,
     rerandomized_output_bytes: *mut u8
 ) -> c_int {
-    let Ok(output) = Output::new(
-        ed25519_point_from_bytes(output.O),
-        ed25519_point_from_bytes(output.I),
-        ed25519_point_from_bytes(output.C),
-    ) else { return -1 };
+    let Ok(O) = ed25519_point_from_bytes(output.O) else { return -1; };
+    let Ok(I) = ed25519_point_from_bytes(output.I) else { return -1; };
+    let Ok(C) = ed25519_point_from_bytes(output.C) else { return -1; };
+
+    let Ok(output) = Output::new(O, I, C) else { return -2 };
 
     let mut rerandomized_output_bytes = core::slice::from_raw_parts_mut(rerandomized_output_bytes, 8 * 32);
 
     let rerandomized_output = RerandomizedOutput::new(&mut OsRng, output);
-    if rerandomized_output.write(&mut rerandomized_output_bytes).is_err() { -1 } else { 0 }
+    if rerandomized_output.write(&mut rerandomized_output_bytes).is_err() { -3 } else { 0 }
 }
 
 //---------------------------------------------- OBlind
@@ -801,7 +806,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_input_new(
     };
 
     // Path and output blinds
-    let path = unsafe { path.read() };
+    let path = unsafe { (*path).clone() };
     let output_blinds = unsafe { output_blinds.read() };
 
     // Collect branch blinds
@@ -1075,10 +1080,11 @@ unsafe fn fcmp_pp_verify_input_new_inner(
     let tree_root: TreeRoot<Selene, Helios> = unsafe { tree_root.read() };
 
     // Collect de-compressed key images into a Vec
+    // TODO: remove unwrap
     let key_images: &[*const u8] = key_images.into();
     let key_images: Vec<EdwardsPoint> = key_images
         .iter()
-        .map(|&x| ed25519_point_from_bytes(x))
+        .map(|&x| ed25519_point_from_bytes(x).unwrap())
         .collect();
 
     let fcmp_pp_verify_input = FcmpPpVerifyInput {
@@ -1186,7 +1192,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(signable_tx_hash: *const u8,
     let Ok(input) = input_from_bytes(input_bytes) else {
         return false;
     };
-    let key_image = ed25519_point_from_bytes(key_image);
+    let Ok(key_image) = ed25519_point_from_bytes(key_image) else { return false; };
     let Ok(sal_proof) = SpendAuthAndLinkability::read(&mut core::slice::from_raw_parts(sal_proof, 12*32)) else { // @TODO: remove magic number
         return false;
     };

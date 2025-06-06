@@ -64,18 +64,13 @@ SeleneScalar i_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
 SeleneScalar i_blind_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output);
 SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output);
 
-uint8_t *path_new(const OutputChunk &leaves,
-    std::size_t output_idx,
-    const HeliosT::ScalarChunks &helios_layer_chunks,
-    const SeleneT::ScalarChunks &selene_layer_chunks);
-
 uint8_t *output_blinds_new(const uint8_t *blinded_o_blind,
     const uint8_t *blinded_i_blind,
     const uint8_t *blinded_i_blind_blind,
     const uint8_t *blinded_c_blind);
 
 uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const uint8_t *path,
+    const fcmp_pp::Path &path,
     const uint8_t *output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds);
@@ -83,7 +78,7 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
 uint8_t *fcmp_pp_prove_input_new(const uint8_t *x,
     const uint8_t *y,
     const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const uint8_t *path,
+    const fcmp_pp::Path &path,
     const uint8_t *output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds);

@@ -147,6 +147,8 @@ struct ObjectSlice
 
 struct TreeRootUnsafe;
 
+struct PathUnsafe;
+
 struct HeliosBranchBlindUnsafe;
 struct SeleneBranchBlindUnsafe;
 
@@ -214,10 +216,13 @@ int hash_grow_selene(struct SelenePoint existing_hash,
                                              struct SeleneScalarSlice new_children,
                                              struct SelenePoint *hash_out);
 
-CResult path_new(struct OutputSlice leaves,
+int path_new(struct OutputSlice leaves,
                                              uintptr_t output_idx,
                                              struct HeliosScalarChunks helios_layer_chunks,
-                                             struct SeleneScalarChunks selene_layer_chunks);
+                                             struct SeleneScalarChunks selene_layer_chunks,
+                                             struct PathUnsafe **path_out);
+
+void destroy_path(struct PathUnsafe *path);
 
 int rerandomize_output(struct OutputBytes output,
                                             struct FcmpRerandomizedOutputCompressed *rerandomized_output_out);
@@ -253,7 +258,7 @@ void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_b
 void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_blind);
 
 CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
-                                        const uint8_t *path,
+                                        const struct PathUnsafe *path,
                                         const uint8_t *output_blinds,
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
@@ -261,7 +266,7 @@ CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rera
 CResult fcmp_pp_prove_input_new(const uint8_t *x,
                                              const uint8_t *y,
                                              const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
-                                             const uint8_t *path,
+                                             const struct PathUnsafe *path,
                                              const uint8_t *output_blinds,
                                              struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                              struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
