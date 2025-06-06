@@ -39,7 +39,7 @@
 #include <boost/optional.hpp>
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/variant.hpp>
-#include <boost/serialization/optional_shim.hpp>
+#include <boost/serialization/optional.hpp>
 #include <boost/serialization/unordered_map.hpp>
 #include <boost/functional/hash.hpp>
 
