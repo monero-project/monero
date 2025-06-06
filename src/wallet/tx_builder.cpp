@@ -40,6 +40,7 @@
 #include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/format_utils.h"
 #include "carrot_impl/input_selection.h"
+#include "common/apply_permutation.h"
 #include "common/container_helpers.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
@@ -817,10 +818,6 @@ std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_trans
     CHECK_AND_ASSERT_THROW_MES(rerandomized_outputs.size() == n_inputs,
         __func__ << ": wrong size for rerandomized_outputs");
 
-    std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki;
-
-    const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(transfers);
-
     //! @TODO: carrot hierarchy
     const carrot::cryptonote_hierarchy_address_device_ram_borrowed addr_dev(
         acc_keys.m_account_address.m_spend_public_key,
@@ -839,6 +836,7 @@ std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sign_carrot_trans
         key_image_dev,
         signable_tx_hash);
 
+    std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki;
     for (size_t input_idx = 0; input_idx < n_inputs; ++input_idx)
     {
         //! @TODO: spend device
@@ -941,7 +939,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
             __func__ << ": cannot find transfer by onetime address");
         const size_t transfer_idx = ota_it->second;
         CHECK_AND_ASSERT_THROW_MES(transfer_idx < transfers.size(),
-            "finalize_all_proofs_from_transfer_details: transfer index out of range");
+            __func__ << ": transfer index out of range");
         const wallet2_basic::transfer_details &td = transfers.at(transfer_idx);
         const fcmp_pp::curve_trees::OutputPair input_pair = td.get_output_pair();
         input_onetime_addresses.push_back(input_pair.output_pubkey);
@@ -1057,11 +1055,15 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     //! @TODO: parallelize jobs
     std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs(n_inputs);
     tpool.submit(&pre_membership_waiter, 
-        [&tx_proposal, &sorted_input_key_images, &rerandomized_outputs, &transfers, &acc_keys, &sal_proofs](){
+        [&tx_proposal, &sorted_input_key_images, &rerandomized_outputs, &transfers, &acc_keys, &sal_proofs, &key_image_order]() {
+            // hacky: permutate tx proposal input proposals in key image order
+            carrot::CarrotTransactionProposalV1 tx_proposal_sorted_ins = tx_proposal;
+            tools::apply_permutation(key_image_order, tx_proposal_sorted_ins.input_proposals);
+
             PERF_TIMER(sign_carrot_transaction_proposal_from_transfer_details);
             std::unordered_map<crypto::key_image, fcmp_pp::FcmpPpSalProof> sal_proofs_by_ki =
                 sign_carrot_transaction_proposal_from_transfer_details(
-                    tx_proposal, rerandomized_outputs, transfers, acc_keys);
+                    tx_proposal_sorted_ins, rerandomized_outputs, transfers, acc_keys);
 
             CHECK_AND_ASSERT_THROW_MES(sal_proofs.size() == sorted_input_key_images.size(),
                 __func__ << ": bad SA/L result buffer size");
