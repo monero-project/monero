@@ -253,13 +253,21 @@ impl<T, E> CResult<T, E> {
     }
 }
 
+/// # Safety
+///
+/// This function expects a valid pointer to a HeliosPoint passed in hash_out.
 #[no_mangle]
-pub extern "C" fn hash_grow_helios(
+pub unsafe extern "C" fn hash_grow_helios(
     existing_hash: HeliosPoint,
     offset: usize,
     existing_child_at_offset: HeliosScalar,
     new_children: HeliosScalarSlice,
-) -> CResult<HeliosPoint, ()> {
+    hash_out: *mut HeliosPoint,
+) -> c_int {
+    if hash_out.is_null() {
+        return -1;
+    }
+
     let hash = hash_grow(
         HELIOS_GENERATORS(),
         existing_hash,
@@ -268,21 +276,29 @@ pub extern "C" fn hash_grow_helios(
         new_children.into(),
     );
 
-    if let Some(hash) = hash {
-        CResult::ok(hash)
-    } else {
-        // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
-        CResult::err(())
-    }
+    let Some(hash) = hash else {
+        return -2;
+    };
+
+    unsafe { *hash_out = hash };
+    0
 }
 
+/// # Safety
+///
+/// This function expects a valid pointer to a SelenePoint passed in hash_out.
 #[no_mangle]
 pub extern "C" fn hash_grow_selene(
     existing_hash: SelenePoint,
     offset: usize,
     existing_child_at_offset: SeleneScalar,
     new_children: SeleneScalarSlice,
-) -> CResult<SelenePoint, ()> {
+    hash_out: *mut SelenePoint,
+) -> c_int {
+    if hash_out.is_null() {
+        return -1;
+    }
+
     let hash = hash_grow(
         SELENE_GENERATORS(),
         existing_hash,
@@ -291,12 +307,12 @@ pub extern "C" fn hash_grow_selene(
         new_children.into(),
     );
 
-    if let Some(hash) = hash {
-        CResult::ok(hash)
-    } else {
-        // TODO: return defined error here: https://github.com/monero-project/monero/pull/9436#discussion_r1720477391
-        CResult::err(())
-    }
+    let Some(hash) = hash else {
+        return -2;
+    };
+
+    unsafe { *hash_out = hash };
+    0
 }
 
 //-------------------------------------------------------------------------------------- Path

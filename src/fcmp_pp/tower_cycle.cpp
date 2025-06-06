@@ -26,6 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "misc_log_ex.h"
 #include "string_tools.h"
 #include "tower_cycle.h"
 
@@ -61,22 +62,15 @@ Selene::Point Selene::hash_grow(
     const Selene::Scalar &existing_child_at_offset,
     const Selene::Chunk &new_children) const
 {
-    auto result = ::hash_grow_selene(
+    Selene::Point hash;
+    int res = ::hash_grow_selene(
         existing_hash,
         offset,
         existing_child_at_offset,
-        new_children);
-
-    if (result.err != nullptr)
-    {
-        free(result.err);
-        throw std::runtime_error("failed to hash grow");
-    }
-
-    typename Selene::Point res;
-    memcpy(&res, result.value, sizeof(typename Selene::Point));
-    free(result.value);
-    return res;
+        new_children,
+        &hash);
+    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow selene");
+    return hash;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Point Helios::hash_grow(
@@ -85,22 +79,15 @@ Helios::Point Helios::hash_grow(
     const Helios::Scalar &existing_child_at_offset,
     const Helios::Chunk &new_children) const
 {
-    auto result = ::hash_grow_helios(
+    Helios::Point hash;
+    int res = ::hash_grow_helios(
         existing_hash,
         offset,
         existing_child_at_offset,
-        new_children);
-
-    if (result.err != nullptr)
-    {
-        free(result.err);
-        throw std::runtime_error("failed to hash grow");
-    }
-
-    typename Helios::Point res;
-    memcpy(&res, result.value, sizeof(typename Helios::Point));
-    free(result.value);
-    return res;
+        new_children,
+        &hash);
+    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow helios");
+    return hash;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Scalar Selene::zero_scalar() const
