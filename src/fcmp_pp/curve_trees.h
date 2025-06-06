@@ -98,13 +98,6 @@ struct OutputPair final
 
     bool operator==(const OutputPair &other) const { return output_pubkey == other.output_pubkey && commitment == other.commitment; }
 
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & output_pubkey;
-        a & commitment;
-    }
-
     BEGIN_SERIALIZE_OBJECT()
         FIELD(output_pubkey)
         FIELD(commitment)
@@ -132,14 +125,6 @@ struct OutputContext final
     static_assert((bool) ((uint8_t) 0) == false && (bool) ((uint8_t) 1) == true, "Unexpected uint8_t <> bool casting");
 
     bool operator==(const OutputContext &other) const { return output_id == other.output_id && output_pair == other.output_pair; }
-
-    template <class Archive>
-    inline void serialize(Archive &a, const unsigned int ver)
-    {
-        a & output_id;
-        a & torsion_checked;
-        a & output_pair;
-    }
 
     BEGIN_SERIALIZE_OBJECT()
         FIELD(output_id)
