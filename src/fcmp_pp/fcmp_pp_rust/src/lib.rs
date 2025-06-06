@@ -76,11 +76,6 @@ macro_rules! destroy_fn {
     };
 }
 
-fn c_u8_32(bytes: [u8; 32]) -> *const u8 {
-    let arr_ptr = Box::into_raw(Box::new(bytes));
-    arr_ptr as *const u8
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn helios_scalar_to_bytes(helios_scalar: *const HeliosScalar, bytes_out: *mut u8) {
     let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
@@ -767,37 +762,7 @@ unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveInput], n_tree_lay
     Fcmp::prove(&mut OsRng, FCMP_PARAMS(), blinded_branches).ok()
 }
 
-/// # Safety
-///
-/// This function assumes that RerandomizedOutput/Path/OutputBlinds were
-/// allocated on the heap (via Box::into_raw(Box::new())), and the branch
-/// blinds are slices of BranchBlind allocated on the heap (via CResult).
-#[no_mangle]
-pub unsafe extern "C" fn fcmp_prove_input_new(rerandomized_output_bytes: *const u8,
-    path: *const Path<Curves>,
-    output_blinds: *const OutputBlinds<EdwardsPoint>,
-    selene_branch_blinds: SeleneBranchBlindSlice,
-    helios_branch_blinds: HeliosBranchBlindSlice 
-) -> CResult<FcmpPpProveInput, ()> {
-    let zero = [0u8; 32];
-    let pzero = &zero as *const u8;
-    fcmp_pp_prove_input_new(pzero,
-        pzero,
-        rerandomized_output_bytes,
-        path,
-        output_blinds,
-        selene_branch_blinds,
-        helios_branch_blinds)
-}
-
-/// # Safety
-///
-/// This function assumes that the x and y are 32 byte Ed25519 scalars, that
-/// RerandomizedOutput/Path/OutputBlinds were allocated on the heap
-/// (via Box::into_raw(Box::new())), and the branch blinds are slices of
-/// BranchBlind allocated on the heap (via CResult).
-#[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_prove_input_new(
+unsafe fn fcmp_pp_prove_input_new(
     x: *const u8,
     y: *const u8,
     rerandomized_output_bytes: *const u8,
@@ -847,57 +812,25 @@ pub unsafe extern "C" fn fcmp_pp_prove_input_new(
 
 /// # Safety
 ///
-/// This function assumes that the sum_input_masks and sum_output_masks are 32 byte Ed25519 scalars,
-/// and that the inputs are a slice of inputs returned from fcmp_prove_input_new.
+/// This function assumes that RerandomizedOutput/Path/OutputBlinds were
+/// allocated on the heap (via Box::into_raw(Box::new())), and the branch
+/// blinds are slices of BranchBlind allocated on the heap (via CResult).
 #[no_mangle]
-pub unsafe extern "C" fn balance_last_pseudo_out(
-    sum_input_masks: *const u8,
-    sum_output_masks: *const u8,
-    inputs: FcmpPpProveInputSlice,
+pub unsafe extern "C" fn fcmp_prove_input_new(rerandomized_output_bytes: *const u8,
+    path: *const Path<Curves>,
+    output_blinds: *const OutputBlinds<EdwardsPoint>,
+    selene_branch_blinds: SeleneBranchBlindSlice,
+    helios_branch_blinds: HeliosBranchBlindSlice 
 ) -> CResult<FcmpPpProveInput, ()> {
-    let mut sum_input_masks = ed25519_scalar_from_bytes(sum_input_masks);
-    let sum_output_masks = ed25519_scalar_from_bytes(sum_output_masks);
-
-    let inputs: &[*const FcmpPpProveInput] = inputs.into();
-
-    if inputs.len() == 0 {
-        return CResult::err(());
-    }
-
-    // Get the sum of the input commitment masks excluding the last one
-    for i in 0..inputs.len() - 1 {
-        // Read the input without consuming it
-        let input: &FcmpPpProveInput = unsafe { &*inputs[i] };
-        sum_input_masks += input.rerandomized_output.r_c();
-    }
-
-    // Re-calculate the last scalar so that the sum of inputs == sum of outputs
-    let new_last_r_c = sum_output_masks - sum_input_masks;
-
-    // Update the last r_c on the last reandomized output, which also updates its C_tilde
-    // TODO: modify the inputs slice directly
-    let mut last_input = inputs.last().unwrap().read();
-    let last_commitment = last_input.path.output.C();
-    last_input.rerandomized_output.set_r_c(last_commitment, new_last_r_c);
-
-    // Blind the updated C blind (this is expensive)
-    let new_c_blind = ScalarDecomposition::new(last_input.rerandomized_output.c_blind()).unwrap();
-    let new_blinded_c_blind = CBlind::new(EdwardsPoint::generator(), new_c_blind);
-    last_input.output_blinds.set_c_blind(new_blinded_c_blind);
-
-    CResult::ok(last_input)
-}
-
-/// # Safety
-///
-/// This function assumes that the inputs are a slice of inputs returned from fcmp_prove_input_new.
-#[no_mangle]
-pub unsafe extern "C" fn read_input_pseudo_out(
-    input: *const FcmpPpProveInput,
-) -> *const u8 {
-    // Read the input without consuming it
-    let input: &FcmpPpProveInput = unsafe { &*input };
-    c_u8_32(input.rerandomized_output.input().C_tilde().to_bytes())
+    let zero = [0u8; 32];
+    let pzero = &zero as *const u8;
+    fcmp_pp_prove_input_new(pzero,
+        pzero,
+        rerandomized_output_bytes,
+        path,
+        output_blinds,
+        selene_branch_blinds,
+        helios_branch_blinds)
 }
 
 /// # Safety

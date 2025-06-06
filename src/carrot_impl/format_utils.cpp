@@ -521,49 +521,23 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
     const std::uint64_t fcmp_reference_block,
     const std::uint8_t n_tree_layers)
 {
-    const size_t n_inputs = rerandomized_outputs.size();
-    CHECK_AND_ASSERT_THROW_MES(sal_proofs.size() == n_inputs,
-        "store fcmp proofs to rct prunable v1: wrong number of sal_proofs");
-    for (const fcmp_pp::FcmpPpSalProof &sal_proof : sal_proofs)
-        CHECK_AND_ASSERT_THROW_MES(sal_proof.size() == FCMP_PP_SAL_PROOF_SIZE_V1,
-            "store fcmp proofs to rct prunable v1: sal proof is incorrect size");
-    CHECK_AND_ASSERT_THROW_MES(membership_proof.size() == fcmp_pp::membership_proof_len(n_inputs, n_tree_layers),
-        "store fcmp proofs to rct prunable v1: membership proof is incorrect size");
-    const size_t actual_proof_size = membership_proof.size() +
-        (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1) * n_inputs;
-    CHECK_AND_ASSERT_THROW_MES(actual_proof_size == fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers),
-        "store fcmp proofs to rct prunable v1: bug: bad length calculation");
+    fcmp_pp::FcmpPpProof fcmp_pp_proof_bytes = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_outputs,
+        sal_proofs,
+        membership_proof,
+        n_tree_layers);
 
     // extract C~
+    const size_t n_inputs = rerandomized_outputs.size();
     rct::keyV pseudoOuts(n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
         memcpy(pseudoOuts[i].bytes, rerandomized_outputs.at(i).input.C_tilde, sizeof(rct::key));
-
-    // build FCMP++ from FCMP and SA/L parts
-    fcmp_pp::FcmpPpProof proof_bytes;
-    proof_bytes.reserve(actual_proof_size);
-    for (size_t i = 0; i < n_inputs; ++i)
-    {
-        const FcmpInputCompressed &input = rerandomized_outputs.at(i).input;
-        const fcmp_pp::FcmpPpSalProof &sal_proof = sal_proofs.at(i);
-
-        // append O~, I~, R                                  (C_tilde not included)
-        proof_bytes.insert(proof_bytes.end(), input.O_tilde, input.C_tilde);
-        // append SAL proof
-        proof_bytes.insert(proof_bytes.end(), sal_proof.cbegin(), sal_proof.cend());
-    }
-    // append membership proof
-    proof_bytes.insert(proof_bytes.end(), membership_proof.cbegin(), membership_proof.cend());
-
-    CHECK_AND_ASSERT_THROW_MES(proof_bytes.size() == actual_proof_size,
-        "store fcmp proofs to rct prunable v1: bug: bad proof building");
 
     return rct::rctSigPrunable{
         .bulletproofs_plus = {bulletproof_plus},
         .pseudoOuts = std::move(pseudoOuts),
         .reference_block = fcmp_reference_block,
         .n_tree_layers = n_tree_layers,
-        .fcmp_pp = std::move(proof_bytes)
+        .fcmp_pp = std::move(fcmp_pp_proof_bytes)
     };
 }
 //-------------------------------------------------------------------------------------------------------------------

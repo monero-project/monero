@@ -137,6 +137,12 @@ struct FcmpVerifyHelperData final
     TreeRoot tree_root;
     std::vector<crypto::key_image> key_images;
 };
+
+// Serialize types into a single byte buffer
+FcmpPpProof fcmp_pp_proof_from_parts_v1(const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
+    const std::vector<FcmpPpSalProof> &sal_proofs,
+    const FcmpMembershipProof &membership_proof,
+    const std::uint8_t n_tree_layers);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
