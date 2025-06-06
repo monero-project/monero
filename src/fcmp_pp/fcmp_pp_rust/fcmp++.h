@@ -145,6 +145,8 @@ struct ObjectSlice
   uintptr_t len;
 };
 
+struct TreeRootUnsafe;
+
 struct HeliosBranchBlindUnsafe;
 struct SeleneBranchBlindUnsafe;
 
@@ -195,9 +197,10 @@ struct HeliosScalar helios_zero_scalar(void);
 
 struct SeleneScalar selene_zero_scalar(void);
 
-uint8_t *selene_tree_root(struct SelenePoint selene_point);
+int selene_tree_root(struct SelenePoint selene_point, struct TreeRootUnsafe **tree_root_out);
+int helios_tree_root(struct HeliosPoint helios_point, struct TreeRootUnsafe **tree_root_out);
 
-uint8_t *helios_tree_root(struct HeliosPoint helios_point);
+void destroy_tree_root(struct TreeRootUnsafe *tree_root);
 
 int hash_grow_helios(struct HeliosPoint existing_hash,
                                              uintptr_t offset,
@@ -319,7 +322,7 @@ CResult fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
                                              const uint8_t *fcmp_pp_proof,
                                              uintptr_t fcmp_pp_proof_len,
                                              uintptr_t n_tree_layers,
-                                             const uint8_t *tree_root,
+                                             const struct TreeRootUnsafe *tree_root,
                                              struct ObjectSlice pseudo_outs,
                                              struct ObjectSlice key_images);
 
@@ -327,7 +330,7 @@ bool verify(const uint8_t *signable_tx_hash,
                                              const uint8_t *fcmp_pp_proof,
                                              uintptr_t fcmp_pp_proof_len,
                                              uintptr_t n_tree_layers,
-                                             const uint8_t *tree_root,
+                                             const struct TreeRootUnsafe *tree_root,
                                              struct ObjectSlice pseudo_outs,
                                              struct ObjectSlice key_images);
 /**
@@ -352,7 +355,7 @@ bool fcmp_pp_verify_sal(const uint8_t signable_tx_hash[32],
  * return: true on verification success, false otherwise
  */
 bool fcmp_pp_verify_membership(struct InputSlice inputs,
-  const uint8_t *tree_root,
+  const struct TreeRootUnsafe *tree_root,
   const uintptr_t n_tree_layers,
   const uint8_t fcmp_proof[],
   const uintptr_t fcmp_proof_len);

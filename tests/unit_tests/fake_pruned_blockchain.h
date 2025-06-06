@@ -31,14 +31,11 @@
 #define IN_UNIT_TESTS
 
 #include "curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 #include "wallet/wallet2.h"
 
 namespace mock
 {
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
-using fcmp_generic_object_t = std::unique_ptr<void, decltype(&free)>;
-static inline fcmp_generic_object_t make_fcmp_generic_object(void *p) { return fcmp_generic_object_t(p, &free); }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 class fake_pruned_blockchain
@@ -111,12 +108,12 @@ public:
         return m_parsed_blocks.at(block_index - this->m_start_block_index);
     }
 
-    const uint8_t *get_fcmp_tree_root_at(const uint64_t block_index) const
+    const fcmp_pp::TreeRoot get_fcmp_tree_root_at(const uint64_t block_index) const
     {
         if (block_index >= this->height() || block_index < this->m_start_block_index)
             throw std::out_of_range("get_fcmp_tree_root_at requested block index");
 
-        return reinterpret_cast<uint8_t*>(m_curve_tree_roots.at(block_index - this->m_start_block_index).get());
+        return m_curve_tree_roots.at(block_index - this->m_start_block_index);
     }
 
 private:
@@ -129,7 +126,7 @@ private:
     uint64_t m_num_outputs;
     std::vector<cryptonote::block_complete_entry> m_block_entries;
     std::vector<tools::wallet2::parsed_block> m_parsed_blocks;
-    std::vector<fcmp_generic_object_t> m_curve_tree_roots;
+    std::vector<fcmp_pp::TreeRoot> m_curve_tree_roots;
 
     CurveTreesGlobalTree m_global_curve_tree;
 };

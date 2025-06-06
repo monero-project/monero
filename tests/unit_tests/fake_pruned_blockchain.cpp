@@ -359,7 +359,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
     m_num_outputs = running_num_chain_outputs;
     m_block_entries.emplace_back(std::move(blk_entry));
     m_parsed_blocks.emplace_back(std::move(par_blk));
-    m_curve_tree_roots.emplace_back(make_fcmp_generic_object(m_global_curve_tree.get_tree_root()));
+    m_curve_tree_roots.emplace_back(m_global_curve_tree.get_tree_root());
 }
 //----------------------------------------------------------------------------------------------------------------------
 void fake_pruned_blockchain::get_blocks_data(const uint64_t start_block_index,

@@ -483,8 +483,8 @@ TEST(fcmp_pp, verify)
     ASSERT_TRUE(curve_trees->audit_path(path, new_outputs.outputs.front().output_pair, expected_n_leaves));
 
     const auto tree_root = n_layers % 2 == 0
-        ? fcmp_pp::tower_cycle::helios_tree_root(path.c2_layers.back().back())
-        : fcmp_pp::tower_cycle::selene_tree_root(path.c1_layers.back().back());
+        ? fcmp_pp::helios_tree_root(path.c2_layers.back().back())
+        : fcmp_pp::selene_tree_root(path.c1_layers.back().back());
 
     // Make branch blinds once purely for performance reasons (DO NOT DO THIS IN PRODUCTION)
     const size_t expected_num_selene_branch_blinds = n_layers / 2;

@@ -78,6 +78,12 @@ using OutputChunk = ::OutputSlice;
     using raw_t = std::unique_ptr<raw_t##Unsafe, raw_t##Deleter>;                \
     raw_t cpp_fn;
 
+// Sometimes a shared ptr is necessary so that we can reference the same copy of underlying data in multiple places.
+#define DEFINE_FCMP_FFI_SHARED_TYPE(raw_t, cpp_fn1, cpp_fn2) \
+    using raw_t = std::shared_ptr<raw_t##Unsafe>;            \
+    raw_t cpp_fn1;                                           \
+    raw_t cpp_fn2;
+
 // Macro to instantiate an FFI-compatible slice from a vector of FCMP FFI type. Instantiates a vector in local scope
 // so it remains in scope while the slice points to it, making sure memory addresses remain contiguous. The slice is
 // only usable within local scope, hence "TEMP".
@@ -96,6 +102,7 @@ DEFINE_FCMP_FFI_TYPE(BlindedIBlind, blind_i_blind(const SeleneScalar &));
 DEFINE_FCMP_FFI_TYPE(BlindedIBlindBlind, blind_i_blind_blind(const SeleneScalar &));
 DEFINE_FCMP_FFI_TYPE(BlindedCBlind, blind_c_blind(const SeleneScalar &));
 
+DEFINE_FCMP_FFI_SHARED_TYPE(TreeRoot, helios_tree_root(const HeliosPoint &), selene_tree_root(const SelenePoint &));
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types
@@ -121,7 +128,7 @@ struct ProofParams final
 
 struct FcmpVerifyHelperData final
 {
-    const uint8_t *tree_root; // borrowing, *not* owning
+    TreeRoot tree_root;
     std::vector<crypto::key_image> key_images;
 };
 //----------------------------------------------------------------------------------------------------------------------

@@ -140,7 +140,7 @@ static bool expand_post_fcmp_tx(transaction& tx, const crypto::hash& tx_prefix_h
     return check_post_fcmp_expanded_tx(tx);
 }
 
-static bool expand_fcmp_pp_tx(cryptonote::transaction& tx, uint8_t *tree_root)
+static bool expand_fcmp_pp_tx(cryptonote::transaction& tx, const fcmp_pp::TreeRoot &tree_root)
 {
     // Pruned transactions can not be expanded and verified because they are missing RCT data
     VER_ASSERT(!tx.pruned, "Pruned transaction will not pass verification");
@@ -375,7 +375,7 @@ static crypto::hash calc_tx_anon_set_hash(const cryptonote::transaction& tx,
 static bool collect_fcmp_pp_tx_verify_inputs(cryptonote::transaction &tx,
     rct_ver_cache_t& cache,
     const std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>>& tree_root_by_block_index,
-    std::unordered_map<uint64_t, uint8_t *> &decompressed_tree_roots_by_block_index,
+    std::unordered_map<uint64_t, fcmp_pp::TreeRoot> &decompressed_tree_roots_by_block_index,
     std::vector<const uint8_t*> &fcmp_pp_verify_inputs,
     std::vector<crypto::hash> &new_cache_hashes)
 {
@@ -421,7 +421,7 @@ static bool collect_fcmp_pp_tx_verify_inputs(cryptonote::transaction &tx,
     }
 
     // Get decompressed tree root from map
-    uint8_t *decompressed_tree_root = decompressed_tree_roots_by_block_index[ref_block_index];
+    const auto &decompressed_tree_root = decompressed_tree_roots_by_block_index[ref_block_index];
 
     if (!expand_fcmp_pp_tx(tx, decompressed_tree_root))
     {
@@ -695,7 +695,7 @@ bool batch_ver_fcmp_pp_consensus
     VER_ASSERT(caching_fcmp_pp_txs, "Make sure batch verification works correctly with this type and then enable it in the code here.");
 
     // Collect unverified FCMP++ txs for batch verfication
-    std::unordered_map<uint64_t, uint8_t *> decompressed_tree_roots_by_block_index;
+    std::unordered_map<uint64_t, fcmp_pp::TreeRoot> decompressed_tree_roots_by_block_index;
     std::vector<const uint8_t*> fcmp_pp_verify_inputs;
     std::vector<crypto::hash> new_cache_hashes;
 

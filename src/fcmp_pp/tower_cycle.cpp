@@ -229,8 +229,5 @@ template std::vector<HeliosT::Chunk> scalar_chunks_to_chunk_vector<HeliosT>(
 template std::vector<SeleneT::Chunk> scalar_chunks_to_chunk_vector<SeleneT>(
     const std::vector<std::vector<SeleneT::Scalar>> &scalar_chunks);
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *selene_tree_root(const Selene::Point &point) { return ::selene_tree_root(point); }
-uint8_t *helios_tree_root(const Helios::Point &point) { return ::helios_tree_root(point); }
-//----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle
 } //namespace fcmp_pp

@@ -356,7 +356,7 @@ public:
     // Audit the provided path
     bool audit_path(const Path &path, const OutputPair &output, const uint64_t n_leaf_tuples_in_tree) const;
 
-    uint8_t *get_tree_root_from_bytes(const std::size_t n_layers, const crypto::ec_point &tree_root) const;
+    TreeRoot get_tree_root_from_bytes(const std::size_t n_layers, const crypto::ec_point &tree_root) const;
 
     PathForProof path_for_proof(const Path &path, const OutputTuple &output_tuple) const;
 
