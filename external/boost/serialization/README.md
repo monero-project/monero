@@ -1,4 +1,0 @@
-# Boost Serialization Vendoring
-
-* optional_shim.hpp - Compare to file include/boost/serialization/optional.hpp in the Boost serialization repository, checked out at commit ff0a5f9f4a4040c6f992581245fed48d9634acfe. This is the newest version of the file at time of writing. Once minimum required Boost version is >= 1.84, then we can drop this header.
-* std_variant_shim.hpp - Compare to file include/boost/serialization/std_variant.hpp in the Boost serialization repository, checked out at commit 2805bc3faa8f8fb7ce80ec518158563c5fcf26f6. This is the newest version of the file at time of writing. Once minimum required Boost version includes commit 042c590a7ac84933413243d8e9c3b06a791803a7 in the multiprecision repository, then we can drop this header. Commit 042c590a7ac84933413243d8e9c3b06a791803a7 removes a namespace clash in Boost's multiprecision library with the std_variant.hpp header.
