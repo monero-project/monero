@@ -800,7 +800,7 @@ carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(con
             .subaddr_index = subaddr_index,
             .amount = td.amount(),
             .amount_blinding_factor = td.m_mask,
-            .local_output_index = td.m_internal_output_index
+            .local_output_index = static_cast<std::size_t>(td.m_internal_output_index)
         };
 
         ASSERT_MES_AND_THROW("make sal opening hint from transfer details: cannot find subaddress and sender extension "
