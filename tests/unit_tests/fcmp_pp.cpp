@@ -413,10 +413,10 @@ TEST(fcmp_pp, prove)
             const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
             const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-            const auto output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
-                (uint8_t*)blinded_i_blind.get(),
-                (uint8_t*)blinded_i_blind_blind.get(),
-                (uint8_t*)blinded_c_blind.get());
+            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+                blinded_i_blind,
+                blinded_i_blind_blind,
+                blinded_c_blind);
 
             // Cache branch blinds
             if (selene_branch_blinds.empty())
@@ -564,10 +564,10 @@ TEST(fcmp_pp, verify)
             const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
             const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-            const auto output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
-                (uint8_t*)blinded_i_blind.get(),
-                (uint8_t*)blinded_i_blind_blind.get(),
-                (uint8_t*)blinded_c_blind.get());
+            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+                blinded_i_blind,
+                blinded_i_blind_blind,
+                blinded_c_blind);
 
             auto fcmp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(x,
                 y,
@@ -789,10 +789,10 @@ TEST(fcmp_pp, membership_completeness)
             const auto blinded_i_blind_blind = fcmp_pp::blind_i_blind_blind(i_blind_blind);
             const auto blinded_c_blind = fcmp_pp::blind_c_blind(c_blind);
 
-            const auto output_blinds = fcmp_pp::output_blinds_new((uint8_t*)blinded_o_blind.get(),
-                (uint8_t*)blinded_i_blind.get(),
-                (uint8_t*)blinded_i_blind_blind.get(),
-                (uint8_t*)blinded_c_blind.get());
+            const auto output_blinds = fcmp_pp::output_blinds_new(blinded_o_blind,
+                blinded_i_blind,
+                blinded_i_blind_blind,
+                blinded_c_blind);
             
             // make provable FCMP input
             fcmp_provable_inputs.push_back(fcmp_pp::fcmp_prove_input_new(rerandomized_output,
@@ -803,9 +803,6 @@ TEST(fcmp_pp, membership_completeness)
 
             // get FCMP input
             fcmp_raw_inputs.push_back(rerandomized_output.input);
-
-            // Dealloc
-            free(output_blinds);
         }
 
         ASSERT_EQ(fcmp_raw_inputs.size(), fcmp_provable_inputs.size());

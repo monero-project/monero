@@ -626,15 +626,24 @@ pub unsafe extern "C" fn output_blinds_new(
     i_blind: *const IBlind<EdwardsPoint>,
     i_blind_blind: *const IBlindBlind<EdwardsPoint>,
     c_blind: *const CBlind<EdwardsPoint>,
-) -> CResult<OutputBlinds<EdwardsPoint>, ()> {
+    output_blinds_out: *mut *mut OutputBlinds<EdwardsPoint>,
+) -> c_int {
+    if output_blinds_out.is_null() {
+        return -1;
+    }
+
     // Clone so that even if the underlying blinds get dropped, the object remains valid
-    CResult::ok(OutputBlinds::new(
+    let output_blinds = OutputBlinds::new(
         (*o_blind).clone(),
         (*i_blind).clone(),
         (*i_blind_blind).clone(),
         (*c_blind).clone(),
-    ))
+    );
+    unsafe { *output_blinds_out = new_box_raw(output_blinds); };
+    0
 }
+
+destroy_fn!(destroy_output_blinds, OutputBlinds<EdwardsPoint>);
 
 //---------------------------------------------- BranchBlind
 
@@ -807,7 +816,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_input_new(
 
     // Path and output blinds
     let path = unsafe { (*path).clone() };
-    let output_blinds = unsafe { output_blinds.read() };
+    let output_blinds = unsafe { (*output_blinds).clone() };
 
     // Collect branch blinds
     let c1_branch_blinds: &[*const BranchBlind<<Selene as Ciphersuite>::G>] =
