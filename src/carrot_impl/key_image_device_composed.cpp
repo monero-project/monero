@@ -106,16 +106,19 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
         case AddressDeriveType::Carrot:
             // K_s
             main_address_spend_pubkey = m_addr_dev.access_carrot_hierarchy_device().get_carrot_account_spend_pubkey();
-            // L_partial *= k^j_subscal
-            m_addr_dev.access_carrot_hierarchy_device().make_index_extension_generator(subaddr_index.index.major,
-                subaddr_index.index.minor,
-                carrot_address_index_extension_generator);
-            make_carrot_subaddress_scalar(main_address_spend_pubkey, 
-                carrot_address_index_extension_generator,
-                subaddr_index.index.major,
-                subaddr_index.index.minor,
-                carrot_subaddr_scalar);
-            partial_key_image = rct::scalarmultKey(partial_key_image, rct::sk2rct(carrot_subaddr_scalar));
+            if (subaddr_index.index.is_subaddress())
+            {
+                // L_partial *= k^j_subscal
+                m_addr_dev.access_carrot_hierarchy_device().make_index_extension_generator(subaddr_index.index.major,
+                    subaddr_index.index.minor,
+                    carrot_address_index_extension_generator);
+                make_carrot_subaddress_scalar(main_address_spend_pubkey,
+                    carrot_address_index_extension_generator,
+                    subaddr_index.index.major,
+                    subaddr_index.index.minor,
+                    carrot_subaddr_scalar);
+                partial_key_image = rct::scalarmultKey(partial_key_image, rct::sk2rct(carrot_subaddr_scalar));
+            }
             break;
         default:
             throw make_local_device_error{-2}("unrecognized address derive type");

@@ -79,11 +79,13 @@ struct mock_carrot_and_legacy_keys
     view_incoming_key_ram_borrowed_device k_view_incoming_dev;
     view_balance_secret_ram_borrowed_device s_view_balance_dev;
     generate_image_key_ram_borrowed_device k_generate_image_dev;
+    generate_image_key_ram_borrowed_device k_spend_generate_image_dev;
     generate_address_secret_ram_borrowed_device s_generate_address_dev;
     cryptonote_hierarchy_address_device_ram_borrowed cn_addr_dev;
     carrot_hierarchy_address_device_ram_borrowed carrot_addr_dev;
     hybrid_hierarchy_address_device_composed hybrid_addr_dev;
-    key_image_device_composed key_image_dev;
+    key_image_device_composed legacy_key_image_dev;
+    key_image_device_composed carrot_key_image_dev;
 
     std::unordered_map<crypto::public_key, subaddress_index_extended> subaddress_map;
 
@@ -93,22 +95,26 @@ struct mock_carrot_and_legacy_keys
         k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
         s_view_balance_dev(s_view_balance),
         k_generate_image_dev(k_generate_image),
+        k_spend_generate_image_dev(legacy_acb.get_keys().m_spend_secret_key),
         s_generate_address_dev(s_generate_address),
         cn_addr_dev(legacy_acb.get_keys().m_account_address.m_spend_public_key, legacy_acb.get_keys().m_view_secret_key),
         carrot_addr_dev(carrot_account_spend_pubkey, carrot_account_view_pubkey, legacy_acb.get_keys().m_account_address.m_view_public_key, s_generate_address),
         hybrid_addr_dev(&cn_addr_dev, &carrot_addr_dev),
-        key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
+        legacy_key_image_dev(k_spend_generate_image_dev, hybrid_addr_dev, nullptr, &k_view_incoming_dev),
+        carrot_key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
     {}
 
     mock_carrot_and_legacy_keys(const mock_carrot_and_legacy_keys &k):
         k_view_incoming_dev(legacy_acb.get_keys().m_view_secret_key),
         s_view_balance_dev(s_view_balance),
         k_generate_image_dev(k_generate_image),
+        k_spend_generate_image_dev(legacy_acb.get_keys().m_spend_secret_key),
         s_generate_address_dev(s_generate_address),
         cn_addr_dev(legacy_acb.get_keys().m_account_address.m_spend_public_key, legacy_acb.get_keys().m_view_secret_key),
         carrot_addr_dev(carrot_account_spend_pubkey, carrot_account_view_pubkey, legacy_acb.get_keys().m_account_address.m_view_public_key, s_generate_address),
         hybrid_addr_dev(&cn_addr_dev, &carrot_addr_dev),
-        key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
+        legacy_key_image_dev(k_spend_generate_image_dev, hybrid_addr_dev, nullptr, &k_view_incoming_dev),
+        carrot_key_image_dev(k_generate_image_dev, hybrid_addr_dev, &s_view_balance_dev, &k_view_incoming_dev)
     {
         *this = k;
     }

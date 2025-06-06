@@ -374,7 +374,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // derive input key images
     std::vector<crypto::key_image> sorted_input_key_images;
     carrot::get_sorted_input_key_images_from_proposal_v1(tx_proposal,
-        alice.key_image_dev,
+        alice.carrot_key_image_dev,
         sorted_input_key_images);
 
     // derive output enote set
