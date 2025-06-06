@@ -155,7 +155,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   CHECK_AND_ASSERT_MES(r, false, "Failed to generate key image");
 
   // Source
-  const tools::wallet2::transfer_details wallet2_td{
+  const wallet2_basic::transfer_details wallet2_td{
       .m_block_height = 0,
       .m_tx = blocks[0].miner_tx,
       .m_txid = blocks[0].hash,

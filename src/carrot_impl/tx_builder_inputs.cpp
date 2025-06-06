@@ -232,11 +232,18 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
 
     // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
     crypto::secret_key subaddress_scalar;
-    carrot::make_carrot_subaddress_scalar(main_address_spend_pubkey,
-        address_index_extension_generator,
-        subaddr_index.index.major,
-        subaddr_index.index.minor,
-        subaddress_scalar);
+    if (subaddr_index.index.is_subaddress())
+    {
+        carrot::make_carrot_subaddress_scalar(main_address_spend_pubkey,
+            address_index_extension_generator,
+            subaddr_index.index.major,
+            subaddr_index.index.minor,
+            subaddress_scalar);
+    }
+    else // main address
+    {
+        sc_1(to_bytes(subaddress_scalar));
+    }
 
     // k^j_g = k_gi * k^j_subscal
     crypto::secret_key address_privkey_g;

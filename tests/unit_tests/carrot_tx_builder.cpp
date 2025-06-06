@@ -81,7 +81,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_mainaddr)
         .local_output_index = local_output_index
     };
 
-    const crypto::key_image expected_key_image = keys.key_image_dev.derive_key_image(opening_hint);
+    const crypto::key_image expected_key_image = keys.legacy_key_image_dev.derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
@@ -168,7 +168,7 @@ TEST(carrot_tx_builder, make_sal_proof_legacy_to_legacy_v1_subaddr)
         .local_output_index = local_output_index
     };
 
-    const crypto::key_image expected_key_image = keys.key_image_dev.derive_key_image(opening_hint);
+    const crypto::key_image expected_key_image = keys.legacy_key_image_dev.derive_key_image(opening_hint);
 
     // fake output amount blinding factor in a hypothetical tx where we spent the aforementioned output
     const rct::key output_amount_blinding_factor = rct::skGen();
