@@ -199,15 +199,17 @@ uint8_t *selene_tree_root(struct SelenePoint selene_point);
 
 uint8_t *helios_tree_root(struct HeliosPoint helios_point);
 
-CResult hash_grow_helios(struct HeliosPoint existing_hash,
+int hash_grow_helios(struct HeliosPoint existing_hash,
                                              uintptr_t offset,
                                              struct HeliosScalar existing_child_at_offset,
-                                             struct HeliosScalarSlice new_children);
+                                             struct HeliosScalarSlice new_children,
+                                             struct HeliosPoint *hash_out);
 
-CResult hash_grow_selene(struct SelenePoint existing_hash,
+int hash_grow_selene(struct SelenePoint existing_hash,
                                              uintptr_t offset,
                                              struct SeleneScalar existing_child_at_offset,
-                                             struct SeleneScalarSlice new_children);
+                                             struct SeleneScalarSlice new_children,
+                                             struct SelenePoint *hash_out);
 
 CResult path_new(struct OutputSlice leaves,
                                              uintptr_t output_idx,
