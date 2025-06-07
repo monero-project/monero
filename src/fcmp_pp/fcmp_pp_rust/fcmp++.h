@@ -70,11 +70,6 @@ struct SelenePoint {
 
 // ----- End deps C bindings -----
 
-typedef struct CResult {
-  void* value;
-  void* err;
-} CResult;
-
 struct OutputBytes {
   const uint8_t *O_bytes;
   const uint8_t *I_bytes;
@@ -160,6 +155,7 @@ struct BlindedCBlindUnsafe;
 struct OutputBlindsUnsafe;
 
 struct FcmpProveInputUnsafe;
+struct FcmpVerifyInputUnsafe;
 
 struct HeliosBranchBlindSliceUnsafe
 {
@@ -176,6 +172,12 @@ struct SeleneBranchBlindSliceUnsafe
 struct FcmpProveInputSliceUnsafe
 {
   const struct FcmpProveInputUnsafe * const *buf;
+  uintptr_t len;
+};
+
+struct FcmpVerifyInputSliceUnsafe
+{
+  const struct FcmpVerifyInputUnsafe * const *buf;
   uintptr_t len;
 };
 
@@ -320,21 +322,17 @@ uintptr_t _slow_membership_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layer
 
 uintptr_t _slow_fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
 
-CResult fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
+int fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
                                              const uint8_t *fcmp_pp_proof,
                                              uintptr_t fcmp_pp_proof_len,
                                              uintptr_t n_tree_layers,
                                              const struct TreeRootUnsafe *tree_root,
                                              struct ObjectSlice pseudo_outs,
-                                             struct ObjectSlice key_images);
+                                             struct ObjectSlice key_images,
+                                             struct FcmpVerifyInputUnsafe **fcmp_verify_input_out);
 
-bool verify(const uint8_t *signable_tx_hash,
-                                             const uint8_t *fcmp_pp_proof,
-                                             uintptr_t fcmp_pp_proof_len,
-                                             uintptr_t n_tree_layers,
-                                             const struct TreeRootUnsafe *tree_root,
-                                             struct ObjectSlice pseudo_outs,
-                                             struct ObjectSlice key_images);
+void destroy_fcmp_verify_input(struct FcmpVerifyInputUnsafe *fcmp_verify_input);
+
 /**
  * brief: fcmp_pp_verify_sal - Verify a FCMP++ spend auth & linkability proof
  * param: signable_tx_hash - message to verify
@@ -362,7 +360,7 @@ bool fcmp_pp_verify_membership(struct InputSlice inputs,
   const uint8_t fcmp_proof[],
   const uintptr_t fcmp_proof_len);
 
-bool fcmp_pp_batch_verify(struct ObjectSlice fcmp_pp_verify_inputs);
+bool fcmp_pp_verify(const struct FcmpVerifyInputSliceUnsafe fcmp_pp_verify_inputs);
 
 #ifdef __cplusplus
 } //extern "C"

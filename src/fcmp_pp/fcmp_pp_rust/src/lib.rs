@@ -30,14 +30,8 @@ use monero_generators::{FCMP_U, FCMP_V, T};
 
 use std::os::raw::c_int;
 
-// TODO: everything allocated with Box::into_raw needs to be freed manually using from_raw when done
-// https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw
-// https://internals.rust-lang.org/t/manually-freeing-the-pointer-from-into-raw/19002
-// Current idea is to use C++ types initalized with a raw pointer from a fn over the FFI, and make destructors for each
-// type that call the respective destructor for that raw pointer (which calls Box::from_raw over the FFI to clean up)
-// TODO: don't use CResult for types the FFI supports (e.g. SelenePoint, SeleneScalar), don't want the raw * because need to manually from_raw it to dealloc
 // TODO: Use a macro to de-duplicate some of of this code
-// TODO: Don't unwrap anywhere and populate the CResult error type in all fn's
+// TODO: Don't unwrap anywhere
 // TODO: repalce asserts with error returns where reasonable
 
 //-------------------------------------------------------------------------------------- Curve points
@@ -250,26 +244,6 @@ impl<T> From<Slice<T>> for &[T] {
 impl<T> From<&Slice<T>> for &[T] {
     fn from(slice: &Slice<T>) -> Self {
         unsafe { slice_from_raw_parts_0able(slice.buf, slice.len) }
-    }
-}
-
-#[repr(C)]
-pub struct CResult<T, E> {
-    value: *const T,
-    err: *const E,
-}
-impl<T, E> CResult<T, E> {
-    fn ok(value: T) -> Self {
-        CResult {
-            value: Box::into_raw(Box::new(value)),
-            err: core::ptr::null(),
-        }
-    }
-    fn err(err: E) -> Self {
-        CResult {
-            value: core::ptr::null(),
-            err: Box::into_raw(Box::new(err)),
-        }
     }
 }
 
@@ -890,7 +864,12 @@ pub struct FcmpPpVerifyInput
     key_images: Vec<EdwardsPoint>,
 }
 
-unsafe fn fcmp_pp_verify_input_new_inner(
+/// # Safety
+///
+/// This function assumes that the signable tx hash is 32 bytes, the tree root is heap
+/// allocated via a CResult, and pseudo outs and key images are 32 bytes each
+#[no_mangle]
+pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     signable_tx_hash: *const u8,
     proof: *const u8,
     proof_len: usize,
@@ -898,14 +877,19 @@ unsafe fn fcmp_pp_verify_input_new_inner(
     tree_root: *const TreeRoot<Selene, Helios>,
     pseudo_outs: Slice<*const u8>,
     key_images: Slice<*const u8>,
-) -> std::io::Result<FcmpPpVerifyInput> {
+    fcmp_verify_input_out: *mut *mut FcmpPpVerifyInput,
+) -> c_int {
+    if fcmp_verify_input_out.is_null() {
+        return -1;
+    }
+
     // Early checks
     let n_inputs = pseudo_outs.len;
     if n_inputs == 0 {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "passed in 0 inputs"));
+        return -2;
     }
     if n_inputs != key_images.len {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "passed invalid number of inputs"));
+        return -3;
     }
     debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
@@ -927,17 +911,19 @@ unsafe fn fcmp_pp_verify_input_new_inner(
         .collect();
 
     // Read the FCMP++ proof
-    let fcmp_plus_plus = FcmpPlusPlus::read(&pseudo_outs, n_tree_layers, &mut proof).unwrap();
+    let Ok(fcmp_plus_plus) = FcmpPlusPlus::read(&pseudo_outs, n_tree_layers, &mut proof) else {
+        return -4;
+    };
 
-    let tree_root: TreeRoot<Selene, Helios> = unsafe { tree_root.read() };
+    let tree_root: TreeRoot<Selene, Helios> = unsafe { (*tree_root).clone() };
 
     // Collect de-compressed key images into a Vec
-    // TODO: remove unwrap
-    let key_images: &[*const u8] = key_images.into();
-    let key_images: Vec<EdwardsPoint> = key_images
-        .iter()
-        .map(|&x| ed25519_point_from_bytes(x).unwrap())
-        .collect();
+    let key_images_slice: &[*const u8] = key_images.into();
+    let mut key_images = Vec::with_capacity(key_images_slice.len());
+    for compressed_ki in key_images_slice {
+        let Ok(key_image) = ed25519_point_from_bytes(compressed_ki.clone()) else { return -5 };
+        key_images.push(key_image);
+    }
 
     let fcmp_pp_verify_input = FcmpPpVerifyInput {
         fcmp_pp: fcmp_plus_plus,
@@ -946,88 +932,12 @@ unsafe fn fcmp_pp_verify_input_new_inner(
         signable_tx_hash,
         key_images,
     };
-    Ok(fcmp_pp_verify_input)
+
+    unsafe { *fcmp_verify_input_out = new_box_raw(fcmp_pp_verify_input) };
+    0
 }
 
-/// # Safety
-///
-/// This function assumes that the signable tx hash is 32 bytes, the tree root is heap
-/// allocated via a CResult, and pseudo outs and key images are 32 bytes each
-#[no_mangle]
-pub unsafe extern "C" fn verify(
-    signable_tx_hash: *const u8,
-    proof: *const u8,
-    proof_len: usize,
-    n_tree_layers: usize,
-    tree_root: *const TreeRoot<Selene, Helios>,
-    pseudo_outs: Slice<*const u8>,
-    key_images: Slice<*const u8>,
-) -> bool {
-    let Ok(fcmp_pp_verify_input) = fcmp_pp_verify_input_new_inner(
-        signable_tx_hash,
-        proof,
-        proof_len,
-        n_tree_layers,
-        tree_root,
-        pseudo_outs,
-        key_images
-    ) else {
-        return false;
-    };
-
-    let n_inputs = fcmp_pp_verify_input.key_images.len();
-
-    let mut ed_verifier = multiexp::BatchVerifier::new(n_inputs);
-    let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
-    let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
-
-    match fcmp_pp_verify_input.fcmp_pp
-        .verify(
-            &mut OsRng,
-            &mut ed_verifier,
-            &mut c1_verifier,
-            &mut c2_verifier,
-            fcmp_pp_verify_input.tree_root,
-            fcmp_pp_verify_input.n_tree_layers,
-            fcmp_pp_verify_input.signable_tx_hash,
-            fcmp_pp_verify_input.key_images,
-        )
-    {
-        Ok(()) => ed_verifier.verify_vartime()
-            && SELENE_GENERATORS().verify(c1_verifier)
-            && HELIOS_GENERATORS().verify(c2_verifier),
-        Err(_) => false
-    }    
-}
-
-/// # Safety
-///
-/// This function assumes that the signable tx hash is 32 bytes, the tree root is heap
-/// allocated via a CResult, and pseudo outs and key images are 32 bytes each
-#[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_verify_input_new(
-    signable_tx_hash: *const u8,
-    proof: *const u8,
-    proof_len: usize,
-    n_tree_layers: usize,
-    tree_root: *const TreeRoot<Selene, Helios>,
-    pseudo_outs: Slice<*const u8>,
-    key_images: Slice<*const u8>,
-) -> CResult<FcmpPpVerifyInput, ()> {
-    match fcmp_pp_verify_input_new_inner(
-        signable_tx_hash,
-        proof,
-        proof_len,
-        n_tree_layers,
-        tree_root,
-        pseudo_outs,
-        key_images
-    )
-    {
-        Ok(res) => CResult::ok(res),
-        Err(_) => CResult::err(())
-    }
-}
+destroy_fn!(destroy_fcmp_verify_input, FcmpPpVerifyInput);
 
 /// # Safety
 ///
@@ -1106,7 +1016,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(inputs: Slice<[u8; 4 * 32]>,
 ///
 /// This function assumes that the inputs are from fcmp_pp_verify_input_new
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_batch_verify(inputs: Slice<*const FcmpPpVerifyInput>) -> bool {
+pub unsafe extern "C" fn fcmp_pp_verify(inputs: Slice<*const FcmpPpVerifyInput>) -> bool {
     let inputs: &[*const FcmpPpVerifyInput] = inputs.into();
     let inputs: Vec<FcmpPpVerifyInput> = inputs.iter().map(|x| unsafe { x.read() }).collect();
 

@@ -61,7 +61,7 @@ namespace fcmp_pp
         CHECK_AND_ASSERT_THROW_MES(::rust_fn2 == 0, "Failed " << #rust_fn2);                    \
         return raw_t(raw_ptr, ::destroy_fn);                                                    \
     };
-
+//----------------------------------------------------------------------------------------------------------------------
 // Branch blinds
 IMPLEMENT_FCMP_FFI_TYPE(HeliosBranchBlind,
     gen_helios_branch_blind(),
@@ -71,7 +71,7 @@ IMPLEMENT_FCMP_FFI_TYPE(SeleneBranchBlind,
     gen_selene_branch_blind(),
     generate_selene_branch_blind(&raw_ptr),
     destroy_selene_branch_blind);
-
+//----------------------------------------------------------------------------------------------------------------------
 // Blinded blinds
 IMPLEMENT_FCMP_FFI_TYPE(BlindedOBlind,
     blind_o_blind(const SeleneScalar &o_blind),
@@ -89,7 +89,7 @@ IMPLEMENT_FCMP_FFI_TYPE(BlindedCBlind,
     blind_c_blind(const SeleneScalar &c_blind),
     blind_c_blind(&c_blind, &raw_ptr),
     destroy_blinded_c_blind);
-
+//----------------------------------------------------------------------------------------------------------------------
 // Output blinds
 IMPLEMENT_FCMP_FFI_TYPE(OutputBlinds,
     output_blinds_new(const BlindedOBlind &blinded_o_blind,
@@ -102,7 +102,7 @@ IMPLEMENT_FCMP_FFI_TYPE(OutputBlinds,
         blinded_c_blind.get(),
         &raw_ptr),
     destroy_output_blinds);
-
+//----------------------------------------------------------------------------------------------------------------------
 // Tree root
 IMPLEMENT_FCMP_FFI_SHARED_TYPE(TreeRoot,
     helios_tree_root(const HeliosPoint &helios_point),
@@ -110,7 +110,7 @@ IMPLEMENT_FCMP_FFI_SHARED_TYPE(TreeRoot,
     selene_tree_root(const SelenePoint &selene_point),
     selene_tree_root(selene_point, &raw_ptr),
     destroy_tree_root);
-
+//----------------------------------------------------------------------------------------------------------------------
 // Path
 IMPLEMENT_FCMP_FFI_TYPE(Path,
     path_new(const OutputChunk &output_chunk,
@@ -119,9 +119,10 @@ IMPLEMENT_FCMP_FFI_TYPE(Path,
         const SeleneT::ScalarChunks &selene_layer_chunks),
     path_new(output_chunk, output_idx, helios_layer_chunks, selene_layer_chunks, &raw_ptr),
     destroy_path);
-
-// Implement FCMP++ Prove Input because will need temp slices
+//----------------------------------------------------------------------------------------------------------------------
+// Implement FCMP++ Prove Input manually because will need temp slices
 void FcmpProveInputDeleter::operator()(FcmpProveInputUnsafe *p) const noexcept { ::destroy_fcmp_prove_input(p); };
+
 FcmpProveInput fcmp_prove_input_new(const Path &path,
         const OutputBlinds &output_blinds,
         const std::vector<SeleneBranchBlind> &selene_branch_blinds,
@@ -140,7 +141,46 @@ FcmpProveInput fcmp_prove_input_new(const Path &path,
 
     return FcmpProveInput(raw_ptr);
 }
-//-------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Implement FCMP++ Verify Input manually because need to type cast
+void FcmpVerifyInputDeleter::operator()(FcmpVerifyInputUnsafe *p) const noexcept { ::destroy_fcmp_verify_input(p); };
+
+FcmpVerifyInput fcmp_verify_input_new(const crypto::hash &signable_tx_hash,
+        const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+        const std::size_t n_tree_layers,
+        const fcmp_pp::TreeRoot &tree_root,
+        const std::vector<crypto::ec_point> &pseudo_outs,
+        const std::vector<crypto::key_image> &key_images)
+{
+    // Cast pseudo outs to vector of const uint8_t*
+    std::vector<const uint8_t *> pseudo_outs_ptrs;
+    pseudo_outs_ptrs.reserve(pseudo_outs.size());
+    for (const auto &po : pseudo_outs)
+        pseudo_outs_ptrs.emplace_back((const uint8_t *)&po);
+
+    // Cast key images to vector const uint8_t*
+    std::vector<const uint8_t *> key_images_ptrs;
+    key_images_ptrs.reserve(key_images.size());
+    for (const auto &ki : key_images)
+        key_images_ptrs.emplace_back((const uint8_t *)&ki.data);
+
+    FcmpVerifyInputUnsafe *raw_ptr;
+    int r = ::fcmp_pp_verify_input_new(
+            reinterpret_cast<const uint8_t*>(&signable_tx_hash),
+            fcmp_pp_proof.data(),
+            fcmp_pp_proof.size(),
+            n_tree_layers,
+            tree_root.get(),
+            {pseudo_outs_ptrs.data(), pseudo_outs_ptrs.size()},
+            {key_images_ptrs.data(), key_images_ptrs.size()},
+            &raw_ptr
+        );
+    CHECK_AND_ASSERT_THROW_MES(r == 0, "Failed to construct FCMP++ verify input");
+
+    return FcmpVerifyInput(raw_ptr);
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 fcmp_pp::FcmpPpProof fcmp_pp_proof_from_parts_v1(
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
     const std::vector<fcmp_pp::FcmpPpSalProof> &sal_proofs,
