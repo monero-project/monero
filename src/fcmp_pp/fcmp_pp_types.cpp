@@ -37,13 +37,17 @@ namespace fcmp_pp
 //----------------------------------------------------------------------------------------------------------------------
 // FFI types
 //----------------------------------------------------------------------------------------------------------------------
+#define CHECK_FFI_RES \
+    CHECK_AND_ASSERT_THROW_MES(r == 0, __func__ << " failed with error code " << r);
+
 #define IMPLEMENT_FCMP_FFI_TYPE(raw_t, cpp_fn, rust_fn, destroy_fn)                        \
     void raw_t##Deleter::operator()(raw_t##Unsafe *p) const noexcept { ::destroy_fn(p); }; \
                                                                                            \
     raw_t cpp_fn                                                                           \
     {                                                                                      \
         ::raw_t##Unsafe* raw_ptr;                                                          \
-        CHECK_AND_ASSERT_THROW_MES(::rust_fn == 0, "Failed " << #rust_fn);                 \
+        int r = ::rust_fn;                                                                 \
+        CHECK_FFI_RES;                                                                     \
         return raw_t(raw_ptr);                                                             \
     };
 
@@ -51,14 +55,16 @@ namespace fcmp_pp
     raw_t cpp_fn1                                                                               \
     {                                                                                           \
         ::raw_t##Unsafe* raw_ptr;                                                               \
-        CHECK_AND_ASSERT_THROW_MES(::rust_fn1 == 0, "Failed " << #rust_fn1);                    \
+        int r = ::rust_fn1;                                                                     \
+        CHECK_FFI_RES;                                                                          \
         return raw_t(raw_ptr, ::destroy_fn);                                                    \
     };                                                                                          \
                                                                                                 \
     raw_t cpp_fn2                                                                               \
     {                                                                                           \
         ::raw_t##Unsafe* raw_ptr;                                                               \
-        CHECK_AND_ASSERT_THROW_MES(::rust_fn2 == 0, "Failed " << #rust_fn2);                    \
+        int r = ::rust_fn2;                                                                     \
+        CHECK_FFI_RES;                                                                          \
         return raw_t(raw_ptr, ::destroy_fn);                                                    \
     };
 //----------------------------------------------------------------------------------------------------------------------
@@ -137,7 +143,7 @@ FcmpPpProveInput fcmp_pp_prove_input_new(const Path &path,
         selene_branch_blind_slice,
         helios_branch_blind_slice,
         &raw_ptr);
-    CHECK_AND_ASSERT_THROW_MES(r == 0, "Failed to construct FCMP++ prove input");
+    CHECK_FFI_RES;
 
     return FcmpPpProveInput(raw_ptr);
 }
@@ -175,7 +181,7 @@ FcmpPpVerifyInput fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
             {key_images_ptrs.data(), key_images_ptrs.size()},
             &raw_ptr
         );
-    CHECK_AND_ASSERT_THROW_MES(r == 0, "Failed to construct FCMP++ verify input");
+    CHECK_FFI_RES;
 
     return FcmpPpVerifyInput(raw_ptr);
 }
