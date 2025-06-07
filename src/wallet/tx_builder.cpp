@@ -75,17 +75,7 @@ static constexpr T div_ceil(T dividend, T divisor)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static epee::misc_utils::auto_scope_leave_caller make_fcmp_obj_freer(const std::vector<uint8_t*> &objs)
-{
-    return epee::misc_utils::create_scope_leave_handler([&objs](){
-        for (uint8_t *obj : objs)
-            if (nullptr != obj)
-                free(obj);
-    });
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static bool is_transfer_usable_for_input_selection(const wallet2_basic::transfer_details &td,
+static bool is_transfer_usable_for_input_selection(const wallet2::transfer_details &td,
     const std::uint32_t from_account,
     const std::set<std::uint32_t> from_subaddresses,
     const rct::xmr_amount ignore_above,
@@ -1123,9 +1113,8 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         "finalize_all_proofs_from_transfer_details: some prove jobs failed");
 
     // collect FCMP Rust API proving structures
-    std::vector<uint8_t*> membership_proving_inputs;
+    std::vector<fcmp_pp::FcmpProveInput> membership_proving_inputs;
     membership_proving_inputs.reserve(n_inputs);
-    const auto memberin_freer = make_fcmp_obj_freer(membership_proving_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
         const fcmp_pp::Path &path_rust = fcmp_paths_rust.at(i);

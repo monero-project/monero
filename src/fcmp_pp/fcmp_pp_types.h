@@ -109,6 +109,12 @@ DEFINE_FCMP_FFI_SHARED_TYPE(TreeRoot, helios_tree_root(const HeliosPoint &), sel
 
 DEFINE_FCMP_FFI_TYPE(Path,
     path_new(const OutputChunk &, std::size_t, const HeliosT::ScalarChunks &, const SeleneT::ScalarChunks &));
+
+DEFINE_FCMP_FFI_TYPE(FcmpProveInput,
+    fcmp_prove_input_new(const Path &,
+        const OutputBlinds &,
+        const std::vector<SeleneBranchBlind> &,
+        const std::vector<HeliosBranchBlind> &));
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types

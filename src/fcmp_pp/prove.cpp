@@ -213,22 +213,6 @@ SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
     HANDLE_RES_CODE(SeleneScalar, ::c_blind, &rerandomized_output);
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *fcmp_prove_input_new(const fcmp_pp::Path &path,
-    const fcmp_pp::OutputBlinds &output_blinds,
-    const std::vector<SeleneBranchBlind> &selene_branch_blinds,
-    const std::vector<HeliosBranchBlind> &helios_branch_blinds)
-{
-    MAKE_TEMP_FFI_SLICE(SeleneBranchBlind, selene_branch_blinds, selene_branch_blind_slice);
-    MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
-
-    auto res = ::fcmp_prove_input_new(path.get(),
-        output_blinds.get(),
-        selene_branch_blind_slice,
-        helios_branch_blind_slice);
-
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
 std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signable_tx_hash,
     const crypto::secret_key &x,
     const crypto::secret_key &y,
@@ -252,21 +236,24 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
     return {std::move(p), L};
 }
 //----------------------------------------------------------------------------------------------------------------------
-FcmpMembershipProof prove_membership(const std::vector<uint8_t *> &fcmp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<FcmpProveInput> &fcmp_prove_inputs,
     const std::size_t n_tree_layers)
 {
+    MAKE_TEMP_FFI_SLICE(FcmpProveInput, fcmp_prove_inputs, fcmp_prove_inputs_slice);
+
     FcmpPpSalProof p;
     const std::size_t proof_len = membership_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
     p.resize(proof_len);
 
     size_t proof_size = p.size();
-    auto res = ::fcmp_pp_prove_membership({fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
+    const int r = ::fcmp_pp_prove_membership(fcmp_prove_inputs_slice,
         n_tree_layers,
         proof_len,
         &p[0],
         &proof_size);
 
-    handle_res_ptr(__func__, res);
+    if (r < 0)
+        throw std::runtime_error("prove_membership failed with code: " + std::to_string(r));
 
     p.resize(proof_size);
 
