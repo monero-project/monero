@@ -69,7 +69,7 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
     const crypto::secret_key &y,
     const FcmpRerandomizedOutputCompressed &rerandomized_output);
 
-FcmpMembershipProof prove_membership(const std::vector<FcmpProveInput> &fcmp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<FcmpPpProveInput> &fcmp_pp_prove_inputs,
     const std::size_t n_tree_layers);
 
 bool verify_sal(const crypto::hash &signable_tx_hash,
@@ -82,7 +82,7 @@ bool verify_membership(const FcmpMembershipProof &fcmp_proof,
     const fcmp_pp::TreeRoot &tree_root,
     const std::vector<FcmpInputCompressed> &inputs);
 
-bool verify(const std::vector<fcmp_pp::FcmpVerifyInput> &fcmp_pp_verify_inputs);
+bool verify(const std::vector<fcmp_pp::FcmpPpVerifyInput> &fcmp_pp_verify_inputs);
 
 bool verify(const crypto::hash &signable_tx_hash,
     const fcmp_pp::FcmpPpProof &fcmp_pp_proof,

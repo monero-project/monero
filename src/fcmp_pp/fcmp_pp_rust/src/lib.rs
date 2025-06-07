@@ -735,14 +735,14 @@ unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveInput], n_tree_lay
 /// allocated on the heap (via Box::into_raw(Box::new())), and the branch
 /// blinds are slices of BranchBlind allocated on the heap (via CResult).
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_prove_input_new(
+pub unsafe extern "C" fn fcmp_pp_prove_input_new(
     path: *const Path<Curves>,
     output_blinds: *const OutputBlinds<EdwardsPoint>,
     selene_branch_blinds: SeleneBranchBlindSlice,
     helios_branch_blinds: HeliosBranchBlindSlice,
-    fcmp_prove_input_out: *mut *mut FcmpPpProveInput,
+    fcmp_pp_prove_input_out: *mut *mut FcmpPpProveInput,
 ) -> c_int {
-    if fcmp_prove_input_out.is_null() {
+    if fcmp_pp_prove_input_out.is_null() {
         return -1;
     }
 
@@ -765,17 +765,17 @@ pub unsafe extern "C" fn fcmp_prove_input_new(
         .map(|x| unsafe { (*x.to_owned()).clone() })
         .collect();
 
-    let fcmp_prove_input = FcmpPpProveInput {
+    let fcmp_pp_prove_input = FcmpPpProveInput {
         path,
         output_blinds,
         c1_branch_blinds,
         c2_branch_blinds,
     };
-    unsafe { *fcmp_prove_input_out = new_box_raw(fcmp_prove_input); };
+    unsafe { *fcmp_pp_prove_input_out = new_box_raw(fcmp_pp_prove_input); };
     0
 }
 
-destroy_fn!(destroy_fcmp_prove_input, FcmpPpProveInput);
+destroy_fn!(destroy_fcmp_pp_prove_input, FcmpPpProveInput);
 
 /// # Safety
 ///
@@ -877,9 +877,9 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     tree_root: *const TreeRoot<Selene, Helios>,
     pseudo_outs: Slice<*const u8>,
     key_images: Slice<*const u8>,
-    fcmp_verify_input_out: *mut *mut FcmpPpVerifyInput,
+    fcmp_pp_verify_input_out: *mut *mut FcmpPpVerifyInput,
 ) -> c_int {
-    if fcmp_verify_input_out.is_null() {
+    if fcmp_pp_verify_input_out.is_null() {
         return -1;
     }
 
@@ -933,11 +933,11 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
         key_images,
     };
 
-    unsafe { *fcmp_verify_input_out = new_box_raw(fcmp_pp_verify_input) };
+    unsafe { *fcmp_pp_verify_input_out = new_box_raw(fcmp_pp_verify_input) };
     0
 }
 
-destroy_fn!(destroy_fcmp_verify_input, FcmpPpVerifyInput);
+destroy_fn!(destroy_fcmp_pp_verify_input, FcmpPpVerifyInput);
 
 /// # Safety
 ///

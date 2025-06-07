@@ -225,17 +225,17 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
     return {std::move(p), L};
 }
 //----------------------------------------------------------------------------------------------------------------------
-FcmpMembershipProof prove_membership(const std::vector<FcmpProveInput> &fcmp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<FcmpPpProveInput> &fcmp_pp_prove_inputs,
     const std::size_t n_tree_layers)
 {
-    MAKE_TEMP_FFI_SLICE(FcmpProveInput, fcmp_prove_inputs, fcmp_prove_inputs_slice);
+    MAKE_TEMP_FFI_SLICE(FcmpPpProveInput, fcmp_pp_prove_inputs, fcmp_pp_prove_inputs_slice);
 
     FcmpPpSalProof p;
-    const std::size_t proof_len = membership_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
+    const std::size_t proof_len = membership_proof_len(fcmp_pp_prove_inputs.size(), n_tree_layers);
     p.resize(proof_len);
 
     size_t proof_size = p.size();
-    const int r = ::fcmp_pp_prove_membership(fcmp_prove_inputs_slice,
+    const int r = ::fcmp_pp_prove_membership(fcmp_pp_prove_inputs_slice,
         n_tree_layers,
         proof_len,
         &p[0],
@@ -278,10 +278,10 @@ bool verify_membership(const FcmpMembershipProof &fcmp_proof,
         fcmp_proof.size());
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool verify(const std::vector<fcmp_pp::FcmpVerifyInput> &fcmp_pp_verify_inputs)
+bool verify(const std::vector<fcmp_pp::FcmpPpVerifyInput> &fcmp_pp_verify_inputs)
 {
-    MAKE_TEMP_FFI_SLICE(FcmpVerifyInput, fcmp_pp_verify_inputs, fcmp_verify_inputs_slice);
-    return ::fcmp_pp_verify(fcmp_verify_inputs_slice);
+    MAKE_TEMP_FFI_SLICE(FcmpPpVerifyInput, fcmp_pp_verify_inputs, fcmp_pp_verify_inputs_slice);
+    return ::fcmp_pp_verify(fcmp_pp_verify_inputs_slice);
 }
 //----------------------------------------------------------------------------------------------------------------------
 bool verify(const crypto::hash &signable_tx_hash,
@@ -291,7 +291,7 @@ bool verify(const crypto::hash &signable_tx_hash,
     const std::vector<crypto::ec_point> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images)
 {
-    auto fcmp_verify_input = fcmp_pp::fcmp_verify_input_new(
+    auto fcmp_pp_verify_input = fcmp_pp::fcmp_pp_verify_input_new(
             signable_tx_hash,
             fcmp_pp_proof,
             n_tree_layers,
@@ -299,9 +299,9 @@ bool verify(const crypto::hash &signable_tx_hash,
             pseudo_outs,
             key_images
         );
-    std::vector<fcmp_pp::FcmpVerifyInput> fcmp_verify_inputs;
-    fcmp_verify_inputs.emplace_back(std::move(fcmp_verify_input));
-    return verify(fcmp_verify_inputs);
+    std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
+    fcmp_pp_verify_inputs.emplace_back(std::move(fcmp_pp_verify_input));
+    return verify(fcmp_pp_verify_inputs);
 }
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

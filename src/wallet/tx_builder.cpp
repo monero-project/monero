@@ -1113,7 +1113,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         "finalize_all_proofs_from_transfer_details: some prove jobs failed");
 
     // collect FCMP Rust API proving structures
-    std::vector<fcmp_pp::FcmpProveInput> membership_proving_inputs;
+    std::vector<fcmp_pp::FcmpPpProveInput> membership_proving_inputs;
     membership_proving_inputs.reserve(n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
@@ -1138,7 +1138,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
             helios_branch_blinds.emplace_back(std::move(flat_helios_branch_blinds.at(flat_idx)));
         }
 
-        membership_proving_inputs.push_back(fcmp_pp::fcmp_prove_input_new(
+        membership_proving_inputs.push_back(fcmp_pp::fcmp_pp_prove_input_new(
             path_rust,
             output_blinds,
             selene_branch_blinds,
