@@ -262,15 +262,10 @@ int generate_selene_branch_blind(struct SeleneBranchBlindUnsafe **branch_blind_o
 void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
 void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_blind);
 
-CResult fcmp_prove_input_new(const struct FcmpRerandomizedOutputCompressed *rerandomized_output,
-                                        const struct PathUnsafe *path,
+CResult fcmp_prove_input_new(const struct PathUnsafe *path,
                                         const struct OutputBlindsUnsafe *output_blinds,
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
-
-CResult prove(const uint8_t *signable_tx_hash,
-                                             struct ObjectSlice fcmp_prove_inputs,
-                                             uintptr_t n_tree_layers);
 
 /**
  * brief: fcmp_pp_prove_sal - Make a FCMP++ spend auth & linkability proof

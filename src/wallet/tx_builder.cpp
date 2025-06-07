@@ -1128,7 +1128,6 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     const auto memberin_freer = make_fcmp_obj_freer(membership_proving_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
-        const FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs.at(i);
         const fcmp_pp::Path &path_rust = fcmp_paths_rust.at(i);
         const fcmp_pp::OutputBlinds output_blinds = fcmp_pp::output_blinds_new(
             blinded_o_blinds.at(i),
@@ -1151,7 +1150,6 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         }
 
         membership_proving_inputs.push_back(fcmp_pp::fcmp_prove_input_new(
-            rerandomized_output,
             path_rust,
             output_blinds,
             selene_branch_blinds,
