@@ -376,7 +376,7 @@ static bool collect_fcmp_pp_tx_verify_inputs(cryptonote::transaction &tx,
     rct_ver_cache_t& cache,
     const std::unordered_map<uint64_t, std::pair<crypto::ec_point, uint8_t>>& tree_root_by_block_index,
     std::unordered_map<uint64_t, fcmp_pp::TreeRoot> &decompressed_tree_roots_by_block_index,
-    std::vector<fcmp_pp::FcmpVerifyInput> &fcmp_pp_verify_inputs,
+    std::vector<fcmp_pp::FcmpPpVerifyInput> &fcmp_pp_verify_inputs,
     std::vector<crypto::hash> &new_cache_hashes)
 {
     VER_ASSERT(tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus, "expected FCMP++ RCT Type");
@@ -440,7 +440,7 @@ static bool collect_fcmp_pp_tx_verify_inputs(cryptonote::transaction &tx,
     for (const auto &po : pseudoOuts)
         pseudo_outs.emplace_back(rct::rct2pt(po));
 
-    auto fcmp_pp_verify_input = fcmp_pp::fcmp_verify_input_new(
+    auto fcmp_pp_verify_input = fcmp_pp::fcmp_pp_verify_input_new(
             rct::rct2hash(signable_tx_hash),
             rv.p.fcmp_pp,
             n_tree_layers,
@@ -696,7 +696,7 @@ bool batch_ver_fcmp_pp_consensus
 
     // Collect unverified FCMP++ txs for batch verfication
     std::unordered_map<uint64_t, fcmp_pp::TreeRoot> decompressed_tree_roots_by_block_index;
-    std::vector<fcmp_pp::FcmpVerifyInput> fcmp_pp_verify_inputs;
+    std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
     std::vector<crypto::hash> new_cache_hashes;
 
     fcmp_pp_verify_inputs.reserve(ps.txs_by_txid.size());

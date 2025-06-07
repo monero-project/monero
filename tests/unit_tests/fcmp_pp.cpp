@@ -350,13 +350,13 @@ TEST(fcmp_pp, prove)
     {
         std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
         std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<fcmp_pp::FcmpProveInput> fcmp_prove_inputs;
+        std::vector<fcmp_pp::FcmpPpProveInput> fcmp_pp_prove_inputs;
         std::vector<crypto::key_image> key_images;
         std::vector<crypto::ec_point> pseudo_outs;
 
         std::unordered_set<std::size_t> selected_indices;
 
-        while (fcmp_prove_inputs.size() < n_inputs)
+        while (fcmp_pp_prove_inputs.size() < n_inputs)
         {
             // Generate a random unique leaf tuple index within the tree
             const size_t leaf_idx = crypto::rand_idx(global_tree.get_n_leaf_tuples());
@@ -439,7 +439,7 @@ TEST(fcmp_pp, prove)
                 rerandomized_output);
 
             // Collect input for membership proof
-            auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
+            auto fcmp_pp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
@@ -447,7 +447,7 @@ TEST(fcmp_pp, prove)
 
             rerandomized_outputs.emplace_back(std::move(rerandomized_output));
             sal_proofs.emplace_back(std::move(sal_proof.first));
-            fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
+            fcmp_pp_prove_inputs.emplace_back(std::move(fcmp_pp_prove_input));
         }
 
         LOG_PRINT_L1("Constructing membership proof and verifying (n_inputs=" << n_inputs << ")");
@@ -455,7 +455,7 @@ TEST(fcmp_pp, prove)
 
         // Create membership proof
         LOG_PRINT_L1("Proving " << n_inputs << "-in " << n_layers << "-layer FCMP");
-        const auto membership_proof = fcmp_pp::prove_membership(fcmp_prove_inputs, n_layers);
+        const auto membership_proof = fcmp_pp::prove_membership(fcmp_pp_prove_inputs, n_layers);
 
         // Serialize FCMP++ proof and verify
         const auto fcmp_pp_proof = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_outputs,
@@ -518,13 +518,13 @@ TEST(fcmp_pp, verify)
     {
         std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
         std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<fcmp_pp::FcmpProveInput> fcmp_prove_inputs;
+        std::vector<fcmp_pp::FcmpPpProveInput> fcmp_pp_prove_inputs;
         std::vector<crypto::key_image> key_images;
         std::vector<crypto::ec_point> pseudo_outs;
 
         std::unordered_set<std::size_t> selected_indices;
 
-        while (fcmp_prove_inputs.size() < n_inputs)
+        while (fcmp_pp_prove_inputs.size() < n_inputs)
         {
             // Generate a random unique leaf tuple index within the tree
             const size_t leaf_idx = crypto::rand_idx(curve_trees->m_c1_width);
@@ -593,7 +593,7 @@ TEST(fcmp_pp, verify)
                 rerandomized_output);
 
             // Collect input for membership proof
-            auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
+            auto fcmp_pp_prove_input = fcmp_pp::fcmp_pp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
@@ -601,14 +601,14 @@ TEST(fcmp_pp, verify)
 
             rerandomized_outputs.emplace_back(std::move(rerandomized_output));
             sal_proofs.emplace_back(std::move(sal_proof.first));
-            fcmp_prove_inputs.emplace_back(std::move(fcmp_prove_input));
+            fcmp_pp_prove_inputs.emplace_back(std::move(fcmp_pp_prove_input));
         }
 
         LOG_PRINT_L1("Constructing membership proof and verifying (n_inputs=" << n_inputs << ")");
 
         // Create membership proof
         LOG_PRINT_L1("Proving " << n_inputs << "-in " << std::to_string(n_layers) << "-layer FCMP");
-        const auto membership_proof = fcmp_pp::prove_membership(fcmp_prove_inputs, n_layers);
+        const auto membership_proof = fcmp_pp::prove_membership(fcmp_pp_prove_inputs, n_layers);
 
         // Serialize FCMP++ proof and verify
         const auto fcmp_pp_proof = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_outputs,
@@ -720,7 +720,7 @@ TEST(fcmp_pp, membership_completeness)
         std::set<size_t> selected_indices;
         std::vector<FcmpInputCompressed> fcmp_raw_inputs;
         fcmp_raw_inputs.reserve(num_inputs);
-        std::vector<fcmp_pp::FcmpProveInput> fcmp_provable_inputs;
+        std::vector<fcmp_pp::FcmpPpProveInput> fcmp_provable_inputs;
         fcmp_provable_inputs.reserve(num_inputs);
         while (selected_indices.size() < num_inputs)
         {
@@ -823,7 +823,7 @@ TEST(fcmp_pp, membership_completeness)
                 blinded_c_blind);
             
             // make provable FCMP input
-            fcmp_provable_inputs.push_back(fcmp_pp::fcmp_prove_input_new(
+            fcmp_provable_inputs.push_back(fcmp_pp::fcmp_pp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,

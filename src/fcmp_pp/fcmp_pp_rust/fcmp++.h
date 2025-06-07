@@ -154,8 +154,8 @@ struct BlindedCBlindUnsafe;
 
 struct OutputBlindsUnsafe;
 
-struct FcmpProveInputUnsafe;
-struct FcmpVerifyInputUnsafe;
+struct FcmpPpProveInputUnsafe;
+struct FcmpPpVerifyInputUnsafe;
 
 struct HeliosBranchBlindSliceUnsafe
 {
@@ -169,15 +169,15 @@ struct SeleneBranchBlindSliceUnsafe
   uintptr_t len;
 };
 
-struct FcmpProveInputSliceUnsafe
+struct FcmpPpProveInputSliceUnsafe
 {
-  const struct FcmpProveInputUnsafe * const *buf;
+  const struct FcmpPpProveInputUnsafe * const *buf;
   uintptr_t len;
 };
 
-struct FcmpVerifyInputSliceUnsafe
+struct FcmpPpVerifyInputSliceUnsafe
 {
-  const struct FcmpVerifyInputUnsafe * const *buf;
+  const struct FcmpPpVerifyInputUnsafe * const *buf;
   uintptr_t len;
 };
 
@@ -272,13 +272,13 @@ int generate_selene_branch_blind(struct SeleneBranchBlindUnsafe **branch_blind_o
 void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
 void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_blind);
 
-int fcmp_prove_input_new(const struct PathUnsafe *path,
+int fcmp_pp_prove_input_new(const struct PathUnsafe *path,
                                         const struct OutputBlindsUnsafe *output_blinds,
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds,
-                                        struct FcmpProveInputUnsafe **fcmp_prove_input_out);
+                                        struct FcmpPpProveInputUnsafe **fcmp_pp_prove_input_out);
 
-void destroy_fcmp_prove_input(struct FcmpProveInputUnsafe *fcmp_prove_input);
+void destroy_fcmp_pp_prove_input(struct FcmpPpProveInputUnsafe *fcmp_pp_prove_input);
 
 /**
  * brief: fcmp_pp_prove_sal - Make a FCMP++ spend auth & linkability proof
@@ -303,14 +303,14 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
 
 /**
  * brief: fcmp_pp_prove_membership - Make a FCMP++ membership proof for N inputs
- * param: inputs - a slice of FCMP provable inputs returned from fcmp_prove_input_new()
+ * param: inputs - a slice of FCMP provable inputs returned from fcmp_pp_prove_input_new()
  * param: n_tree_layers -
  * param: proof_len -
  * outparam: fcmp_proof_out - a buffer where the FCMP proof will be written to
  * outparam: fcmp_proof_out_size - the max length of the buffer fcmp_proof_out, is set to written proof size
  * return: an error on failure, nothing otherwise
  */
-int fcmp_pp_prove_membership(const struct FcmpProveInputSliceUnsafe fcmp_prove_inputs,
+int fcmp_pp_prove_membership(const struct FcmpPpProveInputSliceUnsafe fcmp_pp_prove_inputs,
                                              uintptr_t n_tree_layers,
                                              uintptr_t proof_len,
                                              uint8_t fcmp_proof_out[],
@@ -329,9 +329,9 @@ int fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
                                              const struct TreeRootUnsafe *tree_root,
                                              struct ObjectSlice pseudo_outs,
                                              struct ObjectSlice key_images,
-                                             struct FcmpVerifyInputUnsafe **fcmp_verify_input_out);
+                                             struct FcmpPpVerifyInputUnsafe **fcmp_pp_verify_input_out);
 
-void destroy_fcmp_verify_input(struct FcmpVerifyInputUnsafe *fcmp_verify_input);
+void destroy_fcmp_pp_verify_input(struct FcmpPpVerifyInputUnsafe *fcmp_pp_verify_input);
 
 /**
  * brief: fcmp_pp_verify_sal - Verify a FCMP++ spend auth & linkability proof
@@ -360,7 +360,7 @@ bool fcmp_pp_verify_membership(struct InputSlice inputs,
   const uint8_t fcmp_proof[],
   const uintptr_t fcmp_proof_len);
 
-bool fcmp_pp_verify(const struct FcmpVerifyInputSliceUnsafe fcmp_pp_verify_inputs);
+bool fcmp_pp_verify(const struct FcmpPpVerifyInputSliceUnsafe fcmp_pp_verify_inputs);
 
 #ifdef __cplusplus
 } //extern "C"

@@ -113,14 +113,14 @@ DEFINE_FCMP_FFI_SHARED_TYPE(TreeRoot, helios_tree_root(const HeliosPoint &), sel
 DEFINE_FCMP_FFI_TYPE(Path,
     path_new(const OutputChunk &, std::size_t, const HeliosT::ScalarChunks &, const SeleneT::ScalarChunks &));
 
-DEFINE_FCMP_FFI_TYPE(FcmpProveInput,
-    fcmp_prove_input_new(const Path &,
+DEFINE_FCMP_FFI_TYPE(FcmpPpProveInput,
+    fcmp_pp_prove_input_new(const Path &,
         const OutputBlinds &,
         const std::vector<SeleneBranchBlind> &,
         const std::vector<HeliosBranchBlind> &));
 
-DEFINE_FCMP_FFI_TYPE(FcmpVerifyInput,
-    fcmp_verify_input_new(const crypto::hash &signable_tx_hash,
+DEFINE_FCMP_FFI_TYPE(FcmpPpVerifyInput,
+    fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
         const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
         const std::size_t n_tree_layers,
         const fcmp_pp::TreeRoot &tree_root,

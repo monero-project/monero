@@ -121,9 +121,9 @@ IMPLEMENT_FCMP_FFI_TYPE(Path,
     destroy_path);
 //----------------------------------------------------------------------------------------------------------------------
 // Implement FCMP++ Prove Input manually because will need temp slices
-void FcmpProveInputDeleter::operator()(FcmpProveInputUnsafe *p) const noexcept { ::destroy_fcmp_prove_input(p); };
+void FcmpPpProveInputDeleter::operator()(FcmpPpProveInputUnsafe *p) const noexcept { ::destroy_fcmp_pp_prove_input(p); };
 
-FcmpProveInput fcmp_prove_input_new(const Path &path,
+FcmpPpProveInput fcmp_pp_prove_input_new(const Path &path,
         const OutputBlinds &output_blinds,
         const std::vector<SeleneBranchBlind> &selene_branch_blinds,
         const std::vector<HeliosBranchBlind> &helios_branch_blinds)
@@ -131,21 +131,21 @@ FcmpProveInput fcmp_prove_input_new(const Path &path,
     MAKE_TEMP_FFI_SLICE(SeleneBranchBlind, selene_branch_blinds, selene_branch_blind_slice);
     MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
-    FcmpProveInputUnsafe *raw_ptr;
-    int r = ::fcmp_prove_input_new(path.get(),
+    FcmpPpProveInputUnsafe *raw_ptr;
+    int r = ::fcmp_pp_prove_input_new(path.get(),
         output_blinds.get(),
         selene_branch_blind_slice,
         helios_branch_blind_slice,
         &raw_ptr);
     CHECK_AND_ASSERT_THROW_MES(r == 0, "Failed to construct FCMP++ prove input");
 
-    return FcmpProveInput(raw_ptr);
+    return FcmpPpProveInput(raw_ptr);
 }
 //----------------------------------------------------------------------------------------------------------------------
 // Implement FCMP++ Verify Input manually because need to type cast
-void FcmpVerifyInputDeleter::operator()(FcmpVerifyInputUnsafe *p) const noexcept { ::destroy_fcmp_verify_input(p); };
+void FcmpPpVerifyInputDeleter::operator()(FcmpPpVerifyInputUnsafe *p) const noexcept { ::destroy_fcmp_pp_verify_input(p); };
 
-FcmpVerifyInput fcmp_verify_input_new(const crypto::hash &signable_tx_hash,
+FcmpPpVerifyInput fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
         const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
         const std::size_t n_tree_layers,
         const fcmp_pp::TreeRoot &tree_root,
@@ -164,7 +164,7 @@ FcmpVerifyInput fcmp_verify_input_new(const crypto::hash &signable_tx_hash,
     for (const auto &ki : key_images)
         key_images_ptrs.emplace_back((const uint8_t *)&ki.data);
 
-    FcmpVerifyInputUnsafe *raw_ptr;
+    FcmpPpVerifyInputUnsafe *raw_ptr;
     int r = ::fcmp_pp_verify_input_new(
             reinterpret_cast<const uint8_t*>(&signable_tx_hash),
             fcmp_pp_proof.data(),
@@ -177,7 +177,7 @@ FcmpVerifyInput fcmp_verify_input_new(const crypto::hash &signable_tx_hash,
         );
     CHECK_AND_ASSERT_THROW_MES(r == 0, "Failed to construct FCMP++ verify input");
 
-    return FcmpVerifyInput(raw_ptr);
+    return FcmpPpVerifyInput(raw_ptr);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
