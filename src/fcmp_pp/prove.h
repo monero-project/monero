@@ -72,20 +72,6 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
 FcmpMembershipProof prove_membership(const std::vector<FcmpProveInput> &fcmp_prove_inputs,
     const std::size_t n_tree_layers);
 
-uint8_t *fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
-    const FcmpPpProof &fcmp_pp_proof,
-    const std::size_t n_tree_layers,
-    const fcmp_pp::TreeRoot &tree_root,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images);
-
-bool verify(const crypto::hash &signable_tx_hash,
-    const FcmpPpProof &fcmp_pp_proof,
-    const std::size_t n_tree_layers,
-    const fcmp_pp::TreeRoot &tree_root,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images);
-
 bool verify_sal(const crypto::hash &signable_tx_hash,
     const FcmpInputCompressed &input,
     const crypto::key_image &key_image,
@@ -96,5 +82,12 @@ bool verify_membership(const FcmpMembershipProof &fcmp_proof,
     const fcmp_pp::TreeRoot &tree_root,
     const std::vector<FcmpInputCompressed> &inputs);
 
-bool batch_verify(const std::vector<const uint8_t *> &fcmp_pp_verify_inputs);
+bool verify(const std::vector<fcmp_pp::FcmpVerifyInput> &fcmp_pp_verify_inputs);
+
+bool verify(const crypto::hash &signable_tx_hash,
+    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    const std::size_t n_tree_layers,
+    const fcmp_pp::TreeRoot &tree_root,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images);
 }//namespace fcmp_pp

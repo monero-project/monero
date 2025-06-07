@@ -48,17 +48,6 @@ namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static uint8_t *handle_res_ptr(const std::string func, const ::CResult &res)
-{
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to " + func);
-    }
-    return (uint8_t *) res.value;
-}
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
 FcmpRerandomizedOutputCompressed rerandomize_output(const OutputBytes output)
 {
     HANDLE_RES_CODE(FcmpRerandomizedOutputCompressed, ::rerandomize_output, output);
@@ -262,64 +251,6 @@ FcmpMembershipProof prove_membership(const std::vector<FcmpProveInput> &fcmp_pro
     return p;
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
-    const FcmpPpProof &fcmp_pp_proof,
-    const std::size_t n_tree_layers,
-    const fcmp_pp::TreeRoot &tree_root,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images)
-{
-    std::vector<const uint8_t *> pseudo_outs_ptrs;
-    pseudo_outs_ptrs.reserve(pseudo_outs.size());
-    for (const auto &po : pseudo_outs)
-        pseudo_outs_ptrs.emplace_back((const uint8_t *)&po);
-
-    std::vector<const uint8_t *> key_images_ptrs;
-    key_images_ptrs.reserve(key_images.size());
-    for (const auto &ki : key_images)
-        key_images_ptrs.emplace_back((const uint8_t *)&ki.data);
-
-    auto res = ::fcmp_pp_verify_input_new(
-            reinterpret_cast<const uint8_t*>(&signable_tx_hash),
-            fcmp_pp_proof.data(),
-            fcmp_pp_proof.size(),
-            n_tree_layers,
-            tree_root.get(),
-            {pseudo_outs_ptrs.data(), pseudo_outs_ptrs.size()},
-            {key_images_ptrs.data(), key_images_ptrs.size()}
-        );
-
-    return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
-bool verify(const crypto::hash &signable_tx_hash,
-    const FcmpPpProof &fcmp_pp_proof,
-    const std::size_t n_tree_layers,
-    const fcmp_pp::TreeRoot &tree_root,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images)
-{
-    std::vector<const uint8_t *> pseudo_outs_ptrs;
-    pseudo_outs_ptrs.reserve(pseudo_outs.size());
-    for (const auto &po : pseudo_outs)
-        pseudo_outs_ptrs.emplace_back((const uint8_t *)&po);
-
-    std::vector<const uint8_t *> key_images_ptrs;
-    key_images_ptrs.reserve(key_images.size());
-    for (const auto &ki : key_images)
-        key_images_ptrs.emplace_back((const uint8_t *)&ki.data);
-
-    return ::verify(
-            reinterpret_cast<const uint8_t*>(&signable_tx_hash),
-            fcmp_pp_proof.data(),
-            fcmp_pp_proof.size(),
-            n_tree_layers,
-            tree_root.get(),
-            {pseudo_outs_ptrs.data(), pseudo_outs_ptrs.size()},
-            {key_images_ptrs.data(), key_images_ptrs.size()}
-        );
-}
-//----------------------------------------------------------------------------------------------------------------------
 bool verify_sal(const crypto::hash &signable_tx_hash,
     const FcmpInputCompressed &input,
     const crypto::key_image &key_image,
@@ -347,9 +278,30 @@ bool verify_membership(const FcmpMembershipProof &fcmp_proof,
         fcmp_proof.size());
 }
 //----------------------------------------------------------------------------------------------------------------------
-bool batch_verify(const std::vector<const uint8_t *> &fcmp_pp_verify_inputs)
+bool verify(const std::vector<fcmp_pp::FcmpVerifyInput> &fcmp_pp_verify_inputs)
 {
-    return ::fcmp_pp_batch_verify({fcmp_pp_verify_inputs.data(), fcmp_pp_verify_inputs.size()});
+    MAKE_TEMP_FFI_SLICE(FcmpVerifyInput, fcmp_pp_verify_inputs, fcmp_verify_inputs_slice);
+    return ::fcmp_pp_verify(fcmp_verify_inputs_slice);
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool verify(const crypto::hash &signable_tx_hash,
+    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    const std::size_t n_tree_layers,
+    const fcmp_pp::TreeRoot &tree_root,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images)
+{
+    auto fcmp_verify_input = fcmp_pp::fcmp_verify_input_new(
+            signable_tx_hash,
+            fcmp_pp_proof,
+            n_tree_layers,
+            tree_root,
+            pseudo_outs,
+            key_images
+        );
+    std::vector<fcmp_pp::FcmpVerifyInput> fcmp_verify_inputs;
+    fcmp_verify_inputs.emplace_back(std::move(fcmp_verify_input));
+    return verify(fcmp_verify_inputs);
 }
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

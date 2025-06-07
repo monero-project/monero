@@ -68,6 +68,9 @@ struct HeliosT final
 using OutputBytes = ::OutputBytes;
 using OutputChunk = ::OutputSlice;
 //----------------------------------------------------------------------------------------------------------------------
+// Define C++ type here so it can be used in FFI types
+using FcmpPpProof = std::vector<uint8_t>;
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // FFI types
 //----------------------------------------------------------------------------------------------------------------------
@@ -115,6 +118,14 @@ DEFINE_FCMP_FFI_TYPE(FcmpProveInput,
         const OutputBlinds &,
         const std::vector<SeleneBranchBlind> &,
         const std::vector<HeliosBranchBlind> &));
+
+DEFINE_FCMP_FFI_TYPE(FcmpVerifyInput,
+    fcmp_verify_input_new(const crypto::hash &signable_tx_hash,
+        const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+        const std::size_t n_tree_layers,
+        const fcmp_pp::TreeRoot &tree_root,
+        const std::vector<crypto::ec_point> &pseudo_outs,
+        const std::vector<crypto::key_image> &key_images));
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types
@@ -122,7 +133,6 @@ DEFINE_FCMP_FFI_TYPE(FcmpProveInput,
 // Byte buffer containing the fcmp++ proof
 using FcmpPpSalProof = std::vector<uint8_t>;
 using FcmpMembershipProof = std::vector<uint8_t>;
-using FcmpPpProof = std::vector<uint8_t>;
 
 struct ProofInput final
 {
