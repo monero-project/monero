@@ -213,8 +213,7 @@ SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
     HANDLE_RES_CODE(SeleneScalar, ::c_blind, &rerandomized_output);
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const fcmp_pp::Path &path,
+uint8_t *fcmp_prove_input_new(const fcmp_pp::Path &path,
     const fcmp_pp::OutputBlinds &output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds)
@@ -222,40 +221,12 @@ uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomiz
     MAKE_TEMP_FFI_SLICE(SeleneBranchBlind, selene_branch_blinds, selene_branch_blind_slice);
     MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
-    auto res = ::fcmp_prove_input_new(&rerandomized_output,
-        path.get(),
+    auto res = ::fcmp_prove_input_new(path.get(),
         output_blinds.get(),
         selene_branch_blind_slice,
         helios_branch_blind_slice);
 
     return handle_res_ptr(__func__, res);
-}
-//----------------------------------------------------------------------------------------------------------------------
-FcmpPpProof prove(const crypto::hash &signable_tx_hash,
-    const std::vector<const uint8_t *> &fcmp_prove_inputs,
-    const std::size_t n_tree_layers)
-{
-    auto res = ::prove(reinterpret_cast<const uint8_t*>(&signable_tx_hash),
-        {fcmp_prove_inputs.data(), fcmp_prove_inputs.size()},
-        n_tree_layers);
-
-    if (res.err != nullptr)
-    {
-        free(res.err);
-        throw std::runtime_error("failed to construct FCMP++ proof");
-    }
-
-    // res.value is a void * pointing to a uint8_t *, so cast as a double pointer
-    uint8_t **buf = (uint8_t**) res.value;
-
-    const std::size_t proof_size = fcmp_pp_proof_len(fcmp_prove_inputs.size(), n_tree_layers);
-    const FcmpPpProof proof{*buf, *buf + proof_size};
-
-    // Free both pointers
-    free(*buf);
-    free(res.value);
-
-    return proof;
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signable_tx_hash,

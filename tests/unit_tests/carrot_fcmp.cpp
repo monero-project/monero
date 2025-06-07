@@ -536,7 +536,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     {
         fcmp_pp::ProofInput &proof_input = fcmp_proof_inputs.at(i);
         fcmp_proof_inputs_rust.push_back(fcmp_pp::fcmp_prove_input_new(
-            rerandomized_outputs.at(i),
             proof_input.path,
             proof_input.output_blinds,
             proof_input.selene_branch_blinds,

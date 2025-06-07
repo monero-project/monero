@@ -439,7 +439,7 @@ TEST(fcmp_pp, prove)
                 rerandomized_output);
 
             // Collect input for membership proof
-            const auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(rerandomized_output,
+            const auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
@@ -593,7 +593,7 @@ TEST(fcmp_pp, verify)
                 rerandomized_output);
 
             // Collect input for membership proof
-            const auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(rerandomized_output,
+            const auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
@@ -823,7 +823,7 @@ TEST(fcmp_pp, membership_completeness)
                 blinded_c_blind);
             
             // make provable FCMP input
-            fcmp_provable_inputs.push_back(fcmp_pp::fcmp_prove_input_new(rerandomized_output,
+            fcmp_provable_inputs.push_back(fcmp_pp::fcmp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,

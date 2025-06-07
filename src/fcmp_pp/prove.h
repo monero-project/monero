@@ -64,15 +64,10 @@ SeleneScalar i_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output
 SeleneScalar i_blind_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output);
 SeleneScalar c_blind(const FcmpRerandomizedOutputCompressed &rerandomized_output);
 
-uint8_t *fcmp_prove_input_new(const FcmpRerandomizedOutputCompressed &rerandomized_output,
-    const fcmp_pp::Path &path,
+uint8_t *fcmp_prove_input_new(const fcmp_pp::Path &path,
     const fcmp_pp::OutputBlinds &output_blinds,
     const std::vector<SeleneBranchBlind> &selene_branch_blinds,
     const std::vector<HeliosBranchBlind> &helios_branch_blinds);
-
-FcmpPpProof prove(const crypto::hash &signable_tx_hash,
-    const std::vector<const uint8_t *> &fcmp_prove_inputs,
-    const std::size_t n_tree_layers);
 
 std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signable_tx_hash,
     const crypto::secret_key &x,

@@ -711,17 +711,10 @@ destroy_fn!(
 
 #[derive(Clone)]
 pub struct FcmpPpProveInput {
-    rerandomized_output: RerandomizedOutput,
-
-    // FCMP-specific
     path: Path<Curves>,
     output_blinds: OutputBlinds<EdwardsPoint>,
     c1_branch_blinds: Vec<BranchBlind<<Selene as Ciphersuite>::G>>,
     c2_branch_blinds: Vec<BranchBlind<<Helios as Ciphersuite>::G>>,
-
-    // SA/L-specific, ignore when only doing membership proofs
-    x: Scalar,
-    y: Scalar
 }
 
 pub type FcmpPpProveInputSlice = Slice<*const FcmpPpProveInput>;
@@ -762,23 +755,18 @@ unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveInput], n_tree_lay
     Fcmp::prove(&mut OsRng, FCMP_PARAMS(), blinded_branches).ok()
 }
 
-unsafe fn fcmp_pp_prove_input_new(
-    x: *const u8,
-    y: *const u8,
-    rerandomized_output_bytes: *const u8,
+/// # Safety
+///
+/// This function assumes that Path and OutputBlinds were
+/// allocated on the heap (via Box::into_raw(Box::new())), and the branch
+/// blinds are slices of BranchBlind allocated on the heap (via CResult).
+#[no_mangle]
+pub unsafe extern "C" fn fcmp_prove_input_new(
     path: *const Path<Curves>,
     output_blinds: *const OutputBlinds<EdwardsPoint>,
     selene_branch_blinds: SeleneBranchBlindSlice,
-    helios_branch_blinds: HeliosBranchBlindSlice,
+    helios_branch_blinds: HeliosBranchBlindSlice
 ) -> CResult<FcmpPpProveInput, ()> {
-    // SAL
-    let x = ed25519_scalar_from_bytes(x);
-    let y = ed25519_scalar_from_bytes(y);
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
-    let Ok(rerandomized_output) = RerandomizedOutput::read(&mut rerandomized_output_bytes) else {
-        return CResult::err(());
-    };
-
     // Path and output blinds
     let path = unsafe { (*path).clone() };
     let output_blinds = unsafe { (*output_blinds).clone() };
@@ -799,98 +787,12 @@ unsafe fn fcmp_pp_prove_input_new(
         .collect();
 
     let fcmp_prove_input = FcmpPpProveInput {
-        rerandomized_output,
         path,
         output_blinds,
         c1_branch_blinds,
         c2_branch_blinds,
-        x,
-        y
     };
     CResult::ok(fcmp_prove_input)
-}
-
-/// # Safety
-///
-/// This function assumes that RerandomizedOutput/Path/OutputBlinds were
-/// allocated on the heap (via Box::into_raw(Box::new())), and the branch
-/// blinds are slices of BranchBlind allocated on the heap (via CResult).
-#[no_mangle]
-pub unsafe extern "C" fn fcmp_prove_input_new(rerandomized_output_bytes: *const u8,
-    path: *const Path<Curves>,
-    output_blinds: *const OutputBlinds<EdwardsPoint>,
-    selene_branch_blinds: SeleneBranchBlindSlice,
-    helios_branch_blinds: HeliosBranchBlindSlice 
-) -> CResult<FcmpPpProveInput, ()> {
-    let zero = [0u8; 32];
-    let pzero = &zero as *const u8;
-    fcmp_pp_prove_input_new(pzero,
-        pzero,
-        rerandomized_output_bytes,
-        path,
-        output_blinds,
-        selene_branch_blinds,
-        helios_branch_blinds)
-}
-
-/// # Safety
-///
-/// This function assumes that the signable_tx_hash is 32 bytes and that the inputs are a slice
-/// of inputs returned from fcmp_pp_prove_input_new.
-#[no_mangle]
-pub unsafe extern "C" fn prove(
-    signable_tx_hash: *const u8,
-    inputs: FcmpPpProveInputSlice,
-    n_tree_layers: usize,
-) -> CResult<*const u8, ()> {
-    let signable_tx_hash = unsafe { core::slice::from_raw_parts(signable_tx_hash, 32) };
-    let signable_tx_hash: [u8; 32] = signable_tx_hash.try_into().unwrap();
-
-    let inputs: &[*const FcmpPpProveInput] = inputs.into();
-
-    // SAL proofs
-    let sal_proofs = inputs
-        .iter()
-        .cloned()
-        .map(|prove_input| {
-            let rerandomized_output = &(*prove_input).rerandomized_output;
-            let x = &(*prove_input).x;
-            let y = &(*prove_input).y;
-
-            assert_eq!(
-                (*prove_input).path.output.O(),
-                EdwardsPoint((**x * *EdwardsPoint::generator()) + (**y * *EdwardsPoint(T())))
-            );
-
-            let input = rerandomized_output.input();
-            let opening = OpenedInputTuple::open(rerandomized_output.clone(), &x, &y).unwrap();
-
-            let (key_image, spend_auth_and_linkability) =
-                SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
-
-            assert_eq!((*prove_input).path.output.I() * x, key_image);
-
-            (input, spend_auth_and_linkability)
-        })
-        .collect();
-
-    // Membership proof
-    let fcmp = match prove_membership_native(inputs, n_tree_layers) {
-        Some(x) => x,
-        None => return CResult::err(())
-    };
-
-    // Combine SAL proofs and membership proof
-    let fcmp_plus_plus = FcmpPlusPlus::new(sal_proofs, fcmp);
-
-    let mut buf = vec![];
-    fcmp_plus_plus.write(&mut buf).unwrap();
-    debug_assert_eq!(buf.len(), _slow_fcmp_pp_proof_size(inputs.len(), n_tree_layers));
-
-    // Leak the buf into a ptr that the C++ can handle
-    // TODO: Use Box::leak instead, and then in destructor convert back to box https://doc.rust-lang.org/std/boxed/struct.Box.html#method.leak
-    let ptr = buf.leak().as_ptr();
-    CResult::ok(ptr)
 }
 
 /// # Safety
