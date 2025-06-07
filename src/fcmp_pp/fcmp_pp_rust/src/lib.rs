@@ -984,7 +984,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(inputs: Slice<[u8; 4 * 32]>,
         .collect::<Result<Vec<_>, _>>()
         else { return false };
 
-    let tree_root = tree_root.read();
+    let tree_root = (*tree_root).clone();
 
     let mut fcmp_proof_buf = core::slice::from_raw_parts(fcmp_proof, fcmp_proof_len);
     let fcmp = match Fcmp::read(&mut fcmp_proof_buf, inputs.len(), n_tree_layers) {
@@ -1018,24 +1018,24 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(inputs: Slice<[u8; 4 * 32]>,
 #[no_mangle]
 pub unsafe extern "C" fn fcmp_pp_verify(inputs: Slice<*const FcmpPpVerifyInput>) -> bool {
     let inputs: &[*const FcmpPpVerifyInput] = inputs.into();
-    let inputs: Vec<FcmpPpVerifyInput> = inputs.iter().map(|x| unsafe { x.read() }).collect();
 
     let mut ed_verifier = multiexp::BatchVerifier::new(inputs.len());
     let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
     let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
 
     // TODO: consider multithreading verify individual proofs, needs internal re-work
-    for i in 0..inputs.len() {
-        let fcmp_pp_verify_input = &inputs[i];
+    for &input in inputs {
+        // Use ref so the input doesn't get consumed (the caller handles de-allocating)
+        let fcmp_pp_verify_input = &*input;
 
         let Ok(_) = fcmp_pp_verify_input.fcmp_pp.verify(
             &mut OsRng,
             &mut ed_verifier,
             &mut c1_verifier,
             &mut c2_verifier,
-            fcmp_pp_verify_input.tree_root,
+            fcmp_pp_verify_input.tree_root.clone(),
             fcmp_pp_verify_input.n_tree_layers,
-            fcmp_pp_verify_input.signable_tx_hash,
+            fcmp_pp_verify_input.signable_tx_hash.clone(),
             fcmp_pp_verify_input.key_images.clone(),
         ) else {
             return false;
