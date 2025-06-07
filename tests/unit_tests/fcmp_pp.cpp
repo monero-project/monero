@@ -350,7 +350,7 @@ TEST(fcmp_pp, prove)
     {
         std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
         std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<uint8_t *> fcmp_prove_inputs;
+        std::vector<fcmp_pp::FcmpProveInput> fcmp_prove_inputs;
         std::vector<crypto::key_image> key_images;
         std::vector<crypto::ec_point> pseudo_outs;
 
@@ -439,7 +439,7 @@ TEST(fcmp_pp, prove)
                 rerandomized_output);
 
             // Collect input for membership proof
-            const auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
+            auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
@@ -518,7 +518,7 @@ TEST(fcmp_pp, verify)
     {
         std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
         std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<uint8_t *> fcmp_prove_inputs;
+        std::vector<fcmp_pp::FcmpProveInput> fcmp_prove_inputs;
         std::vector<crypto::key_image> key_images;
         std::vector<crypto::ec_point> pseudo_outs;
 
@@ -593,7 +593,7 @@ TEST(fcmp_pp, verify)
                 rerandomized_output);
 
             // Collect input for membership proof
-            const auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
+            auto fcmp_prove_input = fcmp_pp::fcmp_prove_input_new(
                 path_rust,
                 output_blinds,
                 selene_branch_blinds,
@@ -720,7 +720,7 @@ TEST(fcmp_pp, membership_completeness)
         std::set<size_t> selected_indices;
         std::vector<FcmpInputCompressed> fcmp_raw_inputs;
         fcmp_raw_inputs.reserve(num_inputs);
-        std::vector<uint8_t*> fcmp_provable_inputs;
+        std::vector<fcmp_pp::FcmpProveInput> fcmp_provable_inputs;
         fcmp_provable_inputs.reserve(num_inputs);
         while (selected_indices.size() < num_inputs)
         {
@@ -843,10 +843,6 @@ TEST(fcmp_pp, membership_completeness)
         // Verify
         LOG_PRINT_L1("Verifying " << num_inputs << "-in " << n_layers << "-layer FCMP");
         EXPECT_TRUE(fcmp_pp::verify_membership(proof, n_layers, global_tree.get_tree_root(), fcmp_raw_inputs));
-
-        // Dealloc
-        for (uint8_t *input : fcmp_provable_inputs)
-            free(input);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

@@ -531,7 +531,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
 
     // Make FCMP membership proof
     LOG_PRINT_L1("Generating FCMP++ membership proofs");
-    std::vector<uint8_t*> fcmp_proof_inputs_rust;
+    std::vector<fcmp_pp::FcmpProveInput> fcmp_proof_inputs_rust;
     for (size_t i = 0; i < n_inputs; ++i)
     {
         fcmp_pp::ProofInput &proof_input = fcmp_proof_inputs.at(i);
@@ -543,10 +543,6 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     }
     const fcmp_pp::FcmpMembershipProof membership_proof = fcmp_pp::prove_membership(fcmp_proof_inputs_rust,
         n_tree_layers);
-
-    // Dealloc FCMP proof inputs
-    for (uint8_t *proof_input : fcmp_proof_inputs_rust)
-      free(proof_input);
 
     // Attach rctSigPrunable to tx
     LOG_PRINT_L1("Storing rctSig prunable");

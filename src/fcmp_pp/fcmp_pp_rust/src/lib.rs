@@ -765,8 +765,13 @@ pub unsafe extern "C" fn fcmp_prove_input_new(
     path: *const Path<Curves>,
     output_blinds: *const OutputBlinds<EdwardsPoint>,
     selene_branch_blinds: SeleneBranchBlindSlice,
-    helios_branch_blinds: HeliosBranchBlindSlice
-) -> CResult<FcmpPpProveInput, ()> {
+    helios_branch_blinds: HeliosBranchBlindSlice,
+    fcmp_prove_input_out: *mut *mut FcmpPpProveInput,
+) -> c_int {
+    if fcmp_prove_input_out.is_null() {
+        return -1;
+    }
+
     // Path and output blinds
     let path = unsafe { (*path).clone() };
     let output_blinds = unsafe { (*output_blinds).clone() };
@@ -792,8 +797,11 @@ pub unsafe extern "C" fn fcmp_prove_input_new(
         c1_branch_blinds,
         c2_branch_blinds,
     };
-    CResult::ok(fcmp_prove_input)
+    unsafe { *fcmp_prove_input_out = new_box_raw(fcmp_prove_input); };
+    0
 }
+
+destroy_fn!(destroy_fcmp_prove_input, FcmpPpProveInput);
 
 /// # Safety
 ///
@@ -843,22 +851,22 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveInputSlice,
     proof_len: usize,
     fcmp_proof_out: *mut u8,
     fcmp_proof_out_len: *mut usize
-) -> CResult<(), ()> {
+) -> c_int {
     let inputs: &[*const FcmpPpProveInput] = inputs.into();
     let capacity = fcmp_proof_out_len.read();
     debug_assert_eq!(proof_len, _slow_membership_proof_size(inputs.len(), n_tree_layers));
     if capacity < proof_len {
-        return CResult::err(())
+        return -1;
     }
     fcmp_proof_out_len.write(proof_len);
     let mut buf_out = core::slice::from_raw_parts_mut(fcmp_proof_out, proof_len);
 
     match prove_membership_native(inputs, n_tree_layers) {
         Some(fcmp) => match fcmp.write(&mut buf_out) {
-            Ok(_) => CResult::ok(()),
-            Err(_) => CResult::err(())
+            Ok(_) => 0,
+            Err(_) => -2
         },
-        None => CResult::err(())
+        None => -3
     }
 }
 

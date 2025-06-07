@@ -119,6 +119,27 @@ IMPLEMENT_FCMP_FFI_TYPE(Path,
         const SeleneT::ScalarChunks &selene_layer_chunks),
     path_new(output_chunk, output_idx, helios_layer_chunks, selene_layer_chunks, &raw_ptr),
     destroy_path);
+
+// Implement FCMP++ Prove Input because will need temp slices
+void FcmpProveInputDeleter::operator()(FcmpProveInputUnsafe *p) const noexcept { ::destroy_fcmp_prove_input(p); };
+FcmpProveInput fcmp_prove_input_new(const Path &path,
+        const OutputBlinds &output_blinds,
+        const std::vector<SeleneBranchBlind> &selene_branch_blinds,
+        const std::vector<HeliosBranchBlind> &helios_branch_blinds)
+{
+    MAKE_TEMP_FFI_SLICE(SeleneBranchBlind, selene_branch_blinds, selene_branch_blind_slice);
+    MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
+
+    FcmpProveInputUnsafe *raw_ptr;
+    int r = ::fcmp_prove_input_new(path.get(),
+        output_blinds.get(),
+        selene_branch_blind_slice,
+        helios_branch_blind_slice,
+        &raw_ptr);
+    CHECK_AND_ASSERT_THROW_MES(r == 0, "Failed to construct FCMP++ prove input");
+
+    return FcmpProveInput(raw_ptr);
+}
 //-------------------------------------------------------------------------------------------------------------------
 fcmp_pp::FcmpPpProof fcmp_pp_proof_from_parts_v1(
     const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,

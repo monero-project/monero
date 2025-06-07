@@ -159,6 +159,8 @@ struct BlindedCBlindUnsafe;
 
 struct OutputBlindsUnsafe;
 
+struct FcmpProveInputUnsafe;
+
 struct HeliosBranchBlindSliceUnsafe
 {
   const struct HeliosBranchBlindUnsafe * const *buf;
@@ -168,6 +170,12 @@ struct HeliosBranchBlindSliceUnsafe
 struct SeleneBranchBlindSliceUnsafe
 {
   const struct SeleneBranchBlindUnsafe * const *buf;
+  uintptr_t len;
+};
+
+struct FcmpProveInputSliceUnsafe
+{
+  const struct FcmpProveInputUnsafe * const *buf;
   uintptr_t len;
 };
 
@@ -262,10 +270,13 @@ int generate_selene_branch_blind(struct SeleneBranchBlindUnsafe **branch_blind_o
 void destroy_helios_branch_blind(struct HeliosBranchBlindUnsafe *helios_branch_blind);
 void destroy_selene_branch_blind(struct SeleneBranchBlindUnsafe *selene_branch_blind);
 
-CResult fcmp_prove_input_new(const struct PathUnsafe *path,
+int fcmp_prove_input_new(const struct PathUnsafe *path,
                                         const struct OutputBlindsUnsafe *output_blinds,
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
-                                        struct HeliosBranchBlindSliceUnsafe helios_branch_blinds);
+                                        struct HeliosBranchBlindSliceUnsafe helios_branch_blinds,
+                                        struct FcmpProveInputUnsafe **fcmp_prove_input_out);
+
+void destroy_fcmp_prove_input(struct FcmpProveInputUnsafe *fcmp_prove_input);
 
 /**
  * brief: fcmp_pp_prove_sal - Make a FCMP++ spend auth & linkability proof
@@ -297,7 +308,7 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
  * outparam: fcmp_proof_out_size - the max length of the buffer fcmp_proof_out, is set to written proof size
  * return: an error on failure, nothing otherwise
  */
-CResult fcmp_pp_prove_membership(struct ObjectSlice fcmp_prove_inputs,
+int fcmp_pp_prove_membership(const struct FcmpProveInputSliceUnsafe fcmp_prove_inputs,
                                              uintptr_t n_tree_layers,
                                              uintptr_t proof_len,
                                              uint8_t fcmp_proof_out[],
