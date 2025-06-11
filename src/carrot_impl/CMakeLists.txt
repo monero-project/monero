@@ -33,6 +33,7 @@ set(carrot_impl_sources
   input_selection.cpp
   key_image_device_composed.cpp
   key_image_device_precomputed.cpp
+  multi_tx_proposal_utils.cpp
   output_opening_types.cpp
   tx_builder_inputs.cpp
   tx_builder_outputs.cpp
