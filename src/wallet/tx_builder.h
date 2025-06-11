@@ -29,8 +29,7 @@
 #pragma once
 
 //local headers
-#include "carrot_impl/tx_builder_inputs.h"
-#include "carrot_impl/tx_proposal_utils.h"
+#include "carrot_impl/input_selection.h"
 #include "fcmp_pp/tree_cache.h"
 #include "wallet2_basic/wallet2_types.h"
 
@@ -76,7 +75,7 @@ struct multisig_sig
     END_SERIALIZE()
 };
 
-struct tx_construction_data
+struct PreCarrotTransactionProposal
 {
     std::vector<cryptonote::tx_source_entry> sources;
     cryptonote::tx_destination_entry change_dts;
@@ -155,7 +154,7 @@ struct pending_tx
     std::set<uint32_t> subaddr_indices;  // set of address indices used as inputs in this transfer
 
     using tx_reconstruct_variant_t = std::variant<
-        tx_construction_data,
+        PreCarrotTransactionProposal,
         carrot::CarrotTransactionProposalV1
         >;
     tx_reconstruct_variant_t construction_data;
@@ -174,7 +173,7 @@ struct pending_tx
         FIELD(dests)
         if (version < 2)
         {
-            tx_construction_data pre_carrot_construction_data;
+            PreCarrotTransactionProposal pre_carrot_construction_data;
             FIELD_N("construction_data", pre_carrot_construction_data)
             construction_data = pre_carrot_construction_data;
             subaddr_account = pre_carrot_construction_data.subaddr_account;
@@ -196,24 +195,28 @@ struct pending_tx
     END_SERIALIZE()
 };
 
-std::unordered_map<crypto::public_key, size_t> collect_non_burned_transfers_by_onetime_address(
-    const wallet2_basic::transfer_container &transfers);
-
-carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
+/**
+ * brief: collect_carrot_input_candidate_list - filter and convert wallet2 transfer contain into carrot input candidates
+ * param: transfers - wallet2 incoming transfers list
+ * param: from_subaddr_account - ignore transfers not addressed to this major account index
+ * param: from_subaddr_indices - ignore transfers not addressed to one of these minor account indices, empty means all
+ * param: ignore_above - ignore transfers with an amount greater than this limit
+ * param: ignore_below - ignore transfers with an amount less than this limit
+ * param: top_block_index - block index of current top known block in the chain
+ * return: filtered carrot input candidate list derived from transfer container
+ */
+std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
     const wallet2_basic::transfer_container &transfers,
-    const std::uint32_t from_account,
-    const std::set<std::uint32_t> &from_subaddresses,
+    const std::uint32_t from_subaddr_account,
+    const std::set<std::uint32_t> &from_subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
-    const std::uint64_t top_block_index,
-    const bool allow_carrot_external_inputs_in_normal_transfers,
-    const bool allow_pre_carrot_inputs_in_normal_transfers,
-    std::set<size_t> &selected_transfer_indices_out);
+    const std::uint64_t top_block_index);
 
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     const wallet2_basic::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    std::vector<cryptonote::tx_destination_entry> dsts,
+    const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const uint32_t subaddr_account,

@@ -177,6 +177,29 @@ std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
     return enc_pid_extra_field_size + ephemeral_pubkeys_field_size;
 }
 //-------------------------------------------------------------------------------------------------------------------
+std::map<std::size_t, rct::xmr_amount> get_fee_by_input_count(const std::size_t n_outputs,
+    const std::size_t extra_extra_len,
+    const std::uint64_t fee_per_weight)
+{
+    CARROT_CHECK_AND_THROW(extra_extra_len <= MAX_TX_EXTRA_SIZE,
+        integer_overflow, "extra extra len is too high");
+
+    const std::uint64_t extra_len = get_carrot_default_tx_extra_size(n_outputs) + extra_extra_len;
+    CARROT_CHECK_AND_THROW(extra_len <= MAX_TX_EXTRA_SIZE,
+        integer_overflow, "total tx extra len after default fields is too high");
+
+    std::map<std::size_t, rct::xmr_amount> fee_by_input_count;
+    for (std::size_t n_inputs = CARROT_MIN_TX_INPUTS; n_inputs <= CARROT_MAX_TX_INPUTS; ++n_inputs)
+    {
+        const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(n_inputs, n_outputs, extra_len);
+        CARROT_CHECK_AND_THROW(std::numeric_limits<rct::xmr_amount>::max() / tx_weight > fee_per_weight,
+            integer_overflow, "fee_per_weight is too high and caused fee integer overflow");
+        fee_by_input_count[n_inputs] = tx_weight * fee_per_weight;
+    }
+
+    return fee_by_input_count;
+}
+//-------------------------------------------------------------------------------------------------------------------
 bool try_load_carrot_extra_v1(
     const std::vector<std::uint8_t> &tx_extra,
     std::vector<mx25519_pubkey> &enote_ephemeral_pubkeys_out,

@@ -287,7 +287,7 @@ private:
     using unconfirmed_transfer_details = wallet2_basic::unconfirmed_transfer_details;
     using confirmed_transfer_details = wallet2_basic::confirmed_transfer_details;
 
-    using tx_construction_data = wallet::tx_construction_data;
+    using tx_construction_data = wallet::PreCarrotTransactionProposal;
 
     typedef std::vector<transfer_details> transfer_container;
     typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;

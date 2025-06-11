@@ -54,6 +54,7 @@ CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_few_inputs,         carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_inputs,         carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_few_outputs,        carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_outputs,       carrot_logic_error)
+CARROT_DEFINE_SIMPLE_ERROR_TYPE(integer_overflow,       carrot_logic_error)
 
 class carrot_runtime_error: std::runtime_error { using std::runtime_error::runtime_error; };
 

@@ -39,6 +39,7 @@
 
 //standard headers
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <type_traits>
 
@@ -83,6 +84,23 @@ bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix,
  * return: default size of tx_extra for a Carrot v1 tx with no custom fields
  */
 std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
+/**
+ * brief: get_fee_by_input_count - get the fees for a carrot tx given # of outputs, extra size, and fee/weight rate
+ * param: n_outputs -
+ * param: extra_extra_len - byte size of extra fields, not including standard ones
+ * param: fee_per_weight -
+ * return: map of (# inputs, fee) pairs
+ * throw: carrot::integer_overflow if extra_extra_len or fee_per_weight are too high
+ * throw: too_few_outputs if n_outputs < CARROT_MIN_TX_OUTPUTS
+ * throw: too_many_outputs if n_outputs > CARROT_MAX_TX_OUTPUTS
+ *
+ * This uses the weight function cryptonote::get_fcmp_pp_transaction_weight_v1() assuming that the
+ * default tx.extra fields are of size get_carrot_default_tx_extra_size(n_outputs). The fee is
+ * simply calculated as weight * fee_per_weight, overflow checked.
+ */
+std::map<std::size_t, rct::xmr_amount> get_fee_by_input_count(const std::size_t n_outputs,
+    const std::size_t extra_extra_len,
+    const std::uint64_t fee_per_weight);
 /**
  * brief: try_load_carrot_extra_v1 - load Carrot info which is stored in tx_extra
  * param: tx_extra_fields -

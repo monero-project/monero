@@ -29,6 +29,7 @@
 #include "gtest/gtest.h"
 
 #include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_mock_helpers.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "fake_pruned_blockchain.h"

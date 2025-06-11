@@ -37,6 +37,7 @@
 #include "misc_log_ex.h"
 
 //third party headers
+#include <boost/iterator/transform_iterator.hpp>
 
 //standard headers
 #include <algorithm>
@@ -88,55 +89,20 @@ static void stable_sort_indices_by_amount(const epee::span<const InputCandidate>
 static std::pair<std::size_t, boost::multiprecision::uint128_t> input_count_for_max_usable_money(
     const epee::span<const InputCandidate> input_candidates,
     const std::set<std::size_t> &selectable_inputs,
-    std::size_t max_num_input_count,
+    const std::size_t max_num_input_count,
     const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count)
 {
-    // Returns (N, X) where the X is the sum of the amounts of the greatest N <= max_num_input_count
-    // inputs from selectable_inputs, maximizing X - F(N). F(N) is the fee for this transaction,
-    // given input count N. This should correctly handle "almost-dust": inputs which are less than
-    // the fee, but greater than or equal to the difference of the fee compared to excluding that
-    // input. If this function returns N == 0, then there aren't enough usable funds, i.e. no N
-    // exists such that X - F(N) > 0.
+    const auto deref_amount = [input_candidates](const std::size_t idx) {
+        CARROT_CHECK_AND_THROW(idx < input_candidates.size(),
+            component_out_of_order, "selectable_inputs out of range of input candidates");
+        return input_candidates[idx].core.amount;
+    };
 
-    if (fee_by_input_count.empty() || selectable_inputs.empty())
-        return {0, 0};
-
-    max_num_input_count = std::min(max_num_input_count, selectable_inputs.size());
-    CARROT_CHECK_AND_THROW(max_num_input_count <= fee_by_input_count.crbegin()->first,
-        too_few_inputs, "fee by input count does not contain info for provided max input count");
-
-    // maintain list of top amounts of selectable_inputs
-    std::multiset<rct::xmr_amount> top_amounts;
-    for (const std::size_t selectable_input : selectable_inputs)
-    {
-        CARROT_CHECK_AND_THROW(selectable_input < input_candidates.size(),
-            std::out_of_range, "selectable input out of range");
-        const rct::xmr_amount amount = input_candidates[selectable_input].core.amount;
-        top_amounts.insert(amount);
-
-        if (top_amounts.size() > max_num_input_count)
-            top_amounts.erase(top_amounts.cbegin());
-    }
-
-    // add up all the top amounts from the greatest to least until one fails to pay for its own marginal fee
-    std::size_t num_ins = 0;
-    rct::xmr_amount last_fee = 0;
-    boost::multiprecision::uint128_t cumulative_input_sum = 0;
-    for (auto amount_it = top_amounts.crbegin(); amount_it != top_amounts.crend(); ++amount_it)
-    {
-        const rct::xmr_amount amount = *amount_it;
-        const rct::xmr_amount current_fee = fee_by_input_count.at(num_ins + 1);
-        CARROT_CHECK_AND_THROW(current_fee > last_fee,
-            carrot_logic_error, "provided fee by input count is not monotonically increasing");
-        const rct::xmr_amount marginal_fee_diff = current_fee - last_fee;
-        if (amount <= marginal_fee_diff)
-            break;
-        ++num_ins;
-        last_fee = current_fee;
-        cumulative_input_sum += amount;
-    }
-
-    return {num_ins, cumulative_input_sum};
+    return get_input_count_for_max_usable_money(
+        boost::make_transform_iterator(selectable_inputs.cbegin(), deref_amount),
+        boost::make_transform_iterator(selectable_inputs.cend(), deref_amount),
+        max_num_input_count,
+        fee_by_input_count);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------

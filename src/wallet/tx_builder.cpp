@@ -36,10 +36,11 @@
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/address_device_ram_borrowed.h"
-#include "carrot_impl/key_image_device_composed.h"
-#include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/format_utils.h"
-#include "carrot_impl/input_selection.h"
+#include "carrot_impl/key_image_device_composed.h"
+#include "carrot_impl/multi_tx_proposal_utils.h"
+#include "carrot_impl/tx_builder_inputs.h"
+#include "carrot_impl/tx_builder_outputs.h"
 #include "common/apply_permutation.h"
 #include "common/container_helpers.h"
 #include "common/perf_timer.h"
@@ -137,6 +138,54 @@ static bool build_payment_proposals(std::vector<carrot::CarrotPaymentProposalV1>
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static void build_payment_proposals_sweep(std::vector<carrot::CarrotPaymentProposalV1> &normal_payment_proposals_inout,
+    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals_inout,
+    const cryptonote::account_public_address &address,
+    const bool is_subaddress,
+    const std::size_t n_dests,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map)
+{
+    for (std::size_t i = 0; i < n_dests; ++i)
+    {
+        build_payment_proposals(normal_payment_proposals_inout,
+            selfsend_payment_proposals_inout,
+            cryptonote::tx_destination_entry(0, address, is_subaddress),
+            subaddress_map);
+    }
+
+    if (selfsend_payment_proposals_inout.size() == 2 && normal_payment_proposals_inout.empty())
+        selfsend_payment_proposals_inout.back().proposal.enote_type = carrot::CarrotEnoteType::CHANGE;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static wallet2_basic::transfer_container get_transfers(const wallet2 &w)
+{
+    wallet2_basic::transfer_container transfers;
+    w.get_transfers(transfers);
+    return transfers;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static rct::xmr_amount get_fee_per_weight_from_priority(const std::uint32_t priority, wallet2 &w)
+{
+    const bool use_per_byte_fee = w.use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
+    CHECK_AND_ASSERT_THROW_MES(use_per_byte_fee, "not using per-byte base fee");
+
+    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+    MDEBUG("fee_per_weight = " << fee_per_weight << ", from priority = " << priority);
+
+    return fee_per_weight;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static std::uint64_t get_top_block_index(const wallet2 &w)
+{
+    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
+    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0, "chain height is 0; there's no top block");
+    return current_chain_height - 1;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 static cryptonote::tx_destination_entry make_tx_destination_entry(
     const carrot::CarrotPaymentProposalV1 &payment_proposal)
 {
@@ -196,137 +245,24 @@ static carrot::InputCandidate make_input_candidate(const wallet2_basic::transfer
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_by_index(
-    const wallet2_basic::transfer_container &transfers,
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    const std::set<std::size_t> &selected_transfers,
-    const cryptonote::account_public_address &address,
-    const bool is_subaddress,
-    const size_t n_dests_per_tx,
-    const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
-    const std::uint64_t top_block_index)
-{
-    const size_t n_inputs = selected_transfers.size();
-    CARROT_CHECK_AND_THROW(n_inputs, carrot::too_few_inputs, "no inputs provided");
-    CARROT_CHECK_AND_THROW(*selected_transfers.crbegin() < transfers.size(),
-        carrot::too_few_inputs, "selected transfer index out of range");
-    CARROT_CHECK_AND_THROW(n_dests_per_tx, carrot::too_few_outputs, "sweep must have at least one destination");
-    CARROT_CHECK_AND_THROW(n_dests_per_tx <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
-        carrot::too_many_outputs, "too many sweep destinations per transaction");
-
-    // Collect non-burned transfers
-    const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(transfers);
-
-    // Collect into input candidates, checking candidate is usable and isn't spent, and get subaddress account index
-    std::deque<carrot::CarrotSelectedInput> input_candidates_by_amount;
-    std::uint32_t subaddr_account = std::numeric_limits<std::uint32_t>::max();
-    for (const std::size_t transfer_idx : selected_transfers)
-    {
-        const wallet2_basic::transfer_details &td = transfers.at(transfer_idx);
-        CHECK_AND_ASSERT_THROW_MES(is_transfer_usable_for_input_selection(td,
-                td.m_subaddr_index.major,
-                /*from_subaddresses=*/{},
-                /*ignore_above=*/MONEY_SUPPLY,
-                /*ignore_below=*/0,
-                top_block_index),
-            __func__ << ": transfer not usable as an input");
-        CARROT_CHECK_AND_THROW(best_transfer_by_ota.at(td.get_public_key()) == transfer_idx,
-            carrot::burnt_enote, __func__ << ": selected transfer is burnt by another");
-        input_candidates_by_amount.push_back(make_input_candidate(td).core);
-        subaddr_account = std::min(subaddr_account, td.m_subaddr_index.major);
-    }
-
-    // Sort input_candidates_by_amount by amount, ascending. We do this so that we can try to pair
-    // dust inputs with non-dust inputs so that hopefully each tx can pay for its own fees
-    std::sort(input_candidates_by_amount.begin(), input_candidates_by_amount.end(),
-        [](const carrot::CarrotSelectedInput &a, const carrot::CarrotSelectedInput &b) { return a.amount < b.amount; });
-
-    const crypto::public_key change_address_spend_pubkey
-        = find_change_address_spend_pubkey(subaddress_map, subaddr_account);
-
-    // get n_dests_per_tx payment proposals corresponding to (address, is_subaddres)
-    std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
-    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
-    for (size_t i = 0; i < n_dests_per_tx; ++i)
-    {
-        const bool is_selfsend_dest = build_payment_proposals(normal_payment_proposals,
-            selfsend_payment_proposals,
-            cryptonote::tx_destination_entry(/*amount=*/0, address, is_subaddress),
-            subaddress_map);
-        CHECK_AND_ASSERT_THROW_MES((is_selfsend_dest && selfsend_payment_proposals.size() == i+1)
-                || (!is_selfsend_dest && normal_payment_proposals.size() == i+1),
-            __func__ << ": BUG in build_payment_proposals: incorrect count for payment proposal lists");
-    }
-    CARROT_CHECK_AND_THROW(normal_payment_proposals.size() < FCMP_PLUS_PLUS_MAX_OUTPUTS,
-        carrot::too_many_outputs, "too many *outgoing* sweep destinations per tx, we also need 1 self-send output");
-    const std::size_t n_outputs = std::max<std::size_t>(carrot::CARROT_MIN_TX_OUTPUTS, normal_payment_proposals.size()
-        + std::max<std::size_t>(1, selfsend_payment_proposals.size()));
-
-    // if a 2-selfsend, 2-out tx, flip one of the enote types to get unique derivations
-    if (selfsend_payment_proposals.size() == 2)
-        selfsend_payment_proposals.back().proposal.enote_type = carrot::CarrotEnoteType::CHANGE;
-
-    // make `n_txs` tx proposals with `n_dests_per_tx` payment proposals each
-    const size_t n_txs = div_ceil<size_t>(n_inputs, FCMP_PLUS_PLUS_MAX_INPUTS);
-    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals(n_txs);
-    for (carrot::CarrotTransactionProposalV1 &tx_proposal : tx_proposals)
-    {
-        // While this tx can take more inputs and there are input candidates left, pop them...
-        std::vector<carrot::CarrotSelectedInput> tx_input_candidates;
-        boost::multiprecision::uint128_t input_amount_sum = 0;
-        while (tx_input_candidates.size() < carrot::CARROT_MAX_TX_INPUTS && !input_candidates_by_amount.empty())
-        {
-            // We should try pulling a "big-amount" input candidate if tx plus smallest input candidate wouldn't pay its own fees
-            const std::uint64_t next_tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(tx_input_candidates.size() + 1,
-                n_outputs,
-                carrot::get_carrot_default_tx_extra_size(n_outputs));
-            CARROT_CHECK_AND_THROW(std::numeric_limits<rct::xmr_amount>::max() / next_tx_weight > fee_per_weight,
-                carrot::not_enough_money, "integer overflow while calculating fee");
-            const rct::xmr_amount next_required_fee = next_tx_weight * fee_per_weight;
-            const rct::xmr_amount next_small_input_amount = input_candidates_by_amount.front().amount;
-            const bool need_big_amount = input_amount_sum + next_small_input_amount < next_required_fee;
-
-            carrot::CarrotSelectedInput &tx_input_candidate = tools::add_element(tx_input_candidates);
-            if (need_big_amount)
-            {
-                tx_input_candidate = input_candidates_by_amount.back();
-                input_candidates_by_amount.pop_back();
-            }
-            else
-            {
-                tx_input_candidate = input_candidates_by_amount.front();
-                input_candidates_by_amount.pop_front();
-            }
-            input_amount_sum += tx_input_candidate.amount;
-        }
-
-        carrot::make_carrot_transaction_proposal_v1_sweep(normal_payment_proposals,
-            selfsend_payment_proposals,
-            fee_per_weight,
-            extra,
-            std::move(tx_input_candidates),
-            change_address_spend_pubkey,
-            {{subaddr_account, 0}, carrot::AddressDeriveType::PreCarrot}, //! @TODO: handle Carrot keys
-            tx_proposal);
-    }
-
-    return tx_proposals;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-std::unordered_map<crypto::public_key, size_t> collect_non_burned_transfers_by_onetime_address(
+static std::unordered_map<crypto::public_key, size_t> collect_non_burned_transfers_by_onetime_address(
     const wallet2_basic::transfer_container &transfers)
 {
-    std::unordered_map<crypto::public_key, size_t> best_transfer_index_by_ota;
+    std::unordered_set<crypto::public_key> spent;
+
+    std::unordered_map<crypto::public_key, size_t> best_transfer_by_ota;
     for (size_t i = 0; i < transfers.size(); ++i)
     {
         const wallet2_basic::transfer_details &td = transfers.at(i);
         const crypto::public_key ota = td.get_public_key();
-        const auto it = best_transfer_index_by_ota.find(ota);
-        if (it == best_transfer_index_by_ota.end())
+        if (td.m_spent)
+            spent.insert(ota);
+        if (spent.count(ota))
+            continue;
+        const auto it = best_transfer_by_ota.find(ota);
+        if (it == best_transfer_by_ota.end())
         {
-            best_transfer_index_by_ota.insert({ota, i});
+            best_transfer_by_ota.emplace(ota, i);
             continue;
         }
         const wallet2_basic::transfer_details &other_td = transfers.at(it->second);
@@ -339,89 +275,45 @@ std::unordered_map<crypto::public_key, size_t> collect_non_burned_transfers_by_o
         else if (td.m_global_output_index < other_td.m_global_output_index)
             it->second = i;
     }
-    return best_transfer_index_by_ota;
+    return best_transfer_by_ota;
 }
 //-------------------------------------------------------------------------------------------------------------------
-carrot::select_inputs_func_t make_wallet2_single_transfer_input_selector(
+//-------------------------------------------------------------------------------------------------------------------
+std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
     const wallet2_basic::transfer_container &transfers,
-    const std::uint32_t from_account,
-    const std::set<std::uint32_t> &from_subaddresses,
+    const std::uint32_t from_subaddr_account,
+    const std::set<std::uint32_t> &from_subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
-    const std::uint64_t top_block_index,
-    const bool allow_carrot_external_inputs_in_normal_transfers,
-    const bool allow_pre_carrot_inputs_in_normal_transfers,
-    std::set<size_t> &selected_transfer_indices_out)
+    const std::uint64_t top_block_index)
 {
-    // Collect transfer_container into a `std::vector<carrot::InputCandidate>` for usable inputs
+    const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(transfers);
+
     std::vector<carrot::InputCandidate> input_candidates;
-    std::vector<size_t> input_candidates_transfer_indices;
     input_candidates.reserve(transfers.size());
-    input_candidates_transfer_indices.reserve(transfers.size());
-    for (size_t i = 0; i < transfers.size(); ++i)
+    for (std::size_t i = 0; i < transfers.size(); ++i)
     {
         const wallet2_basic::transfer_details &td = transfers.at(i);
-        if (is_transfer_usable_for_input_selection(td,
-            from_account,
-            from_subaddresses,
-            ignore_above,
-            ignore_below,
-            top_block_index))
-        {
-            input_candidates.push_back(make_input_candidate(td));
-            input_candidates_transfer_indices.push_back(i);
-        }
+        if (best_transfer_by_ota.at(td.get_public_key()) != i)
+            continue;
+
+        if (!is_transfer_usable_for_input_selection(td,
+                from_subaddr_account,
+                from_subaddr_indices,
+                ignore_above,
+                ignore_below,
+                top_block_index))
+            continue;
+
+        input_candidates.push_back(make_input_candidate(td));
     }
-
-    // Create wrapper around `make_single_transfer_input_selector`
-    return [input_candidates = std::move(input_candidates),
-            input_candidates_transfer_indices = std::move(input_candidates_transfer_indices),
-            allow_carrot_external_inputs_in_normal_transfers,
-            allow_pre_carrot_inputs_in_normal_transfers,
-            &selected_transfer_indices_out
-            ](
-                const boost::multiprecision::uint128_t &nominal_output_sum,
-                const std::map<std::size_t, rct::xmr_amount> &fee_by_input_count,
-                const std::size_t num_normal_payment_proposals,
-                const std::size_t num_selfsend_payment_proposals,
-                std::vector<carrot::CarrotSelectedInput> &selected_inputs_outs
-            ){
-                const std::vector<carrot::input_selection_policy_t> policies{
-                    &carrot::ispolicy::select_greedy_aging
-                };
-
-                std::uint32_t flags = 0;
-                if (allow_carrot_external_inputs_in_normal_transfers)
-                    flags |= carrot::InputSelectionFlags::ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS;
-                if (allow_pre_carrot_inputs_in_normal_transfers)
-                    flags |= carrot::InputSelectionFlags::ALLOW_PRE_CARROT_INPUTS_IN_NORMAL_TRANSFERS;
-
-                // Make inner input selection functor
-                std::set<size_t> selected_input_indices;
-                const carrot::select_inputs_func_t inner = carrot::make_single_transfer_input_selector(
-                    epee::to_span(input_candidates),
-                    epee::to_span(policies),
-                    flags,
-                    &selected_input_indices);
-
-                // Call input selection
-                inner(nominal_output_sum,
-                    fee_by_input_count,
-                    num_normal_payment_proposals,
-                    num_selfsend_payment_proposals,
-                    selected_inputs_outs);
-
-                // Collect converted selected_input_indices -> selected_transfer_indices_out
-                selected_transfer_indices_out.clear();
-                for (const size_t input_index : selected_input_indices)
-                    selected_transfer_indices_out.insert(input_candidates_transfer_indices.at(input_index));
-            };
+    return input_candidates;
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     const wallet2_basic::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
-    std::vector<cryptonote::tx_destination_entry> dsts,
+    const std::vector<cryptonote::tx_destination_entry> &dsts,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -431,76 +323,60 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     std::set<std::uint32_t> subtract_fee_from_outputs,
     const std::uint64_t top_block_index)
 {
-    wallet2_basic::transfer_container unused_transfers(transfers);
-
-    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals;
-    tx_proposals.reserve(dsts.size() / (FCMP_PLUS_PLUS_MAX_OUTPUTS - 1) + 1);
-
-    const crypto::public_key change_address_spend_pubkey
-        = find_change_address_spend_pubkey(subaddress_map, subaddr_account);
-
-    while (!dsts.empty())
+    // build payment proposals and subtractable info
+    std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
+    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
+    std::set<std::size_t> subtractable_normal_payment_proposals;
+    std::set<std::size_t> subtractable_selfsend_payment_proposals;
+    for (size_t i = 0; i < dsts.size(); ++i)
     {
-        const std::size_t num_dsts_to_complete = std::min<std::size_t>(dsts.size(), FCMP_PLUS_PLUS_MAX_OUTPUTS - 1);
-
-        // build payment proposals and subtractable info from last `num_dsts_to_complete` dsts
-        std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
-        std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
-        std::set<std::size_t> subtractable_normal_payment_proposals;
-        std::set<std::size_t> subtractable_selfsend_payment_proposals;
-        for (size_t i = 0; i < num_dsts_to_complete && !dsts.empty(); ++i)
-        {
-            const cryptonote::tx_destination_entry &dst = dsts.back();
-            const bool is_selfsend = build_payment_proposals(normal_payment_proposals,
-                selfsend_payment_proposals,
-                dst,
-                subaddress_map);
-            if (subtract_fee_from_outputs.count(dsts.size() - 1))
-            {
-                if (is_selfsend)
-                    subtractable_selfsend_payment_proposals.insert(selfsend_payment_proposals.size() - 1);
-                else
-                    subtractable_normal_payment_proposals.insert(normal_payment_proposals.size() - 1);
-            }
-            dsts.pop_back();
-        }
-
-        // make input selector
-        std::set<size_t> selected_transfer_indices;
-        carrot::select_inputs_func_t select_inputs = make_wallet2_single_transfer_input_selector(
-            unused_transfers,
-            subaddr_account,
-            subaddr_indices,
-            ignore_above,
-            ignore_below,
-            top_block_index,
-            /*allow_carrot_external_inputs_in_normal_transfers=*/true,
-            /*allow_pre_carrot_inputs_in_normal_transfers=*/true,
-            selected_transfer_indices);
-
-        // make proposal
-        carrot::CarrotTransactionProposalV1 &tx_proposal = tools::add_element(tx_proposals);
-        carrot::make_carrot_transaction_proposal_v1_transfer(
-            normal_payment_proposals,
+        const cryptonote::tx_destination_entry dst = dsts.at(i);
+        const bool is_selfsend = build_payment_proposals(normal_payment_proposals,
             selfsend_payment_proposals,
-            fee_per_weight,
-            extra,
-            std::move(select_inputs),
-            change_address_spend_pubkey,
-            {{subaddr_account, 0}, carrot::AddressDeriveType::PreCarrot}, //! @TODO: handle Carrot keys
-            subtractable_normal_payment_proposals,
-            subtractable_selfsend_payment_proposals,
-            tx_proposal);
-
-        // update `unused_transfers` for next proposal by removing already-selected transfers
-        std::unordered_set<crypto::public_key> used_otas;
-        for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
-            used_otas.insert(onetime_address_ref(input_proposal));
-        tools::for_all_in_vector_erase_no_preserve_order_if(unused_transfers,
-            [&used_otas](const auto &td) -> bool { return used_otas.count(td.get_public_key()); }
-        );
+            dst,
+            subaddress_map);
+        if (subtract_fee_from_outputs.count(i))
+        {
+            if (is_selfsend)
+                subtractable_selfsend_payment_proposals.insert(selfsend_payment_proposals.size() - 1);
+            else
+                subtractable_normal_payment_proposals.insert(normal_payment_proposals.size() - 1);
+        }
     }
 
+    std::vector<carrot::InputCandidate> input_candidates = collect_carrot_input_candidate_list(transfers,
+        subaddr_account,
+        subaddr_indices,
+        ignore_above,
+        ignore_below,
+        top_block_index);
+
+    const carrot::input_selection_policy_t isp = &carrot::ispolicy::select_greedy_aging;
+
+    const std::uint32_t input_selection_flags = carrot::InputSelectionFlags::ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS
+        | carrot::InputSelectionFlags::ALLOW_PRE_CARROT_INPUTS_IN_NORMAL_TRANSFERS; //! @TODO: check flags make sense
+
+    // change spec
+    const crypto::public_key change_address_spend_pubkey
+        = find_change_address_spend_pubkey(subaddress_map, subaddr_account);
+    const carrot::subaddress_index_extended change_address_index{
+        .index = {subaddr_account, 0},
+        .derive_type = carrot::AddressDeriveType::PreCarrot //! @TODO: handle Carrot keys
+    };
+
+    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals;
+    carrot::make_multiple_carrot_transaction_proposals_transfer(std::move(normal_payment_proposals),
+        std::move(selfsend_payment_proposals),
+        fee_per_weight,
+        extra,
+        std::move(input_candidates),
+        {&isp, 1},
+        input_selection_flags,
+        change_address_spend_pubkey,
+        change_address_index,
+        subtractable_normal_payment_proposals,
+        subtractable_selfsend_payment_proposals,
+        tx_proposals);
     return tx_proposals;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -513,33 +389,18 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::set<uint32_t> &subaddr_indices,
     const std::set<std::uint32_t> &subtract_fee_from_outputs)
 {
-    wallet2_basic::transfer_container transfers;
-    w.get_transfers(transfers);
-
-    const bool use_per_byte_fee = w.use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
-    CHECK_AND_ASSERT_THROW_MES(use_per_byte_fee,
-        "make_carrot_transaction_proposals_wallet2_transfer: not using per-byte base fee");
-
-    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
-    MDEBUG("fee_per_weight = " << fee_per_weight << ", from priority = " << priority);
-
-    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
-    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
-        "make_carrot_transaction_proposals_wallet2_transfer: chain height is 0, there is no top block");
-    const std::uint64_t top_block_index = current_chain_height - 1;
-
     return make_carrot_transaction_proposals_wallet2_transfer(
-        transfers,
+        get_transfers(w),
         w.get_subaddress_map_ref(),
         dsts,
-        fee_per_weight,
+        get_fee_per_weight_from_priority(priority, w),
         extra,
         subaddr_account,
         subaddr_indices,
         w.ignore_outputs_above(),
         w.ignore_outputs_below(),
         subtract_fee_from_outputs,
-        top_block_index);
+        get_top_block_index(w));
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
@@ -553,38 +414,60 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index)
 {
-    // Collect non-burned transfers by key image
+    // build payment proposals
+    std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
+    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
+    build_payment_proposals_sweep(normal_payment_proposals,
+        selfsend_payment_proposals,
+        address,
+        is_subaddress,
+        n_dests_per_tx,
+        subaddress_map);
+
+    // collect non-burned, non-spent transfers by key image
     const auto best_transfers_by_ota = collect_non_burned_transfers_by_onetime_address(transfers);
     std::unordered_map<crypto::key_image, std::size_t> best_transfers_by_ki;
     for (const auto &p : best_transfers_by_ota)
     {
         const wallet2_basic::transfer_details &td = transfers.at(p.second);
-        if (!td.m_key_image_known && td.m_key_image_partial)
+        if (!td.m_key_image_known || td.m_key_image_partial)
             continue;
         best_transfers_by_ki.emplace(td.m_key_image, p.second);
     }
 
-    // Lookup transfers by key image and collect indices
-    std::set<std::size_t> selected_transfer_indices;
-    for (const crypto::key_image &input_key_image : input_key_images)
+    // collect `carrot::CarrotSelectedInput`'s and set subaddr account
+    std::vector<carrot::CarrotSelectedInput> selected_inputs;
+    selected_inputs.reserve(input_key_images.size());
+    std::uint32_t subaddr_account = 0;
+    for (const crypto::key_image &ki : input_key_images)
     {
-        const auto ki_it = best_transfers_by_ki.find(input_key_image);
+        const auto ki_it = best_transfers_by_ki.find(ki);
         CARROT_CHECK_AND_THROW(ki_it != best_transfers_by_ki.cend(),
-            carrot::missing_components, "unknown key image or unallowed partial key image: " << input_key_image);
-        selected_transfer_indices.insert(ki_it->second);
+            carrot::missing_components, "unknown, partial, or spent key image: " << ki);
+        const wallet2_basic::transfer_details &td = transfers.at(ki_it->second);
+        selected_inputs.push_back(make_input_candidate(td).core);
+        subaddr_account = std::max(subaddr_account, td.m_subaddr_index.major);
     }
-    CARROT_CHECK_AND_THROW(selected_transfer_indices.size() == input_key_images.size(),
-        carrot::too_few_inputs, "Sweeping duplicate key images");
 
-    return make_carrot_transaction_proposals_wallet2_sweep_by_index(transfers,
-        subaddress_map,
-        selected_transfer_indices,
-        address,
-        is_subaddress,
-        n_dests_per_tx,
+    // change spec
+    const crypto::public_key change_address_spend_pubkey
+        = find_change_address_spend_pubkey(subaddress_map, subaddr_account);
+    const carrot::subaddress_index_extended change_address_index{
+        .index = {subaddr_account, 0},
+        .derive_type = carrot::AddressDeriveType::PreCarrot //! @TODO: handle Carrot keys
+    };
+
+    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals;
+    carrot::make_multiple_carrot_transaction_proposals_sweep(normal_payment_proposals,
+        selfsend_payment_proposals,
         fee_per_weight,
         extra,
-        top_block_index);
+        std::move(selected_inputs),
+        change_address_spend_pubkey,
+        change_address_index,
+        /*ignore_dust=*/false,
+        tx_proposals);
+    return tx_proposals;
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
@@ -596,26 +479,16 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra)
 {
-    wallet2_basic::transfer_container transfers;
-    w.get_transfers(transfers);
-
-    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
-
-    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
-    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
-        "make_carrot_transaction_proposals_wallet2_sweep: chain height is 0, there is no top block");
-    const std::uint64_t top_block_index = current_chain_height - 1;
-
     return make_carrot_transaction_proposals_wallet2_sweep(
-        transfers,
+        get_transfers(w),
         w.get_subaddress_map_ref(),
         input_key_images,
         address,
         is_subaddress,
         n_dests_per_tx,
-        fee_per_weight,
+        get_fee_per_weight_from_priority(priority, w),
         extra,
-        top_block_index);
+        get_top_block_index(w));
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
@@ -631,36 +504,47 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::set<uint32_t> &subaddr_indices,
     const std::uint64_t top_block_index)
 {
-    const auto best_transfers_by_ota = collect_non_burned_transfers_by_onetime_address(transfers);
-
-    std::set<std::size_t> selected_transfer_indices;
-    for (std::size_t transfer_idx = 0; transfer_idx < transfers.size(); ++transfer_idx)
-    {
-        const wallet2_basic::transfer_details &td = transfers.at(transfer_idx);
-
-        if (!is_transfer_usable_for_input_selection(td,
-                subaddr_account,
-                subaddr_indices,
-                only_below ? only_below : MONEY_SUPPLY,
-                0,
-                top_block_index))
-            continue;
-        else if (best_transfers_by_ota.at(td.get_public_key()) != transfer_idx)
-            continue;
-
-        selected_transfer_indices.insert(transfer_idx);
-    }
-
-    return make_carrot_transaction_proposals_wallet2_sweep_by_index(
-        transfers,
-        subaddress_map,
-        selected_transfer_indices,
+    // build payment proposals
+    std::vector<carrot::CarrotPaymentProposalV1> normal_payment_proposals;
+    std::vector<carrot::CarrotPaymentProposalVerifiableSelfSendV1> selfsend_payment_proposals;
+    build_payment_proposals_sweep(normal_payment_proposals,
+        selfsend_payment_proposals,
         address,
         is_subaddress,
         n_dests_per_tx,
+        subaddress_map);
+
+    // collect all input candidates into `carrot::CarrotSelectedInput`'s
+    std::vector<carrot::InputCandidate> input_candidates = collect_carrot_input_candidate_list(transfers,
+        subaddr_account,
+        subaddr_indices,
+        only_below,
+        0,
+        top_block_index);
+    std::vector<carrot::CarrotSelectedInput> selected_inputs;
+    selected_inputs.reserve(input_candidates.size());
+    for (const carrot::InputCandidate &input_candidate: input_candidates)
+        selected_inputs.push_back(input_candidate.core);
+
+    // change spec
+    const crypto::public_key change_address_spend_pubkey
+        = find_change_address_spend_pubkey(subaddress_map, subaddr_account);
+    const carrot::subaddress_index_extended change_address_index{
+        .index = {subaddr_account, 0},
+        .derive_type = carrot::AddressDeriveType::PreCarrot //! @TODO: handle Carrot keys
+    };
+
+    std::vector<carrot::CarrotTransactionProposalV1> tx_proposals;
+    carrot::make_multiple_carrot_transaction_proposals_sweep(normal_payment_proposals,
+        selfsend_payment_proposals,
         fee_per_weight,
         extra,
-        top_block_index);
+        std::move(selected_inputs),
+        change_address_spend_pubkey,
+        change_address_index,
+        /*ignore_dust=*/false,
+        tx_proposals);
+    return tx_proposals;
 }
 //-------------------------------------------------------------------------------------------------------------------
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
@@ -674,28 +558,18 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices)
 {
-    wallet2_basic::transfer_container transfers;
-    w.get_transfers(transfers);
-
-    const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
-
-    const std::uint64_t current_chain_height = w.get_blockchain_current_height();
-    CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0,
-        "make_carrot_transaction_proposals_wallet2_sweep: chain height is 0, there is no top block");
-    const std::uint64_t top_block_index = current_chain_height - 1;
-
     return make_carrot_transaction_proposals_wallet2_sweep_all(
-        transfers,
+        get_transfers(w),
         w.get_subaddress_map_ref(),
         only_below,
         address,
         is_subaddress,
         n_dests_per_tx,
-        fee_per_weight,
+        get_fee_per_weight_from_priority(priority, w),
         extra,
         subaddr_account,
         subaddr_indices,
-        top_block_index);
+        get_top_block_index(w));
 }
 //-------------------------------------------------------------------------------------------------------------------
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(const wallet2_basic::transfer_details &td)
@@ -1402,12 +1276,9 @@ pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const wallet2 &w)
 {
-    wallet2_basic::transfer_container transfers;
-    w.get_transfers(transfers);
-
     return finalize_all_proofs_from_transfer_details_as_pending_tx(
         tx_proposal,
-        transfers,
+        get_transfers(w),
         w.get_tree_cache_ref(),
         w.get_curve_trees_ref(),
         w.get_account().get_keys());
