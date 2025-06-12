@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 #include <boost/filesystem.hpp>
+#include <boost/optional/optional_io.hpp>
 #include "gtest/gtest.h"
 
 #include "include_base_utils.h"
