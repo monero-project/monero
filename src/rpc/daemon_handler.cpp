@@ -844,9 +844,8 @@ namespace rpc
   {
     res.hard_fork_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
 
-    std::vector<uint64_t> fees;
-    m_core.get_blockchain_storage().get_dynamic_base_fee_estimate_2021_scaling(req.num_grace_blocks, fees);
-    res.estimated_base_fee = fees[0];
+    m_core.get_blockchain_storage().get_dynamic_base_fee_estimate_2021_scaling(req.num_grace_blocks, res.fees);
+    res.estimated_base_fee = res.fees.at(0);
 
     {
       res.size_scale = 1; // per byte fee

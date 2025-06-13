@@ -425,6 +425,7 @@ BEGIN_RPC_MESSAGE_CLASS(GetFeeEstimate);
     RPC_MESSAGE_MEMBER(uint64_t, num_grace_blocks);
   END_RPC_MESSAGE_REQUEST;
   BEGIN_RPC_MESSAGE_RESPONSE;
+    RPC_MESSAGE_MEMBER(std::vector<uint64_t>, fees);
     RPC_MESSAGE_MEMBER(uint64_t, estimated_base_fee);
     RPC_MESSAGE_MEMBER(uint64_t, fee_mask);
     RPC_MESSAGE_MEMBER(uint32_t, size_scale);
