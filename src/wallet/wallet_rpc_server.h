@@ -288,7 +288,7 @@ namespace tools
       std::atomic<bool> m_stop;
       bool m_restricted;
       const boost::program_options::variables_map *m_vm;
-      uint32_t m_auto_refresh_period;
+      std::atomic<uint32_t> m_auto_refresh_period;
       std::chrono::time_point<std::chrono::steady_clock> m_last_auto_refresh_time;
   };
 }
