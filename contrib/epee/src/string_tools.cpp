@@ -153,11 +153,15 @@ namespace string_tools
 
   void set_module_name_and_folder(const std::string& path_to_process_)
   {
-    boost::filesystem::path path_to_process = path_to_process_;
+    boost::filesystem::path path_to_process;
 
 #ifdef _WIN32
-    path_to_process = get_current_module_path();
-#endif 
+    // Convert to wide string to avoid codecvt errors with Unicode paths
+    std::wstring wpath = epee::string_tools::utf8_to_utf16(get_current_module_path());
+    path_to_process = boost::filesystem::path(wpath);
+#else
+    path_to_process = boost::filesystem::path(path_to_process_);
+#endif
 
     get_current_module_name() = path_to_process.filename().string();
     get_current_module_folder() = path_to_process.parent_path().string();
