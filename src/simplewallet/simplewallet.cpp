@@ -1017,7 +1017,7 @@ bool simple_wallet::change_password(const std::vector<std::string> &args)
 
   try
   {
-    m_wallet->change_password(m_wallet_file, orig_pwd_container->password(), pwd_container->password());
+    m_wallet->change_password(m_wallet->get_wallet_file(), orig_pwd_container->password(), pwd_container->password());
   }
   catch (const tools::error::wallet_logic_error& e)
   {
