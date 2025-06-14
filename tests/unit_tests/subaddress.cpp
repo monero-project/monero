@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 #include <boost/filesystem.hpp>
+#include <boost/optional/optional_io.hpp>
 #include "gtest/gtest.h"
 
 #include "include_base_utils.h"
@@ -100,4 +101,30 @@ TEST_F(WalletSubaddress, OutOfBoundsIndexes)
   {
     EXPECT_STREQ("index.minor is out of bound", e.what());  
   }   
+}
+
+TEST_F(WalletSubaddress, ExpandPubkeyTable)
+{
+  // these test assume we are starting with the default setup state
+  EXPECT_EQ(2, w1.get_num_subaddress_accounts());
+  EXPECT_EQ(50, w1.get_subaddress_lookahead().first);
+  EXPECT_EQ(200, w1.get_subaddress_lookahead().second);
+  // get_subaddress_index looks up keys in the private m_subaddresses dictionary so we will use it to test if a key is properly being scanned for
+  cryptonote::subaddress_index test_idx = {50, 199};
+  auto subaddr = w1.get_subaddress(test_idx);
+  EXPECT_NE(boost::none, w1.get_subaddress_index(subaddr));
+  // fist test expanding the major lookahead
+  w1.set_subaddress_lookahead(100, 200);
+  EXPECT_EQ(100, w1.get_subaddress_lookahead().first);
+  EXPECT_EQ(200, w1.get_subaddress_lookahead().second);
+  test_idx = {100, 199};
+  subaddr = w1.get_subaddress(test_idx);
+  EXPECT_NE(boost::none, w1.get_subaddress_index(subaddr));
+  // next test expanding the minor lookahead
+  w1.set_subaddress_lookahead(100, 300);
+  EXPECT_EQ(100, w1.get_subaddress_lookahead().first);
+  EXPECT_EQ(300, w1.get_subaddress_lookahead().second);
+  test_idx = {100, 299};
+  subaddr = w1.get_subaddress(test_idx);
+  EXPECT_NE(boost::none, w1.get_subaddress_index(subaddr));
 }
