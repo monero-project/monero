@@ -33,7 +33,6 @@
 #include "common/command_line.h"
 #include "common/varint.h"
 #include "serialization/crypto.h"
-#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/tx_pool.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_core/blockchain.h"

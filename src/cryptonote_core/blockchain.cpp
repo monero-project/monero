@@ -40,7 +40,6 @@
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
-#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_basic/events.h"
 #include "cryptonote_config.h"
 #include "cryptonote_basic/miner.h"

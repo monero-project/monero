@@ -1481,8 +1481,6 @@ private:
     void device_derivation_path(const std::string &device_derivation_path) { m_device_derivation_path = device_derivation_path; }
     const ExportFormat & export_format() const { return m_export_format; }
     inline void set_export_format(const ExportFormat& export_format) { m_export_format = export_format; }
-    bool load_deprecated_formats() const { return m_load_deprecated_formats; }
-    void load_deprecated_formats(bool load) { m_load_deprecated_formats = load; }
     bool is_multisig_enabled() const { return m_enable_multisig; }
     void enable_multisig(bool enable) { m_enable_multisig = enable; }
     bool is_mismatched_daemon_version_allowed() const { return m_allow_mismatched_daemon_version; }
@@ -2035,7 +2033,6 @@ private:
     std::unique_ptr<wallet_device_callback> m_device_callback;
 
     ExportFormat m_export_format;
-    bool m_load_deprecated_formats;
 
     bool m_has_ever_refreshed_from_node;
 
@@ -2051,18 +2048,11 @@ BOOST_CLASS_VERSION(tools::wallet2, 31)
 BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
 BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
-BOOST_CLASS_VERSION(tools::wallet2::multisig_tx_set, 1)
 BOOST_CLASS_VERSION(tools::wallet2::payment_details, 5)
 BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
 BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
 BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
 BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 18)
-BOOST_CLASS_VERSION(tools::wallet2::reserve_proof_entry, 0)
-BOOST_CLASS_VERSION(tools::wallet2::unsigned_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::signed_tx_set, 1)
-BOOST_CLASS_VERSION(tools::wallet2::tx_construction_data, 4)
-BOOST_CLASS_VERSION(tools::wallet2::pending_tx, 3)
-BOOST_CLASS_VERSION(tools::wallet2::multisig_sig, 1)
 BOOST_CLASS_VERSION(tools::wallet2::background_synced_tx_t, 0)
 BOOST_CLASS_VERSION(tools::wallet2::background_sync_data_t, 0)
 
@@ -2244,13 +2234,6 @@ namespace boost
     }
 
     template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::multisig_tx_set &x, const boost::serialization::version_type ver)
-    {
-      a & x.m_ptx;
-      a & x.m_signers;
-    }
-
-    template <class Archive>
     inline void serialize(Archive &a, tools::wallet2::unconfirmed_transfer_details &x, const boost::serialization::version_type ver)
     {
       a & x.m_change;
@@ -2424,144 +2407,6 @@ namespace boost
       a & x.m_has_payment_id;
       if (x.m_has_payment_id)
         a & x.m_payment_id;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::reserve_proof_entry& x, const boost::serialization::version_type ver)
-    {
-      a & x.txid;
-      a & x.index_in_tx;
-      a & x.shared_secret;
-      a & x.key_image;
-      a & x.shared_secret_sig;
-      a & x.key_image_sig;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::unsigned_tx_set &x, const boost::serialization::version_type ver)
-    {
-      a & x.txes;
-      if (ver == 0)
-      {
-        // load old version
-        std::pair<size_t, tools::wallet2::transfer_container> old_transfers;
-        a & old_transfers;
-        std::get<0>(x.transfers) = std::get<0>(old_transfers);
-        std::get<1>(x.transfers) = std::get<0>(old_transfers) + std::get<1>(old_transfers).size();
-        std::get<2>(x.transfers) = std::get<1>(old_transfers);
-        return;
-      }
-      throw std::runtime_error("Boost serialization not supported for newest unsigned_tx_set");
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::signed_tx_set &x, const boost::serialization::version_type ver)
-    {
-      a & x.ptx;
-      a & x.key_images;
-      if (ver < 1)
-        return;
-      a & x.tx_key_images;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::tx_construction_data &x, const boost::serialization::version_type ver)
-    {
-      a & x.sources;
-      a & x.change_dts;
-      a & x.splitted_dsts;
-      if (ver < 2)
-      {
-        // load list to vector
-        std::list<size_t> selected_transfers;
-        a & selected_transfers;
-        x.selected_transfers.clear();
-        x.selected_transfers.reserve(selected_transfers.size());
-        for (size_t t: selected_transfers)
-          x.selected_transfers.push_back(t);
-      }
-      a & x.extra;
-      a & x.unlock_time;
-      a & x.use_rct;
-      a & x.dests;
-      if (ver < 1)
-      {
-        x.subaddr_account = 0;
-        return;
-      }
-      a & x.subaddr_account;
-      a & x.subaddr_indices;
-      if (ver < 2)
-      {
-        if (!typename Archive::is_saving())
-          x.rct_config = { rct::RangeProofBorromean, 0 };
-        return;
-      }
-      a & x.selected_transfers;
-      if (ver < 3)
-      {
-        if (!typename Archive::is_saving())
-          x.rct_config = { rct::RangeProofBorromean, 0 };
-        return;
-      }
-      if (ver < 4)
-      {
-        bool use_bulletproofs = x.rct_config.range_proof_type != rct::RangeProofBorromean;
-        a & use_bulletproofs;
-        if (!typename Archive::is_saving())
-          x.rct_config = { use_bulletproofs ? rct::RangeProofPaddedBulletproof : rct::RangeProofBorromean, 0 };
-        return;
-      }
-      a & x.rct_config;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::multisig_sig &x, const boost::serialization::version_type ver)
-    {
-      a & x.sigs;
-      a & x.ignore;
-      a & x.used_L;
-      a & x.signing_keys;
-      a & x.msout;
-      if (ver < 1)
-        return;
-      a & x.total_alpha_G;
-      a & x.total_alpha_H;
-      a & x.c_0;
-      a & x.s;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::pending_tx &x, const boost::serialization::version_type ver)
-    {
-      a & x.tx;
-      a & x.dust;
-      a & x.fee;
-      a & x.dust_added_to_fee;
-      a & x.change_dts;
-      if (ver < 2)
-      {
-        // load list to vector
-        std::list<size_t> selected_transfers;
-        a & selected_transfers;
-        x.selected_transfers.clear();
-        x.selected_transfers.reserve(selected_transfers.size());
-        for (size_t t: selected_transfers)
-          x.selected_transfers.push_back(t);
-      }
-      a & x.key_images;
-      a & x.tx_key;
-      a & x.dests;
-      a & x.construction_data;
-      if (ver < 1)
-        return;
-      a & x.additional_tx_keys;
-      if (ver < 2)
-        return;
-      a & x.selected_transfers;
-      if (ver < 3)
-        return;
-      a & x.multisig_sigs;
     }
 
     template <class Archive>
