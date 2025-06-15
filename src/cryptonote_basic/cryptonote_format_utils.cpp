@@ -497,10 +497,17 @@ namespace cryptonote
     static constexpr uint64_t txout_to_carrot_weight = 32 /*key*/ + 3 /*view_tag*/ + 16 /*encrypted_janus_anchor*/;
     static constexpr uint64_t tx_out_weight = 1 /*amount=0*/ + txout_to_carrot_weight + 1 /*txout_target_v tag*/;
 
+    // varint len bumps from 2 to 3 at 16384
+    static_assert(16384 > FCMP_PLUS_PLUS_MAX_INPUTS, "16384 expected > FCMP_PLUS_PLUS_MAX_INPUTS");
+    static_assert(16384 > MAX_TX_EXTRA_SIZE,         "16384 expected > MAX_TX_EXTRA_SIZE");
+
+    // varint len bumps from 1 to 2 at 128
+    static_assert(128 > FCMP_PLUS_PLUS_MAX_OUTPUTS, "128 expected > FCMP_PLUS_PLUS_MAX_OUTPUTS");
+
     return
       1 /*version=2*/
       + 1 /*unlock_time=0*/
-      + 1 /*vin.size()<=FCMP_PLUS_PLUS_MAX_INPUTS*/
+      + (n_inputs >= 128 ? 2 : 1) /*vin.size()<=FCMP_PLUS_PLUS_MAX_INPUTS*/
       + n_inputs * (txin_to_key_weight /*txin_to_key*/ + 1 /*txin_v tag*/)
       + 1 /*vout.size()<=FCMP_PLUS_PLUS_MAX_OUTPUTS*/
       + (n_outputs * tx_out_weight /*tx_out*/)

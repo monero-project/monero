@@ -462,14 +462,14 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
     bob.generate();
 
     // generate transfers list
-    const size_t n_transfers = 35;
+    static constexpr size_t n_transfers = FCMP_PLUS_PLUS_MAX_INPUTS * 2;
     tools::wallet2::transfer_container transfers;
     transfers.reserve(n_transfers);
     for (size_t i = 0; i < n_transfers; ++i)
         transfers.push_back(gen_transfer_details());
 
     // generate random indices into transfer list
-    const size_t n_selected_transfers = 31;
+    static constexpr size_t n_selected_transfers = FCMP_PLUS_PLUS_MAX_INPUTS + 1;
     std::set<size_t> selected_transfer_indices;
     while (selected_transfer_indices.size() < n_selected_transfers)
         selected_transfer_indices.insert(crypto::rand_idx(n_transfers));
@@ -503,7 +503,9 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
         /*fee_per_weight=*/1,
         /*extra=*/{},
         top_block_index);
-    ASSERT_EQ(4, tx_proposals.size());
+    static constexpr size_t n_txs = (n_selected_transfers+FCMP_PLUS_PLUS_MAX_INPUTS-1) / FCMP_PLUS_PLUS_MAX_INPUTS;
+    static_assert(n_txs > 1);
+    ASSERT_EQ(n_txs, tx_proposals.size());
 
     std::set<crypto::public_key> actual_seen_otas;
     size_t n_actual_inputs = 0;
@@ -543,14 +545,14 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
     alice.generate();
 
     // generate transfers list
-    static constexpr size_t n_transfers = 71;
+    static constexpr size_t n_transfers = FCMP_PLUS_PLUS_MAX_INPUTS * 2;
     tools::wallet2::transfer_container transfers;
     transfers.reserve(n_transfers);
     for (size_t i = 0; i < n_transfers; ++i)
         transfers.push_back(gen_transfer_details());
 
     // generate random indices into transfer list
-    static constexpr size_t n_selected_transfers = FCMP_PLUS_PLUS_MAX_INPUTS * 8;
+    static constexpr size_t n_selected_transfers = FCMP_PLUS_PLUS_MAX_INPUTS + 1;
     static_assert(n_selected_transfers < n_transfers);
     std::set<size_t> selected_transfer_indices;
     while (selected_transfer_indices.size() < n_selected_transfers)
@@ -585,7 +587,9 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
         /*fee_per_weight=*/1,
         /*extra=*/{},
         top_block_index);
-    ASSERT_EQ(8, tx_proposals.size());
+    static constexpr size_t n_txs = (n_selected_transfers+FCMP_PLUS_PLUS_MAX_INPUTS-1) / FCMP_PLUS_PLUS_MAX_INPUTS;
+    static_assert(n_txs > 1);
+    ASSERT_EQ(n_txs, tx_proposals.size());
 
     std::set<crypto::public_key> actual_seen_otas;
     size_t n_actual_inputs = 0;

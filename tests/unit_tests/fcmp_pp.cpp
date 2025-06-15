@@ -303,7 +303,7 @@ static std::map<std::tuple<size_t, size_t, size_t>, uint64_t> get_all_fcmp_tx_we
                     cryptonote::get_fcmp_pp_transaction_weight_v1(m, n, el)});
 
     static constexpr size_t expected_n_weights =
-        FCMP_PLUS_PLUS_MAX_INPUTS * (FCMP_PLUS_PLUS_MAX_INPUTS - 1) * (MAX_TX_EXTRA_SIZE + 1);
+        FCMP_PLUS_PLUS_MAX_INPUTS * (FCMP_PLUS_PLUS_MAX_OUTPUTS - 1) * (MAX_TX_EXTRA_SIZE + 1);
     CHECK_AND_ASSERT_THROW_MES(res.size() == expected_n_weights, "bad tx weights counts");
 
     return res;
@@ -340,32 +340,36 @@ TEST(fcmp_pp, prove)
     // Keep them cached across runs
     std::vector<fcmp_pp::SeleneBranchBlind> selene_branch_blinds;
     std::vector<fcmp_pp::HeliosBranchBlind> helios_branch_blinds;
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
+    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
+    std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_prove_inputs;
+    std::vector<crypto::key_image> key_images;
+    std::vector<crypto::ec_point> pseudo_outs;
+    std::unordered_set<std::size_t> selected_indices;
 
     CHECK_AND_ASSERT_THROW_MES(global_tree.get_n_leaf_tuples() >= FCMP_PLUS_PLUS_MAX_INPUTS, "too few leaves");
 
+    // Create proofs with n inputs {1, 2, 2 < random value < 128, 128}
+    static_assert(FCMP_PLUS_PLUS_MAX_INPUTS > 2, "Expected max inputs > 2");
+    const std::size_t rand_n_inputs = crypto::rand_range(3, FCMP_PLUS_PLUS_MAX_INPUTS-1);
+    const std::vector<std::size_t> n_inputs_test_vec{1, 2, rand_n_inputs, FCMP_PLUS_PLUS_MAX_INPUTS};
+
     const crypto::hash signable_tx_hash{};
 
-    // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
-    for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
+    // Create proofs with random leaf idxs for each n_inputs
+    for (const std::size_t n_inputs : n_inputs_test_vec)
     {
-        std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-        std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_pp_prove_inputs;
-        std::vector<crypto::key_image> key_images;
-        std::vector<crypto::ec_point> pseudo_outs;
+        LOG_PRINT_L1("Preparing for " << n_inputs << "-input proof");
 
-        std::unordered_set<std::size_t> selected_indices;
-
-        while (fcmp_pp_prove_inputs.size() < n_inputs)
+        while (fcmp_prove_inputs.size() < n_inputs)
         {
             // Generate a random unique leaf tuple index within the tree
             const size_t leaf_idx = crypto::rand_idx(global_tree.get_n_leaf_tuples());
             if (selected_indices.count(leaf_idx))
                 continue;
-            else
-                selected_indices.insert(leaf_idx);
+            selected_indices.insert(leaf_idx);
 
-            LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
+            LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx << " (" << fcmp_prove_inputs.size()+1 << "/" << n_inputs << ")");
 
             const auto path = global_tree.get_path_at_leaf_idx(leaf_idx);
             const std::size_t output_idx = leaf_idx % curve_trees->m_c1_width;
@@ -444,7 +448,7 @@ TEST(fcmp_pp, prove)
 
             rerandomized_outputs.emplace_back(std::move(rerandomized_output));
             sal_proofs.emplace_back(std::move(sal_proof.first));
-            fcmp_pp_prove_inputs.emplace_back(std::move(fcmp_pp_prove_input));
+            fcmp_prove_inputs.emplace_back(std::move(fcmp_pp_prove_input));
         }
 
         LOG_PRINT_L1("Constructing membership proof and verifying (n_inputs=" << n_inputs << ")");
@@ -452,7 +456,7 @@ TEST(fcmp_pp, prove)
 
         // Create membership proof
         LOG_PRINT_L1("Proving " << n_inputs << "-in " << n_layers << "-layer FCMP");
-        const auto membership_proof = fcmp_pp::prove_membership(fcmp_pp_prove_inputs, n_layers);
+        const auto membership_proof = fcmp_pp::prove_membership(fcmp_prove_inputs, n_layers);
 
         // Serialize FCMP++ proof and verify
         const auto fcmp_pp_proof = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_outputs,
@@ -460,6 +464,7 @@ TEST(fcmp_pp, prove)
             membership_proof,
             n_layers);
 
+        LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
         bool verify = fcmp_pp::verify(
                 signable_tx_hash,
                 fcmp_pp_proof,
@@ -469,6 +474,7 @@ TEST(fcmp_pp, prove)
                 key_images
             );
         ASSERT_TRUE(verify);
+        LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -514,31 +520,33 @@ TEST(fcmp_pp, verify)
     const crypto::hash signable_tx_hash{};
 
     // Reuse inputs across runs to minimize time to construct
-    std::vector<const uint8_t *> fcmp_prove_inputs;
+    std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
+    std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
+    std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_prove_inputs;
     std::vector<crypto::key_image> key_images;
     std::vector<crypto::ec_point> pseudo_outs;
+    std::unordered_set<std::size_t> selected_indices;
 
-    // Create proofs with random leaf idxs for txs with [1..FCMP_PLUS_PLUS_MAX_INPUTS] inputs
-    for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
+    // Create proofs with n inputs {1, 2, 2 < random value < 128, 128}
+    static_assert(FCMP_PLUS_PLUS_MAX_INPUTS > 2, "Expected max inputs > 2");
+    const std::size_t rand_n_inputs = crypto::rand_range(3, FCMP_PLUS_PLUS_MAX_INPUTS-1);
+    const std::vector<std::size_t> n_inputs_test_vec{1, 2, rand_n_inputs, FCMP_PLUS_PLUS_MAX_INPUTS};
+
+    // Create proofs with random leaf idxs for each n_inputs
+    for (const std::size_t n_inputs : n_inputs_test_vec)
     {
-        std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
-        std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_pp_prove_inputs;
-        std::vector<crypto::key_image> key_images;
-        std::vector<crypto::ec_point> pseudo_outs;
-
         std::unordered_set<std::size_t> selected_indices;
+        LOG_PRINT_L1("Preparing for " << n_inputs << "-input proof");
 
-        while (fcmp_pp_prove_inputs.size() < n_inputs)
+        while (fcmp_prove_inputs.size() < n_inputs)
         {
             // Generate a random unique leaf tuple index within the tree
             const size_t leaf_idx = crypto::rand_idx(new_outputs.outputs.size());
             if (selected_indices.count(leaf_idx))
                 continue;
-            else
-                selected_indices.insert(leaf_idx);
+            selected_indices.insert(leaf_idx);
 
-            LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx);
+            LOG_PRINT_L1("Constructing proof inputs for leaf idx " << leaf_idx << " (" << fcmp_prove_inputs.size()+1 << "/" << n_inputs << ")");
 
             const uint64_t leaf_chunk_idx = leaf_idx / curve_trees->m_c1_width;
             const auto leaf_offset = leaf_idx % curve_trees->m_c1_width;
@@ -611,14 +619,14 @@ TEST(fcmp_pp, verify)
 
             rerandomized_outputs.emplace_back(std::move(rerandomized_output));
             sal_proofs.emplace_back(std::move(sal_proof.first));
-            fcmp_pp_prove_inputs.emplace_back(std::move(fcmp_pp_prove_input));
+            fcmp_prove_inputs.emplace_back(std::move(fcmp_pp_prove_input));
         }
 
         LOG_PRINT_L1("Constructing membership proof and verifying (n_inputs=" << n_inputs << ")");
 
         // Create membership proof
         LOG_PRINT_L1("Proving " << n_inputs << "-in " << std::to_string(n_layers) << "-layer FCMP");
-        const auto membership_proof = fcmp_pp::prove_membership(fcmp_pp_prove_inputs, n_layers);
+        const auto membership_proof = fcmp_pp::prove_membership(fcmp_prove_inputs, n_layers);
 
         // Serialize FCMP++ proof and verify
         const auto fcmp_pp_proof = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_outputs,
@@ -636,6 +644,7 @@ TEST(fcmp_pp, verify)
                 key_images
             );
         ASSERT_TRUE(verify);
+        LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -678,6 +687,7 @@ TEST(fcmp_pp, sal_completeness)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, membership_completeness)
 {
+    // TODO: raise max num inputs and make test execute in reasonable time
     static const std::size_t MAX_NUM_INPUTS = 8;
 
     static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;

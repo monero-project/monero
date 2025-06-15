@@ -572,9 +572,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     // Verify non-input consensus rules on tx
     LOG_PRINT_L1("Verifying non-input consensus rules");
     cryptonote::tx_verification_context tvc{};
-    ASSERT_TRUE(cryptonote::ver_non_input_consensus(deserialized_tx, tvc, HF_VERSION_FCMP_PLUS_PLUS));
-    ASSERT_FALSE(tvc.m_verifivation_failed);
-    ASSERT_FALSE(tvc.m_verifivation_impossible);
+    const bool r = cryptonote::ver_non_input_consensus(deserialized_tx, tvc, HF_VERSION_FCMP_PLUS_PLUS);
     ASSERT_FALSE(tvc.m_added_to_pool);
     ASSERT_FALSE(tvc.m_low_mixin);
     ASSERT_FALSE(tvc.m_double_spend);
@@ -586,6 +584,9 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
     ASSERT_FALSE(tvc.m_too_few_outputs);
     ASSERT_FALSE(tvc.m_tx_extra_too_big);
     ASSERT_FALSE(tvc.m_nonzero_unlock_time);
+    ASSERT_TRUE(r);
+    ASSERT_FALSE(tvc.m_verifivation_failed);
+    ASSERT_FALSE(tvc.m_verifivation_impossible);
 
     // Recalculate signable tx hash from deserialized tx and check
     const crypto::hash signable_tx_hash_2 = rct::rct2hash(rct::get_pre_mlsag_hash(deserialized_tx.rct_signatures, hwdev));

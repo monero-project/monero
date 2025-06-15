@@ -1219,10 +1219,12 @@ TEST(Serialization, BinaryArchiveConstantVarInts)
 
   // If any of these fail, modify tx weight calculations
   static constexpr VarIntPair constant_varints[] = {
-    { FCMP_PLUS_PLUS_MAX_INPUTS                , 1 },
+    { FCMP_PLUS_PLUS_MAX_INPUTS                , 2 },
     { FCMP_PLUS_PLUS_MAX_OUTPUTS               , 1 },
     { 127                                      , 1 },
     { 128                                      , 2 },
+    { 16383                                    , 2 },
+    { 16384                                    , 3 },
     { MAX_TX_EXTRA_SIZE                        , 2 },
     { std::numeric_limits<uint64_t>::max() - 1 , 10 /*max_u64_varint_len*/ },
     { CRYPTONOTE_MAX_BLOCK_NUMBER              , 5 /*max_block_index_varint_len*/ },
