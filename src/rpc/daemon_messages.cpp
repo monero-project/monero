@@ -753,6 +753,7 @@ void GetFeeEstimate::Request::fromJson(const rapidjson::Value& val)
 
 void GetFeeEstimate::Response::doToJson(rapidjson::Writer<epee::byte_stream>& dest) const
 {
+  INSERT_INTO_JSON_OBJECT(dest, fees, fees);
   INSERT_INTO_JSON_OBJECT(dest, estimated_base_fee, estimated_base_fee);
   INSERT_INTO_JSON_OBJECT(dest, fee_mask, fee_mask);
   INSERT_INTO_JSON_OBJECT(dest, size_scale, size_scale);
@@ -766,6 +767,7 @@ void GetFeeEstimate::Response::fromJson(const rapidjson::Value& val)
     throw json::WRONG_TYPE("json object");
   }
 
+  GET_FROM_JSON_OBJECT(val, fees, fees);
   GET_FROM_JSON_OBJECT(val, estimated_base_fee, estimated_base_fee);
   GET_FROM_JSON_OBJECT(val, fee_mask, fee_mask);
   GET_FROM_JSON_OBJECT(val, size_scale, size_scale);
