@@ -270,7 +270,6 @@ chain for " target " development."))
 
         ;; Build tools
         gnu-make
-        libtool
         pkg-config
         cmake-minimal
 
