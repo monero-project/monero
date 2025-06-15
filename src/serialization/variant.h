@@ -43,7 +43,6 @@
 #include <boost/mpl/if.hpp>
 #include <boost/mpl/front.hpp>
 #include <boost/mpl/pop_front.hpp>
-#include "common/variant.h"
 #include "serialization.h"
 
 /*! \struct variant_serialization_triats
@@ -144,14 +143,4 @@ template <template <bool> class Archive, typename... T>
 static bool do_serialize(Archive<true> &ar, boost::variant<T...> &v)
 {
   return boost::apply_visitor(variant_write_visitor<Archive>(ar), v);
-}
-
-// implementation for tools::variant delegates to internal boost::variant member field
-namespace tools
-{
-template <class Archive, typename... Ts>
-bool do_serialize(Archive &ar, variant<Ts...> &v)
-{
-  return do_serialize(ar, v.m_value);
-}
 }
