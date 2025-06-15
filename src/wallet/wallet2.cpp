@@ -2095,6 +2095,13 @@ size_t wallet2::get_transfer_details(const crypto::key_image &ki) const
   CHECK_AND_ASSERT_THROW_MES(false, "Key image not found");
 }
 //----------------------------------------------------------------------------------------------------
+size_t wallet2::get_output_index(const crypto::public_key &pk) const
+{
+  auto search = m_pub_keys.find(pk);
+  CHECK_AND_ASSERT_THROW_MES(search != m_pub_keys.end(), "Public key not found in owned outputs");
+  return search->second;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::frozen(const transfer_details &td) const
 {
   return td.m_frozen;
@@ -7979,7 +7986,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   return parse_tx_from_str(s, ptx, accept_func);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
+bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func, tools::wallet2::signed_tx_set *signed_txs_out /* = nullptr */, bool do_handle_key_images /* = true */)
 {
   std::string s = signed_tx_st;
   signed_tx_set signed_txs;
@@ -8073,17 +8080,29 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     return false;
   }
 
-  // import key images
-  bool r = import_key_images(signed_txs.key_images);
-  if (!r) return false;
+  // `do_handle_key_images = true` was (and is) the default behavior, but for more flexibility in the Wallet API it can be turned off now
+  if (do_handle_key_images)
+  {
+    // import key images
+    bool r = import_key_images(signed_txs.key_images);
+    if (!r) return false;
 
-  // remember key images for this tx, for when we get those txes from the blockchain
-  for (const auto &e: signed_txs.tx_key_images)
-    m_cold_key_images.insert(e);
-
+    // remember key images for this tx, for when we get those txes from the blockchain
+    insert_cold_key_images(signed_txs.tx_key_images);
+  }
   ptx = signed_txs.ptx;
 
+  // Make signed_tx_set available to caller
+  if (signed_txs_out)
+      *signed_txs_out = std::move(signed_txs);
+
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::insert_cold_key_images(std::unordered_map<crypto::public_key, crypto::key_image> &cold_key_images)
+{
+    for (const auto &ki: cold_key_images)
+      m_cold_key_images.insert(ki);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::save_multisig_tx(multisig_tx_set txs)
@@ -13927,6 +13946,11 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
 bool wallet2::export_key_images(const std::string &filename, bool all) const
 {
   PERF_TIMER(export_key_images);
+  return save_to_file(filename, export_key_images_to_str(all));
+}
+
+std::string wallet2::export_key_images_to_str(bool all /* = false */) const
+{
   std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = export_key_images(all);
   std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
@@ -13950,7 +13974,7 @@ bool wallet2::export_key_images(const std::string &filename, bool all) const
   // encrypt data, keep magic plaintext
   PERF_TIMER(export_key_images_encrypt);
   std::string ciphertext = encrypt_with_view_secret_key(data);
-  return save_to_file(filename, magic + ciphertext);
+  return magic + ciphertext;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -14015,10 +14039,16 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, std::string(tr("failed to read file ")) + filename);
 
+  return import_key_images_from_str(data, spent, unspent);
+}
+
+std::uint64_t wallet2::import_key_images_from_str(const std::string &key_images_str, std::uint64_t &spent, std::uint64_t &unspent)
+{
+  std::string data = key_images_str;
   const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
   if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad key image export file magic in ") + filename);
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad key image export file magic"));
   }
 
   try
@@ -14028,24 +14058,24 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
   }
   catch (const std::exception &e)
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to decrypt ") + filename + ": " + e.what());
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to decrypt: ") + e.what());
   }
 
   const size_t headerlen = 4 + 2 * sizeof(crypto::public_key);
-  THROW_WALLET_EXCEPTION_IF(data.size() < headerlen, error::wallet_internal_error, std::string("Bad data size from file ") + filename);
+  THROW_WALLET_EXCEPTION_IF(data.size() < headerlen, error::wallet_internal_error, std::string("Bad data size from file "));
   const uint32_t offset = (uint8_t)data[0] | (((uint8_t)data[1]) << 8) | (((uint8_t)data[2]) << 16) | (((uint8_t)data[3]) << 24);
   const crypto::public_key &public_spend_key = *(const crypto::public_key*)&data[4];
   const crypto::public_key &public_view_key = *(const crypto::public_key*)&data[4 + sizeof(crypto::public_key)];
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
   if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string( "Key images from ") + filename + " are for a different account");
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Key images are for a different account"));
   }
   THROW_WALLET_EXCEPTION_IF(offset > m_transfers.size(), error::wallet_internal_error, "Offset larger than known outputs");
 
   const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
   THROW_WALLET_EXCEPTION_IF((data.size() - headerlen) % record_size,
-      error::wallet_internal_error, std::string("Bad data size from file ") + filename);
+      error::wallet_internal_error, std::string("Bad data size "));
   size_t nki = (data.size() - headerlen) / record_size;
 
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
