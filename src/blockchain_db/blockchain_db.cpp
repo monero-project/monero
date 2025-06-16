@@ -307,7 +307,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   ++num_calls;
 
-  return prev_height;
+  return ++prev_height;
 }
 
 void BlockchainDB::set_hard_fork(HardFork* hf)
