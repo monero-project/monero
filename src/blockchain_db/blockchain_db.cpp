@@ -271,7 +271,6 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   time_blk_hash += time1;
 
   uint64_t prev_height = height();
-  const uint64_t total_n_outputs = num_outputs();
 
   // call out to add the transactions
 
