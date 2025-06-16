@@ -75,7 +75,7 @@ static constexpr T div_ceil(T dividend, T divisor)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static bool is_transfer_usable_for_input_selection(const wallet2::transfer_details &td,
+static bool is_transfer_usable_for_input_selection(const wallet2_basic::transfer_details &td,
     const std::uint32_t from_account,
     const std::set<std::uint32_t> from_subaddresses,
     const rct::xmr_amount ignore_above,
@@ -1113,7 +1113,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         "finalize_all_proofs_from_transfer_details: some prove jobs failed");
 
     // collect FCMP Rust API proving structures
-    std::vector<fcmp_pp::FcmpPpProveInput> membership_proving_inputs;
+    std::vector<fcmp_pp::FcmpPpProveMembershipInput> membership_proving_inputs;
     membership_proving_inputs.reserve(n_inputs);
     for (size_t i = 0; i < n_inputs; ++i)
     {
@@ -1167,7 +1167,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
     // get FCMP tree root from provided path
     //! @TODO: make this a method of TreeCacheV1
     LOG_PRINT_L3("Making tree root from tree cache");
-    fcmp_pp::TreeRoot fcmp_tree_root;
+    fcmp_pp::TreeRootShared fcmp_tree_root;
     if (n_tree_layers % 2 == 0)
     {
         CHECK_AND_ASSERT_THROW_MES(!first_fcmp_path.c2_layers.empty(), "missing c2 layers");

@@ -92,7 +92,7 @@ public:
     // get all leaf indices with given output pair
     std::set<std::size_t> get_leaf_idxs_with_output_pair(const fcmp_pp::curve_trees::OutputPair &output_pair) const;
 
-    fcmp_pp::TreeRoot get_tree_root() const;
+    fcmp_pp::TreeRootShared get_tree_root() const;
 
 private:
     // Use the tree extension to extend the in-memory tree

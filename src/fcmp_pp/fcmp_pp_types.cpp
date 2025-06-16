@@ -52,20 +52,20 @@ namespace fcmp_pp
     };
 
 #define IMPLEMENT_FCMP_FFI_SHARED_TYPE(raw_t, cpp_fn1, rust_fn1, cpp_fn2, rust_fn2, destroy_fn) \
-    raw_t cpp_fn1                                                                               \
+    raw_t##Shared cpp_fn1                                                                       \
     {                                                                                           \
         ::raw_t##Unsafe* raw_ptr;                                                               \
         int r = ::rust_fn1;                                                                     \
         CHECK_FFI_RES;                                                                          \
-        return raw_t(raw_ptr, ::destroy_fn);                                                    \
+        return raw_t##Shared(raw_ptr, ::destroy_fn);                                            \
     };                                                                                          \
                                                                                                 \
-    raw_t cpp_fn2                                                                               \
+    raw_t##Shared cpp_fn2                                                                       \
     {                                                                                           \
         ::raw_t##Unsafe* raw_ptr;                                                               \
         int r = ::rust_fn2;                                                                     \
         CHECK_FFI_RES;                                                                          \
-        return raw_t(raw_ptr, ::destroy_fn);                                                    \
+        return raw_t##Shared(raw_ptr, ::destroy_fn);                                            \
     };
 //----------------------------------------------------------------------------------------------------------------------
 // Branch blinds
@@ -127,9 +127,12 @@ IMPLEMENT_FCMP_FFI_TYPE(Path,
     destroy_path);
 //----------------------------------------------------------------------------------------------------------------------
 // Implement FCMP++ Prove Input manually because will need temp slices
-void FcmpPpProveInputDeleter::operator()(FcmpPpProveInputUnsafe *p) const noexcept { ::destroy_fcmp_pp_prove_input(p); };
+void FcmpPpProveMembershipInputDeleter::operator()(FcmpPpProveMembershipInputUnsafe *p) const noexcept
+{
+    ::destroy_fcmp_pp_prove_input(p);
+}
 
-FcmpPpProveInput fcmp_pp_prove_input_new(const Path &path,
+FcmpPpProveMembershipInput fcmp_pp_prove_input_new(const Path &path,
         const OutputBlinds &output_blinds,
         const std::vector<SeleneBranchBlind> &selene_branch_blinds,
         const std::vector<HeliosBranchBlind> &helios_branch_blinds)
@@ -137,7 +140,7 @@ FcmpPpProveInput fcmp_pp_prove_input_new(const Path &path,
     MAKE_TEMP_FFI_SLICE(SeleneBranchBlind, selene_branch_blinds, selene_branch_blind_slice);
     MAKE_TEMP_FFI_SLICE(HeliosBranchBlind, helios_branch_blinds, helios_branch_blind_slice);
 
-    FcmpPpProveInputUnsafe *raw_ptr;
+    FcmpPpProveMembershipInputUnsafe *raw_ptr;
     int r = ::fcmp_pp_prove_input_new(path.get(),
         output_blinds.get(),
         selene_branch_blind_slice,
@@ -145,16 +148,19 @@ FcmpPpProveInput fcmp_pp_prove_input_new(const Path &path,
         &raw_ptr);
     CHECK_FFI_RES;
 
-    return FcmpPpProveInput(raw_ptr);
+    return FcmpPpProveMembershipInput(raw_ptr);
 }
 //----------------------------------------------------------------------------------------------------------------------
 // Implement FCMP++ Verify Input manually because need to type cast
-void FcmpPpVerifyInputDeleter::operator()(FcmpPpVerifyInputUnsafe *p) const noexcept { ::destroy_fcmp_pp_verify_input(p); };
+void FcmpPpVerifyInputDeleter::operator()(FcmpPpVerifyInputUnsafe *p) const noexcept
+{
+    ::destroy_fcmp_pp_verify_input(p);
+}
 
 FcmpPpVerifyInput fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
         const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
         const std::size_t n_tree_layers,
-        const fcmp_pp::TreeRoot &tree_root,
+        const fcmp_pp::TreeRootShared &tree_root,
         const std::vector<crypto::ec_point> &pseudo_outs,
         const std::vector<crypto::key_image> &key_images)
 {

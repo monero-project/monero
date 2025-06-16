@@ -69,7 +69,7 @@ Selene::Point Selene::hash_grow(
         existing_child_at_offset,
         new_children,
         &hash);
-    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow selene");
+    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow selene with error code " << res);
     return hash;
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -86,7 +86,7 @@ Helios::Point Helios::hash_grow(
         existing_child_at_offset,
         new_children,
         &hash);
-    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow helios");
+    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow helios with error code " << res);
     return hash;
 }
 //----------------------------------------------------------------------------------------------------------------------

@@ -225,10 +225,10 @@ std::pair<FcmpPpSalProof, crypto::key_image> prove_sal(const crypto::hash &signa
     return {std::move(p), L};
 }
 //----------------------------------------------------------------------------------------------------------------------
-FcmpMembershipProof prove_membership(const std::vector<FcmpPpProveInput> &fcmp_pp_prove_inputs,
+FcmpMembershipProof prove_membership(const std::vector<FcmpPpProveMembershipInput> &fcmp_pp_prove_inputs,
     const std::size_t n_tree_layers)
 {
-    MAKE_TEMP_FFI_SLICE(FcmpPpProveInput, fcmp_pp_prove_inputs, fcmp_pp_prove_inputs_slice);
+    MAKE_TEMP_FFI_SLICE(FcmpPpProveMembershipInput, fcmp_pp_prove_inputs, fcmp_pp_prove_inputs_slice);
 
     FcmpPpSalProof p;
     const std::size_t proof_len = membership_proof_len(fcmp_pp_prove_inputs.size(), n_tree_layers);
@@ -267,7 +267,7 @@ bool verify_sal(const crypto::hash &signable_tx_hash,
 //----------------------------------------------------------------------------------------------------------------------
 bool verify_membership(const FcmpMembershipProof &fcmp_proof,
     const std::size_t n_tree_layers,
-    const fcmp_pp::TreeRoot &tree_root,
+    const fcmp_pp::TreeRootShared &tree_root,
     const std::vector<FcmpInputCompressed> &inputs)
 {
     return ::fcmp_pp_verify_membership(
@@ -287,7 +287,7 @@ bool verify(const std::vector<fcmp_pp::FcmpPpVerifyInput> &fcmp_pp_verify_inputs
 bool verify(const crypto::hash &signable_tx_hash,
     const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
     const std::size_t n_tree_layers,
-    const fcmp_pp::TreeRoot &tree_root,
+    const fcmp_pp::TreeRootShared &tree_root,
     const std::vector<crypto::ec_point> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images)
 {

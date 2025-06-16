@@ -193,7 +193,7 @@ pub unsafe extern "C" fn selene_tree_root(
     }
 
     let tree_root = TreeRoot::<Selene, Helios>::C1(selene_point);
-    unsafe { *tree_root_out = new_box_raw(tree_root) };
+    *tree_root_out = new_box_raw(tree_root);
     0
 }
 
@@ -210,7 +210,7 @@ pub unsafe extern "C" fn helios_tree_root(
     }
 
     let tree_root = TreeRoot::<Selene, Helios>::C2(helios_point);
-    unsafe { *tree_root_out = new_box_raw(tree_root) };
+    *tree_root_out = new_box_raw(tree_root);
     0
 }
 
@@ -274,7 +274,7 @@ pub unsafe extern "C" fn hash_grow_helios(
         return -2;
     };
 
-    unsafe { *hash_out = hash };
+    *hash_out = hash;
     0
 }
 
@@ -282,7 +282,7 @@ pub unsafe extern "C" fn hash_grow_helios(
 ///
 /// This function expects a valid pointer to a SelenePoint passed in hash_out.
 #[no_mangle]
-pub extern "C" fn hash_grow_selene(
+pub unsafe extern "C" fn hash_grow_selene(
     existing_hash: SelenePoint,
     offset: usize,
     existing_child_at_offset: SeleneScalar,
@@ -305,7 +305,7 @@ pub extern "C" fn hash_grow_selene(
         return -2;
     };
 
-    unsafe { *hash_out = hash };
+    *hash_out = hash;
     0
 }
 
@@ -376,7 +376,7 @@ pub unsafe extern "C" fn path_new(
         curve_2_layers,
         curve_1_layers,
     };
-    unsafe { *path_out = new_box_raw(path); };
+    *path_out = new_box_raw(path);
     0
 }
 
@@ -439,9 +439,7 @@ pub unsafe extern "C" fn blind_o_blind(
     };
 
     let blinded_o_blind = OBlind::new(EdwardsPoint(T()), scalar_decomp);
-
-    unsafe { *blinded_o_blind_out = new_box_raw(blinded_o_blind) };
-
+    *blinded_o_blind_out = new_box_raw(blinded_o_blind);
     0
 }
 
@@ -483,9 +481,7 @@ pub unsafe extern "C" fn blind_c_blind(
     };
 
     let blinded_c_blind = CBlind::new(EdwardsPoint::generator(), scalar_decomp);
-
-    unsafe { *blinded_c_blind_out = new_box_raw(blinded_c_blind) };
-
+    *blinded_c_blind_out = new_box_raw(blinded_c_blind);
     0
 }
 
@@ -531,9 +527,7 @@ pub unsafe extern "C" fn blind_i_blind(
         EdwardsPoint(FCMP_V()),
         scalar_decomp,
     );
-
-    unsafe { *blinded_i_blind_out = new_box_raw(blinded_i_blind) };
-
+    *blinded_i_blind_out = new_box_raw(blinded_i_blind);
     0
 }
 
@@ -575,9 +569,7 @@ pub unsafe extern "C" fn blind_i_blind_blind(
     };
 
     let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(T()), scalar_decomp);
-
-    unsafe { *blinded_i_blind_blind_out = new_box_raw(blinded_i_blind_blind) };
-
+    *blinded_i_blind_blind_out = new_box_raw(blinded_i_blind_blind);
     0
 }
 
@@ -608,7 +600,7 @@ pub unsafe extern "C" fn output_blinds_new(
         (*i_blind_blind).clone(),
         (*c_blind).clone(),
     );
-    unsafe { *output_blinds_out = new_box_raw(output_blinds); };
+    *output_blinds_out = new_box_raw(output_blinds);
     0
 }
 
@@ -638,9 +630,7 @@ pub unsafe extern "C" fn generate_helios_branch_blind(
 
     let branch_blind =
         BranchBlind::<<Helios as Ciphersuite>::G>::new(HELIOS_GENERATORS().h(), scalar_decomp);
-
-    unsafe { *branch_blind_out = new_box_raw(branch_blind) };
-
+    *branch_blind_out = new_box_raw(branch_blind);
     0
 }
 
@@ -666,9 +656,7 @@ pub unsafe extern "C" fn generate_selene_branch_blind(
 
     let branch_blind =
         BranchBlind::<<Selene as Ciphersuite>::G>::new(SELENE_GENERATORS().h(), scalar_decomp);
-
-    unsafe { *branch_blind_out = new_box_raw(branch_blind) };
-
+    *branch_blind_out = new_box_raw(branch_blind);
     0
 }
 
@@ -684,16 +672,16 @@ destroy_fn!(
 //-------------------------------------------------------------------------------------- Fcmp
 
 #[derive(Clone)]
-pub struct FcmpPpProveInput {
+pub struct FcmpPpProveMembershipInput {
     path: Path<Curves>,
     output_blinds: OutputBlinds<EdwardsPoint>,
     c1_branch_blinds: Vec<BranchBlind<<Selene as Ciphersuite>::G>>,
     c2_branch_blinds: Vec<BranchBlind<<Helios as Ciphersuite>::G>>,
 }
 
-pub type FcmpPpProveInputSlice = Slice<*const FcmpPpProveInput>;
+pub type FcmpPpProveMembershipInputSlice = Slice<*const FcmpPpProveMembershipInput>;
 
-unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveInput], n_tree_layers: usize) -> Option<Fcmp<Curves>> {
+unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveMembershipInput], n_tree_layers: usize) -> Option<Fcmp<Curves>> {
     let paths = inputs.iter().cloned().map(|x| (*x).path.clone()).collect();
     let output_blinds = inputs.iter().cloned().map(|x| (*x).output_blinds.clone()).collect();
 
@@ -740,42 +728,42 @@ pub unsafe extern "C" fn fcmp_pp_prove_input_new(
     output_blinds: *const OutputBlinds<EdwardsPoint>,
     selene_branch_blinds: SeleneBranchBlindSlice,
     helios_branch_blinds: HeliosBranchBlindSlice,
-    fcmp_pp_prove_input_out: *mut *mut FcmpPpProveInput,
+    fcmp_pp_prove_input_out: *mut *mut FcmpPpProveMembershipInput,
 ) -> c_int {
     if fcmp_pp_prove_input_out.is_null() {
         return -1;
     }
 
     // Path and output blinds
-    let path = unsafe { (*path).clone() };
-    let output_blinds = unsafe { (*output_blinds).clone() };
+    let path = (*path).clone();
+    let output_blinds = (*output_blinds).clone();
 
     // Collect branch blinds
     let c1_branch_blinds: &[*const BranchBlind<<Selene as Ciphersuite>::G>] =
         selene_branch_blinds.into();
     let c1_branch_blinds: Vec<BranchBlind<<Selene as Ciphersuite>::G>> = c1_branch_blinds
         .iter()
-        .map(|x| unsafe { (*x.to_owned()).clone() })
+        .map(|x| (*x.to_owned()).clone())
         .collect();
 
     let c2_branch_blinds: &[*const BranchBlind<<Helios as Ciphersuite>::G>] =
         helios_branch_blinds.into();
     let c2_branch_blinds: Vec<BranchBlind<<Helios as Ciphersuite>::G>> = c2_branch_blinds
         .iter()
-        .map(|x| unsafe { (*x.to_owned()).clone() })
+        .map(|x| (*x.to_owned()).clone())
         .collect();
 
-    let fcmp_pp_prove_input = FcmpPpProveInput {
+    let fcmp_pp_prove_input = FcmpPpProveMembershipInput {
         path,
         output_blinds,
         c1_branch_blinds,
         c2_branch_blinds,
     };
-    unsafe { *fcmp_pp_prove_input_out = new_box_raw(fcmp_pp_prove_input); };
+    *fcmp_pp_prove_input_out = new_box_raw(fcmp_pp_prove_input);
     0
 }
 
-destroy_fn!(destroy_fcmp_pp_prove_input, FcmpPpProveInput);
+destroy_fn!(destroy_fcmp_pp_prove_input, FcmpPpProveMembershipInput);
 
 /// # Safety
 ///
@@ -820,13 +808,13 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(signable_tx_hash: *const u8,
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveInputSlice,
+pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveMembershipInputSlice,
     n_tree_layers: usize,
     proof_len: usize,
     fcmp_proof_out: *mut u8,
     fcmp_proof_out_len: *mut usize
 ) -> c_int {
-    let inputs: &[*const FcmpPpProveInput] = inputs.into();
+    let inputs: &[*const FcmpPpProveMembershipInput] = inputs.into();
     let capacity = fcmp_proof_out_len.read();
     debug_assert_eq!(proof_len, _slow_membership_proof_size(inputs.len(), n_tree_layers));
     if capacity < proof_len {
@@ -933,7 +921,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
         key_images,
     };
 
-    unsafe { *fcmp_pp_verify_input_out = new_box_raw(fcmp_pp_verify_input) };
+    *fcmp_pp_verify_input_out = new_box_raw(fcmp_pp_verify_input);
     0
 }
 

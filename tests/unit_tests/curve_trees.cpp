@@ -479,7 +479,7 @@ std::set<std::size_t> CurveTreesGlobalTree::get_leaf_idxs_with_output_pair(
     return leaf_idx;
 }
 //----------------------------------------------------------------------------------------------------------------------
-fcmp_pp::TreeRoot CurveTreesGlobalTree::get_tree_root() const
+fcmp_pp::TreeRootShared CurveTreesGlobalTree::get_tree_root() const
 {
     const std::size_t n_layers = m_tree.c1_layers.size() + m_tree.c2_layers.size();
 
