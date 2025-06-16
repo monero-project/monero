@@ -60,11 +60,11 @@ jobs:
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
             rust_host: "x86_64-apple-darwin"
-            packages: "clang"
+            packages: "clang-18 lld-18"
           - name: "Cross-Mac aarch64"
             host: "arm64-apple-darwin"
             rust_host: "aarch64-apple-darwin"
-            packages: "clang"
+            packages: "clang-18 lld-18"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
             rust_host: "x86_64-unknown-freebsd"
@@ -118,6 +118,10 @@ jobs:
       run: |
         update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
         update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
+    - name: prepare apple-darwin
+      if: ${{ matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'arm64-apple-darwin' }}
+      run: |
+        echo "/usr/lib/llvm-18/bin/" >> $GITHUB_PATH
     - uses: ./.github/actions/set-make-job-count
     - name: build
       run: |
