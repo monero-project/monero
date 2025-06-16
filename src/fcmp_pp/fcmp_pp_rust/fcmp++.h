@@ -154,7 +154,7 @@ struct BlindedCBlindUnsafe;
 
 struct OutputBlindsUnsafe;
 
-struct FcmpPpProveInputUnsafe;
+struct FcmpPpProveMembershipInputUnsafe;
 struct FcmpPpVerifyInputUnsafe;
 
 struct HeliosBranchBlindSliceUnsafe
@@ -169,9 +169,9 @@ struct SeleneBranchBlindSliceUnsafe
   uintptr_t len;
 };
 
-struct FcmpPpProveInputSliceUnsafe
+struct FcmpPpProveMembershipInputSliceUnsafe
 {
-  const struct FcmpPpProveInputUnsafe * const *buf;
+  const struct FcmpPpProveMembershipInputUnsafe * const *buf;
   uintptr_t len;
 };
 
@@ -276,9 +276,9 @@ int fcmp_pp_prove_input_new(const struct PathUnsafe *path,
                                         const struct OutputBlindsUnsafe *output_blinds,
                                         struct SeleneBranchBlindSliceUnsafe selene_branch_blinds,
                                         struct HeliosBranchBlindSliceUnsafe helios_branch_blinds,
-                                        struct FcmpPpProveInputUnsafe **fcmp_pp_prove_input_out);
+                                        struct FcmpPpProveMembershipInputUnsafe **fcmp_pp_prove_input_out);
 
-void destroy_fcmp_pp_prove_input(struct FcmpPpProveInputUnsafe *fcmp_pp_prove_input);
+void destroy_fcmp_pp_prove_input(struct FcmpPpProveMembershipInputUnsafe *fcmp_pp_prove_input);
 
 /**
  * brief: fcmp_pp_prove_sal - Make a FCMP++ spend auth & linkability proof
@@ -310,7 +310,7 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
  * outparam: fcmp_proof_out_size - the max length of the buffer fcmp_proof_out, is set to written proof size
  * return: an error on failure, nothing otherwise
  */
-int fcmp_pp_prove_membership(const struct FcmpPpProveInputSliceUnsafe fcmp_pp_prove_inputs,
+int fcmp_pp_prove_membership(const struct FcmpPpProveMembershipInputSliceUnsafe fcmp_pp_prove_inputs,
                                              uintptr_t n_tree_layers,
                                              uintptr_t proof_len,
                                              uint8_t fcmp_proof_out[],

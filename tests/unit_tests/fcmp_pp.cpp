@@ -350,7 +350,7 @@ TEST(fcmp_pp, prove)
     {
         std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
         std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<fcmp_pp::FcmpPpProveInput> fcmp_pp_prove_inputs;
+        std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_pp_prove_inputs;
         std::vector<crypto::key_image> key_images;
         std::vector<crypto::ec_point> pseudo_outs;
 
@@ -518,7 +518,7 @@ TEST(fcmp_pp, verify)
     {
         std::vector<FcmpRerandomizedOutputCompressed> rerandomized_outputs;
         std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
-        std::vector<fcmp_pp::FcmpPpProveInput> fcmp_pp_prove_inputs;
+        std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_pp_prove_inputs;
         std::vector<crypto::key_image> key_images;
         std::vector<crypto::ec_point> pseudo_outs;
 
@@ -720,7 +720,7 @@ TEST(fcmp_pp, membership_completeness)
         std::set<size_t> selected_indices;
         std::vector<FcmpInputCompressed> fcmp_raw_inputs;
         fcmp_raw_inputs.reserve(num_inputs);
-        std::vector<fcmp_pp::FcmpPpProveInput> fcmp_provable_inputs;
+        std::vector<fcmp_pp::FcmpPpProveMembershipInput> fcmp_provable_inputs;
         fcmp_provable_inputs.reserve(num_inputs);
         while (selected_indices.size() < num_inputs)
         {
