@@ -29,15 +29,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-
-#include "randomx.h"
-#include "c_threads.h"
 #include "hash-ops.h"
 #include "misc_log_ex.h"
 
