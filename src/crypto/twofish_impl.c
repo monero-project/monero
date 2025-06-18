@@ -171,6 +171,7 @@
  * Standard include files will probably be ok.
  */
 #include <string.h>     /* for memset(), memcpy(), and memcmp() */
+#include <assert.h>
 #include "twofish_impl.h"
 
 
@@ -214,7 +215,7 @@
  * header file could easily break it. Maybe the best solution is to use
  * a separate extern statement for your fatal function.
  */
-#define Twofish_fatal( msg )      {for(;;);}
+#define Twofish_fatal( msg )      assert(!msg); __builtin_unreachable();
 
 
 /*
