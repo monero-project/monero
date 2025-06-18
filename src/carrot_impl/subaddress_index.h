@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2025, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,23 +28,54 @@
 
 #pragma once
 
-extern "C"
+//local headers
+
+//third party headers
+
+//standard headers
+#include <cstdint>
+
+//forward declarations
+
+namespace carrot
 {
-#include "crypto-ops.h"
+struct subaddress_index
+{
+    std::uint32_t major;
+    std::uint32_t minor;
+
+    bool is_subaddress() const
+    {
+        return major || minor;
+    }
+};
+static inline bool operator==(const subaddress_index a, const subaddress_index b)
+{
+    return a.major == b.major && a.minor == b.minor;
 }
-#include "crypto.h"
-
-namespace crypto
+static inline bool operator!=(const subaddress_index a, const subaddress_index b)
 {
+    return !(a == b);
+}
 
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
+enum class AddressDeriveType
+{
+    Auto,
+    PreCarrot,
+    Carrot
+};
 
-} //namespace crypto
+struct subaddress_index_extended
+{
+    subaddress_index index;
+    AddressDeriveType derive_type;
+};
+static inline bool operator==(const subaddress_index_extended &a, const subaddress_index_extended &b)
+{
+    return a.index == b.index && a.derive_type == b.derive_type;
+}
+static inline bool operator!=(const subaddress_index_extended &a, const subaddress_index_extended &b)
+{
+    return !(a == b);
+}
+} //namespace carrot
