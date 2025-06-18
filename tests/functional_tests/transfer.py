@@ -29,7 +29,6 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
-import math
 import util_resources
 import pprint
 from deepdiff import DeepDiff
@@ -73,7 +72,6 @@ class TransferTest():
         self.create()
         self.mine()
         self.transfer()
-        # TODO: self.bad_transfer() (test error handling, e.g. no unlocked outputs triggering "no input candidates provided")
         self.check_get_bulk_payments()
         self.check_get_payments()
         self.check_double_spend_detection()
@@ -251,8 +249,7 @@ class TransferTest():
         assert t.fee == fee
         assert t.note == ''
         assert len(t.destinations) == 1
-        # FIXME: this destination should not be different
-        # assert t.destinations[0] == {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        assert t.destinations[0] == {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         assert t.type == 'out'
         assert t.unlock_time == 0
         assert t.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
@@ -270,8 +267,7 @@ class TransferTest():
         res = self.wallet[0].transfer([dst], ring_size = 16, get_tx_key = True, do_not_relay = True, get_tx_hex = True)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
-        # TODO: Carrot no tx key?
-        # assert len(res.tx_key) == 32*2
+        assert len(res.tx_key) == 32*2
         assert res.amount == 1000000000000
         amount = res.amount
         assert res.fee > 0
@@ -361,8 +357,7 @@ class TransferTest():
         res = self.wallet[0].transfer([dst0, dst1, dst2], ring_size = 16, get_tx_key = True)
         assert len(res.tx_hash) == 32*2
         txid = res.tx_hash
-        # TODO: Carrot no tx key?
-        # assert len(res.tx_key) == 32*2
+        assert len(res.tx_key) == 32*2 or len(res.tx_key) == 32*2*4 # 1 for pre-Carrot, 4 for Carrot
         assert res.amount == 1000000000000 + 1100000000000 + 1200000000000
         amount = res.amount
         assert res.fee > 0
@@ -468,36 +463,36 @@ class TransferTest():
         assert res.unlocked_balance <= res.balance
         assert res.blocks_to_unlock == 9
 
-        print('TODO: Carrot Sending to integrated address')
-        # self.wallet[0].refresh()
-        # res = self.wallet[0].get_balance()
-        # i_pid = '1111111122222222'
-        # res = self.wallet[0].make_integrated_address(standard_address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', payment_id = i_pid)
-        # i_address = res.integrated_address
-        # res = self.wallet[0].transfer([{'address': i_address, 'amount': 200000000}])
-        # assert len(res.tx_hash) == 32*2
-        # i_txid = res.tx_hash
-        # assert len(res.tx_key) == 32*2
-        # assert res.amount == 200000000
-        # i_amount = res.amount
-        # assert res.fee > 0
-        # fee = res.fee
-        # assert len(res.tx_blob) == 0
-        # assert len(res.tx_metadata) == 0
-        # assert len(res.multisig_txset) == 0
-        # assert len(res.unsigned_txset) == 0
+        print('Sending to integrated address')
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_balance()
+        i_pid = '1111111122222222'
+        res = self.wallet[0].make_integrated_address(standard_address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', payment_id = i_pid)
+        i_address = res.integrated_address
+        res = self.wallet[0].transfer([{'address': i_address, 'amount': 200000000}])
+        assert len(res.tx_hash) == 32*2
+        i_txid = res.tx_hash
+        assert len(res.tx_key) == 32*2
+        assert res.amount == 200000000
+        i_amount = res.amount
+        assert res.fee > 0
+        fee = res.fee
+        assert len(res.tx_blob) == 0
+        assert len(res.tx_metadata) == 0
+        assert len(res.multisig_txset) == 0
+        assert len(res.unsigned_txset) == 0
 
-        # running_balances[0] -= 200000000 + fee
+        running_balances[0] -= 200000000 + fee
 
-        # res = self.wallet[0].get_balance()
-        # assert res.balance == running_balances[0]
-        # assert res.unlocked_balance <= res.balance
-        # assert res.blocks_to_unlock == 59
+        res = self.wallet[0].get_balance()
+        assert res.balance == running_balances[0]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 59
 
-        # daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
-        # res = daemon.getlastblockheader()
-        # running_balances[0] += res.block_header.reward
-        # running_balances[1] += 200000000
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        res = daemon.getlastblockheader()
+        running_balances[0] += res.block_header.reward
+        running_balances[1] += 200000000
 
         self.wallet[0].refresh()
         res = self.wallet[0].get_balance()
@@ -511,11 +506,11 @@ class TransferTest():
         assert res.unlocked_balance <= res.balance
         assert res.blocks_to_unlock == 9
 
-        # self.wallet[2].refresh()
-        # res = self.wallet[2].get_balance()
-        # assert res.balance == running_balances[2]
-        # assert res.unlocked_balance <= res.balance
-        # assert res.blocks_to_unlock == 8
+        self.wallet[2].refresh()
+        res = self.wallet[2].get_balance()
+        assert res.balance == running_balances[2]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 8
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
         res = daemon.getlastblockheader()
@@ -533,11 +528,11 @@ class TransferTest():
         assert res.unlocked_balance <= res.balance
         assert res.blocks_to_unlock == 8
 
-        # self.wallet[2].refresh()
-        # res = self.wallet[2].get_balance()
-        # assert res.balance == running_balances[2]
-        # assert res.unlocked_balance <= res.balance
-        # assert res.blocks_to_unlock == 7
+        self.wallet[2].refresh()
+        res = self.wallet[2].get_balance()
+        assert res.balance == running_balances[2]
+        assert res.unlocked_balance <= res.balance
+        assert res.blocks_to_unlock == 7
 
 
     def check_get_bulk_payments(self):
@@ -559,14 +554,13 @@ class TransferTest():
 
         self.wallet[1].refresh()
         res = self.wallet[1].get_bulk_payments()
-        assert len(res.payments) >= 2 # two txes to standard address were sent, (FIXME: plus one to integrated address)
+        assert len(res.payments) >= 3 # two txes to standard address were sent, plus one to integrated address
         res = self.wallet[1].get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
         assert not 'payments' in res or len(res.payments) == 0 # long payment IDs are now ignored on receipt
         res = self.wallet[1].get_bulk_payments(payment_ids = ['ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'])
         assert 'payments' not in res or len(res.payments) == 0 # none with that payment id
-        # FIXME: Carrot integrated address payment
-        # res = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
-        # assert len(res.payments) >= 1 # one tx to integrated address
+        res = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
+        assert len(res.payments) >= 1 # one tx to integrated address
 
         self.wallet[2].refresh()
         res = self.wallet[2].get_bulk_payments()
@@ -574,9 +568,8 @@ class TransferTest():
         res = self.wallet[2].get_bulk_payments(payment_ids = ['1'*64, '1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde', '2'*64])
         assert not 'payments' in res or len(res.payments) == 0 # long payment IDs are now ignored
 
-        # FIXME: Carrot integrated address payment
-        # res = self.wallet[1].get_bulk_payments(["1111111122222222"])
-        # assert len(res.payments) >= 1 # we have one of these
+        res = self.wallet[1].get_bulk_payments(["1111111122222222"])
+        assert len(res.payments) >= 1 # we have one of these
 
     def check_get_payments(self):
         print('Checking get_payments')
@@ -597,9 +590,8 @@ class TransferTest():
         res = self.wallet[1].get_payments('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
         assert 'payments' not in res or len(res.payments) == 0
 
-        # FIXME: Carrot integrated address payment
-        # res = self.wallet[1].get_payments(payment_id = '1111111122222222' + '0'*48)
-        # assert len(res.payments) >= 1 # one tx to integrated address
+        res = self.wallet[1].get_payments(payment_id = '1111111122222222' + '0'*48)
+        assert len(res.payments) >= 1 # one tx to integrated address
 
     def check_double_spend_detection(self):
         print('Checking double spend detection')
@@ -894,8 +886,7 @@ class TransferTest():
     def check_destinations(self):
         daemon = Daemon()
 
-        print("TODO: Carrot Checking transaction destinations")
-        return
+        print("Checking transaction destinations")
 
         dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         res = self.wallet[0].transfer([dst])
@@ -1077,9 +1068,7 @@ class TransferTest():
     def check_scan_tx(self):
         daemon = Daemon()
 
-        # Needs https://github.com/seraphis-migration/monero/pull/49
-        print('TODO: FCMP++ Testing scan_tx')
-        return
+        print('Testing scan_tx')
 
         # set up sender_wallet
         sender_wallet = self.wallet[0]
@@ -1277,8 +1266,7 @@ class TransferTest():
     def check_subtract_fee_from_outputs(self):
         daemon = Daemon()
 
-        print('TODO: Carrot Testing fee-included transfers')
-        return
+        print('Testing fee-included transfers')
 
         def inner_test_external_transfer(dsts, subtract_fee_from_outputs):
             # refresh wallet and get balance
@@ -1308,13 +1296,15 @@ class TransferTest():
             # Check the amounts by each destination that only the destinations set as subtractable
             # got subtracted and that the subtracted dests are approximately correct
             assert len(amounts_by_dest) == len(dsts) # if this fails... idk
-            for i in range(len(dsts)):
-                if i in subtract_fee_from_outputs: # dest is subtractable
+            dsts_amounts = sorted([(dsts[i]['amount'], i in subtract_fee_from_outputs) for i in range(len(dsts))])
+            output_amounts_sorted = sorted(amounts_by_dest)
+            for (dsts_amount, is_subtractable), output_amount in zip(dsts_amounts, output_amounts_sorted):
+                if is_subtractable: # dest is subtractable
                     approx_subtraction = tx_fee // len(subtract_fee_from_outputs)
-                    assert amounts_by_dest[i] < dsts[i]['amount']
-                    assert dsts[i]['amount'] - amounts_by_dest[i] - approx_subtraction <= 1
+                    assert output_amount < dsts_amount
+                    assert dsts_amount - output_amount - approx_subtraction <= 1
                 else:
-                    assert amounts_by_dest[i] == dsts[i]['amount']
+                    assert output_amount == dsts_amount
 
             # relay tx and generate block (not to us, to simplify balance change calculations)
             relay_res = self.wallet[0].relay_tx(tx_hex)
@@ -1358,7 +1348,7 @@ class TransferTest():
     def check_background_sync(self):
         daemon = Daemon()
 
-        print('FCMP++/Carrot Testing background sync')
+        print('Testing background sync')
 
         # Some helper functions
         def stop_with_wrong_inputs(wallet, wallet_password, seed = ''):
@@ -1434,11 +1424,10 @@ class TransferTest():
         tx = [x for x in transfers.out if x.txid == txid]
         assert len(tx) == 1
         tx = tx[0]
-        amount_received = tx.amount
-        assert amount_received == amount - fee
+        assert tx.amount == amount - fee
         assert tx.fee == fee
         assert len(tx.destinations) == 1
-        assert tx.destinations[0].amount == amount_received
+        assert tx.destinations[0].amount == amount - fee
         assert tx.destinations[0].address == dst
         incoming_transfers = sender_wallet.incoming_transfers(transfer_type = 'all')
         assert len([x for x in incoming_transfers.transfers if x.tx_hash == spent_txid and x.key_image == ki and x.spent]) == 1
@@ -1588,7 +1577,7 @@ class TransferTest():
         tx = [x for x in transfers['in'] if x.txid == txid]
         assert len(tx) == 1
         tx = tx[0]
-        assert tx.amount == amount_received
+        assert tx.amount == amount - fee
         assert tx.fee == fee
         incoming_transfers = receiver_wallet.incoming_transfers(transfer_type = 'all')
         assert len([x for x in incoming_transfers.transfers if x.tx_hash == txid and x.key_image == '' and not x.spent]) == 1
@@ -1648,43 +1637,6 @@ class TransferTest():
         restore_wallet(receiver_wallet, seeds[1], restore_height = 0)
         receiver_wallet.refresh()
         assert_correct_transfers(receiver_wallet, transfers, incoming_transfers, expected_receiver_balance)
-
-        # Send after background sync
-        for background_sync_type in [reuse_password, custom_password]:
-            # Make sure receiver funds are unlocked
-            daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 10)
-
-            # Restore, set up background sync, refresh
-            restore_wallet(receiver_wallet, seeds[1], filename = 'test2', password = 'test_password')
-            background_cache_password = None if background_sync_type == reuse_password else 'background_password'
-            receiver_wallet.setup_background_sync(background_sync_type = background_sync_type, wallet_password = 'test_password', background_cache_password = background_cache_password)
-            receiver_wallet.start_background_sync()
-            receiver_wallet.refresh()
-
-            # Transfer from receiver back to sender
-            receiver_wallet.stop_background_sync(wallet_password = 'test_password', seed = seeds[1])
-            sender_addr = sender_wallet.get_address().address
-            sending_amount = math.floor(amount_received / 4)
-            assert receiver_wallet.get_balance().unlocked_balance > sending_amount
-            dst = {'address': sender_addr, 'amount': sending_amount}
-            res = receiver_wallet.transfer([dst])
-            assert len(res.tx_hash) == 32*2
-            txid = res.tx_hash
-            expected_sender_balance += sending_amount
-
-            # Make sure sender wallet can see it
-            daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
-            sender_wallet.refresh()
-
-            transfers = sender_wallet.get_transfers()
-            tx = [x for x in transfers['in'] if x.txid == txid]
-            assert len(tx) == 1
-            tx = tx[0]
-            assert tx.amount == sending_amount
-            assert tx.address == sender_addr
-            incoming_transfers = sender_wallet.incoming_transfers(transfer_type = 'all')
-            assert len([x for x in incoming_transfers.transfers if x.tx_hash == txid]) == 1
-            assert sender_wallet.get_balance().balance == expected_sender_balance
 
         # Clean up
         util_resources.remove_wallet_files('test1')

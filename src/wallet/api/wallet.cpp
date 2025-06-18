@@ -1631,8 +1631,6 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
         if (checkBackgroundSync("cannot create transactions"))
             break;
 
-        std::vector<uint8_t> extra;
-        std::string extra_nonce;
         vector<cryptonote::tx_destination_entry> dsts;
         if (!amount && dst_addr.size() > 1) {
             setStatusError(tr("Sending all requires one destination address"));
@@ -1643,15 +1641,11 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
             break;
         }
         if (!payment_id.empty()) {
-            crypto::hash payment_id_long;
-            if (tools::wallet2::parse_long_payment_id(payment_id, payment_id_long)) {
-                cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id_long);
-            } else {
-                setStatusError(tr("payment id has invalid format, expected 64 character hex string: ") + payment_id);
-                break;
-            }
+            setStatusError(tr("Long payment IDs are obsolete and no longer supported"));
+            break;
         }
         bool error = false;
+        std::pair<crypto::hash8, std::size_t> payment_id{crypto::null_hash8, 0};
         for (size_t i = 0; i < dst_addr.size() && !error; i++) {
             if(!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), dst_addr[i])) {
                 // TODO: copy-paste 'if treating as an address fails, try as url' from simplewallet.cpp:1982
@@ -1660,12 +1654,12 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
                 break;
             }
             if (info.has_payment_id) {
-                if (!extra_nonce.empty()) {
+                if (payment_id.first != crypto::null_hash8) {
                     setStatusError(tr("a single transaction cannot use more than one payment id"));
                     error = true;
                     break;
                 }
-                set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+                payment_id = {info.payment_id, dsts.size()};
             }
 
             if (amount) {
@@ -1686,22 +1680,21 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
         if (error) {
             break;
         }
-        if (!extra_nonce.empty() && !add_extra_nonce_to_tx_extra(extra, extra_nonce)) {
-            setStatusError(tr("failed to set up payment id, though it was decoded correctly"));
-            break;
-        }
         try {
             size_t fake_outs_count = mixin_count > 0 ? mixin_count : m_wallet->default_mixin();
             fake_outs_count = m_wallet->adjust_mixin(mixin_count);
 
             if (amount) {
-                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, fake_outs_count,
+                transaction->m_pending_tx = m_wallet->create_transactions_2(dsts, payment_id, fake_outs_count,
                                                                             adjusted_priority,
-                                                                            extra, subaddr_account, subaddr_indices);
+                                                                            /*extra=*/{},
+                                                                            subaddr_account, subaddr_indices);
             } else {
-                transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, 1, fake_outs_count,
+                transaction->m_pending_tx = m_wallet->create_transactions_all(0, info.address, info.is_subaddress, 1,
+                                                                              payment_id.first, fake_outs_count,
                                                                               adjusted_priority,
-                                                                              extra, subaddr_account, subaddr_indices);
+                                                                              /*extra=*/{}, subaddr_account,
+                                                                              subaddr_indices);
             }
             pendingTxPostProcess(transaction);
 

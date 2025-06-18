@@ -258,7 +258,7 @@ void make_carrot_transaction_proposal_v1_transfer(
         // shadow subtractable_selfsend_payment_proposals and adjust for default case (no subtractable provided)
         const auto &subtractable_selfsend_payment_proposals_ref = subtractable_selfsend_payment_proposals;
         std::set<std::size_t> subtractable_selfsend_payment_proposals = subtractable_selfsend_payment_proposals_ref;
-        if (subtractable_selfsend_payment_proposals.empty())
+        if (subtractable_normal_payment_proposals.empty() && subtractable_selfsend_payment_proposals.empty())
             subtractable_selfsend_payment_proposals.insert(selfsend_payment_proposals.size() - 1);
 
         const bool has_subbable_normal = !subtractable_normal_payment_proposals.empty();
