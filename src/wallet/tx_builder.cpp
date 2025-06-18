@@ -294,7 +294,8 @@ std::vector<carrot::InputCandidate> collect_carrot_input_candidate_list(
     for (std::size_t i = 0; i < transfers.size(); ++i)
     {
         const wallet2_basic::transfer_details &td = transfers.at(i);
-        if (best_transfer_by_ota.at(td.get_public_key()) != i)
+        const auto best_it = best_transfer_by_ota.find(td.get_public_key());
+        if (best_it == best_transfer_by_ota.cend() || best_it->second != i)
             continue;
 
         if (!is_transfer_usable_for_input_selection(td,
