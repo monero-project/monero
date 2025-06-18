@@ -8945,45 +8945,6 @@ bool wallet2::find_and_save_rings(bool force)
   return true;
 }
 
-bool wallet2::blackball_output(const std::pair<uint64_t, uint64_t> &output)
-{
-  if (!m_ringdb)
-    return false;
-  try { return m_ringdb->blackball(output); }
-  catch (const std::exception &e) { return false; }
-}
-
-bool wallet2::set_blackballed_outputs(const std::vector<std::pair<uint64_t, uint64_t>> &outputs, bool add)
-{
-  if (!m_ringdb)
-    return false;
-  try
-  {
-    bool ret = true;
-    if (!add)
-      ret &= m_ringdb->clear_blackballs();
-    ret &= m_ringdb->blackball(outputs);
-    return ret;
-  }
-  catch (const std::exception &e) { return false; }
-}
-
-bool wallet2::unblackball_output(const std::pair<uint64_t, uint64_t> &output)
-{
-  if (!m_ringdb)
-    return false;
-  try { return m_ringdb->unblackball(output); }
-  catch (const std::exception &e) { return false; }
-}
-
-bool wallet2::is_output_blackballed(const std::pair<uint64_t, uint64_t> &output) const
-{
-  if (!m_ringdb)
-    return false;
-  try { return m_ringdb->blackballed(output); }
-  catch (const std::exception &e) { return false; }
-}
-
 bool wallet2::lock_keys_file()
 {
   if (m_wallet_file.empty())
@@ -9068,8 +9029,6 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
     return false;
   }
   valid_public_keys_cache.insert(rct::rct2pk(mask));
-//  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
-//    return false;
   outs.back().push_back(item);
   return true;
 }
@@ -9454,24 +9413,13 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         std::unordered_map<const char*, std::set<uint64_t>> picks;
 
         // while we still need more mixins
-        uint64_t num_usable_outs = num_outs;
-        bool allow_blackballed = false;
-        MDEBUG("Starting gamma picking with " << num_outs << ", num_usable_outs " << num_usable_outs
+        MDEBUG("Starting gamma picking with " << num_outs
             << ", requested_outputs_count " << requested_outputs_count);
         while (num_found < requested_outputs_count)
         {
           // if we've gone through every possible output, we've gotten all we can
-          if (seen_indices.size() == num_usable_outs)
-          {
-            // there is a first pass which rejects blackballed outputs, then a second pass
-            // which allows them if we don't have enough non blackballed outputs to reach
-            // the required amount of outputs (since consensus does not care about blackballed
-            // outputs, we still need to reach the minimum ring size)
-            if (allow_blackballed)
-              break;
-            MINFO("Not enough output not marked as spent, we'll allow outputs marked as spent");
-            allow_blackballed = true;
-            num_usable_outs = num_outs;
+          if (seen_indices.size() == num_outs) {
+            break;
           }
 
           // get a random output index from the DB.  If we've already seen it,
@@ -9547,11 +9495,6 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
 
           if (seen_indices.count(i))
             continue;
-          if (!allow_blackballed && is_output_blackballed(std::make_pair(amount, i))) // don't add blackballed outputs
-          {
-            --num_usable_outs;
-            continue;
-          }
           seen_indices.emplace(i);
 
           picks[type].insert(i);
