@@ -217,6 +217,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const wallet2_basic::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
+    const std::pair<crypto::hash8, std::size_t> &payment_id,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const uint32_t subaddr_account,
@@ -228,6 +229,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
     wallet2 &w,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
+    const std::pair<crypto::hash8, std::size_t> &payment_id,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -241,6 +243,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests_per_tx,
+    const crypto::hash8 payment_id,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint64_t top_block_index);
@@ -250,6 +253,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests_per_tx,
+    const crypto::hash8 payment_id,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra);
 
@@ -260,6 +264,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests_per_tx,
+    const crypto::hash8 payment_id,
     const rct::xmr_amount fee_per_weight,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -271,6 +276,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests_per_tx,
+    const crypto::hash8 payment_id,
     const std::uint32_t priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
@@ -298,6 +304,8 @@ pending_tx make_pending_carrot_tx(const carrot::CarrotTransactionProposalV1 &tx_
     const crypto::secret_key &k_view,
     hw::device &hwdev);
 
+crypto::hash8 get_pending_tx_payment_id(const pending_tx &ptx);
+
 pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const wallet2_basic::transfer_container &transfers,
@@ -307,5 +315,12 @@ pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
 pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const wallet2 &w);
+
+std::size_t get_num_payment_id_fields_in_tx_extra(const std::vector<std::uint8_t> &tx_extra);
+
+std::size_t get_num_ephemeral_tx_pubkey_fields_in_tx_extra(const std::vector<std::uint8_t> &tx_extra);
+
+void insert_payment_id_into_legacy_extra_unencrypted(const crypto::hash8 &payment_id,
+    std::vector<std::uint8_t> &extra_inout);
 } //namespace wallet
 } //namespace tools

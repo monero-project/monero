@@ -195,6 +195,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       {wallet2_td},
       subaddrs,
       destinations,
+      /*payment_id=*/{},
       /*fee_per_weight=*/10000000, // This is just a mock value to pass the test
       /*extra=*/{},
       /*subaddr_account=*/0,
