@@ -1668,24 +1668,20 @@ void Twofish_encrypt(Twofish_context *context, Twofish_Byte *input, Twofish_UInt
     return;
   }
 
-  for(uint32_t blockIndex = 0; blockIndex < blockCount; blockIndex++) {
+  for(uint32_t blockIndex = 0; blockIndex < blockCount; blockIndex++, input += TWOFISH_BLOCKSIZE, input_length -= TWOFISH_BLOCKSIZE, output += TWOFISH_BLOCKSIZE) {
     uint8_t inputBlock[TWOFISH_BLOCKSIZE];
-    uint8_t copy_length = TWOFISH_MIN(input_length - blockIndex * TWOFISH_BLOCKSIZE, TWOFISH_BLOCKSIZE);
+    uint8_t copy_length = TWOFISH_MIN(input_length, TWOFISH_BLOCKSIZE);
     uint8_t paddingCount = (TWOFISH_BLOCKSIZE - copy_length);
-    if(copy_length > 0) {
-      memcpy(inputBlock, (input+(blockIndex*TWOFISH_BLOCKSIZE)), TWOFISH_BLOCKSIZE);
-    }
+    memcpy(inputBlock, input, copy_length);
     for(int index=0; index < paddingCount; index++) {
       inputBlock[TWOFISH_BLOCKSIZE - 1 - index] = paddingCount;
     }
     for(uint8_t index=0; index < TWOFISH_BLOCKSIZE; index++) {
       inputBlock[index] ^= context->iv[index];
     }
-    uint8_t outputBlock[TWOFISH_BLOCKSIZE];
-    Twofish_encrypt_block(&(context->key), inputBlock, outputBlock);
+    Twofish_encrypt_block(&(context->key), inputBlock, output);
     /* update iv with block */
-    memcpy(context->iv, outputBlock, TWOFISH_BLOCKSIZE);
-    memcpy((output + (blockIndex * TWOFISH_BLOCKSIZE)), outputBlock, TWOFISH_BLOCKSIZE);
+    memcpy(context->iv, output, TWOFISH_BLOCKSIZE);
     /* whipe input plain text */
     //memset(inputBlock, 0, sizeof(inputBlock));
   }
