@@ -34,6 +34,7 @@
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_impl/format_utils.h"
+#include "carrot_impl/multi_tx_proposal_utils.h"
 #include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/tx_proposal_utils.h"
 #include "carrot_impl/input_selection.h"
@@ -1527,5 +1528,98 @@ TEST(carrot_impl, make_single_transfer_input_selector_greedy_aging_3)
 
     // this particular set of 4 indices is the indices of the 4 oldest inputs
     ASSERT_EQ(std::set<size_t>({0, 1, 2, 4}), selected_input_indices);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, make_multiple_carrot_transaction_proposals_sweep_1)
+{
+    // Taken from real function test
+    const rct::xmr_amount input_enote_amounts[] = {
+        35183466129983, 35183399022847, 35183331915839, 35183197702207, 35183130595583, 35183063489087,
+        35182996382719, 35182929276479, 35182862170367, 35182795064383, 35182727958527, 35182660852799,
+        35182593747199, 35182526641727, 35182459536383, 35182392431167, 35182325326078, 35182258221118,
+        35182191116286, 35182124011582, 35182056907006, 35181989802558, 35181922698238, 35181855594046,
+        35181788489981, 35181721386045, 35181654282237, 35181587178557, 35181520075005, 35181452971580,
+        35181385868284, 35181318765116, 35181251662076, 35181184559163, 35181117456379, 35181050353723,
+        35180983251195, 35180916148794, 35180849046522, 35180781944378, 35180714842361, 35180647740473,
+        35180580638713, 35180513537080, 35180446435576, 35180379334199, 35180312232951, 35180245131830,
+        35180178030838, 35180110929974, 35180043829237, 35179976728629, 35179909628148, 35179842527796,
+        35179775427571, 35179708327474, 35179641227506, 35179574127665, 35179507027953, 35179439928368,
+        35179372828911, 35179305729583, 35179238630382, 35179171531309, 35179104432365, 35179037333548,
+        35178970234859, 35178903136298, 35178836037865, 35178768939561, 35178701841384, 35178634743335,
+        35178567645414, 35178500547621, 35178433449956, 35178366352419, 35178299255010, 35178232157729,
+        35178165060576, 35178097963551, 35178030866654, 35177963769885, 35177896673244, 35177829576731,
+        35177762480346, 35177695384089, 35192149487959, 1000000000000, 69354088760000, 35192082391958,
+        69353820325310, 35192984896085, 1000000000000, 67052582291646, 35177427000340, 35191881104722,
+        69353283459006, 35177292809233, 35177225713872, 35177158618638, 35177091523533,
+    };
+    static constexpr std::size_t n_input_enote_amounts = sizeof(input_enote_amounts) / sizeof(input_enote_amounts[0]);
+
+    std::vector<carrot::CarrotSelectedInput> selected_inputs;
+    selected_inputs.reserve(n_input_enote_amounts);
+    for (std::size_t i = 0; i < n_input_enote_amounts; ++i)
+    {
+        selected_inputs.push_back(carrot::CarrotSelectedInput{
+            .amount = input_enote_amounts[i],
+            .input = gen_output_opening_hint()
+        });
+    }
+
+    std::unordered_map<crypto::public_key, std::size_t> expected_otas;
+    for (std::size_t i = 0; i < n_input_enote_amounts; ++i)
+    {
+        const carrot::CarrotSelectedInput &selected_input = selected_inputs.at(i);
+        expected_otas.emplace(onetime_address_ref(selected_input.input), i);
+    }
+
+    const carrot::CarrotPaymentProposalV1 normal_payment_proposal{
+        .destination = carrot::gen_carrot_main_address_v1(),
+        .amount = 0,
+        .randomness = carrot::gen_janus_anchor()
+    };
+
+    for (int ignore_dust = 0; ignore_dust <= 1; ++ignore_dust)
+    {
+        MDEBUG(typeid(*this).name() << ": ignore_dust=" << ignore_dust);
+
+        std::vector<carrot::CarrotTransactionProposalV1> tx_proposals;
+        make_multiple_carrot_transaction_proposals_sweep({normal_payment_proposal},
+            /*selfsend_payment_proposals=*/{},
+            /*fee_per_weight=*/20000,
+            /*extra=*/{},
+            std::vector<carrot::CarrotSelectedInput>(selected_inputs),
+            /*change_address_spend_pubkey=*/carrot::mock::gen_public_key(),
+            /*change_address_index=*/{},
+            ignore_dust,
+            tx_proposals);
+
+        const std::size_t n_expected_tx_proposals = (n_input_enote_amounts + FCMP_PLUS_PLUS_MAX_INPUTS - 1)
+            / FCMP_PLUS_PLUS_MAX_INPUTS;
+        ASSERT_EQ(n_expected_tx_proposals, tx_proposals.size());
+
+        std::unordered_set<crypto::public_key> seen_ota;
+        for (const carrot::CarrotTransactionProposalV1 &tx_proposal : tx_proposals)
+        {
+            ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
+            ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
+            ASSERT_TRUE(tx_proposal.extra.empty());
+
+            carrot::CarrotPaymentProposalV1 modified_normal_payment_proposal = normal_payment_proposal;
+            modified_normal_payment_proposal.amount = tx_proposal.normal_payment_proposals.at(0).amount;
+            ASSERT_EQ(modified_normal_payment_proposal, tx_proposal.normal_payment_proposals.at(0));
+
+            boost::multiprecision::uint128_t input_amount_sum = 0;
+            for (const carrot::InputProposalV1 &input_proposal : tx_proposal.input_proposals)
+            {
+                const crypto::public_key ota = onetime_address_ref(input_proposal);
+                ASSERT_TRUE(expected_otas.count(ota));
+                ASSERT_FALSE(seen_ota.count(ota));
+                seen_ota.insert(ota);
+                input_amount_sum += input_enote_amounts[expected_otas.at(ota)];
+            }
+
+            ASSERT_EQ(input_amount_sum, tx_proposal.normal_payment_proposals.at(0).amount + tx_proposal.fee);
+        }
+        EXPECT_EQ(n_input_enote_amounts, seen_ota.size());
+    }
 }
 //----------------------------------------------------------------------------------------------------------------------

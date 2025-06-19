@@ -519,7 +519,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     std::vector<carrot::InputCandidate> input_candidates = collect_carrot_input_candidate_list(transfers,
         subaddr_account,
         subaddr_indices,
-        only_below,
+        only_below ? only_below : MONEY_SUPPLY,
         0,
         top_block_index);
     std::vector<carrot::CarrotSelectedInput> selected_inputs;
@@ -543,7 +543,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
         std::move(selected_inputs),
         change_address_spend_pubkey,
         change_address_index,
-        /*ignore_dust=*/false,
+        /*ignore_dust=*/true,
         tx_proposals);
     return tx_proposals;
 }
