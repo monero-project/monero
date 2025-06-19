@@ -3056,6 +3056,8 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
     THROW_WALLET_EXCEPTION_IF(res.blocks.size() != res.output_indices.size(), error::wallet_internal_error,
         "mismatched blocks (" + boost::lexical_cast<std::string>(res.blocks.size()) + ") and output_indices (" +
         boost::lexical_cast<std::string>(res.output_indices.size()) + ") sizes from daemon");
+    THROW_WALLET_EXCEPTION_IF(req.init_tree_sync && !res.included_init_tree_sync_data, error::wallet_internal_error,
+        "daemon did not include requested init tree sync data");
   }
 
   blocks_start_height = res.start_height;
@@ -3064,7 +3066,7 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
   current_height = res.current_height;
   if (res.pool_info_extent != COMMAND_RPC_GET_BLOCKS_FAST::NONE)
     m_pool_info_query_time = res.daemon_time;
-  if (res.included_init_tree_sync_data)
+  if (req.init_tree_sync)
     init_tree_sync_data = boost::optional<COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t>(std::move(res.init_tree_sync_data));
 
   MDEBUG("Pulled blocks: blocks_start_height " << blocks_start_height << ", count " << blocks.size()
@@ -6449,10 +6451,19 @@ bool wallet2::check_version(uint32_t *version, bool *wallet_is_outdated, bool *d
     return false;
   }
 
-  // check wallet compatibility with daemon's hard fork version
   if (!m_allow_mismatched_daemon_version)
+  {
+    if (rpc_version < MAKE_CORE_RPC_VERSION(3, 17))
+    {
+      // Wallet cannot init FCMP++ tree while syncing if pointing to an older daemon
+      *daemon_is_outdated = true;
+      return false;
+    }
+
+    // check wallet compatibility with daemon's hard fork version
     if (!check_hard_fork_version(m_nettype, daemon_hard_forks, height, target_height, wallet_is_outdated, daemon_is_outdated))
       return false;
+  }
 
   m_rpc_version = rpc_version;
   return true;

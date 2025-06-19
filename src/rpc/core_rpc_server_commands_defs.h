@@ -101,6 +101,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 // whether they can talk to a given daemon without having to know in
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
+// TODO: make sure this matches RPC version expected in wallet2::check_version when FCMP++ is ready
 #define CORE_RPC_VERSION_MAJOR 3
 #define CORE_RPC_VERSION_MINOR 17
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
