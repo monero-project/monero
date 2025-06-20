@@ -758,6 +758,10 @@ TEST(fcmp_pp, membership_completeness)
                 path.leaves.at(output_idx).O,
                 path.leaves.at(output_idx).C);
 
+            // check the size of our precalculated branch blind cache
+            ASSERT_EQ(helios_scalar_chunks.size(), expected_num_selene_branch_blinds);
+            ASSERT_EQ(selene_scalar_chunks.size(), expected_num_helios_branch_blinds);
+
             // Calculate output blinds for rerandomized output
             LOG_PRINT_L1("Calculating output blind");
             const SeleneScalar o_blind = fcmp_pp::o_blind(rerandomized_output);
