@@ -59,11 +59,18 @@ FcmpRerandomizedOutputCompressed rerandomize_output(const crypto::public_key &on
     crypto::ec_point I;
     crypto::derive_key_image_generator(onetime_address, I);
 
-    return rerandomize_output(OutputBytes{
-        .O_bytes = to_bytes(onetime_address),
-        .I_bytes = to_bytes(I),
-        .C_bytes = to_bytes(amount_commitment)
-    });
+    OutputBytes output_bytes;
+    memcpy(output_bytes.O_bytes, onetime_address.data, sizeof(onetime_address));
+    memcpy(output_bytes.I_bytes, I.data, sizeof(I));
+    memcpy(output_bytes.C_bytes, amount_commitment.data, sizeof(amount_commitment));
+
+    static_assert(sizeof(output_bytes.O_bytes) == sizeof(onetime_address) &&
+        sizeof(output_bytes.I_bytes) == sizeof(I) &&
+        sizeof(output_bytes.C_bytes) == sizeof(amount_commitment),
+        "unexpected size mismatch OutputTuple <> data types");
+    static_assert(sizeof(OutputBytes) == (3 * 32), "unexpected size of OutputBytes");
+
+    return rerandomize_output(output_bytes);
 }
 //----------------------------------------------------------------------------------------------------------------------
 FcmpInputCompressed calculate_fcmp_input_for_rerandomizations(const crypto::public_key &onetime_address,

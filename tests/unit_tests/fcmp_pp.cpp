@@ -382,11 +382,8 @@ TEST(fcmp_pp, prove)
             // Leaves
             const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
 
-            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(OutputBytes{
-                .O_bytes = output_tuple.O.bytes,
-                .I_bytes = output_tuple.I.bytes,
-                .C_bytes = output_tuple.C.bytes
-            });
+            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(
+                output_tuple.to_output_bytes());
 
             pseudo_outs.emplace_back(rct::rct2pt(load_key(rerandomized_output.input.C_tilde)));
 
@@ -545,11 +542,8 @@ TEST(fcmp_pp, verify)
             // Leaves
             const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
 
-            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(OutputBytes{
-                .O_bytes = output_tuple.O.bytes,
-                .I_bytes = output_tuple.I.bytes,
-                .C_bytes = output_tuple.C.bytes
-            });
+            const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(
+                output_tuple.to_output_bytes());
 
             pseudo_outs.emplace_back(rct::rct2pt(load_key(rerandomized_output.input.C_tilde)));
 
@@ -641,11 +635,8 @@ TEST(fcmp_pp, sal_completeness)
     crypto::generate_key_image(rct::rct2pk(O), rct::rct2sk(x), L);
 
     // Rerandomize
-    const FcmpRerandomizedOutputCompressed rerandomized_output{fcmp_pp::rerandomize_output(fcmp_pp::OutputBytes{
-        .O_bytes = O.bytes,
-        .I_bytes = I.bytes,
-        .C_bytes = C.bytes
-    })};
+    const fcmp_pp::curve_trees::OutputTuple output{ .O = O, .I = I, .C = C };
+    const FcmpRerandomizedOutputCompressed rerandomized_output{fcmp_pp::rerandomize_output(output.to_output_bytes())};
 
     // Generate signable_tx_hash
     const crypto::hash signable_tx_hash = crypto::rand<crypto::hash>();
@@ -820,19 +811,16 @@ TEST(fcmp_pp, force_init_gen_u_v)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, calculate_fcmp_input_for_rerandomizations_convergence)
 {
-    const crypto::public_key onetime_address = rct::rct2pk(rct::pkGen());
-    const crypto::ec_point amount_commitment = rct::rct2pt(rct::pkGen());
-    const rct::key I = derive_key_image_generator(rct::pk2rct(onetime_address));
+    const rct::key onetime_address = rct::pkGen();
+    const rct::key amount_commitment = rct::pkGen();
+    const rct::key I = derive_key_image_generator(onetime_address);
 
-    const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(OutputBytes{
-        .O_bytes = to_bytes(onetime_address),
-        .I_bytes = I.bytes,
-        .C_bytes = to_bytes(amount_commitment)
-    });
+    const fcmp_pp::curve_trees::OutputTuple output{ .O = onetime_address, .I = I, .C = amount_commitment };
+    const FcmpRerandomizedOutputCompressed rerandomized_output = fcmp_pp::rerandomize_output(output.to_output_bytes());
 
     const FcmpInputCompressed recomputed_input = fcmp_pp::calculate_fcmp_input_for_rerandomizations(
-        onetime_address,
-        amount_commitment,
+        rct::rct2pk(onetime_address),
+        rct::rct2pt(amount_commitment),
         load_sk(rerandomized_output.r_o),
         load_sk(rerandomized_output.r_i),
         load_sk(rerandomized_output.r_r_i),

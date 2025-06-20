@@ -120,6 +120,7 @@ const unsafe fn slice_from_raw_parts_0able<'a, T>(p: *const T, len: usize) -> &'
     }
 }
 
+// TODO: deprecate in favor of EdwardsPoint::from_bytes with slices
 fn ed25519_point_from_bytes(ed25519_point: *const u8) -> std::io::Result<EdwardsPoint> {
     let mut ed25519_point = unsafe { core::slice::from_raw_parts(ed25519_point, 32) };
     <Ed25519>::read_G(&mut ed25519_point)
@@ -219,9 +220,9 @@ destroy_fn!(destroy_tree_root, TreeRoot::<Selene, Helios>);
 #[allow(non_snake_case)]
 #[repr(C)]
 pub struct OutputBytes {
-    O: *const u8,
-    I: *const u8,
-    C: *const u8,
+    O: [u8; 32],
+    I: [u8; 32],
+    C: [u8; 32],
 }
 
 #[repr(C)]
@@ -336,11 +337,23 @@ pub unsafe extern "C" fn path_new(
     let mut leaves: Vec<Output> = Vec::with_capacity(leaves_slice.len());
     #[allow(non_snake_case)]
     for leaf in leaves_slice {
-        let Ok(O) = ed25519_point_from_bytes(leaf.O) else { return -3; };
-        let Ok(I) = ed25519_point_from_bytes(leaf.I) else { return -3; };
-        let Ok(C) = ed25519_point_from_bytes(leaf.C) else { return -3; };
+        let O = if let Some(O) = EdwardsPoint::from_bytes(&leaf.O).into() {
+            O
+        } else {
+            return -3;
+        };
+        let I = if let Some(I) = EdwardsPoint::from_bytes(&leaf.I).into() {
+            I
+        } else {
+            return -4;
+        };
+        let C = if let Some(C) = EdwardsPoint::from_bytes(&leaf.C).into() {
+            C
+        } else {
+            return -5;
+        };
 
-        let Ok(new_output) = Output::new(O, I, C) else { return -4 };
+        let Ok(new_output) = Output::new(O, I, C) else { return -6 };
         leaves.push(new_output);
     }
 
@@ -391,16 +404,28 @@ destroy_fn!(destroy_path, Path<Curves>);
 pub unsafe extern "C" fn rerandomize_output(output: OutputBytes,
     rerandomized_output_bytes: *mut u8
 ) -> c_int {
-    let Ok(O) = ed25519_point_from_bytes(output.O) else { return -1; };
-    let Ok(I) = ed25519_point_from_bytes(output.I) else { return -1; };
-    let Ok(C) = ed25519_point_from_bytes(output.C) else { return -1; };
+    let O = if let Some(O) = EdwardsPoint::from_bytes(&output.O).into() {
+        O
+    } else {
+        return -1;
+    };
+    let I = if let Some(I) = EdwardsPoint::from_bytes(&output.I).into() {
+        I
+    } else {
+        return -2;
+    };
+    let C = if let Some(C) = EdwardsPoint::from_bytes(&output.C).into() {
+        C
+    } else {
+        return -3;
+    };
 
-    let Ok(output) = Output::new(O, I, C) else { return -2 };
+    let Ok(output) = Output::new(O, I, C) else { return -4 };
 
     let mut rerandomized_output_bytes = core::slice::from_raw_parts_mut(rerandomized_output_bytes, 8 * 32);
 
     let rerandomized_output = RerandomizedOutput::new(&mut OsRng, output);
-    if rerandomized_output.write(&mut rerandomized_output_bytes).is_err() { -3 } else { 0 }
+    if rerandomized_output.write(&mut rerandomized_output_bytes).is_err() { -5 } else { 0 }
 }
 
 //---------------------------------------------- OBlind
