@@ -152,7 +152,19 @@ struct OutputTuple final
     rct::key I;
     rct::key C;
 
-    const OutputBytes to_output_bytes() const { return OutputBytes { O.bytes, I.bytes, C.bytes }; }
+    const OutputBytes to_output_bytes() const
+    {
+        OutputBytes out;
+        memcpy(out.O_bytes, O.bytes, sizeof(O.bytes));
+        memcpy(out.I_bytes, I.bytes, sizeof(I.bytes));
+        memcpy(out.C_bytes, C.bytes, sizeof(C.bytes));
+        static_assert(sizeof(out.O_bytes) == sizeof(O.bytes) &&
+            sizeof(out.I_bytes) == sizeof(I.bytes) &&
+            sizeof(out.C_bytes) == sizeof(C.bytes),
+            "unexpected size mismatch on O, I, C");
+        static_assert(sizeof(OutputBytes) == (3 * sizeof(rct::key)), "unexpected size of OutputBytes");
+        return out;
+    }
 };
 
 // Struct composed of ec elems needed to get a full-fledged leaf tuple

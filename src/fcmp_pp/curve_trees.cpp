@@ -1618,13 +1618,7 @@ CurveTrees<Selene, Helios>::PathForProof CurveTrees<Selene, Helios>::path_for_pr
     {
         output_bytes.reserve(path.leaves.size());
         for (const auto &leaf : path.leaves)
-        {
-            output_bytes.push_back({
-                    .O_bytes = (uint8_t *)&leaf.O.bytes,
-                    .I_bytes = (uint8_t *)&leaf.I.bytes,
-                    .C_bytes = (uint8_t *)&leaf.C.bytes,
-                });
-        }
+            output_bytes.push_back(leaf.to_output_bytes());
     }
 
     const size_t n_tree_layers = path.c1_layers.size() + path.c2_layers.size();

@@ -70,10 +70,11 @@ struct SelenePoint {
 
 // ----- End deps C bindings -----
 
-struct OutputBytes {
-  const uint8_t *O_bytes;
-  const uint8_t *I_bytes;
-  const uint8_t *C_bytes;
+struct OutputBytes
+{
+  uint8_t O_bytes[32];
+  uint8_t I_bytes[32];
+  uint8_t C_bytes[32];
 };
 
 struct FcmpInputCompressed
