@@ -979,3 +979,50 @@ TEST(curve_trees, hash_grow)
 
     ASSERT_EQ(ext_hash_str2, grow_res_str2);
 }
+//----------------------------------------------------------------------------------------------------------------------
+TEST(curve_trees, path_for_proof_inner_layer_single_elem)
+{
+    /*
+        Assume the path has the following composition:
+
+        Root:            layer4_0
+        Layer3: layer3_0 layer3_1 layer3_2
+        Layer2:                   layer2_9
+        Layer1:                   layer1_14
+        Leaves:          leaf_100 leaf_101 leaf_102
+
+        Direct parents for the leaf chunk are layer1_14 -> layer2_9 -> layer3_2 -> layer4_0
+
+        Note that Layer1 and Layer2 only have 1 element each, but are not the root layer.
+        We need to make sure that the path for proof still captures that layer.
+    */
+
+    // TODO: construct a path in place with the exact composition we want so this test executes faster
+    const uint64_t N_LEAF_TUPLES = 52000;
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+    CurveTreesGlobalTree global_tree(*curve_trees);
+    const auto init_outputs = test::generate_random_outputs(*curve_trees, 0, N_LEAF_TUPLES);
+    ASSERT_TRUE(global_tree.grow_tree(0, init_outputs.size(), init_outputs));
+
+    const auto path = global_tree.get_path_at_leaf_idx(init_outputs.size() - 1);
+    ASSERT_TRUE(curve_trees->audit_path(path, init_outputs.back().output_pair, N_LEAF_TUPLES));
+
+    // Make sure path has expected composition we're trying to test
+    ASSERT_EQ(path.c1_layers.size(), 2);
+    ASSERT_EQ(path.c2_layers.size(), 2);
+
+    ASSERT_EQ(path.c1_layers.at(0).size(), 1);
+    ASSERT_EQ(path.c1_layers.at(1).size(), 3);
+
+    ASSERT_EQ(path.c2_layers.at(0).size(), 1);
+    ASSERT_EQ(path.c2_layers.at(1).size(), 1);
+
+    // Get the Rust-FFI friendly path
+    const auto output_tuple = fcmp_pp::curve_trees::output_to_tuple(init_outputs.back().output_pair);
+    const auto path_for_proof = curve_trees->path_for_proof(path, output_tuple);
+
+    // Make sure Rust-FFI path has expected composition
+    ASSERT_EQ(path_for_proof.c1_scalar_chunks.size(), 1);
+    ASSERT_EQ(path_for_proof.c2_scalar_chunks.size(), 2);
+}
+//----------------------------------------------------------------------------------------------------------------------

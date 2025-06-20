@@ -834,6 +834,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
         CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(input_pair, fcmp_path),
             "finalize_all_proofs_from_transfer_details: failed to get FCMP path from tree cache");
         CHECK_AND_ASSERT_THROW_MES(!fcmp_path.empty(), "finalize_all_proofs_from_transfer_details: FCMP path is empty");
+        assert(curve_trees.audit_path(fcmp_path, input_pair, tree_cache.get_n_leaf_tuples()));
     }
 
     // assert dimension properties of FCMP paths
