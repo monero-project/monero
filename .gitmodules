@@ -14,3 +14,9 @@
 [submodule "external/gtest"]
 	path = external/gtest
 	url = https://github.com/google/googletest.git
+[submodule "external/cryptopp"]
+	path = external/cryptopp
+	url = https://github.com/weidai11/cryptopp
+[submodule "external/cryptopp-cmake"]
+	path = external/cryptopp-cmake
+	url = https://github.com/abdes/cryptopp-cmake
