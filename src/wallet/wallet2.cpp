@@ -1903,9 +1903,9 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced, const uint
     for (const auto &td : m_transfers)
     {
       // Check if we've scanned the tx already
-      if (txids.find(td.m_txid) != txids.end())
+      if (txids.count(td.m_txid))
         continue;
-      if (tx_hashes_to_reprocess.find(td.m_txid) != tx_hashes_to_reprocess.end())
+      if (tx_hashes_to_reprocess.count(td.m_txid))
         continue;
 
       // We have not already scanned this tx, and we cleared the cache.
@@ -1932,12 +1932,10 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced, const uint
       return;
 
     // Find the output's global output id among the requested txs
-    const auto tx_it = txids.find(td.m_txid);
-    const auto tx_hashes_to_reprocess_it = tx_hashes_to_reprocess.find(td.m_txid);
-    const auto extra_tx_hashes_we_need_path_data_for_it = extra_tx_hashes_we_need_path_data_for.find(td.m_txid);
-    THROW_WALLET_EXCEPTION_IF(tx_it == txids.end()
-      && tx_hashes_to_reprocess_it == tx_hashes_to_reprocess.end()
-      && extra_tx_hashes_we_need_path_data_for_it == extra_tx_hashes_we_need_path_data_for.end(),
+    const bool in_txids = txids.count(td.m_txid);
+    const bool in_tx_hashes_to_reprocess = tx_hashes_to_reprocess.count(td.m_txid);
+    const bool in_extra_tx_hashes_we_need_path_data_for = extra_tx_hashes_we_need_path_data_for.count(td.m_txid);
+    THROW_WALLET_EXCEPTION_IF(!in_txids && !in_tx_hashes_to_reprocess && !in_extra_tx_hashes_we_need_path_data_for,
       error::wallet_internal_error, "Missing tx we need path data for");
 
     const auto find_global_output_id = [&td](const std::vector<process_tx_entry_t> &entries) -> uint64_t
@@ -1950,11 +1948,11 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced, const uint
       THROW_WALLET_EXCEPTION(error::wallet_internal_error, "tx entries missing expected tx");
     };
 
-    if (tx_it != txids.end())
+    if (in_txids)
     {
       global_output_ids.push_back(find_global_output_id(scan_tx_entries));
     }
-    else if (tx_hashes_to_reprocess_it != extra_tx_hashes_we_need_path_data_for.end())
+    else if (in_tx_hashes_to_reprocess)
     {
       global_output_ids.push_back(find_global_output_id(rescan_tx_entries));
     }
@@ -1981,7 +1979,7 @@ void wallet2::handle_needed_path_data(const uint64_t n_blocks_synced, const uint
     global_output_ids.reserve(txids.size());
     output_pairs.reserve(txids.size());
     for (const auto &td : m_transfers)
-      if (txids.find(td.m_txid) != txids.end() && detached_tx_hashes.find(td.m_txid) == detached_tx_hashes.end())
+      if (txids.count(td.m_txid) && !detached_tx_hashes.count(td.m_txid))
         push_if_unlocked(td);
   }
   THROW_WALLET_EXCEPTION_IF(output_pairs.size() != global_output_ids.size(), error::wallet_internal_error, "Mismatched number of output pairs to global output id's");
