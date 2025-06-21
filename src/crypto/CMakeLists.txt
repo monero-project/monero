@@ -31,6 +31,7 @@ set(crypto_sources
   blake256.c
   blake2b.c
   chacha.cpp
+  twofish.cpp
   crypto-ops-data.c
   crypto-ops.c
   crypto.cpp
