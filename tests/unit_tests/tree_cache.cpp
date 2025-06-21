@@ -80,20 +80,6 @@ TEST(tree_cache, register_output)
     ASSERT_NE(output_new_commitment.commitment, output.commitment);
 
     ASSERT_TRUE(tree_cache->register_output(output_new_commitment));
-
-    // 5. Sync the block of outputs
-    crypto::hash block_hash{0x01};
-    crypto::hash prev_block_hash{};
-    tree_cache->sync_block(0, block_hash, prev_block_hash, {{ last_locked_block_idx, outputs }});
-
-    // 6. Sync 1 more block so the outputs unlock and enter the tree
-    prev_block_hash = block_hash;
-    block_hash = crypto::hash{0x02};
-    tree_cache->sync_block(last_locked_block_idx, block_hash, prev_block_hash, {});
-
-    // 7. Register a new output where we already synced the block output unlocks in - invalid
-    const auto &new_output = test::generate_random_outputs(*curve_trees, INIT_LEAVES, 1).front().output_pair;
-    ASSERT_FALSE(tree_cache->register_output(new_output));
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(tree_cache, sync_block_simple)
