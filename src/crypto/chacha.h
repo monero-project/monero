@@ -63,11 +63,11 @@ namespace crypto {
   static_assert(sizeof(chacha_key) == CHACHA_KEY_SIZE && sizeof(chacha_iv) == CHACHA_IV_SIZE, "Invalid structure size");
 
   inline void chacha8(const void* data, std::size_t length, const chacha_key& key, const chacha_iv& iv, char* cipher) {
-    chacha8(data, length, key.data(), reinterpret_cast<const uint8_t*>(&iv), cipher);
+    chacha8(data, length, key.data(), iv.data, cipher);
   }
 
   inline void chacha20(const void* data, std::size_t length, const chacha_key& key, const chacha_iv& iv, char* cipher) {
-    chacha20(data, length, key.data(), reinterpret_cast<const uint8_t*>(&iv), cipher);
+    chacha20(data, length, key.data(), iv.data, cipher);
   }
 
   inline void generate_chacha_key(const void *data, size_t size, chacha_key& key, uint64_t kdf_rounds) {
