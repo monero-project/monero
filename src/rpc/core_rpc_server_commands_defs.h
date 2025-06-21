@@ -489,13 +489,13 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
           KV_SERIALIZE(confirmations)
           KV_SERIALIZE(block_timestamp)
           KV_SERIALIZE(output_indices)
+          KV_SERIALIZE(global_output_ids)
         }
         else
         {
           KV_SERIALIZE(relayed)
           KV_SERIALIZE(received_timestamp)
         }
-        KV_SERIALIZE_CONTAINER_POD_AS_BLOB_OPT(global_output_ids, std::vector<uint64_t>{})
       END_KV_SERIALIZE_MAP()
     };
 

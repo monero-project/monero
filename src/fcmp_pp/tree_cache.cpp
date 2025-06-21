@@ -1242,16 +1242,17 @@ void TreeCache<C1, C2>::force_add_output_path(const OutputPair &output,
 {
     MDEBUG("Force adding output " << output.output_pubkey << " , commitment " << output.commitment);
 
-    // This function expects the output to be registered already.
-    CHECK_AND_ASSERT_THROW_MES(m_registered_outputs.find(get_output_ref(output)) != m_registered_outputs.end(),
-        "force_add_output_path: output is not already registered");
-
     // If an empty path is passed in here, this function is not sufficiently capable of handling it. The output must
     // be added to the locked outputs cache in this case, which would require the output's last locked block.
     CHECK_AND_ASSERT_THROW_MES(path_bytes.leaves.size() && path_bytes.layer_chunks.size(),
         "force_add_output_path: unexpected empty path");
 
-    // TODO: if output's path is already known, make sure all elems are equal and return. Don't bump ref count.
+    // This function expects the output to be registered already, but not yet assigned.
+    const auto registered_output_it = m_registered_outputs.find(get_output_ref(output));
+    CHECK_AND_ASSERT_THROW_MES(registered_output_it != m_registered_outputs.end(),
+        "force_add_output_path: output is not already registered");
+    CHECK_AND_ASSERT_THROW_MES(!registered_output_it->second.assigned_leaf_idx,
+        "force_add_output_path: output is already assigned");
 
     // Assign the output's leaf tuple
     assign_new_output(output, leaf_idx, m_registered_outputs);
