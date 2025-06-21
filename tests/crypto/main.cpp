@@ -65,7 +65,6 @@ int main(int argc, char *argv[]) {
   string cmd;
   size_t test = 0;
   bool error = false;
-  setup_random();
   if (argc != 2) {
     cerr << "invalid arguments" << endl;
     return 1;

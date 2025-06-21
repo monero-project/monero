@@ -31,8 +31,7 @@ set(crypto_sources
   crypto-ops.c
   crypto.cpp
   hash.c
-  main.cpp
-  random.c)
+  main.cpp)
 
 set(crypto_headers
   crypto-tests.h)

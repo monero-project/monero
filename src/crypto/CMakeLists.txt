@@ -44,7 +44,7 @@ set(crypto_sources
   jh.c
   keccak.c
   oaes_lib.c
-  random.c
+  random.cpp
   skein.c
   slow-hash.c
   rx-slow-hash.c
@@ -71,6 +71,7 @@ target_link_libraries(cncrypto
   PUBLIC
     epee
     randomx
+    cryptopp
     ${Boost_SYSTEM_LIBRARY}
     ${sodium_LIBRARIES}
   PRIVATE
