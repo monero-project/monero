@@ -288,13 +288,15 @@ namespace net_utils
     explicit connection( io_context_t& io_context,
                         std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
-			epee::net_utils::ssl_support_t ssl_support);
+			epee::net_utils::ssl_support_t ssl_support,
+      t_connection_context&& initial = t_connection_context{});
 
     explicit connection( io_context_t& io_context,
       boost::asio::ip::tcp::socket&& sock,
 			 std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
-			epee::net_utils::ssl_support_t ssl_support);
+			epee::net_utils::ssl_support_t ssl_support,
+      t_connection_context&& initial = t_connection_context{});
 
 
 
@@ -399,7 +401,7 @@ namespace net_utils
     try_connect_result_t try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support);
     bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
     template<class t_callback>
-    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, t_connection_context&& initial = t_connection_context{});
 
     boost::asio::ssl::context& get_ssl_context() noexcept
     {
