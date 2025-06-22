@@ -1177,6 +1177,34 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
     subtest_multi_account_transfer_over_transaction(tx_proposal);
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_impl, get_input_count_for_max_usable_money_1)
+{
+    const std::vector<rct::xmr_amount> amounts{17, 7, 11, 8, 9};
+
+    const std::map<std::size_t, rct::xmr_amount> fee_by_input_count{
+        {1, 10},
+        {2, 20},
+        {3, 30},
+        {4, 40},
+        {5, 50},
+        {6, 60},
+        {7, 70},
+        {8, 80}
+    };
+
+    const auto input_count_for_max_usable_money = carrot::get_input_count_for_max_usable_money(
+        amounts.cbegin(),
+        amounts.cend(),
+        fee_by_input_count.size(),
+        fee_by_input_count);
+
+    const std::pair<std::size_t, boost::multiprecision::uint128_t> expected_input_count_for_max_usable_money{
+        2, 17 + 11
+    };
+
+    EXPECT_EQ(expected_input_count_for_max_usable_money, input_count_for_max_usable_money);
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_1)
 {
     // no input candidates, should throw `not_enough_money`
@@ -1602,6 +1630,13 @@ TEST(carrot_impl, make_multiple_carrot_transaction_proposals_sweep_1)
             ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
             ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
             ASSERT_TRUE(tx_proposal.extra.empty());
+
+            const carrot::CarrotPaymentProposalVerifiableSelfSendV1 &selfsend_payment_proposal
+                = tx_proposal.selfsend_payment_proposals.at(0);
+            ASSERT_EQ(0, selfsend_payment_proposal.proposal.amount);
+            ASSERT_EQ(0, selfsend_payment_proposal.subaddr_index.index.major);
+            ASSERT_EQ(0, selfsend_payment_proposal.subaddr_index.index.minor);
+            ASSERT_EQ(carrot::AddressDeriveType::Auto, selfsend_payment_proposal.subaddr_index.derive_type);
 
             carrot::CarrotPaymentProposalV1 modified_normal_payment_proposal = normal_payment_proposal;
             modified_normal_payment_proposal.amount = tx_proposal.normal_payment_proposals.at(0).amount;
