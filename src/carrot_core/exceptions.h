@@ -51,6 +51,7 @@ CARROT_DEFINE_SIMPLE_ERROR_TYPE(invalid_point,          carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(missing_components,     carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(missing_randomness,     carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_few_inputs,         carrot_logic_error)
+CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_inputs,         carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_few_outputs,        carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_outputs,       carrot_logic_error)
 
