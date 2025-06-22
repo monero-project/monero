@@ -168,6 +168,7 @@ void make_multiple_carrot_transaction_proposals_sweep(
 
     tx_proposals_out.reserve((selected_inputs.size() + FCMP_PLUS_PLUS_MAX_INPUTS - 1) / FCMP_PLUS_PLUS_MAX_INPUTS);
 
+    // callback for calling `get_input_count_for_max_usable_money()` on some slice of inputs starting at `window_offset`
     const auto get_input_count_for_max_usable_money_in_window = 
         [&selected_inputs, &fee_by_input_count](const std::size_t window_offset)
     {
@@ -188,17 +189,24 @@ void make_multiple_carrot_transaction_proposals_sweep(
                 fee_by_input_count).first;
     };
 
+    // To try to maximize the total amount of money sent in a sweep, we first order the amounts in
+    // ascending order. Then from low to high, we slide a "window" over a slice of contiguous
+    // amounts and call `get_input_count_for_max_usable_money_in_window` over that window. That call
+    // will tell how many of the inputs in that window are dusty. If any are dusty, we should keep
+    // sliding the window until we can't. Once that window stops, we use that window for the inputs
+    // for the current transaction. Repeat until no inputs are left or only dusty inputs are left.
+
     // while some selection of inputs of the highest amounts at some input count yields a net positive output sum...
     while (get_input_count_for_max_usable_money_in_window(0))
     {
-        // slide a window in ascending amount order until some inputs in that window yield a net positive output sum..
-        std::size_t window_offset = selected_inputs.size()
-            - std::min<std::size_t>(CARROT_MAX_TX_INPUTS, selected_inputs.size());
+        // slide a window in ascending amount order until all inputs in that window yield a net positive output sum...
+        const std::size_t max_window_size = std::min<std::size_t>(CARROT_MAX_TX_INPUTS, selected_inputs.size());
+        std::size_t window_offset = selected_inputs.size() - max_window_size;
         std::size_t n_tx_inputs = 0;
         do
         {
             n_tx_inputs = get_input_count_for_max_usable_money_in_window(window_offset);
-            if (0 == window_offset || 0 != n_tx_inputs)
+            if (0 == window_offset || max_window_size == n_tx_inputs)
                 break;
             --window_offset;
         }

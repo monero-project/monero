@@ -63,8 +63,9 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
 
     std::size_t input_count = 0;
     boost::multiprecision::uint128_t cumulative_input_sum = 0;
-    boost::multiprecision::uint128_t best_cumulative_input_sum = 0;
     std::size_t best_input_count = 0;
+    boost::multiprecision::uint128_t best_cumulative_input_sum = 0;
+    boost::multiprecision::uint128_t best_net_input_sum = 0;
     // for all valid input counts (or existing amount counts, whichever is fewer)...
     for (auto top_amount_it = top_amounts.crbegin(); top_amount_it != top_amounts.crend(); ++top_amount_it)
     {
@@ -82,12 +83,14 @@ std::pair<std::size_t, boost::multiprecision::uint128_t> get_input_count_for_max
         // if the input amount total is greater than fee for that number of inputs...
         if (cumulative_input_sum > current_fee)
         {
-            // and if that input amount total is better than any other total observed yet...
-            if (cumulative_input_sum > best_cumulative_input_sum)
+            const boost::multiprecision::uint128_t net_input_sum = cumulative_input_sum - current_fee;
+            // and if that input amount total minus its fees is better than any other total observed yet...
+            if (net_input_sum > best_net_input_sum)
             {
                 // set that as best.
-                best_cumulative_input_sum = cumulative_input_sum;
                 best_input_count = input_count;
+                best_cumulative_input_sum = cumulative_input_sum;
+                best_net_input_sum = net_input_sum;
             }
         }
     }
