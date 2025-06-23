@@ -28,6 +28,7 @@
 
 #include "curve_trees.h"
 
+#include "common/container_helpers.h"
 #include "common/threadpool.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
