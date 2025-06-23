@@ -5659,7 +5659,7 @@ std::vector<outkey> BlockchainLMDB::get_tx_output_data(const crypto::hash& h, cr
     throw0(DB_ERROR(lmdb_error("DB error attempting to get data for tx_outputs[tx_index]", result).c_str()));
 
   const uint64_t* amount_output_indices = (const uint64_t*)v_tx_output.mv_data;
-  size_t num_amount_output_indices = v_tx_output.mv_size / sizeof(uint64_t);
+  const size_t num_amount_output_indices = v_tx_output.mv_size / sizeof(uint64_t);
 
   // Get tx output amounts from pruned tx
   std::vector<uint64_t> amounts;
