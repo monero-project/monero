@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Copyright (c) 2019-2021 The Bitcoin Core developers
-# Copyright (c) 2022-2024 The Monero Project
+# Copyright (c) 2022-2025 The Monero Project
 # Distributed under the MIT software license, see the accompanying
 # file ../LICENSE.txt or http://www.opensource.org/licenses/mit-license.php.
 export LC_ALL=C
