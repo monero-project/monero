@@ -1537,12 +1537,12 @@ CurveTrees<Selene, Helios>::PathForProof CurveTrees<Selene, Helios>::path_for_pr
 
     // c2 helios scalars from c1 selene points
     std::vector<std::vector<fcmp_pp::HeliosScalar>> c2_scalar_chunks;
+    c2_scalar_chunks.reserve(n_c2_scalar_chunk_layers);
     for (std::size_t i = 0; i < n_c2_scalar_chunk_layers; ++i)
     {
         const auto &c1_points = path.c1_layers.at(i);
-        c2_scalar_chunks.emplace_back();
-        auto &c2_scalar_layer = c2_scalar_chunks.back();
-        c2_scalar_layer.reserve(c1_points.size());
+        auto &c2_scalar_layer = tools::add_element(c2_scalar_chunks);
+        c2_scalar_layer.reserve(m_c2_width);
         for (const auto &c1_point : c1_points)
             c2_scalar_layer.emplace_back(m_c1->point_to_cycle_scalar(c1_point));
         // Padding with 0's
@@ -1552,12 +1552,12 @@ CurveTrees<Selene, Helios>::PathForProof CurveTrees<Selene, Helios>::path_for_pr
 
     // c1 selene scalars from c2 helios points
     std::vector<std::vector<fcmp_pp::SeleneScalar>> c1_scalar_chunks;
+    c1_scalar_chunks.reserve(n_c1_scalar_chunk_layers);
     for (std::size_t i = 0; i < n_c1_scalar_chunk_layers; ++i)
     {
         const auto &c2_points = path.c2_layers.at(i);
-        c1_scalar_chunks.emplace_back();
-        auto &c1_scalar_layer = c1_scalar_chunks.back();
-        c1_scalar_layer.reserve(c2_points.size());
+        auto &c1_scalar_layer = tools::add_element(c1_scalar_chunks);
+        c1_scalar_layer.reserve(m_c1_width);
         for (const auto &c2_point : c2_points)
             c1_scalar_layer.emplace_back(m_c2->point_to_cycle_scalar(c2_point));
         // Padding with 0's
