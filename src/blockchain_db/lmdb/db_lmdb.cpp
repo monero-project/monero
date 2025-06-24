@@ -202,7 +202,7 @@ namespace
  * spent_keys       input hash   -
  *
  * locked_outputs   block ID     [{OutputContext}...]
- * leaves           leaf_idx     {OutputContext}
+ * leaves           leaf_idx     {mdb_leaf}
  * layers           layer_idx    [{child_chunk_idx, child_chunk_hash}...]
  * tree_edges       block ID     [child_chunk_hash]
  * tree_meta        block ID     n_leaf_tuples
@@ -359,10 +359,13 @@ typedef struct outtx {
     uint64_t local_index;
 } outtx;
 
+#pragma pack(push, 1)
 typedef struct mdb_leaf {
     uint64_t leaf_idx;
-    fcmp_pp::curve_trees::OutputContext output_context;
+    uint64_t output_id;
 } mdb_leaf;
+#pragma pack(pop)
+static_assert(sizeof(mdb_leaf) == (8+8), "mdb_leaf unexpected size");
 
 typedef struct layer_val {
     uint64_t child_chunk_idx;
@@ -1497,7 +1500,7 @@ void BlockchainLMDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curv
   for (uint64_t i = 0; i < leaves.tuples.size(); ++i)
   {
     const uint64_t leaf_idx = i + leaves.start_leaf_tuple_idx;
-    mdb_leaf val{.leaf_idx = leaf_idx, .output_context = std::move(leaves.tuples[i])};
+    mdb_leaf val{.leaf_idx = leaf_idx, .output_id = leaves.tuples.at(i).output_id};
     MDB_val_set(v, val);
 
     int result = mdb_cursor_put(m_cur_leaves, (MDB_val *)&zerokval, &v, MDB_APPENDDUP);
@@ -1787,8 +1790,8 @@ fcmp_pp::curve_trees::PathBytes BlockchainLMDB::get_path(const fcmp_pp::curve_tr
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
 
-        auto *db_leaf = (mdb_leaf *)v.mv_data;
-        leaves_out.emplace_back(std::move(db_leaf->output_context));
+        const auto *db_leaf = (mdb_leaf *)v.mv_data;
+        leaves_out.emplace_back(this->get_output_context_by_output_id(db_leaf->output_id));
 
         ++idx;
       }
@@ -1924,7 +1927,7 @@ uint64_t BlockchainLMDB::get_path_by_global_output_id(const std::vector<uint64_t
       continue;
     const uint64_t output_id = out_keys.at(i).output_id;
     const auto tuple_range = n_leaf_tuple_ranges.at(i);
-    leaf_idxs_out.at(i) = this->find_leaf_idx_by_output_id(output_id, tuple_range.first, tuple_range.second);
+    leaf_idxs_out.at(i) = this->find_leaf_idx_by_output_id_bounded_search(output_id, tuple_range.first, tuple_range.second);
   }
 
   // 6. Use leaf idxs to get paths
@@ -1964,7 +1967,36 @@ uint64_t BlockchainLMDB::get_path_by_global_output_id(const std::vector<uint64_t
   return n_leaf_tuples;
 }
 
-uint64_t BlockchainLMDB::find_leaf_idx_by_output_id(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const
+fcmp_pp::curve_trees::OutputContext BlockchainLMDB::get_output_context_by_output_id(uint64_t output_id) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  TXN_PREFIX_RDONLY();
+
+  // Db reads on output_txs, tx_indices, and txs_pruned
+  const auto toi = this->get_output_tx_and_index_from_global(output_id);
+  const auto tx = this->get_pruned_tx(toi.first);
+
+  // Output pub key
+  const auto &out = tx.vout.at(toi.second);
+  crypto::public_key output_pubkey;
+  if (!get_output_public_key(out, output_pubkey))
+    throw0(DB_ERROR("Could not get an output public key from a tx output."));
+
+  // Amount commitment
+  const rct::key commitment = out.amount == 0
+    ? tx.rct_signatures.outPk.at(toi.second).mask
+    : rct::zeroCommitVartime(out.amount);
+
+  TXN_POSTFIX_RDONLY();
+
+  const uint8_t torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx);
+  const fcmp_pp::curve_trees::OutputPair output_pair{.output_pubkey = output_pubkey, .commitment = commitment};
+  return { .output_id = output_id, .torsion_checked = torsion_checked, .output_pair = output_pair };
+}
+
+uint64_t BlockchainLMDB::find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -2000,7 +2032,7 @@ uint64_t BlockchainLMDB::find_leaf_idx_by_output_id(uint64_t output_id, uint64_t
 
     while (it < range_end)
     {
-      found_leaf_idx = it->output_context.output_id == output_id;
+      found_leaf_idx = it->output_id == output_id;
       if (found_leaf_idx)
       {
         leaf_idx = it->leaf_idx;
@@ -2096,8 +2128,9 @@ void BlockchainLMDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t 
       // Re-add the output to the locked output table in order. The output should
       // be in the outputs tables.
       const auto *o = (mdb_leaf *)v.mv_data;
-      MDB_val_set(v_output, o->output_context);
-      MDEBUG("Re-adding locked output_id: " << o->output_context.output_id << " , last locked block: " << trim_block_id);
+      const auto output_context = this->get_output_context_by_output_id(o->output_id);
+      MDB_val_set(v_output, output_context);
+      MDEBUG("Re-adding locked output_id: " << output_context.output_id << " , last locked block: " << trim_block_id);
       result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
       if (result != MDB_SUCCESS)
         throw0(DB_ERROR(lmdb_error("Failed to re-add locked output: ", result).c_str()));
@@ -2369,9 +2402,9 @@ bool BlockchainLMDB::audit_tree(const uint64_t expected_n_leaf_tuples) const
         throw0(DB_ERROR(lmdb_error("Failed to add leaf: ", result).c_str()));
 
       const auto *o = (mdb_leaf *)v_leaf.mv_data;
-      auto leaf = m_curve_trees->leaf_tuple(o->output_context.output_pair);
-
-      leaf_tuples_chunk.emplace_back(std::move(leaf));
+      const auto output_context = this->get_output_context_by_output_id(o->output_id);
+      auto leaf_tuple = m_curve_trees->leaf_tuple(output_context.output_pair);
+      leaf_tuples_chunk.emplace_back(std::move(leaf_tuple));
 
       if (leaf_tuples_chunk.size() == m_curve_trees->m_c1_width)
         break;
