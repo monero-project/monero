@@ -482,7 +482,9 @@ private:
 
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const;
 
-  uint64_t find_leaf_idx_by_output_id(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const;
+  fcmp_pp::curve_trees::OutputContext get_output_context_by_output_id(uint64_t output_id) const;
+
+  uint64_t find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const;
 
   // Hard fork
   void set_hard_fork_version(uint64_t height, uint8_t version) override;
