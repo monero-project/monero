@@ -41,8 +41,7 @@ using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
 //----------------------------------------------------------------------------------------------------------------------
 namespace test
 {
-const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const CurveTreesV1 &curve_trees,
-    const std::size_t old_n_leaf_tuples,
+const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples);
 
 std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,

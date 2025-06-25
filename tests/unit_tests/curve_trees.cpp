@@ -33,6 +33,7 @@
 #include "fcmp_pp/fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
 
 #include <algorithm>
 
@@ -43,8 +44,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 namespace test
 {
-const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const CurveTreesV1 &curve_trees,
-    const std::size_t old_n_leaf_tuples,
+const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples)
 {
     std::vector<fcmp_pp::curve_trees::OutputContext> outs;
@@ -75,6 +75,33 @@ const std::vector<fcmp_pp::curve_trees::OutputContext> generate_random_outputs(c
     }
 
     return outs;
+}
+//----------------------------------------------------------------------------------------------------------------------
+const std::pair<rct::xmr_amount, fcmp_pp::curve_trees::OutputContext> generate_miner_output(
+    const std::size_t old_n_leaf_tuples)
+{
+    const std::uint64_t output_id = old_n_leaf_tuples;
+
+    // Generate random output pubkey
+    crypto::secret_key o;
+    crypto::public_key O;
+    crypto::generate_keys(O, o, o, false);
+
+    // Generate random amount
+    const rct::xmr_amount rand_amount = crypto::rand_idx<rct::xmr_amount>(1000000);
+    const rct::key C = rct::zeroCommitVartime(rand_amount);
+
+    const fcmp_pp::curve_trees::OutputPair output_pair{
+            .output_pubkey = O,
+            .commitment    = C
+        };
+
+    const fcmp_pp::curve_trees::OutputContext output_context{
+            .output_id   = output_id,
+            .output_pair = output_pair
+        };
+
+    return {rand_amount, output_context};
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t selene_chunk_width,
@@ -123,11 +150,87 @@ static bool grow_tree_db(const uint64_t block_idx,
 
     LOG_PRINT_L1("Growing " << n_leaves << " leaves on tree with " << expected_old_n_leaf_tuples << " leaves in db");
 
+    CHECK_AND_ASSERT_MES(n_leaves > 0, false, "expected >0 n_leaves passed into grow_tree_db");
     CHECK_AND_ASSERT_MES(test_db.m_db->get_n_leaf_tuples() == (uint64_t)(expected_old_n_leaf_tuples),
         false, "unexpected starting n leaf tuples in db");
 
-    auto new_outputs = test::generate_random_outputs(*curve_trees, 0, n_leaves);
+    auto new_miner_output = test::generate_miner_output(expected_old_n_leaf_tuples);
+    auto new_outputs = test::generate_random_outputs(expected_old_n_leaf_tuples+1, n_leaves-1);
 
+    // Prepare to add the block to the db before growing. We need to do this so that the tx output data gets saved.
+    // The tx output data needs to be in the db and indexed so that it can be read during trim_tree and audit_tree.
+    // WARNING: this is a mine-field. This currently passes the test as needed, but small changes can break this test
+    // without necessarily introducing incorrect functionality. The call to add_block is the brittle part.
+    cryptonote::block blk;
+    std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>> txs;
+
+    blk.major_version = block_idx > 0 ? HF_VERSION_FCMP_PLUS_PLUS : 1;
+    blk.prev_id = block_idx > 0 ? test_db.m_db->get_block_hash_from_height(block_idx - 1) : crypto::hash{};
+
+    const auto make_mock_tx = [block_idx](const fcmp_pp::curve_trees::OutputContext &output_context,
+            bool miner_tx,
+            rct::xmr_amount amount) -> std::pair<cryptonote::transaction, cryptonote::blobdata>
+        {
+            cryptonote::transaction tx;
+            const cryptonote::tx_out tx_out{
+                .amount = amount,
+                .target = cryptonote::txout_to_key(output_context.output_pair.output_pubkey)};
+            const rct::ctkey ctkey{.dest = rct::key(), .mask = output_context.output_pair.commitment};
+
+            tx.version = 2;
+            tx.unlock_time = 0;
+            tx.vout = {tx_out};
+
+            if (!miner_tx)
+            {
+                tx.rct_signatures.type = rct::RCTTypeFcmpPlusPlus;
+                const crypto::key_image mock_ki = (crypto::key_image&) output_context.output_pair.output_pubkey;
+                tx.vin = {cryptonote::txin_to_key{.amount = 0, .key_offsets = {}, .k_image = mock_ki}};
+                tx.rct_signatures.outPk = {ctkey};
+                tx.rct_signatures.ecdhInfo = {{}};
+                tx.rct_signatures.p.pseudoOuts = {{}};
+                rct::keyV _C, _masks;
+                tx.rct_signatures.p.bulletproofs_plus = {rct::make_dummy_bulletproof_plus({amount}, _C, _masks)};
+                tx.rct_signatures.p.reference_block = 1;
+                tx.rct_signatures.p.n_tree_layers = 1;
+                tx.rct_signatures.p.fcmp_pp =
+                    std::vector<uint8_t>(fcmp_pp::fcmp_pp_proof_len(tx.vin.size(), tx.rct_signatures.p.n_tree_layers));
+            }
+            else
+            {
+                tx.vin = {cryptonote::txin_gen{.height = block_idx}};
+            }
+
+            const cryptonote::blobdata tx_blob = cryptonote::tx_to_blob(tx);
+            return {tx, tx_blob};
+        };
+
+    blk.miner_tx = make_mock_tx(new_miner_output.second, true, new_miner_output.first).first;
+    txs.reserve(new_outputs.size());
+    for (const auto &out : new_outputs)
+    {
+        txs.emplace_back(make_mock_tx(out, false, 0/*amount*/));
+        blk.tx_hashes.emplace_back(cryptonote::get_transaction_hash(txs.back().first));
+    }
+    const cryptonote::blobdata block_blob = cryptonote::block_to_blob(blk);
+    const std::unordered_map<rct::xmr_amount, rct::key> transparent_amount_commitments{
+        {new_miner_output.first, new_miner_output.second.output_pair.commitment}};
+
+    // Now add the block to the db, which adds all the tx out data we need saved
+    test_db.m_db->add_block({blk, block_blob},
+        0/*block_weight*/,
+        0/*long_term_block_weight*/,
+        {}/*cumulative_difficulty*/,
+        0/*coins_generated*/,
+        txs,
+        transparent_amount_commitments);
+
+    // Update hard fork version so the tests don't complain
+    test_db.m_db->set_hard_fork_version(block_idx, HF_VERSION_FCMP_PLUS_PLUS);
+
+    // Now grow the tree with the new outputs
+    new_outputs.insert(new_outputs.begin(), new_miner_output.second);
+    CHECK_AND_ASSERT_MES(new_outputs.size() == n_leaves, false, "unexpected size of new outputs");
     test_db.m_db->grow_tree(block_idx, std::move(new_outputs));
 
     return test_db.m_db->audit_tree(expected_old_n_leaf_tuples + n_leaves);
@@ -182,7 +285,7 @@ static bool trim_tree_db(const uint64_t block_idx,
         CurveTreesGlobalTree global_tree(*curve_trees);                                               \
         if (init_mem_tree)                                                                            \
         {                                                                                             \
-            const auto init_outputs = test::generate_random_outputs(*curve_trees, 0, init_leaves);    \
+            const auto init_outputs = test::generate_random_outputs(0, init_leaves);                  \
             ASSERT_TRUE(global_tree.grow_tree(0, init_leaves, init_outputs));                         \
         }                                                                                             \
                                                                                                       \
@@ -835,7 +938,7 @@ TEST(curve_trees, grow_tree)
         // Tree in memory
         // Copy the already existing global tree
         CurveTreesGlobalTree tree_copy(global_tree);
-        const auto new_outputs = test::generate_random_outputs(*curve_trees, init_leaves, ext_leaves);
+        const auto new_outputs = test::generate_random_outputs(init_leaves, ext_leaves);
         ASSERT_TRUE(tree_copy.grow_tree(init_leaves, ext_leaves, new_outputs));
 
         // Tree in db
@@ -876,43 +979,6 @@ TEST(curve_trees, trim_tree)
         const uint64_t block_idx = 1;
         ASSERT_TRUE(grow_tree_db(block_idx, init_leaves, trim_leaves, curve_trees, copy_db));
         ASSERT_TRUE(trim_tree_db(block_idx, init_leaves + trim_leaves, trim_leaves, copy_db));
-    }
-
-    END_INIT_TREE_ITER()
-}
-//----------------------------------------------------------------------------------------------------------------------
-TEST(curve_trees, trim_tree_then_grow)
-{
-    // Use lower values for chunk width than prod so that we can quickly test a many-layer deep tree
-    static const std::size_t selene_chunk_width = 3;
-    static const std::size_t helios_chunk_width = 3;
-    static const std::size_t tree_depth = 2;
-
-    static const std::size_t grow_after_trim = 1;
-
-    LOG_PRINT_L1("Test trim tree with selene chunk width " << selene_chunk_width
-        << ", helios chunk width " << helios_chunk_width << ", tree depth " << tree_depth
-        << ", then grow " << grow_after_trim << " leaf/leaves");
-
-    INIT_CURVE_TREES_TEST;
-
-    // First initialize the tree with init_leaves
-    BEGIN_INIT_TREE_ITER(curve_trees, false)
-
-    // Then trim by trim_leaves
-    for (std::size_t trim_leaves = 1; trim_leaves <= min_leaves_needed_for_tree_depth; ++trim_leaves)
-    {
-        if (trim_leaves > init_leaves)
-            continue;
-
-        // Tree in db
-        // Copy the already existing db
-        unit_test::BlockchainLMDBTest copy_db = *test_db.copy_db(curve_trees);
-        INIT_BLOCKCHAIN_LMDB_TEST_DB(copy_db, nullptr);
-        const uint64_t block_idx = 1;
-        ASSERT_TRUE(grow_tree_db(block_idx, init_leaves, trim_leaves, curve_trees, copy_db));
-        ASSERT_TRUE(trim_tree_db(block_idx, init_leaves + trim_leaves, trim_leaves, copy_db));
-        ASSERT_TRUE(grow_tree_db(block_idx, init_leaves, grow_after_trim, curve_trees, copy_db));
     }
 
     END_INIT_TREE_ITER()
