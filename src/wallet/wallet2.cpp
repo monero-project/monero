@@ -6456,7 +6456,8 @@ bool wallet2::check_version(uint32_t *version, bool *wallet_is_outdated, bool *d
     if (rpc_version < MAKE_CORE_RPC_VERSION(3, 17))
     {
       // Wallet cannot init FCMP++ tree while syncing if pointing to an older daemon
-      *daemon_is_outdated = true;
+      if (daemon_is_outdated)
+        *daemon_is_outdated = true;
       return false;
     }
 
