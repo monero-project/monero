@@ -1179,6 +1179,7 @@ TEST(carrot_impl, multi_account_transfer_over_transaction_16)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_impl, get_input_count_for_max_usable_money_1)
 {
+    // Input selection should only select amounts > 10 (the marginal fee increase for including an input)
     const std::vector<rct::xmr_amount> amounts{17, 7, 11, 8, 9};
 
     const std::map<std::size_t, rct::xmr_amount> fee_by_input_count{
