@@ -334,11 +334,12 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(generate_from_keys)
 
-    def set_subaddress_lookahead(self, major_idx: int, minor_idx: int):
+    def set_subaddress_lookahead(self, major_idx: int, minor_idx: int, password = ""):
         lookahead = {
             'method': 'set_subaddress_lookahead',
             'jsonrpc': '2.0',
             'params' : {
+                'password': password,
                 'major_idx': major_idx,
                 'minor_idx': minor_idx
             },

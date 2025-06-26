@@ -186,9 +186,11 @@ namespace wallet_rpc
   {
     struct request_t
     {
+      std::string password;
       uint32_t major_idx;
       uint32_t minor_idx;
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(password)
         KV_SERIALIZE(major_idx)
         KV_SERIALIZE(minor_idx)
       END_KV_SERIALIZE_MAP()
