@@ -41,7 +41,7 @@
 
 namespace carrot
 {
-#define CARROT_DEFINE_SIMPLE_ERROR_TYPE(e, b) class e: b { using b::b; };
+#define CARROT_DEFINE_SIMPLE_ERROR_TYPE(e, b) class e: public b { using b::b; };
 
 class carrot_logic_error: public std::logic_error { using std::logic_error::logic_error; };
 
