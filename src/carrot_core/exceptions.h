@@ -43,7 +43,7 @@ namespace carrot
 {
 #define CARROT_DEFINE_SIMPLE_ERROR_TYPE(e, b) class e: b { using b::b; };
 
-class carrot_logic_error: std::logic_error { using std::logic_error::logic_error; };
+class carrot_logic_error: public std::logic_error { using std::logic_error::logic_error; };
 
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(bad_address_type,       carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(component_out_of_order, carrot_logic_error)
@@ -51,12 +51,12 @@ CARROT_DEFINE_SIMPLE_ERROR_TYPE(invalid_point,          carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(missing_components,     carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(missing_randomness,     carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_few_inputs,         carrot_logic_error)
-CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_inputs,         carrot_logic_error)
+CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_inputs,        carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_few_outputs,        carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(too_many_outputs,       carrot_logic_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(integer_overflow,       carrot_logic_error)
 
-class carrot_runtime_error: std::runtime_error { using std::runtime_error::runtime_error; };
+class carrot_runtime_error: public std::runtime_error { using std::runtime_error::runtime_error; };
 
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(crypto_function_failed,    carrot_runtime_error)
 CARROT_DEFINE_SIMPLE_ERROR_TYPE(not_enough_money,          carrot_runtime_error)
