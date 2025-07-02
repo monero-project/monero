@@ -7489,7 +7489,7 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   }
   std::string amount_str;
   std::string payment_id_str;
-  // get payment id and pop
+  // get payment id and pop (long PIDs handled in `transfer()`)
   crypto::hash payment_id = crypto::null_hash;
   crypto::hash8 payment_id8 = crypto::null_hash8;
   if (tools::wallet2::parse_long_payment_id (local_args.back(), payment_id ) ||
@@ -7497,10 +7497,6 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   {
     payment_id_str = local_args.back();
     local_args.pop_back();
-  }
-  if (payment_id != crypto::null_hash)
-  {
-    LONG_PAYMENT_ID_SUPPORT_CHECK();
   }
   // get amount and pop
   uint64_t amount;
