@@ -465,7 +465,7 @@ class TransferTest():
         assert res.unlocked_balance <= res.balance
         assert res.blocks_to_unlock == 9
 
-        print('Sending to integrated address')
+        print('Carrot Sending to integrated address')
         self.wallet[0].refresh()
         res = self.wallet[0].get_balance()
         i_pid = '1111111122222222'
@@ -888,7 +888,7 @@ class TransferTest():
     def check_destinations(self):
         daemon = Daemon()
 
-        print("Checking transaction destinations")
+        print("Carrot Checking transaction destinations")
 
         dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
         res = self.wallet[0].transfer([dst])
@@ -1070,7 +1070,7 @@ class TransferTest():
     def check_scan_tx(self):
         daemon = Daemon()
 
-        print('Testing scan_tx')
+        print('FCMP++ Testing scan_tx')
 
         # set up sender_wallet
         sender_wallet = self.wallet[0]
@@ -1268,7 +1268,7 @@ class TransferTest():
     def check_subtract_fee_from_outputs(self):
         daemon = Daemon()
 
-        print('Testing fee-included transfers')
+        print('Carrot Testing fee-included transfers')
 
         def inner_test_external_transfer(dsts, subtract_fee_from_outputs):
             # refresh wallet and get balance
