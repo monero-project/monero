@@ -29,6 +29,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
+import math
 import util_resources
 import pprint
 from deepdiff import DeepDiff
