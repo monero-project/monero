@@ -909,26 +909,6 @@ uint64_t calculate_fee(bool use_per_byte_fee, const cryptonote::transaction &tx,
     return calculate_fee(base_fee, blob_size);
 }
 
-bool get_short_payment_id(crypto::hash8 &payment_id8, const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
-{
-  std::vector<tx_extra_field> tx_extra_fields;
-  parse_tx_extra(ptx.tx.extra, tx_extra_fields); // ok if partially parsed
-  cryptonote::tx_extra_nonce extra_nonce;
-  if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-  {
-    if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-    {
-      if (ptx.dests.empty())
-      {
-        MWARNING("Encrypted payment id found, but no destinations public key, cannot decrypt");
-        return false;
-      }
-      return hwdev.decrypt_payment_id(payment_id8, ptx.dests[0].addr.m_view_public_key, ptx.tx_key);
-    }
-  }
-  return false;
-}
-
 static const tools::wallet2::tx_construction_data &get_construction_data(const tools::wallet2::pending_tx &ptx)
 {
   THROW_WALLET_EXCEPTION_IF(!std::holds_alternative<tools::wallet2::tx_construction_data>(ptx.construction_data),
@@ -943,24 +923,6 @@ static tools::wallet2::tx_construction_data &get_construction_data(tools::wallet
     tools::error::wallet_internal_error,
     "Getting pre-carrot construction data only works for pre-carrot pending txs");
   return std::get<tools::wallet2::tx_construction_data>(ptx.construction_data);
-}
-
-tools::wallet2::tx_construction_data get_construction_data_with_decrypted_short_payment_id(const tools::wallet2::pending_tx &ptx, hw::device &hwdev)
-{
-  tools::wallet2::tx_construction_data construction_data = get_construction_data(ptx);
-  crypto::hash8 payment_id = null_hash8;
-  if (get_short_payment_id(payment_id, ptx, hwdev))
-  {
-    // Remove encrypted
-    remove_field_from_tx_extra(construction_data.extra, typeid(cryptonote::tx_extra_nonce));
-    // Add decrypted
-    std::string extra_nonce;
-    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
-    THROW_WALLET_EXCEPTION_IF(!add_extra_nonce_to_tx_extra(construction_data.extra, extra_nonce),
-        tools::error::wallet_internal_error, "Failed to add decrypted payment id to tx extra");
-    LOG_PRINT_L1("Decrypted payment ID: " << payment_id);
-  }
-  return construction_data;
 }
 
 uint32_t get_subaddress_clamped_sum(uint32_t idx, uint32_t extra)
@@ -7781,10 +7743,8 @@ std::string wallet2::dump_tx_to_str(const std::vector<pending_tx> &ptx_vector) c
   unsigned_tx_set txs;
   for (auto &tx: ptx_vector)
   {
-    // Short payment id is encrypted with tx_key. 
-    // Since sign_tx() generates new tx_keys and encrypts the payment id, we need to save the decrypted payment ID
     // Save tx construction_data to unsigned_tx_set
-    txs.txes.push_back(get_construction_data_with_decrypted_short_payment_id(tx, m_account.get_device()));
+    txs.txes.push_back(get_construction_data(tx));
   }
   
   txs.new_transfers = export_outputs();
@@ -8191,8 +8151,7 @@ std::string wallet2::save_multisig_tx(multisig_tx_set txs)
 
   for (auto &ptx: txs.m_ptx)
   {
-    // Get decrypted payment id from pending_tx
-    ptx.construction_data = get_construction_data_with_decrypted_short_payment_id(ptx, m_account.get_device());
+    ptx.construction_data = get_construction_data(ptx);
   }
 
   // save as binary
@@ -9939,7 +9898,7 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   pre_carrot_construction_data.change_dts = change_dts;
   pre_carrot_construction_data.splitted_dsts = splitted_dsts;
   pre_carrot_construction_data.selected_transfers = selected_transfers;
-  pre_carrot_construction_data.extra = tx.extra;
+  pre_carrot_construction_data.extra = extra;
   pre_carrot_construction_data.unlock_time = 0;
   pre_carrot_construction_data.use_rct = false;
   pre_carrot_construction_data.rct_config = { rct::RangeProofBorromean, 0 };
@@ -10296,7 +10255,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   pre_carrot_construction_data.change_dts = change_dts;
   pre_carrot_construction_data.splitted_dsts = splitted_dsts;
   pre_carrot_construction_data.selected_transfers = ptx.selected_transfers;
-  pre_carrot_construction_data.extra = tx.extra;
+  pre_carrot_construction_data.extra = extra;
   pre_carrot_construction_data.unlock_time = 0;
   pre_carrot_construction_data.use_rct = true;
   pre_carrot_construction_data.rct_config = {
@@ -11639,7 +11598,7 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
   unsigned_tx_set txs;
   for (auto &tx: ptx_vector)
   {
-    txs.txes.push_back(get_construction_data_with_decrypted_short_payment_id(tx, m_account.get_device()));
+    txs.txes.push_back(get_construction_data(tx));
   }
   txs.transfers = std::make_tuple(0, m_transfers.size(), m_transfers);
 

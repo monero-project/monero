@@ -374,7 +374,7 @@ static void perform_ecdh_derivations(const epee::span<const crypto::public_key> 
     main_derivations_out.clear();
     additional_derivations_out.clear();
     main_derivations_out.reserve(main_tx_ephemeral_pubkeys.size());
-    additional_derivations_out.reserve(additional_derivations_out.size());
+    additional_derivations_out.reserve(additional_tx_ephemeral_pubkeys.size());
 
     if (is_carrot)
     {
