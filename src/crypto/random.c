@@ -65,9 +65,20 @@ static void generate_system_random_bytes(size_t n, void *result) {
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/random.h>
 #include <unistd.h>
 
 static void generate_system_random_bytes(size_t n, void *result) {
+#if __linux__ || __NetBSD__ || __FreeBSD__ || __DragonFly__
+  auto got = getrandom(result, n, 0);
+  if (got != -1) {
+    result = padd(result, got);
+    n -= got;
+  }
+#endif
+  if (n == 0)
+    return;
+
   int fd;
   if ((fd = open("/dev/urandom", O_RDONLY | O_NOCTTY | O_CLOEXEC)) < 0) {
     err(EXIT_FAILURE, "open /dev/urandom");
