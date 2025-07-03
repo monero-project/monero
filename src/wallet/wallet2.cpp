@@ -1964,8 +1964,42 @@ void wallet2::set_subaddress_lookahead(size_t major, size_t minor)
   THROW_WALLET_EXCEPTION_IF(major > 0xffffffff, error::wallet_internal_error, "Subaddress major lookahead is too large");
   THROW_WALLET_EXCEPTION_IF(minor == 0, error::wallet_internal_error, "Subaddress minor lookahead may not be zero");
   THROW_WALLET_EXCEPTION_IF(minor > 0xffffffff, error::wallet_internal_error, "Subaddress minor lookahead is too large");
+
+  const uint32_t old_major_lookahead = m_subaddress_lookahead_major;
+  const uint32_t old_minor_lookahead = m_subaddress_lookahead_minor;
+
   m_subaddress_lookahead_major = major;
   m_subaddress_lookahead_minor = minor;
+
+  if (old_major_lookahead >= major && old_minor_lookahead >= minor)
+    return;
+
+  // Expand the subaddresses map so that outputs received to the higher lookaheads will be identified in the scan loop
+  hw::device &hwdev = m_account.get_device();
+  cryptonote::subaddress_index index2;
+  const uint32_t max_major_idx = this->get_num_subaddress_accounts() > 0 ? (this->get_num_subaddress_accounts() - 1) : 0;
+  const uint32_t major_end = get_subaddress_clamped_sum(max_major_idx, major);
+  for (index2.major = 0; index2.major < major_end; ++index2.major)
+  {
+    // The existing minor addresses already set for this account
+    const uint32_t n_minor_subaddrs = this->get_num_subaddresses(index2.major);
+
+    // The subaddress lookahead is expected to expand from the max index in expand_subaddresses
+    const uint32_t max_minor_idx = n_minor_subaddrs > 0 ? (n_minor_subaddrs - 1) : 0;
+    const uint32_t begin = (n_minor_subaddrs || index2.major < old_major_lookahead) ? get_subaddress_clamped_sum(max_minor_idx, old_minor_lookahead) : 0;
+    // The expected new n minor subaddresses allocated for this account
+    const uint32_t end = get_subaddress_clamped_sum(max_minor_idx, minor);
+
+    if (begin >= end)
+      continue;
+
+    const std::vector<crypto::public_key> pkeys = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, begin, end);
+    for (index2.minor = begin; index2.minor < end; ++index2.minor)
+    {
+      const crypto::public_key &D = pkeys.at(index2.minor - begin);
+      m_subaddresses[D] = index2;
+    }
+  }
 }
 //----------------------------------------------------------------------------------------------------
 /*!
