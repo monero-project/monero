@@ -4,6 +4,8 @@
 #include <cstdint>
 
 #include "crypto/hash.h"
+#include "cryptonote_basic.h"
+#include "difficulty.h"
 
 namespace cryptonote
 {
@@ -16,5 +18,7 @@ namespace cryptonote
    * consensus algorithms.
    */
   uint64_t calculate_inference_score(const std::string &model_output);
+  uint64_t calculate_block_inference_score(const block &b);
+  bool check_inference_score(uint64_t score, difficulty_type difficulty);
 }
 
