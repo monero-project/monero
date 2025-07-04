@@ -298,9 +298,6 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
     WalletImpl     * m_wallet;
 };
 
-Wallet::~Wallet() {}
-
-WalletListener::~WalletListener() {}
 
 
 string Wallet::displayAmount(uint64_t amount)

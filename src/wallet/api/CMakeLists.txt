@@ -30,7 +30,11 @@
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+# A new library with just `wallet2_api.cpp` could be added to reduce link time
+# depdencies. Just compile the cpp twice in each library, its small
+
 set(wallet_api_sources
+  wallet2_api.cpp
   wallet.cpp
   wallet_manager.cpp
   transaction_info.cpp
