@@ -35,6 +35,7 @@
 #include "syncobj.h"
 #include "cryptonote_basic_impl.h"
 #include "cryptonote_format_utils.h"
+#include "proof_of_inference.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "file_io_utils.h"
 #include "common/command_line.h"
@@ -101,6 +102,7 @@ namespace cryptonote
     const command_line::arg_descriptor<uint64_t>    arg_bg_mining_min_idle_interval_seconds =  {"bg-mining-min-idle-interval", "Specify min lookback interval in seconds for determining idle state", miner::BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS, true};
     const command_line::arg_descriptor<uint16_t>     arg_bg_mining_idle_threshold_percentage =  {"bg-mining-idle-threshold", "Specify minimum avg idle percentage over lookback interval", miner::BACKGROUND_MINING_DEFAULT_IDLE_THRESHOLD_PERCENTAGE, true};
     const command_line::arg_descriptor<uint16_t>     arg_bg_mining_miner_target_percentage =  {"bg-mining-miner-target", "Specify maximum percentage cpu use by miner(s)", miner::BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE, true};
+    const command_line::arg_descriptor<bool>        arg_inference_mining = {"inference-mining", "use proof-of-inference instead of proof-of-work", false, true};
   }
 
 
@@ -121,6 +123,7 @@ namespace cryptonote
     m_total_hashes(0),
     m_do_print_hashrate(false),
     m_do_mining(false),
+    m_use_inference(false),
     m_current_hash_rate(0),
     m_is_background_mining_enabled(false),
     m_min_idle_seconds(BACKGROUND_MINING_DEFAULT_MIN_IDLE_INTERVAL_IN_SECONDS),
@@ -294,6 +297,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_bg_mining_min_idle_interval_seconds);
     command_line::add_arg(desc, arg_bg_mining_idle_threshold_percentage);
     command_line::add_arg(desc, arg_bg_mining_miner_target_percentage);
+    command_line::add_arg(desc, arg_inference_mining);
   }
   //-----------------------------------------------------------------------------------------------------
   bool miner::init(const boost::program_options::variables_map& vm, network_type nettype)
@@ -351,6 +355,8 @@ namespace cryptonote
       set_idle_threshold( command_line::get_arg(vm, arg_bg_mining_idle_threshold_percentage) );
     if(command_line::has_arg(vm, arg_bg_mining_miner_target_percentage))
       set_mining_target( command_line::get_arg(vm, arg_bg_mining_miner_target_percentage) );
+    if(command_line::has_arg(vm, arg_inference_mining))
+      m_use_inference = command_line::get_arg(vm, arg_inference_mining);
 
     return true;
   }
@@ -481,7 +487,18 @@ namespace cryptonote
       crypto::hash h;
       gbh(bl, height, seed_hash, diffic <= 100 ? 0 : tools::get_max_concurrency(), h);
 
-      if(check_hash(h, diffic))
+      bool ok = false;
+      if (m_use_inference)
+      {
+        uint64_t score = calculate_block_inference_score(bl);
+        ok = check_inference_score(score, diffic);
+      }
+      else
+      {
+        ok = check_hash(h, diffic);
+      }
+
+      if(ok)
       {
         bl.invalidate_hashes();
         return true;
@@ -586,7 +603,18 @@ namespace cryptonote
 
       m_gbh(b, height, NULL, tools::get_max_concurrency(), h);
 
-      if(check_hash(h, local_diff))
+      bool ok = false;
+      if (m_use_inference)
+      {
+        uint64_t score = calculate_block_inference_score(b);
+        ok = check_inference_score(score, local_diff);
+      }
+      else
+      {
+        ok = check_hash(h, local_diff);
+      }
+
+      if(ok)
       {
         //we lucky!
         ++m_config.current_extra_message_index;

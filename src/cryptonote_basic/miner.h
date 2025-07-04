@@ -84,6 +84,7 @@ namespace cryptonote
     void do_print_hashrate(bool do_hr);
     bool get_is_background_mining_enabled() const;
     bool get_ignore_battery() const;
+    bool get_use_inference() const { return m_use_inference; }
     uint64_t get_min_idle_seconds() const;
     bool set_min_idle_seconds(uint64_t min_idle_seconds);
     uint8_t get_idle_threshold() const;
@@ -152,6 +153,7 @@ namespace cryptonote
     std::list<uint64_t> m_last_hash_rates;
     bool m_do_print_hashrate;
     bool m_do_mining;
+    bool m_use_inference;
     std::vector<std::pair<uint64_t, uint64_t>> m_threads_autodetect;
     boost::thread::attributes m_attrs;
 

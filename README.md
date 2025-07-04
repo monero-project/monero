@@ -77,6 +77,11 @@ Monero is a private, secure, untraceable, decentralised digital currency. You ar
 
 **Decentralization:** The utility of Monero depends on its decentralised peer-to-peer consensus network - anyone should be able to run the monero software, validate the integrity of the blockchain, and participate in all aspects of the monero network using consumer-grade commodity hardware. Decentralization of the monero network is maintained by software development that minimizes the costs of running the monero software and inhibits the proliferation of specialized, non-commodity hardware.
 
+## Proof of Inference
+
+JOY Sovereign Coin experiments with a *proof-of-inference* consensus design. Instead of traditional mining, nodes submit verifiable machine learning inference results to participate in block production. The inference output is hashed and converted to a deterministic numeric score in `src/cryptonote_basic/proof_of_inference.cpp`.
+These lightweight models can run on edge devices, allowing everyday users to secure the network without dedicated mining hardware. This feature is experimental and disabled by default.
+
 ## About this project
 
 This is the core implementation of Monero. It is open source and completely free to use without restrictions, except for those specified in the license agreement below. There are no restrictions on anyone creating an alternative implementation of Monero that uses the protocol and network in a compatible manner.

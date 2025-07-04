@@ -50,6 +50,7 @@ set(cryptonote_basic_sources
   cryptonote_basic_impl.cpp
   cryptonote_format_utils.cpp
   difficulty.cpp
+  proof_of_inference.cpp
   hardfork.cpp
   merge_mining.cpp
   miner.cpp)
