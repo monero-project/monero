@@ -3031,11 +3031,8 @@ bool simple_wallet::set_load_deprecated_formats(const std::vector<std::string> &
   if (pwd_container)
   {
     parse_bool_and_use(args[1], [&](bool r) {
-      m_wallet->load_deprecated_formats(r);
-      m_wallet->rewrite(m_wallet_file, pwd_container->password());
-
       if (r)
-        message_writer() << tr("Warning: deprecated formats use boost serialization, which has buffer overflows and crashers. Only load deprecated formats from sources you trust.");
+        fail_msg_writer() << tr("Warning: deprecated formats use boost serialization, which has buffer overflows and crashes. Support for them has been discontinued.");
     });
   }
   return true;
@@ -3766,7 +3763,6 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
         << " (disabled on Windows)"
 #endif
         ;
-    success_msg_writer() << "load-deprecated-formats = " << m_wallet->load_deprecated_formats();
     success_msg_writer() << "enable-multisig-experimental = " << m_wallet->is_multisig_enabled();
     return true;
   }

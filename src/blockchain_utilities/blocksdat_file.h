@@ -36,7 +36,6 @@
 #include <boost/filesystem/operations.hpp>
 
 #include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 
