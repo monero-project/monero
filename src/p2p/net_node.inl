@@ -59,9 +59,9 @@
 #include "net/parse.h"
 #include "p2p/net_node.h"
 
-#include <miniupnp/miniupnpc/miniupnpc.h>
-#include <miniupnp/miniupnpc/upnpcommands.h>
-#include <miniupnp/miniupnpc/upnperrors.h>
+#include <miniupnpc/miniupnpc.h>
+#include <miniupnpc/upnpcommands.h>
+#include <miniupnpc/upnperrors.h>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
@@ -3005,7 +3005,8 @@ namespace nodetool
     UPNPUrls urls;
     IGDdatas igdData;
     char lanAddress[64];
-    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+    char wanaddr[64];
+    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress, wanaddr, sizeof wanaddr);
     freeUPNPDevlist(deviceList);
     if (result > 0) {
       if (result == 1) {
@@ -3073,7 +3074,8 @@ namespace nodetool
     UPNPUrls urls;
     IGDdatas igdData;
     char lanAddress[64];
-    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress);
+    char wanaddr[64];
+    result = UPNP_GetValidIGD(deviceList, &urls, &igdData, lanAddress, sizeof lanAddress, wanaddr, sizeof wanaddr);
     freeUPNPDevlist(deviceList);
     if (result > 0) {
       if (result == 1) {
