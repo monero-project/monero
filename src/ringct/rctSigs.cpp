@@ -28,16 +28,18 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "rctSigs.h"
+
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
-#include "rctSigs.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include "device/device.hpp"
+#include "serialization/crypto.h"
 
 using namespace crypto;
 using namespace std;
@@ -612,7 +614,8 @@ namespace rct {
       key prehash;
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
           "Failed to serialize rctSigBase");
-      cryptonote::get_blob_hash(ss.str(), h);
+      const std::string sig_base_blob = ss.str();
+      cn_fast_hash(sig_base_blob.data(), sig_base_blob.size(), h);
       hashes.push_back(hash2rct(h));
 
       keyV kv;
