@@ -86,6 +86,7 @@ class TransferTest():
         self.check_subtract_fee_from_outputs()
         self.check_background_sync()
         self.check_background_sync_reorg_recovery()
+        self.check_subaddress_lookahead()
 
     def reset(self):
         print('Resetting blockchain')
@@ -1530,6 +1531,48 @@ class TransferTest():
         util_resources.remove_wallet_files('test1')
         self.wallet[0].close_wallet()
         self.wallet[0].restore_deterministic_wallet(seed = seeds[0])
+
+    def check_subaddress_lookahead(self):
+        daemon = Daemon()
+
+        print('Testing transfers to subaddresses with large lookahead')
+
+        # From wallet 1 to wallet 0 at subaddress (0, 999)
+
+        address_0_999 = '8BQKgTSSqJjP14AKnZUBwnXWj46MuNmLvHfPTpmry52DbfNjjHVvHUk4mczU8nj8yZ57zBhksTJ8kM5xKeJXw55kCMVqyG7' # this is the address for address 999 of the main account in the test wallet
+        try:  # assert address_1_999 is not in the current pubkey table
+            self.wallet[0].get_address_index(address_0_999)
+            assert False # address should not already be loaded
+        except Exception as e:
+            assert str(e) ==  "{'error': {'code': -2, 'message': \"Address doesn't belong to the wallet\"}, 'id': '0', 'jsonrpc': '2.0'}"
+        # update the lookahead and assert the high index address is now in the table
+        self.wallet[0].set_subaddress_lookahead(50, 1000)
+        res = self.wallet[0].get_address_index(address_0_999)
+        assert res['index']['major'] == 0
+        assert res['index']['minor'] == 999
+
+        dst = {'address': address_0_999, 'amount': 454545454545}
+
+        self.wallet[1].refresh()
+        assert self.wallet[1].get_balance().balance > dst['amount']
+        self.wallet[1].transfer([dst])
+        daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
+        self.wallet[0].refresh()
+
+        res = self.wallet[0].get_balance()
+        balance_info_0_999 = None
+        for balance_info in res['per_subaddress']:
+            if balance_info['account_index'] == 0 and balance_info['address_index'] == 999:
+                balance_info_0_999 = balance_info
+                break
+        assert balance_info_0_999 is not None, "balance info for address (0, 999) not found"
+        assert balance_info_0_999['address'] == address_0_999
+        assert balance_info_0_999['balance'] == dst['amount']
+        assert balance_info_0_999['unlocked_balance'] == 0
+        assert balance_info_0_999['label'] == ''
+        assert balance_info_0_999['num_unspent_outputs'] == 1
+        assert balance_info_0_999['blocks_to_unlock'] == 9
+        assert balance_info_0_999['time_to_unlock'] == 0
 
 if __name__ == '__main__':
     TransferTest().run_test()
