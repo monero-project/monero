@@ -1540,6 +1540,7 @@ namespace net_utils
       accept_function_pointer = &boosted_tcp_server<t_protocol_handler>::handle_accept_ipv6;
     }
 
+    bool accept_started = false;
     try
     {
     if (!e)
@@ -1560,6 +1561,7 @@ namespace net_utils
       current_acceptor->async_accept((*current_new_connection)->socket(),
           boost::bind(accept_function_pointer, this,
             boost::asio::placeholders::error));
+      accept_started = true;
 
       boost::asio::socket_base::keep_alive opt(true);
       conn->socket().set_option(opt);
@@ -1585,6 +1587,8 @@ namespace net_utils
     catch (const std::exception &e)
     {
       MERROR("Exception in boosted_tcp_server<t_protocol_handler>::handle_accept: " << e.what());
+      if (accept_started)
+        return;
     }
 
     // error path, if e or exception
