@@ -7622,8 +7622,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     }
     else
     {
-      m_wallet->commit_tx(ptx_vector[0]);
-      success_msg_writer(true) << tr("Money successfully sent, transaction: ") << get_transaction_hash(ptx_vector[0].tx);
+      commit_or_save(ptx_vector, m_do_not_relay);
     }
 
   }
