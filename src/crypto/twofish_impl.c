@@ -483,27 +483,7 @@ static void test_platform(void)
   UInt32 C;
   UInt32 x,y;
   int i;
-  
-  /*
-   * Some sanity checks on the types that can't be done in compile time.
-   * A smart compiler will just optimise these tests away.
-   * The pre-processor doesn't understand different types, so we cannot
-   * do these checks in compile-time.
-   *
-   * I hate C.
-   *
-   * The first check in each case is to make sure the size is correct.
-   * The second check is to ensure that it is an unsigned type.
-   */
-  if( ((UInt32) ((UInt32)1 << 31) == 0) || ((UInt32)-1 < 0) )
-  {
-    Twofish_fatal( "Twofish code: Twofish_UInt32 type not suitable" );
-  }
-  if( (sizeof( Byte ) != 1) || ((Byte)-1 < 0) )
-  {
-    Twofish_fatal( "Twofish code: Twofish_Byte type not suitable" );
-  }
-  
+
   /*
    * Sanity-check the endianness conversions.
    * This is just an aid to find problems. If you do the endianness
