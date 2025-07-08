@@ -90,7 +90,7 @@ public:
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
-    bool setPassword(const char *old_password, const char *new_password) override;
+    bool setPassword(const char *old_password, const std::size_t old_pw_length, const char *new_password, const std::size_t new_pw_length) override;
     bool setDevicePin(const std::string &password) override;
     bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
@@ -102,7 +102,7 @@ public:
     std::string publicMultisigSignerKey() const override;
     std::string path() const override;
     void stop() override;
-    bool store(const std::string &path, const optional<const char *> &password = optional<const char *>()) override;
+    bool store(const std::string &path, const optional<std::pair<const char *, const std::size_t>> &password = optional<std::pair<const char *, const std::size_t>>()) override;
     std::string filename() const override;
     std::string keysFilename() const override;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") override;
@@ -146,8 +146,8 @@ public:
 
     MultisigState multisig() const override;
     std::string getMultisigInfo() const override;
-    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const char *password) override;
-    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const bool force_update_use_with_caution = false) override;
+    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const char *password, const std::size_t pw_length) override;
+    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const std::size_t pw_length, const bool force_update_use_with_caution = false) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     bool hasMultisigPartialKeyImages() const override;
@@ -282,7 +282,7 @@ public:
     bool getAllowMismatchedDaemonVersion() const override;
     void setAllowMismatchedDaemonVersion(bool allow_mismatch) override;
     bool setDaemon(const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, const std::string &ssl_support = "autodetect", const std::string &ssl_private_key_path = "", const std::string &ssl_certificate_path = "", const std::string &ssl_ca_file_path = "", const std::vector<std::string> &ssl_allowed_fingerprints_str = {}, bool ssl_allow_any_cert = false, const std::string &proxy = "") override;
-    bool verifyPassword(const char *password, std::uint64_t kdf_rounds = 1) override;
+    bool verifyPassword(const char *password, const std::size_t pw_length, std::uint64_t kdf_rounds = 1) override;
 
 private:
     void clearStatus() const;

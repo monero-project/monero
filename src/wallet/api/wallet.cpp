@@ -906,13 +906,15 @@ void WalletImpl::statusWithErrorString(int& status, std::string& errorString) co
     errorString = m_errorString;
 }
 
-bool WalletImpl::setPassword(const char *old_password, const char *new_password)
+bool WalletImpl::setPassword(const char *old_password, const std::size_t old_pw_length, const char *new_password, const std::size_t new_pw_length)
 {
     if (checkBackgroundSync("cannot change password"))
         return false;
     clearStatus();
     try {
-        m_wallet->change_password(m_wallet->get_wallet_file(), epee::wipeable_string(old_password), epee::wipeable_string(new_password));
+        m_wallet->change_password(m_wallet->get_wallet_file(),
+                                  epee::wipeable_string(old_password, old_pw_length),
+                                  epee::wipeable_string(new_password, new_pw_length));
     } catch (const std::exception &e) {
         setStatusError(e.what());
     }
@@ -995,14 +997,15 @@ void WalletImpl::stop()
     m_wallet->stop();
 }
 
-bool WalletImpl::store(const std::string &path, const optional<const char *> &password /* = optional<const char *>() */)
+bool WalletImpl::store(const std::string &path,
+                       const optional<std::pair<const char *, const std::size_t>> &password /* = empty optional */)
 {
     clearStatus();
     try {
         if (path.empty()) {
             m_wallet->store();
         } else if (password) {
-            m_wallet->store_to(path, epee::wipeable_string(*password));
+            m_wallet->store_to(path, epee::wipeable_string((*password).first, (*password).second));
         } else {
             setStatusError("Failed to store wallet to new path without password.");
             return false;
@@ -1643,7 +1646,7 @@ string WalletImpl::getMultisigInfo() const {
     return string();
 }
 
-string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t threshold, const char *password) {
+string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t threshold, const char *password, const std::size_t pw_length) {
     if (checkBackgroundSync("cannot make multisig"))
         return string();
     try {
@@ -1653,7 +1656,7 @@ string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t thres
             throw runtime_error("Wallet is already multisig");
         }
 
-        return m_wallet->make_multisig(epee::wipeable_string(password), info, threshold);
+        return m_wallet->make_multisig(epee::wipeable_string(password, pw_length), info, threshold);
     } catch (const exception& e) {
         LOG_ERROR("Error on making multisig wallet: " << e.what());
         setStatusError(string(tr("Failed to make multisig: ")) + e.what());
@@ -1662,12 +1665,12 @@ string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t thres
     return string();
 }
 
-std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const bool force_update_use_with_caution /*= false*/) {
+std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const std::size_t pw_length, const bool force_update_use_with_caution /*= false*/) {
     try {
         clearStatus();
         checkMultisigWalletNotReady(m_wallet);
 
-        return m_wallet->exchange_multisig_keys(epee::wipeable_string(password), info, force_update_use_with_caution);
+        return m_wallet->exchange_multisig_keys(epee::wipeable_string(password, pw_length), info, force_update_use_with_caution);
     } catch (const exception& e) {
         LOG_ERROR("Error on exchanging multisig keys: " << e.what());
         setStatusError(string(tr("Failed to exchange multisig keys: ")) + e.what());
@@ -3858,7 +3861,7 @@ bool WalletImpl::setDaemon(const std::string &daemon_address,
     return false;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool WalletImpl::verifyPassword(const char *password, std::uint64_t kdf_rounds /* = 1 */)
+bool WalletImpl::verifyPassword(const char *password, const std::size_t pw_length, std::uint64_t kdf_rounds /* = 1 */)
 {
     clearStatus();
 
@@ -3874,7 +3877,7 @@ bool WalletImpl::verifyPassword(const char *password, std::uint64_t kdf_rounds /
     try
     {
         r = tools::wallet2::verify_password(keysFilename(),
-                                            epee::wipeable_string(password),
+                                            epee::wipeable_string(password, pw_length),
                                             watchOnly(),
                                             hw::get_device("default"),
                                             kdf_rounds);

@@ -540,7 +540,7 @@ struct Wallet
     virtual std::string errorString() const = 0; //deprecated: use safe alternative statusWithErrorString
     //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
     virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
-    virtual bool setPassword(const char *old_password, const char *new_password) = 0;
+    virtual bool setPassword(const char *old_password, const std::size_t old_pw_length, const char *new_password, const std::size_t new_pw_length) = 0;
     virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };
     virtual bool setDevicePassphrase(const std::string &passphrase) { (void)passphrase; return false; };
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
@@ -604,10 +604,10 @@ struct Wallet
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
-     * \param password - wallet password, only needed if path is not empty (default: empty optional)
+     * \param password - [pointer to password, password length], only needed if path is not empty (default: empty optional)
      * \return
      */
-    virtual bool store(const std::string &path, const optional<const char *> &password = optional<const char *>()) = 0;
+    virtual bool store(const std::string &path, const optional<std::pair<const char *, const std::size_t>> &password = optional<std::pair<const char *, const std::size_t>>()) = 0;
     /*!
      * \brief filename - returns wallet filename
      * \return
@@ -884,16 +884,20 @@ struct Wallet
      * @brief makeMultisig - switches wallet in multisig state. The one and only creation phase for N / N wallets
      * @param info - vector of multisig infos from other participants obtained with getMulitisInfo call
      * @param threshold - number of required signers to make valid transaction. Must be <= number of participants
+     * @param password - wallet password
+     * @param pw_length - password length
      * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
      */
-    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const char *password) = 0;
+    virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const char *password, const std::size_t pw_length) = 0;
     /**
      * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
      * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
+     * @param password - wallet password
+     * @param pw_length - password length
      * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages
      * @return new info string if more rounds required or an empty string if wallet creation is done
      */
-    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const bool force_update_use_with_caution) = 0;
+    virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const std::size_t pw_length, const bool force_update_use_with_caution) = 0;
     /**
      * @brief exportMultisigImages - exports transfers' key images
      * @param images - output paramter for hex encoded array of images
@@ -1576,13 +1580,14 @@ struct Wallet
     /**
     * brief: verifyPassword -
     * param: password   - password to verify
+    * param: pw_length  - password length
     * param: kdf_rounds - number of rounds for key derivation function (default: 1)
     * return: true if succeeded
     * note: sets status error on fail
     *       This function automatically locks/unlocks the keys file as needed.
     *       When possible use this instead of WalletManager::verifyWalletPassword()
     */
-    virtual bool verifyPassword(const char *password, std::uint64_t kdf_rounds = 1) = 0;
+    virtual bool verifyPassword(const char *password, const std::size_t pw_length, std::uint64_t kdf_rounds = 1) = 0;
 };
 
 /**
