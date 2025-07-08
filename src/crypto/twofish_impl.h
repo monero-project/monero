@@ -83,20 +83,6 @@ typedef struct {
 
 
 /*
- * Initialise and test the Twofish implementation.
- *
- * This function MUST be called before any other function in the
- * Twofish implementation is called.
- * It only needs to be called once.
- *
- * Apart from initialising the implementation it performs a self test.
- * If the Twofish_fatal function is not called, the code passed the test.
- * (See the twofish.c file for details on the Twofish_fatal function.)
- */
-extern void Twofish_initialise(void);
-
-
-/*
  * Convert a cipher key to the internal form used for
  * encryption and decryption.
  *

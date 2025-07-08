@@ -20,8 +20,6 @@
  * - Put the code in your project and compile it.
  *
  * To use this library you should:
- * - Call Twofish_initialise() in your program before any other function in
- *   this library.
  * - Use Twofish_prepare_key(...) to convert a key to internal form.
  * - Use Twofish_encrypt_block(...) and Twofish_decrypt_block(...) to encrypt and decrypt
  *   data.
@@ -173,6 +171,7 @@
 #include <string.h>     /* for memset(), memcpy(), and memcmp() */
 #include <assert.h>
 #include "twofish_impl.h"
+#include "initializer.h"
 
 
 /*
@@ -1219,9 +1218,6 @@ static void fill_keyed_sboxes( Byte S[], int kCycles, Twofish_key * xkey )
 }
 
 
-/* A flag to keep track of whether we have been initialised or not. */
-static int Twofish_initialised = 0;
-
 /*
  * Initialise the Twofish implementation.
  * This function must be called before any other function in the
@@ -1229,7 +1225,7 @@ static int Twofish_initialised = 0;
  * This routine also does some sanity checks, to make sure that
  * all the macros behave, and it tests the whole cipher.
  */
-void Twofish_initialise(void)
+INITIALIZER(Twofish_initialise)
 {
   /* First test the various platform-specific definitions. */
   test_platform();
@@ -1237,10 +1233,7 @@ void Twofish_initialise(void)
   /* We can now generate our tables, in the right order of course. */
   initialise_q_boxes();
   initialise_mds_tables();
-  
-  /* We're finished with the initialisation itself. */
-  Twofish_initialised = 1;
-  
+
   /*
    * And run some tests on the whole cipher.
    * Yes, you need to do this every time you start your program.
@@ -1267,7 +1260,6 @@ static unsigned int rs_poly_const[] = {0, 0x14d};
 static unsigned int rs_poly_div_const[] = {0, 0xa6 };
 
 void Twofish_setup(Twofish_context *context, Twofish_Byte key[32], Twofish_Byte iv[16], Twofish_options options) {
-  Twofish_initialise();
   context->options = options;
   Twofish_prepare_key(key, 32, &(context->key));
   memcpy(context->iv, iv, 16);
@@ -1316,48 +1308,7 @@ void Twofish_prepare_key( Byte key[], int key_len, Twofish_key * xkey )
   Byte * t;
   
   Byte b,bx,bxx;      /* Some more temporaries for the RS computation. */
-  
-  /* Check that the Twofish implementation was initialised. */
-  if( Twofish_initialised == 0 )
-  {
-    /*
-     * You didn't call Twofish_initialise before calling this routine.
-     * This is a programming error, and therefore we call the fatal
-     * routine.
-     *
-     * I could of course call the initialisation routine here,
-     * but there are a few reasons why I don't. First of all, the
-     * self-tests have to be done at startup. It is no good to inform
-     * the user that the cipher implementation fails when he wants to
-     * write his data to disk in encrypted form. You have to warn him
-     * before he spends time typing his data. Second, the initialisation
-     * and self test are much slower than a single key expansion.
-     * Calling the initialisation here makes the performance of the
-     * cipher unpredictable. This can lead to really weird problems
-     * if you use the cipher for a real-time task. Suddenly it fails
-     * once in a while the first time you try to use it. Things like
-     * that are almost impossible to debug.
-     */
-    Twofish_fatal( "Twofish implementation was not initialised." );
-    
-    /*
-     * There is always a danger that the Twofish_fatal routine returns,
-     * in spite of the specifications that it should not.
-     * (A good programming rule: don't trust the rest of the code.)
-     * This would be disasterous. If the q-tables and MDS-tables have
-     * not been initialised, they are probably still filled with zeroes.
-     * Suppose the MDS-tables are all zero. The key expansion would then
-     * generate all-zero round keys, and all-zero s-boxes. The danger
-     * is that nobody would notice as the encryption function still
-     * mangles the input, and the decryption still 'decrypts' it,
-     * but now in a completely key-independent manner.
-     * To stop such security disasters, we use blunt force.
-     * If your program hangs here: fix the fatal routine!
-     */
-    //for(;;);        /* Infinite loop, which beats being insecure. */
-    return;
-  }
-  
+
   /* Check for valid key length. */
   if( key_len < 0 || key_len > 32 )
   {
