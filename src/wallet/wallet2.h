@@ -1532,7 +1532,7 @@ private:
     tx_entry_data get_tx_entries(const std::unordered_set<crypto::hash> &txids);
     void sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_entries);
     void process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_data &txs_to_reprocess, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, detached_blockchain_data &dbd);
-    void handle_needed_path_data(const uint64_t n_blocks_synced, const uint64_t skip_to_height, const bool skipping_forwards,
+    void handle_needed_path_data(const uint64_t n_blocks_synced,
       const std::unordered_set<crypto::hash> &txids, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, const std::unordered_set<crypto::hash> &detached_tx_hashes,
       const std::vector<process_tx_entry_t> &scan_tx_entries, const std::vector<process_tx_entry_t> &rescan_tx_entries);
     void write_background_sync_wallet(const epee::wipeable_string &wallet_password, const epee::wipeable_string &background_cache_password);
@@ -1635,9 +1635,6 @@ private:
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
     uint64_t m_pool_info_query_time;
-    uint64_t m_skip_to_height;
-    // m_skip_to_height is useful when we don't want to modify the wallet's restore height.
-    // m_refresh_from_block_height is also a wallet's restore height which should remain constant unless explicitly modified by the user.
     bool m_confirm_non_default_ring_size;
     AskPasswordType m_ask_password;
     uint64_t m_max_reorg_depth;
