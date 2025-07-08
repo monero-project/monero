@@ -964,6 +964,14 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
+    struct wont_scan_future_tx : public scan_tx_error
+    {
+      explicit wont_scan_future_tx(std::string&& loc)
+        : scan_tx_error(std::move(loc), "Cannot scan a tx at height higher than the wallet's current sync height")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
     struct background_sync_error : public wallet_logic_error
     {
     protected:

@@ -3160,6 +3160,8 @@ bool simple_wallet::scan_tx(const std::vector<std::string> &args)
     m_wallet->scan_tx(txids);
   } catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e) {
     fail_msg_writer() << e.what() << ". Either connect to a trusted daemon by passing --trusted-daemon when starting the wallet, or use rescan_bc to rescan the chain.";
+  } catch (const tools::error::wont_scan_future_tx &e) {
+    fail_msg_writer() << e.what() << ". Either refresh the wallet, or restore the wallet from the current chain height and then scan.";
   } catch (const std::exception &e) {
     fail_msg_writer() << e.what();
   }
