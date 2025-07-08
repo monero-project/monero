@@ -130,7 +130,7 @@ public:
   virtual uint64_t get_n_leaf_tuples() const override { return 0; };
   virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const override { return 0; };
   virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override { return {{}}; };
-  virtual uint64_t get_path_by_global_output_id( const std::vector<uint64_t> &global_output_ids, const uint64_t as_of_n_blocks, std::vector<uint64_t> &leaf_idxs_out, std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const override { return 0; };
+  virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids, const crypto::hash &as_of_top_block_hash, std::vector<uint64_t> &leaf_idxs_out, std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const override { return 0; };
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override { return true; }
   virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override { return true; }

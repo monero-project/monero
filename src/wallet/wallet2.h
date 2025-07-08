@@ -1532,7 +1532,7 @@ private:
     tx_entry_data get_tx_entries(const std::unordered_set<crypto::hash> &txids);
     void sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_entries);
     void process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_data &txs_to_reprocess, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, detached_blockchain_data &dbd);
-    void handle_needed_path_data(const uint64_t n_blocks_synced,
+    void handle_needed_path_data(const uint64_t n_blocks_synced, const crypto::hash &top_block_hash,
       const std::unordered_set<crypto::hash> &txids, const std::unordered_set<crypto::hash> &tx_hashes_to_reprocess, const std::unordered_set<crypto::hash> &detached_tx_hashes,
       const std::vector<process_tx_entry_t> &scan_tx_entries, const std::vector<process_tx_entry_t> &rescan_tx_entries);
     void write_background_sync_wallet(const epee::wipeable_string &wallet_password, const epee::wipeable_string &background_cache_password);

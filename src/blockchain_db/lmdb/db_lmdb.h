@@ -379,7 +379,7 @@ public:
   bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const override;
 
   virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
-    const uint64_t as_of_n_blocks,
+    const crypto::hash &as_of_top_block_hash,
     std::vector<uint64_t> &leaf_idxs_out,
     std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const;
 
