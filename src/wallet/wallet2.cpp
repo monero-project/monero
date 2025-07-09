@@ -1711,6 +1711,32 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
   return tx_entries;
 }
 //----------------------------------------------------------------------------------------------------
+static void assert_top_block_match(const hashchain &blockchain, const tools::wallet2::TreeCacheV1 &tree_cache)
+{
+  if (blockchain.empty())
+  {
+    THROW_WALLET_EXCEPTION_IF(tree_cache.get_output_count() != 0, tools::error::wallet_internal_error,
+      "unexpected non-zero output count in tree sync");
+    return;
+  }
+
+  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
+    "top block not in bounds");
+
+  fcmp_pp::curve_trees::BlockMeta top_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!tree_cache.get_top_block(top_synced_block), tools::error::wallet_internal_error,
+    "empty tree sync cache");
+
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_idx != m_blockchain_top_block_idx,
+    tools::error::wallet_internal_error, "m_blockchain <> m_tree_cache top block idx mismatch (m_blockchain_top_block_idx: "
+    + std::to_string(m_blockchain_top_block_idx) + " vs tree top idx: " + std::to_string(top_synced_block.blk_idx) + ")");
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
+    tools::error::wallet_internal_error,
+    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(blockchain[m_blockchain_top_block_idx]) +
+    " vs tree top hash: " + string_tools::pod_to_hex(top_synced_block.blk_hash) + ")");
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_entries)
 {
   // If any txs we're scanning have the same height, then we need to request the
@@ -2026,6 +2052,7 @@ void wallet2::scan_tx(const std::unordered_set<crypto::hash> &txids)
   // See discussion for why: https://github.com/seraphis-migration/monero/pull/49#issuecomment-3043274275
   const uint64_t n_blocks_synced = m_blockchain.size();
   THROW_WALLET_EXCEPTION_IF(txs_to_scan.highest_height >= n_blocks_synced, error::wont_scan_future_tx);
+  assert_top_block_match(m_blockchain, m_tree_cache);
 
   // Detach the blockchain in preparation to re-process txs
   detached_blockchain_data dbd;
@@ -3192,32 +3219,6 @@ struct TreeSyncStartParams
   uint64_t start_parsed_block_i{0};
   crypto::hash prev_block_hash;
 };
-
-static void assert_top_block_match(const hashchain &blockchain, const tools::wallet2::TreeCacheV1 &tree_sync)
-{
-  if (blockchain.empty())
-  {
-    THROW_WALLET_EXCEPTION_IF(tree_sync.get_output_count() != 0, tools::error::wallet_internal_error,
-      "unexpected non-zero output count in tree sync");
-    return;
-  }
-
-  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
-  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
-    "top block not in bounds");
-
-  fcmp_pp::curve_trees::BlockMeta top_synced_block;
-  THROW_WALLET_EXCEPTION_IF(!tree_sync.get_top_block(top_synced_block), tools::error::wallet_internal_error,
-    "empty tree sync cache");
-
-  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_idx != m_blockchain_top_block_idx,
-    tools::error::wallet_internal_error, "m_blockchain <> m_tree_cache top block idx mismatch (m_blockchain_top_block_idx: "
-    + std::to_string(m_blockchain_top_block_idx) + " vs tree top idx: " + std::to_string(top_synced_block.blk_idx) + ")");
-  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
-    tools::error::wallet_internal_error,
-    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(blockchain[m_blockchain_top_block_idx]) +
-    " vs tree top hash: " + string_tools::pod_to_hex(top_synced_block.blk_hash) + ")");
-}
 
 static void reorg_depth_check(const uint64_t reorg_blk_idx, const uint64_t start_block_idx, const crypto::hash &first_parsed_hash, const hashchain &blockchain, const uint64_t max_reorg_depth)
 {
