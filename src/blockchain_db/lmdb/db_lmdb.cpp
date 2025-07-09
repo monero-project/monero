@@ -1851,10 +1851,11 @@ uint64_t BlockchainLMDB::get_path_by_global_output_id(const std::vector<uint64_t
   const uint64_t cur_n_blocks = this->height();
   if (cur_n_blocks == 0)
     return 0;
-  CHECK_AND_ASSERT_THROW_MES(cur_n_blocks >= as_of_n_blocks, "get_path_by_global_output_id: as_of_n_blocks higher than n blocks in chain");
 
   // We're getting path data assuming chain tip is as_of_block_idx
   const uint64_t as_of_block_idx = as_of_n_blocks ? (as_of_n_blocks - 1) : (cur_n_blocks - 1);
+
+  CHECK_AND_ASSERT_THROW_MES(as_of_block_idx <= this->get_tree_block_idx(), "get_path_by_global_output_id: as_of_block_idx is higher than highest tree block idx");
 
   // TODO: de-duplicate db reads where possible (steps 1, 2, 3, 5, 6 can all be de-dup'd especially 6)
   // TODO: return consolidated path
