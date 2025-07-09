@@ -684,12 +684,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
   {
     struct request_t: public rpc_access_request_base
     {
-      crypto::hash top_block_hash;
+      uint64_t as_of_n_blocks;
       std::vector<uint64_t> global_output_ids;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(top_block_hash, crypto::null_hash)
+        KV_SERIALIZE_OPT(as_of_n_blocks, (uint64_t)0)
         KV_SERIALIZE(global_output_ids)
       END_KV_SERIALIZE_MAP()
     };

@@ -1884,7 +1884,7 @@ public:
 
   // TODO: description
   virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
-    const crypto::hash &as_of_top_block_hash,
+    const uint64_t as_of_n_blocks,
     std::vector<uint64_t> &leaf_idxs_out,
     std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const = 0;
 
