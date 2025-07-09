@@ -32,7 +32,6 @@
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
 #include "fcmp_pp/curve_trees.h"
 #include "ringct/rctTypes.h"
-#include "rpc/core_rpc_server_commands_defs.h"
 #include <boost/thread/tss.hpp>
 
 #include <lmdb.h>

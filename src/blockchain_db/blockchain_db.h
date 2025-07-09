@@ -43,7 +43,6 @@
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
 #include "fcmp_pp/curve_trees.h"
-#include "rpc/core_rpc_server_commands_defs.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
