@@ -1067,7 +1067,7 @@ TEST(curve_trees, path_for_proof_inner_layer_single_elem)
     const uint64_t N_LEAF_TUPLES = 52000;
     const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
     CurveTreesGlobalTree global_tree(*curve_trees);
-    const auto init_outputs = test::generate_random_outputs(*curve_trees, 0, N_LEAF_TUPLES);
+    const auto init_outputs = test::generate_random_outputs(0, N_LEAF_TUPLES);
     ASSERT_TRUE(global_tree.grow_tree(0, init_outputs.size(), init_outputs));
 
     const auto path = global_tree.get_path_at_leaf_idx(init_outputs.size() - 1);
