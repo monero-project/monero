@@ -1354,7 +1354,7 @@ class TransferTest():
     def check_background_sync(self):
         daemon = Daemon()
 
-        print('FCMP++/Carrot Testing background sync')
+        print('Testing background sync')
 
         # Some helper functions
         def stop_with_wrong_inputs(wallet, wallet_password, seed = ''):
