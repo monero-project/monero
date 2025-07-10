@@ -101,10 +101,10 @@ jobs:
 
   build-debian:
     # Oldest supported Debian version
-    name: 'Debian 10'
+    name: 'Debian 11'
     runs-on: ubuntu-latest
     container:
-      image: debian:10
+      image: debian:11
       env:
         DEBIAN_FRONTEND: noninteractive
     steps:
@@ -115,7 +115,7 @@ jobs:
       - name: install monero dependencies
         run: ${{env.APT_INSTALL_LINUX}}
       - name: install rust
-        # Debian 10 ships Rust 1.41.1. We need >=1.69 to build FCMP++.
+        # Debian 11 ships Rust 1.48.0. We need >=1.69 to build FCMP++.
         run: |
           curl -O https://static.rust-lang.org/rustup/archive/1.27.1/x86_64-unknown-linux-gnu/rustup-init
           echo "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d rustup-init" | sha256sum -c
