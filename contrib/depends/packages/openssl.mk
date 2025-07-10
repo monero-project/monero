@@ -1,8 +1,8 @@
 package=openssl
-$(package)_version=3.0.13
+$(package)_version=3.0.17
 $(package)_download_path=https://www.openssl.org/source
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=88525753f79d3bec27d2fa7c66aa0b92b3aa9498dafd93d7cfa4b3780cdae313
+$(package)_sha256_hash=dfdd77e4ea1b57ff3a6dbde6b0bdc3f31db5ac99e7fdd4eaf9e1fbb6ec2db8ce
 $(package)_patches=fix-android.patch
 
 define $(package)_set_vars
@@ -51,7 +51,8 @@ endef
 
 define $(package)_preprocess_cmds
   sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info && \
-  patch -p1 < $($(package)_patch_dir)/fix-android.patch
+  patch -p1 < $($(package)_patch_dir)/fix-android.patch && \
+  rm -rf doc demos apps test
 endef
 
 define $(package)_config_cmds
