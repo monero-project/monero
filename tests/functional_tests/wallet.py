@@ -46,6 +46,7 @@ class WalletTest():
       self.check_keys()
       self.create_subaddresses()
       self.tags()
+      self.update_lookahead()
       self.attributes()
       self.open_close()
       self.languages()
@@ -162,6 +163,20 @@ class WalletTest():
         assert res.index == {'major': 1, 'minor': 0}
 
         res = wallet.label_account(0, "main")
+
+    def update_lookahead(self):
+        print('Updating subaddress lookahead')
+        wallet = Wallet()
+        address_0_999 = '8BQKgTSSqJjP14AKnZUBwnXWj46MuNmLvHfPTpmry52DbfNjjHVvHUk4mczU8nj8yZ57zBhksTJ8kM5xKeJXw55kCMVqyG7' # this is the address for address 999 of the main account in the test wallet
+        try:  # assert address_1_999 is not in the current pubkey table
+            wallet.get_address_index(address_0_999)
+        except Exception as e:
+            assert str(e) ==  "{'error': {'code': -2, 'message': \"Address doesn't belong to the wallet\"}, 'id': '0', 'jsonrpc': '2.0'}"
+        # update the lookahead and assert the high index address is now in the table
+        wallet.set_subaddress_lookahead(50, 1000)
+        r = wallet.get_address_index(address_0_999)
+        assert r['index']['major'] == 0
+        assert r['index']['minor'] == 999
 
     def tags(self):
         print('Testing tags')

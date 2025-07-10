@@ -1597,39 +1597,60 @@ bool wallet2::should_expand(const cryptonote::subaddress_index &index) const
 //----------------------------------------------------------------------------------------------------
 void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
 {
-  hw::device &hwdev = m_account.get_device();
-  if (m_subaddress_labels.size() <= index.major)
+  // check if index will overflow container (usually only applicable on 32-bit systems)
+  if constexpr (sizeof(std::size_t) <= sizeof(std::uint32_t))
   {
-    // add new accounts
-    cryptonote::subaddress_index index2;
-    const uint32_t major_end = get_subaddress_clamped_sum(index.major, m_subaddress_lookahead_major);
-    for (index2.major = m_subaddress_labels.size(); index2.major < major_end; ++index2.major)
-    {
-      const uint32_t end = get_subaddress_clamped_sum((index2.major == index.major ? index.minor : 0), m_subaddress_lookahead_minor);
-      const std::vector<crypto::public_key> pkeys = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, 0, end);
-      for (index2.minor = 0; index2.minor < end; ++index2.minor)
-      {
-         const crypto::public_key &D = pkeys[index2.minor];
-         m_subaddresses[D] = index2;
-      }
-    }
-    m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
-    m_subaddress_labels[index.major].resize(index.minor + 1);
-    get_account_tags();
+    static constexpr std::uint32_t max_idx = static_cast<std::uint32_t>(std::numeric_limits<std::size_t>::max());
+    const bool cannot_label_index = index.major == max_idx || index.minor == max_idx;
+    THROW_WALLET_EXCEPTION_IF(cannot_label_index, error::wallet_internal_error, "subaddress index out of range");
   }
-  else if (m_subaddress_labels[index.major].size() <= index.minor)
+
+  // resize subaddress labels just big enough that `m_subaddress_labels[index.major][index.minor]` is present
+  if (m_subaddress_labels.size() <= index.major)
+    m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
+  auto &subaddr_labels_in_account = m_subaddress_labels[index.major];
+  if (subaddr_labels_in_account.size() <= index.minor)
+    subaddr_labels_in_account.resize(index.minor + 1);
+  get_account_tags(); //trigger m_account_tags integrity checks
+
+  // compile all indices present in subaddress scanning map, as well as every major index
+  std::unordered_set<cryptonote::subaddress_index> all_indices;
+  std::unordered_map<std::uint32_t, std::uint32_t> lowest_missing_minor;
+  for (const auto &p : m_subaddresses)
   {
-    // add new subaddresses
-    const uint32_t end = get_subaddress_clamped_sum(index.minor, m_subaddress_lookahead_minor);
-    const uint32_t begin = m_subaddress_labels[index.major].size();
-    cryptonote::subaddress_index index2 = {index.major, begin};
-    const std::vector<crypto::public_key> pkeys = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), index2.major, index2.minor, end);
-    for (; index2.minor < end; ++index2.minor)
+    all_indices.insert(p.second);
+    lowest_missing_minor[p.second.major];
+  }
+
+  // find lowest "missing" minor index in map, for all major indices
+  // this is an optimization which allows us to skip re-generating pubkeys that we already have
+  for (auto &p : lowest_missing_minor)
+  {
+    const std::uint32_t major = p.first;
+    std::uint32_t &minor = p.second;
+    while (all_indices.count({major, minor}) && minor < std::numeric_limits<std::uint32_t>::max())
+      ++minor;
+  }
+
+  // resize subaddress scanning map to highest historical received subaddress index plus lookahead
+  hw::device &hwdev = m_account.get_device();
+  const std::uint32_t major_base = std::max<std::uint32_t>(m_subaddress_labels.size(), 1) - 1;
+  const std::uint32_t major_end = get_subaddress_clamped_sum(major_base, m_subaddress_lookahead_major);
+  for (std::uint32_t major = 0; major < major_end; ++major)
+  {
+    const std::size_t n_minor_labels = (major < m_subaddress_labels.size()) ? m_subaddress_labels.at(major).size() : 0;
+    const std::uint32_t minor_base = std::max<std::uint32_t>(n_minor_labels, 1) - 1;
+    const std::uint32_t minor_end = get_subaddress_clamped_sum(minor_base, m_subaddress_lookahead_minor);
+    const std::uint32_t minor_begin = lowest_missing_minor.count(major) ? lowest_missing_minor.at(major) : 0;
+    if (minor_begin >= minor_end)
+      continue;
+    const std::vector<crypto::public_key> pkeys
+      = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), major, minor_begin, minor_end);
+    for (std::uint32_t minor = minor_begin; minor < minor_end; ++minor)
     {
-       const crypto::public_key &D = pkeys[index2.minor - begin];
-       m_subaddresses[D] = index2;
+      const crypto::public_key &D = pkeys.at(minor - minor_begin);
+      m_subaddresses[D] = {major, minor};
     }
-    m_subaddress_labels[index.major].resize(index.minor + 1);
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -1947,8 +1968,17 @@ void wallet2::set_subaddress_lookahead(size_t major, size_t minor)
   THROW_WALLET_EXCEPTION_IF(major > 0xffffffff, error::wallet_internal_error, "Subaddress major lookahead is too large");
   THROW_WALLET_EXCEPTION_IF(minor == 0, error::wallet_internal_error, "Subaddress minor lookahead may not be zero");
   THROW_WALLET_EXCEPTION_IF(minor > 0xffffffff, error::wallet_internal_error, "Subaddress minor lookahead is too large");
+
+  const uint32_t old_major_lookahead = m_subaddress_lookahead_major;
+  const uint32_t old_minor_lookahead = m_subaddress_lookahead_minor;
+
   m_subaddress_lookahead_major = major;
   m_subaddress_lookahead_minor = minor;
+
+  if (old_major_lookahead >= major && old_minor_lookahead >= minor)
+    return;
+
+  expand_subaddresses({0, 0});
 }
 //----------------------------------------------------------------------------------------------------
 /*!
