@@ -132,7 +132,7 @@ case "$HOST" in
         # See depends/hosts/darwin.mk for more details.
         ;;
     *android*)
-        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-11*-lib" | sort | head -n 1)/lib"
+        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-13*-lib" | sort | head -n 1)/lib"
         ;;
     *linux-gnu*)
         CROSS_GLIBC="$(store_path "glibc-cross-${HOST}")"

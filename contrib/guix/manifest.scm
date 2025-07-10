@@ -89,7 +89,7 @@ chain for " target " development."))
       (home-page (package-home-page xgcc))
       (license (package-license xgcc)))))
 
-(define base-gcc gcc-12)
+(define base-gcc gcc-13)
 (define base-linux-kernel-headers linux-libre-headers-6.1)
 
 (define* (make-monero-cross-toolchain  target
@@ -284,22 +284,22 @@ chain for " target " development."))
   (let ((target (getenv "HOST")))
     (cond ((string-suffix? "-mingw32" target)
            (list
-             gcc-toolchain-12
+             gcc-toolchain-13
              (make-mingw-pthreads-cross-toolchain target)))
           ((string-contains target "-linux-gnu")
            (list
-             gcc-toolchain-12
-             (list gcc-toolchain-12 "static")
+             gcc-toolchain-13
+             (list gcc-toolchain-13 "static")
              (make-monero-cross-toolchain target)))
           ((string-contains target "freebsd")
            (list
-             gcc-toolchain-12
-             (list gcc-toolchain-12 "static")
+             gcc-toolchain-13
+             (list gcc-toolchain-13 "static")
              clang-toolchain-11 binutils))
           ((string-contains target "android")
             (list
-              gcc-toolchain-12
-              (list gcc-toolchain-12 "static")))
+              gcc-toolchain-13
+              (list gcc-toolchain-13 "static")))
           ((string-contains target "darwin")
            (list
              gcc-toolchain-10
