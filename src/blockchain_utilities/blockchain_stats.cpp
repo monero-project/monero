@@ -30,7 +30,6 @@
 #include <boost/filesystem.hpp>
 #include "common/command_line.h"
 #include "common/varint.h"
-#include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/blockchain_db.h"
 #include "time_helper.h"

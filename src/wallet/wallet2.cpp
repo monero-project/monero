@@ -1250,7 +1250,6 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_offline(false),
   m_rpc_version(0),
   m_export_format(ExportFormat::Binary),
-  m_load_deprecated_formats(false),
   m_enable_multisig(false),
   m_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
@@ -4736,7 +4735,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetInt(m_export_format);
   json.AddMember("export_format", value2, json.GetAllocator());
 
-  value2.SetInt(m_load_deprecated_formats);
+  value2.SetInt(false);
   json.AddMember("load_deprecated_formats", value2, json.GetAllocator());
 
   value2.SetUint(1);
@@ -5002,7 +5001,6 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_original_keys_available = false;
     m_export_format = ExportFormat::Binary;
-    m_load_deprecated_formats = false;
     m_device_name = "";
     m_device_derivation_path = "";
     m_key_device_type = hw::device::device_type::SOFTWARE;
@@ -5186,9 +5184,6 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, export_format, ExportFormat, Int, false, Binary);
     m_export_format = field_export_format;
-
-    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, load_deprecated_formats, int, Int, false, false);
-    m_load_deprecated_formats = field_load_deprecated_formats;
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_name, std::string, String, false, std::string());
     if (m_device_name.empty())
@@ -6544,7 +6539,7 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
   try
   {
     if (use_fs)
-      m_message_store.read_from_file(get_multisig_wallet_state(), m_mms_file, m_load_deprecated_formats);
+      m_message_store.read_from_file(get_multisig_wallet_state(), m_mms_file);
   }
   catch (const std::exception &e)
   {
@@ -7719,50 +7714,13 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
   s = s.substr(1);
   if (version == '\003')
   {
-    if (!m_load_deprecated_formats)
-    {
       LOG_PRINT_L0("Not loading deprecated format");
       return false;
-    }
-    try
-    {
-      std::istringstream iss(s);
-      boost::archive::portable_binary_iarchive ar(iss);
-      ar >> exported_txs;
-    }
-    catch (...)
-    {
-      LOG_PRINT_L0("Failed to parse data from unsigned tx");
-      return false;
-    }
   }
   else if (version == '\004')
   {
-    if (!m_load_deprecated_formats)
-    {
       LOG_PRINT_L0("Not loading deprecated format");
       return false;
-    }
-    try
-    {
-      s = decrypt_with_view_secret_key(s);
-      try
-      {
-        std::istringstream iss(s);
-        boost::archive::portable_binary_iarchive ar(iss);
-        ar >> exported_txs;
-      }
-      catch (...)
-      {
-        LOG_PRINT_L0("Failed to parse data from unsigned tx");
-        return false;
-      }
-    }
-    catch (const std::exception &e)
-    {
-      LOG_PRINT_L0("Failed to decrypt unsigned tx: " << e.what());
-      return false;
-    }
   }
   else if (version == '\005')
   {
@@ -8034,50 +7992,13 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   s = s.substr(1);
   if (version == '\003')
   {
-    if (!m_load_deprecated_formats)
-    {
       LOG_PRINT_L0("Not loading deprecated format");
       return false;
-    }
-    try
-    {
-      std::istringstream iss(s);
-      boost::archive::portable_binary_iarchive ar(iss);
-      ar >> signed_txs;
-    }
-    catch (...)
-    {
-      LOG_PRINT_L0("Failed to parse data from signed transaction");
-      return false;
-    }
   }
   else if (version == '\004')
   {
-    if (!m_load_deprecated_formats)
-    {
       LOG_PRINT_L0("Not loading deprecated format");
       return false;
-    }
-    try
-    {
-      s = decrypt_with_view_secret_key(s);
-      try
-      {
-        std::istringstream iss(s);
-        boost::archive::portable_binary_iarchive ar(iss);
-        ar >> signed_txs;
-      }
-      catch (...)
-      {
-        LOG_PRINT_L0("Failed to parse decrypted data from signed transaction");
-        return false;
-      }
-    }
-    catch (const std::exception &e)
-    {
-      LOG_PRINT_L0("Failed to decrypt signed transaction: " << e.what());
-      return false;
-    }
   }
   else if (version == '\005')
   {
@@ -8229,17 +8150,6 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
         loaded = true;
   }
   catch (...) {}
-  try
-  {
-    if (!loaded && m_load_deprecated_formats)
-    {
-      std::istringstream iss(multisig_tx_st);
-      boost::archive::portable_binary_iarchive ar(iss);
-      ar >> exported_txs;
-      loaded = true;
-    }
-  }
-  catch(...) {}
 
   if (!loaded)
   {
@@ -12805,12 +12715,6 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
           loaded = true;
   }
   catch(...) {}
-  if (!loaded && m_load_deprecated_formats)
-  {
-    std::istringstream iss(sig_decoded);
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> proofs >> subaddr_spendkeys;
-  }
 
   THROW_WALLET_EXCEPTION_IF(subaddr_spendkeys.count(address.m_spend_public_key) == 0, error::wallet_internal_error,
     "The given address isn't found in the proof");
@@ -14533,19 +14437,6 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
     }
     catch (...) {}
 
-    if (!loaded && m_load_deprecated_formats)
-    {
-      try
-      {
-        std::stringstream iss;
-        iss << body;
-        boost::archive::portable_binary_iarchive ar(iss);
-        ar >> outputs;
-        loaded = true;
-      }
-      catch (...) {}
-    }
-
     if (!loaded)
     {
       std::get<0>(outputs) = 0;
@@ -14807,13 +14698,6 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
           loaded = true;
     }
     catch(...) {}
-    if (!loaded && m_load_deprecated_formats)
-    {
-      std::istringstream iss(body);
-      boost::archive::portable_binary_iarchive ar(iss);
-      ar >> i;
-      loaded = true;
-    }
     CHECK_AND_ASSERT_THROW_MES(loaded, "Failed to load output data");
 
     for (const auto &e: i)
