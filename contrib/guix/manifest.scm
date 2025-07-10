@@ -1,24 +1,18 @@
 (use-modules (gnu packages)
-             (gnu packages autotools)
+             ((gnu packages autotools) #:select (libtool))
              (gnu packages bash)
              ((gnu packages cmake) #:select (cmake-minimal))
              (gnu packages commencement)
              (gnu packages compression)
              (gnu packages cross-base)
-             ((gnu packages elf) #:select (patchelf))
-             (gnu packages file)
              (gnu packages gawk)
              (gnu packages gcc)
-             (gnu packages gperf)
-             ((gnu packages libusb) #:select (libplist))
-             ((gnu packages linux) #:select (linux-libre-headers-6.1 util-linux))
+             ((gnu packages linux) #:select (linux-libre-headers-6.1))
              (gnu packages llvm)
              (gnu packages mingw)
-             (gnu packages moreutils)
              (gnu packages perl)
              (gnu packages pkg-config)
              ((gnu packages python) #:select (python-minimal))
-             ((gnu packages tls) #:select (openssl))
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system gnu)
              (guix build-system trivial)
@@ -249,7 +243,6 @@ chain for " target " development."))
         which
 
         ;; File(system) inspection
-        file
         grep
         diffutils ; provides diff
         findutils ; provides find and xargs
@@ -258,25 +251,19 @@ chain for " target " development."))
         patch
         gawk
         sed
-        patchelf  ; unused, occassionally useful for debugging
 
         ;; Compression and archiving
         tar
-        bzip2 ; used to create release archives (non-windows)
-        gzip  ; used to unpack most packages in depends
-        xz    ; used to unpack freebsd_base
-        zip   ; used to create release archives (windows)
-        unzip ; used to unpack android_ndk
+        bzip2 ; used to unpack depends packages, create release archives (non-windows)
+        gzip  ; used to unpack depends packages
 
         ;; Build tools
         gnu-make
-        libtool
         pkg-config
         cmake-minimal
 
         ;; Scripting
-        perl           ; required to build openssl in depends
-        python-minimal ; required to build monero (cmake/CheckTrezor.cmake) and in android_ndk
+        perl ; required to build openssl in depends
 
         ;; Git
         git-minimal ; used to create the release source archive
@@ -284,6 +271,7 @@ chain for " target " development."))
   (let ((target (getenv "HOST")))
     (cond ((string-suffix? "-mingw32" target)
            (list
+             zip ; used to create release archives
              gcc-toolchain-12
              (make-mingw-pthreads-cross-toolchain target)))
           ((string-contains target "-linux-gnu")
@@ -293,15 +281,19 @@ chain for " target " development."))
              (make-monero-cross-toolchain target)))
           ((string-contains target "freebsd")
            (list
+             xz ; used to unpack freebsd_base
              gcc-toolchain-12
              (list gcc-toolchain-12 "static")
              clang-toolchain-11 binutils))
           ((string-contains target "android")
             (list
+              unzip ; used to unpack android_ndk
               gcc-toolchain-12
               (list gcc-toolchain-12 "static")))
           ((string-contains target "darwin")
            (list
+             libtool
+             python-minimal ; required to build libtapi in depends
              gcc-toolchain-10
              clang-toolchain-11
              binutils))

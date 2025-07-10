@@ -183,8 +183,7 @@ esac
 [ -e /usr/bin ] || mkdir -p /usr/bin
 [ -e /lib64 ] || mkdir /lib64
 
-# Symlink file and env to a conventional path
-[ -e /usr/bin/file ] || ln -s --no-dereference "$(command -v file)" /usr/bin/file
+# Symlink env and shells to a conventional path
 [ -e /usr/bin/env ]  || ln -s --no-dereference "$(command -v env)"  /usr/bin/env
 [ -e /bin/bash ]  || ln -s --no-dereference "$(command -v bash)"  /bin/bash
 [ -e /bin/sh ]  || ln -s --no-dereference "$(command -v sh)"  /bin/sh
