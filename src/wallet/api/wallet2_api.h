@@ -1143,6 +1143,7 @@ struct Wallet
  */
 struct WalletManager
 {
+    virtual ~WalletManager() = 0;
 
     /*!
      * \brief  Creates new wallet
