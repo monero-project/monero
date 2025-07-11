@@ -1467,7 +1467,7 @@ namespace nodetool
     ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
 
     zone.m_peerlist.append_with_peer_anchor(ape);
-    zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income);
+    zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income, (con->support_flags & P2P_SUPPORT_FLAG_V2));
     zone.m_notifier.new_out_connection();
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK.");
@@ -2583,7 +2583,7 @@ namespace nodetool
       return 1;
     }
 
-    zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income);
+    zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income, (arg.node_data.support_flags & P2P_SUPPORT_FLAG_V2));
 
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;

@@ -30,6 +30,8 @@
 #ifndef __WINH_OBJ_H__
 #define __WINH_OBJ_H__
 
+#include <mutex>
+#include <shared_mutex>
 #include <boost/chrono/duration.hpp>
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/locks.hpp>
@@ -83,6 +85,10 @@ namespace epee
 #define  CRITICAL_REGION_LOCAL1(x) { boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep()));} boost::unique_lock critical_region_var1(x)
 
 #define  CRITICAL_REGION_END() }
+
+using rw_mutex = std::shared_timed_mutex;
+using read_lock = std::shared_lock<rw_mutex>;
+using write_lock = std::unique_lock<rw_mutex>;
 
 }
 
