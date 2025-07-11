@@ -2553,9 +2553,19 @@ bool WalletImpl::parse_uri(const std::string &uri, std::string &address, std::st
     return m_wallet->parse_uri(uri, address, payment_id, amount, tx_description, recipient_name, unknown_parameters, error);
 }
 
+bool WalletImpl::parse_uri(const std::string &uri, std::vector<std::string> &addresses, std::vector<uint64_t> &amounts, std::vector<std::string> &recipient_names, std::string &tx_description, std::vector<std::string> &unknown_parameters, std::string &error)
+{
+    return m_wallet->parse_uri(uri, addresses, amounts, recipient_names, tx_description, unknown_parameters, error);
+}
+
 std::string WalletImpl::make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const
 {
     return m_wallet->make_uri(address, payment_id, amount, tx_description, recipient_name, error);
+}
+
+std::string WalletImpl::make_uri(const std::vector<std::string> &addresses, const std::vector<uint64_t> &amounts, const std::vector<std::string> &recipient_names, const std::string &tx_description, std::string &error) const
+{
+    return m_wallet->make_uri(addresses, amounts, recipient_names, tx_description, error);
 }
 
 std::string WalletImpl::getDefaultDataDir() const
