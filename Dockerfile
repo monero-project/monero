@@ -6,18 +6,12 @@ FROM ubuntu:20.04 AS builder
 RUN set -ex && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends --yes install \
-        automake \
-        autotools-dev \
-        bsdmainutils \
         build-essential \
         ca-certificates \
-        ccache \
         cmake \
         curl \
         git \
-        libtool \
-        pkg-config \
-        gperf
+        pkg-config
 
 WORKDIR /src
 COPY . .
