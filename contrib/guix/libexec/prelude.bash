@@ -51,23 +51,13 @@ fi
 #
 # Before updating the pinned hash:
 #
-# - Push new commits to monero-project/guix from upstream. Do not forget to update
-#   the keyring branch as well. Guix uses this branch to authenticate commits.
-#
-#   The repository is set to monero-project/guix because fetching from the official
-#   repo at https://git.savannah.gnu.org/git/guix.git is unreliable in CI jobs.
-#
-#   Do not attempt to push custom changes to monero-project/guix, it will not work!
-#   If a change is necessary to Guix, submit a patch to https://issues.guix.gnu.org/
-#   New packages can be defined in manifest.scm until they are available upstream.
-#
 # - Make sure a bootstrapped build works with the new commit using a fresh Guix install:
 #   $ export ADDITIONAL_GUIX_COMMON_FLAGS='--no-substitutes'
 #
 # - Check how the update affects our build graph and which packages have been updated.
 time-machine() {
     # shellcheck disable=SC2086
-    guix time-machine --url=https://github.com/monero-project/guix.git \
+    guix time-machine --url=https://codeberg.org/guix/guix.git \
                       --commit=9d09b0cf841fb657a1aec12e9bab68e00c2b493c \
                       --cores="$JOBS" \
                       --keep-failed \
