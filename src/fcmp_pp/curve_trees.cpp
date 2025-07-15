@@ -109,6 +109,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
         LOG_PRINT_L3("clear_torsion_ns: " << clear_torsion_ns);
     }
 
+#if !defined(NDEBUG)
     {
         // Debug build safety checks
         rct::key O_debug;
@@ -118,6 +119,7 @@ OutputTuple output_to_tuple(const OutputPair &output_pair, bool torsion_checked,
         assert(O == O_debug);
         assert(C == C_debug);
     }
+#endif
 
     // Redundant check for safety
     if (O == rct::I)

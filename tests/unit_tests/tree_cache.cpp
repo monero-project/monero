@@ -63,7 +63,6 @@ TEST(tree_cache, register_output)
     CHECK_AND_ASSERT_THROW_MES(outputs.size() == INIT_LEAVES, "unexpected size of outputs");
 
     // Mock values
-    const uint64_t last_locked_block_idx = 1;
     const auto output = outputs[0].output_pair;
 
     // 2. Register output - valid
