@@ -287,7 +287,6 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
         enote_view_incoming_scan_info_t res;
 
         crypto::secret_key amount_blinding_factor_sk;
-        carrot::payment_id_t payment_id;
         carrot::CarrotEnoteType dummy_enote_type;
         if (!carrot::try_scan_carrot_enote_external_sender(enote,
                 encrypted_payment_id,
@@ -301,10 +300,8 @@ static std::optional<enote_view_incoming_scan_info_t> view_incoming_scan_carrot_
                 /*check_payment_id=*/false))
             continue;
 
-        memset(&res.payment_id, 0, sizeof(res.payment_id));
-        memcpy(&res.payment_id, &payment_id, sizeof(carrot::payment_id_t));
-
         res.address_spend_pubkey= destination.address_spend_pubkey;
+        res.payment_id = crypto::null_hash;
         res.subaddr_index.reset();
         res.amount_blinding_factor = rct::sk2rct(amount_blinding_factor_sk);
         res.main_tx_pubkey_index = 0;

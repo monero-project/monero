@@ -200,6 +200,7 @@ static bool inv_psi2(fe u_out, fe w_out, const fe e, const fe u, const fe w)
     return true;
 };
 
+#if !defined(NDEBUG)
 static bool check_e_u_w(const fe e, const fe u, const fe w)
 {
     fe a;
@@ -240,6 +241,7 @@ static bool check_e_u_w(const fe e, const fe u, const fe w)
 
     return true;
 }
+#endif
 
 namespace fcmp_pp
 {

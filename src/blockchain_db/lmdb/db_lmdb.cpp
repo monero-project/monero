@@ -7338,8 +7338,6 @@ void BlockchainLMDB::migrate_5_6()
   uint64_t i;
   int result;
   mdb_txn_safe txn(false);
-  MDB_val k, v;
-  char *ptr;
 
   MGINFO_YELLOW("Migrating blockchain from DB version 5 to 6 - this may take a while:");
 
@@ -7632,6 +7630,7 @@ void BlockchainLMDB::migrate_5_6()
 
   // Update db version
   uint32_t version = 6;
+  MDB_val v;
   v.mv_data = (void *)&version;
   v.mv_size = sizeof(version);
   MDB_val_str(vk, "version");
