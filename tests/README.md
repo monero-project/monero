@@ -93,14 +93,14 @@ An additional helper utility is provided `contrib/fuzz_testing/fuzz.sh`. AFL mus
 
 ## OSS-Fuzz
 
-Monero is integratined into [OSS-Fuzz](https://github.com/google/oss-fuzz) and the project integration
+Monero is integrated into [OSS-Fuzz](https://github.com/google/oss-fuzz) and the project integration
 is available [here](https://github.com/google/oss-fuzz/tree/master/projects/monero). OSS-Fuzz builds
-and runs the fuzzers continuously, so long as the Monero's OSS-Fuzz [build script](https://github.com/google/oss-fuzz/blob/master/projects/monero/build.sh) builds them.
+and runs the fuzzers continuously, so long as Monero's OSS-Fuzz [build script](https://github.com/google/oss-fuzz/blob/master/projects/monero/build.sh) builds them.
 
 Issues found by OSS-Fuzz are publicly available (following a disclosure deadline) on the OSS-Fuzz issue tracker [here](https://issues.oss-fuzz.com/issues?q=project%3Dmonero).
 The issue tracker only displays limited information, and only maintainers with emails listed in the [project.yaml](https://github.com/google/oss-fuzz/blob/master/projects/monero/project.yaml) have access to full details.
 
-Coverage reports are build on a daily basis and data about this can be found at [introspector.oss-fuzz.com](https://introspector.oss-fuzz.com) [here](https://introspector.oss-fuzz.com/project-profile?project=monero).
+Coverage reports are built on a daily basis and data about this can be found at [introspector.oss-fuzz.com](https://introspector.oss-fuzz.com) [here](https://introspector.oss-fuzz.com/project-profile?project=monero).
 
 ### Build and run fuzzers by way of OSS-Fuzz
 
