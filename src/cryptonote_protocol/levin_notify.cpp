@@ -49,6 +49,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "net/dandelionpp.h"
 #include "p2p/net_node.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p.tx"
@@ -202,9 +203,55 @@ namespace levin
       return out;
     }
 
+    epee::levin::message_writer make_tx_inv_message(std::vector<crypto::hash>&& txs, const bool pad)
+    {
+      NOTIFY_TX_POOL_INV::request request{};
+      request.txs = std::move(txs);
+
+      if (pad)
+      {
+        size_t bytes = 9 /* header */ + 4 /* 1 + 'txs' */ + tools::get_varint_data(request.txs.size()).size();
+        for(auto tx_hash = request.txs.begin(); tx_hash!=request.txs.end(); ++tx_hash)
+          bytes += tools::get_varint_data(sizeof(*tx_hash)).size() + sizeof(*tx_hash);
+
+        // stuff some dummy bytes in to stay safe from traffic volume analysis
+        static constexpr const size_t granularity = 128;
+        size_t padding = granularity - bytes % granularity;
+        const size_t overhead = 2 /* 1 + '_' */ + tools::get_varint_data(padding).size();
+        if (overhead > padding)
+          padding = 0;
+        else
+          padding -= overhead;
+        request._ = std::string(padding, ' ');
+
+        epee::byte_slice arg_buff;
+        epee::serialization::store_t_to_binary(request, arg_buff);
+
+        // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
+        size_t remove = arg_buff.size() % granularity;
+        if (remove > request._.size())
+          request._.clear();
+        else
+          request._.resize(request._.size() - remove);
+        // if the size of _ moved enough, we might lose byte in size encoding, we don't care
+      }
+
+      epee::levin::message_writer out;
+      if (!epee::serialization::store_t_to_binary(request, out.buffer))
+        throw std::runtime_error{"Failed to serialize to epee binary format"};
+
+      return out;
+    }
+
     bool make_payload_send_txs(connections& p2p, std::vector<blobdata>&& txs, const boost::uuids::uuid& destination, const bool pad, const bool fluff)
     {
       epee::byte_slice blob = make_tx_message(std::move(txs), pad, fluff).finalize_notify(NOTIFY_NEW_TRANSACTIONS::ID);
+      return p2p.send(std::move(blob), destination);
+    }
+
+    bool make_payload_send_txs_relay_v2(connections& p2p, std::vector<crypto::hash>&& txs, const boost::uuids::uuid& destination, const bool pad)
+    {
+      epee::byte_slice blob = make_tx_inv_message(std::move(txs), pad).finalize_notify(NOTIFY_TX_POOL_INV::ID);
       return p2p.send(std::move(blob), destination);
     }
 
@@ -291,8 +338,10 @@ namespace levin
       boost::asio::io_context::strand strand;
       struct context_t {
         std::vector<cryptonote::blobdata> fluff_txs;
+        std::vector<crypto::hash> fluff_txs_v2;
         std::chrono::steady_clock::time_point flush_time;
         bool m_is_income;
+        bool tx_relay_v2;
       };
       boost::unordered_map<boost::uuids::uuid, context_t> contexts;
       net::dandelionpp::connection_map map;//!< Tracks outgoing uuid's for noise channels or Dandelion++ stems
@@ -371,17 +420,24 @@ namespace levin
         const auto now = std::chrono::steady_clock::now();
         auto next_flush = std::chrono::steady_clock::time_point::max();
         std::vector<std::pair<std::vector<blobdata>, boost::uuids::uuid>> connections{};
+        std::vector<std::pair<std::vector<crypto::hash>, boost::uuids::uuid>> connections_relay_v2{};
         for (auto &e: zone_->contexts)
         {
           auto &id = e.first;
           auto &context = e.second;
-          if (!context.fluff_txs.empty())
+          if (!context.fluff_txs.empty()
+              || !context.fluff_txs_v2.empty())
           {
             if (context.flush_time <= now || timer_error) // flush on canceled timer
             {
               context.flush_time = std::chrono::steady_clock::time_point::max();
-              connections.emplace_back(std::move(context.fluff_txs), id);
-              context.fluff_txs.clear();
+              if (context.tx_relay_v2) {
+                connections_relay_v2.emplace_back(std::move(context.fluff_txs_v2), id);
+                context.fluff_txs_v2.clear();
+              } else {
+                connections.emplace_back(std::move(context.fluff_txs), id);
+                context.fluff_txs.clear();
+              }
             }
             else // not flushing yet
               next_flush = std::min(next_flush, context.flush_time);
@@ -395,6 +451,16 @@ namespace levin
 	   network is therefore replacing the sybil protection of Dandelion++.
 	   Dandelion++ stem phase over i2p/tor is also worth investigating
 	   (with/without "noise"?). */
+        for (auto& connection : connections_relay_v2)
+        {
+          sort(connection.first.begin(), connection.first.end(),
+               [](const crypto::hash &lhs, const crypto::hash &rhs) {
+                 return std::memcmp(&lhs, &rhs, sizeof(lhs)) < 0;
+               });
+          connection.first.erase(unique(connection.first.begin(), connection.first.end()), connection.first.end());
+          make_payload_send_txs_relay_v2(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs);
+        }
+
         for (auto& connection : connections)
         {
           std::sort(connection.first.begin(), connection.first.end()); // don't leak receive order
@@ -416,14 +482,15 @@ namespace levin
     {
       std::shared_ptr<detail::zone> zone_;
       std::vector<blobdata> txs_;
+      std::vector<crypto::hash> tx_hashes_;
       boost::uuids::uuid source_;
 
       void operator()()
       {
-        run(std::move(zone_), epee::to_span(txs_), source_);
+        run(std::move(zone_), epee::to_span(txs_), epee::to_span(tx_hashes_), source_);
       }
 
-      static void run(std::shared_ptr<detail::zone> zone, epee::span<const blobdata> txs, const boost::uuids::uuid& source)
+      static void run(std::shared_ptr<detail::zone> zone, epee::span<const blobdata> txs, epee::span<const crypto::hash> tx_hashes, const boost::uuids::uuid& source)
       {
         if (!zone || !zone->p2p || txs.empty())
           return;
@@ -449,8 +516,13 @@ namespace levin
               context.flush_time = now + (context.m_is_income ? in_duration() : out_duration());
 
             next_flush = std::min(next_flush, context.flush_time);
-            context.fluff_txs.reserve(context.fluff_txs.size() + txs.size());
-            context.fluff_txs.insert(context.fluff_txs.end(), txs.begin(), txs.end());
+            if (context.tx_relay_v2) {
+              context.fluff_txs_v2.reserve(context.fluff_txs_v2.size() + tx_hashes.size());
+              context.fluff_txs_v2.insert(context.fluff_txs_v2.end(), tx_hashes.begin(), tx_hashes.end());
+            } else {
+              context.fluff_txs.reserve(context.fluff_txs.size() + txs.size());
+              context.fluff_txs.insert(context.fluff_txs.end(), txs.begin(), txs.end());
+            }
           }
         }
 
@@ -545,6 +617,7 @@ namespace levin
       std::shared_ptr<detail::zone> zone_;
       i_core_events* core_;
       std::vector<blobdata> txs_;
+      std::vector<crypto::hash> tx_hashes_;
       boost::uuids::uuid source_;
       relay_method tx_relay;
 
@@ -576,7 +649,7 @@ namespace levin
         }
 
         core_->on_transactions_relayed(epee::to_span(txs_), relay_method::fluff);
-        fluff_notify::run(std::move(zone_), epee::to_span(txs_), source_);
+        fluff_notify::run(std::move(zone_), epee::to_span(txs_), epee::to_span(tx_hashes_), source_);
       }
     };
 
@@ -767,17 +840,19 @@ namespace levin
     );
   }
 
-  void notify::on_handshake_complete(const boost::uuids::uuid &id, bool is_income)
+  void notify::on_handshake_complete(const boost::uuids::uuid &id, bool is_income, bool tx_relay_v2)
   {
     if (!zone_)
       return;
 
     auto& zone = zone_;
-    boost::asio::dispatch(zone_->strand, [zone, id, is_income] {
+    boost::asio::dispatch(zone_->strand, [zone, id, is_income, tx_relay_v2] {
       zone->contexts[id] = {
         .fluff_txs = {},
+        .fluff_txs_v2 = {},
         .flush_time = std::chrono::steady_clock::time_point::max(),
         .m_is_income = is_income,
+        .tx_relay_v2 = tx_relay_v2,
       };
     });
   }
@@ -882,22 +957,46 @@ namespace levin
         case relay_method::local:
           if (zone_->nzone == epee::net_utils::zone::public_)
           {
+            // TODO, find a better solution
+            std::vector<crypto::hash> tx_hashes;
+            tx_hashes.reserve(txs.size()); // Reserve storage based on txs count
+
+            for (const auto& tx_blob : txs)
+            {
+              cryptonote::transaction tx{};
+              if (parse_and_validate_tx_from_blob(tx_blob, tx))
+              {
+                tx_hashes.push_back(get_transaction_hash(tx));
+              }
+            }
             // this will change a local/forward tx to stem or fluff ...
             boost::asio::dispatch(
               zone_->strand,
-              dandelionpp_notify{zone_, core_, std::move(txs), source, tx_relay}
+              dandelionpp_notify{zone_, core_, std::move(txs), std::move(tx_hashes), source, tx_relay}
             );
             break;
           }
           /* fallthrough */
         case relay_method::fluff:
+          // TODO, find a better solution
+          std::vector<crypto::hash> tx_hashes;
+          tx_hashes.reserve(txs.size()); // Reserve storage based on txs count
+
+          for (const auto& tx_blob : txs)
+          {
+            cryptonote::transaction tx{};
+            if (parse_and_validate_tx_from_blob(tx_blob, tx))
+            {
+              tx_hashes.push_back(get_transaction_hash(tx));
+            }
+          }
           /* If sending stem/forward/local txes over non public networks,
              continue to claim that relay mode even though it used the "fluff"
              routine. A "fluff" over i2p/tor is not the same as a "fluff" over
              ipv4/6. Marking it as "fluff" here will make the tx immediately
              visible externally from this node, which is not desired. */
           core_->on_transactions_relayed(epee::to_span(txs), tx_relay);
-          boost::asio::dispatch(zone_->strand, fluff_notify{zone_, std::move(txs), source});
+          boost::asio::dispatch(zone_->strand, fluff_notify{zone_, std::move(txs), std::move(tx_hashes), source});
           break;
       }
     }
