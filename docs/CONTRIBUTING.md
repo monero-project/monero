@@ -152,6 +152,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Maintainers SHOULD ask for improvements to incorrect patches and SHOULD reject incorrect patches if the Contributor does not respond constructively.
 - Any Contributor who has value judgments on a correct patch SHOULD express these via their own patches.
 - Maintainers MAY commit changes to non-source documentation directly to the project.
+- Maintainers SHOULD NOT merge patches that have unaddressed comments.
 
 ### Creating stable releases
 
