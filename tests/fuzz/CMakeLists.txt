@@ -26,6 +26,35 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+monero_add_minimal_executable(fuzz_rpc
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp)
+target_compile_definitions(fuzz_rpc PRIVATE SAFE)
+target_link_libraries(fuzz_rpc
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(fuzz_rpc_full
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp)
+target_link_libraries(fuzz_rpc_full
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc_full
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
 target_link_libraries(block_fuzz_tests
   PRIVATE
