@@ -26,6 +26,31 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Retrieve FuzzedDataProvider
+set(FDP_ROOT ${CMAKE_BINARY_DIR}/_deps/fuzzed_headers)
+set(FDP_DIR ${FDP_ROOT}/fuzzer)
+set(FDP_PATH ${FDP_DIR}/FuzzedDataProvider.h)
+file(MAKE_DIRECTORY ${FDP_DIR})
+if(NOT EXISTS ${FDP_PATH})
+  message(STATUS "Downloading FuzzedDataProvider.h to ${FDP_PATH}")
+  file(DOWNLOAD
+    https://raw.githubusercontent.com/llvm/llvm-project/main/compiler-rt/include/fuzzer/FuzzedDataProvider.h
+    ${FDP_PATH}
+    STATUS FDP_STATUS
+    SHOW_PROGRESS
+    INACTIVITY_TIMEOUT 30
+    TIMEOUT 60
+  )
+  list(GET FDP_STATUS 0 FDP_CODE)
+  if(NOT FDP_CODE EQUAL 0)
+    message(FATAL_ERROR "Download failed for FuzzedDataProvider.h: ${FDP_STATUS}")
+  endif()
+endif()
+
+# Add the include path for <fuzzer/FuzzedDataProvider.h>
+include_directories(${FDP_ROOT})
+
+# Recompile perf_timer for fuzzing
 add_library(fuzz_unsafe_macro OBJECT
   ${CMAKE_SOURCE_DIR}/src/common/perf_timer.cpp)
 target_compile_definitions(fuzz_unsafe_macro

@@ -239,11 +239,9 @@ bool generate_random_blocks(cryptonote::core& core, FuzzedDataProvider& provider
       std::vector<cryptonote::tx_destination_entry> destinations;
       std::vector<uint8_t> extra;
 
-      // Generate sender account
+      // Generate sender and receiver account
       cryptonote::account_base sender;
       sender.generate();
-
-      // Generate receiver account
       cryptonote::account_base receiver;
       receiver.generate();
 
