@@ -31,10 +31,11 @@
 #pragma once
 #include "chaingen.h"
 
-enum SpendFromTxType
+enum FcmpPpFromTxType
 {
-  BulletproofPlus = 0,
-  PreRctCoinbase = 1,
+  PreRctCoinbase = 0,
+  PreRctRegular = 1,
+  BulletproofPlus = 2,
 };
 
 struct gen_fcmp_pp_tx_validation_base : public test_chain_unit_base
@@ -89,7 +90,7 @@ struct gen_fcmp_pp_tx_validation_base : public test_chain_unit_base
 
   bool generate_with(std::vector<test_event_entry>& events,
       size_t n_txes, const uint64_t *amounts_paid, bool valid, uint8_t hf_version,
-      const SpendFromTxType spend_tx_type,
+      const FcmpPpFromTxType spend_tx_type,
       const std::function<bool(cryptonote::transaction &tx, size_t)> &post_tx) const;
 
   bool check_fcmp_pp(const cryptonote::transaction &tx, size_t tx_idx, const size_t *sizes, const char *context) const;
@@ -101,7 +102,7 @@ private:
 
 template<>
 struct get_test_options<gen_fcmp_pp_tx_validation_base> {
-  const std::pair<uint8_t, uint64_t> hard_forks[5] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(HF_VERSION_BULLETPROOF_PLUS, 77), std::make_pair(HF_VERSION_FCMP_PLUS_PLUS, 138), std::make_pair(0, 0)};
+  const std::pair<uint8_t, uint64_t> hard_forks[5] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(HF_VERSION_BULLETPROOF_PLUS, 78), std::make_pair(HF_VERSION_FCMP_PLUS_PLUS, 139), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks, 0
   };
@@ -109,20 +110,26 @@ struct get_test_options<gen_fcmp_pp_tx_validation_base> {
 
 template<uint8_t test_version = 1>
 struct get_fcmp_pp_versioned_test_options: public get_test_options<gen_fcmp_pp_tx_validation_base> {
-  const std::pair<uint8_t, uint64_t> hard_forks[5] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(HF_VERSION_BULLETPROOF_PLUS, 77), std::make_pair(test_version, 138), std::make_pair(0, 0)};
+  const std::pair<uint8_t, uint64_t> hard_forks[5] = {std::make_pair(1, 0), std::make_pair(2, 1), std::make_pair(HF_VERSION_BULLETPROOF_PLUS, 78), std::make_pair(test_version, 139), std::make_pair(0, 0)};
   const cryptonote::test_options test_options = {
     hard_forks, 0
   };
 };
 
-struct gen_fcmp_pp_tx_from_bpp_at_fork : public gen_fcmp_pp_tx_validation_base
+struct gen_fcmp_pp_tx_from_bpp : public gen_fcmp_pp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_fcmp_pp_tx_from_bpp_at_fork>: public get_fcmp_pp_versioned_test_options<HF_VERSION_FCMP_PLUS_PLUS> {};
+template<> struct get_test_options<gen_fcmp_pp_tx_from_bpp>: public get_fcmp_pp_versioned_test_options<HF_VERSION_FCMP_PLUS_PLUS> {};
 
-struct gen_fcmp_pp_tx_from_pre_rct : public gen_fcmp_pp_tx_validation_base
+struct gen_fcmp_pp_tx_from_pre_rct_coinbase : public gen_fcmp_pp_tx_validation_base
 {
   bool generate(std::vector<test_event_entry>& events) const;
 };
-template<> struct get_test_options<gen_fcmp_pp_tx_from_pre_rct>: public get_fcmp_pp_versioned_test_options<HF_VERSION_FCMP_PLUS_PLUS> {};
+template<> struct get_test_options<gen_fcmp_pp_tx_from_pre_rct_coinbase>: public get_fcmp_pp_versioned_test_options<HF_VERSION_FCMP_PLUS_PLUS> {};
+
+struct gen_fcmp_pp_tx_from_pre_rct_regular : public gen_fcmp_pp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_fcmp_pp_tx_from_pre_rct_regular>: public get_fcmp_pp_versioned_test_options<HF_VERSION_FCMP_PLUS_PLUS> {};
