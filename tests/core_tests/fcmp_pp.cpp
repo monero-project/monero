@@ -53,23 +53,23 @@ using TreeCacheV1 = fcmp_pp::curve_trees::TreeCache<Selene, Helios>;
 
 bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
     size_t n_txes, const uint64_t *amounts_paid, bool valid, uint8_t hf_version,
-    const SpendFromTxType spend_tx_type,
+    const FcmpPpFromTxType spend_tx_type,
     const std::function<bool(transaction &tx, size_t tx_idx)> &post_tx) const
 {
   uint64_t ts_start = 1338224400;
 
-  GENERATE_ACCOUNT(miner_account);
-  MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
+  GENERATE_ACCOUNT(genesis_account);
+  MAKE_GENESIS_BLOCK(events, blk_0, genesis_account, ts_start);
   cryptonote::block blk_last = blk_0;
 
-  // create 16 miner accounts, and have them mine the next 16 blocks
-  cryptonote::account_base miner_accounts[16];
-  const std::size_t n_manual_blocks = 16 + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 1 + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
+  // mine the next 16 blocks to a new miner
+  cryptonote::account_base miner_account;
+  miner_account.generate();
+  const std::size_t n_manual_blocks = 16 + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 2 + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW;
   cryptonote::block blocks[n_manual_blocks];
   std::size_t cur_block_idx = 0;
   for (size_t n = 0; n < 16; ++n) {
-    miner_accounts[n].generate();
-    CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, miner_accounts[n],
+    CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, miner_account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
         2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0, 2),
@@ -83,7 +83,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   {
     for (size_t i = 0; i < CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW; ++i)
     {
-      CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, miner_account,
+      CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, genesis_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
           2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0, 2),
@@ -94,11 +94,71 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     }
   }
 
+  // Create a regular pre-RCT tx to spend from
+  cryptonote::transaction pre_rct_tx;
+  const uint64_t pre_rct_tx_src_amount = 30000000000000;
+  const uint64_t pre_rct_tx_dest_amount = 5000000000000;
+  {
+    std::vector<tx_source_entry> sources;
+
+    sources.resize(1);
+    tx_source_entry& src = sources.back();
+
+    const size_t index_in_tx = blocks[1].miner_tx.vout.size() - 1;
+    src.amount = pre_rct_tx_src_amount;
+    for (int m = 1; m < 4; ++m) {
+      crypto::public_key output_public_key = crypto::null_pkey;
+      for (const auto &out : blocks[m].miner_tx.vout)
+      {
+        if (out.amount != src.amount)
+          continue;
+        cryptonote::get_output_public_key(out, output_public_key);
+        break;
+      }
+      CHECK_AND_ASSERT_MES(output_public_key != crypto::null_pkey, false, "no out with expected amount");
+      src.push_output(m, output_public_key, src.amount);
+    }
+    src.real_out_tx_key = cryptonote::get_tx_pub_key_from_extra(blocks[1].miner_tx);
+    src.real_output = 0;
+    src.real_output_in_tx_index = index_in_tx;
+    src.mask = rct::identity();
+    src.rct = false;
+
+    //fill outputs entry
+    tx_destination_entry td;
+    td.addr = miner_account.get_keys().m_account_address;
+    td.amount = pre_rct_tx_dest_amount;
+    std::vector<tx_destination_entry> destinations;
+    destinations.push_back(td);
+    destinations.push_back(td);
+
+    crypto::secret_key tx_key;
+    std::vector<crypto::secret_key> additional_tx_keys;
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs{{ miner_account.get_keys().m_account_address.m_spend_public_key, {0,0} }};
+    bool r = construct_tx_and_get_tx_key(miner_account.get_keys(), subaddrs, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), pre_rct_tx, tx_key, additional_tx_keys, false/*rct*/, {});
+    CHECK_AND_ASSERT_MES(r, false, "failed to construct pre-RCT transaction");
+    events.push_back(pre_rct_tx);
+
+    // Mine the tx
+    uint64_t fee = 0;
+    get_tx_fee(pre_rct_tx, fee);
+
+    CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, genesis_account,
+        test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs | test_generator::bf_tx_fees,
+        2, 2, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
+        crypto::hash(), 0, transaction(), {get_transaction_hash(pre_rct_tx)}, 0, 6, 2, fee),
+        false, "Failed to generate block");
+    events.push_back(blocks[cur_block_idx]);
+    blk_last = blocks[cur_block_idx];
+    ++cur_block_idx;
+  }
+  const std::size_t pre_rct_tx_block_idx = cur_block_idx;
+
   // Create a BP+ tx to spend from
   cryptonote::transaction bpp_tx;
   rct::key bpp_tx_masks[2];
-  const uint64_t src_amount = 5000000000000;
-  const uint64_t dest_amount = src_amount / 3;
+  const uint64_t bpp_tx_src_amount = 5000000000000;
+  const uint64_t bpp_tx_dest_amount = bpp_tx_src_amount / 3;
   {
     std::vector<tx_source_entry> sources;
 
@@ -106,7 +166,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     tx_source_entry& src = sources.back();
 
     const size_t index_in_tx = 4;
-    src.amount = src_amount;
+    src.amount = bpp_tx_src_amount;
     for (int m = 0; m < 16; ++m) {
       crypto::public_key output_public_key = crypto::null_pkey;
       for (const auto &out : blocks[m].miner_tx.vout)
@@ -127,17 +187,17 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
 
     //fill outputs entry
     tx_destination_entry td;
-    td.addr = miner_accounts[0].get_keys().m_account_address;
-    td.amount = dest_amount;
+    td.addr = miner_account.get_keys().m_account_address;
+    td.amount = bpp_tx_dest_amount;
     std::vector<tx_destination_entry> destinations;
     destinations.push_back(td);
     destinations.push_back(td);
 
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
-    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs{{ miner_accounts[0].get_keys().m_account_address.m_spend_public_key, {0,0} }};
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs{{ miner_account.get_keys().m_account_address.m_spend_public_key, {0,0} }};
     const rct::RCTConfig rct_config{ rct::RangeProofPaddedBulletproof, 4 };
-    bool r = construct_tx_and_get_tx_key(miner_accounts[0].get_keys(), subaddrs, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), bpp_tx, tx_key, additional_tx_keys, true, rct_config);
+    bool r = construct_tx_and_get_tx_key(miner_account.get_keys(), subaddrs, sources, destinations, cryptonote::account_public_address{}, std::vector<uint8_t>(), bpp_tx, tx_key, additional_tx_keys, true, rct_config);
     CHECK_AND_ASSERT_MES(r, false, "failed to construct bp+ transaction");
     events.push_back(bpp_tx);
 
@@ -152,10 +212,11 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       rct::decodeRctSimple(bpp_tx.rct_signatures, rct::sk2rct(amount_key), o, bpp_tx_masks[o], hw::get_device("default"));
     }
 
+    // Mine the tx
     uint64_t fee = 0;
     get_tx_fee(bpp_tx, fee);
 
-    CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, miner_account,
+    CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, genesis_account,
         test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs | test_generator::bf_tx_fees,
         HF_VERSION_BULLETPROOF_PLUS, HF_VERSION_BULLETPROOF_PLUS, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
         crypto::hash(), 0, transaction(), {get_transaction_hash(bpp_tx)}, 0, 6, HF_VERSION_BULLETPROOF_PLUS, fee),
@@ -166,11 +227,11 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   }
   const std::size_t bpp_block_idx = cur_block_idx;
 
-  // mine CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW blocks so the above is spendable
+  // mine CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW blocks so the above txs are spendable
   {
     for (size_t i = 0; i < CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW; ++i)
     {
-      CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, miner_account,
+      CHECK_AND_ASSERT_MES(generator.construct_block_manually(blocks[cur_block_idx], blk_last, genesis_account,
           test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_hf_version,
           HF_VERSION_BULLETPROOF_PLUS, HF_VERSION_BULLETPROOF_PLUS, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
           crypto::hash(), 0, transaction(), std::vector<crypto::hash>(), 0, 0, HF_VERSION_BULLETPROOF_PLUS),
@@ -181,7 +242,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
     }
   }
 
-  // Select the "input" tx we're going to spend and other necessary inputs
+  // Select the "input" tx we're going to spend and other necessary tx construction params
   cryptonote::transaction input_tx;
   uint64_t internal_o_idx;
   uint64_t global_o_idx;
@@ -189,19 +250,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   rct::key mask;
   switch (spend_tx_type)
   {
-    case SpendFromTxType::BulletproofPlus:
-    {
-      input_tx = bpp_tx;
-      CHECK_AND_ASSERT_MES(input_tx.rct_signatures.type == rct::RCTTypeBulletproofPlus, false, "expected BP+ tx type");
-
-      internal_o_idx = 0;
-      global_o_idx = 0; // ok to be incorrect
-      spend_amount = dest_amount;
-      mask = bpp_tx_masks[internal_o_idx];
-
-      break;
-    }
-    case SpendFromTxType::PreRctCoinbase:
+    case FcmpPpFromTxType::PreRctCoinbase:
     {
       input_tx = blocks[0].miner_tx;
       CHECK_AND_ASSERT_MES(input_tx.version == 1, false, "expected tx version 1");
@@ -211,6 +260,31 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       global_o_idx = internal_o_idx;
       spend_amount = input_tx.vout.at(internal_o_idx).amount;
       mask = rct::identity();
+
+      break;
+    }
+    case FcmpPpFromTxType::PreRctRegular:
+    {
+      input_tx = pre_rct_tx;
+      CHECK_AND_ASSERT_MES(input_tx.version == 1, false, "expected tx version 1");
+      CHECK_AND_ASSERT_MES(!cryptonote::is_coinbase(input_tx), false, "expected regular (non-coinbase) tx");
+
+      internal_o_idx = 0;
+      global_o_idx = 0; // ok to be incorrect
+      spend_amount = pre_rct_tx_dest_amount;
+      mask = rct::identity();
+
+      break;
+    }
+    case FcmpPpFromTxType::BulletproofPlus:
+    {
+      input_tx = bpp_tx;
+      CHECK_AND_ASSERT_MES(input_tx.rct_signatures.type == rct::RCTTypeBulletproofPlus, false, "expected BP+ tx type");
+
+      internal_o_idx = 0;
+      global_o_idx = 0; // ok to be incorrect
+      spend_amount = bpp_tx_dest_amount;
+      mask = bpp_tx_masks[internal_o_idx];
 
       break;
     }
@@ -241,7 +315,10 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   {
     const auto &blk = blk_idx == 0 ? blk_0 : blocks[blk_idx - 1];
     new_block_hashes.push_back(blk.hash);
-    const auto txs = blk_idx == bpp_block_idx ? std::vector<transaction>{bpp_tx} : std::vector<transaction>{};
+    const auto txs =
+      blk_idx == pre_rct_tx_block_idx ? std::vector<transaction>{pre_rct_tx}
+      : blk_idx == bpp_block_idx ? std::vector<transaction>{bpp_tx}
+      : std::vector<transaction>{};
     const auto tx_refs = cryptonote::collect_transparent_amount_commitments(blk.miner_tx, txs, transparent_amount_commitments);
     auto outs_meta = cryptonote::get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_output_id, blk_idx);
     outs_by_last_locked_blocks.emplace_back(std::move(outs_meta.outs_by_last_locked_block));
@@ -267,11 +344,11 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
 
   // Generate key image
   const crypto::public_key in_tx_pub_key = cryptonote::get_tx_pub_key_from_extra(input_tx);
-  const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs = {{ miner_accounts[0].get_keys().m_account_address.m_spend_public_key, {0,0} }};
+  const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs = {{ miner_account.get_keys().m_account_address.m_spend_public_key, {0,0} }};
   cryptonote::keypair in_ephemeral;
   crypto::key_image key_image;
   bool r = cryptonote::generate_key_image_helper(
-      miner_accounts[0].get_keys(),
+      miner_account.get_keys(),
       subaddrs,
       output_pubkey,
       in_tx_pub_key,
@@ -308,7 +385,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
 
   //fill outputs entry
   tx_destination_entry td;
-  td.addr = miner_accounts[0].get_keys().m_account_address;
+  td.addr = miner_account.get_keys().m_account_address;
   std::vector<tx_destination_entry> destinations;
   for (int o = 0; amounts_paid[o] != (uint64_t)-1; ++o)
   {
@@ -335,7 +412,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       {wallet2_td},
       tree_cache,
       *fcmp_pp::curve_trees::curve_trees_v1(),
-      miner_accounts[0].get_keys());
+      miner_account.get_keys());
 
   if (post_tx && !post_tx(rct_txes.back(), 0))
   {
@@ -370,7 +447,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   const uint8_t fcmp_pp_n_tree_layers = tree_cache.get_tree_root(fcmp_pp_tree_root);
 
   cryptonote::block tx_block;
-  CHECK_AND_ASSERT_MES(generator.construct_block_manually(tx_block, blk_last, miner_account,
+  CHECK_AND_ASSERT_MES(generator.construct_block_manually(tx_block, blk_last, genesis_account,
       test_generator::bf_major_ver | test_generator::bf_minor_ver | test_generator::bf_timestamp | test_generator::bf_tx_hashes | test_generator::bf_hf_version | test_generator::bf_max_outs | test_generator::bf_tx_fees,
       hf_version, hf_version, blk_last.timestamp + DIFFICULTY_BLOCKS_ESTIMATE_TIMESPAN * 2, // v2 has blocks twice as long
       crypto::hash(), 0, transaction(), starting_rct_tx_hashes, 0, 6, hf_version, fees, fcmp_pp_n_tree_layers, fcmp_pp_tree_root),
@@ -383,16 +460,20 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
   return true;
 }
 
-bool gen_fcmp_pp_tx_from_bpp_at_fork::generate(std::vector<test_event_entry>& events) const
-{
-  const uint64_t amounts_paid[] = {5000, 5000, (uint64_t)-1};
-  return generate_with(events, 1/*n_txes*/, amounts_paid, true/*valid*/, HF_VERSION_FCMP_PLUS_PLUS, SpendFromTxType::BulletproofPlus, NULL);
-}
-
-bool gen_fcmp_pp_tx_from_pre_rct::generate(std::vector<test_event_entry>& events) const
+bool gen_fcmp_pp_tx_from_pre_rct_coinbase::generate(std::vector<test_event_entry>& events) const
 {
   const uint64_t amounts_paid[] = {10000, (uint64_t)-1};
-  return generate_with(events, 1/*n_txes*/, amounts_paid, true/*valid*/, HF_VERSION_FCMP_PLUS_PLUS, SpendFromTxType::PreRctCoinbase, NULL);
+  return generate_with(events, 1/*n_txes*/, amounts_paid, true/*valid*/, HF_VERSION_FCMP_PLUS_PLUS, FcmpPpFromTxType::PreRctCoinbase, NULL);
 }
 
-// TODO: spend from Pre-RCT normal tx
+bool gen_fcmp_pp_tx_from_pre_rct_regular::generate(std::vector<test_event_entry>& events) const
+{
+  const uint64_t amounts_paid[] = {10000, (uint64_t)-1};
+  return generate_with(events, 1/*n_txes*/, amounts_paid, true/*valid*/, HF_VERSION_FCMP_PLUS_PLUS, FcmpPpFromTxType::PreRctRegular, NULL);
+}
+
+bool gen_fcmp_pp_tx_from_bpp::generate(std::vector<test_event_entry>& events) const
+{
+  const uint64_t amounts_paid[] = {5000, 5000, (uint64_t)-1};
+  return generate_with(events, 1/*n_txes*/, amounts_paid, true/*valid*/, HF_VERSION_FCMP_PLUS_PLUS, FcmpPpFromTxType::BulletproofPlus, NULL);
+}
