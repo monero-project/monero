@@ -1186,7 +1186,7 @@ namespace cryptonote
         CHECK_AND_ASSERT_MES(
           o_type == typeid(txout_to_carrot_v1) || o_type == typeid(txout_to_tagged_key),
           false, "wrong variant type: " << o_type.name()
-          << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
+          << ", expected txout_to_carrot_v1 or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
 
         // require all outputs in a tx be of the same type
         const std::type_info &first_type = tx.vout.at(0).target.type();
