@@ -26,10 +26,16 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+add_library(fuzz_unsafe_macro OBJECT
+  ${CMAKE_SOURCE_DIR}/src/common/perf_timer.cpp)
+target_compile_definitions(fuzz_unsafe_macro
+  PRIVATE FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+
 monero_add_minimal_executable(fuzz_rpc
   fuzz_rpc/initialisation.cpp
   fuzz_rpc/rpc_endpoints.cpp
-  fuzz_rpc/fuzz_rpc.cpp)
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
 target_compile_definitions(fuzz_rpc PRIVATE SAFE)
 target_link_libraries(fuzz_rpc
   PRIVATE
@@ -44,7 +50,8 @@ set_property(TARGET fuzz_rpc
 monero_add_minimal_executable(fuzz_rpc_full
   fuzz_rpc/initialisation.cpp
   fuzz_rpc/rpc_endpoints.cpp
-  fuzz_rpc/fuzz_rpc.cpp)
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
 target_link_libraries(fuzz_rpc_full
   PRIVATE
     rpc
