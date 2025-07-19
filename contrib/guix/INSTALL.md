@@ -308,7 +308,7 @@ Source: https://logs.guix.gnu.org/guix/2020-11-12.log#232527
 Start by cloning Guix:
 
 ```
-git clone https://git.savannah.gnu.org/git/guix.git
+git clone https://codeberg.org/guix/guix.git
 cd guix
 ```
 
@@ -595,7 +595,7 @@ checklist.
    ```
    Generation 38   Feb 22 2021 16:39:31    (current)
      guix f350df4
-       repository URL: https://git.savannah.gnu.org/git/guix.git
+       repository URL: https://codeberg.org/guix/guix.git
        branch: version-1.2.0
        commit: f350df405fbcd5b9e27e6b6aa500da7f101f41e7
    ```
