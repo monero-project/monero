@@ -26,6 +26,67 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Retrieve FuzzedDataProvider
+set(FDP_ROOT ${CMAKE_BINARY_DIR}/_deps/fuzzed_headers)
+set(FDP_DIR ${FDP_ROOT}/fuzzer)
+set(FDP_PATH ${FDP_DIR}/FuzzedDataProvider.h)
+file(MAKE_DIRECTORY ${FDP_DIR})
+if(NOT EXISTS ${FDP_PATH})
+  message(STATUS "Downloading FuzzedDataProvider.h to ${FDP_PATH}")
+  file(DOWNLOAD
+    https://raw.githubusercontent.com/llvm/llvm-project/main/compiler-rt/include/fuzzer/FuzzedDataProvider.h
+    ${FDP_PATH}
+    STATUS FDP_STATUS
+    SHOW_PROGRESS
+    INACTIVITY_TIMEOUT 30
+    TIMEOUT 60
+  )
+  list(GET FDP_STATUS 0 FDP_CODE)
+  if(NOT FDP_CODE EQUAL 0)
+    message(FATAL_ERROR "Download failed for FuzzedDataProvider.h: ${FDP_STATUS}")
+  endif()
+endif()
+
+# Add the include path for <fuzzer/FuzzedDataProvider.h>
+include_directories(${FDP_ROOT})
+
+# Recompile perf_timer for fuzzing
+add_library(fuzz_unsafe_macro OBJECT
+  ${CMAKE_SOURCE_DIR}/src/common/perf_timer.cpp)
+target_compile_definitions(fuzz_unsafe_macro
+  PRIVATE FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+
+monero_add_minimal_executable(fuzz_rpc
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
+target_compile_definitions(fuzz_rpc PRIVATE SAFE)
+target_link_libraries(fuzz_rpc
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(fuzz_rpc_full
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
+target_link_libraries(fuzz_rpc_full
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc_full
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
 target_link_libraries(block_fuzz_tests
   PRIVATE
