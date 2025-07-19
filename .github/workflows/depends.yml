@@ -60,11 +60,11 @@ jobs:
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
             rust_host: "x86_64-apple-darwin"
-            packages: "clang"
+            packages: "clang libtool"
           - name: "Cross-Mac aarch64"
             host: "arm64-apple-darwin"
             rust_host: "aarch64-apple-darwin"
-            packages: "clang"
+            packages: "clang libtool"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
             rust_host: "x86_64-unknown-freebsd"
@@ -72,15 +72,17 @@ jobs:
           - name: "ARMv7 Android"
             host: "arm-linux-android"
             rust_host: "armv7-linux-androideabi"
+            packages: "unzip"
           - name: "ARMv8 Android"
             host: "aarch64-linux-android"
             rust_host: "aarch64-linux-android"
+            packages: "unzip"
     name: ${{ matrix.toolchain.name }}
     steps:
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
     - name: install dependencies
-      run: apt update; apt -y install build-essential libtool cmake autotools-dev automake pkg-config python3 gperf bsdmainutils curl git ca-certificates unzip ccache ${{ matrix.toolchain.packages }}
+      run: apt update; apt -y install build-essential cmake pkg-config curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
     - name: install rust
       # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
       # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
