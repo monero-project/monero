@@ -611,9 +611,9 @@ namespace rct {
       std::stringstream ss;
       binary_archive<true> ba(ss);
       const size_t inputs = !rct::is_rct_simple(rv.type) ? rv.mixRing.at(0).size()
-        : rct::is_rct_fcmp(rv.type) ? rv.p.pseudoOuts.size()
+        : rct::is_rct_fcmp(rv.type) ? 0
         : rv.mixRing.size();
-      CHECK_AND_ASSERT_THROW_MES(inputs > 0, "Empty pseudoOuts");
+      CHECK_AND_ASSERT_THROW_MES(rct::is_rct_fcmp(rv.type) || inputs > 0, "Empty pseudoOuts");
       const size_t outputs = rv.ecdhInfo.size();
       key prehash;
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
