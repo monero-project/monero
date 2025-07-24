@@ -107,7 +107,7 @@ void make_multiple_carrot_transaction_proposals_transfer(
             &selected_transfer_indices);
 
         // make proposal
-        carrot::CarrotTransactionProposalV1 &tx_proposal = tools::add_element(tx_proposals_out);
+        carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals_out.emplace_back();
         carrot::make_carrot_transaction_proposal_v1_transfer(
             tx_normal_payment_proposals,
             tx_selfsend_payment_proposals,
@@ -236,7 +236,7 @@ void make_multiple_carrot_transaction_proposals_sweep(
             std::move(tx_selected_inputs),
             change_address_spend_pubkey,
             change_address_index,
-            tools::add_element(tx_proposals_out));
+            tx_proposals_out.emplace_back());
     }
 
     CARROT_CHECK_AND_THROW(ignore_dust || selected_inputs.empty(),

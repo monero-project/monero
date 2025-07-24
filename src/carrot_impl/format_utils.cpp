@@ -34,7 +34,6 @@
 #include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/payment_proposal.h"
-#include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 #include "fcmp_pp/proof_len.h"
@@ -278,7 +277,7 @@ cryptonote::transaction store_carrot_to_transaction_v1(const std::vector<CarrotE
         }});
 
         //a_enc
-        rct::ecdhTuple &ecdh_tuple = tools::add_element(tx.rct_signatures.ecdhInfo);
+        rct::ecdhTuple &ecdh_tuple = tx.rct_signatures.ecdhInfo.emplace_back();
         memcpy(ecdh_tuple.amount.bytes, enote.amount_enc.bytes, sizeof(ecdh_tuple.amount));
 
         //C_a

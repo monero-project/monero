@@ -32,7 +32,6 @@
 #include "fake_pruned_blockchain.h"
 
 //local headers
-#include "common/container_helpers.h"
 #include "ringct/rctOps.h"
 #include "tx_construction_helpers.h"
 
@@ -261,7 +260,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
     par_blk.block = std::move(blk);
     par_blk.txes = std::move(pruned_txs);
     {
-        auto &tx_o_indices = tools::add_element(par_blk.o_indices.indices);
+        auto &tx_o_indices = par_blk.o_indices.indices.emplace_back();
         for (size_t i = 0; i < par_blk.block.miner_tx.vout.size(); ++i)
         {
             tx_o_indices.indices.push_back(running_num_chain_outputs);
@@ -272,7 +271,7 @@ void fake_pruned_blockchain::add_block(cryptonote::block &&blk,
     {
         CHECK_AND_ASSERT_THROW_MES(tx.unlock_time == 0,
             "I don't want to code tree logic for custom unlock times plz");
-        auto &tx_o_indices = tools::add_element(par_blk.o_indices.indices);
+        auto &tx_o_indices = par_blk.o_indices.indices.emplace_back();
         for (size_t i = 0; i < tx.vout.size(); ++i)
         {
             tx_o_indices.indices.push_back(running_num_chain_outputs);
