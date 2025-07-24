@@ -1253,7 +1253,6 @@ CurveTreesV1::ConsolidatedPaths CurveTrees<Selene, Helios>::get_dummy_paths(
 
     // Rest of the tree
     bool parent_is_c2 = true;
-    std::size_t n_c2_chunks = 0;
     for (uint8_t l = 1; l < n_layers; ++l)
     {
         std::size_t prev_layer_i = 0;
