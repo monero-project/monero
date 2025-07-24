@@ -29,7 +29,6 @@
 #include "gtest/gtest.h"
 
 #include "carrot_mock_helpers.h"
-#include "common/container_helpers.h"
 #include "tx_construction_helpers.h"
 #include "wallet/hot_cold.h"
 #include "wallet/scanning_tools.h"
@@ -55,7 +54,7 @@ static std::vector<wallet2_basic::transfer_details> hot_scan_into_transfer_detai
         if (!enote_scan_info || !enote_scan_info->subaddr_index)
             continue;
 
-        wallet2_basic::transfer_details &td = tools::add_element(res);
+        wallet2_basic::transfer_details &td = res.emplace_back();
         td.m_block_height = block_index;
         td.m_tx = tx;
         td.m_txid = cryptonote::get_transaction_hash(tx);

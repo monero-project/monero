@@ -38,7 +38,6 @@
 #include "carrot_impl/tx_builder_outputs.h"
 #include "carrot_impl/tx_proposal_utils.h"
 #include "carrot_mock_helpers.h"
-#include "common/container_helpers.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
@@ -461,8 +460,8 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
             alice.s_view_balance_dev,
             alice.k_view_incoming_dev,
             alice.s_generate_address_dev,
-            tools::add_element(sal_proofs),
-            tools::add_element(actual_key_images));
+            sal_proofs.emplace_back(),
+            actual_key_images.emplace_back());
     }
 
     // Init tree in memory

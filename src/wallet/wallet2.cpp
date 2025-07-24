@@ -88,7 +88,6 @@ using namespace epee;
 #include "memwipe.h"
 #include "common/base58.h"
 #include "common/combinator.h"
-#include "common/container_helpers.h"
 #include "common/dns_utils.h"
 #include "common/notify.h"
 #include "common/perf_timer.h"
@@ -2636,7 +2635,7 @@ void wallet2::process_new_scanned_transaction(
         expand_subaddresses(subaddr_index_cn);
 
     // update m_transfers view-incoming scan info, and default values
-    transfer_details& td = tools::add_element(m_transfers);
+    transfer_details& td = m_transfers.emplace_back();
     td.m_block_height = height;
     td.m_internal_output_index = local_output_index;
     td.m_global_output_index = o_indices.at(local_output_index);
