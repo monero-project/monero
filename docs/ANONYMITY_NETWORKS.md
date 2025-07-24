@@ -36,69 +36,90 @@ with additional exclusive IPv4 address(es).
 
 ## Usage
 
-### Outbound Connections
+### Blockchain sync
+
+Monerod does not support synchronizing the blockchain over onion or I2P hidden services.
+You may sync the blockchain using a socks proxy.
+
+```bash
+monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1 --no-igd
+```
+
+### Hidden Services
+
+Hidden services - onion and I2P domains - are available to use for transation broadcasts.
+You may use the below options with or without `--proxy`.
+
+#### Outbound Connections
 
 Connecting to an anonymous address requires the command line option
 `--tx-proxy` which tells `monerod` the ip/port of a socks proxy provided by a
 separate process. On most systems the configuration will look like:
 
-```
---tx-proxy tor,127.0.0.1:9050,10
---tx-proxy i2p,127.0.0.1:9000
+```bash
+monerod \
+    --tx-proxy tor,127.0.0.1:9050,10 \
+    --tx-proxy i2p,127.0.0.1:4447
 ```
 
-which tells `monerod` that ".onion" P2P addresses can be forwarded to a socks
+which tells `monerod` to connect to ".onion" P2P addresses using a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
-".b32.i2p" P2P addresses can be forwarded to a socks proxy at IP 127.0.0.1 port
-9000 with the default max outgoing connections.
+".b32.i2p" P2P addresses using a socks proxy at IP 127.0.0.1 port 4447
+with the default max outgoing connections.
 
 If desired, peers can be manually specified:
 
-```
---add-exclusive-node 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083
---add-peer 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083
+```bash
+--add-exclusive-node 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:18084
+--add-priority-node 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:18084
+--add-peer 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:18084
 ```
 
 Either option can be listed multiple times, and can specify any mix of Tor,
 I2P, and IPv4 addresses. Using `--add-exclusive-node` will prevent the usage of
-seed nodes on ALL networks, which will typically be undesirable.
+seed nodes on ALL networks, which will typically be undesirable.  
+If you specify `add-exclusive-node` for onion or I2P, make sure to do so for clearnet nodes as well, otherwise you will be unable to sync.
 
-### Inbound Connections
+#### Inbound Connections
 
 Receiving anonymity connections is done through the option
 `--anonymous-inbound`. This option tells `monerod` the inbound address, network
 type, and max connections:
 
-```
---anonymous-inbound 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083,127.0.0.1:28083,25
---anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p,127.0.0.1:30000
+```bash
+--anonymous-inbound 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:18084,127.0.0.1:18084,25 \
+--anonymous-inbound cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p,127.0.0.1:18085
 ```
 
 which tells `monerod` that a max of 25 inbound Tor connections are being
-received at address "5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:28083" and forwarded to `monerod`
-localhost port 28083, and a default max I2P connections are being received at
+received at address "5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:18084" and forwarded to `monerod`
+localhost port 18084, and a default max I2P connections are being received at
 address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p" and
-forwarded to `monerod` localhost port 30000.
-These addresses will be shared with outgoing peers, over the same network type,
-otherwise the peer will not be notified of the peer address by the proxy.
+forwarded to `monerod` localhost port 18085. Using `tx-proxy`(required), these
+addresses will be shared with peers over the same network type, otherwise your
+peers will not be notified of your onion or I2P address.
 
-### Wallet RPC
+**_Note: The specified port for `anonymous-inbound` must be unique (not 18080 etc). `anonymous-inbound` is not for blockchain sync!_**
+Peers will use their own `tx-proxy` to relay transactions, which originate on their node,
+to your `anonymous-inbound`.
+
+#### Wallet RPC
 
 An anonymity network can be configured to forward incoming connections to a
 `monerod` RPC port - which is independent from the configuration for incoming
 P2P anonymity connections. The anonymity network (Tor/I2P) is
-[configured in the same manner](#configuration), except the localhost port
-must be the RPC port (typically 18081 for mainnet) instead of the P2P port:
+configured in the same manner as [below](#configuration), except this excludes P2P.
 
-```
-HiddenServiceDir /var/lib/tor/data/monero
-HiddenServicePort 18081 127.0.0.1:18081
+```text
+HiddenServiceDir /var/lib/tor/data/monero-rpc
+HiddenServicePort 18089 127.0.0.1:18089
 ```
 
 Then the wallet will be configured to use a Tor/I2P address:
-```
---proxy 127.0.0.1:9050
---daemon-address 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion
+```bash
+monero-wallet-cli \
+    --proxy 127.0.0.1:9050 \
+    --daemon-address 5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion:18089
 ```
 
 The proxy must match the address type - a Tor proxy will not work properly with
@@ -108,18 +129,18 @@ I2P hidden service (b32.i2p) and Tor Hidden service (.onion) addresses provide t
 encrypt the connection from end-to-end. If desired, SSL can also be applied to
 the connection with `--daemon-address https://5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion` which
 requires a server certificate that is signed by a "root" certificate on the
-machine running the wallet. Alternatively, `--daemon-cert-file` can be used to
+machine running the wallet. Alternatively, `--daemon-ssl-certificate` can be used to
 specify a certificate to authenticate the server.
 
 Proxies can also be used to connect to "clearnet" (IPv4 addresses or ICANN
-domains), but `--daemon-cert-file` _must_ be used for authentication and
-encryption.
+domains), but `--daemon-ssl-certificate` _must_ be used for authentication and
+encryption, or bypassed with `--daemon-ssl-allow-any-cert`.
 
 ### Network Types
 
 #### Tor & I2P
 
-Options `--add-exclusive-node` and `--add-peer` recognize ".onion" and
+Options `--add-exclusive-node`, `--add-priority-node`, and `--add-peer` recognize ".onion" and
 ".b32.i2p" addresses, and will properly forward those addresses to the proxy
 provided with `--tx-proxy tor,...` or `--tx-proxy i2p,...`.
 
@@ -127,23 +148,29 @@ Option `--anonymous-inbound` also recognizes ".onion" and ".b32.i2p" addresses,
 and will automatically be sent out to outgoing Tor/I2P connections so the peer
 can distribute the address to its other peers.
 
-##### Configuration
+#### Configuration
 
 Tor must be configured for hidden services. An example configuration ("torrc")
 might look like:
 
-```
+```text
+# P2P Hidden service
 HiddenServiceDir /var/lib/tor/data/monero
-HiddenServicePort 28083 127.0.0.1:28083
+HiddenServicePort 18084 127.0.0.1:18084  # anonymous-inbound
+
+# RPC Hidden service
+HiddenServiceDir /var/lib/tor/data/monero-rpc
+HiddenServicePort 18089 127.0.0.1:18089  # rpc-restricted-bind-port
 ```
 
-This will store key information in `/var/lib/tor/data/monero` and will forward
-"Tor port" 28083 to port 28083 of ip 127.0.0.1. The file
-`/usr/lib/tor/data/monero/hostname` will contain the ".onion" address for use
-with `--anonymous-inbound`.
+This will store key information in `/var/lib/tor/data/monero` and `/var/lib/tor/data/monero-rpc`
+and will forward "Tor port" 18084 and 18089 to ports 18084 and 18089 of ip 127.0.0.1, respectively. The file
+`/usr/lib/tor/data/monero/hostname` will contain the ".onion" address for use with `--anonymous-inbound`, and
+`/var/lib/tor/data/monero-rpc/hostname` will contain the ".onion" address for use with RPC.
 
 I2P must be configured with a standard server tunnel. Configuration differs by
-I2P implementation.
+I2P implementation.  
+You can find guides for i2pd [here](https://docs.getmonero.org/running-node/monerod-tori2p/#__tabbed_1_2).
 
 ## Privacy Limitations
 
