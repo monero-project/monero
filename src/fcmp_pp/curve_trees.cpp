@@ -28,7 +28,6 @@
 
 #include "curve_trees.h"
 
-#include "common/container_helpers.h"
 #include "common/threadpool.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
@@ -1632,7 +1631,7 @@ CurveTrees<Selene, Helios>::PathForProof CurveTrees<Selene, Helios>::path_for_pr
     for (std::size_t i = 0; i < n_c2_scalar_chunk_layers; ++i)
     {
         const auto &c1_points = path.c1_layers.at(i);
-        auto &c2_scalar_layer = tools::add_element(c2_scalar_chunks);
+        auto &c2_scalar_layer = c2_scalar_chunks.emplace_back();
         c2_scalar_layer.reserve(m_c2_width);
         for (const auto &c1_point : c1_points)
             c2_scalar_layer.emplace_back(m_c1->point_to_cycle_scalar(c1_point));
@@ -1647,7 +1646,7 @@ CurveTrees<Selene, Helios>::PathForProof CurveTrees<Selene, Helios>::path_for_pr
     for (std::size_t i = 0; i < n_c1_scalar_chunk_layers; ++i)
     {
         const auto &c2_points = path.c2_layers.at(i);
-        auto &c1_scalar_layer = tools::add_element(c1_scalar_chunks);
+        auto &c1_scalar_layer = c1_scalar_chunks.emplace_back();
         c1_scalar_layer.reserve(m_c1_width);
         for (const auto &c2_point : c2_points)
             c1_scalar_layer.emplace_back(m_c2->point_to_cycle_scalar(c2_point));
