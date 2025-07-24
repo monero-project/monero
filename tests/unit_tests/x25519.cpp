@@ -30,7 +30,6 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "common/container_helpers.h"
 extern "C"
 {
 #include "crypto/crypto-ops.h"
@@ -157,7 +156,7 @@ TEST(x25519, scmul_key_convergence)
     for (unsigned char j = 0; j < 8; ++j)
     {
       // add 2^i + j (sometimes with duplicates, which is okay)
-      mx25519_privkey &s = tools::add_element(scalars);
+      mx25519_privkey &s = scalars.emplace_back();
       memset(s.data, 0, sizeof(mx25519_privkey));
       const int msb_byte_index = i >> 3;
       const int msb_bit_index = i & 7;
@@ -169,7 +168,7 @@ TEST(x25519, scmul_key_convergence)
   scalars.push_back(hex2pod<mx25519_privkey>("ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"));
   // add random
   const rct::key a = rct::skGen();
-  memcpy(tools::add_element(scalars).data, &a, sizeof(mx25519_privkey));
+  memcpy(scalars.emplace_back().data, &a, sizeof(mx25519_privkey));
 
   std::vector<std::pair<rct::key, mx25519_pubkey>> points;
   // add base point
