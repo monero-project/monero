@@ -36,7 +36,6 @@
 #include "carrot_core/lazy_amount_commitment.h"
 #include "carrot_core/scan.h"
 #include "carrot_impl/format_utils.h"
-#include "common/container_helpers.h"
 #include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "ringct/rctOps.h"
@@ -405,14 +404,14 @@ static void perform_ecdh_derivations(const epee::span<const crypto::public_key> 
         {
             hwdev.generate_key_derivation(main_tx_ephemeral_pubkey,
                 k_view_incoming,
-                tools::add_element(main_derivations_out));
+                main_derivations_out.emplace_back());
         }
 
         for (const crypto::public_key &additional_tx_ephemeral_pubkey : additional_tx_ephemeral_pubkeys)
         {
             hwdev.generate_key_derivation(additional_tx_ephemeral_pubkey,
                 k_view_incoming,
-                tools::add_element(additional_derivations_out));
+                additional_derivations_out.emplace_back());
         }
     }
 }
