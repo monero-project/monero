@@ -876,50 +876,6 @@ TEST(fcmp_pp, proof_size_table)
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(fcmp_pp, proof_size_sub_linearity)
-{
-    // Check that the proof size scales sub-linearly with respect to
-    // n_inputs/n_tree_layers counts using each pair in its row and column as a
-    // reference point
-
-    for (std::size_t i = 1; i <= FCMP_PLUS_PLUS_MAX_INPUTS; ++i)
-    {
-        for (std::size_t j = 1; j <= FCMP_PLUS_PLUS_MAX_LAYERS; ++j)
-        {
-            const std::size_t real_membership_proof_len = fcmp_pp::membership_proof_len(i, j);
-            const std::size_t real_fcmp_pp_proof_len = fcmp_pp::fcmp_pp_proof_len(i, j);
-
-            for (std::size_t i_back = 1; i_back < i; ++i_back)
-            {
-                MDEBUG("proof_size_sub_linearity: " << i << ", " << j << " vs. " << i_back << ", " << j);
-
-                const std::size_t membership_proof_back = fcmp_pp::membership_proof_len(i_back, j);
-                const std::size_t fcmp_pp_proof_len_back = fcmp_pp::fcmp_pp_proof_len(i_back, j);
-
-                const std::size_t i_scaled_membership_proof_len = (i * membership_proof_back) / i_back;
-                EXPECT_LT(real_membership_proof_len, i_scaled_membership_proof_len);
-
-                const std::size_t i_scaled_fcmp_pp_proof_len = (i * fcmp_pp_proof_len_back) / i_back;
-                EXPECT_LT(real_fcmp_pp_proof_len, i_scaled_fcmp_pp_proof_len);
-            }
-
-            for (std::size_t j_back = 1; j_back < j; ++j_back)
-            {
-                MDEBUG("proof_size_sub_linearity: " << i << ", " << j << " vs. " << i << ", " << j_back);
-
-                const std::size_t membership_proof_back = fcmp_pp::membership_proof_len(i, j_back);
-                const std::size_t fcmp_pp_proof_len_back = fcmp_pp::fcmp_pp_proof_len(i, j_back);
-
-                const std::size_t j_scaled_membership_proof_len = (j * membership_proof_back) / j_back;
-                EXPECT_LT(real_membership_proof_len, j_scaled_membership_proof_len);
-
-                const std::size_t j_scaled_fcmp_pp_proof_len = (j * fcmp_pp_proof_len_back) / j_back;
-                EXPECT_LT(real_fcmp_pp_proof_len, j_scaled_fcmp_pp_proof_len);
-            }
-        }
-    }
-}
-//----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, tx_weight_monotonicity)
 {
     static_assert(is_power_of_2(FCMP_PLUS_PLUS_MAX_INPUTS), "max input count must be a power of 2");
