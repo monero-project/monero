@@ -42,7 +42,6 @@
 #include "carrot_impl/tx_builder_inputs.h"
 #include "carrot_impl/tx_builder_outputs.h"
 #include "common/apply_permutation.h"
-#include "common/container_helpers.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -851,7 +850,7 @@ cryptonote::transaction finalize_all_proofs_from_transfer_details(
             input_amount_commitments.at(i)};
 
         MDEBUG("Requesting FCMP path from tree cache for onetime address " << input_pair.output_pubkey);
-        fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = tools::add_element(fcmp_paths);
+        fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.emplace_back();
         CHECK_AND_ASSERT_THROW_MES(tree_cache.get_output_path(input_pair, fcmp_path),
             "finalize_all_proofs_from_transfer_details: failed to get FCMP path from tree cache");
         CHECK_AND_ASSERT_THROW_MES(!fcmp_path.empty(), "finalize_all_proofs_from_transfer_details: FCMP path is empty");
