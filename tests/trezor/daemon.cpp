@@ -56,7 +56,6 @@ void mock_daemon::default_options(boost::program_options::variables_map & vm)
   tools::options::set_option(vm, nodetool::arg_p2p_add_exclusive_node, po::variable_value(exclusive_nodes, false));
 
   tools::options::set_option(vm, nodetool::arg_p2p_bind_ip, po::variable_value(std::string("127.0.0.1"), false));
-  tools::options::set_option(vm, nodetool::arg_no_igd, po::variable_value(true, false));
   tools::options::set_option(vm, cryptonote::arg_offline, po::variable_value(true, false));
   tools::options::set_option(vm, "disable-dns-checkpoints", po::variable_value(true, false));
 
