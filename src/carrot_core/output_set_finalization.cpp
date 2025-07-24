@@ -205,7 +205,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     // construct normal enotes
     for (size_t i = 0; i < normal_payment_proposals.size(); ++i)
     {
-        auto &output_entry = tools::add_element(sortable_data);
+        auto &output_entry = sortable_data.emplace_back();
         output_entry.second = {false, i};
 
         encrypted_payment_id_t encrypted_payment_id;
@@ -244,7 +244,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     {
         const CarrotPaymentProposalSelfSendV1 &selfsend_payment_proposal = selfsend_payment_proposals.at(i);
 
-        auto &output_entry = tools::add_element(sortable_data);
+        auto &output_entry = sortable_data.emplace_back();
         output_entry.second = {true, i};
 
         if (s_view_balance_dev != nullptr)
@@ -362,7 +362,7 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     {
         get_coinbase_output_proposal_v1(normal_payment_proposals[i],
             block_index,
-            tools::add_element(output_coinbase_enotes_out));
+            output_coinbase_enotes_out.emplace_back());
     }
 
     // assert uniqueness and non-trivial-ness of D_e
