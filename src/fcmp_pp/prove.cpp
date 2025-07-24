@@ -28,7 +28,6 @@
 
 #include "prove.h"
 
-#include "common/container_helpers.h"
 #include "crypto/generators.h"
 #include "fcmp_pp_crypto.h"
 #include "misc_log_ex.h"
@@ -151,7 +150,7 @@ void make_balanced_rerandomized_output_set(
     rerandomized_outputs_out.reserve(nins);
     for (size_t i = 0; i < nins; ++i)
     {
-        FcmpRerandomizedOutputCompressed &rerandomized_output = tools::add_element(rerandomized_outputs_out);
+        FcmpRerandomizedOutputCompressed &rerandomized_output = rerandomized_outputs_out.emplace_back();
 
         // O
         const crypto::public_key &onetime_address = input_onetime_addresses.at(i);

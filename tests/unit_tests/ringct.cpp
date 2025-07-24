@@ -34,7 +34,6 @@
 #include <algorithm>
 #include <sstream>
 
-#include "common/container_helpers.h"
 #include "curve_trees.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
@@ -82,10 +81,10 @@ static const OutputContextsAndKeys generate_random_outputs(const CurveTreesV1 &c
   {
     const std::uint64_t output_id = old_n_leaf_tuples + i;
 
-    crypto::secret_key &x = tools::add_element(outs.x_vec);
-    //crypto::secret_key &y = tools::add_element(outs.y_vec);
-    crypto::secret_key &z = tools::add_element(outs.z_vec);
-    rct::xmr_amount &amount = tools::add_element(outs.amount_vec);
+    crypto::secret_key &x = outs.x_vec.emplace_back();
+    //crypto::secret_key &y = outs.y_vec.emplace_back();
+    crypto::secret_key &z = outs.z_vec.emplace_back();
+    rct::xmr_amount &amount = outs.amount_vec.emplace_back();
 
     // Generate random O = G (no y component)
     crypto::public_key O;
