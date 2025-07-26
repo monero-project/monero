@@ -16,7 +16,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Supporting the project](#supporting-the-project)
   - [License](#license)
   - [Contributing](#contributing)
-  - [Scheduled software upgrades](#scheduled-software-upgrades)
+  - [Scheduled software/network upgrades](#scheduled-softwarenetwork-upgrades)
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
@@ -512,10 +512,6 @@ See [contrib/guix/README.md](contrib/guix/README.md).
 
 Packages are available for
 
-* Debian Buster
-
-    See the [instructions in the whonix/monero-gui repository](https://gitlab.com/whonix/monero-gui#how-to-install-monero-using-apt-get)
-
 * Debian Bullseye and Sid
 
     ```bash
@@ -523,7 +519,7 @@ Packages are available for
     ```
 More info and versions in the [Debian package tracker](https://tracker.debian.org/pkg/monero).
 
-* Arch Linux [(via Community packages)](https://www.archlinux.org/packages/community/x86_64/monero/):
+* Arch Linux [(via Extra packages)](https://archlinux.org/packages/extra/x86_64/monero/):
 
     ```bash
     sudo pacman -S monero
@@ -539,16 +535,6 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
 
     ```bash
     guix package -i monero
-    ```
-
-* Gentoo [Monero overlay](https://github.com/gentoo-monero/gentoo-monero)
-
-    ```bash
-    emerge --noreplace eselect-repository
-    eselect repository enable monero
-    emaint sync -r monero
-    echo '*/*::monero ~amd64' >> /etc/portage/package.accept_keywords
-    emerge net-p2p/monero
     ```
 
 * Alpine Linux:
