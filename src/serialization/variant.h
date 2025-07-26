@@ -44,6 +44,11 @@
 
 #include "serialization.h"
 
+#define DISABLE_DEFAULT_VARIANT_SERIALIZATION(Type) namespace detail { \
+    template <>                                                        \
+    struct is_variant_serializable<Type>: std::false_type {};          \
+  }
+
 /*! \struct variant_serialization_triats
  * 
  * \brief used internally to contain a variant's traits/possible types
@@ -102,13 +107,13 @@ struct variant_reader<Archive, Variant, TBegin, TBegin>
 namespace detail
 {
 template <typename T>
-struct is_variant_like: std::false_type {};
+struct is_variant_serializable: std::false_type {};
 
 template <typename... T>
-struct is_variant_like<boost::variant<T...>>: std::true_type {};
+struct is_variant_serializable<boost::variant<T...>>: std::true_type {};
 
 template <typename... T>
-struct is_variant_like<std::variant<T...>>: std::true_type {};
+struct is_variant_serializable<std::variant<T...>>: std::true_type {};
 
 template <typename T>
 struct get_variant_types {};
@@ -126,7 +131,7 @@ struct get_variant_types<std::variant<T...>>
 template <
   template <bool> class Archive,
   typename Variant,
-  typename = std::enable_if_t<detail::is_variant_like<Variant>::value>
+  typename = std::enable_if_t<detail::is_variant_serializable<Variant>::value>
   >
 static bool do_serialize(Archive<false> &ar, Variant &v) {
     using types = typename detail::get_variant_types<Variant>::types;
@@ -166,13 +171,21 @@ struct variant_write_visitor
     }
 };
 
-template <template <bool> class Archive, typename... T>
+template <
+  template <bool> class Archive,
+  typename... T,
+  typename = std::enable_if_t<detail::is_variant_serializable<boost::variant<T...>>::value>
+  >
 static bool do_serialize(Archive<true> &ar, boost::variant<T...> &v)
 {
   return boost::apply_visitor(variant_write_visitor<Archive>(ar), v); 
 }
 
-template <template <bool> class Archive, typename... T>
+template <
+  template <bool> class Archive,
+  typename... T,
+  typename = std::enable_if_t<detail::is_variant_serializable<std::variant<T...>>::value>
+  >
 static bool do_serialize(Archive<true> &ar, std::variant<T...> &v)
 {
   return std::visit(variant_write_visitor<Archive>(ar), v);
