@@ -48,10 +48,24 @@ BLOB_SERIALIZER(carrot::encrypted_amount_t);
 BLOB_SERIALIZER(carrot::payment_id_t);
 
 BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotDestinationV1)
+    static constexpr uint8_t flag_is_subaddr = 1 << 0;
+    static constexpr uint8_t flag_has_pid    = 1 << 1;
+    uint8_t flags = 0;
+    if (v.is_subaddress) flags |= flag_is_subaddr;
+    if (v.payment_id != carrot::null_payment_id) flags |= flag_has_pid;
+    FIELD(flags)
+    v.is_subaddress = flags & flag_is_subaddr;
+
     FIELD_F(address_spend_pubkey)
     FIELD_F(address_view_pubkey)
-    FIELD_F(is_subaddress)
-    FIELD_F(payment_id)
+    if (flags & flag_has_pid)
+    {
+        FIELD_F(payment_id)
+    }
+    else // no pid
+    {
+        v.payment_id = carrot::null_payment_id;
+    }
 END_SERIALIZE()
 
 BEGIN_SERIALIZE_OBJECT_FN(carrot::CarrotPaymentProposalV1)
