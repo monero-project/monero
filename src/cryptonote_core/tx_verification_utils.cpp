@@ -136,7 +136,10 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
     std::vector<const rct::rctSig*> rvv;
     rvv.reserve(static_cast<size_t>(std::distance(tx_begin, tx_end)));
 
-    const size_t max_tx_version = hf_version < HF_VERSION_DYNAMIC_FEE ? 1 : 2;
+    // We assume transactions have an unmixable ring since it's more permissive. The version is
+    // checked again in Blockchain::check_tx_inputs() with `has_unmixable_ring` actually resolved.
+    const size_t min_tx_version = get_minimum_transaction_version(hf_version, /*has_unmixable_ring=*/true);
+    const size_t max_tx_version = get_maximum_transaction_version(hf_version);
 
     const size_t tx_weight_limit = get_transaction_weight_limit(hf_version);
 
@@ -153,10 +156,26 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
             return false;
         }
 
-        // Rule 2 & 3
-        if (tx.version == 0 || tx.version > max_tx_version)
+        // Rule 2 and Rule 3
+        if (tx.version < min_tx_version || tx.version > max_tx_version)
         {
             tvc.m_verifivation_failed = true;
+            return false;
+        }
+
+        // Rule 8
+        if (hf_version >= HF_VERSION_REJECT_UNLOCK_TIME && tx.unlock_time != 0)
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_nonzero_unlock_time = true;
+            return false;
+        }
+
+        // Rule 9
+        if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA && tx.extra.size() > MAX_TX_EXTRA_SIZE)
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_tx_extra_too_big = true;
             return false;
         }
 
@@ -205,6 +224,34 @@ uint64_t get_transaction_weight_limit(const uint8_t hf_version)
         return get_min_block_weight(hf_version) / 2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
     else
         return get_min_block_weight(hf_version) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
+}
+
+size_t get_minimum_transaction_version(uint8_t hf_version, bool has_unmixable_ring)
+{
+    if (hf_version >= HF_VERSION_REJECT_UNMIXABLE_V1)
+    {
+        return 2;
+    }
+    else if (hf_version < HF_VERSION_ENFORCE_RCT)
+    {
+        return 1;
+    }
+    else // HF_VERSION_ENFORCE_RCT <= hf_version < HF_VERSION_REJECT_UNMIXABLE_V1
+    {
+        return has_unmixable_ring ? 1 : 2;
+    }
+}
+
+size_t get_maximum_transaction_version(uint8_t hf_version)
+{
+    if (hf_version >= HF_VERSION_DYNAMIC_FEE)
+    {
+        return 2;
+    }
+    else // hf_version < HF_VERSION_DYNAMIC_FEE
+    {
+        return 1;
+    }
 }
 
 bool ver_rct_non_semantics_simple_cached
