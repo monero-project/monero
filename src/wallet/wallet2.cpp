@@ -909,6 +909,43 @@ uint64_t calculate_fee(bool use_per_byte_fee, const cryptonote::transaction &tx,
     return calculate_fee(base_fee, blob_size);
 }
 
+static wallet2_basic::transfer_container get_transfers(const tools::wallet2 &w)
+{
+  wallet2_basic::transfer_container transfers;
+  w.get_transfers(transfers);
+  return transfers;
+}
+
+static rct::xmr_amount get_fee_per_weight_from_priority(const tools::fee_priority priority, tools::wallet2 &w)
+{
+  const bool use_per_byte_fee = w.use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
+  CHECK_AND_ASSERT_THROW_MES(use_per_byte_fee, "not using per-byte base fee");
+
+  const rct::xmr_amount fee_per_weight = w.get_base_fee(priority);
+  MDEBUG("fee_per_weight = " << fee_per_weight << ", from priority = " << priority);
+
+  return fee_per_weight;
+}
+
+static std::uint64_t get_top_block_index(const tools::wallet2 &w)
+{
+  const std::uint64_t current_chain_height = w.get_blockchain_current_height();
+  CHECK_AND_ASSERT_THROW_MES(current_chain_height > 0, "chain height is 0; there's no top block");
+  return current_chain_height - 1;
+}
+
+static tools::wallet::pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
+    const carrot::CarrotTransactionProposalV1 &tx_proposal,
+    const tools::wallet2 &w)
+{
+  return tools::wallet::finalize_all_proofs_from_transfer_details_as_pending_tx(
+    tx_proposal,
+    get_transfers(w),
+    w.get_tree_cache_ref(),
+    w.get_curve_trees_ref(),
+    w.get_account().get_keys());
+}
+
 static const tools::wallet2::tx_construction_data &get_construction_data(const tools::wallet2::pending_tx &ptx)
 {
   THROW_WALLET_EXCEPTION_IF(!std::holds_alternative<tools::wallet2::tx_construction_data>(ptx.construction_data),
@@ -1008,20 +1045,6 @@ crypto::chacha_key derive_cache_key(const crypto::chacha_key& keys_data_key, con
 
   return cache_key;
 }
-
-/**
- * @brief Checks that `extra` parameter used in wallet2 tx construction methods does not contain deprecated fields
- */
-void check_tx_extra_construction_parameter(const std::vector<std::uint8_t> &extra)
-{
-  THROW_WALLET_EXCEPTION_IF(tools::wallet::get_num_ephemeral_tx_pubkey_fields_in_tx_extra(extra),
-    tools::error::wallet_internal_error,
-    "There should be no ephemeral tx pubkey fields in `extra` passed to transaction construction methods.");
-  THROW_WALLET_EXCEPTION_IF(tools::wallet::get_num_payment_id_fields_in_tx_extra(extra),
-    tools::error::wallet_internal_error,
-    "Do not pass PIDs inside of `extra` to transaction construction methods. Use the `payment_id` argument instead.");
-}
-
   //-----------------------------------------------------------------
 } //namespace
 
@@ -10347,28 +10370,33 @@ static uint32_t get_count_above(const std::vector<wallet2::transfer_details> &tr
 // This system allows for sending (almost) the entire balance, since it does
 // not generate spurious change in all txes, thus decreasing the instantaneous
 // usable balance.
-std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const std::pair<crypto::hash8, std::size_t> &payment_id, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs)
 {
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
   boost::unique_lock<hw::device> hwdev_lock (hwdev);
   hw::reset_mode rst(hwdev);  
 
-  check_tx_extra_construction_parameter(extra);
-
   const bool do_carrot_tx_construction = use_fork_rules(HF_VERSION_CARROT);
   if (do_carrot_tx_construction)
   {
-    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(*this, dsts, payment_id, priority, extra, subaddr_account, subaddr_indices, subtract_fee_from_outputs);
+    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(::get_transfers(*this),
+      m_subaddresses,
+      dsts,
+      get_fee_per_weight_from_priority(priority, *this),
+      extra,
+      subaddr_account,
+      subaddr_indices,
+      ignore_outputs_above(),
+      ignore_outputs_below(),
+      subtract_fee_from_outputs,
+      get_top_block_index(*this));
     std::vector<pending_tx> ptx_vector;
     ptx_vector.reserve(tx_proposals.size());
     for (const auto &tx_proposal : tx_proposals)
-      ptx_vector.push_back(tools::wallet::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
+      ptx_vector.push_back(::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
     return ptx_vector;
   }
-
-  if (payment_id.first != crypto::null_hash8)
-    wallet::insert_payment_id_into_legacy_extra_unencrypted(payment_id.first, extra);
 
   auto original_dsts = dsts;
 
@@ -11131,23 +11159,28 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, c
   return true;
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 {
-  check_tx_extra_construction_parameter(extra);
-
   const bool do_carrot_tx_construction = use_fork_rules(HF_VERSION_CARROT);
   if (do_carrot_tx_construction)
   {
-    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep_all(*this, below, address, is_subaddress, outputs, payment_id, priority, extra, subaddr_account, subaddr_indices);
+    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep_all(::get_transfers(*this),
+      m_subaddresses,
+      below,
+      address,
+      is_subaddress,
+      outputs,
+      get_fee_per_weight_from_priority(priority, *this),
+      extra,
+      subaddr_account,
+      subaddr_indices,
+      get_top_block_index(*this));
     std::vector<pending_tx> ptx_vector;
     ptx_vector.reserve(tx_proposals.size());
     for (const auto &tx_proposal : tx_proposals)
-      ptx_vector.push_back(tools::wallet::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
+      ptx_vector.push_back(::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
     return ptx_vector;
   }
-
-  if (payment_id != crypto::null_hash8)
-    wallet::insert_payment_id_into_legacy_extra_unencrypted(payment_id, extra);
 
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -11217,26 +11250,29 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
     }
   }
 
-  return create_transactions_from(address, is_subaddress, outputs, payment_id, unused_transfers_indices, unused_dust_indices, fake_outs_count, priority, extra);
+  return create_transactions_from(address, is_subaddress, outputs, unused_transfers_indices, unused_dust_indices, fake_outs_count, priority, extra);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra)
 {
-  check_tx_extra_construction_parameter(extra);
-
   const bool do_carrot_tx_construction = use_fork_rules(HF_VERSION_CARROT);
   if (do_carrot_tx_construction)
   {
-    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(*this, {ki}, address, is_subaddress, outputs, payment_id, priority, extra);
+    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(::get_transfers(*this),
+        m_subaddresses,
+        {ki},
+        address,
+        is_subaddress,
+        outputs,
+        get_fee_per_weight_from_priority(priority, *this),
+        extra,
+        get_top_block_index(*this));
     std::vector<pending_tx> ptx_vector;
     ptx_vector.reserve(tx_proposals.size());
     for (const auto &tx_proposal : tx_proposals)
-      ptx_vector.push_back(tools::wallet::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
+      ptx_vector.push_back(::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
     return ptx_vector;
   }
-
-  if (payment_id != crypto::null_hash8)
-    wallet::insert_payment_id_into_legacy_extra_unencrypted(payment_id, extra);
 
   std::vector<size_t> unused_transfers_indices;
   std::vector<size_t> unused_dust_indices;
@@ -11254,13 +11290,11 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_single(const crypt
       break;
     }
   }
-  return create_transactions_from(address, is_subaddress, outputs, payment_id, unused_transfers_indices, unused_dust_indices, fake_outs_count, priority, extra);
+  return create_transactions_from(address, is_subaddress, outputs, unused_transfers_indices, unused_dust_indices, fake_outs_count, priority, extra);
 }
 
-std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra)
+std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra)
 {
-  check_tx_extra_construction_parameter(extra);
-
   const bool do_carrot_tx_construction = use_fork_rules(HF_VERSION_CARROT);
   if (do_carrot_tx_construction)
   {
@@ -11272,16 +11306,22 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
     for (const size_t transfer_idx : unused_dust_indices)
       input_key_images.push_back(m_transfers.at(transfer_idx).m_key_image);
 
-    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(*this, input_key_images, address, is_subaddress, outputs, payment_id, priority, extra);
+    const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep(::get_transfers(*this),
+        m_subaddresses,
+        input_key_images,
+        address,
+        is_subaddress,
+        outputs,
+        get_fee_per_weight_from_priority(priority, *this),
+        extra,
+        get_top_block_index(*this));
+
     std::vector<pending_tx> ptx_vector;
     ptx_vector.reserve(tx_proposals.size());
     for (const auto &tx_proposal : tx_proposals)
-      ptx_vector.push_back(tools::wallet::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
+      ptx_vector.push_back(::finalize_all_proofs_from_transfer_details_as_pending_tx(tx_proposal, *this));
     return ptx_vector;
   }
-
-  if (payment_id != crypto::null_hash8)
-    wallet::insert_payment_id_into_legacy_extra_unencrypted(payment_id, extra);
 
   //ensure device is let in NONE mode in any case
   hw::device &hwdev = m_account.get_device();
@@ -11771,7 +11811,7 @@ std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()
       unmixable_transfer_outputs.push_back(n);
   }
 
-  return create_transactions_from(m_account_public_address, false, 1, crypto::null_hash8, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, fee_priority::Unimportant, std::vector<uint8_t>());
+  return create_transactions_from(m_account_public_address, false, 1, unmixable_transfer_outputs, unmixable_dust_outputs, 0 /*fake_outs_count */, fee_priority::Unimportant, std::vector<uint8_t>());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::discard_unmixable_outputs()

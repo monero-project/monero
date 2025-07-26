@@ -103,7 +103,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_1)
         transfers,
         {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         dsts,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         /*subaddr_account=*/0,
@@ -165,7 +164,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_2)
         transfers,
         alice.subaddress_map_cn(),
         dsts,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         /*subaddr_account=*/spending_subaddr_account,
@@ -241,7 +239,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_3)
         transfers,
         {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
         dsts,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         /*subaddr_account=*/0,
@@ -354,7 +351,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_1)
         bob.get_keys().m_account_address,
         /*is_subaddress=*/false,
         /*n_dests_per_tx=*/1,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
@@ -389,7 +385,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_2)
         bob.get_keys().m_account_address,
         /*is_subaddress=*/false,
         /*n_dests_per_tx=*/FCMP_PLUS_PLUS_MAX_OUTPUTS - 1,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
@@ -432,7 +427,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_3)
         alice.get_keys().m_account_address,
         /*is_subaddress=*/false,
         /*n_dests_per_tx=*/FCMP_PLUS_PLUS_MAX_OUTPUTS,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         transfers.front().m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
@@ -508,7 +502,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_4)
         bob.get_keys().m_account_address,
         /*is_subaddress=*/false,
         /*n_dests_per_tx=*/n_dests_per_tx,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         top_block_index);
@@ -591,7 +584,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_5)
         alice.get_keys().m_account_address,
         /*is_subaddress=*/false,
         /*n_dests_per_tx=*/n_dests_per_tx,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         top_block_index);
@@ -677,7 +669,6 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_6)
         alice.get_keys().m_account_address,
         /*is_subaddress=*/false,
         /*n_dests_per_tx=*/n_dests_per_tx,
-        /*payment_id=*/{},
         /*fee_per_weight=*/1,
         /*extra=*/{},
         top_block_index);
@@ -785,7 +776,6 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
             alice.m_transfers,
             alice.m_subaddresses,
             {cryptonote::tx_destination_entry(out_amount, bob_main_addr, false)},
-            /*payment_id=*/{},
             /*fee_per_weight=*/1,
             /*extra=*/{},
             /*subaddr_account=*/0,

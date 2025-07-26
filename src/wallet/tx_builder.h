@@ -43,8 +43,6 @@
 
 namespace tools
 {
-class wallet2;
-
 namespace wallet
 {
 struct multisig_sig
@@ -135,24 +133,14 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const wallet2_basic::transfer_container &transfers,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddress_map,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
-    const std::pair<crypto::hash8, std::size_t> &payment_id,
     const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
+    std::vector<uint8_t> extra,
     const uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices,
     const rct::xmr_amount ignore_above,
     const rct::xmr_amount ignore_below,
     std::set<std::uint32_t> subtract_fee_from_outputs,
     const std::uint64_t top_block_index);
-std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_transfer(
-    wallet2 &w,
-    const std::vector<cryptonote::tx_destination_entry> &dsts,
-    const std::pair<crypto::hash8, std::size_t> &payment_id,
-    const tools::fee_priority priority,
-    const std::vector<uint8_t> &extra,
-    const std::uint32_t subaddr_account,
-    const std::set<uint32_t> &subaddr_indices,
-    const std::set<std::uint32_t> &subtract_fee_from_outputs);
 
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
     const wallet2_basic::transfer_container &transfers,
@@ -161,19 +149,9 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests_per_tx,
-    const crypto::hash8 payment_id,
     const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
+    std::vector<uint8_t> extra,
     const std::uint64_t top_block_index);
-std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep(
-    wallet2 &w,
-    const std::vector<crypto::key_image> &input_key_images,
-    const cryptonote::account_public_address &address,
-    const bool is_subaddress,
-    const size_t n_dests_per_tx,
-    const crypto::hash8 payment_id,
-    const tools::fee_priority priority,
-    const std::vector<uint8_t> &extra);
 
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
     const wallet2_basic::transfer_container &transfers,
@@ -182,23 +160,11 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const cryptonote::account_public_address &address,
     const bool is_subaddress,
     const size_t n_dests_per_tx,
-    const crypto::hash8 payment_id,
     const rct::xmr_amount fee_per_weight,
-    const std::vector<uint8_t> &extra,
+    std::vector<uint8_t> extra,
     const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices,
     const std::uint64_t top_block_index);
-std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
-    wallet2 &w,
-    const rct::xmr_amount only_below,
-    const cryptonote::account_public_address &address,
-    const bool is_subaddress,
-    const size_t n_dests_per_tx,
-    const crypto::hash8 payment_id,
-    const tools::fee_priority priority,
-    const std::vector<uint8_t> &extra,
-    const std::uint32_t subaddr_account,
-    const std::set<uint32_t> &subaddr_indices);
 
 carrot::OutputOpeningHintVariant make_sal_opening_hint_from_transfer_details(const wallet2_basic::transfer_details &td);
 
@@ -230,15 +196,6 @@ pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
     const fcmp_pp::curve_trees::TreeCacheV1 &tree_cache,
     const fcmp_pp::curve_trees::CurveTreesV1 &curve_trees,
     const cryptonote::account_keys &acc_keys);
-pending_tx finalize_all_proofs_from_transfer_details_as_pending_tx(
-    const carrot::CarrotTransactionProposalV1 &tx_proposal,
-    const wallet2 &w);
 
-std::size_t get_num_payment_id_fields_in_tx_extra(const std::vector<std::uint8_t> &tx_extra);
-
-std::size_t get_num_ephemeral_tx_pubkey_fields_in_tx_extra(const std::vector<std::uint8_t> &tx_extra);
-
-void insert_payment_id_into_legacy_extra_unencrypted(const crypto::hash8 &payment_id,
-    std::vector<std::uint8_t> &extra_inout);
 } //namespace wallet
 } //namespace tools

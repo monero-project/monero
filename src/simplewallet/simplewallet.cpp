@@ -6484,7 +6484,8 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
      return false;
   }
 
-  // Fail on parsed long payment ID
+  std::vector<uint8_t> extra;
+  bool payment_id_seen = false;
   if (!local_args.empty())
   {
     std::string payment_id_str = local_args.back();
@@ -6524,7 +6525,6 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
   vector<cryptonote::address_parse_info> dsts_info;
   vector<cryptonote::tx_destination_entry> dsts;
-  std::pair<crypto::hash8, std::size_t> payment_id{crypto::null_hash8, 0};
   for (size_t i = 0; i < local_args.size(); )
   {
     dsts_info.emplace_back();
@@ -6586,18 +6586,19 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
     if (info.has_payment_id || !payment_id_uri.empty())
     {
-      if (payment_id.first != crypto::null_hash8) // other pid seen before
+      if (payment_id_seen)
       {
         fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
         return false;
       }
 
-      crypto::hash ignored_long_pid;
+      crypto::hash payment_id;
+      std::string extra_nonce;
       if (info.has_payment_id)
       {
-        payment_id = {info.payment_id, dsts.size()};
+        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
       }
-      else if (tools::wallet2::parse_payment_id(payment_id_uri, ignored_long_pid))
+      else if (tools::wallet2::parse_payment_id(payment_id_uri, payment_id))
       {
         LONG_PAYMENT_ID_SUPPORT_CHECK();
       }
@@ -6606,6 +6607,13 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         fail_msg_writer() << tr("failed to parse payment id, though it was detected");
         return false;
       }
+      bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+      if(!r)
+      {
+        fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+        return false;
+      }
+      payment_id_seen = true;
     }
 
     dsts.push_back(de);
@@ -6623,7 +6631,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_2(dsts, payment_id, fake_outs_count, priority, /*extra=*/{},
+    auto ptx_vector = m_wallet->create_transactions_2(dsts, fake_outs_count, priority, extra,
       m_current_subaddress_account, subaddr_indices, subtract_fee_from_outputs);
 
     if (ptx_vector.empty())
@@ -7059,13 +7067,14 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
     }
   }
 
-  // Fail on parsed long payment ID
+  std::vector<uint8_t> extra;
+  bool payment_id_seen = false;
   if (local_args.size() >= 2)
   {
     std::string payment_id_str = local_args.back();
 
-    crypto::hash ignored_long_pid;
-    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, ignored_long_pid);
+    crypto::hash payment_id;
+    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
     if(r)
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
@@ -7077,6 +7086,8 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
       print_usage();
       return true;
     }
+    if (payment_id_seen)
+      local_args.pop_back();
   }
 
   cryptonote::address_parse_info info;
@@ -7087,12 +7098,31 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
     return true;
   }
 
+  if (info.has_payment_id)
+  {
+    if (payment_id_seen)
+    {
+      fail_msg_writer() << tr("a single transaction cannot use more than one payment id: ") << local_args[0];
+      return true;
+    }
+
+    std::string extra_nonce;
+    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+    bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
+    if(!r)
+    {
+      fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+      return true;
+    }
+    payment_id_seen = true;
+  }
+
   SCOPED_WALLET_UNLOCK();
 
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, info.payment_id, fake_outs_count, priority, /*extra=*/{}, account, subaddr_indices);
+    auto ptx_vector = m_wallet->create_transactions_all(below, info.address, info.is_subaddress, outputs, fake_outs_count, priority, extra, account, subaddr_indices);
 
     if (ptx_vector.empty())
     {
@@ -7287,11 +7317,13 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     }
   }
 
-  // Fail on parsed long payment ID
+  std::vector<uint8_t> extra;
+  bool payment_id_seen = false;
   if (local_args.size() == 3)
   {
-    crypto::hash ignored_long_pid;
-    if (tools::wallet2::parse_long_payment_id(local_args.back(), ignored_long_pid))
+    crypto::hash payment_id;
+    std::string extra_nonce;
+    if (tools::wallet2::parse_long_payment_id(local_args.back(), payment_id))
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
     }
@@ -7300,6 +7332,15 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
       fail_msg_writer() << tr("failed to parse Payment ID");
       return true;
     }
+
+    if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
+    {
+      fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+      return true;
+    }
+
+    local_args.pop_back();
+    payment_id_seen = true;
   }
 
   if (local_args.size() != 2)
@@ -7322,12 +7363,30 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     return true;
   }
 
+  if (info.has_payment_id)
+  {
+    if (payment_id_seen)
+    {
+      fail_msg_writer() << tr("a single transaction cannot use more than one payment id: ") << local_args[0];
+      return true;
+    }
+
+    std::string extra_nonce;
+    set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+    if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
+    {
+      fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+      return true;
+    }
+    payment_id_seen = true;
+  }
+
   SCOPED_WALLET_UNLOCK();
 
   try
   {
     // figure out what tx will be necessary
-    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, info.payment_id, fake_outs_count, priority, /*extra=*/{});
+    auto ptx_vector = m_wallet->create_transactions_single(ki, info.address, info.is_subaddress, outputs, fake_outs_count, priority, extra);
 
     if (ptx_vector.empty())
     {
@@ -7491,9 +7550,9 @@ bool simple_wallet::donate(const std::vector<std::string> &args_)
   }
   std::string amount_str;
   std::string payment_id_str;
-  // get payment id and pop (long PIDs handled in `transfer()`)
-  crypto::hash payment_id = crypto::null_hash;
-  crypto::hash8 payment_id8 = crypto::null_hash8;
+  // get payment id and pop
+  crypto::hash payment_id;
+  crypto::hash8 payment_id8;
   if (tools::wallet2::parse_long_payment_id (local_args.back(), payment_id ) ||
       tools::wallet2::parse_short_payment_id(local_args.back(), payment_id8))
   {
