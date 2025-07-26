@@ -1772,6 +1772,3 @@ namespace tools
   }
   //----------------------------------------------------------------------------------------------------
 }
-
-VARIANT_TAG(binary_archive, tools::wallet2::tx_construction_data, 0x21);
-VARIANT_TAG(binary_archive, carrot::CarrotTransactionProposalV1, 0x22);

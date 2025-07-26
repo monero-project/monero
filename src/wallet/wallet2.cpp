@@ -98,6 +98,7 @@ using namespace epee;
 #include "net/socks_connect.h"
 #include "carrot_impl/format_utils.h"
 #include "tx_builder.h"
+#include "tx_builder_serialization.h"
 
 extern "C"
 {

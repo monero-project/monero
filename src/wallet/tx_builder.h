@@ -58,21 +58,6 @@ struct multisig_sig
     rct::keyM total_alpha_H;
     rct::keyV c_0;
     rct::keyV s;
-
-    BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
-        if (version < 1)
-            return false;
-        FIELD(sigs)
-        FIELD(ignore)
-        FIELD(used_L)
-        FIELD(signing_keys)
-        FIELD(msout)
-        FIELD(total_alpha_G)
-        FIELD(total_alpha_H)
-        FIELD(c_0)
-        FIELD(s)
-    END_SERIALIZE()
 };
 
 struct PreCarrotTransactionProposal
@@ -99,39 +84,6 @@ struct PreCarrotTransactionProposal
         // final flag     = 1 << 7  // 10000000
     };
     uint8_t construction_flags;
-
-    BEGIN_SERIALIZE_OBJECT()
-        FIELD(sources)
-        FIELD(change_dts)
-        FIELD(splitted_dsts)
-        FIELD(selected_transfers)
-        FIELD(extra)
-        FIELD(unlock_time)
-
-        // converted `use_rct` field into construction_flags when view tags
-        // were introduced to maintain backwards compatibility
-        if (!typename Archive<W>::is_saving())
-        {
-            FIELD_N("use_rct", construction_flags)
-            use_rct = (construction_flags & _use_rct) > 0;
-            use_view_tags = (construction_flags & _use_view_tags) > 0;
-        }
-        else
-        {
-            construction_flags = 0;
-            if (use_rct)
-                construction_flags ^= _use_rct;
-            if (use_view_tags)
-                construction_flags ^= _use_view_tags;
-
-            FIELD_N("use_rct", construction_flags)
-        }
-
-        FIELD(rct_config)
-        FIELD(dests)
-        FIELD(subaddr_account)
-        FIELD(subaddr_indices)
-    END_SERIALIZE()
 };
 
 // The convention for destinations is:
@@ -158,41 +110,6 @@ struct pending_tx
         carrot::CarrotTransactionProposalV1
         >;
     tx_reconstruct_variant_t construction_data;
-
-    BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(2)
-        FIELD(tx)
-        FIELD(dust)
-        FIELD(fee)
-        FIELD(dust_added_to_fee)
-        FIELD(change_dts)
-        FIELD(selected_transfers)
-        FIELD(key_images)
-        FIELD(tx_key)
-        FIELD(additional_tx_keys)
-        FIELD(dests)
-        if (version < 2)
-        {
-            PreCarrotTransactionProposal pre_carrot_construction_data;
-            FIELD_N("construction_data", pre_carrot_construction_data)
-            construction_data = pre_carrot_construction_data;
-            subaddr_account = pre_carrot_construction_data.subaddr_account;
-            subaddr_indices = pre_carrot_construction_data.subaddr_indices;
-        }
-        else // version >= 2
-        {
-            FIELD(construction_data)
-            FIELD(subaddr_account)
-            FIELD(subaddr_indices)
-        }
-        FIELD(multisig_sigs)
-        if (version < 1)
-        {
-            multisig_tx_key_entropy = crypto::null_skey;
-            return true;
-        }
-        FIELD(multisig_tx_key_entropy)
-    END_SERIALIZE()
 };
 
 /**
