@@ -38,6 +38,7 @@
 #include "carrot_impl/carrot_offchain_serialization.h"
 #include "carrot_impl/format_utils.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "hot_cold_serialization.h"
 #include "ringct/rctOps.h"
 #include "scanning_tools.h"
 #include "serialization/binary_archive.h"
@@ -53,95 +54,8 @@ namespace tools
 {
 namespace wallet
 {
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-BEGIN_SERIALIZE_OBJECT_FN(exported_pre_carrot_transfer_details, bool skip_version)
-    if (!skip_version)
-    {
-        VERSION_FIELD(1)
-    }
-    FIELD_F(m_pubkey)
-    VARINT_FIELD_F(m_internal_output_index)
-    VARINT_FIELD_F(m_global_output_index)
-    FIELD_F(m_tx_pubkey)
-    FIELD_F(m_flags.flags)
-    VARINT_FIELD_F(m_amount)
-    FIELD_F(m_additional_tx_keys)
-    VARINT_FIELD_F(m_subaddr_index_major)
-    VARINT_FIELD_F(m_subaddr_index_minor)
-END_SERIALIZE()
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-BEGIN_SERIALIZE_OBJECT_FN(exported_carrot_transfer_details, bool skip_version)
-    if (!skip_version)
-    {
-        VERSION_FIELD(2)
-    }
-    VARINT_FIELD_N("flags", v.flags.flags)
-    if (v.flags.m_coinbase)
-    {
-        FIELD_F(block_index)
-        v.tx_first_key_image = crypto::key_image{};
-    }
-    else
-    {
-        v.block_index = 0;
-        FIELD_F(tx_first_key_image)
-    }
-    if (v.flags.m_has_pid)
-    {
-        FIELD_F(payment_id)
-        v.subaddr_index = {0, 0};
-    }
-    else // !m_has_pid
-    {
-        FIELD_F(subaddr_index)
-        v.payment_id = carrot::null_payment_id;
-    }
-    VARINT_FIELD_F(amount)
-    FIELD_F(janus_anchor)
-    if (v.flags.m_selfsend)
-        FIELD_F(selfsend_enote_ephemeral_pubkey)
-    else
-        v.selfsend_enote_ephemeral_pubkey = mx25519_pubkey{{0}};
-END_SERIALIZE()
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-BEGIN_SERIALIZE_OBJECT_FN(exported_transfer_details_variant)
-    const bool is_saving_carrot = typename Archive<W>::is_saving()
-        && std::holds_alternative<exported_carrot_transfer_details>(v);
-    VERSION_FIELD(is_saving_carrot ? 2 : 1)
-    if (version < 1 || version > 2)
-        return false;
-    if constexpr (!typename Archive<W>::is_saving())
-    {
-        if (version == 1)
-            v = exported_pre_carrot_transfer_details{};
-        else
-            v = exported_carrot_transfer_details{};
-    }
-    return std::visit([&ar](auto &x) -> bool { return do_serialize_object(ar, x, true); }, v);
-END_SERIALIZE()
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-// Explicit serialization instantiations
-template bool do_serialize_object<true, binary_archive>(binary_archive<true> &ar,
-    exported_pre_carrot_transfer_details &v,
-    bool skip_version);
-template bool do_serialize_object<false, binary_archive>(binary_archive<false> &ar,
-    exported_pre_carrot_transfer_details &v,
-    bool skip_version);
-template bool do_serialize_object<true, binary_archive>(binary_archive<true> &ar,
-    exported_carrot_transfer_details &v,
-    bool skip_version);
-template bool do_serialize_object<false, binary_archive>(binary_archive<false> &ar,
-    exported_carrot_transfer_details &v,
-    bool skip_version);
-template bool do_serialize_object<true, binary_archive>(binary_archive<true> &ar,
-    exported_transfer_details_variant &v);
-template bool do_serialize_object<false, binary_archive>(binary_archive<false> &ar,
-    exported_transfer_details_variant &v);
-//-------------------------------------------------------------------------------------------------------------------
+namespace cold
+{
 //-------------------------------------------------------------------------------------------------------------------
 exported_pre_carrot_transfer_details export_cold_pre_carrot_output(const wallet2_basic::transfer_details &td)
 {
@@ -555,5 +469,6 @@ wallet2_basic::transfer_details import_cold_output(const exported_transfer_detai
     return std::visit(import_cold_output_visitor{acc_keys}, etd);
 }
 //-------------------------------------------------------------------------------------------------------------------
+} //namespace cold
 } //namespace wallet
 } //namespace tools

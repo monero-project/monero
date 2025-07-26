@@ -32,6 +32,7 @@
 #include "carrot_impl/address_device.h"
 #include "carrot_impl/subaddress_index.h"
 #include "span.h"
+#include "tx_builder.h"
 #include "wallet2_basic/wallet2_types.h"
 
 //third party headers
@@ -44,6 +45,8 @@
 namespace tools
 {
 namespace wallet
+{
+namespace cold
 {
 struct exported_pre_carrot_transfer_details
 {
@@ -116,8 +119,26 @@ struct exported_carrot_transfer_details
     mx25519_pubkey selfsend_enote_ephemeral_pubkey;
 };
 
-using exported_transfer_details_variant = std::variant<exported_pre_carrot_transfer_details,
-    exported_carrot_transfer_details>;
+using exported_transfer_details_variant = std::variant<
+        exported_pre_carrot_transfer_details,
+        exported_carrot_transfer_details
+    >;
+
+// The term "Unsigned tx" is not really a tx since it's not signed yet.
+// It doesnt have tx hash, key and the integrated address is not separated into addr + payment id.
+struct UnsignedPreCarrotTransactionSet
+{
+    std::vector<PreCarrotTransactionProposal> txes;
+    std::tuple<uint64_t, uint64_t, wallet2_basic::transfer_container> transfers;
+    std::tuple<uint64_t, uint64_t, std::vector<exported_pre_carrot_transfer_details>> new_transfers;
+};
+
+struct SignedFullTransactionSet
+{
+    std::vector<pending_tx> ptx;
+    std::vector<crypto::key_image> key_images;
+    std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
+};
 
 exported_pre_carrot_transfer_details export_cold_pre_carrot_output(const wallet2_basic::transfer_details &td);
 
@@ -136,8 +157,6 @@ wallet2_basic::transfer_details import_cold_carrot_output(const exported_carrot_
 wallet2_basic::transfer_details import_cold_output(const exported_transfer_details_variant &etd,
     const cryptonote::account_keys &acc_keys);
 
-DECLARE_SERIALIZE_OBJECT(exported_pre_carrot_transfer_details, bool skip_version = false)
-DECLARE_SERIALIZE_OBJECT(exported_carrot_transfer_details, bool skip_version = false)
-DECLARE_SERIALIZE_OBJECT(exported_transfer_details_variant)
+} //namespace cold
 } //namespace wallet
 } //namespace tools

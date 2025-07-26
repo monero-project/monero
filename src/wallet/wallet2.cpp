@@ -99,6 +99,7 @@ using namespace epee;
 #include "carrot_impl/format_utils.h"
 #include "tx_builder.h"
 #include "tx_builder_serialization.h"
+#include "hot_cold_serialization.h" //! @TODO: remove line after #52 is merged
 
 extern "C"
 {

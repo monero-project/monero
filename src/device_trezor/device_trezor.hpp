@@ -68,7 +68,7 @@ namespace trezor {
       size_t m_num_transations_to_sign;
 
       unsigned client_version();
-      void transaction_versions_check(const ::tools::wallet2::unsigned_tx_set & unsigned_tx, hw::tx_aux_data & aux_data);
+      void transaction_versions_check(const ::tools::wallet::cold::UnsignedPreCarrotTransactionSet & unsigned_tx, hw::tx_aux_data & aux_data);
       void transaction_pre_check(std::shared_ptr<messages::monero::MoneroTransactionInitRequest> init_msg);
       void transaction_check(const protocol::tx::TData & tdata, const hw::tx_aux_data & aux_data);
       void device_state_initialize_unsafe() override;
@@ -80,7 +80,7 @@ namespace trezor {
        * Signs particular transaction idx in the unsigned set, keeps state in the signer
        */
       virtual void tx_sign(wallet_shim * wallet,
-                   const ::tools::wallet2::unsigned_tx_set & unsigned_tx,
+                   const ::tools::wallet::cold::UnsignedPreCarrotTransactionSet & unsigned_tx,
                    size_t idx,
                    hw::tx_aux_data & aux_data,
                    std::shared_ptr<protocol::tx::Signer> & signer);
@@ -156,7 +156,7 @@ namespace trezor {
        * Key image sync with the Trezor.
        */
       void ki_sync(wallet_shim * wallet,
-                   const std::vector<::tools::wallet2::transfer_details> & transfers,
+                   const std::vector<::wallet2_basic::transfer_details> & transfers,
                    hw::device_cold::exported_key_image & ski) override;
 
       bool is_live_refresh_supported() const override;
@@ -202,8 +202,8 @@ namespace trezor {
        * Signs unsigned transaction with the Trezor.
        */
       void tx_sign(wallet_shim * wallet,
-                   const ::tools::wallet2::unsigned_tx_set & unsigned_tx,
-                   ::tools::wallet2::signed_tx_set & signed_tx,
+                   const ::tools::wallet::cold::UnsignedPreCarrotTransactionSet & unsigned_tx,
+                   ::tools::wallet::cold::SignedFullTransactionSet & signed_tx,
                    hw::tx_aux_data & aux_data) override;
 
       /**

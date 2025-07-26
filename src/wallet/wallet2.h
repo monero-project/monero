@@ -269,7 +269,7 @@ private:
     };
 
     using transfer_details = wallet2_basic::transfer_details;
-    using exported_transfer_details = wallet::exported_pre_carrot_transfer_details;
+    using exported_transfer_details = wallet::cold::exported_pre_carrot_transfer_details;
 
     typedef std::vector<uint64_t> amounts_container;
     using payment_details = wallet2_basic::payment_details;
@@ -293,53 +293,8 @@ private:
     using multisig_sig = wallet::multisig_sig;
     using pending_tx = wallet::pending_tx;
 
-    // The term "Unsigned tx" is not really a tx since it's not signed yet.
-    // It doesnt have tx hash, key and the integrated address is not separated into addr + payment id.
-    struct unsigned_tx_set
-    {
-      std::vector<tx_construction_data> txes;
-      std::tuple<uint64_t, uint64_t, wallet2::transfer_container> transfers;
-      std::tuple<uint64_t, uint64_t, std::vector<wallet2::exported_transfer_details>> new_transfers;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(2)
-        FIELD(txes)
-        if (version == 0)
-        {
-          std::pair<size_t, wallet2::transfer_container> v0_transfers;
-          FIELD(v0_transfers);
-          std::get<0>(transfers) = std::get<0>(v0_transfers);
-          std::get<1>(transfers) = std::get<0>(v0_transfers) + std::get<1>(v0_transfers).size();
-          std::get<2>(transfers) = std::get<1>(v0_transfers);
-          return true;
-        }
-        if (version == 1)
-        {
-          std::pair<size_t, std::vector<wallet2::exported_transfer_details>> v1_transfers;
-          FIELD(v1_transfers);
-          std::get<0>(new_transfers) = std::get<0>(v1_transfers);
-          std::get<1>(new_transfers) = std::get<0>(v1_transfers) + std::get<1>(v1_transfers).size();
-          std::get<2>(new_transfers) = std::get<1>(v1_transfers);
-          return true;
-        }
-
-        FIELD(new_transfers)
-      END_SERIALIZE()
-    };
-
-    struct signed_tx_set
-    {
-      std::vector<pending_tx> ptx;
-      std::vector<crypto::key_image> key_images;
-      std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
-        FIELD(ptx)
-        FIELD(key_images)
-        FIELD(tx_key_images)
-      END_SERIALIZE()
-    };
+    using unsigned_tx_set = wallet::cold::UnsignedPreCarrotTransactionSet;
+    using signed_tx_set = wallet::cold::SignedFullTransactionSet;
 
     struct multisig_tx_set
     {
