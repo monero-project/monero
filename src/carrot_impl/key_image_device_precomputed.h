@@ -42,6 +42,7 @@ namespace carrot
 {
 class key_image_device_precompted: public key_image_device
 {
+public:
     key_image_device_precompted(std::unordered_map<crypto::public_key, crypto::key_image> &&key_image_map):
         m_key_image_map(std::move(key_image_map))
     {}

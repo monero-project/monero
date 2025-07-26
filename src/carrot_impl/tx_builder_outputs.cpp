@@ -30,8 +30,10 @@
 #include "tx_builder_outputs.h"
 
 //local headers
+#include "carrot_core/enote_utils.h"
 #include "carrot_core/exceptions.h"
 #include "carrot_core/output_set_finalization.h"
+#include "common/container_helpers.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "format_utils.h"
 #include "ringct/rctSigs.h"
@@ -126,10 +128,75 @@ void get_output_enote_proposals_from_proposal_v1(const CarrotTransactionProposal
         payment_proposal_order_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
+void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymentProposalV1> &normal_payment_proposals,
+    const std::vector<CarrotPaymentProposalVerifiableSelfSendV1> &selfsend_payment_proposals,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const crypto::key_image &tx_first_key_image,
+    std::vector<crypto::secret_key> &s_sender_receiver_unctx_out,
+    std::vector<std::pair<bool, std::size_t>> &payment_proposal_order_out)
+{
+    s_sender_receiver_unctx_out.clear();
+
+    const std::size_t n_outputs = normal_payment_proposals.size() + selfsend_payment_proposals.size();
+    s_sender_receiver_unctx_out.reserve(n_outputs);
+
+    // collect self-sends proposal cores
+    std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposal_cores;
+    selfsend_payment_proposal_cores.reserve(selfsend_payment_proposals.size());
+    for (const auto &selfsend_payment_proposal : selfsend_payment_proposals)
+        selfsend_payment_proposal_cores.push_back(selfsend_payment_proposal.proposal);
+
+    // derive enote proposals
+    std::vector<RCTOutputEnoteProposal> output_enote_proposals_out;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_enote_proposals(normal_payment_proposals,
+        selfsend_payment_proposal_cores,
+        encrypted_payment_id_t{},
+        s_view_balance_dev,
+        k_view_dev,
+        tx_first_key_image,
+        output_enote_proposals_out,
+        encrypted_payment_id,
+        &payment_proposal_order_out);
+
+    // special case: 2-out, 2-selfsend tx
+    if (n_outputs == 2 && selfsend_payment_proposals.size() == 2)
+    {
+        s_sender_receiver_unctx_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
+        return;
+    }
+
+    // derive s_sr in finalized output order
+    for (const std::pair<bool, std::size_t> &payment_proposal_idx : payment_proposal_order_out)
+    {
+        const bool is_selfsend = payment_proposal_idx.first;
+        if (is_selfsend)
+        {
+            if (n_outputs == 2)
+                continue;
+            s_sender_receiver_unctx_out.push_back(rct::rct2sk(rct::identity())); //! @TODO
+        }
+        else
+        {
+            const auto &normal_payment_proposal = normal_payment_proposals.at(payment_proposal_idx.second);
+            // d_e = H_n(anchor_norm, input_context, K^j_s, pid))
+            const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(normal_payment_proposal,
+                make_carrot_input_context(tx_first_key_image));
+            // s_sr = d_e ConvertPointE(K^j_v)
+            mx25519_pubkey s_sender_receiver_unctx;
+            make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+                normal_payment_proposal.destination.address_view_pubkey, s_sender_receiver_unctx);
+            crypto::secret_key &s_sender_receiver_unctx_sk = s_sender_receiver_unctx_out.emplace_back();
+            memcpy(&s_sender_receiver_unctx_sk, &s_sender_receiver_unctx, sizeof(s_sender_receiver_unctx_sk));
+        }
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
 void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
     const view_balance_secret_device *s_view_balance_dev,
     const view_incoming_key_device *k_view_dev,
-    const key_image_device &key_image_dev,
+    const std::vector<crypto::key_image> &sorted_input_key_images,
     crypto::hash &signable_tx_hash_out)
 {
     //! @TODO: there's a more efficient way to do this than constructing&serializing a whole cryptonote::transaction
@@ -139,19 +206,28 @@ void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &t
     make_pruned_transaction_from_proposal_v1(tx_proposal,
         s_view_balance_dev,
         k_view_dev,
-        key_image_dev,
+        sorted_input_key_images,
         pruned_tx);
 
-    //! @TODO: better input number calculation in get_pre_mlsag_hash. possible?
-    pruned_tx.rct_signatures.p.pseudoOuts.resize(pruned_tx.vin.size());
+    signable_tx_hash_out = calculate_signable_fcmp_pp_transaction_hash(pruned_tx);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_signable_tx_hash_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,
+    const view_balance_secret_device *s_view_balance_dev,
+    const view_incoming_key_device *k_view_dev,
+    const key_image_device &key_image_dev,
+    crypto::hash &signable_tx_hash_out)
+{
+    // derive input key images
+    std::vector<crypto::key_image> sorted_input_key_images;
+    get_sorted_input_key_images_from_proposal_v1(tx_proposal, key_image_dev, sorted_input_key_images);
+    CARROT_CHECK_AND_THROW(!sorted_input_key_images.empty(), too_few_inputs, "No inputs in proposal");
 
-    // see cryptonote::Blockchain::expand_transaction_2()
-    pruned_tx.rct_signatures.message = rct::hash2rct(cryptonote::get_transaction_prefix_hash(pruned_tx));
-
-    hw::device &hwdev = hw::get_device("default");
-    const rct::key signable_tx_hash_k = rct::get_pre_mlsag_hash(pruned_tx.rct_signatures, hwdev);
-
-    signable_tx_hash_out = rct::rct2hash(signable_tx_hash_k);
+    make_signable_tx_hash_from_proposal_v1(tx_proposal,
+        s_view_balance_dev,
+        k_view_dev,
+        sorted_input_key_images,
+        signable_tx_hash_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_pruned_transaction_from_proposal_v1(const CarrotTransactionProposalV1 &tx_proposal,

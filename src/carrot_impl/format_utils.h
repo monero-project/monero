@@ -211,5 +211,11 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
     const fcmp_pp::FcmpMembershipProof &membership_proof,
     const std::uint64_t fcmp_reference_block,
     const std::uint8_t n_tree_layers);
+/**
+ * brief: calculate_signable_transaction_hash -
+ * param: tx - pruned or full FCMP++ transaction
+ * throw: std::runtime_error if `tx` is not FCMP++ or fails to serialize
+ */
+crypto::hash calculate_signable_fcmp_pp_transaction_hash(const cryptonote::transaction &tx);
 
 } //namespace carrot

@@ -28,7 +28,7 @@
 
 set(carrot_impl_sources
   address_device_ram_borrowed.cpp
-  address_utils_compat.cpp
+  address_utils.cpp
   format_utils.cpp
   input_selection.cpp
   key_image_device_composed.cpp
