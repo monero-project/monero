@@ -30,7 +30,7 @@
 #include "address_device_ram_borrowed.h"
 
 //local headers
-#include "address_utils_compat.h"
+#include "address_utils.h"
 #include "carrot_core/address_utils.h"
 
 //third party headers

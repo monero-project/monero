@@ -27,9 +27,11 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //paired header
-#include "address_utils_compat.h"
+#include "address_utils.h"
 
 //local headers
+#include "address_device.h"
+#include "crypto/generators.h"
 #include "cryptonote_config.h"
 #include "int-util.h"
 #include "ringct/rctOps.h"
@@ -85,6 +87,41 @@ void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subadd
     rct::key res_k;
     rct::addKeys1(res_k, rct::sk2rct(legacy_subaddress_extension), rct::pk2rct(account_spend_pubkey));
     legacy_subaddress_spend_pubkey_out = rct::rct2pk(res_k);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_legacy_subaddress_spend_pubkey(const cryptonote_hierarchy_address_device &addr_dev,
+    const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::public_key &legacy_subaddress_spend_pubkey_out)
+{
+    // k^j_subext = ScalarDeriveLegacy("SubAddr" || IntToBytes8(0) || k_v || IntToBytes32(j_major) || IntToBytes32(j_minor))
+    crypto::secret_key legacy_subaddress_extension;
+    addr_dev.make_legacy_subaddress_extension(major_index, minor_index, legacy_subaddress_extension);
+
+    // K^j_s = K_s + k^j_subext G
+    make_legacy_subaddress_spend_pubkey(legacy_subaddress_extension,
+        addr_dev.get_cryptonote_account_spend_pubkey(),
+        legacy_subaddress_spend_pubkey_out);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void make_legacy_subaddress_pubkeys(const cryptonote_hierarchy_address_device &addr_dev,
+    const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::public_key &legacy_subaddress_spend_pubkey_out,
+    crypto::public_key &legacy_subaddress_view_pubkey_out)
+{
+    // K^j_s = K_s + k^j_subext G
+    make_legacy_subaddress_spend_pubkey(addr_dev,
+        major_index,
+        minor_index,
+        legacy_subaddress_spend_pubkey_out);
+
+    // K^j_base = G if j=0, else K^j_s
+    const bool is_subaddress = major_index || minor_index;
+    const crypto::public_key base_pubkey = is_subaddress ? legacy_subaddress_spend_pubkey_out :  crypto::get_G();
+
+    // K^j_v = k_v K^j_base
+    addr_dev.view_key_scalar_mult_ed25519(base_pubkey, legacy_subaddress_view_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

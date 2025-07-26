@@ -96,7 +96,7 @@ static void make_sal_proof_nominal_address(const crypto::hash &signable_tx_hash,
     // scan k^g_o, k^t_o
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
-    CHECK_AND_ASSERT_THROW_MES(try_scan_opening_hint(opening_hint,
+    CHECK_AND_ASSERT_THROW_MES(try_scan_opening_hint_sender_extensions(opening_hint,
             main_address_spend_pubkeys,
             k_view_incoming_dev,
             s_view_balance_dev,

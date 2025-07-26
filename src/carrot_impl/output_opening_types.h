@@ -143,18 +143,33 @@ rct::key amount_commitment_ref(const OutputOpeningHintVariant&);
 subaddress_index_extended subaddress_index_ref(const OutputOpeningHintVariant&);
 
 /**
- * brief: try_scan_sender_extensions_on_opening_hint - get sender extensions for given opening hint
+ * brief: try_scan_opening_hint_sender_extensions - scan sender extensions for given opening hint
  * param: opening_hint
  * param: k_view_incoming_dev - k_v [OPTIONAL]
  * param: s_view_balance_dev - s_vb [OPTIONAL]
- * param: sender_extension_g_out - k^g_o
- * param: sender_extension_t_out - k^t_o
+ * outparam: sender_extension_g_out - k^g_o
+ * outparam: sender_extension_t_out - k^t_o
  * return: true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
  */
-bool try_scan_opening_hint(const OutputOpeningHintVariant &opening_hint,
+bool try_scan_opening_hint_sender_extensions(const OutputOpeningHintVariant &opening_hint,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device *k_view_incoming_dev,
     const view_balance_secret_device *s_view_balance_dev,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out);
+/**
+ * brief: try_scan_opening_hint_amount - scan amount and blinding factor for given opening hint
+ * param: opening_hint
+ * param: k_view_incoming_dev - k_v [OPTIONAL]
+ * param: s_view_balance_dev - s_vb [OPTIONAL]
+ * outparam: amount_out - a
+ * outparam: amount_blinding_factor_out - k_a
+ * return: true iff Carrot enote scan was successful, or if nominal legacy derivation-to-scalar didn't fail
+ */
+bool try_scan_opening_hint_amount(const OutputOpeningHintVariant &opening_hint,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const view_incoming_key_device *k_view_incoming_dev,
+    const view_balance_secret_device *s_view_balance_dev,
+    rct::xmr_amount &amount_out,
+    rct::key &amount_blinding_factor_out);
 } //namespace carrot

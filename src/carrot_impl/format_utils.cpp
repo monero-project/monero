@@ -37,6 +37,8 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
 #include "fcmp_pp/proof_len.h"
+#include "ringct/rctOps.h"
+#include "serialization/binary_utils.h"
 
 //third party headers
 
@@ -561,6 +563,27 @@ rct::rctSigPrunable store_fcmp_proofs_to_rct_prunable_v1(
         .n_tree_layers = n_tree_layers,
         .fcmp_pp = std::move(fcmp_pp_proof_bytes)
     };
+}
+//-------------------------------------------------------------------------------------------------------------------
+crypto::hash calculate_signable_fcmp_pp_transaction_hash(const cryptonote::transaction &tx)
+{
+    // see: rct::get_mlsag_prehash()
+
+    CHECK_AND_ASSERT_THROW_MES(tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus,
+        "calculate_signable_fcmp_pp_transaction_hash() is not valid for non-FCMP++ txs");
+
+    std::stringstream ss;
+    binary_archive<true> ar(ss);
+    CHECK_AND_ASSERT_THROW_MES(const_cast<rct::rctSig&>(tx.rct_signatures).serialize_rctsig_base(ar, 0, tx.vout.size()),
+        "could not calculate signable tx hash: failed to serialize rctSigBase");
+    const std::string sig_base_blob = ss.str();
+
+    const std::vector<rct::key> subhashes = {
+        rct::hash2rct(cryptonote::get_transaction_prefix_hash(tx)),
+        rct::hash2rct(crypto::cn_fast_hash(sig_base_blob.data(), sig_base_blob.size()))
+    };
+
+    return rct::rct2hash(rct::cn_fast_hash(subhashes));
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

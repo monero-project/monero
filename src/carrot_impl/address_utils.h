@@ -37,6 +37,10 @@
 #include <cstdint>
 
 //forward declarations
+namespace carrot
+{
+struct cryptonote_hierarchy_address_device;
+}
 
 namespace carrot
 {
@@ -57,9 +61,32 @@ void make_legacy_subaddress_extension(const crypto::secret_key &k_view,
  *   K^j_s = K_s + k^j_subext G
  * param: legacy_subaddress_extension_out - k^j_subext
  * param: account_spend_pubkey - K_s
+ * param: addr_dev -
+ * param: major_index - j_major
+ * param: minor_index - j_minor
  * outparam: legacy_subaddress_spend_pubkey_out - K^j_s
  */
 void make_legacy_subaddress_spend_pubkey(const crypto::secret_key &legacy_subaddress_extension,
     const crypto::public_key &account_spend_pubkey,
     crypto::public_key &legacy_subaddress_spend_pubkey_out);
+void make_legacy_subaddress_spend_pubkey(const cryptonote_hierarchy_address_device &addr_dev,
+    const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::public_key &legacy_subaddress_spend_pubkey_out);
+/**
+ * brief: make_legacy_subaddress_spend_pubkey - K^j_s
+ *   K^j_s = K_s + k^j_subext G
+ *   K^j_v = k_v (G if j=0, else K^j_s)
+ * param: addr_dev
+ * param: major_index - j_major
+ * param: minor_index - j_minor
+ * param: account_spend_pubkey - K_s
+ * outparam: legacy_subaddress_spend_pubkey_out - K^j_s
+ * outparam: legacy_subaddress_view_pubkey_out - K^j_v
+ */
+void make_legacy_subaddress_pubkeys(const cryptonote_hierarchy_address_device &addr_dev,
+    const std::uint32_t major_index,
+    const std::uint32_t minor_index,
+    crypto::public_key &legacy_subaddress_spend_pubkey_out,
+    crypto::public_key &legacy_subaddress_view_pubkey_out);
 } //namespace carrot

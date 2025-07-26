@@ -127,7 +127,7 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
     // get k^g_o, k^t_o
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
-    if (!try_scan_opening_hint(opening_hint,
+    if (!try_scan_opening_hint_sender_extensions(opening_hint,
         {&main_address_spend_pubkey, 1},
         m_k_view_incoming_dev,
         m_s_view_balance_dev,
