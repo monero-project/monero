@@ -3264,6 +3264,16 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // wallet handles reorgs separately after identifying receives.
   const auto tree_sync_start_params = tree_sync_reorg_check(start_height, parsed_blocks, n_blocks_already_synced, m_blockchain, m_max_reorg_depth, m_tree_cache);
 
+  const auto tree_sync_post_check = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    // Check for matching top block in m_blockchain <> m_tree_cache after sync
+    assert_top_block_match(m_blockchain, m_tree_cache);
+  });
+
+  if (tree_sync_start_params.start_parsed_block_i == parsed_blocks.size()) {
+    // No further scanning needed, we've already scanned this set of blocks
+    return;
+  }
+
   std::vector<crypto::hash> new_block_hashes;
   fcmp_pp::curve_trees::TreeCacheV1::CacheStateChange tree_cache_state_change;
 
@@ -3274,11 +3284,6 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   tpool.submit(&tree_sync_blocks_waiter, [this, &parsed_blocks, &new_block_hashes, &tree_cache_state_change, tree_sync_start_params]() {
       tree_sync_blocks_async(tree_sync_start_params, parsed_blocks, m_tree_cache, m_outs_by_last_locked_time_ms, m_sync_blocks_time_ms, new_block_hashes, tree_cache_state_change);
     });
-
-  const auto tree_sync_post_check = epee::misc_utils::create_scope_leave_handler([&, this]() {
-    // Check for matching top block in m_blockchain <> m_tree_cache after sync
-    assert_top_block_match(m_blockchain, m_tree_cache);
-  });
 
   try
   {
