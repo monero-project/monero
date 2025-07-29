@@ -784,19 +784,6 @@ static bool emplace_or_replace(std::unordered_multimap<crypto::hash, tools::wall
   return true;
 }
 
-void drop_from_short_history(std::list<crypto::hash> &short_chain_history, size_t N)
-{
-  std::list<crypto::hash>::iterator right;
-  // drop early N off, skipping the genesis block
-  if (short_chain_history.size() > N) {
-    right = short_chain_history.end();
-    std::advance(right,-1);
-    std::list<crypto::hash>::iterator left = right;
-    std::advance(left, -N);
-    short_chain_history.erase(left, right);
-  }
-}
-
 size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags)
 {
   size_t size = 0;
@@ -2876,41 +2863,6 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b,
     m_callback->on_new_block(height, b);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t granularity) const
-{
-  size_t i = 0;
-  size_t current_multiplier = 1;
-  size_t blockchain_size = std::max((size_t)(m_blockchain.size() / granularity * granularity), m_blockchain.offset());
-  size_t sz = blockchain_size - m_blockchain.offset();
-  if(!sz)
-  {
-    if(m_blockchain.size() > m_blockchain.offset())
-      ids.push_back(m_blockchain[m_blockchain.offset()]);
-    ids.push_back(m_blockchain.genesis());
-    return;
-  }
-  size_t current_back_offset = 1;
-  bool base_included = false;
-  while(current_back_offset < sz)
-  {
-    ids.push_back(m_blockchain[m_blockchain.offset() + sz-current_back_offset]);
-    if(sz-current_back_offset == 0)
-      base_included = true;
-    if(i < 10)
-    {
-      ++current_back_offset;
-    }else
-    {
-      current_back_offset += current_multiplier *= 2;
-    }
-    ++i;
-  }
-  if(!base_included)
-    ids.push_back(m_blockchain[m_blockchain.offset()]);
-  if(m_blockchain.offset())
-    ids.push_back(m_blockchain.genesis());
-}
-//----------------------------------------------------------------------------------------------------
 void wallet2::parse_block_round(const cryptonote::blobdata &blob, cryptonote::block &bl, crypto::hash &bl_id, bool &error) const
 {
   error = !cryptonote::parse_and_validate_block_from_blob(blob, bl, bl_id);
@@ -2992,11 +2944,10 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   update_pool_state_from_pool_data(res.pool_info_extent == COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL, res.removed_pool_txids, added_pool_txs, process_txs, refreshed);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data)
+void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, uint64_t &current_height, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-  req.block_ids = short_chain_history;
 
   req.prune = true;
   req.start_height = start_height;
@@ -3048,24 +2999,6 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t start_heigh
     }
   }
 
-}
-//----------------------------------------------------------------------------------------------------
-void wallet2::pull_hashes(uint64_t start_height, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<crypto::hash> &hashes)
-{
-  cryptonote::COMMAND_RPC_GET_HASHES_FAST::request req = AUTO_VAL_INIT(req);
-  cryptonote::COMMAND_RPC_GET_HASHES_FAST::response res = AUTO_VAL_INIT(res);
-  req.block_ids = short_chain_history;
-
-  req.start_height = start_height;
-
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    bool r = net_utils::invoke_http_bin("/gethashes.bin", req, res, *m_http_client, rpc_timeout);
-    THROW_ON_RPC_RESPONSE_ERROR(r, {}, res, "gethashes.bin", error::get_hashes_error, get_rpc_status(m_trusted_daemon, res.status));
-  }
-
-  blocks_start_height = res.start_height;
-  hashes = std::move(res.m_block_ids);
 }
 //----------------------------------------------------------------------------------------------------
 struct TreeSyncStartParams
@@ -3485,7 +3418,7 @@ void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_
   daemon_is_outdated = height < start_height || height >= end_height;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, bool &last, bool &error, std::exception_ptr &exception)
+void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t start_height, uint64_t &blocks_start_height, const std::vector<cryptonote::block_complete_entry> &prev_blocks, const std::vector<parsed_block> &prev_parsed_blocks, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, bool &last, bool &error, std::exception_ptr &exception)
 {
   error = false;
   last = false;
@@ -3493,22 +3426,16 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
 
   try
   {
-    drop_from_short_history(short_chain_history, 3);
-
     THROW_WALLET_EXCEPTION_IF(prev_blocks.size() != prev_parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
 
     // prepend the last 3 blocks, should be enough to guard against a block or two's reorg
-    auto s = std::next(prev_parsed_blocks.rbegin(), std::min((size_t)3, prev_parsed_blocks.size())).base();
-    for (; s != prev_parsed_blocks.end(); ++s)
-    {
-      short_chain_history.push_front(s->hash);
-    }
+    start_height = (start_height > 3) ? (start_height - 3) : 0;
 
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     uint64_t current_height;
     boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> init_tree_sync_data;
-    pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs, init_tree_sync_data);
+    pull_blocks(first, try_incremental, start_height, blocks_start_height, blocks, o_indices, current_height, process_pool_txs, init_tree_sync_data);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
@@ -3567,11 +3494,15 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
 
     if (init_tree_sync_data)
     {
-      // Initialize the tree
+      // Initialize m_blockchain and the local tree cache
       const uint64_t init_block_idx = init_tree_sync_data->init_block_idx;
       const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
-      MINFO("Initializing wallet tree at block " << init_block_idx << " with block hash " << init_block_hash);
+      MINFO("Initializing wallet cache at block " << init_block_idx << " with block hash " << init_block_hash);
 
+      // Manually set m_blockchain's starting top block
+      m_blockchain.set_top_block(init_block_hash, init_block_idx);
+
+      // Initialize tree cache
       fcmp_pp::curve_trees::OutsByLastLockedBlock locked_outputs;
       for (auto &lo : init_tree_sync_data->locked_outputs)
         locked_outputs[lo.last_locked_block] = std::move(lo.outputs);
@@ -3953,71 +3884,6 @@ void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transa
   MTRACE("process_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force)
-{
-  std::vector<crypto::hash> hashes;
-
-  const uint64_t checkpoint_height = (stop_height < 1000) ? 0 : m_checkpoints.get_nearest_checkpoint_height(stop_height);
-  if ((stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height) && !force)
-  {
-    // we will drop all these, so don't bother getting them
-    uint64_t missing_blocks = checkpoint_height - m_blockchain.size();
-    while (missing_blocks-- > 0)
-      m_blockchain.push_back(crypto::null_hash); // maybe a bit suboptimal, but deque won't do huge reallocs like vector
-    m_blockchain.push_back(m_checkpoints.get_points().at(checkpoint_height));
-    m_blockchain.trim(checkpoint_height);
-    short_chain_history.clear();
-    get_short_chain_history(short_chain_history);
-  }
-
-  size_t current_index = m_blockchain.size();
-  while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
-  {
-    pull_hashes(0, blocks_start_height, short_chain_history, hashes);
-    if (hashes.size() <= 3)
-      return;
-    if (blocks_start_height < m_blockchain.offset())
-    {
-      MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
-      return;
-    }
-    current_index = blocks_start_height;
-    if (hashes.size() + current_index < stop_height) {
-      drop_from_short_history(short_chain_history, 3);
-      std::vector<crypto::hash>::iterator right = hashes.end();
-      // prepend 3 more
-      for (int i = 0; i<3; i++) {
-        right--;
-        short_chain_history.push_front(*right);
-      }
-    }
-    for(auto& bl_id: hashes)
-    {
-      if(current_index >= m_blockchain.size())
-      {
-        if (!(current_index % 1024))
-          LOG_PRINT_L2( "Skipped block by height: " << current_index);
-        m_blockchain.push_back(bl_id);
-
-        if (0 != m_callback)
-        { // FIXME: this isn't right, but simplewallet just logs that we got a block.
-          cryptonote::block dummy;
-          m_callback->on_new_block(current_index, dummy);
-        }
-      }
-      else if(bl_id != m_blockchain[current_index])
-      {
-        //split detected here !!!
-        return;
-      }
-      ++current_index;
-      if (current_index >= stop_height)
-        return;
-    }
-  }
-}
-
-
 bool wallet2::add_address_book_row(const cryptonote::account_public_address &address, const crypto::hash8 *payment_id, const std::string &description, bool is_subaddress)
 {
   wallet2::address_book_row a;
@@ -4085,7 +3951,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   uint64_t added_blocks = 0;
   size_t try_count = 0;
   crypto::hash last_tx_hash_id = m_transfers.size() ? m_transfers.back().m_txid : null_hash;
-  std::list<crypto::hash> short_chain_history;
   tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
   tools::threadpool::waiter waiter(tpool);
   uint64_t blocks_start_height;
@@ -4100,26 +3965,23 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   hw::device &hwdev = m_account.get_device();
 
   // pull the first set of blocks
-  get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
   m_run.store(true, std::memory_order_relaxed);
-  if (start_height > m_blockchain.size() || m_refresh_from_block_height > m_blockchain.size()) {
-    if (!start_height)
-      start_height = m_refresh_from_block_height;
-    // we can shortcut by only pulling hashes up to the start_height
-    fast_refresh(start_height, blocks_start_height, short_chain_history);
-    // regenerate the history now that we've got a full set of hashes
-    short_chain_history.clear();
-    get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
-    start_height = 0;
-    // and then fall through to regular refresh processing
+
+  // We *must* scan contiguously in order for the tree cache to maintain the correct state
+  if (start_height != m_blockchain.size()) {
+    // Make sure to always sync from the latest blockchain height
+    start_height = m_blockchain.size();
   }
 
-  // If stop() is called during fast refresh we don't need to continue
-  if(!m_run.load(std::memory_order_relaxed))
-    return;
-  // always reset start_height to 0 to force short_chain_ history to be used on
-  // subsequent pulls in this refresh.
-  start_height = 0;
+  // If the manually set m_refresh_from_block_height is higher than our current sync state, then we have to clear the
+  // wallet cache, and start the scanner from the higher m_refresh_from_block_height. This guarantees we're scanning
+  // contiguously while respecting the manually set m_refresh_from_block_height.
+  if (m_refresh_from_block_height > start_height) {
+    MINFO("Clearing wallet cache and starting scanner from refresh height");
+    this->clear_soft(true);
+    start_height = m_refresh_from_block_height;
+  }
+  MINFO("Refresh starting from block " << start_height);
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
     boost::lock_guard refresh_lock(m_refresh_mutex);
@@ -4160,7 +4022,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         break;
       }
       if (!last)
-        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
+        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, start_height, next_blocks_start_height, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
 
       if (!first)
       {
@@ -4170,27 +4032,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         }
         catch (const tools::error::out_of_hashchain_bounds_error&)
         {
-          MINFO("Daemon claims next refresh block is out of hash chain bounds, resetting hash chain");
-          uint64_t stop_height = m_blockchain.offset();
-          std::vector<crypto::hash> tip(m_blockchain.size() - m_blockchain.offset());
-          for (size_t i = m_blockchain.offset(); i < m_blockchain.size(); ++i)
-            tip[i - m_blockchain.offset()] = m_blockchain[i];
-          cryptonote::block b;
-          generate_genesis(b);
-          m_blockchain.clear();
-          const crypto::hash genesis_hash = get_block_hash(b);
-          m_blockchain.push_back(genesis_hash);
-          m_tree_cache.clear();
-          short_chain_history.clear();
-          get_short_chain_history(short_chain_history);
-          fast_refresh(stop_height, blocks_start_height, short_chain_history, true);
-          THROW_WALLET_EXCEPTION_IF((m_blockchain.size() == stop_height || (m_blockchain.size() == 1 && stop_height == 0) ? false : true), error::wallet_internal_error, "Unexpected hashchain size");
-          THROW_WALLET_EXCEPTION_IF(m_blockchain.offset() != 0, error::wallet_internal_error, "Unexpected hashchain offset");
-          for (const auto &h: tip)
-            m_blockchain.push_back(h);
-          short_chain_history.clear();
-          get_short_chain_history(short_chain_history);
-          start_height = stop_height;
+          MINFO("Daemon claims next refresh block is out of hash chain bounds, clearing wallet cache and rescanning");
+          this->clear_soft(true);
+          start_height = m_refresh_from_block_height;
           throw std::runtime_error(""); // loop again
         }
         catch (const std::exception &e)
@@ -4223,6 +4067,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       first = false;
 
       // switch to the new blocks from the daemon
+      start_height = next_blocks_start_height + next_blocks.size();
       blocks_start_height = next_blocks_start_height;
       blocks = std::move(next_blocks);
       parsed_blocks = std::move(next_parsed_blocks);
@@ -4257,11 +4102,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         LOG_PRINT_L1("Another try pull_blocks (try_count=" << try_count << ")...");
         first = true;
         last = false;
-        start_height = 0;
         blocks.clear();
         parsed_blocks.clear();
-        short_chain_history.clear();
-        get_short_chain_history(short_chain_history, 1);
         ++try_count;
       }
       else

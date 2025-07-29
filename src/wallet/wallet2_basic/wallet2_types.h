@@ -107,6 +107,10 @@ public:
      * @brief: push a block hash onto the chain and move all block hashes back by one block
     */
     void refill(const crypto::hash &hash) { m_blockchain.push_back(hash); --m_offset; }
+    /**
+     * @brief: manually set the top block hash and offset
+    */
+    void set_top_block(const crypto::hash &hash, size_t idx) { m_blockchain.clear(); m_blockchain.push_back(hash); m_offset = idx; };
 
 private:
     size_t m_offset;
