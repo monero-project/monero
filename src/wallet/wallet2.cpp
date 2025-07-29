@@ -3270,7 +3270,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // create tx scanning jobs for all relevant tx outputs in all blocks
   tools::threadpool::waiter scan_blocks_waiter(tpool);
   size_t tx_output_idx = 0;
-  for (size_t i = 0; i < blocks.size(); ++i)
+  for (size_t i = tree_sync_start_params.start_parsed_block_i; i < blocks.size(); ++i)
   {
     const parsed_block &par_blk = parsed_blocks.at(i);
     const std::uint64_t height = start_height + i;
@@ -3294,7 +3294,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   // Start processing blockchain entries with scanned outputs
   size_t current_index = start_height;
   tx_output_idx = 0;
-  for (size_t i = 0; i < blocks.size(); ++i)
+  for (size_t i = tree_sync_start_params.start_parsed_block_i; i < blocks.size(); ++i)
   {
     const crypto::hash &bl_id = parsed_blocks[i].hash;
     const cryptonote::block &bl = parsed_blocks[i].block;
