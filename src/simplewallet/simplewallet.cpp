@@ -2148,15 +2148,7 @@ bool simple_wallet::blackballed(const std::vector<std::string> &args)
 
 bool simple_wallet::save_known_rings(const std::vector<std::string> &args)
 {
-  try
-  {
-    LOCK_IDLE_SCOPE();
-    m_wallet->find_and_save_rings();
-  }
-  catch (const std::exception &e)
-  {
-    fail_msg_writer() << tr("Failed to save known rings: ") << e.what();
-  }
+  fail_msg_writer() << tr("save_known_rings is deprecated");
   return true;
 }
 
