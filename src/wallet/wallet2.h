@@ -1653,6 +1653,9 @@ private:
     boost::optional<crypto::chacha_key> m_custom_background_key = boost::none;
     std::shared_ptr<wallet_keys_unlocker> m_encrypt_keys_after_refresh;
     /// synchronizes access to m_encrypt_keys_after_refresh and password callback
+    boost::mutex m_encrypt_keys_after_refresh_mutex;
+
+    /// synchronizes access to main refresh loop
     boost::mutex m_refresh_mutex;
 
     bool m_unattended;

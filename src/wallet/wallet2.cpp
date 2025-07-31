@@ -2282,7 +2282,7 @@ void wallet2::scan_key_image(const wallet::enote_view_incoming_scan_info_t &enot
   // if keys are encrypted, ask for password
   if (is_key_encryption_enabled())
   {
-    boost::lock_guard password_failure_lock(m_refresh_mutex);
+    boost::lock_guard password_failure_lock(m_encrypt_keys_after_refresh_mutex);
     if (!m_encrypt_keys_after_refresh)
     {
       boost::optional<epee::wipeable_string> pwd;
@@ -3725,7 +3725,7 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
   process_txs.clear();
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
-    boost::lock_guard refresh_lock(m_refresh_mutex);
+    boost::lock_guard refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -3799,7 +3799,7 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
 {
   MTRACE("update_pool_state_from_pool_data start");
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
-    boost::lock_guard refresh_lock(m_refresh_mutex);
+    boost::lock_guard refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -3939,6 +3939,8 @@ std::map<std::pair<uint64_t, uint64_t>, size_t> wallet2::create_output_tracker_c
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental, uint64_t max_blocks)
 {
+  boost::lock_guard refresh_lock(m_refresh_mutex);
+
   if (m_offline)
   {
     blocks_fetched = 0;
@@ -3985,7 +3987,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   MINFO("Refresh starting from block " << start_height);
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
-    boost::lock_guard refresh_lock(m_refresh_mutex);
+    boost::lock_guard refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
