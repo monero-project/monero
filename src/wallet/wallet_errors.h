@@ -74,7 +74,8 @@ namespace tools
     //         get_out_indexes_error
     //         tx_parse_error
     //         get_tx_pool_error
-    //         out_of_hashchain_bounds_error
+    //         reorg_before_first_block_error
+    //         reorg_depth_error
     //       signature_check_failed
     //       transfer_error *
     //         get_outs_general_error
@@ -439,10 +440,10 @@ namespace tools
       std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
-    struct out_of_hashchain_bounds_error : public refresh_error
+    struct reorg_before_first_block_error : public refresh_error
     {
-      explicit out_of_hashchain_bounds_error(std::string&& loc)
-        : refresh_error(std::move(loc), "Index out of bounds of of hashchain")
+      explicit reorg_before_first_block_error(std::string&& loc)
+        : refresh_error(std::move(loc), "Reorg identified, we need to request older blocks to find the split point")
       {
       }
 

@@ -389,11 +389,7 @@ void fake_pruned_blockchain::init_wallet_for_starting_block(tools::wallet2 &w) c
 
     w.set_refresh_from_block_height(m_start_block_index);
 
-    w.m_blockchain.clear();
-    for (size_t i = 0; i < m_start_block_index; ++i)
-        w.m_blockchain.push_back(crypto::null_hash);
-    w.m_blockchain.push_back(m_parsed_blocks.front().hash);
-    w.m_blockchain.trim(m_start_block_index);
+    w.m_blockchain.set_top_block(m_parsed_blocks.front().hash, m_start_block_index);
 
     w.m_tree_cache.clear();
     w.m_tree_cache.init(m_start_block_index,
@@ -413,7 +409,7 @@ uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w, const size_t 
     // wallet process blocks data
     uint64_t blocks_added;
     auto output_tracker_cache = w.create_output_tracker_cache();
-    w.process_parsed_blocks(start_height, blk_entries, parsed_blks, blocks_added, output_tracker_cache);
+    w.process_parsed_blocks(start_height, this->top_block_hash(), blk_entries, parsed_blks, blocks_added, output_tracker_cache);
 
     // collect paths_to_check
     std::vector<fcmp_pp::curve_trees::OutputPair> paths_to_check;

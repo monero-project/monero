@@ -915,15 +915,16 @@ namespace cryptonote
       }
 
       block b;
-      crypto::hash init_block_hash;
-      if(!parse_and_validate_block_from_blob(res.blocks.front().block, b, init_block_hash))
+      if(!parse_and_validate_block_from_blob(res.blocks.front().block, b))
       {
         res.status = "Failed";
         return true;
       }
 
-      // Get the data necessary to start syncing the tree from the provided height
-      if (!set_init_tree_sync_data(res.start_height, init_block_hash, m_core, res.init_tree_sync_data))
+      // Get the data necessary to start syncing the tree from the first returned block
+      const uint64_t init_block_idx = res.start_height == 0 ? 0 : (res.start_height - 1);
+      const crypto::hash init_block_hash = b.prev_id;
+      if (!set_init_tree_sync_data(init_block_idx, init_block_hash, m_core, res.init_tree_sync_data))
       {
         res.status = "Failed";
         return true;

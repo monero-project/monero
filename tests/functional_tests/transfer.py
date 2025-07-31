@@ -81,6 +81,7 @@ class TransferTest():
         self.sweep_single()
         self.check_spend_at_unlock()
         self.check_reorg_recovery()
+        self.check_deep_reorg_recovery()
         self.check_destinations()
         self.check_tx_notes()
         self.check_rescan()
@@ -108,6 +109,7 @@ class TransferTest():
             # close the wallet if any, will throw if none is loaded
             try: self.wallet[i].close_wallet()
             except: pass
+            self.wallet[i].auto_refresh(enable = False)
             res = self.wallet[i].restore_deterministic_wallet(seed = seeds[i])
 
     def mine(self):
@@ -881,6 +883,34 @@ class TransferTest():
         assert len([t for t in res.transfers if t.key_image == ki]) == 0
         res = self.wallet[0].incoming_transfers(transfer_type = 'unavailable')
         assert len([t for t in res.transfers if t.key_image == ki]) == 1
+
+        # Reconnect daemon
+        daemon.out_peers(12)
+
+    def check_deep_reorg_recovery(self):
+        daemon = Daemon()
+
+        print("Checking wallet deep reorg recovery")
+
+        # Disconnect daemon from peers
+        daemon.out_peers(0)
+
+        for reorg_size in [2, 3, 4, 10, 15, 99]: # max reorg depth is 100
+            # 1. Mine n blocks
+            daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', reorg_size)
+            self.wallet[0].refresh()
+
+            # 2. Deep reorg
+            daemon.pop_blocks(reorg_size)
+            daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', reorg_size)
+
+            # 3. Wallet should recover smoothly on next refresh
+            self.wallet[0].refresh()
+
+            # 4. Wallet should be able to spend fine
+            dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+            res = self.wallet[0].transfer([dst])
+            assert len(res.tx_hash) == 64
 
         # Reconnect daemon
         daemon.out_peers(12)
