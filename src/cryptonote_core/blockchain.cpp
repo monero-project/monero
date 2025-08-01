@@ -2980,7 +2980,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   // if a specific start height has been requested
-  if(qblock_ids.empty() || req_start_block > 0)
+  if(req_start_block > 0)
   {
     // if requested height is higher than our chain, return false -- we can't help
     top_hash = m_db->top_block_hash(&total_height);

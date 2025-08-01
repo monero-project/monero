@@ -3146,7 +3146,7 @@ uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const cryp
   uint64_t start_parsed_block_i = 0;
   if (!check_for_reorg(start_height, top_hash, parsed_blocks, m_blockchain, reorg_split_point))
   {
-    // No reorg, return
+    MDEBUG("No reorg detected");
     return start_parsed_block_i;
   }
 
@@ -4152,7 +4152,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
   m_multisig_rescan_k = std::vector<std::vector<rct::key>>{};
 
-  LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance (all accounts): " << print_money(balance_all(false)) << ", unlocked: " << print_money(unlocked_balance_all(false)));
+  LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", current sync height: " << m_blockchain.size() << ", balance (all accounts): " << print_money(balance_all(false)) << ", unlocked: " << print_money(unlocked_balance_all(false)));
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::refresh(bool trusted_daemon, uint64_t & blocks_fetched, bool& received_money, bool& ok)
