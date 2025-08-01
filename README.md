@@ -512,18 +512,15 @@ See [contrib/guix/README.md](contrib/guix/README.md).
 
 Packages are available for
 
-* Debian Buster
-
-    See the [instructions in the whonix/monero-gui repository](https://gitlab.com/whonix/monero-gui#how-to-install-monero-using-apt-get)
-
-* Debian Bullseye and Sid
+* Debian 12 (Bookworm) or later
 
     ```bash
     sudo apt install monero
     ```
-More info and versions in the [Debian package tracker](https://tracker.debian.org/pkg/monero).
+  More info and versions in the [Debian package tracker](https://tracker.debian.org/pkg/monero).
 
-* Arch Linux [(via Community packages)](https://www.archlinux.org/packages/community/x86_64/monero/):
+
+* Arch Linux:
 
     ```bash
     sudo pacman -S monero
@@ -535,7 +532,7 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
     nix-shell -p monero-cli
     ```
 
-* GuixSD
+* Guix:
 
     ```bash
     guix package -i monero
@@ -578,8 +575,8 @@ More info and versions in the [Debian package tracker](https://tracker.debian.or
     docker run -it -d -v /monero/chain:/home/monero/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
     ```
 
-* The build needs 3 GB space.
-* Wait one hour or more
+  * The build needs 3 GB space.
+  * Wait one hour or more
 
 Packaging for your favorite distribution would be a welcome contribution!
 
