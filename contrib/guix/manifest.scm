@@ -284,7 +284,8 @@ chain for " target " development."))
              xz ; used to unpack freebsd_base
              gcc-toolchain-12
              (list gcc-toolchain-12 "static")
-             clang-toolchain-11 binutils))
+             clang-toolchain-18
+             binutils))
           ((string-contains target "android")
             (list
               unzip ; used to unpack android_ndk
