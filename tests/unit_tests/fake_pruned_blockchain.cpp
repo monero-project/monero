@@ -399,8 +399,10 @@ void fake_pruned_blockchain::init_wallet_for_starting_block(tools::wallet2 &w) c
         /*locked_outputs=*/{});
 }
 //----------------------------------------------------------------------------------------------------------------------
-uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w, const size_t start_height) const
+uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w) const
 {
+    const uint64_t start_height = w.get_blockchain_current_height();
+
     // fetch blocks data
     std::vector<cryptonote::block_complete_entry> blk_entries;
     std::vector<tools::wallet2::parsed_block> parsed_blks;

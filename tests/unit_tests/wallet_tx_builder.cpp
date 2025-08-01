@@ -765,7 +765,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
 
     // 5.
     LOG_PRINT_L2("Alice's vision is filled with shadowy keys, hashes, points, rings, trees, curves, chains, all flowing in and out of one another");
-    uint64_t blocks_added = bc.refresh_wallet(alice, 0);
+    uint64_t blocks_added = bc.refresh_wallet(alice);
     ASSERT_EQ(bc.height()-1, blocks_added);
     ASSERT_EQ(2, alice.m_transfers.size());
     ASSERT_EQ(amount0 + amount1, alice.balance_all(true)); // really, we care about unlocked_balance_all() for sending, but that call uses RPC
@@ -830,7 +830,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
     // 13. 
     LOG_PRINT_L2("A great day for Bob");
     ASSERT_EQ(0, bob.balance_all(true));
-    blocks_added = bc.refresh_wallet(bob, 0);
+    blocks_added = bc.refresh_wallet(bob);
     ASSERT_EQ(bc.height()-1, blocks_added);
     ASSERT_EQ(1, bob.m_transfers.size());
     EXPECT_EQ(out_amount, bob.balance_all(true));
@@ -839,7 +839,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
     LOG_PRINT_L2("Alice obtains the fulfillment that only stems from selfless generosity");
     const rct::xmr_amount alice_old_balance = alice.balance_all(true);
     ASSERT_GE(alice_old_balance, out_amount + alicebob_tx_fee);
-    blocks_added = bc.refresh_wallet(alice, 0);
+    blocks_added = bc.refresh_wallet(alice);
     ASSERT_EQ(1, blocks_added);
     const rct::xmr_amount alice_new_balance = alice.balance_all(true);
     ASSERT_LT(alice_new_balance, alice_old_balance);

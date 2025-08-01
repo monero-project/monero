@@ -65,10 +65,9 @@ public:
     /**
      * brief: refresh_wallet - pulls block data from chain and calls process_parsed_blocks()
      * param: w -
-     * param: start_height - start height to pull block data from (inclusive)
      * return: number of blocks added by process_parsed_blocks()
      */
-    uint64_t refresh_wallet(tools::wallet2 &w, const size_t start_height) const;
+    uint64_t refresh_wallet(tools::wallet2 &w) const;
 
     uint8_t hf_version() const
     {

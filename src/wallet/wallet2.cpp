@@ -3093,6 +3093,7 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
     return false;
   }
 
+  // We don't expect to ever need to start from genesis
   THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx == 0, error::wallet_internal_error,
     "check_for_reorg: did not expect parsed_blocks_start_idx == 0");
 
