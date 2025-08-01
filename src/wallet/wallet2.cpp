@@ -3977,12 +3977,22 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     start_height = m_blockchain.size();
   }
 
-  // If the manually set m_refresh_from_block_height is higher than our current sync state, then we have to clear the
-  // wallet cache, and start the scanner from the higher m_refresh_from_block_height. This guarantees we're scanning
-  // contiguously while respecting the manually set m_refresh_from_block_height.
+  // If the manually set m_refresh_from_block_height is higher, then we may want to start refresh from higher
   if (m_refresh_from_block_height > start_height) {
-    MINFO("Clearing wallet cache and starting scanner from refresh height");
-    this->clear_soft(true);
+    // We don't need to sync if m_refresh_from_block_height is higher than the daemon height
+    std::string err;
+    const uint64_t daemon_height = this->get_daemon_blockchain_height(err);
+    THROW_WALLET_EXCEPTION_IF(!err.empty(), error::wallet_internal_error, "Failed to get height");
+    if (m_refresh_from_block_height >= daemon_height) {
+      MWARNING("Restore height is higher than the current chain tip, not syncing");
+      return;
+    }
+
+    // If the wallet has already synced, we throw because it *cannot* skip forwards to the higher restore height
+    // We *must* scan contiguously in order to maintain the correct tree state. The user should call rescan_blockchain
+    // to clear their wallet, so we can start scanning from m_refresh_from_block_height from an empty wallet.
+    THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != 1, error::needs_rescan);
+    MINFO("Starting scanner from refresh height");
     start_height = m_refresh_from_block_height;
   }
   MINFO("Refresh starting from block " << start_height);

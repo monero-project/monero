@@ -76,6 +76,8 @@ namespace tools
     //         get_tx_pool_error
     //         reorg_before_first_block_error
     //         reorg_depth_error
+    //         incorrect_fork_version
+    //         needs_rescan
     //       signature_check_failed
     //       transfer_error *
     //         get_outs_general_error
@@ -464,6 +466,16 @@ namespace tools
     {
       explicit incorrect_fork_version(std::string&& loc, const std::string& message)
         : refresh_error(std::move(loc), message)
+      {
+      }
+
+      std::string to_string() const { return refresh_error::to_string(); }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct needs_rescan : public refresh_error
+    {
+      explicit needs_rescan(std::string&& loc)
+        : refresh_error(std::move(loc), "The wallet needs to be rescanned manually")
       {
       }
 
