@@ -138,13 +138,6 @@ bool keys_match_internal_values(const std::unordered_map<KeyT, ValueT> &map, Pre
 
     return true;
 }
-/// convenience wrapper for getting the last element after emplacing back
-template <typename ContainerT>
-typename ContainerT::value_type& add_element(ContainerT &container)
-{
-    container.emplace_back();
-    return container.back();
-}
 /// convenience erasor for unordered maps: std::erase_if(std::unordered_map) is C++20
 template <typename KeyT, typename ValueT, typename PredT>
 void for_all_in_map_erase_if(std::unordered_map<KeyT, ValueT> &map_inout, PredT predicate)
