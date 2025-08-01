@@ -2479,7 +2479,6 @@ void WalletImpl::doRefresh()
             if (m_history->count() == 0) {
                 m_history->refresh();
             }
-            m_wallet->find_and_save_rings(false);
         } else {
            LOG_PRINT_L3(__FUNCTION__ << ": skipping refresh - daemon is not synced");
         }
