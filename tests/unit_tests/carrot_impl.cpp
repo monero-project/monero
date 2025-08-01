@@ -1303,7 +1303,9 @@ TEST(carrot_impl, make_single_transfer_input_selector_not_enough_money_3)
     ASSERT_GT(required_2in, required_1in + 1);
 
     const rct::xmr_amount input_sum_target = (required_2in + required_1in) / 2;
-    const rct::xmr_amount inamount_0 = rct::randXmrAmount(required_1in);
+    const rct::xmr_amount min_inamount = input_sum_target - required_1in + 1;
+    ASSERT_LT(min_inamount, required_1in);
+    const rct::xmr_amount inamount_0 = min_inamount + rct::randXmrAmount(required_1in - min_inamount);
     const rct::xmr_amount inamount_1 = input_sum_target - inamount_0;
 
     const std::vector<InputCandidate> input_candidates = {
