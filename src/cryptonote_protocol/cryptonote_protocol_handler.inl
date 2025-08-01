@@ -2146,7 +2146,7 @@ skip:
       NOTIFY_REQUEST_GET_OBJECTS::request req;
       bool is_next = false;
       size_t count = 0;
-      const size_t count_limit = m_core.get_block_sync_size(m_core.get_current_blockchain_height());
+      size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average_of_blocksize_in_queue());
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
@@ -2196,7 +2196,7 @@ skip:
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
         static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(8);
         bool sync_pruned_blocks = m_sync_pruned_blocks && first_block_height >= bp_fork_height && m_core.get_blockchain_pruning_seed();
-        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, count_limit, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
+        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, l_m_bss, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
         MDEBUG(context << " span from " << first_block_height << ": " << span.first << "/" << span.second);
         if (span.second > 0)
         {
@@ -2282,7 +2282,7 @@ skip:
         context.m_expect_height = span.first;
         context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size()
-            << "requested blocks count=" << count << " / " << count_limit << " from " << span.first << ", first hash " << req.blocks.front());
+            << "requested blocks count=" << count << " / " << l_m_bss << " from " << span.first << ", first hash " << req.blocks.front());
         //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
 
         MDEBUG("Asking for " << (req.prune ? "pruned" : "full") << " data, start/end "
