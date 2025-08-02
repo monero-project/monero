@@ -376,7 +376,6 @@ if(NOT MANUAL_SUBMODULES)
     endfunction ()
     
     message(STATUS "Checking submodules")
-    check_submodule(external/miniupnp)
     check_submodule(external/rapidjson)
     check_submodule(external/randomx)
     check_submodule(external/supercop)
@@ -568,6 +567,9 @@ if (WIN32)
   list(APPEND OPENSSL_LIBRARIES ws2_32 crypt32)
 endif()
 
+find_package(Miniupnpc REQUIRED)
+message(STATUS "Using Miniupnpc include dir at ${MINIUPNP_INCLUDE_DIRS}")
+
 find_package(HIDAPI)
 
 add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
@@ -658,6 +660,10 @@ include_directories(${LMDB_INCLUDE})
 # Final setup for libunwind
 include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
+
+# Final setup for miniupnpc
+include_directories(${MINIUPNP_INCLUDE_DIRS})
+link_directories(${MINIUPNP_LIBRARIES})
 
 # Final setup for hid
 if (HIDAPI_FOUND) 
