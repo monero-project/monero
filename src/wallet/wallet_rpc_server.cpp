@@ -2237,6 +2237,11 @@ namespace tools
       {
         if (req.account_index != td.m_subaddr_index.major || (!req.subaddr_indices.empty() && req.subaddr_indices.count(td.m_subaddr_index.minor) == 0))
           continue;
+
+        // wallet2::is_transfer_unlocked() needs a daemon connection to work. if it fails, assume locked
+        bool unlocked = false;
+        try { unlocked = m_wallet->is_transfer_unlocked(td); } catch (...) {}
+
         wallet_rpc::transfer_details rpc_transfers;
         rpc_transfers.amount       = td.amount();
         rpc_transfers.spent        = td.m_spent;
@@ -2247,7 +2252,7 @@ namespace tools
         rpc_transfers.pubkey       = epee::string_tools::pod_to_hex(td.get_public_key());
         rpc_transfers.block_height = td.m_block_height;
         rpc_transfers.frozen       = td.m_frozen;
-        rpc_transfers.unlocked     = m_wallet->is_transfer_unlocked(td);
+        rpc_transfers.unlocked     = unlocked;
         res.transfers.push_back(rpc_transfers);
       }
     }
