@@ -78,6 +78,7 @@
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
 #define DROP_PEERS_ON_SCORE -2
+#define MAX_FLUFFY_BLOCK_DEPTH (2 * CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE)
 
 namespace cryptonote
 {
@@ -622,6 +623,43 @@ namespace cryptonote
     // Log block info
     MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
       << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
+
+    // Get top block
+    uint64_t top_block_index;
+    crypto::hash top_block_id;
+    m_core.get_blockchain_top(top_block_index, top_block_id);
+
+    // Find the nominal common ancestor of this block and the main chain
+    crypto::hash common_ancestor = new_block.prev_id;
+    bool is_common_ancestor_known = false;
+    uint64_t ancestor_block_index = 0;
+    for (size_t i = 0; i < MAX_FLUFFY_BLOCK_DEPTH; ++i) // bounded loop
+    {
+      block prev_block;
+      bool is_ancestor_alt = false;
+      is_common_ancestor_known = m_core.get_block_by_hash(common_ancestor, prev_block, &is_ancestor_alt);
+      if (is_common_ancestor_known)
+        ancestor_block_index = get_block_height(prev_block);
+      if (!is_common_ancestor_known || !is_ancestor_alt)
+        break;
+      common_ancestor = prev_block.prev_id;
+    }
+
+    // Ignore the block if its common ancestor is unknown or too old
+    if (!is_common_ancestor_known || ancestor_block_index > top_block_index)
+    {
+      MDEBUG("Incoming fluffy block " << new_block_hash << " is an orphan from our perspective, ignoring...");
+      // don't drop the connection because this node may be 2 blocks ahead of us
+      return 1;
+    }
+    const uint64_t ancestor_depth = top_block_index - ancestor_block_index;
+    if (ancestor_depth > MAX_FLUFFY_BLOCK_DEPTH)
+    {
+      MDEBUG("Incoming fluffy block " << new_block_hash << " breaks off from our main chain at block "
+        << common_ancestor << ", which has a depth of " << ancestor_depth << ", ignoring...");
+      // don't drop this connection because we may want to sync its deep alternative chain
+      return 1;
+    }
 
     // Pause mining and resume after block verification to prevent wasted mining cycles while
     // validating the next block. Needs more research into if this is a DoS vector or not. Invalid
