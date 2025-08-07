@@ -29,6 +29,8 @@
 #include "gtest/gtest.h"
 
 #include "carrot_core/config.h"
+#include "carrot_core/exceptions.h"
+#include "carrot_impl/format_utils.h"
 #include "carrot_mock_helpers.h"
 #include "cryptonote_core/blockchain.h"
 #include "cryptonote_core/tx_verification_utils.h"
@@ -263,6 +265,77 @@ TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_3)
     EXPECT_EQ(out_amount, tx_proposal.normal_payment_proposals.front().amount + tx_proposal.fee);
     EXPECT_EQ(out_amount + tx_proposal.selfsend_payment_proposals.front().proposal.amount,
         transfers.front().amount());
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_transfer_4)
+{
+    // 1 input candidate, fee subtractable, but not possible if it wasn't fee subtractable
+
+    cryptonote::account_base alice;
+    alice.generate();
+    cryptonote::account_base bob;
+    bob.generate();
+
+    const tools::wallet2::transfer_container transfers{gen_transfer_details()};
+
+    // Set output amount as generated input amount - fee * x, where x sampled in [0, 1)
+    // This makes a non-fee-subtractable tx impossible, b/c the required money is the generated input amount + fee
+    const rct::xmr_amount fee_per_weight = mock::fake_fee_per_weight;
+    const rct::xmr_amount expected_fee = carrot::get_fee_by_input_count(2, 0, fee_per_weight).at(1);
+    EXPECT_GT(expected_fee, 1);
+    const rct::xmr_amount out_amount = transfers.at(0).amount() - rct::randXmrAmount(expected_fee);
+
+    const std::vector<cryptonote::tx_destination_entry> dsts{
+        cryptonote::tx_destination_entry(out_amount, bob.get_keys().m_account_address, false)
+    };
+
+    const uint64_t top_block_index = std::max(transfers.front().m_block_height, transfers.back().m_block_height)
+        + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+
+    const std::vector<carrot::CarrotTransactionProposalV1> tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
+        transfers,
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
+        dsts,
+        /*payment_id=*/{},
+        fee_per_weight,
+        /*extra=*/{},
+        /*subaddr_account=*/0,
+        /*subaddr_indices=*/{},
+        /*ignore_above=*/MONEY_SUPPLY,
+        /*ignore_below=*/0,
+        /*subtract_fee_from_outputs=*/{0},
+        top_block_index);
+
+    ASSERT_EQ(1, tx_proposals.size());
+    const carrot::CarrotTransactionProposalV1 &tx_proposal = tx_proposals.at(0);
+
+    // Assert basic length facts about tx proposal
+    ASSERT_EQ(1, tx_proposal.input_proposals.size()); // we always try 2 when available
+    EXPECT_EQ(transfers.front().get_public_key(), onetime_address_ref(tx_proposal.input_proposals.at(0)));
+    ASSERT_EQ(1, tx_proposal.normal_payment_proposals.size());
+    ASSERT_EQ(1, tx_proposal.selfsend_payment_proposals.size());
+    EXPECT_EQ(0, tx_proposal.extra.size());
+    EXPECT_EQ(expected_fee, tx_proposal.fee);
+
+    // Assert amounts
+    EXPECT_EQ(out_amount, tx_proposal.normal_payment_proposals.front().amount + tx_proposal.fee);
+    EXPECT_EQ(out_amount + tx_proposal.selfsend_payment_proposals.front().proposal.amount,
+        transfers.front().amount());
+
+    // Check that non-fee-subtractable fails
+    EXPECT_THROW(tools::wallet::make_carrot_transaction_proposals_wallet2_transfer(
+        transfers,
+        {{alice.get_keys().m_account_address.m_spend_public_key, {}}},
+        dsts,
+        /*payment_id=*/{},
+        fee_per_weight,
+        /*extra=*/{},
+        /*subaddr_account=*/0,
+        /*subaddr_indices=*/{},
+        /*ignore_above=*/MONEY_SUPPLY,
+        /*ignore_below=*/0,
+        /*subtract_fee_from_outputs=*/{},
+        top_block_index), carrot::not_enough_money);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(wallet_tx_builder, make_carrot_transaction_proposals_wallet2_sweep_1)

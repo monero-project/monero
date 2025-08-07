@@ -364,8 +364,10 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
 
     const carrot::input_selection_policy_t isp = &carrot::ispolicy::select_greedy_aging;
 
+    //! @TODO: check flags make sense
     const std::uint32_t input_selection_flags = carrot::InputSelectionFlags::ALLOW_EXTERNAL_INPUTS_IN_NORMAL_TRANSFERS
-        | carrot::InputSelectionFlags::ALLOW_PRE_CARROT_INPUTS_IN_NORMAL_TRANSFERS; //! @TODO: check flags make sense
+        | carrot::InputSelectionFlags::ALLOW_PRE_CARROT_INPUTS_IN_NORMAL_TRANSFERS
+        | (carrot::InputSelectionFlags::IS_KNOWN_FEE_SUBTRACTABLE * !subtract_fee_from_outputs.empty());
 
     // change spec
     const crypto::public_key change_address_spend_pubkey
