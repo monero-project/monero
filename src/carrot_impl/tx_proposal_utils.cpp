@@ -39,6 +39,8 @@
 //third party headers
 
 //standard headers
+#include "optional"
+#include "variant"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "carrot_impl.tpu"
@@ -55,7 +57,7 @@ static void append_additional_payment_proposal_if_necessary(
 {
     struct append_additional_payment_proposal_if_necessary_visitor
     {
-        void operator()(boost::blank) const {}
+        void operator()(std::nullopt_t) const {}
         void operator()(const CarrotPaymentProposalV1 &p) const { normal_proposals_inout.push_back(p); }
         void operator()(const CarrotPaymentProposalSelfSendV1 &p) const
         {
@@ -81,11 +83,11 @@ static void append_additional_payment_proposal_if_necessary(
         have_payment_type_selfsend,
         change_address_spend_pubkey);
 
-    additional_output_proposal.visit(append_additional_payment_proposal_if_necessary_visitor{
+    std::visit(append_additional_payment_proposal_if_necessary_visitor{
         normal_payment_proposals_inout,
         selfsend_payment_proposals_inout,
         change_subaddr_index
-    });
+    }, additional_output_proposal);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------

@@ -49,6 +49,8 @@
 #include "ringct/rctOps.h"
 #include "ringct/rctSigs.h"
 
+#include <variant>
+
 using namespace carrot;
 
 namespace
@@ -59,7 +61,7 @@ static constexpr rct::xmr_amount MAX_AMOUNT_FCMP_PP = MONEY_SUPPLY /
 (FCMP_PLUS_PLUS_MAX_INPUTS + FCMP_PLUS_PLUS_MAX_OUTPUTS + 1);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-using CarrotEnoteVariant = tools::variant<CarrotCoinbaseEnoteV1, CarrotEnoteV1>;
+using CarrotEnoteVariant = std::variant<CarrotCoinbaseEnoteV1, CarrotEnoteV1>;
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 struct CarrotOutputContextsAndKeys
@@ -260,9 +262,9 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         const CarrotEnoteVariant &enote_v = new_outputs.enotes.at(new_outputs_idx);
         OutputOpeningHintVariant opening_hint;
         std::vector<mock::mock_scan_result_t> scan_results;
-        if (enote_v.is_type<CarrotEnoteV1>())
+        if (std::holds_alternative<CarrotEnoteV1>(enote_v))
         {
-            const CarrotEnoteV1 &enote = enote_v.unwrap<CarrotEnoteV1>();
+            const CarrotEnoteV1 &enote = std::get<CarrotEnoteV1>(enote_v);
             const encrypted_payment_id_t encrypted_payment_id = new_outputs.encrypted_payment_ids.at(new_outputs_idx);
             mock::mock_scan_enote_set({enote},
                 encrypted_payment_id,
@@ -280,7 +282,7 @@ TEST(carrot_fcmp, receive_scan_spend_and_verify_serialized_carrot_tx)
         }
         else // is coinbase
         {
-            const CarrotCoinbaseEnoteV1 &enote = enote_v.unwrap<CarrotCoinbaseEnoteV1>();
+            const CarrotCoinbaseEnoteV1 &enote = std::get<CarrotCoinbaseEnoteV1>(enote_v);
             mock::mock_scan_coinbase_enote_set({enote},
                 alice,
                 scan_results);

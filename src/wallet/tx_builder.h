@@ -30,6 +30,7 @@
 
 //local headers
 #include "carrot_impl/input_selection.h"
+#include "fee_priority.h"
 #include "fcmp_pp/tree_cache.h"
 #include "wallet2_basic/wallet2_types.h"
 
@@ -147,7 +148,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     wallet2 &w,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const std::pair<crypto::hash8, std::size_t> &payment_id,
-    const std::uint32_t priority,
+    const tools::fee_priority priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices,
@@ -171,7 +172,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const bool is_subaddress,
     const size_t n_dests_per_tx,
     const crypto::hash8 payment_id,
-    const std::uint32_t priority,
+    const tools::fee_priority priority,
     const std::vector<uint8_t> &extra);
 
 std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposals_wallet2_sweep_all(
@@ -194,7 +195,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const bool is_subaddress,
     const size_t n_dests_per_tx,
     const crypto::hash8 payment_id,
-    const std::uint32_t priority,
+    const tools::fee_priority priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices);
