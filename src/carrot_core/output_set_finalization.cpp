@@ -116,7 +116,7 @@ std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::null
         );
 
     if (!additional_output_type)
-        return {};
+        return std::nullopt;
 
     switch (*additional_output_type)
     {
