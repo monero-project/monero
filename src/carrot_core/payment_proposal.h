@@ -36,7 +36,6 @@
 #include "destination.h"
 #include "device.h"
 #include "ringct/rctTypes.h"
-#include "common/variant.h"
 
 //third party headers
 

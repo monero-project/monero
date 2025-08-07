@@ -752,7 +752,7 @@ private:
      *
      * Transfer-style means that transactions are added until all payment outlays are fulfilled.
      */
-    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const std::pair<crypto::hash8, std::size_t> &payment_id, const size_t fake_outs_count, uint32_t priority, std::vector<uint8_t> extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs = {});     // pass subaddr_indices by value on purpose
+    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const std::pair<crypto::hash8, std::size_t> &payment_id, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs = {});     // pass subaddr_indices by value on purpose
     /**
      * brief: create_transactions_all: create "sweep-all" style txs (or tx proposals in hot/cold & multisig wallets)
      * param: below - the money amount below which input selection should pull inputs from; higher amounts are excluded
@@ -769,7 +769,7 @@ private:
      *
      * Sweep-all-style means that transactions are added until all inputs <= amount `below` are spent.
      */
-    std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, const size_t fake_outs_count, uint32_t priority, std::vector<uint8_t> extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
+    std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
     /**
      * brief: create_transactions_single: create "sweep-single" style txs (or tx proposals in hot/cold & multisig wallets)
      * param: ki - the key image of the input that is to be spent
@@ -784,7 +784,7 @@ private:
      *
      * Sweep-single-style means that 1 transaction is returned which spends the given key image
      */
-    std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, const size_t fake_outs_count, uint32_t priority, std::vector<uint8_t> extra);
+    std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra);
     /**
      * brief: create_transactions_all: create "sweep-multiple" style txs (or tx proposals in hot/cold & multisig wallets)
      * param: address - public address for all destinations in txs
@@ -800,7 +800,7 @@ private:
      *
      * Sweep-multiple-style means that transactions are added until all inputs specified by index are spent.
      */
-    std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, uint32_t priority, std::vector<uint8_t> extra);
+    std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const crypto::hash8 payment_id, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, const tools::fee_priority priority, std::vector<uint8_t> extra);
     bool sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, const std::vector<cryptonote::tx_destination_entry>& dsts, const unique_index_container& subtract_fee_from_outputs = {}) const;
     void cold_tx_aux_import(const std::vector<pending_tx>& ptx, const std::vector<std::string>& tx_device_aux);
     void cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux);

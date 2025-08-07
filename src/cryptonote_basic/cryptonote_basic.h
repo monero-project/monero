@@ -521,7 +521,7 @@ namespace cryptonote
       miner_tx(std::move(b.miner_tx)),
       tx_hashes(std::move(b.tx_hashes)),
       hash(std::move(b.hash)),
-      fcmp_pp_n_tree_layers(fcmp_pp_n_tree_layers),
+      fcmp_pp_n_tree_layers(b.fcmp_pp_n_tree_layers),
       fcmp_pp_tree_root(std::move(b.fcmp_pp_tree_root))
     {
       b.miner_tx.set_null();

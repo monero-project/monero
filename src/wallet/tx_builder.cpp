@@ -168,7 +168,7 @@ static wallet2_basic::transfer_container get_transfers(const wallet2 &w)
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static rct::xmr_amount get_fee_per_weight_from_priority(const std::uint32_t priority, wallet2 &w)
+static rct::xmr_amount get_fee_per_weight_from_priority(const fee_priority priority, wallet2 &w)
 {
     const bool use_per_byte_fee = w.use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
     CHECK_AND_ASSERT_THROW_MES(use_per_byte_fee, "not using per-byte base fee");
@@ -395,7 +395,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     wallet2 &w,
     const std::vector<cryptonote::tx_destination_entry> &dsts,
     const std::pair<crypto::hash8, std::size_t> &payment_id,
-    const std::uint32_t priority,
+    const fee_priority priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices,
@@ -492,7 +492,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const bool is_subaddress,
     const size_t n_dests_per_tx,
     const crypto::hash8 payment_id,
-    const std::uint32_t priority,
+    const fee_priority priority,
     const std::vector<uint8_t> &extra)
 {
     return make_carrot_transaction_proposals_wallet2_sweep(
@@ -573,7 +573,7 @@ std::vector<carrot::CarrotTransactionProposalV1> make_carrot_transaction_proposa
     const bool is_subaddress,
     const size_t n_dests_per_tx,
     const crypto::hash8 payment_id,
-    const std::uint32_t priority,
+    const fee_priority priority,
     const std::vector<uint8_t> &extra,
     const std::uint32_t subaddr_account,
     const std::set<uint32_t> &subaddr_indices)

@@ -32,7 +32,6 @@
 
 //local headers
 #include "carrot_enote_types.h"
-#include "common/variant.h"
 #include "config.h"
 #include "payment_proposal.h"
 #include "ringct/rctTypes.h"
@@ -41,6 +40,7 @@
 
 //standard headers
 #include <optional>
+#include <variant>
 #include <vector>
 
 //forward declarations
@@ -79,7 +79,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
  * return: an output proposal if need an additional enote, else none
  * throw: std::runtime_error if the output set is in a state where it cannot be finalized
  */
-tools::optional_variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1> get_additional_output_proposal(
+std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_output_proposal(
     const size_t num_outgoing,
     const size_t num_selfsend,
     const rct::xmr_amount needed_change_amount,
