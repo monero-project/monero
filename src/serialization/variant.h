@@ -178,7 +178,7 @@ template <
   >
 static bool do_serialize(Archive<true> &ar, boost::variant<T...> &v)
 {
-  return boost::apply_visitor(variant_write_visitor<Archive>(ar), v); 
+  return boost::apply_visitor(variant_write_visitor<Archive>(ar), v);
 }
 
 template <

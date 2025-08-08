@@ -511,18 +511,18 @@ namespace cryptonote
       hash_valid(b.is_hash_valid()),
       miner_tx(b.miner_tx),
       tx_hashes(b.tx_hashes),
-      hash(b.hash),
       fcmp_pp_n_tree_layers(b.fcmp_pp_n_tree_layers),
-      fcmp_pp_tree_root(b.fcmp_pp_tree_root)
+      fcmp_pp_tree_root(b.fcmp_pp_tree_root),
+      hash(b.hash)
     {}
     block(block &&b):
       block_header(std::move(b)),
       hash_valid(b.is_hash_valid()),
       miner_tx(std::move(b.miner_tx)),
       tx_hashes(std::move(b.tx_hashes)),
-      hash(std::move(b.hash)),
-      fcmp_pp_n_tree_layers(b.fcmp_pp_n_tree_layers),
-      fcmp_pp_tree_root(std::move(b.fcmp_pp_tree_root))
+      fcmp_pp_n_tree_layers(std::move(b.fcmp_pp_n_tree_layers)),
+      fcmp_pp_tree_root(std::move(b.fcmp_pp_tree_root)),
+      hash(std::move(b.hash))
     {
       b.miner_tx.set_null();
       b.tx_hashes.clear();
@@ -535,9 +535,9 @@ namespace cryptonote
         hash_valid = b.is_hash_valid();
         miner_tx = b.miner_tx;
         tx_hashes = b.tx_hashes;
-        hash = b.hash;
         fcmp_pp_n_tree_layers = b.fcmp_pp_n_tree_layers;
         fcmp_pp_tree_root = b.fcmp_pp_tree_root;
+        hash = b.hash;
       }
       return *this;
     }
@@ -549,9 +549,9 @@ namespace cryptonote
         hash_valid = b.is_hash_valid();
         miner_tx = std::move(b.miner_tx);
         tx_hashes = std::move(b.tx_hashes);
-        hash = std::move(b.hash);
         fcmp_pp_n_tree_layers = b.fcmp_pp_n_tree_layers;
-        fcmp_pp_tree_root = std::move(b.fcmp_pp_tree_root);
+        fcmp_pp_tree_root = b.fcmp_pp_tree_root;
+        hash = std::move(b.hash);
         b.miner_tx.set_null();
         b.tx_hashes.clear();
       }

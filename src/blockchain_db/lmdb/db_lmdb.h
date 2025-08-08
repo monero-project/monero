@@ -279,7 +279,7 @@ public:
   bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const override;
   bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const override;
 
-  std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const;
+  std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const override;
 
   std::vector<crypto::hash> get_txids_loose(const crypto::hash& h, std::uint32_t bits, uint64_t max_num_txs = 0) override;
 
@@ -442,7 +442,7 @@ private:
 
   void remove_spent_key(const crypto::key_image& k_image) override;
 
-  uint64_t num_outputs() const;
+  uint64_t num_outputs() const override;
 
   virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs);
 
