@@ -441,12 +441,13 @@ void set_console_color(int color, bool bright)
     {
 #ifdef WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
-      SetConsoleTextAttribute(h_stdout, FOREGROUND_BLUE | FOREGROUND_RED | (bright ? FOREGROUND_INTENSITY:0));
+      int colorblindMagentaCode = 13;
+      SetConsoleTextAttribute(h_stdout, colorblindMagentaCode | (bright ? FOREGROUND_INTENSITY:0));
 #else
       if(bright)
-        std::cout << "\033[1;35m";
+        std::cout << "\033[38;2;245;176;236m";
       else
-        std::cout << "\033[0;35m";
+        std::cout << "\033[38;2;180;0;158m";
 #endif
     }
     break;
