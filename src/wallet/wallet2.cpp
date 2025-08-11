@@ -3983,7 +3983,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     std::string err;
     const uint64_t daemon_height = this->get_daemon_blockchain_height(err);
     THROW_WALLET_EXCEPTION_IF(!err.empty(), error::wallet_internal_error, "Failed to get height");
-    if (m_refresh_from_block_height >= daemon_height) {
+    if (m_refresh_from_block_height > daemon_height) {
       MWARNING("Restore height is higher than the current chain tip, not syncing");
       return;
     }
