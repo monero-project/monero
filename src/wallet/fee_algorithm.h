@@ -13,7 +13,7 @@ namespace tools
 
     namespace fee_algorithm_utilities
     {
-        static int as_integral(const fee_algorithm algorithm)
+        inline int as_integral(const fee_algorithm algorithm)
         {
             return static_cast<int>(algorithm);
         }
