@@ -31,7 +31,7 @@ namespace tools
         inline constexpr EnumStringsType fee_priority_strings = { { "default", "unimportant", "normal", "elevated", "priority" } };
         inline constexpr EnumsType enums = { { fee_priority::Default, fee_priority::Unimportant, fee_priority::Normal, fee_priority::Elevated, fee_priority::Priority } };
 
-        static fee_priority decrease(const fee_priority priority)
+        inline fee_priority decrease(const fee_priority priority)
         {
             if (priority == fee_priority::Default)
             {
@@ -45,12 +45,12 @@ namespace tools
             }
         }
 
-        static constexpr uint32_t as_integral(const fee_priority priority)
+        inline constexpr uint32_t as_integral(const fee_priority priority)
         {
             return static_cast<uint32_t>(priority);
         }
 
-        static constexpr fee_priority from_integral(const uint32_t priority)
+        inline constexpr fee_priority from_integral(const uint32_t priority)
         {
             if (priority >= as_integral(fee_priority::Priority))
             {
@@ -60,12 +60,12 @@ namespace tools
             return static_cast<fee_priority>(priority);
         }
 
-        static bool is_valid(const uint32_t priority)
+        inline bool is_valid(const uint32_t priority)
         {
             return priority <= as_integral(fee_priority::Priority);
         }
 
-        static fee_priority clamp(const fee_priority priority)
+        inline fee_priority clamp(const fee_priority priority)
         {
             const auto highest = as_integral(fee_priority::Priority);
             const auto lowest = as_integral(fee_priority::Default);
@@ -85,7 +85,7 @@ namespace tools
             }
         }
 
-        static fee_priority clamp_modified(const fee_priority priority)
+        inline fee_priority clamp_modified(const fee_priority priority)
         {
             /* Map Default to an actionable priority. */
             if (priority == fee_priority::Default)
@@ -98,13 +98,13 @@ namespace tools
             }
         }
 
-        static std::string_view to_string(const fee_priority priority)
+        inline std::string_view to_string(const fee_priority priority)
         {
             const auto integralValue = as_integral(clamp(priority));
             return fee_priority_strings.at(integralValue);
         }
 
-        static std::optional<fee_priority> from_string(const std::string& str)
+        inline std::optional<fee_priority> from_string(const std::string& str)
         {
             const auto strIterator = std::find(fee_priority_strings.begin(), fee_priority_strings.end(), str);
             if (strIterator == fee_priority_strings.end())
