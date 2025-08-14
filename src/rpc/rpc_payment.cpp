@@ -237,7 +237,7 @@ namespace cryptonote
     if (block.major_version >= RX_BLOCK_VERSION)
     {
       const crypto::hash &seed_hash = is_current ? info.seed_hash : info.previous_seed_hash;
-      crypto::rx_slow_hash(seed_hash.data, hashing_blob.data(), hashing_blob.size(), hash.data);
+      crypto::rx_slow_hash(seed_hash.data, RX_VARIANT_1, hashing_blob.data(), hashing_blob.size(), hash.data);
     }
     else
     {

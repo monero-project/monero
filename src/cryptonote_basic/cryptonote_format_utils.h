@@ -261,10 +261,12 @@ namespace cryptonote
   void get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes, crypto::hash& h);
   crypto::hash get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes);
   crypto::hash get_tx_tree_hash(const block& b);
+  int get_randomx_variant_for_hf_version(const std::uint8_t hf_version);
   crypto::hash get_block_longhash(const blobdata_ref block_hashing_blob,
     const uint64_t height,
     const uint8_t major_version,
-    const crypto::hash &seed_hash);
+    const crypto::hash &seed_hash,
+    crypto::hash &intermediate_hash_out);
   bool is_valid_decomposed_amount(uint64_t amount);
   void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached);
 

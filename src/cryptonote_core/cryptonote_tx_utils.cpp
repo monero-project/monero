@@ -664,7 +664,7 @@ namespace cryptonote
     bl.timestamp = 0;
     bl.nonce = nonce;
     miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash){
-      return cryptonote::get_block_longhash(NULL, b, hash, height, seed_hash, threads);
+      return cryptonote::get_block_longhash(NULL, b, hash, height, seed_hash);
     }, bl, 1, 0, NULL);
     bl.invalidate_hashes();
     return true;
@@ -673,10 +673,13 @@ namespace cryptonote
   void get_altblock_longhash(const block& b, crypto::hash& res, const crypto::hash& seed_hash)
   {
     blobdata bd = get_block_hashing_blob(b);
-    rx_slow_hash(seed_hash.data, bd.data(), bd.size(), res.data);
+    const int rx_variant = get_randomx_variant_for_hf_version(b.major_version);
+    crypto::rx_slow_hash(seed_hash.data, rx_variant, bd.data(), bd.size(), res.data);
+    if (b.major_version >= HF_VERSION_POW_COMMITMENT)
+      crypto::rx_commitment(bd.data(), bd.size(), res.data, res.data);
   }
 
-  bool get_block_longhash(const Blockchain *pbc, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, const int miners)
+  bool get_block_longhash(const Blockchain *pbc, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, crypto::hash *intermediate_hash_out)
   {
     crypto::hash seed_hash_ = crypto::null_hash;
     if (pbc != NULL && major_version >= RX_BLOCK_VERSION)
@@ -684,20 +687,23 @@ namespace cryptonote
       const uint64_t seed_height = rx_seedheight(height);
       seed_hash_ = seed_hash ? *seed_hash : pbc->get_pending_block_id_by_height(seed_height);
     }
-    res = get_block_longhash(bd, height, major_version, seed_hash_);
+    crypto::hash intermediate_hash;
+    res = get_block_longhash(bd, height, major_version, seed_hash_, intermediate_hash);
+    if (intermediate_hash_out)
+      *intermediate_hash_out = intermediate_hash;
     return true;
   }
 
-  bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, const int miners)
+  bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, crypto::hash *intermediate_hash_out)
   {
     blobdata bd = get_block_hashing_blob(b);
-	return get_block_longhash(pbc, bd, res, height, b.major_version, seed_hash, miners);
+    return get_block_longhash(pbc, bd, res, height, b.major_version, seed_hash, intermediate_hash_out);
   }
 
-  crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const crypto::hash *seed_hash, const int miners)
+  crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const crypto::hash *seed_hash, crypto::hash *intermediate_hash_out)
   {
     crypto::hash p = crypto::null_hash;
-    get_block_longhash(pbc, b, p, height, seed_hash, miners);
+    get_block_longhash(pbc, b, p, height, seed_hash, intermediate_hash_out);
     return p;
   }
 }
