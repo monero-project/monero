@@ -188,7 +188,7 @@ void get_sender_receiver_secrets_from_proposal_v1(const std::vector<CarrotPaymen
             make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
                 normal_payment_proposal.destination.address_view_pubkey, s_sender_receiver_unctx);
             crypto::secret_key &s_sender_receiver_unctx_sk = s_sender_receiver_unctx_out.emplace_back();
-            memcpy(&s_sender_receiver_unctx_sk, &s_sender_receiver_unctx, sizeof(s_sender_receiver_unctx_sk));
+            memcpy(&unwrap(unwrap(s_sender_receiver_unctx_sk)), &s_sender_receiver_unctx, sizeof(s_sender_receiver_unctx_sk));
         }
     }
 }
