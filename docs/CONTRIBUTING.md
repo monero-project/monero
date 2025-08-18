@@ -14,7 +14,7 @@ of software solid and usable.
 
 Patches are preferably to be sent via a GitHub pull request. If that
 can't be done, patches in "git format-patch" format can be sent
-(eg, posted to fpaste.org with a long enough timeout and a link
+(eg, posted to [paste.debian.net](https://paste.debian.net/) with a long enough timeout and a link
 posted to #monero-dev on irc.libera.chat).
 
 Patches should be self contained. A good rule of thumb is to have
