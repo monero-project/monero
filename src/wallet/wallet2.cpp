@@ -3133,11 +3133,21 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(cur_block_idx), error::wallet_internal_error,
     "check_for_reorg: last parsed block is not in bounds");
   const crypto::hash &block_hash = blockchain[cur_block_idx];
-  if (block_hash == parsed_blocks.back().hash)
-    return false;
-  // Reorg detected and split point identified
-  split_point_out = cur_block_idx;
-  return true;
+  // Reorg identified if our locally synced block hash doesn't line up to the daemon's reported
+  if (block_hash != parsed_blocks.back().hash)
+  {
+    // Reorg detected and split point identified
+    split_point_out = cur_block_idx;
+    return true;
+  }
+  // OR the hash is the chain's top hash, but we have synced more blocks beyond that block (e.g. daemon popped blocks)
+  if (block_hash == top_hash && blockchain.size() >= cur_block_idx);
+   {
+    // The split point is the block after cur_block_idx
+    split_point_out = cur_block_idx + 1;
+    return true;
+  }
+  return false;
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const crypto::hash &top_hash, const std::vector<parsed_block> &parsed_blocks, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache)
@@ -4056,7 +4066,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
           else
           {
             THROW_WALLET_EXCEPTION_IF(blocks_start_height == (m_blockchain.offset() + 1), error::reorg_depth_error,
-              "Reorg is too deep to handle");
+              "Reorg is too deep to handle, try rescanning the blockchain");
           }
           throw std::runtime_error(""); // loop again
         }
