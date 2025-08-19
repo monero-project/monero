@@ -92,7 +92,7 @@ std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs);
  * return: map of (# inputs, fee) pairs
  * throw: carrot::integer_overflow if extra_extra_len or fee_per_weight are too high
  * throw: too_few_outputs if n_outputs < CARROT_MIN_TX_OUTPUTS
- * throw: too_many_outputs if n_outputs > CARROT_MAX_TX_OUTPUTS
+ * throw: too_many_outputs if n_outputs > FCMP_PLUS_PLUS_MAX_OUTPUTS
  *
  * This uses the weight function cryptonote::get_fcmp_pp_transaction_weight_v1() assuming that the
  * default tx.extra fields are of size get_carrot_default_tx_extra_size(n_outputs). The fee is

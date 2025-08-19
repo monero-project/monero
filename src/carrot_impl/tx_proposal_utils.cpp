@@ -149,7 +149,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
 
     // calculate the concrete fee for this transaction for each possible valid input count
     std::map<size_t, rct::xmr_amount> fee_per_input_count;
-    for (size_t num_ins = CARROT_MIN_TX_INPUTS; num_ins <= CARROT_MAX_TX_INPUTS; ++num_ins)
+    for (size_t num_ins = CARROT_MIN_TX_INPUTS; num_ins <= FCMP_PLUS_PLUS_MAX_INPUTS; ++num_ins)
     {
         const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(num_ins, num_outs, tx_extra_size);
         CHECK_AND_ASSERT_THROW_MES(tx_weight != std::numeric_limits<uint64_t>::max(),
@@ -180,7 +180,7 @@ void make_carrot_transaction_proposal_v1(const std::vector<CarrotPaymentProposal
     const std::size_t n_inputs = selected_inputs.size();
     CARROT_CHECK_AND_THROW(n_inputs >= CARROT_MIN_TX_INPUTS,
         too_few_inputs, "input selection returned too few inputs: " << n_inputs);
-    CARROT_CHECK_AND_THROW(n_inputs <= CARROT_MAX_TX_INPUTS,
+    CARROT_CHECK_AND_THROW(n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS,
         too_many_inputs, "input selection returned too many inputs: " << n_inputs);
     CARROT_CHECK_AND_THROW(fee_per_input_count.count(n_inputs),
         carrot_logic_error, "BUG: fee_per_input_count populated with holes, missing: " << n_inputs);

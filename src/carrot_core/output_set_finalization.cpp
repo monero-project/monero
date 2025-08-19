@@ -91,13 +91,9 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
             }
         }
     }
-    else if (num_outputs < CARROT_MAX_TX_OUTPUTS)
+    else
     {
         return AdditionalOutputType::CHANGE_UNIQUE;
-    }
-    else // num_outputs >= CARROT_MAX_TX_OUTPUTS
-    {
-       CARROT_THROW(too_many_outputs, "set needs finalization but already contains too many outputs");
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -171,7 +167,6 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     const size_t num_selfsend_proposals = selfsend_payment_proposals.size();
     const size_t num_proposals = normal_payment_proposals.size() + num_selfsend_proposals;
     CARROT_CHECK_AND_THROW(num_proposals >= CARROT_MIN_TX_OUTPUTS, too_few_outputs, "too few payment proposals");
-    CARROT_CHECK_AND_THROW(num_proposals <= CARROT_MAX_TX_OUTPUTS, too_many_outputs, "too many payment proposals");
     CARROT_CHECK_AND_THROW(num_selfsend_proposals, too_few_outputs, "no selfsend payment proposal");
 
     // assert there is a max of 1 integrated address payment proposals

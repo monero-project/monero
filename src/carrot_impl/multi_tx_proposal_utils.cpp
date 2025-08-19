@@ -174,7 +174,7 @@ void make_multiple_carrot_transaction_proposals_sweep(
     {
             CARROT_CHECK_AND_THROW(window_offset <= selected_inputs.size(),
                 carrot_logic_error, "selected_offset out of range");
-            const std::size_t window_size = std::min<std::size_t>(CARROT_MAX_TX_INPUTS,
+            const std::size_t window_size = std::min<std::size_t>(FCMP_PLUS_PLUS_MAX_INPUTS,
                 selected_inputs.size() - window_offset);
 
             const auto deref_amount = [](const CarrotSelectedInput &i) { return i.amount; };
@@ -200,7 +200,7 @@ void make_multiple_carrot_transaction_proposals_sweep(
     while (get_input_count_for_max_usable_money_in_window(0))
     {
         // slide a window in ascending amount order until all inputs in that window yield a net positive output sum...
-        const std::size_t max_window_size = std::min<std::size_t>(CARROT_MAX_TX_INPUTS, selected_inputs.size());
+        const std::size_t max_window_size = std::min<std::size_t>(FCMP_PLUS_PLUS_MAX_INPUTS, selected_inputs.size());
         std::size_t window_offset = selected_inputs.size() - max_window_size;
         std::size_t n_tx_inputs = 0;
         do

@@ -301,8 +301,7 @@ std::vector<std::size_t> get_input_counts_in_preferred_order()
     // preferring 1 vs 2. See: https://lavalle.pl/planning/node437.html. Con to this approach: if we
     // default to 1 over 2 always then there's scenarios where we net save tx fees and proving time.
 
-    static_assert(CARROT_MAX_TX_INPUTS == FCMP_PLUS_PLUS_MAX_INPUTS, "inconsistent input count max limit");
-    static_assert(CARROT_MIN_TX_INPUTS == 1 && CARROT_MAX_TX_INPUTS >= 2,
+    static_assert(CARROT_MIN_TX_INPUTS == 1 && FCMP_PLUS_PLUS_MAX_INPUTS >= 2,
         "Expect at least 1 min input and 2 max inputs");
 
     const bool random_bit = 0 == (crypto::rand<uint8_t>() & 0x01);
@@ -313,21 +312,21 @@ std::vector<std::size_t> get_input_counts_in_preferred_order()
     // Get all powers of 2, > 2, up to max inputs. Prefer powers of 2 over non-powers of 2 for tx uniformity
     std::vector<std::size_t> powers_of_2;
     std::size_t cur_power_of_2 = 4;
-    while (cur_power_of_2 <= CARROT_MAX_TX_INPUTS)
+    while (cur_power_of_2 <= FCMP_PLUS_PLUS_MAX_INPUTS)
     {
         preferred_counts.push_back(cur_power_of_2);
         cur_power_of_2 <<= 1;
     }
 
     // Now get the remaining non-powers of 2
-    for (std::size_t i = 3; i <= CARROT_MAX_TX_INPUTS; ++i)
+    for (std::size_t i = 3; i <= FCMP_PLUS_PLUS_MAX_INPUTS; ++i)
     {
         if (is_power_of_2(i))
             continue;
         preferred_counts.push_back(i);
     }
 
-    CHECK_AND_ASSERT_THROW_MES(preferred_counts.size() == CARROT_MAX_TX_INPUTS, "unexpeced preferred counts");
+    CHECK_AND_ASSERT_THROW_MES(preferred_counts.size() == FCMP_PLUS_PLUS_MAX_INPUTS, "unexpected preferred counts");
     return preferred_counts;
 }
 //-------------------------------------------------------------------------------------------------------------------

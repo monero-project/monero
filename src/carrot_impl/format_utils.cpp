@@ -156,10 +156,10 @@ bool parse_carrot_input_context(const cryptonote::transaction_prefix &tx_prefix,
 //-------------------------------------------------------------------------------------------------------------------
 std::uint64_t get_carrot_default_tx_extra_size(const std::size_t n_outputs)
 {
-    CHECK_AND_ASSERT_THROW_MES(n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
-        "get_carrot_default_tx_extra_size: n_outputs too high: " << n_outputs);
-    CHECK_AND_ASSERT_THROW_MES(n_outputs >= CARROT_MIN_TX_OUTPUTS,
-        "get_carrot_default_tx_extra_size: n_outputs too low: " << n_outputs);
+    CARROT_CHECK_AND_THROW(n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
+        too_many_outputs, "n_outputs too high: " << n_outputs);
+    CARROT_CHECK_AND_THROW(n_outputs >= CARROT_MIN_TX_OUTPUTS,
+        too_few_outputs, " n_outputs too low: " << n_outputs);
 
     static constexpr std::uint64_t enc_pid_extra_field_size =
         8 /*pid*/
@@ -184,13 +184,12 @@ std::map<std::size_t, rct::xmr_amount> get_fee_by_input_count(const std::size_t 
 {
     CARROT_CHECK_AND_THROW(extra_extra_len <= MAX_TX_EXTRA_SIZE,
         integer_overflow, "extra extra len is too high");
-
     const std::uint64_t extra_len = get_carrot_default_tx_extra_size(n_outputs) + extra_extra_len;
     CARROT_CHECK_AND_THROW(extra_len <= MAX_TX_EXTRA_SIZE,
         integer_overflow, "total tx extra len after default fields is too high");
 
     std::map<std::size_t, rct::xmr_amount> fee_by_input_count;
-    for (std::size_t n_inputs = CARROT_MIN_TX_INPUTS; n_inputs <= CARROT_MAX_TX_INPUTS; ++n_inputs)
+    for (std::size_t n_inputs = CARROT_MIN_TX_INPUTS; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
     {
         const uint64_t tx_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(n_inputs, n_outputs, extra_len);
         CARROT_CHECK_AND_THROW(std::numeric_limits<rct::xmr_amount>::max() / tx_weight > fee_per_weight,
