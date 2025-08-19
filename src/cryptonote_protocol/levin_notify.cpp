@@ -76,7 +76,6 @@ namespace levin
        5000 milliseconds is given, 95% of the values fall between 4859ms-5141ms
        in 1ms increments (not enough time variance). Providing 20 quarter
        seconds yields 95% of the values between 3s-7.25s in 1/4s increments. */
-    using fluff_stepsize = std::chrono::duration<std::chrono::milliseconds::rep, std::ratio<1, 4>>;
     constexpr const std::chrono::seconds fluff_average_in{CRYPTONOTE_DANDELIONPP_FLUSH_AVERAGE};
 
     /*! Bitcoin Core is using 1/2 average seconds for outgoing connections
