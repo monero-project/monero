@@ -820,7 +820,7 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
     m_hash_leaves_ms += hashing_leaves;
     m_hash_layers_ms += hashing_layers;
 
-    LOG_PRINT_L1("Total time spent hashing leaves: " << m_hash_leaves_ms / 1000
+    LOG_PRINT_L2("Total time spent hashing leaves: " << m_hash_leaves_ms / 1000
         << " , hashing layers: "              << m_hash_layers_ms / 1000
         << " , sorting outputs: "             << m_sorting_outputs_ms / 1000);
 
@@ -1682,7 +1682,7 @@ void CurveTrees<C1, C2>::set_valid_leaves(
 
     m_set_valid_leaves_ms     += set_valid_leaves;
 
-    LOG_PRINT_L1("Total time spent setting leaves: " << m_set_valid_leaves_ms / 1000
+    LOG_PRINT_L2("Total time spent setting leaves: " << m_set_valid_leaves_ms / 1000
         << " , converting valid leaves: " << m_convert_valid_leaves_ms / 1000
         << " , collecting derivatives: "  << m_collect_derivatives_ms / 1000
         << " , batch invert: "            << m_batch_invert_ms / 1000

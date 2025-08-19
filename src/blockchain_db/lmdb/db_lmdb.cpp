@@ -7695,7 +7695,16 @@ void BlockchainLMDB::migrate_5_6()
             result = mdb_stat(txn, m_tree_meta, &db_stats);
             if (result)
               throw0(DB_ERROR(lmdb_error("Failed to query m_tree_meta: ", result).c_str()));
-            i = db_stats.ms_entries;
+            const uint64_t n_tree_blocks = db_stats.ms_entries;
+            const uint64_t tree_block_idx = n_tree_blocks - std::min<uint64_t>(1, n_tree_blocks);
+            const uint64_t last_added_block_idx = tree_block_idx - std::min<uint64_t>((CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1), tree_block_idx);
+            CHECK_AND_ASSERT_THROW_MES(n_tree_blocks == 0 || cryptonote::get_default_last_locked_block_index(last_added_block_idx) == tree_block_idx,
+              "Unexpected tree block idx mismatch to last added block idx");
+            if (last_added_block_idx)
+            {
+              MINFO("Continuing from last added block " << last_added_block_idx);
+              i = last_added_block_idx + 1;
+            }
             if (i == n_blocks)
               break;
           }
