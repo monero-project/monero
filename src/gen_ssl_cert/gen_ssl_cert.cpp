@@ -65,29 +65,6 @@ namespace
   const command_line::arg_descriptor<bool> arg_prompt_for_passphrase = {"prompt-for-passphrase", gencert::tr("Prompt for a passphrase with which to encrypt the private key"), false};
 }
 
-// adapted from openssl's apps/x509.c
-static std::string get_fingerprint(X509 *cert, const EVP_MD *fdig)
-{
-  unsigned int j;
-  unsigned int n;
-  unsigned char md[EVP_MAX_MD_SIZE];
-  std::string fingerprint;
-
-  if (!X509_digest(cert, fdig, md, &n))
-  {
-    tools::fail_msg_writer() << tr("Failed to create fingerprint: ") << ERR_reason_error_string(ERR_get_error());
-    return fingerprint;
-  }
-  fingerprint.resize(n * 3 - 1);
-  char *out = &fingerprint[0];
-  for (j = 0; j < n; ++j)
-  {
-    snprintf(out, 3 + (j + 1 < n), "%02X%s", md[j], (j + 1 == n) ? "" : ":");
-    out += 3;
-  }
-  return fingerprint;
-}
-
 int main(int argc, char* argv[])
 {
   TRY_ENTRY();
@@ -246,7 +223,7 @@ int main(int argc, char* argv[])
 
   tools::success_msg_writer() << tr("New certificate created:");
   tools::success_msg_writer() << tr("Certificate: ") << certificate_filename;
-  tools::success_msg_writer() << tr("SHA-256 Fingerprint: ") << get_fingerprint(cert, EVP_sha256());
+  tools::success_msg_writer() << tr("SHA-256 Fingerprint: ") << epee::net_utils::get_hr_ssl_fingerprint(cert);
   tools::success_msg_writer() << tr("Private key: ") << private_key_filename << " (" << (private_key_passphrase.empty() ? "unencrypted" : "encrypted") << ")";
 
   return 0;
