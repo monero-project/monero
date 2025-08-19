@@ -2399,14 +2399,15 @@ bool BlockchainLMDB::for_all_alt_blocks(std::function<bool(const crypto::hash&, 
     const crypto::hash &blkid = *(const crypto::hash*)k.mv_data;
     if (v.mv_size < sizeof(alt_block_data_t))
       throw0(DB_ERROR("alt_blocks record is too small"));
-    const alt_block_data_t *data = (const alt_block_data_t*)v.mv_data;
+    alt_block_data_t data;
+    memcpy(&data, v.mv_data, sizeof(data));
     cryptonote::blobdata_ref bd;
     if (include_blob)
     {
       bd = {reinterpret_cast<const char*>(v.mv_data) + sizeof(alt_block_data_t), v.mv_size - sizeof(alt_block_data_t)};
     }
 
-    if (!f(blkid, *data, &bd)) {
+    if (!f(blkid, data, &bd)) {
       ret = false;
       break;
     }
@@ -4519,11 +4520,10 @@ bool BlockchainLMDB::get_alt_block(const crypto::hash &blkid, alt_block_data_t *
   if (v.mv_size < sizeof(alt_block_data_t))
     throw0(DB_ERROR("Record size is less than expected"));
 
-  const alt_block_data_t *ptr = (const alt_block_data_t*)v.mv_data;
   if (data)
-    *data = *ptr;
+    memcpy(data, v.mv_data, sizeof(alt_block_data_t));
   if (blob)
-    blob->assign((const char*)(ptr + 1), v.mv_size - sizeof(alt_block_data_t));
+    blob->assign(((const char*)(v.mv_data)) + sizeof(alt_block_data_t), v.mv_size - sizeof(alt_block_data_t));
 
   TXN_POSTFIX_RDONLY();
   return true;
