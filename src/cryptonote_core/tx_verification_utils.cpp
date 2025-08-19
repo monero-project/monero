@@ -551,7 +551,10 @@ uint64_t get_transaction_weight_limit(const uint8_t hf_version)
     // FIXME: get_transaction_weight_limit for FCMP++
     if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
     {
-        MERROR("FIXME: get_transaction_weight_limit for FCMP++");
+        static bool print_once = true;
+        if (print_once)
+            MERROR("FIXME: get_transaction_weight_limit for FCMP++");
+        print_once = false;
         return 1000000;
     }
     // from v8, limit a tx to 50% of the minimum block weight
