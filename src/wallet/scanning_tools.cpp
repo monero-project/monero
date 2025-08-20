@@ -734,7 +734,7 @@ void view_incoming_scan_transaction(
             main_tx_ephemeral_pubkeys,
             additional_tx_ephemeral_pubkeys,
             tx_extra_nonce))
-        MWARNING("Transaction extra has unsupported format: " << cryptonote::get_transaction_hash(tx));
+        MWARNING("Transaction extra has unsupported format");
 
     CHECK_AND_ASSERT_MES(!main_tx_ephemeral_pubkeys.empty() || !additional_tx_ephemeral_pubkeys.empty(),,
         "Transaction missing ephemeral pubkeys");
@@ -791,7 +791,7 @@ std::vector<std::optional<enote_view_incoming_scan_info_t>> view_incoming_scan_t
             main_tx_ephemeral_pubkeys,
             additional_tx_ephemeral_pubkeys,
             tx_extra_nonce))
-        MWARNING("Transaction extra has unsupported format: " << cryptonote::get_transaction_hash(tx));
+        MWARNING("Transaction extra has unsupported format");
 
     // 3. do view-incoming scan for each output enotes
     hw::device &hwdev = hw::get_device("default");
