@@ -29,6 +29,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import random
+import time
 
 """Test multisig transfers
 """
@@ -56,6 +57,8 @@ class MultisigTest():
             self.mine(pub_addr, 4)
         self.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 80)
 
+        print('Testing in-depth transferring with many different multisig setups')
+
         self.test_states()
 
         self.fund_addrs_with_normal_wallet(PUB_ADDRS)
@@ -69,7 +72,8 @@ class MultisigTest():
             expected_outputs = 5 # each wallet owns four mined outputs & one transferred output
 
             # Create multisig wallet and test transferring
-            self.create_multisig_wallets(M, N, pub_addr)
+            self.wallet = self.create_multisig_wallets(M, N, pub_addr)
+            self.wallet_address = pub_addr
             self.import_multisig_info(shuffled_signers if M != 1 else shuffled_participants, expected_outputs)
             txid = self.transfer(shuffled_signers)
             expected_outputs += 1
@@ -92,14 +96,16 @@ class MultisigTest():
             self.import_multisig_info(shuffled_participants, expected_outputs)
             self.check_transaction(txid)
 
-    def reset(self):
+    @classmethod
+    def reset(cls):
         print('Resetting blockchain')
         daemon = Daemon()
         res = daemon.get_height()
         daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
 
-    def mine(self, address, blocks):
+    @classmethod
+    def mine(cls, address, blocks):
         print("Mining some blocks")
         daemon = Daemon()
         daemon.generateblocks(address, blocks)
@@ -109,7 +115,8 @@ class MultisigTest():
     #   * prepare_multisig(enable_multisig_experimental = True)
     #   * make_multisig()
     #   * exchange_multisig_keys()
-    def create_multisig_wallets(self, M_threshold, N_total, expected_address):
+    @classmethod
+    def create_multisig_wallets(cls, M_threshold, N_total, expected_address):
       print('Creating ' + str(M_threshold) + '/' + str(N_total) + ' multisig wallet')
       seeds = [
         'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
@@ -121,33 +128,33 @@ class MultisigTest():
       assert N_total <= len(seeds)
 
       # restore_deterministic_wallet() & prepare_multisig()
-      self.wallet = [None] * N_total
+      wallet = [None] * N_total
       info = []
       for i in range(N_total):
-        self.wallet[i] = Wallet(idx = i)
-        try: self.wallet[i].close_wallet()
+        wallet[i] = Wallet(idx = i)
+        try: wallet[i].close_wallet()
         except: pass
-        res = self.wallet[i].restore_deterministic_wallet(seed = seeds[i])
-        res = self.wallet[i].prepare_multisig(enable_multisig_experimental = True)
+        res = wallet[i].restore_deterministic_wallet(seed = seeds[i])
+        res = wallet[i].prepare_multisig(enable_multisig_experimental = True)
         assert len(res.multisig_info) > 0
         info.append(res.multisig_info)
 
       # Assert that all wallets are multisig
       for i in range(N_total):
-        res = self.wallet[i].is_multisig()
+        res = wallet[i].is_multisig()
         assert res.multisig == False
 
       # make_multisig() with each other's info
       addresses = []
       next_stage = []
       for i in range(N_total):
-        res = self.wallet[i].make_multisig(info, M_threshold)
+        res = wallet[i].make_multisig(info, M_threshold)
         addresses.append(res.address)
         next_stage.append(res.multisig_info)
 
       # Assert multisig paramaters M/N for each wallet
       for i in range(N_total):
-        res = self.wallet[i].is_multisig()
+        res = wallet[i].is_multisig()
         assert res.multisig == True
         assert not res.ready
         assert res.threshold == M_threshold
@@ -158,7 +165,7 @@ class MultisigTest():
       while True: # while not all wallets are ready
         n_ready = 0
         for i in range(N_total):
-          res = self.wallet[i].is_multisig()
+          res = wallet[i].is_multisig()
           if res.ready == True:
             n_ready += 1
         assert n_ready == 0 or n_ready == N_total # No partial readiness
@@ -168,7 +175,7 @@ class MultisigTest():
         next_stage = []
         addresses = []
         for i in range(N_total):
-          res = self.wallet[i].exchange_multisig_keys(info)
+          res = wallet[i].exchange_multisig_keys(info)
           next_stage.append(res.multisig_info)
           addresses.append(res.address)
         num_exchange_multisig_keys_stages += 1
@@ -179,15 +186,17 @@ class MultisigTest():
       # Assert that the all wallets have expected public address
       for i in range(N_total):
         assert addresses[i] == expected_address, addresses[i]
-      self.wallet_address = expected_address
+      wallet_address = expected_address
 
       # Assert multisig paramaters M/N and "ready" for each wallet
       for i in range(N_total):
-        res = self.wallet[i].is_multisig()
+        res = wallet[i].is_multisig()
         assert res.multisig == True
         assert res.ready == True
         assert res.threshold == M_threshold
         assert res.total == N_total
+    
+      return wallet
 
     # We want to test if multisig wallets can receive normal transfers as well and mining transfers
     def fund_addrs_with_normal_wallet(self, addrs):
@@ -256,7 +265,8 @@ class MultisigTest():
 
         self.wallet[i].refresh()
 
-    def test_states(self):
+    @classmethod
+    def test_states(cls):
         print('Testing multisig states')
         seeds = [
             'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
@@ -521,8 +531,104 @@ class MultisigTest():
           assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == 0
           assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 1
 
+class MultisigImportTempRefreshFailTest():
+    def run_test(self):
+        m, n, addr_2_2 = TEST_CASES[0]
+        assert(m == 2)
+        assert(n == 2)
 
-class Guard:
+        NUM_BLOCKS_TO_MINE = 80
+        MultisigTest.reset()
+        wallets = MultisigTest.create_multisig_wallets(m, n, addr_2_2)
+        MultisigTest.mine(addr_2_2, NUM_BLOCKS_TO_MINE)
+
+        print('Testing whether temporary failures in refreshing caused permanent failures for partial key image calculation')
+
+        # Export multisig info
+        ms_info = []
+        for wallet in wallets:
+            wallet.refresh()
+            res = wallet.export_multisig_info()
+            assert len(res.info) > 0
+            ms_info.append(res.info)
+
+        # Import multisig info to wallet 0
+        res = wallets[0].import_multisig_info(ms_info)
+        assert res.n_outputs == NUM_BLOCKS_TO_MINE
+
+        # Simulate daemon refresh failure by setting daemon to invalid URL and import multisig info to wallet 1
+        with WrongDaemonGuard(1) as wdguard:
+            try:
+                wallets[1].import_multisig_info(ms_info)
+            except:
+                pass
+
+        # Refresh wallet 1 again
+        wallets[1].refresh()
+
+        # Check unlocked balance
+        unlocked_balance = None
+        for wallet in wallets:
+            res = wallet.get_balance()
+            assert res.unlocked_balance > 0
+            assert unlocked_balance is None or unlocked_balance == res.unlocked_balance
+            unlocked_balance = res.unlocked_balance
+
+        # Construct outgoing transfer
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': unlocked_balance // 2}
+        res = wallets[0].transfer([dst])
+        assert len(res.tx_hash) == 0 # not known yet
+        txid = res.tx_hash
+        assert len(res.tx_key) == 32*2
+        assert res.amount > 0
+        amount = res.amount
+        assert res.fee > 0
+        fee = res.fee
+        assert len(res.tx_blob) == 0
+        assert len(res.tx_metadata) == 0
+        assert len(res.multisig_txset) > 0
+        assert len(res.unsigned_txset) == 0
+        spent_key_images = res.spent_key_images.key_images
+        multisig_txset = res.multisig_txset
+
+        # For later, assert we have 0 outgoing txs at this moment
+        for wallet in wallets:
+            res = wallet.get_transfers()
+            assert 'out' not in res or not res.out
+
+        # Try signing outgoing transfer w/ wallet 1 (this is where it will fail pre-PR#9863)
+        res = wallets[1].sign_multisig(multisig_txset)
+        multisig_txset = res.tx_data_hex
+        assert len(res.tx_hash_list if 'tx_hash_list' in res else []) == 1
+
+        # Submit the transaction for good measure and wait for all wallets to catch up
+        res = wallets[1].submit_multisig(multisig_txset)
+        assert len(res.tx_hash_list) == 1
+        txid = res.tx_hash_list[0]
+
+        MultisigTest.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+
+        timeout = 15
+        wait_cutoff = time.monotonic() + timeout
+        synced_outgoing_tx = False
+        while True:
+            synced_outgoing_tx = True
+            for wallet in wallets:
+                wallet.refresh()
+                res = wallet.get_transfers()
+                if 'out' not in res or len(res.out) < 1:
+                    synced_outgoing_tx = False
+                    break
+            if synced_outgoing_tx:
+                break
+            max_delay = wait_cutoff - time.monotonic()
+            if max_delay <= 0:
+                break
+            time.sleep(min(.2, max_delay))
+        assert synced_outgoing_tx
+
+
+class AutoRefreshGuard:
     def __enter__(self):
         for i in range(4):
             Wallet(idx = i).auto_refresh(False)
@@ -530,6 +636,20 @@ class Guard:
         for i in range(4):
             Wallet(idx = i).auto_refresh(True)
 
+class WrongDaemonGuard:
+    def __init__(self, idx, correct_port=18180):
+        self.idx = idx
+        self.correct_port = correct_port
+    def __enter__(self):
+        Wallet(idx = self.idx).set_daemon("localhost:0")
+    def __exit__(self, exc_type, exc_value, traceback):
+        Wallet(idx = self.idx).set_daemon("localhost:" + str(self.correct_port))
+
 if __name__ == '__main__':
-    with Guard() as guard:
+    with AutoRefreshGuard() as arguard:
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
+        MultisigImportTempRefreshFailTest().run_test()
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
         MultisigTest().run_test()
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
+
