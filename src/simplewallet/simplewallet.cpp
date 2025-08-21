@@ -8676,7 +8676,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
 
   PAUSE_READLINE();
 
-  auto formatter = boost::format("%8.8s %6.6s %8.8s %25.25s %20.20s %64.64s %15.15s %14.14s %s %s - %s");
+  auto formatter = boost::format("%8.8s %6.6s %8.8s %25.25s %20.20s %64.64s %16.16s %14.14s %s %s - %s");
   message_writer(console_color_default, false) << formatter
   % "Block"
   % "In/Out"
@@ -8690,7 +8690,7 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
   % "Index"
   % "Tx Note";
 
-  formatter = boost::format("%8.8llu %6.6s %8.8s %25.25s %20.20s %64.64s %15.15s %14.14s %s %s - %s");
+  formatter = boost::format("%8.8llu %6.6s %8.8s %25.25s %20.20s %64.64s %16.16s %14.14s %s %s - %s");
 
   for (const auto& transfer : all_transfers)
   {
