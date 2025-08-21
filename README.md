@@ -564,6 +564,8 @@ You can also cross-compile static binaries on Linux for Windows and macOS with t
   * Requires: `python3 g++-mingw-w64-x86-64 wine1.6 bc`
 * ```make depends target=x86_64-apple-darwin11``` for macOS binaries.
   * Requires: `cmake imagemagick libcap-dev librsvg2-bin libz-dev libbz2-dev libtiff-tools python-dev`
+* ```make depends target=aarch64-apple-darwin``` for Apple Silicon macOS binaries.
+  * Requires: `clang`
 * ```make depends target=i686-linux-gnu``` for 32-bit linux binaries.
   * Requires: `g++-multilib bc`
 * ```make depends target=i686-w64-mingw32``` for 32-bit windows binaries.
