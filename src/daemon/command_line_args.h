@@ -138,6 +138,13 @@ namespace daemon_args
   , "Disable ZMQ RPC server"
   };
 
+#ifdef __linux__
+  const command_line::arg_descriptor<bool> arg_landlock = {
+    "landlock"
+  , "Enable Landlock sandboxing (not tested with all config options)"
+  };
+#endif
+
 }  // namespace daemon_args
 
 #endif // DAEMON_COMMAND_LINE_ARGS_H
