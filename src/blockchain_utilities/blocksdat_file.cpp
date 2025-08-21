@@ -156,11 +156,12 @@ bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
     MFATAL("failed to open raw file for write");
     return false;
   }
-  for (m_cur_height = block_start; m_cur_height <= block_stop; ++m_cur_height)
-  {
+  m_blockchain_storage->get_db().for_all_block_info(block_start,
+    block_stop,
+    [&, this](const uint64_t height, const crypto::hash &hash, const uint64_t weight) -> bool {
+
     // this method's height refers to 0-based height (genesis block = height 0)
-    crypto::hash hash = m_blockchain_storage->get_block_id_by_height(m_cur_height);
-    uint64_t weight = m_blockchain_storage->get_db().get_block_weight(m_cur_height);
+    m_cur_height = height;
     write_block(hash, weight);
     if (m_cur_height % NUM_BLOCKS_PER_CHUNK == 0) {
       num_blocks_written += NUM_BLOCKS_PER_CHUNK;
@@ -169,7 +170,9 @@ bool BlocksdatFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
       std::cout << refresh_string;
       std::cout << "block " << m_cur_height << "/" << block_stop << std::flush;
     }
-  }
+
+    return true;
+  });
   // print message for last block, which may not have been printed yet due to progress_interval
   std::cout << refresh_string;
   std::cout << "block " << m_cur_height-1 << "/" << block_stop << ENDL;

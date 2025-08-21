@@ -1710,6 +1710,32 @@ public:
   virtual bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const = 0;
 
   /**
+   * @brief runs a function over all block info in height range in order
+   *
+   * The subclass should run the passed function for each block in the
+   * specified range, passing (height, block ID, block weight) as its parameters.
+   *
+   * If any call to the function returns false, the subclass should return
+   * false. Otherwise, the subclass returns true.
+   *
+   * The subclass should throw DB_ERROR if any of the expected values are
+   * not found.
+   *
+   * @param start_height start height, inclusive
+   * @param stop_height stop height, inclusive
+   * @param f the function to run
+   *
+   * @return false if the function returns false for any block, otherwise true
+   */
+  virtual bool for_all_block_info(uint64_t start_height
+    , uint64_t stop_height
+    , const std::function<bool(/*height*/ uint64_t
+      , /*block ID*/ const crypto::hash&
+      , /*block weight*/ uint64_t
+      )> &f
+  ) const = 0;
+
+  /**
    * @brief runs a function over all transactions stored
    *
    * The subclass should run the passed function for each transaction it has

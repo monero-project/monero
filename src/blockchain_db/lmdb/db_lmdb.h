@@ -305,6 +305,13 @@ public:
 
   bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override;
   bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override;
+  bool for_all_block_info(uint64_t start_height
+    , uint64_t stop_height
+    , const std::function<bool(/*height*/ uint64_t
+      , /*block ID*/ const crypto::hash&
+      , /*block weight*/ uint64_t
+      )> &f
+  ) const override;
   bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const override;
   bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const override;
   bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const override;
