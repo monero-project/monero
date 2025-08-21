@@ -1059,7 +1059,7 @@ namespace nodetool
             {
               ++number_of_in_peers;
             }
-            else
+            else if (!cntxt.is_ping)
             {
               ++number_of_out_peers;
             }
@@ -1970,7 +1970,7 @@ namespace nodetool
     size_t count = 0;
     zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
     {
-      if(!cntxt.m_is_income)
+      if(!cntxt.m_is_income && !cntxt.is_ping)
         ++count;
       return true;
     });
@@ -2451,7 +2451,7 @@ namespace nodetool
         return false;
       }
       return true;
-    }, "0.0.0.0", m_ssl_support);
+    }, "0.0.0.0", m_ssl_support, p2p_connection_context{true /* is_ping */});
     if(!r)
     {
       LOG_WARNING_CC(context, "Failed to call connect_async, network error.");
