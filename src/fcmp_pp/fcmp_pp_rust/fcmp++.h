@@ -308,14 +308,12 @@ int fcmp_pp_prove_sal(const uint8_t signable_tx_hash[32],
  * param: n_tree_layers -
  * param: proof_len -
  * outparam: fcmp_proof_out - a buffer where the FCMP proof will be written to
- * outparam: fcmp_proof_out_size - the max length of the buffer fcmp_proof_out, is set to written proof size
  * return: an error on failure, nothing otherwise
  */
 int fcmp_pp_prove_membership(const struct FcmpPpProveMembershipInputSliceUnsafe fcmp_pp_prove_inputs,
                                              uintptr_t n_tree_layers,
                                              uintptr_t proof_len,
-                                             uint8_t fcmp_proof_out[],
-                                             uintptr_t *fcmp_proof_out_len);
+                                             uint8_t fcmp_proof_out[]);
 
 // The following proof_size functions are tabled through proof_len.h. Use
 // those functions instead.

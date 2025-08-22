@@ -244,13 +244,10 @@ FcmpMembershipProof prove_membership(const std::vector<FcmpPpProveMembershipInpu
     const int r = ::fcmp_pp_prove_membership(fcmp_pp_prove_inputs_slice,
         n_tree_layers,
         proof_len,
-        &p[0],
-        &proof_size);
+        &p[0]);
 
     if (r < 0)
         throw std::runtime_error("prove_membership failed with code: " + std::to_string(r));
-
-    p.resize(proof_size);
 
     // No `free()` since result type `()` is zero-sized
 

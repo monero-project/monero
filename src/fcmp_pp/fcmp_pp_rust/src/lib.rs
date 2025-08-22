@@ -901,18 +901,12 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(
     n_tree_layers: usize,
     proof_len: usize,
     fcmp_proof_out: *mut u8,
-    fcmp_proof_out_len: *mut usize,
 ) -> c_int {
     let inputs: &[*const FcmpPpProveMembershipInput] = inputs.into();
-    let capacity = fcmp_proof_out_len.read();
     debug_assert_eq!(
         proof_len,
         _slow_membership_proof_size(inputs.len(), n_tree_layers)
     );
-    if capacity < proof_len {
-        return -1;
-    }
-    fcmp_proof_out_len.write(proof_len);
     let mut buf_out = core::slice::from_raw_parts_mut(fcmp_proof_out, proof_len);
 
     match prove_membership_native(inputs, n_tree_layers) {
@@ -920,7 +914,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(
             Ok(_) => 0,
             Err(_) => -2,
         },
-        None => -3,
+        None => -1,
     }
 }
 
