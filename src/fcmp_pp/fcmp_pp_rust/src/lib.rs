@@ -30,8 +30,6 @@ use monero_generators::{FCMP_U, FCMP_V, T};
 
 use std::os::raw::c_int;
 
-// TODO: Use a macro to de-duplicate some of of this code
-
 //-------------------------------------------------------------------------------------- Curve points
 
 #[no_mangle]
@@ -60,75 +58,59 @@ macro_rules! destroy_fn {
         /// This function assumes that the obj was allocated on the heap via
         /// Box::into_raw(Box::new())
         #[no_mangle]
-        pub unsafe extern "C" fn $fn_name(
-            obj: *mut $type,
-        ) {
+        pub unsafe extern "C" fn $fn_name(obj: *mut $type) {
             destroy_box(obj);
         }
     };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn helios_scalar_to_bytes(helios_scalar: *const HeliosScalar, bytes_out: *mut u8) {
-    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
-    bytes_out.clone_from_slice(&(&*helios_scalar).to_repr());
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn selene_scalar_to_bytes(selene_scalar: *const SeleneScalar, bytes_out: *mut u8) {
-    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
-    bytes_out.clone_from_slice(&(&*selene_scalar).to_repr());
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn helios_point_to_bytes(helios_point: *const HeliosPoint, bytes_out: *mut u8) {
-    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
-    bytes_out.clone_from_slice(&(&*helios_point).to_bytes());
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn selene_point_to_bytes(selene_point: *const SelenePoint, bytes_out: *mut u8) {
-    let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
-    bytes_out.clone_from_slice(&(&*selene_point).to_bytes());
-}
-
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
-pub unsafe extern "C" fn helios_point_from_bytes(
-    helios_point: *const u8,
-    helios_point_out: *mut HeliosPoint,
-) -> c_int {
-    if helios_point_out.is_null() {
-        return -1;
-    }
-    let mut helios_point = unsafe { core::slice::from_raw_parts(helios_point, 32) };
-    match <Helios>::read_G(&mut helios_point) {
-        Ok(point) => {
-            *helios_point_out = point;
-            0
+macro_rules! ec_elem_to_bytes {
+    ($fn_name:ident, $Type:ty, $to_bytes:ident) => {
+        /// # Safety
+        ///
+        /// This function assumes a raw pointer to expected obj type, and to have
+        /// 32 bytes already allocated for bytes_out.
+        #[no_mangle]
+        pub unsafe extern "C" fn $fn_name(obj: *const $Type, bytes_out: *mut u8) {
+            let bytes_out = core::slice::from_raw_parts_mut(bytes_out, 32);
+            bytes_out.clone_from_slice(&(*obj).$to_bytes());
         }
-        Err(_) => -2
-    }
+    };
 }
 
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
-pub unsafe extern "C" fn selene_point_from_bytes(
-    selene_point: *const u8,
-    selene_point_out: *mut SelenePoint,
-) -> c_int {
-    if selene_point_out.is_null() {
-        return -1;
-    }
-    let mut selene_point = unsafe { core::slice::from_raw_parts(selene_point, 32) };
-    match <Selene>::read_G(&mut selene_point) {
-        Ok(point) => {
-            *selene_point_out = point;
-            0
+macro_rules! ec_elem_from_bytes {
+    ($fn_name:ident, $Type:ty, $Curve:ty, $from_bytes:ident) => {
+        /// # Safety
+        ///
+        /// This function assumes 32 bytes allocated, and to be passed a raw pointer to
+        /// the expected type.
+        #[allow(clippy::not_unsafe_ptr_arg_deref)]
+        #[no_mangle]
+        pub unsafe extern "C" fn $fn_name(bytes: *const u8, ec_elem_out: *mut $Type) -> c_int {
+            if ec_elem_out.is_null() {
+                return -1;
+            }
+            let mut bytes = unsafe { core::slice::from_raw_parts(bytes, 32) };
+            match <$Curve>::$from_bytes(&mut bytes) {
+                Ok(ec_elem) => {
+                    *ec_elem_out = ec_elem;
+                    0
+                }
+                Err(_) => -2,
+            }
         }
-        Err(_) => -2
-    }
+    };
 }
+
+ec_elem_to_bytes!(helios_scalar_to_bytes, HeliosScalar, to_repr);
+ec_elem_to_bytes!(selene_scalar_to_bytes, SeleneScalar, to_repr);
+ec_elem_to_bytes!(helios_point_to_bytes, HeliosPoint, to_bytes);
+ec_elem_to_bytes!(selene_point_to_bytes, SelenePoint, to_bytes);
+
+ec_elem_from_bytes!(helios_scalar_from_bytes, HeliosScalar, Helios, read_F);
+ec_elem_from_bytes!(selene_scalar_from_bytes, SeleneScalar, Selene, read_F);
+ec_elem_from_bytes!(helios_point_from_bytes, HeliosPoint, Helios, read_G);
+ec_elem_from_bytes!(selene_point_from_bytes, SelenePoint, Selene, read_G);
 
 // Undefined behavior occurs when the data pointer passed to core::slice::from_raw_parts is null,
 // even when len is 0. slice_from_raw_parts_0able() lets you pass p as null, as long as len is 0
@@ -160,61 +142,37 @@ fn hash_array_from_bytes(
 fn input_from_bytes(input_bytes: &[u8]) -> std::io::Result<Input> {
     let mut rerandomized_output_bytes = [0u8; 8 * 32];
     if input_bytes.len() != 4 * 32 {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "passed input slice wrong size"));
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "passed input slice wrong size",
+        ));
     }
-    rerandomized_output_bytes[0..4*32].copy_from_slice(input_bytes);
+    rerandomized_output_bytes[0..4 * 32].copy_from_slice(input_bytes);
     let rerandomized_output = RerandomizedOutput::read(&mut rerandomized_output_bytes.as_slice())?;
     Ok(rerandomized_output.input())
 }
 
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[no_mangle]
-pub unsafe extern "C" fn selene_scalar_from_bytes(
-    selene_scalar: *const u8,
-    selene_scalar_out: *mut SeleneScalar,
-) -> c_int {
-    if selene_scalar_out.is_null() {
-        return -1;
-    }
-    let mut selene_scalar = unsafe { core::slice::from_raw_parts(selene_scalar, 32) };
-    match <Selene>::read_F(&mut selene_scalar) {
-        Ok(scalar) => {
-            *selene_scalar_out = scalar;
+macro_rules! point_to_cycle_scalar {
+    ($fn_name:ident, $Point:ty, $Scalar:ty) => {
+        /// # Safety
+        ///
+        /// This function assumes scalar_out is a non-null pointer to the expected type.
+        #[no_mangle]
+        pub unsafe extern "C" fn $fn_name(point: $Point, scalar_out: *mut $Scalar) -> c_int {
+            if scalar_out.is_null() {
+                return -1;
+            }
+            let Some(xy_coords) = <$Point>::to_xy(point) else {
+                return -2;
+            };
+            *scalar_out = xy_coords.0;
             0
         }
-        Err(_) => -2
-    }
+    };
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn selene_point_to_helios_scalar(
-    selene_point: SelenePoint,
-    helios_scalar_out: *mut HeliosScalar,
-) -> c_int {
-    if helios_scalar_out.is_null() {
-        return -1;
-    }
-    let Some(xy_coords) = SelenePoint::to_xy(selene_point) else {
-        return -2;
-    };
-    *helios_scalar_out = xy_coords.0;
-    0
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn helios_point_to_selene_scalar(
-    helios_point: HeliosPoint,
-    selene_scalar_out: *mut SeleneScalar,
-) -> c_int {
-    if selene_scalar_out.is_null() {
-        return -1;
-    }
-    let Some(xy_coords) = HeliosPoint::to_xy(helios_point) else {
-        return -2;
-    };
-    *selene_scalar_out = xy_coords.0;
-    0
-}
+point_to_cycle_scalar!(selene_point_to_helios_scalar, SelenePoint, HeliosScalar);
+point_to_cycle_scalar!(helios_point_to_selene_scalar, HeliosPoint, SeleneScalar);
 
 #[no_mangle]
 pub extern "C" fn helios_zero_scalar() -> HeliosScalar {
@@ -398,7 +356,9 @@ pub unsafe extern "C" fn path_new(
             return -5;
         };
 
-        let Ok(new_output) = Output::new(O, I, C) else { return -6 };
+        let Ok(new_output) = Output::new(O, I, C) else {
+            return -6;
+        };
         leaves.push(new_output);
     }
 
@@ -444,10 +404,14 @@ destroy_fn!(destroy_path, Path<Curves>);
 
 //---------------------------------------------- RerandomizedOutput
 
+/// # Safety
+///
+/// This function expects a non-null pointer to FcmpRerandomizedOutputCompressed in rerandomized_output_bytes.
 #[no_mangle]
 #[allow(non_snake_case)]
-pub unsafe extern "C" fn rerandomize_output(output: OutputBytes,
-    rerandomized_output_bytes: *mut u8
+pub unsafe extern "C" fn rerandomize_output(
+    output: OutputBytes,
+    rerandomized_output_bytes: *mut u8,
 ) -> c_int {
     let O = if let Some(O) = EdwardsPoint::from_bytes(&output.O).into() {
         O
@@ -465,12 +429,22 @@ pub unsafe extern "C" fn rerandomize_output(output: OutputBytes,
         return -3;
     };
 
-    let Ok(output) = Output::new(O, I, C) else { return -4 };
+    let Ok(output) = Output::new(O, I, C) else {
+        return -4;
+    };
 
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts_mut(rerandomized_output_bytes, 8 * 32);
+    let mut rerandomized_output_bytes =
+        core::slice::from_raw_parts_mut(rerandomized_output_bytes, 8 * 32);
 
     let rerandomized_output = RerandomizedOutput::new(&mut OsRng, output);
-    if rerandomized_output.write(&mut rerandomized_output_bytes).is_err() { -5 } else { 0 }
+    if rerandomized_output
+        .write(&mut rerandomized_output_bytes)
+        .is_err()
+    {
+        -5
+    } else {
+        0
+    }
 }
 
 //---------------------------------------------- OBlind
@@ -480,13 +454,18 @@ pub unsafe extern "C" fn rerandomize_output(output: OutputBytes,
 /// This function assumes that the rerandomized output byte buffer being passed
 /// in is 8*32 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn o_blind(rerandomized_output_bytes: *const u8,
-    o_blind: *mut Scalar
+pub unsafe extern "C" fn o_blind(
+    rerandomized_output_bytes: *const u8,
+    o_blind: *mut Scalar,
 ) -> c_int {
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
+    let mut rerandomized_output_bytes =
+        core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
     match RerandomizedOutput::read(&mut rerandomized_output_bytes) {
-        Ok(rerandomized_output) => { o_blind.write(rerandomized_output.o_blind()); 0 }
-        Err(_) => -1
+        Ok(rerandomized_output) => {
+            o_blind.write(rerandomized_output.o_blind());
+            0
+        }
+        Err(_) => -1,
     }
 }
 
@@ -522,13 +501,18 @@ destroy_fn!(destroy_blinded_o_blind, OBlind<EdwardsPoint>);
 /// This function assumes that the rerandomized output byte buffer being passed
 /// in is 8*32 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn c_blind(rerandomized_output_bytes: *const u8,
-    c_blind: *mut Scalar
+pub unsafe extern "C" fn c_blind(
+    rerandomized_output_bytes: *const u8,
+    c_blind: *mut Scalar,
 ) -> c_int {
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
+    let mut rerandomized_output_bytes =
+        core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
     match RerandomizedOutput::read(&mut rerandomized_output_bytes) {
-        Ok(rerandomized_output) => { c_blind.write(rerandomized_output.c_blind()); 0 }
-        Err(_) => -1
+        Ok(rerandomized_output) => {
+            c_blind.write(rerandomized_output.c_blind());
+            0
+        }
+        Err(_) => -1,
     }
 }
 
@@ -564,13 +548,18 @@ destroy_fn!(destroy_blinded_c_blind, CBlind<EdwardsPoint>);
 /// This function assumes that the rerandomized output byte buffer being passed
 /// in is 8*32 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn i_blind(rerandomized_output_bytes: *const u8,
-    i_blind: *mut Scalar
+pub unsafe extern "C" fn i_blind(
+    rerandomized_output_bytes: *const u8,
+    i_blind: *mut Scalar,
 ) -> c_int {
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
+    let mut rerandomized_output_bytes =
+        core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
     match RerandomizedOutput::read(&mut rerandomized_output_bytes) {
-        Ok(rerandomized_output) => { i_blind.write(rerandomized_output.i_blind()); 0 }
-        Err(_) => -1
+        Ok(rerandomized_output) => {
+            i_blind.write(rerandomized_output.i_blind());
+            0
+        }
+        Err(_) => -1,
     }
 }
 
@@ -610,13 +599,18 @@ destroy_fn!(destroy_blinded_i_blind, IBlind<EdwardsPoint>);
 /// This function assumes that the rerandomized output byte buffer being passed
 /// in is 8*32 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn i_blind_blind(rerandomized_output_bytes: *const u8,
-    i_blind_blind: *mut Scalar
+pub unsafe extern "C" fn i_blind_blind(
+    rerandomized_output_bytes: *const u8,
+    i_blind_blind: *mut Scalar,
 ) -> c_int {
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
+    let mut rerandomized_output_bytes =
+        core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
     match RerandomizedOutput::read(&mut rerandomized_output_bytes) {
-        Ok(rerandomized_output) => { i_blind_blind.write(rerandomized_output.i_blind_blind()); 0 }
-        Err(_) => -1
+        Ok(rerandomized_output) => {
+            i_blind_blind.write(rerandomized_output.i_blind_blind());
+            0
+        }
+        Err(_) => -1,
     }
 }
 
@@ -751,9 +745,16 @@ pub struct FcmpPpProveMembershipInput {
 
 pub type FcmpPpProveMembershipInputSlice = Slice<*const FcmpPpProveMembershipInput>;
 
-unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveMembershipInput], n_tree_layers: usize) -> Option<Fcmp<Curves>> {
+unsafe fn prove_membership_native(
+    inputs: &[*const FcmpPpProveMembershipInput],
+    n_tree_layers: usize,
+) -> Option<Fcmp<Curves>> {
     let paths = inputs.iter().cloned().map(|x| (*x).path.clone()).collect();
-    let output_blinds = inputs.iter().cloned().map(|x| (*x).output_blinds.clone()).collect();
+    let output_blinds = inputs
+        .iter()
+        .cloned()
+        .map(|x| (*x).output_blinds.clone())
+        .collect();
 
     let c1_branch_blinds: Vec<_> = inputs
         .iter()
@@ -846,18 +847,20 @@ destroy_fn!(destroy_fcmp_pp_prove_input, FcmpPpProveMembershipInput);
 /// This function assumes that the signable_tx_hash, x, and y are 32 bytes, sal_proof_out is
 /// FCMP_PP_SAL_PROOF_SIZE_V1 bytes, and that the rerandomized output is returned from rerandomize_output().
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_prove_sal(signable_tx_hash: *const u8,
+pub unsafe extern "C" fn fcmp_pp_prove_sal(
+    signable_tx_hash: *const u8,
     x: *const u8,
     y: *const u8,
     rerandomized_output_bytes: *const u8,
     sal_proof_out: *mut u8,
-    key_image_out: *mut u8
+    key_image_out: *mut u8,
 ) -> c_int {
     let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
         return -1;
     };
 
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
+    let mut rerandomized_output_bytes =
+        core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
     let Ok(rerandomized_output) = RerandomizedOutput::read(&mut rerandomized_output_bytes) else {
         return -2;
     };
@@ -875,10 +878,10 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(signable_tx_hash: *const u8,
 
     let (key_image, proof) = SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
 
-    let sal_proof_out = &mut core::slice::from_raw_parts_mut(sal_proof_out, 12*32); // @TODO: remove magic number
+    let sal_proof_out = &mut core::slice::from_raw_parts_mut(sal_proof_out, 12 * 32); // @TODO: remove magic number
     let key_image_out = &mut core::slice::from_raw_parts_mut(key_image_out, 32);
 
-    if let Err(_) = proof.write(sal_proof_out) {
+    if proof.write(sal_proof_out).is_err() {
         return -6;
     }
 
@@ -887,16 +890,25 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(signable_tx_hash: *const u8,
     0
 }
 
+/// # Safety
+///
+/// This function assumes inputs are a slice of FcmpPpProveMembershipInputSliceUnsafe, allocated via the FFI.
+/// It also assumes fcmp_proof_out was allocated with size proof_len. proof_len should be the size of a
+/// membership proof for the given number if inputs and tree layers.
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveMembershipInputSlice,
+pub unsafe extern "C" fn fcmp_pp_prove_membership(
+    inputs: FcmpPpProveMembershipInputSlice,
     n_tree_layers: usize,
     proof_len: usize,
     fcmp_proof_out: *mut u8,
-    fcmp_proof_out_len: *mut usize
+    fcmp_proof_out_len: *mut usize,
 ) -> c_int {
     let inputs: &[*const FcmpPpProveMembershipInput] = inputs.into();
     let capacity = fcmp_proof_out_len.read();
-    debug_assert_eq!(proof_len, _slow_membership_proof_size(inputs.len(), n_tree_layers));
+    debug_assert_eq!(
+        proof_len,
+        _slow_membership_proof_size(inputs.len(), n_tree_layers)
+    );
     if capacity < proof_len {
         return -1;
     }
@@ -906,9 +918,9 @@ pub unsafe extern "C" fn fcmp_pp_prove_membership(inputs: FcmpPpProveMembershipI
     match prove_membership_native(inputs, n_tree_layers) {
         Some(fcmp) => match fcmp.write(&mut buf_out) {
             Ok(_) => 0,
-            Err(_) => -2
+            Err(_) => -2,
         },
-        None => -3
+        None => -3,
     }
 }
 
@@ -923,8 +935,7 @@ pub extern "C" fn _slow_fcmp_pp_proof_size(n_inputs: usize, n_tree_layers: usize
     FcmpPlusPlus::proof_size(n_inputs, n_tree_layers)
 }
 
-pub struct FcmpPpVerifyInput
-{
+pub struct FcmpPpVerifyInput {
     fcmp_pp: FcmpPlusPlus,
     tree_root: TreeRoot<Selene, Helios>,
     n_tree_layers: usize,
@@ -961,7 +972,9 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     }
     debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
-    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else { return -4 };
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
+        return -4;
+    };
 
     let mut proof: &[u8] = unsafe { core::slice::from_raw_parts(proof, proof_len) };
 
@@ -982,13 +995,15 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
         return -5;
     };
 
-    let tree_root: TreeRoot<Selene, Helios> = unsafe { (*tree_root).clone() };
+    let tree_root: TreeRoot<Selene, Helios> = unsafe { *tree_root };
 
     // Collect de-compressed key images into a Vec
     let key_images_slice: &[*const u8] = key_images.into();
     let mut key_images = Vec::with_capacity(key_images_slice.len());
     for compressed_ki in key_images_slice {
-        let Ok(key_image) = ed25519_point_from_bytes(compressed_ki.clone()) else { return -6 };
+        let Ok(key_image) = ed25519_point_from_bytes(*compressed_ki) else {
+            return -6;
+        };
         key_images.push(key_image);
     }
 
@@ -1011,24 +1026,38 @@ destroy_fn!(destroy_fcmp_pp_verify_input, FcmpPpVerifyInput);
 /// This function assumes that the signable tx hash is 32 bytes, the input is heap
 /// allocated via a CResult, key_image is 32 bytes, and sal_proof is FCMP_PP_SAL_PROOF_SIZE_V1 bytes
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_verify_sal(signable_tx_hash: *const u8,
+pub unsafe extern "C" fn fcmp_pp_verify_sal(
+    signable_tx_hash: *const u8,
     input_bytes: *const u8,
     key_image: *const u8,
-    sal_proof: *const u8
+    sal_proof: *const u8,
 ) -> bool {
-    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else { return false };
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
+        return false;
+    };
     let input_bytes = core::slice::from_raw_parts(input_bytes, 4 * 32);
     let Ok(input) = input_from_bytes(input_bytes) else {
         return false;
     };
-    let Ok(key_image) = ed25519_point_from_bytes(key_image) else { return false; };
-    let Ok(sal_proof) = SpendAuthAndLinkability::read(&mut core::slice::from_raw_parts(sal_proof, 12*32)) else { // @TODO: remove magic number
+    let Ok(key_image) = ed25519_point_from_bytes(key_image) else {
+        return false;
+    };
+    let Ok(sal_proof) =
+        SpendAuthAndLinkability::read(&mut core::slice::from_raw_parts(sal_proof, 12 * 32))
+    else {
+        // @TODO: remove magic number
         return false;
     };
 
-    let mut ed_verifier = multiexp::BatchVerifier::new(/*capacity: */1);
+    let mut ed_verifier = multiexp::BatchVerifier::new(/*capacity: */ 1);
 
-    sal_proof.verify(&mut OsRng, &mut ed_verifier, signable_tx_hash, &input, key_image);
+    sal_proof.verify(
+        &mut OsRng,
+        &mut ed_verifier,
+        signable_tx_hash,
+        &input,
+        key_image,
+    );
 
     ed_verifier.verify_vartime()
 }
@@ -1038,44 +1067,47 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(signable_tx_hash: *const u8,
 /// This function assumes that each element of inputs is heap allocated via a
 /// CResult, [fcmp_proof, fcmp_proof+fcmp_proof_len) is a valid readable range
 #[no_mangle]
-pub unsafe extern "C" fn fcmp_pp_verify_membership(inputs: Slice<[u8; 4 * 32]>,
+pub unsafe extern "C" fn fcmp_pp_verify_membership(
+    inputs: Slice<[u8; 4 * 32]>,
     tree_root: *const TreeRoot<Selene, Helios>,
     n_tree_layers: usize,
     fcmp_proof: *const u8,
-    fcmp_proof_len: usize
+    fcmp_proof_len: usize,
 ) -> bool {
     let inputs: &[[u8; 4 * 32]] = inputs.into();
     let Ok(inputs) = inputs
         .iter()
-        .map(|i| { let i = input_from_bytes(&mut i.as_slice())?; fcmps::Input::new(i.O_tilde(), i.I_tilde(), i.R(), i.C_tilde())})
+        .map(|i| {
+            let i = input_from_bytes(i.as_slice())?;
+            fcmps::Input::new(i.O_tilde(), i.I_tilde(), i.R(), i.C_tilde())
+        })
         .collect::<Result<Vec<_>, _>>()
-        else { return false };
-
-    let tree_root = (*tree_root).clone();
+    else {
+        return false;
+    };
 
     let mut fcmp_proof_buf = core::slice::from_raw_parts(fcmp_proof, fcmp_proof_len);
     let fcmp = match Fcmp::read(&mut fcmp_proof_buf, inputs.len(), n_tree_layers) {
         Ok(p) => p,
-        Err(_) => return false
+        Err(_) => return false,
     };
 
     let mut c1_verifier = generalized_bulletproofs::Generators::batch_verifier();
     let mut c2_verifier = generalized_bulletproofs::Generators::batch_verifier();
 
-    match fcmp
-        .verify(
-            &mut OsRng,
-            &mut c1_verifier,
-            &mut c2_verifier,
-            FCMP_PARAMS(),
-            tree_root,
-            n_tree_layers,
-            &inputs
-        )
-    {
-        Ok(()) => SELENE_GENERATORS().verify(c1_verifier)
-            && HELIOS_GENERATORS().verify(c2_verifier),
-        Err(_) => false
+    match fcmp.verify(
+        &mut OsRng,
+        &mut c1_verifier,
+        &mut c2_verifier,
+        FCMP_PARAMS(),
+        *tree_root,
+        n_tree_layers,
+        &inputs,
+    ) {
+        Ok(()) => {
+            SELENE_GENERATORS().verify(c1_verifier) && HELIOS_GENERATORS().verify(c2_verifier)
+        }
+        Err(_) => false,
     }
 }
 
@@ -1100,9 +1132,9 @@ pub unsafe extern "C" fn fcmp_pp_verify(inputs: Slice<*const FcmpPpVerifyInput>)
             &mut ed_verifier,
             &mut c1_verifier,
             &mut c2_verifier,
-            fcmp_pp_verify_input.tree_root.clone(),
+            fcmp_pp_verify_input.tree_root,
             fcmp_pp_verify_input.n_tree_layers,
-            fcmp_pp_verify_input.signable_tx_hash.clone(),
+            fcmp_pp_verify_input.signable_tx_hash,
             fcmp_pp_verify_input.key_images.clone(),
         ) else {
             return false;
