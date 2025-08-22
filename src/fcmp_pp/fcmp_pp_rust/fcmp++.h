@@ -198,15 +198,15 @@ void helios_point_to_bytes(const struct HeliosPoint *helios_point, uint8_t bytes
 
 void selene_point_to_bytes(const struct SelenePoint *selene_point, uint8_t bytes_out[32]);
 
-struct HeliosPoint helios_point_from_bytes(const uint8_t *helios_point_bytes);
+int helios_point_from_bytes(const uint8_t *helios_point_bytes, struct HeliosPoint *helios_point_out);
 
-struct SelenePoint selene_point_from_bytes(const uint8_t *selene_point_bytes);
+int selene_point_from_bytes(const uint8_t *selene_point_bytes, struct SelenePoint *selene_point_out);
 
-struct SeleneScalar selene_scalar_from_bytes(const uint8_t *selene_scalar_bytes);
+int selene_scalar_from_bytes(const uint8_t *selene_scalar_bytes, struct SeleneScalar *selene_scalar_out);
 
-struct HeliosScalar selene_point_to_helios_scalar(struct SelenePoint selene_point);
+int selene_point_to_helios_scalar(struct SelenePoint selene_point, struct HeliosScalar *helios_scalar_out);
 
-struct SeleneScalar helios_point_to_selene_scalar(struct HeliosPoint helios_point);
+int helios_point_to_selene_scalar(struct HeliosPoint helios_point, struct SeleneScalar *selene_scalar_out);
 
 struct HeliosScalar helios_zero_scalar(void);
 

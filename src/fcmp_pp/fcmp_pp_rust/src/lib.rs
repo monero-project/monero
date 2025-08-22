@@ -31,8 +31,6 @@ use monero_generators::{FCMP_U, FCMP_V, T};
 use std::os::raw::c_int;
 
 // TODO: Use a macro to de-duplicate some of of this code
-// TODO: Don't unwrap anywhere
-// TODO: repalce asserts with error returns where reasonable
 
 //-------------------------------------------------------------------------------------- Curve points
 
@@ -96,18 +94,40 @@ pub unsafe extern "C" fn selene_point_to_bytes(selene_point: *const SelenePoint,
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn helios_point_from_bytes(helios_point: *const u8) -> HeliosPoint {
+pub unsafe extern "C" fn helios_point_from_bytes(
+    helios_point: *const u8,
+    helios_point_out: *mut HeliosPoint,
+) -> c_int {
+    if helios_point_out.is_null() {
+        return -1;
+    }
     let mut helios_point = unsafe { core::slice::from_raw_parts(helios_point, 32) };
-    // TODO: Return an error here (instead of unwrapping)
-    <Helios>::read_G(&mut helios_point).unwrap()
+    match <Helios>::read_G(&mut helios_point) {
+        Ok(point) => {
+            *helios_point_out = point;
+            0
+        }
+        Err(_) => -2
+    }
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn selene_point_from_bytes(selene_point: *const u8) -> SelenePoint {
+pub unsafe extern "C" fn selene_point_from_bytes(
+    selene_point: *const u8,
+    selene_point_out: *mut SelenePoint,
+) -> c_int {
+    if selene_point_out.is_null() {
+        return -1;
+    }
     let mut selene_point = unsafe { core::slice::from_raw_parts(selene_point, 32) };
-    // TODO: Return an error here (instead of unwrapping)
-    <Selene>::read_G(&mut selene_point).unwrap()
+    match <Selene>::read_G(&mut selene_point) {
+        Ok(point) => {
+            *selene_point_out = point;
+            0
+        }
+        Err(_) => -2
+    }
 }
 
 // Undefined behavior occurs when the data pointer passed to core::slice::from_raw_parts is null,
@@ -120,20 +140,20 @@ const unsafe fn slice_from_raw_parts_0able<'a, T>(p: *const T, len: usize) -> &'
     }
 }
 
-// TODO: deprecate in favor of EdwardsPoint::from_bytes with slices
 fn ed25519_point_from_bytes(ed25519_point: *const u8) -> std::io::Result<EdwardsPoint> {
     let mut ed25519_point = unsafe { core::slice::from_raw_parts(ed25519_point, 32) };
     <Ed25519>::read_G(&mut ed25519_point)
 }
 
-fn ed25519_scalar_from_bytes(ed25519_scalar: *const u8) -> Scalar {
+fn ed25519_scalar_from_bytes(ed25519_scalar: *const u8) -> std::io::Result<Scalar> {
     let mut ed25519_scalar = unsafe { core::slice::from_raw_parts(ed25519_scalar, 32) };
-    // TODO: Return an error here (instead of unwrapping)
-    <Ed25519>::read_F(&mut ed25519_scalar).unwrap()
+    <Ed25519>::read_F(&mut ed25519_scalar)
 }
 
-fn hash_array_from_bytes(h: *const u8) -> [u8; 32] {
-    unsafe { core::slice::from_raw_parts(h, 32) }.try_into().unwrap()
+fn hash_array_from_bytes(
+    h: *const u8,
+) -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
+    unsafe { core::slice::from_raw_parts(h, 32) }.try_into()
 }
 
 // @TODO: this is horrible :(, expose direct read/write for Input in the fcmp-plus-plus crate
@@ -149,26 +169,51 @@ fn input_from_bytes(input_bytes: &[u8]) -> std::io::Result<Input> {
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 #[no_mangle]
-pub extern "C" fn selene_scalar_from_bytes(selene_scalar: *const u8) -> SeleneScalar {
+pub unsafe extern "C" fn selene_scalar_from_bytes(
+    selene_scalar: *const u8,
+    selene_scalar_out: *mut SeleneScalar,
+) -> c_int {
+    if selene_scalar_out.is_null() {
+        return -1;
+    }
     let mut selene_scalar = unsafe { core::slice::from_raw_parts(selene_scalar, 32) };
-    // TODO: Return an error here (instead of unwrapping)
-    <Selene>::read_F(&mut selene_scalar).unwrap()
+    match <Selene>::read_F(&mut selene_scalar) {
+        Ok(scalar) => {
+            *selene_scalar_out = scalar;
+            0
+        }
+        Err(_) => -2
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn selene_point_to_helios_scalar(selene_point: SelenePoint) -> HeliosScalar {
-    let xy_coords = SelenePoint::to_xy(selene_point);
-    // TODO: Return an error here (instead of unwrapping)
-    let x: HeliosScalar = xy_coords.unwrap().0;
-    x
+pub unsafe extern "C" fn selene_point_to_helios_scalar(
+    selene_point: SelenePoint,
+    helios_scalar_out: *mut HeliosScalar,
+) -> c_int {
+    if helios_scalar_out.is_null() {
+        return -1;
+    }
+    let Some(xy_coords) = SelenePoint::to_xy(selene_point) else {
+        return -2;
+    };
+    *helios_scalar_out = xy_coords.0;
+    0
 }
 
 #[no_mangle]
-pub extern "C" fn helios_point_to_selene_scalar(helios_point: HeliosPoint) -> SeleneScalar {
-    let xy_coords = HeliosPoint::to_xy(helios_point);
-    // TODO: Return an error here (instead of unwrapping)
-    let x: SeleneScalar = xy_coords.unwrap().0;
-    x
+pub unsafe extern "C" fn helios_point_to_selene_scalar(
+    helios_point: HeliosPoint,
+    selene_scalar_out: *mut SeleneScalar,
+) -> c_int {
+    if selene_scalar_out.is_null() {
+        return -1;
+    }
+    let Some(xy_coords) = HeliosPoint::to_xy(helios_point) else {
+        return -2;
+    };
+    *selene_scalar_out = xy_coords.0;
+    0
 }
 
 #[no_mangle]
@@ -729,11 +774,17 @@ unsafe fn prove_membership_native(inputs: &[*const FcmpPpProveMembershipInput], 
 
     let branches = Branches::new(paths)?;
 
-    assert_eq!(branches.necessary_c1_blinds(), c1_branch_blinds.len());
-    assert_eq!(branches.necessary_c2_blinds(), c2_branch_blinds.len());
+    if branches.necessary_c1_blinds() != c1_branch_blinds.len() {
+        return None;
+    }
+    if branches.necessary_c2_blinds() != c2_branch_blinds.len() {
+        return None;
+    }
 
     let n_branch_blinds = (c1_branch_blinds.len() + c2_branch_blinds.len()) / inputs.len();
-    assert_eq!(n_tree_layers, n_branch_blinds + 1);
+    if n_tree_layers != n_branch_blinds + 1 {
+        return None;
+    }
 
     let blinded_branches = branches
         .blind(output_blinds, c1_branch_blinds, c2_branch_blinds)
@@ -802,29 +853,33 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(signable_tx_hash: *const u8,
     sal_proof_out: *mut u8,
     key_image_out: *mut u8
 ) -> c_int {
-    let signable_tx_hash = hash_array_from_bytes(signable_tx_hash);
-
-    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
-    let Ok(rerandomized_output) = RerandomizedOutput::read(&mut rerandomized_output_bytes) else {
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
         return -1;
     };
 
-    let Some(opening) = OpenedInputTuple::open(rerandomized_output,
-        &ed25519_scalar_from_bytes(x),
-        &ed25519_scalar_from_bytes(y)
-    ) else {
+    let mut rerandomized_output_bytes = core::slice::from_raw_parts(rerandomized_output_bytes, 8 * 32);
+    let Ok(rerandomized_output) = RerandomizedOutput::read(&mut rerandomized_output_bytes) else {
         return -2;
     };
 
-    let (key_image, proof) = SpendAuthAndLinkability::prove(&mut OsRng,
-        signable_tx_hash,
-        opening);
+    let Ok(x) = ed25519_scalar_from_bytes(x) else {
+        return -3;
+    };
+    let Ok(y) = ed25519_scalar_from_bytes(y) else {
+        return -4;
+    };
+
+    let Some(opening) = OpenedInputTuple::open(rerandomized_output, &x, &y) else {
+        return -5;
+    };
+
+    let (key_image, proof) = SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
 
     let sal_proof_out = &mut core::slice::from_raw_parts_mut(sal_proof_out, 12*32); // @TODO: remove magic number
     let key_image_out = &mut core::slice::from_raw_parts_mut(key_image_out, 32);
 
     if let Err(_) = proof.write(sal_proof_out) {
-        return -3;
+        return -6;
     }
 
     key_image_out.copy_from_slice(&key_image.to_bytes());
@@ -906,8 +961,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     }
     debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
-    let signable_tx_hash = unsafe { core::slice::from_raw_parts(signable_tx_hash, 32) };
-    let signable_tx_hash: [u8; 32] = signable_tx_hash.try_into().unwrap();
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else { return -4 };
 
     let mut proof: &[u8] = unsafe { core::slice::from_raw_parts(proof, proof_len) };
 
@@ -925,7 +979,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
 
     // Read the FCMP++ proof
     let Ok(fcmp_plus_plus) = FcmpPlusPlus::read(&pseudo_outs, n_tree_layers, &mut proof) else {
-        return -4;
+        return -5;
     };
 
     let tree_root: TreeRoot<Selene, Helios> = unsafe { (*tree_root).clone() };
@@ -934,7 +988,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     let key_images_slice: &[*const u8] = key_images.into();
     let mut key_images = Vec::with_capacity(key_images_slice.len());
     for compressed_ki in key_images_slice {
-        let Ok(key_image) = ed25519_point_from_bytes(compressed_ki.clone()) else { return -5 };
+        let Ok(key_image) = ed25519_point_from_bytes(compressed_ki.clone()) else { return -6 };
         key_images.push(key_image);
     }
 
@@ -962,7 +1016,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(signable_tx_hash: *const u8,
     key_image: *const u8,
     sal_proof: *const u8
 ) -> bool {
-    let signable_tx_hash = hash_array_from_bytes(signable_tx_hash);
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else { return false };
     let input_bytes = core::slice::from_raw_parts(input_bytes, 4 * 32);
     let Ok(input) = input_from_bytes(input_bytes) else {
         return false;

@@ -36,6 +36,9 @@ namespace tower_cycle
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+#define CHECK_FFI_RES \
+    CHECK_AND_ASSERT_THROW_MES(r == 0, __func__ << " failed with error code " << r);
+//----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_init_point() const
 {
     return ::selene_hash_init_point();
@@ -48,12 +51,18 @@ Helios::Point Helios::hash_init_point() const
 //----------------------------------------------------------------------------------------------------------------------
 Selene::CycleScalar Selene::point_to_cycle_scalar(const Selene::Point &point) const
 {
-    return ::selene_point_to_helios_scalar(point);
+    Selene::CycleScalar helios_scalar;
+    int r = ::selene_point_to_helios_scalar(point, &helios_scalar);
+    CHECK_FFI_RES;
+    return helios_scalar;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::CycleScalar Helios::point_to_cycle_scalar(const Helios::Point &point) const
 {
-    return ::helios_point_to_selene_scalar(point);
+    Helios::CycleScalar selene_scalar;
+    int r = ::helios_point_to_selene_scalar(point, &selene_scalar);
+    CHECK_FFI_RES;
+    return selene_scalar;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::hash_grow(
@@ -63,13 +72,13 @@ Selene::Point Selene::hash_grow(
     const Selene::Chunk &new_children) const
 {
     Selene::Point hash;
-    int res = ::hash_grow_selene(
+    int r = ::hash_grow_selene(
         existing_hash,
         offset,
         existing_child_at_offset,
         new_children,
         &hash);
-    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow selene with error code " << res);
+    CHECK_FFI_RES;
     return hash;
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -80,13 +89,13 @@ Helios::Point Helios::hash_grow(
     const Helios::Chunk &new_children) const
 {
     Helios::Point hash;
-    int res = ::hash_grow_helios(
+    int r = ::hash_grow_helios(
         existing_hash,
         offset,
         existing_child_at_offset,
         new_children,
         &hash);
-    CHECK_AND_ASSERT_THROW_MES(res == 0, "Failed to hash grow helios with error code " << res);
+    CHECK_FFI_RES;
     return hash;
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -130,12 +139,18 @@ crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
 //----------------------------------------------------------------------------------------------------------------------
 Selene::Point Selene::from_bytes(const crypto::ec_point &bytes) const
 {
-    return ::selene_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
+    Selene::Point selene_point;
+    int r = ::selene_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes), &selene_point);
+    CHECK_FFI_RES;
+    return selene_point;
 }
 //----------------------------------------------------------------------------------------------------------------------
 Helios::Point Helios::from_bytes(const crypto::ec_point &bytes) const
 {
-    return ::helios_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes));
+    Helios::Point helios_point;
+    int r = ::helios_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes), &helios_point);
+    CHECK_FFI_RES;
+    return helios_point;
 }
 //----------------------------------------------------------------------------------------------------------------------
 std::string Selene::to_string(const typename Selene::Scalar &scalar) const
@@ -163,7 +178,10 @@ std::string Helios::to_string(const typename Helios::Point &point) const
 //----------------------------------------------------------------------------------------------------------------------
 SeleneScalar selene_scalar_from_bytes(const rct::key &scalar)
 {
-    return ::selene_scalar_from_bytes(scalar.bytes);
+    SeleneScalar selene_scalar;
+    int r = ::selene_scalar_from_bytes(scalar.bytes, &selene_scalar);
+    CHECK_FFI_RES;
+    return selene_scalar;
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C>
