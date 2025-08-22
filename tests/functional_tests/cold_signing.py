@@ -102,10 +102,8 @@ class ColdSigningTest():
             res = self.hot_wallet.incoming_transfers()
             num_outputs = len(res.transfers)
             done = [False] * num_outputs
-            while len([x for x in done if not done[x]]) > 0:
-                start = int(random.random() * num_outputs)
-                if start == num_outputs:
-                    num_outputs -= 1
+            while len([x for x in done if not x]) > 0:
+                start = random.choice([i for i in range(len(done)) if not done[i]]) # start at a random undone output
                 count = 1 + int(random.random() * 5)
                 res = self.hot_wallet.export_outputs(all = True, start = start, count = count)
 
