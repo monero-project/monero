@@ -5,11 +5,12 @@ use ciphersuite::{
         ff::{Field, PrimeField},
         Group, GroupEncoding,
     },
-    Ciphersuite, Ed25519, Helios, Selene,
+    Ciphersuite, Ed25519,
 };
 use dalek_ff_group::{EdwardsPoint, Scalar};
 use helioselene::{
-    Field25519 as SeleneScalar, HeliosPoint, HelioseleneField as HeliosScalar, SelenePoint,
+    Field25519 as SeleneScalar, Helios, HeliosPoint, HelioseleneField as HeliosScalar, Selene,
+    SelenePoint,
 };
 
 use ec_divisors::{DivisorCurve, ScalarDecomposition};
@@ -22,11 +23,12 @@ use monero_fcmp_plus_plus::{
         TreeRoot,
     },
     sal::{OpenedInputTuple, RerandomizedOutput, SpendAuthAndLinkability},
-    Curves, FcmpPlusPlus, Input, Output, FCMP_PARAMS, HELIOS_GENERATORS, HELIOS_HASH_INIT,
-    SELENE_GENERATORS, SELENE_HASH_INIT,
+    Curves, FcmpPlusPlus, Input, Output, FCMP_PARAMS, HELIOS_FCMP_GENERATORS,
+    SELENE_FCMP_GENERATORS,
 };
-
-use monero_generators::{FCMP_U, FCMP_V, T};
+use monero_generators::{
+    FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT, T,
+};
 
 use std::os::raw::c_int;
 
@@ -34,12 +36,12 @@ use std::os::raw::c_int;
 
 #[no_mangle]
 pub extern "C" fn helios_hash_init_point() -> HeliosPoint {
-    HELIOS_HASH_INIT()
+    *HELIOS_HASH_INIT
 }
 
 #[no_mangle]
 pub extern "C" fn selene_hash_init_point() -> SelenePoint {
-    SELENE_HASH_INIT()
+    *SELENE_HASH_INIT
 }
 
 fn new_box_raw<T>(obj: T) -> *mut T {
@@ -267,7 +269,7 @@ pub unsafe extern "C" fn hash_grow_helios(
     }
 
     let hash = hash_grow(
-        HELIOS_GENERATORS(),
+        &HELIOS_FCMP_GENERATORS.generators,
         existing_hash,
         offset,
         existing_child_at_offset,
@@ -298,7 +300,7 @@ pub unsafe extern "C" fn hash_grow_selene(
     }
 
     let hash = hash_grow(
-        SELENE_GENERATORS(),
+        &SELENE_FCMP_GENERATORS.generators,
         existing_hash,
         offset,
         existing_child_at_offset,
@@ -487,7 +489,7 @@ pub unsafe extern "C" fn blind_o_blind(
         return -2;
     };
 
-    let blinded_o_blind = OBlind::new(EdwardsPoint(T()), scalar_decomp);
+    let blinded_o_blind = OBlind::new(EdwardsPoint(*T), scalar_decomp);
     *blinded_o_blind_out = new_box_raw(blinded_o_blind);
     0
 }
@@ -582,8 +584,8 @@ pub unsafe extern "C" fn blind_i_blind(
     };
 
     let blinded_i_blind = IBlind::new(
-        EdwardsPoint(FCMP_U()),
-        EdwardsPoint(FCMP_V()),
+        EdwardsPoint(*FCMP_PLUS_PLUS_U),
+        EdwardsPoint(*FCMP_PLUS_PLUS_V),
         scalar_decomp,
     );
     *blinded_i_blind_out = new_box_raw(blinded_i_blind);
@@ -632,7 +634,7 @@ pub unsafe extern "C" fn blind_i_blind_blind(
         return -2;
     };
 
-    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(T()), scalar_decomp);
+    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(*T), scalar_decomp);
     *blinded_i_blind_blind_out = new_box_raw(blinded_i_blind_blind);
     0
 }
@@ -692,8 +694,10 @@ pub unsafe extern "C" fn generate_helios_branch_blind(
         return -2;
     };
 
-    let branch_blind =
-        BranchBlind::<<Helios as Ciphersuite>::G>::new(HELIOS_GENERATORS().h(), scalar_decomp);
+    let branch_blind = BranchBlind::<<Helios as Ciphersuite>::G>::new(
+        HELIOS_FCMP_GENERATORS.generators.h(),
+        scalar_decomp,
+    );
     *branch_blind_out = new_box_raw(branch_blind);
     0
 }
@@ -718,8 +722,10 @@ pub unsafe extern "C" fn generate_selene_branch_blind(
         return -2;
     };
 
-    let branch_blind =
-        BranchBlind::<<Selene as Ciphersuite>::G>::new(SELENE_GENERATORS().h(), scalar_decomp);
+    let branch_blind = BranchBlind::<<Selene as Ciphersuite>::G>::new(
+        SELENE_FCMP_GENERATORS.generators.h(),
+        scalar_decomp,
+    );
     *branch_blind_out = new_box_raw(branch_blind);
     0
 }
@@ -791,7 +797,7 @@ unsafe fn prove_membership_native(
         .blind(output_blinds, c1_branch_blinds, c2_branch_blinds)
         .ok()?;
 
-    Fcmp::prove(&mut OsRng, FCMP_PARAMS(), blinded_branches).ok()
+    Fcmp::prove(&mut OsRng, &*FCMP_PARAMS, blinded_branches).ok()
 }
 
 /// # Safety
@@ -872,11 +878,11 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(
         return -4;
     };
 
-    let Some(opening) = OpenedInputTuple::open(rerandomized_output, &x, &y) else {
+    let Some(opening) = OpenedInputTuple::open(&rerandomized_output, &x, &y) else {
         return -5;
     };
 
-    let (key_image, proof) = SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, opening);
+    let (key_image, proof) = SpendAuthAndLinkability::prove(&mut OsRng, signable_tx_hash, &opening);
 
     let sal_proof_out = &mut core::slice::from_raw_parts_mut(sal_proof_out, 12 * 32); // @TODO: remove magic number
     let key_image_out = &mut core::slice::from_raw_parts_mut(key_image_out, 32);
@@ -1093,13 +1099,14 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(
         &mut OsRng,
         &mut c1_verifier,
         &mut c2_verifier,
-        FCMP_PARAMS(),
+        &*FCMP_PARAMS,
         *tree_root,
         n_tree_layers,
         &inputs,
     ) {
         Ok(()) => {
-            SELENE_GENERATORS().verify(c1_verifier) && HELIOS_GENERATORS().verify(c2_verifier)
+            SELENE_FCMP_GENERATORS.generators.verify(c1_verifier)
+                && HELIOS_FCMP_GENERATORS.generators.verify(c2_verifier)
         }
         Err(_) => false,
     }
@@ -1137,8 +1144,8 @@ pub unsafe extern "C" fn fcmp_pp_verify(inputs: Slice<*const FcmpPpVerifyInput>)
 
     // TODO: consider multithreading
     ed_verifier.verify_vartime()
-        && SELENE_GENERATORS().verify(c1_verifier)
-        && HELIOS_GENERATORS().verify(c2_verifier)
+        && SELENE_FCMP_GENERATORS.generators.verify(c1_verifier)
+        && HELIOS_FCMP_GENERATORS.generators.verify(c2_verifier)
 }
 
 // https://github.com/rust-lang/rust/issues/79609

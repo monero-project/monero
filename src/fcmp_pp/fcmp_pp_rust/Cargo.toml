@@ -8,27 +8,19 @@ name = "fcmp_pp_rust"
 crate-type = ["staticlib"]
 
 [dependencies]
-
-# TODO: replace j-berman with kayabaNerve once one of https://github.com/kayabaNerve/fcmp-plus-plus/pull/21
-# or https://github.com/kayabaNerve/fcmp-plus-plus/pull/24 is merged
-
-std-shims = { git = "https://github.com/j-berman/fcmp-plus-plus" }
 rand_core = { version = "0.6", default-features = false }
 
-helioselene = { git = "https://github.com/j-berman/fcmp-plus-plus" }
-dalek-ff-group = { git = "https://github.com/j-berman/fcmp-plus-plus" }
-ciphersuite = { git = "https://github.com/j-berman/fcmp-plus-plus", features = ["ed25519", "helioselene"] }
+multiexp = "0.4"
+ciphersuite = { version = "0.4.2", features = ["ed25519"] }
+dalek-ff-group = "0.4.4"
+helioselene = { git = "https://github.com/kayabaNerve/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed" }
 
-generalized-bulletproofs = { git = "https://github.com/j-berman/fcmp-plus-plus", features = ["tests"] }
+generalized-bulletproofs = { git = "https://github.com/kayabaNerve/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed" }
+ec-divisors = { git = "https://github.com/kayabaNerve/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed", features = ["ed25519"] }
+full-chain-membership-proofs = { git = "https://github.com/kayabaNerve/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed" }
 
-ec-divisors = { git = "https://github.com/j-berman/fcmp-plus-plus", features = ["ed25519"] }
-full-chain-membership-proofs = { git = "https://github.com/j-berman/fcmp-plus-plus" }
-
-monero-fcmp-plus-plus = { git = "https://github.com/j-berman/fcmp-plus-plus" }
-
-monero-generators = { git = "https://github.com/j-berman/fcmp-plus-plus" }
-
-multiexp = { git = "https://github.com/j-berman/fcmp-plus-plus" }
+monero-generators = { git = "https://github.com/kayabaNerve/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed" }
+monero-fcmp-plus-plus = { git = "https://github.com/kayabaNerve/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed" }
 
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }
@@ -36,7 +28,9 @@ crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch =
 [profile.dev]
 lto = "off"
 panic = "abort"
+overflow-checks = true
 
 [profile.release]
 lto = "off"
 panic = "abort"
+overflow-checks = true
