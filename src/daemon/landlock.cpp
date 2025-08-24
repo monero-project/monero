@@ -35,6 +35,19 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon.landlock"
 
+// Detect whether we can compile Landlock support.
+#if defined(__has_include)
+#  if __has_include(<linux/landlock.h>)
+#    define MONERO_HAVE_LANDLOCK 1
+#  else
+#    define MONERO_HAVE_LANDLOCK 0
+#  endif
+#else
+#  define MONERO_HAVE_LANDLOCK 0
+#endif
+
+#if MONERO_HAVE_LANDLOCK
+
 // ---------- Standard library ----------
 #include <algorithm>
 #include <cstddef>
@@ -595,4 +608,23 @@ void enable_landlock_sandbox(const path& data_dir, const path& log_file_path, bo
 
 } // namespace landlock_integration
 
+#else // !MONERO_HAVE_LANDLOCK
+
+// ---------- Minimal stub when Landlock is unavailable at build time ----------
+
+#include <boost/filesystem.hpp>
+using boost::filesystem::path;
+
+namespace landlock_integration
+{
+
+void enable_landlock_sandbox(const path&, const path&, bool)
+{
+  MERROR("Landlock sandbox not enabled: built without Landlock headers");
+  std::exit(EXIT_FAILURE);
+}
+
+} // namespace landlock_integration
+
+#endif // MONERO_HAVE_LANDLOCK
 #endif // __linux__
