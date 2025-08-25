@@ -45,10 +45,15 @@
 #include "span.h"
 #include "hash.h"
 
+  extern "C" {
+#include "crypto-ops.h"
+  }
+
 namespace crypto {
 
   extern "C" {
 #include "random.h"
+#include "crypto-ops.h"
   }
 
 #pragma pack(push, 1)
@@ -143,6 +148,9 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
     static void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
     friend void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
+
+    public:
+      static void unbiased_hash_to_ec(const unsigned char *, const size_t, ge_p3 &);
   };
 
   void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes);

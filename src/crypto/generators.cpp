@@ -70,14 +70,14 @@ constexpr public_key G = bytes_to<public_key>({ 0x58, 0x66, 0x66, 0x66, 0x66, 0x
 constexpr public_key H = bytes_to<public_key>({ 0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1,
     0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94 });
 //FCMP++ generator T: keccak_to_pt(keccak("Monero Generator T"))
-constexpr public_key T = bytes_to<public_key>({ 0x96, 0x6f, 0xc6, 0x6b, 0x82, 0xcd, 0x56, 0xcf, 0x85, 0xea, 0xec, 0x80, 0x1c,
-    0x42, 0x84, 0x5f, 0x5f, 0x40, 0x88, 0x78, 0xd1, 0x56, 0x1e, 0x00, 0xd3, 0xd7, 0xde, 0xd2, 0x79, 0x4d, 0x09, 0x4f });
+constexpr public_key T = bytes_to<public_key>({ 97, 183, 54, 206, 147, 182, 42, 61, 55, 120, 171, 32, 77, 168, 93, 59, 76,
+  220, 7, 37, 15, 93, 167, 227, 223, 38, 41, 146, 129, 52, 213, 38 });
 //FCMP++ generator U: keccak_to_pt(keccak("Monero FCMP++ Generator U"))
-constexpr public_key U = bytes_to<public_key>({ 0x09, 0x75, 0x9c, 0x17, 0xc9, 0x07, 0xf7, 0x16, 0xa2, 0x0b, 0x1a, 0xec, 0x5c,
-    0xc3, 0xaf, 0xfd, 0xe7, 0xf3, 0xa1, 0xb9, 0x14, 0x6b, 0x5a, 0xf2, 0x8c, 0xb7, 0xaf, 0x0a, 0xf4, 0x7a, 0x00, 0x66 });
+constexpr public_key U = bytes_to<public_key>({ 80, 107, 35, 246, 214, 229, 48, 153, 122, 188, 172, 198, 253, 52, 119, 52,
+  177, 76, 43, 215, 155, 234, 0, 238, 176, 72, 87, 232, 234, 221, 26, 138 });
 //FCMP++ generator V: keccak_to_pt(keccak("Monero FCMP++ Generator V"))
-constexpr public_key V = bytes_to<public_key>({ 0x32, 0xb4, 0xd2, 0x9f, 0x2a, 0x80, 0x55, 0x69, 0xd9, 0x59, 0xd2, 0x44, 0x96,
-    0xed, 0x41, 0x1e, 0x87, 0x91, 0x26, 0xd8, 0xf5, 0x2c, 0x1e, 0xcd, 0x86, 0x4d, 0xb9, 0x02, 0xb5, 0x81, 0x33, 0xe0 });
+constexpr public_key V = bytes_to<public_key>({ 105, 53, 244, 19, 248, 49, 9, 19, 138, 122, 20, 180, 9, 85, 45, 59, 118,
+  216, 143, 202, 129, 187, 89, 39, 233, 161, 225, 48, 205, 254, 41, 249 });
 static ge_p3 G_p3;
 static ge_p3 H_p3;
 static ge_p3 T_p3;
@@ -93,19 +93,12 @@ static ge_cached V_cached;
 static std::once_flag init_gens_once_flag;
 
 //-------------------------------------------------------------------------------------------------------------------
-// hash-to-point: H_p(x) = 8*point_from_bytes(keccak(x))
+// hash-to-point: H_p(x) = unbiased_hash_to_ec(x)
 //-------------------------------------------------------------------------------------------------------------------
-static void hash_to_point(const hash &x, crypto::ec_point &point_out)
+static void hash_to_point(const std::string_view &x, crypto::ec_point &point_out)
 {
-    hash h;
     ge_p3 temp_p3;
-    ge_p2 temp_p2;
-    ge_p1p1 temp_p1p1;
-
-    cn_fast_hash(reinterpret_cast<const unsigned char*>(&x), sizeof(hash), h);
-    ge_fromfe_frombytes_vartime(&temp_p2, reinterpret_cast<const unsigned char*>(&h));
-    ge_mul8(&temp_p1p1, &temp_p2);
-    ge_p1p1_to_p3(&temp_p3, &temp_p1p1);
+    crypto::crypto_ops::unbiased_hash_to_ec((const unsigned char *) x.data(), x.size(), temp_p3);
     ge_p3_tobytes(to_bytes(point_out), &temp_p3);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -157,9 +150,8 @@ static public_key reproduce_generator_T()
 {
     // T = H_p(keccak("Monero Generator T"))
     const std::string_view T_seed{"Monero Generator T"};
-    const hash T_temp_hash{cn_fast_hash(T_seed.data(), T_seed.size())};
     public_key reproduced_T;
-    hash_to_point(T_temp_hash, reproduced_T);
+    hash_to_point(T_seed, reproduced_T);
 
     return reproduced_T;
 }
@@ -169,9 +161,8 @@ static public_key reproduce_generator_U()
 {
     // U = H_p(keccak("Monero FCMP++ Generator U"))
     const std::string_view U_seed{"Monero FCMP++ Generator U"};
-    const hash U_temp_hash{cn_fast_hash(U_seed.data(), U_seed.size())};
     public_key reproduced_U;
-    hash_to_point(U_temp_hash, reproduced_U);
+    hash_to_point(U_seed, reproduced_U);
 
     return reproduced_U;
 }
@@ -181,9 +172,8 @@ static public_key reproduce_generator_V()
 {
     // V = H_p(keccak("Monero FCMP++ Generator V"))
     const std::string_view V_seed{"Monero FCMP++ Generator V"};
-    const hash V_temp_hash{cn_fast_hash(V_seed.data(), V_seed.size())};
     public_key reproduced_V;
-    hash_to_point(V_temp_hash, reproduced_V);
+    hash_to_point(V_seed, reproduced_V);
 
     return reproduced_V;
 }
@@ -198,9 +188,9 @@ static void init_gens()
         // sanity check the generators
         static_assert(static_cast<unsigned char>(G.data[0]) == 0x58, "compile-time constant sanity check");
         static_assert(static_cast<unsigned char>(H.data[0]) == 0x8b, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(T.data[0]) == 0x96, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(U.data[0]) == 0x09, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(V.data[0]) == 0x32, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(T.data[0]) == 97, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(U.data[0]) == 80, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(V.data[0]) == 105, "compile-time constant sanity check");
 
         // build ge_p3 representations of generators
         const int G_deserialize = ge_frombytes_vartime(&G_p3, to_bytes(G));
