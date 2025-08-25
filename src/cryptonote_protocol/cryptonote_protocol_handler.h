@@ -36,6 +36,7 @@
 
 #include <boost/program_options/variables_map.hpp>
 #include <string>
+#include <thread>
 
 #include "byte_slice.h"
 #include "math_helper.h"
@@ -49,7 +50,12 @@
 #include "cryptonote_basic/connection_context.h"
 #include "net/levin_base.h"
 #include "p2p/net_node_common.h"
+#include "peerinfo_manager.h"
+#include "request_manager.h"
+#include "txrequesthandler.h"
 #include <boost/circular_buffer.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/nil_generator.hpp>
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -94,8 +100,10 @@ namespace cryptonote
       HANDLE_NOTIFY_T2(NOTIFY_REQUEST_CHAIN, &cryptonote_protocol_handler::handle_request_chain)
       HANDLE_NOTIFY_T2(NOTIFY_RESPONSE_CHAIN_ENTRY, &cryptonote_protocol_handler::handle_response_chain_entry)
       HANDLE_NOTIFY_T2(NOTIFY_NEW_FLUFFY_BLOCK, &cryptonote_protocol_handler::handle_notify_new_fluffy_block)			
-      HANDLE_NOTIFY_T2(NOTIFY_REQUEST_FLUFFY_MISSING_TX, &cryptonote_protocol_handler::handle_request_fluffy_missing_tx)						
+      HANDLE_NOTIFY_T2(NOTIFY_REQUEST_FLUFFY_MISSING_TX, &cryptonote_protocol_handler::handle_request_fluffy_missing_tx)
       HANDLE_NOTIFY_T2(NOTIFY_GET_TXPOOL_COMPLEMENT, &cryptonote_protocol_handler::handle_notify_get_txpool_complement)
+      HANDLE_NOTIFY_T2(NOTIFY_TX_POOL_INV, &cryptonote_protocol_handler::handle_notify_tx_pool_inv)
+      HANDLE_NOTIFY_T2(NOTIFY_REQUEST_TX_POOL_TXS, &cryptonote_protocol_handler::handle_request_tx_pool_txs)
     END_INVOKE_MAP2()
 
     bool on_idle();
@@ -144,6 +152,8 @@ namespace cryptonote
     int handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context);
     int handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context);
     int handle_notify_get_txpool_complement(int command, NOTIFY_GET_TXPOOL_COMPLEMENT::request& arg, cryptonote_connection_context& context);
+    int handle_notify_tx_pool_inv(int command, NOTIFY_TX_POOL_INV::request& arg, cryptonote_connection_context& context);
+    int handle_request_tx_pool_txs(int command, NOTIFY_REQUEST_TX_POOL_TXS::request& arg, cryptonote_connection_context& context);
 		
     //----------------- i_bc_protocol_layout ---------------------------------------
     virtual bool relay_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context);
@@ -192,6 +202,11 @@ namespace cryptonote
     uint64_t m_sync_download_chain_size, m_sync_download_objects_size;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
+
+    peer_info_manager m_peer_info_manager;
+    request_manager m_request_manager;
+    tx_request_handler m_tx_request_handler;
+    tx_request_handler::tx_request_handler_runner m_tx_requests_runner;
 
     // Values for sync time estimates
     boost::posix_time::ptime m_sync_start_time;
