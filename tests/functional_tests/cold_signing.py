@@ -122,6 +122,8 @@ class ColdSigningTest():
                     # new outputs first
                     if 'Imported outputs omit more outputs that we know of' not in str(e):
                         raise
+                    else:
+                        continue
                 for i in range(start, start + count):
                     if i < len(done):
                         done[i] = True
