@@ -45,15 +45,10 @@
 #include "span.h"
 #include "hash.h"
 
-  extern "C" {
-#include "crypto-ops.h"
-  }
-
 namespace crypto {
 
   extern "C" {
 #include "random.h"
-#include "crypto-ops.h"
   }
 
 #pragma pack(push, 1)
@@ -148,9 +143,8 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
     static void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
     friend void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
-
-    public:
-      static void unbiased_hash_to_ec(const unsigned char *, const size_t, ge_p3 &);
+    static void unbiased_hash_to_ec(const unsigned char *, const size_t, ec_point &);
+    friend void unbiased_hash_to_ec(const unsigned char *, const size_t, ec_point &);
   };
 
   void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes);
@@ -309,6 +303,10 @@ namespace crypto {
    */
   inline void derive_view_tag(const key_derivation &derivation, std::size_t output_index, view_tag &vt) {
     crypto_ops::derive_view_tag(derivation, output_index, vt);
+  }
+
+  inline void unbiased_hash_to_ec(const unsigned char *preimage, const size_t length, ec_point &res) {
+    crypto_ops::unbiased_hash_to_ec(preimage, length, res);
   }
 
   inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {

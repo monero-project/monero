@@ -97,9 +97,7 @@ static std::once_flag init_gens_once_flag;
 //-------------------------------------------------------------------------------------------------------------------
 static void hash_to_point(const std::string_view &x, crypto::ec_point &point_out)
 {
-    ge_p3 temp_p3;
-    crypto::crypto_ops::unbiased_hash_to_ec((const unsigned char *) x.data(), x.size(), temp_p3);
-    ge_p3_tobytes(to_bytes(point_out), &temp_p3);
+    unbiased_hash_to_ec((const unsigned char *) x.data(), x.size(), point_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------

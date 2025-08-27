@@ -619,7 +619,7 @@ namespace crypto {
     ge_p1p1_to_p3(&res, &point2);
   }
 
-  void crypto_ops::unbiased_hash_to_ec(const unsigned char *preimage, const size_t length, ge_p3 &res) {
+  void crypto_ops::unbiased_hash_to_ec(const unsigned char *preimage, const size_t length, ec_point &res) {
     uint8_t hash[64];
     blake2b(std::addressof(hash), 64, preimage, length, NULL, 0);
 
@@ -642,7 +642,9 @@ namespace crypto {
     ge_p1p1 point;
     ge_add(&point, &first_p3, &second_cached);
 
-    ge_p1p1_to_p3(&res, &point);
+    ge_p3 res_ge_p3;
+    ge_p1p1_to_p3(&res_ge_p3, &point);
+    ge_p3_tobytes(&res, &res_ge_p3);
   }
 
   // TODO @jeffro256
