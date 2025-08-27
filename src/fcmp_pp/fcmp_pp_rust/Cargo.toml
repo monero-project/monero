@@ -23,7 +23,7 @@ monero-generators = { git = "https://github.com/monero-oxide/monero-oxide", rev 
 monero-fcmp-plus-plus = { git = "https://github.com/monero-oxide/monero-oxide", rev = "0aaa1e59ac90770a105b4fddd2c0ebc27852e9ed" }
 
 [patch.crates-io]
-crypto-bigint = { git = "https://github.com/monero-oxide/crypto-bigint", branch = "c-repr" }
+crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }
 
 [profile.dev]
 lto = "off"
