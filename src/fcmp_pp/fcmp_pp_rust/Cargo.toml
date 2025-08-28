@@ -34,3 +34,24 @@ overflow-checks = true
 lto = "off"
 panic = "abort"
 overflow-checks = true
+
+[profile.dev.package]
+subtle = { opt-level = 3 }
+curve25519-dalek = { opt-level = 3 }
+
+ff = { opt-level = 3 }
+group = { opt-level = 3 }
+
+crypto-bigint = { opt-level = 3 }
+dalek-ff-group = { opt-level = 3 }
+helioselene = { opt-level = 3 }
+
+multiexp = { opt-level = 3 }
+
+ec-divisors = { opt-level = 3 }
+generalized-bulletproofs = { opt-level = 3 }
+generalized-bulletproofs-circuit-abstraction = { opt-level = 3 }
+generalized-bulletproofs-ec-gadgets = { opt-level = 3 }
+full-chain-membership-proofs = { opt-level = 3 }
+
+monero-fcmp-plus-plus = { opt-level = 3 }
