@@ -1028,43 +1028,74 @@ template void TreeCache<Selene, Helios>::shrink_to_reorg_depth();
 template<typename C1, typename C2>
 bool TreeCache<C1, C2>::pop_block()
 {
-    if (m_cached_blocks.empty())
-        return false;
+    CHECK_AND_ASSERT_MES(m_cached_blocks.size(), false, "pop_block: empty cache");
+    CHECK_AND_ASSERT_MES(m_cached_blocks.size() > 1, false, "pop_block: cache must have at least 1 block after pop");
+    auto cache_it = m_cached_blocks.rbegin();
+    MDEBUG("Popping block " << cache_it->blk_idx << " , " << cache_it->blk_hash << " from tree cache");
+    ++cache_it;
+    return this->pop_to_block(cache_it->blk_idx, cache_it->blk_hash);
+}
 
-    // Pop the top block off the cache, removing refs to last chunks
-    const uint64_t old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
-    const BlockIdx pop_block_idx = m_cached_blocks.back().blk_idx;
-
-    MDEBUG("Popping block " << pop_block_idx << " , " << m_cached_blocks.back().blk_hash << " from tree cache");
-
-    this->deque_block(old_n_leaf_tuples);
-    m_cached_blocks.pop_back();
-
-    // Remove locked outputs from the cache that were created in this block
-    const uint64_t n_outputs_removed = remove_outputs_created_at_block(
-        pop_block_idx,
-        m_locked_outputs,
-        m_locked_output_refs);
-    CHECK_AND_ASSERT_THROW_MES(m_output_count >= n_outputs_removed, "output count too low");
-    m_output_count -= n_outputs_removed;
-
-    // Determine how many leaves we need to trim
-    uint64_t new_n_leaf_tuples = 0;
-    if (!m_cached_blocks.empty())
+// Explicit instantiation
+template bool TreeCache<Selene, Helios>::pop_block();
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+bool TreeCache<C1, C2>::pop_to_block(const uint64_t new_top_blk_idx, const crypto::hash &new_top_hash)
+{
+    // Pre-checks comparing passed new top block to cur top block
+    BlockMeta cur_top_block;
+    CHECK_AND_ASSERT_MES(this->get_top_block(cur_top_block), false, "pop_to_block: failed to get top block");
+    CHECK_AND_ASSERT_MES(new_top_blk_idx <= cur_top_block.blk_idx, false, "pop_to_block: new_top_blk_idx too high");
+    if (new_top_blk_idx == cur_top_block.blk_idx)
     {
-        // We're trimming to the new top block
-        const BlockMeta &new_top_block = m_cached_blocks.back();
-        new_n_leaf_tuples = new_top_block.n_leaf_tuples;
+        CHECK_AND_ASSERT_MES(new_top_hash == cur_top_block.blk_hash, false, "pop_to_block: unexpected top hash");
+        MDEBUG("No blocks to pop");
+        return true;
     }
-    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples >= new_n_leaf_tuples, "expected old_n_leaf_tuples >= new_n_leaf_tuples");
+
+    // Pre-checks comparing passed new top block to first block
+    const BlockMeta &first_block = m_cached_blocks.front();
+    CHECK_AND_ASSERT_MES(new_top_blk_idx >= first_block.blk_idx, false, "pop_to_block: new_top_blk_idx too low");
+
+    // We expect the new top block to already be present in the cached blocks
+    const uint64_t cached_blocks_idx = new_top_blk_idx - first_block.blk_idx;
+    CHECK_AND_ASSERT_MES(m_cached_blocks.size() > cached_blocks_idx, false, "pop_to_block: cached_blocks_idx too high");
+    const BlockMeta &new_top_block = m_cached_blocks.at(cached_blocks_idx);
+    CHECK_AND_ASSERT_MES(new_top_block.blk_idx == new_top_blk_idx && new_top_block.blk_hash == new_top_hash, false,
+        "pop_to_block: the new top block must already be present in the cached blocks");
+
+    // Trim the tree down to the new top block, removing refs to last chunks
+    const uint64_t old_n_leaf_tuples = m_cached_blocks.back().n_leaf_tuples;
+    const uint64_t new_n_leaf_tuples = new_top_block.n_leaf_tuples;
+    CHECK_AND_ASSERT_MES(old_n_leaf_tuples >= new_n_leaf_tuples, false,
+        "pop_to_block: expected old_n_leaf_tuples >= new_n_leaf_tuples");
+
+    const uint64_t popping_n_blocks = cur_top_block.blk_idx - new_top_blk_idx;
+    MDEBUG("Popping " << popping_n_blocks << " blocks from tree cache");
+
+    // Remove all refs to leaves and layers for each block, back to the new top block idx
+    for (std::size_t pop_block_idx = cur_top_block.blk_idx; pop_block_idx > new_top_blk_idx; --pop_block_idx)
+    {
+        this->deque_block(m_cached_blocks.back().n_leaf_tuples);
+        m_cached_blocks.pop_back();
+
+        // Remove locked outputs from the cache that were created in this block
+        const uint64_t n_outputs_removed = remove_outputs_created_at_block(
+            pop_block_idx,
+            m_locked_outputs,
+            m_locked_output_refs);
+        CHECK_AND_ASSERT_MES(m_output_count >= n_outputs_removed, false, "pop_to_block: output count too low");
+        m_output_count -= n_outputs_removed;
+    }
+
     // No leaves to trim, safe return
     if (old_n_leaf_tuples == new_n_leaf_tuples)
         return true;
 
-    // Shrink the current last chunk if some of the leaves in it got cut off
+    // Shrink the new last chunk if some of the leaves in it got cut off
     shrink_cached_last_leaf_chunk(new_n_leaf_tuples, TreeSync<C1, C2>::m_curve_trees->m_c1_width, m_leaf_cache);
 
-    // Get the tree edge when the top block was the top block
+    // Get the tree edge when the new top block was the top block
     const auto new_tree_edge = this->get_tree_edge(new_n_leaf_tuples);
 
     // Update ref'd last hashes and shrink current last chunks as necessary
@@ -1112,7 +1143,7 @@ bool TreeCache<C1, C2>::pop_block()
 }
 
 // Explicit instantiation
-template bool TreeCache<Selene, Helios>::pop_block();
+template bool TreeCache<Selene, Helios>::pop_to_block(const uint64_t new_top_blk_idx, const crypto::hash &new_top_hash);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 bool TreeCache<C1, C2>::get_output_path(const OutputPair &output,
