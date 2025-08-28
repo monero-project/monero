@@ -399,11 +399,19 @@ static void cache_path_chunks(const LeafIdx leaf_idx,
     const std::size_t n_layers = n_elems_per_layer.size();
     CHECK_AND_ASSERT_THROW_MES(child_chunk_idxs.size() == (n_layers + 1), "unexpected n child chunk idxs");
 
+    // start_leaf_tuple_idx should be the same as old_n_leaf_tuples
+    const std::size_t old_n_layers = curve_trees->n_layers(start_leaf_tuple_idx);
+
     std::size_t c1_idx = 0, c2_idx = 0;
     for (LayerIdx layer_idx = 0; layer_idx < n_layers; ++layer_idx)
     {
         const ChildChunkIdx parent_idx = child_chunk_idxs[layer_idx + 1];
         MTRACE("Caching tree elems from layer_idx " << layer_idx << " parent_idx " << parent_idx);
+
+        // We need to keep track of newly added chunks always. E.g. assume the tree grows and a new root is added.
+        // We would then need to add a ref to the new root for every registered and assigned leaf.
+        const bool is_new_chunk = layer_idx >= old_n_layers;
+        const bool bump_chunk_ref_count = bump_ref_count || is_new_chunk;
 
         if (c1_idx == c2_idx /*c2 parent*/)
         {
@@ -411,7 +419,7 @@ static void cache_path_chunks(const LeafIdx leaf_idx,
                     curve_trees->m_c2_width,
                     c1_layer_exts.at(c1_idx),
                     layer_idx,
-                    bump_ref_count,
+                    bump_chunk_ref_count,
                     parent_idx,
                     n_elems_per_layer[layer_idx],
                     tree_elem_cache_inout
@@ -425,7 +433,7 @@ static void cache_path_chunks(const LeafIdx leaf_idx,
                     curve_trees->m_c1_width,
                     c2_layer_exts.at(c2_idx),
                     layer_idx,
-                    bump_ref_count,
+                    bump_chunk_ref_count,
                     parent_idx,
                     n_elems_per_layer[layer_idx],
                     tree_elem_cache_inout
@@ -639,9 +647,6 @@ static void update_registered_path(const std::shared_ptr<CurveTrees<C1, C2>> &cu
         leaf_cache_inout);
 
     // Now cache the rest of the path elems for each registered output
-    // FIXME: 2 registered outputs share a parent chunk. The leaves were **already** in the chain so bump_ref_count is
-    // false here, but we're adding a new parent this tree extension, or new members to an existing parent chunk. The
-    // ref count on newly included elems will only go up for 1 of those registered outputs.
     cache_path_chunks<C1, C2>(leaf_idx,
         curve_trees,
         tree_extension.c1_layer_extensions,
