@@ -11741,7 +11741,7 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
   if (close_enough)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
-    LOG_PRINT_L2("Not using v" << (unsigned)version << " rules");
+    LOG_PRINT_L3("Not using v" << (unsigned)version << " rules");
   return close_enough;
 }
 //----------------------------------------------------------------------------------------------------

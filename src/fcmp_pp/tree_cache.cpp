@@ -515,12 +515,14 @@ static void remove_path_chunk_ref(const LayerIdx layer_idx,
 {
     // Get the layer
     auto cache_layer_it = tree_elem_cache_inout.find(layer_idx);
-    CHECK_AND_ASSERT_THROW_MES(cache_layer_it != tree_elem_cache_inout.end(), "layer is missing");
+    CHECK_AND_ASSERT_THROW_MES(cache_layer_it != tree_elem_cache_inout.end(), "layer " << layer_idx << " is missing");
 
     // Get the chunk
     auto cache_chunk_it = cache_layer_it->second.find(chunk_idx);
-    CHECK_AND_ASSERT_THROW_MES(cache_chunk_it != cache_layer_it->second.end(), "chunk is missing");
-    CHECK_AND_ASSERT_THROW_MES(cache_chunk_it->second.ref_count != 0, "chunk has 0 ref count");
+    CHECK_AND_ASSERT_THROW_MES(cache_chunk_it != cache_layer_it->second.end(),
+        "chunk " << chunk_idx << " is missing from layer " << layer_idx);
+    CHECK_AND_ASSERT_THROW_MES(cache_chunk_it->second.ref_count != 0,
+        "chunk " << chunk_idx << " from layer " << layer_idx << " has 0 ref count");
 
     cache_chunk_it->second.ref_count -= 1;
     MTRACE("Removing ref to chunk " << chunk_idx << " in layer " << layer_idx
@@ -528,11 +530,17 @@ static void remove_path_chunk_ref(const LayerIdx layer_idx,
 
     // If the chunk's ref count is 0, garbage collect it
     if (cache_chunk_it->second.ref_count == 0)
+    {
+        MDEBUG("Removing ref to chunk " << chunk_idx << " from layer " << layer_idx);
         cache_layer_it->second.erase(cache_chunk_it);
+    }
 
     // If the layer is empty, garbage collect it
     if (cache_layer_it->second.empty())
+    {
+        MDEBUG("Removing layer " << layer_idx);
         tree_elem_cache_inout.erase(cache_layer_it);
+    }
 }
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
@@ -1081,6 +1089,7 @@ bool TreeCache<C1, C2>::pop_to_block(const uint64_t new_top_blk_idx, const crypt
     // Remove all refs to leaves and layers for each block, back to the new top block idx
     for (std::size_t pop_block_idx = cur_top_block.blk_idx; pop_block_idx > new_top_blk_idx; --pop_block_idx)
     {
+        MDEBUG("Popping block " << m_cached_blocks.back().blk_idx << " from tree cache");
         this->deque_block(m_cached_blocks.back().n_leaf_tuples);
         m_cached_blocks.pop_back();
 
@@ -1121,12 +1130,13 @@ bool TreeCache<C1, C2>::pop_to_block(const uint64_t new_top_blk_idx, const crypt
         if (new_n_leaf_tuples > leaf_idx)
             continue;
 
+        MDEBUG("Un-assigning leaf idx " << leaf_idx);
+
         // The output was just removed from the tree, so remove its refs
         const ChildChunkIdx leaf_chunk_idx = leaf_idx / TreeSync<C1, C2>::m_curve_trees->m_c1_width;
         remove_leaf_chunk_ref(leaf_chunk_idx, m_leaf_cache);
         remove_path_chunks_refs(leaf_idx, TreeSync<C1, C2>::m_curve_trees, old_n_leaf_tuples, m_tree_elem_cache);
 
-        MDEBUG("Un-assigning leaf idx " << leaf_idx);
         registered_o.second.unassign_leaf();
     }
 
