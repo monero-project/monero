@@ -38,9 +38,7 @@
 #include <vector>
 
 namespace Monero {
-  
-AddressBook::~AddressBook() {}
-  
+
 AddressBookImpl::AddressBookImpl(WalletImpl *wallet)
     : m_wallet(wallet), m_errorCode(Status_Ok) {}
 
