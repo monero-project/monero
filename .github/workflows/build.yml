@@ -43,6 +43,7 @@ jobs:
       - uses: ./.github/actions/set-make-job-count
       - name: install dependencies
         run: |
+          brew uninstall cmake
           brew update
           brew install --quiet cmake boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache
       - name: build
