@@ -41,6 +41,7 @@
 #include "common/util.h"
 #include "string_coding.h"
 #include "string_tools.h"
+#include "serialization/wire/json.h"
 #include "storages/portable_storage_template_helper.h"
 #include "time_helper.h"
 #include "boost/logic/tribool.hpp"
@@ -103,7 +104,7 @@ namespace cryptonote
     const command_line::arg_descriptor<uint16_t>     arg_bg_mining_miner_target_percentage =  {"bg-mining-miner-target", "Specify maximum percentage cpu use by miner(s)", miner::BACKGROUND_MINING_DEFAULT_MINING_TARGET_PERCENTAGE, true};
   }
 
-
+  WIRE_JSON_DEFINE_CONVERSION(miner_config)
   miner::miner(i_miner_handler* phandler, const get_block_hash_t &gbh):m_stop(1),
     m_template{},
     m_template_no(0),
