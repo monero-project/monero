@@ -39,7 +39,10 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "net/jsonrpc_structs.h"
 #include "ringct/rctSigs.h"
+#include "serialization/wire/json/base.h"
+#include "serialization/wire/json/read.h"
 #include "version.h"
 
 namespace cryptonote
@@ -49,7 +52,7 @@ namespace rpc
 {
   namespace
   {
-    using handler_function = epee::byte_slice(DaemonHandler& handler, const rapidjson::Value& id, const rapidjson::Value& msg);
+    using handler_function = expect<epee::byte_slice>(DaemonHandler& handler, const wire::basic_value& id, const epee::span<const char> msg);
     struct handler_map
     {
       const char* method_name;
@@ -67,14 +70,19 @@ namespace rpc
     }
 
     template<typename Message>
-    epee::byte_slice handle_message(DaemonHandler& handler, const rapidjson::Value& id, const rapidjson::Value& parameters)
+    expect<epee::byte_slice> handle_message(DaemonHandler& handler, const wire::basic_value& id, const epee::span<const char> msg)
     {
-      typename Message::Request request{};
-      request.fromJson(parameters);
+      epee::json_rpc::request_specific<typename Message::Request> request{};
+      const std::error_code error = wire_read::from_bytes<wire::json_reader>(msg, request);
+      if (error)
+        return error;
+      if (!request.params)
+        return {wire::error::schema::missing_key};
 
       typename Message::Response response{};
-      handler.handle(request, response);
-      return FullMessage::getResponse(response, id);
+      handler.handle(*request.params, response);
+
+      return getJsonResponse(response, id);
     }
 
     constexpr const handler_map handlers[] =
@@ -919,30 +927,27 @@ namespace rpc
     return true;
   }
 
-  epee::byte_slice DaemonHandler::handle(std::string&& request)
+  expect<epee::byte_slice> DaemonHandler::handle(const boost::string_ref request)
   {
     MDEBUG("Handling RPC request: " << request);
 
-    try
-    {
-      FullMessage req_full(std::move(request), true);
+    epee::json_rpc::request_generic parsed{};
+    const std::error_code error = wire::json::from_bytes(epee::to_span(request), parsed);
+    if (error)
+      return BAD_JSON(error.message());
 
-      const std::string request_type = req_full.getRequestType();
-      const auto matched_handler = std::lower_bound(std::begin(handlers), std::end(handlers), request_type);
-      if (matched_handler == std::end(handlers) || matched_handler->method_name != request_type)
-        return BAD_REQUEST(request_type, req_full.getID());
+    const auto matched_handler = std::lower_bound(std::begin(handlers), std::end(handlers), parsed.method);
+    if (matched_handler == std::end(handlers) || matched_handler->method_name != parsed.method)
+      return BAD_JSON_REQUEST(parsed.method, parsed.id);
 
-      epee::byte_slice response = matched_handler->call(*this, req_full.getID(), req_full.getMessage());
-
-      const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
-      MDEBUG("Returning RPC response: " << response_view);
-
+    expect<epee::byte_slice> response = matched_handler->call(*this, parsed.id, epee::to_span(request));
+    if (!response)
       return response;
-    }
-    catch (const std::exception& e)
-    {
-      return BAD_JSON(e.what());
-    }
+
+    const boost::string_ref response_view{reinterpret_cast<const char*>(response->data()), response->size()};
+    MDEBUG("Returning RPC response: " << response_view);
+
+    return response;
   }
 
 }  // namespace rpc

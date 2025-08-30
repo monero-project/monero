@@ -36,8 +36,6 @@
 #include <limits>
 
 #include "net/error.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage.h"
 #include "string_tools_lexical.h"
 
 namespace net
@@ -67,17 +65,6 @@ namespace net
 
             return success();
         }
-
-        struct i2p_serialized
-        {
-            std::string host;
-            std::uint16_t port; //! Leave for compatability with older clients
-
-            BEGIN_KV_SERIALIZE_MAP()
-                KV_SERIALIZE(host)
-                KV_SERIALIZE(port)
-            END_KV_SERIALIZE_MAP()
-        };
     }
 
     i2p_address::i2p_address(const boost::string_ref host) noexcept
@@ -109,27 +96,6 @@ namespace net
 
         static_assert(b32_length + sizeof(tld) == sizeof(i2p_address::host_), "bad internal host size");
         return i2p_address{host};
-    }
-
-    bool i2p_address::_load(epee::serialization::portable_storage& src, epee::serialization::section* hparent)
-    {
-        i2p_serialized in{};
-        if (in._load(src, hparent) && in.host.size() < sizeof(host_) && (in.host == unknown_host || !host_check(in.host).has_error()))
-        {
-            std::memcpy(host_, in.host.data(), in.host.size());
-            std::memset(host_ + in.host.size(), 0, sizeof(host_) - in.host.size());
-            return true;
-        }
-        static_assert(sizeof(unknown_host) <= sizeof(host_), "bad buffer size");
-        std::memcpy(host_, unknown_host, sizeof(unknown_host)); // include null terminator
-        return false;
-    }
-
-    bool i2p_address::store(epee::serialization::portable_storage& dest, epee::serialization::section* hparent) const
-    {
-        // Set port to 1 for backwards compatability; zero is invalid port
-        const i2p_serialized out{std::string{host_}, 1};
-        return out.store(dest, hparent);
     }
 
     i2p_address::i2p_address(const i2p_address& rhs) noexcept
