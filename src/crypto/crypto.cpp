@@ -763,7 +763,7 @@ POP_WARNINGS
     memcpy(buf.salt, "view_tag", 8); // leave off null terminator
     buf.derivation = derivation;
     tools::write_varint(end, output_index);
-    assert(end <= buf.output_index + sizeof buf.output_index);
+    assert(static_cast<size_t>(end - reinterpret_cast<char *>(&buf.output_index)) <= sizeof buf.output_index);
 
     // view_tag_full = H[salt|derivation|output_index]
     hash view_tag_full;
