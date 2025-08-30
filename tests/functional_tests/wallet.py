@@ -171,7 +171,7 @@ class WalletTest():
         try:  # assert address_1_999 is not in the current pubkey table
             wallet.get_address_index(address_0_999)
         except Exception as e:
-            assert str(e) ==  "{'error': {'code': -2, 'message': \"Address doesn't belong to the wallet\"}, 'id': '0', 'jsonrpc': '2.0'}"
+            assert str(e) ==  "{'jsonrpc': '2.0', 'id': '0', 'error': {'code': -2, 'message': \"Address doesn't belong to the wallet\"}}"
         # update the lookahead and assert the high index address is now in the table
         wallet.set_subaddress_lookahead(50, 1000)
         r = wallet.get_address_index(address_0_999)
