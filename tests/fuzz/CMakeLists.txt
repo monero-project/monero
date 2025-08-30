@@ -26,6 +26,75 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Add the include path for <fuzzer/FuzzedDataProvider.h>
+include_directories(${CMAKE_SOURCE_DIR}/tests/fuzz/include)
+
+# Recompile perf_timer for fuzzing
+add_library(fuzz_unsafe_macro OBJECT
+  ${CMAKE_SOURCE_DIR}/src/common/perf_timer.cpp)
+target_compile_definitions(fuzz_unsafe_macro
+  PRIVATE FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
+
+monero_add_minimal_executable(fuzz_rpc
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
+target_compile_definitions(fuzz_rpc PRIVATE SAFE)
+target_link_libraries(fuzz_rpc
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(fuzz_rpc_full
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
+target_link_libraries(fuzz_rpc_full
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc_full
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(fuzz_rpc_full_no_exceptions
+  fuzz_rpc/initialisation.cpp
+  fuzz_rpc/rpc_endpoints.cpp
+  fuzz_rpc/fuzz_rpc.cpp
+  $<TARGET_OBJECTS:fuzz_unsafe_macro>)
+target_compile_definitions(fuzz_rpc_full_no_exceptions PRIVATE CATCH_ALL_EXCEPTIONS)
+target_link_libraries(fuzz_rpc_full_no_exceptions
+  PRIVATE
+    rpc
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_rpc_full_no_exceptions
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(fuzz_zmq
+  fuzz_rpc/zmq_endpoints.cpp
+  fuzz_rpc/fuzz_zmq.cpp)
+target_link_libraries(fuzz_zmq
+  PRIVATE
+    rpc_pub
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fuzz_zmq
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
 target_link_libraries(block_fuzz_tests
   PRIVATE

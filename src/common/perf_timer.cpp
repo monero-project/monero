@@ -90,7 +90,11 @@ namespace tools
 
 el::Level performance_timer_log_level = el::Level::Info;
 
-static __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+  __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
+#else
+  static __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
+#endif
 
 void set_performance_timer_log_level(el::Level level)
 {
