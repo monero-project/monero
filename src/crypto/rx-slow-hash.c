@@ -487,6 +487,10 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
   CTHR_RWLOCK_UNLOCK_WRITE(secondary_cache_lock);
 }
 
+void rx_commitment(const void *data, size_t length, const void *rx_hash, char *result_commitment) {
+  randomx_calculate_commitment(data, length, rx_hash, result_commitment);
+}
+
 void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads) {
   miner_thread = value;
 
