@@ -792,8 +792,7 @@ TEST(wallet_tx_builder, wallet2_scan_propose_sign_prove_member_and_scan_1)
 
     // 7.
     LOG_PRINT_L2("Alice has something to prove");
-    tx = tools::wallet::finalize_all_proofs_from_transfer_details(tx_proposal,
-        alice.m_transfers,
+    tx = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposal,
         alice.m_tree_cache,
         *alice.m_curve_trees,
         alice_keys);

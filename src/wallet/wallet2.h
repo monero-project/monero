@@ -742,7 +742,6 @@ private:
      * param: address - public address for all destinations in txs
      * param: is_subaddress - true iff `address` refers to a subaddress
      * param: outputs - the minimum num of outputs to make per tx (if `address` isn't ours, a change output is included)
-     * param: payment_id - short payment ID
      * param: unused_transfers_indices - indices into `m_transfers` of RingCT & validly-decomposed pre-RingCT inputs
      * param: unused_dust_indices - indices into `m_transfers` of non-validly-decomposed pre-RingCT inputs
      * param: fake_outs_count - the number of decoys per input, AKA "mixin"

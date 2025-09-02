@@ -939,12 +939,13 @@ static tools::wallet::pending_tx finalize_all_proofs_from_transfer_details_as_pe
     const carrot::CarrotTransactionProposalV1 &tx_proposal,
     const tools::wallet2 &w)
 {
-  return tools::wallet::finalize_all_proofs_from_transfer_details_as_pending_tx(
+  tools::wallet::pending_tx ptx = tools::wallet::finalize_all_fcmp_pp_proofs_as_pending_tx(
     tx_proposal,
-    get_transfers(w),
     w.get_tree_cache_ref(),
     w.get_curve_trees_ref(),
     w.get_account().get_keys());
+  ptx.selected_transfers = tools::wallet::collect_selected_transfer_indices(ptx.construction_data, get_transfers(w));
+  return ptx;
 }
 
 static const tools::wallet2::tx_construction_data &get_construction_data(const tools::wallet2::pending_tx &ptx)
@@ -7652,7 +7653,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   uint64_t amount_in = 0;
   if (store_tx_info())
   {
-    const crypto::hash8 payment_id_8 = wallet::get_pending_tx_payment_id(ptx);
+    const crypto::hash8 payment_id_8 = wallet::short_payment_id_ref(ptx.construction_data).value_or(crypto::null_hash8);
     memcpy(&payment_id, &payment_id_8, sizeof(crypto::hash8));
     dests = ptx.dests;
     for(size_t idx: ptx.selected_transfers)

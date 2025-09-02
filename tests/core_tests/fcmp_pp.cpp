@@ -407,8 +407,7 @@ bool gen_fcmp_pp_tx_validation_base::generate_with(std::vector<test_event_entry>
       n_synced_blocks - 1);
   CHECK_AND_ASSERT_MES(tx_proposals.size() == 1, false, "Expected 1 tx proposal");
 
-  rct_txes.back() = tools::wallet::finalize_all_proofs_from_transfer_details(tx_proposals.front(),
-      {wallet2_td},
+  rct_txes.back() = tools::wallet::finalize_all_fcmp_pp_proofs(tx_proposals.front(),
       tree_cache,
       *fcmp_pp::curve_trees::curve_trees_v1(),
       miner_account.get_keys());
