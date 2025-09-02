@@ -3260,12 +3260,12 @@ class Writer : base::NoCopy {
          const char* func, base::DispatchAction dispatchAction = base::DispatchAction::NormalLog,
          base::type::VerboseLevel verboseLevel = 0) :
     m_msg(nullptr), m_level(level), m_color(color), m_file(file), m_line(line), m_func(func), m_verboseLevel(verboseLevel),
-    m_logger(nullptr), m_proceed(false), m_dispatchAction(dispatchAction) {
+    m_logger(nullptr), m_proceed(false), m_dispatchAction(dispatchAction), m_sync(ELPP->lock()) {
   }
 
   Writer(LogMessage* msg, base::DispatchAction dispatchAction = base::DispatchAction::NormalLog) :
     m_msg(msg), m_level(msg != nullptr ? msg->level() : Level::Unknown),
-    m_line(0), m_logger(nullptr), m_proceed(false), m_dispatchAction(dispatchAction) {
+    m_line(0), m_logger(nullptr), m_proceed(false), m_dispatchAction(dispatchAction), m_sync(ELPP->lock()) {
   }
 
   virtual ~Writer(void) {
@@ -3323,6 +3323,7 @@ class Writer : base::NoCopy {
   base::MessageBuilder m_messageBuilder;
   base::DispatchAction m_dispatchAction;
   std::vector<std::string> m_loggerIds;
+  base::threading::ScopedLock m_sync;
   friend class el::Helpers;
 
   void initializeLogger(const std::string& loggerId, bool lookup = true, bool needLock = true);
