@@ -33,6 +33,7 @@
 
 #include "wallet/api/wallet2_api.h"
 #include "wallet/wallet2.h"
+#include "wipeable_string.h"
 
 #include <string>
 #include <boost/thread/mutex.hpp>
@@ -41,6 +42,7 @@
 
 
 namespace Monero {
+class EnoteDetailsImpl;
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
 class UnsignedTransactionImpl;
@@ -88,8 +90,7 @@ public:
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
-    bool setPassword(const std::string &password) override;
-    const std::string& getPassword() const override;
+    bool setPassword(const char *old_password, const std::size_t old_pw_length, const char *new_password, const std::size_t new_pw_length) override;
     bool setDevicePin(const std::string &password) override;
     bool setDevicePassphrase(const std::string &password) override;
     std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const override;
@@ -101,7 +102,7 @@ public:
     std::string publicMultisigSignerKey() const override;
     std::string path() const override;
     void stop() override;
-    bool store(const std::string &path) override;
+    bool store(const std::string &path, const optional<std::pair<const char *, const std::size_t>> &password = optional<std::pair<const char *, const std::size_t>>()) override;
     std::string filename() const override;
     std::string keysFilename() const override;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") override;
@@ -145,8 +146,8 @@ public:
 
     MultisigState multisig() const override;
     std::string getMultisigInfo() const override;
-    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) override;
-    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution = false) override;
+    std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold, const char *password, const std::size_t pw_length) override;
+    std::string exchangeMultisigKeys(const std::vector<std::string> &info, const char *password, const std::size_t pw_length, const bool force_update_use_with_caution = false) override;
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     bool hasMultisigPartialKeyImages() const override;
@@ -165,8 +166,11 @@ public:
     virtual PendingTransaction * createSweepUnmixableTransaction() override;
     bool submitTransaction(const std::string &fileName) override;
     virtual UnsignedTransaction * loadUnsignedTx(const std::string &unsigned_filename) override;
+    UnsignedTransaction * loadUnsignedTxFromStr(const std::string &unsigned_tx_str) override;
     bool exportKeyImages(const std::string &filename, bool all = false) override;
+    std::string exportKeyImagesAsString(bool all = false) override;
     bool importKeyImages(const std::string &filename) override;
+    bool importKeyImagesFromStr(const std::string &data) override;
     bool exportOutputs(const std::string &filename, bool all = false) override;
     bool importOutputs(const std::string &filename) override;
     bool scanTransactions(const std::vector<std::string> &txids) override;
@@ -205,7 +209,7 @@ public:
     virtual bool checkSpendProof(const std::string &txid, const std::string &message, const std::string &signature, bool &good) const override;
     virtual std::string getReserveProof(bool all, uint32_t account_index, uint64_t amount, const std::string &message) const override;
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const override;
-    virtual std::string signMessage(const std::string &message, const std::string &address) override;
+    virtual std::string signMessage(const std::string &message, const std::string &address, bool sign_with_view_key = false) override;
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const override;
     virtual std::string signMultisigParticipant(const std::string &message) const override;
     virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const override;
@@ -234,6 +238,52 @@ public:
     virtual uint64_t getBytesReceived() override;
     virtual uint64_t getBytesSent() override;
 
+    std::string getMultisigSeed(const std::string &seed_offset) const override;
+    std::pair<std::uint32_t, std::uint32_t> getSubaddressIndex(const std::string &address) const override;
+    void freeze(const std::string &key_image) override;
+    void freezeByPubKey(const std::string &public_key) override;
+    void thaw(const std::string &key_image) override;
+    void thawByPubKey(const std::string &public_key) override;
+    bool isFrozen(const std::string &key_image) const override;
+    bool isFrozenByPubKey(const std::string &public_key) override;
+    void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
+    WalletState getWalletState() const override;
+    void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
+    void writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name) override;
+    void refreshPoolOnly(bool refreshed = false, bool try_incremental = false) override;
+    void getEnoteDetails(std::vector<std::unique_ptr<EnoteDetails>> &enote_details) const override;
+    std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
+    bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
+    bool parseTxFromStr(const std::string &signed_tx_str, PendingTransaction &ptx) const override;
+    void insertColdKeyImages(PendingTransaction &ptx) override;
+    bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const override;
+    std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;
+    std::uint64_t getBaseFee() const override;
+    std::uint32_t adjustPriority(std::uint32_t priority) override;
+    void coldTxAuxImport(const PendingTransaction &ptx, const std::vector<std::string> &tx_device_aux) const override;
+    void coldSignTx(const PendingTransaction &ptx_in, PendingTransaction &exported_txs_out) const override;
+    void discardUnmixableEnotes() override;
+    void setTxKey(const std::string &txid, const std::string &tx_key, const std::vector<std::string> &additional_tx_keys, const std::string &single_destination_subaddress) override;
+    const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& getAccountTags() const override;
+    void setAccountTag(const std::set<uint32_t> &account_indices, const std::string &tag) override;
+    void setAccountTagDescription(const std::string &tag, const std::string &description) override;
+    std::string exportEnotesToStr(bool all = false, std::uint32_t start = 0, std::uint32_t count = 0xffffffff) const override;
+    std::size_t importEnotesFromStr(const std::string &enotes_str) override;
+    std::uint64_t getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const override;
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels) const override;
+    bool saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const override;
+    bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const override;
+    std::uint64_t hashEnotes(std::uint64_t enote_idx, std::string &hash) const override;
+    void finishRescanBcKeepKeyImages(std::uint64_t enote_idx, const std::string &hash) override;
+    std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> getPublicNodes(bool white_only = true) const override;
+    std::pair<std::size_t, std::uint64_t> estimateTxSizeAndWeight(bool use_rct, int n_inputs, int ring_size, int n_outputs, std::size_t extra_size) const override;
+    std::uint64_t importKeyImages(const std::vector<std::pair<std::string, std::string>> &signed_key_images, std::size_t offset, std::uint64_t &spent, std::uint64_t &unspent, bool check_spent = true) override;
+    bool importKeyImages(const std::vector<std::string> &key_images, std::size_t offset = 0, const std::unordered_set<std::size_t> &selected_enotes_indices = {}) override;
+    bool getAllowMismatchedDaemonVersion() const override;
+    void setAllowMismatchedDaemonVersion(bool allow_mismatch) override;
+    bool setDaemon(const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, const std::string &ssl_support = "autodetect", const std::string &ssl_private_key_path = "", const std::string &ssl_certificate_path = "", const std::string &ssl_ca_file_path = "", const std::vector<std::string> &ssl_allowed_fingerprints_str = {}, bool ssl_allow_any_cert = false, const std::string &proxy = "") override;
+    bool verifyPassword(const char *password, const std::size_t pw_length, std::uint64_t kdf_rounds = 1) override;
+
 private:
     void clearStatus() const;
     void setStatusError(const std::string& message) const;
@@ -248,6 +298,18 @@ private:
     bool doInit(const std::string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
     bool checkBackgroundSync(const std::string &message) const;
 
+    /**
+    * brief: getEnoteIndex - get the index of an enote in local enote storage
+    * param: key_image - key image to identify the enote
+    * return: enote index
+    */
+    std::size_t getEnoteIndex(const std::string &key_image) const;
+    /**
+    * brief: statusOk -
+    * return: true if status is ok, else false
+    */
+    bool statusOk() const;
+
 private:
     friend class PendingTransactionImpl;
     friend class UnsignedTransactionImpl;    
@@ -261,11 +323,6 @@ private:
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
-    // TODO: harden password handling in the wallet API, see relevant discussion
-    // https://github.com/monero-project/monero-gui/issues/1537
-    // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142
-    // https://github.com/monero-project/monero/pull/8619#issuecomment-1632951461
-    std::string m_password;
     std::unique_ptr<TransactionHistoryImpl> m_history;
     std::unique_ptr<Wallet2CallbackImpl> m_wallet2Callback;
     std::unique_ptr<AddressBookImpl>  m_addressBook;
