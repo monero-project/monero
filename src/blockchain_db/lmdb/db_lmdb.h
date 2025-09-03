@@ -348,8 +348,6 @@ public:
   void batch_stop() override;
   void batch_abort() override;
 
-  void advance_tree(const uint64_t blk_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs) override;
-
   void block_wtxn_start() override;
   void block_wtxn_stop() override;
   void block_wtxn_abort() override;
@@ -377,27 +375,13 @@ public:
 
   bool get_output_distribution(uint64_t amount, uint64_t from_height, uint64_t to_height, std::vector<uint64_t> &distribution, uint64_t &base) const override;
 
-  virtual uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
-    const uint64_t as_of_n_blocks,
-    std::vector<uint64_t> &leaf_idxs_out,
-    std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const;
-
   // helper functions
   static int compare_uint64(const MDB_val *a, const MDB_val *b);
   static int compare_uint8(const MDB_val *a, const MDB_val *b);
   static int compare_hash32(const MDB_val *a, const MDB_val *b);
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
-  // make private
-  virtual void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
-
-  virtual void trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_id);
-
-  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const;
-
-  fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const;
-
-  virtual std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const;
+  bool audit_tree(const uint64_t expected_n_leaf_tuples) const override;
 
 private:
   void do_resize(uint64_t size_increase=0);
@@ -444,29 +428,43 @@ private:
 
   uint64_t num_outputs() const override;
 
-  virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs);
+  //
+  // Curve tree related db calls (private)
+  //
+
+  void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) override;
+
+  void del_locked_outs_at_block_idx(uint64_t block_idx) override;
+
+  std::vector<crypto::ec_point> grow_with_tree_extension(const fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension) override;
 
   template<typename C>
   crypto::ec_point grow_layer(const std::unique_ptr<C> &curve,
-    const std::vector<fcmp_pp::curve_trees::LayerExtension<C>> &layer_extensions,
-    const uint64_t c_idx,
+    const fcmp_pp::curve_trees::LayerExtension<C> &layer_extension,
     const uint64_t layer_idx);
 
-  void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge);
+  uint64_t trim_leaves(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx) override;
 
-  void del_tree_meta(const uint64_t block_idx);
+  void trim_layers(const uint64_t new_n_leaf_tuples,
+    const std::vector<uint64_t> &n_elems_per_layer,
+    const std::vector<crypto::ec_point> &prev_tree_edge,
+    const uint64_t expected_root_idx) override;
 
   void trim_layer(const uint64_t new_n_elems_in_layer, const uint64_t layer_idx);
 
-  virtual void trim_block();
+  void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge) override;
 
-  virtual uint64_t get_n_leaf_tuples() const;
+  void del_tree_meta(const uint64_t block_idx) override;
 
-  uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const;
+  uint64_t get_n_leaf_tuples() const override;
 
-  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const;
+  uint64_t get_block_n_leaf_tuples(uint64_t block_idx) const override;
 
-  std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const;
+  uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const override;
+
+  std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const override;
+
+  fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const override;
 
   template<typename C_CHILD, typename C_PARENT>
   bool audit_layer(const std::unique_ptr<C_CHILD> &c_child,
@@ -474,17 +472,15 @@ private:
     const uint64_t child_layer_idx,
     const uint64_t chunk_width) const;
 
-  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id);
+  std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id) const override;
 
-  void del_locked_outs_at_block_idx(uint64_t block_idx);
+  uint64_t get_tree_block_idx() const override;
 
-  uint64_t get_tree_block_idx() const;
-
-  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const;
+  fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const override;
 
   std::vector<fcmp_pp::curve_trees::OutputContext> get_output_context_by_output_id(const std::vector<uint64_t> &output_ids) const;
 
-  uint64_t find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const;
+  uint64_t find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const override;
 
   // Hard fork
   void set_hard_fork_version(uint64_t height, uint8_t version) override;

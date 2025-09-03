@@ -634,6 +634,13 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   static bool set_init_tree_sync_data(const uint64_t init_block_idx, const crypto::hash &init_hash, const core &m_core, COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t &init_tree_sync_data)
   {
+    db_rtxn_guard txn_guard(&m_core.get_blockchain_storage().get_db());
+
+    CHECK_AND_ASSERT_MES(m_core.get_blockchain_storage().get_db().height() > init_block_idx, false,
+      "set_init_tree_sync_data: init_block_idx expected less than current chain height");
+    CHECK_AND_ASSERT_MES(m_core.get_blockchain_storage().get_db().get_block_hash_from_height(init_block_idx) == init_hash, false,
+      "set_init_tree_sync_data: mismatched init_hash to init_block_idx");
+
     init_tree_sync_data = COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t{};
     init_tree_sync_data.init_block_idx = init_block_idx;
     init_tree_sync_data.init_block_hash = init_hash;

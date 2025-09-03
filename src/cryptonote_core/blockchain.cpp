@@ -457,8 +457,15 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     recalculate_difficulties(difficulty_recalc_height);
   }
 
+  if (m_db->is_read_only())
   {
-    db_txn_guard txn_guard(m_db, m_db->is_read_only());
+    db_rtxn_guard txn_guard(m_db);
+    if (!update_next_cumulative_weight_limit())
+      return false;
+  }
+  else
+  {
+    db_wtxn_guard txn_guard(m_db);
     if (!update_next_cumulative_weight_limit())
       return false;
   }
