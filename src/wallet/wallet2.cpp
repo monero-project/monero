@@ -7360,8 +7360,21 @@ bool wallet2::is_transfer_unlocked(uint64_t unlock_time, uint64_t block_height)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_height)
 {
-  if (use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0))
+  bool use_fcmp_pp_unlock_rules = false;
+  try
+  {
+    // use FCMP++ rules if check daemon earliest height for HF_VERSION_FCMP_PLUS_PLUS is here
+    use_fcmp_pp_unlock_rules = use_fork_rules(HF_VERSION_FCMP_PLUS_PLUS, 0);
+  }
+  catch (...) // in case of daemon failure...
+  {
+    // use FCMP++ rules if latest refreshed height is at least hard fork table's height for HF_VERSION_FCMP_PLUS_PLUS
+    use_fcmp_pp_unlock_rules = use_fork_rules_offline(HF_VERSION_FCMP_PLUS_PLUS, 0);
+  }
+  if (use_fcmp_pp_unlock_rules)
     return get_blockchain_current_height() >= (cryptonote::get_last_locked_block_index(unlock_time, block_height)+1);
+
+  // else, use pre-FCMP++ unlock rules...
 
   if(unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
   {
@@ -11656,6 +11669,37 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
     LOG_PRINT_L2("Not using v" << (unsigned)version << " rules");
+  return close_enough;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::use_fork_rules_offline(uint8_t version, int64_t early_blocks) const
+{
+  // get hard fork table based on network type
+  const size_t wallet_num_hard_forks = m_nettype == TESTNET ? num_testnet_hard_forks
+    : m_nettype == STAGENET ? num_stagenet_hard_forks : num_mainnet_hard_forks;
+  const hardfork_t *wallet_hard_forks = m_nettype == TESTNET ? testnet_hard_forks
+    : m_nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
+
+  // find hard fork with lowest version >= `version`
+  const hardfork_t *best_fork_info = nullptr;
+  for (std::size_t i = 0; i < wallet_num_hard_forks; ++i)
+  {
+    const hardfork_t &fork_info = wallet_hard_forks[i];
+    if (fork_info.version < version)
+      continue;
+    if (nullptr == best_fork_info || fork_info.version < best_fork_info->version)
+      best_fork_info = &fork_info;
+  }
+
+  if (nullptr == best_fork_info) // did not find fork in table
+    return false;
+
+  const int64_t height = static_cast<int64_t>(get_blockchain_current_height());
+  const bool close_enough = height >= static_cast<int64_t>(best_fork_info->height) - early_blocks;
+  if (close_enough)
+    LOG_PRINT_L2("Using v" << static_cast<unsigned>(version) << " rules (offline)");
+  else
+    LOG_PRINT_L2("Not using v" << static_cast<unsigned>(version) << " rules (offline)");
   return close_enough;
 }
 //----------------------------------------------------------------------------------------------------

@@ -1097,7 +1097,20 @@ private:
 
     uint8_t get_current_hard_fork();
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
+    /**
+     * brief: determine if daemon's blockchain is past a certain fork version
+     * param: version - fork version
+     * param: early_blocks - threshold of blocks for which the the fork can be away from activation
+     * return: true iff daemon's blockchain is past the fork version, within said threshold
+     */
     bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);
+    /**
+     * brief: determine if wallet's cached blockchain is past a certain fork version, according to its own fork table
+     * param: version - fork version
+     * param: early_blocks - threshold of blocks for which the the fork can be away from activation
+     * return: true iff wallet's cached blockchain is past the fork version, within said threshold
+     */
+    bool use_fork_rules_offline(uint8_t version, int64_t early_blocks = 0) const;
     fee_algorithm get_fee_algorithm();
 
     std::string get_wallet_file() const;
