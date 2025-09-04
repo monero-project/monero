@@ -2677,7 +2677,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
 
   // Make sure reference block exists in the chain
   CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
-      "tx " + epee::string_tools::pod_to_hex(get_transaction_hash(tx)) + " included reference block that was too high");
+      "tx " << get_transaction_hash(tx) << " included reference block that was too high");
 
   // Get the tree root and n tree layers at provided block
   const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
@@ -2685,7 +2685,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   // Make sure the provided n tree layers matches expected
   // IMPORTANT!
   CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
-      "tx " + epee::string_tools::pod_to_hex(get_transaction_hash(tx)) + " included incorrect number of tree layers");
+      "tx " << get_transaction_hash(tx) << " included incorrect number of tree layers");
 
   return true;
 }
