@@ -923,7 +923,7 @@ namespace cryptonote
 
       // Get the data necessary to start syncing the tree from the first returned block
       const uint64_t init_block_idx = res.start_height == 0 ? 0 : (res.start_height - 1);
-      const crypto::hash init_block_hash = b.prev_id;
+      const crypto::hash init_block_hash = res.start_height == 0 ? get_block_hash(b) : b.prev_id;
       if (!set_init_tree_sync_data(init_block_idx, init_block_hash, m_core, res.init_tree_sync_data))
       {
         res.status = "Failed";
@@ -3201,7 +3201,9 @@ namespace cryptonote
 
     res.version = CORE_RPC_VERSION;
     res.release = MONERO_VERSION_IS_RELEASE;
-    res.current_height = m_core.get_current_blockchain_height();
+    crypto::hash top_hash;
+    m_core.get_blockchain_top(res.current_height, top_hash);
+    res.top_hash = epee::string_tools::pod_to_hex(top_hash);
     res.target_height = m_p2p.get_payload_object().is_synchronized() ? 0 : m_core.get_target_blockchain_height();
     for (const auto &hf : m_core.get_blockchain_storage().get_hardforks())
        res.hard_forks.push_back({hf.version, hf.height});

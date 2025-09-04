@@ -2296,6 +2296,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint32_t version;
       bool release;
       uint64_t current_height;
+      std::string top_hash;
       uint64_t target_height;
       std::vector<hf_entry> hard_forks;
 
@@ -2304,6 +2305,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(version)
         KV_SERIALIZE(release)
         KV_SERIALIZE_OPT(current_height, (uint64_t)0)
+        KV_SERIALIZE_OPT(top_hash, std::string(""))
         KV_SERIALIZE_OPT(target_height, (uint64_t)0)
         KV_SERIALIZE_OPT(hard_forks, std::vector<hf_entry>())
       END_KV_SERIALIZE_MAP()

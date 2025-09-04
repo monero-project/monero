@@ -74,7 +74,6 @@ namespace tools
     //         get_out_indexes_error
     //         tx_parse_error
     //         get_tx_pool_error
-    //         reorg_before_first_block_error
     //         reorg_depth_error
     //         incorrect_fork_version
     //         needs_rescan
@@ -436,16 +435,6 @@ namespace tools
     {
       explicit get_tx_pool_error(std::string&& loc)
         : refresh_error(std::move(loc), "error getting transaction pool")
-      {
-      }
-
-      std::string to_string() const { return refresh_error::to_string(); }
-    };
-    //----------------------------------------------------------------------------------------------------
-    struct reorg_before_first_block_error : public refresh_error
-    {
-      explicit reorg_before_first_block_error(std::string&& loc)
-        : refresh_error(std::move(loc), "Reorg identified, we need to request older blocks to find the split point")
       {
       }
 

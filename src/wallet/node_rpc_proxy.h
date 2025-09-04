@@ -48,7 +48,8 @@ public:
 
   boost::optional<std::string> get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height);
   boost::optional<std::string> get_height(uint64_t &height);
-  void set_height(uint64_t h);
+  boost::optional<std::string> get_top_hash(uint64_t &height, crypto::hash &top_hash);
+  void set_height(uint64_t h, const crypto::hash &top_hash);
   boost::optional<std::string> get_target_height(uint64_t &height);
   boost::optional<std::string> get_block_weight_limit(uint64_t &block_weight_limit);
   boost::optional<std::string> get_adjusted_time(uint64_t &adjusted_time);
@@ -67,6 +68,7 @@ private:
   bool m_offline;
 
   uint64_t m_height;
+  crypto::hash m_top_hash;
   uint64_t m_earliest_height[256];
   uint64_t m_dynamic_base_fee_estimate;
   uint64_t m_dynamic_base_fee_estimate_cached_height;

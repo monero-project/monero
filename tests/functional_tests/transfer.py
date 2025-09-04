@@ -1222,8 +1222,9 @@ class TransferTest():
         all_txs = out_txids + in_txids
         for test_type in ["all txs", "incoming first", "duplicates within", "duplicates across"]:
             print(test + ' (' + test_type + ')')
-            restore_wallet(sender_wallet, seeds[0], height)
+            restore_wallet(sender_wallet, seeds[0], height+1)
             sender_wallet.refresh()
+            assert sender_wallet.get_balance().balance == 0
             if test_type == "all txs":
                 sender_wallet.scan_tx(all_txs)
             elif test_type == "incoming first":
@@ -1245,6 +1246,22 @@ class TransferTest():
         sender_wallet.refresh()
         diff_transfers(sender_wallet.get_transfers(), res)
         assert sender_wallet.get_balance().balance == expected_sender_balance
+
+        # Check spend after scan
+        restore_wallet(sender_wallet, seeds[0], height+1)
+        sender_wallet.refresh()
+        assert sender_wallet.get_balance().balance == 0
+        sender_wallet.scan_tx(all_txs)
+        assert sender_wallet.get_balance().balance == expected_sender_balance
+        assert sender_wallet.get_balance().unlocked_balance > 0
+        dst = {'address': sender_wallet.get_address().address, 'amount': 1000000000000}
+        res = sender_wallet.transfer([dst])
+        tx_hash = res.tx_hash
+        assert len(tx_hash) == 32*2
+        res = daemon.get_transactions([tx_hash])
+        assert len(res.txs) >= 1
+        tx = [tx for tx in res.txs if tx.tx_hash == tx_hash][0]
+        assert tx.in_pool
 
         print('Checking scan_tx on incoming txs before refresh')
         try:
@@ -1283,8 +1300,9 @@ class TransferTest():
         txids = [x.txid for x in res['in']]
         if 'out' in res:
             txids = txids + [x.txid for x in res.out]
-        restore_wallet(receiver_wallet, seeds[1], height)
+        restore_wallet(receiver_wallet, seeds[1], height+1)
         receiver_wallet.refresh()
+        assert receiver_wallet.get_balance().balance == 0
         receiver_wallet.scan_tx(txids)
         if 'out' in res:
             for i, out_tx in enumerate(res.out):
@@ -1298,6 +1316,30 @@ class TransferTest():
         receiver_wallet.refresh()
         diff_transfers(receiver_wallet.get_transfers(), res)
         assert receiver_wallet.get_balance().balance == expected_receiver_balance
+
+        # Unlock receiver wallet txs
+        height = daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 10).height
+
+        # Check spend after scan
+        restore_wallet(receiver_wallet, seeds[1], height+1)
+        receiver_wallet.refresh()
+        assert receiver_wallet.get_balance().balance == 0
+        receiver_wallet.scan_tx(txids)
+        assert receiver_wallet.get_balance().balance == expected_receiver_balance
+        assert receiver_wallet.get_balance().unlocked_balance > 0
+        dst = {'address': sender_wallet.get_address().address, 'amount': 1000000000000}
+        res = receiver_wallet.transfer([dst])
+        tx_hash = res.tx_hash
+        assert len(tx_hash) == 32*2
+        res = daemon.get_transactions([tx_hash])
+        assert len(res.txs) >= 1
+        tx = [tx for tx in res.txs if tx.tx_hash == tx_hash][0]
+        assert tx.in_pool
+
+        # Mine the tx and reset both wallets
+        daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
+        restore_wallet(sender_wallet, seeds[0])
+        restore_wallet(receiver_wallet, seeds[1])
 
     def check_subtract_fee_from_outputs(self):
         daemon = Daemon()
