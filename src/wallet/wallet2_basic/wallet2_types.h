@@ -102,7 +102,7 @@ public:
     /**
      * @brief: pop the oldest block
     */
-    void pop_front() { m_blockchain.pop_front(); ++m_offset; }
+    void pop_oldest() { if (m_blockchain.size()) { m_blockchain.pop_front(); ++m_offset; } }
     /**
      * @brief: manually set the top block hash and offset
     */

@@ -2872,7 +2872,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b,
 
   // Shrink m_blockchain to max reorg depth
   while ((m_blockchain.offset() + m_max_reorg_depth) < m_blockchain.size())
-    m_blockchain.pop_front();
+    m_blockchain.pop_oldest();
 
   if (0 != m_callback)
     m_callback->on_new_block(height, b);
