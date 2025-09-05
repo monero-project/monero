@@ -3001,8 +3001,8 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t &blocks_sta
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-
   req.block_ids = short_chain_history;
+
   req.prune = true;
   req.no_miner_tx = false; // always need the miner tx so we can grow the tree correctly
   req.init_tree_sync = m_tree_cache.n_synced_blocks() == 0;
@@ -3514,7 +3514,7 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> init_tree_sync_data;
-    pull_blocks(first, try_incremental, short_chain_history, blocks_start_height, blocks, o_indices, top_hash, process_pool_txs, init_tree_sync_data);
+    pull_blocks(first, try_incremental, blocks_start_height, short_chain_history, blocks, o_indices, top_hash, process_pool_txs, init_tree_sync_data);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
