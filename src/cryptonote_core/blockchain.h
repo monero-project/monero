@@ -508,10 +508,11 @@ namespace cryptonote
      * @param pruned whether to return full or pruned tx blobs
      * @param max_block_count the max number of blocks to get
      * @param max_tx_count the max number of txes to get (it can get overshot by the last block's number of txes minus 1)
+     * @param qblock_ids_skip_common_block when using qblock_ids, indicates whether or not to include common block in response
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count, bool qblock_ids_skip_common_block = false) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions

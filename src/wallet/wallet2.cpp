@@ -3002,7 +3002,7 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t &blocks_sta
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
   req.block_ids = short_chain_history;
-
+  req.block_ids_skip_common_block = true; // start with the first new block after highest common block
   req.prune = true;
   req.no_miner_tx = false; // always need the miner tx so we can grow the tree correctly
   req.init_tree_sync = m_tree_cache.n_synced_blocks() == 0;
@@ -3133,11 +3133,7 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
 
   const auto set_start_parsed_block_i_out = epee::misc_utils::create_scope_leave_handler([&]() {
     if (split_point_out == 0/*no reorg*/)
-    {
-      // 1 because daemon response should always include 1 synced block, and we want to skip that one when processing
-      start_parsed_block_i_out = 1;
       return;
-    }
 
     THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(split_point_out), error::wallet_internal_error,
       "check_for_reorg: reorg split point not in bounds");
@@ -3160,29 +3156,29 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
     return false;
   }
 
-  // Note: this section assumes the wallet used its short_chain_history in the getblocks.bin request.
-  // The daemon response should always include at least one locally synced block. If there was a reorg, then the daemon
-  // starts w/a block in our local chain that is contiguous to the main chain, and also returns contiguous blocks after.
-  // It's possible the resp includes multiple blocks we have already synced, since short_chain_history has gaps in it.
-  // If parsed_blocks_start_idx is not in our hashchain, however, then the reorg must have occurred earlier than the
+  // Note: this section assumes the wallet used its latest short_chain_history in the getblocks.bin request.
+  // The daemon response should always include at least 1 block with prev_id included in our local chain
+  // (see block_ids_skip_common_block param). If there was a reorg, then the daemon resp includes a block w/prev_id in
+  // our local chain that is contiguous to the main chain, and also returns contiguous blocks after. It's possible the
+  // resp includes multiple blocks we have already synced, since short_chain_history has gaps in it. If
+  // parsed_blocks_start_idx-1 is not in our hashchain, however, then the reorg must have occurred earlier than the
   // wallet's max reorg depth (since short_chain_history should have included m_blockchain.offset(), i.e. the oldest
   // block we can handle a reorg back to).
-  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(parsed_blocks_start_idx), error::reorg_depth_error,
-    "daemon's returned block is not in the local hashchain, we must have exceeded the max reorg depth");
 
-  // Make sure first block matches locally synced block
-  THROW_WALLET_EXCEPTION_IF(blockchain[parsed_blocks_start_idx] != parsed_blocks.front().hash,
-    error::wallet_internal_error, "check_for_reorg: daemon returned unexpected first block");
+  THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx == 0, error::wallet_internal_error,
+    "check_for_reorg: genesis is not expected to be included in response");
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(parsed_blocks_start_idx-1), error::reorg_depth_error,
+    "daemon's response did not include a block in the local hashchain, we must have exceeded the max reorg depth");
 
-  // Starting from the next parsed block, make sure the parsed blocks are contiguous to locally synced blocks
-  uint64_t i = 1;
-  uint64_t cur_block_idx = parsed_blocks_start_idx + 1;
+  // Starting from the first parsed block's prev id, make sure the parsed blocks are contiguous to locally synced blocks
+  uint64_t i = 0;
+  uint64_t cur_block_idx = parsed_blocks_start_idx - 1;
   while (i < parsed_blocks.size() && cur_block_idx < blockchain.size())
   {
     MDEBUG("Checking for reorg split point on block " << cur_block_idx);
     THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(cur_block_idx), error::wallet_internal_error,
       "check_for_reorg: parsed block is not in bounds");
-    if (blockchain[cur_block_idx] != parsed_blocks.at(i).hash)
+    if (blockchain[cur_block_idx] != parsed_blocks.at(i).block.prev_id)
     {
       // Reorg detected!
       split_point_out = cur_block_idx;
@@ -3197,16 +3193,29 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
   if (cur_block_idx >= blockchain.size())
     return false;
 
-  // Finally, see if we have synced too many blocks past the chain tip (e.g. daemon popped blocks)
-  MDEBUG("Checking for reorg split point after last block " << cur_block_idx);
+ // Finally, check the last hash in parsed blocks for a reorg
+  MDEBUG("Checking for reorg split point on last parsed block " << cur_block_idx);
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(cur_block_idx), error::wallet_internal_error,
     "check_for_reorg: last parsed block is not in bounds");
-  if (blockchain[cur_block_idx] == top_hash && blockchain.size() >= cur_block_idx);
+
+  const crypto::hash &block_hash = blockchain[cur_block_idx];
+
+  // Reorg identified if our locally synced block hash doesn't line up to the daemon's reported
+  if (block_hash != parsed_blocks.back().hash)
+  {
+    // Reorg detected and split point identified
+    split_point_out = cur_block_idx;
+    return true;
+  }
+
+  // OR the hash is the chain's top hash, but we have synced more blocks beyond that block (e.g. daemon popped blocks)
+  if (block_hash == top_hash && blockchain.size() >= cur_block_idx)
   {
     // The split point is the block after cur_block_idx
     split_point_out = cur_block_idx + 1;
     return true;
   }
+
   return false;
 }
 //----------------------------------------------------------------------------------------------------
@@ -3586,13 +3595,15 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
 
     if (init_tree_sync_data)
     {
-      // Initialize m_blockchain and the local tree cache
+      // Initialize local tree cache
       const uint64_t init_block_idx = init_tree_sync_data->init_block_idx;
       const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
-      MINFO("Initializing wallet cache at block " << init_block_idx << " with block hash " << init_block_hash);
+      MINFO("Initializing tree at block " << init_block_idx << " with block hash " << init_block_hash);
 
-      // Manually set m_blockchain's starting top block
-      m_blockchain.set_top_block(init_block_hash, init_block_idx);
+      // Make sure m_blockchain is in expected state
+      THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != (init_block_idx+1), error::wallet_internal_error, "expected m_blockchain to be initialized at init_block_idx");
+      THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(init_block_idx), error::wallet_internal_error, "init block out of bounds");
+      THROW_WALLET_EXCEPTION_IF(m_blockchain[init_block_idx] != init_block_hash, error::wallet_internal_error, "init hash mismatch in m_blockchain");
 
       // Initialize tree cache
       fcmp_pp::curve_trees::OutsByLastLockedBlock locked_outputs;
@@ -4066,25 +4077,43 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // refresh from that height
   start_height = std::max(m_refresh_from_block_height, start_height);
   if (start_height > m_blockchain.size()) {
-    // We don't need to sync if start_height is higher than the daemon height
-    crypto::hash top_hash;
-    const uint64_t daemon_height = this->get_daemon_blockchain_top_hash(top_hash);
-    if (start_height > daemon_height) {
-      MWARNING("Refresh start height is higher than the current chain tip, not syncing");
-      return;
-    }
-    THROW_WALLET_EXCEPTION_IF(daemon_height == 0, error::wallet_internal_error, "daemon height should be > 0");
-
     // If the wallet has already synced, we throw because it *cannot* skip forwards to the higher height.
     // We *must* scan contiguously in order to maintain the correct tree state. The user should call rescan_blockchain
     // to clear their wallet, so we can start scanning from the higher height from an empty wallet.
     THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != 1 || m_tree_cache.n_synced_blocks() != 0, error::needs_rescan);
-    MINFO("Starting scanner from " << start_height);
-    m_blockchain.set_top_block(top_hash, daemon_height - 1);
+
+    // Bring start_height back 1 because refresh starts *on top of* that block (i.e. starts with the block after it)
+    const uint64_t top_prev_block_idx = start_height - 1;
+
+    // Get the corresponding hash from the daemon
+    crypto::hash top_prev_hash;
+    {
+      cryptonote::COMMAND_RPC_GETBLOCKHASH::request req = AUTO_VAL_INIT(req);
+      cryptonote::COMMAND_RPC_GETBLOCKHASH::response res = AUTO_VAL_INIT(res);
+      epee::json_rpc::error error;
+      error.code = 0;
+      req.push_back(top_prev_block_idx);
+
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "on_get_block_hash", req, res, error, *m_http_client, rpc_timeout);
+      if (error.code == CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT) {
+        // We don't need to sync if start height is higher than the daemon height
+        MWARNING("Refresh start height is higher than the current chain tip, not syncing");
+        return;
+      }
+      THROW_WALLET_EXCEPTION_IF(!r || error.code != 0, error::get_block_hash_error, error.message);
+      THROW_WALLET_EXCEPTION_IF(res.size() != 64, error::get_block_hash_error, "Hash is not 32 bytes as expected");
+      r = epee::string_tools::hex_to_pod(res, top_prev_hash);
+      THROW_WALLET_EXCEPTION_IF(!r, error::get_block_hash_error, "Failed to parse getblockhash hash");
+    }
+
+    MINFO("Starting scanner on top of block " << top_prev_block_idx << " , hash " << top_prev_hash);
+    m_blockchain.set_top_block(top_prev_hash, top_prev_block_idx);
   }
   // Note: we always start the scanner contiguously on top of the latest in m_blockchain, so that the FCMP++ tree grows
   // correctly. We cannot jump around nor re-scan from an earlier block. A user must call rescan_blockchain to rescan
   // from an earlier block.
+  MINFO("Refresh starting from block " << m_blockchain.size());
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
     boost::lock_guard refresh_lock(m_encrypt_keys_after_refresh_mutex);
@@ -4160,7 +4189,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       {
         THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(m_blockchain.size() - 1), error::wallet_internal_error, "top block out of bounds");
         THROW_WALLET_EXCEPTION_IF(m_blockchain[m_blockchain.size() - 1] != top_hash, error::wallet_internal_error, "local top hash should equal chain top hash");
-        m_node_rpc_proxy.set_height(m_blockchain.size(), top_hash);
+        m_node_rpc_proxy.set_height(m_blockchain.size());
         break;
       }
 
@@ -12858,14 +12887,6 @@ uint64_t wallet2::get_daemon_blockchain_height(string &err)
 
   err = "";
   return height;
-}
-
-uint64_t wallet2::get_daemon_blockchain_top_hash(crypto::hash& top_hash)
-{
-    uint64_t height;
-    boost::optional<std::string> result = m_node_rpc_proxy.get_top_hash(height, top_hash);
-    THROW_WALLET_EXCEPTION_IF(result, error::wallet_internal_error, "Failed to get top hash from daemon");
-    return height;
 }
 
 uint64_t wallet2::get_daemon_adjusted_time()

@@ -85,6 +85,7 @@ class TransferTest():
         self.check_destinations()
         self.check_tx_notes()
         self.check_rescan()
+        self.check_restore()
         self.check_is_key_image_spent()
         self.check_multiple_submissions()
         self.check_scan_tx()
@@ -1027,6 +1028,71 @@ class TransferTest():
                         e[k] = x[k]
                 new_t_out.append(e)
             assert sorted(old_t_out, key = lambda k: k['txid']) == sorted(new_t_out, key = lambda k: k['txid'])
+
+    def check_restore(self):
+        daemon = Daemon()
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[0].refresh()
+
+        # Assumes the wallet has txs in it. Tests restoring from a height > min height tx in the wallet
+        print('Testing restore')
+        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        transfers = res.transfers
+
+        # Find min height
+        min_height = 9999999999999
+        for t in transfers:
+            if t.block_height < min_height:
+                min_height = t.block_height
+        assert min_height < 9999999999999
+
+        # Find a tx at height greater than min_height
+        tx = None
+        for t in transfers:
+            if t.block_height > min_height:
+                tx = t
+                break
+        assert tx != None
+
+        # Count the number of txs at height greater than or equal to tx's height
+        count = 0
+        for t in transfers:
+            if t.block_height >= tx.block_height:
+                count += 1
+        assert count >= 1
+        assert count < len(transfers)
+
+        # Restore the wallet from that tx's height
+        restore_wallet(self.wallet[0], seeds[0], restore_height = tx.block_height)
+        self.wallet[0].refresh()
+        res = self.wallet[0].incoming_transfers(transfer_type = 'all')
+        restored_transfers = res.transfers
+
+        # Make sure the tx is in there
+        found = False
+        for t in restored_transfers:
+            assert t.block_height >= tx.block_height
+            if t.tx_hash == tx.tx_hash:
+                found = True
+        assert found
+        assert count == len(restored_transfers)
+
+        # Make a new transfer to make sure we can spend after restore
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        res = self.wallet[0].transfer([dst])
+        txid = res.tx_hash
+        assert len(txid) == 32*2
+        height = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1).height
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_transfers()
+        assert len(res.out) > 0
+        tx = [x for x in res.out if x.txid == txid]
+        assert len(tx) == 1
+
+        # Test passed, now reset the wallet
+        restore_wallet(self.wallet[0], seeds[0])
+        self.wallet[0].refresh()
 
     def check_is_key_image_spent(self):
         daemon = Daemon()

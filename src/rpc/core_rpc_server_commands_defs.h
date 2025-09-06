@@ -194,6 +194,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t    pool_info_since;
       uint64_t    max_block_count;
       bool        init_tree_sync;
+      bool        block_ids_skip_common_block;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
         KV_SERIALIZE_OPT(requested_info, (uint8_t)0)
@@ -204,6 +205,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
         KV_SERIALIZE_OPT(max_block_count, (uint64_t)0)
         KV_SERIALIZE_OPT(init_tree_sync, false)
+        KV_SERIALIZE_OPT(block_ids_skip_common_block, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2296,7 +2298,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint32_t version;
       bool release;
       uint64_t current_height;
-      std::string top_hash;
       uint64_t target_height;
       std::vector<hf_entry> hard_forks;
 
@@ -2305,7 +2306,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(version)
         KV_SERIALIZE(release)
         KV_SERIALIZE_OPT(current_height, (uint64_t)0)
-        KV_SERIALIZE_OPT(top_hash, std::string(""))
         KV_SERIALIZE_OPT(target_height, (uint64_t)0)
         KV_SERIALIZE_OPT(hard_forks, std::vector<hf_entry>())
       END_KV_SERIALIZE_MAP()

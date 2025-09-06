@@ -72,6 +72,7 @@ namespace tools
     //         get_blocks_error
     //         get_hashes_error
     //         get_out_indexes_error
+    //         get_block_hash_error
     //         tx_parse_error
     //         get_tx_pool_error
     //         reorg_depth_error
@@ -136,14 +137,16 @@ namespace tools
       "failed to get blocks",
       "failed to get hashes",
       "failed to get out indices",
-      "failed to get random outs"
+      "failed to get random outs",
+      "failed to get block hash"
     };
     enum failed_rpc_request_message_indices
     {
       get_blocks_error_message_index,
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
-      get_outs_error_message_index
+      get_outs_error_message_index,
+      get_block_hash_error_message_index
     };
 
     template<typename Base, int msg_index>
@@ -414,6 +417,8 @@ namespace tools
     typedef failed_rpc_request<refresh_error, get_hashes_error_message_index> get_hashes_error;
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_out_indices_error_message_index> get_out_indices_error;
+    //----------------------------------------------------------------------------------------------------
+    typedef failed_rpc_request<refresh_error, get_block_hash_error_message_index> get_block_hash_error;
     //----------------------------------------------------------------------------------------------------
     struct tx_parse_error : public refresh_error
     {

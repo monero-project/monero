@@ -61,7 +61,6 @@ NodeRPCProxy::NodeRPCProxy(epee::net_utils::http::abstract_http_client &http_cli
 void NodeRPCProxy::invalidate()
 {
   m_height = 0;
-  m_top_hash = crypto::hash{};
   for (size_t n = 0; n < 256; ++n)
     m_earliest_height[n] = 0;
   m_dynamic_base_fee_estimate = 0;
@@ -101,7 +100,6 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
     if (resp_t.current_height > 0 || resp_t.target_height > 0)
     {
       m_height = resp_t.current_height;
-      epee::string_tools::hex_to_pod(resp_t.top_hash, m_top_hash);
       m_target_height = resp_t.target_height;
       m_height_time = now;
       m_target_height_time = now;
@@ -119,10 +117,9 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
   return boost::optional<std::string>();
 }
 
-void NodeRPCProxy::set_height(uint64_t h, const crypto::hash &top_hash)
+void NodeRPCProxy::set_height(uint64_t h)
 {
   m_height = h;
-  m_top_hash = top_hash;
   m_height_time = time(NULL);
 }
 
@@ -143,7 +140,6 @@ boost::optional<std::string> NodeRPCProxy::get_info()
     }
 
     m_height = resp_t.height;
-    epee::string_tools::hex_to_pod(resp_t.top_block_hash, m_top_hash);
     m_target_height = resp_t.target_height;
     m_block_weight_limit = resp_t.block_weight_limit ? resp_t.block_weight_limit : resp_t.block_size_limit;
     m_adjusted_time = resp_t.adjusted_time;
@@ -167,15 +163,6 @@ boost::optional<std::string> NodeRPCProxy::get_height(uint64_t &height)
   if (res)
     return res;
   height = m_height;
-  return boost::optional<std::string>();
-}
-
-boost::optional<std::string> NodeRPCProxy::get_top_hash(uint64_t &height, crypto::hash &top_hash)
-{
-  auto res = this->get_height(height);
-  if (res)
-    return res;
-  top_hash = m_top_hash;
   return boost::optional<std::string>();
 }
 
