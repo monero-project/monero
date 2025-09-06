@@ -401,8 +401,7 @@ void fake_pruned_blockchain::init_wallet_for_starting_block(tools::wallet2 &w) c
 //----------------------------------------------------------------------------------------------------------------------
 uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w) const
 {
-    // start with tip block because process_parsed_blocks expects the wallet has already synced the first provided block
-    const uint64_t start_height = w.get_blockchain_current_height() - 1;
+    const uint64_t start_height = w.get_blockchain_current_height();
 
     // fetch blocks data
     std::vector<cryptonote::block_complete_entry> blk_entries;
