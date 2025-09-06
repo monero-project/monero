@@ -4245,6 +4245,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         last = false;
         blocks.clear();
         parsed_blocks.clear();
+        cur_chain = m_blockchain;
         ++try_count;
       }
       else
