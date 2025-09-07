@@ -2979,12 +2979,13 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  top_hash = m_db->top_block_hash(&total_height);
+  ++total_height;
+
   // if a specific start height has been requested
   if(req_start_block > 0)
   {
     // if requested height is higher than our chain, return false -- we can't help
-    top_hash = m_db->top_block_hash(&total_height);
-    ++total_height;
     if (req_start_block >= total_height)
     {
       return false;
@@ -2993,22 +2994,30 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   }
   else
   {
-    // find_blockchain_supplement's start_height starts from the highest block id included in qblock_ids that's in the main chain
+    // find_blockchain_supplement's start_height is the highest block idx included in qblock_ids that's *also* in the main chain
     if(!find_blockchain_supplement(qblock_ids, start_height))
     {
       return false;
     }
     if (qblock_ids_skip_common_block)
     {
-      // start from 1 block higher than the first common block (i.e. from the first "new" block)
+      // start from 1 block higher than the first common block (i.e. from the first block the client might not know about)
       ++start_height;
+
+      // if start_height is now the chain tip, we can return a truthy empty resp
+      if (start_height == total_height)
+      {
+        LOG_PRINT_L2("Returning empty find_blockchain_supplement, start_height: " << start_height);
+        blocks.clear();
+        return true;
+      }
     }
   }
 
   db_rtxn_guard rtxn_guard(m_db);
   top_hash = m_db->top_block_hash(&total_height);
   ++total_height;
-  CHECK_AND_ASSERT_MES(total_height > start_height, false, "Start height expected < total_height");
+  CHECK_AND_ASSERT_MES(total_height >= start_height, false, "chain height expected to be higher than start block");
   blocks.reserve(std::min(std::min(max_block_count, (size_t)10000), (size_t)(total_height - start_height)));
   CHECK_AND_ASSERT_MES(m_db->get_blocks_from(start_height, 3, max_block_count, max_tx_count, FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE, blocks, pruned, true, get_miner_tx_hash),
       false, "Error getting blocks");
