@@ -382,3 +382,216 @@ TEST(wallet_storage, change_export_format)
 
     EXPECT_EQ(primary_address_1, primary_address_2);
 }
+
+#define OLD_WALLET_KEYS_UNLOCKER 0
+#if OLD_WALLET_KEYS_UNLOCKER
+#define WALLET_KEYS_UNLOCKER_CTOR(wal, p_pwd) tools::wallet_keys_unlocker(wal, \
+    p_pwd ? tools::password_container(*static_cast<const epee::wipeable_string*>(p_pwd)) \
+    : boost::optional<tools::password_container>{})
+#else
+#define WALLET_KEYS_UNLOCKER_CTOR tools::wallet_keys_unlocker
+#endif
+
+static bool verify_wallet_privkeys(const tools::wallet2 &w)
+{
+    hw::device &hwdev = hw::get_device("default");
+    const cryptonote::account_keys &keys = w.get_account().get_keys();
+    return hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key)
+        && hwdev.verify_keys(keys.m_view_secret_key, keys.m_account_address.m_view_public_key);
+}
+
+TEST(wallet_keys_unlocker, is_key_encryption_enabled)
+{
+    const epee::wipeable_string password1("Beleza pura, malandro!");
+    const epee::wipeable_string password2("correct horse battery staple");
+    {
+        tools::wallet2 w;
+        w.generate("", password1);
+        ASSERT_TRUE(w.is_key_encryption_enabled());
+    }
+    {
+        tools::wallet2 w(cryptonote::MAINNET, /*kdf_rounds=*/1, /*unattended=*/true);
+        w.generate("", password1);
+        ASSERT_FALSE(w.is_key_encryption_enabled()); // because unattended
+    }
+    {
+        tools::wallet2 w_cold;
+        w_cold.generate("", password1);
+        ASSERT_TRUE(w_cold.is_key_encryption_enabled());
+        tools::wallet2 w_hot;
+        w_hot.generate("", password2,
+            w_cold.get_address(),
+            w_cold.get_account().get_keys().m_view_secret_key);
+        ASSERT_FALSE(w_hot.is_key_encryption_enabled()); // because watch only
+    }
+    {
+        const path bg_wallet_file = unit_test::data_dir / "is_key_encryption_enabled_bg1";
+        if (is_file_exist(bg_wallet_file.string()))
+            remove(bg_wallet_file);
+        if (is_file_exist(bg_wallet_file.string() + ".keys"))
+            remove(bg_wallet_file.string() + ".keys");
+
+        tools::wallet2 w;
+        w.generate(bg_wallet_file.string(), password1);
+        ASSERT_TRUE(w.is_key_encryption_enabled());
+        w.setup_background_sync(tools::wallet2::BackgroundSyncReusePassword, password1, boost::none);
+        ASSERT_FALSE(w.is_background_syncing());
+        w.start_background_sync();
+        ASSERT_TRUE(w.is_background_syncing());
+        ASSERT_FALSE(verify_wallet_privkeys(w));
+        ASSERT_FALSE(w.is_key_encryption_enabled()); // because background syncing
+    }
+    {
+        const path bg_wallet_file = unit_test::data_dir / "is_key_encryption_enabled_bg2";
+        if (is_file_exist(bg_wallet_file.string()))
+            remove(bg_wallet_file);
+        if (is_file_exist(bg_wallet_file.string() + ".keys"))
+            remove(bg_wallet_file.string() + ".keys");
+
+        tools::wallet2 w;
+        w.generate(bg_wallet_file.string(), password1);
+        ASSERT_TRUE(w.is_key_encryption_enabled());
+        w.setup_background_sync(tools::wallet2::BackgroundSyncCustomPassword, password1, password2);
+        ASSERT_FALSE(w.is_background_syncing());
+        w.start_background_sync();
+        ASSERT_TRUE(w.is_background_syncing());
+        ASSERT_FALSE(verify_wallet_privkeys(w));
+        ASSERT_FALSE(w.is_key_encryption_enabled()); // because background syncing
+    }
+}
+
+TEST(wallet_keys_unlocker, simple_nonce)
+{
+    // Test that encrypted keys are different each time, i.e. that a nonce may actually be used
+
+    const epee::wipeable_string password("1612");
+    tools::wallet2 w;
+    w.generate("", password);
+    ASSERT_TRUE(w.is_key_encryption_enabled());
+    ASSERT_FALSE(w.is_unattended());
+    ASSERT_FALSE(verify_wallet_privkeys(w));
+    std::unordered_set<crypto::secret_key> encrypted_spendkeys;
+    encrypted_spendkeys.insert(w.get_account().get_keys().m_spend_secret_key);
+
+    const int n_locks = 10;
+    for (int i = 0; i < n_locks; ++i)
+    {
+        {
+            tools::wallet_keys_unlocker ul(w, &password);
+        }
+        const crypto::secret_key enc_spendkey = w.get_account().get_keys().m_spend_secret_key;
+        ASSERT_FALSE(encrypted_spendkeys.count(enc_spendkey));
+        encrypted_spendkeys.insert(enc_spendkey);
+    }
+
+    ASSERT_EQ(n_locks + 1, encrypted_spendkeys.size());
+}
+
+TEST(wallet_keys_unlocker, mutiple_attended)
+{
+    // Test that multiple non-unattended wallets can be decrypted at the same time.
+
+    const epee::wipeable_string password1("https://www.justice.gov/archives/opa/pr/bitcoin-fog-operator-convicted-money-laundering-conspiracy");
+    const epee::wipeable_string password2("https://cointelegraph.com/news/bad-blockchain-forensics-convict-roman-sterlingov");
+
+    tools::wallet2 w1;
+    w1.generate("", password1);
+    ASSERT_TRUE(w1.is_key_encryption_enabled());
+    ASSERT_FALSE(w1.is_unattended());
+    ASSERT_FALSE(verify_wallet_privkeys(w1));
+    const crypto::secret_key w1_ks_encrypted = w1.get_account().get_keys().m_spend_secret_key;
+    const crypto::public_key w1_spend_pubkey = w1.get_account().get_keys().m_account_address.m_spend_public_key;
+
+    tools::wallet2 w2;
+    w2.generate("", password2);
+    ASSERT_TRUE(w2.is_key_encryption_enabled());
+    ASSERT_FALSE(w2.is_unattended());
+    ASSERT_FALSE(verify_wallet_privkeys(w2));
+    const crypto::secret_key w2_ks_encrypted = w2.get_account().get_keys().m_spend_secret_key;
+    const crypto::public_key w2_spend_pubkey = w2.get_account().get_keys().m_account_address.m_spend_public_key;
+
+    ASSERT_NE(w1_ks_encrypted, w2_ks_encrypted);
+    ASSERT_NE(w1_spend_pubkey, w2_spend_pubkey);
+
+    crypto::secret_key w1_ks_unencrypted;
+    crypto::secret_key w2_ks_unencrypted;
+    for (size_t i = 0; i < 2; ++i)
+    {
+        tools::wallet_keys_unlocker ul1 = WALLET_KEYS_UNLOCKER_CTOR(w1, &password1);
+        w1_ks_unencrypted = w1.get_account().get_keys().m_spend_secret_key;
+        ASSERT_NE(w1_ks_encrypted, w1_ks_unencrypted);
+        EXPECT_TRUE(verify_wallet_privkeys(w1));
+
+        tools::wallet_keys_unlocker ul2 = WALLET_KEYS_UNLOCKER_CTOR(w2, &password2);
+        w2_ks_unencrypted = w2.get_account().get_keys().m_spend_secret_key;
+        ASSERT_NE(w2_ks_encrypted, w2_ks_unencrypted);
+        EXPECT_TRUE(verify_wallet_privkeys(w2));
+    }
+
+    ASSERT_NE(w1_ks_unencrypted, w1.get_account().get_keys().m_spend_secret_key);
+    ASSERT_NE(w2_ks_unencrypted, w2.get_account().get_keys().m_spend_secret_key);
+}
+
+TEST(wallet_keys_unlocker, non_concentric_lifetime)
+{
+    // Test that wallet unlock-ers which aren't concentric still keep the wallet decrypted as
+    // long as one of them is alive.
+
+    const epee::wipeable_string password1("540fa389d7cf4476b061f6443215583d739b01b5d7d9b972a9c0600084bb3694");
+
+    tools::wallet2 w1;
+    w1.generate("", password1);
+    ASSERT_TRUE(w1.is_key_encryption_enabled());
+    ASSERT_FALSE(w1.is_unattended());
+    ASSERT_FALSE(verify_wallet_privkeys(w1));
+    const crypto::secret_key w1_ks_encrypted = w1.get_account().get_keys().m_spend_secret_key;
+
+    std::unique_ptr<tools::wallet_keys_unlocker> ul1(new WALLET_KEYS_UNLOCKER_CTOR(w1, &password1));
+    const crypto::secret_key w1_ks_unencrypted_1 = w1.get_account().get_keys().m_spend_secret_key;
+    ASSERT_NE(w1_ks_encrypted, w1_ks_unencrypted_1);
+    ASSERT_TRUE(verify_wallet_privkeys(w1));
+
+    std::unique_ptr<tools::wallet_keys_unlocker> ul2(new WALLET_KEYS_UNLOCKER_CTOR(w1, &password1));
+    const crypto::secret_key w1_ks_unencrypted_2 = w1.get_account().get_keys().m_spend_secret_key;
+    ASSERT_EQ(w1_ks_unencrypted_1, w1_ks_unencrypted_2);
+
+    ul1.reset(); // call ul1 destructor before ul2 destructor
+
+    const crypto::secret_key w1_ks_unencrypted_3 = w1.get_account().get_keys().m_spend_secret_key;
+    ASSERT_EQ(w1_ks_unencrypted_1, w1_ks_unencrypted_3);
+
+    ul2.reset(); // call ul2 destructor
+
+    ASSERT_NE(w1_ks_unencrypted_1, w1.get_account().get_keys().m_spend_secret_key);
+    ASSERT_NE(w1_ks_encrypted, w1.get_account().get_keys().m_spend_secret_key); // should use a unique nonce
+
+    // test that wallets were re-encrypted correctly & recoverable after non-concentric dtors
+    ASSERT_FALSE(verify_wallet_privkeys(w1));
+    tools::wallet_keys_unlocker ul3(w1, &password1);
+    ASSERT_TRUE(verify_wallet_privkeys(w1));
+}
+
+TEST(wallet_keys_unlocker, first_not_locked)
+{
+    // Test that if the first unlock-er is disabled, then subsequent unlock-ers decrypt successfully
+
+    const epee::wipeable_string password1("Ashigaru");
+
+    tools::wallet2 w1;
+    w1.generate("", password1);
+    ASSERT_TRUE(w1.is_key_encryption_enabled());
+    ASSERT_FALSE(w1.is_unattended());
+    ASSERT_FALSE(verify_wallet_privkeys(w1));
+    const crypto::secret_key w1_ks_encrypted = w1.get_account().get_keys().m_spend_secret_key;
+
+    {
+        tools::wallet_keys_unlocker ul1 = WALLET_KEYS_UNLOCKER_CTOR(w1, nullptr);
+        const crypto::secret_key w1_ks_encrypted_2 = w1.get_account().get_keys().m_spend_secret_key;
+        ASSERT_EQ(w1_ks_encrypted_2, w1_ks_encrypted); // is disabled ?
+
+        tools::wallet_keys_unlocker ul2 = WALLET_KEYS_UNLOCKER_CTOR(w1, &password1);
+        const crypto::secret_key w1_ks_unencrypted = w1.get_account().get_keys().m_spend_secret_key;
+        ASSERT_NE(w1_ks_encrypted_2, w1_ks_unencrypted);
+        ASSERT_TRUE(verify_wallet_privkeys(w1));
+    }
+}
