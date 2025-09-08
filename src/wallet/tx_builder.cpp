@@ -246,10 +246,10 @@ static carrot::InputCandidate make_input_candidate(const wallet2_basic::transfer
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<cryptonote::tx_destination_entry> finalized_destinations_ref(const tx_reconstruct_variant_t &v,
+std::vector<cryptonote::tx_destination_entry> finalized_destinations(const tx_reconstruct_variant_t &v,
     const carrot::view_incoming_key_device &k_view_dev)
 {
-    struct finalized_destinations_ref_visitor
+    struct finalized_destinations_visitor
     {
         std::vector<cryptonote::tx_destination_entry> operator()(const PreCarrotTransactionProposal &p) const
         {
@@ -269,13 +269,13 @@ std::vector<cryptonote::tx_destination_entry> finalized_destinations_ref(const t
 
         const carrot::view_incoming_key_device &k_view_dev;
     };
-    return std::visit(finalized_destinations_ref_visitor{k_view_dev}, v);
+    return std::visit(finalized_destinations_visitor{k_view_dev}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-cryptonote::tx_destination_entry change_destination_ref(const tx_reconstruct_variant_t &v,
+cryptonote::tx_destination_entry change_destination(const tx_reconstruct_variant_t &v,
     const carrot::view_incoming_key_device &k_view_dev)
 {
-    struct change_destination_ref_visitor
+    struct change_destination_visitor
     {
         cryptonote::tx_destination_entry operator()(const PreCarrotTransactionProposal &p) const
         {
@@ -290,12 +290,12 @@ cryptonote::tx_destination_entry change_destination_ref(const tx_reconstruct_var
 
         const carrot::view_incoming_key_device &k_view_dev;
     };
-    return std::visit(change_destination_ref_visitor{k_view_dev}, v);
+    return std::visit(change_destination_visitor{k_view_dev}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-rct::xmr_amount fee_ref(const tx_reconstruct_variant_t &v)
+rct::xmr_amount fee(const tx_reconstruct_variant_t &v)
 {
-    struct fee_ref_visitor
+    struct fee_visitor
     {
         rct::xmr_amount operator()(const PreCarrotTransactionProposal &p) const
         {
@@ -310,12 +310,12 @@ rct::xmr_amount fee_ref(const tx_reconstruct_variant_t &v)
             return p.fee;
         }
     };
-    return std::visit(fee_ref_visitor{}, v);
+    return std::visit(fee_visitor{}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::optional<crypto::hash8> short_payment_id_ref(const tx_reconstruct_variant_t &v)
+std::optional<crypto::hash8> short_payment_id(const tx_reconstruct_variant_t &v)
 {
-    struct short_payment_id_ref_visitor
+    struct short_payment_id_visitor
     {
         std::optional<crypto::hash8> operator()(const PreCarrotTransactionProposal &p) const
         {
@@ -339,10 +339,10 @@ std::optional<crypto::hash8> short_payment_id_ref(const tx_reconstruct_variant_t
             return std::nullopt;
         }
     };
-    return std::visit(short_payment_id_ref_visitor{}, v);
+    return std::visit(short_payment_id_visitor{}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::optional<crypto::hash> long_payment_id_ref(const tx_reconstruct_variant_t &v)
+std::optional<crypto::hash> long_payment_id(const tx_reconstruct_variant_t &v)
 {
     const PreCarrotTransactionProposal *p = std::get_if<PreCarrotTransactionProposal>(&v);
     if (nullptr == p)
@@ -359,9 +359,9 @@ std::optional<crypto::hash> long_payment_id_ref(const tx_reconstruct_variant_t &
     return pid32;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<crypto::public_key> spent_onetime_addresses_ref(const tx_reconstruct_variant_t &v)
+std::vector<crypto::public_key> spent_onetime_addresses(const tx_reconstruct_variant_t &v)
 {
-    struct spent_onetime_addresses_ref_visitor
+    struct spent_onetime_addresses_visitor
     {
         std::vector<crypto::public_key> operator()(const PreCarrotTransactionProposal &tcd) const
         {
@@ -382,12 +382,12 @@ std::vector<crypto::public_key> spent_onetime_addresses_ref(const tx_reconstruct
         }
     };
 
-    return std::visit(spent_onetime_addresses_ref_visitor{}, v);
+    return std::visit(spent_onetime_addresses_visitor{}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-boost::multiprecision::uint128_t input_amount_total_ref(const tx_reconstruct_variant_t &v)
+boost::multiprecision::uint128_t input_amount_total(const tx_reconstruct_variant_t &v)
 {
-    struct input_amount_total_ref_visitor
+    struct input_amount_total_visitor
     {
         boost::multiprecision::uint128_t operator()(const PreCarrotTransactionProposal &p) const
         {
@@ -407,12 +407,12 @@ boost::multiprecision::uint128_t input_amount_total_ref(const tx_reconstruct_var
             return res;
         }
     };
-    return std::visit(input_amount_total_ref_visitor{}, v);
+    return std::visit(input_amount_total_visitor{}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::vector<std::uint64_t> ring_sizes_ref(const tx_reconstruct_variant_t &v)
+std::vector<std::uint64_t> ring_sizes(const tx_reconstruct_variant_t &v)
 {
-    struct ring_sizes_ref_visitor
+    struct ring_sizes_visitor
     {
         std::vector<std::uint64_t> operator()(const PreCarrotTransactionProposal &p) const
         {
@@ -428,10 +428,10 @@ std::vector<std::uint64_t> ring_sizes_ref(const tx_reconstruct_variant_t &v)
             return std::vector<std::uint64_t>(p.input_proposals.size());
         }
     };
-    return std::visit(ring_sizes_ref_visitor{}, v);
+    return std::visit(ring_sizes_visitor{}, v);
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::uint64_t unlock_time_ref(const tx_reconstruct_variant_t &v)
+std::uint64_t unlock_time(const tx_reconstruct_variant_t &v)
 {
     const PreCarrotTransactionProposal *p = std::get_if<PreCarrotTransactionProposal>(&v);
     return p ? p->unlock_time : 0;
@@ -836,10 +836,10 @@ std::vector<std::size_t> collect_selected_transfer_indices(const tx_reconstruct_
 {
     const auto best_transfer_by_ota = collect_non_burned_transfers_by_onetime_address(transfers);
 
-    const std::vector<crypto::public_key> spent_onetime_addresses = spent_onetime_addresses_ref(tx_construction_data);
+    const std::vector<crypto::public_key> spent_otas = spent_onetime_addresses(tx_construction_data);
     std::vector<std::size_t> selected_transfer_indices;
-    selected_transfer_indices.reserve(spent_onetime_addresses.size());
-    for (const crypto::public_key &spent_onetime_address : spent_onetime_addresses)
+    selected_transfer_indices.reserve(spent_otas.size());
+    for (const crypto::public_key &spent_onetime_address : spent_otas)
     {
         const auto ota_it = best_transfer_by_ota.find(spent_onetime_address);
         CARROT_CHECK_AND_THROW(ota_it != best_transfer_by_ota.cend(),
@@ -949,7 +949,7 @@ cryptonote::transaction finalize_fcmps_and_range_proofs(
     // collect FCMP paths
     std::vector<fcmp_pp::curve_trees::CurveTreesV1::Path> fcmp_paths;
     fcmp_paths.reserve(n_inputs);
-    for (const fcmp_pp::curve_trees::OutputPair input_pair : spent_input_pairs)
+    for (const fcmp_pp::curve_trees::OutputPair &input_pair : spent_input_pairs)
     {
         MDEBUG("Requesting FCMP path from tree cache for onetime address " << input_pair.output_pubkey);
         fcmp_pp::curve_trees::CurveTreesV1::Path &fcmp_path = fcmp_paths.emplace_back();

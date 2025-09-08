@@ -87,32 +87,32 @@ struct PreCarrotTransactionProposal
 };
 
 /**
- * brief: data to reconstruct any Monero transaction's "signable transaction hash" or "pre-MLSAG hash"
+ * brief: data to reconstruct any non-coinbase Monero transaction's "signable transaction hash" or "pre-MLSAG hash"
  */
 using tx_reconstruct_variant_t = std::variant<
         PreCarrotTransactionProposal,
         carrot::CarrotTransactionProposalV1
     >;
 /// destinations for finalized enote (AKA split and w/ change) [requires view-incoming key]
-std::vector<cryptonote::tx_destination_entry> finalized_destinations_ref(const tx_reconstruct_variant_t&,
+std::vector<cryptonote::tx_destination_entry> finalized_destinations(const tx_reconstruct_variant_t&,
     const carrot::view_incoming_key_device &k_view_dev);
 /// change destination [requires view-incoming key]
-cryptonote::tx_destination_entry change_destination_ref(const tx_reconstruct_variant_t&,
+cryptonote::tx_destination_entry change_destination(const tx_reconstruct_variant_t&,
     const carrot::view_incoming_key_device &k_view_dev);
 /// fee
-rct::xmr_amount fee_ref(const tx_reconstruct_variant_t&);
+rct::xmr_amount fee(const tx_reconstruct_variant_t&);
 /// short payment ID (8 bytes, pre-encryption)
-std::optional<crypto::hash8> short_payment_id_ref(const tx_reconstruct_variant_t&);
+std::optional<crypto::hash8> short_payment_id(const tx_reconstruct_variant_t&);
 /// long payment ID (32 bytes)
-std::optional<crypto::hash> long_payment_id_ref(const tx_reconstruct_variant_t&);
+std::optional<crypto::hash> long_payment_id(const tx_reconstruct_variant_t&);
 /// "true-spend" one-time addresses in inputs (in proposal order, not final tx order)
-std::vector<crypto::public_key> spent_onetime_addresses_ref(const tx_reconstruct_variant_t&);
+std::vector<crypto::public_key> spent_onetime_addresses(const tx_reconstruct_variant_t&);
 /// sum total of input amounts
-boost::multiprecision::uint128_t input_amount_total_ref(const tx_reconstruct_variant_t&);
+boost::multiprecision::uint128_t input_amount_total(const tx_reconstruct_variant_t&);
 /// ring sizes (in proposal order, not final tx order)
-std::vector<std::uint64_t> ring_sizes_ref(const tx_reconstruct_variant_t&);
+std::vector<std::uint64_t> ring_sizes(const tx_reconstruct_variant_t&);
 /// unlock time
-std::uint64_t unlock_time_ref(const tx_reconstruct_variant_t&);
+std::uint64_t unlock_time(const tx_reconstruct_variant_t&);
 /// extra tx fields (includes PIDs and enote ephemeral pubkeys in pre-Carrot ONLY)
 const std::vector<std::uint8_t> &extra_ref(const tx_reconstruct_variant_t&);
 

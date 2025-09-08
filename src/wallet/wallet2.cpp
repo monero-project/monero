@@ -7653,7 +7653,7 @@ void wallet2::commit_tx(pending_tx& ptx)
   uint64_t amount_in = 0;
   if (store_tx_info())
   {
-    const crypto::hash8 payment_id_8 = wallet::short_payment_id_ref(ptx.construction_data).value_or(crypto::null_hash8);
+    const crypto::hash8 payment_id_8 = wallet::short_payment_id(ptx.construction_data).value_or(crypto::null_hash8);
     memcpy(&payment_id, &payment_id_8, sizeof(crypto::hash8));
     dests = ptx.dests;
     for(size_t idx: ptx.selected_transfers)
