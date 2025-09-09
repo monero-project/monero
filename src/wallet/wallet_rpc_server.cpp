@@ -57,6 +57,7 @@ using namespace epee;
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "daemonizer/daemonizer.h"
 #include "fee_priority.h"
+#include "tx_builder_serialization.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
@@ -601,7 +602,7 @@ namespace tools
         unlocked_balance_per_subaddress_per_account[req.account_index] = m_wallet->unlocked_balance_per_subaddress(req.account_index, req.strict);
       }
       std::vector<tools::wallet2::transfer_details> transfers;
-      m_wallet->get_transfers(transfers);
+      m_wallet->get_transfers(transfers, false/*include_all*/);
       for (const auto& p : balance_per_subaddress_per_account)
       {
         uint32_t account_index = p.first;
@@ -660,7 +661,7 @@ namespace tools
         req_address_index = req.address_index;
       }
       tools::wallet2::transfer_container transfers;
-      m_wallet->get_transfers(transfers);
+      m_wallet->get_transfers(transfers, false/*include_all*/);
       for (uint32_t i : req_address_index)
       {
         THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(req.account_index), error::address_index_outofbound);
@@ -1159,7 +1160,9 @@ namespace tools
     {
       if (get_tx_key)
       {
-        epee::wipeable_string s = epee::to_hex::wipeable_string(ptx.tx_key);
+        epee::wipeable_string s;
+        if (ptx.tx_key != crypto::null_skey)
+          s += epee::to_hex::wipeable_string(ptx.tx_key);
         for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
           s += epee::to_hex::wipeable_string(additional_tx_key);
         fill(tx_key, std::string(s.data(), s.size()));
@@ -1506,7 +1509,7 @@ namespace tools
         }
 
         for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n) {
-          tx_constructions.push_back(exported_txs.m_ptx[n].construction_data);
+          tx_constructions.push_back(std::get<wallet2::tx_construction_data>(exported_txs.m_ptx[n].construction_data));
         }
       }
       catch (const std::exception &e) {
@@ -2229,7 +2232,7 @@ namespace tools
     }
 
     wallet2::transfer_container transfers;
-    m_wallet->get_transfers(transfers);
+    m_wallet->get_transfers(transfers, false/*include_all*/);
 
     for (const auto& td : transfers)
     {
@@ -3497,9 +3500,13 @@ namespace tools
 
       try {
           m_wallet->scan_tx(txids);
-      }  catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e) {
+      } catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e) {
           er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
           er.message = e.what() + std::string(". Either connect to a trusted daemon or rescan the chain.");
+          return false;
+      } catch (const tools::error::wont_scan_future_tx &e) {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = e.what() + std::string(". Either refresh the wallet, or restore the wallet from the current chain height and then scan.");
           return false;
       } catch (const std::exception &e) {
           handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);

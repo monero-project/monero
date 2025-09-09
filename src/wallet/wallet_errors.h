@@ -956,10 +956,18 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
-    struct wont_reprocess_recent_txs_via_untrusted_daemon : public scan_tx_error
+    struct wont_reprocess_txs_via_untrusted_daemon : public scan_tx_error
     {
-      explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
-        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
+      explicit wont_reprocess_txs_via_untrusted_daemon(std::string&& loc)
+        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more transactions than the scanned tx")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct wont_scan_future_tx : public scan_tx_error
+    {
+      explicit wont_scan_future_tx(std::string&& loc)
+        : scan_tx_error(std::move(loc), "Cannot scan a tx at height higher than the wallet's current sync height")
       {
       }
     };
