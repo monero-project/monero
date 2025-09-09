@@ -82,17 +82,6 @@ The "Monero Maintainer Team" is defined in this document as the following users:
 - moneromooo
 - hyc
 
-## Goals
-
-C4 is meant to provide a reusable optimal collaboration model for open source software projects. It has these specific goals:
-
-- To maximize the scale and diversity of the community around a project, by reducing the friction for new Contributors and creating a scaled participation model with strong positive feedbacks;
-- To relieve dependencies on key individuals by separating different skill sets so that there is a larger pool of competence in any required domain;
-- To allow the project to develop faster and more accurately, by increasing the diversity of the decision making process;
-- To support the natural life cycle of project versions from experimental through to stable, by allowing safe experimentation, rapid failure, and isolation of stable code;
-- To reduce the internal complexity of project repositories, thus making it easier for Contributors to participate and reducing the scope for error;
-- To enforce collective ownership of the project, which increases economic incentive to Contributors and reduces the risk of hijack by hostile entities.
-
 ## Design
 
 ### Preliminaries
