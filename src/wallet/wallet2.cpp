@@ -6519,12 +6519,9 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
     THROW_WALLET_EXCEPTION_IF(true, error::file_read_error, "failed to load keys from buffer");
   }
 
-<<<<<<< HEAD
-=======
   // We may have loaded a max reorg depth different than the default
   m_tree_cache.set_max_reorg_depth(m_max_reorg_depth);
 
->>>>>>> 2e2eadb70 (fcmp++ mega commit [3/27/25])
   wallet_keys_unlocker unlocker(*this, &password);
 
   //keys loaded ok!
