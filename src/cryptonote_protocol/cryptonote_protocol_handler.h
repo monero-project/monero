@@ -50,9 +50,7 @@
 #include "cryptonote_basic/connection_context.h"
 #include "net/levin_base.h"
 #include "p2p/net_node_common.h"
-#include "peerinfo_manager.h"
 #include "request_manager.h"
-#include "txrequesthandler.h"
 #include <boost/circular_buffer.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/nil_generator.hpp>
@@ -173,6 +171,7 @@ namespace cryptonote
     bool kick_idle_peers();
     bool check_standby_peers();
     bool update_sync_search();
+    bool check_tx_request_queue();
     int try_add_next_blocks(cryptonote_connection_context &context);
     void notify_new_stripe(cryptonote_connection_context &context, uint32_t stripe);
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
@@ -194,6 +193,9 @@ namespace cryptonote
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
     epee::math_helper::once_a_time_seconds<43> m_bad_peer_checker;
+    std::atomic<uint64_t> m_interval_peer_request_checker{P2P_DEFAULT_REQUEST_TIMEOUT}; // microseconds
+    std::function<uint64_t()> m_peer_request_interval; // set in ctor
+    epee::math_helper::once_a_time<decltype(m_peer_request_interval)> m_peer_request_checker;
     std::unordered_map<epee::net_utils::zone, unsigned int> m_max_out_peers;
     mutable epee::critical_section m_max_out_peers_lock;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
@@ -203,10 +205,7 @@ namespace cryptonote
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
 
-    peer_info_manager m_peer_info_manager;
     request_manager m_request_manager;
-    tx_request_handler m_tx_request_handler;
-    tx_request_handler::tx_request_handler_runner m_tx_requests_runner;
 
     // Values for sync time estimates
     boost::posix_time::ptime m_sync_start_time;

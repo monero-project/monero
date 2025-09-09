@@ -32,11 +32,12 @@
 #pragma once
 #include <unordered_set>
 #include <atomic>
-#include <algorithm>
+#include <memory>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/optional/optional_fwd.hpp>
 #include "net/net_utils_base.h"
 #include "crypto/hash.h"
+#include "syncobj.h"
 
 namespace cryptonote
 {
@@ -45,7 +46,8 @@ namespace cryptonote
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
         m_expected_heights_start(0), m_last_request_time(boost::date_time::not_a_date_time), m_callback_request_count(0),
         m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0), m_anchor(false), m_score(0),
-        m_expect_response(0), m_expect_height(0), m_num_requested(0) {}
+        m_expect_response(0), m_expect_height(0), m_num_requested(0),
+        m_connection_stats(std::make_shared<connection_statistics>()) {}
 
     enum state
     {
@@ -117,6 +119,37 @@ namespace cryptonote
     size_t m_num_requested;
     copyable_atomic m_new_stripe_notification{0};
     copyable_atomic m_idle_peer_notification{0};
+
+    private:
+      struct connection_statistics
+      {
+        mutable epee::rw_mutex mutex;
+        std::unordered_set<crypto::hash> tx_announcements;
+        size_t received = 0;
+        size_t requested_from_me = 0;
+        size_t requested_from_peer = 0;
+        size_t sent = 0;
+        size_t missed = 0;
+      };
+      std::shared_ptr<connection_statistics> m_connection_stats;
+
+    public:
+      void reset();
+      void add_announcement(const crypto::hash &tx_hash);
+      void add_received();
+      void add_requested_from_me();
+      void add_requested_from_peer();
+      void add_sent();
+
+      size_t get_announcement_size() const;
+      size_t get_received() const;
+      size_t get_requested_from_me() const;
+      size_t get_requested_from_peer() const;
+      size_t get_sent() const;
+      size_t get_total() const;
+      size_t get_missed() const;
+      std::string get_info() const;
+      bool missed_announced_tx(const crypto::hash &tx_hash);
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)

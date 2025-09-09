@@ -122,12 +122,11 @@ public:
   for_each_request(std::function<void(const crypto::hash &tx_hash,
                                       tx_request_queue &request_queue,
                                       const std::time_t request_deadline)> &f,
-                   const std::time_t m_request_deadline) {
-    MINFO("Iterating over requested transactions for deadline: "
-          << m_request_deadline);
+                                      const std::time_t request_deadline) {
+    MINFO("Iterating over requested transactions");
     epee::read_lock r_lock(m_mutex);
     for (auto &pair : m_requested_txs) {
-      f(pair.first, *pair.second, m_request_deadline);
+      f(pair.first, *pair.second, request_deadline);
     }
   }
 };

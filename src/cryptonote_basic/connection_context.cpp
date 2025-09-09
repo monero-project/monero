@@ -32,6 +32,9 @@
 #include <boost/optional/optional.hpp>
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "p2p/p2p_protocol_defs.h"
+#include "cryptonote_config.h"          // for P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE
+#include "string_tools.h"               // for pod_to_hex
+#include <sstream>
 
 namespace cryptonote
 {
@@ -93,4 +96,116 @@ namespace cryptonote
       return boost::none;
     return m_expected_heights[difference];
   }
+
+  void cryptonote_connection_context::reset()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    m_connection_stats->tx_announcements.clear();
+    m_connection_stats->received = 0;
+    m_connection_stats->requested_from_me = 0;
+    m_connection_stats->requested_from_peer = 0;
+    m_connection_stats->sent = 0;
+    m_connection_stats->missed = 0;
+  }
+
+  void cryptonote_connection_context::add_announcement(const crypto::hash &tx_hash)
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    m_connection_stats->tx_announcements.insert(tx_hash);
+  }
+
+  void cryptonote_connection_context::add_received()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->received;
+  }
+
+  void cryptonote_connection_context::add_requested_from_me()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->requested_from_me;
+  }
+
+  void cryptonote_connection_context::add_requested_from_peer()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->requested_from_peer;
+  }
+
+  void cryptonote_connection_context::add_sent()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->sent;
+  }
+
+  size_t cryptonote_connection_context::get_announcement_size() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->tx_announcements.size();
+  }
+
+  size_t cryptonote_connection_context::get_received() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->received;
+  }
+
+  size_t cryptonote_connection_context::get_requested_from_me() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->requested_from_me;
+  }
+
+  size_t cryptonote_connection_context::get_requested_from_peer() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->requested_from_peer;
+  }
+
+  size_t cryptonote_connection_context::get_sent() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->sent;
+  }
+
+  size_t cryptonote_connection_context::get_total() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->tx_announcements.size()
+        + m_connection_stats->received
+        + m_connection_stats->requested_from_me
+        + m_connection_stats->requested_from_peer
+        + m_connection_stats->sent;
+  }
+
+  size_t cryptonote_connection_context::get_missed() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->missed;
+  }
+
+  std::string cryptonote_connection_context::get_info() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::ostringstream oss;
+    oss << "Peer ID: " << epee::string_tools::pod_to_hex(m_connection_id)
+        << ", Announcements size: " << m_connection_stats->tx_announcements.size()
+        << ", Received: " << m_connection_stats->received
+        << ", Requested from me : " << m_connection_stats->requested_from_me
+        << ", Requested from peer: " << m_connection_stats->requested_from_peer
+        << ", Sent: " << m_connection_stats->sent
+        << ", Missed: " << m_connection_stats->missed;
+    return oss.str();
+  }
+
+  bool cryptonote_connection_context::missed_announced_tx(const crypto::hash &/*tx_hash*/)
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->missed;
+    const size_t announced = m_connection_stats->tx_announcements.size();
+    if (announced == 0) return false;
+    const size_t percent = (m_connection_stats->missed * 100) / announced;
+    return percent > P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE;
+  }
+
 } // cryptonote
