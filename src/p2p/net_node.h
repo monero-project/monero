@@ -55,7 +55,7 @@
 #include "math_helper.h"
 #include "net_node_common.h"
 #include "net/enums.h"
-#include "net/fwd.h"
+#include "net/parse.h"
 #include "common/command_line.h"
 
 PUSH_WARNINGS
@@ -73,7 +73,7 @@ namespace nodetool
     {}
 
     std::int64_t max_connections;
-    boost::asio::ip::tcp::endpoint address;
+    net::socks::endpoint address;
     epee::net_utils::zone zone;
     bool noise;
   };
@@ -103,7 +103,7 @@ namespace nodetool
 
   // hides boost::future and chrono stuff from mondo template file
   boost::optional<boost::asio::ip::tcp::socket>
-  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& proxy, const epee::net_utils::network_address& remote);
+  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote);
 
 
   template<class base_type>
@@ -215,7 +215,7 @@ namespace nodetool
       epee::net_utils::network_address m_our_address; // in anonymity networks
       peerlist_manager m_peerlist;
       config m_config;
-      boost::asio::ip::tcp::endpoint m_proxy_address;
+      net::socks::endpoint m_proxy_address;
       std::atomic<unsigned int> m_current_number_of_out_peers;
       std::atomic<unsigned int> m_current_number_of_in_peers;
       boost::shared_mutex m_seed_nodes_lock;
