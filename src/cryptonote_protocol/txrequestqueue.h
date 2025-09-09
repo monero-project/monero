@@ -65,10 +65,9 @@ private:
     const std::time_t first_seen;
     std::time_t request_time;
 
-    tx_request &operator=(const tx_request &other) = delete;
-    tx_request(const tx_request &other) = delete;
-    bool operator>(const tx_request &other) const = delete;
-    bool operator<(const tx_request &other) const = delete;
+    tx_request(const tx_request &) = delete;
+    tx_request &operator=(const tx_request &) = delete;
+    tx_request &operator=(tx_request &&) = delete;
 
   public:
     struct order {
@@ -107,14 +106,10 @@ private:
   mutable epee::rw_mutex m_mutex;
   std::set<tx_request, tx_request::order> request_queue;
 
-  // delete copy, assignment, move constructors and operators
-  tx_request_queue(const tx_request_queue &other) = delete;
-  tx_request_queue &operator=(const tx_request_queue &other) = delete;
-  tx_request_queue(tx_request_queue &&other) = delete;
-  tx_request_queue &operator=(tx_request_queue &&other) = delete;
-  bool operator>(const tx_request_queue &other) const = delete;
-  bool operator<(const tx_request_queue &other) const = delete;
-
+  tx_request_queue(const tx_request_queue &) = delete;
+  tx_request_queue &operator=(const tx_request_queue &) = delete;
+  tx_request_queue(tx_request_queue &&) noexcept = delete;
+  tx_request_queue &operator=(tx_request_queue &&) = delete;
 
 public:
   // Constructor that takes the first peer

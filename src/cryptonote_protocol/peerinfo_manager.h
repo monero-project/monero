@@ -68,7 +68,7 @@ public:
       // delete moving, copying, and assignment
       peer_info_state() = default;
       peer_info_state(const peer_info_state &) = delete;
-      peer_info_state(peer_info_state &&) = delete;
+      peer_info_state(peer_info_state &&) noexcept = delete;
       peer_info_state &operator=(const peer_info_state &) = delete;
       peer_info_state &operator=(peer_info_state &&) = delete;
       ~peer_info_state() = default;
@@ -93,10 +93,10 @@ public:
       }
     };
 
-    peer_info &operator=(const peer_info &other) = delete;
-    peer_info(const peer_info &other) = delete;
-    bool operator>(const peer_info &other) const = delete;
-    bool operator<(const peer_info &other) const = delete;
+    peer_info(const peer_info &) = delete;
+    peer_info &operator=(const peer_info &) = delete;
+    // peer_info(peer_info &&) noexcept = delete;
+    // peer_info &operator=(peer_info &&) = delete;
 
     bool operator==(const peer_info &other) const {
       epee::read_lock r_lock(m_data->m_mutex);

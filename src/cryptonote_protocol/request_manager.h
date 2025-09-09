@@ -53,13 +53,10 @@ private:
       m_requested_txs;
   mutable epee::rw_mutex m_mutex;
 
-  // delete copy, assignment, move constructors and operators
-  request_manager(const request_manager &other) = delete;
-  request_manager &operator=(const request_manager &other) = delete;
-  request_manager(request_manager &&other) = delete;
-  request_manager &operator=(request_manager &&other) = delete;
-  bool operator>(const request_manager &other) const = delete;
-  bool operator<(const request_manager &other) const = delete;
+  request_manager(const request_manager &) = delete;
+  request_manager &operator=(const request_manager &) = delete;
+  request_manager(request_manager &&) noexcept = delete;
+  request_manager &operator=(request_manager &&) = delete;
 
 public:
   request_manager() : m_requested_txs(), m_mutex() {}

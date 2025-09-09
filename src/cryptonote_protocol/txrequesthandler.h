@@ -52,25 +52,10 @@ public:
 private:
   // Disable everything that can be disabled
   // to prevent misuse of the class
-  tx_request_handler() = delete;
-  tx_request_handler(tx_request_handler &&other) noexcept = delete;
-  tx_request_handler(const tx_request_handler &other) = delete;
-  tx_request_handler &operator=(tx_request_handler &&other) = delete;
-  tx_request_handler &operator=(const tx_request_handler &other) = delete;
-  tx_request_handler *operator&() = delete;
-  bool operator>(const tx_request_handler &other) const = delete;
-  bool operator<(const tx_request_handler &other) const = delete;
-  bool operator==(const tx_request_handler &other) const = delete;
-  bool operator!=(const tx_request_handler &other) const = delete;
-  void swap(tx_request_handler &) = delete;
-  operator bool() const = delete;
-  auto operator->() = delete;
-  auto operator*() = delete;
-  void *operator new(std::size_t) = delete;
-  void operator delete(void *) = delete;
-  void *operator new[](std::size_t) = delete;
-  void operator delete[](void *) = delete;
-  void operator()() = delete;
+  tx_request_handler(const tx_request_handler &) = delete;
+  tx_request_handler &operator=(const tx_request_handler &) = delete;
+  tx_request_handler(tx_request_handler &&) noexcept = delete;
+  tx_request_handler &operator=(tx_request_handler &&) = delete;
 
 public:
   tx_request_handler(request_manager &request_manager,
