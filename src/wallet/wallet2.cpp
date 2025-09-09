@@ -3131,18 +3131,6 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
   split_point_out = 0;
   start_parsed_block_i_out = 0;
 
-  const auto set_start_parsed_block_i_out = epee::misc_utils::create_scope_leave_handler([&]() {
-    if (split_point_out == 0/*no reorg*/)
-      return;
-
-    THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(split_point_out), error::wallet_internal_error,
-      "check_for_reorg: reorg split point not in bounds");
-    THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx >= split_point_out, error::wallet_internal_error,
-      "check_for_reorg: reorg split point is expected to be above parsed blocks start");
-
-    start_parsed_block_i_out = split_point_out - parsed_blocks_start_idx;
-  });
-
   if (parsed_blocks.empty())
   {
     // Empty blocks should mean we have requested blocks starting from current chain tip. If there was a reorg, then
@@ -3173,6 +3161,7 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
   // Starting from the first parsed block's prev id, make sure the parsed blocks are contiguous to locally synced blocks
   uint64_t i = 0;
   uint64_t cur_block_idx = parsed_blocks_start_idx - 1;
+  crypto::hash block_hash;
   while (i < parsed_blocks.size() && cur_block_idx < blockchain.size())
   {
     MDEBUG("Checking for reorg split point on block " << cur_block_idx);
@@ -3182,7 +3171,7 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
     {
       // Reorg detected!
       split_point_out = cur_block_idx;
-      return true;
+      goto set_start_parsed_block_i_out;
     }
 
     ++i;
@@ -3198,14 +3187,14 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(cur_block_idx), error::wallet_internal_error,
     "check_for_reorg: last parsed block is not in bounds");
 
-  const crypto::hash &block_hash = blockchain[cur_block_idx];
+  block_hash = blockchain[cur_block_idx];
 
   // Reorg identified if our locally synced block hash doesn't line up to the daemon's reported
   if (block_hash != parsed_blocks.back().hash)
   {
     // Reorg detected and split point identified
     split_point_out = cur_block_idx;
-    return true;
+    goto set_start_parsed_block_i_out;
   }
 
   // OR the hash is the chain's top hash, but we have synced more blocks beyond that block (e.g. daemon popped blocks)
@@ -3213,10 +3202,18 @@ static bool check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto
   {
     // The split point is the block after cur_block_idx
     split_point_out = cur_block_idx + 1;
-    return true;
+    goto set_start_parsed_block_i_out;
   }
 
-  return false;
+set_start_parsed_block_i_out:
+  // There was a reorg!
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(split_point_out), error::wallet_internal_error,
+    "check_for_reorg: reorg split point not in bounds");
+  THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx >= split_point_out, error::wallet_internal_error,
+    "check_for_reorg: reorg split point is expected to be above parsed blocks start");
+
+  start_parsed_block_i_out = split_point_out - parsed_blocks_start_idx;
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 static void sync_hashchain(const uint64_t parsed_blocks_start_idx, const crypto::hash &top_hash, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const uint64_t m_max_reorg_depth, hashchain &hashchain_inout)
@@ -3285,16 +3282,13 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const crypto::h
 
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "size mismatch");
   assert_top_block_match(m_blockchain, m_tree_cache);
-  const auto assert_top_block_match_on_exit = epee::misc_utils::create_scope_leave_handler([&, this]() {
-    // Check for matching top block in m_blockchain <> m_tree_cache after sync
-    assert_top_block_match(m_blockchain, m_tree_cache);
-  });
 
   // Check for reorg and if there was one, handle it
   const uint64_t start_parsed_block_i = this->check_and_handle_reorg(start_height, top_hash, parsed_blocks, output_tracker_cache);
 
   if (start_parsed_block_i >= parsed_blocks.size()) {
     // No blocks to scan and reorg check/handling is done
+    assert_top_block_match(m_blockchain, m_tree_cache);
     return;
   }
 
@@ -3462,6 +3456,8 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const crypto::h
       LOG_PRINT_L2("Finished restoring the tree cache");
     }
 
+    assert_top_block_match(m_blockchain, m_tree_cache);
+
     std::rethrow_exception(std::current_exception());
     return;
   }
@@ -3474,6 +3470,8 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const crypto::h
   LOG_PRINT_L2("Done waiting on tree build");
   m_tree_cache.grow_cache(tree_sync_start_params.start_block_idx, new_block_hashes, std::move(tree_cache_state_change));
   LOG_PRINT_L2("Done growing the tree cache");
+
+  assert_top_block_match(m_blockchain, m_tree_cache);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(bool trusted_daemon)

@@ -2674,6 +2674,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   tree_root_out = crypto::ec_point{};
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
     return true;
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
 
   // Make sure reference block exists in the chain
   CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
@@ -2696,6 +2697,7 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
 {
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
     return true;
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't set root for pruned FCMP txs");
 
   const uint64_t ref_block_index = tx.rct_signatures.p.reference_block;
 
@@ -3007,7 +3009,7 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
       // if start_height is now the chain tip, we can return a truthy empty resp
       if (start_height == total_height)
       {
-        LOG_PRINT_L2("Returning empty find_blockchain_supplement, start_height: " << start_height);
+        LOG_PRINT_L3("Returning empty find_blockchain_supplement, start_height: " << start_height);
         blocks.clear();
         return true;
       }
