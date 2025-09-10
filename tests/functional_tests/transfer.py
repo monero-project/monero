@@ -81,7 +81,8 @@ class TransferTest():
         self.sweep_single()
         self.check_spend_at_unlock()
         self.check_reorg_recovery()
-        self.check_deep_reorg_recovery()
+        self.check_deep_reorg_recovery(extend_reorg = True)
+        self.check_deep_reorg_recovery(extend_reorg = False) # strictly tests wallet's recovery from daemon pop_blocks
         self.check_destinations()
         self.check_tx_notes()
         self.check_rescan()
@@ -888,7 +889,7 @@ class TransferTest():
         # Reconnect daemon
         daemon.out_peers(12)
 
-    def check_deep_reorg_recovery(self):
+    def check_deep_reorg_recovery(self, extend_reorg = True):
         daemon = Daemon()
 
         print("Checking wallet deep reorg recovery")
@@ -896,14 +897,19 @@ class TransferTest():
         # Disconnect daemon from peers
         daemon.out_peers(0)
 
-        for reorg_size in [2, 3, 4, 10, 15, 99]: # max reorg depth is 100
+        for reorg_size in [1, 2, 3, 4, 10, 15, 99]: # max reorg depth is 100
+            print("pop size: ", reorg_size)
+
             # 1. Mine n blocks
             daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', reorg_size)
             self.wallet[0].refresh()
 
-            # 2. Deep reorg
+            # 2. Pop back to trigger reorg handler
             daemon.pop_blocks(reorg_size)
-            daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', reorg_size)
+
+            # 2a. Optionally rebuild on top of the reorg chain
+            if extend_reorg:
+                daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', reorg_size)
 
             # 3. Wallet should recover smoothly on next refresh
             self.wallet[0].refresh()
@@ -912,6 +918,14 @@ class TransferTest():
             dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
             res = self.wallet[0].transfer([dst])
             assert len(res.tx_hash) == 64
+            tx_hash = res.tx_hash
+            height = daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1).height
+            res = daemon.get_transactions([tx_hash])
+            assert len(res.txs) >= 1
+            tx = [tx for tx in res.txs if tx.tx_hash == tx_hash][0]
+            assert tx.block_height == height
+
+        self.wallet[0].refresh()
 
         # Reconnect daemon
         daemon.out_peers(12)
