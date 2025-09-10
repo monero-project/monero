@@ -3233,7 +3233,7 @@ set_start_parsed_block_i_out:
   if (split_point_out == 0)
   {
     // No reorg, set start_parsed_block_i_inout to the first block in parsed_blocks we have not yet processed.
-    start_parsed_block_i_inout += std::max(blockchain.size(), parsed_blocks_start_idx) - parsed_blocks_start_idx;
+    start_parsed_block_i_inout += std::max((uint64_t)blockchain.size(), parsed_blocks_start_idx) - parsed_blocks_start_idx;
     return split_point_out;
   }
 
