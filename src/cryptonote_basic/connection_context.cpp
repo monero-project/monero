@@ -129,6 +129,8 @@ namespace cryptonote
   void cryptonote_connection_context::add_requested_from_peer()
   {
     epee::write_lock w_lock(m_connection_stats->mutex);
+    // increment in_flight_requests directly to avoid recursive locking deadlock
+    ++m_connection_stats->in_flight_requests;
     ++m_connection_stats->requested_from_peer;
   }
 
@@ -136,6 +138,25 @@ namespace cryptonote
   {
     epee::write_lock w_lock(m_connection_stats->mutex);
     ++m_connection_stats->sent;
+  }
+
+  void cryptonote_connection_context::add_in_flight_requests()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->in_flight_requests;
+  }
+
+  void cryptonote_connection_context::remove_in_flight_request()
+  {
+    epee::write_lock w_lock(m_connection_stats->mutex);
+    if (m_connection_stats->in_flight_requests > 0)
+      --m_connection_stats->in_flight_requests;
+  }
+
+  bool cryptonote_connection_context::can_process_additional_request(size_t requests)
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return (m_connection_stats->in_flight_requests + requests) < P2P_MAX_IN_FLIGHT_REQUESTS;
   }
 
   size_t cryptonote_connection_context::get_announcement_size() const
@@ -182,6 +203,12 @@ namespace cryptonote
   {
     epee::read_lock r_lock(m_connection_stats->mutex);
     return m_connection_stats->missed;
+  }
+
+  size_t cryptonote_connection_context::get_in_flight_requests() const
+  {
+    epee::read_lock r_lock(m_connection_stats->mutex);
+    return m_connection_stats->in_flight_requests;
   }
 
   std::string cryptonote_connection_context::get_info() const

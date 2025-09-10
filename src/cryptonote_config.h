@@ -153,6 +153,7 @@
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
 #define P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE        70          // if more than 70% of requests fail, the peer is dropped
+#define P2P_MAX_IN_FLIGHT_REQUESTS                      100
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour

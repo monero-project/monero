@@ -43,11 +43,12 @@
 #include "misc_log_ex.h"
 #include "string_tools.h"
 #include "syncobj.h"
+#include "common/util.h"
 
 /**
  * \brief A queue of requests. The front of the queue shows the current request.
  *
- * This queue holds peers that have the requested transaction and keeps
+ * This queue holds peers that have announced the transaction and keeps
  * track of the time the last request was made. It provides capabilities
  * to add a new peer and to retrieve the next peer that hasn't been requested.
  */
@@ -63,7 +64,7 @@ private:
   class tx_request {
     const boost::uuids::uuid from_connection_id;
     const std::time_t first_seen;
-    std::time_t request_time;
+    mutable std::time_t request_time;
 
     tx_request(const tx_request &) = delete;
     tx_request &operator=(const tx_request &) = delete;
@@ -72,8 +73,14 @@ private:
   public:
     struct order {
       bool operator()(const tx_request &lhs, const tx_request &rhs) const {
-        return lhs.from_connection_id != rhs.from_connection_id &&
-               lhs.first_seen < rhs.first_seen;
+        if (lhs.get_connection_id() == rhs.get_connection_id())
+          return false; // same peer => equivalent (disallow duplicates)
+        if (lhs.get_first_seen() < rhs.get_first_seen())
+          return true;
+        if (rhs.get_first_seen() < lhs.get_first_seen())
+          return false;
+        // tie-break to maintain strict weak ordering when first_seen is equal
+        return lhs.get_connection_id() < rhs.get_connection_id();
       }
     };
 
@@ -84,23 +91,16 @@ private:
         : from_connection_id(other.from_connection_id),
           first_seen(other.first_seen), request_time(other.request_time) {}
 
-    bool operator==(const tx_request &other) const {
-      return from_connection_id == other.get_connection_id();
-    }
-    bool operator!=(const tx_request &other) const {
-      return from_connection_id != other.get_connection_id();
-    }
-
     const boost::uuids::uuid &get_connection_id() const {
       return from_connection_id;
     }
-    bool is_request_submitted() const { return !request_time; }
-    void submit_request(std::time_t request_time) {
+    bool is_request_submitted() const { return request_time; }
+    void submit_request(std::time_t request_time) const {
       this->request_time = request_time;
     }
     std::time_t get_first_seen() const { return first_seen; }
     std::time_t get_request_time() const { return request_time; }
-    void set_request_time(std::time_t time) { request_time = time; }
+    void set_request_time(std::time_t time) const { request_time = time; }
   };
 
   mutable epee::rw_mutex m_mutex;
@@ -127,7 +127,7 @@ public:
   void add_peer(const boost::uuids::uuid &id, std::time_t first_seen) {
     MINFO("Adding " << epee::string_tools::pod_to_hex(id)
                     << " to request queue "
-                    << epee::string_tools::pod_to_hex(first_seen));
+                    << tools::get_human_readable_timestamp(first_seen));
     epee::write_lock w_lock(m_mutex);
     tx_request request(id, first_seen);
     // only add if it is not already in the queue
@@ -157,7 +157,7 @@ public:
     while (!request_queue.empty()) {
       // Get the front of the queue, and strip constness
       // Since we don't modify data which would change the order
-      tx_request &front = const_cast<tx_request &>(*request_queue.begin());
+      const tx_request &front = *request_queue.begin();
       if (!front.is_request_submitted()) // not requested yet
       {
         front.submit_request(now);

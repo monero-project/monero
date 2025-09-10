@@ -905,13 +905,17 @@ namespace cryptonote
     // Iterate over each advertised transaction hash and check our pool and our requested tracker.
     for (const auto &tx_hash : arg.t)
     {
+      if (!context.can_process_additional_request())
+      {
+        LOG_ERROR_CCONTEXT("Too many in-flight requests, cannot accept");
+        break;
+      }
       // If we have the tx in our pool, also remove it from request manager and skip.
       if (m_core.pool_has_tx(tx_hash))
       {
         m_request_manager.remove_transaction(tx_hash);
         continue;
       }
-
       bool need_request = m_request_manager.add_transaction(tx_hash, context.m_connection_id, now);
       context.add_announcement(tx_hash);
       if (need_request) {
@@ -1044,6 +1048,7 @@ namespace cryptonote
             && m_request_manager.already_requested_tx(tx_hash))
         {
           m_request_manager.remove_transaction(tx_hash);
+          context.remove_in_flight_request();
         }
       }
 
