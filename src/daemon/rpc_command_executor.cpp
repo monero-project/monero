@@ -653,7 +653,7 @@ bool t_rpc_command_executor::print_connections() {
 
   tools::msg_writer() << std::setw(host_field_width) << std::left << "Remote Host"
       << std::setw(8) << "Type"
-      << std::setw(6) << "SSL"
+      << std::setw(13) << "SSL"
       << std::setw(20) << "Peer id"
       << std::setw(20) << "Support Flags"      
       << std::setw(30) << "Recv/Sent (inactive,sec)"
@@ -664,6 +664,20 @@ bool t_rpc_command_executor::print_connections() {
       << std::setw(10) << "Up (kB/s)" 
       << std::setw(13) << "Up(now)"
       << std::endl;
+  const auto ssl_string = [] (const epee::net_utils::ssl_support_t ssl) -> const char*
+  {
+    switch (ssl)
+    {
+      default:
+      case epee::net_utils::ssl_support_t::e_ssl_support_disabled:
+        break;
+      case epee::net_utils::ssl_support_t::e_ssl_support_autodetect:
+        return "autodetect";
+      case epee::net_utils::ssl_support_t::e_ssl_support_enabled:
+        return "verified";
+    }
+    return "no";
+  };
 
   for (auto & info : res.connections)
   {
@@ -674,7 +688,7 @@ bool t_rpc_command_executor::print_connections() {
      //<< std::setw(30) << std::left << in_out
      << std::setw(host_field_width) << std::left << address
      << std::setw(8) << (get_address_type_name((epee::net_utils::address_type)info.address_type))
-     << std::setw(6) << (info.ssl ? "yes" : "no")
+     << std::setw(13) << ssl_string(info.ssl)
      << std::setw(20) << info.peer_id
      << std::setw(20) << info.support_flags
      << std::setw(30) << std::to_string(info.recv_count) + "("  + std::to_string(info.recv_idle_time) + ")/" + std::to_string(info.send_count) + "(" + std::to_string(info.send_idle_time) + ")"
