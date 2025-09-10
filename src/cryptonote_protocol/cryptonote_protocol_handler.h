@@ -159,7 +159,7 @@ namespace cryptonote
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
     void drop_connection_with_score(cryptonote_connection_context &context, unsigned int score, bool flush_all_spans);
     void drop_connection(const boost::uuids::uuid&);
-    void drop_connections(const epee::net_utils::network_address address);
+    void drop_connections(const epee::net_utils::network_address address, unsigned score = 5, bool block_light = false);
     bool kick_idle_peers();
     bool check_standby_peers();
     bool update_sync_search();

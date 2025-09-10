@@ -71,5 +71,6 @@ namespace cryptonote
     bool m_partial_block_reward;
     bool m_bad_pow; // if bad pow, ban peer outright for DoS protection
     bool m_missing_txs; // set if, during verif, we don't have all the necessary txs available
+    bool m_failed_checkpoint;
   };
 }
