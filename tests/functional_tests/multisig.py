@@ -69,6 +69,8 @@ class MultisigTest():
             random.shuffle(shuffled_participants)
             shuffled_signers = shuffled_participants[:M]
 
+            print("Multisig case: {}/{} {}".format(M, N, pub_addr))
+
             expected_outputs = 5 # each wallet owns four mined outputs & one transferred output
 
             # Create multisig wallet and test transferring
@@ -106,7 +108,7 @@ class MultisigTest():
 
     @classmethod
     def mine(cls, address, blocks):
-        print("Mining some blocks")
+        print("Mining {} blocks".format(blocks))
         daemon = Daemon()
         daemon.generateblocks(address, blocks)
 
