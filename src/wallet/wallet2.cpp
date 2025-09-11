@@ -3165,11 +3165,9 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
     }
 
     // We should be synced to tip
-    THROW_WALLET_EXCEPTION_IF(blockchain.empty(), error::wallet_internal_error, "check_for_reorg: empty m_blockchain");
-    const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
-    THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), error::wallet_internal_error,
-      "check_for_reorg: top block not in bounds");
-    THROW_WALLET_EXCEPTION_IF(blockchain[m_blockchain_top_block_idx] != top_hash, error::wallet_internal_error,
+    crypto::hash top_synced_hash;
+    get_top_synced_block(blockchain, top_synced_hash);
+    THROW_WALLET_EXCEPTION_IF(top_synced_hash != top_hash, error::wallet_internal_error,
       "check_for_reorg: local top block does not match daemon's");
     return split_point_out;
   }
@@ -3281,12 +3279,11 @@ static std::list<crypto::hash> prepare_next_short_chain_history(const uint64_t p
     sync_chain.crop(next_start_block);
 
     // Make sure we have the expected top hash
-    THROW_WALLET_EXCEPTION_IF(sync_chain.size() != next_start_block, error::wallet_internal_error,
-      "prepare_next_short_chain_history: local hashchain size is expected to be equal to the next start block");
     const uint64_t hashchain_top_block_idx = next_start_block - 1;
-    THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(hashchain_top_block_idx), error::wallet_internal_error,
-      "prepare_next_short_chain_history: local hashchain new top block is not in bounds");
-    THROW_WALLET_EXCEPTION_IF(sync_chain[hashchain_top_block_idx] != parsed_blocks.back().block.hash, error::wallet_internal_error,
+    crypto::hash cur_top_block_hash;
+    THROW_WALLET_EXCEPTION_IF(get_top_synced_block(sync_chain, cur_top_block_hash) != hashchain_top_block_idx, error::wallet_internal_error,
+      "prepare_next_short_chain_history: local hashchain size is expected to be equal to the next start block");
+    THROW_WALLET_EXCEPTION_IF(cur_top_block_hash != parsed_blocks.back().block.hash, error::wallet_internal_error,
       "prepare_next_short_chain_history: local hashchain new top block is not the expected top block");
 
     get_short_chain_history(sync_chain, short_chain_history);
@@ -3294,15 +3291,13 @@ static std::list<crypto::hash> prepare_next_short_chain_history(const uint64_t p
   }
 
   // Make sure we'll continue sync contiguously on top of hashchain
-  THROW_WALLET_EXCEPTION_IF(sync_chain.size() == 0, error::wallet_internal_error,
-    "prepare_next_short_chain_history: empty hashchain");
-  THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(sync_chain.size() - 1), error::wallet_internal_error,
-    "prepare_next_short_chain_history: top block out of bounds");
+  crypto::hash cur_top_block_hash;
+  get_top_synced_block(sync_chain, cur_top_block_hash);
 
   const crypto::hash &prev_hash = parsed_blocks_start_idx == 0
     ? parsed_blocks.at(0).block.hash
     : parsed_blocks.at(start_parsed_block_i).block.prev_id;
-  THROW_WALLET_EXCEPTION_IF(sync_chain[sync_chain.size() - 1] != prev_hash, error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(cur_top_block_hash != prev_hash, error::wallet_internal_error,
     "prepare_next_short_chain_history: parsed blocks should be contiguous");
 
   // Add the parsed block hashes to the hashchain
@@ -4322,8 +4317,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
       if(last)
       {
-        THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(m_blockchain.size() - 1), error::wallet_internal_error, "top block out of bounds");
-        THROW_WALLET_EXCEPTION_IF(m_blockchain[m_blockchain.size() - 1] != top_hash, error::wallet_internal_error, "local top hash should equal chain top hash");
+        crypto::hash top_synced_hash;
+        get_top_synced_block(m_blockchain, top_synced_hash);
+        THROW_WALLET_EXCEPTION_IF(top_synced_hash != top_hash, error::wallet_internal_error, "local top hash should equal chain top hash");
         m_node_rpc_proxy.set_height(m_blockchain.size());
         break;
       }
