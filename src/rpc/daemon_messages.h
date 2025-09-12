@@ -38,6 +38,7 @@
 #include "rpc/message_data_structs.h"
 #include "rpc/daemon_rpc_version.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "serialization/wire/fwd.h"
 
 #define BEGIN_RPC_MESSAGE_CLASS(classname) \
 class classname \
@@ -50,8 +51,8 @@ class classname \
       public: \
         Request() { } \
         ~Request() { } \
-        void doToJson(rapidjson::Writer<epee::byte_stream>& dest) const override final; \
-        void fromJson(const rapidjson::Value& val) override final;
+        void write_bytes(wire::writer& dest) const override final; \
+        void read_bytes(wire::reader& source) override final;
 
 #define BEGIN_RPC_MESSAGE_RESPONSE \
     class Response final : public Message \
@@ -59,8 +60,8 @@ class classname \
       public: \
         Response() { } \
         ~Response() { } \
-        void doToJson(rapidjson::Writer<epee::byte_stream>& dest) const override final; \
-        void fromJson(const rapidjson::Value& val) override final;
+        void write_bytes(wire::writer& dest) const override final; \
+        void read_bytes(wire::reader& source) override final;
 
 #define END_RPC_MESSAGE_REQUEST };
 #define END_RPC_MESSAGE_RESPONSE };
