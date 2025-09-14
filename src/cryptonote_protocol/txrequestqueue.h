@@ -38,148 +38,50 @@
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
-#include <set>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/indexed_by.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/composite_key.hpp>
+#include <boost/multi_index/member.hpp>
 
 #include "misc_log_ex.h"
 #include "string_tools.h"
 #include "syncobj.h"
 #include "common/util.h"
 
-/**
- * \brief A queue of requests. The front of the queue shows the current request.
- *
- * This queue holds peers that have announced the transaction and keeps
- * track of the time the last request was made. It provides capabilities
- * to add a new peer and to retrieve the next peer that hasn't been requested.
- */
-class tx_request_queue {
 
-private:
-  /**
-   * \brief Represents a request that we have sent to a peer.
-   *
-   * Contains the peer's connection UUID, the request status, and the time
-   * the requested tx was first seen.
-   */
-  class tx_request {
-    const boost::uuids::uuid from_connection_id;
-    const std::time_t first_seen;
-    mutable std::time_t request_time;
+struct request {
+  boost::uuids::uuid peer_id;
+  crypto::hash tx_hash;
+  std::time_t firstseen_timestamp;
+  mutable bool in_flight = false;
 
-    tx_request(const tx_request &) = delete;
-    tx_request &operator=(const tx_request &) = delete;
-    tx_request &operator=(tx_request &&) = delete;
+  request(const boost::uuids::uuid& peer_id, const crypto::hash& tx_hash, std::time_t firstseen_timestamp)
+    : peer_id(peer_id), tx_hash(tx_hash), firstseen_timestamp(firstseen_timestamp) {}
 
-  public:
-    struct order {
-      bool operator()(const tx_request &lhs, const tx_request &rhs) const {
-        if (lhs.get_connection_id() == rhs.get_connection_id())
-          return false; // same peer => equivalent (disallow duplicates)
-        if (lhs.get_first_seen() < rhs.get_first_seen())
-          return true;
-        if (rhs.get_first_seen() < lhs.get_first_seen())
-          return false;
-        // tie-break to maintain strict weak ordering when first_seen is equal
-        return lhs.get_connection_id() < rhs.get_connection_id();
-      }
-    };
-
-    tx_request(const boost::uuids::uuid &id, std::time_t s)
-        : from_connection_id(id), first_seen(s), request_time(0) {}
-
-    tx_request(tx_request &&other) noexcept
-        : from_connection_id(other.from_connection_id),
-          first_seen(other.first_seen), request_time(other.request_time) {}
-
-    const boost::uuids::uuid &get_connection_id() const {
-      return from_connection_id;
-    }
-    bool is_request_submitted() const { return request_time; }
-    void submit_request(std::time_t request_time) const {
-      this->request_time = request_time;
-    }
-    std::time_t get_first_seen() const { return first_seen; }
-    std::time_t get_request_time() const { return request_time; }
-    void set_request_time(std::time_t time) const { request_time = time; }
-  };
-
-  mutable epee::rw_mutex m_mutex;
-  std::set<tx_request, tx_request::order> request_queue;
-
-  tx_request_queue(const tx_request_queue &) = delete;
-  tx_request_queue &operator=(const tx_request_queue &) = delete;
-  tx_request_queue(tx_request_queue &&) noexcept = delete;
-  tx_request_queue &operator=(tx_request_queue &&) = delete;
-
-public:
-  // Constructor that takes the first peer
-  tx_request_queue(const boost::uuids::uuid &id, std::time_t first_seen) {
-    MINFO("Creating request queue with ID: "
-          << epee::string_tools::pod_to_hex(id)
-          << ", first seen: " << first_seen);
-    epee::write_lock w_lock(m_mutex);
-    tx_request request(id, first_seen);
-    request.submit_request(first_seen);
-    request_queue.emplace(std::move(request));
-  }
-
-  // Add a peer to the queue; updates request_time if it was requested
-  void add_peer(const boost::uuids::uuid &id, std::time_t first_seen) {
-    MINFO("Adding " << epee::string_tools::pod_to_hex(id)
-                    << " to request queue "
-                    << tools::get_human_readable_timestamp(first_seen));
-    epee::write_lock w_lock(m_mutex);
-    tx_request request(id, first_seen);
-    // only add if it is not already in the queue
-    if (request_queue.find(request) == request_queue.end()) {
-      request_queue.insert(std::move(request));
-    }
-  }
-
-  std::time_t get_request_time() const {
-    MINFO("Getting request time");
-    epee::read_lock r_lock(m_mutex);
-    if (!request_queue.empty()) {
-      MINFO("Connection ID: " << epee::string_tools::pod_to_hex(
-                                     request_queue.begin()->get_connection_id())
-                              << ", request time: "
-                              << request_queue.begin()->get_request_time());
-      return request_queue.begin()->get_request_time();
-    }
-    return 0;
-  }
-
-  // Get the next peer that we haven’t requested from yet.
-  // If the front has already been requested and we consider it failed, pop it.
-  boost::uuids::uuid request_from_next_peer(std::time_t now) {
-    MINFO("Requesting from next peer");
-    epee::write_lock w_lock(m_mutex);
-    while (!request_queue.empty()) {
-      // Get the front of the queue, and strip constness
-      // Since we don't modify data which would change the order
-      const tx_request &front = *request_queue.begin();
-      if (!front.is_request_submitted()) // not requested yet
-      {
-        front.submit_request(now);
-        MINFO("Requesting from peer: "
-              << epee::string_tools::pod_to_hex(front.get_connection_id()));
-        return front.get_connection_id();
-      }
-      // already requested and considered stale, pop first
-      request_queue.erase(request_queue.begin());
-    }
-    MINFO("No peers available to request from");
-    return boost::uuids::nil_uuid();
-  }
-
-  boost::uuids::uuid get_current_request_peer_id() const {
-    MINFO("Getting current request peer ID");
-    epee::read_lock r_lock(m_mutex);
-    if (!request_queue.empty()) {
-      return request_queue.begin()->get_connection_id();
-    }
-    return boost::uuids::nil_uuid();
-  }
+  void fly() const { in_flight = true; }
+  bool is_in_flight() const { return in_flight; }
 };
+
+using namespace boost::multi_index;
+
+typedef multi_index_container<
+    request,
+    indexed_by<
+        // Index 0: by peer_id - all requests for a peer
+        hashed_non_unique<member<request, boost::uuids::uuid, &request::peer_id>>,
+        // Index 1: by tx_hash - all requests for a tx
+        hashed_non_unique<member<request, crypto::hash, &request::tx_hash>>,
+        // Index 2: by (peer_id, tx_hash) - unique requests
+        hashed_unique<composite_key<request,
+            member<request, boost::uuids::uuid, &request::peer_id>,
+            member<request, crypto::hash, &request::tx_hash>
+        >>
+    >
+> request_container;
+
+#define get_requests_by_peer_id(request_container) request_container.get<0>()
+#define get_requests_by_tx_hash(request_container) request_container.get<1>()
+#define get_requests_by_peer_and_tx(request_container) request_container.get<2>()
 
 #endif // CRYPTONOTE_PROTOCOL_TXREQUESTQUEUE_H

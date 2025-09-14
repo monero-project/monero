@@ -742,6 +742,23 @@ namespace cryptonote
       // Relay an empty block
       arg.b.txs.clear();
       relay_block(arg, context);
+      for (const auto &tx_hash : new_block.tx_hashes)
+      {
+        if (m_request_manager.already_requested_tx(tx_hash))
+        {
+          // find which peer we had an outstanding request with
+          boost::uuids::uuid owner;
+          if (m_request_manager.get_current_request_peer_id(tx_hash, owner) && !owner.is_nil())
+          {
+            m_p2p->for_connection(owner, [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t) -> bool {
+              CHECK_AND_ASSERT_MES2(ctx.m_connection_id == owner, "unexpected: peer id mismatch");
+              ctx.remove_in_flight_request();
+              return true;
+            });
+          }
+          m_request_manager.remove_transaction(tx_hash);
+        }
+      }
     }
     else if( bvc.m_marked_as_orphaned )
     {
@@ -1047,7 +1064,7 @@ namespace cryptonote
         if (cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash)
             && m_request_manager.already_requested_tx(tx_hash))
         {
-          m_request_manager.remove_transaction(tx_hash);
+          m_request_manager.remove_requested_transaction(context.m_connection_id, tx_hash);
           context.remove_in_flight_request();
         }
       }
@@ -1673,6 +1690,37 @@ namespace cryptonote
               m_block_queue.remove_spans(span_connection_id, start_height);
               return 1;
             }
+            else if (bvc.m_added_to_main_chain)
+            {
+              const std::vector<crypto::hash>* tx_hashes_ptr = nullptr;
+              block tmp;
+              if (!pblocks.empty())
+              {
+                tx_hashes_ptr = &pblocks[blockidx].tx_hashes;
+              }
+              else
+              {
+                crypto::hash ignore;
+                if (parse_and_validate_block_from_blob(block_entry.block, tmp, &ignore))
+                  tx_hashes_ptr = &tmp.tx_hashes;
+              }
+              if (tx_hashes_ptr)
+              {
+                for (const auto &h : *tx_hashes_ptr)
+                  if (m_request_manager.already_requested_tx(h))
+                  {
+                    boost::uuids::uuid owner;
+                    if (m_request_manager.get_current_request_peer_id(h, owner) && !owner.is_nil())
+                    {
+                        m_p2p->for_connection(owner, [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t)->bool {
+                            ctx.remove_in_flight_request();
+                            return true;
+                        });
+                    }
+                    m_request_manager.remove_transaction(h);
+                  }
+              }
+            }
 
             TIME_MEASURE_FINISH(block_process_time);
             block_process_time_full += block_process_time;
@@ -1879,26 +1927,30 @@ skip:
   {
     MCTRACE("net.p2p.msg", "on_idle :: check_tx_request_queue, starting ...");
 
+    m_request_manager.cleanup_stale_requests(P2P_REQUEST_PARK_TIMEOUT); // remove requests older than 5 minutes
+
     // m_interval_peer_request_checker stores microseconds; convert to seconds for std::time_t
     const std::time_t request_deadline =
       static_cast<std::time_t>(m_interval_peer_request_checker.load(std::memory_order_relaxed) / 1000000ULL);
 
-    std::function<void(const crypto::hash&, tx_request_queue&, std::time_t)> runner =
-      [this](const crypto::hash &tx_hash, tx_request_queue &queue, const std::time_t deadline)
+    std::function<void(request_manager &m_request_manager, const request &req, const std::time_t)> runner =
+      [this](request_manager &m_request_manager, const request &req, const std::time_t deadline)
       {
         std::time_t now = std::time(nullptr);
-        if ((now - queue.get_request_time()) > deadline)
+        if (req.is_in_flight()
+            && (now - req.firstseen_timestamp) > deadline)
         {
+          auto current_request_peer_id = req.peer_id;
+          const crypto::hash current_request_tx_hash = req.tx_hash;
           MCINFO("net.p2p.msg", "Timeout for "
-                  << tx_hash << ", requesting it again, it has been "
-                  << (now - queue.get_request_time()) << " seconds");
-          auto current_request_peer_id = queue.get_current_request_peer_id();
+                  << current_request_tx_hash << ", requesting it again, it has been "
+                  << (now - req.firstseen_timestamp) << " seconds");
           bool drop_peer = false;
           if (!current_request_peer_id.is_nil())
           {
             m_p2p->for_connection(current_request_peer_id,
               [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t) -> bool {
-                drop_peer = ctx.missed_announced_tx(tx_hash);
+                drop_peer = ctx.missed_announced_tx(current_request_tx_hash);
                 return true;
               });
           }
@@ -1911,22 +1963,31 @@ skip:
           {
             MCINFO("net.p2p.msg", "Missed tx announcement less than threshold of the time, not dropping peer : " << epee::string_tools::pod_to_hex(current_request_peer_id));
           }
-          const boost::uuids::uuid peer_id = queue.request_from_next_peer(now);
+          // We are abandoning this request path: decrement previous in-flight
+          if (!current_request_peer_id.is_nil())
+          {
+            m_p2p->for_connection(current_request_peer_id, [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t)->bool {
+              ctx.remove_in_flight_request();
+              return true;
+            });
+          }
+          const boost::uuids::uuid peer_id = m_request_manager.request_from_next_peer(current_request_tx_hash, now);
           if (peer_id.is_nil())
           {
-            MCINFO("net.p2p.msg", "No peers to request from for tx " << tx_hash);
+            MCINFO("net.p2p.msg", "No peers to request from for tx " << current_request_tx_hash);
             return;
           }
           bool result = m_p2p->for_connection(peer_id, [&](cryptonote_connection_context &context, nodetool::peerid_type peer_id, uint32_t) -> bool {
-              MCINFO("net.p2p.msg", "Requesting tx " << tx_hash << " from peer " << epee::string_tools::to_string_hex(context.m_pruning_seed));
+              MCINFO("net.p2p.msg", "Requesting tx " << current_request_tx_hash << " from peer " << epee::string_tools::to_string_hex(context.m_pruning_seed));
               NOTIFY_REQUEST_TX_POOL_TXS::request req;
-              req.t = {tx_hash};
+              req.t = {current_request_tx_hash};
+              context.add_requested_from_peer();
               post_notify<NOTIFY_REQUEST_TX_POOL_TXS>(req, context);
               MCINFO("net.p2p.msg", "Requested " << req.t.size() << " missing transactions via RequestTxPoolTxs");
               return true;
             });
           if (!result)
-            MCINFO("net.p2p.msg", "Connection has been closed, not requesting tx " << tx_hash);
+            MCINFO("net.p2p.msg", "Connection has been closed, not requesting tx " << current_request_tx_hash);
         }
       };
     m_request_manager.for_each_request(runner, request_deadline);
@@ -3033,6 +3094,7 @@ skip:
     }
 
     m_block_queue.flush_spans(context.m_connection_id, false);
+    m_request_manager.remove_peer_requests(context.m_connection_id);
     MLOG_PEER_STATE("closed");
   }
 
