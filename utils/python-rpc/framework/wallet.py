@@ -588,11 +588,12 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(import_multisig_info)
 
-    def sign_multisig(self, tx_data_hex):
+    def sign_multisig(self, tx_data_hex, include_raw_tx = False):
         sign_multisig = {
             'method': 'sign_multisig',
             'params' : {
-                'tx_data_hex': tx_data_hex
+                'tx_data_hex': tx_data_hex,
+                'include_raw_tx': include_raw_tx
             },
             'jsonrpc': '2.0', 
             'id': '0'

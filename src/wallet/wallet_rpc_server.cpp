@@ -4651,6 +4651,13 @@ namespace tools
         res.tx_hash_list.push_back(epee::string_tools::pod_to_hex(txid));
     }
 
+    const bool is_signed = txs.m_signers.size() >= ms_status.threshold;
+    if (is_signed && req.include_raw_tx)
+    {
+      for (const tools::wallet2::pending_tx &ptx : txs.m_ptx)
+        res.tx_raw_list.push_back(epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx)));
+    }
+
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

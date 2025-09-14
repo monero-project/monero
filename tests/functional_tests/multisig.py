@@ -83,7 +83,7 @@ class MultisigTest():
             self.check_transaction(txid)
 
             # If more than 1 signer, try to freeze key image of one signer, make tx using that key
-            # image on another signer, then have first signer sign multisg_txset. Should fail
+            # image on another signer, then have first signer sign multisig_txset. Should fail
             if M != 1:
                 txid = self.try_transfer_frozen(shuffled_signers)
                 expected_outputs += 1
@@ -99,11 +99,12 @@ class MultisigTest():
             self.check_transaction(txid)
 
     @classmethod
-    def reset(cls):
+    def reset(cls, to_height = 1):
         print('Resetting blockchain')
         daemon = Daemon()
         res = daemon.get_height()
-        daemon.pop_blocks(res.height - 1)
+        if to_height < res.height:
+            daemon.pop_blocks(res.height - to_height)
         daemon.flush_txpool()
 
     @classmethod
@@ -118,7 +119,7 @@ class MultisigTest():
     #   * make_multisig()
     #   * exchange_multisig_keys()
     @classmethod
-    def create_multisig_wallets(cls, M_threshold, N_total, expected_address):
+    def create_multisig_wallets(cls, M_threshold, N_total, expected_address, restore_height = 0):
       print('Creating ' + str(M_threshold) + '/' + str(N_total) + ' multisig wallet')
       seeds = [
         'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
@@ -136,7 +137,7 @@ class MultisigTest():
         wallet[i] = Wallet(idx = i)
         try: wallet[i].close_wallet()
         except: pass
-        res = wallet[i].restore_deterministic_wallet(seed = seeds[i])
+        res = wallet[i].restore_deterministic_wallet(seed = seeds[i], restore_height = restore_height)
         res = wallet[i].prepare_multisig(enable_multisig_experimental = True)
         assert len(res.multisig_info) > 0
         info.append(res.multisig_info)
@@ -199,6 +200,86 @@ class MultisigTest():
         assert res.total == N_total
     
       return wallet
+
+    @classmethod
+    def make_and_sign_transfer(cls, signers, dsts):
+        assert len(signers) >= 2
+        assert len(dsts) >= 1
+
+        amount = sum(dst['amount'] for dst in dsts)
+
+        res = signers[0].transfer(dsts)
+        assert len(res.tx_hash) == 0 # not known yet
+        txid = res.tx_hash
+        assert len(res.tx_key) == 32*2
+        assert res.amount > 0
+        assert res.amount == amount
+        assert res.fee > 0
+        fee = res.fee
+        assert len(res.tx_blob) == 0
+        assert len(res.tx_metadata) == 0
+        assert len(res.multisig_txset) > 0
+        assert len(res.unsigned_txset) == 0
+        multisig_txset = res.multisig_txset
+
+        for signer in signers[1:]:
+            res = signer.describe_transfer(multisig_txset = multisig_txset)
+            assert len(res.desc) == 1
+            desc = res.desc[0]
+            assert desc.amount_in >= amount + fee
+            assert desc.amount_out == desc.amount_in - fee
+            assert desc.ring_size == 16
+            assert desc.unlock_time == 0
+            assert not 'payment_id' in desc or desc.payment_id in ['', '0000000000000000']
+            assert desc.change_amount == desc.amount_in - amount - fee
+            assert desc.change_address == signer.get_address().address
+            assert desc.fee == fee
+            assert len(desc.recipients) == len(dsts)
+            for rindx in range(len(dsts)):
+                assert desc.recipients[rindx].address == dsts[rindx]['address']
+                assert desc.recipients[rindx].amount == dsts[rindx]['amount']
+
+            res = signer.sign_multisig(multisig_txset, include_raw_tx = True)
+            multisig_txset = res.tx_data_hex
+            is_last = signer is signers[-1]
+            if is_last:
+                assert 'tx_raw_list' in res and len(res.tx_raw_list) == 1
+                assert 'tx_hash_list' in res and len(res.tx_hash_list) == 1
+                raw_tx = res.tx_raw_list[0]
+                txid = res.tx_hash_list[0]
+            else:
+                assert 'tx_hash_list' not in res or len(res.tx_hash_list) == 0
+
+        return multisig_txset, raw_tx, txid
+
+    @classmethod
+    def wait_for_outgoing_tx(cls, txid, wallets):
+        timeout = 15
+        wait_cutoff = time.monotonic() + timeout
+        synced_outgoing_tx = False
+        while True:
+            synced_outgoing_tx = True
+            for wallet in wallets:
+                wallet.refresh()
+                res = wallet.get_transfers()
+                if 'out' not in res or len(res.out) < 1:
+                    synced_outgoing_tx = False
+                    break
+                this_wallet_synced_outgoing_tx = False
+                for out_tx in res.out:
+                    if out_tx.txid == txid:
+                        this_wallet_synced_outgoing_tx = True
+                        break
+                if not this_wallet_synced_outgoing_tx:
+                    synced_outgoing_tx = False
+                    break
+            if synced_outgoing_tx:
+                break
+            max_delay = wait_cutoff - time.monotonic()
+            if max_delay <= 0:
+                break
+            time.sleep(min(.2, max_delay))
+        assert synced_outgoing_tx
 
     # We want to test if multisig wallets can receive normal transfers as well and mining transfers
     def fund_addrs_with_normal_wallet(self, addrs):
@@ -344,20 +425,22 @@ class MultisigTest():
         except: ok = True
         assert ok
 
-    def import_multisig_info(self, signers, expected_outputs):
-        assert len(signers) >= 2
-
-        print('Importing multisig info from ' + str(signers))
-
+    @classmethod
+    def export_import_all(cls, wallets, expected_outputs = None):
+        assert len(wallets) >= 2
         info = []
-        for i in signers:
-          self.wallet[i].refresh()
-          res = self.wallet[i].export_multisig_info()
-          assert len(res.info) > 0
-          info.append(res.info)
-        for i in signers:
-          res = self.wallet[i].import_multisig_info(info)
-          assert res.n_outputs == expected_outputs
+        for wallet in wallets:
+            wallet.refresh()
+            res = wallet.export_multisig_info()
+            assert len(res.info) > 0
+            info.append(res.info)
+        for wallet in wallets:
+            res = wallet.import_multisig_info(info)
+            assert expected_outputs is None or res.n_outputs == expected_outputs
+
+    def import_multisig_info(self, signers, expected_outputs):
+        print('Importing multisig info from ' + str(signers))
+        MultisigTest.export_import_all([self.wallet[i] for i in signers], expected_outputs)
 
     def transfer(self, signers):
         assert len(signers) >= 1
@@ -610,25 +693,108 @@ class MultisigImportTempRefreshFailTest():
 
         MultisigTest.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
 
-        timeout = 15
-        wait_cutoff = time.monotonic() + timeout
-        synced_outgoing_tx = False
-        while True:
-            synced_outgoing_tx = True
-            for wallet in wallets:
-                wallet.refresh()
-                res = wallet.get_transfers()
-                if 'out' not in res or len(res.out) < 1:
-                    synced_outgoing_tx = False
-                    break
-            if synced_outgoing_tx:
-                break
-            max_delay = wait_cutoff - time.monotonic()
-            if max_delay <= 0:
-                break
-            time.sleep(min(.2, max_delay))
-        assert synced_outgoing_tx
+        MultisigTest.wait_for_outgoing_tx(txid, wallets)
 
+class MultisigImportReorgFailTest():
+    def __init__(self, M, N, main_addr):
+        self.M = M
+        self.N = N
+        self.main_addr = main_addr
+
+    def run_test(self):
+        self.NUM_BLOCKS_TO_MINE = 80
+        MultisigTest.reset()
+        MultisigTest.mine(self.main_addr, self.NUM_BLOCKS_TO_MINE)
+
+        test_scenarios = [self.test_temp_missing, self.test_received_reorder]
+        for test_scenario in test_scenarios:
+            self.wallets = MultisigTest.create_multisig_wallets(self.M, self.N, self.main_addr)
+            test_scenario()
+            MultisigTest.reset(self.NUM_BLOCKS_TO_MINE + 1)
+
+    def test_temp_missing(self):
+        print('Testing whether reorging txs in the chain cause permanent failures for partial key image calculation: {}/{}'.format(self.M, self.N))
+
+        # Export / Import
+        MultisigTest.export_import_all(self.wallets, self.NUM_BLOCKS_TO_MINE)
+
+        # Transfer (outgoing)
+        dst = {'address': '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 'amount': 1000000000000}
+        multisig_txset1, raw_tx1, txid1 = MultisigTest.make_and_sign_transfer(self.wallets, [dst])
+
+        # Submit to network, mine, and wait for 1 confirmation
+        res = self.wallets[0].submit_multisig(multisig_txset1)
+        assert len(res.tx_hash_list) == 1
+        assert res.tx_hash_list[0] == txid1
+        MultisigTest.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        MultisigTest.wait_for_outgoing_tx(txid1, self.wallets)
+
+        # Export / Import (including last change enote)
+        MultisigTest.export_import_all(self.wallets, self.NUM_BLOCKS_TO_MINE + 1)
+
+        # Simulate reorg where tx is temporarily reorged out of the chain
+        daemon = Daemon()
+        res = daemon.get_transactions([txid1])
+        assert 'txs' in res
+        assert len(res.txs) == 1
+        assert res.txs[0].tx_hash == txid1
+        daemon.pop_blocks(1)
+        daemon.flush_txpool()
+        MultisigTest.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 2)
+        res = daemon.get_transactions([txid1])
+        assert 'missed_tx' in res
+        assert len(res.missed_tx) == 1
+        assert res.missed_tx[0] == txid1
+
+        # Add transaction back to chain
+        res = daemon.send_raw_transaction(raw_tx1)
+        assert 'reason' not in res or not res.reason
+
+        # Mine, and wait for 10 confirmations
+        MultisigTest.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 10)
+        MultisigTest.wait_for_outgoing_tx(txid1, self.wallets)
+        res = daemon.get_transactions([txid1])
+        assert 'txs' in res
+        assert len(res.txs) == 1
+        assert res.txs[0].tx_hash == txid1
+        assert res.txs[0].block_height == 1 + self.NUM_BLOCKS_TO_MINE + 2
+
+        # Refresh (but NO multisig export)
+        for wallet in self.wallets:
+            wallet.refresh()
+
+        # Freeze all other enotes on wallet 0 except latest received change enote, and transfer (outgoing)
+        res = self.wallets[0].incoming_transfers()
+        change1_amount = 0
+        assert len(res.transfers) == self.NUM_BLOCKS_TO_MINE + 1
+        for i in range(len(res.transfers)):
+            transfer = res.transfers[i]
+            is_last = (i == len(res.transfers) - 1)
+            if is_last:
+                assert transfer.tx_hash == txid1
+                assert transfer.key_image != ('0' * 64)
+                assert transfer.unlocked == True
+                change1_amount = transfer.amount
+            else:
+                self.wallets[0].freeze(transfer.key_image)
+        dst['amount'] = change1_amount // 2
+        multisig_txset2, raw_tx2, txid2 = MultisigTest.make_and_sign_transfer(self.wallets, [dst])
+
+        # Submit to network, mine, and wait for 1 confirmation
+        res = self.wallets[1].submit_multisig(multisig_txset2)
+        assert len(res.tx_hash_list) == 1
+        assert res.tx_hash_list[0] == txid2
+        MultisigTest.mine('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        MultisigTest.wait_for_outgoing_tx(txid2, self.wallets)
+
+        res = daemon.get_transactions([txid2])
+        assert 'txs' in res
+        assert len(res.txs) == 1
+        assert res.txs[0].tx_hash == txid2
+        assert res.txs[0].block_height == 1 + self.NUM_BLOCKS_TO_MINE + 2 + 10
+
+    def test_received_reorder(self):
+        pass
 
 class AutoRefreshGuard:
     def __enter__(self):
@@ -650,8 +816,9 @@ class WrongDaemonGuard:
 if __name__ == '__main__':
     with AutoRefreshGuard() as arguard:
         print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
-        MultisigImportTempRefreshFailTest().run_test()
-        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
         MultisigTest().run_test()
         print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
-
+        MultisigImportTempRefreshFailTest().run_test()
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
+        MultisigImportReorgFailTest(*TEST_CASES[0]).run_test()
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
