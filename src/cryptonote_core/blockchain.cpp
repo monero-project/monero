@@ -4710,6 +4710,11 @@ void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 {
   m_enforce_dns_checkpoints = enforce_checkpoints;
 }
+//------------------------------------------------------------------
+bool Blockchain::get_enforce_dns_checkpoints() const
+{
+  return m_enforce_dns_checkpoints;
+}
 
 //------------------------------------------------------------------
 void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const block> &blocks, std::unordered_map<crypto::hash, crypto::hash> &map) const
