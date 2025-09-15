@@ -104,3 +104,4 @@ if(NOT IOS)
 endif()
 
 add_subdirectory(api)
+add_subdirectory(wallet2_basic)
