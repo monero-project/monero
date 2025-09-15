@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2025, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,23 +28,26 @@
 
 #pragma once
 
-extern "C"
+//local headers
+#include "common/variant.h"
+#include "ringct/rctTypes.h"
+
+//third party headers
+
+//standard headers
+#include <utility>
+
+//forward declarations
+
+
+namespace carrot
 {
-#include "crypto-ops.h"
-}
-#include "crypto.h"
+using lazy_amount_commitment_t = tools::variant<
+        rct::key,                             // C
+        std::pair<rct::xmr_amount, rct::key>, // (a, z) s.t. C = z G + a H
+        rct::xmr_amount                       // a s.t. C = G + a H  
+    >;
 
-namespace crypto
-{
+rct::key calculate_amount_commitment(const lazy_amount_commitment_t &lazy_amount_commitment);
 
-public_key get_G();
-public_key get_H();
-public_key get_T();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-
-} //namespace crypto
+} //namespace carrot
