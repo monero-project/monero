@@ -1338,7 +1338,13 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
 
   // from v17, require tx.extra size be within limit
   if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA) {
-    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() <= MAX_TX_EXTRA_SIZE, "false", "miner transaction extra too big");
+    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() <= MAX_TX_EXTRA_SIZE, false, "miner transaction extra too big");
+  }
+
+  // from v17, require number of tx outputs to be within limit
+  if (hf_version >= HF_VERSION_REJECT_MANY_MINER_OUTPUTS) {
+    CHECK_AND_ASSERT_MES(b.miner_tx.vout.size() <= FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS,
+      false, "too many miner transaction outputs");
   }
 
   return true;
