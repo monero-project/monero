@@ -1333,11 +1333,12 @@ bool Blockchain::prevalidate_miner_transaction(const block& b, uint64_t height, 
 
   CHECK_AND_ASSERT_MES(check_output_types(b.miner_tx, hf_version), false, "miner transaction has invalid output type(s) in block " << get_block_hash(b));
 
-  // from carrot or v18, require output pubkeys be sorted in strictly increasing lexicographical order
-  const bool tx_is_carrot = !b.miner_tx.vout.empty() && b.miner_tx.vout.at(0).target.type() == typeid(txout_to_carrot_v1);
-  const bool should_enforce_sorted_outputs = hf_version > HF_VERSION_FCMP_PLUS_PLUS || tx_is_carrot;
-  if (should_enforce_sorted_outputs) {
-    CHECK_AND_ASSERT_MES(are_transaction_output_pubkeys_sorted(b.miner_tx), false, "miner transaction outputs are not sorted in block " << get_block_hash(b));
+  CHECK_AND_ASSERT_MES(check_transaction_output_pubkeys_order(b.miner_tx, hf_version),
+    false, "FCMP++ miner transaction has unsorted outputs in block " << get_block_hash(b));
+
+  // from v17, require tx.extra size be within limit
+  if (hf_version >= HF_VERSION_REJECT_LARGE_EXTRA) {
+    CHECK_AND_ASSERT_MES(b.miner_tx.extra.size() <= MAX_TX_EXTRA_SIZE, "false", "miner transaction extra too big");
   }
 
   return true;
@@ -3412,16 +3413,6 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
   {
     tvc.m_invalid_output = true;
     return false;
-  }
-
-  // from carrot or v18, require output pubkeys be sorted in strictly increasing lexicographical order
-  const bool tx_is_carrot = !tx.vout.empty() && tx.vout.at(0).target.type() == typeid(txout_to_carrot_v1);
-  const bool should_enforce_sorted_outputs = hf_version > HF_VERSION_FCMP_PLUS_PLUS || tx_is_carrot;
-  if (should_enforce_sorted_outputs) {
-    if (!are_transaction_output_pubkeys_sorted(tx)) {
-      tvc.m_invalid_output = true;
-      return false;
-    }
   }
 
   return true;

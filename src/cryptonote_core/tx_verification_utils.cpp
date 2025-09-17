@@ -28,6 +28,7 @@
 
 #include <boost/iterator/transform_iterator.hpp>
 
+#include "carrot_impl/format_utils.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/blockchain.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -281,6 +282,14 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin,
         {
             tvc.m_verifivation_failed = true;
             tvc.m_too_big = true;
+            return false;
+        }
+
+        // Rule 10
+        if (!check_transaction_output_pubkeys_order(tx, hf_version))
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_invalid_output = true;
             return false;
         }
 
@@ -564,10 +573,10 @@ uint64_t get_transaction_weight_limit(const uint8_t hf_version)
         return get_min_block_weight(hf_version) - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;
 }
 
-bool are_transaction_output_pubkeys_sorted(const transaction_prefix &tx_prefix)
+bool are_transaction_output_pubkeys_sorted(const std::vector<tx_out> &vout)
 {
     crypto::public_key last_output_pubkey = crypto::null_pkey;
-    for (const tx_out &o : tx_prefix.vout) {
+    for (const tx_out &o : vout) {
       crypto::public_key output_pubkey;
       if (!get_output_public_key(o, output_pubkey)) {
         return false;
@@ -578,6 +587,13 @@ bool are_transaction_output_pubkeys_sorted(const transaction_prefix &tx_prefix)
       last_output_pubkey = output_pubkey;
     }
 
+    return true;
+}
+
+bool check_transaction_output_pubkeys_order(const transaction_prefix &tx_prefix, const std::uint8_t hf_version)
+{
+    if (hf_version > HF_VERSION_FCMP_PLUS_PLUS || carrot::is_carrot_transaction_v1(tx_prefix))
+        return are_transaction_output_pubkeys_sorted(tx_prefix.vout);
     return true;
 }
 
