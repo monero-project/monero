@@ -407,6 +407,15 @@ namespace cryptonote
      */
     size_t validate(uint8_t version);
 
+    /**
+     * @brief kick transactions from the pool that reference inputs that can no longer be valid
+     *
+     * @param keep_txids tx ids we don't want to kick
+     *
+     * @return the number of transactions removed
+     */
+    size_t kick_invalid_txs(const std::unordered_set<crypto::hash> &keep_txids);
+
      /**
       * @brief return the cookie
       *
