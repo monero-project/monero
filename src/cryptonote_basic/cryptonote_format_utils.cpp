@@ -1177,63 +1177,44 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_output_types(const transaction& tx, const uint8_t hf_version)
   {
+    if (tx.vout.empty())
+      return true;
+
+    // require all outputs in a tx be of the same type
+    const std::type_info &o_type = tx.vout.at(0).target.type();
     for (const auto &o: tx.vout)
     {
-      if (hf_version > HF_VERSION_CARROT)
-      {
-        // from v18, require outputs be carrot outputs
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_carrot_v1), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_carrot_v1 in transaction id=" << get_transaction_hash(tx));
-      }
-      else if (hf_version == HF_VERSION_CARROT)
-      {
-        // during v17, require outputs be of type txout_to_tagged_key OR txout_to_carrot_v1
-        // to allow grace period before requiring all to be txout_to_carrot_v1
-        const std::type_info &o_type = o.target.type();
-        CHECK_AND_ASSERT_MES(
-          o_type == typeid(txout_to_carrot_v1) || o_type == typeid(txout_to_tagged_key),
-          false, "wrong variant type: " << o_type.name()
-          << ", expected txout_to_carrot_v1 or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-
-        // require all outputs in a tx be of the same type
-        const std::type_info &first_type = tx.vout.at(0).target.type();
-        CHECK_AND_ASSERT_MES(o_type == first_type, false, "non-matching variant types: "
-          << o_type.name() << " and " << first_type.name() << ", "
-          << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
-      }
-      else if (hf_version > HF_VERSION_VIEW_TAGS)
-      {
-        // from v16, require outputs have view tags
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else if (hf_version < HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs to be of type txout_to_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else  //(hf_version == HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs be of type txout_to_key OR txout_to_tagged_key
-        // to allow grace period before requiring all to be txout_to_tagged_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key) || o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-
-        // require all outputs in a tx be of the same type
-        CHECK_AND_ASSERT_MES(o.target.type() == tx.vout[0].target.type(), false, "non-matching variant types: "
-          << o.target.type().name() << " and " << tx.vout[0].target.type().name() << ", "
-          << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
-      }
+      const std::type_info &cur_type = tx.vout.at(0).target.type();
+      CHECK_AND_ASSERT_MES(cur_type == o_type, false, "non-matching variant types: "
+        << o_type.name() << " and " << cur_type.name() << ", "
+        << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
     }
 
+    const bool is_coinbase = cryptonote::is_coinbase(tx);
+
+    bool is_correct_output_type = false;
+    if (hf_version < HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = o_type == typeid(txout_to_key);
+    else if (hf_version == HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = (o_type == typeid(txout_to_key) || o_type == typeid(txout_to_tagged_key));
+    else if (hf_version < HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_tagged_key);
+    else if (hf_version == HF_VERSION_CARROT)
+      is_correct_output_type = (o_type == typeid(txout_to_tagged_key) && !is_coinbase)
+        || (o_type == typeid(txout_to_carrot_v1));
+    else // (hf_version > HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_carrot_v1);
+
+    CHECK_AND_ASSERT_MES(is_correct_output_type, false,
+      "wrong " << (is_coinbase ? "" : "non-") << "coinbase transaction output type '" << o_type.name()
+      << "' for fork v" << hf_version << " in transaction id=" << get_transaction_hash(tx));
+
     // during v17, require non-coinbase carrot txs use FCMP++ and legacy use BP+
-    if (hf_version == HF_VERSION_CARROT && !cryptonote::is_coinbase(tx) && tx.vout.size())
+    if (hf_version == HF_VERSION_CARROT && !is_coinbase)
     {
-      const auto &o = tx.vout.front();
       CHECK_AND_ASSERT_MES(
-        (o.target.type() == typeid(txout_to_carrot_v1) && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus) ||
-        (o.target.type() == typeid(txout_to_tagged_key) && tx.rct_signatures.type == rct::RCTTypeBulletproofPlus),
+        (o_type == typeid(txout_to_carrot_v1) && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus) ||
+        (o_type == typeid(txout_to_tagged_key) && tx.rct_signatures.type == rct::RCTTypeBulletproofPlus),
         false, "mismatched output type to tx proof type in transaction id=" << get_transaction_hash(tx));
     }
 
