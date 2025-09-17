@@ -9518,8 +9518,11 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
               MINFO("Ignoring output " << out << ", too recent");
             }
           }
-          THROW_WALLET_EXCEPTION_IF(!own_found, error::wallet_internal_error,
-              "Known ring does not include the spent output: " + std::to_string(td.m_global_output_index));
+          if (!own_found)
+          {
+            MWARNING("Known ring does not include the spent output: " + std::to_string(td.m_global_output_index)
+                + ", there may have been a reorg that moved the spent output's position in the chain");
+          }
         }
       }
 
