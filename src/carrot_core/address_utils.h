@@ -77,19 +77,5 @@ void make_carrot_subaddress_scalar(const crypto::public_key &account_spend_pubke
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
     crypto::secret_key &subaddress_scalar_out);
-/**
-* brief: make_carrot_address_spend_pubkey - K^j_s
-*   K^j_s = k^j_subscal * K_s
-* param: account_spend_pubkey - K_s = k_gi G + k_ps U
-* param: s_generate_address - s_ga
-* param: j_major -
-* param: j_minor -
-* outparam: address_spend_pubkey_out - K^j_s
-*/
-void make_carrot_address_spend_pubkey(const crypto::public_key &account_spend_pubkey,
-    const crypto::secret_key &s_generate_address,
-    const std::uint32_t j_major,
-    const std::uint32_t j_minor,
-    crypto::public_key &address_spend_pubkey_out);
 
 } //namespace carrot
