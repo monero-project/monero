@@ -33,8 +33,7 @@ void wallet_accessor_test::process_parsed_blocks(tools::wallet2 * wallet, uint64
 {
   if (wallet != nullptr) {
     auto output_tracker_cache = wallet->create_output_tracker_cache();
-    const crypto::hash top_hash = parsed_blocks.size() ? parsed_blocks.back().hash : crypto::hash{};
-    wallet->process_parsed_blocks(start_height, top_hash, blocks, parsed_blocks, blocks_added, output_tracker_cache);
+    wallet->process_parsed_blocks(start_height, 0/*start_parsed_block_i*/, blocks, parsed_blocks, blocks_added, output_tracker_cache);
   }
 }
 

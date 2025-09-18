@@ -411,7 +411,7 @@ uint64_t fake_pruned_blockchain::refresh_wallet(tools::wallet2 &w) const
     // wallet process blocks data
     uint64_t blocks_added;
     auto output_tracker_cache = w.create_output_tracker_cache();
-    w.process_parsed_blocks(start_height, this->top_block_hash(), blk_entries, parsed_blks, blocks_added, output_tracker_cache);
+    w.process_parsed_blocks(start_height, 0/*start_parsed_block_i*/, blk_entries, parsed_blks, blocks_added, output_tracker_cache);
 
     // collect paths_to_check
     std::vector<fcmp_pp::curve_trees::OutputPair> paths_to_check;

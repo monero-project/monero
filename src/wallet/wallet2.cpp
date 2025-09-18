@@ -3133,16 +3133,14 @@ static void prepare_tree_state_change_async(const TreeSyncStartParams &tree_sync
       << " , time spent collecting outs by unlock time while building tree: " << outs_by_last_locked_time_ms_inout / 1000);
 }
 //----------------------------------------------------------------------------------------------------
-// - start_parsed_block_i_inout should initially be set to the first parsed block index in parsed_blocks that we want to
-//   start the check from. That block's index in the chain should be parsed_blocks_start_idx.
-// - start_parsed_block_i_inout on return should be set to the first parsed block index in parsed_blocks that we want to
+// - start_parsed_block_i_out on return should be set to the first parsed block index in parsed_blocks that we want to
 //   start **processing** from (i.e. all blocks starting from that index should be new blocks we have not yet processed,
 //   that are contiguous to the hashchain). If >= parsed_blocks.size(), we've already processed all the parsed blocks.
-static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto::hash &top_hash, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const hashchain &blockchain, const uint64_t m_max_reorg_depth, uint64_t &start_parsed_block_i_inout)
+static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const crypto::hash &top_hash, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const hashchain &blockchain, const uint64_t max_reorg_depth, uint64_t &start_parsed_block_i_out)
 {
+  start_parsed_block_i_out = 0;
   uint64_t split_point_out = 0;
 
-  const uint64_t init_start_parsed_block_i = start_parsed_block_i_inout;
   uint64_t i, cur_block_idx;
 
   if (parsed_blocks.empty())
@@ -3165,9 +3163,6 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
     return split_point_out;
   }
 
-  THROW_WALLET_EXCEPTION_IF(init_start_parsed_block_i >= parsed_blocks.size(), error::wallet_internal_error,
-    "check_for_reorg: init start parsed block i is too high");
-
   // Note: this section assumes the wallet used its latest short_chain_history in the getblocks.bin request.
   // The daemon response should always include at least 1 block with prev_id included in our local chain
   // (see block_ids_skip_common_block param). If there was a reorg, then the daemon resp includes a block w/prev_id in
@@ -3180,10 +3175,10 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
   THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx == 0, error::wallet_internal_error,
     "check_for_reorg: genesis is not expected to be included in response");
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(parsed_blocks_start_idx-1), error::reorg_depth_error,
-    "daemon's response did not include a block in the local hashchain, we must have exceeded the max reorg depth");
+    "Daemon's response did not include a block in the local hashchain, we must have exceeded the max reorg depth. The wallet needs to be rescanned manually");
 
   // Starting from the first parsed block's prev id, make sure the parsed blocks are contiguous to locally synced blocks
-  i = init_start_parsed_block_i;
+  i = 0;
   cur_block_idx = parsed_blocks_start_idx - 1;
   while (i < parsed_blocks.size() && cur_block_idx < blockchain.size())
   {
@@ -3214,57 +3209,54 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
   if (blockchain[cur_block_idx] != parsed_blocks.back().hash)
   {
     // Reorg detected and split point identified
+    MDEBUG("Reorg identified on last parsed block");
     split_point_out = cur_block_idx;
     goto set_start_parsed_block_i_out;
   }
 
   // OR the hash is the chain's top hash, but we have synced more blocks beyond that block (e.g. daemon popped blocks)
-  if (blockchain[cur_block_idx] == top_hash && blockchain.size() >= cur_block_idx)
+  if (blockchain[cur_block_idx] == top_hash && blockchain.size() > (cur_block_idx + 1))
   {
     // The split point is the block after cur_block_idx
+    MDEBUG("The local chain is longer than the daemon's");
     split_point_out = cur_block_idx + 1;
     goto set_start_parsed_block_i_out;
   }
 
 set_start_parsed_block_i_out:
-  THROW_WALLET_EXCEPTION_IF(start_parsed_block_i_inout != init_start_parsed_block_i, error::wallet_internal_error,
-    "check_for_rerog: expected the start parsed block i to remain equal to its initial offset");
-
   if (split_point_out == 0)
   {
-    // No reorg, set start_parsed_block_i_inout to the first block in parsed_blocks we have not yet processed.
-    start_parsed_block_i_inout += std::max((uint64_t)blockchain.size(), parsed_blocks_start_idx) - parsed_blocks_start_idx;
+    // No reorg, set start_parsed_block_i_out to the first block in parsed_blocks we have not yet processed.
+    start_parsed_block_i_out = std::max((uint64_t)blockchain.size(), parsed_blocks_start_idx) - parsed_blocks_start_idx;
     return split_point_out;
   }
 
   // There was a reorg!
+  MINFO("Reorg identified at block " << split_point_out << ", current m_blockchain size: " << blockchain.size());
+
   // Check reorg depth
   THROW_WALLET_EXCEPTION_IF(split_point_out >= blockchain.size(), error::wallet_internal_error,
     "check_for_reorg: reorg split point should not be above blockchain size");
   const uint64_t reorg_depth = blockchain.size() - split_point_out;
-  THROW_WALLET_EXCEPTION_IF(reorg_depth >= m_max_reorg_depth, error::reorg_depth_error,
-    "Reorg detected that exceeds max reorg depth");
+  THROW_WALLET_EXCEPTION_IF(reorg_depth >= max_reorg_depth, error::reorg_depth_error,
+    "Reorg detected that exceeds max reorg depth. The wallet needs to be rescanned manually");
 
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(split_point_out), error::wallet_internal_error,
     "check_for_reorg: reorg split point not in bounds");
   THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx > split_point_out, error::wallet_internal_error,
     "check_for_reorg: reorg split point is expected to be above parsed blocks start");
 
-  start_parsed_block_i_inout += (split_point_out - parsed_blocks_start_idx);
+  start_parsed_block_i_out = (split_point_out - parsed_blocks_start_idx);
   return split_point_out;
 }
 //----------------------------------------------------------------------------------------------------
-static void sync_hashchain(const uint64_t parsed_blocks_start_idx, const crypto::hash &top_hash, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const uint64_t m_max_reorg_depth, hashchain &hashchain_inout)
+static std::list<crypto::hash> prepare_next_short_chain_history(const uint64_t parsed_blocks_start_idx, const uint64_t start_parsed_block_i, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, const uint64_t m_max_reorg_depth, const hashchain &m_blockchain)
 {
-  THROW_WALLET_EXCEPTION_IF(parsed_blocks.empty(), error::wallet_internal_error, "sync_hashchain: empty parsed blocks");
+  THROW_WALLET_EXCEPTION_IF(parsed_blocks.empty(), error::wallet_internal_error, "prepare_next_short_chain_history: empty parsed blocks");
 
-  uint64_t start_parsed_block_i = 0;
-  const uint64_t reorg_split_point = check_for_reorg(parsed_blocks_start_idx, top_hash, parsed_blocks, hashchain_inout, m_max_reorg_depth, start_parsed_block_i);
-  if (reorg_split_point > 0)
-  {
-    MINFO("Reorg identified on local hashchain at block " << reorg_split_point);
-    hashchain_inout.crop(reorg_split_point);
-  }
+  // Copy the current m_blockchain into a new struct we'll use to help sync
+  hashchain sync_chain = m_blockchain;
+  std::list<crypto::hash> short_chain_history;
 
   MDEBUG("Start parsed block i to sync local hashchain: " << start_parsed_block_i);
   if (start_parsed_block_i >= parsed_blocks.size())
@@ -3272,72 +3264,144 @@ static void sync_hashchain(const uint64_t parsed_blocks_start_idx, const crypto:
     // We must already have all parsed blocks in our local chain. We want to request contiguous blocks on next loop,
     // so we trim this hashchain so that on next loop, we'll request the blocks contiguous to these parsed blocks.
     const uint64_t next_start_block = parsed_blocks_start_idx + parsed_blocks.size();
-    MDEBUG("Trimming local hashchain to just before block " << next_start_block);
-    THROW_WALLET_EXCEPTION_IF(!hashchain_inout.is_in_bounds(next_start_block), error::wallet_internal_error,
-      "sync_hashchain: expected next start block is not in bounds");
-    hashchain_inout.crop(next_start_block);
+    MDEBUG("Trimming copy of local hashchain to just before block " << next_start_block);
+    THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(next_start_block), error::wallet_internal_error,
+      "prepare_next_short_chain_history: expected next start block to be in bounds");
+    sync_chain.crop(next_start_block);
 
     // Make sure we have the expected top hash
-    THROW_WALLET_EXCEPTION_IF(hashchain_inout.size() != next_start_block, error::wallet_internal_error,
-      "sync_hashchain: local hashchain size is expected to be equal to the next start block");
+    THROW_WALLET_EXCEPTION_IF(sync_chain.size() != next_start_block, error::wallet_internal_error,
+      "prepare_next_short_chain_history: local hashchain size is expected to be equal to the next start block");
     const uint64_t hashchain_top_block_idx = next_start_block - 1;
-    THROW_WALLET_EXCEPTION_IF(!hashchain_inout.is_in_bounds(hashchain_top_block_idx), error::wallet_internal_error,
-      "sync_hashchain: local hashchain new top block is not in bounds");
-    THROW_WALLET_EXCEPTION_IF(hashchain_inout[hashchain_top_block_idx] != parsed_blocks.back().block.hash, error::wallet_internal_error,
-      "sync_hashchain: local hashchain new top block is not the expected top block");
-    return;
+    THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(hashchain_top_block_idx), error::wallet_internal_error,
+      "prepare_next_short_chain_history: local hashchain new top block is not in bounds");
+    THROW_WALLET_EXCEPTION_IF(sync_chain[hashchain_top_block_idx] != parsed_blocks.back().block.hash, error::wallet_internal_error,
+      "prepare_next_short_chain_history: local hashchain new top block is not the expected top block");
+
+    get_short_chain_history(sync_chain, short_chain_history);
+    return short_chain_history;
   }
 
   // Make sure we'll continue sync contiguously on top of hashchain
-  THROW_WALLET_EXCEPTION_IF(hashchain_inout.size() == 0, error::wallet_internal_error,
-    "sync_hashchain: empty hashchain");
-  THROW_WALLET_EXCEPTION_IF(!hashchain_inout.is_in_bounds(hashchain_inout.size() - 1), error::wallet_internal_error,
-    "sync_hashchain: top block out of bounds");
+  THROW_WALLET_EXCEPTION_IF(sync_chain.size() == 0, error::wallet_internal_error,
+    "prepare_next_short_chain_history: empty hashchain");
+  THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(sync_chain.size() - 1), error::wallet_internal_error,
+    "prepare_next_short_chain_history: top block out of bounds");
 
   const crypto::hash &prev_hash = parsed_blocks_start_idx == 0
     ? parsed_blocks.at(0).block.hash
     : parsed_blocks.at(start_parsed_block_i).block.prev_id;
-  THROW_WALLET_EXCEPTION_IF(hashchain_inout[hashchain_inout.size() - 1] != prev_hash, error::wallet_internal_error,
-    "sync_hashchain: parsed blocks should be contiguous");
+  THROW_WALLET_EXCEPTION_IF(sync_chain[sync_chain.size() - 1] != prev_hash, error::wallet_internal_error,
+    "prepare_next_short_chain_history: parsed blocks should be contiguous");
 
   // Add the parsed block hashes to the hashchain
   for (std::size_t i = start_parsed_block_i; i < parsed_blocks.size(); ++i)
-    hashchain_inout.push_back(parsed_blocks[i].hash);
+    sync_chain.push_back(parsed_blocks[i].hash);
 
-  shrink_hashchain(m_max_reorg_depth, hashchain_inout);
+  shrink_hashchain(m_max_reorg_depth, sync_chain);
+
+  get_short_chain_history(sync_chain, short_chain_history);
+  return short_chain_history;
+}
+//----------------------------------------------------------------------------------------------------
+static std::list<crypto::hash> prepare_first_short_chain_history(const bool m_first_refresh_done, const bool trusted_daemon, const hashchain &m_blockchain)
+{
+  std::list<crypto::hash> short_chain_history;
+  if (m_first_refresh_done || trusted_daemon)
+  {
+    MINFO("Refresh starting from block " << m_blockchain.size());
+    get_short_chain_history(m_blockchain, short_chain_history);
+    return short_chain_history;
+  }
+
+  // Make a local copy of our local hashchain so we can modify it
+  hashchain cur_chain = m_blockchain;
+
+  // Granularize the starting refresh height, to avoid revealing fingerprint
+  // of refresh start height to an untrusted daemon.
+  const uint64_t new_blockchain_size = std::max((size_t)(cur_chain.size() / FIRST_REFRESH_GRANULARITY * FIRST_REFRESH_GRANULARITY), cur_chain.offset());
+  if (new_blockchain_size > cur_chain.offset())
+    cur_chain.crop(new_blockchain_size);
+  THROW_WALLET_EXCEPTION_IF(!cur_chain.is_in_bounds(m_blockchain.offset()), error::wallet_internal_error, "cur_chain is missing m_blockchain offset");
+
+  MINFO("Granular refresh starting from block " << cur_chain.size());
+  get_short_chain_history(cur_chain, short_chain_history);
+  return short_chain_history;
+}
+//----------------------------------------------------------------------------------------------------
+// Return true if wallet should preoceed with refresh, or false if wallet should not
+bool wallet2::bump_refresh_start_height(const uint64_t init_start_height, const bool trusted_daemon)
+{
+  const uint64_t start_height = std::max(m_refresh_from_block_height, init_start_height);
+  if (m_blockchain.size() >= start_height)
+  {
+    MDEBUG("Refresh will ignore low start_height " << init_start_height
+        << " and proceed to scan contiguously on top of already synced blocks");
+    return true;
+  }
+
+  // If the wallet has already synced, we throw because it *cannot* skip forwards to the higher height.
+  // We *must* scan contiguously in order to maintain the correct tree state. The user should call rescan_blockchain
+  // to clear their wallet, so we can start scanning from the higher height from an empty wallet.
+  THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != 1 || m_tree_cache.n_synced_blocks() != 0, error::needs_rescan);
+
+  // Bring start_height back 1 because scanning starts *on top of* prev block
+  const uint64_t top_prev_block_idx = start_height - 1;
+
+  // Granular-ize the start height, clamping to divisble by 1024 to avoid revealing exact start block to untrusted daemon
+  const uint64_t granularity = trusted_daemon ? 1 : FIRST_REFRESH_GRANULARITY;
+  const uint64_t granularized_init_block_idx = top_prev_block_idx / granularity * granularity;
+
+  // Get the corresponding hash from the daemon
+  crypto::hash granularized_init_hash;
+  {
+    cryptonote::COMMAND_RPC_GETBLOCKHASH::request req = AUTO_VAL_INIT(req);
+    cryptonote::COMMAND_RPC_GETBLOCKHASH::response res = AUTO_VAL_INIT(res);
+    epee::json_rpc::error error;
+    error.code = 0;
+    req.push_back(granularized_init_block_idx);
+
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "on_get_block_hash", req, res, error, *m_http_client, rpc_timeout);
+    if (error.code == CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT) {
+      // We don't need to sync if start height is higher than the daemon height
+      MWARNING("Refresh start height is higher than the current chain tip, not syncing");
+      return false;
+    }
+    THROW_WALLET_EXCEPTION_IF(!r || error.code != 0, error::get_block_hash_error, error.message);
+    THROW_WALLET_EXCEPTION_IF(res.size() != 64, error::get_block_hash_error, "Hash is not 32 bytes as expected");
+    r = epee::string_tools::hex_to_pod(res, granularized_init_hash);
+    THROW_WALLET_EXCEPTION_IF(!r, error::get_block_hash_error, "Failed to parse getblockhash hash");
+  }
+
+  MINFO("Starting scanner on top of block " << granularized_init_block_idx << " , hash " << granularized_init_hash);
+  m_blockchain.set_top_block(granularized_init_hash, granularized_init_block_idx);
+
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const crypto::hash &top_hash, const std::vector<parsed_block> &parsed_blocks, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache)
 {
-  // Since we can't handle a reorg below our max reorg depth, we check for a reorg starting from the highest block we can
-  const uint64_t deepest_known_block_idx = std::max<uint64_t>(std::max<uint64_t>(m_blockchain.size(), m_max_reorg_depth) - m_max_reorg_depth, m_blockchain.offset());
-  const uint64_t parsed_blocks_start_idx = std::max<uint64_t>(deepest_known_block_idx, start_height);
-  uint64_t start_parsed_block_i = parsed_blocks_start_idx - start_height;
-  MDEBUG("Checking for reorg, deepest_known_block_idx: " << deepest_known_block_idx
-      << ", parsed_blocks_start_idx: " << parsed_blocks_start_idx
-      << ", start_parsed_block_i: " << start_parsed_block_i);
+  // Make sure m_blockchain and m_tree_cache match states before handling reorg
+  assert_top_block_match(m_blockchain, m_tree_cache);
 
-  if (parsed_blocks.size() && start_parsed_block_i >= parsed_blocks.size())
-  {
-    // If the first block is below our max reorg depth, then we return, and let sync_hashchain make sure there wasn't
-    // a reorg that was too deep for the wallet to be able to handle. The caller should request contiguous blocks up to
-    // the wallet's max reorg depth, and at that point we can continue syncing the main wallet in here.
-    MINFO("Skipping processing blocks " << start_height << " - " << (start_height + parsed_blocks.size())
-        << ", the wallet's deepest known block is block " << deepest_known_block_idx);
-    return start_parsed_block_i;
-  }
+  // Get the deepest block we can reorg back to and set max reorg depth
+  fcmp_pp::curve_trees::BlockMeta front_synced_block;
+  THROW_WALLET_EXCEPTION_IF(!m_tree_cache.get_front_block(front_synced_block), error::wallet_internal_error,
+    "check_and_handle_reorg: failed to get front block from tree cache");
+  THROW_WALLET_EXCEPTION_IF(front_synced_block.blk_idx > m_tree_cache.n_synced_blocks(), error::wallet_internal_error,
+    "check_and_handle_reorg: front synced block idx should not be higher than n synced blocks");
+  const uint64_t max_reorg_depth = m_tree_cache.n_synced_blocks() - front_synced_block.blk_idx;
 
   // Check parsed blocks against m_blockchain for a reorg, starting by checking the deepest block we can handle a reorg
   // back to, or the first parsed block, whichever is higher.
-  const uint64_t reorg_split_point = check_for_reorg(parsed_blocks_start_idx, top_hash, parsed_blocks, m_blockchain, m_max_reorg_depth, start_parsed_block_i);
+  uint64_t start_parsed_block_i = 0;
+  const uint64_t reorg_split_point = check_for_reorg(start_height, top_hash, parsed_blocks, m_blockchain, max_reorg_depth, start_parsed_block_i);
   if (reorg_split_point == 0)
   {
     MDEBUG("No reorg detected");
     return start_parsed_block_i;
   }
-
-  // There was a reorg, now we need to handle it
-  MINFO("Reorg identified at block " << reorg_split_point << ", current m_blockchain size: " << m_blockchain.size());
 
   // Handle reorg on main wallet cache
   this->handle_reorg(reorg_split_point, output_tracker_cache);
@@ -3361,21 +3425,19 @@ uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const cryp
   return start_parsed_block_i;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_parsed_blocks(const uint64_t start_height, const crypto::hash &top_hash, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache)
+void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t start_parsed_block_i, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache)
 {
   blocks_added = 0;
   THROW_WALLET_EXCEPTION_IF(blocks.size() != parsed_blocks.size(), error::wallet_internal_error, "blocks <> parsed_blocks size mismatch");
   assert_top_block_match(m_blockchain, m_tree_cache);
 
-  // Check for reorg and if there was one, handle it
-  const uint64_t start_parsed_block_i = this->check_and_handle_reorg(start_height, top_hash, parsed_blocks, output_tracker_cache);
-  MDEBUG("Completed reorg check, start_parsed_block_i: " << start_parsed_block_i
+  MDEBUG("Processing parsed blocks, start_parsed_block_i: " << start_parsed_block_i
       << ", parsed_blocks.size(): "                         << parsed_blocks.size()
       << ", start_height: "                                 << start_height
       << ", m_blockchain.size(): "                          << m_blockchain.size());
 
   if (start_parsed_block_i >= parsed_blocks.size()) {
-    // No blocks to scan and reorg check/handling is done
+    // No blocks to scan
     assert_top_block_match(m_blockchain, m_tree_cache);
     return;
   }
@@ -3681,6 +3743,8 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
 
     if (init_tree_sync_data)
     {
+      THROW_WALLET_EXCEPTION_IF(!first, error::wallet_internal_error, "init tree sync data is only expected on first loop");
+
       // Initialize local tree cache
       const uint64_t init_block_idx = init_tree_sync_data->init_block_idx;
       const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
@@ -4161,45 +4225,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
   // If the manually set m_refresh_from_block_height is higher than our current sync height, then we may want to start
   // refresh from that height
-  start_height = std::max(m_refresh_from_block_height, start_height);
-  if (start_height > m_blockchain.size()) {
-    // If the wallet has already synced, we throw because it *cannot* skip forwards to the higher height.
-    // We *must* scan contiguously in order to maintain the correct tree state. The user should call rescan_blockchain
-    // to clear their wallet, so we can start scanning from the higher height from an empty wallet.
-    THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != 1 || m_tree_cache.n_synced_blocks() != 0, error::needs_rescan);
-
-    // Bring start_height back 1 because scanning starts *on top of* prev block
-    const uint64_t top_prev_block_idx = start_height - 1;
-
-    // Granular-ize the start height, clamping to divisble by 1024 to avoid revealing exact start block to untrusted daemon
-    const uint64_t granularity = trusted_daemon ? 1 : FIRST_REFRESH_GRANULARITY;
-    const uint64_t granularized_init_block_idx = top_prev_block_idx / granularity * granularity;
-
-    // Get the corresponding hash from the daemon
-    crypto::hash granularized_init_hash;
-    {
-      cryptonote::COMMAND_RPC_GETBLOCKHASH::request req = AUTO_VAL_INIT(req);
-      cryptonote::COMMAND_RPC_GETBLOCKHASH::response res = AUTO_VAL_INIT(res);
-      epee::json_rpc::error error;
-      error.code = 0;
-      req.push_back(granularized_init_block_idx);
-
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "on_get_block_hash", req, res, error, *m_http_client, rpc_timeout);
-      if (error.code == CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT) {
-        // We don't need to sync if start height is higher than the daemon height
-        MWARNING("Refresh start height is higher than the current chain tip, not syncing");
-        return;
-      }
-      THROW_WALLET_EXCEPTION_IF(!r || error.code != 0, error::get_block_hash_error, error.message);
-      THROW_WALLET_EXCEPTION_IF(res.size() != 64, error::get_block_hash_error, "Hash is not 32 bytes as expected");
-      r = epee::string_tools::hex_to_pod(res, granularized_init_hash);
-      THROW_WALLET_EXCEPTION_IF(!r, error::get_block_hash_error, "Failed to parse getblockhash hash");
-    }
-
-    MINFO("Starting scanner on top of block " << granularized_init_block_idx << " , hash " << granularized_init_hash);
-    m_blockchain.set_top_block(granularized_init_hash, granularized_init_block_idx);
-  }
+  if (!this->bump_refresh_start_height(start_height, trusted_daemon))
+    return;
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
     boost::lock_guard refresh_lock(m_encrypt_keys_after_refresh_mutex);
@@ -4218,18 +4245,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // leak allowing a passive adversary with traffic analysis capability to
   // infer when we get an incoming output
 
-  // Establish the local hashchain we're going to use to help fetch contiguous blocks.
-  hashchain cur_chain = m_blockchain;
-  if (!m_first_refresh_done && !trusted_daemon)
-  {
-    // Granularize the starting refresh height, to avoid revealing fingerprint
-    // of refresh start height to an untrusted daemon.
-    const uint64_t new_blockchain_size = std::max((size_t)(cur_chain.size() / FIRST_REFRESH_GRANULARITY * FIRST_REFRESH_GRANULARITY), cur_chain.offset());
-    if (new_blockchain_size > cur_chain.offset())
-      cur_chain.crop(new_blockchain_size);
-    THROW_WALLET_EXCEPTION_IF(!cur_chain.is_in_bounds(m_blockchain.offset()), error::wallet_internal_error, "cur_chain is missing m_blockchain offset");
-  }
-  MINFO("Refresh starting from block " << cur_chain.size());
 
   bool first = true, last = false;
   while(m_run.load(std::memory_order_relaxed) && blocks_fetched < max_blocks)
@@ -4240,9 +4255,17 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     crypto::hash cur_top_hash;
     bool error;
     std::exception_ptr exception;
+    uint64_t start_parsed_block_i;
     std::list<crypto::hash> short_chain_history;
     try
     {
+      if (!first)
+      {
+        // Check for a reorg, and handle popping blocks if we detect one.
+        // Then return the local index we're supposed to start processing blocks from.
+        start_parsed_block_i = this->check_and_handle_reorg(blocks_start_height, top_hash, parsed_blocks, output_tracker_cache);
+      }
+
       // pull the next set of blocks while we're processing the current one
       error = false;
       exception = NULL;
@@ -4251,7 +4274,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       added_blocks = 0;
       if (!last)
       {
-        get_short_chain_history(cur_chain, short_chain_history);
+        // Prepare the short chain history we'll use to fetch the next set of contiguous blocks
+        short_chain_history = first
+          ? prepare_first_short_chain_history(m_first_refresh_done, trusted_daemon, m_blockchain)
+          : prepare_next_short_chain_history(blocks_start_height, start_parsed_block_i, parsed_blocks, m_max_reorg_depth, m_blockchain);
+
         tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, next_blocks_start_height, short_chain_history, next_blocks, next_parsed_blocks, process_pool_txs, cur_top_hash, error, exception);});
       }
 
@@ -4259,7 +4286,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       {
         try
         {
-          process_parsed_blocks(blocks_start_height, top_hash, blocks, parsed_blocks, added_blocks, output_tracker_cache);
+          process_parsed_blocks(blocks_start_height, start_parsed_block_i, blocks, parsed_blocks, added_blocks, output_tracker_cache);
         }
         catch (const std::exception &e)
         {
@@ -4292,13 +4319,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
       first = false;
       last = next_parsed_blocks.empty() || next_parsed_blocks.back().block.hash == cur_top_hash;
-
-      if(!last)
-      {
-        // Use the retrieved parsed blocks to sync the locally scoped hashchain, so that our next pull_and_parse_next_blocks
-        // using short_chain_history requests the expected next contiguous set of blocks.
-        sync_hashchain(next_blocks_start_height, cur_top_hash, next_parsed_blocks, m_max_reorg_depth, cur_chain);
-      }
 
       // switch to the new blocks from the daemon
       blocks_start_height = next_blocks_start_height;
@@ -4338,7 +4358,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         last = false;
         blocks.clear();
         parsed_blocks.clear();
-        cur_chain = m_blockchain;
         ++try_count;
       }
       else

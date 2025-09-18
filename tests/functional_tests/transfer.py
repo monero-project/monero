@@ -892,13 +892,13 @@ class TransferTest():
     def check_deep_reorg_recovery(self, extend_reorg = True):
         daemon = Daemon()
 
-        print("Checking wallet deep reorg recovery")
+        print("Checking wallet deep reorg recovery, extending the chain after reorg:", extend_reorg)
 
         # Disconnect daemon from peers
         daemon.out_peers(0)
 
         for reorg_size in [1, 2, 3, 4, 10, 15, 99]: # max reorg depth is 100
-            print("pop size: ", reorg_size)
+            print("Reorg size:", reorg_size)
 
             # 1. Mine n blocks
             daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', reorg_size)
