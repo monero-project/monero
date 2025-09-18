@@ -321,6 +321,9 @@ namespace cryptonote
 							     , "testpoints.moneropulse.org"
 							     , "testpoints.moneropulse.net"
 							     , "testpoints.moneropulse.co"
+							     , "testpoints.moneropulse.ch"
+							     , "testpoints.moneropulse.de"
+							     , "testpoints.moneropulse.fr"
     };
 
     static const std::vector<std::string> stagenet_dns_urls = { "stagenetpoints.moneropulse.se"

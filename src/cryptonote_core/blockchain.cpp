@@ -4681,7 +4681,7 @@ bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns
   // if we're not hard-enforcing dns checkpoints, handle accordingly
   if (m_enforce_dns_checkpoints && check_dns && !m_offline)
   {
-    if (!m_checkpoints.load_checkpoints_from_dns())
+    if (!m_checkpoints.load_checkpoints_from_dns(m_nettype))
     {
       return false;
     }
@@ -4689,7 +4689,7 @@ bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns
   else if (check_dns && !m_offline)
   {
     checkpoints dns_points;
-    dns_points.load_checkpoints_from_dns();
+    dns_points.load_checkpoints_from_dns(m_nettype);
     if (m_checkpoints.check_for_conflicts(dns_points))
     {
       check_against_checkpoints(dns_points, false);

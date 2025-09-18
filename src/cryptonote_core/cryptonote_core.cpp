@@ -264,7 +264,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints(const bool skip_dns /* = false */)
   {
-    if (m_nettype != MAINNET || m_disable_dns_checkpoints) return true;
+    if (m_disable_dns_checkpoints) return true;
 
     if (m_checkpoints_updating.test_and_set()) return true;
 
@@ -353,21 +353,17 @@ namespace cryptonote
 
     auto data_dir = boost::filesystem::path(m_config_folder);
 
-    if (m_nettype == MAINNET)
+
+    cryptonote::checkpoints checkpoints;
+    if (!checkpoints.init_default_checkpoints(m_nettype))
     {
-      cryptonote::checkpoints checkpoints;
-      if (!checkpoints.init_default_checkpoints(m_nettype))
-      {
-        throw std::runtime_error("Failed to initialize checkpoints");
-      }
-      set_checkpoints(std::move(checkpoints));
-
-      boost::filesystem::path json(JSON_HASH_FILE_NAME);
-      boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
-
-      set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
+      throw std::runtime_error("Failed to initialize checkpoints");
     }
+    set_checkpoints(std::move(checkpoints));
 
+    boost::filesystem::path json(JSON_HASH_FILE_NAME);
+    boost::filesystem::path checkpoint_json_hashfile_fullpath = data_dir / json;
+    set_checkpoints_file_path(checkpoint_json_hashfile_fullpath.string());
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
     test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
