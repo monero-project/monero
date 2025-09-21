@@ -697,7 +697,7 @@ namespace cryptonote
     else if (check_updates_string == "update")
       check_updates_level = UPDATES_UPDATE;
     else {
-      MERROR("Invalid argument to --dns-versions-check: " << check_updates_string);
+      MERROR("Invalid argument to --check-updates: " << check_updates_string);
       return false;
     }
 
