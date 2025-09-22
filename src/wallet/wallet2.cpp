@@ -3200,7 +3200,7 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
   if (cur_block_idx >= blockchain.size())
     goto set_start_parsed_block_i_out;
 
- // Finally, check the last hash in parsed blocks for a reorg
+  // Finally, check the last hash in parsed blocks for a reorg
   MDEBUG("Checking for reorg split point on last parsed block " << cur_block_idx);
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(cur_block_idx), error::wallet_internal_error,
     "check_for_reorg: last parsed block is not in bounds");
@@ -3329,7 +3329,7 @@ static std::list<crypto::hash> prepare_first_short_chain_history(const bool m_fi
   return short_chain_history;
 }
 //----------------------------------------------------------------------------------------------------
-// Return true if wallet should preoceed with refresh, or false if wallet should not
+// Return true if wallet should proceed with refresh, or false if wallet should not
 bool wallet2::bump_refresh_start_height(const uint64_t init_start_height, const bool trusted_daemon)
 {
   const uint64_t start_height = std::max(m_refresh_from_block_height, init_start_height);
@@ -11728,7 +11728,7 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
 
   bool close_enough = (int64_t)height >= (int64_t)earliest_height - early_blocks && earliest_height != std::numeric_limits<uint64_t>::max(); // start using the rules that many blocks beforehand
   if (close_enough)
-    LOG_PRINT_L3("Using v" << (unsigned)version << " rules");
+    LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
     LOG_PRINT_L2("Not using v" << (unsigned)version << " rules");
   return close_enough;
