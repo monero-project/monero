@@ -423,16 +423,14 @@ void BlockchainDB::trim_block()
 
   // Trim the tree to the new n leaf tuples
   this->trim_tree(new_n_leaf_tuples, tree_block_idx);
+
+  // Remove block from tree meta
+  this->del_tree_meta(tree_block_idx);
 }
 
 void BlockchainDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx)
 {
   LOG_PRINT_L3("BlockchainDB::" << __func__);
-
-  // Delete this tree meta upon exiting
-  epee::misc_utils::auto_scope_leave_caller del_tree_meta = epee::misc_utils::create_scope_leave_handler([this, trim_block_idx](){
-    this->del_tree_meta(trim_block_idx);
-  });
 
   const uint64_t old_n_leaf_tuples = this->trim_leaves(new_n_leaf_tuples, trim_block_idx);
 
