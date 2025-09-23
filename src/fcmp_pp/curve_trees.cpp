@@ -443,8 +443,6 @@ static GrowLayerInstructions get_grow_layer_instructions(const uint64_t old_tota
 
     return GrowLayerInstructions{
             .parent_chunk_width                = parent_chunk_width,
-            .old_total_children                = old_total_children,
-            .new_total_children                = new_total_children,
             .old_total_parents                 = old_total_parents,
             .new_total_parents                 = new_total_parents,
             .setting_next_layer_after_old_root = setting_next_layer_after_old_root,
@@ -508,8 +506,6 @@ static GrowLayerInstructions get_leaf_layer_grow_instructions(const uint64_t old
 
     return GrowLayerInstructions{
             .parent_chunk_width                = leaf_layer_chunk_width,
-            .old_total_children                = old_total_children,
-            .new_total_children                = new_total_children,
             .old_total_parents                 = old_total_parents,
             .new_total_parents                 = new_total_parents,
             .setting_next_layer_after_old_root = setting_next_layer_after_old_root,
