@@ -734,9 +734,9 @@ namespace tools
     CHECK_IF_BACKGROUND_SYNCING();
     try
     {
-      if (req.count < 1 || req.count > 64) {
+      if (req.count < 1 || req.count > 65536) {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Count must be between 1 and 64.";
+        er.message = "Count must be between 1 and 65536.";
         return false;
       }
 
