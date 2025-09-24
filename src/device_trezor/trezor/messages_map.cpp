@@ -45,7 +45,7 @@ namespace trezor
 {
 
   const char * TYPE_PREFIX = "MessageType_";
-  const char * PACKAGES[] = {
+  const std::string PACKAGES[] = {
       "hw.trezor.messages.",
       "hw.trezor.messages.common.",
       "hw.trezor.messages.management.",
