@@ -1152,6 +1152,7 @@ add_subdirectory(contrib)
 add_subdirectory(src)
 
 find_package(PythonInterp)
+option(ENABLE_FUZZ_TEST "Enable fuzz testing." OFF)
 if(BUILD_TESTS)
   message(STATUS "Building tests")
   add_subdirectory(tests)
