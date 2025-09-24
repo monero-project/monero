@@ -578,6 +578,9 @@ void Blockchain::pop_blocks(uint64_t nblocks)
 
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
 
+  // Kick any invalid txs added back to the pool
+  m_tx_pool.kick_invalid_txs({}/*don't keep any, kick them all*/);
+
   if (stop_batch)
     m_db->batch_stop();
 
@@ -1071,6 +1074,15 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   }
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
 
+  // Collect tx hashes that are going to be added back from the original chain
+  std::unordered_set<crypto::hash> keep_txids;
+  for (const auto &bl: original_chain)
+    for (const auto &tx_hash: bl.tx_hashes)
+      keep_txids.insert(tx_hash);
+
+  // Kick any invalid txs that were added back to the pool, except for ones that will be added to the chain
+  m_tx_pool.kick_invalid_txs(keep_txids);
+
   // make sure the hard fork object updates its current version
   m_hardfork->reorganize_from_chain_height(rollback_height);
 
@@ -1121,6 +1133,15 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     disconnected_chain.push_front(b);
   }
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
+
+  // Collect tx hashes that are going to be added for this alt chain
+  std::unordered_set<crypto::hash> alt_txids;
+  for (const auto &alt_block: alt_chain)
+    for (const auto &tx_hash: alt_block.bl.tx_hashes)
+      alt_txids.insert(tx_hash);
+
+  // Kick all invalid txs that were added back to the pool, except any that we plan to add when adding alt blocks
+  m_tx_pool.kick_invalid_txs(alt_txids);
 
   auto split_height = m_db->height();
 
