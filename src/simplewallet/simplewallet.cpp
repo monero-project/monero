@@ -140,7 +140,7 @@ typedef cryptonote::simple_wallet sw;
 #define CREDITS_TARGET 50000
 #define MAX_PAYMENT_DIFF 10000
 #define MIN_PAYMENT_RATE 0.01f // per hash
-#define MAX_MNEW_ADDRESSES 1000
+#define MAX_MNEW_ADDRESSES 65536
 
 #define CHECK_MULTISIG_ENABLED() \
   do \
