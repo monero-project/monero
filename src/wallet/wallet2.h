@@ -34,12 +34,6 @@
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
-#if BOOST_VERSION >= 107400
-#include <boost/serialization/library_version_type.hpp>
-#endif
-#include <boost/serialization/list.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/deque.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <atomic>
 #include <random>
@@ -53,7 +47,6 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
-#include "common/unordered_containers_boost_serialization.h"
 #include "common/util.h"
 #include "crypto/chacha.h"
 #include "crypto/hash.h"
@@ -73,6 +66,7 @@
 #include "message_store.h"
 #include "fee_priority.h"
 #include "fee_algorithm.h"
+#include "wallet2_basic/wallet2_types.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -174,44 +168,7 @@ private:
     }
   };
 
-  class hashchain
-  {
-  public:
-    hashchain(): m_genesis(crypto::null_hash), m_offset(0) {}
-
-    size_t size() const { return m_blockchain.size() + m_offset; }
-    size_t offset() const { return m_offset; }
-    const crypto::hash &genesis() const { return m_genesis; }
-    void push_back(const crypto::hash &hash) { if (m_offset == 0 && m_blockchain.empty()) m_genesis = hash; m_blockchain.push_back(hash); }
-    bool is_in_bounds(size_t idx) const { return idx >= m_offset && idx < size(); }
-    const crypto::hash &operator[](size_t idx) const { return m_blockchain[idx - m_offset]; }
-    crypto::hash &operator[](size_t idx) { return m_blockchain[idx - m_offset]; }
-    void crop(size_t height) { m_blockchain.resize(height - m_offset); }
-    void clear() { m_offset = 0; m_blockchain.clear(); }
-    bool empty() const { return m_blockchain.empty() && m_offset == 0; }
-    void trim(size_t height) { while (height > m_offset && m_blockchain.size() > 1) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
-    void refill(const crypto::hash &hash) { m_blockchain.push_back(hash); --m_offset; }
-
-    template <class t_archive>
-    inline void serialize(t_archive &a, const unsigned int ver)
-    {
-      a & m_offset;
-      a & m_genesis;
-      a & m_blockchain;
-    }
-
-    BEGIN_SERIALIZE_OBJECT()
-      VERSION_FIELD(0)
-      VARINT_FIELD(m_offset)
-      FIELD(m_genesis)
-      FIELD(m_blockchain)
-    END_SERIALIZE()
-
-  private:
-    size_t m_offset;
-    crypto::hash m_genesis;
-    std::deque<crypto::hash> m_blockchain;
-  };
+  using hashchain = wallet2_basic::hashchain;
 
   class wallet_keys_unlocker;
   class wallet2
@@ -223,30 +180,26 @@ private:
   public:
     static constexpr const std::chrono::seconds rpc_timeout = std::chrono::minutes(3) + std::chrono::seconds(30);
 
-    enum RefreshType {
-      RefreshFull,
-      RefreshOptimizeCoinbase,
-      RefreshNoCoinbase,
-      RefreshDefault = RefreshOptimizeCoinbase,
-    };
+    using RefreshType = wallet2_basic::RefreshType;
+    static constexpr RefreshType RefreshFull = wallet2_basic::RefreshFull;
+    static constexpr RefreshType RefreshOptimizeCoinbase = wallet2_basic::RefreshOptimizeCoinbase;
+    static constexpr RefreshType RefreshNoCoinbase = wallet2_basic::RefreshNoCoinbase;
+    static constexpr RefreshType RefreshDefault = wallet2_basic::RefreshDefault;
 
-    enum AskPasswordType {
-      AskPasswordNever = 0,
-      AskPasswordOnAction = 1,
-      AskPasswordToDecrypt = 2,
-    };
+    using AskPasswordType = wallet2_basic::AskPasswordType;
+    static constexpr AskPasswordType AskPasswordNever = wallet2_basic::AskPasswordNever;
+    static constexpr AskPasswordType AskPasswordOnAction = wallet2_basic::AskPasswordOnAction;
+    static constexpr AskPasswordType AskPasswordToDecrypt = wallet2_basic::AskPasswordToDecrypt;
 
-    enum BackgroundMiningSetupType {
-      BackgroundMiningMaybe = 0,
-      BackgroundMiningYes = 1,
-      BackgroundMiningNo = 2,
-    };
+    using BackgroundMiningSetupType = wallet2_basic::BackgroundMiningSetupType;
+    static constexpr BackgroundMiningSetupType BackgroundMiningMaybe = wallet2_basic::BackgroundMiningMaybe;
+    static constexpr BackgroundMiningSetupType BackgroundMiningYes = wallet2_basic::BackgroundMiningYes;
+    static constexpr BackgroundMiningSetupType BackgroundMiningNo = wallet2_basic::BackgroundMiningNo;
 
-    enum BackgroundSyncType {
-      BackgroundSyncOff = 0,
-      BackgroundSyncReusePassword = 1,
-      BackgroundSyncCustomPassword = 2,
-    };
+    using BackgroundSyncType = wallet2_basic::BackgroundSyncType;
+    static constexpr BackgroundSyncType BackgroundSyncOff = wallet2_basic::BackgroundSyncOff;
+    static constexpr BackgroundSyncType BackgroundSyncReusePassword = wallet2_basic::BackgroundSyncReusePassword;
+    static constexpr BackgroundSyncType BackgroundSyncCustomPassword = wallet2_basic::BackgroundSyncCustomPassword;
 
     static BackgroundSyncType background_sync_type_from_str(const std::string &background_sync_type_str)
     {
@@ -256,10 +209,9 @@ private:
       throw std::logic_error("Unknown background sync type");
     };
 
-    enum ExportFormat {
-      Binary = 0,
-      Ascii,
-    };
+    using ExportFormat = wallet2_basic::ExportFormat;
+    static constexpr ExportFormat Binary = wallet2_basic::Binary;
+    static constexpr ExportFormat Ascii = wallet2_basic::Ascii;
 
     static const char* tr(const char* str);
 
@@ -293,29 +245,7 @@ private:
     wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1, bool unattended = false, std::unique_ptr<epee::net_utils::http::http_client_factory> http_client_factory = std::unique_ptr<epee::net_utils::http::http_client_factory>(new net::http::client_factory()));
     ~wallet2();
 
-    struct multisig_info
-    {
-      struct LR
-      {
-        rct::key m_L;
-        rct::key m_R;
-
-        BEGIN_SERIALIZE_OBJECT()
-          FIELD(m_L)
-          FIELD(m_R)
-        END_SERIALIZE()
-      };
-
-      crypto::public_key m_signer;
-      std::vector<LR> m_LR;
-      std::vector<crypto::key_image> m_partial_key_images; // one per key the participant has
-
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(m_signer)
-        FIELD(m_LR)
-        FIELD(m_partial_key_images)
-      END_SERIALIZE()
-    };
+    using multisig_info = wallet2_basic::multisig_info;
 
     struct tx_scan_info_t
     {
@@ -330,63 +260,7 @@ private:
       tx_scan_info_t(): amount(0), money_transfered(0), error(true) {}
     };
 
-    struct transfer_details
-    {
-      uint64_t m_block_height;
-      cryptonote::transaction_prefix m_tx;
-      crypto::hash m_txid;
-      uint64_t m_internal_output_index;
-      uint64_t m_global_output_index;
-      bool m_spent;
-      bool m_frozen;
-      uint64_t m_spent_height;
-      crypto::key_image m_key_image; //TODO: key_image stored twice :(
-      rct::key m_mask;
-      uint64_t m_amount;
-      bool m_rct;
-      bool m_key_image_known;
-      bool m_key_image_request; // view wallets: we want to request it; cold wallets: it was requested
-      uint64_t m_pk_index;
-      cryptonote::subaddress_index m_subaddr_index;
-      bool m_key_image_partial;
-      std::vector<rct::key> m_multisig_k;
-      std::vector<multisig_info> m_multisig_info; // one per other participant
-      std::vector<std::pair<uint64_t, crypto::hash>> m_uses;
-
-      bool is_rct() const { return m_rct; }
-      uint64_t amount() const { return m_amount; }
-      const crypto::public_key get_public_key() const {
-        crypto::public_key output_public_key;
-        THROW_WALLET_EXCEPTION_IF(m_tx.vout.size() <= m_internal_output_index,
-          error::wallet_internal_error, "Too few outputs, outputs may be corrupted");
-        THROW_WALLET_EXCEPTION_IF(!get_output_public_key(m_tx.vout[m_internal_output_index], output_public_key),
-          error::wallet_internal_error, "Unable to get output public key from output");
-        return output_public_key;
-      };
-
-      BEGIN_SERIALIZE_OBJECT()
-        FIELD(m_block_height)
-        FIELD(m_tx)
-        FIELD(m_txid)
-        FIELD(m_internal_output_index)
-        FIELD(m_global_output_index)
-        FIELD(m_spent)
-        FIELD(m_frozen)
-        FIELD(m_spent_height)
-        FIELD(m_key_image)
-        FIELD(m_mask)
-        FIELD(m_amount)
-        FIELD(m_rct)
-        FIELD(m_key_image_known)
-        FIELD(m_key_image_request)
-        FIELD(m_pk_index)
-        FIELD(m_subaddr_index)
-        FIELD(m_key_image_partial)
-        FIELD(m_multisig_k)
-        FIELD(m_multisig_info)
-        FIELD(m_uses)
-      END_SERIALIZE()
-    };
+    using transfer_details = wallet2_basic::transfer_details;
 
     struct exported_transfer_details
     {
@@ -428,32 +302,8 @@ private:
       END_SERIALIZE()
     };
 
-    typedef std::vector<uint64_t> amounts_container;
-    struct payment_details
-    {
-      crypto::hash m_tx_hash;
-      uint64_t m_amount;
-      amounts_container m_amounts;
-      uint64_t m_fee;
-      uint64_t m_block_height;
-      uint64_t m_unlock_time;
-      uint64_t m_timestamp;
-      bool m_coinbase;
-      cryptonote::subaddress_index m_subaddr_index;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
-        FIELD(m_tx_hash)
-        VARINT_FIELD(m_amount)
-        FIELD(m_amounts)
-        VARINT_FIELD(m_fee)
-        VARINT_FIELD(m_block_height)
-        VARINT_FIELD(m_unlock_time)
-        VARINT_FIELD(m_timestamp)
-        FIELD(m_coinbase)
-        FIELD(m_subaddr_index)
-      END_SERIALIZE()
-    };
+    using amounts_container = wallet2_basic::amounts_container;
+    using payment_details = wallet2_basic::payment_details;
 
     struct address_tx : payment_details
     {
@@ -461,87 +311,9 @@ private:
       bool m_incoming;
     };
 
-    struct pool_payment_details
-    {
-      payment_details m_pd;
-      bool m_double_spend_seen;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
-        FIELD(m_pd)
-        FIELD(m_double_spend_seen)
-      END_SERIALIZE()
-    };
-
-    struct unconfirmed_transfer_details
-    {
-      cryptonote::transaction_prefix m_tx;
-      uint64_t m_amount_in;
-      uint64_t m_amount_out;
-      uint64_t m_change;
-      time_t m_sent_time;
-      std::vector<cryptonote::tx_destination_entry> m_dests;
-      crypto::hash m_payment_id;
-      enum { pending, pending_in_pool, failed } m_state;
-      uint64_t m_timestamp;
-      uint32_t m_subaddr_account;   // subaddress account of your wallet to be used in this transfer
-      std::set<uint32_t> m_subaddr_indices;  // set of address indices used as inputs in this transfer
-      std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
-        FIELD(m_tx)
-        VARINT_FIELD(m_amount_in)
-        VARINT_FIELD(m_amount_out)
-        VARINT_FIELD(m_change)
-        VARINT_FIELD(m_sent_time)
-        FIELD(m_dests)
-        FIELD(m_payment_id)
-        if (version >= 1)
-          VARINT_FIELD(m_state)
-        VARINT_FIELD(m_timestamp)
-        VARINT_FIELD(m_subaddr_account)
-        FIELD(m_subaddr_indices)
-        FIELD(m_rings)
-      END_SERIALIZE()
-    };
-
-    struct confirmed_transfer_details
-    {
-      cryptonote::transaction_prefix m_tx;
-      uint64_t m_amount_in;
-      uint64_t m_amount_out;
-      uint64_t m_change;
-      uint64_t m_block_height;
-      std::vector<cryptonote::tx_destination_entry> m_dests;
-      crypto::hash m_payment_id;
-      uint64_t m_timestamp;
-      uint64_t m_unlock_time;
-      uint32_t m_subaddr_account;   // subaddress account of your wallet to be used in this transfer
-      std::set<uint32_t> m_subaddr_indices;  // set of address indices used as inputs in this transfer
-      std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> m_rings; // relative
-
-      confirmed_transfer_details(): m_amount_in(0), m_amount_out(0), m_change((uint64_t)-1), m_block_height(0), m_payment_id(crypto::null_hash), m_timestamp(0), m_unlock_time(0), m_subaddr_account((uint32_t)-1) {}
-      confirmed_transfer_details(const unconfirmed_transfer_details &utd, uint64_t height):
-        m_tx(utd.m_tx), m_amount_in(utd.m_amount_in), m_amount_out(utd.m_amount_out), m_change(utd.m_change), m_block_height(height), m_dests(utd.m_dests), m_payment_id(utd.m_payment_id), m_timestamp(utd.m_timestamp), m_unlock_time(utd.m_tx.unlock_time), m_subaddr_account(utd.m_subaddr_account), m_subaddr_indices(utd.m_subaddr_indices), m_rings(utd.m_rings) {}
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
-        if (version >= 1)
-          FIELD(m_tx)
-        VARINT_FIELD(m_amount_in)
-        VARINT_FIELD(m_amount_out)
-        VARINT_FIELD(m_change)
-        VARINT_FIELD(m_block_height)
-        FIELD(m_dests)
-        FIELD(m_payment_id)
-        VARINT_FIELD(m_timestamp)
-        VARINT_FIELD(m_unlock_time)
-        VARINT_FIELD(m_subaddr_account)
-        FIELD(m_subaddr_indices)
-        FIELD(m_rings)
-      END_SERIALIZE()
-    };
+    using pool_payment_details = wallet2_basic::pool_payment_details;
+    using unconfirmed_transfer_details = wallet2_basic::unconfirmed_transfer_details;
+    using confirmed_transfer_details = wallet2_basic::confirmed_transfer_details;
 
     struct tx_construction_data
     {
@@ -602,8 +374,8 @@ private:
       END_SERIALIZE()
     };
 
-    typedef std::vector<transfer_details> transfer_container;
-    typedef std::unordered_multimap<crypto::hash, payment_details> payment_container;
+    using transfer_container = wallet2_basic::transfer_container;
+    using payment_container = wallet2_basic::payment_container;
     typedef std::set<uint32_t> unique_index_container;
 
     struct multisig_sig
@@ -758,24 +530,7 @@ private:
       END_SERIALIZE()
     };
 
-    // GUI Address book
-    struct address_book_row
-    {
-      cryptonote::account_public_address m_address;
-      crypto::hash8 m_payment_id;
-      std::string m_description;   
-      bool m_is_subaddress;
-      bool m_has_payment_id;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
-        FIELD(m_address)
-        FIELD(m_payment_id)
-        FIELD(m_description)
-        FIELD(m_is_subaddress)
-        FIELD(m_has_payment_id)
-      END_SERIALIZE()
-    };
+    using address_book_row = wallet2_basic::address_book_row;
 
     struct reserve_proof_entry
     {
@@ -797,53 +552,8 @@ private:
       END_SERIALIZE()
     };
 
-    struct background_synced_tx_t
-    {
-      uint64_t index_in_background_sync_data;
-      cryptonote::transaction tx;
-      std::vector<uint64_t> output_indices;
-      uint64_t height;
-      uint64_t block_timestamp;
-      bool double_spend_seen;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
-        VARINT_FIELD(index_in_background_sync_data)
-
-        // prune tx; don't need to keep signature data
-        if (!tx.serialize_base(ar))
-          return false;
-
-        FIELD(output_indices)
-        VARINT_FIELD(height)
-        VARINT_FIELD(block_timestamp)
-        FIELD(double_spend_seen)
-      END_SERIALIZE()
-    };
-
-    struct background_sync_data_t
-    {
-      bool first_refresh_done = false;
-      uint64_t start_height = 0;
-      std::unordered_map<crypto::hash, background_synced_tx_t> txs;
-
-      // Relevant wallet settings
-      uint64_t wallet_refresh_from_block_height;
-      size_t subaddress_lookahead_major;
-      size_t subaddress_lookahead_minor;
-      RefreshType wallet_refresh_type;
-
-      BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(0)
-        FIELD(first_refresh_done)
-        FIELD(start_height)
-        FIELD(txs)
-        FIELD(wallet_refresh_from_block_height)
-        VARINT_FIELD(subaddress_lookahead_major)
-        VARINT_FIELD(subaddress_lookahead_minor)
-        VARINT_FIELD(wallet_refresh_type)
-      END_SERIALIZE()
-    };
+    using background_synced_tx_t = wallet2_basic::background_synced_tx_t;
+    using background_sync_data_t = wallet2_basic::background_sync_data_t;
 
     typedef std::tuple<uint64_t, crypto::public_key, rct::key> get_outs_entry;
 
@@ -2056,394 +1766,6 @@ private:
   };
 }
 BOOST_CLASS_VERSION(tools::wallet2, 31)
-BOOST_CLASS_VERSION(tools::wallet2::transfer_details, 12)
-BOOST_CLASS_VERSION(tools::wallet2::multisig_info, 1)
-BOOST_CLASS_VERSION(tools::wallet2::multisig_info::LR, 0)
-BOOST_CLASS_VERSION(tools::wallet2::payment_details, 5)
-BOOST_CLASS_VERSION(tools::wallet2::pool_payment_details, 1)
-BOOST_CLASS_VERSION(tools::wallet2::unconfirmed_transfer_details, 8)
-BOOST_CLASS_VERSION(tools::wallet2::confirmed_transfer_details, 6)
-BOOST_CLASS_VERSION(tools::wallet2::address_book_row, 18)
-BOOST_CLASS_VERSION(tools::wallet2::background_synced_tx_t, 0)
-BOOST_CLASS_VERSION(tools::wallet2::background_sync_data_t, 0)
-
-namespace boost
-{
-  namespace serialization
-  {
-    template<class Archive, class F, class S, class T>
-    inline void serialize(
-        Archive & ar,
-        std::tuple<F, S, T> & t,
-        const unsigned int /* file_version */
-    ){
-        ar & boost::serialization::make_nvp("f", std::get<0>(t));
-        ar & boost::serialization::make_nvp("s", std::get<1>(t));
-        ar & boost::serialization::make_nvp("t", std::get<2>(t));
-    }
-
-    template <class Archive>
-    inline typename std::enable_if<!Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
-    {
-    }
-    template <class Archive>
-    inline typename std::enable_if<Archive::is_loading::value, void>::type initialize_transfer_details(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
-    {
-        if (ver < 1)
-        {
-          x.m_mask = rct::identity();
-          x.m_amount = x.m_tx.vout[x.m_internal_output_index].amount;
-        }
-        if (ver < 2)
-        {
-          x.m_spent_height = 0;
-        }
-        if (ver < 4)
-        {
-          x.m_rct = x.m_tx.vout[x.m_internal_output_index].amount == 0;
-        }
-        if (ver < 6)
-        {
-          x.m_key_image_known = true;
-        }
-        if (ver < 7)
-        {
-          x.m_pk_index = 0;
-        }
-        if (ver < 8)
-        {
-          x.m_subaddr_index = {};
-        }
-        if (ver < 9)
-        {
-          x.m_key_image_partial = false;
-          x.m_multisig_k.clear();
-          x.m_multisig_info.clear();
-        }
-        if (ver < 10)
-        {
-          x.m_key_image_request = false;
-        }
-        if (ver < 12)
-        {
-          x.m_frozen = false;
-        }
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::transfer_details &x, const boost::serialization::version_type ver)
-    {
-      a & x.m_block_height;
-      a & x.m_global_output_index;
-      a & x.m_internal_output_index;
-      if (ver < 3)
-      {
-        cryptonote::transaction tx;
-        a & tx;
-        x.m_tx = (const cryptonote::transaction_prefix&)tx;
-        x.m_txid = cryptonote::get_transaction_hash(tx);
-      }
-      else
-      {
-        a & x.m_tx;
-      }
-      a & x.m_spent;
-      a & x.m_key_image;
-      if (ver < 1)
-      {
-        // ensure mask and amount are set
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_mask;
-      a & x.m_amount;
-      if (ver < 2)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_spent_height;
-      if (ver < 3)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_txid;
-      if (ver < 4)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_rct;
-      if (ver < 5)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      if (ver < 6)
-      {
-        // v5 did not properly initialize
-        uint8_t u;
-        a & u;
-        x.m_key_image_known = true;
-        return;
-      }
-      a & x.m_key_image_known;
-      if (ver < 7)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_pk_index;
-      if (ver < 8)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_subaddr_index;
-      if (ver < 9)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_multisig_info;
-      a & x.m_multisig_k;
-      a & x.m_key_image_partial;
-      if (ver < 10)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_key_image_request;
-      if (ver < 11)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_uses;
-      if (ver < 12)
-      {
-        initialize_transfer_details(a, x, ver);
-        return;
-      }
-      a & x.m_frozen;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::multisig_info::LR &x, const boost::serialization::version_type ver)
-    {
-      a & x.m_L;
-      a & x.m_R;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::multisig_info &x, const boost::serialization::version_type ver)
-    {
-      a & x.m_signer;
-      a & x.m_LR;
-      a & x.m_partial_key_images;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::unconfirmed_transfer_details &x, const boost::serialization::version_type ver)
-    {
-      a & x.m_change;
-      a & x.m_sent_time;
-      if (ver < 5)
-      {
-        cryptonote::transaction tx;
-        a & tx;
-        x.m_tx = (const cryptonote::transaction_prefix&)tx;
-      }
-      else
-      {
-        a & x.m_tx;
-      }
-      if (ver < 1)
-        return;
-      a & x.m_dests;
-      a & x.m_payment_id;
-      if (ver < 2)
-        return;
-      a & x.m_state;
-      if (ver < 3)
-        return;
-      a & x.m_timestamp;
-      if (ver < 4)
-        return;
-      a & x.m_amount_in;
-      a & x.m_amount_out;
-      if (ver < 6)
-      {
-        // v<6 may not have change accumulated in m_amount_out, which is a pain,
-        // as it's readily understood to be sum of outputs.
-        // We convert it to include change from v6
-        if (!typename Archive::is_saving() && x.m_change != (uint64_t)-1)
-          x.m_amount_out += x.m_change;
-      }
-      if (ver < 7)
-      {
-        x.m_subaddr_account = 0;
-        return;
-      }
-      a & x.m_subaddr_account;
-      a & x.m_subaddr_indices;
-      if (ver < 8)
-        return;
-      a & x.m_rings;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive &a, tools::wallet2::confirmed_transfer_details &x, const boost::serialization::version_type ver)
-    {
-      a & x.m_amount_in;
-      a & x.m_amount_out;
-      a & x.m_change;
-      a & x.m_block_height;
-      if (ver < 1)
-        return;
-      a & x.m_dests;
-      a & x.m_payment_id;
-      if (ver < 2)
-        return;
-      a & x.m_timestamp;
-      if (ver < 3)
-      {
-        // v<3 may not have change accumulated in m_amount_out, which is a pain,
-        // as it's readily understood to be sum of outputs. Whether it got added
-        // or not depends on whether it came from a unconfirmed_transfer_details
-        // (not included) or not (included). We can't reliably tell here, so we
-        // check whether either yields a "negative" fee, or use the other if so.
-        // We convert it to include change from v3
-        if (!typename Archive::is_saving() && x.m_change != (uint64_t)-1)
-        {
-          if (x.m_amount_in > (x.m_amount_out + x.m_change))
-            x.m_amount_out += x.m_change;
-        }
-      }
-      if (ver < 4)
-      {
-        if (!typename Archive::is_saving())
-          x.m_unlock_time = 0;
-        return;
-      }
-      a & x.m_unlock_time;
-      if (ver < 5)
-      {
-        x.m_subaddr_account = 0;
-        return;
-      }
-      a & x.m_subaddr_account;
-      a & x.m_subaddr_indices;
-      if (ver < 6)
-        return;
-      a & x.m_rings;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::payment_details& x, const boost::serialization::version_type ver)
-    {
-      a & x.m_tx_hash;
-      a & x.m_amount;
-      a & x.m_block_height;
-      a & x.m_unlock_time;
-      if (ver < 1)
-        return;
-      a & x.m_timestamp;
-      if (ver < 2)
-      {
-        x.m_coinbase = false;
-        x.m_subaddr_index = {};
-        return;
-      }
-      a & x.m_subaddr_index;
-      if (ver < 3)
-      {
-        x.m_coinbase = false;
-        x.m_fee = 0;
-        return;
-      }
-      a & x.m_fee;
-      if (ver < 4)
-      {
-        x.m_coinbase = false;
-        return;
-      }
-      a & x.m_coinbase;
-      if (ver < 5)
-        return;
-      a & x.m_amounts;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::pool_payment_details& x, const boost::serialization::version_type ver)
-    {
-      a & x.m_pd;
-      a & x.m_double_spend_seen;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::address_book_row& x, const boost::serialization::version_type ver)
-    {
-      a & x.m_address;
-      if (ver < 18)
-      {
-        crypto::hash payment_id;
-        a & payment_id;
-        x.m_has_payment_id = !(payment_id == crypto::null_hash);
-        if (x.m_has_payment_id)
-        {
-          bool is_long = false;
-          for (int i = 8; i < 32; ++i)
-            is_long |= payment_id.data[i];
-          if (is_long)
-          {
-            MWARNING("Long payment ID ignored on address book load");
-            x.m_payment_id = crypto::null_hash8;
-            x.m_has_payment_id = false;
-          }
-          else
-            memcpy(x.m_payment_id.data, payment_id.data, 8);
-        }
-      }
-      a & x.m_description;
-      if (ver < 17)
-      {
-        x.m_is_subaddress = false;
-        return;
-      }
-      a & x.m_is_subaddress;
-      if (ver < 18)
-        return;
-      a & x.m_has_payment_id;
-      if (x.m_has_payment_id)
-        a & x.m_payment_id;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::background_synced_tx_t &x, const boost::serialization::version_type ver)
-    {
-      a & x.index_in_background_sync_data;
-      a & x.tx;
-      a & x.output_indices;
-      a & x.height;
-      a & x.block_timestamp;
-      a & x.double_spend_seen;
-    }
-
-    template <class Archive>
-    inline void serialize(Archive& a, tools::wallet2::background_sync_data_t &x, const boost::serialization::version_type ver)
-    {
-      a & x.first_refresh_done;
-      a & x.start_height;
-      a & x.txs;
-      a & x.wallet_refresh_from_block_height;
-      a & x.subaddress_lookahead_major;
-      a & x.subaddress_lookahead_minor;
-      a & x.wallet_refresh_type;
-    }
-  }
-}
 
 namespace tools
 {
