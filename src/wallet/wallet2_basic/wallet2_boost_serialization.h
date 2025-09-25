@@ -254,7 +254,7 @@ void serialize(Archive &a, wallet2_basic::unconfirmed_transfer_details &x, const
         // as it's readily understood to be sum of outputs.
         // We convert it to include change from v6
         if (!typename Archive::is_saving() && x.m_change != (uint64_t)1)
-        x.m_amount_out += x.m_change;
+            x.m_amount_out += x.m_change;
     }
     if (ver < 7)
     {
@@ -292,14 +292,14 @@ void serialize(Archive &a, wallet2_basic::confirmed_transfer_details &x, const u
         // We convert it to include change from v3
         if (!typename Archive::is_saving() && x.m_change != (uint64_t)1)
         {
-        if (x.m_amount_in > (x.m_amount_out + x.m_change))
-            x.m_amount_out += x.m_change;
+            if (x.m_amount_in > (x.m_amount_out + x.m_change))
+                x.m_amount_out += x.m_change;
         }
     }
     if (ver < 4)
     {
         if (!typename Archive::is_saving())
-        x.m_unlock_time = 0;
+            x.m_unlock_time = 0;
         return;
     }
     a & x.m_unlock_time;
@@ -368,17 +368,17 @@ void serialize(Archive& a, wallet2_basic::address_book_row& x, const unsigned in
         x.m_has_payment_id = !(payment_id == crypto::null_hash);
         if (x.m_has_payment_id)
         {
-        bool is_long = false;
-        for (int i = 8; i < 32; ++i)
-            is_long |= payment_id.data[i];
-        if (is_long)
-        {
-            MWARNING("Long payment ID ignored on address book load");
-            x.m_payment_id = crypto::null_hash8;
-            x.m_has_payment_id = false;
-        }
-        else
-            memcpy(x.m_payment_id.data, payment_id.data, 8);
+            bool is_long = false;
+            for (int i = 8; i < 32; ++i)
+                is_long |= payment_id.data[i];
+            if (is_long)
+            {
+                MWARNING("Long payment ID ignored on address book load");
+                x.m_payment_id = crypto::null_hash8;
+                x.m_has_payment_id = false;
+            }
+            else
+                memcpy(x.m_payment_id.data, payment_id.data, 8);
         }
     }
     a & x.m_description;
