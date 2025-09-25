@@ -47,7 +47,6 @@ extern "C" {
 }
 #include "crypto/crypto.h"
 
-#include "fcmp_pp/curve_trees.h"
 #include "rctTypes.h"
 #include "rctOps.h"
 

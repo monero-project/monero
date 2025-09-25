@@ -28,10 +28,7 @@
 
 #pragma once
 
-#include <limits>
-
 #include "cryptonote_config.h"
-#include "fcmp_pp_rust/fcmp++.h"
 
 namespace fcmp_pp
 {

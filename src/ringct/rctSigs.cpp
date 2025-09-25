@@ -35,6 +35,7 @@
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "fcmp_pp/proof_len.h"
 #include "fcmp_pp/prove.h"
 #include "bulletproofs.h"
@@ -45,9 +46,6 @@
 
 using namespace crypto;
 using namespace std;
-
-using Selene = fcmp_pp::curve_trees::Selene;
-using Helios = fcmp_pp::curve_trees::Helios;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "ringct"
