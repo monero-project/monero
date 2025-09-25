@@ -32,13 +32,12 @@
 
 #include <list>
 #include "serialization/keyvalue_serialization.h"
+#include "serialization/wire/epee/base.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/blobdatatype.h"
 
 namespace cryptonote
 {
-
-
 #define BC_COMMANDS_POOL_BASE 2000
 
   /************************************************************************/
@@ -129,41 +128,17 @@ namespace cryptonote
 
     tx_blob_entry(const blobdata &bd = {}, const crypto::hash &h = crypto::null_hash): blob(bd), prunable_hash(h) {}
   };
+
   struct block_complete_entry
   {
     bool pruned;
     blobdata block;
     uint64_t block_weight;
     std::vector<tx_blob_entry> txs;
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE_OPT(pruned, false)
-      KV_SERIALIZE(block)
-      KV_SERIALIZE_OPT(block_weight, (uint64_t)0)
-      if (this_ref.pruned)
-      {
-        KV_SERIALIZE(txs)
-      }
-      else
-      {
-        std::vector<blobdata> txs;
-        if (is_store)
-        {
-          txs.reserve(this_ref.txs.size());
-          for (const auto &e: this_ref.txs) txs.push_back(e.blob);
-        }
-        epee::serialization::selector<is_store>::serialize(txs, stg, hparent_section, "txs");
-        if (!is_store)
-        {
-          block_complete_entry &self = const_cast<block_complete_entry&>(this_ref);
-          self.txs.clear();
-          self.txs.reserve(txs.size());
-          for (auto &e: txs) self.txs.push_back({std::move(e), crypto::null_hash});
-        }
-      }
-    END_KV_SERIALIZE_MAP()
 
     block_complete_entry(): pruned(false), block_weight(0) {}
   };
+  WIRE_EPEE_DECLARE_OBJECT(block_complete_entry);
 
 
   /************************************************************************/
@@ -185,7 +160,7 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
-
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_NEW_BLOCK::request);
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -200,13 +175,14 @@ namespace cryptonote
       bool dandelionpp_fluff; //zero initialization defaults to stem mode
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(txs)
+        KV_SERIALIZE_ARRAY(txs, tx_blob_min)
         KV_SERIALIZE(_)
         KV_SERIALIZE_OPT(dandelionpp_fluff, true) // backwards compatible mode is fluff
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_NEW_TRANSACTIONS::request);
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -226,6 +202,7 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_REQUEST_GET_OBJECTS::request);
 
   struct NOTIFY_RESPONSE_GET_OBJECTS
   {
@@ -238,13 +215,14 @@ namespace cryptonote
       uint64_t                         current_blockchain_height;
 
       BEGIN_KV_SERIALIZE_MAP()
-        KV_SERIALIZE(blocks)
+        KV_SERIALIZE_ARRAY(blocks, block_blob_min)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(missed_ids)
         KV_SERIALIZE(current_blockchain_height)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_RESPONSE_GET_OBJECTS::request);
 
 
   struct CORE_SYNC_DATA
@@ -259,15 +237,13 @@ namespace cryptonote
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(current_height)
       KV_SERIALIZE(cumulative_difficulty)
-      if (is_store)
-        KV_SERIALIZE(cumulative_difficulty_top64)
-      else
-        KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
+      KV_SERIALIZE_OPT(cumulative_difficulty_top64, std::uint64_t(0))
       KV_SERIALIZE_VAL_POD_AS_BLOB(top_id)
       KV_SERIALIZE_OPT(top_version, (uint8_t)0)
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
     END_KV_SERIALIZE_MAP()
   };
+  WIRE_EPEE_DECLARE_CONVERSION(CORE_SYNC_DATA);
 
   struct NOTIFY_REQUEST_CHAIN
   {
@@ -285,6 +261,7 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_REQUEST_CHAIN::request);
 
   struct NOTIFY_RESPONSE_CHAIN_ENTRY
   {
@@ -304,10 +281,7 @@ namespace cryptonote
         KV_SERIALIZE(start_height)
         KV_SERIALIZE(total_height)
         KV_SERIALIZE(cumulative_difficulty)
-        if (is_store)
-          KV_SERIALIZE(cumulative_difficulty_top64)
-        else
-          KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
+        KV_SERIALIZE_OPT(cumulative_difficulty_top64, uint64_t(0))
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_weights)
         KV_SERIALIZE(first_block)
@@ -315,7 +289,7 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
-  
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_RESPONSE_CHAIN_ENTRY::request);
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -335,7 +309,7 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };  
-
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_NEW_FLUFFY_BLOCK::request);
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -356,8 +330,8 @@ namespace cryptonote
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
-  }; 
-
+  };
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_REQUEST_FLUFFY_MISSING_TX::request);
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -375,5 +349,5 @@ namespace cryptonote
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
-    
+  WIRE_EPEE_DECLARE_CONVERSION(NOTIFY_GET_TXPOOL_COMPLEMENT::request);  
 }

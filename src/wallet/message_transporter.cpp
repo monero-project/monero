@@ -33,6 +33,11 @@
 #include "wallet_errors.h"
 #include "net/http_client.h"
 #include "net/net_parse_helpers.h"
+#include "serialization/wire.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/json.h"
+#include "serialization/wire/wrapper/array.h"
+#include "serialization/wire/wrappers_impl.h"
 #include <algorithm>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -47,6 +52,8 @@ namespace bitmessage_rpc
 
   struct message_info_t
   {
+    using min_wire_size = wire::min_element_size<95 * 2>;
+
     uint32_t encodingType;
     std::string toAddress;
     uint32_t read;
@@ -56,6 +63,7 @@ namespace bitmessage_rpc
     std::string receivedTime;
     std::string subject;
 
+    WIRE_DEFINE_CONVERSIONS()
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(encodingType)
       KV_SERIALIZE(toAddress)
@@ -73,13 +81,16 @@ namespace bitmessage_rpc
   {
     std::vector<message_info> inboxMessages;
 
+    WIRE_DEFINE_CONVERSIONS()
     BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(inboxMessages)
+      KV_SERIALIZE_ARRAY(inboxMessages, message_info::min_wire_size)
     END_KV_SERIALIZE_MAP()
   };
   typedef epee::misc_utils::struct_init<inbox_messages_response_t> inbox_messages_response;
 
 }
+
+WIRE_JSON_DEFINE_CONVERSION(transport_message)
 
 message_transporter::message_transporter(std::unique_ptr<epee::net_utils::http::abstract_http_client> http_client) : m_http_client(std::move(http_client))
 {
