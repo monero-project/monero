@@ -64,7 +64,9 @@ def restore_wallet(wallet, seed, restore_height = 0, filename = '', password = '
         util_resources.remove_wallet_files(filename)
     wallet.auto_refresh(enable = False)
     wallet.restore_deterministic_wallet(seed = seed, restore_height = restore_height, filename = filename, password = password)
-    assert wallet.get_transfers() == {}
+    res = wallet.get_transfers()
+    assert not 'in' in res or len(res['in']) == 0
+    assert not 'out' in res or len(res.out) == 0
 
 class TransferTest():
     def run_test(self):
@@ -87,6 +89,7 @@ class TransferTest():
         self.check_background_sync()
         self.check_background_sync_reorg_recovery()
         self.check_subaddress_lookahead()
+        self.check_pool_scanner()
 
     def reset(self):
         print('Resetting blockchain')
@@ -274,6 +277,7 @@ class TransferTest():
         assert len(res.multisig_txset) == 0
         assert len(res.unsigned_txset) == 0
         tx_blob = res.tx_blob
+        running_balances[0] -= 1000000000000 + fee
 
         res = daemon.send_raw_transaction(tx_blob)
         assert res.not_relayed == False
@@ -315,7 +319,6 @@ class TransferTest():
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
         res = daemon.getlastblockheader()
-        running_balances[0] -= 1000000000000 + fee
         running_balances[0] += res.block_header.reward
         self.wallet[1].refresh()
         running_balances[1] += 1000000000000
@@ -1573,6 +1576,63 @@ class TransferTest():
         assert balance_info_0_999['num_unspent_outputs'] == 1
         assert balance_info_0_999['blocks_to_unlock'] == 9
         assert balance_info_0_999['time_to_unlock'] == 0
+
+    def check_pool_scanner(self):
+        daemon = Daemon()
+
+        print('Checking pool scanner')
+
+        # Sync first wallet
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[0].refresh()
+
+        # Open second wallet with same seed as first
+        restore_wallet(self.wallet[1], seeds[0])
+        assert self.wallet[0].get_address().address == self.wallet[1].get_address().address
+
+        # Send to another wallet, spending from first wallet
+        dst = {'address': '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 'amount': 1000000000000}
+        res = self.wallet[0].transfer([dst])
+        assert len(res.tx_hash) == 32*2
+        txid = res.tx_hash
+        assert res.fee > 0
+        fee = res.fee
+
+        # Sync both wallets
+        self.wallet[0].refresh()
+        self.wallet[1].refresh()
+
+        # Both wallets should be able to detect the spend tx in the pool
+        res_wallet0 = self.wallet[0].get_transfers()
+        res_wallet1 = self.wallet[1].get_transfers()
+
+        # After restoring, should still be able to detect the spend in the pool
+        restore_wallet(self.wallet[1], seed = seeds[0])
+        self.wallet[1].refresh()
+        res_wallet1_after_restore = self.wallet[1].get_transfers()
+
+        for res in [res_wallet0, res_wallet1, res_wallet1_after_restore]:
+            assert len(res.pending) == 1
+            assert not 'pool' in res or len(res.pool) == 0
+            assert not 'failed' in res or len(res.failed) == 0
+            e = res.pending[0]
+            assert e.txid == txid
+            assert e.payment_id in ['', '0000000000000000']
+            assert e.type == 'pending'
+            assert e.unlock_time == 0
+            assert e.subaddr_index.major == 0
+            assert e.subaddr_indices == [{'major': 0, 'minor': 0}]
+            assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+            assert e.double_spend_seen == False
+            assert not 'confirmations' in e or e.confirmations == 0
+            assert e.amount == dst['amount']
+            assert e.fee == fee
+
+        # Mine a block to mine the tx and reset 2nd wallet
+        daemon.generateblocks('46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', 1)
+        restore_wallet(self.wallet[1], seeds[1])
+        self.wallet[1].refresh()
+        self.wallet[0].refresh()
 
 if __name__ == '__main__':
     TransferTest().run_test()
