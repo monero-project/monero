@@ -78,7 +78,7 @@ public:
   bool check_incoming_block_size(const cryptonote::blobdata& block_blob) const { return true; }
   bool update_checkpoints(const bool skip_dns = false) { return true; }
   uint64_t get_target_blockchain_height() const { return 1; }
-  size_t get_block_sync_size(uint64_t height) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
+  size_t get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue = 0) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
   virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, cryptonote::relay_method tx_relay) {}
   cryptonote::network_type get_nettype() const { return cryptonote::MAINNET; }
   bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx_blob, cryptonote::relay_category tx_category) const { return false; }
@@ -534,7 +534,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     const stat::chain &stat
   ){
     core.get_blockchain_storage().get_db().batch_start({}, {});
-    core.get_blockchain_storage().get_db().add_block(
+    uint64_t new_height = core.get_blockchain_storage().get_db().add_block(
       {block, cryptonote::block_to_blob(block)},
       cryptonote::get_transaction_weight(block.miner_tx),
       core.get_blockchain_storage().get_next_long_term_block_weight(
@@ -542,8 +542,10 @@ TEST(cryptonote_protocol_handler, race_condition)
       ),
       stat.diff,
       stat.reward,
+      {},
       {}
     );
+    core.get_blockchain_storage().get_db().advance_tree(new_height - 1, {});
     core.get_blockchain_storage().get_db().batch_stop();
   };
   struct messages {
