@@ -67,6 +67,7 @@
 #include "multiexp.h"
 #include "sig_mlsag.h"
 #include "sig_clsag.h"
+#include "zero_commit.h"
 
 namespace po = boost::program_options;
 
@@ -596,6 +597,9 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 8);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 9);
 #endif
+
+  TEST_PERFORMANCE1(filter, p, test_zero_commit, true); // fast
+  TEST_PERFORMANCE1(filter, p, test_zero_commit, false);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
