@@ -62,10 +62,6 @@ struct GrowLayerInstructions final
     // The max chunk width of children used to hash into a parent
     std::size_t parent_chunk_width;
 
-    // Total children refers to the total number of elements in a layer
-    uint64_t old_total_children;
-    uint64_t new_total_children;
-
     // Total parents refers to the total number of hashes of chunks of children
     uint64_t old_total_parents;
     uint64_t new_total_parents;
