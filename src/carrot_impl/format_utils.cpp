@@ -36,7 +36,6 @@
 #include "carrot_core/payment_proposal.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_config.h"
-#include "fcmp_pp/proof_len.h"
 #include "ringct/rctOps.h"
 #include "serialization/binary_utils.h"
 
