@@ -117,7 +117,8 @@ static bool try_load_carrot_ephemeral_pubkeys_from_extra(const std::vector<crypt
 //-------------------------------------------------------------------------------------------------------------------
 bool is_carrot_transaction_v1(const cryptonote::transaction_prefix &tx_prefix)
 {
-    CARROT_CHECK_AND_THROW(tx_prefix.vout.size(), too_few_outputs, "transaction prefix contains no outputs");
+    if (tx_prefix.vout.empty())
+        return false;
     return tx_prefix.vout.at(0).target.type() == typeid(cryptonote::txout_to_carrot_v1);
 }
 //-------------------------------------------------------------------------------------------------------------------
