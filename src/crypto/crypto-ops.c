@@ -1328,16 +1328,9 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
   }
 }
 
-/* From ge_frombytes.c, modified */
+/* From fe_frombytes.c */
 
-int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
-  fe u;
-  fe v;
-  fe vxx;
-  fe check;
-
-  /* From fe_frombytes.c */
-
+int fe_frombytes_vartime(fe y, const unsigned char *s) {
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
   int64_t h2 = load_3(s + 7) << 5;
@@ -1378,18 +1371,31 @@ int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
   carry6 = (h6 + (int64_t) (1<<25)) >> 26; h7 += carry6; h6 -= carry6 << 26;
   carry8 = (h8 + (int64_t) (1<<25)) >> 26; h9 += carry8; h8 -= carry8 << 26;
 
-  h->Y[0] = h0;
-  h->Y[1] = h1;
-  h->Y[2] = h2;
-  h->Y[3] = h3;
-  h->Y[4] = h4;
-  h->Y[5] = h5;
-  h->Y[6] = h6;
-  h->Y[7] = h7;
-  h->Y[8] = h8;
-  h->Y[9] = h9;
+  y[0] = h0;
+  y[1] = h1;
+  y[2] = h2;
+  y[3] = h3;
+  y[4] = h4;
+  y[5] = h5;
+  y[6] = h6;
+  y[7] = h7;
+  y[8] = h8;
+  y[9] = h9;
 
-  /* End fe_frombytes.c */
+  return 0;
+}
+
+/* From ge_frombytes.c, modified */
+
+int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
+  fe u;
+  fe v;
+  fe vxx;
+  fe check;
+
+  if (fe_frombytes_vartime(h->Y, s) != 0) {
+    return -1;
+  }
 
   fe_1(h->Z);
   fe_sq(u, h->Y);
