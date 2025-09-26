@@ -313,6 +313,33 @@ void fe_invert(fe out, const fe z) {
   return;
 }
 
+// Montgomery's trick
+// https://iacr.org/archive/pkc2004/29470042/29470042.pdf 2.2
+int fe_batch_invert(fe *out, const fe *in, const int n) {
+  if (n == 0) {
+    return 0;
+  }
+
+  // Step 1: collect initial muls
+  fe_copy(out[0], in[0]);
+  for (int i = 1; i < n; ++i) {
+    fe_mul(out[i], out[i-1], in[i]);
+  }
+
+  // Step 2: get the inverse of all elems multiplied together
+  fe a;
+  fe_invert(a, out[n-1]);
+
+  // Step 3: get each inverse
+  for (int i = n; i > 1; --i) {
+    fe_mul(out[i-1], a, out[i-2]);
+    fe_mul(a, a, in[i-1]);
+  }
+  fe_copy(out[0], a);
+
+  return 0;
+}
+
 /* From fe_isnegative.c */
 
 /*
