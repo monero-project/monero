@@ -78,7 +78,17 @@ uint64_t get_transaction_weight_limit(uint8_t hf_version);
 /**
  * @brief Check whether transaction's output pubkeys are sorted in strictly increasing lexicographical order
  */
-bool are_transaction_output_pubkeys_sorted(const transaction_prefix &tx_prefix);
+bool are_transaction_output_pubkeys_sorted(const std::vector<tx_out> &vout);
+
+/**
+ * @brief Check whether transaction's output pubkeys are sorted, iff required by fork rule
+ * @param tx_prefix
+ * @param hf_version hard fork version
+ * @see are_transaction_output_pubkeys_sorted()
+ *
+ * Output pubkeys must be sorted after FCMP++ grace period or if a Carrot tx during FCMP++ grace period.
+ */
+bool check_transaction_output_pubkeys_order(const transaction_prefix &tx_prefix, std::uint8_t hf_version);
 
 /**
  * @brief Get the minimum allowed transaction version
@@ -189,6 +199,7 @@ bool batch_ver_fcmp_pp_consensus
  *     7. Passes ver_mixed_rct_semantics() [Uses batch RingCT verification when applicable]
  *     8. Check unlock time is 0 from hardfork v17
  *     9. Check extra size <= MAX_TX_EXTRA_SIZE from hardfork v17
+ *     10. Passes check_transaction_output_pubkeys_order()
  *
  * For pool_supplement input:
  * We assume the structure of the pool supplement is already correct: for each value entry, the
