@@ -1184,7 +1184,7 @@ namespace cryptonote
     const std::type_info &o_type = tx.vout.at(0).target.type();
     for (const auto &o: tx.vout)
     {
-      const std::type_info &cur_type = tx.vout.at(0).target.type();
+      const std::type_info &cur_type = o.target.type();
       CHECK_AND_ASSERT_MES(cur_type == o_type, false, "non-matching variant types: "
         << o_type.name() << " and " << cur_type.name() << ", "
         << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
