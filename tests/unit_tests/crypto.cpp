@@ -70,6 +70,14 @@ namespace
     out << "BEGIN" << value << "END";  
     return out.str() == "BEGIN<" + std::string{expected, sizeof(T) * 2} + ">END";
   }
+
+  void random_fe(fe rand_fe)
+  {
+    unsigned char s[32];
+    crypto::random32_unbiased(s);
+    if (fe_frombytes_vartime(rand_fe, s) != 0)
+      throw std::runtime_error("invalid random fe");
+  }
 }
 
 TEST(Crypto, Ostream)
@@ -342,4 +350,82 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+TEST(Crypto, batch_inversion)
+{
+  const std::size_t MAX_TEST_ELEMS = 1000;
+
+  std::unique_ptr<fe[]> init_elems = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+  std::unique_ptr<fe[]> norm_inverted = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+
+  // Init test elems and individual inversions
+  for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
+  {
+    random_fe(init_elems[i]);
+    fe_invert(norm_inverted[i], init_elems[i]);
+  }
+
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
+  {
+    std::unique_ptr<fe[]> batch_inverted = std::make_unique<fe[]>(n_elems);
+    ASSERT_EQ(fe_batch_invert(batch_inverted.get(), init_elems.get(), n_elems), 0);
+    for (std::size_t i = 0; i < n_elems; ++i)
+      ASSERT_EQ(fe_equals(batch_inverted[i], norm_inverted[i]), 1);
+  }
+}
+
+TEST(Crypto, batch_inversion_touching)
+{
+  // vals[0] and vals[1] are input, vals[2] and vals[3] are output
+  fe vals[4];
+
+  // Init input elems
+  for (std::size_t i = 0; i < 2; ++i)
+    random_fe(vals[i]);
+
+  fe_batch_invert(vals + 2, vals, 2);
+
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t i = 0; i < 2; ++i)
+  {
+    fe inv_simple;
+    fe_invert(inv_simple, vals[i]);
+    ASSERT_EQ(1, fe_equals(inv_simple, vals[2 + i]));
+  }
+}
+
+TEST(Crypto, batch_invert_zero)
+{
+  const std::size_t TEST_ELEMS = 2;
+  std::unique_ptr<fe[]> init_elems = std::make_unique<fe[]>(TEST_ELEMS);
+
+  // Init test elems
+  random_fe(init_elems[0]);
+  fe_0(init_elems[1]);
+
+  // Do the batch inversion, should fail
+  std::unique_ptr<fe[]> batch_inverted = std::make_unique<fe[]>(TEST_ELEMS);
+  ASSERT_EQ(fe_batch_invert(batch_inverted.get(), init_elems.get(), TEST_ELEMS), -1);
+}
+
+TEST(Crypto, fe_equals)
+{
+  // Test equality
+  ASSERT_EQ(fe_equals(fe_d, fe_d), 1);
+
+  // Test inequality
+  fe fe_d2;
+  fe_add(fe_d2, fe_d, fe_d);
+  ASSERT_EQ(fe_equals(fe_d2, fe_d), 0);
+
+  // Test different fe reprs that are actually equal
+  unsigned char fe_d2_bytes[32];
+  fe fe_d2_reduced;
+  fe_tobytes(fe_d2_bytes, fe_d2);
+  fe_frombytes_vartime(fe_d2_reduced, fe_d2_bytes);
+  // We expect distinct fe_d2_reduced and fe_d2 reprs, since fe_add produces fe repr elems in a larger subdomain.
+  ASSERT_NE(memcmp(fe_d2_reduced, fe_d2, sizeof(fe)), 0);
+  ASSERT_EQ(fe_equals(fe_d2_reduced, fe_d2), 1);
 }
