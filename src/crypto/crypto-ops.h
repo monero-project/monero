@@ -88,6 +88,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *, const unsigned char *, const 
 
 extern const fe fe_sqrtm1;
 extern const fe fe_d;
+int fe_frombytes_vartime(fe, const unsigned char *);
 int ge_frombytes_vartime(ge_p3 *, const unsigned char *);
 
 /* From ge_p1p1_to_p2.c */
