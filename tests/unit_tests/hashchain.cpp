@@ -109,21 +109,3 @@ TEST(hashchain, crop)
   ASSERT_EQ(hashchain.genesis(), make_hash(5));
   ASSERT_EQ(hashchain.size(), 1);
 }
-
-TEST(hashchain, trim)
-{
-  tools::hashchain hashchain;
-  hashchain.push_back(make_hash(1));
-  hashchain.push_back(make_hash(2));
-  hashchain.push_back(make_hash(3));
-  ASSERT_EQ(hashchain.offset(), 0);
-  hashchain.trim(2);
-  ASSERT_EQ(hashchain.offset(), 2);
-  ASSERT_EQ(hashchain.size(), 3);
-  ASSERT_EQ(hashchain[2], make_hash(3));
-  hashchain.trim(3);
-  ASSERT_EQ(hashchain.offset(), 2); // never gets it empty
-  ASSERT_EQ(hashchain.size(), 3);
-  ASSERT_FALSE(hashchain.empty());
-  ASSERT_EQ(hashchain.genesis(), make_hash(1));
-}

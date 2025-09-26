@@ -2674,10 +2674,11 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   tree_root_out = crypto::ec_point{};
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
     return true;
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
 
   // Make sure reference block exists in the chain
   CHECK_AND_ASSERT_MES(tx.rct_signatures.p.reference_block < db->height(), false,
-      "tx included reference block that was too high");
+      "tx " << get_transaction_hash(tx) << " included reference block that was too high");
 
   // Get the tree root and n tree layers at provided block
   const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
@@ -2685,7 +2686,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db, const cryptonote::tran
   // Make sure the provided n tree layers matches expected
   // IMPORTANT!
   CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
-      "tx included incorrect number of tree layers");
+      "tx " << get_transaction_hash(tx) << " included incorrect number of tree layers");
 
   return true;
 }
@@ -2696,6 +2697,7 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
 {
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
     return true;
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't set root for pruned FCMP txs");
 
   const uint64_t ref_block_index = tx.rct_signatures.p.reference_block;
 
@@ -2974,17 +2976,18 @@ bool Blockchain::find_blockchain_supplement(const std::list<crypto::hash>& qbloc
 // find split point between ours and foreign blockchain (or start at
 // blockchain height <req_start_block>), and return up to max_count FULL
 // blocks by reference.
-bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const
+bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count, bool qblock_ids_skip_common_block) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  top_hash = m_db->top_block_hash(&total_height);
+  ++total_height;
 
   // if a specific start height has been requested
   if(req_start_block > 0)
   {
     // if requested height is higher than our chain, return false -- we can't help
-    top_hash = m_db->top_block_hash(&total_height);
-    ++total_height;
     if (req_start_block >= total_height)
     {
       return false;
@@ -2993,15 +2996,30 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   }
   else
   {
+    // find_blockchain_supplement's start_height is the highest block idx included in qblock_ids that's *also* in the main chain
     if(!find_blockchain_supplement(qblock_ids, start_height))
     {
       return false;
+    }
+    if (qblock_ids_skip_common_block)
+    {
+      // start from 1 block higher than the first common block (i.e. from the first block the client might not know about)
+      ++start_height;
+
+      // if start_height is now the chain tip, we can return a truthy empty resp
+      if (start_height == total_height)
+      {
+        LOG_PRINT_L3("Returning empty find_blockchain_supplement, start_height: " << start_height);
+        blocks.clear();
+        return true;
+      }
     }
   }
 
   db_rtxn_guard rtxn_guard(m_db);
   top_hash = m_db->top_block_hash(&total_height);
   ++total_height;
+  CHECK_AND_ASSERT_MES(total_height >= start_height, false, "chain height expected to be higher than start block");
   blocks.reserve(std::min(std::min(max_block_count, (size_t)10000), (size_t)(total_height - start_height)));
   CHECK_AND_ASSERT_MES(m_db->get_blocks_from(start_height, 3, max_block_count, max_tx_count, FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE, blocks, pruned, true, get_miner_tx_hash),
       false, "Error getting blocks");

@@ -100,13 +100,13 @@ public:
     */
     bool empty() const { return m_blockchain.empty() && m_offset == 0; }
     /**
-     * @brief: crop stored hashes before a certain height and shift the offset accordingly, but always leave at least 1 hash
+     * @brief: pop the oldest block
     */
-    void trim(size_t height) { while (height > m_offset && m_blockchain.size() > 1) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
+    void pop_oldest() { if (m_blockchain.size()) { m_blockchain.pop_front(); ++m_offset; } }
     /**
-     * @brief: push a block hash onto the chain and move all block hashes back by one block
+     * @brief: manually set the top block hash and offset
     */
-    void refill(const crypto::hash &hash) { m_blockchain.push_back(hash); --m_offset; }
+    void set_top_block(const crypto::hash &hash, size_t idx) { m_blockchain.clear(); m_blockchain.push_back(hash); m_offset = idx; };
 
 private:
     size_t m_offset;

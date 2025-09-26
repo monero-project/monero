@@ -185,9 +185,17 @@ public:
     uint64_t get_n_leaf_tuples() const noexcept;
     bool get_top_block(BlockMeta &top_block_out) const
     {
-        CHECK_AND_ASSERT_MES(!m_cached_blocks.empty(), false, "empty cached blocks");
+        CHECK_AND_ASSERT_MES(!m_cached_blocks.empty(), false, "get_top_block: empty cached blocks");
         BlockMeta top_block = m_cached_blocks.back();
         top_block_out = std::move(top_block);
+        return true;
+    };
+
+    bool get_front_block(BlockMeta &front_block_out) const
+    {
+        CHECK_AND_ASSERT_MES(!m_cached_blocks.empty(), false, "get_front_block: empty cached blocks");
+        BlockMeta front_block = m_cached_blocks.front();
+        front_block_out = std::move(front_block);
         return true;
     };
 

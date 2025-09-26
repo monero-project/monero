@@ -8534,6 +8534,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         }
         else
         {
+          // FIXME: update for FCMP++
           const uint64_t adjusted_time = m_wallet->get_daemon_adjusted_time();
           uint64_t threshold = adjusted_time + (m_wallet->use_fork_rules(2, 0) ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1);
           if (threshold < pd.m_unlock_time)
@@ -10271,6 +10272,7 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       }
       else
       {
+        // FIXME: update for FCMP++
         const uint64_t adjusted_time = m_wallet->get_daemon_adjusted_time();
         uint64_t threshold = adjusted_time + (m_wallet->use_fork_rules(2, 0) ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1);
         if (threshold >= pd.m_unlock_time)

@@ -472,7 +472,7 @@ TEST(wallet_scanning, burned_zombie)
         bc.add_block(1, {dummy_tx}, mock::null_addr);
 
     // scan, assert balance is amount a, (NOT a + b) and get key image to received output
-    bc.refresh_wallet(w, 0);
+    bc.refresh_wallet(w);
     ASSERT_EQ(amount_a, w.balance_all(true));
     uint64_t key_image_offset;
     std::vector<std::pair<crypto::key_image, crypto::signature>> exported_key_images;
@@ -528,7 +528,7 @@ TEST(wallet_scanning, burned_zombie)
 
     // add outgoing tx to chain and wallet scans it
     bc.add_block(1, {outgoing_tx}, mock::null_addr);
-    bc.refresh_wallet(w, 0);
+    bc.refresh_wallet(w);
 
     // check that the balance drops to 0 and that all transfers are marked spent
     ASSERT_EQ(0, w.balance_all(true));

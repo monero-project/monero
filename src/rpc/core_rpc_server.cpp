@@ -851,7 +851,7 @@ namespace cryptonote
       }
 
       std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
-      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT, req.block_ids_skip_common_block))
       {
         res.status = "Failed";
         add_host_fail(ctx);
@@ -915,15 +915,16 @@ namespace cryptonote
       }
 
       block b;
-      crypto::hash init_block_hash;
-      if(!parse_and_validate_block_from_blob(res.blocks.front().block, b, init_block_hash))
+      if(!parse_and_validate_block_from_blob(res.blocks.front().block, b))
       {
         res.status = "Failed";
         return true;
       }
 
-      // Get the data necessary to start syncing the tree from the provided height
-      if (!set_init_tree_sync_data(res.start_height, init_block_hash, m_core, res.init_tree_sync_data))
+      // Get the data necessary to start syncing the tree from the first returned block
+      const uint64_t init_block_idx = res.start_height == 0 ? 0 : (res.start_height - 1);
+      const crypto::hash init_block_hash = res.start_height == 0 ? get_block_hash(b) : b.prev_id;
+      if (!set_init_tree_sync_data(init_block_idx, init_block_hash, m_core, res.init_tree_sync_data))
       {
         res.status = "Failed";
         return true;
@@ -2028,6 +2029,7 @@ namespace cryptonote
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
       error_resp.message = std::string("Requested block height: ") + std::to_string(h) + " greater than current top block height: " +  std::to_string(m_core.get_current_blockchain_height() - 1);
+      return false;
     }
     res = string_tools::pod_to_hex(m_core.get_block_id_by_height(h));
     return true;
