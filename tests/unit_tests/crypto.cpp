@@ -345,3 +345,30 @@ TEST(Crypto, generator_consistency)
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
 }
+
+TEST(Crypto, batch_inversion)
+{
+  const std::size_t MAX_TEST_ELEMS = 1000;
+
+  std::unique_ptr<fe[]> init_elems = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+  std::unique_ptr<fe[]> norm_inverted = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+
+  // Init test elems and individual inversions
+  for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
+  {
+    const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+    ASSERT_EQ(fe_frombytes_vartime(init_elems[i], (unsigned char*)kp.pub.data), 0);
+    fe_invert(norm_inverted[i], init_elems[i]);
+  }
+
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
+  {
+    std::unique_ptr<fe[]> batch_inverted = std::make_unique<fe[]>(n_elems);
+    fe_batch_invert(batch_inverted.get(), init_elems.get(), n_elems);
+    // Warning: it's possible that internal fe representations are inconsistent in some future update, since the lib
+    // does not guarantee equivalent representations. We may want to "reduce" fe's in this test if this fails.
+    // See: https://github.com/seraphis-migration/monero/blob/74a254f8c215986042c40e6875a0f97bd6169a1e/src/crypto/crypto-ops.c#L4047-L4069
+    ASSERT_EQ(memcmp(batch_inverted.get(), norm_inverted.get(), n_elems * sizeof(fe)), 0);
+  }
+}
