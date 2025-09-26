@@ -55,6 +55,18 @@ static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
   "193.58.251.251",     // SkyDNS (Russia)
 };
 
+/*
+ * When adding new servers to this list or using one from the environment 
+ * variables, remember to add a "#domain" suffix to it, so that it performs 
+ * hostname verification of the SSL cert. Without this, unbound will 
+ * perform no validation of the given certificate.
+ */
+static const char *DEFAULT_DOT_PUBLIC_ADDR[] =
+{
+  "9.9.9.9@853#dns.quad9.net", // Quad-9
+  "194.242.2.2@853#dns.mullvad.net" // Mullvad
+};
+
 static boost::mutex instance_lock;
 
 namespace
@@ -226,9 +238,21 @@ static void add_anchors(ub_ctx *ctx)
 
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
+  int use_dot = 0;
   int use_dns_public = 0;
   std::vector<std::string> dns_public_addr;
   const char *DNS_PUBLIC = getenv("DNS_PUBLIC");
+  const char *DNS_TLS = getenv("DNS_TLS");
+  if (DNS_TLS)
+  {
+    // Check for two common values for enabling DNS-over-TLS
+    if (strncmp(DNS_TLS, "1", 1) || strncmp(DNS_TLS, "true", 4))
+    {
+      MGINFO("Enabling DNS-over-TLS");
+      use_dot = 1;
+    }
+  }
+
   if (DNS_PUBLIC)
   {
     dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
@@ -246,22 +270,35 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   // init libunbound context
   m_data->m_ub_context = ub_ctx_create();
 
+  // Add the TLS certificate bundle file to unbound (i wonder if this should be configurable)
+  ub_ctx_set_option(m_data->m_ub_context, string_copy("tls-cert-bundle:"), string_copy("/etc/ssl/cert.pem"));
+
   if (use_dns_public)
   {
     for (const auto &ip: dns_public_addr)
       ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+    ub_ctx_set_tls(m_data->m_ub_context, use_dot);
   }
   else {
-    // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
-    ub_ctx_resolvconf(m_data->m_ub_context, NULL);
-    ub_ctx_hosts(m_data->m_ub_context, NULL);
+    // DNS-over-TLS is unlikely to be stored in the hosts or resolv.conf file.
+    // so if the user wants DoT, we'll use a preloaded list anyway
+    if (use_dot) {
+      for (const auto &ip: DEFAULT_DOT_PUBLIC_ADDR)
+        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
+      ub_ctx_set_tls(m_data->m_ub_context, use_dot);
+    }
+    else {
+      // otherwise, look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
+      ub_ctx_resolvconf(m_data->m_ub_context, NULL);
+      ub_ctx_hosts(m_data->m_ub_context, NULL);
+    }
   }
 
   add_anchors(m_data->m_ub_context);
 
-  if (!DNS_PUBLIC)
+  if (!(DNS_PUBLIC || use_dot))
   {
     // if no DNS_PUBLIC specified, we try a lookup to what we know
     // should be a valid DNSSEC record, and switch to known good
