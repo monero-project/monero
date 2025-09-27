@@ -365,6 +365,9 @@ TEST(Crypto, batch_inversion)
   {
     std::vector<fe> batch_inverted(n_elems);
     ASSERT_EQ(fe_batch_invert(batch_inverted.data(), init_elems.data(), n_elems), 0);
+    // Warning: it's possible that internal fe representations are inconsistent in some future update, since the lib
+    // does not guarantee equivalent representations. We may want to "reduce" fe's in this test if this fails.
+    // See: https://github.com/seraphis-migration/monero/blob/74a254f8c215986042c40e6875a0f97bd6169a1e/src/crypto/crypto-ops.c#L4047-L4069
     ASSERT_EQ(memcmp(batch_inverted.data(), norm_inverted.data(), n_elems * sizeof(fe)), 0);
   }
 }
