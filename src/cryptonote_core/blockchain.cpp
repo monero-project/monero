@@ -4452,11 +4452,14 @@ leave:
   }
 
   const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
-  send_miner_notifications(new_height, seedhash, id, already_generated_coins);
 
-  // Make sure that txpool notifications happen BEFORE block notifications
+  // Make sure that txpool notifications happen BEFORE block and miner data notifications
   notify_txpool_event(std::move(txpool_events));
 
+  // send miner notifications to switch as soon as possible
+  send_miner_notifications(new_height, seedhash, id, already_generated_coins);
+
+  // then send block notifications
   for (const auto& notifier: m_block_notifiers)
     notifier(new_height - 1, {std::addressof(bl), 1});
 
