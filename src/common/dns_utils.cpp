@@ -41,6 +41,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <openssl/x509.h>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -272,8 +273,9 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dot)
   {
-    // Add the TLS certificate bundle file to unbound for DNS-over-TLS (i wonder if this should be configurable)
-    ub_ctx_set_option(m_data->m_ub_context, string_copy("tls-cert-bundle:"), string_copy("/etc/ssl/cert.pem"));
+    const char *tls_cert = X509_get_default_cert_file();
+    // Add the TLS certificate bundle file to unbound for DNS-over-TLS
+    ub_ctx_set_option(m_data->m_ub_context, string_copy("tls-cert-bundle:"), tls_cert);
   }
 
   if (use_dns_public)
