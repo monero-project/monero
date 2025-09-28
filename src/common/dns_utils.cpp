@@ -270,8 +270,11 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   // init libunbound context
   m_data->m_ub_context = ub_ctx_create();
 
-  // Add the TLS certificate bundle file to unbound for DNS-over-TLS (i wonder if this should be configurable)
-  ub_ctx_set_option(m_data->m_ub_context, string_copy("tls-cert-bundle:"), string_copy("/etc/ssl/cert.pem"));
+  if (use_dot)
+  {
+    // Add the TLS certificate bundle file to unbound for DNS-over-TLS (i wonder if this should be configurable)
+    ub_ctx_set_option(m_data->m_ub_context, string_copy("tls-cert-bundle:"), string_copy("/etc/ssl/cert.pem"));
+  }
 
   if (use_dns_public)
   {
