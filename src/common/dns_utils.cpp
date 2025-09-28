@@ -611,9 +611,9 @@ std::vector<std::string> parse_dns_public(const char *s)
   std::string dot_string;
 
   std::vector<std::string> dns_public_addr;
-  if (!(strcmp(s, "tcp") || strcmp(s, "tls")))
+  if (!strcmp(s, "tcp") || !strcmp(s, "tls"))
   {
-    if (strcmp(s, "tls")) {
+    if (!strcmp(s, "tls")) {
       for (size_t i = 0; i < sizeof(DEFAULT_DOT_PUBLIC_ADDR) / sizeof(DEFAULT_DOT_PUBLIC_ADDR[0]); ++i)
         dns_public_addr.push_back(DEFAULT_DOT_PUBLIC_ADDR[i]);
       LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (DNS-over-TLS)");
