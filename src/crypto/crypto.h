@@ -129,6 +129,8 @@ namespace crypto {
     friend void generate_tx_proof_v1(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const secret_key &, signature &);
     static bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &, const int);
     friend bool check_tx_proof(const hash &, const public_key &, const public_key &, const boost::optional<public_key> &, const public_key &, const signature &, const int);
+    static void derive_key_image_generator(const public_key &, ec_point &);
+    friend void derive_key_image_generator(const public_key &, ec_point &);
     static void generate_key_image(const public_key &, const secret_key &, key_image &);
     friend void generate_key_image(const public_key &, const secret_key &, key_image &);
     static void generate_ring_signature(const hash &, const key_image &,
@@ -141,6 +143,8 @@ namespace crypto {
       const public_key *const *, std::size_t, const signature *);
     static void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
     friend void derive_view_tag(const key_derivation &, std::size_t, view_tag &);
+    static void unbiased_hash_to_ec(const unsigned char *, const size_t, ec_point &);
+    friend void unbiased_hash_to_ec(const unsigned char *, const size_t, ec_point &);
   };
 
   void generate_random_bytes_thread_safe(size_t N, uint8_t *bytes);
@@ -254,6 +258,10 @@ namespace crypto {
     return crypto_ops::check_tx_proof(prefix_hash, R, A, B, D, sig, version);
   }
 
+  inline void derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    crypto_ops::derive_key_image_generator(pub, ki_gen);
+  }
+
   /* To send money to a key:
    * * The sender generates an ephemeral key and includes it in transaction output.
    * * To spend the money, the receiver generates a key image from it.
@@ -297,6 +305,10 @@ namespace crypto {
     crypto_ops::derive_view_tag(derivation, output_index, vt);
   }
 
+  inline void unbiased_hash_to_ec(const unsigned char *preimage, const size_t length, ec_point &res) {
+    crypto_ops::unbiased_hash_to_ec(preimage, length, res);
+  }
+
   inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
@@ -321,6 +333,9 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::ec_point &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
 
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;
@@ -337,6 +352,7 @@ inline const unsigned char* to_bytes(const crypto::ec_scalar &scalar) { return &
 inline unsigned char* to_bytes(crypto::ec_point &point) { return &reinterpret_cast<unsigned char&>(point); }
 inline const unsigned char* to_bytes(const crypto::ec_point &point) { return &reinterpret_cast<const unsigned char&>(point); }
 
+CRYPTO_MAKE_HASHABLE(ec_point)
 CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)

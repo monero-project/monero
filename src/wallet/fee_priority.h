@@ -21,8 +21,6 @@ namespace tools
         Priority, /* Very High */
     };
 
-    std::ostream& operator<<(std::ostream& os, const fee_priority priority);
-
     namespace fee_priority_utilities
     {
         using EnumStringsType = std::array<std::string_view, 5>;
@@ -113,6 +111,10 @@ namespace tools
             const auto distance = std::distance(fee_priority_strings.begin(), strIterator);
             return enums.at(distance);
         }
+    }
 
+    inline std::ostream& operator<<(std::ostream& os, const fee_priority priority)
+    {
+        return os << fee_priority_utilities::to_string(priority);
     }
 }

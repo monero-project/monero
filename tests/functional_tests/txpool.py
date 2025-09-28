@@ -123,10 +123,10 @@ class TransferTest():
 
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == txpool_size
-        total_bytes = 0
+        total_weight = 0
         total_fee = 0
-        min_bytes = 99999999999999
-        max_bytes = 0
+        min_weight = 99999999999999
+        max_weight = 0
         for txid in txes.keys():
             x = [x for x in res.transactions if x.id_hash == txid]
             assert len(x) == 1
@@ -140,10 +140,7 @@ class TransferTest():
             assert x.fee == txes[txid].fee
             assert x.tx_blob == txes[txid].tx_blob
 
-            total_bytes += x.blob_size
             total_fee += x.fee
-            min_bytes = min(min_bytes, x.blob_size)
-            max_bytes = max(max_bytes, x.blob_size)
 
         print('Checking all txs received via zmq')
         for i in range(len(txes.keys())):
@@ -160,14 +157,18 @@ class TransferTest():
             assert x.weight == zmq_tx["weight"]
             assert x.fee == zmq_tx["fee"]
 
+            total_weight += x.weight
+            min_weight = min(min_weight, x.weight)
+            max_weight = max(max_weight, x.weight)
+
         res = daemon.get_transaction_pool_hashes()
         assert sorted(res.tx_hashes) == sorted(txes.keys())
 
         res = daemon.get_transaction_pool_stats()
-        assert res.pool_stats.bytes_total == total_bytes
-        assert res.pool_stats.bytes_min == min_bytes
-        assert res.pool_stats.bytes_max == max_bytes
-        assert res.pool_stats.bytes_med >= min_bytes and res.pool_stats.bytes_med <= max_bytes
+        assert res.pool_stats.bytes_total == total_weight
+        assert res.pool_stats.bytes_min == min_weight
+        assert res.pool_stats.bytes_max == max_weight
+        assert res.pool_stats.bytes_med >= min_weight and res.pool_stats.bytes_med <= max_weight
         assert res.pool_stats.fee_total == total_fee
         assert res.pool_stats.txs_total == len(txes)
         assert res.pool_stats.num_failing == 0
@@ -191,10 +192,10 @@ class TransferTest():
 
         res = daemon.get_transaction_pool()
         assert len(res.transactions) == len(new_keys)
-        total_bytes = 0
+        total_weight = 0
         total_fee = 0
-        min_bytes = 99999999999999
-        max_bytes = 0
+        min_weight = 99999999999999
+        max_weight = 0
         for txid in new_keys:
             x = [x for x in res.transactions if x.id_hash == txid]
             assert len(x) == 1
@@ -208,16 +209,16 @@ class TransferTest():
             assert x.fee == txes[txid].fee
             assert x.tx_blob == txes[txid].tx_blob
 
-            total_bytes += x.blob_size
+            total_weight += x.weight
             total_fee += x.fee
-            min_bytes = min(min_bytes, x.blob_size)
-            max_bytes = max(max_bytes, x.blob_size)
+            min_weight = min(min_weight, x.weight)
+            max_weight = max(max_weight, x.weight)
 
         res = daemon.get_transaction_pool_stats()
-        assert res.pool_stats.bytes_total == total_bytes
-        assert res.pool_stats.bytes_min == min_bytes
-        assert res.pool_stats.bytes_max == max_bytes
-        assert res.pool_stats.bytes_med >= min_bytes and res.pool_stats.bytes_med <= max_bytes
+        assert res.pool_stats.bytes_total == total_weight
+        assert res.pool_stats.bytes_min == min_weight
+        assert res.pool_stats.bytes_max == max_weight
+        assert res.pool_stats.bytes_med >= min_weight and res.pool_stats.bytes_med <= max_weight
         assert res.pool_stats.fee_total == total_fee
         assert res.pool_stats.txs_total == len(new_keys)
         assert res.pool_stats.num_failing == 0

@@ -1453,7 +1453,10 @@ bool simple_wallet::import_multisig_main(const std::vector<std::string> &args, b
 bool simple_wallet::accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs)
 {
   std::string extra_message;
-  return accept_loaded_tx([&txs](){return txs.m_ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.m_ptx[n].construction_data;}, extra_message);
+  return accept_loaded_tx(
+    [&txs](){return txs.m_ptx.size();},
+    [&txs](size_t n)->const auto&{return std::get<tools::wallet2::tx_construction_data>(txs.m_ptx[n].construction_data);},
+    extra_message);
 }
 
 bool simple_wallet::sign_multisig(const std::vector<std::string> &args)
@@ -3155,8 +3158,10 @@ bool simple_wallet::scan_tx(const std::vector<std::string> &args)
   m_in_manual_refresh.store(true);
   try {
     m_wallet->scan_tx(txids);
-  } catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e) {
+  } catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e) {
     fail_msg_writer() << e.what() << ". Either connect to a trusted daemon by passing --trusted-daemon when starting the wallet, or use rescan_bc to rescan the chain.";
+  } catch (const tools::error::wont_scan_future_tx &e) {
+    fail_msg_writer() << e.what() << ". Either refresh the wallet, or restore the wallet from the current chain height and then scan.";
   } catch (const std::exception &e) {
     fail_msg_writer() << e.what();
   }
@@ -5860,7 +5865,7 @@ bool simple_wallet::show_balance_unlocked(bool detailed)
   success_msg_writer() << tr("Balance per address:");
   success_msg_writer() << boost::format("%15s %21s %21s %7s %21s") % tr("Address") % tr("Balance") % tr("Unlocked balance") % tr("Outputs") % tr("Label");
   std::vector<tools::wallet2::transfer_details> transfers;
-  m_wallet->get_transfers(transfers);
+  m_wallet->get_transfers(transfers, false/*include_all*/);
   for (const auto& i : balance_per_subaddress)
   {
     cryptonote::subaddress_index subaddr_index = {m_current_subaddress_account, i.first};
@@ -5943,7 +5948,7 @@ bool simple_wallet::show_incoming_transfers(const std::vector<std::string>& args
   }
 
   tools::wallet2::transfer_container transfers;
-  m_wallet->get_transfers(transfers);
+  m_wallet->get_transfers(transfers, false/*include_all*/);
 
   size_t transfers_found = 0;
   for (const auto& td : transfers)
@@ -6190,7 +6195,9 @@ bool simple_wallet::process_ring_members(const std::vector<tools::wallet2::pendi
   for (size_t n = 0; n < ptx_vector.size(); ++n)
   {
     const cryptonote::transaction& tx = ptx_vector[n].tx;
-    const tools::wallet2::tx_construction_data& construction_data = ptx_vector[n].construction_data;
+    if (tx.rct_signatures.type >= rct::RCTTypeFcmpPlusPlus)
+      continue;
+    const auto& construction_data = std::get<tools::wallet2::tx_construction_data>(ptx_vector[n].construction_data);
     if (verbose)
       ostr << boost::format(tr("\nTransaction %llu/%llu: txid=%s")) % (n + 1) % ptx_vector.size() % cryptonote::get_transaction_hash(tx);
     // for each input
@@ -6436,8 +6443,11 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
   priority = m_wallet->adjust_priority(priority);
 
+  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
   const size_t min_ring_size = m_wallet->get_min_ring_size();
-  size_t fake_outs_count = min_ring_size - 1;
+  size_t fake_outs_count = 0;
+  if (min_ring_size > 0)
+  {
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -6464,6 +6474,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
     return false;
+  }
   }
 
   const size_t min_args = 1;
@@ -6709,8 +6720,8 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         {
           prompt << tr("\nTransaction ") << (n + 1) << "/" << ptx_vector.size() << ":\n";
           subaddr_indices.clear();
-          for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
-            subaddr_indices.insert(i);
+          for (const std::size_t selected_transfer : ptx_vector.at(n).selected_transfers)
+            subaddr_indices.insert(m_wallet->get_transfer_details(selected_transfer).m_subaddr_index.minor);
           for (uint32_t i : subaddr_indices)
             prompt << boost::format(tr("Spending from address index %d\n")) % i;
           if (subaddr_indices.size() > 1)
@@ -6731,7 +6742,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         if (dust_in_fee != 0) prompt << boost::format(tr(", of which %s is dust from change")) % print_money(dust_in_fee);
         if (dust_not_in_fee != 0)  prompt << tr(".") << ENDL << boost::format(tr("A total of %s from dust change will be sent to dust address")) 
                                                    % print_money(dust_not_in_fee);
-        if (!process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
+        if (fake_outs_count > 0 && !process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
           return false;
 
         prompt << ENDL << tr("Is this okay?");
@@ -6846,6 +6857,8 @@ bool simple_wallet::sweep_unmixable(const std::vector<std::string> &args_)
   CHECK_IF_BACKGROUND_SYNCING("cannot sweep");
   if (!try_connect_to_daemon())
     return true;
+
+  // TODO: deprecate at FCMP++ fork
 
   SCOPED_WALLET_UNLOCK();
 
@@ -7001,7 +7014,11 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
+  const size_t min_ring_size = m_wallet->get_min_ring_size();
+  size_t fake_outs_count = 0;
+  if (min_ring_size > 0)
+  {
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7028,6 +7045,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
     return true;
+  }
   }
 
   size_t outputs = 1;
@@ -7132,14 +7150,14 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
     {
       prompt << tr("\nTransaction ") << (n + 1) << "/" << ptx_vector.size() << ":\n";
       subaddr_indices.clear();
-      for (uint32_t i : ptx_vector[n].construction_data.subaddr_indices)
-        subaddr_indices.insert(i);
+      for (const std::size_t selected_transfer : ptx_vector.at(n).selected_transfers)
+        subaddr_indices.insert(m_wallet->get_transfer_details(selected_transfer).m_subaddr_index.minor);
       for (uint32_t i : subaddr_indices)
         prompt << boost::format(tr("Spending from address index %d\n")) % i;
       if (subaddr_indices.size() > 1)
         prompt << tr("WARNING: Outputs of multiple addresses are being used together, which might potentially compromise your privacy.\n");
     }
-    if (!process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
+    if (fake_outs_count > 0 && !process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
       return true;
     if (ptx_vector.size() > 1) {
       prompt << boost::format(tr("Sweeping %s in %llu transactions for a total fee of %s.  Is this okay?")) %
@@ -7245,7 +7263,12 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
+  const size_t min_ring_size = m_wallet->get_min_ring_size();
+  size_t fake_outs_count = 0;
+  if (min_ring_size > 0)
+  {
+  fake_outs_count = min_ring_size - 1;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7272,6 +7295,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
   {
     fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
     return true;
+  }
   }
 
   size_t outputs = 1;
@@ -7384,7 +7408,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
     uint64_t total_fee = ptx_vector[0].fee;
     uint64_t total_sent = m_wallet->get_transfer_details(ptx_vector[0].selected_transfers.front()).amount();
     std::ostringstream prompt;
-    if (!process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
+    if (fake_outs_count > 0 && !process_ring_members(ptx_vector, prompt, m_wallet->print_ring_members()))
       return true;
     prompt << boost::format(tr("Sweeping %s for a total fee of %s.  Is this okay?")) %
       print_money(total_sent) %
@@ -7740,7 +7764,10 @@ bool simple_wallet::accept_loaded_tx(const tools::wallet2::signed_tx_set &txs)
   std::string extra_message;
   if (!txs.key_images.empty())
     extra_message = (boost::format("%u key images to import. ") % (unsigned)txs.key_images.size()).str();
-  return accept_loaded_tx([&txs](){return txs.ptx.size();}, [&txs](size_t n)->const tools::wallet2::tx_construction_data&{return txs.ptx[n].construction_data;}, extra_message);
+  return accept_loaded_tx(
+    [&txs](){return txs.ptx.size();},
+    [&txs](size_t n)->const auto&{return std::get<tools::wallet2::tx_construction_data>(txs.ptx[n].construction_data);},
+    extra_message);
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::sign_transfer(const std::vector<std::string> &args_)
@@ -8885,7 +8912,7 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
     }
   }
   tools::wallet2::transfer_container transfers;
-  m_wallet->get_transfers(transfers);
+  m_wallet->get_transfers(transfers, false/*include_all*/);
   std::map<uint64_t, tools::wallet2::transfer_container> amount_to_tds;
   uint64_t min_height = std::numeric_limits<uint64_t>::max();
   uint64_t max_height = 0;
@@ -9406,7 +9433,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
 
   std::vector<std::string> local_args = args;
   tools::wallet2::transfer_container transfers;
-  m_wallet->get_transfers(transfers);
+  m_wallet->get_transfers(transfers, false/*include_all*/);
 
   auto print_address_sub = [this, &transfers](uint32_t index)
   {

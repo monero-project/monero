@@ -34,6 +34,7 @@
 #include "string_tools.h"
 using namespace epee;
 
+#include "carrot_impl/format_utils.h"
 #include "common/apply_permutation.h"
 #include "cryptonote_tx_utils.h"
 #include "cryptonote_config.h"
@@ -80,17 +81,6 @@ namespace cryptonote
     tx.vout.clear();
     tx.extra.clear();
 
-    keypair txkey = keypair::generate(hw::get_device("default"));
-    add_tx_pub_key_to_extra(tx, txkey.pub);
-    if(!extra_nonce.empty())
-      if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
-        return false;
-    if (!sort_tx_extra(tx.extra, tx.extra))
-      return false;
-
-    txin_gen in;
-    in.height = height;
-
     uint64_t block_reward;
     if(!get_block_reward(median_weight, current_block_weight, already_generated_coins, block_reward, hard_fork_version))
     {
@@ -103,6 +93,39 @@ namespace cryptonote
       ", fee " << fee);
 #endif
     block_reward += fee;
+
+    const bool do_carrot = hard_fork_version >= HF_VERSION_CARROT;
+    if (do_carrot)
+    {
+      try
+      {
+        carrot::CarrotDestinationV1 destination;
+        carrot::make_carrot_main_address_v1(miner_address.m_spend_public_key,
+          miner_address.m_view_public_key,
+          destination);
+
+        tx = carrot::make_single_enote_carrot_coinbase_transaction_v1(destination, block_reward, height, extra_nonce);
+        tx.invalidate_hashes();
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to construct Carrot coinbase transaction: " << e.what());
+        return false;
+      }
+
+      return true;
+    }
+
+    keypair txkey = keypair::generate(hw::get_device("default"));
+    add_tx_pub_key_to_extra(tx, txkey.pub);
+    if(!extra_nonce.empty())
+      if(!add_extra_nonce_to_tx_extra(tx.extra, extra_nonce))
+        return false;
+    if (!sort_tx_extra(tx.extra, tx.extra))
+      return false;
+
+    txin_gen in;
+    in.height = height;
 
     // from hard fork 2, we cut out the low significant digits. This makes the tx smaller, and
     // keeps the paid amount almost the same. The unpaid remainder gets pushed back to the
@@ -222,6 +245,9 @@ namespace cryptonote
 
     tx.extra = extra;
     crypto::public_key txkey_pub;
+
+    const bool is_fcmp_pp = rct && rct_config.bp_version >= 5;
+    CHECK_AND_ASSERT_THROW_MES(!is_fcmp_pp, "Cannot construct FCMP++ tx with construct_tx_with_tx_key, use Carrot tx builders instead");
 
     // if we have a stealth payment id, find it and encrypt it with the tx key now
     std::vector<tx_extra_field> tx_extra_fields;
@@ -642,6 +668,7 @@ namespace cryptonote
      crypto::secret_key tx_key;
      std::vector<crypto::secret_key> additional_tx_keys;
      std::vector<tx_destination_entry> destinations_copy = destinations;
+     fcmp_pp::ProofParams fcmp_pp_params = {};
      return construct_tx_and_get_tx_key(sender_account_keys, subaddresses, sources, destinations_copy, change_addr, extra, tx, tx_key, additional_tx_keys, false, { rct::RangeProofBorromean, 0});
   }
   //---------------------------------------------------------------
