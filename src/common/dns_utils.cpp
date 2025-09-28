@@ -246,7 +246,7 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   if (DNS_TLS)
   {
     // Check for two common values for enabling DNS-over-TLS
-    if (strncmp(DNS_TLS, "1", 1) || strncmp(DNS_TLS, "true", 4))
+    if (!strncmp(DNS_TLS, "1", 1) || !strncmp(DNS_TLS, "true", 4))
     {
       MGINFO("Enabling DNS-over-TLS");
       use_dot = 1;
