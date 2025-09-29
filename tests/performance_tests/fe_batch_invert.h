@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "crypto/crypto.h"
 
 template<bool batched>
@@ -41,9 +43,7 @@ public:
 
   bool init()
   {
-    m_fes = (fe *) malloc(n_elems * sizeof(fe));
-    if (!m_fes)
-      throw std::bad_alloc();
+    m_fes = std::make_unique<fe[]>(n_elems);
 
     for (std::size_t i = 0; i < n_elems; ++i)
     {
@@ -61,21 +61,19 @@ public:
 
   bool test()
   {
-    fe *inv_fes = (fe *) malloc(n_elems * sizeof(fe));
+    std::unique_ptr<fe[]> inv_fes = std::make_unique<fe[]>(n_elems);
 
     if constexpr (batched)
-      fe_batch_invert(inv_fes, m_fes, n_elems);
+      fe_batch_invert(inv_fes.get(), m_fes.get(), n_elems);
     else
     {
       for (std::size_t i = 0; i < n_elems; ++i)
         fe_invert(inv_fes[i], m_fes[i]);
     }
 
-    free(inv_fes);
-
     return true;
   }
 
 private:
-  fe *m_fes;
+  std::unique_ptr<fe[]> m_fes;
 };
