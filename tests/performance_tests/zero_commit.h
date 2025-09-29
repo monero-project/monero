@@ -47,7 +47,7 @@ public:
 
   bool test()
   {
-    if (fast)
+    if constexpr (fast)
     {
       rct::zeroCommitVartime(m_amount);
     }
