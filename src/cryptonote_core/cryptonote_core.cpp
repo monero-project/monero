@@ -261,6 +261,11 @@ namespace cryptonote
   {
     m_blockchain_storage.set_enforce_dns_checkpoints(enforce_dns);
   }
+  //-----------------------------------------------------------------------------------
+  bool core::get_enforce_dns_checkpoints() const
+  {
+    return m_blockchain_storage.get_enforce_dns_checkpoints();
+  }
   //-----------------------------------------------------------------------------------------------
   bool core::update_checkpoints(const bool skip_dns /* = false */)
   {
@@ -269,7 +274,10 @@ namespace cryptonote
     if (m_checkpoints_updating.test_and_set()) return true;
 
     bool res = true;
-    if (!skip_dns && time(NULL) - m_last_dns_checkpoints_update >= 3600)
+    if (!skip_dns && (
+      (get_enforce_dns_checkpoints() && time(NULL) - m_last_dns_checkpoints_update >= 120) ||
+      (time(NULL) - m_last_dns_checkpoints_update >= 3600)
+    ))
     {
       res = m_blockchain_storage.update_checkpoints(m_checkpoints_path, true);
       m_last_dns_checkpoints_update = time(NULL);
@@ -693,8 +701,8 @@ namespace cryptonote
 
     // load json & DNS checkpoints, and verify them
     // with respect to what blocks we already have
-    const bool skip_dns_checkpoints = !command_line::get_arg(vm, arg_dns_checkpoints);
-    CHECK_AND_ASSERT_MES(update_checkpoints(skip_dns_checkpoints), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
+    m_skip_dns_checkpoints = !command_line::get_arg(vm, arg_dns_checkpoints);
+    CHECK_AND_ASSERT_MES(update_checkpoints(m_skip_dns_checkpoints), false, "One or more checkpoints loaded from json or dns conflicted with existing checkpoints.");
 
    // DNS versions checking
     if (check_updates_string == "disabled" || not allow_dns)
@@ -1599,6 +1607,7 @@ namespace cryptonote
     m_block_rate_interval.do_call(boost::bind(&core::check_block_rate, this));
     m_blockchain_pruning_interval.do_call(boost::bind(&core::update_blockchain_pruning, this));
     m_diff_recalc_interval.do_call(boost::bind(&core::recalculate_difficulties, this));
+    m_update_checkpoints_loop_interval.do_call(boost::bind(&core::update_checkpoints, this, m_skip_dns_checkpoints));
     m_miner.on_idle();
     m_mempool.on_idle();
     return true;
