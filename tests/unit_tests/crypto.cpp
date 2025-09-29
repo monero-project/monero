@@ -350,18 +350,10 @@ TEST(Crypto, batch_inversion)
 {
   const std::size_t MAX_TEST_ELEMS = 1000;
 
-  // Memory allocator
-  auto alloc = [](const std::size_t n) -> fe*
-  {
-    fe *ptr = (fe *) malloc(n * sizeof(fe));
-    if (!ptr)
-      throw std::bad_alloc();
-    return ptr;
-  };
+  std::unique_ptr<fe[]> init_elems = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+  std::unique_ptr<fe[]> norm_inverted = std::make_unique<fe[]>(MAX_TEST_ELEMS);
 
   // Init test elems and individual inversions
-  fe *init_elems    = alloc(MAX_TEST_ELEMS);
-  fe *norm_inverted = alloc(MAX_TEST_ELEMS);
   for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
   {
     const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
@@ -372,15 +364,11 @@ TEST(Crypto, batch_inversion)
   // Do batch inversions and compare to individual inversions
   for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
   {
-    fe *batch_inverted = alloc(n_elems);
-    ASSERT_EQ(fe_batch_invert(batch_inverted, init_elems, n_elems), 0);
+    std::unique_ptr<fe[]> batch_inverted = std::make_unique<fe[]>(n_elems);
+    ASSERT_EQ(fe_batch_invert(batch_inverted.get(), init_elems.get(), n_elems), 0);
     // Warning: it's possible that internal fe representations are inconsistent in some future update, since the lib
     // does not guarantee equivalent representations. We may want to "reduce" fe's in this test if this fails.
     // See: https://github.com/seraphis-migration/monero/blob/74a254f8c215986042c40e6875a0f97bd6169a1e/src/crypto/crypto-ops.c#L4047-L4069
-    ASSERT_EQ(memcmp(batch_inverted, norm_inverted, n_elems * sizeof(fe)), 0);
-    free(batch_inverted);
+    ASSERT_EQ(memcmp(batch_inverted.get(), norm_inverted.get(), n_elems * sizeof(fe)), 0);
   }
-
-  free(init_elems);
-  free(norm_inverted);
 }
