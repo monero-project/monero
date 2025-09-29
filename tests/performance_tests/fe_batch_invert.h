@@ -41,7 +41,7 @@ public:
 
   bool init()
   {
-    m_fes = std::vector<fe>(n_elems);
+    m_fes = (fe *) malloc(n_elems * sizeof(fe));
 
     for (std::size_t i = 0; i < n_elems; ++i)
     {
@@ -59,19 +59,21 @@ public:
 
   bool test()
   {
-    std::vector<fe> inv_fes(n_elems);
+    fe *inv_fes = (fe *) malloc(n_elems * sizeof(fe));
 
     if (batched)
-      fe_batch_invert(inv_fes.data(), m_fes.data(), n_elems);
+      fe_batch_invert(inv_fes, m_fes, n_elems);
     else
     {
       for (std::size_t i = 0; i < n_elems; ++i)
         fe_invert(inv_fes[i], m_fes[i]);
     }
 
+    free(inv_fes);
+
     return true;
   }
 
 private:
-  std::vector<fe> m_fes;
+  fe *m_fes;
 };
