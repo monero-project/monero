@@ -63,7 +63,7 @@ public:
   {
     fe *inv_fes = (fe *) malloc(n_elems * sizeof(fe));
 
-    if (batched)
+    if constexpr (batched)
       fe_batch_invert(inv_fes, m_fes, n_elems);
     else
     {
