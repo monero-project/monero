@@ -354,7 +354,7 @@ TEST(Crypto, batch_inversion)
   {
     fe *ptr = (fe *) malloc(n * sizeof(fe));
     if (!ptr)
-      throw std::runtime_error("failed to malloc fe *");
+      throw std::bad_alloc();
     return ptr;
   };
 
