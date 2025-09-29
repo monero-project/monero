@@ -268,7 +268,7 @@ namespace
         virtual void on_connection_new(cryptonote::levin::detail::p2p_context& context) override final
         {
             if (notifier)
-                notifier->on_handshake_complete(context.m_connection_id, context.m_is_income);
+                notifier->on_handshake_complete(context.m_connection_id, context.m_is_income, false);
         }
 
         virtual void on_connection_close(cryptonote::levin::detail::p2p_context& context) override final
