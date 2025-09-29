@@ -42,6 +42,8 @@ public:
   bool init()
   {
     m_fes = (fe *) malloc(n_elems * sizeof(fe));
+    if (!m_fes)
+      throw std::bad_alloc();
 
     for (std::size_t i = 0; i < n_elems; ++i)
     {
