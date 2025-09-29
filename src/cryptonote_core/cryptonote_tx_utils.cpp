@@ -43,11 +43,21 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
+#include "serialization/wire.h"
 
 using namespace crypto;
 
 namespace cryptonote
 {
+  namespace
+  {
+    template<typename F, typename T>
+    void tx_block_template_map(F& format, T& self)
+    {
+      wire::object(format, WIRE_FIELD(id), WIRE_FIELD(weight), WIRE_FIELD(fee));
+    }
+  }
+  WIRE_DEFINE_OBJECT(tx_block_template_backlog_entry, tx_block_template_map);
   //---------------------------------------------------------------
   void classify_addresses(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr, size_t &num_stdaddresses, size_t &num_subaddresses, account_public_address &single_dest_subaddress)
   {
