@@ -366,7 +366,7 @@ namespace rct {
         static_assert(sizeof(xmr_amount) * 8 == H_TABLE_SIZE, "unexpected size of h table");
         for (size_t i = 0; i < H_TABLE_SIZE; ++i)
         {
-            if (amount & (1UL << i))
+            if (amount & (xmr_amount(1) << i))
             {
                 ge_p1p1 p1p1;
                 ge_add(&p1p1, &res_ge_p3, &H_TABLE[i]);
