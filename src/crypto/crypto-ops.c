@@ -42,7 +42,6 @@ static void fe_sq(fe, const fe);
 static void ge_madd(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_msub(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_p2_0(ge_p2 *);
-static void ge_p3_dbl(ge_p1p1 *, const ge_p3 *);
 static void fe_divpowm1(fe, const fe, const fe);
 
 /* Common functions */
@@ -1562,7 +1561,7 @@ static void ge_p3_0(ge_p3 *h) {
 r = 2 * p
 */
 
-static void ge_p3_dbl(ge_p1p1 *r, const ge_p3 *p) {
+void ge_p3_dbl(ge_p1p1 *r, const ge_p3 *p) {
   ge_p2 q;
   ge_p3_to_p2(&q, p);
   ge_p2_dbl(r, &q);
