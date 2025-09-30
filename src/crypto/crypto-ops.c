@@ -3883,3 +3883,30 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
   // Y/Z = 0/0
   return 0;
 }
+
+/*
+Preconditions:
+  |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+
+Since fe_add and fe_sub enforce the following conditions:
+
+fe_add & fe_sub preconditions:
+   |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+   |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+
+fe_add & fe_sub postconditions:
+   |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+
+We sometimes need to "reduce" field elems when they are in the poscondition's
+larger domain to match the precondition domain. This way we can take the output
+of fe_add or fe_sub and use it as input to another call to fe_add or fe_sub.
+
+We reduce by converting the field elem to its byte repr, then re-deriving the
+field elem from the byte repr.
+*/
+int fe_reduce_vartime(fe reduced_f, const fe f)
+{
+  unsigned char f_bytes[32];
+  fe_tobytes(f_bytes, f);
+  return fe_frombytes_vartime(reduced_f, f_bytes);
+}
