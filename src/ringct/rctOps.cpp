@@ -225,22 +225,17 @@ const std::vector<ge_cached>& H_TABLE()
         static_h_table()
             : h_table()
         {
-            std::vector<ge_p3> h_table_ge_p3;
-
-            h_table_ge_p3.resize(H_TABLE_SIZE);
             h_table.resize(H_TABLE_SIZE);
 
-            h_table_ge_p3.at(0) = ge_p3_H;
-            ge_p3_to_cached(&h_table.at(0), &h_table_ge_p3.at(0));
+            ge_p3_to_cached(&h_table.at(0), &ge_p3_H);
+            ge_p3 H_bit_p3 = ge_p3_H;
 
             for (std::size_t i = 1; i < H_TABLE_SIZE; ++i)
             {
-                ge_p2 p2;
-                ge_p3_to_p2(&p2, &h_table_ge_p3.at(i - 1));
-                ge_p1p1 p2_dbl;
-                ge_p2_dbl(&p2_dbl, &p2);
-                ge_p1p1_to_p3(&h_table_ge_p3.at(i), &p2_dbl);
-                ge_p3_to_cached(&h_table.at(i), &h_table_ge_p3.at(i));
+                ge_p1p1 H_bit_p1p1;
+                ge_p3_dbl(&H_bit_p1p1, &H_bit_p3);
+                ge_p1p1_to_p3(&H_bit_p3, &H_bit_p1p1);
+                ge_p3_to_cached(&h_table.at(i), &H_bit_p3);
             }
         }
     };
