@@ -7140,7 +7140,7 @@ void BlockchainLMDB::migrate_5_6()
     //    place them in a locked outputs table. The key to this new table is the
     //    block id in which the outputs unlock.
     {
-      MINFO("Setting up a locked outputs table (step 1/2 of full-chain membership proof migration)");
+      MGINFO("Setting up a locked outputs table (step 1/2 of the full-chain membership proof migration)");
 
       result = mdb_txn_begin(m_env, NULL, 0, txn);
       if (result)
@@ -7173,7 +7173,7 @@ void BlockchainLMDB::migrate_5_6()
             LOGIF(el::Level::Info)
             {
               const uint64_t percent = std::min((i * 100) / n_outputs, (uint64_t)99);
-              std::cout << i << " / " << n_outputs << " outputs (" << percent << "% of step 1/2)  \r" << std::flush;
+              std::cout << i << " / " << n_outputs << " outputs (" << percent << "% of step 1/2)\r" << std::flush;
             }
 
             // Update last output read
@@ -7262,6 +7262,9 @@ void BlockchainLMDB::migrate_5_6()
           if (result)
             throw0(DB_ERROR(lmdb_error("Failed to update max output id: ", result).c_str()));
 
+          if (i)
+            std::cout << "\r                                                           \r" << std::flush; // erase the % print
+          //std::cout << "  150000000 / 150000000 outputs (100% of step 1/2)\r" << std::flush; // just showing that chars are erased effectively
           batch_stop();
           break;
         }
@@ -7353,7 +7356,7 @@ void BlockchainLMDB::migrate_5_6()
     // 2. Set up the curve trees merkle tree by growing the tree block by block,
     //    with leaves that are spendable in each respective block
     {
-      MINFO("Setting up a merkle tree using existing cryptonote outputs (step 2/2 of full-chain membership proof migration)");
+      MGINFO("Setting up a merkle tree using existing cryptonote outputs (step 2/2 of the full-chain membership proof migration)");
 
       if (!m_batch_transactions)
         set_batch_transactions(true);
@@ -7374,7 +7377,7 @@ void BlockchainLMDB::migrate_5_6()
             LOGIF(el::Level::Info)
             {
               const uint64_t percent = std::min((i * 100) / n_blocks, (uint64_t)99);
-              std::cout << i << " / " << n_blocks << " blocks (" << percent << "% of step 2/2)  \r" << std::flush;
+              std::cout << i << " / " << n_blocks << " blocks (" << percent << "% of step 2/2)\r" << std::flush;
             }
 
             batch_stop();
@@ -7424,6 +7427,9 @@ void BlockchainLMDB::migrate_5_6()
         }
 
         ++i;
+        if (i == n_blocks)
+          std::cout << "\r                                                           \r" << std::flush; // erase the % print
+        //std::cout << "  3000000 / 3000000 blocks (100% of step 2/2)\r" << std::flush; // just showing that chars are erased effectively
       }
       batch_stop();
     }
