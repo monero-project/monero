@@ -612,6 +612,51 @@ namespace
 
     return true;
   }
+
+  bool get_fake_outs_count(const std::unique_ptr<tools::wallet2> &w2, std::vector<std::string> &local_args, size_t &fake_outs_count)
+  {
+    const size_t min_ring_size = w2->get_min_ring_size();
+    fake_outs_count = std::max<size_t>(min_ring_size, 1) - 1;
+    if(local_args.size() > 0) {
+      size_t ring_size;
+      if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
+      {
+      }
+      else if (ring_size == 0 && min_ring_size > 0)
+      {
+        fail_msg_writer() << tr("Ring size must not be 0");
+        return false;
+      }
+      else if (min_ring_size == 0 && w2->get_max_ring_size() == 0)
+      {
+        if (ring_size != 0)
+        {
+          fail_msg_writer() << tr("Ring size must be 0");
+          return false;
+        }
+        fake_outs_count = 0;
+        local_args.erase(local_args.begin());
+        return true;
+      }
+      else
+      {
+        fake_outs_count = ring_size - 1;
+        local_args.erase(local_args.begin());
+      }
+    }
+    uint64_t adjusted_fake_outs_count = w2->adjust_mixin(fake_outs_count);
+    if (adjusted_fake_outs_count > fake_outs_count)
+    {
+      fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+      return false;
+    }
+    if (adjusted_fake_outs_count < fake_outs_count)
+    {
+      fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+      return false;
+    }
+    return true;
+  }
 } // anonymous namespace
 
 void simple_wallet::handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon)
@@ -6443,39 +6488,9 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
   priority = m_wallet->adjust_priority(priority);
 
-  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
-  const size_t min_ring_size = m_wallet->get_min_ring_size();
   size_t fake_outs_count = 0;
-  if (min_ring_size > 0)
-  {
-  if(local_args.size() > 0) {
-    size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
-    {
-    }
-    else if (ring_size == 0)
-    {
-      fail_msg_writer() << tr("Ring size must not be 0");
-      return false;
-    }
-    else
-    {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
-    }
-  }
-  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
-  if (adjusted_fake_outs_count > fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+  if (!get_fake_outs_count(m_wallet, local_args, fake_outs_count))
     return false;
-  }
-  if (adjusted_fake_outs_count < fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
-    return false;
-  }
-  }
 
   const size_t min_args = 1;
   if(local_args.size() < min_args)
@@ -7014,39 +7029,9 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
 
   priority = m_wallet->adjust_priority(priority);
 
-  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
-  const size_t min_ring_size = m_wallet->get_min_ring_size();
   size_t fake_outs_count = 0;
-  if (min_ring_size > 0)
-  {
-  if(local_args.size() > 0) {
-    size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
-    {
-    }
-    else if (ring_size == 0)
-    {
-      fail_msg_writer() << tr("Ring size must not be 0");
-      return true;
-    }
-    else
-    {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
-    }
-  }
-  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
-  if (adjusted_fake_outs_count > fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+  if (!get_fake_outs_count(m_wallet, local_args, fake_outs_count))
     return true;
-  }
-  if (adjusted_fake_outs_count < fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
-    return true;
-  }
-  }
 
   size_t outputs = 1;
   if (local_args.size() > 0 && local_args[0].substr(0, 8) == "outputs=")
@@ -7263,40 +7248,9 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  // TODO: after the FMCP++ fork, we can remove this ring size handling from the code
-  const size_t min_ring_size = m_wallet->get_min_ring_size();
   size_t fake_outs_count = 0;
-  if (min_ring_size > 0)
-  {
-  fake_outs_count = min_ring_size - 1;
-  if(local_args.size() > 0) {
-    size_t ring_size;
-    if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
-    {
-    }
-    else if (ring_size == 0)
-    {
-      fail_msg_writer() << tr("Ring size must not be 0");
-      return true;
-    }
-    else
-    {
-      fake_outs_count = ring_size - 1;
-      local_args.erase(local_args.begin());
-    }
-  }
-  uint64_t adjusted_fake_outs_count = m_wallet->adjust_mixin(fake_outs_count);
-  if (adjusted_fake_outs_count > fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too small, minimum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
+  if (!get_fake_outs_count(m_wallet, local_args, fake_outs_count))
     return true;
-  }
-  if (adjusted_fake_outs_count < fake_outs_count)
-  {
-    fail_msg_writer() << (boost::format(tr("ring size %u is too large, maximum is %u")) % (fake_outs_count+1) % (adjusted_fake_outs_count+1)).str();
-    return true;
-  }
-  }
 
   size_t outputs = 1;
   if (local_args.size() > 0 && local_args[0].substr(0, 8) == "outputs=")
