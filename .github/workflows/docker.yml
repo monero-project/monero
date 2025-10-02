@@ -2,7 +2,7 @@ name: "ci/gh-actions/docker-image"
 
 on:
   push:
-    tags: [ 'release-v*.*' ]
+    tags: [ 'release-v*' ]
     paths-ignore:
       - 'docs/**'
       - '**/README.md'
