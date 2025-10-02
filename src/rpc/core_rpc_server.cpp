@@ -781,7 +781,7 @@ namespace cryptonote
         res.blocks.back().txs.reserve(bd.second.size());
         for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
         {
-          res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
+          res.blocks.back().txs.push_back({std::move(i->second), req.prune ? i->first: crypto::null_hash});
           i->second.clear();
           i->second.shrink_to_fit();
           size += res.blocks.back().txs.back().blob.size();
