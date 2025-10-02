@@ -3,6 +3,16 @@ name: "ci/gh-actions/docker-image"
 on:
   push:
     tags: [ 'release-v*.*' ]
+    paths-ignore:
+      - 'docs/**'
+      - '**/README.md'
+  pull_request:
+    paths:
+      - "Dockerfile*"
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ${{ github.event.repository.name }}
 
 jobs:
   docker_buildx_debian:
@@ -20,6 +30,7 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
+          registry: ${{ env.REGISTRY }}
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -29,10 +40,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Extract Version
-        run: |
-          export MONERO_VERSION="$(git describe --tags)"
-          echo "MONERO_VERSION=$MONERO_VERSION" >> $GITHUB_ENV
+      # This step uses [docker/metadata-action](https://github.com/docker/metadata-action#about) to extract tags and labels that will be applied to the specified image. The `id` "meta" allows the output of this step to be referenced in a subsequent step. The `images` value provides the base name for the tags and labels.
+      - name: Extract metadata (tags, labels) for Docker Image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # We publish the images with an OS-suffix.
+          # The image based on a default OS is also published without a suffix.
+          images: |
+            ${{ env.REGISTRY }}/${{ vars.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push latest Debian image
         uses: docker/build-push-action@v6.5.0
@@ -41,8 +57,8 @@ jobs:
           file: ./Dockerfile
           platforms: |
             linux/amd64
+            linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
-          tags: |
-            ${{ vars.DOCKERHUB_USERNAME }}/monero:latest
-            ${{ vars.DOCKERHUB_USERNAME }}/monero:${{ env.MONERO_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
