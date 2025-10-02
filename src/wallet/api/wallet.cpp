@@ -2515,6 +2515,7 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     if (isNewWallet() && daemonSynced()) {
         LOG_PRINT_L2(__FUNCTION__ << ":New Wallet - fast refresh until " << daemonBlockChainHeight());
         m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());
+        m_wallet->rewrite(m_wallet->get_wallet_file(), m_password);
     }
 
     if (m_rebuildWalletCache)
