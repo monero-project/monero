@@ -3018,21 +3018,6 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     }
   }
 
-  // from v4, forbid invalid pubkeys
-  if (hf_version >= 4) {
-    for (const auto &o: tx.vout) {
-      crypto::public_key output_public_key;
-      if (!get_output_public_key(o, output_public_key)) {
-        tvc.m_invalid_output = true;
-        return false;
-      }
-      if (!crypto::check_key(output_public_key)) {
-        tvc.m_invalid_output = true;
-        return false;
-      }
-    }
-  }
-
   // from v8, allow bulletproofs
   if (hf_version < 8) {
     if (tx.version >= 2) {
