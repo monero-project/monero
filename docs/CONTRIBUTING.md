@@ -127,7 +127,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 ### Development process
 
 - Change on the project MUST be governed by the pattern of accurately identifying problems and applying minimal, accurate solutions to these problems.
-- To request changes, a user SHOULD log an issue on the project Platform issue tracker.
+- To request changes, a user SHOULD open an issue on the project Platform issue tracker.
 - The user or Contributor SHOULD write the issue by describing the problem they face or observe.
 - The user or Contributor SHOULD seek consensus on the accuracy of their observation, and the value of solving the problem.
 - Users MUST NOT log feature requests, ideas, or suggestions unrelated to Monero code or Monero's dependency code or Monero's potential/future dependency code or research which successfully implements Monero.
