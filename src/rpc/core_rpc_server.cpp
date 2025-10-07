@@ -1812,6 +1812,7 @@ namespace cryptonote
     {
       error_resp.code = CORE_RPC_ERROR_CODE_TOO_BIG_HEIGHT;
       error_resp.message = std::string("Requested block height: ") + std::to_string(h) + " greater than current top block height: " +  std::to_string(m_core.get_current_blockchain_height() - 1);
+      return false;
     }
     res = string_tools::pod_to_hex(m_core.get_block_id_by_height(h));
     return true;
