@@ -38,6 +38,7 @@ set(unit_tests_sources
   bulletproofs.cpp
   bulletproofs_plus.cpp
   canonical_amounts.cpp
+  carrot_convergence.cpp
   carrot_core.cpp
   carrot_fcmp.cpp
   carrot_impl.cpp
