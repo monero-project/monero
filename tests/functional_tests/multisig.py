@@ -29,6 +29,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import print_function
+import json
 import random
 
 """Test multisig transfers
@@ -408,10 +409,37 @@ class MultisigTest():
         assert len(res.tx_hash_list) == 1
         txid = res.tx_hash_list[0]
 
+        # Retrieve spent key images from daemon
+        res = daemon.get_transactions([txid], decode_as_json = True)
+        assert len(res.txs) == 1
+        tx = res.txs[0]
+        assert tx.tx_hash == txid
+        assert len(tx.as_json) > 0
+        try:
+          j = json.loads(tx.as_json)
+        except:
+          j = None
+        assert j
+        assert len(j['vin']) >= 1
+        spent_key_images = [vin['key']['k_image'] for vin in j['vin']]
+        assert len(spent_key_images) == len(j['vin'])
+
         for i in range(len(self.wallet)):
+          # Check if the wallet knows about any spent key images (all signers *should*, non-signers *might*)
+          is_a_signer = len([x for x in signers if x == i]) > 0
+          knows_key_image = False
+          for ki in spent_key_images:
+            try:
+              res = self.wallet[i].frozen(ki)
+              knows_key_image = True
+            except AssertionError:
+              if is_a_signer:
+                raise ValueError('Signer should know about spent key image')
+              pass
           self.wallet[i].refresh()
           res = self.wallet[i].get_transfers()
-          assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == (1 if i == signers[-1] else 0)
+          # Any wallet that knows about any spent key images should be able to detect the spend in the pool
+          assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == (1 if knows_key_image else 0)
           assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 0
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
@@ -507,9 +535,13 @@ class MultisigTest():
         txid = res.tx_hash_list[0]
 
         for i in range(len(self.wallet)):
+          # Make sure wallet knows about the key image
+          frozen = self.wallet[i].frozen(ki).frozen
+          assert not frozen
           self.wallet[i].refresh()
           res = self.wallet[i].get_transfers()
-          assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == (1 if i == signers[-1] else 0)
+          # Since all wallets should have key image, all wallets should be able to detect the spend in the pool
+          assert len([x for x in (res['pending'] if 'pending' in res else []) if x.txid == txid]) == 1
           assert len([x for x in (res['out'] if 'out' in res else []) if x.txid == txid]) == 0
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
