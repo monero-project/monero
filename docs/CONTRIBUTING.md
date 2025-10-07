@@ -147,14 +147,6 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Maintainers SHOULD ask for improvements to incorrect patches and SHOULD reject incorrect patches if the Contributor does not respond constructively.
 - Any Contributor who has value judgments on a correct patch SHOULD express these via their own patches.
 
-### Creating stable releases
-
-- The project MUST have one branch ("master") that always holds the latest in-progress version and SHOULD always build.
-- The project MUST NOT use topic branches for any reason. Personal forks MAY use topic branches.
-- To make a stable release someone MUST fork the repository by copying it and thus become maintainer of this repository.
-- Forking a project for stabilization MAY be done unilaterally and without agreement of project maintainers.
-- A patch to a stabilization project declared "stable" MUST be accompanied by a reproducible test case.
-
 ### Evolution of public contracts
 
 - All Public Contracts (APIs or protocols) MUST be documented.
