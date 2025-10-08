@@ -1443,6 +1443,7 @@ private:
      */
     void clear_user_data();
     bool bump_refresh_start_height(const uint64_t init_start_height, const bool trusted_daemon);
+    void handle_reorg_depth_error(const uint64_t start_height, const std::exception_ptr &exception, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
     uint64_t check_and_handle_reorg(const uint64_t start_height, const crypto::hash &top_hash, const std::vector<parsed_block> &parsed_blocks, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
     void pull_blocks(bool first, bool try_incremental, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, crypto::hash &top_hash, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data);
     void pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, crypto::hash &top_hash, bool &error, std::exception_ptr &exception);
@@ -1518,7 +1519,7 @@ private:
     std::map<std::pair<uint64_t, uint64_t>, size_t> create_output_tracker_cache() const;
 
     void init_type(hw::device::device_type device_type);
-    void setup_new_blockchain();
+    void setup_new_blockchain(const bool add_subaddr_account = true);
     void create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file);
 
     wallet_device_callback * get_device_callback();
