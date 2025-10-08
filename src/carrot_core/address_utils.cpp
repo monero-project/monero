@@ -56,14 +56,15 @@ void make_carrot_index_extension_generator(const crypto::secret_key &s_generate_
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_subaddress_scalar(const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &account_view_pubkey,
     const crypto::secret_key &s_address_generator,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
     crypto::secret_key &subaddress_scalar_out)
 {
-    // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
+    // k^j_subscal = H_n[s^j_gen](K_s, K_v, j_major, j_minor)
     const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR>(
-        account_spend_pubkey, j_major, j_minor);
+        account_spend_pubkey, account_view_pubkey, j_major, j_minor);
     derive_scalar(transcript.data(), transcript.size(), &s_address_generator, subaddress_scalar_out.data);
 }
 //-------------------------------------------------------------------------------------------------------------------

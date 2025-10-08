@@ -223,6 +223,10 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     crypto::public_key main_address_spend_pubkey;
     carrot::make_carrot_spend_pubkey(k_generate_image, k_prove_spend, main_address_spend_pubkey);
 
+    // K_v = k_v K_s
+    crypto::public_key account_view_pubkey;
+    k_view_incoming_dev.view_key_scalar_mult_ed25519(main_address_spend_pubkey, account_view_pubkey);
+
     // s^j_gen = H_32[s_ga](j_major, j_minor)
     const subaddress_index_extended subaddr_index = subaddress_index_ref(opening_hint);
     crypto::secret_key address_index_extension_generator;
@@ -235,6 +239,7 @@ void make_sal_proof_any_to_carrot_v1(const crypto::hash &signable_tx_hash,
     if (subaddr_index.index.is_subaddress())
     {
         carrot::make_carrot_subaddress_scalar(main_address_spend_pubkey,
+            account_view_pubkey,
             address_index_extension_generator,
             subaddr_index.index.major,
             subaddr_index.index.minor,

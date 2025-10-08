@@ -65,14 +65,16 @@ void make_carrot_index_extension_generator(const crypto::secret_key &s_generate_
     crypto::secret_key &address_generator_out);
 /**
 * brief: make_carrot_address_privkey - d^j_a
-*   k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
+*   k^j_subscal = H_n[s^j_gen](K_s, K_v, j_major, j_minor)
 * param: account_spend_pubkey - K_s = k_vb X + k_m U
+* param: account_view_pubkey - K_v = k_v K_s
 * param: s_address_generator - s^j_gen
 * param: j_major -
 * param: j_minor -
 * outparam: subaddress_scalar_out - k^j_subscal
 */
 void make_carrot_subaddress_scalar(const crypto::public_key &account_spend_pubkey,
+    const crypto::public_key &account_view_pubkey,
     const crypto::secret_key &s_address_generator,
     const std::uint32_t j_major,
     const std::uint32_t j_minor,
