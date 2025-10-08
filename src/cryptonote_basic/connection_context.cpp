@@ -99,7 +99,7 @@ namespace cryptonote
 
   void cryptonote_connection_context::reset()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     m_connection_stats->tx_announcements.clear();
     m_connection_stats->received = 0;
     m_connection_stats->requested_from_me = 0;
@@ -110,25 +110,25 @@ namespace cryptonote
 
   void cryptonote_connection_context::add_announcement(const crypto::hash &tx_hash)
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     m_connection_stats->tx_announcements.insert(tx_hash);
   }
 
   void cryptonote_connection_context::add_received()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->received;
   }
 
   void cryptonote_connection_context::add_requested_from_me()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->requested_from_me;
   }
 
   void cryptonote_connection_context::add_requested_from_peer()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     // increment in_flight_requests directly to avoid recursive locking deadlock
     ++m_connection_stats->in_flight_requests;
     ++m_connection_stats->requested_from_peer;
@@ -136,62 +136,62 @@ namespace cryptonote
 
   void cryptonote_connection_context::add_sent()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->sent;
   }
 
   void cryptonote_connection_context::add_in_flight_requests()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->in_flight_requests;
   }
 
   void cryptonote_connection_context::remove_in_flight_request()
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     if (m_connection_stats->in_flight_requests > 0)
       --m_connection_stats->in_flight_requests;
   }
 
   bool cryptonote_connection_context::can_process_additional_request(size_t requests)
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return (m_connection_stats->in_flight_requests + requests) < P2P_MAX_IN_FLIGHT_REQUESTS;
   }
 
   size_t cryptonote_connection_context::get_announcement_size() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->tx_announcements.size();
   }
 
   size_t cryptonote_connection_context::get_received() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->received;
   }
 
   size_t cryptonote_connection_context::get_requested_from_me() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->requested_from_me;
   }
 
   size_t cryptonote_connection_context::get_requested_from_peer() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->requested_from_peer;
   }
 
   size_t cryptonote_connection_context::get_sent() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->sent;
   }
 
   size_t cryptonote_connection_context::get_total() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->tx_announcements.size()
         + m_connection_stats->received
         + m_connection_stats->requested_from_me
@@ -201,19 +201,19 @@ namespace cryptonote
 
   size_t cryptonote_connection_context::get_missed() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->missed;
   }
 
   size_t cryptonote_connection_context::get_in_flight_requests() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return m_connection_stats->in_flight_requests;
   }
 
   std::string cryptonote_connection_context::get_info() const
   {
-    epee::read_lock r_lock(m_connection_stats->mutex);
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     std::ostringstream oss;
     oss << "Peer ID: " << epee::string_tools::pod_to_hex(m_connection_id)
         << ", Announcements size: " << m_connection_stats->tx_announcements.size()
@@ -227,7 +227,7 @@ namespace cryptonote
 
   bool cryptonote_connection_context::missed_announced_tx(const crypto::hash &/*tx_hash*/)
   {
-    epee::write_lock w_lock(m_connection_stats->mutex);
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->missed;
     const size_t announced = m_connection_stats->tx_announcements.size();
     if (announced == 0) return false;

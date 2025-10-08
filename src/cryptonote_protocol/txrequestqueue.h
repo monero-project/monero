@@ -35,6 +35,7 @@
 #define CRYPTONOTE_PROTOCOL_TXREQUESTQUEUE_H
 
 #include <boost/functional/hash.hpp>
+#include <boost/multi_index_container_fwd.hpp>
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -53,6 +54,7 @@
 struct request {
   boost::uuids::uuid peer_id;
   crypto::hash tx_hash;
+  // std::chrono::steady_clock::time_point firstseen_timestamp;
   std::time_t firstseen_timestamp;
   mutable bool in_flight = false;
 
@@ -63,7 +65,12 @@ struct request {
   bool is_in_flight() const { return in_flight; }
 };
 
-using namespace boost::multi_index;
+using boost::multi_index::hashed_non_unique;
+using boost::multi_index::hashed_unique;
+using boost::multi_index::indexed_by;
+using boost::multi_index::member;
+using boost::multi_index::multi_index_container;
+using boost::multi_index::composite_key;
 
 typedef multi_index_container<
     request,
@@ -80,8 +87,19 @@ typedef multi_index_container<
     >
 > request_container;
 
-#define get_requests_by_peer_id(request_container) request_container.get<0>()
-#define get_requests_by_tx_hash(request_container) request_container.get<1>()
-#define get_requests_by_peer_and_tx(request_container) request_container.get<2>()
+template<typename container_t>
+decltype(auto) get_requests_by_peer_id(container_t&& container) {
+    return std::forward<container_t>(container).template get<0>();
+}
+
+template<typename container_t>
+decltype(auto) get_requests_by_tx_hash(container_t&& container) {
+    return std::forward<container_t>(container).template get<1>();
+}
+
+template<typename container_t>
+decltype(auto) get_requests_by_peer_and_tx(container_t&& container) {
+    return std::forward<container_t>(container).template get<2>();
+}
 
 #endif // CRYPTONOTE_PROTOCOL_TXREQUESTQUEUE_H

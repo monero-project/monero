@@ -33,6 +33,7 @@
 #include <unordered_set>
 #include <atomic>
 #include <memory>
+#include <shared_mutex>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/optional/optional_fwd.hpp>
 #include "net/net_utils_base.h"
@@ -123,14 +124,14 @@ namespace cryptonote
     private:
       struct connection_statistics
       {
-        mutable epee::rw_mutex mutex;
+        mutable std::shared_timed_mutex mutex;
         std::unordered_set<crypto::hash> tx_announcements;
-        size_t received = 0;
-        size_t requested_from_me = 0;
-        size_t requested_from_peer = 0;
-        size_t sent = 0;
-        size_t missed = 0;
-        size_t in_flight_requests = 0;
+        std::atomic<size_t> received = 0;
+        std::atomic<size_t> requested_from_me = 0;
+        std::atomic<size_t> requested_from_peer = 0;
+        std::atomic<size_t> sent = 0;
+        std::atomic<size_t> missed = 0;
+        std::atomic<size_t> in_flight_requests = 0;
       };
       std::shared_ptr<connection_statistics> m_connection_stats;
 

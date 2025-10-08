@@ -36,7 +36,6 @@
 
 #include <boost/program_options/variables_map.hpp>
 #include <string>
-#include <thread>
 
 #include "byte_slice.h"
 #include "math_helper.h"
@@ -52,7 +51,6 @@
 #include "p2p/net_node_common.h"
 #include "request_manager.h"
 #include <boost/circular_buffer.hpp>
-#include <boost/uuid/uuid.hpp>
 #include <boost/uuid/nil_generator.hpp>
 
 PUSH_WARNINGS
@@ -194,7 +192,7 @@ namespace cryptonote
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
     epee::math_helper::once_a_time_seconds<43> m_bad_peer_checker;
     std::atomic<uint64_t> m_interval_peer_request_checker{P2P_DEFAULT_REQUEST_TIMEOUT}; // microseconds
-    std::function<uint64_t()> m_peer_request_interval; // set in ctor
+    const std::function<uint64_t()> m_peer_request_interval; // set in ctor
     epee::math_helper::once_a_time<decltype(m_peer_request_interval)> m_peer_request_checker;
     std::unordered_map<epee::net_utils::zone, unsigned int> m_max_out_peers;
     mutable epee::critical_section m_max_out_peers_lock;
