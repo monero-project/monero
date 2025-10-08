@@ -807,6 +807,13 @@ namespace cryptonote
     void set_enforce_dns_checkpoints(bool enforce);
 
     /**
+     * @brief get whether or not DNS-based checkpoints are enforced
+     *
+     * @return the current enforcement setting
+     */
+    bool get_enforce_dns_checkpoints() const;
+
+    /**
      * @brief loads new checkpoints from a file and optionally from DNS
      *
      * @param file_path the path of the file to look for and load checkpoints from

@@ -467,6 +467,13 @@ namespace cryptonote
      void set_enforce_dns_checkpoints(bool enforce_dns);
 
      /**
+      * @copydoc core::get_enforce_dns_checkpoints
+      *
+      * @note get whether or not we enforce DNS checkpoints
+      */
+     bool get_enforce_dns_checkpoints() const;
+
+     /**
       * @brief set whether or not to enable or disable DNS checkpoints
       *
       * @param disble whether to disable DNS checkpoints
@@ -1081,6 +1088,7 @@ namespace cryptonote
      epee::math_helper::once_a_time_seconds<90, false> m_block_rate_interval; //!< interval for checking block rate
      epee::math_helper::once_a_time_seconds<60*60*5, true> m_blockchain_pruning_interval; //!< interval for incremental blockchain pruning
      epee::math_helper::once_a_time_seconds<60*60*24*7, false> m_diff_recalc_interval; //!< interval for recalculating difficulties
+     epee::math_helper::once_a_time_seconds<120> m_update_checkpoints_loop_interval; //!< interval to test conditions to see whether update_checkpoints should run
 
      std::atomic<bool> m_starter_message_showed; //!< has the "daemon will sync now" message been shown?
 
@@ -1093,6 +1101,7 @@ namespace cryptonote
      std::string m_checkpoints_path; //!< path to json checkpoints file
      time_t m_last_dns_checkpoints_update; //!< time when dns checkpoints were last updated
      time_t m_last_json_checkpoints_update; //!< time when json checkpoints were last updated
+     bool m_skip_dns_checkpoints;
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
      bool m_disable_dns_checkpoints;
