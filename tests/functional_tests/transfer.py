@@ -83,6 +83,7 @@ class TransferTest():
         self.check_reorg_recovery()
         self.check_deep_reorg_recovery(extend_reorg = True)
         self.check_deep_reorg_recovery(extend_reorg = False) # strictly tests wallet's recovery from daemon pop_blocks
+        self.check_reorg_restore_height_recovery()
         self.check_destinations()
         self.check_tx_notes()
         self.check_rescan()
@@ -929,6 +930,49 @@ class TransferTest():
 
         # Reconnect daemon
         daemon.out_peers(12)
+
+    def check_reorg_restore_height_recovery(self):
+        daemon = Daemon()
+
+        print("Checking wallet recovery after reorganzing the restore height's prev block")
+
+        # This test assumes the daemon height is higher than the default max reorg depth
+        ORPHANED_BLOCKS_MAX_COUNT = 100
+        height = daemon.get_height().height
+        if height < ORPHANED_BLOCKS_MAX_COUNT:
+            daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1 + ORPHANED_BLOCKS_MAX_COUNT - height)
+
+        # 1. Mine 2 blocks after disconnecting daemon
+        daemon.out_peers(0)
+        address = self.wallet[0].get_address().address
+        height = daemon.generateblocks(address, 2).height
+        assert height > ORPHANED_BLOCKS_MAX_COUNT
+        miner_txid = daemon.getlastblockheader().block_header.miner_tx_hash
+
+        # 2. Restore the wallet at the highest mined block's height
+        restore_wallet(self.wallet[0], seeds[0], restore_height = height)
+
+        # 3. Make sure the wallet can identify the top mined tx
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_transfers(in_ = True)
+        assert len(res['in']) == 1
+        assert res['in'][0].txid == miner_txid
+
+        # 4. Reorganize out the top 2 blocks, and mine 2 more, then make sure wallet detects new block
+        daemon.pop_blocks(2)
+        daemon.generateblocks(address, 2)
+        block_header = daemon.getlastblockheader().block_header
+        assert miner_txid != block_header.miner_tx_hash
+        miner_txid = block_header.miner_tx_hash
+        self.wallet[0].refresh()
+        res = self.wallet[0].get_transfers(in_ = True)
+        assert len(res['in']) == 1
+        assert res['in'][0].txid == miner_txid
+
+        # Reconnect daemon and reset wallet
+        daemon.out_peers(12)
+        restore_wallet(self.wallet[0], seeds[0])
+        self.wallet[0].refresh()
 
     def check_destinations(self):
         daemon = Daemon()

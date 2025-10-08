@@ -3345,8 +3345,11 @@ bool wallet2::bump_refresh_start_height(const uint64_t init_start_height, const 
   // to clear their wallet, so we can start scanning from the higher height from an empty wallet.
   THROW_WALLET_EXCEPTION_IF(m_blockchain.size() != 1 || m_tree_cache.n_synced_blocks() != 0, error::needs_rescan);
 
-  // Bring start_height back 1 because scanning starts *on top of* prev block
-  const uint64_t top_prev_block_idx = start_height - 1;
+  // Bring start_height back the max reorg depth. If we start scanning the current tip, it may get reorged out, and then
+  // we wouldn't be able to handle a reorg below that depth. So make sure we'll always be able to handle a reorg back
+  // to the max depth, or throw reorg_depth_error.
+  const uint64_t max_reorg_depth = std::max<uint64_t>(1, m_max_reorg_depth);
+  const uint64_t top_prev_block_idx = start_height - std::min(start_height, max_reorg_depth);
 
   // Granular-ize the start height, clamping to divisble by 1024 to avoid revealing exact start block to untrusted daemon
   const uint64_t granularity = trusted_daemon ? 1 : FIRST_REFRESH_GRANULARITY;
