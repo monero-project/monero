@@ -1249,9 +1249,6 @@ namespace cryptonote
     uint64_t m_prepare_nblocks;
     std::vector<block> *m_prepare_blocks;
 
-    // cache for verifying transaction RCT non semantics
-    mutable rct_ver_cache_t m_rct_ver_cache;
-
     /**
      * @brief Blockchain constructor
      *
@@ -1588,18 +1585,6 @@ namespace cryptonote
      * @return false if a double spend was detected, otherwise true
      */
     bool check_for_double_spend(const transaction& tx, key_images_container& keys_this_block) const;
-
-    /**
-     * @brief validates a transaction input's ring signature
-     *
-     * @param tx_prefix_hash the transaction prefix' hash
-     * @param key_image the key image generated from the true input
-     * @param pubkeys the public keys for each input in the ring signature
-     * @param sig the signature generated for each input in the ring signature
-     * @param result false if the ring signature is invalid, otherwise true
-     */
-    void check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image,
-        const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature> &sig, uint64_t &result) const;
 
     /**
      * @brief loads block hashes from compiled-in data set

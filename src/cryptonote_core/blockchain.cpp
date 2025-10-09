@@ -99,8 +99,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_difficulty_for_next_block(1),
   m_btc_valid(false),
   m_batch_success(true),
-  m_prepare_height(0),
-  m_rct_ver_cache()
+  m_prepare_height(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 }
@@ -3401,12 +3400,6 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
   }
 
   std::vector<std::vector<rct::ctkey>> pubkeys(tx.vin.size());
-  std::vector < uint64_t > results;
-  results.resize(tx.vin.size(), 0);
-
-  tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-  tools::threadpool::waiter waiter(tpool);
-  int threads = tpool.get_max_concurrency();
 
   uint64_t max_used_block_height = 0;
   if (!pmax_used_block_height)
@@ -3447,36 +3440,8 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
       return false;
     }
 
-    if (tx.version == 1)
-    {
-      if (threads > 1)
-      {
-        // ND: Speedup
-        // 1. Thread ring signature verification if possible.
-        tpool.submit(&waiter, boost::bind(&Blockchain::check_ring_signature, this, std::cref(tx_prefix_hash), std::cref(in_to_key.k_image), std::cref(pubkeys[sig_index]), std::cref(tx.signatures[sig_index]), std::ref(results[sig_index])), true);
-      }
-      else
-      {
-        check_ring_signature(tx_prefix_hash, in_to_key.k_image, pubkeys[sig_index], tx.signatures[sig_index], results[sig_index]);
-        if (!results[sig_index])
-        {
-          MERROR_VER("Failed to check ring signature for tx " << get_transaction_hash(tx) << "  vin key with k_image: " << in_to_key.k_image << "  sig_index: " << sig_index);
-
-          if (pmax_used_block_height)  // a default value of NULL is used when called from Blockchain::handle_block_to_main_chain()
-          {
-            MERROR_VER("*pmax_used_block_height: " << *pmax_used_block_height);
-          }
-
-          return false;
-        }
-      }
-    }
-
     sig_index++;
   }
-  if (tx.version == 1 && threads > 1)
-    if (!waiter.wait())
-      return false;
 
   // enforce min output age
   if (hf_version >= HF_VERSION_ENFORCE_MIN_AGE)
@@ -3485,143 +3450,13 @@ bool Blockchain::check_tx_inputs(transaction& tx, tx_verification_context &tvc, 
         false, "Transaction spends at least one output which is too young");
   }
 
-  // Warn that new RCT types are present, and thus the cache is not being used effectively
-  static constexpr const std::uint8_t RCT_CACHE_TYPE = rct::RCTTypeBulletproofPlus;
-  if (tx.rct_signatures.type > RCT_CACHE_TYPE)
+  if (!ver_input_proofs_rings(tx, pubkeys))
   {
-    MWARNING("RCT cache is not caching new verification results. Please update RCT_CACHE_TYPE!");
+    MERROR_VER("Failed to verify input ring signatures");
+    return false;
   }
 
-  if (tx.version == 1)
-  {
-    if (threads > 1)
-    {
-      // save results to table, passed or otherwise
-      bool failed = false;
-      for (size_t i = 0; i < tx.vin.size(); i++)
-      {
-        if(!failed && !results[i])
-          failed = true;
-      }
-
-      if (failed)
-      {
-        MERROR_VER("Failed to check ring signatures!");
-        return false;
-      }
-    }
-  }
-  else
-  {
-    // from version 2, check ringct signatures
-    // obviously, the original and simple rct APIs use a mixRing that's indexes
-    // in opposite orders, because it'd be too simple otherwise...
-    const rct::rctSig &rv = tx.rct_signatures;
-    switch (rv.type)
-    {
-    case rct::RCTTypeNull: {
-      // we only accept no signatures for coinbase txes
-      MERROR_VER("Null rct signature on non-coinbase tx");
-      return false;
-    }
-    case rct::RCTTypeSimple:
-    case rct::RCTTypeBulletproof:
-    case rct::RCTTypeBulletproof2:
-    case rct::RCTTypeCLSAG:
-    case rct::RCTTypeBulletproofPlus:
-    {
-      if (!ver_rct_non_semantics_simple_cached(tx, pubkeys, m_rct_ver_cache, RCT_CACHE_TYPE))
-      {
-        MERROR_VER("Failed to check ringct signatures!");
-        return false;
-      }
-      break;
-    }
-    case rct::RCTTypeFull:
-    {
-      if (!expand_transaction_2(tx, tx_prefix_hash, pubkeys))
-      {
-        MERROR_VER("Failed to expand rct signatures!");
-        return false;
-      }
-
-      // check all this, either reconstructed (so should really pass), or not
-      {
-        bool size_matches = true;
-        for (size_t i = 0; i < pubkeys.size(); ++i)
-          size_matches &= pubkeys[i].size() == rv.mixRing.size();
-        for (size_t i = 0; i < rv.mixRing.size(); ++i)
-          size_matches &= pubkeys.size() == rv.mixRing[i].size();
-        if (!size_matches)
-        {
-          MERROR_VER("Failed to check ringct signatures: mismatched pubkeys/mixRing size");
-          return false;
-        }
-
-        for (size_t n = 0; n < pubkeys.size(); ++n)
-        {
-          for (size_t m = 0; m < pubkeys[n].size(); ++m)
-          {
-            if (pubkeys[n][m].dest != rct::rct2pk(rv.mixRing[m][n].dest))
-            {
-              MERROR_VER("Failed to check ringct signatures: mismatched pubkey at vin " << n << ", index " << m);
-              return false;
-            }
-            if (pubkeys[n][m].mask != rct::rct2pk(rv.mixRing[m][n].mask))
-            {
-              MERROR_VER("Failed to check ringct signatures: mismatched commitment at vin " << n << ", index " << m);
-              return false;
-            }
-          }
-        }
-      }
-
-      if (rv.p.MGs.size() != 1)
-      {
-        MERROR_VER("Failed to check ringct signatures: Bad MGs size");
-        return false;
-      }
-      if (rv.p.MGs.empty() || rv.p.MGs[0].II.size() != tx.vin.size())
-      {
-        MERROR_VER("Failed to check ringct signatures: mismatched II/vin sizes");
-        return false;
-      }
-      for (size_t n = 0; n < tx.vin.size(); ++n)
-      {
-        if (memcmp(&boost::get<txin_to_key>(tx.vin[n]).k_image, &rv.p.MGs[0].II[n], 32))
-        {
-          MERROR_VER("Failed to check ringct signatures: mismatched II/vin sizes");
-          return false;
-        }
-      }
-
-      if (!rct::verRct(rv, false))
-      {
-        MERROR_VER("Failed to check ringct signatures!");
-        return false;
-      }
-      break;
-    }
-    default:
-      MERROR_VER("Unsupported rct type: " << rv.type);
-      return false;
-    }
-  }
   return true;
-}
-
-//------------------------------------------------------------------
-void Blockchain::check_ring_signature(const crypto::hash &tx_prefix_hash, const crypto::key_image &key_image, const std::vector<rct::ctkey> &pubkeys, const std::vector<crypto::signature>& sig, uint64_t &result) const
-{
-  std::vector<const crypto::public_key *> p_output_keys;
-  p_output_keys.reserve(pubkeys.size());
-  for (auto &key : pubkeys)
-  {
-    // rct::key and crypto::public_key have the same structure, avoid object ctor/memcpy
-    p_output_keys.push_back(&(const crypto::public_key&)key.dest);
-  }
-
-  result = crypto::check_ring_signature(tx_prefix_hash, key_image, p_output_keys, sig.data()) ? 1 : 0;
 }
 
 //------------------------------------------------------------------

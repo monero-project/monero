@@ -172,7 +172,10 @@ struct txpool_tx_meta_t
   uint8_t is_forwarding: 1;
   uint8_t bf_padding: 3;
 
-  uint8_t padding[76]; // till 192 bytes
+  // If non-null, this verification ID is set for this tx only when some mixring passed ver_input_proofs_rings()
+  crypto::hash valid_input_verification_id;
+
+  uint8_t padding[44]; // till 192 bytes
 
   void set_relay_method(relay_method method) noexcept;
   relay_method get_relay_method() const noexcept;
@@ -186,7 +189,7 @@ struct txpool_tx_meta_t
     return matches_category(get_relay_method(), category);
   }
 };
-
+static_assert(sizeof(txpool_tx_meta_t) == 192, "possible DB migration needed for changes to txpool_tx_meta_t");
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
