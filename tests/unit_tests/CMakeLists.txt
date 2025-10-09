@@ -92,7 +92,7 @@ set(unit_tests_sources
   uri.cpp
   util.cpp
   varint.cpp
-  ver_rct_non_semantics_simple_cached.cpp
+  verRctNonSemanticsSimple.cpp
   ringct.cpp
   output_selection.cpp
   vercmp.cpp

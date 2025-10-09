@@ -137,7 +137,8 @@ namespace cryptonote
   bool tx_memory_pool::add_tx(transaction &tx, /*const crypto::hash& tx_prefix_hash,*/
     const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight,
     tx_verification_context& tvc, relay_method tx_relay, bool relayed,
-    uint8_t version, uint8_t nic_verified_hf_version)
+    uint8_t version, uint8_t nic_verified_hf_version,
+    const crypto::hash &valid_input_verification_id)
   {
     const bool kept_by_block = (tx_relay == relay_method::block);
 
@@ -224,7 +225,9 @@ namespace cryptonote
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta{};
-    bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
+    meta.valid_input_verification_id = valid_input_verification_id;
+    const bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id,
+      meta.valid_input_verification_id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
     if(!ch_inp_res)
     {
       // if the transaction was valid before (kept_by_block), then it
@@ -355,7 +358,8 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay,
-    bool relayed, uint8_t version, uint8_t nic_verified_hf_version)
+    bool relayed, uint8_t version, uint8_t nic_verified_hf_version,
+    const crypto::hash &valid_input_verification_id)
   {
     crypto::hash h = null_hash;
     cryptonote::blobdata bl;
@@ -363,7 +367,7 @@ namespace cryptonote
     if (bl.size() == 0 || !get_transaction_hash(tx, h))
       return false;
     return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version,
-      nic_verified_hf_version);
+      nic_verified_hf_version, valid_input_verification_id);
   }
   //---------------------------------------------------------------------------------
   size_t tx_memory_pool::get_txpool_weight() const
@@ -529,8 +533,20 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen, bool &pruned, const bool suppress_missing_msgs)
+  bool tx_memory_pool::take_tx(const crypto::hash &id,
+    transaction &tx,
+    cryptonote::blobdata &txblob,
+    size_t& tx_weight,
+    uint64_t& fee,
+    crypto::hash &valid_input_verification_id,
+    bool &relayed,
+    bool &do_not_relay,
+    bool &double_spend_seen,
+    bool &pruned,
+    const bool suppress_missing_msgs)
   {
+    valid_input_verification_id = crypto::null_hash;
+
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
@@ -568,6 +584,7 @@ namespace cryptonote
       do_not_relay = meta.do_not_relay;
       double_spend_seen = meta.double_spend_seen;
       pruned = meta.pruned;
+      valid_input_verification_id = meta.valid_input_verification_id;
       sensitive = !meta.matches(relay_category::broadcasted);
 
       // remove first, in case this throws, so key images aren't removed
@@ -1373,7 +1390,13 @@ namespace cryptonote
     m_transactions_lock.unlock();
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx, const crypto::hash &txid, uint64_t &max_used_block_height, crypto::hash &max_used_block_id, tx_verification_context &tvc, bool kept_by_block) const
+  bool tx_memory_pool::check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx,
+    const crypto::hash &txid,
+    crypto::hash &valid_input_verification_id_inout,
+    uint64_t &max_used_block_height,
+    crypto::hash &max_used_block_id,
+    tx_verification_context &tvc,
+    bool kept_by_block) const
   {
     if (!kept_by_block)
     {
@@ -1386,7 +1409,7 @@ namespace cryptonote
         return std::get<0>(i->second);
       }
     }
-    bool ret = m_blockchain.check_tx_inputs(get_tx(), max_used_block_height, max_used_block_id, tvc, kept_by_block);
+    bool ret = m_blockchain.check_tx_inputs(get_tx(), max_used_block_height, max_used_block_id, tvc, valid_input_verification_id_inout, kept_by_block);
     if (!kept_by_block)
       m_input_cache.insert(std::make_pair(txid, std::make_tuple(ret, tvc, max_used_block_height, max_used_block_id)));
     return ret;
@@ -1423,6 +1446,7 @@ namespace cryptonote
     tx_verification_context tvc{};
     if (!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); },
       txid,
+      txd.valid_input_verification_id,
       txd.max_used_block_height,
       txd.max_used_block_id,
       tvc))
@@ -1725,12 +1749,14 @@ namespace cryptonote
         cryptonote::transaction tx;
         cryptonote::blobdata blob;
         bool relayed, do_not_relay, double_spend_seen, pruned;
-        if (!take_tx(e.txid, tx, blob, weight, fee, relayed, do_not_relay, double_spend_seen, pruned))
+        crypto::hash valid_input_verification_id;
+        if (!take_tx(e.txid, tx, blob, weight, fee, valid_input_verification_id, relayed, do_not_relay, double_spend_seen, pruned))
           MERROR("Failed to get tx " << e.txid << " from txpool for re-validation");
 
         cryptonote::tx_verification_context tvc{};
         relay_method tx_relay = e.meta.get_relay_method();
-        if (!add_tx(tx, e.txid, blob, e.meta.weight, tvc, tx_relay, relayed, version))
+        if (!add_tx(tx, e.txid, blob, e.meta.weight, tvc, tx_relay, relayed, version,
+          /*nic_verified_hf_version=*/0, valid_input_verification_id))
         {
           MINFO("Failed to re-validate tx " << e.txid << " for v" << (unsigned)version << ", dropped");
           continue;
