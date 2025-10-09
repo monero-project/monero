@@ -1367,9 +1367,8 @@ namespace cryptonote
         << ", b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
 
       block_to_blob(b, arg.b.block);
-      //pack transactions
-      for(auto& tx:  txs)
-        arg.b.txs.push_back({tx, crypto::null_hash});
+      // Relay an empty fluffy block
+      arg.b.txs.clear();
 
       m_pprotocol->relay_block(arg, exclude_context);
     }
