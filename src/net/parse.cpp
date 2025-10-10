@@ -29,6 +29,9 @@
 
 #include "parse.h"
 
+#include <type_traits>
+#include "hex.h"
+#include "net/socks.h"
 #include "net/tor_address.h"
 #include "net/i2p_address.h"
 #include "string_tools.h"
@@ -36,6 +39,95 @@
 
 namespace net
 {
+    namespace
+    {
+        bool percent_decoding(std::string& out)
+        {
+            auto pos = out.find('%');
+            while (pos != std::string::npos)
+            {
+                if (out.size() - pos < 3)
+                    return false;
+                if (!epee::from_hex::to_buffer({reinterpret_cast<std::uint8_t*>(out.data()) + pos, 1}, {out.data() + pos + 1, 2}))
+                    return false;
+                out.erase(pos + 1, 2);
+                pos = out.find('%', pos + 1);
+            }
+
+            return true;
+        }
+    } // anonymous
+
+    scheme_and_authority::scheme_and_authority(boost::string_ref uri)
+      : scheme(), authority()
+    {
+        static_assert(std::is_same<std::string::size_type, boost::string_ref::size_type>());
+
+        // Stop at scheme end or path begin. URN not supported
+        const auto split = uri.find_first_of(":/");
+        if (split != boost::string_ref::npos && uri.substr(split).starts_with("://"))
+        {
+            scheme.assign(uri.data(), split);
+            uri = uri.substr(split + 3);
+        }
+
+        uri = uri.substr(0, uri.find('/'));
+        authority.assign(uri.data(), uri.size());
+    }
+
+    userinfo_and_hostport::userinfo_and_hostport(boost::string_ref authority)
+      : userinfo(), hostport()
+    {
+        static_assert(std::is_same<std::string::size_type, boost::string_ref::size_type>());
+
+        const auto split = authority.find('@');
+        if (split != boost::string_ref::npos)
+        {
+            userinfo.assign(authority.data(), split);
+            authority = authority.substr(split + 1);
+        }
+
+        hostport.assign(authority.data(), authority.size());
+    }
+
+    std::optional<user_and_pass> user_and_pass::get(boost::string_ref userinfo)
+    {
+        static_assert(std::is_same<std::string::size_type, boost::string_ref::size_type>());
+        std::optional<user_and_pass> out{std::in_place};
+
+        const auto split = userinfo.find(':');
+        if (split != boost::string_ref::npos)
+        {
+            out->user.assign(userinfo.data(), split);
+            userinfo = userinfo.substr(split + 1);
+        }
+        else
+        {
+            out->user.assign(userinfo.data(), userinfo.size());
+            userinfo = {};
+        }
+
+        out->pass.assign(userinfo.data(), userinfo.size());
+        if (percent_decoding(out->user) && percent_decoding(out->pass))
+            return out;
+        return std::nullopt;
+    }
+
+    std::optional<uri_components> uri_components::get(const boost::string_ref uri)
+    {
+        scheme_and_authority result1{uri};
+        userinfo_and_hostport result2{result1.authority};
+        auto result3 = user_and_pass::get(result2.userinfo);
+        if (!result3)
+            return std::nullopt;
+
+        std::optional<uri_components> out{std::in_place};
+        out->scheme = std::move(result1.scheme);
+        out->userinfo = std::move(*result3);
+        out->hostport = std::move(result2.hostport);
+        return out;
+    }
+
     void get_network_address_host_and_port(const std::string& address, std::string& host, std::string& port)
     {
         // If IPv6 address format with port "[addr:addr:addr:...:addr]:port"
@@ -104,7 +196,6 @@ namespace net
             if (epee::string_tools::get_ip_int32_from_string(ip, host_str))
                 return {epee::net_utils::ipv4_network_address{ip, port}};
         }
-
         return make_error_code(net::error::unsupported_address);
     }
 
@@ -164,5 +255,47 @@ namespace net
         }
 
         return result;
+    }
+
+    namespace socks
+    {
+        endpoint::endpoint()
+          : endpoint(boost::asio::ip::tcp::endpoint{})
+        {}
+
+        endpoint::endpoint(const boost::asio::ip::tcp::endpoint& address)
+          : address(address), userinfo(), ver(version::v4a)
+        {}
+
+        expect<endpoint> endpoint::get(const boost::string_ref uri)
+        {
+            auto components = uri_components::get(uri);
+            if (!components)
+                return {net::error::invalid_encoding};
+            auto tcp_endpoint = get_tcp_endpoint(components->hostport);
+            if (!tcp_endpoint)
+                return tcp_endpoint.error();
+
+            endpoint out{};
+            if (components->scheme.empty() || components->scheme == "socks" || components->scheme == "socks4a")
+                out.ver = version::v4a;
+            else if (components->scheme == "socks4")
+                out.ver = version::v4;
+            else if (components->scheme == "socks5")
+                out.ver = version::v5;
+            else
+                return {net::error::invalid_scheme};
+
+            // Only version 5 supports user/pass authentication
+            if (!components->userinfo.user.empty() || !components->userinfo.user.empty())
+            {
+                if (out.ver != version::v5)
+                    return {net::error::unexpected_userinfo};
+            }
+
+            out.address = std::move(*tcp_endpoint);
+            out.userinfo = std::move(components->userinfo);
+            return out;
+        }
     }
 }
