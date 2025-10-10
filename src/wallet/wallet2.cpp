@@ -3984,6 +3984,9 @@ void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, 
   if (m_background_syncing)
     return;
 
+  // Synchronize access since this can modify state the refresh loop can modify too
+  boost::lock_guard refresh_lock(m_refresh_mutex);
+
   // We aren't calling this from the refresh loop
   const bool refreshed = false;
 
