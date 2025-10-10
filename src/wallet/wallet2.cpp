@@ -1259,6 +1259,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_export_format(ExportFormat::Binary),
   m_enable_multisig(false),
   m_pool_info_query_time(0),
+  m_secondary_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
   m_allow_mismatched_daemon_version(false),
   m_curve_trees(fcmp_pp::curve_trees::curve_trees_v1()),
@@ -1392,6 +1393,7 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
     m_rpc_version = 0;
     m_node_rpc_proxy.invalidate();
     m_pool_info_query_time = 0;
+    m_secondary_pool_info_query_time = 0;
   }
 
   const std::string address = get_daemon_address();
@@ -3002,7 +3004,7 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   update_pool_state_from_pool_data(res.pool_info_extent == COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL, res.removed_pool_txids, added_pool_txs, process_txs, refreshed);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, crypto::hash &top_hash, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data)
+void wallet2::pull_blocks(bool check_pool, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, crypto::hash &top_hash, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data)
 {
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
   cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
@@ -3015,8 +3017,8 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t &blocks_sta
   MDEBUG("Requesting blocks starting on top of block hash " << req.block_ids.front()
       << ", n blocks synced: " << m_blockchain.size() << ", init_tree_sync: " << req.init_tree_sync);
 
-  req.requested_info = (first && !m_background_syncing) ? COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_AND_POOL : COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_ONLY;
-  if (try_incremental && !m_background_syncing)
+  req.requested_info = check_pool ? COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_AND_POOL : COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_ONLY;
+  if (check_pool)
     req.pool_info_since = m_pool_info_query_time;
 
   {
@@ -3046,7 +3048,7 @@ void wallet2::pull_blocks(bool first, bool try_incremental, uint64_t &blocks_sta
       << ", top hash " << top_hash
       << ", pool info " << static_cast<unsigned int>(res.pool_info_extent));
 
-  if (first && !m_background_syncing)
+  if (check_pool)
   {
     if (res.pool_info_extent != COMMAND_RPC_GET_BLOCKS_FAST::NONE)
     {
@@ -3709,7 +3711,7 @@ void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_
   daemon_is_outdated = height < start_height || height >= end_height;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, crypto::hash &top_hash, bool &error, std::exception_ptr &exception)
+void wallet2::pull_and_parse_next_blocks(bool check_pool, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, crypto::hash &top_hash, bool &error, std::exception_ptr &exception)
 {
   error = false;
   exception = NULL;
@@ -3719,7 +3721,7 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     // pull the new blocks
     std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> o_indices;
     boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> init_tree_sync_data;
-    pull_blocks(first, try_incremental, blocks_start_height, short_chain_history, blocks, o_indices, top_hash, process_pool_txs, init_tree_sync_data);
+    pull_blocks(check_pool, blocks_start_height, short_chain_history, blocks, o_indices, top_hash, process_pool_txs, init_tree_sync_data);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
@@ -3791,8 +3793,6 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
 
     if (init_tree_sync_data)
     {
-      THROW_WALLET_EXCEPTION_IF(!first, error::wallet_internal_error, "init tree sync data is only expected on first loop");
-
       // Initialize local tree cache
       const uint64_t init_block_idx = init_tree_sync_data->init_block_idx;
       const crypto::hash &init_block_hash = init_tree_sync_data->init_block_hash;
@@ -3978,42 +3978,49 @@ void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash 
 // simplewallet does NOT update the pool info during automatic refresh to avoid disturbing interactive
 // messages and prompts. When it finally calls this method here "to catch up" so to say we can't use
 // incremental update anymore, because with that we might miss some txs altogether.
-void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed, bool try_incremental)
+void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs)
 {
   process_txs.clear();
   if (m_background_syncing)
     return;
-  bool updated = false;
-  if (m_pool_info_query_time != 0 && try_incremental)
+
+  // We aren't calling this from the refresh loop
+  const bool refreshed = false;
+
+  // Incremental was added in RPC v3.13
+  // https://github.com/monero-project/monero/blob/v0.18.3.0/src/rpc/core_rpc_server_commands_defs.h#L90-L91
+  // https://github.com/monero-project/monero/blob/v0.18.3.0/src/rpc/core_rpc_server_commands_defs.h#L169
+  if (m_rpc_version < MAKE_CORE_RPC_VERSION(3, 13))
   {
-    // We are connected to a daemon that supports giving back pool data with the 'getblocks' call,
-    // thus use that, to get the chance to work incrementally and to keep working incrementally;
-    // 'POOL_ONLY' was created to support this case
-    cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
-    cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
-
-    req.requested_info = COMMAND_RPC_GET_BLOCKS_FAST::POOL_ONLY;
-    req.pool_info_since = m_pool_info_query_time;
-    req.prune = true;
-
-    {
-      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      bool r = net_utils::invoke_http_bin("/getblocks.bin", req, res, *m_http_client, rpc_timeout);
-      THROW_ON_RPC_RESPONSE_ERROR(r, {}, res, "getblocks.bin", error::get_blocks_error, get_rpc_status(m_trusted_daemon, res.status));
-    }
-
-    m_pool_info_query_time = res.daemon_time;
-    if (res.pool_info_extent != COMMAND_RPC_GET_BLOCKS_FAST::NONE)
-    {
-      process_pool_info_extent(res, process_txs, refreshed);
-      updated = true;
-    }
-    // We SHOULD get pool data here, but if for some crazy reason we don't fall back to the "old" method
-  }
-  if (!updated)
-  {
+    // Use the old approach
     update_pool_state_by_pool_query(process_txs, refreshed);
+    return;
   }
+
+  // We are connected to a daemon that supports giving back pool data with the 'getblocks' call,
+  // thus use that, to get the chance to work incrementally and to keep working incrementally;
+  // 'POOL_ONLY' was created to support this case
+  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request req = AUTO_VAL_INIT(req);
+  cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response res = AUTO_VAL_INIT(res);
+  req.requested_info = COMMAND_RPC_GET_BLOCKS_FAST::POOL_ONLY;
+  req.prune = true;
+
+  // We want to see the latest pool state in this function. The main refresh loop must use
+  // m_pool_info_query_time **always** in case there are removed txs that the main loop
+  // needs to handle. This function can use the latest state.
+  req.pool_info_since = std::max(m_pool_info_query_time, m_secondary_pool_info_query_time);
+
+  {
+    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    bool r = net_utils::invoke_http_bin("/getblocks.bin", req, res, *m_http_client, rpc_timeout);
+    THROW_ON_RPC_RESPONSE_ERROR(r, {}, res, "getblocks.bin", error::get_blocks_error, get_rpc_status(m_trusted_daemon, res.status));
+    THROW_WALLET_EXCEPTION_IF(res.pool_info_extent == COMMAND_RPC_GET_BLOCKS_FAST::NONE, error::wallet_internal_error,
+      "getblocks.bin returned none pool info extent");
+  }
+
+  // Set the secondary here so that we can reuse the secondary in this function ONLY
+  m_secondary_pool_info_query_time = res.daemon_time;
+  process_pool_info_extent(res, process_txs, refreshed);
 }
 //----------------------------------------------------------------------------------------------------
 // This is the "old" way of updating the pool with separate queries to get the pool content, used before
@@ -4080,6 +4087,7 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
       txids.push_back(txid);
   }
 
+  LOG_PRINT_L1("Querying pool for " << txids.size() << " txs");
   m_node_rpc_proxy.get_transactions(txids,
     [this, &txids, &process_txs](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &req_t, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &resp_t, bool r)
     {
@@ -4243,7 +4251,7 @@ std::map<std::pair<uint64_t, uint64_t>, size_t> wallet2::create_output_tracker_c
   return cache;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental, uint64_t max_blocks)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, uint64_t max_blocks)
 {
   boost::lock_guard refresh_lock(m_refresh_mutex);
 
@@ -4252,6 +4260,18 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     blocks_fetched = 0;
     received_money = 0;
     return;
+  }
+
+  if (!m_first_refresh_done)
+  {
+    // We want to process the whole pool again, in case we identify received outputs in the chain we might have spent in the pool
+    m_pool_info_query_time = 0;
+    m_secondary_pool_info_query_time = 0;
+    m_scanned_pool_txs[0].clear();
+    m_scanned_pool_txs[1].clear();
+    // Clear unconfirmed (received) payments because the data is 100% recovered when scanning
+    m_unconfirmed_payments.clear();
+    // Don't clear unconfirmed (sent) txs because some data is not recover-able when scanning (dests)
   }
 
   received_money = false;
@@ -4334,7 +4354,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
           ? prepare_first_short_chain_history(m_first_refresh_done, trusted_daemon, m_blockchain)
           : prepare_next_short_chain_history(blocks_start_height, start_parsed_block_i, parsed_blocks, m_max_reorg_depth, m_blockchain);
 
-        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, next_blocks_start_height, short_chain_history, next_blocks, next_parsed_blocks, process_pool_txs, cur_top_hash, error, exception);});
+        const bool do_pool_check = first && check_pool && !m_background_syncing;
+        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(do_pool_check, next_blocks_start_height, short_chain_history, next_blocks, next_parsed_blocks, process_pool_txs, cur_top_hash, error, exception);});
       }
 
       if (!first)
@@ -4650,6 +4671,7 @@ bool wallet2::clear()
   m_multisig_rounds_passed = 0;
   m_device_last_key_image_sync = 0;
   m_pool_info_query_time = 0;
+  m_secondary_pool_info_query_time = 0;
   m_background_sync_data = background_sync_data_t{};
   m_tree_cache.clear();
   return true;
@@ -4669,6 +4691,7 @@ void wallet2::clear_soft(bool keep_key_images)
   m_scanned_pool_txs[0].clear();
   m_scanned_pool_txs[1].clear();
   m_pool_info_query_time = 0;
+  m_secondary_pool_info_query_time = 0;
   m_background_sync_data = background_sync_data_t{};
 
   setup_new_blockchain(false);
