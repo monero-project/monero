@@ -28,10 +28,16 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <boost/range/algorithm/copy.hpp>
 #include "misc_log_ex.h"
 #include "cryptonote_config.h"
 #include "rctTypes.h"
 #include "int-util.h"
+#include "serialization/wire.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/wrappers_impl.h"
+#include "serialization/wire/wrapper/array.h"
+#include "serialization/wire/wrapper/variant.h"
 using namespace crypto;
 using namespace std;
 
@@ -335,4 +341,225 @@ namespace rct {
         return n;
     }
 
+    namespace
+    {
+        template<typename F, typename T>
+        void ecdh_tuple_map(F& format, T& self)
+        {
+            wire::object(format, WIRE_FIELD(mask), WIRE_FIELD(amount));
+        }
+
+        template<typename F, typename T, typename U>
+        void boro_sig_map(F& format, T& self, U&& s0, U&& s1)
+        {
+            wire::object(format, WIRE_FIELD(ee), wire::field("s0", s0), wire::field("s1", s1));
+        }
+
+        template<typename F, typename T, typename U>
+        void range_sig_map(F& format, T& self, U&& Ci)
+        {
+          wire::object(format, WIRE_FIELD(asig), wire::field("Ci", Ci));
+        }
+
+        template<typename F, typename T>
+        void bulletproof_map(F& format, T& self)
+        {
+            wire::object(format,
+                WIRE_FIELD(V),
+                WIRE_FIELD(A),
+                WIRE_FIELD(S),
+                WIRE_FIELD(T1),
+                WIRE_FIELD(T2),
+                WIRE_FIELD(taux),
+                WIRE_FIELD(mu),
+                WIRE_FIELD(L),
+                WIRE_FIELD(R),
+                WIRE_FIELD(a),
+                WIRE_FIELD(b),
+                WIRE_FIELD(t)
+            );
+        }
+
+        template<typename F, typename T>
+        void bulletproof_plus_map(F& format, T& self)
+        {
+            wire::object(format,
+                WIRE_FIELD(V),
+                WIRE_FIELD(A),
+                WIRE_FIELD(A1),
+                WIRE_FIELD(B),
+                WIRE_FIELD(r1),
+                WIRE_FIELD(s1),
+                WIRE_FIELD(d1),
+                WIRE_FIELD(L),
+                WIRE_FIELD(R)
+            );
+        }
+
+        template<typename F, typename T>
+        void mg_sig_map(F& format, T& self)
+        {
+            using max_256 = wire::max_element_count<256>;
+            wire::object(format,
+                wire::field("ss", wire::array<max_256>(std::ref(self.ss))),
+                WIRE_FIELD(cc)
+            );
+        }
+
+        template<typename F, typename T>
+        void clsag_map(F& format, T& self)
+        {
+          wire::object(format, WIRE_FIELD(s), WIRE_FIELD(c1), WIRE_FIELD(D));
+        }
+
+        template<typename F, typename T>
+        void rct_sig_prunable_map(F& format, T& self)
+        {
+            using rf_min_size = wire::min_element_sizeof<key64, key64, key64, key>;
+            using bf_max = wire::max_element_count<BULLETPROOF_MAX_OUTPUTS>;
+            using bf_plus_max = wire::max_element_count<BULLETPROOF_PLUS_MAX_OUTPUTS>;
+            using max_inputs_per_tx = wire::max_element_count<WIRE_MAX_INPUTS_PER_TX>;
+            using pseudo_outs_min_size = wire::min_element_sizeof<key>;
+
+            // make all arrays required for ZMQ backwards compatability
+            wire::object(format,
+                wire::field("range_proofs", wire::array<rf_min_size>(std::ref(self.p.rangeSigs))),
+                wire::field("bulletproofs", wire::array<bf_max>(std::ref(self.p.bulletproofs))),
+                wire::field("bulletproof_plus", wire::array<bf_plus_max>(std::ref(self.p.bulletproofs_plus))),
+                wire::field("mlsags", wire::array<max_inputs_per_tx>(std::ref(self.p.MGs))),
+                wire::field("clsags", wire::array<max_inputs_per_tx>(std::ref(self.p.CLSAGs))),
+                wire::field("pseudo_outs", wire::array<pseudo_outs_min_size>(std::ref(self.pseudo_outs)))
+            );
+        }
+
+        struct prunable_read
+        {
+            keyV pseudo_outs;
+            rctSigPrunable p;
+        };
+        void read_bytes(wire::reader& source, prunable_read& dest)
+        {
+            rct_sig_prunable_map(source, dest);
+        }
+
+        struct prunable_write
+        {
+            const keyV& pseudo_outs;
+            const rctSigPrunable& p;
+
+            prunable_write(const keyV& pseudo_outs, const rctSigPrunable& p)
+                : pseudo_outs(pseudo_outs), p(p)
+            {}
+        };
+        void write_bytes(wire::writer& dest, const prunable_write source)
+        {
+            rct_sig_prunable_map(dest, source);
+        }
+
+        template<typename F, typename T, typename U, typename V>
+        void rct_sig_map(F& format, const prune_wrapper_<T> self, boost::optional<U>& fee, boost::optional<V>& prunable)
+        {
+            using min_commitment_size = wire::min_element_sizeof<rct::key>;
+            using min_ecdh_size = wire::min_element_sizeof<key, key>;
+            wire::object(format,
+                wire::field("type", std::ref(self.p.get().type)),
+                wire::optional_field("encrypted", wire::array<min_ecdh_size>(std::ref(self.p.get().ecdhInfo))),
+                wire::optional_field("commitments", wire::array<min_commitment_size>(std::ref(self.p.get().outPk))),
+                wire::optional_field("fee", std::ref(fee)),
+                wire::optional_field("prunable", std::ref(prunable))
+            );
+        }
+    } // anonymous
+    void read_bytes(wire::reader& dest, ctkey& source)
+    {
+        wire_read::bytes(dest, source.mask);
+        source.dest = {};
+    }
+    void write_bytes(wire::writer& source, const ctkey& dest)
+    {
+        wire_write::bytes(source, dest.mask);
+    }
+    WIRE_DEFINE_OBJECT(ecdhTuple, ecdh_tuple_map)
+    static void read_bytes(wire::reader& source, rct::boroSig& dest)
+    {
+        using max_64 = wire::max_element_count<64>;
+        std::vector<rct::key> s0;
+        std::vector<rct::key> s1;
+        s0.reserve(64);
+        s1.reserve(64);
+        boro_sig_map(source, dest, wire::array<max_64>(std::ref(s0)), wire::array<max_64>(std::ref(s1)));
+
+        if (s0.size() != boost::size(dest.s0) || s1.size() != boost::size(dest.s1))
+            WIRE_DLOG_THROW(wire::error::schema::array, "invalid array size");
+
+        boost::range::copy(s0, boost::begin(dest.s0));
+        boost::range::copy(s1, boost::begin(dest.s1));
+    }
+    static void write_bytes(wire::writer& dest, const rct::boroSig& source)
+    {
+        using key_span = epee::span<const rct::key>;
+        boro_sig_map(dest, source, key_span{source.s0}, key_span{source.s1});
+    }
+    static void read_bytes(wire::reader& source, rct::rangeSig& dest)
+    {
+        using max_64 = wire::max_element_count<64>;
+        std::vector<rct::key> Ci;
+        Ci.reserve(64);
+        range_sig_map(source, dest, wire::array<max_64>(std::ref(Ci)));
+
+        if (Ci.size() != boost::size(dest.Ci))
+            WIRE_DLOG_THROW(wire::error::schema::array, "invalid array size");
+
+        boost::range::copy(Ci, boost::begin(dest.Ci));
+    }
+    static void write_bytes(wire::writer& dest, const rct::rangeSig& source)
+    {
+        range_sig_map(dest, source, epee::span<const rct::key>{source.Ci});
+    }
+    WIRE_DEFINE_OBJECT(Bulletproof, bulletproof_map)
+    WIRE_DEFINE_OBJECT(BulletproofPlus, bulletproof_plus_map)
+    WIRE_DEFINE_OBJECT(mgSig, mg_sig_map)
+    WIRE_DEFINE_OBJECT(clsag, clsag_map);
+    void read_bytes(wire::reader& source, prune_wrapper_<rctSig> dest)
+    {
+        boost::optional<rct::xmr_amount> fee;
+        boost::optional<prunable_read> prunable;
+        rct_sig_map(source, dest, fee, prunable);
+
+        if (dest.p.get().type == rct::RCTTypeNull && (fee || !dest.p.get().ecdhInfo.empty()))
+            WIRE_DLOG_THROW(wire::error::schema::missing_key, "unexpected keys");
+        if (dest.p.get().type != rct::RCTTypeNull && (!fee || dest.p.get().ecdhInfo.empty()))
+            WIRE_DLOG_THROW(wire::error::schema::missing_key, "expected keys");
+
+        if (fee)
+            dest.p.get().txnFee = *fee;
+
+        if (prunable)
+        {
+            dest.p.get().p = std::move(prunable->p);
+            dest.p.get().get_pseudo_outs() = std::move(prunable->pseudo_outs);
+        }
+        else
+        {
+            dest.p.get().p.rangeSigs.clear();
+            dest.p.get().p.bulletproofs.clear();
+            dest.p.get().p.bulletproofs_plus.clear();
+            dest.p.get().p.MGs.clear();
+            dest.p.get().p.CLSAGs.clear();
+            dest.p.get().get_pseudo_outs().clear();
+        }
+    }
+    void write_bytes(wire::writer& dest, const prune_wrapper_<const rctSig> source)
+    {
+        boost::optional<rct::xmr_amount> fee;
+        boost::optional<prunable_write> prunable;
+
+        if (source.p.get().type != rct::RCTTypeNull)
+            fee.emplace(source.p.get().txnFee);
+
+        if (!source.prune && (!source.p.get().p.bulletproofs.empty() || !source.p.get().p.bulletproofs_plus.empty() || !source.p.get().p.rangeSigs.empty() || !source.p.get().get_pseudo_outs().empty()))
+            prunable.emplace(source.p.get().get_pseudo_outs(), source.p.get().p);
+
+        rct_sig_map(dest, source, fee, prunable);
+    }
 }
