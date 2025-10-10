@@ -293,6 +293,10 @@ int main(int argc, char* argv[])
 
     GENERATE_AND_PLAY(gen_block_low_coinbase);
 
+    GENERATE_AND_PLAY(gen_fcmp_pp_tx_from_pre_rct_coinbase);
+    GENERATE_AND_PLAY(gen_fcmp_pp_tx_from_pre_rct_regular);
+    GENERATE_AND_PLAY(gen_fcmp_pp_tx_from_bpp);
+
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     if (!list_tests)
     {

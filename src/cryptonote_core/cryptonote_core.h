@@ -242,7 +242,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_miner_data
       */
-     bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
+     bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
      /**
       * @brief called when a transaction is relayed.
@@ -794,9 +794,13 @@ namespace cryptonote
      /**
       * @brief get the number of blocks to sync in one go
       *
+      * @param height the height that we want to get_block_sync_size for
+      * @param max_average_of_blocksize_in_queue is max average of block size in batches in the queue
+      * we are downloading in current active connections.
+      *
       * @return the number of blocks to sync in one go
       */
-     size_t get_block_sync_size(uint64_t height) const;
+     size_t get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue = 0) const;
 
      /**
       * @brief get the sum of coinbase tx amounts between blocks
@@ -1098,6 +1102,7 @@ namespace cryptonote
      bool m_disable_dns_checkpoints;
 
      size_t block_sync_size;
+     std::uint64_t batch_max_weight;
 
      time_t start_time;
 

@@ -48,7 +48,7 @@ class BlockchainTest():
     def run_test(self):
         self.reset()
         self._test_generateblocks(5)
-        self._test_alt_chains()
+        self._test_reorg_handling()
 
     def reset(self):
         print('Resetting blockchain')
@@ -248,98 +248,59 @@ class BlockchainTest():
         res = daemon.get_fee_estimate(10)
         assert res.fee <= 1200000
 
-    def _test_alt_chains(self):
-        print('Testing alt chains')
-        daemon = Daemon()
-        res = daemon.get_alt_blocks_hashes()
-        starting_alt_blocks = res.blks_hashes if 'blks_hashes' in res else []
-        res = daemon.get_info()
-        root_block_hash = res.top_block_hash
-        height = res.height
-        prev_hash = res.top_block_hash
-        res_template = daemon.getblocktemplate('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm')
-        nonce = 0
+    def _test_reorg_handling(self):
+        print('Testing reorg handling')
+        daemon0 = Daemon(idx = 2)
+        daemon1 = Daemon(idx = 3)
 
-        # 5 siblings
-        alt_blocks = [None] * 5
-        for i in range(len(alt_blocks)):
-            res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1, prev_block = prev_hash, starting_nonce = nonce)
-            assert res.height == height
-            assert len(res.blocks) == 1
-            txid = res.blocks[0]
-            res = daemon.getblockheaderbyhash(txid)
-            nonce = res.block_header.nonce
-            print('mined ' + ('alt' if res.block_header.orphan_status else 'tip') + ' block ' + str(height) + ', nonce ' + str(nonce))
-            assert res.block_header.prev_hash == prev_hash
-            assert res.block_header.orphan_status == (i > 0)
-            alt_blocks[i] = txid
-            nonce += 1
+        miner_addr = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
 
-        print('mining 3 on 1')
-        # three more on [1]
-        chain1 = []
-        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 3, prev_block = alt_blocks[1], starting_nonce = nonce)
-        assert res.height == height + 3
-        assert len(res.blocks) == 3
-        blk_hash = res.blocks[2]
-        res = daemon.getblockheaderbyhash(blk_hash)
-        nonce = res.block_header.nonce
-        assert not res.block_header.orphan_status
-        nonce += 1
-        chain1.append(blk_hash)
-        chain1.append(res.block_header.prev_hash)
+        # Wait until daemons are on the same chain, waiting a max of 60s
+        def wait_until_same_chain():
+            i = 0
+            retry_attempts = 60
+            while i < retry_attempts:
+                res0_info = daemon0.get_info()
+                res1_info = daemon1.get_info()
 
-        print('Checking alt blocks match')
-        res = daemon.get_alt_blocks_hashes()
-        assert len(res.blks_hashes) == len(starting_alt_blocks) + 4
-        for txid in alt_blocks:
-            assert txid in res.blks_hashes or txid == alt_blocks[1]
+                if res0_info.height == res1_info.height:
+                    assert res0_info.top_block_hash == res1_info.top_block_hash
+                    return (res0_info, res1_info)
 
-        print('mining 4 on 3')
-        # 4 more on [3], the chain will reorg when we mine the 4th
-        top_block_hash = blk_hash
-        prev_block = alt_blocks[3]
-        for i in range(4):
-            res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1, prev_block = prev_block)
-            assert res.height == height + 1 + i
-            assert len(res.blocks) == 1
-            prev_block = res.blocks[-1]
-            res = daemon.getblockheaderbyhash(res.blocks[-1])
-            assert res.block_header.orphan_status == (i < 3)
+                i += 1
+                time.sleep(1)
 
-            res = daemon.get_info()
-            assert res.height == ((height + 4) if i < 3 else height + 5)
-            assert res.top_block_hash == (top_block_hash if i < 3 else prev_block)
+            assert False
 
-        res = daemon.get_info()
-        assert res.height == height + 5
-        assert res.top_block_hash == prev_block
+        wait_until_same_chain()
 
-        print('Checking alt blocks match')
-        res = daemon.get_alt_blocks_hashes()
-        blks_hashes = res.blks_hashes
-        assert len(blks_hashes) == len(starting_alt_blocks) + 7
-        for txid in alt_blocks:
-            assert txid in blks_hashes or txid == alt_blocks[3]
-        for txid in chain1:
-            assert txid in blks_hashes
+        # Test various n blocks, some around the default spendable age
+        # Note: starting with 100 because we want the test to include unlocked coinbase outputs
+        for n_block_reorg in [100, 11, 10, 9, 2, 1]:
+            print('Checking', n_block_reorg, 'block reorg')
 
-        res = daemon.get_alternate_chains()
-        assert len(res.chains) == 4
-        tips = [chain.block_hash for chain in res.chains]
-        for txid in tips:
-            assert txid in blks_hashes
-        for chain in res.chains:
-            assert chain.length in [1, 4]
-            assert chain.length == len(chain.block_hashes)
-            assert chain.height == height + chain.length - 1 # all happen start at the same height
-            assert chain.main_chain_parent_block == root_block_hash
-        for txid in [alt_blocks[0], alt_blocks[2], alt_blocks[4]]:
-          assert len([chain for chain in res.chains if chain.block_hash == txid]) == 1
+            # Disconnect the daemons from their peers
+            daemon0.out_peers(0)
+            daemon1.out_peers(0)
 
-        print('Saving blockchain explicitely')
-        daemon.save_bc()
+            # Generate blocks on each daemon, have the second daemon mine 1 extra block so it has the heavier chain
+            # Note: these two calls could be concurrent to speed this test up
+            daemon0.generateblocks(miner_addr, n_block_reorg)
+            genblocks1_res = daemon1.generateblocks(miner_addr, n_block_reorg+1)
 
+            # Make sure they're on different chains
+            res0_info = daemon0.get_info()
+            res1_info = daemon1.get_info()
+            assert res0_info.top_block_hash != res1_info.top_block_hash
+            assert res1_info.height == (res0_info.height + 1)
+            assert res1_info.height == (genblocks1_res.height + 1)
+
+            # Now re-connect the daemons and wait until daemon0 gets onto daemon1's heavier chain
+            daemon0.out_peers(12)
+            daemon1.out_peers(12)
+
+            (res0_info, res1_info) = wait_until_same_chain()
+            assert res0_info.height == (genblocks1_res.height + 1)
 
 if __name__ == '__main__':
     BlockchainTest().run_test()

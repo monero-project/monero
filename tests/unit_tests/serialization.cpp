@@ -37,6 +37,8 @@
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "fcmp_pp/fcmp_pp_types.h"
+#include "fcmp_pp/proof_len.h"
 #include "ringct/rctSigs.h"
 #include "serialization/binary_archive.h"
 #include "serialization/json_archive.h"
@@ -45,6 +47,7 @@
 #include "serialization/containers.h"
 #include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
+#include "wallet/wallet2_basic/wallet2_boost_serialization.h"
 #include "gtest/gtest.h"
 #include "unit_tests_utils.h"
 #include "device/device.hpp"
@@ -1022,4 +1025,217 @@ TEST(Serialization, tuple_many_tuples)
   EXPECT_TRUE(::serialization::parse_binary(serialized, tupler_recovered));
 
   EXPECT_EQ(tupler, tupler_recovered);
+}
+
+TEST(Serialization, tx_fcmp_pp)
+{
+  using namespace cryptonote;
+
+  const std::size_t n_inputs = 2;
+  const std::size_t n_outputs = 3;
+  const uint8_t n_tree_layers = 3;
+
+  const std::size_t proof_len = fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers);
+  const uint64_t reference_block{1};
+
+  const auto make_dummy_fcmp_pp_tx = [proof_len]() -> transaction
+  {
+    transaction tx;
+
+    tx.invalidate_hashes();
+    tx.set_null();
+
+    tx.version = 2;
+    tx.rct_signatures.type = rct::RCTTypeFcmpPlusPlus;
+
+    // Set inputs
+    txin_to_key txin_to_key1;
+    txin_to_key1.amount = 1;
+    memset(&txin_to_key1.k_image, 0x42, sizeof(crypto::key_image));
+    txin_to_key1.key_offsets.clear();
+    tx.vin.clear();
+    for (size_t i = 0; i < n_inputs; ++i)
+      tx.vin.push_back(txin_to_key1);
+
+    // Set outputs
+    const uint64_t amount = 1;
+    std::vector<uint64_t> out_amounts;
+    tx_out vout;
+    set_tx_out(amount, crypto::public_key{}, true, crypto::view_tag{}, vout);
+    for (size_t i = 0; i < n_outputs; ++i)
+    {
+      tx.vout.push_back(vout);
+      out_amounts.push_back(amount);
+    }
+
+    // 1 ecdhTuple for each output
+    rct::ecdhTuple ecdhInfo;
+    memset(&ecdhInfo.mask, 0x01, sizeof(rct::key));
+    memset(&ecdhInfo.amount, 0x02, sizeof(rct::key));
+    for (size_t i = 0; i < n_outputs; ++i)
+      tx.rct_signatures.ecdhInfo.push_back(ecdhInfo);
+
+    // 1 outPk for each output
+    rct::ctkey ctkey;
+    memset(&ctkey.dest, 0x01, sizeof(rct::key));
+    memset(&ctkey.mask, 0x02, sizeof(rct::key));
+    for (size_t i = 0; i < n_outputs; ++i)
+      tx.rct_signatures.outPk.push_back(ctkey);
+
+    // 1 bp+
+    rct::keyV C, masks;
+    tx.rct_signatures.p.bulletproofs_plus.push_back(rct::make_dummy_bulletproof_plus(out_amounts, C, masks));
+
+    // 1 pseudoOut for each input
+    const rct::key pseudoOut{0x01};
+    for (size_t i = 0; i < n_inputs; ++i)
+      tx.rct_signatures.p.pseudoOuts.push_back(pseudoOut);
+
+    // Set the reference block for fcmp++
+    tx.rct_signatures.p.reference_block = reference_block;
+
+    // Set the curve trees merkle tree depth
+    tx.rct_signatures.p.n_tree_layers = n_tree_layers;
+
+    // 1 fcmp++ proof
+    fcmp_pp::FcmpPpProof fcmp_pp;
+    fcmp_pp.reserve(proof_len);
+    for (std::size_t i = 0; i < proof_len; ++i)
+      fcmp_pp.push_back(i);
+    tx.rct_signatures.p.fcmp_pp = std::move(fcmp_pp);
+
+    return tx;
+  };
+
+  // 1. Set up a normal tx that includes an fcmp++ proof
+  {
+    transaction tx = make_dummy_fcmp_pp_tx();
+    transaction tx1;
+    string blob;
+
+    ASSERT_TRUE(serialization::dump_binary(tx, blob));
+    ASSERT_TRUE(serialization::parse_binary(blob, tx1));
+    ASSERT_EQ(tx, tx1);
+    ASSERT_EQ(tx.rct_signatures.p.reference_block, reference_block);
+    ASSERT_EQ(tx.rct_signatures.p.reference_block, tx1.rct_signatures.p.reference_block);
+    ASSERT_EQ(tx.rct_signatures.p.fcmp_pp, tx1.rct_signatures.p.fcmp_pp);
+  }
+
+  // 2. fcmp++ proof is longer than expected when serializing
+  {
+    transaction tx = make_dummy_fcmp_pp_tx();
+
+    // Extend fcmp++ proof
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == proof_len);
+    tx.rct_signatures.p.fcmp_pp.push_back(0x01);
+
+    string blob;
+    ASSERT_FALSE(serialization::dump_binary(tx, blob));
+  }
+
+  // 3. fcmp++ proof is shorter than expected when serializing
+  {
+    transaction tx = make_dummy_fcmp_pp_tx();
+
+    // Shorten the fcmp++ proof
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() == proof_len);
+    ASSERT_TRUE(tx.rct_signatures.p.fcmp_pp.size() > 1);
+    tx.rct_signatures.p.fcmp_pp.pop_back();
+
+    string blob;
+    ASSERT_FALSE(serialization::dump_binary(tx, blob));
+  }
+
+  const auto fcmp_pp_to_hex_str = [](const transaction &tx)
+  {
+    std::string fcmp_pp_str;
+    for (std::size_t i = 0; i < tx.rct_signatures.p.fcmp_pp.size(); ++i)
+    {
+      std::stringstream ss;
+      ss << std::hex << std::setfill('0') << std::setw(2) << (int)tx.rct_signatures.p.fcmp_pp[i];
+      fcmp_pp_str += ss.str();
+    }
+    return fcmp_pp_str;
+  };
+
+  // 4. fcmp++ proof is longer than expected when de-serializing
+  {
+    transaction tx = make_dummy_fcmp_pp_tx();
+    transaction tx1;
+    string blob;
+
+    ASSERT_TRUE(serialization::dump_binary(tx, blob));
+
+    std::string blob_str = epee::string_tools::buff_to_hex_nodelimer(blob);
+
+    // Find the proof within the serialized tx blob
+    const std::string fcmp_pp_str = fcmp_pp_to_hex_str(tx);
+    ASSERT_TRUE(!fcmp_pp_str.empty());
+    const std::size_t pos = blob_str.find(fcmp_pp_str);
+    ASSERT_TRUE(pos != std::string::npos);
+    ASSERT_TRUE(blob_str.find(fcmp_pp_str, pos + 1) == std::string::npos);
+
+    // Insert an extra proof elem
+    blob_str.insert(pos, "2a");
+    std::string larger_blob;
+    epee::string_tools::parse_hexstr_to_binbuff(blob_str, larger_blob);
+
+    ASSERT_FALSE(serialization::parse_binary(larger_blob, tx1));
+  }
+
+  // 5. fcmp++ proof is shorter than expected when de-serializing
+  {
+    transaction tx = make_dummy_fcmp_pp_tx();
+    transaction tx1;
+    string blob;
+
+    ASSERT_TRUE(serialization::dump_binary(tx, blob));
+
+    std::string blob_str = epee::string_tools::buff_to_hex_nodelimer(blob);
+
+    // Find the proof within the serialized tx blob
+    const std::string fcmp_pp_str = fcmp_pp_to_hex_str(tx);
+    ASSERT_TRUE(!fcmp_pp_str.empty());
+    const std::size_t pos = blob_str.find(fcmp_pp_str);
+    ASSERT_TRUE(pos != std::string::npos);
+    ASSERT_TRUE(blob_str.find(fcmp_pp_str, pos + 1) == std::string::npos);
+
+    // Delete a proof elem
+    blob_str.erase(pos, 2);
+    std::string smaller_blob;
+    epee::string_tools::parse_hexstr_to_binbuff(blob_str, smaller_blob);
+
+    ASSERT_FALSE(serialization::parse_binary(smaller_blob, tx1));
+  }
+}
+
+TEST(Serialization, BinaryArchiveConstantVarInts)
+{
+  struct VarIntPair
+  {
+    uint64_t varint;
+    uint64_t len;
+  };
+
+  // If any of these fail, modify tx weight calculations
+  static constexpr VarIntPair constant_varints[] = {
+    { FCMP_PLUS_PLUS_MAX_INPUTS                , 2 },
+    { FCMP_PLUS_PLUS_MAX_OUTPUTS               , 1 },
+    { 127                                      , 1 },
+    { 128                                      , 2 },
+    { 16383                                    , 2 },
+    { 16384                                    , 3 },
+    { MAX_TX_EXTRA_SIZE                        , 2 },
+    { std::numeric_limits<uint64_t>::max() - 1 , 10 /*max_u64_varint_len*/ },
+    { CRYPTONOTE_MAX_BLOCK_NUMBER              , 5 /*max_block_index_varint_len*/ },
+  };
+
+  for (const auto &const_varint : constant_varints)
+  {
+    ostringstream oss;
+    binary_archive<true> oar(oss);
+    oar.serialize_varint(const_varint.varint);
+    ASSERT_TRUE(oss.good());
+    ASSERT_EQ(const_varint.len, oss.str().size());
+  }
 }
