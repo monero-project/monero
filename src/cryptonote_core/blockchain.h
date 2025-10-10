@@ -632,7 +632,12 @@ namespace cryptonote
      *
      * @return false if any input is invalid, otherwise true
      */
-    bool check_tx_inputs(transaction& tx, uint64_t& pmax_used_block_height, crypto::hash& max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false) const;
+    bool check_tx_inputs(transaction& tx,
+      uint64_t& pmax_used_block_height,
+      crypto::hash& max_used_block_id,
+      tx_verification_context &tvc,
+      crypto::hash &valid_input_verifiction_id_inout,
+      bool kept_by_block = false) const;
 
     /**
      * @brief get fee quantization mask
@@ -1321,7 +1326,10 @@ namespace cryptonote
      *
      * @return false if any validation step fails, otherwise true
      */
-    bool check_tx_inputs(transaction& tx, tx_verification_context &tvc, uint64_t* pmax_used_block_height = NULL) const;
+    bool check_tx_inputs(transaction& tx,
+      tx_verification_context &tvc,
+      crypto::hash &valid_input_verifiction_id_inout,
+      uint64_t* pmax_used_block_height = NULL) const;
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule

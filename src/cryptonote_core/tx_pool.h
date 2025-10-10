@@ -119,7 +119,8 @@ namespace cryptonote
      */
     bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
       size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
-      uint8_t version, uint8_t nic_verified_hf_version = 0);
+      uint8_t version, uint8_t nic_verified_hf_version = 0,
+      const crypto::hash &valid_input_verification_id = crypto::null_hash);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -145,7 +146,8 @@ namespace cryptonote
      * @return true if the transaction passes validations, otherwise false
      */
     bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
-      uint8_t version, uint8_t nic_verified_hf_version = 0);
+      uint8_t version, uint8_t nic_verified_hf_version = 0,
+      const crypto::hash &valid_input_verification_id = crypto::null_hash);
 
     /**
      * @brief takes a transaction with the given hash from the pool
@@ -163,7 +165,17 @@ namespace cryptonote
      *
      * @return true unless the transaction cannot be found in the pool
      */
-    bool take_tx(const crypto::hash &id, transaction &tx, cryptonote::blobdata &txblob, size_t& tx_weight, uint64_t& fee, bool &relayed, bool &do_not_relay, bool &double_spend_seen, bool &pruned, bool suppress_missing_msgs = false);
+    bool take_tx(const crypto::hash &id,
+      transaction &tx,
+      cryptonote::blobdata &txblob,
+      size_t& tx_weight,
+      uint64_t& fee,
+      crypto::hash &valid_input_verification_id,
+      bool &relayed,
+      bool &do_not_relay,
+      bool &double_spend_seen,
+      bool &pruned,
+      bool suppress_missing_msgs = false);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
@@ -679,7 +691,13 @@ private:
     sorted_tx_container::iterator find_tx_in_sorted_container(const crypto::hash& id);
 
     //! cache/call Blockchain::check_tx_inputs results
-    bool check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx, const crypto::hash &txid, uint64_t &max_used_block_height, crypto::hash &max_used_block_id, tx_verification_context &tvc, bool kept_by_block = false) const;
+    bool check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx,
+      const crypto::hash &txid,
+      crypto::hash &valid_input_verification_id_inout,
+      uint64_t &max_used_block_height,
+      crypto::hash &max_used_block_id,
+      tx_verification_context &tvc,
+      bool kept_by_block = false) const;
 
     //! transactions which are unlikely to be included in blocks
     /*! These transactions are kept in RAM in case they *are* included
