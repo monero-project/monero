@@ -873,7 +873,13 @@ namespace cryptonote
     }
 
     // Avoid tripping the packet size limit by serving txs in batches
-    static const std::size_t SLICE_SIZE = 500;
+    static const std::size_t SLICE_SIZE = context.get_max_bytes(NOTIFY_NEW_TRANSACTIONS::ID) / get_max_tx_size();
+    if (SLICE_SIZE == 0)
+    {
+      LOG_ERROR_CCONTEXT("SLICE_SIZE should be >0");
+      return 1;
+    }
+
     for (std::size_t i = 0; i < txes.size(); i += SLICE_SIZE)
     {
       const std::size_t end = std::min(txes.size(), i + SLICE_SIZE);
