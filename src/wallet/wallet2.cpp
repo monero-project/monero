@@ -3175,7 +3175,7 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
   THROW_WALLET_EXCEPTION_IF(parsed_blocks_start_idx == 0, error::wallet_internal_error,
     "check_for_reorg: genesis is not expected to be included in response");
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(parsed_blocks_start_idx-1), error::reorg_depth_error,
-    "Daemon's response did not include a block in the local hashchain, we must have exceeded the max reorg depth. The wallet needs to be rescanned manually");
+    "Daemon's response did not include a block in the local hashchain, we must have exceeded the max reorg depth");
 
   // Starting from the first parsed block's prev id, make sure the parsed blocks are contiguous to locally synced blocks
   i = 0;
@@ -3239,7 +3239,7 @@ set_start_parsed_block_i_out:
     "check_for_reorg: reorg split point should not be above blockchain size");
   const uint64_t reorg_depth = blockchain.size() - split_point_out;
   THROW_WALLET_EXCEPTION_IF(reorg_depth >= max_reorg_depth, error::reorg_depth_error,
-    "Reorg detected that exceeds max reorg depth. The wallet needs to be rescanned manually");
+    "Reorg detected that exceeds max reorg depth");
 
   THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(split_point_out), error::wallet_internal_error,
     "check_for_reorg: reorg split point not in bounds");
@@ -3380,6 +3380,39 @@ bool wallet2::bump_refresh_start_height(const uint64_t init_start_height, const 
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::handle_reorg_depth_error(const uint64_t start_height, const std::exception_ptr &exception, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache)
+{
+  // Reorg detected, but it may be too deep for us to be able to handle!
+
+  // If the reorg starts from below our restore height, we may be able to handle it. Otherwise rethrow.
+  if (start_height >= m_refresh_from_block_height)
+    std::rethrow_exception(exception);
+
+  // If we have not already synced beyond the wallet's restore height + max depth n blocks, then it should be fine to
+  // reset the wallet and restart the scanner from the restore height. Othwerwise rethrow.
+  if (m_blockchain.size() > (m_refresh_from_block_height + m_max_reorg_depth))
+    std::rethrow_exception(exception);
+
+  // If the wallet has *any* transfers below the restore height, then it may have manual scan_tx'd txs, and we don't
+  // want to clear those. Rethrow to indicate to the user the wallet needs to be manually rescanned.
+  for (const auto &td : m_transfers)
+    if (td.m_block_height < m_refresh_from_block_height)
+      std::rethrow_exception(exception);
+
+  // We can handle the reorg, it's actually not too deep
+  const std::string what_happened = "Reorg detected below the wallet's restore height, resetting wallet";
+  LOG_PRINT_L1(what_happened);
+
+  this->handle_reorg(m_refresh_from_block_height, output_tracker_cache);
+  THROW_WALLET_EXCEPTION_IF(m_transfers.size(), error::wallet_internal_error,
+    "check_and_handle_reorg: m_transfers should be empty after handling the reorg back to restore height");
+
+  this->setup_new_blockchain(false);
+
+  // Throw a generic runtime error so the caller can retry the refresh while loop
+  throw std::runtime_error(what_happened);
+}
+//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const crypto::hash &top_hash, const std::vector<parsed_block> &parsed_blocks, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache)
 {
   // Make sure m_blockchain and m_tree_cache match states before handling reorg
@@ -3396,7 +3429,22 @@ uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const cryp
   // Check parsed blocks against m_blockchain for a reorg, starting by checking the deepest block we can handle a reorg
   // back to, or the first parsed block, whichever is higher.
   uint64_t start_parsed_block_i = 0;
-  const uint64_t reorg_split_point = check_for_reorg(start_height, top_hash, parsed_blocks, m_blockchain, max_reorg_depth, start_parsed_block_i);
+  uint64_t reorg_split_point = 0;
+  try
+  {
+    reorg_split_point = check_for_reorg(start_height, top_hash, parsed_blocks, m_blockchain, max_reorg_depth, start_parsed_block_i);
+  }
+  catch (const error::reorg_depth_error&)
+  {
+    this->handle_reorg_depth_error(start_height, std::current_exception(), output_tracker_cache);
+    throw;
+  }
+  catch (...)
+  {
+    std::rethrow_exception(std::current_exception());
+  }
+
+  // Finished reorg check, now handle it
   if (reorg_split_point == 0)
   {
     MDEBUG("No reorg detected");
@@ -4228,11 +4276,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // pull the first set of blocks
   m_run.store(true, std::memory_order_relaxed);
 
-  // If the manually set m_refresh_from_block_height is higher than our current sync height, then we may want to start
-  // refresh from that height
-  if (!this->bump_refresh_start_height(start_height, trusted_daemon))
-    return;
-
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
     boost::lock_guard refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
@@ -4262,9 +4305,17 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     std::exception_ptr exception;
     uint64_t start_parsed_block_i;
     std::list<crypto::hash> short_chain_history;
+    added_blocks = 0;
     try
     {
-      if (!first)
+      if (first)
+      {
+        // If the manually set m_refresh_from_block_height is higher than our current sync height, then we may want to
+        // start refresh from that height
+        if (!this->bump_refresh_start_height(start_height, trusted_daemon))
+          return;
+      }
+      else
       {
         // Check for a reorg, and handle popping blocks if we detect one.
         // Then return the local index we're supposed to start processing blocks from.
@@ -4276,7 +4327,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       exception = NULL;
       next_blocks.clear();
       next_parsed_blocks.clear();
-      added_blocks = 0;
       if (!last)
       {
         // Prepare the short chain history we'll use to fetch the next set of contiguous blocks
@@ -4342,10 +4392,10 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
       throw;
     }
-    catch (const error::reorg_depth_error&)
+    catch (const error::reorg_depth_error&e)
     {
       THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
-      throw;
+      THROW_WALLET_EXCEPTION(error::needs_rescan, e.what() + std::string(". "));
     }
     catch (const error::incorrect_fork_version&)
     {
@@ -4621,12 +4671,7 @@ void wallet2::clear_soft(bool keep_key_images)
   m_pool_info_query_time = 0;
   m_background_sync_data = background_sync_data_t{};
 
-  cryptonote::block b;
-  generate_genesis(b);
-  const crypto::hash genesis_hash = get_block_hash(b);
-  m_blockchain.push_back(genesis_hash);
-  m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  m_tree_cache.clear();
+  setup_new_blockchain(false);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::clear_user_data()
@@ -5610,15 +5655,17 @@ void wallet2::decrypt_keys(const epee::wipeable_string &password)
   decrypt_keys(key);
 }
 
-void wallet2::setup_new_blockchain()
+void wallet2::setup_new_blockchain(const bool add_subaddr_account)
 {
+  m_blockchain.clear();
   cryptonote::block b;
   generate_genesis(b);
   const crypto::hash genesis_hash = get_block_hash(b);
   m_blockchain.push_back(genesis_hash);
   m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
   m_tree_cache.clear();
-  add_subaddress_account(tr("Primary account"));
+  if (add_subaddr_account)
+    add_subaddress_account(tr("Primary account"));
 }
 
 void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file)

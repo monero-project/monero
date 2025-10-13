@@ -468,8 +468,8 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct needs_rescan : public refresh_error
     {
-      explicit needs_rescan(std::string&& loc)
-        : refresh_error(std::move(loc), "The wallet needs to be rescanned manually")
+      explicit needs_rescan(std::string&& loc, const std::string& message = "")
+        : refresh_error(std::move(loc), message + "The wallet needs to be rescanned manually")
       {
       }
 
