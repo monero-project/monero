@@ -1850,6 +1850,8 @@ void wallet2::process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_
   process_txs.insert(process_txs.end(), txs_to_reprocess.tx_entries.begin(), txs_to_reprocess.tx_entries.end());
   sort_scan_tx_entries(process_txs);
 
+  std::map<std::pair<uint64_t, uint64_t>, size_t> output_tracker_cache = create_output_tracker_cache();
+
   for (const auto &tx_info : process_txs)
   {
     const auto &tx_entry = tx_info.tx_entry;
@@ -1866,6 +1868,7 @@ void wallet2::process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_
       cryptonote::is_coinbase(tx_info.tx),
       tx_entry.in_pool,
       tx_entry.double_spend_seen,
+      output_tracker_cache,
       ignore_callbacks);
 
     // Re-set destination addresses if they were previously set
@@ -2324,6 +2327,7 @@ void wallet2::process_new_transaction(
   const bool miner_tx,
   const bool pool,
   const bool double_spend_seen,
+  std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache,
   const bool ignore_callbacks)
 {
   // scan tx and then pass to process_new_scanned_transaction()
@@ -2342,10 +2346,6 @@ void wallet2::process_new_transaction(
   for (size_t i = 0; i < n_outputs; ++i)
     if (enote_scan_infos.at(i))
       scan_key_image(*enote_scan_infos.at(i), pool, output_key_images[i], password_failure);
-
-  // create output tracker cache from scratch
-  // this is kind of slow, but in the cases where this function is called (i.e. not normal block syncing), it's okay
-  std::map<std::pair<uint64_t, uint64_t>, size_t> output_tracker_cache = create_output_tracker_cache();
 
   // process scanned tx
   process_new_scanned_transaction(txid,
@@ -4120,13 +4120,18 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
 void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &txs)
 {
   MTRACE("process_pool_state start");
+
+  // create output tracker cache from scratch
+  // this is kind of slow, but in the cases where this function is called (i.e. not normal block syncing), it's okay
+  std::map<std::pair<uint64_t, uint64_t>, size_t> output_tracker_cache = create_output_tracker_cache();
+
   const time_t now = time(NULL);
   for (const auto &e: txs)
   {
     const cryptonote::transaction &tx = std::get<0>(e);
     const crypto::hash &tx_hash = std::get<1>(e);
     const bool double_spend_seen = std::get<2>(e);
-    process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, now, false, true, double_spend_seen);
+    process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, now, false, true, double_spend_seen, output_tracker_cache);
     m_scanned_pool_txs[0].insert(tx_hash);
     if (m_scanned_pool_txs[0].size() > 5000)
     {
@@ -13862,7 +13867,7 @@ void wallet2::process_background_cache(const background_sync_data_t &background_
     MDEBUG("Processing background synced tx " << bgs_tx.first);
 
     process_new_transaction(bgs_tx.first, bgs_tx.second.tx, bgs_tx.second.output_indices, bgs_tx.second.height, 0, bgs_tx.second.block_timestamp,
-        cryptonote::is_coinbase(bgs_tx.second.tx), false/*pool*/, bgs_tx.second.double_spend_seen, true/*ignore_callbacks*/);
+        cryptonote::is_coinbase(bgs_tx.second.tx), false/*pool*/, bgs_tx.second.double_spend_seen, output_tracker_cache, true/*ignore_callbacks*/);
 
     // Re-set destination addresses if they were previously set
     if (m_confirmed_txs.find(bgs_tx.first) != m_confirmed_txs.end() &&

@@ -1404,6 +1404,7 @@ private:
         const bool miner_tx,
         const bool pool,
         const bool double_spend_seen,
+        std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache,
         const bool ignore_callbacks = false);
     void process_new_scanned_transaction(
         const crypto::hash &txid,
