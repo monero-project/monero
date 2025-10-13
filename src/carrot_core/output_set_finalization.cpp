@@ -104,10 +104,11 @@ std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::null
     const bool have_payment_type_selfsend,
     const crypto::public_key &change_address_spend_pubkey)
 {
+    const bool need_change_output = needed_change_amount != 0;
     const std::optional<AdditionalOutputType> additional_output_type = get_additional_output_type(
             num_outgoing,
             num_selfsend,
-            needed_change_amount,
+            need_change_output,
             have_payment_type_selfsend
         );
 
