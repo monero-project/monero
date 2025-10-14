@@ -229,7 +229,7 @@ namespace epee
       case SERIALIZE_TYPE_OBJECT: return read_ae<section>();
       case SERIALIZE_TYPE_ARRAY:  return read_ae<array_entry>();
       default: 
-        CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << type);
+        CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << static_cast<int>(type));
       }
       return read_ae<int8_t>(); // unreachable, dummy return to avoid compiler warning
     }
@@ -321,7 +321,7 @@ namespace epee
       case SERIALIZE_TYPE_OBJECT: return read_se<section>();
       case SERIALIZE_TYPE_ARRAY:  return read_se<array_entry>();
       default: 
-        CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << ent_type);
+        CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << static_cast<int>(ent_type));
       }
       return read_se<int8_t>(); // unreachable, dummy return to avoid compiler warning
     }
