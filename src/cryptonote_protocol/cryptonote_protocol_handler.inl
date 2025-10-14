@@ -857,7 +857,10 @@ namespace cryptonote
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_GET_TXPOOL_COMPLEMENT (" << arg.hashes.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
+    {
+      MLOG_PEER_STATE("Not sending txpool complement, connection is not in normal state yet");
       return 1;
+    }
 
     std::vector<std::pair<cryptonote::blobdata, block>> local_blocks;
     std::vector<cryptonote::blobdata> local_txs;
@@ -869,16 +872,32 @@ namespace cryptonote
       return 1;
     }
 
-    NOTIFY_NEW_TRANSACTIONS::request new_txes;
-    new_txes.txs = std::move(txes);
+    // Avoid tripping the packet size limit by serving txs in batches
+    static const std::size_t SLICE_SIZE = context.get_max_bytes(NOTIFY_NEW_TRANSACTIONS::ID) / get_max_tx_size();
+    if (SLICE_SIZE == 0)
+    {
+      LOG_ERROR_CCONTEXT("SLICE_SIZE should be >0");
+      return 1;
+    }
 
-    MLOG_P2P_MESSAGE
-    (
-        "-->>NOTIFY_NEW_TRANSACTIONS: "
-        << ", txs.size()=" << new_txes.txs.size()
-    );
+    for (std::size_t i = 0; i < txes.size(); i += SLICE_SIZE)
+    {
+      const std::size_t end = std::min(txes.size(), i + SLICE_SIZE);
 
-    post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+      NOTIFY_NEW_TRANSACTIONS::request new_txes;
+      new_txes.txs.reserve(end - std::min(i, end));
+      for (std::size_t j = i; j < end; ++j)
+        new_txes.txs.emplace_back(std::move(txes.at(j)));
+
+      MLOG_P2P_MESSAGE
+      (
+          "-->>NOTIFY_NEW_TRANSACTIONS:"
+          << " txs.size()=" << new_txes.txs.size()
+          << ", pool txs " << i << " - " << end-1
+      );
+
+      post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+    }
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
