@@ -139,7 +139,8 @@ void mock_carrot_and_legacy_keys::opening_for_subaddress(const subaddress_index_
         if (is_subaddress)
         {
             // k^j_subscal = H_n(K_s, j_major, j_minor, s^j_gen)
-            make_carrot_subaddress_scalar(carrot_account_spend_pubkey, address_index_generator, major_index, minor_index, subaddress_scalar);
+            make_carrot_subaddress_scalar(carrot_account_spend_pubkey,
+                carrot_account_view_pubkey, address_index_generator, major_index, minor_index, subaddress_scalar);
         }
         else
         {

@@ -140,6 +140,14 @@ TEST(carrot_convergence, make_carrot_subaddress_scalar)
     ASSERT_TRUE(hex_to_pod("c984806ae9be958800cfe04b5ed85279f48d78c3792b5abb2f5ce2b67adc491f",
         account_spend_pubkey));
 
+    crypto::secret_key k_view_incoming;
+    ASSERT_TRUE(hex_to_pod("60eff3ec120a12bb44d4258816e015952fc5651040da8c8af58c17676485f200",
+        unwrap(unwrap(k_view_incoming))));
+
+    const crypto::public_key account_view_pubkey = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(account_spend_pubkey),
+        rct::sk2rct(k_view_incoming)));
+    ASSERT_EQ("a30c1b720a66557c03a9784c6dd0902c95ee56670e04907d18eaa20608a72e7e", pod_to_hex(account_view_pubkey));
+
     crypto::secret_key address_index_generator;
     ASSERT_TRUE(hex_to_pod("79ad2383f44b4d26413adb7ae79c5658b2a8c20b6f5046bfa9f229bfcf1744a7",
         unwrap(unwrap(address_index_generator))));
@@ -148,8 +156,9 @@ TEST(carrot_convergence, make_carrot_subaddress_scalar)
     const std::uint32_t minor_index = 16;
 
     crypto::secret_key subaddress_scalar;
-    make_carrot_subaddress_scalar(account_spend_pubkey, address_index_generator, major_index, minor_index, subaddress_scalar);
-    ASSERT_EQ("25d97acc4f6b58478ee97ee9b308be756401130c1e9f3a48a5370c1a2ce0e50e",
+    make_carrot_subaddress_scalar(account_spend_pubkey,
+        account_view_pubkey, address_index_generator, major_index, minor_index, subaddress_scalar);
+    ASSERT_EQ("824e9710a9ee164dcf225be9ced906ceb53a0e93326b199a79340f6c0c7e050d",
         pod_to_hex(unwrap(unwrap(subaddress_scalar))));
 }
 //---------------------------------------------------------------------------------------------------------------------
@@ -180,9 +189,9 @@ TEST(carrot_convergence, make_carrot_subaddress_v1)
         major_index,
         minor_index,
         subaddress);
-    ASSERT_EQ("1ebcddd5d98e26788ed8d8510de7f520e973902238e107a070aad104e166b6a0",
+    ASSERT_EQ("cb84becce21364e6fc91f6cec459ae917287bc3d87791369f8ff0fc40e4fcc08",
         pod_to_hex(subaddress.address_spend_pubkey));
-    ASSERT_EQ("75b7bc7759da5d9ad5ff421650949b27a13ea369685eb4d1bd59abc518e25fe2",
+    ASSERT_EQ("82800b2b97f50a798768d3235eabe9d4b3d5bd6d12956975b79db53f29895bdd",
         pod_to_hex(subaddress.address_view_pubkey));
 }
 //---------------------------------------------------------------------------------------------------------------------

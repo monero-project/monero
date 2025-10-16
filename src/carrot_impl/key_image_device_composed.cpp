@@ -113,6 +113,7 @@ crypto::key_image key_image_device_composed::derive_key_image(const OutputOpenin
                     subaddr_index.index.minor,
                     carrot_address_index_extension_generator);
                 make_carrot_subaddress_scalar(main_address_spend_pubkey,
+                    m_addr_dev.access_carrot_hierarchy_device().get_carrot_account_view_pubkey(),
                     carrot_address_index_extension_generator,
                     subaddr_index.index.major,
                     subaddr_index.index.minor,
