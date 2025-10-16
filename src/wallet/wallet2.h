@@ -737,21 +737,7 @@ private:
      * Sweep-single-style means that 1 transaction is returned which spends the given key image
      */
     std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra);
-    /**
-     * brief: create_transactions_all: create "sweep-multiple" style txs (or tx proposals in hot/cold & multisig wallets)
-     * param: address - public address for all destinations in txs
-     * param: is_subaddress - true iff `address` refers to a subaddress
-     * param: outputs - the minimum num of outputs to make per tx (if `address` isn't ours, a change output is included)
-     * param: unused_transfers_indices - indices into `m_transfers` of RingCT & validly-decomposed pre-RingCT inputs
-     * param: unused_dust_indices - indices into `m_transfers` of non-validly-decomposed pre-RingCT inputs
-     * param: fake_outs_count - the number of decoys per input, AKA "mixin"
-     * param: priority - fee priority level
-     * param: extra - any non-ephemeral-tx-pubkey tx.extra fields, including PIDs
-     * return: list of "pending txs": structs which contain partially or fully formed txs and construction information
-     *
-     * Sweep-multiple-style means that transactions are added until all inputs specified by index are spent.
-     */
-    std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra);
+
     bool sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, const std::vector<cryptonote::tx_destination_entry>& dsts, const unique_index_container& subtract_fee_from_outputs = {}) const;
     void cold_tx_aux_import(const std::vector<pending_tx>& ptx, const std::vector<std::string>& tx_device_aux);
     void cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux);
@@ -1432,6 +1418,21 @@ private:
     detached_blockchain_data detach_blockchain(uint64_t height,
       std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
     void handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
+   /**
+     * brief: create_transactions_all: create "sweep-multiple" style txs (or tx proposals in hot/cold & multisig wallets)
+     * param: address - public address for all destinations in txs
+     * param: is_subaddress - true iff `address` refers to a subaddress
+     * param: outputs - the minimum num of outputs to make per tx (if `address` isn't ours, a change output is included)
+     * param: unused_transfers_indices - indices into `m_transfers` of RingCT & validly-decomposed pre-RingCT inputs
+     * param: unused_dust_indices - indices into `m_transfers` of non-validly-decomposed pre-RingCT inputs
+     * param: fake_outs_count - the number of decoys per input, AKA "mixin"
+     * param: priority - fee priority level
+     * param: extra - any non-ephemeral-tx-pubkey tx.extra fields, including PIDs
+     * return: list of "pending txs": structs which contain partially or fully formed txs and construction information
+     *
+     * Sweep-multiple-style means that transactions are added until all inputs specified by index are spent.
+     */
+    std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra);
     bool clear();
     void clear_soft(bool keep_key_images=false);
     /*
