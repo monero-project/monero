@@ -3975,9 +3975,9 @@ void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash 
 // the "old" and the "new" way of updating the pool and because only the 'getblocks' call supports
 // incremental update but we don't want any blocks here.
 //
-// simplewallet does NOT update the pool info during automatic refresh to avoid disturbing interactive
-// messages and prompts. When it finally calls this method here "to catch up" so to say we can't use
-// incremental update anymore, because with that we might miss some txs altogether.
+// simplewallet does NOT remove txs that disappeared from the pool in here to avoid prematurely
+// removing txs that entered the chain. The main refresh loop handles removing pool txs from wallet
+// cache because the main refresh loop will also see the tx enter the chain.
 void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs)
 {
   process_txs.clear();
@@ -3987,7 +3987,7 @@ void wallet2::update_pool_state(std::vector<std::tuple<cryptonote::transaction, 
   // Synchronize access since this can modify state the refresh loop can modify too
   boost::lock_guard refresh_lock(m_refresh_mutex);
 
-  // We aren't calling this from the refresh loop
+  // We aren't calling this from the refresh loop (makes sure NOT to remove txs that disappear from the pool)
   const bool refreshed = false;
 
   // Incremental was added in RPC v3.13
