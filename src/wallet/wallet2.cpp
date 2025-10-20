@@ -1723,6 +1723,18 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
   return tx_entries;
 }
 //----------------------------------------------------------------------------------------------------
+static uint64_t get_top_synced_block(const hashchain &blockchain, crypto::hash &top_hash)
+{
+  THROW_WALLET_EXCEPTION_IF(blockchain.empty(), tools::error::wallet_internal_error, "blockchain is empty");
+
+  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
+  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
+    "top block not in bounds");
+
+  top_hash = blockchain[m_blockchain_top_block_idx];
+  return m_blockchain_top_block_idx;
+}
+//----------------------------------------------------------------------------------------------------
 static void assert_top_block_match(const hashchain &blockchain, const tools::wallet2::TreeCacheV1 &tree_cache)
 {
   if (blockchain.empty())
@@ -1732,9 +1744,8 @@ static void assert_top_block_match(const hashchain &blockchain, const tools::wal
     return;
   }
 
-  const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
-  THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), tools::error::wallet_internal_error,
-    "top block not in bounds");
+  crypto::hash m_blockchain_top_hash;
+  const uint64_t m_blockchain_top_block_idx = get_top_synced_block(blockchain, m_blockchain_top_hash);
 
   fcmp_pp::curve_trees::BlockMeta top_synced_block;
   THROW_WALLET_EXCEPTION_IF(!tree_cache.get_top_block(top_synced_block), tools::error::wallet_internal_error,
@@ -1743,9 +1754,9 @@ static void assert_top_block_match(const hashchain &blockchain, const tools::wal
   THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_idx != m_blockchain_top_block_idx,
     tools::error::wallet_internal_error, "m_blockchain <> m_tree_cache top block idx mismatch (m_blockchain_top_block_idx: "
     + std::to_string(m_blockchain_top_block_idx) + " vs tree top idx: " + std::to_string(top_synced_block.blk_idx) + ")");
-  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != blockchain[m_blockchain_top_block_idx],
+  THROW_WALLET_EXCEPTION_IF(top_synced_block.blk_hash != m_blockchain_top_hash,
     tools::error::wallet_internal_error,
-    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(blockchain[m_blockchain_top_block_idx]) +
+    "m_blockchain <> m_tree_cache top block hash mismatch (m_blockchain: " + string_tools::pod_to_hex(m_blockchain_top_hash) +
     " vs tree top hash: " + string_tools::pod_to_hex(top_synced_block.blk_hash) + ")");
 }
 //----------------------------------------------------------------------------------------------------
@@ -3154,11 +3165,9 @@ static uint64_t check_for_reorg(const uint64_t parsed_blocks_start_idx, const cr
     }
 
     // We should be synced to tip
-    THROW_WALLET_EXCEPTION_IF(blockchain.empty(), error::wallet_internal_error, "check_for_reorg: empty m_blockchain");
-    const uint64_t m_blockchain_top_block_idx = blockchain.size() - 1;
-    THROW_WALLET_EXCEPTION_IF(!blockchain.is_in_bounds(m_blockchain_top_block_idx), error::wallet_internal_error,
-      "check_for_reorg: top block not in bounds");
-    THROW_WALLET_EXCEPTION_IF(blockchain[m_blockchain_top_block_idx] != top_hash, error::wallet_internal_error,
+    crypto::hash top_synced_hash;
+    get_top_synced_block(blockchain, top_synced_hash);
+    THROW_WALLET_EXCEPTION_IF(top_synced_hash != top_hash, error::wallet_internal_error,
       "check_for_reorg: local top block does not match daemon's");
     return split_point_out;
   }
@@ -3270,12 +3279,11 @@ static std::list<crypto::hash> prepare_next_short_chain_history(const uint64_t p
     sync_chain.crop(next_start_block);
 
     // Make sure we have the expected top hash
-    THROW_WALLET_EXCEPTION_IF(sync_chain.size() != next_start_block, error::wallet_internal_error,
-      "prepare_next_short_chain_history: local hashchain size is expected to be equal to the next start block");
     const uint64_t hashchain_top_block_idx = next_start_block - 1;
-    THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(hashchain_top_block_idx), error::wallet_internal_error,
-      "prepare_next_short_chain_history: local hashchain new top block is not in bounds");
-    THROW_WALLET_EXCEPTION_IF(sync_chain[hashchain_top_block_idx] != parsed_blocks.back().block.hash, error::wallet_internal_error,
+    crypto::hash cur_top_block_hash;
+    THROW_WALLET_EXCEPTION_IF(get_top_synced_block(sync_chain, cur_top_block_hash) != hashchain_top_block_idx, error::wallet_internal_error,
+      "prepare_next_short_chain_history: local hashchain size is expected to be equal to the next start block");
+    THROW_WALLET_EXCEPTION_IF(cur_top_block_hash != parsed_blocks.back().block.hash, error::wallet_internal_error,
       "prepare_next_short_chain_history: local hashchain new top block is not the expected top block");
 
     get_short_chain_history(sync_chain, short_chain_history);
@@ -3283,15 +3291,13 @@ static std::list<crypto::hash> prepare_next_short_chain_history(const uint64_t p
   }
 
   // Make sure we'll continue sync contiguously on top of hashchain
-  THROW_WALLET_EXCEPTION_IF(sync_chain.size() == 0, error::wallet_internal_error,
-    "prepare_next_short_chain_history: empty hashchain");
-  THROW_WALLET_EXCEPTION_IF(!sync_chain.is_in_bounds(sync_chain.size() - 1), error::wallet_internal_error,
-    "prepare_next_short_chain_history: top block out of bounds");
+  crypto::hash cur_top_block_hash;
+  get_top_synced_block(sync_chain, cur_top_block_hash);
 
   const crypto::hash &prev_hash = parsed_blocks_start_idx == 0
     ? parsed_blocks.at(0).block.hash
     : parsed_blocks.at(start_parsed_block_i).block.prev_id;
-  THROW_WALLET_EXCEPTION_IF(sync_chain[sync_chain.size() - 1] != prev_hash, error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(cur_top_block_hash != prev_hash, error::wallet_internal_error,
     "prepare_next_short_chain_history: parsed blocks should be contiguous");
 
   // Add the parsed block hashes to the hashchain
@@ -3454,16 +3460,14 @@ uint64_t wallet2::check_and_handle_reorg(const uint64_t start_height, const cryp
   // Handle reorg on main wallet cache
   this->handle_reorg(reorg_split_point, output_tracker_cache);
 
+  const uint64_t cur_top_block_idx = reorg_split_point - 1;
+  crypto::hash cur_top_block_hash;
+  THROW_WALLET_EXCEPTION_IF(get_top_synced_block(m_blockchain, cur_top_block_hash) != cur_top_block_idx,
+    error::wallet_internal_error, "unexpected top block after handling reorg on main wallet cache");
+
   // Handle reorg for tree cache
-  fcmp_pp::curve_trees::BlockMeta top_synced_block;
-  THROW_WALLET_EXCEPTION_IF(!m_tree_cache.get_top_block(top_synced_block), error::wallet_internal_error,
-    "empty tree sync cache");
-  while (top_synced_block.blk_idx >= reorg_split_point)
-  {
-    THROW_WALLET_EXCEPTION_IF(!m_tree_cache.pop_block(), error::wallet_internal_error, "Failed to pop block from tree");
-    THROW_WALLET_EXCEPTION_IF(!m_tree_cache.get_top_block(top_synced_block), error::wallet_internal_error,
-      "empty tree sync cache");
-  }
+  THROW_WALLET_EXCEPTION_IF(!m_tree_cache.pop_to_block(cur_top_block_idx, cur_top_block_hash),
+    error::wallet_internal_error, "check_and_handle_reorg: failed to pop blocks from tree cache");
 
   // Make sure m_blockchain and m_tree_cache match states after handling reorg
   assert_top_block_match(m_blockchain, m_tree_cache);
@@ -3639,10 +3643,12 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const uint64_t 
       // pop from the tree sync cache until they've synced the same # of blocks.
       // The reason we call grow_cache first is because it is faster/simpler
       // to add the tree elems in memory first and then remove them.
-      while (m_tree_cache.n_synced_blocks() > m_blockchain.size())
+      if (m_tree_cache.n_synced_blocks() > m_blockchain.size())
       {
-        // Note: it would be fastest to implement popping back to a specific block
-        THROW_WALLET_EXCEPTION_IF(!m_tree_cache.pop_block(), error::wallet_internal_error, "Failed to pop block from tree cache");
+        crypto::hash m_blockchain_top_hash;
+        const uint64_t m_blockchain_top_block_idx = get_top_synced_block(m_blockchain, m_blockchain_top_hash);
+        THROW_WALLET_EXCEPTION_IF(!m_tree_cache.pop_to_block(m_blockchain_top_block_idx, m_blockchain_top_hash),
+          error::wallet_internal_error, "Failed to pop blocks from tree cache");
       }
 
       // We make sure to call this *after* in case the cache still has more
@@ -4366,8 +4372,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 
       if(last)
       {
-        THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(m_blockchain.size() - 1), error::wallet_internal_error, "top block out of bounds");
-        THROW_WALLET_EXCEPTION_IF(m_blockchain[m_blockchain.size() - 1] != top_hash, error::wallet_internal_error, "local top hash should equal chain top hash");
+        crypto::hash top_synced_hash;
+        get_top_synced_block(m_blockchain, top_synced_hash);
+        THROW_WALLET_EXCEPTION_IF(top_synced_hash != top_hash, error::wallet_internal_error, "local top hash should equal chain top hash");
         m_node_rpc_proxy.set_height(m_blockchain.size());
         break;
       }

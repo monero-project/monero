@@ -224,6 +224,9 @@ public:
     // The pruning feature of the cache gets rid of all refs we don't need anymore
     void shrink_to_reorg_depth();
 
+    // Enable popping back to a specific block efficiently
+    bool pop_to_block(const uint64_t new_top_blk_idx, const crypto::hash &new_top_hash);
+
     // Clear all state
     void clear();
 
