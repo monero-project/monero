@@ -1687,4 +1687,64 @@ done:
 
       return true;
     }
+
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs) {
+      const std::size_t n_proofs = fcmp_pp_verify_inputs.size();
+
+      tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
+      tools::threadpool::waiter waiter(tpool);
+      const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
+      const bool multithreaded = n_threads > 1;
+
+      std::vector<std::vector<fcmp_pp::FcmpPpVerifyInput>> batches;
+      batches.reserve(n_proofs); // over reserve
+
+      // Split batches across all available threads
+      std::size_t sanity_counter = 0;
+      const std::size_t fcmp_pp_verify_batch_size = std::max<std::size_t>(1, (n_proofs / n_threads));
+      for (std::size_t i = 0; i < n_proofs; i += fcmp_pp_verify_batch_size)
+      {
+        auto &batch = batches.emplace_back();
+        batch.reserve(fcmp_pp_verify_batch_size);
+
+        const std::size_t end = std::min(i + fcmp_pp_verify_batch_size, n_proofs);
+        for (std::size_t j = i; j < end; ++j)
+          batch.emplace_back(std::move(fcmp_pp_verify_inputs[j]));
+
+        sanity_counter += batch.size();
+      }
+      CHECK_AND_ASSERT_THROW_MES(sanity_counter == n_proofs, "did not collect all FCMP++ inputs");
+
+      std::deque<bool> results;
+      results.resize(batches.size());
+      for (std::size_t i = 0; i < batches.size(); ++i)
+      {
+        if (!multithreaded)
+        {
+          results[i] = fcmp_pp::verify(batches[i]);
+          continue;
+        }
+
+        tpool.submit(&waiter,
+            [
+              i,
+              &batches,
+              &results
+            ]()
+            {
+              results[i] = fcmp_pp::verify(batches[i]);
+            },
+            true
+          );
+      }
+
+      if (multithreaded)
+        CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed to batch verify FCMP++ proofs");
+
+      for (bool r : results) {
+        if (!r)
+          return false;
+      }
+      return true;
+    }
 }

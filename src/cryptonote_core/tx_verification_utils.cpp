@@ -821,12 +821,13 @@ bool batch_ver_fcmp_pp_consensus
     }
 
     // Ok, we're ready to batch verify all FCMP++ txs now
-    MDEBUG("Batch verifying " << fcmp_pp_verify_inputs.size() << " FCMP++ txs");
-    if (!fcmp_pp::verify(fcmp_pp_verify_inputs))
+    const std::size_t n_proofs = fcmp_pp_verify_inputs.size();
+    MDEBUG("Batch verifying " << n_proofs << " FCMP++ txs");
+    if (!rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs)))
     {
         return false;
     }
-    MDEBUG("Successfully batch verified " << fcmp_pp_verify_inputs.size() << " FCMP++ txs");
+    MDEBUG("Successfully batch verified " << n_proofs << " FCMP++ txs");
 
     // At this point, the FCMP++ txs all verified successfully. Add them to the cache
     for (const auto &cache_hash : new_cache_hashes)
