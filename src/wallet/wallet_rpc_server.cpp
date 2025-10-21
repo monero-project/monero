@@ -231,7 +231,7 @@ namespace tools
       try
       {
         bool received_money = false;
-        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE);
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE);
         refresh_success = true;
       }
       catch (const std::exception& ex)

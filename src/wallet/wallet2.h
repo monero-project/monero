@@ -639,7 +639,7 @@ private:
     bool is_deprecated() const;
     void refresh(bool trusted_daemon);
     void refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched);
-    void refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool = true, bool try_incremental = true, uint64_t max_blocks = std::numeric_limits<uint64_t>::max());
+    void refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool = true, uint64_t max_blocks = std::numeric_limits<uint64_t>::max());
     bool refresh(bool trusted_daemon, uint64_t & blocks_fetched, bool& received_money, bool& ok);
 
     void set_refresh_type(RefreshType refresh_type) { m_refresh_type = refresh_type; }
@@ -1186,7 +1186,7 @@ private:
     bool import_key_images(signed_tx_set & signed_tx, size_t offset=0, bool only_selected_transfers=false);
     crypto::public_key get_tx_pub_key_from_received_outs(const tools::wallet2::transfer_details &td) const;
 
-    void update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed = false, bool try_incremental = false);
+    void update_pool_state(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs);
     void process_pool_state(const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &txs);
     void remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashes, bool remove_if_found);
 
@@ -1447,8 +1447,8 @@ private:
     bool bump_refresh_start_height(const uint64_t init_start_height, const bool trusted_daemon);
     void handle_reorg_depth_error(const uint64_t start_height, const std::exception_ptr &exception, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
     uint64_t check_and_handle_reorg(const uint64_t start_height, const crypto::hash &top_hash, const std::vector<parsed_block> &parsed_blocks, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
-    void pull_blocks(bool first, bool try_incremental, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, crypto::hash &top_hash, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data);
-    void pull_and_parse_next_blocks(bool first, bool try_incremental, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, crypto::hash &top_hash, bool &error, std::exception_ptr &exception);
+    void pull_blocks(bool check_pool, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices> &o_indices, crypto::hash &top_hash, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, boost::optional<cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t> &init_tree_sync_data);
+    void pull_and_parse_next_blocks(bool check_pool, uint64_t &blocks_start_height, const std::list<crypto::hash> &short_chain_history, std::vector<cryptonote::block_complete_entry> &blocks, std::vector<parsed_block> &parsed_blocks, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>>& process_pool_txs, crypto::hash &top_hash, bool &error, std::exception_ptr &exception);
     void process_parsed_blocks(const uint64_t start_height, const uint64_t start_parsed_block_i, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<parsed_block> &parsed_blocks, uint64_t& blocks_added, std::map<std::pair<uint64_t, uint64_t>, size_t> &output_tracker_cache);
     bool accept_pool_tx_for_processing(const crypto::hash &txid);
     void process_unconfirmed_transfer(bool incremental, const crypto::hash &txid, wallet2::unconfirmed_transfer_details &tx_details, bool seen_in_pool, std::chrono::system_clock::time_point now, bool refreshed);
@@ -1600,6 +1600,7 @@ private:
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
     uint64_t m_pool_info_query_time;
+    uint64_t m_secondary_pool_info_query_time; // used outside the main refresh loop
     bool m_confirm_non_default_ring_size;
     AskPasswordType m_ask_password;
     uint64_t m_max_reorg_depth;
