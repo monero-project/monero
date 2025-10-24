@@ -35,13 +35,13 @@
 
 TEST(fee_2021_scaling, relay_fee_cases_from_pdf)
 {
-  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 300000), 38000);
-  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 1425000), 1684 /*1680*/);
-  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 1500000), 1520);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 300000, HF_VERSION_2021_SCALING), 38000);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 1425000, HF_VERSION_2021_SCALING), 1684 /*1680*/);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(1200000000000, 1500000, HF_VERSION_2021_SCALING), 1520);
 
-  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 300000), 19000);
-  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 1425000), 842 /*840*/);
-  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 1500000), 760);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 300000, HF_VERSION_2021_SCALING), 19000);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 1425000, HF_VERSION_2021_SCALING), 842 /*840*/);
+  ASSERT_EQ(cryptonote::Blockchain::get_dynamic_base_fee(600000000000, 1500000, HF_VERSION_2021_SCALING), 760);
 }
 
 TEST(fee_2021_scaling, wallet_fee_cases_from_pdf)

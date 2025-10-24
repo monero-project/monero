@@ -31,6 +31,7 @@
 #pragma once
 
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "fcmp_pp/curve_trees.h"
 #include "ringct/rctOps.h"
 
 namespace cryptonote
@@ -52,7 +53,9 @@ namespace cryptonote
     rct::key mask;                      //ringct amount mask
     rct::multisig_kLRki multisig_kLRki; //multisig info
 
-    void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommit(amount)}))); }
+    FcmpRerandomizedOutputCompressed rerandomized_output;
+
+    void push_output(uint64_t idx, const crypto::public_key &k, uint64_t amount) { outputs.push_back(std::make_pair(idx, rct::ctkey({rct::pk2rct(k), rct::zeroCommitVartime(amount)}))); }
 
     BEGIN_SERIALIZE_OBJECT()
       FIELD(outputs)

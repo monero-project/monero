@@ -848,7 +848,7 @@ namespace rpc
   {
     res.hard_fork_version = m_core.get_blockchain_storage().get_current_hard_fork_version();
 
-    m_core.get_blockchain_storage().get_dynamic_base_fee_estimate_2021_scaling(req.num_grace_blocks, res.fees);
+    m_core.get_blockchain_storage().get_dynamic_base_fee_estimate(req.num_grace_blocks, res.fees);
     res.estimated_base_fee = res.fees.at(0);
 
     {

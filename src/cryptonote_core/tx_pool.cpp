@@ -157,21 +157,12 @@ namespace cryptonote
       return false;
     }
 
-    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
-    {
-      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
-      tvc.m_verifivation_failed = true; // should already be set, but just in case
-      return false;
-    }
-
-    uint64_t fee;
+    const uint64_t fee = get_tx_fee(tx);
     bool fee_good = false;
     try
     {
-      // get_tx_fee() can throw. It shouldn't throw because we check preconditions in
-      // ver_non_input_consensus(), but let's put it in a try block just in case.
-      fee = get_tx_fee(tx);
-      fee_good = kept_by_block || m_blockchain.check_fee(tx_weight, fee);
+      fee_good = kept_by_block ||
+        (check_pool_capacity(id, tx_weight, fee) && m_blockchain.check_fee(tx_weight, fee));
     }
     catch(...) {}
     if (!fee_good) // if fee calculation failed or fee in relayed tx is too low...
@@ -198,6 +189,13 @@ namespace cryptonote
       tvc.m_verifivation_failed = true;
       tvc.m_nonzero_unlock_time = true;
       tvc.m_no_drop_offense = true;
+      return false;
+    }
+
+    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
+    {
+      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
+      tvc.m_verifivation_failed = true; // should already be set, but just in case
       return false;
     }
 
@@ -351,7 +349,7 @@ namespace cryptonote
 
     ++m_cookie;
 
-    MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size());
+    MINFO("Transaction added to pool: txid " << id << " weight: " << tx_weight << " fee/byte: " << (fee / (double)(tx_weight ? tx_weight : 1)) << ", count: " << m_added_txs_by_id.size() << ", pool total weight: " << m_txpool_weight);
 
     prune(m_txpool_max_weight);
 
@@ -381,6 +379,35 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     m_txpool_max_weight = bytes;
+  }
+  //---------------------------------------------------------------------------------
+  bool tx_memory_pool::check_pool_capacity(const crypto::hash &id, const size_t weight, const uint64_t fee) const
+  {
+    if (weight == 0)
+      return true;
+
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+
+    // If the tx doesn't push the pool over the capacity limit, it fits! We can immediately return true
+    if ((weight + m_txpool_weight) < m_txpool_max_weight)
+      return true;
+
+    // If it does, then see if it pays a higher fee than any txs already in the pool
+    if (m_txs_by_fee_and_receive_time.size() <= 1)
+      return true;
+    const auto it = --m_txs_by_fee_and_receive_time.end();
+    if (it == m_txs_by_fee_and_receive_time.begin())
+      return true;
+
+    const double fee_per_byte = (double) fee / weight;
+    MDEBUG("Check pool capacity for tx " << id << ", fee/byte: " << fee_per_byte << ", pool total weight: " << m_txpool_weight);
+
+    const double lowest_fee_per_byte = it->get_left().first;
+    if (fee_per_byte > lowest_fee_per_byte)
+      return true;
+
+    LOG_PRINT_L1("Pool is at capacity, and tx " << id << " does not pay a high enough fee to enter");
+    return false;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::reduce_txpool_weight(size_t weight)
@@ -1391,6 +1418,7 @@ namespace cryptonote
       const std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>>::const_iterator i = m_input_cache.find(txid);
       if (i != m_input_cache.end())
       {
+        MDEBUG("Input cache hit in check_tx_inputs: " << txid);
         max_used_block_height = std::get<2>(i->second);
         max_used_block_id = std::get<3>(i->second);
         tvc = std::get<1>(i->second);

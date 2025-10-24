@@ -38,12 +38,16 @@
 
 #include <boost/variant/variant.hpp>
 #include <boost/variant/apply_visitor.hpp>
-#include <boost/variant/static_visitor.hpp>
-#include <boost/mpl/empty.hpp>
-#include <boost/mpl/if.hpp>
-#include <boost/mpl/front.hpp>
-#include <boost/mpl/pop_front.hpp>
+#include <boost/mpl/vector.hpp>
+
+#include <variant>
+
 #include "serialization.h"
+
+#define DISABLE_DEFAULT_VARIANT_SERIALIZATION(Type) namespace detail { \
+    template <>                                                        \
+    struct is_variant_serializable<Type>: std::false_type {};          \
+  }
 
 /*! \struct variant_serialization_triats
  * 
@@ -100,13 +104,41 @@ struct variant_reader<Archive, Variant, TBegin, TBegin>
   }
 };
 
-template <template <bool> class Archive, typename... T>
-static bool do_serialize(Archive<false> &ar, boost::variant<T...> &v) {
-    using types = typename boost::variant<T...>::types;
+namespace detail
+{
+template <typename T>
+struct is_variant_serializable: std::false_type {};
+
+template <typename... T>
+struct is_variant_serializable<boost::variant<T...>>: std::true_type {};
+
+template <typename... T>
+struct is_variant_serializable<std::variant<T...>>: std::true_type {};
+
+template <typename T>
+struct get_variant_types {};
+
+template <typename... T>
+struct get_variant_types<boost::variant<T...>>
+{ using types = typename boost::variant<T...>::types; };
+
+template <typename... T>
+struct get_variant_types<std::variant<T...>>
+{ using types = boost::mpl::vector<T...>; };
+
+} //namespace detail
+
+template <
+  template <bool> class Archive,
+  typename Variant,
+  typename = std::enable_if_t<detail::is_variant_serializable<Variant>::value>
+  >
+static bool do_serialize(Archive<false> &ar, Variant &v) {
+    using types = typename detail::get_variant_types<Variant>::types;
     typename Archive<false>::variant_tag_type t;
     ar.begin_variant();
     ar.read_variant_tag(t);
-    if(!variant_reader<Archive<false>, boost::variant<T...>,
+    if(!variant_reader<Archive<false>, Variant,
        typename boost::mpl::begin<types>::type,
        typename boost::mpl::end<types>::type>::read(ar, v, t))
     {
@@ -118,7 +150,7 @@ static bool do_serialize(Archive<false> &ar, boost::variant<T...> &v) {
 }
 
 template <template <bool> class Archive>
-struct variant_write_visitor : public boost::static_visitor<bool>
+struct variant_write_visitor
 {
     Archive<true> &ar;
 
@@ -139,8 +171,22 @@ struct variant_write_visitor : public boost::static_visitor<bool>
     }
 };
 
-template <template <bool> class Archive, typename... T>
+template <
+  template <bool> class Archive,
+  typename... T,
+  typename = std::enable_if_t<detail::is_variant_serializable<boost::variant<T...>>::value>
+  >
 static bool do_serialize(Archive<true> &ar, boost::variant<T...> &v)
 {
   return boost::apply_visitor(variant_write_visitor<Archive>(ar), v);
+}
+
+template <
+  template <bool> class Archive,
+  typename... T,
+  typename = std::enable_if_t<detail::is_variant_serializable<std::variant<T...>>::value>
+  >
+static bool do_serialize(Archive<true> &ar, std::variant<T...> &v)
+{
+  return std::visit(variant_write_visitor<Archive>(ar), v);
 }

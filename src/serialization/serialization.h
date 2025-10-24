@@ -191,9 +191,23 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
  * VARINT_FIELD_F(). Otherwise, this macro is similar to
  * BEGIN_SERIALIZE_OBJECT(), as you should list only field serializations.
  */
-#define BEGIN_SERIALIZE_OBJECT_FN(stype)           \
+#if VA_OPT_SUPPORTED
+  #define BEGIN_SERIALIZE_OBJECT_FN(stype, ...)      \
+    template <bool W, template <bool> class Archive> \
+    bool do_serialize_object(Archive<W> &ar, stype &v __VA_OPT__(,) __VA_ARGS__) {
+#else
+  #define BEGIN_SERIALIZE_OBJECT_FN(stype, ...)      \
+    template <bool W, template <bool> class Archive> \
+    bool do_serialize_object(Archive<W> &ar, stype &v, ## __VA_ARGS__) {
+#endif
+
+/*! \macro DECLARE_SERIALIZE_OBJECT
+ *
+ * \brief forward declare a BEGIN_SERIALIZE_OBJECT_FN function
+*/
+#define DECLARE_SERIALIZE_OBJECT(stype)            \
   template <bool W, template <bool> class Archive> \
-  bool do_serialize_object(Archive<W> &ar, stype &v) {
+  bool do_serialize_object(Archive<W> &ar, stype &v);
 
 /*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
