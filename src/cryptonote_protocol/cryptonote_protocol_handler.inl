@@ -905,7 +905,10 @@ namespace cryptonote
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_GET_TXPOOL_COMPLEMENT (" << arg.hashes.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
+    {
+      MLOG_PEER_STATE("Not sending txpool complement, connection is not in normal state yet");
       return 1;
+    }
 
     NOTIFY_TX_POOL_HASH::request inv_txes_req;
     if (!m_core.get_txpool_complement(arg.hashes, inv_txes_req.t))

@@ -38,6 +38,11 @@ void fuzz_send_miner_data(zmq_pub& pub, FuzzedDataProvider& provider) {
   crypto::hash prev_id, seed_hash;
   std::memset(&prev_id, 0x01, sizeof(prev_id));
   std::memset(&seed_hash, 0x02, sizeof(seed_hash));
+
+  uint8_t fcmp_pp_n_tree_layers = provider.ConsumeIntegralInRange<size_t>(1, FCMP_PLUS_PLUS_MAX_LAYERS);
+  crypto::ec_point fcmp_pp_tree_root;
+  std::memset(&fcmp_pp_tree_root, 0x03, sizeof(fcmp_pp_tree_root));
+
   difficulty_type diff = provider.ConsumeIntegral<uint64_t>();
 
   uint64_t median_weight = provider.ConsumeIntegral<uint64_t>();
@@ -52,7 +57,8 @@ void fuzz_send_miner_data(zmq_pub& pub, FuzzedDataProvider& provider) {
     backlog.push_back(entry);
   }
 
-  pub.send_miner_data(major, h, prev_id, seed_hash, diff, median_weight, coins, backlog);
+  pub.send_miner_data(major, h, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root,
+    seed_hash, diff, median_weight, coins, backlog);
 }
 
 void fuzz_send_txpool_add(zmq_pub& pub, FuzzedDataProvider& provider) {

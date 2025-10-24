@@ -9,6 +9,7 @@ namespace tools
         HardforkV3,
         HardforkV5,
         HardforkV8,
+        HardforkV17,
     };
 
     namespace fee_algorithm_utilities

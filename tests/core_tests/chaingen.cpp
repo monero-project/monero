@@ -303,8 +303,6 @@ bool test_generator::construct_block(cryptonote::block& blk, uint64_t height, co
     }
   }
 
-  //blk.tree_root_hash = get_tx_tree_hash(blk);
-
   fill_nonce(blk, get_test_difficulty(hf_ver), height);
   const uint64_t block_reward = get_outs_money_amount(blk.miner_tx) - total_fee;
   add_block(blk, txs_weight, block_weights, already_generated_coins, block_reward, hf_ver ? hf_ver.get() : 1);
@@ -342,7 +340,8 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
                                               const transaction& miner_tx/* = transaction()*/,
                                               const std::vector<crypto::hash>& tx_hashes/* = std::vector<crypto::hash>()*/,
                                               size_t txs_weight/* = 0*/, size_t max_outs/* = 0*/, uint8_t hf_version/* = 1*/,
-                                              uint64_t fees/* = 0*/)
+                                              uint64_t fees/* = 0*/, const uint8_t fcmp_pp_n_tree_layers/* = 0*/,
+                                              const crypto::ec_point& fcmp_pp_tree_root/* = crypto::ec_point{}*/)
 {
   blk.major_version = actual_params & bf_major_ver ? major_ver : CURRENT_BLOCK_MAJOR_VERSION;
   blk.minor_version = actual_params & bf_minor_ver ? minor_ver : CURRENT_BLOCK_MINOR_VERSION;
@@ -369,7 +368,11 @@ bool test_generator::construct_block_manually(block& blk, const block& prev_bloc
       return false;
   }
 
-  //blk.tree_root_hash = get_tx_tree_hash(blk);
+  if (blk.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+  {
+    blk.fcmp_pp_n_tree_layers = fcmp_pp_n_tree_layers;
+    blk.fcmp_pp_tree_root = fcmp_pp_tree_root;
+  }
 
   difficulty_type a_diffic = actual_params & bf_diffic ? diffic : get_test_difficulty(hf_version);
   fill_nonce(blk, a_diffic, height);
@@ -594,7 +597,7 @@ bool fill_tx_sources(std::vector<tx_source_entry>& sources, const std::vector<te
             ts.rct = false;
             ts.mask = rct::identity();  // non-rct has identity mask by definition
 
-            rct::key comm = rct::zeroCommit(ts.amount);
+            rct::key comm = rct::zeroCommitVartime(ts.amount);
             for(auto & ot : ts.outputs)
               ot.second.mask = comm;
 
