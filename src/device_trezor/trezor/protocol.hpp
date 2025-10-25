@@ -34,7 +34,7 @@
 #include "device/device_cold.hpp"
 #include "messages_map.hpp"
 #include "transport.hpp"
-#include "wallet/wallet2.h"
+#include "wallet/hot_cold.h"
 
 namespace hw{
 namespace trezor{
@@ -115,7 +115,7 @@ namespace ki {
    * Converts transfer details to the MoneroTransferDetails required for KI sync
    */
   bool key_image_data(wallet_shim * wallet,
-                      const std::vector<tools::wallet2::transfer_details> & transfers,
+                      const std::vector<wallet2_basic::transfer_details> & transfers,
                       std::vector<MoneroTransferDetails> & res);
 
   /**
@@ -127,7 +127,7 @@ namespace ki {
    * Generates KI sync request with commitments computed.
    */
   void generate_commitment(std::vector<MoneroTransferDetails> & mtds,
-                           const std::vector<tools::wallet2::transfer_details> & transfers,
+                           const std::vector<wallet2_basic::transfer_details> & transfers,
                            std::shared_ptr<messages::monero::MoneroKeyImageExportInitRequest> & req);
 
   /**
@@ -151,8 +151,8 @@ namespace tx {
   using MoneroRctKey = messages::monero::MoneroTransactionSourceEntry_MoneroOutputEntry_MoneroRctKeyPublic;
   using MoneroRsigData = messages::monero::MoneroTransactionRsigData;
 
-  using tx_construction_data = tools::wallet2::tx_construction_data;
-  using unsigned_tx_set = tools::wallet2::unsigned_tx_set;
+  using tx_construction_data = tools::wallet::PreCarrotTransactionProposal;
+  using unsigned_tx_set = tools::wallet::cold::UnsignedPreCarrotTransactionSet;
 
   void translate_address(MoneroAccountPublicAddress * dst, const cryptonote::account_public_address * src);
   void translate_dst_entry(MoneroTransactionDestinationEntry * dst, const cryptonote::tx_destination_entry * src);
@@ -229,12 +229,12 @@ namespace tx {
       return m_ct.tx_data;
     }
 
-    const tools::wallet2::transfer_details & get_transfer(size_t idx) const {
+    const wallet2_basic::transfer_details & get_transfer(size_t idx) const {
       CHECK_AND_ASSERT_THROW_MES(idx < std::get<2>(m_unsigned_tx->transfers).size() + std::get<0>(m_unsigned_tx->transfers) && idx >= std::get<0>(m_unsigned_tx->transfers), "Invalid transfer index");
       return std::get<2>(m_unsigned_tx->transfers)[idx - std::get<0>(m_unsigned_tx->transfers)];
     }
 
-    const tools::wallet2::transfer_details & get_source_transfer(size_t idx) const {
+    const wallet2_basic::transfer_details & get_source_transfer(size_t idx) const {
       const auto & sel_transfers = cur_tx().selected_transfers;
       CHECK_AND_ASSERT_THROW_MES(idx < m_ct.source_permutation.size(), "Invalid source index - permutation");
       CHECK_AND_ASSERT_THROW_MES(m_ct.source_permutation[idx] < sel_transfers.size(), "Invalid source index");

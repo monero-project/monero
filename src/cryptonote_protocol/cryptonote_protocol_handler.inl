@@ -857,7 +857,10 @@ namespace cryptonote
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_GET_TXPOOL_COMPLEMENT (" << arg.hashes.size() << " txes)");
     if(context.m_state != cryptonote_connection_context::state_normal)
+    {
+      MLOG_PEER_STATE("Not sending txpool complement, connection is not in normal state yet");
       return 1;
+    }
 
     std::vector<std::pair<cryptonote::blobdata, block>> local_blocks;
     std::vector<cryptonote::blobdata> local_txs;
@@ -869,16 +872,32 @@ namespace cryptonote
       return 1;
     }
 
-    NOTIFY_NEW_TRANSACTIONS::request new_txes;
-    new_txes.txs = std::move(txes);
+    // Avoid tripping the packet size limit by serving txs in batches
+    static const std::size_t SLICE_SIZE = context.get_max_bytes(NOTIFY_NEW_TRANSACTIONS::ID) / get_max_tx_size();
+    if (SLICE_SIZE == 0)
+    {
+      LOG_ERROR_CCONTEXT("SLICE_SIZE should be >0");
+      return 1;
+    }
 
-    MLOG_P2P_MESSAGE
-    (
-        "-->>NOTIFY_NEW_TRANSACTIONS: "
-        << ", txs.size()=" << new_txes.txs.size()
-    );
+    for (std::size_t i = 0; i < txes.size(); i += SLICE_SIZE)
+    {
+      const std::size_t end = std::min(txes.size(), i + SLICE_SIZE);
 
-    post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+      NOTIFY_NEW_TRANSACTIONS::request new_txes;
+      new_txes.txs.reserve(end - std::min(i, end));
+      for (std::size_t j = i; j < end; ++j)
+        new_txes.txs.emplace_back(std::move(txes.at(j)));
+
+      MLOG_P2P_MESSAGE
+      (
+          "-->>NOTIFY_NEW_TRANSACTIONS:"
+          << " txs.size()=" << new_txes.txs.size()
+          << ", pool txs " << i << " - " << end-1
+      );
+
+      post_notify<NOTIFY_NEW_TRANSACTIONS>(new_txes, context);
+    }
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2146,7 +2165,7 @@ skip:
       NOTIFY_REQUEST_GET_OBJECTS::request req;
       bool is_next = false;
       size_t count = 0;
-      const size_t count_limit = m_core.get_block_sync_size(m_core.get_current_blockchain_height());
+      size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average_of_blocksize_in_queue());
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
@@ -2196,7 +2215,7 @@ skip:
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
         static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(8);
         bool sync_pruned_blocks = m_sync_pruned_blocks && first_block_height >= bp_fork_height && m_core.get_blockchain_pruning_seed();
-        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, count_limit, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
+        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, l_m_bss, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
         MDEBUG(context << " span from " << first_block_height << ": " << span.first << "/" << span.second);
         if (span.second > 0)
         {
@@ -2282,7 +2301,7 @@ skip:
         context.m_expect_height = span.first;
         context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size()
-            << "requested blocks count=" << count << " / " << count_limit << " from " << span.first << ", first hash " << req.blocks.front());
+            << "requested blocks count=" << count << " / " << l_m_bss << " from " << span.first << ", first hash " << req.blocks.front());
         //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
 
         MDEBUG("Asking for " << (req.prune ? "pruned" : "full") << " data, start/end "

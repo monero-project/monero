@@ -32,6 +32,8 @@
 
 #include <string>
 #include <exception>
+#include <map>
+#include <memory>
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
@@ -40,6 +42,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
+#include "fcmp_pp/curve_trees.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -117,6 +120,16 @@ enum class relay_category : uint8_t
 bool matches_category(relay_method method, relay_category category) noexcept;
 
 #pragma pack(push, 1)
+// This MUST be identical to output_data_t, without the extra rct data at the end
+struct pre_rct_output_data_t
+{
+  crypto::public_key pubkey;       //!< the output's public key (for spend verification)
+  uint64_t           unlock_time;  //!< the output's unlock time (or height)
+  uint64_t           height;       //!< the height of the block which created the output
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
 
 /**
  * @brief a struct containing output metadata
@@ -129,6 +142,18 @@ struct output_data_t
   rct::key           commitment;   //!< the output's amount commitment (for spend verification)
 };
 #pragma pack(pop)
+
+typedef struct pre_rct_outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    pre_rct_output_data_t data;
+} pre_rct_outkey;
+
+typedef struct outkey {
+    uint64_t amount_index;
+    uint64_t output_id;
+    output_data_t data;
+} outkey;
 
 #pragma pack(push, 1)
 struct tx_data_t
@@ -186,7 +211,6 @@ struct txpool_tx_meta_t
     return matches_category(get_relay_method(), category);
   }
 };
-
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
@@ -471,8 +495,9 @@ private:
    * future, this tracking (of the number, at least) should be moved to
    * this class, as it is necessary and the same among all BlockchainDB.
    *
-   * It returns an amount output index, which is the index of the output
-   * for its specified amount.
+   * It returns the output indexes, which contains an amount output index (the
+   * index of the output for its specified amount) and output id (the global
+   * index of the output among all outputs of any amount).
    *
    * This data should be stored in such a manner that the only thing needed to
    * reverse the process is the tx_out.
@@ -528,6 +553,35 @@ private:
    */
   virtual void remove_spent_key(const crypto::key_image& k_image) = 0;
 
+  //
+  // Curve tree related db calls (private)
+  //
+
+  // TODO: descriptions
+  virtual std::vector<fcmp_pp::curve_trees::OutputContext> get_outs_at_last_locked_block_idx(uint64_t block_id) const = 0;
+
+  virtual void del_locked_outs_at_block_idx(uint64_t block_idx) = 0;
+
+  virtual uint64_t get_tree_block_idx() const = 0;
+
+  virtual std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const = 0;
+
+  virtual uint64_t trim_leaves(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx) = 0;
+
+  virtual void trim_layers(const uint64_t new_n_leaf_tuples,
+    const std::vector<uint64_t> &n_elems_per_layer,
+    const std::vector<crypto::ec_point> &prev_tree_edge,
+    const uint64_t expected_root_idx) = 0;
+
+  virtual void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge) = 0;
+
+  virtual void del_tree_meta(const uint64_t block_idx) = 0;
+
+  virtual std::vector<crypto::ec_point> grow_with_tree_extension(const fcmp_pp::curve_trees::CurveTreesV1::TreeExtension &tree_extension) = 0;
+
+  virtual fcmp_pp::curve_trees::PathBytes get_path(const fcmp_pp::curve_trees::PathIndexes &path_indexes) const = 0;
+
+  virtual uint64_t find_leaf_idx_by_output_id_bounded_search(uint64_t output_id, uint64_t leaf_idx_start, uint64_t leaf_idx_end) const = 0;
 
   /*********************************************************************
    * private concrete members
@@ -567,10 +621,11 @@ protected:
    * @param blk_hash hash of the block which has the transaction
    * @param tx the transaction to add
    * @param blob for `tx`
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -578,12 +633,14 @@ protected:
 
   HardFork* m_hardfork;
 
+  std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> m_curve_trees;
+
 public:
 
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees() { }
 
   /**
    * @brief An empty destructor.
@@ -816,6 +873,7 @@ public:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param txs the transactions in the block
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
    *
    * @return the height of the chain post-addition
    */
@@ -825,6 +883,7 @@ public:
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<std::pair<transaction, blobdata>>& txs
+                            , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                             );
 
   /**
@@ -1379,6 +1438,16 @@ public:
    */
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
 
+  // returns the total number of outputs in the chain (of all amounts)
+  /**
+   * @brief fetches the number of outputs in the chain
+   *
+   * The subclass should return a count of outputs, or zero if there are none.
+   *
+   * @return the total number of outputs in the chain (of all amounts)
+   */
+  virtual uint64_t num_outputs() const = 0;
+
   // returns the total number of outputs of amount <amount>
   /**
    * @brief fetches the number of outputs of a given amount
@@ -1418,7 +1487,7 @@ public:
    *
    * @return the requested output data
    */
-  virtual output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
+  virtual outkey get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt = true) const = 0;
 
   /**
    * @brief gets an output's tx hash and index
@@ -1471,7 +1540,19 @@ public:
    * @param outputs return-by-reference a list of outputs' metadata
    */
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<output_data_t> &outputs, bool allow_partial = false) const = 0;
-  
+
+  /**
+   * @brief fetches tx out data with the given hash
+   *
+   * If the transaction does not exist, the subclass should throw TX_DNE.
+   *
+   * @param h the hash to look for
+   * @param tx return-by-reference pruned transaction
+   *
+   * @return the transaction's associated output data
+   */
+  virtual std::vector<outkey> get_tx_output_data(const crypto::hash& h, cryptonote::transaction &tx) const = 0;
+
   /*
    * FIXME: Need to check with git blame and ask what this does to
    * document it
@@ -1766,6 +1847,79 @@ public:
    */
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
+  //
+  // Curve tree related db calls (public)
+  //
+
+  // TODO: descriptions
+  virtual void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs);
+
+  void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs);
+
+  void trim_block();
+
+  void trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx);
+
+  std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> get_last_path(const uint64_t block_idx) const;
+
+  uint64_t get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+    const uint64_t as_of_n_blocks,
+    std::vector<uint64_t> &leaf_idxs_out,
+    std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const;
+
+  /**
+   * @brief add outs to locked outputs tables
+   *
+   * If any of this cannot be done, the subclass should throw the corresponding
+   * subclass of DB_EXCEPTION
+   *
+   * @param outs_by_last_locked_block outs grouped by last locked block
+   * @param timelocked_outputs custom timelocked outputs
+   *
+   */
+  virtual void add_locked_outs(const fcmp_pp::curve_trees::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) = 0;
+
+  // TODO: descriptions
+  virtual bool audit_tree(const uint64_t expected_n_leaf_tuples) const = 0;
+  virtual uint64_t get_n_leaf_tuples() const = 0;
+  virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
+
+  /**
+   * @brief return tree's root and n_tree_layers at a specific block idx
+   *
+   * Gets the tree root and n_tree_layers composed of all valid spendable
+   * outputs when blk_idx is the tip of the chain.
+   *
+   * If the chain tip is block index n, and `blk_idx == n`, then this will
+   * return the tree root and n layers in a tree composed of all valid
+   * spendable outputs in the chain at that time.
+   *
+   * If the chain tip is block index n, and `blk_idx == n-1`, then this will
+   * return the tree root and n layers in a tree composed of all valid
+   * spendable outputs in the chain *when the chain tip was block index n - 1*.
+   *
+   * Note that the tree stored in the database may not match up with the tree
+   * root returned here, since the tree stored in the db may have grown past
+   * the chain tip's tree, with outputs that will unlock in future blocks.
+   *
+   * This function throws if the db does not have a tree root stored for the
+   * given blk_idx.
+   *
+   * @param blk_idx the state of the tree as of this block index
+   * @param tree_root_out return-by-reference tree root
+   *
+   * @return n tree layers when blk_idx was chain tip
+   */
+  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const = 0;
+
+  /**
+   * @brief return custom timelocked outputs after the provided block idx
+   *
+   * @param start_block_idx
+   *
+   * @return custom timelocked outputs grouped by last locked block
+   */
+  virtual fcmp_pp::curve_trees::OutsByLastLockedBlock get_custom_timelocked_outputs(uint64_t start_block_idx) const = 0;
 
   //
   // Hard fork related storage
@@ -1848,22 +2002,14 @@ public:
 
 };  // class BlockchainDB
 
-class db_txn_guard
+class db_rtxn_guard
 {
 public:
-  db_txn_guard(BlockchainDB *db, bool readonly): db(db), readonly(readonly), active(false)
+  db_rtxn_guard(const BlockchainDB *db): db(db), active(false)
   {
-    if (readonly)
-    {
-      active = db->block_rtxn_start();
-    }
-    else
-    {
-      db->block_wtxn_start();
-      active = true;
-    }
+    active = db->block_rtxn_start();
   }
-  virtual ~db_txn_guard()
+  virtual ~db_rtxn_guard()
   {
     stop();
   }
@@ -1871,30 +2017,51 @@ public:
   {
     if (active)
     {
-      if (readonly)
-        db->block_rtxn_stop();
-      else
-        db->block_wtxn_stop();
+      db->block_rtxn_stop();
       active = false;
     }
   }
   void abort()
   {
-    if (readonly)
-      db->block_rtxn_abort();
-    else
-      db->block_wtxn_abort();
+    db->block_rtxn_abort();
+    active = false;
+  }
+
+private:
+  const BlockchainDB *db;
+  bool active;
+};
+
+class db_wtxn_guard
+{
+public:
+  db_wtxn_guard(BlockchainDB *db): db(db), active(false)
+  {
+    db->block_wtxn_start();
+    active = true;
+  }
+  virtual ~db_wtxn_guard()
+  {
+    stop();
+  }
+  void stop()
+  {
+    if (active)
+    {
+      db->block_wtxn_stop();
+      active = false;
+    }
+  }
+  void abort()
+  {
+    db->block_wtxn_abort();
     active = false;
   }
 
 private:
   BlockchainDB *db;
-  bool readonly;
   bool active;
 };
-
-class db_rtxn_guard: public db_txn_guard { public: db_rtxn_guard(BlockchainDB *db): db_txn_guard(db, true) {} };
-class db_wtxn_guard: public db_txn_guard { public: db_wtxn_guard(BlockchainDB *db): db_txn_guard(db, false) {} };
 
 BlockchainDB *new_db();
 

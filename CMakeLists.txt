@@ -380,6 +380,7 @@ if(NOT MANUAL_SUBMODULES)
     check_submodule(external/rapidjson)
     check_submodule(external/randomx)
     check_submodule(external/supercop)
+    check_submodule(external/mx25519)
   endif()
 endif()
 
@@ -452,7 +453,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
   set(BSDI TRUE)
 endif()
 
-include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
+include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include external/mx25519/include)
 
 if(MINGW)
   set(DEFAULT_STATIC true)
@@ -479,6 +480,7 @@ set(PIC_FLAG "-fPIC")
 if(STATIC)
   set(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DZMQ_STATIC")
+  add_definitions("-DMX25519_STATIC")
 endif()
 
 option(SANITIZE "Use ASAN memory sanitizer" OFF)
@@ -1061,6 +1063,9 @@ endif()
 add_definitions(-DBOOST_ASIO_ENABLE_SEQUENTIAL_STRAND_ALLOCATION)
 add_definitions(-DBOOST_NO_AUTO_PTR)
 add_definitions(-DBOOST_UUID_DISABLE_ALIGNMENT) # This restores UUID's std::has_unique_object_representations property
+# Boost has two conflicting save/load impls for `std::variant`, one in serialization/variant.hpp,
+# and one in serialization/std_variant.hpp. This macro disables the one in variant.hpp.
+add_definitions(-DBOOST_NO_CXX17_HDR_VARIANT)
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)

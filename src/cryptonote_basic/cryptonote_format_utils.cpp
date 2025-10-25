@@ -79,13 +79,10 @@ namespace cryptonote
       ge_p1p1_to_p3(&A2, &tmp3);
       ge_p3_tobytes(&AB, &A2);
   }
-
-  uint64_t get_transaction_weight_clawback(const transaction &tx, size_t n_padded_outputs)
+  //---------------------------------------------------------------
+  static uint64_t get_transaction_weight_clawback(const bool plus, const size_t n_outputs, const size_t n_padded_outputs)
   {
-    const rct::rctSig &rv = tx.rct_signatures;
-    const bool plus = rv.type == rct::RCTTypeBulletproofPlus;
     const uint64_t bp_base = (32 * ((plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
-    const size_t n_outputs = tx.vout.size();
     if (n_padded_outputs <= 2)
       return 0;
     size_t nlr = 0;
@@ -98,6 +95,69 @@ namespace cryptonote
         + std::to_string(n_padded_outputs) + ", bp_size " + std::to_string(bp_size));
     const uint64_t bp_clawback = (bp_base * n_padded_outputs - bp_size) * 4 / 5;
     return bp_clawback;
+  }
+
+  static void get_tree_hash(const std::vector<crypto::hash>& tx_hashes, crypto::hash& h)
+  {
+    tree_hash(tx_hashes.data(), tx_hashes.size(), h);
+  }
+
+  static crypto::hash get_tree_hash(const std::vector<crypto::hash>& tx_hashes)
+  {
+    crypto::hash h = null_hash;
+    get_tree_hash(tx_hashes, h);
+    return h;
+  }
+  //---------------------------------------------------------------
+  static uint64_t get_transaction_weight_clawback(const transaction &tx, const size_t n_padded_outputs)
+  {
+    const rct::rctSig &rv = tx.rct_signatures;
+    const bool plus = rv.type == rct::RCTTypeBulletproofPlus || rv.type == rct::RCTTypeFcmpPlusPlus;
+    const size_t n_outputs = tx.vout.size();
+    return get_transaction_weight_clawback(plus, n_outputs, n_padded_outputs);
+  }
+  //---------------------------------------------------------------
+  // Helper function to group outputs by last locked block idx
+  static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &tx,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t &first_output_id,
+    const uint64_t block_idx,
+    fcmp_pp::curve_trees::OutsByLastLockedBlock &outs_by_last_locked_block_inout,
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> &timelocked_outputs_inout)
+  {
+    const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(tx.unlock_time, block_idx);
+    const bool has_custom_timelock = cryptonote::is_custom_timelocked(cryptonote::is_coinbase(tx),
+      last_locked_block,
+      block_idx);
+
+    for (std::size_t i = 0; i < tx.vout.size(); ++i)
+    {
+      const uint64_t output_id = first_output_id + i;
+      const auto &out = tx.vout[i];
+
+      crypto::public_key output_public_key;
+      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_output_public_key(out, output_public_key),
+          "failed to get out pubkey");
+
+      rct::key commitment;
+      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
+          "failed to get tx commitment");
+
+      const fcmp_pp::curve_trees::OutputContext output_context{
+              .output_id       = output_id,
+              .torsion_checked = cryptonote::tx_outs_checked_for_torsion(tx),
+              .output_pair     = fcmp_pp::curve_trees::OutputPair{output_public_key, commitment}
+          };
+
+      if (has_custom_timelock)
+      {
+          timelocked_outputs_inout[output_id] = last_locked_block;
+      }
+
+      outs_by_last_locked_block_inout[last_locked_block].emplace_back(output_context);
+    }
+
+    return tx.vout.size();
   }
   //---------------------------------------------------------------
 }
@@ -419,11 +479,142 @@ namespace cryptonote
     return string_tools::get_xtype_from_string(amount, str_amount);
   }
   //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_prefix_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    CHECK_AND_ASSERT_MES(n_inputs && n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: invalid n_inputs");
+    CHECK_AND_ASSERT_MES(n_outputs >= 2 && n_outputs <= FCMP_PLUS_PLUS_MAX_OUTPUTS,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: invalid n_outputs");
+    CHECK_AND_ASSERT_MES(extra_len <= MAX_TX_EXTRA_SIZE,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: invalid extra_len");
+
+    static constexpr uint64_t txin_to_key_weight = 1 /*amount=0*/ + 1 /*key_offsets.size()=0*/ + 32 /*k_image*/;
+    static constexpr uint64_t txout_to_carrot_weight = 32 /*key*/ + 3 /*view_tag*/ + 16 /*encrypted_janus_anchor*/;
+    static constexpr uint64_t tx_out_weight = 1 /*amount=0*/ + txout_to_carrot_weight + 1 /*txout_target_v tag*/;
+
+    // varint len bumps from 2 to 3 at 16384
+    static_assert(16384 > FCMP_PLUS_PLUS_MAX_INPUTS, "16384 expected > FCMP_PLUS_PLUS_MAX_INPUTS");
+    static_assert(16384 > MAX_TX_EXTRA_SIZE,         "16384 expected > MAX_TX_EXTRA_SIZE");
+
+    // varint len bumps from 1 to 2 at 128
+    static_assert(128 > FCMP_PLUS_PLUS_MAX_OUTPUTS, "128 expected > FCMP_PLUS_PLUS_MAX_OUTPUTS");
+
+    return
+      1 /*version=2*/
+      + 1 /*unlock_time=0*/
+      + (n_inputs >= 128 ? 2 : 1) /*vin.size()<=FCMP_PLUS_PLUS_MAX_INPUTS*/
+      + n_inputs * (txin_to_key_weight /*txin_to_key*/ + 1 /*txin_v tag*/)
+      + 1 /*vout.size()<=FCMP_PLUS_PLUS_MAX_OUTPUTS*/
+      + (n_outputs * tx_out_weight /*tx_out*/)
+      + (extra_len >= 128 ? 2 : 1) /*extra.size()*/
+      + extra_len;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_unprunable_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    const uint64_t prefix_weight = get_fcmp_pp_prefix_weight_v1(n_inputs, n_outputs, extra_len);
+    if (prefix_weight == std::numeric_limits<uint64_t>::max())
+      return prefix_weight;
+
+    static constexpr uint64_t max_u64_varint_len = 10;        // size of varint storing 2**64-1
+    static constexpr uint64_t rct_sig_base_per_out_weight = 8 /*ecdhInfo.at(i).amount*/ + 32 /*outPk.at(i).mask*/;
+
+    return prefix_weight
+      + 1 /*type*/
+      + max_u64_varint_len /*txnFee*/
+      + (n_outputs * rct_sig_base_per_out_weight);
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_transaction_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len)
+  {
+    MTRACE(__func__ << "(n_inputs=" << n_inputs << ", n_outputs=" << n_outputs << ", extra_len=" << extra_len);
+
+    const uint64_t unprunable_weight = get_fcmp_pp_unprunable_weight_v1(n_inputs, n_outputs, extra_len);
+    if (unprunable_weight == std::numeric_limits<uint64_t>::max())
+      return unprunable_weight;
+
+    static constexpr uint64_t max_block_index_varint_len = 5; // size of varint storing CRYPTONOTE_MAX_BLOCK_NUMBER
+
+    static constexpr uint64_t rerandomized_output_weight = FCMP_PP_INPUT_TUPLE_SIZE_V1 + 32 /*C~ AKA pseudoOut*/;
+
+    const uint64_t total_sal_weight = n_inputs * (rerandomized_output_weight + FCMP_PP_SAL_PROOF_SIZE_V1);
+    const uint64_t misc_fcmp_pp_weight = max_block_index_varint_len /*reference_block*/ + 1 /*n_tree_layers*/;
+
+    // Calculate deterministic bulletproofs size (assumes canonical BP format)
+    size_t nrl = 0, n_padded_outputs;
+    while ((n_padded_outputs = (1u << nrl)) < n_outputs)
+      ++nrl;
+    nrl += 6;
+    uint64_t bp_weight = 32 * (6 + 2 * nrl) + 2;
+    bp_weight += 1 /*nbp*/;
+
+    // BP+ clawback to price in linear verification times
+    const uint64_t bp_clawback = get_transaction_weight_clawback(/*plus=*/true, n_outputs, n_padded_outputs);
+    MDEBUG("bulletproof+ clawback: " << bp_clawback);
+    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - bp_clawback > bp_weight,
+      std::numeric_limits<uint64_t>::max(),
+      "get_fcmp_pp_transaction_weight_v1: overflow with bulletproof clawback");
+    bp_weight += bp_clawback;
+
+    // Much like bulletproofs, the verification time of a FCMP is linear in the number of inputs,
+    // rounded up to the nearest power of 2, so round n_inputs up to power of 2 to price this in
+    size_t n_padded_inputs = 1;
+    while (n_padded_inputs < n_inputs)
+      n_padded_inputs *= 2;
+
+    // There's a few reasons why we treat n_tree_layers as a fixed value for weight calculation:
+    //     a. If we took n_tree_layers into account when calculating weight, then fee calculation
+    //        would be a function of the number of layers in the FCMP tree. This has a couple
+    //        implications:
+    //            i.  To determine the "correct" fee in multi-signer/cold-signer contexts, signers
+    //                would have to transmit and agree upon what the current n_tree_layers value is,
+    //                which complicates these protocols, and is inherently difficult to validate
+    //                for offline signers. It also just complicates the process for normal wallets.
+    //            ii. If signers need guarantees that a signature for a transaction proposal with a
+    //                certain fee isn't reused for similar transaction but with a different
+    //                n_tree_layers, and thus weight, then n_tree_layers would have to be included
+    //                in rctSigBase and hashed into the signable_tx_hash, which means an extra byte
+    //                per pruned transaction when wallets are refreshing. Also, more subjectively,
+    //                putting n_tree_layers into rctSigBase feels misplaced.
+    //     b. Dropping the weight for low values of n_tree_layers directly incentivizes spenders of
+    //        old enotes to use as small a value of n_tree_layers as possible, which hurts their
+    //        anonymity.
+    //
+    // We chose 7 specifically because at the time of writing (9 April 2025), the current layer size
+    // of the Monero mainnet would be 6. 7 is approaching relatively quickly, and would be the value
+    // for many decades at the current tx volume.
+    static constexpr size_t fake_n_tree_layers = 7;
+
+    const uint64_t fcmp_weight_base = fcmp_pp::membership_proof_len(/*n_inputs=*/1, fake_n_tree_layers);
+    const uint64_t fcmp_weight = fcmp_weight_base * n_padded_inputs;
+
+    const uint64_t rct_sig_prunable_weight = bp_weight + total_sal_weight + misc_fcmp_pp_weight + fcmp_weight;
+
+    return unprunable_weight + rct_sig_prunable_weight;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_fcmp_pp_transaction_weight_v1(const transaction_prefix &tx_prefix)
+  {
+    return get_fcmp_pp_transaction_weight_v1(tx_prefix.vin.size(), tx_prefix.vout.size(), tx_prefix.extra.size());
+  }
+  //---------------------------------------------------------------
   uint64_t get_transaction_weight(const transaction &tx, size_t blob_size)
   {
     CHECK_AND_ASSERT_MES(!tx.pruned, std::numeric_limits<uint64_t>::max(), "get_transaction_weight does not support pruned txes");
+    CHECK_AND_ASSERT_MES(tx.rct_signatures.type <= rct::RCTTypeFcmpPlusPlus,
+      std::numeric_limits<uint64_t>::max(),
+      "get_transaction_weight does not support transactions newer than FCMP++ v1");
     if (tx.version < 2)
       return blob_size;
+    else if (tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus)
+      return get_fcmp_pp_transaction_weight_v1(tx);
     const rct::rctSig &rv = tx.rct_signatures;
     const bool bulletproof = rct::is_rct_bulletproof(rv.type);
     const bool bulletproof_plus = rct::is_rct_bulletproof_plus(rv.type);
@@ -439,6 +630,10 @@ namespace cryptonote
   {
     CHECK_AND_ASSERT_MES(tx.pruned, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support non pruned txes");
     CHECK_AND_ASSERT_MES(tx.version >= 2, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support v1 txes");
+
+    if (tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus)
+      return get_fcmp_pp_transaction_weight_v1(tx);
+
     CHECK_AND_ASSERT_MES(tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus,
         std::numeric_limits<uint64_t>::max(), "Unsupported rct_signatures type in get_pruned_transaction_weight");
     CHECK_AND_ASSERT_MES(!tx.vin.empty(), std::numeric_limits<uint64_t>::max(), "empty vin");
@@ -462,6 +657,7 @@ namespace cryptonote
     weight += extra;
 
     // calculate deterministic CLSAG/MLSAG data size
+    // TODO: update for fcmp_pp
     const size_t ring_size = boost::get<cryptonote::txin_to_key>(tx.vin[0]).key_offsets.size();
     if (rct::is_rct_clsag(tx.rct_signatures.type))
       extra = tx.vin.size() * (ring_size + 2) * 32;
@@ -907,10 +1103,13 @@ namespace cryptonote
   {
     // before HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_key
     // after HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_tagged_key
+    // after HF_VERSION_FCMP_PLUS_PLUS, outputs with public keys are of type txout_to_carrot_v1
     if (out.target.type() == typeid(txout_to_key))
       output_public_key = boost::get< txout_to_key >(out.target).key;
     else if (out.target.type() == typeid(txout_to_tagged_key))
       output_public_key = boost::get< txout_to_tagged_key >(out.target).key;
+    else if (out.target.type() == typeid(txout_to_carrot_v1))
+      output_public_key = boost::get< txout_to_carrot_v1 >(out.target).key;
     else
     {
       LOG_ERROR("Unexpected output target type found: " << out.target.type().name());
@@ -925,6 +1124,28 @@ namespace cryptonote
     return out.target.type() == typeid(txout_to_tagged_key)
       ? boost::optional<crypto::view_tag>(boost::get< txout_to_tagged_key >(out.target).view_tag)
       : boost::optional<crypto::view_tag>();
+  }
+  //---------------------------------------------------------------
+  bool get_commitment(const transaction& tx, std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out)
+  {
+    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
+      "Revisit this section and update for the new tx version.");
+    CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
+
+    if (tx.version >= 2 && !cryptonote::is_coinbase(tx))
+    {
+      CHECK_AND_ASSERT_MES(tx.rct_signatures.outPk.size() > o_idx, false, "get_commitment: o_idx must be < tx.rct_signatures.outPk.size()");
+      c_out = tx.rct_signatures.outPk.at(o_idx).mask;
+      return true;
+    }
+
+    // tx version 1 OR miner tx
+    // return the pre-calculated transparent amount commitment
+    CHECK_AND_ASSERT_MES(tx.vout.size() > o_idx, false, "get_commitment: o_idx must be < tx.vout.size()");
+    const auto it = transparent_amount_commitments.find(tx.vout.at(o_idx).amount);
+    CHECK_AND_ASSERT_MES(it != transparent_amount_commitments.end(), false, "get_commitment: transparent amount commitment missing");
+    c_out = it->second;
+    return true;
   }
   //---------------------------------------------------------------
   std::string short_hash_str(const crypto::hash& h)
@@ -956,32 +1177,61 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_output_types(const transaction& tx, const uint8_t hf_version)
   {
+    if (tx.vout.empty())
+      return true;
+
+    // require all outputs in a tx be of the same type
+    const std::type_info &o_type = tx.vout.at(0).target.type();
     for (const auto &o: tx.vout)
     {
-      if (hf_version > HF_VERSION_VIEW_TAGS)
-      {
-        // from v15, require outputs have view tags
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else if (hf_version < HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs to be of type txout_to_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else  //(hf_version == HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs be of type txout_to_key OR txout_to_tagged_key
-        // to allow grace period before requiring all to be txout_to_tagged_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key) || o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
+      const std::type_info &cur_type = o.target.type();
+      CHECK_AND_ASSERT_MES(cur_type == o_type, false, "non-matching variant types: "
+        << o_type.name() << " and " << cur_type.name() << ", "
+        << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
+    }
 
-        // require all outputs in a tx be of the same type
-        CHECK_AND_ASSERT_MES(o.target.type() == tx.vout[0].target.type(), false, "non-matching variant types: "
-          << o.target.type().name() << " and " << tx.vout[0].target.type().name() << ", "
-          << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
-      }
+    const bool is_coinbase = cryptonote::is_coinbase(tx);
+
+    bool is_correct_output_type = false;
+    if (hf_version < HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = o_type == typeid(txout_to_key);
+    else if (hf_version == HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = (o_type == typeid(txout_to_key) || o_type == typeid(txout_to_tagged_key));
+    else if (hf_version < HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_tagged_key);
+    else if (hf_version == HF_VERSION_CARROT)
+      is_correct_output_type = (o_type == typeid(txout_to_tagged_key) && !is_coinbase)
+        || (o_type == typeid(txout_to_carrot_v1));
+    else // (hf_version > HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_carrot_v1);
+
+    CHECK_AND_ASSERT_MES(is_correct_output_type, false,
+      "wrong " << (is_coinbase ? "" : "non-") << "coinbase transaction output type '" << o_type.name()
+      << "' for fork v" << hf_version << " in transaction id=" << get_transaction_hash(tx));
+
+    // during v17, require non-coinbase carrot txs use FCMP++ and legacy use BP+
+    if (hf_version == HF_VERSION_CARROT && !is_coinbase)
+    {
+      CHECK_AND_ASSERT_MES(
+        (o_type == typeid(txout_to_carrot_v1) && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus) ||
+        (o_type == typeid(txout_to_tagged_key) && tx.rct_signatures.type == rct::RCTTypeBulletproofPlus),
+        false, "mismatched output type to tx proof type in transaction id=" << get_transaction_hash(tx));
+    }
+
+    return true;
+  }
+  //---------------------------------------------------------------
+  bool tx_outs_checked_for_torsion(const transaction& tx)
+  {
+    for (const auto &o: tx.vout)
+    {
+      // This function only knows about these output types. If there is a new type, we want to check it for torsion too.
+      const bool is_known_output_type = o.target.type() == typeid(txout_to_carrot_v1) || o.target.type() == typeid(txout_to_tagged_key) || o.target.type() == typeid(txout_to_key);
+      CHECK_AND_ASSERT_THROW_MES(is_known_output_type, "unknown variant type: " << o.target.type().name() << "in transaction id=" << get_transaction_hash(tx));
+
+      // We start checking for torsion at consensus with carrot outs
+      if (o.target.type() != typeid(txout_to_carrot_v1))
+        return false;
     }
     return true;
   }
@@ -1041,7 +1291,14 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------
-  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::device &hwdev, const boost::optional<crypto::view_tag>& view_tag_opt)
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(
+    const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses,
+    const crypto::public_key& out_key,
+    const crypto::key_derivation& derivation,
+    const epee::span<const crypto::key_derivation> additional_derivations,
+    size_t output_index,
+    hw::device &hwdev,
+    const boost::optional<crypto::view_tag>& view_tag_opt)
   {
     // try the shared tx pubkey
     crypto::public_key subaddress_spendkey;
@@ -1066,6 +1323,24 @@ namespace cryptonote
       }
     }
     return boost::none;
+  }
+  //---------------------------------------------------------------
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(
+    const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses,
+    const crypto::public_key& out_key,
+    const crypto::key_derivation& derivation,
+    const std::vector<crypto::key_derivation>& additional_derivations,
+    size_t output_index,
+    hw::device &hwdev,
+    const boost::optional<crypto::view_tag>& view_tag_opt)
+  {
+    return is_out_to_acc_precomp(subaddresses,
+      out_key,
+      derivation,
+      epee::to_span(additional_derivations),
+      output_index,
+      hwdev,
+      view_tag_opt);
   }
   //---------------------------------------------------------------
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered)
@@ -1282,7 +1557,8 @@ namespace cryptonote
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
-      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      const size_t mixin = (t.vin.empty() || t.rct_signatures.type == rct::RCTTypeFcmpPlusPlus || t.vin[0].type() != typeid(txin_to_key))
+        ? 0 : boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1;
       bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
       CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
       cryptonote::get_blob_hash(ss.str(), res);
@@ -1436,8 +1712,8 @@ namespace cryptonote
   blobdata get_block_hashing_blob(const block& b)
   {
     blobdata blob = t_serializable_object_to_blob(static_cast<block_header>(b));
-    crypto::hash tree_root_hash = get_tx_tree_hash(b);
-    blob.append(reinterpret_cast<const char*>(&tree_root_hash), sizeof(tree_root_hash));
+    crypto::hash block_content_hash = get_block_content_hash(b);
+    blob.append(reinterpret_cast<const char*>(&block_content_hash), sizeof(block_content_hash));
     blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
     return blob;
   }
@@ -1579,29 +1855,31 @@ namespace cryptonote
     return t_serializable_object_to_blob(tx, b_blob);
   }
   //---------------------------------------------------------------
-  void get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes, crypto::hash& h)
+  crypto::hash get_block_content_hash(const block& b)
   {
-    tree_hash(tx_hashes.data(), tx_hashes.size(), h);
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes)
-  {
-    crypto::hash h = null_hash;
-    get_tx_tree_hash(tx_hashes, h);
-    return h;
-  }
-  //---------------------------------------------------------------
-  crypto::hash get_tx_tree_hash(const block& b)
-  {
-    std::vector<crypto::hash> txs_ids;
-    txs_ids.reserve(1 + b.tx_hashes.size());
-    crypto::hash h = null_hash;
-    size_t bl_sz = 0;
-    CHECK_AND_ASSERT_THROW_MES(get_transaction_hash(b.miner_tx, h, bl_sz), "Failed to calculate transaction hash");
-    txs_ids.push_back(h);
+    // The miner transaction goes first in the Merkle tree so that mining software can update nonces
+    // within, and then the block content hash can be recalculated by re-hashing the left-hand side
+    // of the tree. The number of FCMP tree layers and FCMP tree root go in the following slots so
+    // that they are at a fixed index.
+
+    std::vector<crypto::hash> hashes;
+    hashes.reserve(1 + 1 + 1 + b.tx_hashes.size());
+    // 1. Miner tx
+    hashes.push_back(get_transaction_hash(b.miner_tx));
+    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    {
+      // 2. n tree layers in FCMP++ tree
+      static_assert(sizeof(crypto::hash) >= sizeof(uint8_t), "crypto::hash is too small");
+      hashes.push_back(crypto::hash{static_cast<char>(b.fcmp_pp_n_tree_layers)});
+      // 3. FCMP++ tree root
+      crypto::hash &h = hashes.emplace_back();
+      static_assert(sizeof(crypto::hash) == sizeof(crypto::ec_point), "hash/ec_point size mismatch");
+      memcpy(&h, &b.fcmp_pp_tree_root, sizeof(crypto::hash));
+    }
+    // 4. All other txs
     for(auto& th: b.tx_hashes)
-      txs_ids.push_back(th);
-    return get_tx_tree_hash(txs_ids);
+      hashes.push_back(th);
+    return get_tree_hash(hashes);
   }
   //---------------------------------------------------------------
   bool is_valid_decomposed_amount(uint64_t amount)
@@ -1638,5 +1916,99 @@ namespace cryptonote
     crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_default_last_locked_block_index(const uint64_t block_included_in_chain)
+  {
+    static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "unexpected default spendable age");
+    return block_included_in_chain + (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
+  }
+  //---------------------------------------------------------------
+  // TODO: write tests for this func that match with current daemon logic
+  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
+  {
+    uint64_t last_locked_block_index = 0;
+
+    const uint64_t default_block_index = get_default_last_locked_block_index(block_included_in_chain);
+
+    if (unlock_time == 0)
+    {
+      last_locked_block_index = default_block_index;
+    }
+    else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
+    {
+      // The unlock_time in this case is supposed to be the chain height at which the output unlocks
+      // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta
+      last_locked_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
+    }
+    else
+    {
+      // Interpret the unlock_time as time
+      // TODO: hardcode correct times for each network and take in nettype
+      const auto hf_v15_time = 1656629118;
+      const auto hf_v15_height = 2689608;
+
+      // Use the last hard fork's time and block combo to convert the time-based timelock into an last locked block
+      // TODO: consider taking into account 60s block times when that was consensus
+      if (hf_v15_time > unlock_time)
+      {
+        const auto seconds_since_unlock = hf_v15_time - unlock_time;
+        const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
+
+        last_locked_block_index = hf_v15_height > blocks_since_unlock
+          ? (hf_v15_height - blocks_since_unlock)
+          : default_block_index;
+      }
+      else
+      {
+        const auto seconds_until_unlock = unlock_time - hf_v15_time;
+        const auto blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
+        last_locked_block_index = hf_v15_height + blocks_until_unlock;
+      }
+
+      /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
+          spent before it reaches the last_locked_block_index going by the old rules; this is ok. It can't be spent again b/c
+          it'll have a duplicate key image. It's also possible for an output to unlock by old rules, and then re-lock
+          again at the fork. This is also ok, we just need to be sure that the new hf rules use this last_locked_block_index
+          starting at the fork for fcmp's.
+      */
+
+      // TODO: double check the accuracy of this calculation
+      MDEBUG("unlock time: " << unlock_time << " , last_locked_block_index: " << last_locked_block_index);
+    }
+
+    // Can't unlock earlier than the default last locked block
+    return std::max(last_locked_block_index, default_block_index);
+  }
+  //---------------------------------------------------------------
+  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain)
+  {
+    if (is_coinbase)
+      return false;
+
+    return last_locked_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
+  }
+  //---------------------------------------------------------------
+  OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_output_id,
+    const uint64_t block_idx)
+  {
+    OutsByLastLockedBlockMeta outs_by_last_locked_block_meta_out;
+    outs_by_last_locked_block_meta_out.next_output_id = first_output_id;
+
+    for (const auto &tx : txs)
+    {
+      outs_by_last_locked_block_meta_out.next_output_id += set_tx_outs_by_last_locked_block(
+        tx.get(),
+        transparent_amount_commitments,
+        outs_by_last_locked_block_meta_out.next_output_id,
+        block_idx,
+        outs_by_last_locked_block_meta_out.outs_by_last_locked_block,
+        outs_by_last_locked_block_meta_out.timelocked_outputs);
+    }
+
+    return outs_by_last_locked_block_meta_out;
   }
 }

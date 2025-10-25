@@ -34,6 +34,9 @@
 #include <algorithm>
 #include <sstream>
 
+#include "curve_trees.h"
+#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/prove.h"
 #include "ringct/rctTypes.h"
 #include "ringct/rctSigs.h"
 #include "ringct/rctOps.h"
@@ -44,6 +47,12 @@ using namespace std;
 using namespace crypto;
 using namespace rct;
 
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+static constexpr rct::xmr_amount MAX_AMOUNT_FCMP_PP = MONEY_SUPPLY /
+  (FCMP_PLUS_PLUS_MAX_INPUTS + FCMP_PLUS_PLUS_MAX_OUTPUTS + 1);
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 TEST(ringct, Borromean)
 {
     int j = 0;
@@ -1204,7 +1213,7 @@ TEST(ringct, key_ostream)
 TEST(ringct, zeroCommmit)
 {
   static const uint64_t amount = crypto::rand<uint64_t>();
-  const rct::key z = rct::zeroCommit(amount);
+  const rct::key z = rct::zeroCommitVartime(amount);
   const rct::key a = rct::scalarmultBase(rct::identity());
   const rct::key b = rct::scalarmultH(rct::d2h(amount));
   const rct::key manual = rct::addKeys(a, b);
@@ -1220,14 +1229,14 @@ static rct::key uncachedZeroCommit(uint64_t amount)
 
 TEST(ringct, zeroCommitCache)
 {
-  ASSERT_EQ(rct::zeroCommit(0), uncachedZeroCommit(0));
-  ASSERT_EQ(rct::zeroCommit(1), uncachedZeroCommit(1));
-  ASSERT_EQ(rct::zeroCommit(2), uncachedZeroCommit(2));
-  ASSERT_EQ(rct::zeroCommit(10), uncachedZeroCommit(10));
-  ASSERT_EQ(rct::zeroCommit(200), uncachedZeroCommit(200));
-  ASSERT_EQ(rct::zeroCommit(1000000000), uncachedZeroCommit(1000000000));
-  ASSERT_EQ(rct::zeroCommit(3000000000000), uncachedZeroCommit(3000000000000));
-  ASSERT_EQ(rct::zeroCommit(900000000000000), uncachedZeroCommit(900000000000000));
+  ASSERT_EQ(rct::zeroCommitVartime(0), uncachedZeroCommit(0));
+  ASSERT_EQ(rct::zeroCommitVartime(1), uncachedZeroCommit(1));
+  ASSERT_EQ(rct::zeroCommitVartime(2), uncachedZeroCommit(2));
+  ASSERT_EQ(rct::zeroCommitVartime(10), uncachedZeroCommit(10));
+  ASSERT_EQ(rct::zeroCommitVartime(200), uncachedZeroCommit(200));
+  ASSERT_EQ(rct::zeroCommitVartime(1000000000), uncachedZeroCommit(1000000000));
+  ASSERT_EQ(rct::zeroCommitVartime(3000000000000), uncachedZeroCommit(3000000000000));
+  ASSERT_EQ(rct::zeroCommitVartime(900000000000000), uncachedZeroCommit(900000000000000));
 }
 
 TEST(ringct, H)

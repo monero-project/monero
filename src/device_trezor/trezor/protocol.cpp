@@ -145,7 +145,7 @@ namespace chacha {
 namespace ki {
 
   bool key_image_data(wallet_shim * wallet,
-                      const std::vector<tools::wallet2::transfer_details> & transfers,
+                      const std::vector<wallet2_basic::transfer_details> & transfers,
                       std::vector<MoneroTransferDetails> & res)
   {
     for(auto & td : transfers){
@@ -189,7 +189,7 @@ namespace ki {
   }
 
   void generate_commitment(std::vector<MoneroTransferDetails> & mtds,
-                           const std::vector<tools::wallet2::transfer_details> & transfers,
+                           const std::vector<wallet2_basic::transfer_details> & transfers,
                            std::shared_ptr<messages::monero::MoneroKeyImageExportInitRequest> & req)
   {
     req = std::make_shared<messages::monero::MoneroKeyImageExportInitRequest>();
@@ -441,7 +441,7 @@ namespace tx {
 
   void Signer::set_tx_input(MoneroTransactionSourceEntry * dst, size_t idx, bool need_ring_keys, bool need_ring_indices){
     const cryptonote::tx_source_entry & src = cur_tx().sources[idx];
-    const tools::wallet2::transfer_details & transfer = get_source_transfer(idx);
+    const wallet2_basic::transfer_details & transfer = get_source_transfer(idx);
 
     dst->set_real_output(src.real_output);
     for(size_t i = 0; i < src.outputs.size(); ++i){

@@ -88,6 +88,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *, const unsigned char *, const 
 
 extern const fe fe_sqrtm1;
 extern const fe fe_d;
+int fe_frombytes_vartime(fe, const unsigned char *);
 int ge_frombytes_vartime(ge_p3 *, const unsigned char *);
 
 /* From ge_p1p1_to_p2.c */
@@ -128,6 +129,10 @@ void ge_tobytes(unsigned char *, const ge_p2 *);
 
 void sc_reduce(unsigned char *);
 
+/* From fe_pow22523.c */
+
+void fe_pow22523(fe, const fe);
+
 /* New code */
 
 void ge_scalarmult(ge_p2 *, const unsigned char *, const ge_p3 *);
@@ -137,16 +142,26 @@ void ge_triple_scalarmult_precomp_vartime(ge_p2 *, const unsigned char *, const 
 void ge_double_scalarmult_precomp_vartime2(ge_p2 *, const unsigned char *, const ge_dsmp, const unsigned char *, const ge_dsmp);
 void ge_double_scalarmult_precomp_vartime2_p3(ge_p3 *, const unsigned char *, const ge_dsmp, const unsigned char *, const ge_dsmp);
 void ge_mul8(ge_p1p1 *, const ge_p2 *);
+extern const fe fe_a_sub_d;
+extern const fe fe_a0;
+extern const fe fe_ap;
+extern const fe fe_msqrt2b;
 extern const fe fe_ma2;
 extern const fe fe_ma;
 extern const fe fe_fffb1;
 extern const fe fe_fffb2;
 extern const fe fe_fffb3;
 extern const fe fe_fffb4;
+extern const fe fe_a_inv_3;
+extern const fe fe_c;
+extern const fe fe_one;
+extern const fe fe_m1;
+extern const fe fe_inv2;
 extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
 void sc_0(unsigned char *);
+void sc_1(unsigned char *);
 void sc_reduce32(unsigned char *);
 void sc_add(unsigned char *, const unsigned char *, const unsigned char *);
 void sc_sub(unsigned char *, const unsigned char *, const unsigned char *);
@@ -156,14 +171,32 @@ void sc_muladd(unsigned char *s, const unsigned char *a, const unsigned char *b,
 int sc_check(const unsigned char *);
 int sc_isnonzero(const unsigned char *); /* Doesn't normalize */
 
+/**
+ * brief: Convert Ed25519 y-coord to X25519 x-coord, AKA "ConvertPointE()" in the Carrot spec
+ */
+void ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h);
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s);
+
 // internal
 uint64_t load_3(const unsigned char *in);
 uint64_t load_4(const unsigned char *in);
 void ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q);
 void fe_add(fe h, const fe f, const fe g);
+void fe_neg(fe h, const fe f);
 void fe_tobytes(unsigned char *, const fe);
+void fe_copy(fe h, const fe f);
+int fe_isnegative(const fe f);
 void fe_invert(fe out, const fe z);
+int fe_batch_invert(fe *out, const fe *in, const int n);
 void fe_mul(fe out, const fe, const fe);
+void fe_sq(fe h, const fe f);
+void fe_sub(fe h, const fe f, const fe g);
 void fe_0(fe h);
+void fe_1(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
+
+void fe_ed_derivatives_to_wei_x_y(unsigned char *wei_x, unsigned char *wei_y, const fe inv_one_minus_y, const fe one_plus_y, const fe inv_one_minus_y_mul_x);
+
+void fe_reduce(fe reduced_f, const fe f);
+void fe_dbl(fe h, const fe f);

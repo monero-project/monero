@@ -40,6 +40,7 @@ using namespace epee;
 #include "common/updates.h"
 #include "common/download.h"
 #include "common/util.h"
+#include "common/merge_sorted_vectors.h"
 #include "common/perf_timer.h"
 #include "int-util.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -47,6 +48,7 @@ using namespace epee;
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
 #include "cryptonote_core/tx_sanity_check.h"
+#include "fcmp_pp/curve_trees.h"
 #include "misc_language.h"
 #include "net/local_ip.h"
 #include "net/parse.h"
@@ -65,6 +67,7 @@ using namespace epee;
 
 #define MAX_RESTRICTED_FAKE_OUTS_COUNT 40
 #define MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT 5000
+#define MAX_RESTRICTED_PATHS_COUNT 50
 
 #define OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION (3 * 86400) // 3 days max, the wallet requests 1.8 days
 
@@ -629,6 +632,85 @@ namespace cryptonote
     END_SERIALIZE()
   };
   //------------------------------------------------------------------------------------------------------------------------------
+  static bool set_init_tree_sync_data(const uint64_t init_block_idx, const crypto::hash &init_hash, const core &m_core, COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t &init_tree_sync_data)
+  {
+    db_rtxn_guard txn_guard(&m_core.get_blockchain_storage().get_db());
+
+    CHECK_AND_ASSERT_MES(m_core.get_blockchain_storage().get_db().height() > init_block_idx, false,
+      "set_init_tree_sync_data: init_block_idx expected less than current chain height");
+    CHECK_AND_ASSERT_MES(m_core.get_blockchain_storage().get_db().get_block_hash_from_height(init_block_idx) == init_hash, false,
+      "set_init_tree_sync_data: mismatched init_hash to init_block_idx");
+
+    init_tree_sync_data = COMMAND_RPC_GET_BLOCKS_FAST::init_tree_sync_data_t{};
+    init_tree_sync_data.init_block_idx = init_block_idx;
+    init_tree_sync_data.init_block_hash = init_hash;
+
+    // 1. Custom timelocked outputs created before sync_start_idx with last locked block >= sync_start_idx
+    const uint64_t sync_start_idx = init_block_idx + 1;
+    auto custom_outs_by_last_locked_block = m_core.get_blockchain_storage().get_db().get_custom_timelocked_outputs(sync_start_idx);
+
+    // 2a. Coinbase output contexts created between blocks [init_block_idx - 60, init_block_idx] inclusive
+    // 2b. Normal output contexts created between blocks [init_block_idx - 10, init_block_idx] inclusive
+    auto outs_by_last_locked_block = m_core.get_blockchain_storage().get_recent_locked_outputs(init_block_idx);
+
+    // 3. Combine all locked outputs into vec
+    auto &locked_outputs = init_tree_sync_data.locked_outputs;
+    locked_outputs.reserve(custom_outs_by_last_locked_block.size() + outs_by_last_locked_block.size());
+
+    // 3a. Iterate over all custom locked outs and check if last locked block is present in other outs. If so, combine.
+    for (auto &o : custom_outs_by_last_locked_block)
+    {
+      const uint64_t last_locked_block = o.first;
+
+      auto outs_it = outs_by_last_locked_block.find(last_locked_block);
+      if (outs_it == outs_by_last_locked_block.end())
+      {
+        locked_outputs.push_back({ last_locked_block, std::move(o.second) });
+        continue;
+      }
+
+      // Merge custom locked with other outs
+      const auto is_less = [](const fcmp_pp::curve_trees::OutputContext &a, const fcmp_pp::curve_trees::OutputContext &b)
+          { return a.output_id < b.output_id; };
+      std::vector<fcmp_pp::curve_trees::OutputContext> sorted_outs;
+      if (!tools::merge_sorted_vectors(o.second, outs_it->second, is_less, sorted_outs))
+      {
+        LOG_ERROR("Failed to merge locked outs");
+        return false;
+      }
+
+      locked_outputs.push_back({ last_locked_block, std::move(sorted_outs) });
+    }
+
+    // 3b. Get the remaining locked outs
+    for (auto &o : outs_by_last_locked_block)
+    {
+      const uint64_t last_locked_block = o.first;
+
+      auto custom_outs_it = custom_outs_by_last_locked_block.find(last_locked_block);
+      if (custom_outs_it != custom_outs_by_last_locked_block.end())
+      {
+        // We've already added it in 3a above
+        continue;
+      }
+
+      locked_outputs.push_back({ last_locked_block, std::move(o.second) });
+    }
+
+    // 3c. Sort locked outputs by last locked block
+    std::sort(locked_outputs.begin(), locked_outputs.end(),
+        [](const COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t &a, const COMMAND_RPC_GET_BLOCKS_FAST::locked_outputs_t &b)
+            { return a.last_locked_block < b.last_locked_block; });
+
+    // 4. N leaf tuples and last chunk at each layer of the tree when init_block_idx was the last block in the chain
+    auto last_path = m_core.get_blockchain_storage().get_db().get_last_path(init_block_idx);
+    init_tree_sync_data.n_leaf_tuples = last_path.first;
+    init_tree_sync_data.last_path = std::move(last_path.second);
+
+    MDEBUG("Set init tree sync data, blk " << init_tree_sync_data.init_block_idx << " , hash " << init_tree_sync_data.init_block_hash);
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_blocks);
@@ -669,6 +751,12 @@ namespace cryptonote
       default:
         res.status = "Failed, wrong requested info";
         return true;
+    }
+
+    if (req.init_tree_sync && !get_blocks)
+    {
+      res.status = "Failed, must get blocks when requesting init tree sync data";
+      return true;
     }
 
     res.pool_info_extent = COMMAND_RPC_GET_BLOCKS_FAST::NONE;
@@ -735,6 +823,14 @@ namespace cryptonote
           res.start_height = 0;
           res.current_height = last_block_height + 1;
           res.top_block_hash = last_block_hash;
+
+          // Get the data necessary to start syncing the tree from the current tip
+          if (req.init_tree_sync && !set_init_tree_sync_data(last_block_height, last_block_hash, m_core, res.init_tree_sync_data))
+          {
+            res.status = "Failed";
+            return true;
+          }
+
           res.status = CORE_RPC_STATUS_OK;
           return true;
         }
@@ -755,7 +851,7 @@ namespace cryptonote
       }
 
       std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
-      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT, req.block_ids_skip_common_block))
       {
         res.status = "Failed";
         add_host_fail(ctx);
@@ -807,6 +903,32 @@ namespace cryptonote
         }
       }
       MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
+    }
+
+    if (req.init_tree_sync)
+    {
+      // Get the first hash in the result
+      if (res.blocks.empty())
+      {
+        res.status = "Failed";
+        return true;
+      }
+
+      block b;
+      if(!parse_and_validate_block_from_blob(res.blocks.front().block, b))
+      {
+        res.status = "Failed";
+        return true;
+      }
+
+      // Get the data necessary to start syncing the tree from the first returned block
+      const uint64_t init_block_idx = res.start_height == 0 ? 0 : (res.start_height - 1);
+      const crypto::hash init_block_hash = res.start_height == 0 ? get_block_hash(b) : b.prev_id;
+      if (!set_init_tree_sync_data(init_block_idx, init_block_hash, m_core, res.init_tree_sync_data))
+      {
+        res.status = "Failed";
+        return true;
+      }
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -998,6 +1120,46 @@ namespace cryptonote
     }
     res.status = CORE_RPC_STATUS_OK;
     LOG_PRINT_L2("COMMAND_RPC_GET_TX_GLOBAL_OUTPUTS_INDEXES: [" << res.o_indexes.size() << "]");
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::on_get_path_by_global_output_id_bin(const COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::request& req, COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response& res, const connection_context *ctx)
+  {
+    RPC_TRACKER(get_outs);
+    bool r;
+    if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN>(invoke_http_mode::BIN, "/get_path_by_global_output_id.bin", req, res, r))
+      return r;
+
+    CHECK_PAYMENT_MIN1(req, res, req.global_output_ids.size() * COST_PER_OUT, false);
+
+    res.status = "Failed";
+
+    const bool restricted = m_restricted && ctx;
+    if (restricted)
+    {
+      if (req.global_output_ids.size() > MAX_RESTRICTED_PATHS_COUNT)
+      {
+        res.status = "Too many paths requested";
+        return true;
+      }
+    }
+
+    try
+    {
+      std::vector<uint64_t> leaf_idxs;
+      std::vector<fcmp_pp::curve_trees::PathBytes> paths;
+      res.n_leaf_tuples = m_core.get_blockchain_storage().get_db().get_path_by_global_output_id(req.global_output_ids, req.as_of_n_blocks, leaf_idxs, paths);
+      res.paths.reserve(leaf_idxs.size());
+      for (std::size_t i = 0; i < leaf_idxs.size(); ++i)
+        res.paths.emplace_back(COMMAND_RPC_GET_PATH_BY_GLOBAL_OUTPUT_ID_BIN::response::path_entry{ leaf_idxs.at(i), std::move(paths.at(i)) });
+    }
+    catch (...)
+    {
+      res.status = "Failed";
+      return true;
+    }
+
+    res.status = CORE_RPC_STATUS_OK;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -1232,11 +1394,25 @@ namespace cryptonote
       // output indices too if not in pool
       if (pool_tx_hashes.find(tx_hash) == pool_tx_hashes.end())
       {
-        bool r = m_core.get_tx_outputs_gindexs(tx_hash, e.output_indices);
-        if (!r)
+        std::vector<cryptonote::outkey> tx_outs_data;
+        try
         {
+          cryptonote::transaction _;
+          tx_outs_data = m_core.get_blockchain_storage().get_db().get_tx_output_data(tx_hash, _);
+        }
+        catch (...)
+        {
+          MERROR("Failed to get tx output data for " << tx_hash);
           res.status = "Failed";
           return true;
+        }
+
+        e.output_indices.reserve(tx_outs_data.size());
+        e.global_output_ids.reserve(tx_outs_data.size());
+        for (const auto &tx_out_data : tx_outs_data)
+        {
+          e.output_indices.push_back(tx_out_data.amount_index);
+          e.global_output_ids.push_back(tx_out_data.output_id);
         }
       }
     }
@@ -1306,6 +1482,7 @@ namespace cryptonote
       res.status = "Failed";
       return true;
     }
+
     for (std::vector<cryptonote::spent_key_image_info>::const_iterator i = ki.begin(); i != ki.end(); ++i)
     {
       crypto::hash hash;
@@ -2036,7 +2213,9 @@ namespace cryptonote
     difficulty_type difficulty;
 
     std::vector<tx_block_template_backlog_entry> tx_backlog;
-    if (!m_core.get_miner_data(res.major_version, res.height, prev_id, seed_hash, difficulty, res.median_weight, res.already_generated_coins, tx_backlog))
+    uint8_t fcmp_pp_n_tree_layers;
+    crypto::ec_point fcmp_pp_tree_root{};
+    if (!m_core.get_miner_data(res.major_version, res.height, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root, seed_hash, difficulty, res.median_weight, res.already_generated_coins, tx_backlog))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to get miner data";
@@ -2055,6 +2234,8 @@ namespace cryptonote
     res.prev_id = string_tools::pod_to_hex(prev_id);
     res.seed_hash = string_tools::pod_to_hex(seed_hash);
     res.difficulty = cryptonote::hex(difficulty);
+    res.fcmp_pp_n_tree_layers = fcmp_pp_n_tree_layers;
+    res.fcmp_pp_tree_root = string_tools::pod_to_hex(fcmp_pp_tree_root);
 
     res.status = CORE_RPC_STATUS_OK;
     return true;

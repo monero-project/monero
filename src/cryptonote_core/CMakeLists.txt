@@ -48,12 +48,15 @@ monero_add_library(cryptonote_core
 target_link_libraries(cryptonote_core
   PUBLIC
     version
+    carrot_core
+    carrot_impl
     common
     cncrypto
     blockchain_db
     ringct
     device
     hardforks
+    fcmp_pp
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}

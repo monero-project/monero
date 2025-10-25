@@ -98,6 +98,9 @@
 #define BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4       100    //by default, blocks count in blocks downloading
 #define BLOCKS_SYNCHRONIZING_DEFAULT_COUNT              20     //by default, blocks count in blocks downloading
 #define BLOCKS_SYNCHRONIZING_MAX_COUNT                  2048   //must be a power of 2, greater than 128, equal to SEEDHASH_EPOCH_BLOCKS
+#define BATCH_MAX_WEIGHT                                10     //by default, maximum size of batch in [mB]
+#define BATCH_MAX_ALLOWED_WEIGHT                        50     //maximum allowed size of batch in [mB]
+#define BLOCKS_MAX_WINDOW                               CRYPTONOTE_REWARD_BLOCKS_WINDOW  //Window to find the historical max block weight (100 blocks)
 
 #define CRYPTONOTE_MEMPOOL_TX_LIVETIME                    (86400*3) //seconds, three days
 #define CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME     604800 //seconds, one week
@@ -192,6 +195,12 @@
 #define HF_VERSION_BULLETPROOF_PLUS             15
 #define HF_VERSION_VIEW_TAGS                    15
 #define HF_VERSION_2021_SCALING                 15
+#define HF_VERSION_FCMP_PLUS_PLUS               17
+#define HF_VERSION_CARROT                       17
+#define HF_VERSION_REJECT_UNLOCK_TIME           17
+#define HF_VERSION_REJECT_LARGE_EXTRA           17
+#define HF_VERSION_REJECT_UNMIXABLE_V1          17
+#define HF_VERSION_REJECT_MANY_MINER_OUTPUTS    17
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
@@ -202,6 +211,20 @@
 
 #define BULLETPROOF_MAX_OUTPUTS                 16
 #define BULLETPROOF_PLUS_MAX_OUTPUTS            16
+
+// TODO: settle on figures here
+// https://gist.github.com/kayabaNerve/dbbadf1f2b0f4e04732fc5ac559745b7
+// https://gist.github.com/Rucknium/784b243d75184333144a92b3258788f6
+// Discussions on PoW-enabled relay for high input txs:
+// https://libera.monerologs.net/monero-research-lab/20250430#c522449-c522790
+// https://libera.monerologs.net/no-wallet-left-behind/20250505#c523568-c523686
+#define FCMP_PLUS_PLUS_MAX_INPUTS               128
+#define FCMP_PLUS_PLUS_MAX_OUTPUTS              16
+#define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS        10000
+
+// Restricting n layers keeps the proof_len table size very small and portable
+// 12 layers means the tree can support over 100 quadrillion outputs
+#define FCMP_PLUS_PLUS_MAX_LAYERS               12
 
 #define CRYPTONOTE_PRUNING_STRIPE_SIZE          4096 // the smaller, the smoother the increase
 #define CRYPTONOTE_PRUNING_LOG_STRIPES          3 // the higher, the more space saved
@@ -261,6 +284,7 @@ namespace config
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS_SEED[] = "multisig_tx_privkeys_seed";
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS[] = "multisig_tx_privkeys";
   const constexpr char HASH_KEY_TXHASH_AND_MIXRING[] = "txhash_and_mixring";
+  const constexpr char HASH_KEY_TXHASH_AND_TREE_ROOT[] = "txhash_and_tree_root";
 
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};

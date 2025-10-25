@@ -31,7 +31,9 @@
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "wallet/hot_cold_serialization.h"
 #include "wallet/wallet2.h"
+#include "wallet/wallet2_basic/wallet2_cocobo_serialization.h"
 #include "fuzzer.h"
 
 static tools::wallet2 *wallet = NULL;

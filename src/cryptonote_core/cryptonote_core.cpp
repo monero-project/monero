@@ -168,6 +168,11 @@ namespace cryptonote
   , "How many blocks to sync at once during chain synchronization (0 = adaptive)."
   , 0
   };
+  static const command_line::arg_descriptor<size_t> arg_batch_max_weight  = {
+    "batch-max-weight"
+    , "How many megabytes to sync in one batch during chain synchronization, default is 10"
+  , (BATCH_MAX_WEIGHT)
+  };
   static const command_line::arg_descriptor<std::string> arg_check_updates = {
     "check-updates"
   , "Check for new versions of monero: [disabled|notify|download|update]"
@@ -323,6 +328,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_fast_block_sync);
     command_line::add_arg(desc, arg_show_time_stats);
     command_line::add_arg(desc, arg_block_sync_size);
+    command_line::add_arg(desc, arg_batch_max_weight);
     command_line::add_arg(desc, arg_check_updates);
     command_line::add_arg(desc, arg_test_dbg_lock_sleep);
     command_line::add_arg(desc, arg_offline);
@@ -689,6 +695,24 @@ namespace cryptonote
     if (block_sync_size > BLOCKS_SYNCHRONIZING_MAX_COUNT)
       MERROR("Error --block-sync-size cannot be greater than " << BLOCKS_SYNCHRONIZING_MAX_COUNT);
 
+    if(block_sync_size)
+      MWARNING("When --block-sync-size defined, the --batch-max-weight is not going to have any effect.");
+
+    batch_max_weight = command_line::get_arg(vm, arg_batch_max_weight);
+    if (batch_max_weight > BATCH_MAX_ALLOWED_WEIGHT)
+    {
+      MERROR("Error --batch-max-weight cannot be greater than " << BATCH_MAX_ALLOWED_WEIGHT << " [mB]");
+      batch_max_weight = BATCH_MAX_ALLOWED_WEIGHT;
+    }
+
+    if (batch_max_weight == 0)
+    {
+      MINFO("Using default --batch-max-weight of " << BATCH_MAX_WEIGHT << " [mB]");
+      batch_max_weight = BATCH_MAX_WEIGHT;
+    }
+
+    batch_max_weight *= 1000000; // transfer it to byte.
+
     MGINFO("Loading checkpoints");
 
     // load json & DNS checkpoints, and verify them
@@ -941,16 +965,38 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  size_t core::get_block_sync_size(uint64_t height) const
+  size_t core::get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue) const
   {
-    static const uint64_t quick_height = m_nettype == TESTNET ? 801219 : m_nettype == MAINNET ? 1220516 : 0;
     size_t res = 0;
     if (block_sync_size > 0)
       res = block_sync_size;
-    else if (height >= quick_height)
-      res = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
     else
-      res = BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4;
+    {
+      size_t number_of_blocks = BLOCKS_MAX_WINDOW;
+      std::vector<uint64_t> last_n_blocks_weights;
+      m_blockchain_storage.get_last_n_blocks_weights(last_n_blocks_weights, number_of_blocks);
+      uint64_t max_weight = *std::max_element(last_n_blocks_weights.begin(), last_n_blocks_weights.end());
+      MINFO("Max block size seen within the last " << number_of_blocks
+             << " blocks is " << max_weight
+             << " bytes and the max average blocksize in the queue is " << max_average_of_blocksize_in_queue << " bytes");
+      uint64_t projected_blocksize = std::max(max_average_of_blocksize_in_queue, max_weight);
+      uint64_t blocks_huge_threshold = (batch_max_weight / 2);
+      if ((projected_blocksize * BLOCKS_MAX_WINDOW) < batch_max_weight)
+      {
+        res = BLOCKS_MAX_WINDOW;
+        MINFO("blocks are tiny, " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
+      }
+      else if (projected_blocksize >= blocks_huge_threshold)
+      {
+        res = 1;
+        MINFO("blocks are projected to surpass 50% of " << batch_max_weight << " bytes, syncing just a single block in next batch");
+      }
+      else
+      {
+        res = batch_max_weight / projected_blocksize;
+        MINFO("projected blocksize is " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
+      }
+    }
 
     static size_t max_block_size = 0;
     if (max_block_size == 0)
@@ -1217,9 +1263,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
   {
-    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
+    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
@@ -1227,9 +1273,9 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(qblock_ids, clip_pruned, resp);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const
+  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count, bool qblock_ids_skip_common_block) const
   {
-    return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, top_hash, start_height, pruned, get_miner_tx_hash, max_block_count, max_tx_count);
+    return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, top_hash, start_height, pruned, get_miner_tx_hash, max_block_count, max_tx_count, qblock_ids_skip_common_block);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const
@@ -1312,20 +1358,23 @@ namespace cryptonote
       NOTIFY_NEW_FLUFFY_BLOCK::request arg{};
       arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
       std::vector<crypto::hash> missed_txs;
-      std::vector<cryptonote::blobdata> txs;
-      m_blockchain_storage.get_transactions_blobs(b.tx_hashes, txs, missed_txs);
+      for (const auto &tx_hash : b.tx_hashes)
+      {
+        if (m_blockchain_storage.have_tx(tx_hash))
+          continue;
+        missed_txs.push_back(tx_hash);
+      }
       if(missed_txs.size() &&  m_blockchain_storage.get_block_id_by_height(get_block_height(b)) != get_block_hash(b))
       {
         LOG_PRINT_L1("Block found but, seems that reorganize just happened after that, do not relay this block");
         return true;
       }
-      CHECK_AND_ASSERT_MES(txs.size() == b.tx_hashes.size() && !missed_txs.size(), false, "can't find some transactions in found block:" << get_block_hash(b) << " txs.size()=" << txs.size()
-        << ", b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
+      CHECK_AND_ASSERT_MES(!missed_txs.size(), false, "can't find some transactions in found block:" << get_block_hash(b)
+        << " b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
 
       block_to_blob(b, arg.b.block);
-      //pack transactions
-      for(auto& tx:  txs)
-        arg.b.txs.push_back({tx, crypto::null_hash});
+      // Relay an empty fluffy block
+      arg.b.txs.clear();
 
       m_pprotocol->relay_block(arg, exclude_context);
     }

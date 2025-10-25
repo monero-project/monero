@@ -37,6 +37,8 @@
 #include "include_base_utils.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "fcmp_pp/curve_trees.h"
+#include "span.h"
 #include <unordered_map>
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -53,6 +55,7 @@ namespace cryptonote
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h);
   crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx);
   bool parse_and_validate_tx_prefix_from_blob(const blobdata_ref& tx_blob, transaction_prefix& tx);
+  bool expand_transaction_1(transaction &tx, bool base_only);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx);
@@ -91,6 +94,7 @@ namespace cryptonote
   bool get_encrypted_payment_id_from_tx_extra_nonce(const blobdata& extra_nonce, crypto::hash8& payment_id);
   void set_tx_out(const uint64_t amount, const crypto::public_key& output_public_key, const bool use_view_tags, const crypto::view_tag& view_tag, tx_out& out);
   bool check_output_types(const transaction& tx, const uint8_t hf_version);
+  bool tx_outs_checked_for_torsion(const transaction& tx);
   bool out_can_be_to_acc(const boost::optional<crypto::view_tag>& view_tag_opt, const crypto::key_derivation& derivation, const size_t output_index, hw::device *hwdev = nullptr);
   bool is_out_to_acc(const account_keys& acc, const crypto::public_key& output_public_key, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t output_index, const boost::optional<crypto::view_tag>& view_tag_opt = boost::optional<crypto::view_tag>());
   struct subaddress_receive_info
@@ -98,6 +102,7 @@ namespace cryptonote
     subaddress_index index;
     crypto::key_derivation derivation;
   };
+  boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const epee::span<const crypto::key_derivation> additional_derivations, size_t output_index, hw::device &hwdev, const boost::optional<crypto::view_tag>& view_tag_opt = boost::optional<crypto::view_tag>());
   boost::optional<subaddress_receive_info> is_out_to_acc_precomp(const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::key_derivation& derivation, const std::vector<crypto::key_derivation>& additional_derivations, size_t output_index, hw::device &hwdev, const boost::optional<crypto::view_tag>& view_tag_opt = boost::optional<crypto::view_tag>());
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, const crypto::public_key& tx_pub_key, const std::vector<crypto::public_key>& additional_tx_public_keys, std::vector<size_t>& outs, uint64_t& money_transfered);
   bool lookup_acc_outs(const account_keys& acc, const transaction& tx, std::vector<size_t>& outs, uint64_t& money_transfered);
@@ -130,10 +135,15 @@ namespace cryptonote
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
   uint64_t get_outs_money_amount(const transaction& tx);
   bool get_output_public_key(const cryptonote::tx_out& out, crypto::public_key& output_public_key);
+  bool get_commitment(const transaction& tx, std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out);
   boost::optional<crypto::view_tag> get_output_view_tag(const cryptonote::tx_out& out);
   bool check_inputs_types_supported(const transaction& tx);
   bool check_outs_valid(const transaction& tx);
   bool parse_amount(uint64_t& amount, const std::string& str_amount);
+  uint64_t get_fcmp_pp_prefix_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len);
+  uint64_t get_fcmp_pp_unprunable_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len);
+  uint64_t get_fcmp_pp_transaction_weight_v1(const size_t n_inputs, const size_t n_outputs, const size_t extra_len);
+  uint64_t get_fcmp_pp_transaction_weight_v1(const transaction_prefix &tx_prefix);
   uint64_t get_transaction_weight(const transaction &tx);
   uint64_t get_transaction_weight(const transaction &tx, size_t blob_size);
   uint64_t get_pruned_transaction_weight(const transaction &tx);
@@ -258,14 +268,31 @@ namespace cryptonote
   bool block_to_blob(const block& b, blobdata& b_blob);
   blobdata tx_to_blob(const transaction& b);
   bool tx_to_blob(const transaction& b, blobdata& b_blob);
-  void get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes, crypto::hash& h);
-  crypto::hash get_tx_tree_hash(const std::vector<crypto::hash>& tx_hashes);
-  crypto::hash get_tx_tree_hash(const block& b);
+  crypto::hash get_block_content_hash(const block& b);
   bool is_valid_decomposed_amount(uint64_t amount);
   void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached);
 
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
+
+  uint64_t get_default_last_locked_block_index(const uint64_t block_included_in_chain);
+  // Returns the last locked block index for the provided unlock_time
+  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain);
+  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain);
+
+  struct OutsByLastLockedBlockMeta
+  {
+    fcmp_pp::curve_trees::OutsByLastLockedBlock outs_by_last_locked_block;
+    std::unordered_map<uint64_t/*output_id*/, uint64_t/*last locked block_id*/> timelocked_outputs;
+    uint64_t next_output_id;
+  };
+
+  OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_output_id,
+    const uint64_t block_idx);
+
 #define CHECKED_GET_SPECIFIC_VARIANT(variant_var, specific_type, variable_name, fail_return_val) \
   CHECK_AND_ASSERT_MES(variant_var.type() == typeid(specific_type), fail_return_val, "wrong variant type: " << variant_var.type().name() << ", expected " << typeid(specific_type).name()); \
   specific_type& variable_name = boost::get<specific_type>(variant_var);

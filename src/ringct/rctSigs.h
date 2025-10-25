@@ -47,7 +47,6 @@ extern "C" {
 }
 #include "crypto/crypto.h"
 
-
 #include "rctTypes.h"
 #include "rctOps.h"
 
@@ -64,6 +63,10 @@ namespace hw {
 
 
 namespace rct {
+    // helpers for mock txs
+    Bulletproof make_dummy_bulletproof(const std::vector<uint64_t> &outamounts, keyV &C, keyV &masks);
+    BulletproofPlus make_dummy_bulletproof_plus(const std::vector<uint64_t> &outamounts, keyV &C, keyV &masks);
+    clsag make_dummy_clsag(size_t ring_size);
 
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices);
     bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2);
@@ -138,6 +141,12 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask, hw::device &hwdev);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev);
     key get_pre_mlsag_hash(const rctSig &rv, hw::device &hwdev);
+
+    // Make sure points are valid points, don't have torsion, and are not equal to identity
+    bool verPointsForTorsion(const std::vector<key> & pts);
+
+    // Split into batches and verify each batch in parallel
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs);
 }
 #endif  /* RCTSIGS_H */
 

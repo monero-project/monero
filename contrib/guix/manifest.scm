@@ -13,6 +13,7 @@
              (gnu packages perl)
              (gnu packages pkg-config)
              ((gnu packages python) #:select (python-minimal))
+             (gnu packages rust)
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system gnu)
              (guix build-system trivial)
@@ -174,7 +175,7 @@ chain for " target " development."))
 
 (define-public glibc-2.27
   (package
-    (inherit glibc-2.31)
+    (inherit glibc-2.33)
     (version "2.27")
     (source (origin
               (method git-fetch)
@@ -211,7 +212,7 @@ chain for " target " development."))
                    (("^install-others =.*$")
                     (string-append "install-others = " out "/etc/rpc\n"))))))))))
     (native-inputs
-      (modify-inputs (package-native-inputs glibc-2.31)
+      (modify-inputs (package-native-inputs glibc-2.33)
         (delete "make")
         (append gnu-make-4.2))))) ;; make >= 4.4 causes an infinite loop (stdio-common)
 
@@ -261,6 +262,8 @@ chain for " target " development."))
         gnu-make
         pkg-config
         cmake-minimal
+        rust
+        (list rust "cargo")
 
         ;; Scripting
         perl ; required to build openssl in depends

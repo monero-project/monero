@@ -94,7 +94,7 @@ namespace cryptonote
 
   typedef boost::function<void(std::vector<txpool_event>)> TxpoolNotifyCallback;
   typedef boost::function<void(uint64_t /* height */, epee::span<const block> /* blocks */)> BlockNotifyCallback;
-  typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
+  typedef boost::function<void(uint8_t /* major_version */, uint64_t /* height */, const crypto::hash& /* prev_id */, const uint8_t& /*fcmp_pp_n_tree_layers*/, const crypto::ec_point& /* fcmp_pp_tree_root */, const crypto::hash& /* seed_hash */, difficulty_type /* diff */, uint64_t /* median_weight */, uint64_t /* already_generated_coins */, const std::vector<tx_block_template_backlog_entry>& /* tx_backlog */)> MinerNotifyCallback;
 
   /************************************************************************/
   /*                                                                      */
@@ -396,6 +396,8 @@ namespace cryptonote
      * @param major_version current hardfork version
      * @param height current blockchain height
      * @param prev_id hash of the top block
+     * @param fcmp_pp_n_tree_layers number of layers in the FCMP++ curve tree
+     * @param fcmp_pp_tree_root FCMP++ root as of when this next block enters the chain
      * @param seed_hash seed hash used for RandomX initialization
      * @param difficulty current mining difficulty
      * @param median_weight current median block weight
@@ -404,7 +406,7 @@ namespace cryptonote
      *
      * @return true if block template filled in successfully, else false
      */
-    bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
+    bool get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog);
 
     /**
      * @brief checks if a block is known about with a given hash
@@ -506,10 +508,11 @@ namespace cryptonote
      * @param pruned whether to return full or pruned tx blobs
      * @param max_block_count the max number of blocks to get
      * @param max_tx_count the max number of txes to get (it can get overshot by the last block's number of txes minus 1)
+     * @param qblock_ids_skip_common_block when using qblock_ids, indicates whether or not to include common block in response
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count, bool qblock_ids_skip_common_block = false) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
@@ -598,6 +601,20 @@ namespace cryptonote
     bool get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes, std::vector<std::vector<uint64_t>>& indexs) const;
 
     /**
+     * @brief returns recently created locked outputs, excluding custom timelocked outputs
+     *
+     * Returns:
+     * - coinbase outputs created between [end_block_idx - CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW]
+     * - normal outputs created between [end_block_idx - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE]
+     * - the outputs are grouped by last locked block idx
+     *
+     * @param end_block_idx the terminating block (recently locked outputs created before this block)
+     *
+     * @return outputs grouped by last locked block idx
+     */
+    fcmp_pp::curve_trees::OutsByLastLockedBlock get_recent_locked_outputs(uint64_t end_block_idx) const;
+
+    /**
      * @brief stores the blockchain
      *
      * If Blockchain is handling storing of the blockchain (rather than BlockchainDB),
@@ -614,7 +631,7 @@ namespace cryptonote
      * can be reconstituted by the receiver. This function expands
      * that implicit data.
      */
-    static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys);
+    static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys, const fcmp_pp::TreeRootShared &tree_root);
 
     /**
      * @brief validates a transaction's inputs
@@ -1444,10 +1461,11 @@ namespace cryptonote
      * @param already_generated_coins the amount of currency generated prior to this block
      * @param partial_block_reward return-by-reference true if miner accepted only partial reward
      * @param version hard fork version for that transaction
+     * @param transparent_amount_commitments pre-calculated transparent amount commitments
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch
@@ -1471,7 +1489,11 @@ namespace cryptonote
      * @param weights return-by-reference the list of weights
      * @param count the number of blocks to get weights for
      */
+  public:
     void get_last_n_blocks_weights(std::vector<uint64_t>& weights, size_t count) const;
+#ifndef IN_UNIT_TESTS
+  private:
+#endif
 
     /**
      * @brief gets block long term weight median

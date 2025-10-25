@@ -38,9 +38,18 @@ set(unit_tests_sources
   bulletproofs.cpp
   bulletproofs_plus.cpp
   canonical_amounts.cpp
+  carrot_convergence.cpp
+  carrot_core.cpp
+  carrot_fcmp.cpp
+  carrot_impl.cpp
+  carrot_legacy.cpp
+  carrot_mock_helpers.cpp
+  carrot_transcript_fixed.cpp
+  carrot_tx_builder.cpp
   chacha.cpp
   checkpoints.cpp
   command_line.cpp
+  curve_trees.cpp
   crypto.cpp
   decompose_amount_into_digits.cpp
   device.cpp
@@ -52,6 +61,8 @@ set(unit_tests_sources
   epee_serialization.cpp
   epee_utils.cpp
   expect.cpp
+  fake_pruned_blockchain.cpp
+  fcmp_pp.cpp
   json_serialization.cpp
   get_xtype_from_string.cpp
   hashchain.cpp
@@ -86,6 +97,8 @@ set(unit_tests_sources
   test_peerlist.cpp
   test_protocol_pack.cpp
   threadpool.cpp
+  tree_cache.cpp
+  tx_construction_helpers.cpp
   tx_proof.cpp
   hardfork.cpp
   unbound.cpp
@@ -97,11 +110,14 @@ set(unit_tests_sources
   output_selection.cpp
   vercmp.cpp
   ringdb.cpp
+  wallet_scanning.cpp
   wallet_storage.cpp
+  wallet_tx_builder.cpp
   wipeable_string.cpp
   is_hdd.cpp
   aligned.cpp
   rpc_version_str.cpp
+  x25519.cpp
   zmq_rpc.cpp)
 
 set(unit_tests_headers
@@ -113,11 +129,14 @@ monero_add_minimal_executable(unit_tests
 target_link_libraries(unit_tests
   PRIVATE
     ringct
+    carrot_core
+    carrot_impl
     cryptonote_protocol
     cryptonote_core
     daemon_messages
     daemon_rpc_server
     blockchain_db
+    fcmp_pp
     lmdb_lib
     rpc
     net

@@ -91,12 +91,18 @@ namespace boost
   {
     a & reinterpret_cast<char (&)[sizeof(crypto::hash8)]>(x);
   }
+  template <class Archive>
+  inline void serialize(Archive &a, crypto::ec_point &x, const boost::serialization::version_type ver)
+  {
+    a & reinterpret_cast<char (&)[sizeof(crypto::ec_point)]>(x);
+  }
 
   template <class Archive>
-  inline void serialize(Archive &a, cryptonote::txout_to_script &x, const boost::serialization::version_type ver)
+  inline void serialize(Archive &a, cryptonote::txout_to_carrot_v1 &x, const boost::serialization::version_type ver)
   {
-    a & x.keys;
-    a & x.script;
+    a & x.key;
+    a & x.view_tag.bytes;
+    a & x.encrypted_janus_anchor.bytes;
   }
 
 
@@ -136,10 +142,6 @@ namespace boost
   template <class Archive>
   inline void serialize(Archive &a, cryptonote::txin_to_scripthash &x, const boost::serialization::version_type ver)
   {
-    a & x.prev;
-    a & x.prevout;
-    a & x.script;
-    a & x.sigset;
   }
 
   template <class Archive>
@@ -199,6 +201,11 @@ namespace boost
     //------------------
     a & b.miner_tx;
     a & b.tx_hashes;
+    if (b.major_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    {
+      a & b.fcmp_pp_n_tree_layers;
+      a & b.fcmp_pp_tree_root;
+    }
   }
 
   template <class Archive>
@@ -330,7 +337,7 @@ namespace boost
     a & x.type;
     if (x.type == rct::RCTTypeNull)
       return;
-    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeBulletproof && x.type != rct::RCTTypeBulletproof2 && x.type != rct::RCTTypeCLSAG && x.type != rct::RCTTypeBulletproofPlus)
+    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeBulletproof && x.type != rct::RCTTypeBulletproof2 && x.type != rct::RCTTypeCLSAG && x.type != rct::RCTTypeBulletproofPlus && x.type != rct::RCTTypeFcmpPlusPlus)
       throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
     // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
@@ -354,6 +361,12 @@ namespace boost
     a & x.MGs;
     if (ver >= 1u)
       a & x.CLSAGs;
+    if (ver >= 3u)
+    {
+      a & x.reference_block;
+      a & x.n_tree_layers;
+      a & x.fcmp_pp;
+    }
     if (x.rangeSigs.empty())
       a & x.pseudoOuts;
   }
@@ -364,7 +377,7 @@ namespace boost
     a & x.type;
     if (x.type == rct::RCTTypeNull)
       return;
-    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeBulletproof && x.type != rct::RCTTypeBulletproof2 && x.type != rct::RCTTypeCLSAG && x.type != rct::RCTTypeBulletproofPlus)
+    if (x.type != rct::RCTTypeFull && x.type != rct::RCTTypeSimple && x.type != rct::RCTTypeBulletproof && x.type != rct::RCTTypeBulletproof2 && x.type != rct::RCTTypeCLSAG && x.type != rct::RCTTypeBulletproofPlus && x.type != rct::RCTTypeFcmpPlusPlus)
       throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Unsupported rct type");
     // a & x.message; message is not serialized, as it can be reconstructed from the tx data
     // a & x.mixRing; mixRing is not serialized, as it can be reconstructed from the offsets
@@ -384,7 +397,13 @@ namespace boost
     a & x.p.MGs;
     if (ver >= 1u)
       a & x.p.CLSAGs;
-    if (x.type == rct::RCTTypeBulletproof || x.type == rct::RCTTypeBulletproof2 || x.type == rct::RCTTypeCLSAG || x.type == rct::RCTTypeBulletproofPlus)
+    if (ver >= 3u)
+    {
+      a & x.p.reference_block;
+      a & x.p.n_tree_layers;
+      a & x.p.fcmp_pp;
+    }
+    if (x.type == rct::RCTTypeBulletproof || x.type == rct::RCTTypeBulletproof2 || x.type == rct::RCTTypeCLSAG || x.type == rct::RCTTypeBulletproofPlus || x.type == rct::RCTTypeFcmpPlusPlus)
       a & x.p.pseudoOuts;
   }
 
@@ -425,6 +444,6 @@ namespace boost
 }
 }
 
-BOOST_CLASS_VERSION(rct::rctSigPrunable, 2)
-BOOST_CLASS_VERSION(rct::rctSig, 2)
+BOOST_CLASS_VERSION(rct::rctSigPrunable, 3)
+BOOST_CLASS_VERSION(rct::rctSig, 3)
 BOOST_CLASS_VERSION(rct::multisig_out, 1)

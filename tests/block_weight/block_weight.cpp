@@ -32,6 +32,7 @@
 #include <math.h>
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/testdb.h"
+#include "fcmp_pp/curve_trees.h"
 
 #define LONG_TERM_BLOCK_WEIGHT_WINDOW 5000
 
@@ -145,7 +146,7 @@ static void test(test_t t, uint64_t blocks)
     cryptonote::block b;
     b.major_version = 1;
     b.minor_version = 1;
-    bc->get_db().add_block(std::make_pair(b, ""), 300000, 300000, bc->get_db().height(), bc->get_db().height(), {});
+    bc->get_db().add_block(std::make_pair(b, ""), 300000, 300000, bc->get_db().height(), bc->get_db().height(), {}, {});
     if (!bc->update_next_cumulative_weight_limit())
     {
       fprintf(stderr, "Failed to update cumulative weight limit 1\n");
@@ -179,7 +180,7 @@ static void test(test_t t, uint64_t blocks)
     cryptonote::block b;
     b.major_version = HF_VERSION_2021_SCALING;
     b.minor_version = HF_VERSION_2021_SCALING;
-    bc->get_db().add_block(std::make_pair(std::move(b), ""), w, ltw, bc->get_db().height(), bc->get_db().height(), {});
+    bc->get_db().add_block(std::make_pair(std::move(b), ""), w, ltw, bc->get_db().height(), bc->get_db().height(), {}, {});
 
     if (!bc->update_next_cumulative_weight_limit())
     {

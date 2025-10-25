@@ -72,9 +72,12 @@ namespace tools
     //         get_blocks_error
     //         get_hashes_error
     //         get_out_indexes_error
+    //         get_block_hash_error
     //         tx_parse_error
     //         get_tx_pool_error
-    //         out_of_hashchain_bounds_error
+    //         reorg_depth_error
+    //         incorrect_fork_version
+    //         needs_rescan
     //       signature_check_failed
     //       transfer_error *
     //         get_outs_general_error
@@ -134,14 +137,16 @@ namespace tools
       "failed to get blocks",
       "failed to get hashes",
       "failed to get out indices",
-      "failed to get random outs"
+      "failed to get random outs",
+      "failed to get block hash"
     };
     enum failed_rpc_request_message_indices
     {
       get_blocks_error_message_index,
       get_hashes_error_message_index,
       get_out_indices_error_message_index,
-      get_outs_error_message_index
+      get_outs_error_message_index,
+      get_block_hash_error_message_index
     };
 
     template<typename Base, int msg_index>
@@ -413,6 +418,8 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     typedef failed_rpc_request<refresh_error, get_out_indices_error_message_index> get_out_indices_error;
     //----------------------------------------------------------------------------------------------------
+    typedef failed_rpc_request<refresh_error, get_block_hash_error_message_index> get_block_hash_error;
+    //----------------------------------------------------------------------------------------------------
     struct tx_parse_error : public refresh_error
     {
       explicit tx_parse_error(std::string&& loc, const cryptonote::blobdata& tx_blob)
@@ -439,16 +446,6 @@ namespace tools
       std::string to_string() const { return refresh_error::to_string(); }
     };
     //----------------------------------------------------------------------------------------------------
-    struct out_of_hashchain_bounds_error : public refresh_error
-    {
-      explicit out_of_hashchain_bounds_error(std::string&& loc)
-        : refresh_error(std::move(loc), "Index out of bounds of of hashchain")
-      {
-      }
-
-      std::string to_string() const { return refresh_error::to_string(); }
-    };
-    //----------------------------------------------------------------------------------------------------
     struct reorg_depth_error : public refresh_error
     {
       explicit reorg_depth_error(std::string&& loc, const std::string& message)
@@ -463,6 +460,16 @@ namespace tools
     {
       explicit incorrect_fork_version(std::string&& loc, const std::string& message)
         : refresh_error(std::move(loc), message)
+      {
+      }
+
+      std::string to_string() const { return refresh_error::to_string(); }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct needs_rescan : public refresh_error
+    {
+      explicit needs_rescan(std::string&& loc, const std::string& message = "")
+        : refresh_error(std::move(loc), message + "The wallet needs to be rescanned manually")
       {
       }
 
@@ -956,10 +963,18 @@ namespace tools
       }
     };
     //----------------------------------------------------------------------------------------------------
-    struct wont_reprocess_recent_txs_via_untrusted_daemon : public scan_tx_error
+    struct wont_reprocess_txs_via_untrusted_daemon : public scan_tx_error
     {
-      explicit wont_reprocess_recent_txs_via_untrusted_daemon(std::string&& loc)
-        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more recent transactions than the scanned tx")
+      explicit wont_reprocess_txs_via_untrusted_daemon(std::string&& loc)
+        : scan_tx_error(std::move(loc), "The wallet has already seen 1 or more transactions than the scanned tx")
+      {
+      }
+    };
+    //----------------------------------------------------------------------------------------------------
+    struct wont_scan_future_tx : public scan_tx_error
+    {
+      explicit wont_scan_future_tx(std::string&& loc)
+        : scan_tx_error(std::move(loc), "Cannot scan a tx at height higher than the wallet's current sync height")
       {
       }
     };

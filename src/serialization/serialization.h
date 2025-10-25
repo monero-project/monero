@@ -195,6 +195,14 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
   template <bool W, template <bool> class Archive>                                      \
   bool do_serialize_object(Archive<W> &ar, stype &v VA_ARGS_COMMAPREFIX(__VA_ARGS__)) {
 
+/*! \macro DECLARE_SERIALIZE_OBJECT
+ *
+ * \brief forward declare a BEGIN_SERIALIZE_OBJECT_FN function
+*/
+#define DECLARE_SERIALIZE_OBJECT(stype, ...)                                           \
+  template <bool W, template <bool> class Archive>                                     \
+  bool do_serialize_object(Archive<W> &ar, stype &v VA_ARGS_COMMAPREFIX(__VA_ARGS__));
+
 /*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
 #define PREPARE_CUSTOM_VECTOR_SERIALIZATION(size, vec)			\

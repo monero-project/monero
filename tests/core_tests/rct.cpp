@@ -296,7 +296,7 @@ bool gen_rct_tx_pre_rct_bad_real_mask::generate(std::vector<test_event_entry>& e
   const int out_idx[] = {0, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
-    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[0].second.mask = rct::zeroCommit(99999);},
+    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[0].second.mask = rct::zeroCommitVartime(99999);},
     NULL);
 }
 
@@ -316,7 +316,7 @@ bool gen_rct_tx_pre_rct_bad_fake_mask::generate(std::vector<test_event_entry>& e
   const int out_idx[] = {0, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
-    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[1].second.mask = rct::zeroCommit(99999);},
+    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[1].second.mask = rct::zeroCommitVartime(99999);},
     NULL);
 }
 
@@ -339,7 +339,7 @@ bool gen_rct_tx_rct_bad_real_mask::generate(std::vector<test_event_entry>& event
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
-    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[0].second.mask = rct::zeroCommit(99999);},
+    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[0].second.mask = rct::zeroCommitVartime(99999);},
     NULL);
 }
 
@@ -359,7 +359,7 @@ bool gen_rct_tx_rct_bad_fake_mask::generate(std::vector<test_event_entry>& event
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
-    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[1].second.mask = rct::zeroCommit(99999);},
+    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[1].second.mask = rct::zeroCommitVartime(99999);},
     NULL);
 }
 
@@ -369,7 +369,7 @@ bool gen_rct_tx_rct_spend_with_zero_commit::generate(std::vector<test_event_entr
   const int out_idx[] = {1, -1};
   const uint64_t amount_paid = 10000;
   return generate_with(events, out_idx, mixin, amount_paid, false,
-    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[0].second.mask = rct::zeroCommit(sources[0].amount); sources[0].mask = rct::identity();},
+    [](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations) {sources[0].outputs[0].second.mask = rct::zeroCommitVartime(sources[0].amount); sources[0].mask = rct::identity();},
     [](transaction &tx){boost::get<txin_to_key>(tx.vin[0]).amount = 0;});
 }
 

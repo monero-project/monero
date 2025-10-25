@@ -1299,7 +1299,7 @@ bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
     {
         m_wallet->scan_tx(txids_u);
     }
-    catch (const tools::error::wont_reprocess_recent_txs_via_untrusted_daemon &e)
+    catch (const tools::error::wont_reprocess_txs_via_untrusted_daemon &e)
     {
         setStatusError(e.what());
         return false;
@@ -1884,12 +1884,13 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
     const size_t pubkey_size = 33;
     const size_t encrypted_paymentid_size = 11;
     const size_t extra_size = pubkey_size + encrypted_paymentid_size;
+    const uint64_t min_ring_size = m_wallet->get_min_ring_size();
 
     return m_wallet->estimate_fee(
         m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0),
         m_wallet->use_fork_rules(4, 0),
         1,
-        m_wallet->get_min_ring_size() - 1,
+        min_ring_size > 0 ? (min_ring_size - 1) : 0,
         destinations.size() + 1,
         extra_size,
         m_wallet->use_fork_rules(8, 0),
@@ -2514,6 +2515,7 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     if (isNewWallet() && daemonSynced()) {
         LOG_PRINT_L2(__FUNCTION__ << ":New Wallet - fast refresh until " << daemonBlockChainHeight());
         m_wallet->set_refresh_from_block_height(daemonBlockChainHeight());
+        m_wallet->rewrite(m_wallet->get_wallet_file(), m_password);
     }
 
     if (m_rebuildWalletCache)

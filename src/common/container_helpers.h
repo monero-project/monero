@@ -160,4 +160,44 @@ void for_all_in_map_erase_if(std::unordered_map<KeyT, ValueT> &map_inout, PredT 
     }
 }
 
+/// convenience erasor for vectors, with total O(N) runtime. Erases all elements X when predicate(X)
+/// returns true. No guarantees are made about order of resulting vector if predicate(X) returns
+// true for any element X in vec_inout. Otherwise, vec_inout is not modified
+template <typename ValueT, typename PredT>
+void for_all_in_vector_erase_no_preserve_order_if(std::vector<ValueT> &vec_inout, PredT predicate)
+{
+    static_assert(
+            std::is_same<
+                    bool,
+                    decltype(predicate(std::declval<std::remove_cv_t<ValueT>>()))
+                >::value,
+            "invalid callable - expected callable in form bool(Value)"
+        );
+
+    for (auto vec_it = vec_inout.begin(); vec_it != vec_inout.end();)
+    {
+        if (predicate(*vec_it))
+        {
+            const auto it_to_last = vec_inout.end() - 1;
+            if (vec_it != it_to_last) // i.e. not last element
+            {
+                *vec_it = std::move(*it_to_last);
+            }
+            vec_inout.pop_back();
+        }
+        else
+        {
+            ++vec_it;
+        }
+    }
+}
+
+/// erase with a reverse iterator
+/// returned iterator is (pos + 1) if pos hadn't been erased
+template <typename ContainerT, typename FwdIterT>
+std::reverse_iterator<FwdIterT> reverse_erase(ContainerT &container, std::reverse_iterator<FwdIterT> pos)
+{
+    return std::reverse_iterator<FwdIterT>(container.erase((++pos).base()));
+}
+
 } //namespace tools

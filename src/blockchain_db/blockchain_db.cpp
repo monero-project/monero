@@ -179,7 +179,7 @@ void BlockchainDB::pop_block()
   pop_block(blk, txs);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   bool miner_tx = false;
   crypto::hash tx_hash, tx_prunable_hash;
@@ -233,10 +233,12 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
-      rct::key commitment = rct::zeroCommit(vout.amount);
+      const auto commitment_it = transparent_amount_commitments.find(vout.amount);
+      if (commitment_it == transparent_amount_commitments.end())
+        throw std::runtime_error("Failed to get miner tx commitment, aborting");
       vout.amount = 0;
       amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
-        &commitment);
+        &commitment_it->second);
     }
     else
     {
@@ -244,6 +246,7 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
         tx.version > 1 ? &tx.rct_signatures.outPk[i].mask : NULL);
     }
   }
+
   add_tx_amount_output_indices(tx_id, amount_output_indices);
 }
 
@@ -253,6 +256,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
                                 , const std::vector<std::pair<transaction, blobdata>>& txs
+                                , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
                                 )
 {
   const block &blk = blck.first;
@@ -274,7 +278,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  add_transaction(blk_hash, blk.miner_tx, epee::strspan<std::uint8_t>(miner_bd));
+  add_transaction(blk_hash, blk.miner_tx, epee::strspan<std::uint8_t>(miner_bd), transparent_amount_commitments);
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
@@ -282,7 +286,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    add_transaction(blk_hash, tx.first, epee::strspan<std::uint8_t>(tx.second), &tx_hash);
+    add_transaction(blk_hash, tx.first, epee::strspan<std::uint8_t>(tx.second), transparent_amount_commitments, &tx_hash);
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
@@ -303,7 +307,309 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   ++num_calls;
 
-  return prev_height;
+  return ++prev_height;
+}
+
+void BlockchainDB::advance_tree(const uint64_t blk_idx, const std::vector<fcmp_pp::curve_trees::OutputContext> &known_new_outputs)
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  // Get the earliest possible last locked block of outputs created in blk_idx
+  const uint64_t earliest_last_locked_block = cryptonote::get_default_last_locked_block_index(blk_idx);
+
+  // If we're advancing the genesis block, make sure to initialize the tree
+  if (blk_idx == 0)
+  {
+    // Expected: tree meta table is currently empty
+
+    // We grow the first blocks with empty outputs, since no outputs in this range should be spendable yet
+    for (uint64_t new_blk_idx = blk_idx; new_blk_idx < earliest_last_locked_block; ++new_blk_idx)
+    {
+      this->grow_tree(new_blk_idx, {});
+    }
+  }
+  // Expected: earliest_last_locked_block == last block idx + 1 in tree meta
+
+  // Now we can advance the tree 1 block
+  auto unlocked_outputs = this->get_outs_at_last_locked_block_idx(earliest_last_locked_block);
+
+  // Include known new outputs if provided
+  unlocked_outputs.insert(unlocked_outputs.end(), known_new_outputs.begin(), known_new_outputs.end());
+
+  // Grow the tree with outputs that are spendable once the earliest_last_locked_block is in the chain
+  this->grow_tree(earliest_last_locked_block, std::move(unlocked_outputs));
+
+  // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table
+  this->del_locked_outs_at_block_idx(earliest_last_locked_block);
+}
+
+void BlockchainDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::curve_trees::OutputContext> &&new_outputs)
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  MDEBUG("Growing tree usable once block " << blk_idx << " is in the chain");
+
+  // Get the number of leaf tuples that exist in the current tree
+  const uint64_t old_n_leaf_tuples = this->get_n_leaf_tuples();
+
+  if (blk_idx == 0)
+    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples == 0, "Tree is not empty at blk idx 0");
+
+  // Get the prev block's tree edge (i.e. the current tree edge before growing)
+  std::vector<crypto::ec_point> prev_tree_edge;
+  uint64_t prev_blk_idx = 0;
+  if (blk_idx > 0)
+  {
+    prev_blk_idx = blk_idx - 1;
+
+    // Make sure tree tip lines up to expected block
+    const uint64_t tree_block_idx = this->get_tree_block_idx();
+
+    CHECK_AND_ASSERT_THROW_MES(tree_block_idx == prev_blk_idx,
+      "Unexpected tree block idx mismatch to prev block (" + std::to_string(tree_block_idx) + " vs " + std::to_string(prev_blk_idx) + ")");
+
+    prev_tree_edge = this->get_tree_edge(prev_blk_idx);
+  }
+
+  // We re-save the prev tree edge at this next block if the tree doesn't grow
+  const auto save_prev_tree_edge = [&, this]() { this->save_tree_meta(blk_idx, old_n_leaf_tuples, prev_tree_edge); };
+  if (new_outputs.empty())
+  {
+    save_prev_tree_edge();
+    return;
+  }
+
+  // Set the tree's existing last hashes from the existing edge
+  const auto last_hashes = m_curve_trees->tree_edge_to_last_hashes(prev_tree_edge);
+
+  // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
+  auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, {std::move(new_outputs)}, false/*use_fast_torsion_check*/);
+  if (tree_extension.leaves.tuples.empty())
+  {
+    save_prev_tree_edge();
+    return;
+  }
+
+  const uint64_t new_n_leaf_tuples = tree_extension.leaves.tuples.size() + old_n_leaf_tuples;
+  const auto tree_edge = this->grow_with_tree_extension(tree_extension);
+  this->save_tree_meta(blk_idx, new_n_leaf_tuples, tree_edge);
+}
+
+void BlockchainDB::trim_block()
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  const uint64_t n_blocks = this->height();
+  if (n_blocks == 0)
+    return;
+
+  const uint64_t removing_block_idx = n_blocks - 1;
+
+  // Get the earliest possible last locked block of outputs created in removing_block_idx
+  const uint64_t default_last_locked_block = cryptonote::get_default_last_locked_block_index(removing_block_idx);
+  const uint64_t tree_block_idx = this->get_tree_block_idx();
+
+  CHECK_AND_ASSERT_THROW_MES(tree_block_idx > 0, "tree block idx must be >0");
+  CHECK_AND_ASSERT_THROW_MES(tree_block_idx == default_last_locked_block,
+    "Unexpected tree block idx mismatch (" + std::to_string(tree_block_idx) + " vs " + std::to_string(default_last_locked_block) + ")");
+
+  const uint64_t prev_tree_block_idx = tree_block_idx - 1;
+
+  MDEBUG("Trimming tree to block " << prev_tree_block_idx << " (removing block " << removing_block_idx << ")");
+
+  // Read n leaf tuples from the prev tree block to see how how many leaves
+  // should remain in the tree after trimming a block from the tree.
+  const uint64_t new_n_leaf_tuples = this->get_block_n_leaf_tuples(prev_tree_block_idx);
+
+  // Trim the tree to the new n leaf tuples
+  this->trim_tree(new_n_leaf_tuples, tree_block_idx);
+
+  // Remove block from tree meta
+  this->del_tree_meta(tree_block_idx);
+}
+
+void BlockchainDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx)
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  const uint64_t old_n_leaf_tuples = this->trim_leaves(new_n_leaf_tuples, trim_block_idx);
+
+  // If nothing to trim, return
+  if (old_n_leaf_tuples == new_n_leaf_tuples)
+    return;
+
+  if (new_n_leaf_tuples == 0)
+  {
+    // Empty the tree
+    this->trim_layers(new_n_leaf_tuples, {}/*n_elems_per_layer*/, {}/*prev_tree_edge*/, 0/*expected_root_idx*/);
+    return;
+  }
+
+  // Trim the expected layers
+  const auto n_elems_per_layer = m_curve_trees->n_elems_per_layer(new_n_leaf_tuples);
+  const auto prev_tree_edge = this->get_tree_edge(trim_block_idx - 1);
+  const uint64_t expected_root_idx = m_curve_trees->n_layers(new_n_leaf_tuples) - 1;
+  this->trim_layers(new_n_leaf_tuples, n_elems_per_layer, prev_tree_edge, expected_root_idx);
+}
+
+std::pair<uint64_t, fcmp_pp::curve_trees::PathBytes> BlockchainDB::get_last_path(const uint64_t block_idx) const
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  db_rtxn_guard rtxn_guard(this);
+
+  // See how many leaves were in the tree at the given block
+  const uint64_t block_n_leaf_tuples = this->get_block_n_leaf_tuples(block_idx);
+  if (block_n_leaf_tuples == 0)
+    return { 0, {} };
+
+  // Get path elems from the block's last path (gets *current* path elem state)
+  const auto last_path_indexes = m_curve_trees->get_path_indexes(block_n_leaf_tuples, block_n_leaf_tuples - 1);
+  auto path = this->get_path(last_path_indexes);
+
+  // See what the last hashes at every layer for the provided block were (gets *old* path elem state)
+  const std::vector<crypto::ec_point> tree_edge = this->get_tree_edge(block_idx);
+  CHECK_AND_ASSERT_THROW_MES(tree_edge.size(), "get_last_path: empty tree edge");
+  CHECK_AND_ASSERT_THROW_MES(tree_edge.size() == path.layer_chunks.size(), "get_last_path: mismatched tree edge size to path layer chunks");
+
+  // Use tree edge at the provided block to set the last hash for each layer (so path state reflects old state)
+  for (std::size_t i = 0; i < path.layer_chunks.size(); ++i)
+  {
+    CHECK_AND_ASSERT_THROW_MES(path.layer_chunks[i].chunk_bytes.size(), "get_last_path: empty path");
+    path.layer_chunks[i].chunk_bytes.back() = tree_edge[i];
+  }
+
+  return { block_n_leaf_tuples, path };
+}
+
+uint64_t BlockchainDB::get_path_by_global_output_id(const std::vector<uint64_t> &global_output_ids,
+  const uint64_t as_of_n_blocks,
+  std::vector<uint64_t> &leaf_idxs_out,
+  std::vector<fcmp_pp::curve_trees::PathBytes> &paths_out) const
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  db_rtxn_guard rtxn_guard(this);
+
+  // Initialize result vectors with 0 values. If outptut is not in the tree,
+  // result vectors kept as 0 values
+  leaf_idxs_out = std::vector<uint64_t>(global_output_ids.size(), 0);
+  paths_out = std::vector<fcmp_pp::curve_trees::PathBytes>(global_output_ids.size(), fcmp_pp::curve_trees::PathBytes{});
+
+  if (global_output_ids.empty())
+    return 0;
+
+  const uint64_t cur_n_blocks = this->height();
+  if (cur_n_blocks == 0)
+    return 0;
+
+  // We're getting path data assuming chain tip is as_of_block_idx
+  const uint64_t as_of_block_idx = as_of_n_blocks ? (as_of_n_blocks - 1) : (cur_n_blocks - 1);
+
+  CHECK_AND_ASSERT_THROW_MES(as_of_block_idx <= this->get_tree_block_idx(), "get_path_by_global_output_id: as_of_block_idx is higher than highest tree block idx");
+
+  // TODO: de-duplicate db reads where possible (steps 1, 2, 3, 5, 6 can all be de-dup'd especially 6)
+  // TODO: return consolidated path
+  // Note: a table mapping output id -> leaf idx would allow skipping to step 5
+
+  // 1. Read DB for tx out indexes with global output id
+  std::vector<tx_out_index> tois;
+  tois.reserve(global_output_ids.size());
+  for (const auto &goi : global_output_ids)
+  {
+      // Throws if output not found
+    tois.emplace_back(this->get_output_tx_and_index_from_global(goi));
+  }
+
+  // 2. Read DB for output metadata {unlock_time, created block idx}
+  std::vector<outkey> out_keys;
+  out_keys.reserve(global_output_ids.size());
+  for (const auto &tois : tois)
+  {
+    cryptonote::transaction _;
+    const auto tx_out_keys = this->get_tx_output_data(tois.first, _);
+    CHECK_AND_ASSERT_THROW_MES(tois.second < tx_out_keys.size(), "get_path_by_global_output_id: tx out keys too small");
+    out_keys.emplace_back(tx_out_keys.at(tois.second));
+  }
+
+  // 3. Determine each output's last locked block
+  std::vector<uint64_t> last_locked_block_idxs;
+  last_locked_block_idxs.reserve(out_keys.size());
+  for (const auto &outkey : out_keys)
+  {
+    const uint64_t last_locked_block_idx = cryptonote::get_last_locked_block_index(outkey.data.unlock_time, outkey.data.height);
+    last_locked_block_idxs.emplace_back(last_locked_block_idx);
+  }
+
+  // 4. Get n leaf tuples at output's last locked block and next block
+  std::vector<std::pair<uint64_t, uint64_t>> n_leaf_tuple_ranges;
+  std::vector<bool> not_expected_in_tree;
+  n_leaf_tuple_ranges.reserve(last_locked_block_idxs.size());
+  not_expected_in_tree.reserve(last_locked_block_idxs.size());
+  for (const uint64_t block_idx : last_locked_block_idxs)
+  {
+    if (block_idx > as_of_block_idx)
+    {
+      not_expected_in_tree.push_back(true);
+      n_leaf_tuple_ranges.push_back({0, 0});
+      continue;
+    }
+
+    const uint64_t n_leaf_tuples = this->get_block_n_leaf_tuples(block_idx);
+
+    const uint64_t next_block_idx = block_idx + 1;
+    const uint64_t next_n_leaf_tuples = this->get_block_n_leaf_tuples(next_block_idx);
+
+    n_leaf_tuple_ranges.push_back({n_leaf_tuples, next_n_leaf_tuples});
+
+    // Output is still locked if there are no leaf tuples for the block it's in
+    not_expected_in_tree.push_back(n_leaf_tuples == 0 && next_n_leaf_tuples == 0);
+  }
+
+  // 5. Find leaf idxs by output id, using leaf tuple ranges to narrow search
+  for (std::size_t i = 0; i < out_keys.size(); ++i)
+  {
+    // If the output is still expected locked, then it won't have a leaf idx
+    if (not_expected_in_tree.at(i))
+      continue;
+    const uint64_t output_id = out_keys.at(i).output_id;
+    const auto tuple_range = n_leaf_tuple_ranges.at(i);
+    leaf_idxs_out.at(i) = this->find_leaf_idx_by_output_id_bounded_search(output_id, tuple_range.first, tuple_range.second);
+  }
+
+  // 6. Use leaf idxs to get paths
+  const uint64_t n_leaf_tuples = this->get_block_n_leaf_tuples(as_of_block_idx);
+  const auto last_path_idxs = m_curve_trees->get_path_indexes(n_leaf_tuples, n_leaf_tuples - 1);
+  const auto last_path = this->get_last_path(as_of_block_idx);
+  for (std::size_t i = 0; i < leaf_idxs_out.size(); ++i)
+  {
+    if (not_expected_in_tree.at(i))
+      continue;
+
+    // Read path from the db using path indexes
+    const auto path_idxs = m_curve_trees->get_path_indexes(n_leaf_tuples, leaf_idxs_out.at(i));
+    auto path = this->get_path(path_idxs);
+
+    CHECK_AND_ASSERT_THROW_MES(path.leaves.size() && path.layer_chunks.size(), "get_path_by_global_output_id: empty path");
+
+    // If the path is part of the last path, then we'll need to update the last
+    // elem in each layer
+    for (uint8_t i = 0; i < path_idxs.layers.size(); ++i)
+    {
+      if (last_path_idxs.layers.at(i).second != path_idxs.layers.at(i).second)
+        continue;
+
+      CHECK_AND_ASSERT_THROW_MES(path.layer_chunks.at(i).chunk_bytes.size(), "get_path_by_global_output_id: empty layer in path");
+      CHECK_AND_ASSERT_THROW_MES(path.layer_chunks.at(i).chunk_bytes.size() == last_path.second.layer_chunks.at(i).chunk_bytes.size(),
+        "get_path_by_global_output_id: unexpected size of last path");
+
+      path.layer_chunks.at(i).chunk_bytes.back() = last_path.second.layer_chunks.at(i).chunk_bytes.back();
+    }
+
+    paths_out.at(i) = std::move(path);
+  }
+
+  return n_leaf_tuples;
 }
 
 void BlockchainDB::set_hard_fork(HardFork* hf)

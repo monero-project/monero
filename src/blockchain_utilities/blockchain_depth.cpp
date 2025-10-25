@@ -220,7 +220,7 @@ int main(int argc, char* argv[])
             auto absolute_offsets = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
             for (uint64_t offset: absolute_offsets)
             {
-              const output_data_t od = db->get_output_key(amount, offset);
+              const output_data_t od = db->get_output_key(amount, offset).data;
               const crypto::hash block_hash = db->get_block_hash_from_height(od.height);
               bd = db->get_block_blob(block_hash);
               cryptonote::block b;
