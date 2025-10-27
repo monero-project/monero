@@ -3242,7 +3242,7 @@ std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& tx
   return matching_hashes;
 }
 
-bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool skip_coinbase, bool get_miner_tx_hash) const
+bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3298,7 +3298,6 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
       val_tx_id.mv_size = sizeof(tx_id);
     }
 
-    if (skip_coinbase)
     {
       result = mdb_cursor_get(m_cur_txs_pruned, &val_tx_id, &v, op);
       if (result)
@@ -3314,7 +3313,7 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
     op = MDB_NEXT;
 
     current_block.second.reserve(b.tx_hashes.size());
-    num_txes += b.tx_hashes.size() + (skip_coinbase ? 0 : 1);
+    num_txes += b.tx_hashes.size() + 1;
     for (const auto &tx_hash: b.tx_hashes)
     {
       // get pruned data
