@@ -344,7 +344,8 @@ namespace cryptonote
     }
 
     tvc.m_verifivation_failed = false;
-    m_txpool_weight += tx_weight;
+    if (tvc.m_added_to_pool)
+      m_txpool_weight += tx_weight;
 
     ++m_cookie;
 
