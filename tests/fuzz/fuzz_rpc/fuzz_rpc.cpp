@@ -32,26 +32,26 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   FuzzedDataProvider provider(data, size);
 
   // Randomly choose multiple fuzz_targets to fuzz
-  int rpc_messages_to_send = provider.ConsumeIntegralInRange<int>(1, 16);
-  std::vector<int> selectors;
+  unsigned rpc_messages_to_send = provider.ConsumeIntegralInRange<unsigned>(1, 16);
+  std::vector<unsigned> selectors;
   if (is_safe_mode) {
     selectors.reserve(rpc_messages_to_send);
   } else {
     selectors.reserve(rpc_messages_to_send + priority_fuzz_targets.size());
-    for (int i = 0; i < priority_fuzz_targets.size(); ++i) {
+    for (unsigned i = 0; i < priority_fuzz_targets.size(); ++i) {
         selectors.push_back(i);
     }
 
     // Randomly shuffle the selectors for priority fuzz targets
-    for (int i = 0; i < priority_fuzz_targets.size(); i++) {
-      int target = provider.ConsumeIntegralInRange<int>(0, priority_fuzz_targets.size() - 1);
+    for (unsigned i = 0; i < priority_fuzz_targets.size(); i++) {
+      unsigned target = provider.ConsumeIntegralInRange<unsigned>(0, priority_fuzz_targets.size() - 1);
       std::swap(selectors[i], selectors[target]);
     }
   }
 
   // Randomly select rpc functions to call
-  for (int i = 0; i < rpc_messages_to_send && provider.remaining_bytes() >= 2; ++i) {
-    int selector = provider.ConsumeIntegralInRange<int>(0, fuzz_targets.size() - 1);
+  for (unsigned i = 0; i < rpc_messages_to_send && provider.remaining_bytes() >= 2; ++i) {
+    unsigned selector = provider.ConsumeIntegralInRange<unsigned>(0, fuzz_targets.size() - 1);
     selectors.push_back(selector);
   }
 
@@ -70,7 +70,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   // Disable bootstrap daemon
   disable_bootstrap_daemon(*rpc_handler->rpc);
 
-  for (int selector : selectors) {
+  for (unsigned selector : selectors) {
     try {
       // Fuzz the target function
       fuzz_targets[selector](*rpc_handler->rpc, provider);
