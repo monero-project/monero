@@ -1328,16 +1328,9 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
   }
 }
 
-/* From ge_frombytes.c, modified */
+/* From fe_frombytes.c */
 
-int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
-  fe u;
-  fe v;
-  fe vxx;
-  fe check;
-
-  /* From fe_frombytes.c */
-
+int fe_frombytes_vartime(fe y, const unsigned char *s) {
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
   int64_t h2 = load_3(s + 7) << 5;
@@ -1378,18 +1371,31 @@ int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
   carry6 = (h6 + (int64_t) (1<<25)) >> 26; h7 += carry6; h6 -= carry6 << 26;
   carry8 = (h8 + (int64_t) (1<<25)) >> 26; h9 += carry8; h8 -= carry8 << 26;
 
-  h->Y[0] = h0;
-  h->Y[1] = h1;
-  h->Y[2] = h2;
-  h->Y[3] = h3;
-  h->Y[4] = h4;
-  h->Y[5] = h5;
-  h->Y[6] = h6;
-  h->Y[7] = h7;
-  h->Y[8] = h8;
-  h->Y[9] = h9;
+  y[0] = h0;
+  y[1] = h1;
+  y[2] = h2;
+  y[3] = h3;
+  y[4] = h4;
+  y[5] = h5;
+  y[6] = h6;
+  y[7] = h7;
+  y[8] = h8;
+  y[9] = h9;
 
-  /* End fe_frombytes.c */
+  return 0;
+}
+
+/* From ge_frombytes.c, modified */
+
+int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
+  fe u;
+  fe v;
+  fe vxx;
+  fe check;
+
+  if (fe_frombytes_vartime(h->Y, s) != 0) {
+    return -1;
+  }
 
   fe_1(h->Z);
   fe_sq(u, h->Y);
@@ -3876,4 +3882,31 @@ int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
 
   // Y/Z = 0/0
   return 0;
+}
+
+/*
+Preconditions:
+  |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+
+Since fe_add and fe_sub enforce the following conditions:
+
+fe_add & fe_sub preconditions:
+   |f| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+   |g| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
+
+fe_add & fe_sub postconditions:
+   |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+
+We sometimes need to "reduce" field elems when they are in the poscondition's
+larger domain to match the precondition domain. This way we can take the output
+of fe_add or fe_sub and use it as input to another call to fe_add or fe_sub.
+
+We reduce by converting the field elem to its byte repr, then re-deriving the
+field elem from the byte repr.
+*/
+int fe_reduce_vartime(fe reduced_f, const fe f)
+{
+  unsigned char f_bytes[32];
+  fe_tobytes(f_bytes, f);
+  return fe_frombytes_vartime(reduced_f, f_bytes);
 }
