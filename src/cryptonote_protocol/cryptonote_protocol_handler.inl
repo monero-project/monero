@@ -972,7 +972,7 @@ namespace cryptonote
       context.add_requested_from_me();
       // Attempt to get the transaction blob from the mempool;
       cryptonote::blobdata tx_blob;
-      if (m_core.get_pool_transaction(tx_hash, tx_blob, cryptonote::relay_category::all))
+      if (m_core.get_pool_transaction(tx_hash, tx_blob, cryptonote::relay_category::broadcasted))
       {
         context.add_sent();
         txs.push_back(std::move(tx_blob));
