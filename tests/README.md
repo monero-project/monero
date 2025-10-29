@@ -221,5 +221,46 @@ When writing new tests, please implement all functions in `.cpp` or `.c` files, 
 
 ## Writing fuzz tests
 
-[TODO]
-hash
+Monero includes comprehensive fuzzing infrastructure to test various components with random input data. Fuzz tests are located in the `tests/fuzz/` directory.
+
+### Basic Structure
+
+Fuzz tests follow a standard pattern using the `SIMPLE_FUZZER` macros:
+1. Include the fuzzer header: `#include "fuzzer.h"`
+2. Use `BEGIN_INIT_SIMPLE_FUZZER()` for setup (optional)
+3. Use `BEGIN_SIMPLE_FUZZER()` and `END_SIMPLE_FUZZER()` for the main test
+4. Access random data via `buf` and `len` parameters
+
+### Example Fuzz Test
+
+```cpp
+#include "include_base_utils.h"
+#include "common/base58.h"
+#include "fuzzer.h"
+
+BEGIN_INIT_SIMPLE_FUZZER()
+END_INIT_SIMPLE_FUZZER()
+
+BEGIN_SIMPLE_FUZZER()
+  std::string data;
+  tools::base58::decode(std::string((const char*)buf, len), data);
+END_SIMPLE_FUZZER()
+```
+
+### Available Fuzz Tests
+
+- `base58.cpp` - Base58 encoding/decoding
+- `block.cpp` - Block parsing and validation  
+- `bulletproof.cpp` - Bulletproof range proofs
+- `signature.cpp` - Ring signature verification
+- `transaction.cpp` - Transaction parsing
+- `fuzz_rpc/` - RPC endpoint fuzzing (see `tests/fuzz/fuzz_rpc/README.md`)
+
+### Running Fuzz Tests
+
+Fuzz tests are built with libFuzzer and can be run with:
+```bash
+./fuzzer_name corpus_dir/
+```
+
+For more detailed information about RPC fuzzing, see `tests/fuzz/fuzz_rpc/README.md`.
