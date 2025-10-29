@@ -38,6 +38,8 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <chrono>
+#include <cstdint>
 #include <list>
 #include <ctime>
 
@@ -917,7 +919,7 @@ namespace cryptonote
 
     // Create a list to hold transaction hashes missing in our local tx pool.
     std::vector<crypto::hash> missing_tx_hashes;
-    std::time_t now = std::time(nullptr);
+    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
 
     // Iterate over each advertised transaction hash and check our pool and our requested tracker.
     for (const auto &tx_hash : arg.t)
@@ -1929,22 +1931,23 @@ skip:
 
     m_request_manager.cleanup_stale_requests(P2P_REQUEST_PARK_TIMEOUT); // remove requests older than 5 minutes
 
-    // m_interval_peer_request_checker stores microseconds; convert to seconds for std::time_t
-    const std::time_t request_deadline =
-      static_cast<std::time_t>(m_interval_peer_request_checker.load(std::memory_order_relaxed) / 1000000ULL);
+    // m_interval_peer_request_checker stores microseconds; convert to seconds
+    const uint32_t request_deadline =
+      static_cast<uint32_t>(m_interval_peer_request_checker.load(std::memory_order_relaxed) / 1000000ULL);
 
-    std::function<void(request_manager &m_request_manager, const tx_request &req, const std::time_t)> runner =
-      [this](request_manager &m_request_manager, const tx_request &req, const std::time_t deadline)
+    std::function<void(request_manager &m_request_manager, const tx_request &req, const uint32_t)> runner =
+      [this](request_manager &m_request_manager, const tx_request &req, const uint32_t deadline)
       {
-        std::time_t now = std::time(nullptr);
+        std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - req.firstseen_timestamp);
         if (req.is_in_flight()
-            && (now - req.firstseen_timestamp) > deadline)
+            && elapsed.count() > deadline)
         {
           auto current_request_peer_id = req.peer_id;
           const crypto::hash current_request_tx_hash = req.tx_hash;
           MCINFO("net.p2p.msg", "Timeout for "
                   << current_request_tx_hash << ", requesting it again, it has been "
-                  << (now - req.firstseen_timestamp) << " seconds");
+                 << (elapsed.count()) << " seconds");
           bool drop_peer = false;
           if (!current_request_peer_id.is_nil())
           {

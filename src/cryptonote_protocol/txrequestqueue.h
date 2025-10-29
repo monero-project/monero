@@ -54,11 +54,10 @@
 struct tx_request {
   boost::uuids::uuid peer_id;
   crypto::hash tx_hash;
-  // std::chrono::steady_clock::time_point firstseen_timestamp;
-  std::time_t firstseen_timestamp;
+  std::chrono::steady_clock::time_point firstseen_timestamp;
   mutable bool in_flight = false;
 
-  tx_request(const boost::uuids::uuid& peer_id, const crypto::hash& tx_hash, std::time_t firstseen_timestamp)
+  tx_request(const boost::uuids::uuid& peer_id, const crypto::hash& tx_hash, std::chrono::steady_clock::time_point firstseen_timestamp)
     : peer_id(peer_id), tx_hash(tx_hash), firstseen_timestamp(firstseen_timestamp) {}
 
   void fly() const { in_flight = true; }

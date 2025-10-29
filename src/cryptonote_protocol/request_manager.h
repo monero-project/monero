@@ -43,6 +43,7 @@
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <cstdint>
 #include <unordered_map>
 #include <shared_mutex>
 
@@ -66,12 +67,12 @@ public:
 
   void remove_peer_requests(const boost::uuids::uuid &peer_id);
 
-  void cleanup_stale_requests(std::time_t max_age_seconds);
+  void cleanup_stale_requests(uint32_t max_age_seconds);
 
   bool already_requested_tx(const crypto::hash &tx_hash) const;
 
   bool add_transaction(const crypto::hash &tx_hash,
-                       const boost::uuids::uuid &id, std::time_t first_seen);
+                       const boost::uuids::uuid &id, std::chrono::steady_clock::time_point first_seen);
 
   // Get the peer ID of the current in-flight request for a transaction, if any
   // true: found, false: not found or none in-flight
@@ -79,10 +80,10 @@ public:
 
   // Get next peer ID to request a transaction from, and mark it in-flight,
   // Remove the the current in-flight requests
-  boost::uuids::uuid request_from_next_peer(const crypto::hash &tx_hash, std::time_t now);
+  boost::uuids::uuid request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now);
 
-  void for_each_request(std::function<void(request_manager&, const tx_request &, const std::time_t)> &f,
-                        const std::time_t request_deadline);
+  void for_each_request(std::function<void(request_manager&, const tx_request &, const uint32_t)> &f,
+                        const uint32_t request_deadline);
 };
 
 #endif // CRYPTONOTE_PROTOCOL_REQUEST_MANAGER_H

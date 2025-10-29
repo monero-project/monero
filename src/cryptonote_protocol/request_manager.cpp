@@ -33,6 +33,7 @@
 
 
 #include "cryptonote_protocol/request_manager.h"
+#include <cstdint>
 
 request_manager::request_manager() : m_requested_txs(), m_mutex() {}
 
@@ -77,19 +78,18 @@ void request_manager::remove_peer_requests(const boost::uuids::uuid &peer_id) {
   }
 }
 
-void request_manager::cleanup_stale_requests(std::time_t max_age_seconds) {
-  std::time_t now = std::time(nullptr);
-  std::time_t cutoff_time = now - max_age_seconds;
-
+void request_manager::cleanup_stale_requests(uint32_t max_age_seconds) {
   std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
   size_t removed = 0;
 
+  auto now = std::chrono::steady_clock::now();
   auto it = m_requested_txs.begin();
   while (it != m_requested_txs.end()) {
-    if (it->firstseen_timestamp < cutoff_time) {
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - it->firstseen_timestamp);
+    if (elapsed.count() > max_age_seconds) {
       MINFO("Removing stale request for tx " << epee::string_tools::pod_to_hex(it->tx_hash) 
             << " from peer " << epee::string_tools::pod_to_hex(it->peer_id)
-            << ", age: " << (now - it->firstseen_timestamp) << " seconds");
+            << ", age: " << elapsed.count() << " seconds");
       it = m_requested_txs.erase(it);
       ++removed;
     } else {
@@ -115,11 +115,11 @@ bool request_manager::already_requested_tx(const crypto::hash &tx_hash) const {
 }
 
 bool request_manager::add_transaction(const crypto::hash &tx_hash,
-                     const boost::uuids::uuid &id, std::time_t first_seen) {
+                     const boost::uuids::uuid &id, std::chrono::steady_clock::time_point first_seen) {
   MINFO("Adding peer: " << epee::string_tools::pod_to_hex(id)
         << " to transaction: "
         << epee::string_tools::pod_to_hex(tx_hash)
-        << ", first seen: " << first_seen);
+        << ", first seen: " << first_seen.time_since_epoch().count());
   std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
   auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
   auto it = by_peer_and_tx.find(boost::make_tuple(id, tx_hash));
@@ -152,7 +152,7 @@ bool request_manager::get_current_request_peer_id(const crypto::hash &tx_hash, b
   return false;
 }
 
-boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &tx_hash, std::time_t now) {
+boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now) {
   std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
   auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
   auto it = by_tx_hash.find(tx_hash);
@@ -200,8 +200,8 @@ boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &t
     MINFO("Requesting tx " << epee::string_tools::pod_to_hex(tx_hash)
           << " from peer "
           << epee::string_tools::pod_to_hex(earliest_request->peer_id)
-          << ", first seen " << earliest_request->firstseen_timestamp
-          << ", now " << now);
+          << ", first seen " << earliest_request->firstseen_timestamp.time_since_epoch().count()
+          << ", now " << now.time_since_epoch().count());
     return earliest_request->peer_id;
   }
 
@@ -209,8 +209,7 @@ boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &t
   return boost::uuids::nil_uuid();
 }
 
-void request_manager::for_each_request(std::function<void(request_manager&, const tx_request &, const std::time_t)> &f,
-                      const std::time_t request_deadline) {
+void request_manager::for_each_request(std::function<void(request_manager&, const tx_request &, const uint32_t)> &f, const uint32_t request_deadline) {
   MINFO("Iterating over requested transactions");
   for (const auto &request : m_requested_txs) {
     f(*this, request, request_deadline);
