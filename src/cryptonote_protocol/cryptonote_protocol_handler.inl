@@ -1694,8 +1694,8 @@ namespace cryptonote
             }
             else if (bvc.m_added_to_main_chain)
             {
-              const std::vector<crypto::hash>* tx_hashes_ptr = nullptr;
               block tmp;
+              const std::vector<crypto::hash>* tx_hashes_ptr = nullptr;
               if (!pblocks.empty())
               {
                 tx_hashes_ptr = &pblocks[blockidx].tx_hashes;
