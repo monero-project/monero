@@ -29,7 +29,16 @@
 
 """Daemon class to make rpc calls and store state."""
 
+from . import epee_binary
 from .rpc import JSONRPC 
+
+class DaemonBinary:
+    def hash_list_to_blob(hash_list):
+        blob = bytes()
+        for h in hash_list:
+            assert len(h) == 64
+            blob += bytes.fromhex(h)
+        return blob
 
 class Daemon(object):
 
@@ -178,6 +187,22 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(getblockheadersrange)
     get_block_headers_range = getblockheadersrange
+
+    def get_blocks_fast(self, start_height, block_ids, requested_info = 0,
+            pool_info_since = 0, prune = True, no_miner_tx = False, max_block_count = 0):
+        get_blocks_fast = {
+            'requested_info': requested_info,
+            'block_ids': DaemonBinary.hash_list_to_blob(block_ids),
+            'start_height': start_height,
+            'prune': prune,
+            'no_miner_tx': no_miner_tx,
+            'pool_info_since': pool_info_since,
+            'max_block_count': max_block_count
+        }
+        res = self.rpc.send_binary_request("/getblocks.bin", get_blocks_fast)
+        if 'top_block_hash' in res:
+            res['top_block_hash'] = res['top_block_hash'].hex()
+        return res
 
     def get_connections(self, client = ""):
         get_connections = {
