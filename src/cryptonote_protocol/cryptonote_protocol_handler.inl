@@ -1954,6 +1954,8 @@ skip:
             m_p2p->for_connection(current_request_peer_id,
               [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t) -> bool {
                 drop_peer = ctx.missed_announced_tx(current_request_tx_hash);
+                // We are abandoning this request path: decrement previous in-flight
+                ctx.remove_in_flight_request();
                 return true;
               });
           }
@@ -1965,14 +1967,6 @@ skip:
           else
           {
             MCINFO("net.p2p.msg", "Missed tx announcement less than threshold of the time, not dropping peer : " << epee::string_tools::pod_to_hex(current_request_peer_id));
-          }
-          // We are abandoning this request path: decrement previous in-flight
-          if (!current_request_peer_id.is_nil())
-          {
-            m_p2p->for_connection(current_request_peer_id, [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t)->bool {
-              ctx.remove_in_flight_request();
-              return true;
-            });
           }
           const boost::uuids::uuid peer_id = m_request_manager.request_from_next_peer(current_request_tx_hash, now);
           if (peer_id.is_nil())
