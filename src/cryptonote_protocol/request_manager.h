@@ -51,7 +51,7 @@ class request_manager {
 
 private:
   request_container m_requested_txs;
-  mutable std::shared_timed_mutex m_mutex;
+  mutable std::recursive_mutex m_mutex;
 
   request_manager(const request_manager &) = delete;
   request_manager &operator=(const request_manager &) = delete;
@@ -82,8 +82,7 @@ public:
   // Remove the the current in-flight requests
   boost::uuids::uuid request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now);
 
-  void for_each_request(std::function<void(request_manager&, const tx_request &, const uint32_t)> &f,
-                        const uint32_t request_deadline);
+  void for_each_request(std::function<void(request_manager&, const tx_request &, const uint32_t)> &f, const uint32_t request_deadline);
 };
 
 #endif // CRYPTONOTE_PROTOCOL_REQUEST_MANAGER_H

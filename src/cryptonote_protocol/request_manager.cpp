@@ -39,7 +39,7 @@ request_manager::request_manager() : m_requested_txs(), m_mutex() {}
 
 bool request_manager::remove_transaction(const crypto::hash &tx_hash) {
   MINFO("Removing transaction: " << epee::string_tools::pod_to_hex(tx_hash));
-  std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& requests_by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
   auto range = requests_by_tx_hash.equal_range(tx_hash);
   if (range.first != range.second) {
@@ -54,7 +54,7 @@ bool request_manager::remove_transaction(const crypto::hash &tx_hash) {
 bool request_manager::remove_requested_transaction(const boost::uuids::uuid &peer_id, const crypto::hash &tx_hash) {
   MINFO("Removing transaction: " << epee::string_tools::pod_to_hex(tx_hash)
         << " for peer: " << epee::string_tools::pod_to_hex(peer_id));
-  std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& requests_by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
   auto it = requests_by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
   if (it != requests_by_peer_and_tx.end()) {
@@ -68,7 +68,7 @@ bool request_manager::remove_requested_transaction(const boost::uuids::uuid &pee
 
 void request_manager::remove_peer_requests(const boost::uuids::uuid &peer_id) {
   MINFO("Removing all requests for disconnected peer: " << epee::string_tools::pod_to_hex(peer_id));
-  std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& by_peer = get_requests_by_peer_id(m_requested_txs);
   auto peer_range = by_peer.equal_range(peer_id);
   if (peer_range.first != peer_range.second) {
@@ -79,7 +79,7 @@ void request_manager::remove_peer_requests(const boost::uuids::uuid &peer_id) {
 }
 
 void request_manager::cleanup_stale_requests(uint32_t max_age_seconds) {
-  std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   size_t removed = 0;
 
   auto now = std::chrono::steady_clock::now();
@@ -104,7 +104,7 @@ void request_manager::cleanup_stale_requests(uint32_t max_age_seconds) {
 }
 
 bool request_manager::already_requested_tx(const crypto::hash &tx_hash) const {
-  std::shared_lock<std::shared_timed_mutex> r_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
   for (const auto& req : boost::make_iterator_range(by_tx_hash.equal_range(tx_hash))) {
     if (req.is_in_flight()) {
@@ -120,7 +120,7 @@ bool request_manager::add_transaction(const crypto::hash &tx_hash,
         << " to transaction: "
         << epee::string_tools::pod_to_hex(tx_hash)
         << ", first seen: " << first_seen.time_since_epoch().count());
-  std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
   auto it = by_peer_and_tx.find(boost::make_tuple(id, tx_hash));
   if (it != by_peer_and_tx.end()) {
@@ -136,7 +136,7 @@ bool request_manager::add_transaction(const crypto::hash &tx_hash,
 }
 
 bool request_manager::get_current_request_peer_id(const crypto::hash &tx_hash, boost::uuids::uuid &out) const {
-  std::shared_lock<std::shared_timed_mutex> r_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
   auto it = by_tx_hash.find(tx_hash);
   if (it == by_tx_hash.end()) {
@@ -153,7 +153,7 @@ bool request_manager::get_current_request_peer_id(const crypto::hash &tx_hash, b
 }
 
 boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now) {
-  std::unique_lock<std::shared_timed_mutex> w_lock(m_mutex);
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
   auto it = by_tx_hash.find(tx_hash);
   if (it == by_tx_hash.end()) {
@@ -211,6 +211,7 @@ boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &t
 
 void request_manager::for_each_request(std::function<void(request_manager&, const tx_request &, const uint32_t)> &f, const uint32_t request_deadline) {
   MINFO("Iterating over requested transactions");
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   for (const auto &request : m_requested_txs) {
     f(*this, request, request_deadline);
   }
