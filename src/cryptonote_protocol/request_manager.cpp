@@ -131,7 +131,7 @@ bool request_manager::add_transaction(const crypto::hash &tx_hash,
     return false;
 
   }
-  m_requested_txs.insert(request(id, tx_hash, first_seen));
+  m_requested_txs.insert(tx_request(id, tx_hash, first_seen));
   return true;
 }
 
@@ -209,7 +209,7 @@ boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &t
   return boost::uuids::nil_uuid();
 }
 
-void request_manager::for_each_request(std::function<void(request_manager&, const request &, const std::time_t)> &f,
+void request_manager::for_each_request(std::function<void(request_manager&, const tx_request &, const std::time_t)> &f,
                       const std::time_t request_deadline) {
   MINFO("Iterating over requested transactions");
   for (const auto &request : m_requested_txs) {

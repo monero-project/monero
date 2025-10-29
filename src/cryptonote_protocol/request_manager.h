@@ -81,7 +81,7 @@ public:
   // Remove the the current in-flight requests
   boost::uuids::uuid request_from_next_peer(const crypto::hash &tx_hash, std::time_t now);
 
-  void for_each_request(std::function<void(request_manager&, const request &, const std::time_t)> &f,
+  void for_each_request(std::function<void(request_manager&, const tx_request &, const std::time_t)> &f,
                         const std::time_t request_deadline);
 };
 

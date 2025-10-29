@@ -1933,8 +1933,8 @@ skip:
     const std::time_t request_deadline =
       static_cast<std::time_t>(m_interval_peer_request_checker.load(std::memory_order_relaxed) / 1000000ULL);
 
-    std::function<void(request_manager &m_request_manager, const request &req, const std::time_t)> runner =
-      [this](request_manager &m_request_manager, const request &req, const std::time_t deadline)
+    std::function<void(request_manager &m_request_manager, const tx_request &req, const std::time_t)> runner =
+      [this](request_manager &m_request_manager, const tx_request &req, const std::time_t deadline)
       {
         std::time_t now = std::time(nullptr);
         if (req.is_in_flight()

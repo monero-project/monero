@@ -51,14 +51,14 @@
 #include "common/util.h"
 
 
-struct request {
+struct tx_request {
   boost::uuids::uuid peer_id;
   crypto::hash tx_hash;
   // std::chrono::steady_clock::time_point firstseen_timestamp;
   std::time_t firstseen_timestamp;
   mutable bool in_flight = false;
 
-  request(const boost::uuids::uuid& peer_id, const crypto::hash& tx_hash, std::time_t firstseen_timestamp)
+  tx_request(const boost::uuids::uuid& peer_id, const crypto::hash& tx_hash, std::time_t firstseen_timestamp)
     : peer_id(peer_id), tx_hash(tx_hash), firstseen_timestamp(firstseen_timestamp) {}
 
   void fly() const { in_flight = true; }
@@ -73,16 +73,16 @@ using boost::multi_index::multi_index_container;
 using boost::multi_index::composite_key;
 
 typedef multi_index_container<
-    request,
+    tx_request,
     indexed_by<
         // Index 0: by peer_id - all requests for a peer
-        hashed_non_unique<member<request, boost::uuids::uuid, &request::peer_id>>,
+        hashed_non_unique<member<tx_request, boost::uuids::uuid, &tx_request::peer_id>>,
         // Index 1: by tx_hash - all requests for a tx
-        hashed_non_unique<member<request, crypto::hash, &request::tx_hash>>,
+        hashed_non_unique<member<tx_request, crypto::hash, &tx_request::tx_hash>>,
         // Index 2: by (peer_id, tx_hash) - unique requests
-        hashed_unique<composite_key<request,
-            member<request, boost::uuids::uuid, &request::peer_id>,
-            member<request, crypto::hash, &request::tx_hash>
+        hashed_unique<composite_key<tx_request,
+            member<tx_request, boost::uuids::uuid, &tx_request::peer_id>,
+            member<tx_request, crypto::hash, &tx_request::tx_hash>
         >>
     >
 > request_container;
