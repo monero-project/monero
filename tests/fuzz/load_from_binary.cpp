@@ -28,15 +28,21 @@
 
 #include "include_base_utils.h"
 #include "file_io_utils.h"
-#include "serialization/keyvalue_serialization.h"
-#include "storages/portable_storage_template_helper.h"
-#include "storages/portable_storage_base.h"
+#include "serialization/wire.h"
+#include "serialization/wire/epee.h"
 #include "fuzzer.h"
+
+struct empty
+{
+  WIRE_DEFINE_CONVERSIONS()
+  WIRE_BEGIN_MAP()
+  WIRE_END_MAP()
+};
 
 BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  epee::serialization::portable_storage ps;
-  ps.load_from_binary(std::string((const char*)buf, len));
+  empty dest{};
+  wire_read::from_bytes<wire::epee_reader>(epee::span<const std::uint8_t>{buf, len}, dest);
 END_SIMPLE_FUZZER()

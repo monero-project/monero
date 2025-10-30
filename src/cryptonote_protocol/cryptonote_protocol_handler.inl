@@ -48,6 +48,7 @@
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
 #include "common/util.h"
+#include "serialization/wire/epee/base.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -566,7 +567,13 @@ namespace cryptonote
   {
     CORE_SYNC_DATA hsd = {};
     get_payload_sync_data(hsd);
-    epee::serialization::store_t_to_binary(hsd, data);
+    epee::byte_stream buffer{};
+    if (std::error_code error = wire::epee_bin::to_bytes(buffer, hsd))
+    {
+      MERROR("Failed to convert sync_data to bytes: " << error.message());
+      return false;
+    }
+    data = epee::byte_slice{std::move(buffer)};
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2645,7 +2652,7 @@ skip:
   {
     // sort peers between fluffy ones and others
     std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> fluffyConnections;
-    m_p2p->for_each_connection([this, &exclude_context, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
+    m_p2p->for_each_connection([&exclude_context, &fluffyConnections](connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)
     {
       // peer_id also filters out connections before handshake
       if (peer_id && exclude_context.m_connection_id != context.m_connection_id && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
@@ -2659,9 +2666,12 @@ skip:
     // send fluffy ones first, we want to encourage people to run that
     if (!fluffyConnections.empty())
     {
+      std::error_code error{};
       epee::levin::message_writer fluffyBlob{32 * 1024};
-      epee::serialization::store_t_to_binary(arg, fluffyBlob.buffer);
-      m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
+      if ((error = wire::epee_bin::to_bytes(fluffyBlob.buffer, arg)))
+        MERROR("Failed to convert to epee bytes: " << error.message());
+      else
+        m_p2p->relay_notify_to_list(NOTIFY_NEW_FLUFFY_BLOCK::ID, std::move(fluffyBlob), std::move(fluffyConnections));
     }
 
     return true;
