@@ -171,7 +171,7 @@ details.
   Override the space-separated list of platform triples for which to perform a
   bootstrappable build.
 
-  _(defaults to "x86\_64-linux-gnu aarch64-linux-gnu arm-linux-gnueabihf
+  _(defaults to "x86\_64-linux-gnu aarch64-linux-gnu
   riscv64-linux-gnu x86\_64-w64-mingw32 x86\_64-unknown-freebsd
   x86\_64-apple-darwin arm64-apple-darwin aarch64-linux-android")_
 
