@@ -27,10 +27,14 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <atomic>
 #include "gtest/gtest.h"
+
+#include <atomic>
+#include <thread>
+
 #include "misc_language.h"
 #include "common/threadpool.h"
+#include "common/util.h"
 
 TEST(threadpool, wait_nothing)
 {
@@ -144,4 +148,49 @@ TEST(threadpool, leaf_reentrancy)
   }
   waiter.wait();
   ASSERT_EQ(counter, 500000);
+}
+
+TEST(threadpool, light_and_heavy_starvation_non_leaf)
+{
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(2 * tools::get_max_concurrency() + 1));
+  std::atomic<bool> is_light_done_waiting(false);
+  std::atomic<bool> queued_heavy_job(false);
+  std::chrono::microseconds light_waiting_period(3 * 1000000); // 3 seconds
+
+  // First, make a "light" thread with one trivial job. Then, spawn a "heavy"
+  // thread with indefinite hard jobs. Then, wait a little bit in the light
+  // thread for jobs to enqueue. Then, test that the "light" thread's waiter
+  // completes within a reasonable timeframe.
+
+  std::thread light_thread([&tpool, &is_light_done_waiting, &queued_heavy_job, &light_waiting_period](){
+    tools::threadpool::waiter light_waiter(*tpool);
+    tpool->submit(&light_waiter, [](){ /* light work, no reaction */ });
+    while (!queued_heavy_job.load()); // spin lock until at least one heavy job is queued
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // wait a little bit longer for good measure
+    const auto pre_wait_time = std::chrono::steady_clock::now();
+    light_waiter.wait();
+    const auto post_wait_time = std::chrono::steady_clock::now();
+    light_waiting_period = std::chrono::duration_cast<std::chrono::microseconds>(post_wait_time - pre_wait_time);
+    is_light_done_waiting = true;
+  });
+
+  std::thread heavy_thread([&tpool, &is_light_done_waiting, &queued_heavy_job](){
+    tools::threadpool::waiter heavy_waiter(*tpool);
+    while (!is_light_done_waiting) // so this test doesn't take forever
+    {
+      tpool->submit(&heavy_waiter, [&is_light_done_waiting](){
+        if (is_light_done_waiting) return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000)); //slow work
+      });
+      queued_heavy_job = true;
+    }
+    heavy_waiter.wait();
+  });
+
+  light_thread.join();
+  heavy_thread.join();
+
+  // Assert that the light thread waited less than 2 seconds. Each heavy job is 1 second, and
+  // the light thread waiter might have picked up one heavy job, but it should be less than 2
+  ASSERT_LT(light_waiting_period.count(), 2 * 1000000);
 }
