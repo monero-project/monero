@@ -132,7 +132,7 @@ case "$HOST" in
         # See depends/hosts/darwin.mk for more details.
         ;;
     *android*)
-        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-11*-lib" | sort | head -n 1)/lib"
+        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-14*-lib" | sort | head -n 1)/lib"
         ;;
     *linux-gnu*)
         CROSS_GLIBC="$(store_path "glibc-cross-${HOST}")"
@@ -326,6 +326,13 @@ mkdir -p "$DISTSRC"
     # extracted source archive. The guix-build script makes sure submodules are
     # checked out before starting a build.
     CMAKEFLAGS+=" -DMANUAL_SUBMODULES=1"
+
+    # Enabling stack traces causes a compilation issue on Linux targets.
+    # Gitian builds did not enable stack traces either, so this is not a
+    # regression.
+    case "$HOST" in
+        *linux-gnu*)  CMAKEFLAGS+=" -DSTACK_TRACE=OFF" ;;
+    esac
 
     # Configure this DISTSRC for $HOST
     # shellcheck disable=SC2086
