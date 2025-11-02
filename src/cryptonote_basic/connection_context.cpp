@@ -99,6 +99,7 @@ namespace cryptonote
 
   void cryptonote_connection_context::reset()
   {
+    MINFO("Resetting connection statistics for peer: " << epee::string_tools::pod_to_hex(m_connection_id));
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     m_connection_stats->tx_announcements.clear();
     m_connection_stats->received = 0;
@@ -110,24 +111,29 @@ namespace cryptonote
 
   void cryptonote_connection_context::add_announcement(const crypto::hash &tx_hash)
   {
+    MINFO("Adding announcement for tx " << epee::string_tools::pod_to_hex(tx_hash)
+          << " to peer: " << epee::string_tools::pod_to_hex(m_connection_id));
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     m_connection_stats->tx_announcements.insert(tx_hash);
   }
 
   void cryptonote_connection_context::add_received()
   {
+    MINFO("Incrementing received count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current received: " << m_connection_stats->received);
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->received;
   }
 
   void cryptonote_connection_context::add_requested_from_me()
   {
+    MINFO("Incrementing requested_from_me count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats-> in_flight_requests << ", current requested_from_me: " << m_connection_stats->requested_from_me);
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->requested_from_me;
   }
 
   void cryptonote_connection_context::add_requested_from_peer()
   {
+    MINFO("Incrementing requested_from_peer count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats->in_flight_requests << ", current requested_from_peer: " << m_connection_stats->requested_from_peer);
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     // increment in_flight_requests directly to avoid recursive locking deadlock
     ++m_connection_stats->in_flight_requests;
@@ -136,18 +142,21 @@ namespace cryptonote
 
   void cryptonote_connection_context::add_sent()
   {
+    MINFO("Incrementing sent count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current sent: " << m_connection_stats->sent);
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->sent;
   }
 
   void cryptonote_connection_context::add_in_flight_requests()
   {
+    MINFO("Incrementing in_flight_requests count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats->in_flight_requests);
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->in_flight_requests;
   }
 
   void cryptonote_connection_context::remove_in_flight_request()
   {
+    MINFO("Decrementing in_flight_requests count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats->in_flight_requests);
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     if (m_connection_stats->in_flight_requests > 0)
       --m_connection_stats->in_flight_requests;
@@ -155,6 +164,7 @@ namespace cryptonote
 
   bool cryptonote_connection_context::can_process_additional_request(size_t requests)
   {
+    MINFO("Checking if can process additional requests for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats->in_flight_requests << ", additional requests: " << requests << " we can" << ((m_connection_stats->in_flight_requests + requests) < P2P_MAX_IN_FLIGHT_REQUESTS ? " " : " not ") << "process.");
     std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
     return (m_connection_stats->in_flight_requests + requests) < P2P_MAX_IN_FLIGHT_REQUESTS;
   }
@@ -225,13 +235,16 @@ namespace cryptonote
     return oss.str();
   }
 
-  bool cryptonote_connection_context::missed_announced_tx(const crypto::hash &/*tx_hash*/)
+  bool cryptonote_connection_context::missed_announced_tx()
   {
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->missed;
     const size_t announced = m_connection_stats->tx_announcements.size();
     if (announced == 0) return false;
     const size_t percent = (m_connection_stats->missed * 100) / announced;
+    MINFO("Peer " << epee::string_tools::pod_to_hex(m_connection_id)
+          << " has missed " << m_connection_stats->missed << " out of "
+          << announced << " announced txs (" << percent << "%)");
     return percent > P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE;
   }
 

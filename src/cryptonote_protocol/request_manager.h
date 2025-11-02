@@ -61,18 +61,21 @@ private:
 public:
   request_manager();
 
-  bool remove_transaction(const crypto::hash &tx_hash);
+  bool remove_announcement(const crypto::hash &tx_hash);
 
-  bool remove_requested_transaction(const boost::uuids::uuid &peer_id, const crypto::hash &tx_hash);
+  bool received_requested(const boost::uuids::uuid &peer_id, const crypto::hash &tx_hash);
 
-  void remove_peer_requests(const boost::uuids::uuid &peer_id);
+  void remove_peer(const boost::uuids::uuid &peer_id);
 
   void cleanup_stale_requests(uint32_t max_age_seconds);
 
   bool already_requested_tx(const crypto::hash &tx_hash) const;
 
-  bool add_transaction(const crypto::hash &tx_hash,
-                       const boost::uuids::uuid &id, std::chrono::steady_clock::time_point first_seen);
+  bool add_announcement(const crypto::hash &tx_hash,
+                       const boost::uuids::uuid &id);
+
+  void add_request(const crypto::hash &tx_hash,
+               const boost::uuids::uuid &id);
 
   // Get the peer ID of the current in-flight request for a transaction, if any
   // true: found, false: not found or none in-flight
@@ -82,7 +85,7 @@ public:
   // Remove the the current in-flight requests
   boost::uuids::uuid request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now);
 
-  void for_each_request(std::function<void(request_manager&, const tx_request &, const uint32_t)> &f, const uint32_t request_deadline);
+  void for_each_request(std::function<void(const tx_request &, const uint32_t)> &f, const uint32_t request_deadline);
 };
 
 #endif // CRYPTONOTE_PROTOCOL_REQUEST_MANAGER_H

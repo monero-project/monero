@@ -46,6 +46,7 @@
 #include <cryptonote_core/cryptonote_core.h>
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "misc_log_ex.h"
 #include "profile_tools.h"
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
@@ -221,10 +222,11 @@ namespace cryptonote
     if (request_deadline < 1 || request_deadline > 180)
     {
       MERROR("Request interval must be between 1 and 180 seconds");
-      MERROR("Setting to default of 30 seconds");
+      MERROR("Setting to default of " << P2P_DEFAULT_REQUEST_TIMEOUT << " seconds");
       request_deadline = P2P_DEFAULT_REQUEST_TIMEOUT;
     }
-    m_interval_peer_request_checker.store(request_deadline * 1000000); // microseconds
+    MINFO("setting interval for peer_request_checker to " << request_deadline << " seconds");
+    m_interval_peer_request_checker.store(request_deadline * 1000000);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -758,7 +760,7 @@ namespace cryptonote
               return true;
             });
           }
-          m_request_manager.remove_transaction(tx_hash);
+          m_request_manager.remove_announcement(tx_hash);
         }
       }
     }
@@ -919,7 +921,6 @@ namespace cryptonote
 
     // Create a list to hold transaction hashes missing in our local tx pool.
     std::vector<crypto::hash> missing_tx_hashes;
-    std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
 
     // Iterate over each advertised transaction hash and check our pool and our requested tracker.
     for (const auto &tx_hash : arg.t)
@@ -927,19 +928,20 @@ namespace cryptonote
       if (!context.can_process_additional_request())
       {
         LOG_ERROR_CCONTEXT("Too many in-flight requests, cannot accept");
-        break;
+        return 1;
       }
       // If we have the tx in our pool, also remove it from request manager and skip.
       if (m_core.pool_has_tx(tx_hash))
       {
-        m_request_manager.remove_transaction(tx_hash);
+        m_request_manager.remove_announcement(tx_hash);
         continue;
       }
-      bool need_request = m_request_manager.add_transaction(tx_hash, context.m_connection_id, now);
+      bool need_request = m_request_manager.add_announcement(tx_hash, context.m_connection_id);
       context.add_announcement(tx_hash);
       if (need_request) {
         context.add_requested_from_peer();
         missing_tx_hashes.push_back(tx_hash);
+        m_request_manager.add_request(tx_hash, context.m_connection_id);
       }
     }
 
@@ -1066,7 +1068,7 @@ namespace cryptonote
         if (cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash)
             && m_request_manager.already_requested_tx(tx_hash))
         {
-          m_request_manager.remove_requested_transaction(context.m_connection_id, tx_hash);
+          m_request_manager.received_requested(context.m_connection_id, tx_hash);
           context.remove_in_flight_request();
         }
       }
@@ -1719,7 +1721,7 @@ namespace cryptonote
                             return true;
                         });
                     }
-                    m_request_manager.remove_transaction(h);
+                    m_request_manager.remove_announcement(h);
                   }
               }
             }
@@ -1928,64 +1930,66 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::check_tx_request_queue()
   {
     MCTRACE("net.p2p.msg", "on_idle :: check_tx_request_queue, starting ...");
-
-    m_request_manager.cleanup_stale_requests(P2P_REQUEST_PARK_TIMEOUT); // remove requests older than 5 minutes
+    m_request_manager.cleanup_stale_requests(P2P_REQUEST_PARK_TIMEOUT); // remove requests older than P2P_REQUEST_PARK_TIMEOUT seconds
 
     // m_interval_peer_request_checker stores microseconds; convert to seconds
     const uint32_t request_deadline =
       static_cast<uint32_t>(m_interval_peer_request_checker.load(std::memory_order_relaxed) / 1000000ULL);
 
-    std::function<void(request_manager &m_request_manager, const tx_request &req, const uint32_t)> runner =
-      [this](request_manager &m_request_manager, const tx_request &req, const uint32_t deadline)
+    std::function<void(const tx_request &req, const uint32_t)> runner =
+      [this](const tx_request &req, const uint32_t deadline)
       {
         std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - req.firstseen_timestamp);
-        if (req.is_in_flight()
-            && elapsed.count() > deadline)
-        {
-          auto current_request_peer_id = req.peer_id;
-          const crypto::hash current_request_tx_hash = req.tx_hash;
-          MCINFO("net.p2p.msg", "Timeout for "
-                  << current_request_tx_hash << ", requesting it again, it has been "
-                 << (elapsed.count()) << " seconds");
-          bool drop_peer = false;
-          if (!current_request_peer_id.is_nil())
+        auto current_request_peer_id = req.peer_id;
+        const crypto::hash current_request_tx_hash = req.tx_hash;
+        MCINFO("net.p2p.msg", "tx_hash " << current_request_tx_hash
+               << " peer " << epee::string_tools::pod_to_hex(current_request_peer_id)
+               << " time elapesed " << elapsed.count()
+               << " seconds and request is" << (req.is_in_flight() ? " " : " not ")  << "in flight.");
+        if (req.is_in_flight())
           {
-            m_p2p->for_connection(current_request_peer_id,
-              [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t) -> bool {
-                drop_peer = ctx.missed_announced_tx(current_request_tx_hash);
-                // We are abandoning this request path: decrement previous in-flight
-                ctx.remove_in_flight_request();
-                return true;
-              });
+            bool drop_peer = false;
+            if (!req.is_marked_for_removal() && elapsed.count() > deadline)
+              {
+                MCINFO("net.p2p.msg", "Timeout for "
+                       << current_request_tx_hash << ", requesting it again, it has been "
+                       << (elapsed.count()) << " seconds");
+                m_p2p->for_connection(current_request_peer_id,
+                                      [&](cryptonote_connection_context &ctx, nodetool::peerid_type, uint32_t) -> bool {
+                                        drop_peer = ctx.missed_announced_tx();
+                                        // We are abandoning this request path: decrement previous in-flight
+                                        ctx.remove_in_flight_request();
+                                        return true;
+                                      });
+                if (drop_peer)
+                  {
+                    MCINFO("net.p2p.msg", "Missed tx announcement more that threshold of the time, dropping peer : " << epee::string_tools::pod_to_hex(current_request_peer_id));
+                    drop_connection(current_request_peer_id);
+                  }
+                else
+                  {
+                    MCINFO("net.p2p.msg", "Missed tx announcement less than threshold of the time, not dropping peer : " << epee::string_tools::pod_to_hex(current_request_peer_id));
+                  }
+                const boost::uuids::uuid peer_id = m_request_manager.request_from_next_peer(current_request_tx_hash, now);
+                if (peer_id.is_nil())
+                  {
+                    MCINFO("net.p2p.msg", "No peers to request from for tx " << current_request_tx_hash);
+                    return;
+                  }
+                bool result = m_p2p->for_connection(peer_id, [&](cryptonote_connection_context &context, nodetool::peerid_type peer_id, uint32_t) -> bool {
+                  MCINFO("net.p2p.msg", "Requesting tx " << current_request_tx_hash << " from peer " << epee::string_tools::to_string_hex(context.m_pruning_seed));
+                  NOTIFY_REQUEST_TX_POOL_TXS::request req;
+                  req.t = {current_request_tx_hash};
+                  context.add_requested_from_peer();
+                  post_notify<NOTIFY_REQUEST_TX_POOL_TXS>(req, context);
+                  MCINFO("net.p2p.msg", "Requested " << req.t.size() << " missing transactions via RequestTxPoolTxs");
+                  return true;
+                });
+                if (!result)
+                  MCINFO("net.p2p.msg", "Connection has been closed, not requesting tx " << current_request_tx_hash);
+              }
           }
-          if (drop_peer)
-          {
-            MCINFO("net.p2p.msg", "Missed tx announcement more that threshold of the time, dropping peer : " << epee::string_tools::pod_to_hex(current_request_peer_id));
-            drop_connection(current_request_peer_id);
-          }
-          else
-          {
-            MCINFO("net.p2p.msg", "Missed tx announcement less than threshold of the time, not dropping peer : " << epee::string_tools::pod_to_hex(current_request_peer_id));
-          }
-          const boost::uuids::uuid peer_id = m_request_manager.request_from_next_peer(current_request_tx_hash, now);
-          if (peer_id.is_nil())
-          {
-            MCINFO("net.p2p.msg", "No peers to request from for tx " << current_request_tx_hash);
-            return;
-          }
-          bool result = m_p2p->for_connection(peer_id, [&](cryptonote_connection_context &context, nodetool::peerid_type peer_id, uint32_t) -> bool {
-              MCINFO("net.p2p.msg", "Requesting tx " << current_request_tx_hash << " from peer " << epee::string_tools::to_string_hex(context.m_pruning_seed));
-              NOTIFY_REQUEST_TX_POOL_TXS::request req;
-              req.t = {current_request_tx_hash};
-              context.add_requested_from_peer();
-              post_notify<NOTIFY_REQUEST_TX_POOL_TXS>(req, context);
-              MCINFO("net.p2p.msg", "Requested " << req.t.size() << " missing transactions via RequestTxPoolTxs");
-              return true;
-            });
-          if (!result)
-            MCINFO("net.p2p.msg", "Connection has been closed, not requesting tx " << current_request_tx_hash);
-        }
       };
     m_request_manager.for_each_request(runner, request_deadline);
     return true;
@@ -3091,7 +3095,7 @@ skip:
     }
 
     m_block_queue.flush_spans(context.m_connection_id, false);
-    m_request_manager.remove_peer_requests(context.m_connection_id);
+    m_request_manager.remove_peer(context.m_connection_id);
     MLOG_PEER_STATE("closed");
   }
 

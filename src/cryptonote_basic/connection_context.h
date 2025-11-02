@@ -155,7 +155,7 @@ namespace cryptonote
       size_t get_missed() const;
       size_t get_in_flight_requests() const;
       std::string get_info() const;
-      bool missed_announced_tx(const crypto::hash &tx_hash);
+      bool missed_announced_tx();
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)
