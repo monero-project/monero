@@ -132,6 +132,7 @@ case "$HOST" in
         # See depends/hosts/darwin.mk for more details.
         ;;
     *android*)
+        # Make sure ld knows where to find dynamically linked libraries for the precompiled Android NDK toolchain.
         export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-14*-lib" | sort | head -n 1)/lib"
         ;;
     *linux-gnu*)
