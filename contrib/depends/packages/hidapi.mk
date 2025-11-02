@@ -1,8 +1,8 @@
 package=hidapi
-$(package)_version=0.14.0
+$(package)_version=0.15.0
 $(package)_download_path=https://github.com/libusb/hidapi/archive/refs/tags
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=a5714234abe6e1f53647dd8cba7d69f65f71c558b7896ed218864ffcf405bcbd
+$(package)_sha256_hash=5d84dec684c27b97b921d2f3b73218cb773cf4ea915caee317ac8fc73cef8136
 $(package)_linux_dependencies=libusb
 
 # -DHIDAPI_NO_ICONV=ON
