@@ -303,6 +303,7 @@ esac
 case "$HOST" in
     *linux-gnu*)  HOST_LDFLAGS="-Wl,--as-needed -Wl,--dynamic-linker=$glibc_dynamic_linker -static-libstdc++ -static-libgcc" ;;
     *mingw*)  HOST_LDFLAGS="-Wl,--no-insert-timestamp" ;;
+    *freebsd*) HOST_LDFLAGS="-Wl,-rpath-link,${BASEPREFIX}/${HOST}/native/sysroot/lib" ;;
 esac
 
 LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${NATIVE_GCC_LIB}/lib"
