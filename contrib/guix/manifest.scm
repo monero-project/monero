@@ -81,7 +81,7 @@ chain for " target " development."))
       (home-page (package-home-page xgcc))
       (license (package-license xgcc)))))
 
-(define base-gcc gcc-12)
+(define base-gcc gcc-14)
 (define base-linux-kernel-headers linux-libre-headers-6.1)
 
 (define* (make-monero-cross-toolchain  target
@@ -270,28 +270,28 @@ chain for " target " development."))
     (cond ((string-suffix? "-mingw32" target)
            (list
              zip ; used to create release archives
-             gcc-toolchain-12
+             gcc-toolchain-14
              (make-mingw-pthreads-cross-toolchain target)))
           ((string-contains target "-linux-gnu")
            (list
-             gcc-toolchain-12
-             (list gcc-toolchain-12 "static")
+             gcc-toolchain-14
+             (list gcc-toolchain-14 "static")
              (make-monero-cross-toolchain target)))
           ((string-contains target "freebsd")
            (list
              xz ; used to unpack freebsd_base
-             gcc-toolchain-12
-             (list gcc-toolchain-12 "static")
+             gcc-toolchain-14
+             (list gcc-toolchain-14 "static")
              clang-toolchain-18
              binutils))
           ((string-contains target "android")
             (list
               unzip ; used to unpack android_ndk
-              gcc-toolchain-12
-              (list gcc-toolchain-12 "static")))
+              gcc-toolchain-14
+              (list gcc-toolchain-14 "static")))
           ((string-contains target "darwin")
            (list
-             gcc-toolchain-12
+             gcc-toolchain-14
              clang-toolchain-18
              lld-18
              (make-lld-wrapper lld-18 #:lld-as-ld? #t)))
