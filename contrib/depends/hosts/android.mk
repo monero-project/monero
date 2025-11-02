@@ -1,4 +1,4 @@
-ANDROID_API=21
+ANDROID_API=28
 
 ifeq ($(host_arch),arm)
 host_toolchain=armv7a-linux-androideabi$(ANDROID_API)-
