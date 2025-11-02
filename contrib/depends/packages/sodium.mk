@@ -1,8 +1,9 @@
 package=sodium
-$(package)_version=1.0.18
+$(package)_version=1.0.21
 $(package)_download_path=https://download.libsodium.org/libsodium/releases/
 $(package)_file_name=libsodium-$($(package)_version).tar.gz
-$(package)_sha256_hash=6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1
+$(package)_sha256_hash=9e4285c7a419e82dedb0be63a72eea357d6943bc3e28e6735bf600dd4883feaf
+$(package)_patches=fix-aarch64.patch
 
 define $(package)_set_vars
 $(package)_config_opts=--enable-static --disable-shared
@@ -10,6 +11,7 @@ $(package)_config_opts+=--prefix=$(host_prefix)
 endef
 
 define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/fix-aarch64.patch &&\
   cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub build-aux
 endef
 
