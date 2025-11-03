@@ -863,7 +863,7 @@ namespace cryptonote
     std::vector<cryptonote::blobdata> local_txs;
 
     std::vector<cryptonote::blobdata> txes;
-    if (!m_core.get_txpool_complement(arg.hashes, txes))
+    if (!m_core.get_txpool_complement(std::move(arg.hashes), txes))
     {
       LOG_ERROR_CCONTEXT("failed to get txpool complement");
       return 1;
