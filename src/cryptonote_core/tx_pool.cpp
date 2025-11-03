@@ -671,12 +671,27 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
-    m_blockchain.for_all_txpool_txes([this, &hashes, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+    // Create an ordering for `crypto::hash` and sort `hashes` according to that order
+    struct hash_compare
+    {
+      bool operator()(const crypto::hash &lhs, const crypto::hash &rhs) const noexcept
+      {
+        return memcmp(lhs.data, rhs.data, sizeof(crypto::hash)) < 0;
+      }
+    };
+    std::vector<crypto::hash> hashes_sorted(hashes.cbegin(), hashes.cend());
+    std::sort(hashes_sorted.begin(), hashes_sorted.end(), hash_compare{});
+
+    m_blockchain.for_all_txpool_txes([this, &hashes_sorted, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
       const auto tx_relay_method = meta.get_relay_method();
       if (tx_relay_method != relay_method::block && tx_relay_method != relay_method::fluff)
         return true;
-      const auto i = std::find(hashes.begin(), hashes.end(), txid);
-      if (i == hashes.end())
+
+      // Do binary search for our pool TXID in given list, skip to next if already present
+      const auto hash_it = std::lower_bound(hashes_sorted.cbegin(), hashes_sorted.cend(), txid, hash_compare{});
+      if (hash_it != hashes_sorted.cend() && *hash_it == txid)
+        return true;
+
       {
         cryptonote::blobdata bd;
         try
