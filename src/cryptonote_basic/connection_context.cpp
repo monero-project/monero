@@ -147,13 +147,6 @@ namespace cryptonote
     ++m_connection_stats->sent;
   }
 
-  void cryptonote_connection_context::add_in_flight_requests()
-  {
-    MINFO("Incrementing in_flight_requests count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats->in_flight_requests);
-    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
-    ++m_connection_stats->in_flight_requests;
-  }
-
   void cryptonote_connection_context::remove_in_flight_request()
   {
     MINFO("Decrementing in_flight_requests count for peer: " << epee::string_tools::pod_to_hex(m_connection_id) << ", current in_flight_requests: " << m_connection_stats->in_flight_requests);
@@ -240,7 +233,10 @@ namespace cryptonote
     std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
     ++m_connection_stats->missed;
     const size_t announced = m_connection_stats->tx_announcements.size();
-    if (announced == 0) return false;
+
+    // Return false if we don't have enough samples
+    if (announced < P2P_MIN_SAMPLE_SIZE_FOR_DROPPING) return false;
+
     const size_t percent = (m_connection_stats->missed * 100) / announced;
     MINFO("Peer " << epee::string_tools::pod_to_hex(m_connection_id)
           << " has missed " << m_connection_stats->missed << " out of "

@@ -142,7 +142,6 @@ namespace cryptonote
       void add_requested_from_me();
       void add_requested_from_peer();
       void add_sent();
-      void add_in_flight_requests();
       void remove_in_flight_request();
       bool can_process_additional_request(size_t requests = 1);
 

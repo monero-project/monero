@@ -70,6 +70,7 @@ public:
   void cleanup_stale_requests(uint32_t max_age_seconds);
 
   bool already_requested_tx(const crypto::hash &tx_hash) const;
+  bool already_requested_tx(const crypto::hash &tx_hash, const boost::uuids::uuid &id) const;
 
   bool add_announcement(const crypto::hash &tx_hash,
                        const boost::uuids::uuid &id);

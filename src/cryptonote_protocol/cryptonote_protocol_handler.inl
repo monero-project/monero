@@ -928,7 +928,7 @@ namespace cryptonote
       if (!context.can_process_additional_request())
       {
         LOG_ERROR_CCONTEXT("Too many in-flight requests, cannot accept");
-        return 1;
+        continue;
       }
       // If we have the tx in our pool, also remove it from request manager and skip.
       if (m_core.pool_has_tx(tx_hash))
@@ -967,6 +967,12 @@ namespace cryptonote
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_TX_POOL_TXS (" << arg.t.size() << " txes)");
 
     std::vector<blobdata> txs;
+
+    if (txs.size() > P2P_MAX_IN_FLIGHT_REQUESTS)
+    {
+      LOG_ERROR_CCONTEXT("Too many in-flight requests, cannot accept request to send " << txs.size() << " txs to " << context.m_connection_id);
+      return 1;
+    }
 
     // Iterate over requested txin hashes
     for (const auto &tx_hash : arg.t)
@@ -1066,9 +1072,9 @@ namespace cryptonote
         transaction tx;
         crypto::hash tx_hash;
         if (cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash)
-            && m_request_manager.already_requested_tx(tx_hash))
+            && m_request_manager.already_requested_tx(tx_hash, context.m_connection_id))
         {
-          m_request_manager.received_requested(context.m_connection_id, tx_hash);
+          CHECK_AND_ASSERT_MES2(m_request_manager.received_requested(context.m_connection_id, tx_hash), "We received tx_hash " << tx_hash << " from peer " << context.m_connection_id << " but we have no record of requesting it.");
           context.remove_in_flight_request();
         }
       }

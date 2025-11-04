@@ -117,6 +117,19 @@ bool request_manager::already_requested_tx(const crypto::hash &tx_hash) const {
   return false;
 }
 
+bool request_manager::already_requested_tx(const crypto::hash &tx_hash, const boost::uuids::uuid &id) const {
+  std::unique_lock<std::recursive_mutex> lock(m_mutex);
+  auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
+  for (const auto& req : boost::make_iterator_range(by_peer_and_tx.equal_range(boost::make_tuple(id, tx_hash)))) {
+    MINFO("Found request for tx " << epee::string_tools::pod_to_hex(req.tx_hash) << " from peer " << epee::string_tools::pod_to_hex(req.peer_id) << " request is" << (req.is_in_flight() ? " " : " not ")  << "in flight.");
+    if (req.is_in_flight()) {
+      return true;
+    }
+  }
+  MINFO("No in-flight request found for tx " << epee::string_tools::pod_to_hex(tx_hash));
+  return false;
+}
+
 bool request_manager::add_announcement(const crypto::hash &tx_hash,
                                       const boost::uuids::uuid &id) {
   std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
@@ -143,12 +156,11 @@ void request_manager::add_request(const crypto::hash &tx_hash, const boost::uuid
         << " the transaction: "
         << epee::string_tools::pod_to_hex(tx_hash));
   std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  // Search directly in m_requested_txs instead of using the index
-  for(auto& req : m_requested_txs) {
-      if(req.peer_id == peer_id && req.tx_hash == tx_hash) {
-          req.fly();
-          return;
-      }
+  auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
+  auto it = by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
+  if (it != by_peer_and_tx.end()) {
+    it->fly();
+    return;
   }
   MINFO("Requested tx " << tx_hash << " that does not exist in request_manager queue.");
 }
@@ -191,13 +203,6 @@ boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &t
     } else {
       ++it;
     }
-  }
-
-  // Recompute range after potential erasures.
-  by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
-  if (by_tx_hash.empty()) {
-    MINFO("No available requests for tx " << epee::string_tools::pod_to_hex(tx_hash));
-    return boost::uuids::nil_uuid();
   }
 
   // find the earliest non in-flight request
