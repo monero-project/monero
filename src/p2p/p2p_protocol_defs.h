@@ -54,8 +54,6 @@ namespace nodetool
     s << std::hex << peer_id;
     return epee::string_tools::pad_string(s.str(), 16, '0', true);
   }
-
-#pragma pack (push, 1)
   
   template<typename AddressType>
   struct peerlist_entry_base
@@ -107,8 +105,6 @@ namespace nodetool
     END_SERIALIZE()
   };
   typedef anchor_peerlist_entry_base<epee::net_utils::network_address> anchor_peerlist_entry;
-
-#pragma pack(pop)
 
   inline 
   std::string print_peerlist_to_string(const std::vector<peerlist_entry>& pl)
