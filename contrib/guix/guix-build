@@ -420,6 +420,12 @@ EOF
         #     make the downloaded depends sources available to it. The sources
         #     should have been downloaded prior to this invocation.
         #
+        #   --writable-root   make the container's root file system writable
+        #
+        #     We symlink env and shells to conventional paths inside the build
+        #     container to avoid patching script shebangs in various places.
+        #     This requires a writable root file system.
+        #
         #   --keep-failed     keep build tree of failed builds
         #
         #     When builds of the Guix environment itself (not Monero)
@@ -452,6 +458,7 @@ EOF
                                  --keep-failed \
                                  --fallback \
                                  --link-profile \
+                                 --writable-root \
                                  --root="$(profiledir_for_host "${HOST}")" \
                                  ${SUBSTITUTE_URLS:+--substitute-urls="$SUBSTITUTE_URLS"} \
                                  ${ADDITIONAL_GUIX_COMMON_FLAGS} ${ADDITIONAL_GUIX_ENVIRONMENT_FLAGS} \
