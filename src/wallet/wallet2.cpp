@@ -2323,6 +2323,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     }
   }
   const std::vector<tx_extra_field> &tx_extra_fields = tx_cache_data.tx_extra_fields.empty() ? local_tx_extra_fields : tx_cache_data.tx_extra_fields;
+  crypto::hash payment_id = crypto::null_hash;
 
   // Don't try to extract tx public key if tx has no ouputs
   size_t pk_index = 0;
@@ -2490,6 +2491,52 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         }
       }
 
+      tx_extra_nonce extra_nonce;
+      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+      {
+        crypto::hash8 payment_id8 = null_hash8;
+        if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+        {
+          // We got a payment ID to go with this tx
+          LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
+          MINFO("Consider using subaddresses instead of encrypted payment IDs");
+          if (tx_pub_key != null_pkey)
+          {
+            if (!m_account.get_device().decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
+            {
+              LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
+            }
+            else
+            {
+              LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
+              // put the 64 bit decrypted payment id in the first 8 bytes
+              memcpy(payment_id.data, payment_id8.data, 8);
+              // rest is already 0, but guard against code changes above
+              memset(payment_id.data + 8, 0, 24);
+            }
+          }
+          else
+          {
+            LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
+          }
+        }
+        else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+        {
+          bool ignore = block_version >= IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION;
+          if (ignore)
+          {
+            LOG_PRINT_L2("Found unencrypted payment ID in tx " << txid << " (ignored)");
+            MWARNING("Found OBSOLETE AND IGNORED unencrypted payment ID: these are bad for privacy, use subaddresses instead");
+            payment_id = crypto::null_hash;
+          }
+          else
+          {
+            LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
+            MWARNING("Found unencrypted payment ID: these are bad for privacy, consider using subaddresses instead");
+          }
+        }
+      }
+
       for(size_t o: outs)
       {
 	THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
@@ -2570,7 +2617,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time);
           }
           total_received_1 += amount;
           notify = true;
@@ -2648,7 +2695,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time);
           }
           total_received_1 += extra_amount;
           notify = true;
@@ -2836,53 +2883,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   // create payment_details for each incoming transfer to a subaddress index
   if (tx_money_got_in_outs.size() > 0)
   {
-    tx_extra_nonce extra_nonce;
-    crypto::hash payment_id = null_hash;
-    if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-    {
-      crypto::hash8 payment_id8 = null_hash8;
-      if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
-      {
-        // We got a payment ID to go with this tx
-        LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
-        MINFO("Consider using subaddresses instead of encrypted payment IDs");
-        if (tx_pub_key != null_pkey)
-        {
-          if (!m_account.get_device().decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
-          {
-            LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
-          }
-          else
-          {
-            LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
-            // put the 64 bit decrypted payment id in the first 8 bytes
-            memcpy(payment_id.data, payment_id8.data, 8);
-            // rest is already 0, but guard against code changes above
-            memset(payment_id.data + 8, 0, 24);
-          }
-        }
-        else
-        {
-          LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
-        }
-      }
-      else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
-      {
-        bool ignore = block_version >= IGNORE_LONG_PAYMENT_ID_FROM_BLOCK_VERSION;
-        if (ignore)
-        {
-          LOG_PRINT_L2("Found unencrypted payment ID in tx " << txid << " (ignored)");
-          MWARNING("Found OBSOLETE AND IGNORED unencrypted payment ID: these are bad for privacy, use subaddresses instead");
-          payment_id = crypto::null_hash;
-        }
-        else
-        {
-          LOG_PRINT_L2("Found unencrypted payment ID: " << payment_id);
-          MWARNING("Found unencrypted payment ID: these are bad for privacy, consider using subaddresses instead");
-        }
-      }
-    }
-
     uint64_t total_received_2 = sub_change;
     for (const auto& i : tx_money_got_in_outs)
       total_received_2 += i.second;
