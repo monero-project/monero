@@ -337,36 +337,6 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<response_t> response;
   };
   //-----------------------------------------------
-  struct COMMAND_RPC_SUBMIT_RAW_TX
-  {
-      struct request_t
-      {
-        std::string address;
-        std::string view_key;
-        std::string tx;
-
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(address)
-          KV_SERIALIZE(view_key)
-          KV_SERIALIZE(tx)  
-        END_KV_SERIALIZE_MAP()
-      };
-      typedef epee::misc_utils::struct_init<request_t> request;
-    
-      
-      struct response_t
-      {
-        std::string status;
-        std::string error;
-        
-        BEGIN_KV_SERIALIZE_MAP()
-          KV_SERIALIZE(status)
-          KV_SERIALIZE(error)
-        END_KV_SERIALIZE_MAP()
-      };
-      typedef epee::misc_utils::struct_init<response_t> response;
-  };
-  //-----------------------------------------------
   struct COMMAND_RPC_GET_TRANSACTIONS
   {
     struct request_t: public rpc_access_request_base
