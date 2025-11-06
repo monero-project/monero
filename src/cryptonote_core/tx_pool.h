@@ -493,7 +493,7 @@ namespace cryptonote
     /**
      * @brief get transactions not in the passed set
      */
-    bool get_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) const;
+    bool get_complement(std::vector<crypto::hash> hashes, std::vector<cryptonote::blobdata> &txes) const;
 
     /**
      * @brief get info necessary for update of pool-related info in a wallet, preferably incremental
