@@ -28,6 +28,10 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+
 #include <boost/filesystem.hpp>
 #include "gtest/gtest.h"
 #include "file_io_utils.h"
@@ -250,4 +254,56 @@ TEST(logging, empty_configuration)
     const el::Configurations cfg;
     EXPECT_NO_THROW(log1.configure(cfg));
     EXPECT_EQ(log1.typedConfigurations()->filename(el::Level::Info), "");
+}
+
+TEST(logging, deadlock)
+{
+  std::mutex inner_mutex;
+
+  // 1. Thread 1 starts logger
+  // 2. Thread 2 grabs inner mutex shared across threads
+  // 3. Thread 2 logs
+  // 4. Thread 1 grabs inner mutex shared across threads
+  // 5. Thread 1 finishes logging
+  std::condition_variable cv1, cv2;
+  std::mutex mutex1, mutex2;
+  std::unique_lock<std::mutex> lock_until_t1_starts_logger(mutex1);
+  std::unique_lock<std::mutex> lock_until_t2_finishes_logging(mutex2);
+  bool t1_started_logger = false;
+  bool t2_finished_logging = false;
+
+  const auto thread1_func = [&]
+  {
+    const auto thread1_inner_func = [&]() -> std::string
+    {
+      t1_started_logger = true;
+      lock_until_t1_starts_logger.unlock();
+      cv1.notify_one();
+      cv2.wait(lock_until_t2_finishes_logging, [&]{return t2_finished_logging;});
+
+      std::lock_guard<std::mutex> guard(inner_mutex);
+      return "world!";
+    };
+    MGINFO("Hello, " << thread1_inner_func() << " - Sincerely, thread 1");
+  };
+
+  const auto thread2_func = [&]
+  {
+    cv1.wait(lock_until_t1_starts_logger, [&]{return t1_started_logger;});
+
+    {
+      std::lock_guard<std::mutex> guard(inner_mutex);
+      MGINFO("Hello, world! - Sincerely, thread 2");
+    }
+
+    t2_finished_logging = true;
+    lock_until_t2_finishes_logging.unlock();
+    cv2.notify_one();
+  };
+
+  std::thread t1(thread1_func);
+  std::thread t2(thread2_func);
+
+  t1.join();
+  t2.join();
 }
