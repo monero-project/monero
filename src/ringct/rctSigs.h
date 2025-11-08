@@ -142,6 +142,17 @@ namespace rct {
 
     // Split into batches and verify each batch in parallel
     bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs);
+
+    // The default libc allocator on most Linux systems may cache allocated memory for reuse.
+    // As a result, verifying many large batches of FCMP++ proofs in multithreaded contexts
+    // can end up using a lot of memory that does not get released back to the OS, even
+    // though memory is already freed.
+    // This function uses the mallopt syscall to limit the max number of "arenas" the system
+    // may use, setting it to the number of threads available. This way there won't
+    // be more memory allocated and kept around than expected in a potentially unbounded
+    // number of arenas.
+    // More on this here: https://gotplt.org/posts/malloc-per-thread-arenas-in-glibc.html
+    void limitMaxMemArenas();
 }
 #endif  /* RCTSIGS_H */
 

@@ -44,6 +44,12 @@
 #include "scope_guard.h"
 #include "serialization/crypto.h"
 
+#if defined(__GLIBC__)
+#include <malloc.h>
+#include <stdlib.h>
+#include <string.h>
+#endif
+
 using namespace crypto;
 using namespace std;
 
@@ -122,6 +128,21 @@ namespace
         const size_t n_scalars = ring_size;
         return rct::clsag{rct::keyV(n_scalars, I), I, I, I};
     }
+
+#ifdef M_ARENA_MAX
+    // Returns true if the user attempted to manually configure max arenas
+    bool user_configured_max_arenas()
+    {
+      if (std::getenv("MALLOC_ARENA_MAX") != nullptr)
+        return true;
+
+      if (const char *str = std::getenv("GLIBC_TUNABLES"))
+        if (std::strstr(str, "glibc.malloc.arena_max=") != nullptr)
+          return true;
+
+      return false;
+    }
+#endif
 }
 
 namespace rct {
@@ -1722,5 +1743,40 @@ namespace rct {
 
       CHECK_AND_ASSERT_MES(all_valid.load(), false, "FCMP++ proofs failed batch verification");
       return true;
+    }
+
+    void limitMaxMemArenas()
+    {
+#ifdef M_ARENA_MAX
+      // First we check if the user has set MALLOC_ARENA_MAX themselves
+      // and we respect their setting if they have.
+      if (user_configured_max_arenas())
+      {
+        LOG_PRINT_L0("You have tuned MALLOC_ARENA_MAX yourself. If you tune it too high, monerod may run out of memory.");
+        return;
+      };
+
+      tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
+      const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
+
+      // Use at least 2 arenas always to match glibc's default minimum
+      // https://github.com/bminor/glibc/blob/40a751b0044114488e841f0223e630596c527c53/malloc/arena.c#L824-L834
+      // https://github.com/bminor/glibc/blob/40a751b0044114488e841f0223e630596c527c53/malloc/malloc.c#L1974
+      const std::size_t max_arenas = std::max<std::size_t>(2, n_threads);
+
+      // See mallopt and M_ARENA_MAX at: https://man7.org/linux/man-pages/man3/mallopt.3.html
+      int r = mallopt(M_ARENA_MAX, max_arenas);
+      if (r == 1)
+      {
+        MDEBUG("Set max arenas to " << max_arenas);
+        return;
+      }
+
+      MWARNING("Failed to set max arenas, the system may use more memory than expected during sync.");
+#else
+      MDEBUG("System does not have mallopt and M_ARENA_MAX setting. This setting is crucial for some Linux platforms to"
+        << " avoid OOM's when batch verifying FCMP++ txs. If we see OOM's in the future when batch verifying on a non-"
+        << "Linux platform, then check the system allocator behavior and see if it has a setting similar to mallopt");
+#endif
     }
 }
