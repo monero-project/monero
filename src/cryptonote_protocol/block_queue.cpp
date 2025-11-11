@@ -153,18 +153,26 @@ uint64_t block_queue::get_next_needed_height(uint64_t blockchain_height) const
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   if (blocks.empty())
     return blockchain_height;
-  uint64_t last_needed_height = blockchain_height;
-  bool first = true;
+
+  uint64_t covered_until = blockchain_height;
+
   for (const auto &span: blocks)
   {
-    if (span.start_block_height + span.nblocks - 1 < blockchain_height)
+    // Ignore spans entirely below current chain height
+    const uint64_t span_end = span.start_block_height + span.nblocks - 1;
+    if (span_end < blockchain_height)
       continue;
-    if (span.start_block_height != last_needed_height || (first && span.blocks.empty()))
-      return last_needed_height;
-    last_needed_height = span.start_block_height + span.nblocks;
-    first = false;
+
+    // If this span starts after what we already have/scheduled, we found the first gap
+    if (span.start_block_height > covered_until)
+      return covered_until;
+
+    // This span overlaps or is adjacent; extend coverage regardless of filled/scheduled
+    if (span.start_block_height <= covered_until)
+      covered_until = std::max(covered_until, span.start_block_height + span.nblocks);
   }
-  return last_needed_height;
+
+  return covered_until;
 }
 
 void block_queue::print() const
