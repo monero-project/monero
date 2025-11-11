@@ -172,8 +172,8 @@ namespace hw {
         HMACmap hmac_map;
 
         // To speed up blockchain parsing the view key maybe handle here.
-        crypto::secret_key viewkey;
-        bool has_view_key;
+        crypto::secret_key viewkey = crypto::null_skey;
+        bool has_view_key = false;
 
         device *controle_device;
 
