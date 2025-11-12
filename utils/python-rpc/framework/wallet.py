@@ -1015,6 +1015,96 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(make_uri)
 
+    def make_uri_v2(self, addresses, amounts, recipient_names, tx_description):
+        rpc_amounts = []
+        for a in amounts:
+            if isinstance(a, dict):
+                amount = a.get('amount')
+                currency = a.get('currency', 'XMR')
+            elif isinstance(a, (list, tuple)) and len(a) >= 2:
+                amount, currency = a[0], a[1]
+            else:
+                amount, currency = a, 'XMR'
+
+            rpc_amounts.append({
+                'amount': str(amount),
+                'currency': str(currency)
+            })
+
+        make_uri_v2 = {
+            'method': 'make_uri_v2',
+            'jsonrpc': '2.0',
+            'params': {
+                'addresses': addresses,
+                'amounts': rpc_amounts,
+                'recipient_names': recipient_names,
+                'tx_description': tx_description,
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_uri_v2)
+
+    def parse_uri_v2(self, uri, normalize_amounts=True):
+        parse_uri = {
+            'method': 'parse_uri_v2',
+            'jsonrpc': '2.0',
+            'params': {
+                'uri': uri,
+            },
+            'id': '0'
+        }
+        res = self.rpc.send_json_rpc_request(parse_uri)
+        try:
+            if not isinstance(res, dict):
+                return res
+
+            body = res.get('result', res)
+            if not isinstance(body, dict):
+                return res
+
+            uri_block = body.get('uri')
+            if not isinstance(uri_block, dict):
+                return res
+
+            amounts = uri_block.get('amounts')
+            if not isinstance(amounts, list):
+                uri_block['amounts'] = []
+                return res
+
+            normalized = []
+            for a in amounts:
+                currency = 'XMR'
+                raw_amt = None
+
+                if isinstance(a, dict):
+                    raw_amt = a.get('amount')
+                    currency = a.get('currency', 'XMR')
+                else:
+                    raw_amt = a
+                    currency = 'XMR'
+
+                amt_out = raw_amt
+                if normalize_amounts:
+                    try:
+                        if isinstance(raw_amt, (int,)) and not isinstance(raw_amt, bool):
+                            amt_out = int(raw_amt)
+                        else:
+                            amt_out = int(str(raw_amt))
+                    except Exception:
+                        amt_out = raw_amt
+
+                normalized.append({
+                    'amount': amt_out,
+                    'currency': str(currency) if currency is not None else 'XMR'
+                })
+
+            uri_block['amounts'] = normalized
+
+        except Exception:
+            pass
+
+        return res
+    
     def parse_uri(self, uri):
         parse_uri = {
             'method': 'parse_uri',
