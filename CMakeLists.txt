@@ -43,6 +43,9 @@ include(CheckFunctionExists)
 if (POLICY CMP0148)
     cmake_policy(SET CMP0148 OLD) # https://cmake.org/cmake/help/latest/policy/CMP0148.html
 endif()
+if (POLICY CMP0077)
+    cmake_policy(SET CMP0077 NEW)
+endif()
 include(FindPythonInterp)
 
 if (IOS)
