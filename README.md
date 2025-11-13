@@ -394,7 +394,7 @@ application.
 * To build Monero, run:
 
     ```bash
-    make release-static -j $(nproc)
+    cmake --build . -B build --parallel $(nproc)
     ```
 
    The resulting executables can be found in `build/release/bin`
