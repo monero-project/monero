@@ -1028,7 +1028,7 @@ if(STATIC)
 endif()
 
 # Find Boost headers
-set(BOOST_MIN_VER 1.62)
+set(BOOST_MIN_VER 1.69)
 find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED)
 
 if(NOT Boost_FOUND)
@@ -1039,11 +1039,6 @@ elseif(Boost_FOUND)
   set(BOOST_COMPONENTS filesystem thread date_time chrono serialization program_options)
   if (WIN32)
     list(APPEND BOOST_COMPONENTS locale)
-  endif()
-
-  # Boost System is header-only since 1.69
-  if (Boost_VERSION_STRING VERSION_LESS 1.69.0)
-    list(APPEND BOOST_COMPONENTS system)
   endif()
 
   # Boost Regex is header-only since 1.77
