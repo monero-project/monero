@@ -29,7 +29,6 @@
 #pragma once
 
 #include "cryptonote_basic/blobdatatype.h"
-#include "common/data_cache.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/verification_context.h"
 
@@ -44,46 +43,36 @@ namespace cryptonote
  */
 uint64_t get_transaction_weight_limit(uint8_t hf_version);
 
-// Modifying this value should not affect consensus. You can adjust it for performance needs
-static constexpr const size_t RCT_VER_CACHE_SIZE = 8192;
-
-using rct_ver_cache_t = ::tools::data_cache<::crypto::hash, RCT_VER_CACHE_SIZE>;
-
 /**
- * @brief Cached version of rct::verRctNonSemanticsSimple
+ * @brief Tx-safe version of crypto::check_ring_signature() / rct::verRct(_, false) / rct::verRctNonSemanticsSimple()
  *
  * This function will not affect how the transaction is serialized and it will never modify the
  * transaction prefix.
  *
- * The reference to tx is mutable since the transaction's ring signatures may be expanded by
- * Blockchain::expand_transaction_2. However, on cache hits, the transaction will not be
- * expanded. This means that the caller does not need to call expand_transaction_2 on this
- * transaction before passing it; the transaction will not successfully verify with "old" RCT data
- * if the transaction has been otherwise modified since the last verification.
- *
- * But, if cryptonote::get_transaction_hash(tx) returns a "stale" hash, this function is not
- * guaranteed to work. So make sure that the cryptonote::transaction passed has not had
- * modifications to it since the last time its hash was fetched without properly invalidating the
- * hashes.
- *
- * rct_type_to_cache can be any RCT version value as long as rct::verRctNonSemanticsSimple works for
- * this RCT version, but for most applications, it doesn't make sense to not make this version
- * the "current" RCT version (i.e. the version that transactions in the mempool are).
+ * The reference to tx is mutable since the transaction's ring signatures will be expanded by
+ * Blockchain::expand_transaction_2. This means that the caller does not need to call
+ * expand_transaction_2 on this transaction before passing it; the transaction will not successfully
+ * verify with "old" mixring / misc RCT data if the transaction has been otherwise modified since
+ * the last verification.
  *
  * @param tx transaction which contains RCT signature to verify
- * @param mix_ring mixring referenced by this tx. THIS DATA MUST BE PREVIOUSLY VALIDATED
- * @param cache saves tx+mixring hashes used to cache calls
- * @param rct_type_to_cache Only RCT sigs with version (e.g. RCTTypeBulletproofPlus) will be cached
+ * @param dereferenced_mixring mixring referenced by this tx. THIS DATA MUST BE PREVIOUSLY VALIDATED
  * @return true when verRctNonSemanticsSimple() w/ expanded tx.rct_signatures would return true
  * @return false when verRctNonSemanticsSimple() w/ expanded tx.rct_signatures would return false
  */
-bool ver_rct_non_semantics_simple_cached
-(
-    transaction& tx,
-    const rct::ctkeyM& mix_ring,
-    rct_ver_cache_t& cache,
-    std::uint8_t rct_type_to_cache
-);
+bool ver_input_proofs_rings(transaction& tx, const rct::ctkeyM &dereferenced_mix_ring);
+
+/**
+ * @brief Make an ID for the parameters to ver_input_proofs_rings() for a transaction and its dereferenced chain data
+ *
+ * For any two calls to ver_input_proofs_rings() in any order, if the input verification ID for the
+ * (transaction, mixring) pair match, the result of ver_input_proofs_rings() will also match.
+ *
+ * If this transaction hash is "stale", this function is not guaranteed to work. So make sure that
+ * the cryptonote::transaction passed has not had modifications to it since the last time its hash
+ * was fetched without properly invalidating the hashes.
+ */
+crypto::hash make_input_verification_id(const crypto::hash &tx_hash, const rct::ctkeyM &dereferenced_mix_ring);
 
 /**
  * @brief Verify the semantics of a group of RingCT signatures as a batch (if applicable)

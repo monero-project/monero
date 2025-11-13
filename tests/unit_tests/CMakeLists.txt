@@ -87,12 +87,13 @@ set(unit_tests_sources
   test_protocol_pack.cpp
   threadpool.cpp
   tx_proof.cpp
+  tx_verification_utils.cpp
   hardfork.cpp
   unbound.cpp
   uri.cpp
   util.cpp
   varint.cpp
-  ver_rct_non_semantics_simple_cached.cpp
+  verRctNonSemanticsSimple.cpp
   ringct.cpp
   output_selection.cpp
   vercmp.cpp
