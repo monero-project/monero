@@ -1,5 +1,4 @@
 (use-modules (gnu packages)
-             ((gnu packages autotools) #:select (libtool))
              (gnu packages bash)
              ((gnu packages cmake) #:select (cmake-minimal))
              (gnu packages commencement)
@@ -12,7 +11,6 @@
              (gnu packages mingw)
              (gnu packages perl)
              (gnu packages pkg-config)
-             ((gnu packages python) #:select (python-minimal))
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system gnu)
              (guix build-system trivial)
@@ -293,8 +291,6 @@ chain for " target " development."))
               (list gcc-toolchain-12 "static")))
           ((string-contains target "darwin")
            (list
-             libtool
-             python-minimal ; required to build libtapi in depends
              gcc-toolchain-12
              clang-toolchain-18
              lld-18
