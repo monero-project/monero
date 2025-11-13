@@ -65,16 +65,17 @@ target_link_libraries(make_test_signature
     ${EXTRA_LIBRARIES})
 
 monero_add_minimal_executable(cpu_power_test cpu_power_test.cpp)
-find_program(PYTHON3_FOUND python3 REQUIRED)
 
-execute_process(COMMAND ${PYTHON3_FOUND} "-c" "import requests; import psutil; import monotonic; import zmq; import deepdiff; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+find_package(Python3 REQUIRED)
+
+execute_process(COMMAND ${Python3_EXECUTABLE} "-c" "import requests; import psutil; import monotonic; import zmq; import deepdiff; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(
     NAME    functional_tests_rpc
-    COMMAND ${PYTHON3_FOUND} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${PYTHON3_FOUND}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)
   add_test(
     NAME    check_missing_rpc_methods
-    COMMAND ${PYTHON3_FOUND} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")
 else()
   message(WARNING "functional_tests_rpc and check_missing_rpc_methods skipped, needs the 'requests', 'psutil', 'monotonic', 'zmq', and 'deepdiff' python modules")
   set(CTEST_CUSTOM_TESTS_IGNORE ${CTEST_CUSTOM_TESTS_IGNORE} functional_tests_rpc check_missing_rpc_methods)
