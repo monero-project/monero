@@ -191,9 +191,9 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
  * VARINT_FIELD_F(). Otherwise, this macro is similar to
  * BEGIN_SERIALIZE_OBJECT(), as you should list only field serializations.
  */
-#define BEGIN_SERIALIZE_OBJECT_FN(stype, ...)                                           \
-  template <bool W, template <bool> class Archive>                                      \
-  bool do_serialize_object(Archive<W> &ar, stype &v VA_ARGS_COMMAPREFIX(__VA_ARGS__)) {
+#define BEGIN_SERIALIZE_OBJECT_FN(stype)           \
+  template <bool W, template <bool> class Archive> \
+  bool do_serialize_object(Archive<W> &ar, stype &v) {
 
 /*! \macro PREPARE_CUSTOM_VECTOR_SERIALIZATION
  */
@@ -211,10 +211,10 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
  *
  * \brief serializes a field \a f tagged \a t  
  */
-#define FIELD_N(t, f, ...)                                    \
+#define FIELD_N(t, f)                    \
   do {							\
     ar.tag(t);						\
-    bool r = do_serialize(ar, f VA_ARGS_COMMAPREFIX(__VA_ARGS__)); \
+    bool r = do_serialize(ar, f); \
     if (!r || !ar.good()) return false;			\
   } while(0);
 
@@ -233,7 +233,7 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
  *
  * \brief tags the field with the variable name and then serializes it (for use in a free function)
  */
-#define FIELD_F(f, ...) FIELD_N(#f, v.f VA_ARGS_COMMAPREFIX(__VA_ARGS__))
+#define FIELD_F(f) FIELD_N(#f, v.f)
 
 /*! \macro FIELDS(f)
  *
