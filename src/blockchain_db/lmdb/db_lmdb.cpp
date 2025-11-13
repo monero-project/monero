@@ -3510,7 +3510,7 @@ output_data_t BlockchainLMDB::get_output_key(const uint64_t& amount, const uint6
     const pre_rct_outkey *okp = (const pre_rct_outkey *)v.mv_data;
     memcpy(&ret, &okp->data, sizeof(pre_rct_output_data_t));
     if (include_commitmemt)
-      ret.commitment = rct::zeroCommit(amount);
+      ret.commitment = rct::zeroCommitVartime(amount);
   }
   TXN_POSTFIX_RDONLY();
   return ret;
@@ -4235,7 +4235,7 @@ void BlockchainLMDB::get_output_key(const epee::span<const uint64_t> &amounts, c
       outputs.resize(outputs.size() + 1);
       output_data_t &data = outputs.back();
       memcpy(&data, &okp->data, sizeof(pre_rct_output_data_t));
-      data.commitment = rct::zeroCommit(amount);
+      data.commitment = rct::zeroCommitVartime(amount);
     }
   }
 
