@@ -2,7 +2,7 @@ native_packages :=
 packages := boost openssl zeromq unbound sodium
 
 ifneq ($(host_os),mingw32)
-packages += ncurses readline
+readline_packages += ncurses readline
 endif
 
 wallet_native_packages := native_protobuf
