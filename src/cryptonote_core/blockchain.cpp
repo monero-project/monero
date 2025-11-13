@@ -562,7 +562,7 @@ void Blockchain::pop_blocks(uint64_t nblocks)
     const uint64_t blockchain_height = m_db->height();
     if (blockchain_height > 0)
       nblocks = std::min(nblocks, blockchain_height - 1);
-    while (i < nblocks)
+    while (i < nblocks && !m_cancel.load())
     {
       pop_block_from_blockchain();
       ++i;
