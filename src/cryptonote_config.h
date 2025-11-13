@@ -142,7 +142,7 @@
 #define P2P_DEFAULT_PEERS_IN_HANDSHAKE                  250
 #define P2P_MAX_PEERS_IN_HANDSHAKE                      250
 #define P2P_DEFAULT_CONNECTION_TIMEOUT                  5000       //5 seconds
-#define P2P_DEFAULT_REQUEST_TIMEOUT                     (P2P_DEFAULT_CONNECTION_TIMEOUT/1000) // 5 seconds
+#define P2P_DEFAULT_REQUEST_TIMEOUT                     ((P2P_DEFAULT_CONNECTION_TIMEOUT/1000)*6) // 30 seconds
 #define P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT               45         // seconds
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes

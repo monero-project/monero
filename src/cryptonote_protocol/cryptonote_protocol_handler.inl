@@ -970,7 +970,7 @@ namespace cryptonote
 
     if (txs.size() > P2P_MAX_IN_FLIGHT_REQUESTS)
     {
-      LOG_ERROR_CCONTEXT("Too many in-flight requests, cannot accept request to send " << txs.size() << " txs to " << context.m_connection_id);
+      LOG_ERROR_CCONTEXT("Too many in-flight requests, cannot accept request to send " << arg.t.size() << " txs to " << context.m_connection_id);
       return 1;
     }
 
@@ -1004,6 +1004,7 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
+    std::unique_lock<std::mutex> m_check_lock(m_check_tx_request_queue_mutex);
     std::unordered_set<blobdata> seen;
     for (const auto &blob: arg.txs)
     {
@@ -1936,6 +1937,7 @@ skip:
   bool t_cryptonote_protocol_handler<t_core>::check_tx_request_queue()
   {
     MCTRACE("net.p2p.msg", "on_idle :: check_tx_request_queue, starting ...");
+    std::unique_lock<std::mutex> m_check_lock(m_check_tx_request_queue_mutex);
     m_request_manager.cleanup_stale_requests(P2P_REQUEST_PARK_TIMEOUT); // remove requests older than P2P_REQUEST_PARK_TIMEOUT seconds
 
     // m_interval_peer_request_checker stores microseconds; convert to seconds
