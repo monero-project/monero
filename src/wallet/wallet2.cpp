@@ -1144,6 +1144,7 @@ wallet_keys_unlocker::~wallet_keys_unlocker()
     if (--lockers_per_wallet[w_ptr] > 0)
       return; // there are other unlock-ers for this wallet, do nothing for now
     lockers_per_wallet.erase(w_ptr);
+
     w.encrypt_keys(key);
   }
   catch (...)
@@ -2577,7 +2578,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time, td.get_public_key());
           }
           total_received_1 += amount;
           notify = true;
@@ -2655,7 +2656,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time, td.get_public_key());
           }
           total_received_1 += extra_amount;
           notify = true;
@@ -2709,7 +2710,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       if (!pool)
       {
         if (!ignore_callbacks && 0 != m_callback)
-          m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index);
+          m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index, td.get_public_key());
 
         if (m_background_syncing && m_background_sync_data.txs.find(txid) == m_background_sync_data.txs.end())
         {
@@ -6134,7 +6135,7 @@ std::string wallet2::get_multisig_key_exchange_booster(const epee::wipeable_stri
   CHECK_AND_ASSERT_THROW_MES(kex_messages.size() > 0, "No key exchange messages passed in.");
 
   // decrypt account keys
-  wallet_keys_unlocker unlocker(*this, &password);
+  std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
 
   // prepare multisig account
   multisig::multisig_account multisig_account;
@@ -8209,7 +8210,7 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func, bool skip_callback /* = false */)
 {
   if(!parse_multisig_tx_from_str(s, exported_txs))
   {
@@ -8220,30 +8221,18 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
   LOG_PRINT_L1("Loaded multisig tx unsigned data from binary: " << exported_txs.m_ptx.size() << " transactions");
   for (auto &ptx: exported_txs.m_ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
 
+  if (skip_callback) return true;
+
   if (accept_func && !accept_func(exported_txs))
   {
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
-
-  const bool is_signed = exported_txs.m_signers.size() >= m_multisig_threshold;
-  if (is_signed)
-  {
-    for (const auto &ptx: exported_txs.m_ptx)
-    {
-      const crypto::hash txid = get_transaction_hash(ptx.tx);
-      if (store_tx_info())
-      {
-        m_tx_keys[txid] = ptx.tx_key;
-        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
-      }
-    }
-  }
-
+  finish_loading_accepted_multisig_tx(exported_txs);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func, bool skip_callback /* = false */)
 {
   std::string s;
   boost::system::error_code errcode;
@@ -8259,12 +8248,29 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
     return false;
   }
 
-  if (!load_multisig_tx(s, exported_txs, accept_func))
+  if (!load_multisig_tx(s, exported_txs, accept_func, skip_callback))
   {
     LOG_PRINT_L0("Failed to parse multisig tx data from " << filename);
     return false;
   }
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs)
+{
+  const bool is_signed = exported_txs.m_signers.size() >= m_multisig_threshold;
+  if (is_signed)
+  {
+    for (const auto &ptx: exported_txs.m_ptx)
+    {
+      const crypto::hash txid = get_transaction_hash(ptx.tx);
+      if (store_tx_info())
+      {
+        m_tx_keys[txid] = ptx.tx_key;
+        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
+      }
+    }
+  }
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto::hash> &txids)
@@ -13587,7 +13593,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
           LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << *spent_txid);
           set_spent(it->second, e.block_height);
           if (m_callback)
-            m_callback->on_money_spent(e.block_height, *spent_txid, spent_tx, amount, spent_tx, td.m_subaddr_index);
+            m_callback->on_money_spent(e.block_height, *spent_txid, spent_tx, amount, spent_tx, td.m_subaddr_index, td.get_public_key());
           if (subaddr_account != (uint32_t)-1 && subaddr_account != td.m_subaddr_index.major)
             LOG_PRINT_L0("WARNING: This tx spends outputs received by different subaddress accounts, which isn't supposed to happen");
           subaddr_account = td.m_subaddr_index.major;

@@ -68,7 +68,7 @@ string UnsignedTransactionImpl::errorString() const
     return m_errorString;
 }
 
-bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
+bool UnsignedTransactionImpl::sign(const std::string &signedFileName, bool do_export_raw /* = false */, std::vector<std::string> *tx_ids_out /* = nullptr */)
 {
   if(m_wallet.watchOnly())
   {
@@ -79,7 +79,7 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
   std::vector<tools::wallet2::pending_tx> ptx;
   try
   {
-    bool r = m_wallet.m_wallet->sign_tx(m_unsigned_tx_set, signedFileName, ptx);
+    bool r = m_wallet.m_wallet->sign_tx(m_unsigned_tx_set, signedFileName, ptx, do_export_raw);
     if (!r)
     {
       m_errorString = tr("Failed to sign transaction");
@@ -89,9 +89,17 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
   }
   catch (const std::exception &e)
   {
-    m_errorString = string(tr("Failed to sign transaction")) + e.what();
+    m_errorString = string(tr("Failed to sign transaction: ")) + e.what();
     m_status = Status_Error;
     return false;
+  }
+  if (tx_ids_out)
+  {
+    std::string tx_id_str;
+    for (const auto &tx : ptx)
+    {
+      (*tx_ids_out).push_back(epee::string_tools::pod_to_hex(get_transaction_hash(tx.tx)));
+    }
   }
   return true;
 }
@@ -122,8 +130,20 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
         {
           if (!payment_id_string.empty())
             payment_id_string += ", ";
-          payment_id_string = std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
-          has_encrypted_payment_id = true;
+
+          // if none of the addresses are integrated addresses, it's a dummy one
+          bool is_dummy = true;
+          for (const auto &e: cd.dests)
+            if (e.is_integrated)
+              is_dummy = false;
+
+          if (is_dummy)
+            payment_id_string += std::string("dummy encrypted payment ID");
+          else
+          {
+            payment_id_string = std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
+            has_encrypted_payment_id = true;
+          }
         }
         else if (cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         {
@@ -191,6 +211,10 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
         dests.erase(cd.change_dts.addr);
     }
   }
+
+  if (payment_id_string.empty())
+    payment_id_string = "no payment ID";
+
   std::string dest_string;
   for (auto i = dests.begin(); i != dests.end(); )
   {
@@ -211,7 +235,7 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
   else
     change_string += tr("no change");
   uint64_t fee = amount - amount_to_dests;
-  m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu. %s")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % extra_message).str();
+  m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu, %s. %s. Is this okay?")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % payment_id_string % extra_message).str();
   return true;
 }
 

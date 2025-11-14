@@ -36,13 +36,14 @@ EnoteDetails::~EnoteDetails() {}
 
 EnoteDetailsImpl::EnoteDetailsImpl():
     m_block_height(0),
+    m_unlock_time(0),
     m_internal_enote_index(0),
     m_global_enote_index(0),
     m_spent(false),
     m_frozen(false),
     m_spent_height(0),
     m_amount(0),
-    m_protocol_version(TxProtocol_CryptoNote),
+    m_protocol_version(TxProtocol::TxProtocol_CryptoNote),
     m_key_image_known(false),
     m_key_image_request(false),
     m_pk_index(0),
@@ -56,8 +57,14 @@ std::string EnoteDetailsImpl::onetimeAddress() const
 { return m_onetime_address; }
 std::string EnoteDetailsImpl::viewTag() const
 { return m_view_tag; }
+std::string EnoteDetailsImpl::paymentId() const
+{ return m_payment_id; }
 std::uint64_t EnoteDetailsImpl::blockHeight() const
 { return m_block_height; }
+std::uint64_t EnoteDetailsImpl::unlockTime() const
+{ return m_unlock_time; }
+bool EnoteDetailsImpl::isUnlocked() const
+{ return m_is_unlocked; }
 std::string EnoteDetailsImpl::txId() const
 { return m_tx_id; }
 std::uint64_t EnoteDetailsImpl::internalEnoteIndex() const
@@ -86,9 +93,13 @@ std::uint64_t EnoteDetailsImpl::pkIndex() const
 { return m_pk_index; }
 std::vector<std::pair<std::uint64_t, std::string>> EnoteDetailsImpl::uses() const
 { return m_uses; }
+std::uint32_t EnoteDetailsImpl::subaddressIndexMajor() const
+{ return m_subaddress_index_major; }
+std::uint32_t EnoteDetailsImpl::subaddressIndexMinor() const
+{ return m_subaddress_index_minor; }
 
 // Multisig
 bool EnoteDetailsImpl::isKeyImagePartial() const
 { return m_key_image_partial; }
 
-} // namespace
+} // namespace Monero

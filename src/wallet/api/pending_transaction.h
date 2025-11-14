@@ -45,27 +45,42 @@ public:
     ~PendingTransactionImpl();
     int status() const override;
     std::string errorString() const override;
+    std::string confirmationMessage() const override { return m_confirmationMessage; }
     bool commit(const std::string &filename = "", bool overwrite = false) override;
     uint64_t amount() const override;
     uint64_t dust() const override;
+    uint64_t dustInFee() const override;
     uint64_t fee() const override;
+    uint64_t change() const override;
     std::vector<std::string> txid() const override;
     uint64_t txCount() const override;
     std::vector<uint32_t> subaddrAccount() const override;
     std::vector<std::set<uint32_t>> subaddrIndices() const override;
+    std::string convertTxToStr() override;
+    std::vector<std::string> convertTxToRawBlobStr() override;
+    double getWorstFeePerByte() const override;
+    std::vector<std::vector<std::vector<std::uint64_t>>> vinOffsets() const override;
+    std::vector<std::vector<std::uint64_t>> constructionDataRealOutputIndices() const override;
+    std::vector<std::vector<std::uint64_t>> vinAmounts() const override;
+    std::vector<std::vector<std::unique_ptr<EnoteDetails>>> getEnoteDetailsIn() const override;
+    bool finishParsingTx() override;
     // TODO: continue with interface;
 
     std::string multisigSignData() override;
-    void signMultisigTx() override;
+    void signMultisigTx(std::vector<std::string> *txids = nullptr) override;
     std::vector<std::string> signersKeys() const override;
-    std::string convertTxToStr() override;
+    void finishRestoringMultisigTransaction() override;
 
 private:
+    // Callback function to check all loaded tx's and generate confirmationMessage
+    bool checkLoadedTx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message);
+
     friend class WalletImpl;
     WalletImpl &m_wallet;
 
     int  m_status;
     std::string m_errorString;
+    std::string m_confirmationMessage;
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
     std::unordered_set<crypto::public_key> m_signers;
     std::vector<std::string> m_tx_device_aux;

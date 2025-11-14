@@ -47,6 +47,7 @@ public:
     virtual bool isPending() const override;
     virtual bool isFailed() const override;
     virtual bool isCoinbase() const override;
+    virtual bool isUnlocked() const override;
     virtual uint64_t amount() const override;
     //! always 0 for incoming txes
     virtual uint64_t fee() const override;
@@ -72,6 +73,7 @@ private:
     bool        m_pending;
     bool        m_failed;
     bool        m_coinbase;
+    bool        m_is_unlocked;
     uint64_t    m_amount;
     uint64_t    m_fee;
     uint64_t    m_blockheight;
