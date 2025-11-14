@@ -26,6 +26,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#pragma once
+
 #include "wallet/api/wallet2_api.h"
 
 
@@ -38,7 +40,10 @@ public:
     ~EnoteDetailsImpl() override;
     std::string onetimeAddress() const override;
     std::string viewTag() const override;
+    std::string paymentId() const override;
     std::uint64_t blockHeight() const override;
+    std::uint64_t unlockTime() const override;
+    bool isUnlocked() const override;
     std::string txId() const override;
     std::uint64_t internalEnoteIndex() const override;
     std::uint64_t globalEnoteIndex() const override;
@@ -53,6 +58,8 @@ public:
     bool isKeyImageRequest() const override;
     std::uint64_t pkIndex() const override;
     std::vector<std::pair<std::uint64_t, std::string>> uses() const override;
+    std::uint32_t subaddressIndexMajor() const override;
+    std::uint32_t subaddressIndexMinor() const override;
 
     // Multisig
     bool isKeyImagePartial() const override;
@@ -66,6 +73,12 @@ private:
     std::string m_view_tag;
     // this enote was received at block height
     std::uint64_t m_block_height;
+    // payment id
+    std::string m_payment_id;
+    // when enote will become spendable
+    std::uint64_t m_unlock_time;
+    // true if enote is unlocked
+    bool m_is_unlocked;
     // tx id in which tx enote was received
     std::string m_tx_id;
     // relative index in tx
@@ -94,6 +107,10 @@ private:
     std::uint64_t m_pk_index;
     // track uses of this enote in the blockchain in the format [ [block_height, tx_id], ... ] if `wallet2::m_track_uses` is true (default is false)
     std::vector<std::pair<std::uint64_t, std::string>> m_uses;
+    // account index
+    std::uint32_t m_subaddress_index_major;
+    // subaddress index
+    std::uint32_t m_subaddress_index_minor;
 
     // Multisig
     bool m_key_image_partial;
@@ -104,4 +121,4 @@ private:
 */
 };
 
-} // namespace
+} // namespace Monero
