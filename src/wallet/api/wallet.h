@@ -54,10 +54,10 @@ struct Wallet2CallbackImpl;
 class WalletImpl : public Wallet
 {
 public:
-    WalletImpl(NetworkType nettype = MAINNET, uint64_t kdf_rounds = 1);
+    WalletImpl(NetworkType nettype = MAINNET, uint64_t kdf_rounds = 1, const bool unattended = true);
     ~WalletImpl();
     bool create(const std::string &path, const std::string &password,
-                const std::string &language);
+                const std::string &language, bool create_address_file = false, bool non_deterministic = false);
     bool createWatchOnly(const std::string &path, const std::string &password,
                             const std::string &language) const override;
     bool open(const std::string &path, const std::string &password);
@@ -78,15 +78,19 @@ public:
                             const std::string &address_string, 
                             const std::string &viewkey_string,
                             const std::string &spendkey_string = "");
+    bool createFromJson(const std::string &json_file_path, std::string &pw_out);
+    bool recoverFromMultisigSeed(const std::string &path,
+                                 const std::string &password,
+                                 const std::string &language,
+                                 const std::string &multisig_seed,
+                                 const std::string seed_pass = "",
+                                 const bool do_create_address_file = false);
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
     Device getDeviceType() const override;
     bool close(bool store = true);
     std::string seed(const std::string& seed_offset = "") const override;
-    std::string getSeedLanguage() const override;
-    void setSeedLanguage(const std::string &arg) override;
-    // void setListener(Listener *) {}
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
@@ -107,34 +111,34 @@ public:
     std::string filename() const override;
     std::string keysFilename() const override;
     bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") override;
-    bool connectToDaemon() override;
+    bool connectToDaemon(uint32_t *version = NULL, bool *ssl = NULL, uint32_t timeout = 20000, bool *wallet_is_outdated = NULL, bool *daemon_is_outdated = NULL) override;
     ConnectionStatus connected() const override;
     void setTrustedDaemon(bool arg) override;
     bool trustedDaemon() const override;
     bool setProxy(const std::string &address) override;
     uint64_t balance(uint32_t accountIndex = 0) const override;
-    uint64_t unlockedBalance(uint32_t accountIndex = 0) const override;
+    std::map<uint32_t, uint64_t> balancePerSubaddress(uint32_t accountIndex = 0) const override;
+    uint64_t unlockedBalance(uint32_t accountIndex = 0, std::uint64_t *blocks_to_unlock = NULL, std::uint64_t *time_to_unlock = NULL) const override;
+    std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlockedBalancePerSubaddress(uint32_t accountIndex = 0) const override;
     uint64_t blockChainHeight() const override;
     uint64_t approximateBlockChainHeight() const override;
     uint64_t estimateBlockChainHeight() const override;
     uint64_t daemonBlockChainHeight() const override;
     uint64_t daemonBlockChainTargetHeight() const override;
+    bool daemonSynced() const override;
     bool synchronized() const override;
-    bool refresh() override;
+    bool refresh(std::uint64_t start_height = 0, bool check_pool = true, bool try_incremental = false, std::uint64_t max_blocks = std::numeric_limits<uint64_t>::max(), std::uint64_t *blocks_fetched_out = nullptr, bool *received_money_out = nullptr) override;
     void refreshAsync() override;
-    bool rescanBlockchain() override;
-    void rescanBlockchainAsync() override;    
+    bool rescanBlockchain(bool do_hard_rescan = true, bool do_keep_key_images = false, bool do_skip_refresh = false) override;
+    void rescanBlockchainAsync(bool do_hard_rescan = true, bool do_keep_key_images = false) override;
     void setAutoRefreshInterval(int millis) override;
     int autoRefreshInterval() const override;
-    void setRefreshFromBlockHeight(uint64_t refresh_from_block_height) override;
-    uint64_t getRefreshFromBlockHeight() const override { return m_wallet->get_refresh_from_block_height(); };
     void setRecoveringFromSeed(bool recoveringFromSeed) override;
     void setRecoveringFromDevice(bool recoveringFromDevice) override;
-    void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
     bool watchOnly() const override;
     bool isDeterministic() const override;
     bool rescanSpent() override;
-    NetworkType nettype() const override {return static_cast<NetworkType>(m_wallet->nettype());}
+    NetworkType nettype() const override;
     void hardForkInfo(uint8_t &version, uint64_t &earliest_height) const override;
     bool useForkRules(uint8_t version, int64_t early_blocks) const override;
 
@@ -153,13 +157,17 @@ public:
     bool exportMultisigImages(std::string& images) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     bool hasMultisigPartialKeyImages() const override;
-    PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
+    PendingTransaction* restoreMultisigTransaction(const std::string& signData, bool ask_for_confirmation = false) override;
 
     PendingTransaction * createTransactionMultDest(const std::vector<std::string> &dst_addr, const std::string &payment_id,
                                         optional<std::vector<uint64_t>> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
                                         uint32_t subaddr_account = 0,
-                                        std::set<uint32_t> subaddr_indices = {}) override;
+                                        std::set<uint32_t> subaddr_indices = {},
+                                        std::set<uint32_t> subtract_fee_from_outputs = {},
+                                        const std::string key_image = "",
+                                        const size_t outputs = 1,
+                                        const std::uint64_t below = 0) override;
     PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
                                         optional<uint64_t> amount, uint32_t mixin_count,
                                         PendingTransaction::Priority priority = PendingTransaction::Priority_Low,
@@ -171,11 +179,11 @@ public:
     UnsignedTransaction * loadUnsignedTxFromStr(const std::string &unsigned_tx_str) override;
     bool exportKeyImages(const std::string &filename, bool all = false) override;
     std::string exportKeyImagesAsString(bool all = false) override;
-    bool importKeyImages(const std::string &filename) override;
+    bool importKeyImages(const std::string &filename, std::uint64_t *spent_out = nullptr, std::uint64_t *unspent_out = nullptr, std::uint64_t *import_height = nullptr) override;
     bool importKeyImagesFromStr(const std::string &data) override;
     bool exportOutputs(const std::string &filename, bool all = false) override;
     bool importOutputs(const std::string &filename) override;
-    bool scanTransactions(const std::vector<std::string> &txids) override;
+    bool scanTransactions(const std::vector<std::string> &txids, bool *wont_reprocess_recent_txs_via_untrusted_daemon = nullptr) override;
 
     bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password = optional<std::string>()) override;
     BackgroundSyncType getBackgroundSyncType() const override;
@@ -212,7 +220,7 @@ public:
     virtual std::string getReserveProof(bool all, uint32_t account_index, uint64_t amount, const std::string &message) const override;
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const override;
     virtual std::string signMessage(const std::string &message, const std::string &address, bool sign_with_view_key = false) override;
-    virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const override;
+    virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature, bool *is_old_out = nullptr, std::string *signature_type_out = nullptr) const override;
     virtual std::string signMultisigParticipant(const std::string &message) const override;
     virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const override;
     virtual void startRefresh() override;
@@ -232,6 +240,7 @@ public:
     virtual bool lockKeysFile() override;
     virtual bool unlockKeysFile() override;
     virtual bool isKeysFileLocked() override;
+    std::unique_ptr<WalletKeysDecryptGuard> createKeysDecryptGuard(const std::string_view &password) override;
     virtual uint64_t coldKeyImageSync(uint64_t &spent, uint64_t &unspent) override;
     virtual void deviceShowAddress(uint32_t accountIndex, uint32_t addressIndex, const std::string &paymentId) override;
     virtual bool reconnectDevice() override;
@@ -241,22 +250,23 @@ public:
     std::string getMultisigSeed(const std::string &seed_offset) const override;
     std::pair<std::uint32_t, std::uint32_t> getSubaddressIndex(const std::string &address) const override;
     void freeze(const std::string &key_image) override;
-    void freezeByPubKey(const std::string &public_key) override;
+    void freezeByPubKey(const std::string &enote_pub_key) override;
     void thaw(const std::string &key_image) override;
-    void thawByPubKey(const std::string &public_key) override;
+    void thawByPubKey(const std::string &enote_pub_key) override;
     bool isFrozen(const std::string &key_image) const override;
-    bool isFrozenByPubKey(const std::string &public_key) override;
     void createOneOffSubaddress(std::uint32_t account_index, std::uint32_t address_index) override;
     WalletState getWalletState() const override;
-    void rewriteWalletFile(const std::string &wallet_name, const std::string &password) override;
-    void writeWatchOnlyWallet(const std::string &password, std::string &new_keys_file_name) override;
+    DeviceState getDeviceState() const override;
+    void rewriteWalletFile(const std::string &wallet_name, const std::string_view &password) override;
+    void writeWatchOnlyWallet(const std::string_view &password, std::string &new_keys_file_name) override;
     void refreshPoolOnly(bool refreshed = false, bool try_incremental = false) override;
-    void getEnoteDetails(std::vector<std::unique_ptr<EnoteDetails>> &enote_details) const override;
+    std::vector<std::unique_ptr<EnoteDetails>> getEnoteDetails() const override;
+    std::unique_ptr<EnoteDetails> getEnoteDetails(const std::string &enote_pub_key) const override;
+    std::unique_ptr<EnoteDetails> getEnoteDetails(const std::size_t enote_index) const override;
     std::string convertMultisigTxToStr(const PendingTransaction &multisig_ptx) const override;
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
-    bool parseTxFromStr(const std::string &signed_tx_str, PendingTransaction &ptx) const override;
-    void insertColdKeyImages(PendingTransaction &ptx) override;
-    bool parseMultisigTxFromStr(const std::string &multisig_tx_str, PendingTransaction &exported_txs) const override;
+    PendingTransaction* parseTxFromStr(const std::string &signed_tx_str) override;
+    PendingTransaction* parseMultisigTxFromStr(const std::string &multisig_tx_str) override;
     std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;
     std::uint64_t getBaseFee() const override;
     std::uint32_t adjustPriority(std::uint32_t priority) override;
@@ -271,8 +281,6 @@ public:
     std::size_t importEnotesFromStr(const std::string &enotes_str) override;
     std::uint64_t getBlockchainHeightByDate(std::uint16_t year, std::uint8_t month, std::uint8_t day) const override;
     std::vector<std::pair<std::uint64_t, std::uint64_t>> estimateBacklog(const std::vector<std::pair<double, double>> &fee_levels) const override;
-    bool saveToFile(const std::string &path_to_file, const std::string &binary, bool is_printable = false) const override;
-    bool loadFromFile(const std::string &path_to_file, std::string &target_str, std::size_t max_size = 1000000000) const override;
     std::uint64_t hashEnotes(std::uint64_t enote_idx, std::string &hash) const override;
     void finishRescanBcKeepKeyImages(std::uint64_t enote_idx, const std::string &hash) override;
     std::vector<std::tuple<std::string, std::uint16_t, std::uint64_t>> getPublicNodes(bool white_only = true) const override;
@@ -281,7 +289,86 @@ public:
     bool importKeyImages(const std::vector<std::string> &key_images, std::size_t offset = 0, const std::unordered_set<std::size_t> &selected_enotes_indices = {}) override;
     bool getAllowMismatchedDaemonVersion() const override;
     void setAllowMismatchedDaemonVersion(bool allow_mismatch) override;
-    bool setDaemon(const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, const std::string &ssl_support = "autodetect", const std::string &ssl_private_key_path = "", const std::string &ssl_certificate_path = "", const std::string &ssl_ca_file_path = "", const std::vector<std::string> &ssl_allowed_fingerprints_str = {}, bool ssl_allow_any_cert = false, const std::string &proxy = "") override;
+    std::string getDeviceDerivationPath() const override;
+    void setDeviceDerivationPath(std::string device_derivation_path) override;
+    bool setDaemon(const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, Wallet::SSLSupport ssl_support = Wallet::SSLSupport::SSLSupport_Autodetect, const std::string &ssl_private_key_path = "", const std::string &ssl_certificate_path = "", const std::string &ssl_ca_file_path = "", const std::vector<std::string> &ssl_allowed_fingerprints_str = {}, bool ssl_allow_any_cert = false, const std::string &proxy = "") override;
+    bool verifyPassword(const std::string_view &password) override;
+    void encryptKeys(const std::string_view &password) override;
+    void decryptKeys(const std::string_view &password) override;
+    std::uint64_t getMinRingSize() const override;
+    std::uint64_t getMaxRingSize() const override;
+    std::uint64_t adjustMixin(const std::uint64_t fake_outs_count) const override;
+
+    std::uint64_t getDaemonAdjustedTime() const override;
+    std::uint64_t getLastBlockReward() const override;
+    bool hasUnknownKeyImages() const override;
+
+    bool getExplicitRefreshFromBlockHeight() const override;
+    void setExplicitRefreshFromBlockHeight(bool do_explicit_refresh) override;
+
+    // Wallet Settings getter/setter
+    std::string getSeedLanguage() const override;
+    void setSeedLanguage(const std::string &arg) override;
+    bool getAlwaysConfirmTransfers() const override;
+    void setAlwaysConfirmTransfers(bool do_always_confirm) override;
+    bool getPrintRingMembers() const override;
+    void setPrintRingMembers(bool do_print_ring_members) override;
+    bool getStoreTxInfo() const override;
+    void setStoreTxInfo(bool do_store_tx_info) override;
+    bool getAutoRefresh() const override;
+    void setAutoRefresh(bool do_auto_refresh) override;
+    RefreshType getRefreshType() const override;
+    void setRefreshType(RefreshType refresh_type) override;
+    std::uint32_t getDefaultPriority() const override;
+    void setDefaultPriority(std::uint32_t default_priority) override;
+    AskPasswordType getAskPasswordType() const override;
+    void setAskPasswordType(AskPasswordType ask_password_type) override;
+    std::uint64_t getMaxReorgDepth() const override;
+    void setMaxReorgDepth(std::uint64_t max_reorg_depth) override;
+    std::uint32_t getMinOutputCount() const override;
+    void setMinOutputCount(std::uint32_t min_output_count) override;
+    std::uint64_t getMinOutputValue() const override;
+    void setMinOutputValue(std::uint64_t min_output_value) override;
+    bool getMergeDestinations() const override;
+    void setMergeDestinations(bool do_merge_destinations) override;
+    std::uint32_t getConfirmBacklogThreshold() const override;
+    bool getConfirmBacklog() const override;
+    void setConfirmBacklog(bool do_confirm_backlog) override;
+    void setConfirmBacklogThreshold(std::uint32_t confirm_backlog_threshold) override;
+    bool getConfirmExportOverwrite() const override;
+    void setConfirmExportOverwrite(bool do_confirm_export_overwrite) override;
+    uint64_t getRefreshFromBlockHeight() const override;
+    void setRefreshFromBlockHeight(uint64_t refresh_from_block_height) override;
+    bool getAutoLowPriority() const override;
+    void setAutoLowPriority(bool use_auto_low_priority) override;
+    bool getSegregatePreForkOutputs() const override;
+    void setSegregatePreForkOutputs(bool do_segregate) override;
+    bool getKeyReuseMitigation2() const override;
+    void setKeyReuseMitigation2(bool mitigation) override;
+    std::pair<std::uint32_t, std::uint32_t> getSubaddressLookahead() const override;
+    void setSubaddressLookahead(uint32_t major, uint32_t minor) override;
+    std::uint64_t getSegregationHeight() const override;
+    void setSegregationHeight(std::uint64_t height) override;
+    bool getIgnoreFractionalOutputs() const override;
+    void setIgnoreFractionalOutputs(bool do_ignore_fractional_outputs) override;
+    std::uint64_t getIgnoreOutputsAbove() const override;
+    void setIgnoreOutputsAbove(std::uint64_t ignore_outputs_above) override;
+    std::uint64_t getIgnoreOutputsBelow() const override;
+    void setIgnoreOutputsBelow(std::uint64_t ignore_outputs_below) override;
+    bool getTrackUses() const override;
+    void setTrackUses(bool do_track_uses) override;
+    BackgroundMiningSetupType getSetupBackgroundMining() const override;
+    void setSetupBackgroundMining(BackgroundMiningSetupType background_mining_setup) override;
+    std::string getDeviceName() const override;
+    void setDeviceName(const std::string &device_name) override;
+    ExportFormat getExportFormat() const override;
+    void setExportFormat(ExportFormat export_format) override;
+    bool getShowWalletNameWhenLocked() const override;
+    void setShowWalletNameWhenLocked(bool do_show_wallet_name) override;
+    std::uint32_t getInactivityLockTimeout() const override;
+    void setInactivityLockTimeout(std::uint32_t seconds) override;
+    bool getEnableMultisig() const override;
+    void setEnableMultisig(bool do_enable_multisig) override;
 
 private:
     void clearStatus() const;
@@ -289,8 +376,7 @@ private:
     void setStatusCritical(const std::string& message) const;
     void setStatus(int status, const std::string& message) const;
     void refreshThreadFunc();
-    void doRefresh();
-    bool daemonSynced() const;
+    void doRefresh(std::uint64_t start_height = 0, bool check_pool = true, bool try_incremental = false, std::uint64_t max_blocks = std::numeric_limits<uint64_t>::max(), bool *error_out = nullptr, std::uint64_t *blocks_fetched_out = nullptr, bool *received_money_out = nullptr);
     void stopRefresh();
     bool isNewWallet() const;
     void pendingTxPostProcess(PendingTransactionImpl * pending);
@@ -303,6 +389,14 @@ private:
     * return: enote index
     */
     std::size_t getEnoteIndex(const std::string &key_image) const;
+    /**
+    * brief: getPaymentIdFromExtra -
+    * param: tx_extra - as raw bytes
+    * return: payment_id if succeeded, else empty string
+    *         (size is either A) 16 for 8 byte short encrypted payment IDs,
+    *                         B) 64 for obsolete 32 byte long unencrypted payment IDs)
+    */
+    std::string getPaymentIdFromExtra(const std::vector<std::uint8_t> &tx_extra) const;
     /**
     * brief: statusOk -
     * return: true if status is ok, else false
@@ -339,6 +433,8 @@ private:
     std::atomic<bool> m_refreshThreadDone;
     std::atomic<int>  m_refreshIntervalMillis;
     std::atomic<bool> m_refreshShouldRescan;
+    std::atomic<bool> m_do_hard_rescan;
+    std::atomic<bool> m_do_keep_key_images_on_rescan;
     // synchronizing  refresh loop;
     boost::mutex        m_refreshMutex;
 
@@ -356,6 +452,8 @@ private:
     // cache connection status to avoid unnecessary RPC calls
     mutable std::atomic<bool>   m_is_connected;
     boost::optional<epee::net_utils::http::login> m_daemon_login{};
+    // number of rounds for key derivation function for wallet password
+    std::uint64_t m_kdf_rounds;
 };
 
 
