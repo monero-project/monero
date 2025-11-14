@@ -2102,6 +2102,8 @@ struct Wallet
     virtual void setInactivityLockTimeout(std::uint32_t seconds) = 0;
     virtual bool getEnableMultisig() const = 0;
     virtual void setEnableMultisig(bool do_enable_multisig) = 0;
+    virtual bool getEnableDNS() const = 0;
+    virtual void setEnableDNS(bool do_enable_dns) = 0;
 };
 
 /**

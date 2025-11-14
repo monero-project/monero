@@ -1024,7 +1024,12 @@ std::string WalletImpl::integratedAddress(const std::string &payment_id) const
 
 std::string WalletImpl::secretViewKey() const
 {
-    return epee::string_tools::pod_to_hex(unwrap(unwrap(m_wallet->get_account().get_keys().m_view_secret_key)));
+    crypto::secret_key viewkey;
+    if (getDeviceState().key_on_device)
+        m_wallet->get_account().get_device().get_cached_view_key(viewkey);
+    else
+        viewkey = std::move(m_wallet->get_account().get_keys().m_view_secret_key);
+    return epee::string_tools::pod_to_hex(unwrap(unwrap(viewkey)));
 }
 
 std::string WalletImpl::publicViewKey() const
@@ -4567,6 +4572,16 @@ bool WalletImpl::getEnableMultisig() const
 void WalletImpl::setEnableMultisig(bool do_enable_multisig)
 {
     m_wallet->enable_multisig(do_enable_multisig);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool WalletImpl::getEnableDNS() const
+{
+    return m_wallet->is_dns_enabled();
+}
+//-------------------------------------------------------------------------------------------------------------------
+void WalletImpl::setEnableDNS(bool do_enable_dns)
+{
+    m_wallet->enable_dns(do_enable_dns);
 }
 //-------------------------------------------------------------------------------------------------------------------
 

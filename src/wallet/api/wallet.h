@@ -374,6 +374,8 @@ public:
     void setInactivityLockTimeout(std::uint32_t seconds) override;
     bool getEnableMultisig() const override;
     void setEnableMultisig(bool do_enable_multisig) override;
+    bool getEnableDNS() const override;
+    void setEnableDNS(bool do_enable_dns) override;
 
 private:
     void clearStatus() const;
