@@ -102,7 +102,7 @@ static void configure_wallet(Monero::Wallet *wallet)
 {
     if (!wallet)
         return;
-    wallet->allowMismatchedDaemonVersion(true);
+    wallet->setAllowMismatchedDaemonVersion(true);
     wallet->setRefreshFromBlockHeight(1);
     if (!RING_DATABASE_DIR.empty())
         wallet->setRingDatabase(RING_DATABASE_DIR);
