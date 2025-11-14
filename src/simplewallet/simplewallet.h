@@ -42,7 +42,7 @@
 
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
-#include "wallet/wallet2.h"
+#include "wallet/api/wallet2_api.h"
 #include "console_handler.h"
 #include "math_helper.h"
 #include "wipeable_string.h"
@@ -64,7 +64,7 @@ namespace cryptonote
   /*!
    * \brief Manages wallet operations. This is the most abstracted wallet class.
    */
-  class simple_wallet : public tools::i_wallet2_callback
+  class simple_wallet : public Monero::WalletListener
   {
   public:
     static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
@@ -103,8 +103,10 @@ namespace cryptonote
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm,
         const epee::wipeable_string &multisig_keys, const epee::wipeable_string &seed_pass, const std::string &old_language);
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm);
+    boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const std::string &json_file);
     boost::optional<epee::wipeable_string> open_wallet(const boost::program_options::variables_map& vm);
     bool close_wallet();
+    bool init_wallet(const boost::program_options::variables_map &vm);
 
     bool viewkey(const std::vector<std::string> &args = std::vector<std::string>());
     bool spendkey(const std::vector<std::string> &args = std::vector<std::string>());
@@ -168,14 +170,13 @@ namespace cryptonote
     bool show_incoming_transfers(const std::vector<std::string> &args);
     bool show_payments(const std::vector<std::string> &args);
     bool show_blockchain_height(const std::vector<std::string> &args);
-    bool transfer_main(const std::vector<std::string> &args, bool called_by_mms);
+    bool transfer_main(const std::vector<std::string> &args);
     bool transfer(const std::vector<std::string> &args);
     bool sweep_main(uint32_t account, uint64_t below, const std::vector<std::string> &args);
     bool sweep_all(const std::vector<std::string> &args);
     bool sweep_account(const std::vector<std::string> &args);
     bool sweep_below(const std::vector<std::string> &args);
     bool sweep_single(const std::vector<std::string> &args);
-    bool sweep_unmixable(const std::vector<std::string> &args);
     bool donate(const std::vector<std::string> &args);
     bool sign_transfer(const std::vector<std::string> &args);
     bool submit_transfer(const std::vector<std::string> &args);
@@ -227,29 +228,22 @@ namespace cryptonote
     bool payment_id(const std::vector<std::string> &args);
     bool print_fee_info(const std::vector<std::string> &args);
     bool prepare_multisig(const std::vector<std::string>& args);
-    bool prepare_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
+    bool prepare_multisig_main(const std::vector<std::string>& args);
     bool make_multisig(const std::vector<std::string>& args);
-    bool make_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
+    bool make_multisig_main(const std::vector<std::string>& args);
     bool exchange_multisig_keys(const std::vector<std::string> &args);
-    bool exchange_multisig_keys_main(const std::vector<std::string> &args, const bool force_update_use_with_caution, const bool called_by_mms);
+    bool exchange_multisig_keys_main(const std::vector<std::string> &args, const bool force_update_use_with_caution);
     bool export_multisig(const std::vector<std::string>& args);
-    bool export_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
+    bool export_multisig_main(const std::vector<std::string>& args);
     bool import_multisig(const std::vector<std::string>& args);
-    bool import_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
-    bool accept_loaded_tx(const tools::wallet2::multisig_tx_set &txs);
+    bool import_multisig_main(const std::vector<std::string>& args);
     bool sign_multisig(const std::vector<std::string>& args);
-    bool sign_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
+    bool sign_multisig_main(const std::vector<std::string>& args);
     bool submit_multisig(const std::vector<std::string>& args);
-    bool submit_multisig_main(const std::vector<std::string>& args, bool called_by_mms);
+    bool submit_multisig_main(const std::vector<std::string>& args);
     bool export_raw_multisig(const std::vector<std::string>& args);
-    bool mms(const std::vector<std::string>& args);
     bool print_ring(const std::vector<std::string>& args);
     bool set_ring(const std::vector<std::string>& args);
-    bool unset_ring(const std::vector<std::string>& args);
-    bool save_known_rings(const std::vector<std::string>& args);
-    bool blackball(const std::vector<std::string>& args);
-    bool unblackball(const std::vector<std::string>& args);
-    bool blackballed(const std::vector<std::string>& args);
     bool freeze(const std::vector<std::string>& args);
     bool thaw(const std::vector<std::string>& args);
     bool frozen(const std::vector<std::string>& args);
@@ -261,21 +255,17 @@ namespace cryptonote
     bool version(const std::vector<std::string>& args);
     bool on_unknown_command(const std::vector<std::string>& args);
 
-    bool cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& ptx_vector, tools::wallet2::signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::function<bool(const tools::wallet2::signed_tx_set &)> accept_func);
     uint64_t get_daemon_blockchain_height(std::string& err);
     bool try_connect_to_daemon(bool silent = false, uint32_t* version = nullptr);
     bool ask_wallet_create_if_needed();
-    bool accept_loaded_tx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message = std::string());
-    bool accept_loaded_tx(const tools::wallet2::unsigned_tx_set &txs);
-    bool accept_loaded_tx(const tools::wallet2::signed_tx_set &txs);
-    bool process_ring_members(const std::vector<tools::wallet2::pending_tx>& ptx_vector, std::ostream& ostr, bool verbose);
+    bool process_ring_members(const Monero::PendingTransaction &ptx_vector, std::ostream& ostr, bool verbose);
     std::string get_prompt() const;
     bool print_seed(bool encrypted);
     void key_images_sync_intern();
     void on_refresh_finished(uint64_t start_height, uint64_t fetched_blocks, bool is_init, bool received_money);
     std::pair<std::string, std::string> show_outputs_line(const std::vector<uint64_t> &heights, uint64_t blockchain_height, uint64_t highlight_idx = std::numeric_limits<uint64_t>::max()) const;
     bool freeze_thaw(const std::vector<std::string>& args, bool freeze);
-    bool prompt_if_old(const std::vector<tools::wallet2::pending_tx> &ptx_vector);
+    bool prompt_if_old(const Monero::PendingTransaction &ptx_vector);
     bool on_command(bool (simple_wallet::*cmd)(const std::vector<std::string>&), const std::vector<std::string> &args);
     bool on_empty_command();
     bool on_cancelled_command();
@@ -315,10 +305,15 @@ namespace cryptonote
     std::string get_mnemonic_language();
 
     /*!
-     * \brief When --do-not-relay option is specified, save the raw tx hex blob to a file instead of calling m_wallet->commit_tx(ptx).
+     * \brief When wallet is watch-only, save the tx as `unsigned_monero_tx`
+     *        When --do-not-relay option is specified, save the signed tx hex blob as `raw_monero_tx`
+     *        Else submit the signed tx to the daemon
      * \param ptx_vector Pending tx(es) created by transfer/sweep_all
+     * \param do_not_relay - if true save tx as raw_monero_tx
+     * \param do_force_commit - use when calling submit_transfer from watch-only wallet
+     *                          else this method saves the ptx as unsinged_monero_tx file
      */
-    void commit_or_save(std::vector<tools::wallet2::pending_tx>& ptx_vector, bool do_not_relay);
+    void commit_or_save(Monero::PendingTransaction &ptx_vector, bool do_not_relay, bool do_force_commit = false);
 
     /*!
      * \brief checks whether background mining is enabled, and asks to configure it if not
@@ -330,22 +325,28 @@ namespace cryptonote
     // idle thread workers
     bool check_inactivity();
     bool check_refresh();
-    bool check_mms();
 
     void handle_transfer_exception(const std::exception_ptr &e, bool trusted_daemon);
 
     bool check_daemon_rpc_prices(const std::string &daemon_url, uint32_t &actual_cph, uint32_t &claimed_cph);
 
-    //----------------- i_wallet2_callback ---------------------
-    virtual void on_new_block(uint64_t height, const cryptonote::block& block);
-    virtual void on_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, uint64_t burnt, const cryptonote::subaddress_index& subaddr_index, bool is_change, uint64_t unlock_time);
-    virtual void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount, const cryptonote::subaddress_index& subaddr_index);
-    virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index);
-    virtual void on_skip_transaction(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& tx);
-    virtual boost::optional<epee::wipeable_string> on_get_password(const char *reason);
-    virtual void on_device_button_request(uint64_t code);
-    virtual boost::optional<epee::wipeable_string> on_device_pin_request();
-    virtual boost::optional<epee::wipeable_string> on_device_passphrase_request(bool & on_device);
+    bool save_to_file(const std::string& path_to_file, const std::string& raw, bool is_printable = false) const;
+    bool load_from_file(const std::string& path_to_file, std::string& target_str, size_t max_size = 1000000000);
+
+    //----------------- WalletListener callback ---------------------
+    void newBlock(uint64_t height) override;
+    void moneyReceived(const std::string &txid, uint64_t amount, const uint64_t burnt, const std::string &enote_pub_key, const bool is_change /* = false */, const bool is_coinbase /* = false */) override;
+    void unconfirmedMoneyReceived(const std::string &txid, uint64_t amount) override;
+    void moneySpent(const std::string &txid, uint64_t amount, const std::string &enote_pub_key, std::pair<uint32_t, uint32_t> subaddr_index /* = {} */) override;
+    Monero::optional<std::string> onGetPassword(const char *reason) override;
+    void onDeviceButtonRequest(uint64_t code) override;
+    Monero::optional<std::string> onDevicePinRequest() override;
+    Monero::optional<std::string> onDevicePassphraseRequest(bool & on_device) override;
+    // Callbacks not implemented, but needed to override all functions from pure abstract base class WalletListener
+    void updated() override;
+    void refreshed() override;
+    void onReorg(uint64_t height, uint64_t blocks_detached, size_t transfers_detached) override;
+    void onPoolTxRemoved(const std::string &txid) override;
     //----------------------------------------------------------
 
     friend class refresh_progress_reporter_t;
@@ -428,7 +429,8 @@ namespace cryptonote
 
     epee::console_handlers_binder m_cmd_binder;
 
-    std::unique_ptr<tools::wallet2> m_wallet;
+    std::unique_ptr<Monero::Wallet> m_wallet_impl;
+    std::unique_ptr<Monero::WalletManager> m_wallet_manager;
     refresh_progress_reporter_t m_refresh_progress_reporter;
 
     std::atomic<bool> m_idle_run;
@@ -449,43 +451,6 @@ namespace cryptonote
 
     epee::math_helper::once_a_time_seconds<1> m_inactivity_checker;
     epee::math_helper::once_a_time_seconds_range<get_random_interval<80 * 1000000, 100 * 1000000>> m_refresh_checker;
-    epee::math_helper::once_a_time_seconds_range<get_random_interval<90 * 1000000, 110 * 1000000>> m_mms_checker;
 
-    // MMS
-    mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };
-    mms::multisig_wallet_state get_multisig_wallet_state() const { return m_wallet->get_multisig_wallet_state(); };
-    bool mms_active() const { return get_message_store().get_active(); };
-    bool choose_mms_processing(const std::vector<mms::processing_data> &data_list, uint32_t &choice);
-    void list_mms_messages(const std::vector<mms::message> &messages);
-    void list_signers(const std::vector<mms::authorized_signer> &signers);
-    void add_signer_config_messages();
-    void show_message(const mms::message &m);
-    void ask_send_all_ready_messages();
-    void check_for_messages();
-    bool user_confirms(const std::string &question);
-    bool user_confirms_auto_config();
-    bool get_message_from_arg(const std::string &arg, mms::message &m);
-    bool get_number_from_arg(const std::string &arg, uint32_t &number, const uint32_t lower_bound, const uint32_t upper_bound); 
-
-    void mms_init(const std::vector<std::string> &args);
-    void mms_info(const std::vector<std::string> &args);
-    void mms_signer(const std::vector<std::string> &args);
-    void mms_list(const std::vector<std::string> &args);
-    void mms_next(const std::vector<std::string> &args);
-    void mms_sync(const std::vector<std::string> &args);
-    void mms_transfer(const std::vector<std::string> &args);
-    void mms_delete(const std::vector<std::string> &args);
-    void mms_send(const std::vector<std::string> &args);
-    void mms_receive(const std::vector<std::string> &args);
-    void mms_export(const std::vector<std::string> &args);
-    void mms_note(const std::vector<std::string> &args);
-    void mms_show(const std::vector<std::string> &args);
-    void mms_set(const std::vector<std::string> &args);
-    void mms_help(const std::vector<std::string> &args);
-    void mms_send_signer_config(const std::vector<std::string> &args);
-    void mms_start_auto_config(const std::vector<std::string> &args);
-    void mms_config_checksum(const std::vector<std::string> &args);
-    void mms_stop_auto_config(const std::vector<std::string> &args);
-    void mms_auto_config(const std::vector<std::string> &args);
   };
 }

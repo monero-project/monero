@@ -256,7 +256,7 @@ void TransactionHistoryImpl::refresh()
     
     // simplewallet called m_wallet.update_pool_state() & m_wallet.process_pool_state() before getting unconfirmed incoming transfers from the tx pool
     // src: https://github.com/monero-project/monero/blob/8d4c625713e3419573dfcc7119c8848f47cabbaa/src/simplewallet/simplewallet.cpp#L10293-L10296
-    m_wallet->refreshPoolOnly();
+//    m_wallet->refreshPoolOnly();
     // unconfirmed payments (tx pool)
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> upayments;
     m_wallet->m_wallet->get_unconfirmed_payments(upayments);
