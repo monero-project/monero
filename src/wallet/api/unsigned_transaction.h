@@ -52,7 +52,7 @@ public:
     std::vector<std::string> recipientAddress() const override;
     uint64_t txCount() const override;
     // sign txs and save to file
-    bool sign(const std::string &signedFileName) override;
+    bool sign(const std::string &signedFileName, bool do_export_raw = false, std::vector<std::string> *tx_ids_out = nullptr) override;
     std::string confirmationMessage() const override {return m_confirmationMessage;}
     uint64_t minMixinCount() const override;
     std::string signAsString() override;
