@@ -83,6 +83,11 @@ bool TransactionInfoImpl::isCoinbase() const
     return m_coinbase;
 }
 
+bool TransactionInfoImpl::isUnlocked() const
+{
+    return m_is_unlocked;
+}
+
 uint64_t TransactionInfoImpl::amount() const
 {
     return m_amount;
