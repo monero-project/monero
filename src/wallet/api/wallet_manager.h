@@ -39,15 +39,16 @@ class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1) override;
-    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) override;
+                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, bool create_address_file = false, bool non_deterministic = false, bool unattended = true) override;
+    Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr, bool unattended = true) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
                                        const std::string &mnemonic,
                                        NetworkType nettype,
                                        uint64_t restoreHeight,
                                        uint64_t kdf_rounds = 1,
-                                       const std::string &seed_offset = {}) override;
+                                       const std::string &seed_offset = {},
+                                       const bool unattended = true) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
                                              const std::string &language,
@@ -56,7 +57,24 @@ public:
                                              const std::string &addressString,
                                              const std::string &viewKeyString,
                                              const std::string &spendKeyString = "",
-                                             uint64_t kdf_rounds = 1) override;
+                                             uint64_t kdf_rounds = 1,
+                                             const bool create_address_file = false,
+                                             const bool unattended = true) override;
+    Wallet * createWalletFromJson(const std::string &json_file_path,
+                                  NetworkType nettype,
+                                  std::string &pw_out,
+                                  uint64_t kdf_rounds = 1,
+                                  const bool unattended = true) override;
+    Wallet * createWalletFromMultisigSeed(const std::string &path,
+                                          const std::string &password,
+                                          const std::string &language,
+                                          NetworkType nettype,
+                                          uint64_t restoreHeight,
+                                          const std::string &multisig_seed,
+                                          const std::string seed_pass = "",
+                                          uint64_t kdf_rounds = 1,
+                                          const bool create_address_file = false,
+                                          const bool unattended = true) override;
     // next two methods are deprecated - use the above version which allow setting of a password
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &mnemonic, NetworkType nettype, uint64_t restoreHeight) override;
     // deprecated: use createWalletFromKeys(..., password, ...) instead
@@ -74,8 +92,11 @@ public:
                                             uint64_t restoreHeight = 0,
                                             const std::string &subaddressLookahead = "",
                                             uint64_t kdf_rounds = 1,
-                                            WalletListener * listener = nullptr) override;
-    virtual bool closeWallet(Wallet *wallet, bool store = true) override;
+                                            WalletListener * listener = nullptr,
+                                            const std::string device_derivation_path = "",
+                                            const bool create_address_file = false,
+                                            const bool unattended = true) override;
+    virtual bool closeWallet(Wallet *wallet, bool store = true, bool do_delete_pointer = true) override;
     bool walletExists(const std::string &path) override;
     bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key, uint64_t kdf_rounds = 1) const override;
     bool queryWalletDevice(Wallet::Device& device_type, const std::string &keys_file_name, const std::string &password, uint64_t kdf_rounds = 1) const override;
@@ -88,9 +109,13 @@ public:
     uint64_t networkDifficulty() override;
     double miningHashRate() override;
     uint64_t blockTarget() override;
+    bool wasBootstrapEverUsed() override;
+    bool isBackgroundMiningEnabled() override;
     bool isMining() override;
     bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) override;
     bool stopMining() override;
+    bool saveBlockchain() override;
+    bool getOutsBin(const std::vector<std::pair<std::uint64_t, std::uint64_t>> &output_amount_index, const bool do_get_txid, std::vector<std::string> &enote_public_key_out, std::vector<std::string> &rct_key_mask_out, std::vector<bool> &unlocked_out, std::vector<std::uint64_t> &height_out, std::vector<std::string> &tx_id_out) override;
     std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const override;
     bool setProxy(const std::string &address) override;
 
