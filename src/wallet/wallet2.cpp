@@ -3440,10 +3440,17 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
 void wallet2::refresh(bool trusted_daemon)
 {
   uint64_t blocks_fetched = 0;
-  refresh(trusted_daemon, 0, blocks_fetched);
+  refresh(trusted_daemon, 0, blocks_fetched);void wallet2::refresh(bool trusted_daemon)
+{
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched)// Add skip sync feature for bounty #1
+if (skip_sync) {
+    LOG_PRINT_L0("Sync skipped by user");
+    blocks_fetched = 0;
+    return;
+}
+// Fixed by @lau90eth
 {
   bool received_money = false;
   refresh(trusted_daemon, start_height, blocks_fetched, received_money);
