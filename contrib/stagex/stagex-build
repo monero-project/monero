@@ -1,0 +1,320 @@
+#!/usr/bin/env bash
+export LC_ALL=C
+set -e -o pipefail
+
+# Source the common prelude, which:
+#   1. Checks if we're at the top directory of the Monero repository
+#   2. Defines a few common functions and variables
+#
+# shellcheck source=libexec/prelude.bash
+source "$(dirname "${BASH_SOURCE[0]}")/libexec/prelude.bash"
+
+###################
+## SANITY CHECKS ##
+###################
+
+################
+# Required non-builtin commands should be invocable
+################
+
+check_tools cat mkdir make getent curl git
+
+################
+# Unset environment variables
+################
+
+# contrib/depends uses the HOST environment variable as the build target.
+# It will throw an error if this variable is set to an unrecognized target.
+# Ensure the var is unset so calls to contrib/depends further down don't fail.
+unset HOST
+
+################
+# Checkout git submodules if we haven't already
+################
+
+git submodule update --init --recursive --progress
+
+################
+# The git worktree should not be dirty
+################
+
+if ! git diff-index --quiet HEAD -- && [ -z "$FORCE_DIRTY_WORKTREE" ]; then
+cat << EOF
+ERR: The current git worktree is dirty, which may lead to broken builds.
+
+     Aborting...
+
+Hint: To make your git worktree clean, You may want to:
+      1. Commit your changes,
+      2. Stash your changes, or
+      3. Set the 'FORCE_DIRTY_WORKTREE' environment variable if you insist on
+         using a dirty worktree
+EOF
+exit 1
+fi
+
+mkdir -p "$VERSION_BASE"
+
+################
+# Build directories should not exist
+################
+
+# Default to building for all supported HOSTs (overridable by environment)
+export HOSTS="${HOSTS:-x86_64-linux-musl
+                       aarch64-linux-musl
+                       riscv64-linux-musl
+                       x86_64-w64-mingw32
+                       x86_64-unknown-freebsd
+                       x86_64-apple-darwin
+                       arm64-apple-darwin
+                       aarch64-linux-android}"
+
+# Usage: distsrc_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+distsrc_for_host() {
+    echo "${DISTSRC_BASE}/build/distsrc-${VERSION}-${1}"
+}
+
+# Accumulate a list of build directories that already exist...
+hosts_distsrc_exists=""
+for host in $HOSTS; do
+    if [ -e "$(distsrc_for_host "$host")" ]; then
+        hosts_distsrc_exists+=" ${host}"
+    fi
+done
+
+if [ -n "$hosts_distsrc_exists" ]; then
+# ...so that we can print them out nicely in an error message
+cat << EOF
+ERR: Build directories for this commit already exist for the following platform
+     triples you're attempting to build, probably because of previous builds.
+     Please remove, or otherwise deal with them prior to starting another build.
+
+     Aborting...
+
+Hint: To blow everything away, you may want to use:
+
+  $ ./contrib/stagex/stagex-clean
+
+Specifically, this will remove all files without an entry in the index,
+excluding the depends download cache, the depends built
+packages cache, the garbage collector roots for Guix environments, and the
+output directory.
+EOF
+for host in $hosts_distsrc_exists; do
+    echo "     ${host} '$(distsrc_for_host "$host")'"
+done
+exit 1
+else
+    mkdir -p "$DISTSRC_BASE"
+fi
+
+################
+# Todo: check docker
+################
+
+#########
+# SETUP #
+#########
+
+# Determine the maximum number of jobs to run simultaneously (overridable by
+# environment)
+JOBS="${JOBS:-$(nproc)}"
+
+# Usage: host_to_commonname HOST
+#
+#   HOST: The current platform triple we're building for
+#
+host_to_commonname() {
+    case "$1" in
+        *darwin*)  echo osx ;;
+        *mingw*)   echo win ;;
+        *android*) echo android ;;
+        *linux*)   echo linux ;;
+        *freebsd*) echo freebsd ;;
+        *)         exit 1 ;;
+    esac
+}
+
+COMMIT_TIMESTAMP="$(git -c log.showSignature=false log --format=%at -1)"
+
+# Precious directories are those which should not be cleaned between successive
+# guix builds
+depends_precious_dir_names='SOURCES_PATH BASE_CACHE'
+precious_dir_names="${depends_precious_dir_names} OUTDIR_BASE LOGDIR_BASE PROFILES_BASE"
+
+# Usage: contains IFS-SEPARATED-LIST ITEM
+contains() {
+    for i in ${1}; do
+        if [ "$i" = "${2}" ]; then
+            return 0  # Found!
+        fi
+    done
+    return 1
+}
+
+# If the user explicitly specified a precious directory, create it so we
+# can map it into the container
+for precious_dir_name in $precious_dir_names; do
+    precious_dir_path="${!precious_dir_name}"
+    if [ -n "$precious_dir_path" ]; then
+        if [ ! -e "$precious_dir_path" ]; then
+            mkdir -p "$precious_dir_path"
+        elif [ -L "$precious_dir_path" ]; then
+            echo "ERR: ${precious_dir_name} cannot be a symbolic link"
+            exit 1
+        elif [ ! -d "$precious_dir_path" ]; then
+            echo "ERR: ${precious_dir_name} must be a directory"
+            exit 1
+        fi
+    fi
+done
+
+mkdir -p "$VAR_BASE"
+
+# Record the _effective_ values of precious directories such that guix-clean can
+# avoid clobbering them if appropriate.
+#
+# shellcheck disable=SC2046,SC2086
+{
+    # Get precious dir definitions from depends and the environment
+    for precious_dir_name in $precious_dir_names; do
+        if contains "$depends_precious_dir_names" "$precious_dir_name"; then
+            precious_dir_path="$(make -C "${PWD}/contrib/depends" --no-print-directory print-${precious_dir_name})"
+        else
+            precious_dir_path="${!precious_dir_name}"
+        fi
+        echo "${precious_dir_name}=${precious_dir_path}"
+    done
+} > "${VAR_BASE}/precious_dirs"
+
+# Make sure an output and logs directory exists for our builds
+OUTDIR_BASE="${OUTDIR_BASE:-${VERSION_BASE}/output}"
+mkdir -p "$OUTDIR_BASE"
+LOGDIR_BASE="${LOGDIR_BASE:-${VERSION_BASE}/logs}"
+mkdir -p "$LOGDIR_BASE"
+
+# Download the depends sources now as we won't have internet access in the build
+# container
+for host in $HOSTS; do
+    make -C "${PWD}/contrib/depends" -j"$JOBS" download-"$(host_to_commonname "${host}")" ${V:+V=1} ${SOURCES_PATH:+SOURCES_PATH="$SOURCES_PATH"}
+done
+
+# Usage: outdir_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+outdir_for_host() {
+    echo "${OUTDIR_BASE}/${1}"
+}
+
+# Usage: logdir_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+logdir_for_host() {
+    echo "${LOGDIR_BASE}/${1}"
+}
+
+# Usage: profiledir_for_host HOST
+#
+#   HOST: The current platform triple we're building for
+#
+profiledir_for_host() {
+    echo "${PROFILES_BASE}/${1}"
+}
+
+
+#########
+# BUILD #
+#########
+
+# Function to be called when building for host ${1} and the user interrupts the
+# build
+int_trap() {
+cat << EOF
+** INT received while building ${1}, you may want to clean up the relevant
+   work directories (e.g. distsrc-*) before rebuilding
+
+Hint: To blow everything away, you may want to use:
+
+  $ ./contrib/guix/guix-clean
+
+Specifically, this will remove all files without an entry in the index,
+excluding the depends download cache, the depends built
+packages cache, the garbage collector roots for Guix environments, and the
+output directory.
+EOF
+}
+
+# Deterministically build Monero
+# shellcheck disable=SC2153
+for host in $HOSTS; do
+
+    # Display proper warning when the user interrupts the build
+    trap 'int_trap ${host}' INT
+
+    (
+        # Required for 'contrib/guix/manifest.scm' to output the right manifest
+        # for the particular $HOST we're building for
+        export HOST="$host"
+
+
+        # shellcheck disable=SC2030
+cat << EOF
+INFO: Building ${VERSION:?not set} for platform triple ${HOST:?not set}:
+      ...using commit timestamp: ${COMMIT_TIMESTAMP:?not set}
+      ...running at most ${JOBS:?not set} jobs
+      ...from worktree directory: '${PWD}'
+          ...bind-mounted in container to: '/monero'
+      ...in build directory: '$(distsrc_for_host "$HOST")'
+          ...bind-mounted in container to: '$(DISTSRC_BASE=/distsrc-base && distsrc_for_host "$HOST")'
+      ...outputting in: '$(outdir_for_host "$HOST")'
+          ...bind-mounted in container to: '$(OUTDIR_BASE=/outdir-base && outdir_for_host "$HOST")'
+EOF
+
+        rm -f "$(profiledir_for_host "${HOST}")"
+
+        COMMONNAME="$(host_to_commonname "${host}")"
+        case "$HOST" in
+            x86_64-linux-musl)  DOCKERFILE=contrib/stagex/Dockerfile."${COMMONNAME}" ;;
+            *)                  DOCKERFILE=contrib/stagex/Dockerfile ;;
+        esac
+
+        sudo docker build -t monero/stagex/"${COMMONNAME}" -f "${DOCKERFILE}" contrib/stagex
+
+        # Useful for CI environments where you only want to build Guix packages so they
+        # can be cached. Currently unused.
+        if [[ -v DRY_RUN ]]; then
+            echo "Dry run, exiting.."
+            exit 0
+        fi
+
+        sudo docker run \
+          --rm \
+          --network=none \
+          -v ${PWD}:/monero\
+          -v "$DISTSRC_BASE":/distsrc-base \
+          -v "$OUTDIR_BASE":/outdir-base \
+          -v "$LOGDIR_BASE":/logdir-base \
+          ${SOURCES_PATH:+-v "$SOURCES_PATH":"$SOURCES_PATH"} \
+          ${BASE_CACHE:+-v "$BASE_CACHE":"$BASE_CACHE"} \
+          monero/stagex/"${COMMONNAME}" \
+          HOST="$HOST" \
+          VERSION="$VERSION" \
+          JOBS="$JOBS" \
+          COMMIT_TIMESTAMP="${COMMIT_TIMESTAMP:?unable to determine value}" \
+          ${V:+V=1} \
+          ${DEPENDS_ONLY:+DEPENDS_ONLY=1} \
+          ${SOURCES_PATH:+SOURCES_PATH="$SOURCES_PATH"} \
+          ${BASE_CACHE:+BASE_CACHE="$BASE_CACHE"} \
+          DISTSRC="$(DISTSRC_BASE=/distsrc-base && distsrc_for_host "$host")" \
+          OUTDIR="$(OUTDIR_BASE=/outdir-base && outdir_for_host "$host")" \
+          LOGDIR="$(LOGDIR_BASE=/logdir-base && logdir_for_host "$host")" \
+          DIST_ARCHIVE_BASE=/outdir-base/dist-archive \
+          bash -c "cd /monero && bash contrib/stagex/libexec/build.sh"
+    )
+
+done

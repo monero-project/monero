@@ -1,0 +1,48 @@
+FROM scratch
+
+COPY --from=stagex/core-musl . /
+COPY --from=stagex/core-gcc --exclude=/usr/bin/lto-dump . /
+
+COPY --from=stagex/core-linux-headers . /
+COPY --from=stagex/core-binutils . /
+
+# The Basics
+COPY --from=stagex/core-bash /bin/bash /usr/bin/bash
+COPY --from=stagex/core-coreutils /usr/bin /usr/bin
+
+# File(system) inspection
+COPY --from=stagex/core-grep /usr/bin/grep /usr/bin/
+COPY --from=stagex/core-findutils /usr/bin/find /usr/bin/xargs /usr/bin/
+
+# File transformation
+COPY --from=stagex/user-patch /usr/bin/patch /usr/bin/
+COPY --from=stagex/core-gawk /usr/bin/awk /usr/bin/
+COPY --from=stagex/core-sed /usr/bin/sed /usr/bin/
+
+# Compression and archiving
+COPY --from=stagex/core-tar /usr/bin/tar /usr/bin/
+COPY --from=stagex/core-gzip /usr/bin/gzip /usr/bin/
+COPY --from=stagex/core-bzip2 /usr/bin/bzip2 /usr/bin/
+
+# Build tools
+COPY --from=stagex/core-make /usr/bin/make /usr/bin/
+
+COPY --from=stagex/core-pkgconf /usr/bin /usr/bin
+COPY --from=stagex/core-pkgconf /usr/lib/libpkgconf.so.3 /usr/lib/
+
+COPY --from=stagex/core-cmake /usr/bin/cmake /usr/bin/
+COPY --from=stagex/core-cmake /usr/share/cmake /usr/share/cmake
+COPY --from=stagex/core-openssl /usr/lib/libcrypto.so.3 /usr/lib/libssl.so.3 /usr/lib/
+
+# Scripting
+COPY --from=stagex/core-perl /usr/bin/perl /usr/bin/
+COPY --from=stagex/core-perl /usr/lib/perl5 /usr/lib/perl5
+
+# Git
+COPY --from=stagex/core-git /usr/bin/git /usr/bin/
+COPY --from=stagex/core-zlib /usr/lib /usr/lib
+
+# Todo: use --exclude ?
+RUN ["/usr/bin/bash", "-c", "/usr/bin/rm /usr/bin/dwp /usr/bin/ld.gold /usr/bin/objdump /usr/bin/lto-dump /usr/libexec/gcc/x86_64-linux-musl/13.1.0/lto1 /usr/bin/gcov*"]
+
+ENTRYPOINT ["/bin/env"]
