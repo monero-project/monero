@@ -14,3 +14,7 @@
 [submodule "external/gtest"]
 	path = external/gtest
 	url = https://github.com/google/googletest.git
+[submodule "external/mx25519"]
+	path = external/mx25519
+	url = https://github.com/jeffro256/mx25519
+        branch = unclamped
