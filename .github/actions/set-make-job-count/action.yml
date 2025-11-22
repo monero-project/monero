@@ -3,20 +3,71 @@ description: 'Set the MAKE_JOB_COUNT environment variable to a value suitable fo
 runs:
   using: "composite"
   steps:
-    # Each job runner requires 2.25 GiB (i.e. 1024 * 9/4 MiB) memory and
-    # a dedicated logical CPU core
-    - name: set-jobs-macOS
-      if: runner.os == 'macOS'
+    # ==========================================
+    # UNIX (Linux & macOS)
+    # Unified logic using standard bash arithmetic
+    # ==========================================
+    - name: Set Job Count (Unix)
+      if: runner.os != 'Windows'
       run: |
-        echo MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(sysctl -n hw.memsize) * 4 / (1073741824 * 9) )) $(sysctl -n hw.logicalcpu) | sort -n | head -n1) '|' 1) >> $GITHUB_ENV
+        # 1. Identify Resources
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          TOTAL_MEM_BYTES=$(sysctl -n hw.memsize)
+          CPU_CORES=$(sysctl -n hw.logicalcpu)
+        else
+          # Linux: /proc/meminfo returns kB
+          MEM_KB=$(grep MemTotal: /proc/meminfo | awk '{print $2}')
+          TOTAL_MEM_BYTES=$((MEM_KB * 1024))
+          CPU_CORES=$(nproc)
+        fi
+
+        # 2. Define Memory Constraint (2.25 GiB per job)
+        # 2.25 GiB = 2.25 * 1024^3 bytes = 2415919104 bytes
+        # Using integer math: (Bytes * 4) / 9 gives us the count relative to 0.25 chunks, 
+        # but simpler is: Bytes / 2415919104. 
+        # Bash handles large integers fine on 64-bit systems.
+        BYTES_PER_JOB=2415919104
+        
+        MEM_JOB_LIMIT=$(( TOTAL_MEM_BYTES / BYTES_PER_JOB ))
+
+        # 3. Calculate Min(CPU, MEM)
+        if (( MEM_JOB_LIMIT < CPU_CORES )); then
+          JOB_COUNT=$MEM_JOB_LIMIT
+        else
+          JOB_COUNT=$CPU_CORES
+        fi
+
+        # 4. Ensure at least 1 job
+        if (( JOB_COUNT < 1 )); then JOB_COUNT=1; fi
+
+        echo "Setting MAKE_JOB_COUNT to $JOB_COUNT (Mem: $((TOTAL_MEM_BYTES/1024/1024))MB, CPUs: $CPU_CORES)"
+        echo "MAKE_JOB_COUNT=$JOB_COUNT" >> $GITHUB_ENV
       shell: bash
-    - name: set-jobs-windows
+
+    # ==========================================
+    # WINDOWS
+    # Using Native PowerShell for reliability
+    # ==========================================
+    - name: Set Job Count (Windows)
       if: runner.os == 'Windows'
       run: |
-        echo MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) '|' 1) >> $GITHUB_ENV
-      shell: msys2 {0}
-    - name: set-jobs-linux
-      if: runner.os == 'Linux'
-      run: |
-        echo MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) '|' 1) >> $GITHUB_ENV
-      shell: bash
+        # 1. Get Total Memory in Bytes
+        $os = Get-CimInstance Win32_OperatingSystem
+        $totalMemBytes = $os.TotalVisibleMemorySize * 1024
+        
+        # 2. Get Logical Processors
+        $cpuCores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+
+        # 3. Calculate Limits (2.25 GiB = 2415919104 Bytes)
+        $bytesPerJob = 2415919104
+        [int]$memJobLimit = [math]::Floor($totalMemBytes / $bytesPerJob)
+
+        # 4. Min(CPU, MEM)
+        $jobCount = [math]::Min($memJobLimit, $cpuCores)
+
+        # 5. Ensure at least 1
+        if ($jobCount -lt 1) { $jobCount = 1 }
+
+        Write-Host "Setting MAKE_JOB_COUNT to $jobCount (Mem: $($totalMemBytes/1MB)MB, CPUs: $cpuCores)"
+        echo "MAKE_JOB_COUNT=$jobCount" >> $env:GITHUB_ENV
+      shell: pwsh
