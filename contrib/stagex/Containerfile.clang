@@ -1,0 +1,33 @@
+FROM stagex/pallet-clang:sx2026.06.0@sha256:5a0b81cd4110a022155783d69202ae246dcde5176e58f4689e072dea23e353eb AS base
+COPY --from=stagex/core-busybox:sx2026.06.0@sha256:8207f3c2becdf003fdfa0a27ee35178d24830475a3a2438f8e1dc9b87eea6cd4 . /
+COPY --from=stagex/core-make:sx2026.06.0@sha256:0402e189b4bc68a4c5c00a2d7c2dc1c93752c850e81bba0ee066cbe796249d05 . /
+COPY --from=stagex/core-perl:sx2026.06.0@sha256:ac080ed37031c4e86625cfd2b3abd9df6c0d12fec0339c91b9e82a1c57b85751 . /
+COPY --from=stagex/core-bash:sx2026.06.0@sha256:6e3c18424c2a03fb9dd14988bfa3016f678289f4b4baf148a44d5dda722f2ddc . /
+COPY --from=stagex/core-cmake:sx2026.06.0@sha256:626a3fdf157efacd00c3ceb0529ae80dde1072d64fa1925aafe9819bebc92047 . /
+COPY --from=stagex/core-openssl:sx2026.06.0@sha256:5fbecea19913b8c9bb2e5976b03833d44f99c98290b17ee5ef9b469470b7bbff . /
+COPY --from=stagex/core-ncurses:sx2026.06.0@sha256:90cc5d029c5073405f9db39c88b9509b8959bbd8f19d8cd02c20e9350cc40254 . /
+COPY --from=stagex/core-git:sx2026.06.0@sha256:153662d5bfbd9fc4331eab59e15e629318aef946d297bc7c2c14e2b90c95d147 . /
+COPY --from=stagex/core-bzip2:sx2026.06.0@sha256:5544050f935ae83d5b8c51fcbd712f404ffea27c8603e63903caa7598502ebc7 . /
+COPY --from=stagex/core-rust:sx2026.06.0@sha256:def2df15b5bcc5271453fc940b06f5f1cbdec91b72c37855f6777c7e9acf9584 . /
+COPY --from=stagex/core-pkgconf:sx2026.06.0@sha256:510abfd0f0897b710ad350e39bda7676045a3cce8e723316a6d6e9651e9560b9 . /
+COPY --from=stagex/core-tar:sx2026.06.0@sha256:6a66ebeedceb92c59fa558e254a2f8a0648f1e677836f597967bb673e3254147 . /
+
+FROM base AS rust-std
+
+COPY --from=stagex/core-ca-certificates:sx2026.06.0@sha256:ea7076d1bb83693fa4766c9cbd8132e59ac0981799fd8b58961c245cd360b66d . /
+
+COPY --from=fcmp_pp_rust Cargo.toml Cargo.lock /tmp/fcmp_pp_rust/
+COPY --from=fcmp_pp_rust src/lib.rs /tmp/fcmp_pp_rust/src/lib.rs
+
+RUN RUSTC_BOOTSTRAP=1 cargo vendor \
+        --locked \
+        --manifest-path /usr/lib/rustlib/src/rust/library/Cargo.toml \
+        --sync /tmp/fcmp_pp_rust/Cargo.toml \
+        /vendor > /config.toml
+
+FROM base
+
+COPY --from=rust-std /vendor /vendor
+COPY --from=rust-std /config.toml /config.toml
+
+ENTRYPOINT ["/bin/env"]
