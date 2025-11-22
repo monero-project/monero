@@ -1,21 +1,21 @@
-# Copyright (c) 2014-2024, The Monero Project
-# 
+# Copyright (c) 2024, The Monero Project
+#
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
-# 
+#
 # 2. Redistributions in binary form must reproduce the above copyright notice, this list
 #    of conditions and the following disclaimer in the documentation and/or other
 #    materials provided with the distribution.
-# 
+#
 # 3. Neither the name of the copyright holder nor the names of its contributors may be
 #    used to endorse or promote products derived from this software without specific
 #    prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 # MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,24 +25,40 @@
 # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
-# Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-find_package(Unbound)
+set(carrot_core_sources
+  account_secrets.cpp
+  address_utils.cpp
+  carrot_enote_types.cpp
+  core_types.cpp
+  destination.cpp
+  device.cpp
+  device_ram_borrowed.cpp
+  enote_utils.cpp
+  hash_functions.cpp
+  output_set_finalization.cpp
+  payment_proposal.cpp
+  scan.cpp
+  scan_unsafe.cpp)
 
-if(NOT UNBOUND_INCLUDE_DIR)
-  die("Could not find libunbound")
-else()
-  message(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
-  if(UNBOUND_LIBRARIES)
-    message(STATUS "Found libunbound library")
-  else()
-    die("Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent")
-  endif()
-endif()
+monero_find_all_headers(carrot_core_headers, "${CMAKE_CURRENT_SOURCE_DIR}")
 
-add_subdirectory(db_drivers)
-add_subdirectory(easylogging++)
-add_subdirectory(mx25519)
-add_subdirectory(qrcodegen)
-add_subdirectory(randomx EXCLUDE_FROM_ALL)
+monero_add_library(carrot_core
+  ${carrot_core_sources}
+  ${carrot_core_headers})
+
+target_link_libraries(carrot_core
+  PUBLIC
+    cncrypto
+    epee
+    mx25519_static
+    ringct_basic
+    seraphis_crypto
+  PRIVATE
+    ${EXTRA_LIBRARIES})
+
+target_include_directories(carrot_core
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+  PRIVATE
+    ${Boost_INCLUDE_DIRS})
