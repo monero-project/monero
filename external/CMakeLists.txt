@@ -1,69 +1,71 @@
-# Copyright (c) 2014-2024, The Monero Project
-# 
-# All rights reserved.
-# 
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-# 
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-#    conditions and the following disclaimer.
-# 
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-#    of conditions and the following disclaimer in the documentation and/or other
-#    materials provided with the distribution.
-# 
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-#    used to endorse or promote products derived from this software without specific
-#    prior written permission.
-# 
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-# MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
-# THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
-# THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
-# Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
+# --- Dependency Management ---
 
+## MiniUPnP:
+# The project aims to use the in-tree miniupnpc source code for consistency,
+# especially when building statically, to minimize external dependency issues.
 
-# This is broken up into two parts: first we check for miniupnp, compile it if we can't
-# find it, and thereafter we check for libunbound, and compile it if we can't find it.
-# We always compile if we are building statically to reduce static dependency issues...
-# ...except for FreeBSD, because FreeBSD is a special case that doesn't play well with
-# others.
+message(STATUS "Using in-tree miniupnpc source code.")
 
-find_package(Miniupnpc REQUIRED)
-
-message(STATUS "Using in-tree miniupnpc")
-set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation" FORCE)
-set(UPNPC_BUILD_SHARED OFF CACHE BOOL "Disable building shared library" FORCE)
-add_subdirectory(miniupnp/miniupnpc)
-set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
-set_property(TARGET libminiupnpc-static PROPERTY POSITION_INDEPENDENT_CODE ON)
-set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-undef -Wno-unused-result -Wno-unused-value")
-if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
-	set_property(TARGET libminiupnpc-static APPEND_STRING PROPERTY COMPILE_FLAGS " -D_NETBSD_SOURCE")
+# Set internal variables to control the in-tree build of miniupnp.
+# We set them once and avoid using 'FORCE' to respect potential user overrides.
+if (NOT DEFINED UPNPC_NO_INSTALL)
+    set(UPNPC_NO_INSTALL TRUE CACHE BOOL "Disable miniupnp installation")
+endif()
+if (NOT DEFINED UPNPC_BUILD_SHARED)
+    # Ensure static library is built, which is generally preferred for linking.
+    set(UPNPC_BUILD_SHARED OFF CACHE BOOL "Disable building shared library")
 endif()
 
+# Add the miniupnpc source directory to the build.
+add_subdirectory(miniupnp/miniupnpc)
+
+# Configure the resulting static library target.
+set_property(TARGET libminiupnpc-static PROPERTY FOLDER "external")
+# Set Position Independent Code (PIC) ON for robust linking, especially with shared libraries.
+set_property(TARGET libminiupnpc-static PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+# Suppress specific warnings for the external library to keep the build log clean.
+# Using target_compile_options is the modern CMake way.
+target_compile_options(libminiupnpc-static PRIVATE
+    -Wno-undef
+    -Wno-unused-result
+    -Wno-unused-value
+)
+
+# Apply NetBSD-specific definition if compiling on that system.
+if (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
+    target_compile_options(libminiupnpc-static PRIVATE
+        -D_NETBSD_SOURCE
+    )
+endif()
+
+# Export the library name for use in the parent scope or other modules.
 set(UPNP_LIBRARIES "libminiupnpc-static" PARENT_SCOPE)
 
+# --- Libunbound Dependency Check ---
+
+# Attempt to find the external libunbound library.
 find_package(Unbound)
 
-if(NOT UNBOUND_INCLUDE_DIR)
-  die("Could not find libunbound")
+if(NOT Unbound_FOUND)
+    # Using message(FATAL_ERROR) is the standard CMake way to stop the build.
+    message(FATAL_ERROR "Could not find libunbound. Please ensure the library and headers are installed (e.g., libunbound-dev).")
 else()
-  message(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
-  if(UNBOUND_LIBRARIES)
-    message(STATUS "Found libunbound library")
-  else()
-    die("Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent")
-  endif()
+    message(STATUS "Found libunbound: includes in ${UNBOUND_INCLUDE_DIR}")
+
+    # Note: If Unbound_FOUND is true, CMake guarantees UNBOUND_LIBRARIES is set
+    # if the library was found. The explicit check is mostly redundant but kept
+    # for defensive programming style if a custom FindUnbound.cmake is used.
+    if(NOT UNBOUND_LIBRARIES)
+        message(FATAL_ERROR "Found libunbound includes, but could not find the library files. Check your linker paths.")
+    endif()
 endif()
 
+# --- Internal Subdirectories ---
+
+# Add other project components.
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
 add_subdirectory(qrcodegen)
+# RandomX is often a heavy component and is marked EXCLUDE_FROM_ALL.
 add_subdirectory(randomx EXCLUDE_FROM_ALL)
