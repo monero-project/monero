@@ -70,8 +70,8 @@ int main(int argc, char* argv[])
   mlog_configure("", true);
 
   SL(boost::thread);
-  SL(boost::asio::io_service);
-  SL(boost::asio::io_service::work);
+  SL(boost::asio::io_context);
+  SL(boost::asio::executor_work_guard<boost::asio::io_context::executor_type>);
   SL(boost::asio::deadline_timer);
 
   SL(cryptonote::DB_ERROR);
