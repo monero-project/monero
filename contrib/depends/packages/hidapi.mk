@@ -1,10 +1,9 @@
 package=hidapi
-$(package)_version=0.13.1
+$(package)_version=0.15.0
 $(package)_download_path=https://github.com/libusb/hidapi/archive/refs/tags
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=476a2c9a4dc7d1fc97dd223b84338dbea3809a84caea2dcd887d9778725490e3
+$(package)_sha256_hash=5d84dec684c27b97b921d2f3b73218cb773cf4ea915caee317ac8fc73cef8136
 $(package)_linux_dependencies=libusb eudev
-$(package)_patches=missing_win_include.patch
 
 define $(package)_set_vars
 $(package)_config_opts=--enable-static --disable-shared
@@ -17,7 +16,7 @@ $(package)_config_opts_linux+=--with-pic
 endef
 
 define $(package)_preprocess_cmds
-  patch -p1 < $($(package)_patch_dir)/missing_win_include.patch && ./bootstrap
+  ./bootstrap
 endef
 
 define $(package)_config_cmds
