@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024, The Monero Project
+// Copyright (c) 2025, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -27,18 +27,47 @@
 
 #pragma once
 
-#include "serialization/wire/error.h"
-#include "serialization/wire/fwd.h"
-#include "serialization/wire/write.h"
+#include <type_traits>
+#include <utility>
 
-//! Define functions that list fields in `type` (using virtual interface)
-#define WIRE_DEFINE_OBJECT(type, map)                          \
-  void write_bytes(::wire::writer& dest, const type& source)   \
-  { map(dest, source); }
+#include "serialization/wire/field.h"
+#include "serialization/wire/traits.h"
+#include "serialization/wire.h"
 
-//! Define `from_bytes` and `to_bytes` for `this`.
-#define WIRE_DEFINE_CONVERSIONS()                                       \
-  template<typename W, typename T>                                      \
-  std::error_code to_bytes(T& dest) const                               \
-  { return ::wire_write::to_bytes<W>(dest, *this); }
+namespace wire
+{
+  //! A wrapper that tells `wire::writer`s to write the inner type as an array.
+  template<typename U>
+  struct range_
+  {
+    WIRE_DEFINE_CONVERSIONS()
 
+    using value_type = unwrap_reference_t<U>;
+
+    U value;
+
+    constexpr const value_type& get_value() const noexcept { return value; }
+    value_type& get_value() noexcept { return value; }
+
+    // concept requirements for `is_optional_on_empty`    
+    bool empty() const { return get_value().empty(); }
+  };
+
+  template<typename F, typename T>
+  void write_bytes(F& format, const range_<T> self)
+  {
+    wire_write::array(format, self.get_value());
+  }
+
+  //! Links `value` with `range_`.
+  template<typename T>
+  inline constexpr range_<T> range(T value)
+  {
+    return {std::move(value)};
+  }
+
+  template<typename T>
+  struct is_optional_on_empty<range_<T>>
+    : std::true_type
+  {};
+} // wire

@@ -82,8 +82,8 @@ class zmq_pub
     //! Process a client subscription request (from XPUB sockets). Thread-safe.
     bool sub_request(const boost::string_ref message);
 
-    /*! Forward ZMQ messages sent to `relay` via `send_chain_main` or
-      `send_txpool_add` to `pub`. Used by `ZmqServer`. */
+    /*! Forward ZMQ messages sent to `relay` via `send_chain_main`,
+      `send_txpool_add`, or `send_miner_data` to `pub`. Used by `ZmqServer`. */
     bool relay_to_pub(void* relay, void* pub);
 
     /*! Send a `ZMQ_PUB` notification for a change to the main chain.
