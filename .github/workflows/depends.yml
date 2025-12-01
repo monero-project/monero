@@ -26,7 +26,7 @@ jobs:
   build-cross:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:20.04
+      image: ubuntu:22.04
       env:
         DEBIAN_FRONTEND: noninteractive
         CCACHE_TEMPDIR: /tmp/.ccache-temp
@@ -56,11 +56,11 @@ jobs:
           - name: "Cross-Mac x86_64"
             host: "x86_64-apple-darwin"
             rust_host: "x86_64-apple-darwin"
-            packages: "clang-18 lld-18"
+            packages: "clang-19 lld-19"
           - name: "Cross-Mac aarch64"
             host: "arm64-apple-darwin"
             rust_host: "aarch64-apple-darwin"
-            packages: "clang-18 lld-18"
+            packages: "clang-19 lld-19"
           - name: "x86_64 Freebsd"
             host: "x86_64-unknown-freebsd"
             rust_host: "x86_64-unknown-freebsd"
@@ -77,8 +77,19 @@ jobs:
     steps:
     - name: set apt conf
       run: ${{env.APT_SET_CONF}}
+    - name: install packages
+      run: apt update; apt -y install ca-certificates curl
+    - name: prepare apple-darwin
+      if: ${{ matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'arm64-apple-darwin' }}
+      run: |
+          cat << EOF >> /etc/apt/sources.list
+          deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
+          deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
+          EOF
+          curl https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          echo "/usr/lib/llvm-19/bin/" >> $GITHUB_PATH
     - name: install dependencies
-      run: apt update; apt -y install build-essential cmake pkg-config curl git ca-certificates ccache ${{ matrix.toolchain.packages }}
+      run: apt update; apt -y install build-essential cmake pkg-config git ccache ${{ matrix.toolchain.packages }}
     - name: install rust
       # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
       # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
@@ -116,10 +127,6 @@ jobs:
       run: |
         update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
         update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
-    - name: prepare apple-darwin
-      if: ${{ matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'arm64-apple-darwin' }}
-      run: |
-        echo "/usr/lib/llvm-18/bin/" >> $GITHUB_PATH
     - uses: ./.github/actions/set-make-job-count
     - name: build
       run: |
