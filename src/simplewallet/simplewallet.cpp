@@ -8768,6 +8768,10 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
   }
 
   std::ofstream file(filename);
+  if(file.fail()) {
+    fail_msg_writer() << boost::format(tr("Failed to open %s for writing")) % filename;
+    return true;
+  }
 
   // header
   file <<
@@ -8837,7 +8841,11 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
   }
   file.close();
 
-  success_msg_writer() << tr("CSV exported to ") << filename;
+  if(file.fail()) {
+    fail_msg_writer() << tr("Failed to export CSV to ") << filename;
+  } else {
+    success_msg_writer() << tr("CSV exported to ") << filename;
+  }
 
   return true;
 }
