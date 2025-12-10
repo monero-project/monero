@@ -664,7 +664,7 @@ namespace cryptonote
     bl.timestamp = 0;
     bl.nonce = nonce;
     miner::find_nonce_for_given_block([](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash){
-      return cryptonote::get_block_longhash(NULL, b, hash, height, seed_hash, threads);
+      return cryptonote::get_block_longhash(NULL, b, hash, height, seed_hash);
     }, bl, 1, 0, NULL);
     bl.invalidate_hashes();
     return true;
@@ -674,10 +674,14 @@ namespace cryptonote
   {
     blobdata bd = get_block_hashing_blob(b);
     rx_slow_hash(seed_hash.data, bd.data(), bd.size(), res.data);
+    if (b.major_version >= HF_VERSION_POW_COMMITMENT)
+      rx_commitment(bd.data(), bd.size(), res.data, res.data);
   }
 
-  bool get_block_longhash(const Blockchain *pbc, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, const int miners)
+  bool get_block_longhash(const Blockchain *pbc, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, crypto::hash *intermediate_hash_out)
   {
+    if (intermediate_hash_out)
+      *intermediate_hash_out = crypto::null_hash;
     // block 202612 bug workaround
     if (height == 202612)
     {
@@ -697,6 +701,12 @@ namespace cryptonote
         memset(&hash, 0, sizeof(hash));  // only happens when generating genesis block
       }
       rx_slow_hash(hash.data, bd.data(), bd.size(), res.data);
+      if (major_version >= HF_VERSION_POW_COMMITMENT)
+      {
+        if (intermediate_hash_out)
+          *intermediate_hash_out = res;
+        rx_commitment(bd.data(), bd.size(), res.data, res.data);
+      }
     } else {
       const int pow_variant = major_version >= 7 ? major_version - 6 : 0;
       crypto::cn_slow_hash(bd.data(), bd.size(), res, pow_variant, height);
@@ -704,16 +714,16 @@ namespace cryptonote
     return true;
   }
 
-  bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, const int miners)
+  bool get_block_longhash(const Blockchain *pbc, const block& b, crypto::hash& res, const uint64_t height, const crypto::hash *seed_hash, crypto::hash *intermediate_hash_out)
   {
     blobdata bd = get_block_hashing_blob(b);
-	return get_block_longhash(pbc, bd, res, height, b.major_version, seed_hash, miners);
+    return get_block_longhash(pbc, bd, res, height, b.major_version, seed_hash, intermediate_hash_out);
   }
 
-  crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const crypto::hash *seed_hash, const int miners)
+  crypto::hash get_block_longhash(const Blockchain *pbc, const block& b, const uint64_t height, const crypto::hash *seed_hash, crypto::hash *intermediate_hash_out)
   {
     crypto::hash p = crypto::null_hash;
-    get_block_longhash(pbc, b, p, height, seed_hash, miners);
+    get_block_longhash(pbc, b, p, height, seed_hash, intermediate_hash_out);
     return p;
   }
 }
