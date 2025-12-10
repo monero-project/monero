@@ -32,6 +32,9 @@
 #include <boost/optional/optional.hpp>
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "p2p/p2p_protocol_defs.h"
+#include "cryptonote_config.h"          // for P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE
+#include "string_tools.h"               // for pod_to_hex
+#include <sstream>
 
 namespace cryptonote
 {
@@ -65,6 +68,10 @@ namespace cryptonote
       return 1024 * 1024; // 1 MB
     case cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT::ID:
       return 1024 * 1024 * 4; // 4 MB
+    case cryptonote::NOTIFY_TX_POOL_INV::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    case cryptonote::NOTIFY_REQUEST_TX_POOL_TXS::ID:
+      return 1024 * 1024 * 2; // 2 MB
     default:
       break;
     };
@@ -89,4 +96,143 @@ namespace cryptonote
       return boost::none;
     return m_expected_heights[difference];
   }
+
+  void cryptonote_connection_context::reset()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    m_connection_stats->tx_announcements.clear();
+    m_connection_stats->received = 0;
+    m_connection_stats->requested_from_me = 0;
+    m_connection_stats->requested_from_peer = 0;
+    m_connection_stats->sent = 0;
+    m_connection_stats->missed = 0;
+  }
+
+  void cryptonote_connection_context::add_announcement(const crypto::hash &tx_hash)
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    m_connection_stats->tx_announcements.insert(tx_hash);
+  }
+
+  void cryptonote_connection_context::add_received()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->received;
+  }
+
+  void cryptonote_connection_context::add_requested_from_me()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->requested_from_me;
+  }
+
+  void cryptonote_connection_context::add_requested_from_peer()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    // increment in_flight_requests directly to avoid recursive locking deadlock
+    ++m_connection_stats->in_flight_requests;
+    ++m_connection_stats->requested_from_peer;
+  }
+
+  void cryptonote_connection_context::add_sent()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->sent;
+  }
+
+  void cryptonote_connection_context::add_in_flight_requests()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->in_flight_requests;
+  }
+
+  void cryptonote_connection_context::remove_in_flight_request()
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    if (m_connection_stats->in_flight_requests > 0)
+      --m_connection_stats->in_flight_requests;
+  }
+
+  bool cryptonote_connection_context::can_process_additional_request(size_t requests)
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return (m_connection_stats->in_flight_requests + requests) < P2P_MAX_IN_FLIGHT_REQUESTS;
+  }
+
+  size_t cryptonote_connection_context::get_announcement_size() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->tx_announcements.size();
+  }
+
+  size_t cryptonote_connection_context::get_received() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->received;
+  }
+
+  size_t cryptonote_connection_context::get_requested_from_me() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->requested_from_me;
+  }
+
+  size_t cryptonote_connection_context::get_requested_from_peer() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->requested_from_peer;
+  }
+
+  size_t cryptonote_connection_context::get_sent() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->sent;
+  }
+
+  size_t cryptonote_connection_context::get_total() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->tx_announcements.size()
+        + m_connection_stats->received
+        + m_connection_stats->requested_from_me
+        + m_connection_stats->requested_from_peer
+        + m_connection_stats->sent;
+  }
+
+  size_t cryptonote_connection_context::get_missed() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->missed;
+  }
+
+  size_t cryptonote_connection_context::get_in_flight_requests() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    return m_connection_stats->in_flight_requests;
+  }
+
+  std::string cryptonote_connection_context::get_info() const
+  {
+    std::shared_lock<std::shared_timed_mutex> r_lock(m_connection_stats->mutex);
+    std::ostringstream oss;
+    oss << "Peer ID: " << epee::string_tools::pod_to_hex(m_connection_id)
+        << ", Announcements size: " << m_connection_stats->tx_announcements.size()
+        << ", Received: " << m_connection_stats->received
+        << ", Requested from me : " << m_connection_stats->requested_from_me
+        << ", Requested from peer: " << m_connection_stats->requested_from_peer
+        << ", Sent: " << m_connection_stats->sent
+        << ", Missed: " << m_connection_stats->missed;
+    return oss.str();
+  }
+
+  bool cryptonote_connection_context::missed_announced_tx(const crypto::hash &/*tx_hash*/)
+  {
+    std::unique_lock<std::shared_timed_mutex> w_lock(m_connection_stats->mutex);
+    ++m_connection_stats->missed;
+    const size_t announced = m_connection_stats->tx_announcements.size();
+    if (announced == 0) return false;
+    const size_t percent = (m_connection_stats->missed * 100) / announced;
+    return percent > P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE;
+  }
+
 } // cryptonote
