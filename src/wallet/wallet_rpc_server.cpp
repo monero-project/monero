@@ -40,6 +40,7 @@ using namespace epee;
 #include "version.h"
 #include "wallet_rpc_server.h"
 #include "wallet/wallet_args.h"
+#include "wallet/uri.hpp"
 #include "common/command_line.h"
 #include "common/i18n.h"
 #include "common/scoped_message_writer.h"
@@ -3237,6 +3238,36 @@ namespace tools
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_uri_v2(const wallet_rpc::COMMAND_RPC_MAKE_URI_V2::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI_V2::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    std::string error;
+    std::vector<tools::wallet::tx_amount> amounts;
+    amounts.reserve(req.amounts.size());
+
+    for (const auto& src : req.amounts)
+    {
+        tools::wallet::tx_amount dst;
+        if (!tools::wallet::parse_u128(src.amount, dst.amount)) 
+        {
+            er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+            er.message = std::string("Invalid amount string: ") + src.amount;
+        }
+        dst.currency = src.currency;
+        amounts.push_back(std::move(dst));
+    }
+
+    std::string uri = tools::wallet::make_uri(req.addresses, amounts, req.recipient_names, req.tx_description, error);
+    if (uri.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = std::string("Cannot make URI from supplied parameters: ") + error;
+      return false;
+    }
+    
+    res.uri = uri;
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_parse_uri(const wallet_rpc::COMMAND_RPC_PARSE_URI::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
@@ -3247,6 +3278,37 @@ namespace tools
       er.message = "Error parsing URI: " + error;
       return false;
     }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_parse_uri_v2(const wallet_rpc::COMMAND_RPC_PARSE_URI_V2::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI_V2::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    std::string error;
+    std::vector<std::string> addresses;
+    std::vector<tools::wallet::tx_amount> amounts;
+    std::vector<std::string> recipient_names;
+    if (!tools::wallet::parse_uri(req.uri, addresses, amounts, recipient_names, res.uri.tx_description, res.unknown_parameters, error))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = "Error parsing URI: " + error;
+      return false;
+    }
+
+    res.uri.addresses = addresses;
+
+    std::vector<wallet_rpc::rpc_tx_amount> rpc_amounts;
+    rpc_amounts.reserve(amounts.size());
+
+    for (const auto& src : amounts) 
+    {
+        wallet_rpc::rpc_tx_amount dst;
+        dst.amount = tools::wallet::to_string_u128(src.amount);
+        dst.currency = src.currency;
+        rpc_amounts.push_back(std::move(dst));
+    }
+
+    res.uri.amounts = rpc_amounts;
+    res.uri.recipient_names = recipient_names;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
