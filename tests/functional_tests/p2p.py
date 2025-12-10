@@ -37,6 +37,17 @@ import time
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
+def average(a):
+    return sum(a) / len(a)
+
+def median(a):
+    a = sorted(a)
+    i0 = len(a)//2
+    if len(a) % 2 == 0:
+        return average(a[i0-1:i0+1])
+    else:
+        return a[i0]
+
 class P2PTest():
     def run_test(self):
         self.reset()
@@ -47,6 +58,7 @@ class P2PTest():
         self.test_p2p_block_propagation_shared(txid)
         txid = self.test_p2p_tx_propagation()
         self.test_p2p_block_propagation_new(txid)
+        self.bench_p2p_heavy_block_propagation_speed()
 
     def reset(self):
         print('Resetting blockchain')
@@ -307,6 +319,140 @@ class P2PTest():
             assert ('in_pool' not in tx_details) or (not tx_details.in_pool)
             assert tx_details.block_height == block_height
 
+    def bench_p2p_heavy_block_propagation_speed(self):
+        ENABLED = False
+        if not ENABLED:
+            print('SKIPPING benchmark of P2P heavy block propagation')
+            return
+
+        print('Benchmarking P2P heavy block propagation')
+
+        daemon2 = Daemon(idx = 2)
+        daemon3 = Daemon(idx = 3)
+        start_height = daemon2.get_height().height
+        current_height = start_height
+        daemon2_address = '{}:{}'.format(daemon2.host, daemon2.port)
+
+        print('    Setup: creating new wallet')
+        wallet = Wallet()
+        try: wallet.close_wallet()
+        except: pass
+        wallet.create_wallet()
+        wallet.auto_refresh(enable = False)
+        wallet.set_daemon(daemon2_address)
+        assert wallet.get_transfers() == {}
+        main_address = wallet.get_address().address
+
+        CURRENT_RING_SIZE = 16
+        min_height = CURRENT_RING_SIZE + 1 + 60
+        if start_height < min_height:
+            print('    Setup: mining to mixable RingCT height: {}'.format(min_height))
+            n_to_mine = min_height - start_height
+            daemon2.generateblocks(main_address, n_to_mine)
+            current_height += n_to_mine
+
+        print('    Setup: spamming self-send transactions into mempool to increase size')
+
+        update_unlocked_inputs = lambda: \
+            [x for x in wallet.incoming_transfers().get('transfers', []) if not x.spent
+                and x.unlocked
+                and x.amount > 2 * last_fee]
+
+        MAX_TX_OUTPUTS = 16
+        MEMPOOL_TX_TARGET = 2 * 8192 # 2x previous ver_rct_non_semantics_simple_cached() cache size
+        n_mempool_txs = 0
+        unlocked_inputs = update_unlocked_inputs()
+        last_fee = 10000000000 # 0.01 XMR to start off with is an over-estimation for a 1/16 in the penalty-free zone
+
+        print_progress = lambda action: \
+            print('        Progress: {}/{} ({:.1f}%) txs in mempool, {} usable inputs, {} blocks mined, just {} {}'.format(
+                n_mempool_txs, MEMPOOL_TX_TARGET, n_mempool_txs/MEMPOOL_TX_TARGET*100, len(unlocked_inputs),
+                current_height - start_height, action, ' ' * 10
+            ), end='\r')
+        print_progress('started')
+
+        while n_mempool_txs < MEMPOOL_TX_TARGET:
+            try:
+                if len(unlocked_inputs) == 0:
+                    daemon2.generateblocks(main_address, 1)
+                    wallet.refresh()
+                    current_height += 1
+                    wallet_height = wallet.get_height().height
+                    assert wallet_height == current_height, wallet_height
+                    n_mempool_txs = len(daemon2.get_transaction_pool_hashes().get('tx_hashes', []))
+                    res = wallet.incoming_transfers()
+                    unlocked_inputs = update_unlocked_inputs()
+                    last_action = 'mined'
+                else:
+                    inp = unlocked_inputs.pop()
+                    res = wallet.sweep_single(main_address, outputs = MAX_TX_OUTPUTS - 1, key_image = inp.key_image)
+                    assert res.spent_key_images.key_images == [inp.key_image]
+                    last_fee = res.fee
+                    n_mempool_txs += 1
+                    last_action = 'swept'
+            except AssertionError as ae:
+                print() # Clear carriage return
+                if 'Transaction sanity check failed' not in str(ae):
+                    raise
+                # The RingCT output distribution gets so skewed in this test that the wallet
+                # thinks something is wrong with decoy selection. To recover, try mining a block on
+                # the next action.
+                print('        WARNING: caught transaction sanity check, stepping forward chain to try to fix')
+                unlocked_inputs = []
+                last_action = 'caught sanity'
+
+            print_progress(last_action)
+
+        print()
+        print('    Setup: wait for daemons to reach equilibrium on mempool contents')
+
+        assert n_mempool_txs > 0
+
+        sync_start = time.time()
+        sync_deadline = sync_start + 120
+        while True:
+            mempool_hashes_2 = daemon2.get_transaction_pool_hashes().get('tx_hashes', [])
+            assert len(mempool_hashes_2) == n_mempool_txs # Txs were submitted to daemon 2
+            mempool_hashes_3 = daemon3.get_transaction_pool_hashes().get('tx_hashes', [])
+            print('        {}/{} mempool txs propagated'.format(len(mempool_hashes_2), len(mempool_hashes_3)), end='\r')
+            if sorted(mempool_hashes_2) == sorted(mempool_hashes_3):
+                break
+            elif time.time() > sync_deadline:
+                raise RuntimeError('daemons did not sync mempools within deadline')
+            time.sleep(0.25)
+
+        print()
+        print('    Bench: mine and propagate blocks until mempool is empty of profitable txs')
+
+        timings = []
+        while True:
+            time1 = time.time()
+            daemon2.generateblocks(main_address, 1)
+            current_height += 1
+            time2 = time.time()
+            while daemon3.get_height().height != current_height:
+                time.sleep(0.01)
+            time3 = time.time()
+            new_n_mempool_txs = len(daemon2.get_transaction_pool_hashes().get('tx_hashes', []))
+            assert new_n_mempool_txs <= n_mempool_txs
+            n_mined_txs = n_mempool_txs - new_n_mempool_txs
+            elapsed_mining = time2 - time1
+            elapsed_prop = time3 - time2
+            timings.append((n_mined_txs, elapsed_mining, elapsed_prop))
+            n_mempool_txs = new_n_mempool_txs
+            print('        * Mined {} txs in {:.2f}s, propagated in {:.2f}s'.format(*(timings[-1])))
+            if n_mempool_txs == 0 or n_mined_txs == 0:
+                break
+
+        print('    Analysis of {}-tx mempool handling:'.format(MEMPOOL_TX_TARGET))
+        avg_mining = average([x[1] for x in timings])
+        median_mining = median([x[1] for x in timings])
+        avg_prop = average([x[2] for x in timings])
+        median_prop = median([x[2] for x in timings])
+        print('        Average mining time: {:.2f}'.format(avg_mining))
+        print('        Median mining time: {:.2f}'.format(median_mining))
+        print('        Average block propagation time: {:.2f}'.format(avg_prop))
+        print('        Median block propagation time: {:.2f}'.format(median_prop))
 
 if __name__ == '__main__':
     P2PTest().run_test()

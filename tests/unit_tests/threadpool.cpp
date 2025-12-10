@@ -145,3 +145,35 @@ TEST(threadpool, leaf_reentrancy)
   waiter.wait();
   ASSERT_EQ(counter, 500000);
 }
+
+static bool check_test_and_set(const std::size_t n, const std::function<bool(std::size_t)> &fail_condition)
+{
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(std::max<std::size_t>(n, 1)));
+  tools::threadpool::waiter waiter(*tpool);
+
+  std::atomic_flag fail_occurred{};
+  for (std::size_t i = 0; i < n; ++i)
+  {
+    tpool->submit(&waiter, [&, i](){ if (fail_condition(i)) { fail_occurred.test_and_set(); }}, true);
+  }
+
+  return waiter.wait() && !fail_occurred.test_and_set();
+}
+
+TEST(threapool, test_and_set)
+{
+  // No failure
+  ASSERT_TRUE(check_test_and_set(0, [](std::size_t i) -> bool { return false; }));
+  static const std::size_t N = 4;
+  ASSERT_TRUE(check_test_and_set(N, [](std::size_t i) -> bool { return false; }));
+
+  // 1 failure
+  ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return i == 0; }));
+  ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return i == 1; }));
+  ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return i == 2; }));
+  ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return i == 3; }));
+
+  // Multiple failures
+  ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return i > 0; }));
+  ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return true; }));
+}
