@@ -1493,8 +1493,16 @@ namespace cryptonote
             return 1;
           }
 
+          boost::unique_lock<boost::mutex> check_span_lock{m_check_span_queue_mutex, boost::defer_lock};
           bool stopped = false;
-          auto cleanup_on_exit = epee::misc_utils::create_scope_leave_handler([this, &stopped, &context, span_connection_id, start_height]() {
+          auto cleanup_on_exit = epee::misc_utils::create_scope_leave_handler([this, &check_span_lock, &stopped, &context, span_connection_id, start_height]() {
+            // Grab the span queue check lock so that we make sure we finish writing the block to the db before checking
+            // the span queue again. Otherwise it's possible for the span queue check to read the db height at n-1 in
+            // thread1, then wait for block n to be added and its span removed from the queue in this thread2, then check
+            // the span queue in thread1 and incorrectly think the span starting at block n is missing.
+            // TODO: a better sync protocol.
+            check_span_lock.lock();
+
             if (!m_core.cleanup_handle_incoming_blocks())
             {
               LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
@@ -1623,7 +1631,10 @@ namespace cryptonote
             MGINFO_YELLOW("Synced " << current_blockchain_height << "/" << target_blockchain_height
                 << progress_message << timing_message);
             if (previous_stripe != current_stripe)
+            {
+              check_span_lock.unlock();
               notify_new_stripe(context, current_stripe);
+            }
           }
         }
       }
@@ -1968,7 +1979,7 @@ skip:
   {
     // take out blocks we already have
     size_t skip = 0;
-    while (skip < context.m_needed_objects.size() && (m_core.have_block(context.m_needed_objects[skip].first) || (check_block_queue && m_block_queue.have(context.m_needed_objects[skip].first))))
+    while (skip < context.m_needed_objects.size() && (m_core.have_block_unlocked(context.m_needed_objects[skip].first) || (check_block_queue && m_block_queue.have(context.m_needed_objects[skip].first))))
     {
       // if we're popping the last hash, record it so we can ask again from that hash,
       // this prevents never being able to progress on peers we get old hash lists from
@@ -2024,6 +2035,15 @@ skip:
     {
       do
       {
+        // Enforce synchronization when checking the span queue. This is a simple solution to prevent unexpected races
+        // when checking the span queue. It's not ideal and doesn't fully solve all possible races.
+        // This section largely needs to be reworked.
+        // Warning: make sure to unlock this to avoid deadlocks if necessary
+        // If any of the functions below acquire the txpool lock (m_transactions_lock) or m_incoming_tx_lock, we can
+        // deadlock, since m_core.prepare_handle_incoming_blocks acquires both and does not release until
+        // m_core.cleanup_handle_incoming_blocks.
+        boost::unique_lock<boost::mutex> check_span_lock{m_check_span_queue_mutex};
+
         const size_t nspans = m_block_queue.get_num_filled_spans();
         const size_t size = m_block_queue.get_data_size();
         const uint64_t bc_height = m_core.get_current_blockchain_height();
@@ -2043,6 +2063,7 @@ skip:
           }
           MDEBUG(context << "Nothing to get from this peer, and it's not ahead of us, all done");
           context.set_state_normal();
+          check_span_lock.unlock();
           if (m_core.get_current_blockchain_height() >= m_core.get_target_blockchain_height())
             on_connection_synchronized();
           return true;
@@ -2114,6 +2135,7 @@ skip:
             MLOG_PEER_STATE("resuming");
             context.m_state = cryptonote_connection_context::state_standby;
             ++context.m_callback_request_count;
+            check_span_lock.unlock();
             m_p2p->request_callback(context);
             return true;
           }
