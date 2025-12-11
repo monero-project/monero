@@ -66,7 +66,8 @@
 #define MLOG_PEER_STATE(x) \
   MCINFO(MONERO_DEFAULT_LOG_CATEGORY, context << "[" << epee::string_tools::to_string_hex(context.m_pruning_seed) << "] state: " << x << " in state " << cryptonote::get_protocol_state_string(context.m_state))
 
-#define BLOCK_QUEUE_NSPANS_THRESHOLD 10 // chunks of N blocks
+#define BLOCK_QUEUE_NSPANS_THRESHOLD 200 // chunks of N blocks
+#define BLOCK_QUEUE_NSPANS_MINIMUM 10 // minimum number of spans
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100*1024*1024) // MB
 #define BLOCK_QUEUE_FORCE_DOWNLOAD_NEAR_BLOCKS 1000
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (5 * 1000000) // microseconds
@@ -185,7 +186,10 @@ namespace cryptonote
                                                                                                               m_synchronized(offline),
                                                                                                               m_ask_for_txpool_complement(true),
                                                                                                               m_stopping(false),
-                                                                                                              m_no_sync(false)
+                                                                                                              m_no_sync(false),
+                                                                                                              m_span_limit(BLOCK_QUEUE_NSPANS_MINIMUM),
+                                                                                                              m_span_time(0),
+                                                                                                              m_bss(0)
 
   {
     if(!m_p2p)
@@ -208,9 +212,20 @@ namespace cryptonote
 
     m_block_download_max_size = command_line::get_arg(vm, cryptonote::arg_block_download_max_size);
     m_sync_pruned_blocks = command_line::get_arg(vm, cryptonote::arg_sync_pruned_blocks);
+    m_span_time = command_line::get_arg(vm, cryptonote::arg_span_limit);
 
     return true;
   }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::calculate_dynamic_span(double blocks_per_seconds)
+  {
+    MINFO("m_bss : " << m_bss << ", blocks_per_seconds : " << blocks_per_seconds << ", m_span_limit : " << m_span_limit);
+    m_span_limit = (m_bss && blocks_per_seconds) ? (( blocks_per_seconds * 60 * m_span_time ) / m_bss) : BLOCK_QUEUE_NSPANS_THRESHOLD;
+    if (m_span_limit < BLOCK_QUEUE_NSPANS_MINIMUM)
+      m_span_limit = BLOCK_QUEUE_NSPANS_MINIMUM;
+    MINFO("calculated dynamic span limit is span_limit : " << m_span_limit);
+  }  
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::deinit()
@@ -1584,10 +1599,12 @@ namespace cryptonote
           m_block_queue.remove_spans(span_connection_id, start_height);
 
           const uint64_t current_blockchain_height = m_core.get_current_blockchain_height();
+          const boost::posix_time::time_duration dt = boost::posix_time::microsec_clock::universal_time() - start;
+          double blocks_per_seconds = (((current_blockchain_height - previous_height) * 1e6) / dt.total_microseconds());
+          calculate_dynamic_span(blocks_per_seconds);
           if (current_blockchain_height > previous_height)
           {
             const uint64_t target_blockchain_height = m_core.get_target_blockchain_height();
-            const boost::posix_time::time_duration dt = boost::posix_time::microsec_clock::universal_time() - start;
             std::string progress_message = "";
             if (current_blockchain_height < target_blockchain_height)
             {
@@ -1611,7 +1628,7 @@ namespace cryptonote
             std::string timing_message = "";
             if (ELPP->vRegistry()->allowed(el::Level::Info, "sync-info"))
               timing_message = std::string(" (") + std::to_string(dt.total_microseconds()/1e6) + " sec, "
-                + std::to_string((current_blockchain_height - previous_height) * 1e6 / dt.total_microseconds())
+                + std::to_string(blocks_per_seconds)                
                 + " blocks/sec), " + std::to_string(m_block_queue.get_data_size() / 1048576.f) + " MB queued in "
                 + std::to_string(m_block_queue.get_num_filled_spans()) + " spans, stripe "
                 + std::to_string(previous_stripe) + " -> " + std::to_string(current_stripe);
@@ -2029,7 +2046,17 @@ skip:
         const uint32_t peer_stripe = tools::get_pruning_stripe(context.m_pruning_seed);
         const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
         const size_t block_queue_size_threshold = m_block_download_max_size ? m_block_download_max_size : BLOCK_QUEUE_SIZE_THRESHOLD;
-        bool queue_proceed = nspans < BLOCK_QUEUE_NSPANS_THRESHOLD || size < block_queue_size_threshold;
+        m_span_limit = m_span_limit ? m_span_limit : BLOCK_QUEUE_NSPANS_THRESHOLD;
+        bool queue_proceed = (nspans < m_span_limit) && (size < block_queue_size_threshold);
+        MINFO( "block_queue_size_threshold : " << block_queue_size_threshold
+               << ", queue_proceed : " << queue_proceed
+               << ", size : " << size
+               << ", nspans : " << nspans
+               << ", m_span_limit : " << m_span_limit
+               << ", bc_height : " << bc_height
+               << ", add_stripe : " << add_stripe
+               << ", peer_stripe : " << peer_stripe
+               << ", local_stripe : " << local_stripe);
         // get rid of blocks we already requested, or already have
         if (skip_unneeded_hashes(context, true) && context.m_needed_objects.empty() && context.m_num_requested == 0)
         {
@@ -2147,7 +2174,7 @@ skip:
       NOTIFY_REQUEST_GET_OBJECTS::request req;
       bool is_next = false;
       size_t count = 0;
-      const size_t count_limit = m_core.get_block_sync_size(m_core.get_current_blockchain_height());
+      m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height());
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
@@ -2197,7 +2224,7 @@ skip:
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
         static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(8);
         bool sync_pruned_blocks = m_sync_pruned_blocks && first_block_height >= bp_fork_height && m_core.get_blockchain_pruning_seed();
-        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, count_limit, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
+        span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, m_bss, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
         MDEBUG(context << " span from " << first_block_height << ": " << span.first << "/" << span.second);
         if (span.second > 0)
         {
@@ -2283,7 +2310,7 @@ skip:
         context.m_expect_height = span.first;
         context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size()
-            << "requested blocks count=" << count << " / " << count_limit << " from " << span.first << ", first hash " << req.blocks.front());
+            << "requested blocks count=" << count << " / " << m_bss << " from " << span.first << ", first hash " << req.blocks.front());
         //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
 
         MDEBUG("Asking for " << (req.prune ? "pruned" : "full") << " data, start/end "
