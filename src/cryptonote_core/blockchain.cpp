@@ -49,6 +49,7 @@
 #include "file_io_utils.h"
 #include "int-util.h"
 #include "common/threadpool.h"
+#include <atomic>
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core.h"
@@ -4168,12 +4169,14 @@ leave:
 
 // XXX old code adds miner tx here
 
-  // Iterate over the block's transaction hashes, grabbing each
-  // from the tx_pool (or from extra_block_txs) and validating them.  Each is then added
-  // to txs.  Keys spent in each are added to <keys> by the double spend check.
+  // Phase 1: Collect all transactions from the tx_pool (or from extra_block_txs).
+  // This must be done sequentially as it modifies shared state (mempool).
+  // Store fees for later accumulation after verification.
+  std::vector<uint64_t> fees;
   txs.reserve(bl.tx_hashes.size());
   txs_meta.reserve(bl.tx_hashes.size());
   txpool_events.reserve(bl.tx_hashes.size());
+  fees.reserve(bl.tx_hashes.size());
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
     TIME_MEASURE_START(aa);
@@ -4205,7 +4208,7 @@ leave:
     uint64_t fee{};
     bool pruned{};
 
-    /* 
+    /*
      * Try pulling transaction data from the mempool proper first. If that fails, then try pulling
      * from the block supplement. We add txs pulled from the block to the txpool events for future
      * notifications, since if the tx skipped the mempool, then listeners have not yet received a
@@ -4260,6 +4263,8 @@ leave:
     // store the list of transactions all at once or return the ones we've
     // taken from the tx_pool back to it if the block fails verification.
     txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool);
+    fees.push_back(fee);
+
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
@@ -4277,31 +4282,102 @@ leave:
 
     TIME_MEASURE_FINISH(dd);
     t_dblspnd += dd;
-    TIME_MEASURE_START(cc);
+  }
 
+  // Phase 2: Verify all transaction inputs in parallel.
+  // Each check_tx_inputs() call is independent and thread-safe:
+  // - DB reads use thread-local LMDB read transactions
+  // - m_rct_ver_cache is internally synchronized with mutex
+  // - No shared state is modified during verification
+  TIME_MEASURE_START(cc);
 #if defined(PER_BLOCK_CHECKPOINT)
-    if (!fast_check)
+  if (!fast_check)
 #endif
+  {
+    if (!txs.empty())
     {
-      // validate that transaction inputs and the keys spending them are correct.
-      tx_verification_context tvc;
-      if(!check_tx_inputs(tx, tvc))
-      {
-        MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+      tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+      const int thread_count = tpool.get_max_concurrency();
 
-        //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
-        add_block_as_invalid(bl, id);
-        MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
-        bvc.m_verifivation_failed = true;
-        return_txs_to_pool();
-        return false;
+      // For small numbers of transactions or single-threaded, verify sequentially
+      if (txs.size() == 1 || thread_count <= 1)
+      {
+        for (size_t i = 0; i < txs.size(); ++i)
+        {
+          tx_verification_context tvc{};
+          if (!check_tx_inputs(txs[i].first, tvc))
+          {
+            const crypto::hash& tx_id = std::get<0>(txs_meta[i]);
+            MERROR_VER("Block with id: " << id << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+            add_block_as_invalid(bl, id);
+            MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
+            bvc.m_verifivation_failed = true;
+            return_txs_to_pool();
+            return false;
+          }
+        }
+      }
+      else
+      {
+        // Parallel verification for multiple transactions
+        tools::threadpool::waiter waiter(tpool);
+        std::vector<tx_verification_context> tvcs(txs.size());
+        std::vector<bool> results(txs.size(), false);
+        const size_t NO_FAILURE = std::numeric_limits<size_t>::max();
+        std::atomic<size_t> first_failed_idx{NO_FAILURE};
+
+        for (size_t i = 0; i < txs.size(); ++i)
+        {
+          tpool.submit(&waiter, [this, &txs, &tvcs, &results, &first_failed_idx, i, NO_FAILURE]() {
+            // Early exit if another transaction already failed
+            // This is an optimization - we still need to wait for all submitted tasks
+            if (first_failed_idx.load(std::memory_order_relaxed) != NO_FAILURE)
+              return;
+
+            results[i] = check_tx_inputs(txs[i].first, tvcs[i]);
+
+            if (!results[i])
+            {
+              // Atomically set first_failed_idx if not already set
+              size_t expected = NO_FAILURE;
+              first_failed_idx.compare_exchange_strong(expected, i, std::memory_order_relaxed);
+            }
+          });
+        }
+
+        // Wait for all verification tasks to complete
+        waiter.wait();
+
+        // Check for any failures
+        size_t failed_idx = first_failed_idx.load(std::memory_order_relaxed);
+        if (failed_idx != NO_FAILURE)
+        {
+          // Find the first failed transaction in order (not necessarily first_failed_idx due to thread scheduling)
+          for (size_t i = 0; i < txs.size(); ++i)
+          {
+            if (!results[i])
+            {
+              const crypto::hash& tx_id = std::get<0>(txs_meta[i]);
+              MERROR_VER("Block with id: " << id << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+              add_block_as_invalid(bl, id);
+              MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
+              bvc.m_verifivation_failed = true;
+              return_txs_to_pool();
+              return false;
+            }
+          }
+        }
       }
     }
+  }
+  TIME_MEASURE_FINISH(cc);
+  t_checktx += cc;
 
-    TIME_MEASURE_FINISH(cc);
-    t_checktx += cc;
-    fee_summary += fee;
-    cumulative_block_weight += tx_weight;
+  // Phase 3: Accumulate fees and weights after successful verification
+  for (size_t i = 0; i < txs.size(); ++i)
+  {
+    fee_summary += fees[i];
+    cumulative_block_weight += std::get<1>(txs_meta[i]);
   }
 
   // if we were syncing pruned blocks
