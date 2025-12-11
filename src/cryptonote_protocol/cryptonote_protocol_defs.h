@@ -309,6 +309,10 @@ namespace cryptonote
         else
           KV_SERIALIZE_OPT(cumulative_difficulty_top64, (uint64_t)0)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_ids)
+        // backward incompatible portable encoding
+        KV_SERIALIZE_N(m_block_weights, "m_block_weights_")
+        // inefficient and simple backward compatibility
+        // TODO: can be removed after v15+ hf
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_block_weights)
         KV_SERIALIZE(first_block)
       END_KV_SERIALIZE_MAP()
@@ -352,6 +356,10 @@ namespace cryptonote
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(block_hash)
         KV_SERIALIZE(current_blockchain_height)
+        // backward incompatible portable encoding
+        KV_SERIALIZE_N(missing_tx_indices, "missing_tx_indices_")
+        // inefficient and simple backward compatibility
+        // TODO: can be removed after v15+ hf
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(missing_tx_indices)
       END_KV_SERIALIZE_MAP()
     };
