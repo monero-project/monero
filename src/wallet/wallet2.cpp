@@ -3660,6 +3660,35 @@ bool wallet2::accept_pool_tx_for_processing(const crypto::hash &txid)
 // Process an unconfirmed transfer after we know whether it's in the pool or not
 void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash &txid, wallet2::unconfirmed_transfer_details &tx_details, bool seen_in_pool, std::chrono::system_clock::time_point now, bool refreshed)
 {
+  const auto set_tx_key_images_spent = [&](const bool spent)
+  {
+    for (size_t vini = 0; vini < tx_details.m_tx.vin.size(); ++vini)
+    {
+      if (tx_details.m_tx.vin[vini].type() != typeid(txin_to_key))
+        continue;
+
+      const crypto::key_image &key_image = boost::get<txin_to_key>(tx_details.m_tx.vin[vini]).k_image;
+      const auto it_ki = m_key_images.find(key_image);
+      if (it_ki == m_key_images.end())
+        continue;
+
+      const std::size_t i = it_ki->second;
+      if (i >= m_transfers.size())
+        continue;
+      const transfer_details &td = m_transfers.at(i);
+      if (td.m_key_image != key_image)
+        continue;
+      if (td.m_spent == spent)
+        continue;
+
+      LOG_PRINT_L1("Resetting spent status for output " << vini << ": " << key_image << " (spent=" << spent << ")");
+      if (spent)
+        set_spent(i, 0);
+      else
+        set_unspent(i);
+    }
+  };
+
   // TODO: set tx_propagation_timeout to CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE * 3 / 2 after v15 hardfork
   constexpr const std::chrono::seconds tx_propagation_timeout{500};
   if (seen_in_pool)
@@ -3669,6 +3698,10 @@ void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash 
       tx_details.m_state = wallet2::unconfirmed_transfer_details::pending_in_pool;
       MINFO("Pending txid " << txid << " seen in pool, marking as pending in pool");
     }
+
+    // The inputs are spent, they're in the pool! It's possible the tx was previously marked as failed, so we
+    // make sure to re-mark the outputs as spent.
+    set_tx_key_images_spent(true/*spent*/);
   }
   else
   {
@@ -3694,23 +3727,7 @@ void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash 
       tx_details.m_state = wallet2::unconfirmed_transfer_details::failed;
 
       // the inputs aren't spent anymore, since the tx failed
-      for (size_t vini = 0; vini < tx_details.m_tx.vin.size(); ++vini)
-      {
-        if (tx_details.m_tx.vin[vini].type() == typeid(txin_to_key))
-        {
-          txin_to_key &tx_in_to_key = boost::get<txin_to_key>(tx_details.m_tx.vin[vini]);
-          for (size_t i = 0; i < m_transfers.size(); ++i)
-          {
-            const transfer_details &td = m_transfers[i];
-            if (td.m_key_image == tx_in_to_key.k_image)
-            {
-                LOG_PRINT_L1("Resetting spent status for output " << vini << ": " << td.m_key_image);
-                set_unspent(i);
-                break;
-            }
-          }
-        }
-      }
+      set_tx_key_images_spent(false/*spent*/);
     }
   }
 }
