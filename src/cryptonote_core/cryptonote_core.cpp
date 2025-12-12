@@ -1546,9 +1546,9 @@ namespace cryptonote
     return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_short_chain_history(std::list<crypto::hash>& ids) const
+  bool core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const
   {
-    return m_blockchain_storage.get_short_chain_history(ids);
+    return m_blockchain_storage.get_short_chain_history(ids, current_height);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_get_objects(NOTIFY_REQUEST_GET_OBJECTS::request& arg, NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote_connection_context& context)
