@@ -8,6 +8,9 @@ SOURCES_PATH ?= $(BASEDIR)/sources
 BASE_CACHE ?= $(BASEDIR)/built
 FALLBACK_DOWNLOAD_PATH ?= https://downloads.getmonero.org/depends-sources
 
+NO_WALLET ?=
+NO_READLINE ?=
+
 BUILD = $(shell ./config.guess)
 HOST ?= $(BUILD)
 PATCHES_PATH = $(BASEDIR)/patches
@@ -110,8 +113,13 @@ build_id_string:=$(realpath $(GUIX_ENVIRONMENT))
 $(host_arch)_$(host_os)_id_string:=$(realpath $(GUIX_ENVIRONMENT))
 endif
 
-packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages)
-native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages)
+wallet_packages_$(NO_WALLET) = $(wallet_packages)
+wallet_native_packages_$(NO_WALLET) = $(wallet_native_packages)
+
+readline_packages_$(NO_READLINE) = $(readline_packages)
+
+packages += $($(host_arch)_$(host_os)_packages) $($(host_os)_packages) $(wallet_packages_) $(readline_packages_)
+native_packages += $($(host_arch)_$(host_os)_native_packages) $($(host_os)_native_packages) $(wallet_native_packages_)
 
 all_packages = $(packages) $(native_packages)
 
