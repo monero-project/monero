@@ -57,7 +57,7 @@ public:
   void set_target_blockchain_height(uint64_t) {}
   bool init(const boost::program_options::variables_map& vm) {return true ;}
   bool deinit(){return true;}
-  bool get_short_chain_history(std::list<crypto::hash>& ids) const { return true; }
+  bool get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const { return true; }
   bool have_block(const crypto::hash& id, int *where = NULL) const {return false;}
   bool have_block_unlocked(const crypto::hash& id, int *where = NULL) const {return false;}
   void get_blockchain_top(uint64_t& height, crypto::hash& top_id)const{height=0;top_id=crypto::null_hash;}

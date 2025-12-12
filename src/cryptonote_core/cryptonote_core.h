@@ -579,7 +579,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_short_chain_history
       */
-     bool get_short_chain_history(std::list<crypto::hash>& ids) const;
+     bool get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const;
 
      /**
       * @copydoc Blockchain::find_blockchain_supplement(const std::list<crypto::hash>&, NOTIFY_RESPONSE_CHAIN_ENTRY::request&) const
