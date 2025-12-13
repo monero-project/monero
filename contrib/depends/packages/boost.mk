@@ -1,8 +1,8 @@
 package=boost
-$(package)_version=1.89.0
+$(package)_version=1.90.0
 $(package)_download_path=https://github.com/boostorg/boost/releases/download/boost-$($(package)_version)
 $(package)_file_name=boost-$($(package)_version)-b2-nodocs.tar.gz
-$(package)_sha256_hash=aa25e7b9c227c21abb8a681efd4fe6e54823815ffc12394c9339de998eb503fb
+$(package)_sha256_hash=e848446c6fec62d8a96b44ed7352238b3de040b8b9facd4d6963b32f541e00f5
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
