@@ -1,8 +1,8 @@
 package=boost
-$(package)_version=1.89.0
+$(package)_version=1.91.0-1
 $(package)_download_path=https://github.com/boostorg/boost/releases/download/boost-$($(package)_version)
 $(package)_file_name=boost-$($(package)_version)-b2-nodocs.tar.gz
-$(package)_sha256_hash=aa25e7b9c227c21abb8a681efd4fe6e54823815ffc12394c9339de998eb503fb
+$(package)_sha256_hash=b5a3d1490118e012f8b12688240d981bcdfcd009fd35bc70d120fbc907df4f7c
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
@@ -18,8 +18,8 @@ $(package)_config_opts_i686_mingw32=address-model=32
 $(package)_config_opts_i686_linux=address-model=32 architecture=x86
 $(package)_toolset_$(host_os)=gcc
 $(package)_archiver_$(host_os)=$($(package)_ar)
-$(package)_config_libraries_$(host_os)="chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization"
-$(package)_config_libraries_mingw32="chrono,filesystem,program_options,system,thread,test,date_time,regex,serialization,locale"
+$(package)_config_libraries_$(host_os)="chrono,filesystem,program_options,thread,test,date_time,regex,serialization"
+$(package)_config_libraries_mingw32="chrono,filesystem,program_options,thread,test,date_time,regex,serialization,locale"
 $(package)_cxxflags_linux+=-fPIC
 $(package)_cxxflags_freebsd+=-fPIC
 $(package)_cxxflags_darwin+=-ffile-prefix-map=$($(package)_extract_dir)=/usr
