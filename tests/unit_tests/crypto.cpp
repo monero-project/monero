@@ -365,7 +365,7 @@ TEST(Crypto, batch_inversion)
   for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
   {
     std::unique_ptr<fe[]> batch_inverted = std::make_unique<fe[]>(n_elems);
-    ASSERT_EQ(fe_batch_invert(batch_inverted.get(), init_elems.get(), n_elems), 0);
+    fe_batch_invert(batch_inverted.get(), init_elems.get(), n_elems);
     // Warning: it's possible that internal fe representations are inconsistent in some future update, since the lib
     // does not guarantee equivalent representations. We may want to "reduce" fe's in this test if this fails.
     // See: https://github.com/seraphis-migration/monero/blob/74a254f8c215986042c40e6875a0f97bd6169a1e/src/crypto/crypto-ops.c#L4047-L4069

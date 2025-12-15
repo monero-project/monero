@@ -315,10 +315,21 @@ void fe_invert(fe out, const fe z) {
 
 // Montgomery's trick
 // https://iacr.org/archive/pkc2004/29470042/29470042.pdf 2.2
-int fe_batch_invert(fe *out, const fe *in, const int n) {
+void fe_batch_invert(fe *out, const fe *in, const int n) {
   if (n == 0) {
-    return 0;
+    return;
   }
+
+  assert(out);
+  assert(in);
+#ifndef NDEBUG
+  {
+    // Overlap of `out` and `in` sections not allowed
+    const fe *pmin = out < in ? out : in;
+    const fe *pmax = out > in ? out : in;
+    assert(pmin + n < pmax);
+  }
+#endif
 
   // Step 1: collect initial muls
   fe_copy(out[0], in[0]);
@@ -336,8 +347,6 @@ int fe_batch_invert(fe *out, const fe *in, const int n) {
     fe_mul(a, a, in[i-1]);
   }
   fe_copy(out[0], a);
-
-  return 0;
 }
 
 /* From fe_isnegative.c */
