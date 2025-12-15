@@ -65,5 +65,6 @@ endif()
 
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
+add_subdirectory(mx25519)
 add_subdirectory(qrcodegen)
 add_subdirectory(randomx EXCLUDE_FROM_ALL)
