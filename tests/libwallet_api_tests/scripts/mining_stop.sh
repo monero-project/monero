@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/bin/bash -e
 
-rlwrap monero-wallet-cli --wallet-file wallet_m --password "" --testnet --trusted-daemon --daemon-address localhost:38081  --log-file wallet_miner.log stop_mining
+. ./conf.sh
+
+rlwrap "$WALLET_CLI" --wallet-file "$WALLETS_ROOT_DIR/wallet_m.bin" --password "" --testnet --trusted-daemon --daemon-address $DAEMON_HOST:$DAEMON_PORT --log-file "$WALLETS_ROOT_DIR/wallet_m.log" stop_mining
 
