@@ -1023,24 +1023,18 @@ namespace cryptonote
     // Populate `remaining_added_txids` with all TXIDs in `txids` and not in `added_txs`
     if (added_txs.size() < txids.size())
     {
-      const size_t num_remaining{txids.size() - added_txs.size()};
-      remaining_added_txids.reserve(num_remaining);
+      // 1. Create a set of added IDs for fast lookup
+      std::unordered_set<crypto::hash> added_set;
+      for (const auto& tx : added_txs) {
+        added_set.insert(tx.first);
+      }
 
-      // This iteration code assumes that the get_transactions_info() method A) returns elements in
-      // the same order as they are passed in (skipping failures) and B) does not return TXIDs which
-      // don't exist in the input. If these assumptions don't hold then remaining_added_txids will
-      // be wrong, but it shouldn't cause any undefined behavior outside of that and should terminate
-      // in a short finite time period O(N) with N = txids.size()
-      auto txid_it = txids.cbegin();
-      auto added_it = added_txs.cbegin();
-      while (txid_it != txids.cend())
-      {
-        if (added_it != added_txs.cend() && added_it->first == *txid_it)
-          ++added_it;
-        else
-          remaining_added_txids.push_back(*txid_it);
-
-        ++txid_it;
+      // 2. Iterate the original list. If not in set, it is "remaining".
+      remaining_added_txids.reserve(txids.size() - added_txs.size());
+      for (const auto& id : txids) {
+        if (added_set.find(id) == added_set.end()) {
+          remaining_added_txids.push_back(id);
+        }
       }
     }
 
