@@ -772,7 +772,10 @@ namespace cryptonote
 
       bool incremental;
       std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
-      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental, (LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9) - cumul_block_data_size);
+      const size_t limit = LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9;
+      // If blocks already take up all the space, allow 0 space for pool txs
+      const size_t pool_limit = (cumul_block_data_size < limit) ? (limit - cumul_block_data_size) : 0;
+      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental, pool_limit);
       if (success)
       {
         res.added_pool_txs.clear();
