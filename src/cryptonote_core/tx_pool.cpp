@@ -1023,7 +1023,7 @@ namespace cryptonote
     // Populate `remaining_added_txids` with all TXIDs in `txids` and not in `added_txs`
     if (added_txs.size() < txids.size())
     {
-      const size_t num_remaining{added_txs.size() - max_tx_count};
+      const size_t num_remaining{txids.size() - added_txs.size()};
       remaining_added_txids.reserve(num_remaining);
 
       // This iteration code assumes that the get_transactions_info() method A) returns elements in
