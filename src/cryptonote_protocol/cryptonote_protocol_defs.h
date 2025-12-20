@@ -417,7 +417,7 @@ namespace cryptonote
   * The receiver can pull which hashes are missing locally                *
   * and optionally request the actual serialized transactions for them.   *
   *************************************************************************/
-  struct NOTIFY_TX_POOL_INV
+  struct NOTIFY_TX_POOL_HASH
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 11;
 

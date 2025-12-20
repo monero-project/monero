@@ -125,12 +125,13 @@ namespace levin
           enabled.
 
         \param txs The transactions that need to be serialized and relayed.
+        \param tx_hashes The hashes of all txs.
         \param source The source of the notification. `is_nil()` indicates this
           node is the source. Dandelion++ will use this to map a source to a
           particular stem.
 
       \return True iff the notification is queued for sending. */
-    bool send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source, relay_method tx_relay);
+    bool send_txs(std::vector<blobdata> txs, std::vector<crypto::hash> &&tx_hashes, const boost::uuids::uuid& source, relay_method tx_relay);
   };
 } // levin
 } // net

@@ -340,7 +340,7 @@ bool generate_random_blocks(cryptonote::core& core, FuzzedDataProvider& provider
 
   for (const auto& tx_blob : cached_txs) {
     cryptonote::tx_verification_context tvc;
-    bool accepted = core.handle_incoming_tx(tx_blob, tvc, cryptonote::relay_method::block, true);
+    bool accepted = core.handle_incoming_tx(tx_blob, tvc, cryptonote::relay_method::block, true, tx_hash);
     if (accepted || tvc.m_added_to_pool) {
       // Store legit hashes
       cryptonote::transaction tx;

@@ -76,6 +76,7 @@ set(unit_tests_sources
   parse_amount.cpp
   pruning.cpp
   random.cpp
+  request_manager.cpp
   rolling_median.cpp
   scaling_2021.cpp
   serialization.cpp

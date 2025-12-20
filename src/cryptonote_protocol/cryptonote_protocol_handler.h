@@ -98,7 +98,7 @@ namespace cryptonote
       HANDLE_NOTIFY_T2(NOTIFY_NEW_FLUFFY_BLOCK, &cryptonote_protocol_handler::handle_notify_new_fluffy_block)			
       HANDLE_NOTIFY_T2(NOTIFY_REQUEST_FLUFFY_MISSING_TX, &cryptonote_protocol_handler::handle_request_fluffy_missing_tx)
       HANDLE_NOTIFY_T2(NOTIFY_GET_TXPOOL_COMPLEMENT, &cryptonote_protocol_handler::handle_notify_get_txpool_complement)
-      HANDLE_NOTIFY_T2(NOTIFY_TX_POOL_INV, &cryptonote_protocol_handler::handle_notify_tx_pool_inv)
+      HANDLE_NOTIFY_T2(NOTIFY_TX_POOL_HASH, &cryptonote_protocol_handler::handle_notify_tx_pool_hash)
       HANDLE_NOTIFY_T2(NOTIFY_REQUEST_TX_POOL_TXS, &cryptonote_protocol_handler::handle_request_tx_pool_txs)
     END_INVOKE_MAP2()
 
@@ -148,12 +148,12 @@ namespace cryptonote
     int handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context);
     int handle_request_fluffy_missing_tx(int command, NOTIFY_REQUEST_FLUFFY_MISSING_TX::request& arg, cryptonote_connection_context& context);
     int handle_notify_get_txpool_complement(int command, NOTIFY_GET_TXPOOL_COMPLEMENT::request& arg, cryptonote_connection_context& context);
-    int handle_notify_tx_pool_inv(int command, NOTIFY_TX_POOL_INV::request& arg, cryptonote_connection_context& context);
+    int handle_notify_tx_pool_hash(int command, NOTIFY_TX_POOL_HASH::request& arg, cryptonote_connection_context& context);
     int handle_request_tx_pool_txs(int command, NOTIFY_REQUEST_TX_POOL_TXS::request& arg, cryptonote_connection_context& context);
 		
     //----------------- i_bc_protocol_layout ---------------------------------------
     virtual bool relay_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context);
-    virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, const boost::uuids::uuid& source, epee::net_utils::zone zone, relay_method tx_relay);
+    virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, std::vector<crypto::hash> &&tx_hashes, const boost::uuids::uuid& source, epee::net_utils::zone zone, relay_method tx_relay);
     //----------------------------------------------------------------------------------
     //bool get_payload_sync_data(HANDSHAKE_DATA::request& hshd, cryptonote_connection_context& context);
     bool should_drop_connection(cryptonote_connection_context& context, uint32_t next_stripe);
@@ -169,6 +169,7 @@ namespace cryptonote
     bool kick_idle_peers();
     bool check_standby_peers();
     bool update_sync_search();
+    void send_txs_request(cryptonote_connection_context &context, std::vector<crypto::hash> &&tx_hashes);
     std::mutex m_check_tx_request_queue_mutex;
     bool check_tx_request_queue();
     int try_add_next_blocks(cryptonote_connection_context &context);
@@ -192,9 +193,7 @@ namespace cryptonote
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
     epee::math_helper::once_a_time_seconds<43> m_bad_peer_checker;
-    std::atomic<uint64_t> m_interval_peer_request_checker{P2P_DEFAULT_REQUEST_TIMEOUT}; // microseconds
-    const std::function<uint64_t()> m_peer_request_interval; // set in ctor
-    epee::math_helper::once_a_time<decltype(m_peer_request_interval)> m_peer_request_checker;
+    epee::math_helper::once_a_time_seconds<5> m_peer_tx_request_checker;
     std::unordered_map<epee::net_utils::zone, unsigned int> m_max_out_peers;
     mutable epee::critical_section m_max_out_peers_lock;
     tools::PerformanceTimer m_sync_timer, m_add_timer;

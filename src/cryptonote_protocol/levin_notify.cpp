@@ -180,9 +180,9 @@ namespace levin
       return out;
     }
 
-    epee::levin::message_writer make_tx_inv_message(std::vector<crypto::hash>&& txs, const bool pad)
+    epee::levin::message_writer make_tx_hash_message(std::vector<crypto::hash>&& txs)
     {
-      NOTIFY_TX_POOL_INV::request request{};
+      NOTIFY_TX_POOL_HASH::request request{};
       request.t = std::move(txs);
 
       epee::levin::message_writer out;
@@ -198,9 +198,10 @@ namespace levin
       return p2p.send(std::move(blob), destination);
     }
 
-    bool make_payload_send_txs_relay_v2(connections& p2p, std::vector<crypto::hash>&& txs, const boost::uuids::uuid& destination, const bool pad)
+    // TODO: do we want to pad to avoid revealing definitive n txs in the req?
+    bool make_payload_send_txs_relay_v2(connections& p2p, std::vector<crypto::hash>&& txs, const boost::uuids::uuid& destination)
     {
-      epee::byte_slice blob = make_tx_inv_message(std::move(txs), pad).finalize_notify(NOTIFY_TX_POOL_INV::ID);
+      epee::byte_slice blob = make_tx_hash_message(std::move(txs)).finalize_notify(NOTIFY_TX_POOL_HASH::ID);
       return p2p.send(std::move(blob), destination);
     }
 
@@ -407,7 +408,7 @@ namespace levin
                  return std::memcmp(&lhs, &rhs, sizeof(lhs)) < 0;
                });
           connection.first.erase(unique(connection.first.begin(), connection.first.end()), connection.first.end());
-          make_payload_send_txs_relay_v2(*zone_->p2p, std::move(connection.first), connection.second, zone_->pad_txs);
+          make_payload_send_txs_relay_v2(*zone_->p2p, std::move(connection.first), connection.second);
         }
 
         for (auto& connection : connections)
@@ -840,13 +841,15 @@ namespace levin
     zone_->flush_txs.cancel();
   }
 
-  bool notify::send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source, relay_method tx_relay)
+  bool notify::send_txs(std::vector<blobdata> txs, std::vector<crypto::hash> &&tx_hashes, const boost::uuids::uuid& source, relay_method tx_relay)
   {
     if (txs.empty())
       return true;
 
     if (!zone_)
       return false;
+
+    CHECK_AND_ASSERT_MES(txs.size() == tx_hashes.size(), false, "Mismatch size of txs <> tx_hashes in send_txs");
 
     /* If noise is enabled in a zone, it always takes precedence. The technique
        provides good protection against ISP adversaries, but not sybil
@@ -906,18 +909,6 @@ namespace levin
         case relay_method::local:
           if (zone_->nzone == epee::net_utils::zone::public_)
           {
-            // TODO, find a better solution
-            std::vector<crypto::hash> tx_hashes;
-            tx_hashes.reserve(txs.size()); // Reserve storage based on txs count
-
-            for (const auto& tx_blob : txs)
-            {
-              cryptonote::transaction tx{};
-              if (parse_and_validate_tx_from_blob(tx_blob, tx))
-              {
-                tx_hashes.push_back(get_transaction_hash(tx));
-              }
-            }
             // this will change a local/forward tx to stem or fluff ...
             boost::asio::dispatch(
               zone_->strand,
@@ -927,18 +918,6 @@ namespace levin
           }
           /* fallthrough */
         case relay_method::fluff:
-          // TODO, find a better solution
-          std::vector<crypto::hash> tx_hashes;
-          tx_hashes.reserve(txs.size()); // Reserve storage based on txs count
-
-          for (const auto& tx_blob : txs)
-          {
-            cryptonote::transaction tx{};
-            if (parse_and_validate_tx_from_blob(tx_blob, tx))
-            {
-              tx_hashes.push_back(get_transaction_hash(tx));
-            }
-          }
           /* If sending stem/forward/local txes over non public networks,
              continue to claim that relay mode even though it used the "fluff"
              routine. A "fluff" over i2p/tor is not the same as a "fluff" over

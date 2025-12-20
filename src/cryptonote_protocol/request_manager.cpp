@@ -38,40 +38,9 @@
 #include <cstddef>
 #include <cstdint>
 
-request_manager::request_manager() : m_requested_txs(), m_mutex() {}
-
-bool request_manager::remove_announcement(const crypto::hash &tx_hash) {
-  MINFO("Removing transaction: " << epee::string_tools::pod_to_hex(tx_hash));
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  auto& requests_by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
-  auto range = requests_by_tx_hash.equal_range(tx_hash);
-  if (range.first != range.second) {
-    size_t removed = std::distance(range.first, range.second);
-    requests_by_tx_hash.erase(range.first, range.second);
-    MINFO("Removed " << removed << " requests for tx " << epee::string_tools::pod_to_hex(tx_hash));
-    return true;
-  }
-  return false;
-}
-
-bool request_manager::received_requested(const boost::uuids::uuid &peer_id, const crypto::hash &tx_hash) {
-  MINFO("Removing transaction: " << epee::string_tools::pod_to_hex(tx_hash)
-        << " for peer: " << epee::string_tools::pod_to_hex(peer_id));
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  auto& requests_by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
-  auto it = requests_by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
-  if (it != requests_by_peer_and_tx.end()) {
-    requests_by_peer_and_tx.erase(it);
-    MINFO("Removed request for tx " << epee::string_tools::pod_to_hex(tx_hash)
-          << " from peer " << epee::string_tools::pod_to_hex(peer_id));
-    return true;
-  }
-  return false;
-}
-
 void request_manager::remove_peer(const boost::uuids::uuid &peer_id) {
   MINFO("Removing all requests for disconnected peer: " << epee::string_tools::pod_to_hex(peer_id));
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
   auto& by_peer = get_requests_by_peer_id(m_requested_txs);
   auto peer_range = by_peer.equal_range(peer_id);
   if (peer_range.first != peer_range.second) {
@@ -79,182 +48,139 @@ void request_manager::remove_peer(const boost::uuids::uuid &peer_id) {
     by_peer.erase(peer_range.first, peer_range.second);
     MINFO("Removed " << removed << " requests for peer " << epee::string_tools::pod_to_hex(peer_id));
   }
+  m_connection_stats.erase(peer_id);
 }
 
-void request_manager::cleanup_stale_requests(uint32_t max_age_seconds) {
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
+std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+  std::unordered_set<boost::uuids::uuid> drop_peers_out;
   size_t removed = 0;
-
   auto now = std::chrono::steady_clock::now();
-  auto it = m_requested_txs.begin();
-  while (it != m_requested_txs.end()) {
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - it->firstseen_timestamp);
-    if (elapsed.count() > max_age_seconds) {
-      MINFO("Removing stale request for tx " << epee::string_tools::pod_to_hex(it->tx_hash) 
-            << " from peer " << epee::string_tools::pod_to_hex(it->peer_id)
-            << ", age: " << elapsed.count() << " seconds");
-      it = m_requested_txs.erase(it);
-      ++removed;
-    } else {
+  for (auto it = m_requested_txs.begin(); it != m_requested_txs.end();) {
+    // Stale means it's been in flight for longer than the allowed timeout
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->last_action_timestamp);
+    if (!it->in_flight || elapsed.count() < m_request_timeout) {
       ++it;
+      continue;
     }
+
+    MINFO("Removing stale request for tx " << it->tx_hash 
+          << " from peer " << epee::string_tools::pod_to_hex(it->peer_id)
+          << ", age: " << elapsed.count() << "ms");
+
+    // If this peer has missed too many requests, we want to drop it
+    if (this->missed_request(it->peer_id, 1)) {
+      drop_peers_out.insert(it->peer_id);
+    }
+
+    it = m_requested_txs.erase(it);
+    ++removed;
   }
 
   MINFO("Cleaned up " << removed << " stale requests");
-  return;
+  return drop_peers_out;
 }
 
-bool request_manager::already_requested_tx(const crypto::hash &tx_hash) const {
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
-  for (const auto& req : boost::make_iterator_range(by_tx_hash.equal_range(tx_hash))) {
-    MINFO("Found request for tx " << epee::string_tools::pod_to_hex(req.tx_hash) << " from peer " << epee::string_tools::pod_to_hex(req.peer_id) << " request is" << (req.is_in_flight() ? " " : " not ")  << "in flight.");
-    if (req.is_in_flight()) {
-      return true;
-    }
-  }
-  MINFO("No in-flight request found for tx " << epee::string_tools::pod_to_hex(tx_hash));
-  return false;
-}
+bool request_manager::add_request(const crypto::hash &tx_hash, const boost::uuids::uuid &peer_id) {
+  MINFO("Requesting from peer: " << epee::string_tools::pod_to_hex(peer_id) << " the transaction: " << tx_hash);
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-bool request_manager::already_requested_tx(const crypto::hash &tx_hash, const boost::uuids::uuid &id) const {
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
   auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
-  for (const auto& req : boost::make_iterator_range(by_peer_and_tx.equal_range(boost::make_tuple(id, tx_hash)))) {
-    MINFO("Found request for tx " << epee::string_tools::pod_to_hex(req.tx_hash) << " from peer " << epee::string_tools::pod_to_hex(req.peer_id) << " request is" << (req.is_in_flight() ? " " : " not ")  << "in flight.");
-    if (req.is_in_flight()) {
-      return true;
-    }
-  }
-  MINFO("No in-flight request found for tx " << epee::string_tools::pod_to_hex(tx_hash));
-  return false;
-}
+  auto it = by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
 
-bool request_manager::add_announcement(const crypto::hash &tx_hash,
-                                      const boost::uuids::uuid &id) {
-  std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now();
-  MINFO("Adding peer: " << epee::string_tools::pod_to_hex(id)
-        << " to transaction: "
-        << epee::string_tools::pod_to_hex(tx_hash));
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
-  auto it = by_peer_and_tx.find(boost::make_tuple(id, tx_hash));
-  if (it != by_peer_and_tx.end()) {
-    // already have this peer for this tx
-    MDEBUG("Peer " << epee::string_tools::pod_to_hex(id)
-           << " already in request queue for tx "
-           << epee::string_tools::pod_to_hex(tx_hash));
+  const bool in_queue = it != by_peer_and_tx.end();
+  const bool let_it_fly = m_connection_stats[peer_id].in_flight_requests < m_max_in_flight
+      && !this->request_is_in_flight(tx_hash);
+
+  if (in_queue && !let_it_fly) {
+    // already have this peer for this tx, we can't process additional reqs at this time
+    MDEBUG("Peer " << epee::string_tools::pod_to_hex(peer_id)
+           << " already in request queue for tx " << tx_hash);
     return false;
-
   }
-  m_requested_txs.insert(tx_request(id, tx_hash, now));
+
+  if (!in_queue) {
+    // Add the new request!
+    m_requested_txs.insert(tx_request(peer_id, tx_hash, let_it_fly));
+  } else if (let_it_fly) {
+    // let_it_fly should always be true here
+    it->fly();
+  }
+
+  if (let_it_fly) {
+    ++m_connection_stats[peer_id].n_total_requests;
+    ++m_connection_stats[peer_id].in_flight_requests;
+  }
+
+  return let_it_fly;
+}
+
+std::vector<crypto::hash> request_manager::fly_available_requests(const boost::uuids::uuid &peer_id) {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+
+  std::vector<crypto::hash> tx_hashes;
+  auto& by_peer = get_requests_by_peer_id(m_requested_txs);
+  auto range = by_peer.equal_range(peer_id);
+  for (auto it = range.first; it != range.second; ++it)
+  {
+    if (m_connection_stats[peer_id].in_flight_requests >= m_max_in_flight)
+      break;
+    if (it->in_flight || this->request_is_in_flight(it->tx_hash))
+      continue;
+
+    it->fly();
+
+    ++m_connection_stats[peer_id].n_total_requests;
+    ++m_connection_stats[peer_id].in_flight_requests;
+
+    tx_hashes.push_back(it->tx_hash);
+  }
+  return tx_hashes;
+}
+
+bool request_manager::remove_request(const crypto::hash &tx_hash) {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+  auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
+  auto range = by_tx_hash.equal_range(tx_hash);
+  if (range.first == range.second) {
+    MDEBUG("No requests for tx " << tx_hash);
+    return false;
+  }
+  for (auto it = range.first; it != range.second;) {
+    const boost::uuids::uuid &peer_id = it->peer_id;
+    MDEBUG("Removing tx request " << it->tx_hash << " for peer " << epee::string_tools::pod_to_hex(peer_id));
+    if (it->in_flight && m_connection_stats[peer_id].in_flight_requests > 0)
+    {
+      --m_connection_stats[peer_id].in_flight_requests;
+      MINFO("Decremented in_flight_requests count for peer: " << epee::string_tools::pod_to_hex(peer_id) << ", current in_flight_requests: " << m_connection_stats[peer_id].in_flight_requests);
+    }
+    it = by_tx_hash.erase(it);
+  }
   return true;
 }
 
-void request_manager::add_request(const crypto::hash &tx_hash, const boost::uuids::uuid &peer_id) {
-  MINFO("Requesting from peer: " << epee::string_tools::pod_to_hex(peer_id)
-        << " the transaction: "
-        << epee::string_tools::pod_to_hex(tx_hash));
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
-  auto it = by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
-  if (it != by_peer_and_tx.end()) {
-    it->fly();
-    return;
-  }
-  MINFO("Requested tx " << tx_hash << " that does not exist in request_manager queue.");
+bool request_manager::missed_request(const boost::uuids::uuid &peer_id, const std::size_t n_missed_reqs) {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+  if ((m_connection_stats[peer_id].missed + n_missed_reqs) > m_connection_stats[peer_id].missed)
+    m_connection_stats[peer_id].missed += n_missed_reqs;
+  const size_t n_total_reqs = m_connection_stats[peer_id].n_total_requests;
+
+  // Return false if we don't have enough samples
+  if (n_total_reqs < P2P_MIN_SAMPLE_SIZE_FOR_DROPPING) return false;
+
+  const size_t percent = (m_connection_stats[peer_id].missed * 100) / n_total_reqs;
+  MINFO("Peer " << epee::string_tools::pod_to_hex(peer_id)
+        << " has missed " << m_connection_stats[peer_id].missed << " out of "
+        << n_total_reqs << " total requests (" << percent << "%)");
+  return percent > P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE;
 }
 
-bool request_manager::get_current_request_peer_id(const crypto::hash &tx_hash, boost::uuids::uuid &out) const {
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
+bool request_manager::request_is_in_flight(const crypto::hash &tx_hash) const {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
   auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
-  auto it = by_tx_hash.find(tx_hash);
-  if (it == by_tx_hash.end()) {
-    MDEBUG("No requests for tx " << epee::string_tools::pod_to_hex(tx_hash));
-    return false;
-  }
-  for (const auto& req : boost::make_iterator_range(by_tx_hash.equal_range(tx_hash))) {
-    if (req.is_in_flight()) {
-      out = req.peer_id;
-      return true;
-    }
-  }
-  return false;
-}
-
-boost::uuids::uuid request_manager::request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now) {
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  auto& by_tx_hash = get_requests_by_tx_hash(m_requested_txs);
-  auto it = by_tx_hash.find(tx_hash);
-  if (it == by_tx_hash.end()) {
-    MDEBUG("No requests for tx " << epee::string_tools::pod_to_hex(tx_hash));
-    return boost::uuids::nil_uuid();
-  }
-
-  // remove in flight request that have timed out
   auto range = by_tx_hash.equal_range(tx_hash);
-  it = range.first;
-  while (it != range.second) {
-    if (it->is_in_flight()) {
-      MINFO("Erasing " << epee::string_tools::pod_to_hex(tx_hash)
-            << " from peer "
-            << epee::string_tools::pod_to_hex(it->peer_id));
-      it->mark_for_removal();
-    } else {
-      ++it;
-    }
-  }
-
-  // find the earliest non in-flight request
-  auto earliest_request = by_tx_hash.end();
-  it = by_tx_hash.find(tx_hash);
-  while (it != by_tx_hash.end() && it->tx_hash == tx_hash) {
-    if (!it->is_in_flight() && !it->is_marked_for_removal()) {
-      if (earliest_request == by_tx_hash.end() ||
-          it->firstseen_timestamp < earliest_request->firstseen_timestamp) {
-        earliest_request = it;
-      }
-    }
-    ++it;
-  }
-
-  if (earliest_request != by_tx_hash.end()) {
-    earliest_request->fly();
-    MINFO("Requesting tx " << epee::string_tools::pod_to_hex(tx_hash)
-          << " from peer "
-          << epee::string_tools::pod_to_hex(earliest_request->peer_id)
-          << ", first seen " << earliest_request->firstseen_timestamp.time_since_epoch().count()
-          << ", now " << now.time_since_epoch().count());
-    return earliest_request->peer_id;
-  }
-
-  MINFO("No available requests for tx " << epee::string_tools::pod_to_hex(tx_hash));
-  return boost::uuids::nil_uuid();
-}
-
-void request_manager::for_each_request(std::function<void(const tx_request &, const uint32_t)> &f, const uint32_t request_deadline) {
-  MINFO("Iterating over " << m_requested_txs.size() << " requests.");
-  std::unique_lock<std::recursive_mutex> lock(m_mutex);
-  std::vector<tx_request> requests_copy;
-  requests_copy.reserve(m_requested_txs.size());
-  // First copy all requests
-  for (const auto& req : m_requested_txs) {
-      requests_copy.push_back(req);
-  }
-  // Process requests on the copy
-  for (const auto& request : requests_copy) {
-      f(request, request_deadline);
-  }
-  // Remove marked items directly from main container
-  size_t removed_count = 0;
-  auto it = m_requested_txs.begin();
-  while (it != m_requested_txs.end()) {
-      if (it->is_marked_for_removal()) {
-          it = m_requested_txs.erase(it);
-          ++removed_count;
-      } else {
-          ++it;
-      }
-  }
-  MINFO("Removed " << removed_count << " requests.");
+  for (auto it = range.first; it != range.second; ++it)
+    if (it->in_flight)
+      return true;
+  return false;
 }

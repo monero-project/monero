@@ -36,19 +36,61 @@
 #include <shared_mutex>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/optional/optional_fwd.hpp>
-#include "net/net_utils_base.h"
 #include "crypto/hash.h"
+#include "cryptonote_protocol/cryptonote_protocol_defs.h"
+#include "net/net_utils_base.h"
+#include "p2p/p2p_protocol_defs.h"
 #include "syncobj.h"
 
 namespace cryptonote
 {
+  //! \return Maximum number of bytes permissible for `command`.
+  inline std::size_t get_command_max_bytes(const int command) noexcept
+  {
+    switch (command)
+    {
+    case nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>::ID:
+      return 65536;
+    case nodetool::COMMAND_TIMED_SYNC_T<cryptonote::CORE_SYNC_DATA>::ID:
+      return 65536;
+    case nodetool::COMMAND_PING::ID:
+      return 4096;
+    case nodetool::COMMAND_REQUEST_SUPPORT_FLAGS::ID:
+      return 4096;
+    case cryptonote::NOTIFY_NEW_BLOCK::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though)
+    case cryptonote::NOTIFY_NEW_TRANSACTIONS::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though)
+    case cryptonote::NOTIFY_REQUEST_GET_OBJECTS::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    case cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though)
+    case cryptonote::NOTIFY_REQUEST_CHAIN::ID:
+      return 512 * 1024; // 512 kB
+    case cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::ID:
+      return 1024 * 1024 * 4; // 4 MB
+    case cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though, fluffy blocks can be full)
+    case cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::ID:
+      return 1024 * 1024; // 1 MB
+    case cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT::ID:
+      return 1024 * 1024 * 4; // 4 MB
+    case cryptonote::NOTIFY_TX_POOL_HASH::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    case cryptonote::NOTIFY_REQUEST_TX_POOL_TXS::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    default:
+      break;
+    };
+    return std::numeric_limits<size_t>::max();
+  }
+
   struct cryptonote_connection_context: public epee::net_utils::connection_context_base
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
         m_expected_heights_start(0), m_last_request_time(boost::date_time::not_a_date_time), m_callback_request_count(0),
         m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0), m_anchor(false), m_score(0),
-        m_expect_response(0), m_expect_height(0), m_num_requested(0),
-        m_connection_stats(std::make_shared<connection_statistics>()) {}
+        m_expect_response(0), m_expect_height(0), m_num_requested(0) {}
 
     enum state
     {
@@ -92,9 +134,6 @@ namespace cryptonote
     static constexpr int handshake_command() noexcept { return 1001; }
     bool handshake_complete() const noexcept { return m_state != state_before_handshake; }
 
-    //! \return Maximum number of bytes permissible for `command`.
-    static size_t get_max_bytes(int command) noexcept;
-
     //! Use this instead of `m_state = state_normal`.
     void set_state_normal();
 
@@ -120,41 +159,6 @@ namespace cryptonote
     size_t m_num_requested;
     copyable_atomic m_new_stripe_notification{0};
     copyable_atomic m_idle_peer_notification{0};
-
-    private:
-      struct connection_statistics
-      {
-        mutable std::shared_timed_mutex mutex;
-        std::unordered_set<crypto::hash> tx_announcements;
-        std::atomic<size_t> received = 0;
-        std::atomic<size_t> requested_from_me = 0;
-        std::atomic<size_t> requested_from_peer = 0;
-        std::atomic<size_t> sent = 0;
-        std::atomic<size_t> missed = 0;
-        std::atomic<size_t> in_flight_requests = 0;
-      };
-      std::shared_ptr<connection_statistics> m_connection_stats;
-
-    public:
-      void reset();
-      void add_announcement(const crypto::hash &tx_hash);
-      void add_received();
-      void add_requested_from_me();
-      void add_requested_from_peer();
-      void add_sent();
-      void remove_in_flight_request();
-      bool can_process_additional_request(size_t requests = 1);
-
-      size_t get_announcement_size() const;
-      size_t get_received() const;
-      size_t get_requested_from_me() const;
-      size_t get_requested_from_peer() const;
-      size_t get_sent() const;
-      size_t get_total() const;
-      size_t get_missed() const;
-      size_t get_in_flight_requests() const;
-      std::string get_info() const;
-      bool missed_announced_tx();
   };
 
   inline std::string get_protocol_state_string(cryptonote_connection_context::state s)

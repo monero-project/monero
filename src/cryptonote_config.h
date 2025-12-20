@@ -142,7 +142,7 @@
 #define P2P_DEFAULT_PEERS_IN_HANDSHAKE                  250
 #define P2P_MAX_PEERS_IN_HANDSHAKE                      250
 #define P2P_DEFAULT_CONNECTION_TIMEOUT                  5000       //5 seconds
-#define P2P_DEFAULT_REQUEST_TIMEOUT                     ((P2P_DEFAULT_CONNECTION_TIMEOUT/1000)*6) // 30 seconds
+#define P2P_DEFAULT_REQUEST_TIMEOUT                     (P2P_DEFAULT_CONNECTION_TIMEOUT*6) // 30 seconds
 #define P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT               45         // seconds
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
@@ -153,8 +153,6 @@
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
 #define P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE        70          // if more than 70% of requests fail, the peer is dropped
-#define P2P_MAX_IN_FLIGHT_REQUESTS                      100
-#define P2P_REQUEST_PARK_TIMEOUT                        20          // seconds
 #define P2P_MIN_SAMPLE_SIZE_FOR_DROPPING                5          // minimum number of requests to consider dropping a peer for failed requests
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour

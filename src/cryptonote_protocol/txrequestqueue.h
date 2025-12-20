@@ -51,20 +51,24 @@
 #include "common/util.h"
 
 
-struct tx_request {
-  boost::uuids::uuid peer_id;
-  crypto::hash tx_hash;
-  std::chrono::steady_clock::time_point firstseen_timestamp;
-  mutable bool in_flight = false;
-  mutable bool marked_for_removal = false;
+struct tx_request
+{
+    boost::uuids::uuid peer_id;
+    crypto::hash tx_hash;
+    mutable std::chrono::steady_clock::time_point last_action_timestamp;
+    mutable bool in_flight = false;
 
-  tx_request(const boost::uuids::uuid& peer_id, const crypto::hash& tx_hash, std::chrono::steady_clock::time_point firstseen_timestamp)
-    : peer_id(peer_id), tx_hash(tx_hash), firstseen_timestamp(firstseen_timestamp) {}
+    tx_request(const boost::uuids::uuid& _peer_id,
+        const crypto::hash& _tx_hash,
+        const bool _in_flight):
+            peer_id(_peer_id),
+            tx_hash(_tx_hash),
+            last_action_timestamp(std::chrono::steady_clock::now()),
+            in_flight(_in_flight)
+    {}
 
-  void fly() const { in_flight = true; }
-  bool is_in_flight() const { return in_flight; }
-  void mark_for_removal() const { in_flight = false; marked_for_removal = true; }
-  bool is_marked_for_removal() const { return marked_for_removal; }
+public:
+    void fly() const { in_flight = true; last_action_timestamp = std::chrono::steady_clock::now(); };
 };
 
 using boost::multi_index::hashed_non_unique;

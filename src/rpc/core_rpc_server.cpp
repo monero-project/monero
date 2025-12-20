@@ -1380,10 +1380,11 @@ namespace cryptonote
     }
     res.sanity_check_failed = false;
 
+    crypto::hash txid{};
     if (!skip_validation)
     {
       tx_verification_context tvc{};
-      if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
+      if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false, txid) || tvc.m_verifivation_failed)
       {
         res.status = "Failed";
         std::string reason = "";
@@ -1428,10 +1429,20 @@ namespace cryptonote
         return true;
       }
     }
+    else
+    {
+      transaction tx;
+      if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
+      {
+        res.status = "Failed";
+        res.reason = "Failed to parse tx";
+        return true;
+      }
+    }
 
     NOTIFY_NEW_TRANSACTIONS::request r;
     r.txs.push_back(std::move(tx_blob));
-    m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, relay_method::local);
+    m_core.get_protocol()->relay_transactions(r, {txid}, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, relay_method::local);
     //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -3314,7 +3325,7 @@ namespace cryptonote
         NOTIFY_NEW_TRANSACTIONS::request r;
         r.txs.push_back(std::move(txblob));
         const auto tx_relay = broadcasted ? relay_method::fluff : relay_method::local;
-        m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, tx_relay);
+        m_core.get_protocol()->relay_transactions(r, {txid}, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, tx_relay);
         //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
       }
       else

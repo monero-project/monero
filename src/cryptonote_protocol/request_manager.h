@@ -36,15 +36,16 @@
 
 #include "crypto/hash.h"
 #include "string_tools.h"
-#include "syncobj.h"
 #include "txrequestqueue.h"
 
+#include <atomic>
 #include <boost/functional/hash.hpp>
-#include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_hash.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 #include <shared_mutex>
 
 class request_manager {
@@ -53,40 +54,54 @@ private:
   request_container m_requested_txs;
   mutable std::recursive_mutex m_mutex;
 
+  const std::size_t m_max_in_flight;
+  const int64_t m_request_timeout;
+
   request_manager(const request_manager &) = delete;
   request_manager &operator=(const request_manager &) = delete;
   request_manager(request_manager &&) noexcept = delete;
   request_manager &operator=(request_manager &&) = delete;
 
+private:
+  struct connection_statistics
+  {
+    std::atomic<size_t> n_total_requests = 0;
+    std::atomic<size_t> missed = 0;
+    std::atomic<size_t> in_flight_requests = 0;
+  };
+  std::unordered_map<boost::uuids::uuid, connection_statistics> m_connection_stats;
+
 public:
-  request_manager();
-
-  bool remove_announcement(const crypto::hash &tx_hash);
-
-  bool received_requested(const boost::uuids::uuid &peer_id, const crypto::hash &tx_hash);
+  request_manager(const std::size_t max_in_flight,
+      const int64_t request_timeout = P2P_DEFAULT_REQUEST_TIMEOUT)
+    : m_requested_txs(),
+      m_mutex(),
+      m_connection_stats(),
+      m_max_in_flight(max_in_flight),
+      m_request_timeout(request_timeout)
+    {};
 
   void remove_peer(const boost::uuids::uuid &peer_id);
 
-  void cleanup_stale_requests(uint32_t max_age_seconds);
+  // Returns the set of peers to drop because they've missed too many requests
+  std::unordered_set<boost::uuids::uuid> remove_stale_requests();
 
-  bool already_requested_tx(const crypto::hash &tx_hash) const;
-  bool already_requested_tx(const crypto::hash &tx_hash, const boost::uuids::uuid &id) const;
+  // Return true if the request should be sent over the connection
+  bool add_request(const crypto::hash &tx_hash, const boost::uuids::uuid &id);
 
-  bool add_announcement(const crypto::hash &tx_hash,
-                       const boost::uuids::uuid &id);
-
-  void add_request(const crypto::hash &tx_hash,
-               const boost::uuids::uuid &id);
-
-  // Get the peer ID of the current in-flight request for a transaction, if any
+  // Remove current in-flight request for a transaction, if present
   // true: found, false: not found or none in-flight
-  bool get_current_request_peer_id(const crypto::hash &tx_hash, boost::uuids::uuid &out) const;
+  bool remove_request(const crypto::hash &tx_hash);
 
-  // Get next peer ID to request a transaction from, and mark it in-flight,
-  // Remove the the current in-flight requests
-  boost::uuids::uuid request_from_next_peer(const crypto::hash &tx_hash, std::chrono::steady_clock::time_point now);
+  // Returns the vector of tx hashes to request
+  std::vector<crypto::hash> fly_available_requests(const boost::uuids::uuid &peer_id);
 
-  void for_each_request(std::function<void(const tx_request &, const uint32_t)> &f, const uint32_t request_deadline);
+private:
+  // Return true if we should drop the peer because it exceeded threshold for allowed missed reqs
+  bool missed_request(const boost::uuids::uuid &peer_id, const std::size_t n_missed_reqs = 1);
+
+  // Return true if *any* peer has the provided tx hash request in flight
+  bool request_is_in_flight(const crypto::hash &tx_hash) const;
 };
 
 #endif // CRYPTONOTE_PROTOCOL_REQUEST_MANAGER_H
