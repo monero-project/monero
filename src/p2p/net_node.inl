@@ -175,6 +175,17 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_remote_host_allowed(const epee::net_utils::network_address &address, time_t *t)
   {
+    if (address.is_local() &&
+        (address.get_type_id() ==
+             epee::net_utils::ipv4_network_address::get_type_id() ||
+         address.get_type_id() ==
+             epee::net_utils::ipv6_network_address::get_type_id())) {
+      MWARNING("Address is local "
+               << address.host_str()
+               << " and on same machine, local IPs are allowed.");
+      return true;
+    }
+
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
 
     const time_t now = time(nullptr);
