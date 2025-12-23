@@ -46,9 +46,6 @@ using namespace std;
 
 namespace Monero {
 
-PendingTransaction::~PendingTransaction() {}
-
-
 PendingTransactionImpl::PendingTransactionImpl(WalletImpl &wallet)
     : m_wallet(wallet)
 {
