@@ -1253,6 +1253,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_offline(false),
   m_rpc_version(0),
   m_export_format(ExportFormat::Binary),
+  m_change_output_address_index(0),
   m_enable_multisig(false),
   m_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
@@ -4761,6 +4762,9 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetInt(false);
   json.AddMember("load_deprecated_formats", value2, json.GetAllocator());
 
+  value2.SetInt(m_change_output_address_index);
+  json.AddMember("change_output_address_index", value2, json.GetAllocator());
+
   value2.SetUint(1);
   json.AddMember("encrypted_secret_keys", value2, json.GetAllocator());
 
@@ -5024,6 +5028,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_subaddress_lookahead_minor = SUBADDRESS_LOOKAHEAD_MINOR;
     m_original_keys_available = false;
     m_export_format = ExportFormat::Binary;
+    m_change_output_address_index = 0;
     m_device_name = "";
     m_device_derivation_path = "";
     m_key_device_type = hw::device::device_type::SOFTWARE;
@@ -5207,6 +5212,9 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, export_format, ExportFormat, Int, false, Binary);
     m_export_format = field_export_format;
+
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, change_output_address_index, uint32_t, Uint, false, 0);
+    m_change_output_address_index = field_change_output_address_index;
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, device_name, std::string, String, false, std::string());
     if (m_device_name.empty())
@@ -9759,8 +9767,8 @@ void wallet2::transfer_selected(const std::vector<cryptonote::tx_destination_ent
   cryptonote::tx_destination_entry change_dts = AUTO_VAL_INIT(change_dts);
   if (needed_money < found_money)
   {
-    change_dts.addr = get_subaddress({subaddr_account, 0});
-    change_dts.is_subaddress = subaddr_account != 0;
+    change_dts.addr = get_subaddress({subaddr_account, m_change_output_address_index});
+    change_dts.is_subaddress = subaddr_account != 0 || m_change_output_address_index != 0;
     change_dts.amount = found_money - needed_money;
   }
 
@@ -10006,8 +10014,8 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
   }
   else
   {
-    change_dts.addr = get_subaddress({subaddr_account, 0});
-    change_dts.is_subaddress = subaddr_account != 0;
+    change_dts.addr = get_subaddress({subaddr_account, m_change_output_address_index});
+    change_dts.is_subaddress = subaddr_account != 0 || m_change_output_address_index != 0;
     splitted_dsts.push_back(change_dts);
   }
 
