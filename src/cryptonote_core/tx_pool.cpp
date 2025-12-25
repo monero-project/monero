@@ -648,26 +648,35 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit) const
+  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit, size_t max_tx_count) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     txs.clear();
-    txs.reserve(std::min<size_t>(txids.size(), 1000000)); // reserve limited to 1 million
+
+    const size_t max_allowed =
+      max_tx_count ? std::min(max_tx_count, txids.size()) : txids.size();
+
+    txs.reserve(std::min<size_t>(max_allowed, 1000000)); // reserve limited to min(1 million, max_allowed)
     size_t cumul_txblob_size = 0;
 
-    for (size_t i = 0; i < txids.size(); ++i)
-    {
-      const crypto::hash &it{txids[i]};
-      tx_details details;
-      bool success = get_transaction_info(it, details, include_sensitive, true/*include_blob*/);
-      if (success && (!cumul_txblob_size_limit || (cumul_txblob_size + details.blob_size < cumul_txblob_size_limit)))
+    for (size_t i = 0; i < txids.size() && txs.size() < max_allowed; ++i)
       {
+        const crypto::hash &it{txids[i]};
+        tx_details details;
+        const bool success = get_transaction_info(it, details, include_sensitive, true /*include_blob*/);
+        if (!success)
+          continue;
+
+        if (cumul_txblob_size_limit &&
+            cumul_txblob_size + details.blob_size >= cumul_txblob_size_limit)
+          continue;
+
         cumul_txblob_size += details.blob_size;
-        txs.push_back(std::make_pair(it, std::move(details)));
+        txs.emplace_back(it, std::move(details));
       }
-    }
+
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -1012,11 +1021,13 @@ namespace cryptonote
     const size_t cumulative_txblob_size_limit{cumul_limit_size > total_clawback ? cumul_limit_size - total_clawback : 0};
 
     // Perform TX info fetch, limited to max_tx_count and cumulative_txblob_size_limit
-    const size_t max_full_tx_fetch_count{std::min(txids.size(), max_tx_count)};
-    if (cumulative_txblob_size_limit && max_full_tx_fetch_count)
+    if (cumulative_txblob_size_limit && !txids.empty() && max_tx_count)
     {
-      const epee::span<const crypto::hash> txid_fetch_span{&txids[0], max_full_tx_fetch_count};
-      if (!get_transactions_info(txid_fetch_span, added_txs, include_sensitive, cumulative_txblob_size_limit))
+      if (!get_transactions_info(epee::to_span(txids),
+                                 added_txs,
+                                 include_sensitive,
+                                 cumulative_txblob_size_limit,
+                                 max_tx_count))
         return false;
     }
 

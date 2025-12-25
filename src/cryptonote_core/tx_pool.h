@@ -488,7 +488,7 @@ namespace cryptonote
     /**
      * @brief get information about multiple transactions
      */
-    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t cumul_txblob_size_limit = 0) const;
+    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t cumul_txblob_size_limit = 0, size_t max_tx_count = 0) const;
 
     /**
      * @brief get transactions not in the passed set
