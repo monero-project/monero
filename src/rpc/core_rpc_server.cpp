@@ -770,18 +770,38 @@ namespace cryptonote
       const bool allow_sensitive = !request_has_rpc_origin || !restricted;
       const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
 
-      bool incremental;
-      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
       const size_t limit = LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9;
-      // If blocks already take up all the space, allow 0 space for pool txs
-      const size_t pool_limit = (cumul_block_data_size < limit) ? (limit - cumul_block_data_size) : 0;
-      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental, pool_limit);
-      if (success)
+
+      // If the blocks alone already consume the safe packet budget, skip pool info
+      if (cumul_block_data_size >= limit)
       {
+        LOG_ERROR("on_get_blocks: omitting pool info, response already "
+               << cumul_block_data_size << " bytes (limit " << limit << ")");
+        // res.pool_info_extent stays as NONE (set earlier), which tells wallets
+        // that there is no pool info in this response.
+      }
+      else
+      {
+        const size_t pool_limit = limit - cumul_block_data_size;
+
+        bool incremental;
+        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
+        bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count,
+                                            added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids,
+                                            incremental, pool_limit);
+
+        if (!success)
+        {
+          res.status = "Failed to get pool info";
+          return true;
+        }
+
         res.added_pool_txs.clear();
         if (m_rpc_payment)
         {
-          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
+          CHECK_PAYMENT_SAME_TS(req, res,
+                                added_pool_txs.size() * COST_PER_TX +
+                                (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
         }
         for (const auto &added_pool_tx: added_pool_txs)
         {
@@ -801,15 +821,10 @@ namespace cryptonote
           info.double_spend_seen = added_pool_tx.second.double_spend_seen;
           res.added_pool_txs.push_back(std::move(info));
         }
-      }
-      if (success)
-      {
-        res.pool_info_extent = incremental ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
-      }
-      else
-      {
-        res.status = "Failed to get pool info";
-        return true;
+
+        res.pool_info_extent = incremental
+          ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL
+          : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
       }
     }
 
