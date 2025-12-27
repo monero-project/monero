@@ -1518,14 +1518,26 @@ std::string WalletImpl::getMultisigKeyExchangeBooster(const std::vector<std::str
     return string();
 }
 
-bool WalletImpl::exportMultisigImages(string& images) {
+bool WalletImpl::exportMultisigImages(string& images, std::string filename, bool ascii) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
 
         auto blob = m_wallet->export_multisig();
-        images = epee::string_tools::buff_to_hex_nodelimer(blob);
-        return true;
+        if (filename.empty()) {
+            if (ascii) {
+                BIO *bp = BIO_new(BIO_s_mem());
+                PEM_write_bio(bp, "MoneroAsciiDataV1", "", (const unsigned char *) blob.c_str(), blob.length());
+                BUF_MEM *mem = NULL;
+                BIO_get_mem_ptr(bp, &mem);
+                std::string pemData(mem->data, mem->length);
+                images = pemData;
+            } else {
+                images = epee::string_tools::buff_to_hex_nodelimer(blob);
+            }
+            return true;
+        }
+        return m_wallet->save_to_file(filename, blob);
     } catch (const exception& e) {
         LOG_ERROR("Error on exporting multisig images: " << e.what());
         setStatusError(string(tr("Failed to export multisig images: ")) + e.what());
@@ -1562,6 +1574,30 @@ size_t WalletImpl::importMultisigImages(const vector<string>& images) {
     return 0;
 }
 
+size_t WalletImpl::importMultisigImages(const std::string& input, bool isFile) {
+    try {
+        clearStatus();
+        checkMultisigWalletReady(m_wallet);
+
+        string data;
+        std::vector<cryptonote::blobdata> images;
+        if (isFile) {
+            if (!m_wallet->load_from_file(input, data)) {
+                throw runtime_error("Couldn't load from file");
+            }
+        } else {
+            m_wallet->PEM_read_string(input, data);
+        }
+
+        images.push_back(std::move(data));
+        return m_wallet->import_multisig(images);
+    } catch (const exception& e) {
+        LOG_ERROR("Error on importing multisig images: " << e.what());
+        setStatusError(string(tr("Failed to import multisig images: ")) + e.what());
+    }
+    return 0;
+}
+
 bool WalletImpl::hasMultisigPartialKeyImages() const {
     try {
         clearStatus();
@@ -1574,6 +1610,26 @@ bool WalletImpl::hasMultisigPartialKeyImages() const {
     }
 
     return false;
+}
+
+PendingTransaction* WalletImpl::loadMultisigTxFromFile(std::string filename)
+{
+    try {
+        clearStatus();
+        checkMultisigWalletReady(m_wallet);
+        PendingTransactionImpl* tx = new PendingTransactionImpl(*this);
+        tools::wallet2::multisig_tx_set exported_txs;
+        if(!m_wallet->load_multisig_tx_from_file(filename, exported_txs)) {
+            throw runtime_error("Couldn't load multisig tx from file");
+        }
+        tx->m_pending_tx = exported_txs.m_ptx;
+        tx->m_signers = exported_txs.m_signers;
+        return tx;
+    } catch (exception& e) {
+        LOG_ERROR("Error loading multisig transaction from file: " << e.what());
+        setStatusError(string(tr("Failed to load multisig transaction from file: ")) + e.what());
+    }
+    return nullptr;
 }
 
 PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signData) {
@@ -1602,6 +1658,17 @@ PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signDat
     }
 
     return nullptr;
+}
+
+bool WalletImpl::signMultisigTxFromFile(const std::string filename) {
+    std::vector<crypto::hash> txids;
+    try {
+        return m_wallet->sign_multisig_tx_from_file(filename, txids);
+    } catch (exception& e) {
+        LOG_ERROR("Error on signing multisig transaction: " << e.what());
+        setStatusError(string(tr("Failed to sign multisig transaction: ")) + e.what());
+    }
+    return false;
 }
 
 // TODO:
@@ -1703,12 +1770,13 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
                                                                               adjusted_priority,
                                                                               extra, subaddr_account, subaddr_indices);
             }
-            pendingTxPostProcess(transaction);
 
             if (multisig().isMultisig) {
                 auto tx_set = m_wallet->make_multisig_tx_set(transaction->m_pending_tx);
                 transaction->m_pending_tx = tx_set.m_ptx;
                 transaction->m_signers = tx_set.m_signers;
+            } else {
+                pendingTxPostProcess(transaction);
             }
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?

@@ -8182,6 +8182,11 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
   }
 
   LOG_PRINT_L1("Loaded multisig tx unsigned data from binary: " << exported_txs.m_ptx.size() << " transactions");
+  if (exported_txs.m_ptx.size() < 1)
+  {
+    LOG_PRINT_L1("Loaded transaction was empty... aborting");
+    return false;
+  }
   for (auto &ptx: exported_txs.m_ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
 
   if (accept_func && !accept_func(exported_txs))
@@ -15231,6 +15236,46 @@ bool wallet2::save_to_file(const std::string& path_to_file, const std::string& r
 }
 //----------------------------------------------------------------------------------------------------
 
+int wallet2::PEM_read_string(const std::string& data, std::string& target_str)
+{
+  if (!boost::algorithm::contains(boost::make_iterator_range(data.begin(), data.end()), ASCII_OUTPUT_MAGIC))
+    return 0;
+
+  // Creating a BIO and calling PEM_read_bio instead of simpler PEM_read
+  // to avoid reading the file from disk twice.
+  BIO* b = BIO_new_mem_buf(data.data(), static_cast<int>(data.size()));
+  if (!b)
+    return 0;
+  
+  char *name = NULL, *header = NULL;
+  unsigned char *openssl_data = NULL;
+  long len = 0;
+  int ret = 0;
+
+  // Save the result b/c we need to free the data before returning success/failure.
+  int success = PEM_read_bio(b, &name, &header, &openssl_data, &len);
+  if (success <= 0 || !openssl_data || len <= 0)
+    goto cleanup;
+
+  try
+  {
+    target_str.assign(reinterpret_cast<const char*>(openssl_data), static_cast<size_t>(len));
+  }
+  catch (...)
+  {
+    goto cleanup;
+  }
+  ret = 1;
+
+cleanup:
+  if (openssl_data) OPENSSL_free(openssl_data);
+  if (name) OPENSSL_free(name);
+  if (header) OPENSSL_free(header);
+  BIO_free(b);
+  return ret;
+}
+//----------------------------------------------------------------------------------------------------
+
 bool wallet2::load_from_file(const std::string& path_to_file, std::string& target_str,
                              size_t max_size)
 {
@@ -15248,40 +15293,7 @@ bool wallet2::load_from_file(const std::string& path_to_file, std::string& targe
     return true;
   }
 
-  // Creating a BIO and calling PEM_read_bio instead of simpler PEM_read
-  // to avoid reading the file from disk twice.
-  BIO* b = BIO_new_mem_buf((const void*) data.data(), data.length());
-
-  char *name = NULL;
-  char *header = NULL;
-  unsigned char *openssl_data = NULL;
-  long len = 0;
-
-  // Save the result b/c we need to free the data before returning success/failure.
-  int success = PEM_read_bio(b, &name, &header, &openssl_data, &len);
-
-  try
-  {
-    target_str = std::string((const char*) openssl_data, len);
-  }
-  catch (...)
-  {
-    success = 0;
-  }
-
-  OPENSSL_free((void *) name);
-  OPENSSL_free((void *) header);
-  OPENSSL_free((void *) openssl_data);
-  BIO_free(b);
-
-  if (success == 0)
-  {
-    return false;
-  }
-  else
-  {
-    return true;
-  }
+  return PEM_read_string(data, target_str) != 0;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::hash_m_transfer(const transfer_details & transfer, crypto::hash &hash) const
