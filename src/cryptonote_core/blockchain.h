@@ -445,10 +445,11 @@ namespace cryptonote
      *   powers of 2 less recent from there, so 13, 17, 25, etc...
      *
      * @param ids return-by-reference list to put the resulting hashes in
+     * @param current_height the current blockchain height, return-by-reference
      *
      * @return true
      */
-    bool get_short_chain_history(std::list<crypto::hash>& ids) const;
+    bool get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const;
 
     /**
      * @brief get recent block hashes for a foreign chain
