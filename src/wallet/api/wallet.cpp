@@ -1534,7 +1534,7 @@ bool WalletImpl::exportMultisigImages(string& images) {
     return false;
 }
 
-bool WalletImpl::exportMultisigImagesPEM(std::string &pem) {
+bool WalletImpl::exportMultisigImagesPEM(std::string& pem) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
@@ -1562,7 +1562,7 @@ bool WalletImpl::exportMultisigImagesPEM(std::string &pem) {
     return false;
 }
 
-bool WalletImpl::exportMultisigImagesToFile(const std::string &filename, bool pem) {
+bool WalletImpl::exportMultisigImagesToFile(const std::string& filename, bool pem) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
@@ -1622,7 +1622,7 @@ size_t WalletImpl::importMultisigImages(const vector<string>& images) {
     return 0;
 }
 
-size_t WalletImpl::importMultisigImagesFromFile(const std::string &filename) {
+size_t WalletImpl::importMultisigImagesFromFile(const std::string& filename) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
@@ -1640,7 +1640,7 @@ size_t WalletImpl::importMultisigImagesFromFile(const std::string &filename) {
     return 0;
 }
 
-size_t WalletImpl::importMultisigImagesFromPEM(const std::string &pem) {
+size_t WalletImpl::importMultisigImagesFromPEM(const std::string& pem) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
@@ -1672,7 +1672,7 @@ bool WalletImpl::hasMultisigPartialKeyImages() const {
     return false;
 }
 
-PendingTransaction* WalletImpl::loadMultisigTxFromFile(std::string filename)
+PendingTransaction* WalletImpl::loadMultisigTxFromFile(const std::string& filename)
 {
     PendingTransactionImpl* tx = nullptr;
     try {
@@ -1680,7 +1680,7 @@ PendingTransaction* WalletImpl::loadMultisigTxFromFile(std::string filename)
         checkMultisigWalletReady(m_wallet);
         tx = new PendingTransactionImpl(*this);
         tools::wallet2::multisig_tx_set exported_txs;
-        if(!m_wallet->load_multisig_tx_from_file(filename, exported_txs))
+        if (!m_wallet->load_multisig_tx_from_file(filename, exported_txs))
             throw runtime_error("Couldn't load multisig tx from file");
         tx->m_pending_tx = exported_txs.m_ptx;
         tx->m_signers = exported_txs.m_signers;
@@ -1723,7 +1723,7 @@ PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signDat
     return nullptr;
 }
 
-bool WalletImpl::signMultisigTxFromFile(const std::string filename) {
+bool WalletImpl::signMultisigTxFromFile(const std::string& filename) {
     std::vector<crypto::hash> txids;
     try {
         return m_wallet->sign_multisig_tx_from_file(filename, txids);

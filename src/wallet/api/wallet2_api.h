@@ -826,14 +826,14 @@ struct Wallet
      * @param pem - output paramter for PEM encoded array of images
      * @return true if success
      */
-    virtual bool exportMultisigImagesPEM(std::string &pem) = 0;
+    virtual bool exportMultisigImagesPEM(std::string& pem) = 0;
     /**
      * @brief exportMultisigImagesToFile - exports transfers' key images to a file in either binary or PEM format
      * @param filename - path of the file to save images to
      * @param pem - if true, exports in PEM format; otherwise, exports in binary format
      * @return true if success
      */
-    virtual bool exportMultisigImagesToFile(const std::string &filename, bool pem) = 0;
+    virtual bool exportMultisigImagesToFile(const std::string& filename, bool pem) = 0;
     /**
      * @brief importMultisigImages - imports other participants' multisig images
      * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
@@ -862,7 +862,7 @@ struct Wallet
      * @param filename - path of the file to load
      * @return PendingTransaction
      */
-    virtual PendingTransaction* loadMultisigTxFromFile(std::string filename) = 0;
+    virtual PendingTransaction* loadMultisigTxFromFile(const std::string& filename) = 0;
 
     /**
      * @brief restoreMultisigTransaction creates PendingTransaction from signData
@@ -876,7 +876,7 @@ struct Wallet
      * @param filename path to file containing a partially signed transaction
      * @return true if successful
      */
-    virtual bool signMultisigTxFromFile(const std::string filename) = 0;
+    virtual bool signMultisigTxFromFile(const std::string& filename) = 0;
 
     /*!
      * \brief createTransactionMultDest creates transaction with multiple destinations. if dst_addr is an integrated address, payment_id is ignored
