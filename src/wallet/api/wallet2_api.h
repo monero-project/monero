@@ -118,7 +118,6 @@ struct PendingTransaction
      * @return vector of base58-encoded signers' public keys
      */
     virtual std::vector<std::string> signersKeys() const = 0;
-
     
     /**
      * @brief destAddresses
@@ -830,7 +829,7 @@ struct Wallet
     virtual bool exportMultisigImagesPEM(std::string &pem) = 0;
     /**
      * @brief exportMultisigImagesToFile - exports transfers' key images to a file in either binary or PEM format
-     * @param filename - filename to save images to
+     * @param filename - path of the file to save images to
      * @param pem - if true, exports in PEM format; otherwise, exports in binary format
      * @return true if success
      */
@@ -843,7 +842,7 @@ struct Wallet
     virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
     /**
      * @brief importMultisigImagesFromFile - imports other participants' multisig images from file in either binary or PEM format
-     * @param filename - filename to load images from
+     * @param filename - path of the file containing multisig images
      * @return number of imported images
      */
     virtual size_t importMultisigImagesFromFile(const std::string& filename) = 0;
@@ -859,8 +858,8 @@ struct Wallet
      */
     virtual bool hasMultisigPartialKeyImages() const = 0;
     /**
-     * @brief loadMultisigTxFromFile - grab transaction information encoded in a partially signed transction file
-     * @param filename - path of file to load
+     * @brief loadMultisigTxFromFile - grabs transaction information encoded in a partially signed transction file
+     * @param filename - path of the file to load
      * @return PendingTransaction
      */
     virtual PendingTransaction* loadMultisigTxFromFile(std::string filename) = 0;
@@ -873,8 +872,8 @@ struct Wallet
     virtual PendingTransaction*  restoreMultisigTransaction(const std::string& signData) = 0;
 
    /**
-     * @brief signMultisigTxFromFile load a transaction from file, sign it, then save it again
-     * @param filename path to file storing partially signed transaction
+     * @brief signMultisigTxFromFile loads a transaction from file, signs it, then saves it again
+     * @param filename path to file containing a partially signed transaction
      * @return true if successful
      */
     virtual bool signMultisigTxFromFile(const std::string filename) = 0;

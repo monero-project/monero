@@ -1546,7 +1546,7 @@ bool WalletImpl::exportMultisigImagesPEM(std::string &pem) {
             BIO_free(bp);
             throw std::runtime_error("PEM write failed");
         }
-       BUF_MEM *mem = nullptr;
+        BUF_MEM *mem = nullptr;
         BIO_get_mem_ptr(bp, &mem);
         if (!mem) {
             BIO_free(bp);
@@ -1567,26 +1567,26 @@ bool WalletImpl::exportMultisigImagesToFile(const std::string &filename, bool pe
         clearStatus();
         checkMultisigWalletReady(m_wallet);
         auto blob = m_wallet->export_multisig();
-        if (!pem) {
+        if (!pem)
             return m_wallet->save_to_file(filename, blob);
-        } else {
-            std::string pemData;
-            BIO *bp = BIO_new(BIO_s_mem());
-            if (!bp) throw std::runtime_error("BIO allocation failed");
-            if (!PEM_write_bio(bp, "MoneroPEMDataV1", "", (const unsigned char *) blob.c_str(), static_cast<int>(blob.length()))) {
-                BIO_free(bp);
-                throw std::runtime_error("PEM write failed");
-            }
-            BUF_MEM *mem = nullptr;
-            BIO_get_mem_ptr(bp, &mem);
-            if (!mem) {
-                BIO_free(bp);
-                throw std::runtime_error("BIO_get_mem_ptr failed");
-            }
-            pemData.assign(mem->data, mem->length);
+        
+        std::string pemData;
+        BIO *bp = BIO_new(BIO_s_mem());
+        if (!bp) 
+            throw std::runtime_error("BIO allocation failed");
+        if (!PEM_write_bio(bp, "MoneroPEMDataV1", "", (const unsigned char *) blob.c_str(), static_cast<int>(blob.length()))) {
             BIO_free(bp);
-            return m_wallet->save_to_file(filename, pemData);
+            throw std::runtime_error("PEM write failed");
         }
+        BUF_MEM *mem = nullptr;
+        BIO_get_mem_ptr(bp, &mem);
+        if (!mem) {
+            BIO_free(bp);
+            throw std::runtime_error("BIO_get_mem_ptr failed");
+        }
+        pemData.assign(mem->data, mem->length);
+        BIO_free(bp);
+        return m_wallet->save_to_file(filename, pemData);
     } catch (const exception& e) {
         LOG_ERROR("Error on exporting multisig images to file: " << e.what());
         setStatusError(string(tr("Failed to export multisig images to file: ")) + e.what());
@@ -1628,9 +1628,8 @@ size_t WalletImpl::importMultisigImagesFromFile(const std::string &filename) {
         checkMultisigWalletReady(m_wallet);
 
         std::string data;
-        if (!m_wallet->load_from_file(filename, data)) {
+        if (!m_wallet->load_from_file(filename, data))
             throw runtime_error("Couldn't load from file");
-        }
         std::vector<cryptonote::blobdata> images;
         images.push_back(std::move(data));
         return m_wallet->import_multisig(images);
@@ -1647,9 +1646,8 @@ size_t WalletImpl::importMultisigImagesFromPEM(const std::string &pem) {
         checkMultisigWalletReady(m_wallet);
 
         std::string data;
-        if (!m_wallet->PEM_read_string(pem, data)) {
+        if (!m_wallet->PEM_read_string(pem, data))
             throw runtime_error("PEM parse failed");
-        }
         std::vector<cryptonote::blobdata> images;
         images.push_back(std::move(data));
         return m_wallet->import_multisig(images);
@@ -1676,14 +1674,14 @@ bool WalletImpl::hasMultisigPartialKeyImages() const {
 
 PendingTransaction* WalletImpl::loadMultisigTxFromFile(std::string filename)
 {
+    PendingTransactionImpl* tx = nullptr;
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
-        PendingTransactionImpl* tx = new PendingTransactionImpl(*this);
+        tx = new PendingTransactionImpl(*this);
         tools::wallet2::multisig_tx_set exported_txs;
-        if(!m_wallet->load_multisig_tx_from_file(filename, exported_txs)) {
+        if(!m_wallet->load_multisig_tx_from_file(filename, exported_txs))
             throw runtime_error("Couldn't load multisig tx from file");
-        }
         tx->m_pending_tx = exported_txs.m_ptx;
         tx->m_signers = exported_txs.m_signers;
         return tx;
@@ -1691,6 +1689,9 @@ PendingTransaction* WalletImpl::loadMultisigTxFromFile(std::string filename)
         LOG_ERROR("Error loading multisig transaction from file: " << e.what());
         setStatusError(string(tr("Failed to load multisig transaction from file: ")) + e.what());
     }
+
+    if (tx) 
+        delete tx;
     return nullptr;
 }
 
@@ -1837,9 +1838,8 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
                 auto tx_set = m_wallet->make_multisig_tx_set(transaction->m_pending_tx);
                 transaction->m_pending_tx = tx_set.m_ptx;
                 transaction->m_signers = tx_set.m_signers;
-            } else {
+            } else
                 pendingTxPostProcess(transaction);
-            }
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
             setStatusError(tr("daemon is busy. Please try again later."));
