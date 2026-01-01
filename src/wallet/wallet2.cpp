@@ -15236,21 +15236,21 @@ bool wallet2::save_to_file(const std::string& path_to_file, const std::string& r
 }
 //----------------------------------------------------------------------------------------------------
 
-int wallet2::PEM_read_string(const std::string& data, std::string& target_str)
+bool wallet2::PEM_read_string(const std::string& data, std::string& target_str)
 {
   if (!boost::algorithm::contains(boost::make_iterator_range(data.begin(), data.end()), ASCII_OUTPUT_MAGIC))
-    return 0;
+    return false;
 
   // Creating a BIO and calling PEM_read_bio instead of simpler PEM_read
   // to avoid reading the file from disk twice.
   BIO* b = BIO_new_mem_buf(data.data(), static_cast<int>(data.size()));
   if (!b)
-    return 0;
+    return false;
   
   char *name = NULL, *header = NULL;
   unsigned char *openssl_data = NULL;
   long len = 0;
-  int ret = 0;
+  bool r = false;
 
   // Save the result b/c we need to free the data before returning success/failure.
   int success = PEM_read_bio(b, &name, &header, &openssl_data, &len);
@@ -15265,14 +15265,14 @@ int wallet2::PEM_read_string(const std::string& data, std::string& target_str)
   {
     goto cleanup;
   }
-  ret = 1;
+  r = true;
 
 cleanup:
   if (openssl_data) OPENSSL_free(openssl_data);
   if (name) OPENSSL_free(name);
   if (header) OPENSSL_free(header);
   BIO_free(b);
-  return ret;
+  return r;
 }
 //----------------------------------------------------------------------------------------------------
 
@@ -15293,7 +15293,7 @@ bool wallet2::load_from_file(const std::string& path_to_file, std::string& targe
     return true;
   }
 
-  return PEM_read_string(data, target_str) != 0;
+  return PEM_read_string(data, target_str);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::hash_m_transfer(const transfer_details & transfer, crypto::hash &hash) const

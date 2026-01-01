@@ -1747,7 +1747,7 @@ private:
     bool frozen(const multisig_tx_set& txs) const; // does partially signed txset contain frozen enotes?
 
     bool save_to_file(const std::string& path_to_file, const std::string& binary, bool is_printable = false) const;
-    static int PEM_read_string(const std::string& data, std::string& target_str);
+    static bool PEM_read_string(const std::string& data, std::string& target_str);
     static bool load_from_file(const std::string& path_to_file, std::string& target_str, size_t max_size = 1000000000);
 
     uint64_t get_bytes_sent() const;

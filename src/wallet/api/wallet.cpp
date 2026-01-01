@@ -1518,31 +1518,79 @@ std::string WalletImpl::getMultisigKeyExchangeBooster(const std::vector<std::str
     return string();
 }
 
-bool WalletImpl::exportMultisigImages(string& images, std::string filename, bool ascii) {
+bool WalletImpl::exportMultisigImages(string& images) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
 
         auto blob = m_wallet->export_multisig();
-        if (filename.empty()) {
-            if (ascii) {
-                BIO *bp = BIO_new(BIO_s_mem());
-                PEM_write_bio(bp, "MoneroAsciiDataV1", "", (const unsigned char *) blob.c_str(), blob.length());
-                BUF_MEM *mem = NULL;
-                BIO_get_mem_ptr(bp, &mem);
-                std::string pemData(mem->data, mem->length);
-                images = pemData;
-            } else {
-                images = epee::string_tools::buff_to_hex_nodelimer(blob);
-            }
-            return true;
-        }
-        return m_wallet->save_to_file(filename, blob);
+        images = epee::string_tools::buff_to_hex_nodelimer(blob);
+        return true;
     } catch (const exception& e) {
         LOG_ERROR("Error on exporting multisig images: " << e.what());
         setStatusError(string(tr("Failed to export multisig images: ")) + e.what());
     }
 
+    return false;
+}
+
+bool WalletImpl::exportMultisigImagesPEM(std::string &pem) {
+    try {
+        clearStatus();
+        checkMultisigWalletReady(m_wallet);
+        auto blob = m_wallet->export_multisig();
+        BIO *bp = BIO_new(BIO_s_mem());
+        if (!bp)
+            throw std::runtime_error("BIO allocation failed");
+        if (!PEM_write_bio(bp, "MoneroPEMDataV1", "", (const unsigned char *) blob.c_str(), static_cast<int>(blob.length()))) {
+            BIO_free(bp);
+            throw std::runtime_error("PEM write failed");
+        }
+       BUF_MEM *mem = nullptr;
+        BIO_get_mem_ptr(bp, &mem);
+        if (!mem) {
+            BIO_free(bp);
+            throw std::runtime_error("BIO_get_mem_ptr failed");
+        }
+        pem.assign(mem->data, mem->length);
+        BIO_free(bp);
+        return true;
+    } catch (const exception& e) {
+        LOG_ERROR("Error on exporting multisig images (PEM): " << e.what());
+        setStatusError(string(tr("Failed to export multisig images (PEM): ")) + e.what());
+    }
+    return false;
+}
+
+bool WalletImpl::exportMultisigImagesToFile(const std::string &filename, bool pem) {
+    try {
+        clearStatus();
+        checkMultisigWalletReady(m_wallet);
+        auto blob = m_wallet->export_multisig();
+        if (!pem) {
+            return m_wallet->save_to_file(filename, blob);
+        } else {
+            std::string pemData;
+            BIO *bp = BIO_new(BIO_s_mem());
+            if (!bp) throw std::runtime_error("BIO allocation failed");
+            if (!PEM_write_bio(bp, "MoneroPEMDataV1", "", (const unsigned char *) blob.c_str(), static_cast<int>(blob.length()))) {
+                BIO_free(bp);
+                throw std::runtime_error("PEM write failed");
+            }
+            BUF_MEM *mem = nullptr;
+            BIO_get_mem_ptr(bp, &mem);
+            if (!mem) {
+                BIO_free(bp);
+                throw std::runtime_error("BIO_get_mem_ptr failed");
+            }
+            pemData.assign(mem->data, mem->length);
+            BIO_free(bp);
+            return m_wallet->save_to_file(filename, pemData);
+        }
+    } catch (const exception& e) {
+        LOG_ERROR("Error on exporting multisig images to file: " << e.what());
+        setStatusError(string(tr("Failed to export multisig images to file: ")) + e.what());
+    }
     return false;
 }
 
@@ -1574,26 +1622,40 @@ size_t WalletImpl::importMultisigImages(const vector<string>& images) {
     return 0;
 }
 
-size_t WalletImpl::importMultisigImages(const std::string& input, bool isFile) {
+size_t WalletImpl::importMultisigImagesFromFile(const std::string &filename) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
 
-        string data;
-        std::vector<cryptonote::blobdata> images;
-        if (isFile) {
-            if (!m_wallet->load_from_file(input, data)) {
-                throw runtime_error("Couldn't load from file");
-            }
-        } else {
-            m_wallet->PEM_read_string(input, data);
+        std::string data;
+        if (!m_wallet->load_from_file(filename, data)) {
+            throw runtime_error("Couldn't load from file");
         }
-
+        std::vector<cryptonote::blobdata> images;
         images.push_back(std::move(data));
         return m_wallet->import_multisig(images);
     } catch (const exception& e) {
-        LOG_ERROR("Error on importing multisig images: " << e.what());
-        setStatusError(string(tr("Failed to import multisig images: ")) + e.what());
+        LOG_ERROR("Error on importing multisig images from file: " << e.what());
+        setStatusError(string(tr("Failed to import multisig images from file: ")) + e.what());
+    }
+    return 0;
+}
+
+size_t WalletImpl::importMultisigImagesFromPEM(const std::string &pem) {
+    try {
+        clearStatus();
+        checkMultisigWalletReady(m_wallet);
+
+        std::string data;
+        if (!m_wallet->PEM_read_string(pem, data)) {
+            throw runtime_error("PEM parse failed");
+        }
+        std::vector<cryptonote::blobdata> images;
+        images.push_back(std::move(data));
+        return m_wallet->import_multisig(images);
+    } catch (const exception& e) {
+        LOG_ERROR("Error on importing multisig images from PEM: " << e.what());
+        setStatusError(string(tr("Failed to import multisig images (PEM): ")) + e.what());
     }
     return 0;
 }

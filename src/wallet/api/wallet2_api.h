@@ -121,10 +121,10 @@ struct PendingTransaction
 
     
     /**
-     * @brief dest_addresses
+     * @brief destAddresses
      * @return vector of base58-encoded addresses of transaction recipients
      */
-    virtual std::vector<std::string> dest_addresses() const = 0;
+    virtual std::vector<std::string> destAddresses() const = 0;
 };
 
 /**
@@ -819,11 +819,22 @@ struct Wallet
     /**
      * @brief exportMultisigImages - exports transfers' key images
      * @param images - output paramter for hex encoded array of images
-     * @param filename - (optional) path to file where to save partial key images
-     * @param ascii - (optional) if true, encode data as ASCII readable
      * @return true if success
      */
-    virtual bool exportMultisigImages(std::string& images, std::string filename = "", bool ascii = false) = 0;
+    virtual bool exportMultisigImages(std::string& images) = 0;
+    /**
+     * @brief exportMultisigImagesPEM - exports transfers' key images in PEM format
+     * @param pem - output paramter for PEM encoded array of images
+     * @return true if success
+     */
+    virtual bool exportMultisigImagesPEM(std::string &pem) = 0;
+    /**
+     * @brief exportMultisigImagesToFile - exports transfers' key images to a file in either binary or PEM format
+     * @param filename - filename to save images to
+     * @param pem - if true, exports in PEM format; otherwise, exports in binary format
+     * @return true if success
+     */
+    virtual bool exportMultisigImagesToFile(const std::string &filename, bool pem) = 0;
     /**
      * @brief importMultisigImages - imports other participants' multisig images
      * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
@@ -831,12 +842,17 @@ struct Wallet
      */
     virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
     /**
-     * @brief importMultisigImages - imports other participants' multisig images
-     * @param input - filename to load images from
-     * @param isFile - if true, "input" parameter is treated as filename. otherwise as PEM string
+     * @brief importMultisigImagesFromFile - imports other participants' multisig images from file in either binary or PEM format
+     * @param filename - filename to load images from
      * @return number of imported images
      */
-    virtual size_t importMultisigImages(const std::string& input, bool isFile) = 0;
+    virtual size_t importMultisigImagesFromFile(const std::string& filename) = 0;
+    /**
+     * @brief importMultisigImagesFromPEM - imports other participants' multisig images from a PEM string
+     * @param pem - PEM string containing multisig images
+     * @return number of imported images
+     */
+    virtual size_t importMultisigImagesFromPEM(const std::string& pem) = 0;
     /**
      * @brief hasMultisigPartialKeyImages - checks if wallet needs to import multisig key images from other participants
      * @return true if there are partial key images

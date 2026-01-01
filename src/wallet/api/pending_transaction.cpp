@@ -275,13 +275,13 @@ std::vector<std::string> PendingTransactionImpl::signersKeys() const {
     return keys;
 }
 
-std::vector<std::string> PendingTransactionImpl::dest_addresses() const {
-    std::vector<tools::wallet2::pending_tx> txns = m_pending_tx;
+std::vector<std::string> PendingTransactionImpl::destAddresses() const {
     std::vector<std::string> result;
-    for(tools::wallet2::pending_tx tx : txns) {
-       for (cryptonote::tx_destination_entry dest : tx.dests) {
-           result.push_back(get_account_address_as_str(m_wallet.m_wallet->nettype(), dest.is_subaddress, dest.addr));
-       }
+    result.reserve(m_pending_tx.size() * 2);
+    for (const auto& tx : m_pending_tx) {
+        for (const auto& dest : tx.dests) {
+            result.push_back(get_account_address_as_str(m_wallet.m_wallet->nettype(), dest.is_subaddress, dest.addr));
+        }
     }
     return result;
 }
