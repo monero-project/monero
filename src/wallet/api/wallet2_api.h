@@ -822,18 +822,11 @@ struct Wallet
      */
     virtual bool exportMultisigImages(std::string& images) = 0;
     /**
-     * @brief exportMultisigImagesPEM - exports transfers' key images in PEM format
-     * @param pem - output paramter for PEM encoded array of images
-     * @return true if success
-     */
-    virtual bool exportMultisigImagesPEM(std::string& pem) = 0;
-    /**
-     * @brief exportMultisigImagesToFile - exports transfers' key images to a file in either binary or PEM format
+     * @brief exportMultisigImagesToFile - exports transfers' key images to a file
      * @param filename - path of the file to save images to
-     * @param pem - if true, exports in PEM format; otherwise, exports in binary format
      * @return true if success
      */
-    virtual bool exportMultisigImagesToFile(const std::string& filename, bool pem) = 0;
+    virtual bool exportMultisigImagesToFile(const std::string& filename) = 0;
     /**
      * @brief importMultisigImages - imports other participants' multisig images
      * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
@@ -841,17 +834,11 @@ struct Wallet
      */
     virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
     /**
-     * @brief importMultisigImagesFromFile - imports other participants' multisig images from file in either binary or PEM format
+     * @brief importMultisigImagesFromFile - imports other participants' multisig images from file
      * @param filename - path of the file containing multisig images
      * @return number of imported images
      */
     virtual size_t importMultisigImagesFromFile(const std::string& filename) = 0;
-    /**
-     * @brief importMultisigImagesFromPEM - imports other participants' multisig images from a PEM string
-     * @param pem - PEM string containing multisig images
-     * @return number of imported images
-     */
-    virtual size_t importMultisigImagesFromPEM(const std::string& pem) = 0;
     /**
      * @brief hasMultisigPartialKeyImages - checks if wallet needs to import multisig key images from other participants
      * @return true if there are partial key images

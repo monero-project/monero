@@ -1534,59 +1534,13 @@ bool WalletImpl::exportMultisigImages(string& images) {
     return false;
 }
 
-bool WalletImpl::exportMultisigImagesPEM(std::string& pem) {
+bool WalletImpl::exportMultisigImagesToFile(const std::string& filename) {
     try {
         clearStatus();
         checkMultisigWalletReady(m_wallet);
-        auto blob = m_wallet->export_multisig();
-        BIO *bp = BIO_new(BIO_s_mem());
-        if (!bp)
-            throw std::runtime_error("BIO allocation failed");
-        if (!PEM_write_bio(bp, "MoneroPEMDataV1", "", (const unsigned char *) blob.c_str(), static_cast<int>(blob.length()))) {
-            BIO_free(bp);
-            throw std::runtime_error("PEM write failed");
-        }
-        BUF_MEM *mem = nullptr;
-        BIO_get_mem_ptr(bp, &mem);
-        if (!mem) {
-            BIO_free(bp);
-            throw std::runtime_error("BIO_get_mem_ptr failed");
-        }
-        pem.assign(mem->data, mem->length);
-        BIO_free(bp);
-        return true;
-    } catch (const exception& e) {
-        LOG_ERROR("Error on exporting multisig images (PEM): " << e.what());
-        setStatusError(string(tr("Failed to export multisig images (PEM): ")) + e.what());
-    }
-    return false;
-}
 
-bool WalletImpl::exportMultisigImagesToFile(const std::string& filename, bool pem) {
-    try {
-        clearStatus();
-        checkMultisigWalletReady(m_wallet);
         auto blob = m_wallet->export_multisig();
-        if (!pem)
-            return m_wallet->save_to_file(filename, blob);
-        
-        std::string pemData;
-        BIO *bp = BIO_new(BIO_s_mem());
-        if (!bp) 
-            throw std::runtime_error("BIO allocation failed");
-        if (!PEM_write_bio(bp, "MoneroPEMDataV1", "", (const unsigned char *) blob.c_str(), static_cast<int>(blob.length()))) {
-            BIO_free(bp);
-            throw std::runtime_error("PEM write failed");
-        }
-        BUF_MEM *mem = nullptr;
-        BIO_get_mem_ptr(bp, &mem);
-        if (!mem) {
-            BIO_free(bp);
-            throw std::runtime_error("BIO_get_mem_ptr failed");
-        }
-        pemData.assign(mem->data, mem->length);
-        BIO_free(bp);
-        return m_wallet->save_to_file(filename, pemData);
+        return m_wallet->save_to_file(filename, blob);
     } catch (const exception& e) {
         LOG_ERROR("Error on exporting multisig images to file: " << e.what());
         setStatusError(string(tr("Failed to export multisig images to file: ")) + e.what());
@@ -1636,24 +1590,6 @@ size_t WalletImpl::importMultisigImagesFromFile(const std::string& filename) {
     } catch (const exception& e) {
         LOG_ERROR("Error on importing multisig images from file: " << e.what());
         setStatusError(string(tr("Failed to import multisig images from file: ")) + e.what());
-    }
-    return 0;
-}
-
-size_t WalletImpl::importMultisigImagesFromPEM(const std::string& pem) {
-    try {
-        clearStatus();
-        checkMultisigWalletReady(m_wallet);
-
-        std::string data;
-        if (!m_wallet->PEM_read_string(pem, data))
-            throw runtime_error("PEM parse failed");
-        std::vector<cryptonote::blobdata> images;
-        images.push_back(std::move(data));
-        return m_wallet->import_multisig(images);
-    } catch (const exception& e) {
-        LOG_ERROR("Error on importing multisig images from PEM: " << e.what());
-        setStatusError(string(tr("Failed to import multisig images (PEM): ")) + e.what());
     }
     return 0;
 }

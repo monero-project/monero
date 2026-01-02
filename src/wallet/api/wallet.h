@@ -150,11 +150,9 @@ public:
     std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution = false) override;
     std::string getMultisigKeyExchangeBooster(const std::vector<std::string> &info, const uint32_t threshold, const uint32_t num_signers) override;
     bool exportMultisigImages(std::string& images) override;
-    bool exportMultisigImagesPEM(std::string& pem) override;
-    bool exportMultisigImagesToFile(const std::string& filename, bool pem) override;
+    bool exportMultisigImagesToFile(const std::string& filename) override;
     size_t importMultisigImages(const std::vector<std::string>& images) override;
     size_t importMultisigImagesFromFile(const std::string& filename) override;
-    size_t importMultisigImagesFromPEM(const std::string& pem) override;
     bool hasMultisigPartialKeyImages() const override;
     PendingTransaction* loadMultisigTxFromFile(const std::string& filename) override;
     PendingTransaction*  restoreMultisigTransaction(const std::string& signData) override;
