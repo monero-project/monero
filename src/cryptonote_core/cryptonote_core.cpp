@@ -128,6 +128,11 @@ namespace cryptonote
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
   };
+  const command_line::arg_descriptor<size_t> arg_request_deadline  = {
+    "request-deadline"
+  , "Set the deadline for waiting requested transactions (in seconds)"
+  , P2P_DEFAULT_REQUEST_TIMEOUT
+  };
 
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
@@ -329,6 +334,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
     command_line::add_arg(desc, arg_sync_pruned_blocks);
+    command_line::add_arg(desc, arg_request_deadline);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
     command_line::add_arg(desc, arg_prune_blockchain);
