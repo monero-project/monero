@@ -243,8 +243,6 @@ TEST(verRctNonSemanticsSimple, tx1_preconditions)
     // If this unit test fails, something changed about transaction deserialization / expansion or
     // something changed about RingCT signature verification.
 
-    cryptonote::rct_ver_cache_t rct_ver_cache;
-
     cryptonote::transaction tx = expand_transaction_from_bin_file_and_pubkeys
         (tx1_file_name, tx1_input_pubkeys);
     const rct::rctSig& rs = tx.rct_signatures;
@@ -274,8 +272,8 @@ TEST(verRctNonSemanticsSimple, tx1_preconditions)
     EXPECT_TRUE(rct::verRctSemanticsSimple(rs));
     EXPECT_TRUE(rct::verRctNonSemanticsSimple(rs));
     EXPECT_TRUE(rct::verRctSimple(rs));
-    EXPECT_TRUE(cryptonote::ver_rct_non_semantics_simple_cached(tx, tx1_input_pubkeys, rct_ver_cache, rct::RCTTypeBulletproofPlus));
-    EXPECT_TRUE(cryptonote::ver_rct_non_semantics_simple_cached(tx, tx1_input_pubkeys, rct_ver_cache, rct::RCTTypeBulletproofPlus));
+    EXPECT_TRUE(cryptonote::ver_input_proofs_rings(tx, tx1_input_pubkeys));
+    EXPECT_TRUE(cryptonote::ver_input_proofs_rings(tx, tx1_input_pubkeys));
 }
 
 #define SERIALIZABLE_SIG_CHANGES_SUBTEST(fieldmodifyclause)                                    \
