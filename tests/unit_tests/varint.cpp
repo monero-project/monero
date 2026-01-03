@@ -62,3 +62,101 @@ TEST(varint, equal)
     ASSERT_TRUE(idx2 == idx);
   }
 }
+
+TEST(varint, max_uint64_t_bytes)
+{
+  unsigned char bytes[100]{};
+  unsigned char *p = bytes;
+  tools::write_varint(p, std::numeric_limits<std::uint64_t>::max());
+  std::size_t i = 0;
+  while (bytes[i]) ++i;
+  ASSERT_EQ(10, i);        // tests size of max 64-bit uint
+  ASSERT_EQ(bytes + i, p); // tests iterator is modified in-place
+}
+
+template <typename T>
+static void subtest_varint_byte_size_for_single_value(const std::size_t expected_bytes, const T val)
+{
+  static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+  static constexpr int DIGITS = std::numeric_limits<T>::digits;
+  static_assert(DIGITS == CHAR_BIT * sizeof(T));
+  static_assert(sizeof(T));
+  static_assert(sizeof(T) <= 8); // 64-bit or less
+
+  unsigned char bytes[100]{};
+  unsigned char *p = bytes;
+  tools::write_varint(p, val);
+  ASSERT_EQ(expected_bytes, p - bytes);
+  ASSERT_EQ(expected_bytes, tools::get_varint_byte_size(val));
+}
+
+template <typename T>
+static void subtest_varint_byte_size_for_type()
+{
+  static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+  static constexpr int DIGITS = std::numeric_limits<T>::digits;
+  static_assert(DIGITS == CHAR_BIT * sizeof(T));
+  static_assert(sizeof(T));
+
+  for (T n = 0; n < 128; ++n)
+  {
+    subtest_varint_byte_size_for_single_value(1, n);
+  }
+
+  for (T n = 128; n < 255; ++n)
+  {
+    subtest_varint_byte_size_for_single_value(2, n);
+  }
+
+  subtest_varint_byte_size_for_single_value(2, T{255});
+
+  if constexpr (DIGITS > 8)
+  {
+    static_assert(DIGITS >= 16);
+    for (T n = 256; n < 16384; ++n)
+    {
+      subtest_varint_byte_size_for_single_value(2, n);
+    }
+
+    for (T n = 16384; n < 65535; ++n)
+    {
+      subtest_varint_byte_size_for_single_value(3, n);
+    }
+
+    subtest_varint_byte_size_for_single_value(3, T{65535});
+
+    if constexpr (DIGITS > 16)
+    {
+      static_assert(DIGITS >= 32);
+      subtest_varint_byte_size_for_single_value(3, T{2097151});
+      subtest_varint_byte_size_for_single_value(4, T{2097152});
+      subtest_varint_byte_size_for_single_value(4, T{268435455});
+      subtest_varint_byte_size_for_single_value(5, T{268435456});
+      subtest_varint_byte_size_for_single_value(5, T{4294967295});
+
+      if constexpr (DIGITS > 32)
+      {
+        static_assert(DIGITS >= 64);
+        subtest_varint_byte_size_for_single_value(5, T{34359738367});
+        subtest_varint_byte_size_for_single_value(6, T{34359738368});
+        subtest_varint_byte_size_for_single_value(6, T{4398046511103});
+        subtest_varint_byte_size_for_single_value(7, T{4398046511104});
+        subtest_varint_byte_size_for_single_value(7, T{562949953421311});
+        subtest_varint_byte_size_for_single_value(8, T{562949953421312});
+        subtest_varint_byte_size_for_single_value(8, T{72057594037927935});
+        subtest_varint_byte_size_for_single_value(9, T{72057594037927936});
+        subtest_varint_byte_size_for_single_value(9, T{9223372036854775807});
+        subtest_varint_byte_size_for_single_value(10, T{9223372036854775808ull});
+        subtest_varint_byte_size_for_single_value(10, T{18446744073709551615ull});
+      }
+    }
+  }
+};
+
+TEST(varint, get_varint_byte_size)
+{
+  subtest_varint_byte_size_for_type<std::uint8_t>();
+  subtest_varint_byte_size_for_type<std::uint16_t>();
+  subtest_varint_byte_size_for_type<std::uint32_t>();
+  subtest_varint_byte_size_for_type<std::uint64_t>();
+}
