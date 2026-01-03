@@ -46,7 +46,6 @@ endif()
 if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif()
-include(FindPythonInterp)
 
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
@@ -1147,7 +1146,6 @@ include(external/supercop/functions.cmake) # place after setting flags and befor
 add_subdirectory(contrib)
 add_subdirectory(src)
 
-find_package(PythonInterp)
 option(ENABLE_FUZZ_TEST "Enable fuzz testing." OFF)
 if(BUILD_TESTS)
   message(STATUS "Building tests")
