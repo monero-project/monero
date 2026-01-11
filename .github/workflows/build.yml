@@ -34,10 +34,10 @@ jobs:
     env:
       CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: /Users/runner/Library/Caches/ccache
           key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -63,10 +63,10 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: C:\Users\runneradmin\.ccache
           key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -91,7 +91,7 @@ jobs:
         run: pacman -Syyu --noconfirm base-devel git rust cmake boost openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
       - uses: ./.github/actions/set-make-job-count
@@ -125,7 +125,7 @@ jobs:
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
       - uses: ./.github/actions/set-make-job-count
@@ -159,10 +159,10 @@ jobs:
         run: ${{env.APT_INSTALL_LINUX}}
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.ccache
           key: ccache-${{ matrix.container }}-build-${{ github.sha }}
@@ -206,10 +206,10 @@ jobs:
         run: pip install requests psutil monotonic zmq deepdiff
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
-      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.ccache
           key: ccache-${{ matrix.container }}-build-${{ github.sha }}
@@ -243,7 +243,7 @@ jobs:
         run: apt install -y git python3-pip
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -254,7 +254,7 @@ jobs:
           export OUTPUT="$VERSION.tar"
           echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
           git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
-      - uses: actions/upload-artifact@604373da613bddd6595364cb4501dfe7461b1834 # v4.6.0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.OUTPUT }}
           path: ${{ env.OUTPUT }}
