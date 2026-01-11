@@ -132,4 +132,3 @@ jobs:
         path: |
           build/${{ matrix.toolchain.host }}/release/bin/monero-wallet-cli*
           build/${{ matrix.toolchain.host }}/release/bin/monerod*
-
