@@ -50,7 +50,7 @@ namespace tools
         "updates.moneropulse.net",
         "updates.moneropulse.fr",
         "updates.moneropulse.de",
-        "updates.moneropulse.no",
+        "updates.moneropulse.co",
         "updates.moneropulse.ch",
         "updates.moneropulse.se"
     };
