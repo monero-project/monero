@@ -2143,7 +2143,7 @@ namespace nodetool
       "blocklist.moneropulse.se"
     , "blocklist.moneropulse.org"
     , "blocklist.moneropulse.net"
-    , "blocklist.moneropulse.no"
+    , "blocklist.moneropulse.co"
     , "blocklist.moneropulse.fr"
     , "blocklist.moneropulse.de"
     , "blocklist.moneropulse.ch"
