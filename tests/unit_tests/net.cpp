@@ -883,6 +883,230 @@ TEST(get_network_address_host_and_port, hostname)
     na_host_and_port_test("xmrchain.net:18081", "xmrchain.net", "18081");
 }
 
+TEST(scheme_and_authority, basic)
+{
+    const auto check = [] (const net::scheme_and_authority& actual, const boost::string_ref scheme, const boost::string_ref authority)
+    {
+        EXPECT_EQ(actual.scheme, scheme);
+        EXPECT_EQ(actual.authority, authority);
+    };
+
+    // valid (some ipv6 hostnames are non-standard but allowed)
+    check(net::scheme_and_authority{"socks://host:port/path"}, "socks", "host:port");
+    check(net::scheme_and_authority{"socks://[::ffff]:8080/path"}, "socks", "[::ffff]:8080");
+    check(net::scheme_and_authority{"socks://192.168.0.1/path"}, "socks", "192.168.0.1");
+    check(net::scheme_and_authority{"socks://host"}, "socks", "host");
+    check(net::scheme_and_authority{"socks://@host"}, "socks", "@host");
+    check(net::scheme_and_authority{"socks://user:pass@host"}, "socks", "user:pass@host");
+    check(net::scheme_and_authority{"host:port/path"}, "", "host:port");
+    check(net::scheme_and_authority{"[::ffff]:8080/path"}, "", "[::ffff]:8080");
+    check(net::scheme_and_authority{"192.168.0.1/path"}, "", "192.168.0.1");
+    check(net::scheme_and_authority{"host"}, "", "host");
+    check(net::scheme_and_authority{"192.168.0.1"}, "", "192.168.0.1");
+    check(net::scheme_and_authority{"192.168.0.1:80/path"}, "", "192.168.0.1:80");
+    check(net::scheme_and_authority{"::ffff"}, "", "::ffff");
+    check(net::scheme_and_authority{"[::ffff]:8080"}, "", "[::ffff]:8080");
+    check(net::scheme_and_authority{"example.com/some://valid/path"}, "", "example.com");
+
+    // unsupported URIs (URN cases)
+    check(net::scheme_and_authority{"urn:isbn:number"}, "", "urn:isbn:number");
+    check(net::scheme_and_authority{"urn:isbn/number"}, "", "urn:isbn");
+
+    // invalid cases _not_ strictly rejected until hostname is parsed fully
+    check(net::scheme_and_authority{""}, "", "");
+    check(net::scheme_and_authority{"socks://"}, "socks", "");
+    check(net::scheme_and_authority{"socks:/"}, "", "socks:");
+    check(net::scheme_and_authority{"192.168.0.1:80://"}, "", "192.168.0.1:80:");
+    check(net::scheme_and_authority{"user@::ffff:443"}, "", "user@::ffff:443");
+    check(net::scheme_and_authority{"socks://user:p%61ss@ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:8080"}, "socks", "user:p%61ss@ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:8080");
+}
+
+
+TEST(userinfo_and_hostport, basic)
+{
+    const auto check = [] (const net::userinfo_and_hostport& actual, const boost::string_ref userinfo, const boost::string_ref hostport)
+    {
+        EXPECT_EQ(actual.userinfo, userinfo);
+        EXPECT_EQ(actual.hostport, hostport);
+    };
+
+    check(net::userinfo_and_hostport{"@host:port"}, "", "host:port");
+    check(net::userinfo_and_hostport{"host:port"}, "", "host:port");
+    check(net::userinfo_and_hostport{"[::ffff]"}, "", "[::ffff]");
+    check(net::userinfo_and_hostport{"::ffff"}, "", "::ffff");
+    check(net::userinfo_and_hostport{"user@[::ffff]"}, "user", "[::ffff]");
+    check(net::userinfo_and_hostport{"user:%70ass@192.168.0.1"}, "user:%70ass", "192.168.0.1");
+    check(net::userinfo_and_hostport{"user:pass@host:8080"}, "user:pass", "host:8080");
+
+    // invalid hostname not strictly rejected
+    check(net::userinfo_and_hostport{""}, "", "");
+    check(net::userinfo_and_hostport{"@"}, "", "");
+    check(net::userinfo_and_hostport{":@"}, ":", "");
+    check(net::userinfo_and_hostport{"user@::ffff:443"}, "user", "::ffff:443");
+}
+
+TEST(user_and_pass, basic)
+{
+    const auto check = [] (
+        const std::optional<net::user_and_pass>& actual,
+        const std::optional<std::string>& user = std::nullopt,
+        const boost::string_ref pass = "")
+    {
+        ASSERT_EQ(bool(actual), bool(user));
+        if (actual)
+        {
+            EXPECT_EQ(actual->user, *user);
+            EXPECT_EQ(actual->pass, pass);
+        }
+    };
+
+    check(net::user_and_pass::get(""), std::string{""}, "");
+    check(net::user_and_pass::get("user"), std::string{"user"}, "");
+    check(net::user_and_pass::get("user:"), std::string{"user"}, "");
+    check(net::user_and_pass::get(":pass"), std::string{}, "pass");
+    check(net::user_and_pass::get("user:pass"), std::string("user"), "pass");
+    check(net::user_and_pass::get("user:p%3Ass"), std::string("user"), "p:ss");
+    check(net::user_and_pass::get("%2fser:"), std::string{"/ser"}, "");
+    check(net::user_and_pass::get("user:pas%21"), std::string{"user"}, "pas!");
+    check(net::user_and_pass::get("user::pass"), std::string{"user"}, ":pass");
+    check(net::user_and_pass::get("user%3A:pass"), std::string{"user:"}, "pass");
+    check(net::user_and_pass::get("%25%3A:pass"), std::string{"%:"}, "pass");
+    check(net::user_and_pass::get("user:%00%FF"), std::string{"user"}, boost::string_ref{"\x00\xFF", 2});
+
+    // invalid percent encodings
+    check(net::user_and_pass::get("user%3T"));
+    check(net::user_and_pass::get("user%T"));
+    check(net::user_and_pass::get("user%3"));
+    check(net::user_and_pass::get("user%"));
+}
+
+TEST(uri_components, get)
+{
+    const auto check = [] (
+        const std::optional<net::uri_components>& actual,
+        const std::optional<std::string>& scheme = std::nullopt,
+        const boost::string_ref user = "",
+        const boost::string_ref pass = "",
+        const boost::string_ref hostport = "")
+    {
+        ASSERT_EQ(bool(actual), bool(scheme));
+        if (actual)
+        {
+            EXPECT_EQ(actual->scheme, *scheme);
+            EXPECT_EQ(actual->userinfo.user, user);
+            EXPECT_EQ(actual->userinfo.pass, pass);
+            EXPECT_EQ(actual->hostport, hostport);
+        }
+    };
+
+    // valid (some ipv6 hostnames are non-standard but allowed)
+    check(net::uri_components::get("socks://host:port/path"), std::string{"socks"}, "", "", "host:port");
+    check(net::uri_components::get("socks://[::ffff]:8080/path"), std::string{"socks"}, "", "", "[::ffff]:8080");
+    check(net::uri_components::get("socks://192.168.0.1/path"), "socks", "", "", "192.168.0.1");
+    check(net::uri_components::get("socks://host"), "socks", "", "", "host");
+    check(net::uri_components::get("socks://@host"), std::string{"socks"}, "", "", "host");
+    check(net::uri_components::get("socks://:@host"), std::string{"socks"}, "", "", "host");
+    check(net::uri_components::get("socks://user:@host"), std::string{"socks"}, "user", "", "host");
+    check(net::uri_components::get("socks://:pass@host"), std::string{"socks"}, "", "pass", "host");
+    check(net::uri_components::get("socks://user:pass@host"), std::string{"socks"}, "user", "pass", "host");
+    check(net::uri_components::get("host:port/path"), "", "", "", "host:port");
+    check(net::uri_components::get("[::ffff]:8080/path"), "", "", "", "[::ffff]:8080");
+    check(net::uri_components::get("192.168.0.1/path"), "", "", "", "192.168.0.1");
+    check(net::uri_components::get("host"), "", "", "", "host");
+    check(net::uri_components::get("192.168.0.1"), "", "", "", "192.168.0.1");
+    check(net::uri_components::get("192.168.0.1:80/path"), "", "", "", "192.168.0.1:80");
+    check(net::uri_components::get("::ffff"), std::string{}, "", "", "::ffff");
+    check(net::uri_components::get("[::ffff]:8080"), std::string{}, "", "", "[::ffff]:8080");
+    check(net::uri_components::get("example.com/some://valid/path"), "", "", "", "example.com");
+
+    // unsupported URIs (URN cases)
+    check(net::uri_components::get("urn:isbn:number"), std::string{}, "", "", "urn:isbn:number");
+    check(net::uri_components::get("urn:isbn/number"), std::string{}, "", "", "urn:isbn");
+
+    // invalid cases _not_ strictly rejected until hostname is parsed fully
+    check(net::uri_components::get(""), std::string{}, "", "", "");
+    check(net::uri_components::get("socks://"), std::string{"socks"}, "", "", "");
+    check(net::uri_components::get("socks:/"), std::string{}, "", "", "socks:");
+    check(net::uri_components::get("192.168.0.1:80://"), std::string{}, "", "", "192.168.0.1:80:");
+    check(net::uri_components::get("user@::ffff:443"), std::string{}, "user", "", "::ffff:443");
+    check(net::uri_components::get("socks://user:p%61ss@ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:8080"), std::string{"socks"}, "user", "pass", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:8080");
+
+    // invalid percent encodings
+    check(net::uri_components::get("scheme://user%3T@host"));
+    check(net::uri_components::get("user%T@host"));
+    check(net::uri_components::get("scheme://user:%3pass@host"));
+    check(net::uri_components::get("user%@host"));
+}
+
+TEST(socks_endpoint, get)
+{
+    namespace ip = boost::asio::ip;
+    const auto check = [] (
+        const expect<net::socks::endpoint>& actual,
+        const std::optional<boost::asio::ip::address>& address = std::nullopt,
+        const std::uint16_t port = 0,
+        const boost::string_ref user = "",
+        const boost::string_ref pass = "",
+        const net::socks::version ver = net::socks::version::v4a)
+    {
+        ASSERT_EQ(bool(actual), bool(address)) << actual.error().message();
+        if (actual)
+        {
+            EXPECT_EQ(actual->address.address(), address);
+            EXPECT_EQ(actual->address.port(), port);
+            EXPECT_EQ(actual->userinfo.user, user);
+            EXPECT_EQ(actual->userinfo.pass, pass);
+            EXPECT_EQ(actual->ver, ver);
+        }
+    };
+
+    check(net::socks::endpoint::get("socks://[::ffff]:8080/path"), ip::make_address_v6("::ffff"), 8080, "", "", net::socks::version::v4a);
+    check(net::socks::endpoint::get("socks5://user:%70ass@[::ffff]:8080/path"), ip::make_address_v6("::ffff"), 8080, "user", "pass", net::socks::version::v5);
+    check(net::socks::endpoint::get("socks4a://192.168.0.1:1/path"), ip::make_address_v4("192.168.0.1"), 1, "", "", net::socks::version::v4a);
+    check(net::socks::endpoint::get("socks5://%75@192.168.0.1:1/path"), ip::make_address_v4("192.168.0.1"), 1, "u", "", net::socks::version::v5);
+    check(net::socks::endpoint::get("[::ffff]:8080/path"), ip::make_address_v6("::ffff"), 8080, "", "", net::socks::version::v4a);
+    check(net::socks::endpoint::get("192.168.0.1:50"), ip::make_address_v4("192.168.0.1"), 50, "", "", net::socks::version::v4a);
+    check(net::socks::endpoint::get("192.168.0.1:80/path"), ip::make_address_v4("192.168.0.1"), 80, "", "", net::socks::version::v4a);
+
+    // URNs should be rejected
+    check(net::socks::endpoint::get("urn:isbn:number"));
+    check(net::socks::endpoint::get("urn:isbn/number"));
+
+    // port required for socks
+    check(net::socks::endpoint::get("socks5://192.168.0.1/path"));
+    check(net::socks::endpoint::get("192.168.0.1/path"));
+    check(net::socks::endpoint::get("::ffff"));
+
+    // invalid for socks - hostnames not allowed
+    check(net::socks::endpoint::get("socks://host:/path"));
+    check(net::socks::endpoint::get("socks://host:1"));
+    check(net::socks::endpoint::get("socks://@host:1"));
+    check(net::socks::endpoint::get("socks://:@host:1"));
+    check(net::socks::endpoint::get("socks://user:@host:1"));
+    check(net::socks::endpoint::get("socks://:pass@host:1"));
+    check(net::socks::endpoint::get("socks://user:pass@host:1"));
+    check(net::socks::endpoint::get("host:1"));
+    check(net::socks::endpoint::get("host:1/path"));
+    check(net::socks::endpoint::get("example.com:1/some://valid/path"));
+
+    // invalid cases rejected - more bad hostnames
+    check(net::socks::endpoint::get(""));
+    check(net::socks::endpoint::get("socks://"));
+    check(net::socks::endpoint::get("socks:/"));
+    check(net::socks::endpoint::get("192.168.0.1:80://"));
+    check(net::socks::endpoint::get("::ffff:443"));
+    check(net::socks::endpoint::get("socks5://user:p%61ss@ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:8080"));
+
+    // invalid percent encodings
+    check(net::socks::endpoint::get("sock5://user%3T@127.0.0.1:1"));
+    check(net::socks::endpoint::get("socks5::user%T@127.0.0.1:1"));
+    check(net::socks::endpoint::get("socks5://user:%3pass@127.0.0.1:1"));
+    check(net::socks::endpoint::get("socks5://user%@127.0.0.1:1"));
+
+    // user+pass requires socks5
+    check(net::socks::endpoint::get("socks://user:pass@[::ffff]:8080"));
+}
+
 namespace
 {
     using stream_type = boost::asio::ip::tcp;
@@ -952,6 +1176,58 @@ TEST(socks_client, unsupported_command)
 
     EXPECT_FALSE(test_client->set_resolve_command("example.com"));
     EXPECT_TRUE(test_client->buffer().empty());
+
+    EXPECT_FALSE(test_client->set_connect_command(epee::net_utils::ipv6_network_address{}));
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    test_client = net::socks::make_connect_client(
+        stream_type::socket{io_service}, net::socks::version::v5, std::bind( [] {} )
+    );
+    ASSERT_TRUE(bool(test_client));
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    net::user_and_pass userinfo{};
+    userinfo.user = std::string(256, 'a');
+
+    EXPECT_FALSE(test_client->set_connect_command(userinfo.user, 8080));
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    EXPECT_FALSE(test_client->set_connect_command("a", 8080, std::addressof(userinfo)));
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    EXPECT_FALSE(
+        test_client->set_connect_command(
+          epee::net_utils::ipv4_network_address{}, std::addressof(userinfo)
+        )
+    );
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    EXPECT_FALSE(
+        test_client->set_connect_command(
+          epee::net_utils::ipv6_network_address{}, std::addressof(userinfo)
+        )
+    );
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    userinfo.pass = std::move(userinfo.user);
+    userinfo.user.clear();
+
+    EXPECT_FALSE(test_client->set_connect_command("a", 8080, std::addressof(userinfo)));
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    EXPECT_FALSE(
+        test_client->set_connect_command(
+          epee::net_utils::ipv4_network_address{}, std::addressof(userinfo)
+        )
+    );
+    EXPECT_TRUE(test_client->buffer().empty());
+
+    EXPECT_FALSE(
+        test_client->set_connect_command(
+          epee::net_utils::ipv6_network_address{}, std::addressof(userinfo)
+        )
+    );
+    EXPECT_TRUE(test_client->buffer().empty());
 }
 
 TEST(socks_client, no_command)
@@ -999,6 +1275,62 @@ TEST(socks_client, connect_command)
     while (!called);
 }
 
+TEST(socks_client, v5_ipv6_connect_command)
+{
+    io_thread io{};
+    stream_type::socket client{io.io_service};
+
+    const boost::asio::ip::address_v6::bytes_type address{0xDE, 0xAD, 0xBE, 0xEF};
+
+    std::atomic<bool> called{false};
+    auto test_client = net::socks::make_connect_client(
+        std::move(client), net::socks::version::v5, checked_client{std::addressof(called), false}
+    );
+    ASSERT_TRUE(bool(test_client));
+
+    ASSERT_TRUE(
+        test_client->set_connect_command(
+            epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{address}, 80}
+        )
+    );
+    EXPECT_FALSE(test_client->buffer().empty());
+    ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
+    while (!io.connected)
+        ASSERT_FALSE(called);
+
+    {
+        const std::uint8_t expected_bytes[] = {5, 1, 0};
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {5, 0};
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+    {
+        const std::uint8_t expected_bytes[] = {
+            5, 1, 0, 4, 0xDE, 0xAD, 0xBE, 0xEF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0x50
+        };
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {
+            5, 0, 0, 4, 0xBE, 0xEF, 0xDE, 0xAD, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0x50
+        };
+
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+
+    // yikes!
+    while (!called);
+}
+
+
 TEST(socks_client, connect_command_failed)
 {
     io_thread io{};
@@ -1035,6 +1367,56 @@ TEST(socks_client, connect_command_failed)
     while (!called);
 }
 
+
+TEST(socks_client, v5_ipv4_connect_command_failed)
+{
+    io_thread io{};
+    stream_type::socket client{io.io_service};
+
+    std::atomic<bool> called{false};
+    auto test_client = net::socks::make_connect_client(
+        std::move(client), net::socks::version::v5, checked_client{std::addressof(called), true}
+    );
+    ASSERT_TRUE(bool(test_client));
+
+    ASSERT_TRUE(
+        test_client->set_connect_command(
+            epee::net_utils::ipv4_network_address{boost::endian::native_to_big(std::uint32_t(5000)), 80}
+        )
+    );
+    EXPECT_FALSE(test_client->buffer().empty());
+    ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
+    while (!io.connected)
+        ASSERT_FALSE(called);
+
+    {
+        const std::uint8_t expected_bytes[] = {5, 1, 0};
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {5, 0};
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+    {
+        const std::uint8_t expected_bytes[] = {
+            5, 1, 0, 1, 0, 0, 0x13, 0x88, 0, 0x50
+        };
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {5, 2, 0, 1, 0, 0, 0, 0, 0, 0x50};
+
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+
+    // yikes!
+    while (!called);
+}
+
 TEST(socks_client, resolve_command)
 {
     static std::uint8_t reply_bytes[] = {0, 90, 0, 0, 0xff, 0, 0xad, 0};
@@ -1050,7 +1432,7 @@ TEST(socks_client, resolve_command)
           , expected_(false)
         {};
 
-        virtual void done(boost::system::error_code error, std::shared_ptr<client> self) override
+        virtual void done(boost::system::error_code error, const std::shared_ptr<client>& self) override
         {
             EXPECT_EQ(this, self.get());
             EXPECT_EQ(expected_, bool(error)) << "Resolve failure: " << error.message();
@@ -1106,6 +1488,120 @@ TEST(socks_client, resolve_command)
     while (test_client->called_ == 1);
 }
 
+TEST(socks_client, v5_username_host_connect)
+{
+    io_thread io{};
+    stream_type::socket client{io.io_service};
+
+    std::atomic<bool> called{false};
+    auto test_client = net::socks::make_connect_client(
+        std::move(client), net::socks::version::v5, checked_client{std::addressof(called), false}
+    );
+    ASSERT_TRUE(bool(test_client));
+
+    const auto userinfo =
+        net::user_and_pass::get("user:pass").value_or(net::user_and_pass{});
+    ASSERT_TRUE(
+        test_client->set_connect_command("example.com", 80, std::addressof(userinfo))
+    );
+    EXPECT_FALSE(test_client->buffer().empty());
+    ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
+    while (!io.connected)
+        ASSERT_FALSE(called);
+
+    {
+        const std::uint8_t expected_bytes[] = {5, 2, 0, 2};
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {5, 2};
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+    {
+        const std::uint8_t expected_bytes[] = {
+            1, 4, 'u', 's', 'e', 'r', 4, 'p', 'a', 's', 's'
+        };
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {1, 0};
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+    {
+        const std::uint8_t expected_bytes[] = {
+            5, 1, 0, 3, 11, 'e','x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o',
+            'm', 0, 0x50
+        };
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {
+            5, 0, 0, 1, 0xDE, 0xAD, 0xBE, 0xEF, 0x50, 00
+        };
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+
+    // yikes!
+    while (!called);
+}
+
+TEST(socks_client, v5_usernameskipped_host_connect)
+{
+    io_thread io{};
+    stream_type::socket client{io.io_service};
+
+    std::atomic<bool> called{false};
+    auto test_client = net::socks::make_connect_client(
+        std::move(client), net::socks::version::v5, checked_client{std::addressof(called), false}
+    );
+    ASSERT_TRUE(bool(test_client));
+
+    const auto userinfo =
+        net::user_and_pass::get("user:pass").value_or(net::user_and_pass{});
+    ASSERT_TRUE(
+        test_client->set_connect_command("example.com", 80, std::addressof(userinfo))
+    );
+    EXPECT_FALSE(test_client->buffer().empty());
+    ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
+    while (!io.connected)
+        ASSERT_FALSE(called);
+
+    {
+        const std::uint8_t expected_bytes[] = {5, 2, 0, 2};
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {5, 0};
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+    {
+        const std::uint8_t expected_bytes[] = {
+            5, 1, 0, 3, 11, 'e','x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o',
+            'm', 0, 0x50
+        };
+
+        std::uint8_t actual_bytes[sizeof(expected_bytes)];
+        boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
+        EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+        const std::uint8_t reply_bytes[] = {
+            5, 0, 0, 1, 0xDE, 0xAD, 0xBE, 0xEF, 0x50, 00
+        };
+        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+    }
+
+    // yikes!
+    while (!called);
+}
+
 TEST(socks_connector, host)
 {
     io_thread io{};
@@ -1113,7 +1609,9 @@ TEST(socks_connector, host)
     timeout.expires_after(std::chrono::seconds{5});
 
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
-        net::socks::connector{io.acceptor.local_endpoint()}("example.com", "8080", timeout);
+        net::socks::connector{
+            std::make_shared<net::socks::endpoint>(io.acceptor.local_endpoint())
+        }("example.com", "8080", timeout);
 
     while (!io.connected)
         ASSERT_FALSE(sock.is_ready());
@@ -1140,7 +1638,9 @@ TEST(socks_connector, ipv4)
     timeout.expires_after(std::chrono::seconds{5});
 
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
-        net::socks::connector{io.acceptor.local_endpoint()}("250.88.125.99", "8080", timeout);
+        net::socks::connector{
+            std::make_shared<net::socks::endpoint>(io.acceptor.local_endpoint())
+        }("250.88.125.99", "8080", timeout);
 
     while (!io.connected)
         ASSERT_FALSE(sock.is_ready());
@@ -1166,7 +1666,9 @@ TEST(socks_connector, error)
     timeout.expires_after(std::chrono::seconds{5});
 
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
-        net::socks::connector{io.acceptor.local_endpoint()}("250.88.125.99", "8080", timeout);
+        net::socks::connector{
+            std::make_shared<net::socks::endpoint>(io.acceptor.local_endpoint())
+        }("250.88.125.99", "8080", timeout);
 
     while (!io.connected)
         ASSERT_FALSE(sock.is_ready());
@@ -1192,7 +1694,9 @@ TEST(socks_connector, timeout)
     timeout.expires_after(std::chrono::milliseconds{10});
 
     boost::unique_future<boost::asio::ip::tcp::socket> sock =
-        net::socks::connector{io.acceptor.local_endpoint()}("250.88.125.99", "8080", timeout);
+        net::socks::connector{
+            std::make_shared<net::socks::endpoint>(io.acceptor.local_endpoint())
+        }("250.88.125.99", "8080", timeout);
 
     ASSERT_EQ(boost::future_status::ready, sock.wait_for(boost::chrono::seconds{3}));
     EXPECT_THROW(sock.get().is_open(), boost::system::system_error);
