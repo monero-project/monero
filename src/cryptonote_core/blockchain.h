@@ -287,6 +287,15 @@ namespace cryptonote
     bool have_tx_keyimges_as_spent(const transaction &tx) const;
 
     /**
+     * @brief check if key images are already spent on the blockchain
+     *
+     * @param key_imgs the key images to search for
+     *
+     * @return true at element `i` iff `key_imgs[i]` is already spent in the blockchain, else false
+     */
+    std::vector<bool> have_tx_keyimges_as_spent(const epee::span<const crypto::key_image> key_imgs) const;
+
+    /**
      * @brief check if a key image is already spent on the blockchain
      *
      * Whenever a transaction output is used as an input for another transaction

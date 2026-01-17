@@ -933,11 +933,7 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   bool core::are_key_images_spent(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
   {
-    spent.clear();
-    for(auto& ki: key_im)
-    {
-      spent.push_back(m_blockchain_storage.have_tx_keyimg_as_spent(ki));
-    }
+    spent = m_blockchain_storage.have_tx_keyimges_as_spent(epee::to_span(key_im));
     return true;
   }
   //-----------------------------------------------------------------------------------------------

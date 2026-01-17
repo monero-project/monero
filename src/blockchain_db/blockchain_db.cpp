@@ -407,6 +407,17 @@ transaction BlockchainDB::get_pruned_tx(const crypto::hash& h) const
   return tx;
 }
 
+std::vector<bool> BlockchainDB::has_key_images(const epee::span<const crypto::key_image> img) const
+{
+  std::vector<bool> spent(img.size(), true);
+  for (std::size_t i = 0; i < img.size(); ++i)
+  {
+    const crypto::key_image &ki = img[i];
+    spent[i] = this->has_key_image(ki);
+  }
+  return spent;
+}
+
 void BlockchainDB::reset_stats()
 {
   num_calls = 0;

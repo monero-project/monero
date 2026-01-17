@@ -1269,6 +1269,7 @@ namespace cryptonote
 
     CHECK_PAYMENT_MIN1(req, res, req.key_images.size() * COST_PER_KEY_IMAGE, false);
 
+    // parse key images from request
     std::vector<crypto::key_image> key_images;
     for(const auto& ki_hex_str: req.key_images)
     {
@@ -1286,44 +1287,53 @@ namespace cryptonote
       crypto::key_image &ki = key_images.emplace_back();
       memcpy(&ki, b.data(), sizeof(crypto::key_image));
     }
+
+    // check key images in blockchain
     std::vector<bool> spent_status;
     bool r = m_core.are_key_images_spent(key_images, spent_status);
-    if(!r)
+    if (!r || spent_status.size() != key_images.size())
     {
       res.status = "Failed";
       return true;
     }
     res.spent_status.clear();
+    res.spent_status.reserve(spent_status.size());
     for (size_t n = 0; n < spent_status.size(); ++n)
       res.spent_status.push_back(spent_status[n] ? COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN : COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT);
 
-    // check the pool too
-    std::vector<cryptonote::tx_info> txs;
-    std::vector<cryptonote::spent_key_image_info> ki;
-    r = m_core.get_pool_transactions_and_spent_keys_info(txs, ki, !request_has_rpc_origin || !restricted);
-    if(!r)
+    // filter out known spent key images
+    std::vector<crypto::key_image> filtered_key_images;
+    std::vector<std::size_t> filtered_key_image_idxs;
+    filtered_key_images.reserve(key_images.size());
+    filtered_key_image_idxs.reserve(key_images.size());
+    for (std::size_t i = 0; i < key_images.size(); ++i)
+    {
+      if (!spent_status.at(i))
+      {
+        filtered_key_images.push_back(key_images.at(i));
+        filtered_key_image_idxs.push_back(i);
+      }
+    }
+    if (filtered_key_images.size() != filtered_key_image_idxs.size())
     {
       res.status = "Failed";
       return true;
     }
-    for (std::vector<cryptonote::spent_key_image_info>::const_iterator i = ki.begin(); i != ki.end(); ++i)
+
+    // check the pool too
+    spent_status.clear();
+    r = m_core.are_key_images_spent_in_pool(filtered_key_images, spent_status);
+    if (!r || spent_status.size() != filtered_key_images.size())
     {
-      crypto::hash hash;
-      crypto::key_image spent_key_image;
-      if (parse_hash256(i->id_hash, hash))
+      res.status = "Failed";
+      return true;
+    }
+    for (std::size_t i = 0; i < spent_status.size(); ++i)
+    {
+      if (spent_status.at(i))
       {
-        memcpy(&spent_key_image, &hash, sizeof(hash)); // a bit dodgy, should be other parse functions somewhere
-        for (size_t n = 0; n < res.spent_status.size(); ++n)
-        {
-          if (res.spent_status[n] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT)
-          {
-            if (key_images[n] == spent_key_image)
-            {
-              res.spent_status[n] = COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_POOL;
-              break;
-            }
-          }
-        }
+        const std::size_t res_idx = filtered_key_image_idxs.at(i);
+        res.spent_status.at(res_idx) = COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_POOL;
       }
     }
 

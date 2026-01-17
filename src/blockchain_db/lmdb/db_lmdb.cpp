@@ -3611,6 +3611,27 @@ bool BlockchainLMDB::has_key_image(const crypto::key_image& img) const
   return ret;
 }
 
+std::vector<bool> BlockchainLMDB::has_key_images(const epee::span<const crypto::key_image> img) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  std::vector<bool> ret(img.size(), true);
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(spent_keys);
+
+  for (std::size_t i = 0; i < img.size(); ++i)
+  {
+    crypto::key_image ki = img[i];
+    MDB_val k = {sizeof(ki), reinterpret_cast<void*>(&ki)};
+    ret[i] = (mdb_cursor_get(m_cur_spent_keys, const_cast<MDB_val *>(&zerokval), &k, MDB_GET_BOTH) == 0);
+  }
+
+  TXN_POSTFIX_RDONLY();
+  return ret;
+}
+
 bool BlockchainLMDB::for_all_key_images(std::function<bool(const crypto::key_image&)> f) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);

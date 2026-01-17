@@ -1510,6 +1510,15 @@ public:
   virtual bool has_key_image(const crypto::key_image& img) const = 0;
 
   /**
+   * @brief check if key images are stored as spent
+   *
+   * @param img the key images to check for
+   *
+   * @return true at element `i` if the `img[i]` is present, otherwise false
+   */
+  virtual std::vector<bool> has_key_images(const epee::span<const crypto::key_image> img) const;
+
+  /**
    * @brief add a txpool transaction
    *
    * @param details the details of the transaction to add
