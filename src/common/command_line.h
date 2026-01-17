@@ -207,8 +207,7 @@ namespace command_line
     description.add_options()(arg.name, make_semantic(arg, def), arg.description);
   }
 
-  template<>
-  inline void add_arg(boost::program_options::options_description& description, const arg_descriptor<bool, false>& arg, bool unique)
+  inline void add_arg(boost::program_options::options_description& description, const arg_descriptor<bool, false>& arg, bool unique = true)
   {
     if (0 != description.find_nothrow(arg.name, false))
     {
