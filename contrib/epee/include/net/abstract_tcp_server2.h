@@ -128,6 +128,7 @@ namespace net_utils
 
     void start_handshake();
     void start_read();
+    void finish_read(size_t bytes_transferred);
     void start_write();
     void start_shutdown();
     void cancel_socket();
@@ -139,6 +140,7 @@ namespace net_utils
 
     void terminate();
     void on_terminating();
+    void terminate_async();
 
     bool send(epee::byte_slice message);
     bool start_internal(
@@ -192,6 +194,7 @@ namespace net_utils
         bool wait_read;
         bool handle_read;
         bool cancel_read;
+        bool shutdown_read;
 
         bool wait_write;
         bool handle_write;

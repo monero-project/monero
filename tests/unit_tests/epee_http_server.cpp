@@ -202,3 +202,71 @@ TEST(http_server, private_ip_limit)
   failed |= bool(error);
   EXPECT_TRUE(failed);
 }
+
+TEST(http_server, read_then_close)
+{
+  namespace http = boost::beast::http;
+
+  http_server server{};
+  server.dummy_size = 200000;
+  server.init(nullptr, "8080");
+  server.run(2, false); // need at least 2 threads to trigger issues
+
+  bool failed_read = false;
+  bool closed_all_connections = true;
+  for (std::size_t j = 0; j < 1000; ++j)
+  {
+    boost::system::error_code error{};
+    boost::asio::io_context context{};
+    boost::asio::ip::tcp::socket stream{context};
+    stream.connect(
+      boost::asio::ip::tcp::endpoint{
+        boost::asio::ip::make_address("127.0.0.1"), 8080
+      },
+      error
+    );
+    EXPECT_FALSE(bool(error));
+
+    http::request<http::string_body> req{http::verb::get, "/dummy", 11};
+    req.set(http::field::host, "127.0.0.1");
+    req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+    req.set(http::field::connection, "close"); // tell server to close connection after sending all data to the client
+    req.body() = make_payload();
+    req.prepare_payload();
+
+    dummy::response payload{};
+    boost::beast::flat_buffer buffer;
+    http::response_parser<http::basic_string_body<char>> parser;
+    parser.body_limit(server.dummy_size + 1024);
+
+    http::write(stream, req, error);
+    EXPECT_FALSE(bool(error));
+
+    http::read(stream, buffer, parser, error);
+
+    // If the read fails, continue the loop still just to make sure the server can handle it
+    failed_read |= bool(error);
+    if (failed_read)
+      continue;
+    failed_read |= !(parser.is_done());
+    if (failed_read)
+      continue;
+    const auto res = parser.release();
+    failed_read |= res.result_int() != 200u
+        || !(epee::serialization::load_t_from_binary(payload, res.body()))
+        || (server.dummy_size != std::count(payload.payload.begin(), payload.payload.end(), 'f'));
+
+    // See if the server closes the connection after handling the resp
+    char buf[1];
+    stream.read_some(boost::asio::buffer(buf), error);
+    closed_all_connections &= error == boost::asio::error::eof;
+  }
+
+  // The client should have been able to read all data sent by the server across all requests
+  EXPECT_FALSE(failed_read);
+
+  // The server should have closed all connections
+  EXPECT_TRUE(closed_all_connections);
+
+  server.send_stop_signal();
+}
