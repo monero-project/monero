@@ -67,4 +67,11 @@ void apply_permutation(const std::vector<size_t> &permutation, std::vector<T> &v
   apply_permutation(permutation, [&v](size_t i0, size_t i1){ std::swap(v[i0], v[i1]); });
 }
 
+static inline void apply_permutation(const std::vector<size_t> &permutation, std::vector<bool> &v)
+{
+  // std::vector<bool> is ~~special~~ b/c operator[] doesn't return a real reference
+  CHECK_AND_ASSERT_THROW_MES(permutation.size() == v.size(), "Mismatched vector sizes");
+  apply_permutation(permutation, [&v](size_t i0, size_t i1){ v.swap(v[i0], v[i1]); });
+}
+
 }
