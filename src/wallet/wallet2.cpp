@@ -14867,12 +14867,12 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
 
   if (!recipient_name.empty())
   {
-    uri += (n_fields++ ? "&" : "?") + std::string("recipient_name=") + epee::net_utils::conver_to_url_format(recipient_name);
+    uri += (n_fields++ ? "&" : "?") + std::string("recipient_name=") + epee::net_utils::convert_to_url_format(recipient_name);
   }
 
   if (!tx_description.empty())
   {
-    uri += (n_fields++ ? "&" : "?") + std::string("tx_description=") + epee::net_utils::conver_to_url_format(tx_description);
+    uri += (n_fields++ ? "&" : "?") + std::string("tx_description=") + epee::net_utils::convert_to_url_format(tx_description);
   }
 
   return uri;
