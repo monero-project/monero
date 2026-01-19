@@ -1466,7 +1466,7 @@ namespace nodetool
     ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
 
     zone.m_peerlist.append_with_peer_anchor(ape);
-    zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income);
+    zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income, (con->support_flags & P2P_SUPPORT_FLAG_TX_RELAY_V2));
     zone.m_notifier.new_out_connection();
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK.");
@@ -2361,13 +2361,13 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  epee::net_utils::zone node_server<t_payload_net_handler>::send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, const cryptonote::relay_method tx_relay)
+  epee::net_utils::zone node_server<t_payload_net_handler>::send_txs(std::vector<cryptonote::blobdata> txs, std::vector<crypto::hash> &&tx_hashes, const epee::net_utils::zone origin, const boost::uuids::uuid& source, const cryptonote::relay_method tx_relay)
   {
     namespace enet = epee::net_utils;
 
-    const auto send = [&txs, &source, tx_relay] (std::pair<const enet::zone, network_zone>& network)
+    const auto send = [&txs, &tx_hashes, &source, tx_relay] (std::pair<const enet::zone, network_zone>& network)
     {
-      if (network.second.m_notifier.send_txs(std::move(txs), source, tx_relay))
+      if (network.second.m_notifier.send_txs(std::move(txs), std::move(tx_hashes), source, tx_relay))
         return network.first;
       return enet::zone::invalid;
     };
@@ -2665,7 +2665,7 @@ namespace nodetool
       return 1;
     }
 
-    zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income);
+    zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income, (arg.node_data.support_flags & P2P_SUPPORT_FLAG_TX_RELAY_V2));
 
     //associate peer_id with this connection
     context.peer_id = arg.node_data.peer_id;

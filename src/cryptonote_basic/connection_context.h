@@ -32,14 +32,59 @@
 #pragma once
 #include <unordered_set>
 #include <atomic>
-#include <algorithm>
+#include <memory>
+#include <shared_mutex>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/optional/optional_fwd.hpp>
-#include "net/net_utils_base.h"
 #include "crypto/hash.h"
+#include "cryptonote_protocol/cryptonote_protocol_defs.h"
+#include "net/net_utils_base.h"
+#include "p2p/p2p_protocol_defs.h"
+#include "syncobj.h"
 
 namespace cryptonote
 {
+  //! \return Maximum number of bytes permissible for `command`.
+  inline std::size_t get_command_max_bytes(const int command) noexcept
+  {
+    switch (command)
+    {
+    case nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>::ID:
+      return 65536;
+    case nodetool::COMMAND_TIMED_SYNC_T<cryptonote::CORE_SYNC_DATA>::ID:
+      return 65536;
+    case nodetool::COMMAND_PING::ID:
+      return 4096;
+    case nodetool::COMMAND_REQUEST_SUPPORT_FLAGS::ID:
+      return 4096;
+    case cryptonote::NOTIFY_NEW_BLOCK::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though)
+    case cryptonote::NOTIFY_NEW_TRANSACTIONS::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though)
+    case cryptonote::NOTIFY_REQUEST_GET_OBJECTS::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    case cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though)
+    case cryptonote::NOTIFY_REQUEST_CHAIN::ID:
+      return 512 * 1024; // 512 kB
+    case cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::ID:
+      return 1024 * 1024 * 4; // 4 MB
+    case cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::ID:
+      return 1024 * 1024 * 128; // 128 MB (max packet is a bit less than 100 MB though, fluffy blocks can be full)
+    case cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::ID:
+      return 1024 * 1024; // 1 MB
+    case cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT::ID:
+      return 1024 * 1024 * 4; // 4 MB
+    case cryptonote::NOTIFY_TX_POOL_HASH::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    case cryptonote::NOTIFY_REQUEST_TX_POOL_TXS::ID:
+      return 1024 * 1024 * 2; // 2 MB
+    default:
+      break;
+    };
+    return std::numeric_limits<size_t>::max();
+  }
+
   struct cryptonote_connection_context: public epee::net_utils::connection_context_base
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
@@ -88,9 +133,6 @@ namespace cryptonote
 
     static constexpr int handshake_command() noexcept { return 1001; }
     bool handshake_complete() const noexcept { return m_state != state_before_handshake; }
-
-    //! \return Maximum number of bytes permissible for `command`.
-    static size_t get_max_bytes(int command) noexcept;
 
     //! Use this instead of `m_state = state_normal`.
     void set_state_normal();

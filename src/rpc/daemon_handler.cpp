@@ -370,7 +370,8 @@ namespace rpc
 
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, (relay ? relay_method::local : relay_method::none), false) || tvc.m_verifivation_failed)
+    crypto::hash txid;
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, (relay ? relay_method::local : relay_method::none), false, txid) || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {
@@ -452,7 +453,7 @@ namespace rpc
 
     NOTIFY_NEW_TRANSACTIONS::request r;
     r.txs.push_back(std::move(tx_blob));
-    m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, relay_method::local);
+    m_core.get_protocol()->relay_transactions(r, {txid}, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, relay_method::local);
 
     //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
     res.status = Message::STATUS_OK;
