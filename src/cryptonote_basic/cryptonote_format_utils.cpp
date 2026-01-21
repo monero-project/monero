@@ -1622,7 +1622,9 @@ namespace cryptonote
     }
     else // CryptoNight
     {
-      const int pow_variant = major_version >= 7 ? major_version - 6 : 0;
+      static_assert(HF_VERSION_CRYPTONIGHT_VARIANT_1 >= 1);
+      const int pow_variant = major_version >= HF_VERSION_CRYPTONIGHT_VARIANT_1
+        ? major_version - (HF_VERSION_CRYPTONIGHT_VARIANT_1 - 1) : 0;
       crypto::cn_slow_hash(block_hashing_blob.data(), block_hashing_blob.size(), res, pow_variant, height);
     }
 
