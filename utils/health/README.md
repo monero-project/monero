@@ -40,6 +40,15 @@ build/tests/unit_tests/unit_tests
 The `*.out` results can be interpreted with the `kcachegrind` tool. 
 The memcheck output is just a readable text file with a summary at the end.
 
+## lcov code coverage
+
+```
+utils/health/coverage-ut.sh
+utils/health/coverage-example-tdd.sh
+```
+
+The first script builds and runs the entire `unit_tests` binary. Next it generates the line coverage and produces a report in an html format. This is helpful (although not exhaustive) in determining whether the unit tests (in this case) are able to touch the corner cases of your code, like special error handling and unusual situations. Please refer to the content of the second script, for a much more exhaustive documentation and inspiration for customization, as well as a discussion about The Test Driven Development methodology.
+
 # Footer
 
 Responsible: mj-xmr
