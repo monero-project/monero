@@ -2925,30 +2925,16 @@ namespace cryptonote
   {
     RPC_TRACKER(flush_txpool);
 
-    bool failed = false;
+    bool failed_to_parse = false;
     std::vector<crypto::hash> txids;
-    if (req.txids.empty())
-    {
-      std::vector<transaction> pool_txs;
-      bool r = m_core.get_pool_transactions(pool_txs, true);
-      if (!r)
-      {
-        res.status = "Failed to get txpool contents";
-        return true;
-      }
-      for (const auto &tx: pool_txs)
-      {
-        txids.push_back(cryptonote::get_transaction_hash(tx));
-      }
-    }
-    else
+    if (!req.txids.empty())
     {
       for (const auto &str: req.txids)
       {
         crypto::hash txid;
         if(!epee::string_tools::hex_to_pod(str, txid))
         {
-          failed = true;
+          failed_to_parse = true;
         }
         else
         {
@@ -2956,13 +2942,13 @@ namespace cryptonote
         }
       }
     }
-    if (!m_core.get_blockchain_storage().flush_txes_from_pool(txids))
+    if (req.txids.empty() ? !m_core.get_blockchain_storage().flush_txes_from_pool() : !m_core.get_blockchain_storage().flush_txes_from_pool(txids))
     {
       res.status = "Failed to remove one or more tx(es)";
       return true;
     }
 
-    if (failed)
+    if (failed_to_parse)
     {
       if (txids.empty())
         res.status = "Failed to parse txid";
