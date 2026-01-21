@@ -30,6 +30,7 @@ set(unit_tests_sources
   account.cpp
   apply_permutation.cpp
   address_from_url.cpp
+  async.cpp
   base58.cpp
   blockchain_db.cpp
   block_queue.cpp
@@ -113,6 +114,7 @@ monero_add_minimal_executable(unit_tests
   ${unit_tests_headers})
 target_link_libraries(unit_tests
   PRIVATE
+    async
     ringct
     cryptonote_protocol
     cryptonote_core
