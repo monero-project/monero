@@ -125,10 +125,15 @@ static bool generate_multisig(uint32_t threshold, uint32_t total, const std::str
     wallets[0]->multisig(&ready);
     while (!ready)
     {
+      std::vector<std::string> kex_msgs_for_round(total);
+
       for (size_t n = 0; n < total; ++n)
       {
-          kex_msgs_intermediate[n] = wallets[n]->exchange_multisig_keys(pwd_container->password(), kex_msgs_intermediate);
+          kex_msgs_for_round[n] = wallets[n]->exchange_multisig_keys(pwd_container->password(), kex_msgs_intermediate);
       }
+
+      // Update messages for next round
+      kex_msgs_intermediate = kex_msgs_for_round;
 
       wallets[0]->multisig(&ready);
     }
