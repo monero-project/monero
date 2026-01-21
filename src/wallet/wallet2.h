@@ -1865,7 +1865,21 @@ private:
     rct::multisig_kLRki get_multisig_composite_kLRki(size_t n,  const std::unordered_set<crypto::public_key> &ignore_set, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
     void get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L, rct::key &nonce);
-    void update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n);
+    /**
+     * brief: determine whether is it possible that we have enough multisig messages to attempt building composite key image
+     */
+    bool is_multisig_key_image_rescan_possible(const crypto::public_key &onetime_pubkey) const;
+    /**
+     * brief: build composite key image, multisig exchange infos, and other metadata for transfer at `m_transfers[n]`
+     * param: n -
+     * throw: if not a multisig wallet, `n` is out of bounds, missing necessary info, or key image building fails
+     *
+     * Populates the transfer entry using `m_multisig_rescan_info` and `m_multisig_rescan_k`.
+     * Attempts to revert update on failure. Requests for password from callback to unlock multisig
+     * keys and assigns to `m_encrypt_keys_after_refresh` if key encryption is enabled for this
+     * wallet and `m_processing_background_cache` is false.
+     */
+    void update_multisig_rescan_info(const size_t n);
     bool add_rings(const crypto::chacha_key &key, const cryptonote::transaction_prefix &tx);
     bool add_rings(const cryptonote::transaction_prefix &tx);
     bool remove_rings(const cryptonote::transaction_prefix &tx);
@@ -1942,8 +1956,10 @@ private:
     std::vector<tools::wallet2::address_book_row> m_address_book;
     std::pair<std::map<std::string, std::string>, std::vector<std::string>> m_account_tags;
     uint64_t m_upper_transaction_weight_limit; //TODO: auto-calc this value or request from daemon, now use some fixed value
-    std::vector<std::vector<tools::wallet2::multisig_info>> m_multisig_rescan_info;
-    std::vector<std::vector<rct::key>> m_multisig_rescan_k;
+    /// map of outut public key to list of multisig infos, one per other each other signer
+    std::unordered_map<crypto::public_key, std::vector<tools::wallet2::multisig_info>> m_multisig_rescan_info;
+    /// map of output public key to list of multisig keys for that enote
+    std::unordered_map<crypto::public_key, std::vector<rct::key>> m_multisig_rescan_k;
     std::unordered_map<crypto::public_key, crypto::key_image> m_cold_key_images;
 
     std::atomic<bool> m_run;
@@ -2036,6 +2052,7 @@ private:
     crypto::chacha_key m_cache_key;
     boost::optional<crypto::chacha_key> m_custom_background_key = boost::none;
     std::shared_ptr<wallet_keys_unlocker> m_encrypt_keys_after_refresh;
+    boost::mutex m_encrypt_keys_after_refresh_mutex;
 
     bool m_unattended;
     bool m_devices_registered;
