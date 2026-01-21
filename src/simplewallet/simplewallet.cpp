@@ -10483,7 +10483,11 @@ int main(int argc, char* argv[])
     tools::signal_handler::install([&w](int type) {
       if (tools::password_container::is_prompting.load())
       {
-        // must be prompting for password so return and let the signal stop prompt
+        // Runs the full exit routine after receiving Ctrl-C
+        // In current state we're incapable of gracefully exiting from here without major redesign, hence the blunt approach
+        w.stop();
+        w.deinit();
+        _exit(0);
         return;
       }
 #ifdef WIN32
