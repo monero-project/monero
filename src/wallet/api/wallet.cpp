@@ -494,8 +494,15 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
         setStatusCritical(error);
         return false;
     }
-    // TODO: validate language
-    m_wallet->set_seed_language(language);
+    
+    // validate language
+    if (!crypto::ElectrumWords::is_valid_language(language)) {
+        std::string error = "failed to validate language.";
+        LOG_ERROR(error);
+        setStatusError(error);
+        return false;
+    }
+
     crypto::secret_key recovery_val, secret_key;
     try {
         recovery_val = m_wallet->generate(path, password, secret_key, false, false);
@@ -532,8 +539,14 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         setStatusError(error);
         return false;
     }
-    // TODO: validate language
-    view_wallet->set_seed_language(language);
+
+    // validate language
+    if (!crypto::ElectrumWords::is_valid_language(language)) {
+        std::string error = "failed to validate language.";
+        LOG_ERROR(error);
+        setStatusError(error);
+        return false;
+    }
 
     const crypto::secret_key viewkey = m_wallet->get_account().get_keys().m_view_secret_key;
     const cryptonote::account_public_address address = m_wallet->get_account().get_keys().m_account_address;
