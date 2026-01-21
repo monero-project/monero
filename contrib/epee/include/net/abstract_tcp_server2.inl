@@ -248,7 +248,7 @@ namespace net_utils
               boost::asio::post(
                 connection_basic::strand_,
                 [this, self, bytes_transferred]{
-                  bool success = m_handler.handle_recv(
+                  bool success = get_protocol_handler().handle_recv(
                     reinterpret_cast<char *>(m_state.data.read.buffer.data()),
                     bytes_transferred
                   );
@@ -377,9 +377,9 @@ namespace net_utils
         {
           m_state.stat.in.throttle.handle_trafic_exact(bytes_transferred);
           const auto speed = m_state.stat.in.throttle.get_current_speed();
-          m_conn_context.m_current_speed_down = speed;
-          m_conn_context.m_max_speed_down = std::max(
-            m_conn_context.m_max_speed_down,
+          get_context().m_current_speed_down = speed;
+          get_context().m_max_speed_down = std::max(
+            get_context().m_max_speed_down,
             speed
           );
           if (speed_limit_is_enabled()) {
@@ -390,8 +390,8 @@ namespace net_utils
             ).handle_trafic_exact(bytes_transferred);
           }
           connection_basic::logger_handle_net_read(bytes_transferred);
-          m_conn_context.m_last_recv = time(NULL);
-          m_conn_context.m_recv_cnt += bytes_transferred;
+          get_context().m_last_recv = time(NULL);
+          get_context().m_recv_cnt += bytes_transferred;
           start_timer(get_timeout_from_bytes_read(bytes_transferred), true);
         }
 
@@ -404,7 +404,7 @@ namespace net_utils
         boost::asio::post(
           connection_basic::strand_,
           [this, self, bytes_transferred]{
-            bool success = m_handler.handle_recv(
+            bool success = get_protocol_handler().handle_recv(
               reinterpret_cast<char *>(m_state.data.read.buffer.data()),
               bytes_transferred
             );
@@ -511,9 +511,9 @@ namespace net_utils
         {
           m_state.stat.out.throttle.handle_trafic_exact(bytes_transferred);
           const auto speed = m_state.stat.out.throttle.get_current_speed();
-          m_conn_context.m_current_speed_up = speed;
-          m_conn_context.m_max_speed_down = std::max(
-            m_conn_context.m_max_speed_down,
+          get_context().m_current_speed_up = speed;
+          get_context().m_max_speed_down = std::max(
+            get_context().m_max_speed_down,
             speed
           );
           if (speed_limit_is_enabled()) {
@@ -524,8 +524,8 @@ namespace net_utils
             ).handle_trafic_exact(bytes_transferred);
           }
           connection_basic::logger_handle_net_write(bytes_transferred);
-          m_conn_context.m_last_send = time(NULL);
-          m_conn_context.m_send_cnt += bytes_transferred;
+          get_context().m_last_send = time(NULL);
+          get_context().m_send_cnt += bytes_transferred;
 
           start_timer(get_default_timeout(), true);
         }
@@ -638,7 +638,7 @@ namespace net_utils
       return;
     m_state.protocol.wait_release = true;
     m_state.lock.unlock();
-    m_handler.release_protocol();
+    get_protocol_handler().release_protocol();
     m_state.lock.lock();
     m_state.protocol.wait_release = false;
     m_state.protocol.released = true;
@@ -931,7 +931,7 @@ namespace net_utils
     if (ec.value())
       return false;
     connection_basic::m_is_multithreaded = is_multithreaded;
-    m_conn_context.set_details(
+    get_context().set_details(
       boost::uuids::random_generator()(),
       *real_remote,
       is_income,
@@ -955,7 +955,7 @@ namespace net_utils
     );
     m_state.protocol.wait_init = true;
     guard.unlock();
-    m_handler.after_init_connection();
+    static_cast<shared_state&>(connection_basic::get_state()).after_init_connection(connection<T>::shared_from_this());
     guard.lock();
     m_state.protocol.wait_init = false;
     m_state.protocol.initialized = true;
@@ -999,7 +999,7 @@ namespace net_utils
     t_connection_context&& initial
   ):
     connection_basic(io_context, std::move(socket), shared_state, ssl_support),
-    m_handler(this, *shared_state, m_conn_context),
+    service_endpoint<T>(check_and_get(shared_state)),
     m_connection_type(connection_type),
     m_io_context{io_context},
     m_conn_context(std::move(initial)),
@@ -1060,7 +1060,7 @@ namespace net_utils
       " connection type " << std::to_string(m_connection_type) <<
       " " << connection_basic::socket().local_endpoint().address().to_string() <<
       ":" << connection_basic::socket().local_endpoint().port() <<
-      " <--> " << m_conn_context.m_remote_address.str() <<
+      " <--> " << get_context().m_remote_address.str() <<
       " (via " << address << ":" << port << ")"
     );
   }
@@ -1122,7 +1122,7 @@ namespace net_utils
     auto self = connection<T>::shared_from_this();
     ++m_state.protocol.wait_callback;
     boost::asio::post(connection_basic::strand_, [this, self]{
-      m_handler.handle_qued_callback();
+      get_protocol_handler().handle_qued_callback();
       std::lock_guard<std::mutex> guard(m_state.lock);
       --m_state.protocol.wait_callback;
       if (m_state.status == status_t::INTERRUPTED)
@@ -1137,31 +1137,6 @@ namespace net_utils
   typename connection<T>::io_context_t &connection<T>::get_io_context()
   {
     return m_io_context;
-  }
-
-  template<typename T>
-  bool connection<T>::add_ref()
-  {
-    try {
-      auto self = connection<T>::shared_from_this();
-      std::lock_guard<std::mutex> guard(m_state.lock);
-      this->self = std::move(self);
-      ++m_state.protocol.reference_counter;
-      return true;
-    }
-    catch (boost::bad_weak_ptr &exception) {
-      return false;
-    }
-  }
-
-  template<typename T>
-  bool connection<T>::release()
-  {
-    connection_ptr self;
-    std::lock_guard<std::mutex> guard(m_state.lock);
-    if (!(--m_state.protocol.reference_counter))
-      self = std::move(this->self);
-    return true;
   }
 
   template<typename T>
