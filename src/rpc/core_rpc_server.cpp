@@ -2081,6 +2081,20 @@ namespace cryptonote
       error_resp.message = "Wrong block blob";
       return false;
     }
+    if (req.major_version == HF_VERSION_CRYPTONIGHT_VARIANT_1 && req.major_version < RX_BLOCK_VERSION)
+    {
+      try
+      {
+        crypto::cn_variant1_check(blockblob.size(), /*variant=*/1);
+      }
+      catch(const std::exception& e)
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB_SIZE;
+        error_resp.message = "Block blob size is too small for CryptoNight v1, rejecting block";
+        return false;
+      }
+    }
+    
     if(!m_core.check_incoming_block_size(blockblob))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB_SIZE;
@@ -2101,8 +2115,18 @@ namespace cryptonote
       buf.copy(reinterpret_cast<char *>(&seed_hash), sizeof(crypto::hash));
     }
 
-    cryptonote::get_block_longhash(&(m_core.get_blockchain_storage()), blockblob, pow_hash, req.height,
-      req.major_version, req.seed_hash.size() ? &seed_hash : NULL, 0);
+    try
+    {
+      cryptonote::get_block_longhash(&(m_core.get_blockchain_storage()), blockblob, pow_hash, req.height,
+        req.major_version, req.seed_hash.size() ? &seed_hash : NULL, 0);
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Caught unexpected error while hashing in " << __PRETTY_FUNCTION__ << ": " << e.what());
+      error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
+      error_resp.message = e.what();
+      return false;
+    }
     res = string_tools::pod_to_hex(pow_hash);
     return true;
   }
