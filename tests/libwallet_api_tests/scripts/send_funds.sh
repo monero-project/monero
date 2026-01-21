@@ -1,12 +1,14 @@
-#!/bin/bash
+#!/bin/bash -e
+
+. ./conf.sh
 
 function send_funds {
     local amount=$1
-    local dest=$(cat "$2.address.txt")
+    local dest=$(cat "$WALLETS_ROOT_DIR/$2.address.txt")
 
-    monero-wallet-cli --wallet-file wallet_m --password "" \
-        --testnet --trusted-daemon --daemon-address localhost:38081  --log-file wallet_m.log \
-        --command transfer $dest $amount 
+    "$WALLET_CLI" --wallet-file "$WALLETS_ROOT_DIR/wallet_m.bin" --password "" \
+        --testnet --trusted-daemon --daemon-address $DAEMON_HOST:$DAEMON_PORT --log-file "$WALLETS_ROOT_DIR/wallet_m.log" \
+        --command transfer $dest $amount
 }
 
 
@@ -27,6 +29,3 @@ seed_wallets 10
 seed_wallets 20
 seed_wallets 50
 seed_wallets 100
-
-
-
