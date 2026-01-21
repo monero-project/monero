@@ -225,6 +225,8 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT_LINUX}}
+          ulimit -s unlimited
+          ulimit -a
           cmake --build build --target test
 
   source-archive:
