@@ -301,10 +301,10 @@ bool gen_tx_input_is_not_txin_to_key::generate(std::vector<test_event_entry>& ev
   };
 
   DO_CALLBACK(events, "mark_invalid_tx");
-  events.push_back(make_tx_with_input(txin_to_script()));
+  events.push_back(make_tx_with_input(reserved<0>()));
 
   DO_CALLBACK(events, "mark_invalid_tx");
-  events.push_back(make_tx_with_input(txin_to_scripthash()));
+  events.push_back(make_tx_with_input(reserved<1>()));
 
   return true;
 }
@@ -733,7 +733,7 @@ bool gen_tx_output_is_not_txout_to_key::generate(std::vector<test_event_entry>& 
 
   builder.m_tx.vout.push_back(tx_out());
   builder.m_tx.vout.back().amount = 1;
-  builder.m_tx.vout.back().target = txout_to_script();
+  builder.m_tx.vout.back().target = reserved<0>();
 
   builder.step4_calc_hash();
   builder.step5_sign(sources);
@@ -746,7 +746,7 @@ bool gen_tx_output_is_not_txout_to_key::generate(std::vector<test_event_entry>& 
 
   builder.m_tx.vout.push_back(tx_out());
   builder.m_tx.vout.back().amount = 1;
-  builder.m_tx.vout.back().target = txout_to_scripthash();
+  builder.m_tx.vout.back().target = reserved<1>();
 
   builder.step4_calc_hash();
   builder.step5_sign(sources);
