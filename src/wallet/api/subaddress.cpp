@@ -35,9 +35,7 @@
 #include <vector>
 
 namespace Monero {
-  
-Subaddress::~Subaddress() {}
-  
+
 SubaddressImpl::SubaddressImpl(WalletImpl *wallet)
     : m_wallet(wallet) {}
 
