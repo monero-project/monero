@@ -46,6 +46,10 @@
 #include "daemon/command_line_args.h"
 #include "version.h"
 
+#ifdef __linux__
+#include "daemon/landlock.h"
+#endif
+
 #ifdef STACK_TRACE
 #include "common/stack_trace.h"
 #endif // STACK_TRACE
@@ -159,6 +163,11 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_zmq_pub);
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_disabled);
       command_line::add_arg(core_settings, daemonizer::arg_non_interactive);
+
+      // Platform specific
+#ifdef __linux__
+      command_line::add_arg(core_settings, daemon_args::arg_landlock);
+#endif
 
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
@@ -300,6 +309,16 @@ int main(int argc, char const * argv[])
 
     // logging is now set up
     MGINFO("Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")");
+
+#ifdef __linux__
+    // Enable Landlock before spawning threads so it applies to this thread and childrens.
+    if (command_line::has_arg(vm, daemon_args::arg_landlock) && command_line::get_arg(vm, daemon_args::arg_landlock))
+    {
+      const uint64_t max_log_file_size = command_line::get_arg(vm, daemon_args::arg_max_log_file_size);
+      const bool rotate_logs = (max_log_file_size != 0);
+      landlock_integration::enable_landlock_sandbox(data_dir, log_file_path, rotate_logs);
+    }
+#endif
 
     // If there are positional options, we're running a daemon command
     {
