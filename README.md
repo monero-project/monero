@@ -1,4 +1,4 @@
-# Monero
+# Monero ![](https://img.shields.io/github/issues/monero-project/monero) ![](https://img.shields.io/github/forks/monero-project/monero) ![](https://img.shields.io/github/stars/monero-project/monero)
 
 Copyright (c) 2014-2024, The Monero Project
 Portions Copyright (c) 2012-2013 The Cryptonote developers.
