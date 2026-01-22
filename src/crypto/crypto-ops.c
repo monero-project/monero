@@ -313,6 +313,33 @@ void fe_invert(fe out, const fe z) {
   return;
 }
 
+// Montgomery's trick
+// https://iacr.org/archive/pkc2004/29470042/29470042.pdf 2.2
+int fe_batch_invert(fe *out, const fe *in, const int n) {
+  if (n == 0) {
+    return 0;
+  }
+
+  // Step 1: collect initial muls
+  fe_copy(out[0], in[0]);
+  for (int i = 1; i < n; ++i) {
+    fe_mul(out[i], out[i-1], in[i]);
+  }
+
+  // Step 2: get the inverse of all elems multiplied together
+  fe a;
+  fe_invert(a, out[n-1]);
+
+  // Step 3: get each inverse
+  for (int i = n; i > 1; --i) {
+    fe_mul(out[i-1], a, out[i-2]);
+    fe_mul(a, a, in[i-1]);
+  }
+  fe_copy(out[0], a);
+
+  return 0;
+}
+
 /* From fe_isnegative.c */
 
 /*
@@ -1328,16 +1355,9 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
   }
 }
 
-/* From ge_frombytes.c, modified */
+/* From fe_frombytes.c */
 
-int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
-  fe u;
-  fe v;
-  fe vxx;
-  fe check;
-
-  /* From fe_frombytes.c */
-
+int fe_frombytes_vartime(fe y, const unsigned char *s) {
   int64_t h0 = load_4(s);
   int64_t h1 = load_3(s + 4) << 6;
   int64_t h2 = load_3(s + 7) << 5;
@@ -1378,18 +1398,31 @@ int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
   carry6 = (h6 + (int64_t) (1<<25)) >> 26; h7 += carry6; h6 -= carry6 << 26;
   carry8 = (h8 + (int64_t) (1<<25)) >> 26; h9 += carry8; h8 -= carry8 << 26;
 
-  h->Y[0] = h0;
-  h->Y[1] = h1;
-  h->Y[2] = h2;
-  h->Y[3] = h3;
-  h->Y[4] = h4;
-  h->Y[5] = h5;
-  h->Y[6] = h6;
-  h->Y[7] = h7;
-  h->Y[8] = h8;
-  h->Y[9] = h9;
+  y[0] = h0;
+  y[1] = h1;
+  y[2] = h2;
+  y[3] = h3;
+  y[4] = h4;
+  y[5] = h5;
+  y[6] = h6;
+  y[7] = h7;
+  y[8] = h8;
+  y[9] = h9;
 
-  /* End fe_frombytes.c */
+  return 0;
+}
+
+/* From ge_frombytes.c, modified */
+
+int ge_frombytes_vartime(ge_p3 *h, const unsigned char *s) {
+  fe u;
+  fe v;
+  fe vxx;
+  fe check;
+
+  if (fe_frombytes_vartime(h->Y, s) != 0) {
+    return -1;
+  }
 
   fe_1(h->Z);
   fe_sq(u, h->Y);
@@ -3827,6 +3860,41 @@ int sc_isnonzero(const unsigned char *s) {
     s[9] | s[10] | s[11] | s[12] | s[13] | s[14] | s[15] | s[16] | s[17] |
     s[18] | s[19] | s[20] | s[21] | s[22] | s[23] | s[24] | s[25] | s[26] |
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
+}
+
+static void edwardsYZ_to_x25519(unsigned char *xbytes, const fe Y, const fe Z) {
+  // y = Y/Z
+  // x_mont = (1 + y) / (1 - y)
+  //        = (1 + Y/Z) / (1 - Y/Z)
+  //        = (Z + Y) / (Z - Y)
+
+  fe tmp0;
+  fe tmp1;
+  fe_add(tmp0, Z, Y);       // Z + Y
+  fe_sub(tmp1, Z, Y);       // Z - Y
+  fe_invert(tmp1, tmp1);    // 1/(Z - Y)
+  fe_mul(tmp0, tmp0, tmp1); // (Z + Y) / (Z - Y)
+  fe_tobytes(xbytes, tmp0); // tobytes((Z + Y) / (Z - Y))
+}
+
+void ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h)
+{
+  edwardsYZ_to_x25519(xbytes, h->Y, h->Z);
+}
+
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s)
+{
+  fe Y;
+  if (fe_frombytes_vartime(Y, s) != 0) {
+    return -1;
+  }
+
+  fe Z;
+  fe_1(Z);
+
+  edwardsYZ_to_x25519(xbytes, Y, Z);
+
+  return 0;
 }
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
