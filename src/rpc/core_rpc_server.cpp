@@ -754,7 +754,7 @@ namespace cryptonote
         }
       }
 
-      std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > > bs;
+      std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > > bs;
       if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
       {
         res.status = "Failed";
@@ -779,11 +779,11 @@ namespace cryptonote
         if (req.no_miner_tx)
           res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
         res.blocks.back().txs.reserve(bd.second.size());
-        for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
+        for (auto i = bd.second.begin(); i != bd.second.end(); ++i)
         {
-          res.blocks.back().txs.push_back({std::move(i->second), req.prune ? i->first: crypto::null_hash});
-          i->second.clear();
-          i->second.shrink_to_fit();
+          res.blocks.back().txs.push_back({std::move(std::get<2>(*i)), std::get<1>(*i)});
+          std::get<2>(*i).clear();
+          std::get<2>(*i).shrink_to_fit();
           size += res.blocks.back().txs.back().blob.size();
         }
 
@@ -791,7 +791,7 @@ namespace cryptonote
         if (n_txes_to_lookup > 0)
         {
           std::vector<std::vector<uint64_t>> indices;
-          bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? bd.second.front().first : bd.first.second, n_txes_to_lookup, indices);
+          bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? std::get<0>(bd.second.front()) : bd.first.second, n_txes_to_lookup, indices);
           if (!r)
           {
             res.status = "Failed";
