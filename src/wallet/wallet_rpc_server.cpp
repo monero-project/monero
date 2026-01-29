@@ -34,6 +34,7 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
 #include <chrono>
+#include <limits>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -135,6 +136,7 @@ namespace
   const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_private_ip = {"rpc-max-connections-per-private-ip", "Max RPC connections per private and localhost IP permitted", DEFAULT_RPC_MAX_CONNECTIONS_PER_PRIVATE_IP};
   const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections = {"rpc-max-connections", "Max RPC connections permitted", DEFAULT_RPC_MAX_CONNECTIONS};
   const command_line::arg_descriptor<std::size_t> arg_rpc_response_soft_limit = {"rpc-response-soft-limit", "Max response bytes that can be queued, enforced at next response attempt", DEFAULT_RPC_SOFT_LIMIT_SIZE};
+  const command_line::arg_descriptor<std::uint32_t> arg_auto_refresh_period = {"auto-refresh-period", "Period for auto-refreshing the wallet (seconds)", DEFAULT_AUTO_REFRESH_PERIOD};
 
   constexpr const char default_rpc_username[] = "monero";
 
@@ -376,8 +378,15 @@ namespace tools
       assert(bool(http_login));
     } // end auth enabled
 
-    m_auto_refresh_period.store(DEFAULT_AUTO_REFRESH_PERIOD, std::memory_order_relaxed);
-    const auto over_one_period_ago = std::chrono::steady_clock::now() - std::chrono::seconds(m_auto_refresh_period.load(std::memory_order_relaxed) * 2);
+    auto auto_refresh_period = command_line::get_arg(*m_vm, arg_auto_refresh_period);
+    if (auto_refresh_period > (std::numeric_limits<uint32_t>::max()/2)) {
+      LOG_ERROR("Auto-refresh period exceeds safe limit (" << auto_refresh_period
+                << "). Using " << DEFAULT_AUTO_REFRESH_PERIOD);
+      auto_refresh_period = DEFAULT_AUTO_REFRESH_PERIOD;
+    }
+    m_auto_refresh_period.store(auto_refresh_period, std::memory_order_relaxed);
+    const auto over_one_period_ago =
+      std::chrono::steady_clock::now() - std::chrono::seconds(auto_refresh_period * 2);
     m_last_auto_refresh_time = over_one_period_ago;
 
     check_background_mining();
@@ -5135,6 +5144,7 @@ int main(int argc, char** argv) {
   command_line::add_arg(desc_params, arg_rpc_max_connections);
   command_line::add_arg(desc_params, arg_rpc_response_soft_limit);
   command_line::add_arg(hidden_options, daemonizer::arg_non_interactive);
+  command_line::add_arg(desc_params, arg_auto_refresh_period);
 
   daemonizer::init_options(hidden_options, desc_params);
   desc_params.add(hidden_options);
