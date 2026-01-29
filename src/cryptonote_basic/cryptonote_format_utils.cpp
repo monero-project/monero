@@ -1604,6 +1604,31 @@ namespace cryptonote
     return get_tx_tree_hash(txs_ids);
   }
   //---------------------------------------------------------------
+  crypto::hash get_block_longhash(const blobdata_ref block_hashing_blob,
+    const uint64_t height,
+    const uint8_t major_version,
+    const crypto::hash &seed_hash)
+  {
+    crypto::hash res;
+
+    if (height == 202612) // block 202612 bug workaround
+    {
+      static const std::string longhash_202612 = "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000";
+      epee::string_tools::hex_to_pod(longhash_202612, res);
+    }
+    else if (major_version >= RX_BLOCK_VERSION) // RandomX
+    {
+      crypto::rx_slow_hash(seed_hash.data, block_hashing_blob.data(), block_hashing_blob.size(), res.data);
+    }
+    else // CryptoNight
+    {
+      const int pow_variant = major_version >= 7 ? major_version - 6 : 0;
+      crypto::cn_slow_hash(block_hashing_blob.data(), block_hashing_blob.size(), res, pow_variant, height);
+    }
+
+    return res;
+  }
+  //---------------------------------------------------------------
   bool is_valid_decomposed_amount(uint64_t amount)
   {
     if (0 == amount)

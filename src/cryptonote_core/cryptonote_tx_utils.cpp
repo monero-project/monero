@@ -678,29 +678,13 @@ namespace cryptonote
 
   bool get_block_longhash(const Blockchain *pbc, const blobdata& bd, crypto::hash& res, const uint64_t height, const int major_version, const crypto::hash *seed_hash, const int miners)
   {
-    // block 202612 bug workaround
-    if (height == 202612)
+    crypto::hash seed_hash_ = crypto::null_hash;
+    if (pbc != NULL && major_version >= RX_BLOCK_VERSION)
     {
-      static const std::string longhash_202612 = "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000";
-      epee::string_tools::hex_to_pod(longhash_202612, res);
-      return true;
+      const uint64_t seed_height = rx_seedheight(height);
+      seed_hash_ = seed_hash ? *seed_hash : pbc->get_pending_block_id_by_height(seed_height);
     }
-    if (major_version >= RX_BLOCK_VERSION)
-    {
-      crypto::hash hash;
-      if (pbc != NULL)
-      {
-        const uint64_t seed_height = rx_seedheight(height);
-        hash = seed_hash ? *seed_hash : pbc->get_pending_block_id_by_height(seed_height);
-      } else
-      {
-        memset(&hash, 0, sizeof(hash));  // only happens when generating genesis block
-      }
-      rx_slow_hash(hash.data, bd.data(), bd.size(), res.data);
-    } else {
-      const int pow_variant = major_version >= 7 ? major_version - 6 : 0;
-      crypto::cn_slow_hash(bd.data(), bd.size(), res, pow_variant, height);
-    }
+    res = get_block_longhash(bd, height, major_version, seed_hash_);
     return true;
   }
 
