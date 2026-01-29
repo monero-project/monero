@@ -167,6 +167,7 @@ bool is_equal(const char *s, const std::vector<std::string> &v) { return v.size(
 
 TEST(DNS_PUBLIC, empty) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("").empty()); }
 TEST(DNS_PUBLIC, default) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp").size() > 0); }
+TEST(DNS_PUBLIC, tls_default) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls").size() > 0); }
 TEST(DNS_PUBLIC, invalid_scheme) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("invalid").empty()); }
 TEST(DNS_PUBLIC, invalid_ip_alpha) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://invalid").empty()); }
 TEST(DNS_PUBLIC, invalid_ip_num1) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3").empty()); }
@@ -178,3 +179,23 @@ TEST(DNS_PUBLIC, invalid_ip_num5) { EXPECT_TRUE(tools::dns_utils::parse_dns_publ
 TEST(DNS_PUBLIC, invalid_ip_4_missing) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4..7").empty()); }
 TEST(DNS_PUBLIC, valid_ip_lo) { EXPECT_TRUE(is_equal("127.0.0.1", tools::dns_utils::parse_dns_public("tcp://127.0.0.1"))); }
 TEST(DNS_PUBLIC, valid_ip) { EXPECT_TRUE(is_equal("3.4.5.6", tools::dns_utils::parse_dns_public("tcp://3.4.5.6"))); }
+TEST(DNS_PUBLIC, tls_invalid_ip_alpha_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://invalid").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num1_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num3_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num4_extra_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6x").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num4_range_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.542.6").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_dot_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6.").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num5_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6.7").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_4_missing_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4..7").empty()); }
+TEST(DNS_PUBLIC, tls_valid_ip_lo_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://127.0.0.1").empty()); }
+TEST(DNS_PUBLIC, tls_valid_ip_no_hostname) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_alpha) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://invalid#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num1) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num3) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num4_extra) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6x#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num4_range) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.542.6#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_dot) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6.#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_num5) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4.5.6.7#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_invalid_ip_4_missing) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://3.4..7#example.com").empty()); }
+TEST(DNS_PUBLIC, tls_valid_ip_lo) { EXPECT_TRUE(is_equal("127.0.0.1@853#localhost", tools::dns_utils::parse_dns_public("tls://127.0.0.1#localhost"))); }
+TEST(DNS_PUBLIC, tls_valid_ip) { EXPECT_TRUE(is_equal("3.4.5.6@853#example.com", tools::dns_utils::parse_dns_public("tls://3.4.5.6#example.com"))); }
