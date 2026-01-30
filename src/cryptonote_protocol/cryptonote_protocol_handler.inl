@@ -38,12 +38,15 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <chrono>
+#include <cstdint>
 #include <list>
 #include <ctime>
 
 #include <cryptonote_core/cryptonote_core.h>
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "misc_log_ex.h"
 #include "profile_tools.h"
 #include "net/network_throttle-detail.hpp"
 #include "common/pruning.h"
@@ -180,7 +183,13 @@ namespace cryptonote
     return make_pool_supplement_from_block_entry(blk_entry.txs, blk_tx_hashes, blk_entry.pruned, pool_supplement);
   }
 
-
+  //-----------------------------------------------------------------------------------------------------------------------
+  static std::size_t max_n_txs_per_packet()
+  {
+    static const std::size_t MAX_N_TXS = get_command_max_bytes(NOTIFY_NEW_TRANSACTIONS::ID) / get_max_tx_size();
+    CHECK_AND_ASSERT_MES(MAX_N_TXS > 0, 100/*sane default*/, "MAX_N_TXS is expected >0, something is wrong.");
+    return MAX_N_TXS;
+  }
   //-----------------------------------------------------------------------------------------------------------------------
   template<class t_core>
     t_cryptonote_protocol_handler<t_core>::t_cryptonote_protocol_handler(t_core& rcore, nodetool::i_p2p_endpoint<connection_context>* p_net_layout, bool offline):m_core(rcore),
@@ -189,8 +198,8 @@ namespace cryptonote
                                                                                                               m_synchronized(offline),
                                                                                                               m_ask_for_txpool_complement(true),
                                                                                                               m_stopping(false),
-                                                                                                              m_no_sync(false)
-
+                                                                                                              m_no_sync(false),
+                                                                                                              m_request_manager(max_n_txs_per_packet())
   {
     if(!m_p2p)
       m_p2p = &m_p2p_stub;
@@ -212,7 +221,6 @@ namespace cryptonote
 
     m_block_download_max_size = command_line::get_arg(vm, cryptonote::arg_block_download_max_size);
     m_sync_pruned_blocks = command_line::get_arg(vm, cryptonote::arg_sync_pruned_blocks);
-
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -732,6 +740,8 @@ namespace cryptonote
       // Relay an empty block
       arg.b.txs.clear();
       relay_block(arg, context);
+      for (const auto &tx_hash : new_block.tx_hashes)
+        m_request_manager.remove_request(tx_hash);
     }
     else if( bvc.m_marked_as_orphaned )
     {
@@ -884,9 +894,78 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_notify_tx_pool_hash(int command, NOTIFY_TX_POOL_HASH::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_TX_POOL_HASH (" << arg.t.size() << " txes)");
+
+    // Create a list to hold transaction hashes missing in our local tx pool.
+    std::vector<crypto::hash> missing_tx_hashes;
+    missing_tx_hashes.reserve(arg.t.size());
+
+    // Iterate over each advertised transaction hash and check our pool and our requested tracker.
+    for (const auto &tx_hash : arg.t)
+    {
+      // If we have the tx already, we don't need to request it.
+      // Warning: the db read can potentially be expensive if someone is sending us many txs already in the db.
+      // We can mitigate by keeping tack of how many chain txs someone sends us, and dropping after exceeding a threshold.
+      if (m_core.pool_has_tx(tx_hash) || m_core.get_blockchain_storage().have_tx(tx_hash))
+      {
+        // Remove it if it's in the request queue already since we already have it (it really shouldn't be here anyway)
+        m_request_manager.remove_request(tx_hash);
+        continue;
+      }
+      const bool send_request = m_request_manager.add_request(tx_hash, context.m_connection_id);
+      if (send_request)
+        missing_tx_hashes.push_back(tx_hash);
+    }
+
+    this->send_txs_request(context, std::move(missing_tx_hashes));
+
+    return 1;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  int t_cryptonote_protocol_handler<t_core>::handle_request_tx_pool_txs(int command, NOTIFY_REQUEST_TX_POOL_TXS::request& arg, cryptonote_connection_context& context)
+  {
+    MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_TX_POOL_TXS (" << arg.t.size() << " txes)");
+
+    std::vector<blobdata> txs;
+
+    if (arg.t.size() > max_n_txs_per_packet())
+    {
+      LOG_ERROR_CCONTEXT("Too many txs, cannot accept request to send " << arg.t.size() << " txs to " << context.m_connection_id);
+      return 1;
+    }
+
+    // Iterate over requested txin hashes
+    for (const auto &tx_hash : arg.t)
+    {
+      // Attempt to get the transaction blob from the mempool;
+      cryptonote::blobdata tx_blob;
+      if (m_core.get_pool_transaction(tx_hash, tx_blob, cryptonote::relay_category::broadcasted))
+      {
+        txs.push_back(std::move(tx_blob));
+      }
+      // If tx is not in the pool, then ignore it (do not penalize peer)
+    }
+
+    // Send response if any txs found
+    if (!txs.empty())
+    {
+      NOTIFY_NEW_TRANSACTIONS::request request = {};
+      request.txs = std::move(txs);
+      pad_tx_request(request);
+      post_notify<NOTIFY_NEW_TRANSACTIONS>(request, context);
+    }
+
+    return 1;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
+    std::lock_guard<std::mutex> m_check_lock(m_check_tx_request_queue_mutex);
     std::unordered_set<blobdata> seen;
     for (const auto &blob: arg.txs)
     {
@@ -927,6 +1006,8 @@ namespace cryptonote
 
     std::vector<blobdata> stem_txs{};
     std::vector<blobdata> fluff_txs{};
+    std::vector<crypto::hash> stem_hashes{};
+    std::vector<crypto::hash> fluff_hashes{};
     if (arg.dandelionpp_fluff)
     {
       tx_relay = relay_method::fluff;
@@ -935,25 +1016,31 @@ namespace cryptonote
     else
       stem_txs.reserve(arg.txs.size());
 
-    for (auto& tx : arg.txs)
+    for (auto& tx_blob : arg.txs)
     {
       tx_verification_context tvc{};
-      if (!m_core.handle_incoming_tx(tx, tvc, tx_relay, true) && !tvc.m_no_drop_offense)
+      crypto::hash tx_hash{};
+      if (!m_core.handle_incoming_tx(tx_blob, tvc, tx_relay, true, tx_hash) && !tvc.m_no_drop_offense)
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         drop_connection(context, false, false);
         return 1;
       }
 
+      if (tx_hash != crypto::hash{})
+        m_request_manager.remove_request(tx_hash);
+
       switch (tvc.m_relay)
       {
         case relay_method::local:
         case relay_method::stem:
-          stem_txs.push_back(std::move(tx));
+          stem_txs.push_back(std::move(tx_blob));
+          stem_hashes.push_back(std::move(tx_hash));
           break;
         case relay_method::block:
         case relay_method::fluff:
-          fluff_txs.push_back(std::move(tx));
+          fluff_txs.push_back(std::move(tx_blob));
+          fluff_hashes.push_back(std::move(tx_hash));
           break;
         default:
         case relay_method::forward: // not supposed to happen here
@@ -967,14 +1054,14 @@ namespace cryptonote
       //TODO: add announce usage here
       arg.dandelionpp_fluff = false;
       arg.txs = std::move(stem_txs);
-      relay_transactions(arg, context.m_connection_id, context.m_remote_address.get_zone(), relay_method::stem);
+      relay_transactions(arg, std::move(stem_hashes), context.m_connection_id, context.m_remote_address.get_zone(), relay_method::stem);
     }
     if (!fluff_txs.empty())
     {
       //TODO: add announce usage here
       arg.dandelionpp_fluff = true;
       arg.txs = std::move(fluff_txs);
-      relay_transactions(arg, context.m_connection_id, context.m_remote_address.get_zone(), relay_method::fluff);
+      relay_transactions(arg, std::move(fluff_hashes), context.m_connection_id, context.m_remote_address.get_zone(), relay_method::fluff);
     }
     return 1;
   }
@@ -1566,6 +1653,26 @@ namespace cryptonote
               m_block_queue.remove_spans(span_connection_id, start_height);
               return 1;
             }
+            else if (bvc.m_added_to_main_chain)
+            {
+              block tmp;
+              const std::vector<crypto::hash>* tx_hashes_ptr = nullptr;
+              if (!pblocks.empty())
+              {
+                tx_hashes_ptr = &pblocks[blockidx].tx_hashes;
+              }
+              else
+              {
+                crypto::hash ignore;
+                if (parse_and_validate_block_from_blob(block_entry.block, tmp, &ignore))
+                  tx_hashes_ptr = &tmp.tx_hashes;
+              }
+              if (tx_hashes_ptr)
+              {
+                for (const auto &h : *tx_hashes_ptr)
+                  m_request_manager.remove_request(h);
+              }
+            }
 
             TIME_MEASURE_FINISH(block_process_time);
             block_process_time_full += block_process_time;
@@ -1680,6 +1787,7 @@ skip:
     m_idle_peer_kicker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::kick_idle_peers, this));
     m_standby_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::check_standby_peers, this));
     m_sync_search_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::update_sync_search, this));
+    m_peer_tx_request_checker.do_call(boost::bind(&t_cryptonote_protocol_handler<t_core>::check_tx_request_queue, this));
     return m_core.on_idle();
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -1762,6 +1870,80 @@ skip:
           MDEBUG("Failed to find peer we wanted to drop");
       }
     }
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::send_txs_request(cryptonote_connection_context& context, std::vector<crypto::hash> &&tx_hashes)
+  {
+    if (tx_hashes.empty())
+    {
+      MLOG_P2P_MESSAGE("Not sending a request for txs");
+      return;
+    }
+
+    // We *never* expect to call this with more txs than can be sent in a packet
+    CHECK_AND_ASSERT_MES(tx_hashes.size() <= max_n_txs_per_packet(),, "Too many txs in NOTIFY_REQUEST_TX_POOL_TXS");
+
+    NOTIFY_REQUEST_TX_POOL_TXS::request req;
+    req.t = std::move(tx_hashes);
+    MLOG_P2P_MESSAGE("Requesting " << req.t.size() << " transactions via NOTIFY_REQUEST_TX_POOL_TXS");
+    post_notify<NOTIFY_REQUEST_TX_POOL_TXS>(req, context);
+  }
+  //-----------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::check_tx_request_queue()
+  {
+    // We want to check this frequently, so we keep making sure tx requests that aren't in flight get placed in flight.
+    // At time of writing, I set this to run every 5s, and the default timeout for stale requests is 30s.
+
+    // If we're not synchronized, we shouldn't be requesting any txs. Syncing might end up removing many tx requests
+    // because the txs enter the chain.
+    if (!is_synchronized() || (m_core.get_target_blockchain_height() > m_core.get_current_blockchain_height()))
+    {
+      MDEBUG("Skipping tx request queue check, not yet synced");
+      return true;
+    }
+
+    MCTRACE("net.p2p.msg", "on_idle :: check_tx_request_queue, starting ...");
+
+    // Synchronize with handling incoming txs, because that function can take a long time to execute and may be in
+    // the process of verifying large txs that we requested. We don't want to count request misses that are actually
+    // good and just take a long time to verify.
+    std::lock_guard<std::mutex> m_check_lock(m_check_tx_request_queue_mutex);
+
+    // We drop connections that exceed the threshold for allowed missed txs
+    const auto drop_peers = m_request_manager.remove_stale_requests();
+    for (const auto &peer_id : drop_peers)
+    {
+      MCINFO("net.p2p.msg", "Missed tx request more than threshold of the time, dropping peer : " << epee::string_tools::pod_to_hex(peer_id));
+      drop_connection(peer_id);
+    }
+
+    // Let fly any queued tx requests that our connections can handle. This is the section that benefits from calling
+    // check_tx_request_queue more frequently than the timeout. Since connections can become able to handle new
+    // requests frequently as we process incoming txs.
+    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type _unused, uint32_t _unused2)->bool
+    {
+      if (drop_peers.count(context.m_connection_id))
+      {
+        MDEBUG(context << "connection is set to be dropped, not sending more tx requests");
+        return true;
+      }
+
+      // If the connection isn't synced we don't need to send it requests
+      if (context.m_state != cryptonote_connection_context::state_normal)
+      {
+        MDEBUG(context << "not ready for tx request");
+        return true;
+      }
+
+      std::vector<crypto::hash> new_requests = m_request_manager.fly_available_requests(context.m_connection_id);
+      this->send_txs_request(context, std::move(new_requests));
+
+      return true;
+    });
 
     return true;
   }
@@ -2668,14 +2850,14 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, const boost::uuids::uuid& source, epee::net_utils::zone zone, relay_method tx_relay)
+  bool t_cryptonote_protocol_handler<t_core>::relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, std::vector<crypto::hash> &&tx_hashes, const boost::uuids::uuid& source, epee::net_utils::zone zone, relay_method tx_relay)
   {
     /* Push all outgoing transactions to this function. The behavior needs to
        identify how the transaction is going to be relayed, and then update the
        local mempool before doing the relay. The code was already updating the
        DB twice on received transactions - it is difficult to workaround this
        due to the internal design. */
-    return m_p2p->send_txs(std::move(arg.txs), zone, source, tx_relay) != epee::net_utils::zone::invalid;
+    return m_p2p->send_txs(std::move(arg.txs), std::move(tx_hashes), zone, source, tx_relay) != epee::net_utils::zone::invalid;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -2866,6 +3048,7 @@ skip:
     }
 
     m_block_queue.flush_spans(context.m_connection_id, false);
+    m_request_manager.remove_peer(context.m_connection_id);
     MLOG_PEER_STATE("closed");
   }
 

@@ -128,7 +128,6 @@ namespace cryptonote
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
   };
-
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
   , "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
@@ -778,7 +777,7 @@ namespace cryptonote
     return false;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
+  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed, crypto::hash& txid)
   {
     tvc = {};
 
@@ -795,7 +794,6 @@ namespace cryptonote
     }
 
     transaction tx;
-    crypto::hash txid;
     if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
     {
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
@@ -1108,6 +1106,9 @@ namespace cryptonote
       NOTIFY_NEW_TRANSACTIONS::request public_req{};
       NOTIFY_NEW_TRANSACTIONS::request private_req{};
       NOTIFY_NEW_TRANSACTIONS::request stem_req{};
+      std::vector<crypto::hash> public_tx_hashes{};
+      std::vector<crypto::hash> private_tx_hashes{};
+      std::vector<crypto::hash> stem_tx_hashes{};
       for (auto& tx : txs)
       {
         switch (std::get<2>(tx))
@@ -1117,14 +1118,17 @@ namespace cryptonote
             break;
           case relay_method::local:
             private_req.txs.push_back(std::move(std::get<1>(tx)));
+            private_tx_hashes.push_back(std::move(std::get<0>(tx)));
             break;
           case relay_method::forward:
             stem_req.txs.push_back(std::move(std::get<1>(tx)));
+            stem_tx_hashes.push_back(std::move(std::get<0>(tx)));
             break;
           case relay_method::block:
           case relay_method::fluff:
           case relay_method::stem:
             public_req.txs.push_back(std::move(std::get<1>(tx)));
+            public_tx_hashes.push_back(std::move(std::get<0>(tx)));
             break;
         }
       }
@@ -1135,11 +1139,11 @@ namespace cryptonote
          re-relaying public and private _should_ be acceptable here. */
       const boost::uuids::uuid source = boost::uuids::nil_uuid();
       if (!public_req.txs.empty())
-        get_protocol()->relay_transactions(public_req, source, epee::net_utils::zone::public_, relay_method::fluff);
+        get_protocol()->relay_transactions(public_req, std::move(public_tx_hashes), source, epee::net_utils::zone::public_, relay_method::fluff);
       if (!private_req.txs.empty())
-        get_protocol()->relay_transactions(private_req, source, epee::net_utils::zone::invalid, relay_method::local);
+        get_protocol()->relay_transactions(private_req, std::move(private_tx_hashes), source, epee::net_utils::zone::invalid, relay_method::local);
       if (!stem_req.txs.empty())
-        get_protocol()->relay_transactions(stem_req, source, epee::net_utils::zone::public_, relay_method::stem);
+        get_protocol()->relay_transactions(stem_req, std::move(stem_tx_hashes), source, epee::net_utils::zone::public_, relay_method::stem);
     }
     return true;
   }
