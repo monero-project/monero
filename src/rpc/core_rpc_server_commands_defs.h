@@ -191,7 +191,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       bool        no_miner_tx;
       uint64_t    pool_info_since;
       uint64_t    max_block_count;
-      bool        get_tx_blobs;  // if false, blocks are returned without transactions
+      bool        get_tx_blobs;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
