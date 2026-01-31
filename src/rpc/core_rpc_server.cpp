@@ -694,17 +694,20 @@ namespace cryptonote
         {
           COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
           info.tx_hash = added_pool_tx.first;
-          std::stringstream oss;
-          binary_archive<true> ar(oss);
-          bool r = req.prune
-            ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-            : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-          if (!r)
+          if(req.get_tx_blobs)
           {
-            res.status = "Failed to serialize transaction";
-            return true;
+            std::stringstream oss;
+            binary_archive<true> ar(oss);
+            bool r = req.prune
+              ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
+              : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
+            if (!r)
+            {
+              res.status = "Failed to serialize transaction";
+              return true;
+            }
+            info.tx_blob = oss.str();
           }
-          info.tx_blob = oss.str();
           info.double_spend_seen = added_pool_tx.second.double_spend_seen;
           res.added_pool_txs.push_back(std::move(info));
         }
@@ -778,15 +781,17 @@ namespace cryptonote
         res.output_indices.back().indices.reserve(1 + bd.second.size());
         if (req.no_miner_tx)
           res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-        res.blocks.back().txs.reserve(bd.second.size());
-        for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
+        if (req.get_tx_blobs)
         {
-          res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
-          i->second.clear();
-          i->second.shrink_to_fit();
-          size += res.blocks.back().txs.back().blob.size();
+          res.blocks.back().txs.reserve(bd.second.size());
+          for (std::vector<std::pair<crypto::hash, cryptonote::blobdata>>::iterator i = bd.second.begin(); i != bd.second.end(); ++i)
+          {
+            res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
+            i->second.clear();
+            i->second.shrink_to_fit();
+            size += res.blocks.back().txs.back().blob.size();
+          }
         }
-
         const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
         if (n_txes_to_lookup > 0)
         {
