@@ -26,11 +26,7 @@ SET(UNBOUND_LIBRARIES @prefix@/lib/libunbound.a)
 SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
 SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
 
-SET(Protobuf_FOUND 1)
-SET(Protobuf_PROTOC_EXECUTABLE @prefix@/native/bin/protoc CACHE FILEPATH "Path to the native protoc")
-SET(Protobuf_INCLUDE_DIR @prefix@/include CACHE PATH "Protobuf include dir")
-SET(Protobuf_INCLUDE_DIRS @prefix@/include CACHE PATH "Protobuf include dir")
-SET(Protobuf_LIBRARY @prefix@/lib/libprotobuf.a CACHE FILEPATH "Protobuf library")
+SET(absl_ROOT @prefix@)
 
 SET(Boost_IGNORE_SYSTEM_PATH ON)
 SET(BOOST_ROOT @prefix@)
@@ -49,6 +45,7 @@ SET(TARGET_OS @host_os@)
 set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
 set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
+SET (CMAKE_FIND_USE_PACKAGE_ROOT_PATH ON)
 
 function(split_program input_string program arguments)
   # CMake < 3.19 only understands setting CMAKE_<LANG>_COMPILER using "<program>" "<arguments>".
