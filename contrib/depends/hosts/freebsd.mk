@@ -10,8 +10,8 @@ freebsd_AR=ar
 freebsd_RANLIB=ranlib
 freebsd_NM=nm
 
-freebsd_CFLAGS=-pipe
-freebsd_CXXFLAGS=$(freebsd_CFLAGS)
+freebsd_CFLAGS=-pipe -std=$(C_STANDARD)
+freebsd_CXXFLAGS=-pipe -std=$(CXX_STANDARD)
 freebsd_ARFLAGS=cr
 
 freebsd_release_CFLAGS=-O2

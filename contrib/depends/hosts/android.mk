@@ -16,8 +16,8 @@ android_CXX=$(clear_guix_env) $(build_prefix)/bin/$(host_toolchain)clang++
 android_AR=llvm-ar
 android_RANLIB=llvm-ranlib
 
-android_CFLAGS=-pipe
-android_CXXFLAGS=$(android_CFLAGS)
+android_CFLAGS=-pipe -std=$(C_STANDARD)
+android_CXXFLAGS=-pipe -std=$(CXX_STANDARD)
 android_ARFLAGS=crsD
 
 android_release_CFLAGS=-O2
