@@ -29,6 +29,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <boost/lexical_cast.hpp>
+#include "crypto/generators.h"
 #include "misc_log_ex.h"
 #include "rctOps.h"
 using namespace crypto;
@@ -243,21 +244,6 @@ const std::vector<ge_cached>& H_TABLE()
     return out.h_table;
 }
 
-
-const ge_p3& G_GE_P3()
-{
-    struct static_g_ge_pe3
-    {
-        ge_p3 g_ge_p3;
-        static_g_ge_pe3()
-        {
-            CHECK_AND_ASSERT_THROW_MES(ge_frombytes_vartime(&g_ge_p3, rct::G.bytes) == 0, "ge_frombytes_vartime failed for G");
-        }
-    };
-    static const static_g_ge_pe3 out;
-    return out.g_ge_p3;
-}
-
 namespace rct {
 
     //Various key initialization functions
@@ -369,7 +355,7 @@ namespace rct {
         {
             return it->commitment;
         }
-        ge_p3 res_ge_p3 = G_GE_P3();
+        ge_p3 res_ge_p3 = get_G_p3();
         static_assert(sizeof(xmr_amount) * 8 == H_TABLE_SIZE, "unexpected size of h table");
         for (size_t i = 0; i < H_TABLE_SIZE; ++i)
         {
