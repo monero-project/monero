@@ -78,7 +78,7 @@ public:
   bool check_incoming_block_size(const cryptonote::blobdata& block_blob) const { return true; }
   bool update_checkpoints(const bool skip_dns = false) { return true; }
   uint64_t get_target_blockchain_height() const { return 1; }
-  size_t get_block_sync_size(uint64_t height) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
+  size_t get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue = 0) const { return BLOCKS_SYNCHRONIZING_DEFAULT_COUNT; }
   virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, cryptonote::relay_method tx_relay) {}
   cryptonote::network_type get_nettype() const { return cryptonote::MAINNET; }
   bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx_blob, cryptonote::relay_category tx_category) const { return false; }
