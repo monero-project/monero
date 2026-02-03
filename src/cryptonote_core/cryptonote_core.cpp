@@ -124,6 +124,11 @@ namespace cryptonote
   , "Set maximum size of block download queue in bytes (0 for default)"
   , 0
   };
+  const command_line::arg_descriptor<size_t> arg_span_limit  = {
+    "span-limit"
+  , "Defines how many minutes of block synchronization data to request at a time (default is 2 minutes)"
+  , 2
+  };
   const command_line::arg_descriptor<bool> arg_sync_pruned_blocks  = {
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
@@ -334,6 +339,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
+    command_line::add_arg(desc, arg_span_limit);
     command_line::add_arg(desc, arg_sync_pruned_blocks);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
