@@ -4491,9 +4491,6 @@ bool Blockchain::update_next_cumulative_weight_limit(uint64_t *long_term_effecti
   if (long_term_effective_median_block_weight)
     *long_term_effective_median_block_weight = m_long_term_effective_median_block_weight;
 
-  if (!m_db->is_read_only())
-    m_db->add_max_block_size(m_current_block_cumul_weight_limit);
-
   return true;
 }
 //------------------------------------------------------------------

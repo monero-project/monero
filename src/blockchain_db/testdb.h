@@ -158,9 +158,6 @@ public:
   virtual bool check_pruning() override { return true; }
   virtual void prune_outputs(uint64_t amount) override {}
 
-  virtual uint64_t get_max_block_size() override { return 100000000; }
-  virtual void add_max_block_size(uint64_t sz) override { }
-
   virtual void add_alt_block(const crypto::hash &blkid, const cryptonote::alt_block_data_t &data, const cryptonote::blobdata_ref &blob) override {}
   virtual bool get_alt_block(const crypto::hash &blkid, alt_block_data_t *data, cryptonote::blobdata *blob) override { return false; }
   virtual void remove_alt_block(const crypto::hash &blkid) override {}
