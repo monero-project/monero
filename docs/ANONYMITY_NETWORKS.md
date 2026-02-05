@@ -10,7 +10,14 @@ relying on IPv4 for the remainder of messages to make surrounding node attacks
 
 ## Behavior
 
-If _any_ anonymity network is enabled, transactions being broadcast that lack
+When the `--proxy` flag is used, `monerod` sends all external traffic via the
+proxy. This includes blockchain syncing, connections to other peers, and update
+checks. However, it treats the proxy as the clearnet zone. It does not connect
+to hidden services over the proxy.
+
+The `--tx-proxy` flag is used specifically for anonymity networks and
+enables anonymity network mode. If _any_ anonymity network is enabled,
+transactions being broadcast that lack
 a valid "context" (i.e. the transaction did not come from a P2P connection),
 will only be sent to peers on anonymity networks. If an anonymity network is
 enabled but no peers over an anonymity network are available, an error is
@@ -23,7 +30,6 @@ Anonymity networks can also be used with `monero-wallet-cli` and
 `monero-wallet-rpc` - the wallets will connect to a daemon through a proxy. The
 daemon must provide a hidden service for the RPC itself, which is separate from
 the hidden service for P2P connections.
-
 
 ## P2P Commands
 
@@ -39,11 +45,14 @@ with additional exclusive IPv4 address(es).
 ### Blockchain sync
 
 Monerod does not support synchronizing the blockchain over onion or I2P hidden services.
-You may sync the blockchain using a socks proxy.
+You may sync the blockchain using a SOCKS4 proxy. Monerod will connect to IPv4
+nodes using this proxy to sync the blockchain.
 
 ```bash
 monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1 --no-igd
 ```
+
+You can also combine `--proxy` with `--tx-proxy` (see below).
 
 ### Hidden Services
 
@@ -171,6 +180,74 @@ and will forward "Tor port" 18084 and 18089 to ports 18084 and 18089 of ip 127.0
 I2P must be configured with a standard server tunnel. Configuration differs by
 I2P implementation.  
 You can find guides for i2pd [here](https://docs.getmonero.org/running-node/monerod-tori2p/#__tabbed_1_2).
+
+## Example Node Configurations
+
+Please check the [`monerod` reference](https://docs.getmonero.org/interacting/monerod-reference/#tori2p-and-proxies) for more information about these flags.
+
+### Clearnet Only
+
+Allows incoming connections and attempts to port forward with UPnP.
+
+```bash
+monerod
+```
+
+### Connect to IPv4 Nodes Over Clearnet and Relay Transactions via Tor
+
+Monerod will connect to IPv4 nodes via clearnet, revealing to your ISP
+that you are running a Monero node, but your transactions will be relayed over
+Tor.
+
+```bash
+sudo apt install tor # Or install Tor some other way
+systemctl start tor # Or start Tor manually
+monerod --tx-proxy tor,127.0.0.1:9050,10
+```
+
+### Connect To IPv4 Nodes Over Tor Only
+
+This configuration does not connect to hidden services or accept incoming
+connections. Your ISP will see that you are running Tor, but not Monerod.
+
+```bash
+sudo apt install tor # Or install Tor some other way
+systemctl start tor # Or start Tor manually
+monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1 --no-igd
+```
+
+### Connect to IPv4 Nodes Over Tor and Connect to Hidden Services
+
+Your ISP will see that you are running Tor and I2P, but not Monerod. Transactions
+will be relayed to hidden services. Your node will not accept any incoming
+connections (including from Tor and I2P).
+
+```bash
+monerod --proxy 127.0.0.1:9050 \
+    --p2p-bind-ip 127.0.0.1 \
+    --no-igd \
+    --tx-proxy tor,127.0.0.1:9050,10 \
+    --tx-proxy i2p,127.0.0.1:4447,10
+```
+
+### Connect to IPv4 over Tor and Publish Hidden Services
+
+You will need to configure [hidden services manually for Tor and I2P](https://docs.getmonero.org/running-node/monerod-tori2p/#node-configuration).
+
+```bash
+monerod --proxy 127.0.0.1:9050 \
+    --p2p-bind-ip 127.0.0.1 \
+    --no-igd \
+    --tx-proxy tor,127.0.0.1:9050,10 \
+    --tx-proxy i2p,127.0.0.1:4447,10 \
+    --anonymous-inbound=yourlongv3onionaddress.onion:18084,127.0.0.1:18084 \
+    --anonymous-inbound=yourlongb32i2paddress.b32.i2p,127.0.0.1:18085
+```
+
+### Connect Exclusively to Hidden Services (avoid IPv4 entirely)
+
+This configuration is not currently supported. Monerod relies on IPv4 to sync
+the blockchain to make Sybil attacks more difficult.
 
 ## Privacy Limitations
 
