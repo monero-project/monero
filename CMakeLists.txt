@@ -348,12 +348,6 @@ set(LOONGARCH   1)
 set(LOONGARCH64 1)
 endif()
 
-if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
-  set(OPT_FLAGS_RELEASE "-O2")
-else()
-  set(OPT_FLAGS_RELEASE "-Ofast")
-endif()
-
 # BUILD_TAG is used to select the build type to check for a new version
 if(BUILD_TAG)
   message(STATUS "Building build tag ${BUILD_TAG}")
