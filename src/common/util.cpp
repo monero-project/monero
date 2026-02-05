@@ -899,10 +899,17 @@ namespace tools
 
   void clear_screen()
   {
+    const char *term = getenv("TERM");
+    const char *tmux = getenv("TMUX");
+    const bool is_tmux = (tmux && *tmux) ||
+      (term && (!strncmp(term, "tmux", 4) || !strncmp(term, "screen", 6)));
+
     std::cout << "\033[2K" << std::flush; // clear whole line
-    std::cout << "\033c" << std::flush; // clear current screen and scrollback
+    if (!is_tmux)
+      std::cout << "\033c" << std::flush; // clear current screen and scrollback
     std::cout << "\033[2J" << std::flush; // clear current screen only, scrollback is still around
-    std::cout << "\033[3J" << std::flush; // does nothing, should clear current screen and scrollback
+    if (!is_tmux)
+      std::cout << "\033[3J" << std::flush; // does nothing, should clear current screen and scrollback
     std::cout << "\033[1;1H" << std::flush; // move cursor top/left
     std::cout << "\r                                                \r" << std::flush; // erase odd chars if the ANSI codes were printed raw
 #ifdef _WIN32
