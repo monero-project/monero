@@ -86,6 +86,7 @@ set(unit_tests_sources
   test_peerlist.cpp
   test_protocol_pack.cpp
   threadpool.cpp
+  twofish.cpp
   tx_proof.cpp
   tx_verification_utils.cpp
   hardfork.cpp
