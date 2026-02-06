@@ -8973,18 +8973,34 @@ bool wallet2::tx_add_fake_output(std::vector<std::vector<tools::wallet2::get_out
   if (std::find(outs.back().begin(), outs.back().end(), item) != outs.back().end()) // don't add duplicates
     return false;
   // check the keys are valid
-  if (valid_public_keys_cache.find(output_public_key) == valid_public_keys_cache.end() && !rct::isInMainSubgroup(rct::pk2rct(output_public_key)))
+  if (valid_public_keys_cache.find(output_public_key) == valid_public_keys_cache.end())
   {
-    MWARNING("Key " << output_public_key << " at index " << global_index << " is not in the main subgroup");
-    return false;
+    if (!rct::isInMainSubgroup(rct::pk2rct(output_public_key)))
+    {
+      MWARNING("Key " << output_public_key << " at index " << global_index << " is not in the main subgroup");
+      return false;
+    }
+    else if (output_public_key == rct::rct2pk(rct::identity()))
+    {
+      MWARNING("Key " << output_public_key << " at index " << global_index << " is the identity point");
+      return false;
+    }
+    valid_public_keys_cache.insert(output_public_key);
   }
-  valid_public_keys_cache.insert(output_public_key);
-  if (valid_public_keys_cache.find(rct::rct2pk(mask)) == valid_public_keys_cache.end() && !rct::isInMainSubgroup(mask))
+  if (valid_public_keys_cache.find(rct::rct2pk(mask)) == valid_public_keys_cache.end())
   {
-    MWARNING("Commitment " << mask << " at index " << global_index << " is not in the main subgroup");
-    return false;
+    if (!rct::isInMainSubgroup(mask))
+    {
+      MWARNING("Commitment " << mask << " at index " << global_index << " is not in the main subgroup");
+      return false;
+    }
+    else if (mask == rct::identity() || mask == rct::G)
+    {
+      MWARNING("Commitment " << mask << " at index " << global_index << " binds to a known 0 amount");
+      return false;
+    }
+    valid_public_keys_cache.insert(rct::rct2pk(mask));
   }
-  valid_public_keys_cache.insert(rct::rct2pk(mask));
 //  if (is_output_blackballed(output_public_key)) // don't add blackballed outputs
 //    return false;
   outs.back().push_back(item);
