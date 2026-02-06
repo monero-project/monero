@@ -65,16 +65,13 @@ namespace net
 namespace zmq
 {
     //! \return Category for ZMQ errors.
-    const std::error_category& error_category() noexcept;
+    const monero::error_category& error_category() noexcept;
 
     //! \return `code` (usally from zmq_errno()`) using `net::zmq::error_category()`.
-    inline std::error_code make_error_code(int code) noexcept
-    {
-        return std::error_code{code, error_category()};
-    }
+    monero::error_code make_error_code(int code) noexcept;
 
     //! \return Error from `zmq_errno()` using `net::zmq::error_category()`.
-    inline std::error_code get_error_code() noexcept
+    inline monero::error_code get_error_code() noexcept
     {
         return make_error_code(zmq_errno());
     }
