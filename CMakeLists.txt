@@ -526,6 +526,8 @@ else()
   endif()
 endif()
 
+option(BUILD_WALLET "Build wallet libraries and monero-wallet-cli executable" ON)
+
 option(STACK_TRACE "Install a hook that dumps stack on exception" ${DEFAULT_STACK_TRACE})
 
 if(STACK_TRACE)
@@ -569,8 +571,6 @@ endif()
 if (WIN32)
   list(APPEND OPENSSL_LIBRARIES ws2_32 crypt32)
 endif()
-
-find_package(HIDAPI)
 
 add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
 add_definition_if_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
@@ -661,18 +661,21 @@ include_directories(${LMDB_INCLUDE})
 include_directories(${LIBUNWIND_INCLUDE})
 link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
-# Final setup for hid
-if (HIDAPI_FOUND) 
-  message(STATUS "Using HIDAPI include dir at ${HIDAPI_INCLUDE_DIR}")
-  add_definitions(-DHAVE_HIDAPI)
-  include_directories(${HIDAPI_INCLUDE_DIR})
-  link_directories(${LIBHIDAPI_LIBRARY_DIRS})
-else()
-  message(STATUS "Could not find HIDAPI")
-endif()
+if(BUILD_WALLET)
+  find_package(HIDAPI)
 
-# Trezor support check
-include(CheckTrezor)
+  # Final setup for hid
+  if (HIDAPI_FOUND)
+    message(STATUS "Using HIDAPI include dir at ${HIDAPI_INCLUDE_DIR}")
+    add_definitions(-DHAVE_HIDAPI)
+    include_directories(${HIDAPI_INCLUDE_DIR})
+    link_directories(${LIBHIDAPI_LIBRARY_DIRS})
+  else()
+    message(STATUS "Could not find HIDAPI")
+  endif()
+
+  include(CheckTrezor)
+endif()
 
   include(TestCXXAcceptsFlag)
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
@@ -810,7 +813,7 @@ include(CheckTrezor)
   endif()
 
   # linker
-  if (NOT SANITIZE AND NOT OSSFUZZ AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND (CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1 OR NOT STATIC))))
+  if (NOT DEPENDS AND NOT SANITIZE AND NOT OSSFUZZ AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND (CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1 OR NOT STATIC))))
     # PIE executables randomly crash at startup with ASAN
     # Windows binaries die on startup with PIE when compiled with GCC <9.x
     # Windows dynamically-linked binaries die on startup with PIE regardless of GCC version
