@@ -3190,7 +3190,7 @@ std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& tx
   return matching_hashes;
 }
 
-bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash) const
+bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3199,8 +3199,10 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
   RCURSOR(blocks);
   RCURSOR(tx_indices);
   RCURSOR(txs_pruned);
-  if (!pruned)
+  if (pruned)
   {
+    RCURSOR(txs_prunable_hash);
+  } else {
     RCURSOR(txs_prunable);
   }
 
@@ -3250,8 +3252,12 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
       result = mdb_cursor_get(m_cur_txs_pruned, &val_tx_id, &v, op);
       if (result)
         throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
-      if (!pruned)
-      {
+
+      if (pruned) {
+        result = mdb_cursor_get(m_cur_txs_prunable_hash, &val_tx_id, &v, op);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
+      } else {
         result = mdb_cursor_get(m_cur_txs_prunable, &val_tx_id, &v, op);
         if (result)
           throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
@@ -3271,15 +3277,24 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
         throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
       tx_blob.assign((const char*)v.mv_data, v.mv_size);
 
-      if (!pruned)
-      {
+      if (pruned) {
+        // get the prunable hash
+        result = mdb_cursor_get(m_cur_txs_prunable_hash, &val_tx_id, &v, op);
+        if (result)
+          throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
+
+        crypto::hash prunable_hash = *(const crypto::hash*)v.mv_data;
+        current_block.second.push_back(std::make_tuple(tx_hash, prunable_hash, std::move(tx_blob)));
+      } else {
+        // get the prunable data
         result = mdb_cursor_get(m_cur_txs_prunable, &val_tx_id, &v, op);
         if (result)
           throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
         tx_blob.append(reinterpret_cast<const char*>(v.mv_data), v.mv_size);
+        current_block.second.push_back(std::make_tuple(tx_hash, crypto::null_hash, std::move(tx_blob)));
       }
-      current_block.second.push_back(std::make_pair(tx_hash, std::move(tx_blob)));
-      size += current_block.second.back().second.size();
+
+      size += std::get<2>(current_block.second.back()).size();
     }
 
     if (blocks.size() >= min_block_count && num_txes >= max_tx_count)
