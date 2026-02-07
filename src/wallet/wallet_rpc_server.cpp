@@ -1530,7 +1530,7 @@ namespace tools
       for (size_t n = 0; n < tx_constructions.size(); ++n)
       {
         const tools::wallet2::tx_construction_data &cd = tx_constructions[n];
-        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, "", 0, "", 0, 0, ""});
+        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, {}, "", 0, "", 0, 0, ""});
         wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::transfer_description &desc = res.desc.back();
         // Clear the recipients collection ready for this loop iteration
         tx_dests.clear();
@@ -1561,8 +1561,14 @@ namespace tools
 
         for (size_t s = 0; s < cd.sources.size(); ++s)
         {
-          desc.amount_in += cd.sources[s].amount;
-          size_t ring_size = cd.sources[s].outputs.size();
+          const cryptonote::tx_source_entry &src_in = cd.sources[s];
+          wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::source &src_out = desc.sources.emplace_back();
+          src_out.amount = src_in.amount;
+          src_out.global_index = src_in.outputs.at(src_in.real_output_in_tx_index).first;
+          src_out.rct = src_in.rct;
+          src_out.pubkey = epee::string_tools::pod_to_hex(src_in.outputs.at(src_in.real_output_in_tx_index).second);
+          desc.amount_in += src_in.amount;
+          size_t ring_size = src_in.outputs.size();
           if (ring_size < desc.ring_size)
             desc.ring_size = ring_size;
         }
