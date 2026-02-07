@@ -61,28 +61,27 @@ namespace cryptonote
 {
   namespace
   {
-    /*! The Dandelion++ has formula for calculating the average embargo timeout:
-                          (-k*(k-1)*hop)/(2*log(1-ep))
-        where k is the number of hops before this node and ep is the probability
-        that one of the k hops hits their embargo timer, and hop is the average
-        time taken between hops. So decreasing ep will make it more probable
-        that "this" node is the first to expire the embargo timer. Increasing k
-        will increase the number of nodes that will be "hidden" as a prior
-        recipient of the tx.
+    /*! The Dandelion++ has formula for calculating the embargo rate:
+                          (-k*(k-1)*hop)/(2*ln(1-ep))
+        where k is the number of hops before the fluff node and ep is the
+        probability that one of the k hops hits their embargo timer before
+        reaching the fluff node, and hop is the average time taken between hops.
 
-        As example, k=5 and ep=0.1 means "this" embargo timer has a 90%
-        probability of being the first to expire amongst 5 nodes that saw the
-        tx before "this" one. These values are independent to the fluff
-        probability, but setting a low k with a low p (fluff probability) is
-        not ideal since a blackhole is more likely to reveal earlier nodes in
-        the chain.
+        NOTE: The paper says `2*log(1-ep)`, however if you read the explanation
+        in b.5 it is clear they meant `ln`.
 
-        This value was calculated with k=5, ep=0.10, and hop = 175 ms. A
+        As example, k=10 and ep=0.1 means "this" embargo timer has a 90%
+        probability of reaching 10 hops before the embargo timer fires. These
+        values are independent to the fluff probability.
+
+        The embargo rate was calculated with k=8, ep=0.1, and hop = 175 ms. A
         testrun from a recent Intel laptop took ~80ms to
         receive+parse+proces+send transaction. At least 50ms will be added to
         the latency if crossing an ocean. So 175ms is the fudge factor for
-        a single hop with 39s being the embargo timer. */
-    constexpr const std::chrono::seconds dandelionpp_embargo_average{CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE};
+        a single hop with 1/46.5 being the embargo _rate_. The average time
+        to blackhole fluff will be 46.5/hops where hops is the number of hops
+        before being blackholed. */
+    // see cryptonote_config.h CRYPTONOTE_DANDELIONPP_EMBARGO_RATE
 
     //TODO: constants such as these should at least be in the header,
     //      but probably somewhere more accessible to the rest of the
@@ -865,7 +864,7 @@ namespace cryptonote
   {
     just_broadcasted.clear();
 
-    crypto::random_poisson_seconds embargo_duration{dandelionpp_embargo_average};
+    crypto::random_exponential_seconds embargo_duration{CRYPTONOTE_DANDELIONPP_EMBARGO_RATE};
     const auto now = std::chrono::system_clock::now();
     uint64_t next_relay = uint64_t{std::numeric_limits<time_t>::max()};
 
@@ -887,7 +886,12 @@ namespace cryptonote
 
           if (meta.dandelionpp_stem)
           {
-            meta.last_relayed_time = std::chrono::system_clock::to_time_t(now + embargo_duration());
+            // if `embargo_duration() == 0`, the next `on_idle()` will broadcast
+            // the tx.
+            meta.last_relayed_time =
+              std::chrono::system_clock::to_time_t(
+                now + std::min(std::chrono::seconds{CRYPTONOTE_DANDELIONPP_EMBARGO_MAX}, embargo_duration())
+              );
             next_relay = std::min(next_relay, meta.last_relayed_time);
           }
           else
