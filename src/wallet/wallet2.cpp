@@ -14034,11 +14034,11 @@ void wallet2::stop_background_sync(const epee::wipeable_string &wallet_password,
 
   // Set the plaintext spend key
   m_account.set_spend_key(recovered_spend_key);
+  if (is_key_encryption_enabled())
+    this->encrypt_keys(wallet_password);
 
-  // Encrypt the spend key when done if needed
-  epee::misc_utils::auto_scope_leave_caller keys_reencryptor;
-  if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
-    keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]{encrypt_keys(wallet_password);});
+  // Decrypt now, then re-encrypt the spend key when done if needed
+  wallet_keys_unlocker unlocker(*this, &wallet_password);
 
   // Now we can use the decrypted spend key to process background cache
   process_background_cache(background_sync_data, background_synced_chain, last_block_reward);

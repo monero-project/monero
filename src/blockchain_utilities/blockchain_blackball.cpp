@@ -528,7 +528,11 @@ static uint64_t find_first_diverging_transaction(const std::string &first_filena
   MDB_val k;
   MDB_val v[2];
 
-  epee::misc_utils::auto_scope_leave_caller txn_dtor[2];
+  epee::scope_guard txn_dtor([&tx_active, &txn](){
+    for (int i = 0; i < 2; ++i)
+      if (tx_active[i])
+        mdb_txn_abort(txn[i]);
+  });
   for (int i = 0; i < 2; ++i)
   {
     dbr = mdb_env_create(&env[i]);
@@ -542,7 +546,6 @@ static uint64_t find_first_diverging_transaction(const std::string &first_filena
 
     dbr = mdb_txn_begin(env[i], NULL, MDB_RDONLY, &txn[i]);
     if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
-    txn_dtor[i] = epee::misc_utils::create_scope_leave_handler([&, i](){if (tx_active[i]) mdb_txn_abort(txn[i]);});
     tx_active[i] = true;
 
     dbr = mdb_dbi_open(txn[i], "txs_pruned", MDB_INTEGERKEY, &dbi[i]);
