@@ -220,7 +220,7 @@ jobs:
       - name: tests
         env:
           CTEST_OUTPUT_ON_FAILURE: ON
-          DNS_PUBLIC: tcp://9.9.9.9
+          DNS_PUBLIC: tcp://1.1.1.1
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
