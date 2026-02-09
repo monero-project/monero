@@ -35,6 +35,7 @@
 
 #include <stdexcept>
 #include <iomanip>
+#include <sstream>
 #ifdef USE_UNWIND
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
@@ -54,7 +55,9 @@
   do { \
     auto elpp = ELPP; \
     if (elpp) { \
-      CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << x; \
+      std::stringstream ss; \
+      ss << x; \
+      CINFO(el::base::Writer,el::base::DispatchAction::FileOnlyLog,MONERO_DEFAULT_LOG_CATEGORY) << ss.str(); \
     } \
     else { \
       std::cout << x << std::endl; \
@@ -105,18 +108,8 @@ void CXA_THROW(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*))
   __real___cxa_throw(ex, info, dest);
 }
 
-namespace
-{
-  std::string stack_trace_log;
-}
-
 namespace tools
 {
-
-void set_stack_trace_log(const std::string &log)
-{
-  stack_trace_log = log;
-}
 
 void log_stack_trace(const char *msg)
 {
@@ -127,7 +120,6 @@ void log_stack_trace(const char *msg)
   unsigned level;
   char sym[512], *dsym;
   int status;
-  const char *log = stack_trace_log.empty() ? NULL : stack_trace_log.c_str();
 #endif
 
   if (msg)

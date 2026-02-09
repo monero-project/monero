@@ -36,8 +36,10 @@
 #include <cassert>
 #include <iostream>
 #include <iterator>
+#include <type_traits>
+
 #include <boost/endian/conversion.hpp>
-#include <boost/type_traits/make_unsigned.hpp>
+#include <boost/mpl/bool.hpp>
 
 #include "common/varint.h"
 #include "span.h"
@@ -106,7 +108,7 @@ struct binary_archive<false> : public binary_archive_base<false>
   template <class T>
   void serialize_int(T &v)
   {
-    serialize_uint(*(typename boost::make_unsigned<T>::type *)&v);
+    serialize_uint(*(typename std::make_unsigned<T>::type *)&v);
   }
 
   /*! \fn serialize_uint
@@ -137,7 +139,7 @@ struct binary_archive<false> : public binary_archive_base<false>
   template <class T>
   void serialize_varint(T &v)
   {
-    serialize_uvarint(*(typename boost::make_unsigned<T>::type *)(&v));
+    serialize_uvarint(*(typename std::make_unsigned<T>::type *)(&v));
   }
 
   template <class T>
@@ -190,7 +192,7 @@ struct binary_archive<true> : public binary_archive_base<true>
   template <class T>
   void serialize_int(T v)
   {
-    serialize_uint(static_cast<typename boost::make_unsigned<T>::type>(v));
+    serialize_uint(static_cast<typename std::make_unsigned<T>::type>(v));
   }
   template <class T>
   void serialize_uint(T v)
@@ -209,7 +211,7 @@ struct binary_archive<true> : public binary_archive_base<true>
   template <class T>
   void serialize_varint(T &v)
   {
-    serialize_uvarint(*(typename boost::make_unsigned<T>::type *)(&v));
+    serialize_uvarint(*(typename std::make_unsigned<T>::type *)(&v));
   }
 
   template <class T>
