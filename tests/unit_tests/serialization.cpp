@@ -35,6 +35,7 @@
 #include <vector>
 #include <boost/foreach.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
+#include <boost/type_traits/make_unsigned.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "ringct/rctSigs.h"
@@ -55,6 +56,63 @@ static_assert(!std::is_trivially_copyable<std::vector<unsigned char>>(),
   "should fail to compile when applying blob serializer");
 static_assert(!std::is_trivially_copyable<std::string>(),
   "should fail to compile when applying blob serializer");
+
+/**
+ * Test convergence of std::make_unsigned against boost::make_unsigned for
+ * scoped enums with explicit underlying types
+ */
+#define DEFINE_SCOPED_UNDERLYING_ENUM(u) \
+    enum class E_ ## u : u { A_##u = static_cast<u>(-1), B_##u = 0, C_##u };                   \
+    static_assert(std::is_same_v<std::underlying_type_t<E_##u>, u>);                           \
+    static_assert(sizeof(std::make_unsigned_t<E_##u>) == sizeof(std::make_unsigned_t<u>));     \
+    static_assert(std::is_same_v<std::make_unsigned_t<E_##u>, boost::make_unsigned_t<E_##u>>);
+
+DEFINE_SCOPED_UNDERLYING_ENUM(uint8_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(uint16_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(uint32_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(uint64_t)
+//DEFINE_SCOPED_UNDERLYING_ENUM(__uint128_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(int8_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(int16_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(int32_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(int64_t)
+//DEFINE_SCOPED_UNDERLYING_ENUM(__int128_t)
+DEFINE_SCOPED_UNDERLYING_ENUM(size_t)
+
+/**
+ * Test convergence of std::make_unsigned against boost::make_unsigned for
+ * unscoped enums with explicit underlying types
+ */
+#define DEFINE_UNSCOPED_UNDERLYING_ENUM(u) \
+    enum class UE_ ## u : u { A_##u = static_cast<u>(-1), B_##u = 0, C_##u };                    \
+    static_assert(std::is_same_v<std::underlying_type_t<UE_##u>, u>);                            \
+    static_assert(sizeof(std::make_unsigned_t<UE_##u>) == sizeof(std::make_unsigned_t<u>));      \
+    static_assert(std::is_same_v<std::make_unsigned_t<UE_##u>, boost::make_unsigned_t<UE_##u>>);
+
+DEFINE_UNSCOPED_UNDERLYING_ENUM(uint8_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(uint16_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(uint32_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(uint64_t)
+//DEFINE_UNSCOPED_UNDERLYING_ENUM(__uint128_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(int8_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(int16_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(int32_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(int64_t)
+//DEFINE_UNSCOPED_UNDERLYING_ENUM(__int128_t)
+DEFINE_UNSCOPED_UNDERLYING_ENUM(size_t)
+
+/**
+ * Test convergence of std::make_unsigned against boost::make_unsigned for
+ * unscoped enums with implicit underlying types
+ */
+#define TEST_MAKE_UNSIGNED_ENUM(e) \
+  static_assert(std::is_same_v<std::make_unsigned_t<e>, boost::make_unsigned_t<e>>);
+enum IUE1 { A1, B1, C1 };
+#if defined(__GNUC__) && !defined(__clang__)
+  TEST_MAKE_UNSIGNED_ENUM(IUE1) // may break for GCC later too, or Boost might fix it first
+#endif
+enum IUE2 { A2 = -1, B2, C2 };
+TEST_MAKE_UNSIGNED_ENUM(IUE2)
 
 struct Struct
 {
