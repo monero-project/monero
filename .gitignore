@@ -113,6 +113,9 @@ nbproject
 .texlipse
 .idea/
 
+# clangd
+.cache/
+
 /testnet
 
 __pycache__/
