@@ -87,3 +87,4 @@ target_include_directories(epee
     "${EPEE_INCLUDE_DIR_BASE}"
     "${OPENSSL_INCLUDE_DIR}")
 
+add_subdirectory(wire)

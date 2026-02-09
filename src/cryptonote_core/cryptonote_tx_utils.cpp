@@ -43,6 +43,7 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "ringct/rctSigs.h"
+#include "serialization/wire.h"
 
 using namespace crypto;
 
@@ -180,6 +181,16 @@ namespace cryptonote
     //  << "), current_block_size=" << current_block_size << ", already_generated_coins=" << already_generated_coins << ", tx_id=" << get_transaction_hash(tx), LOG_LEVEL_2);
     return true;
   }
+  //---------------------------------------------------------------
+  namespace
+  {
+    template<typename F, typename T>
+    void map_backlog_entry(F& format, T& self)
+    {
+      wire::object(format, WIRE_FIELD(id), WIRE_FIELD(weight), WIRE_FIELD(fee));
+    }
+  }
+  WIRE_DEFINE_OBJECT(tx_block_template_backlog_entry, map_backlog_entry);
   //---------------------------------------------------------------
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr)
   {

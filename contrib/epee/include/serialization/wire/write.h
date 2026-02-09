@@ -27,10 +27,10 @@
 
 #pragma once
 
-#include <boost/utility/string_ref.hpp>
 #include <boost/range/size.hpp>
 #include <cstdint>
 #include <iterator>
+#include <string_view>
 #include <system_error>
 #include <type_traits>
 
@@ -73,14 +73,14 @@ namespace wire
 
     virtual void real(double) = 0;
 
-    virtual void string(boost::string_ref) = 0;
+    virtual void string(std::string_view) = 0;
     virtual void binary(epee::span<const std::uint8_t>) = 0;
 
     virtual void start_array(std::size_t) = 0;
     virtual void end_array() = 0;
 
     virtual void start_object(std::size_t) = 0;
-    virtual void key(boost::string_ref) = 0;
+    virtual void key(std::string_view) = 0;
     virtual void binary_key(epee::span<const std::uint8_t>) = 0;
     virtual void end_object() = 0;
 
@@ -129,7 +129,7 @@ namespace wire
   { write_arithmetic(dest, source); }
 
   template<typename W>
-  inline void write_bytes(W& dest, const boost::string_ref source)
+  inline void write_bytes(W& dest, const std::string_view source)
   { dest.string(source); }
 
   template<typename W, typename T>
@@ -245,7 +245,7 @@ namespace wire_write
   }
 
   template<typename W>
-  inline void dynamic_object_key(W& dest, const boost::string_ref source)
+  inline void dynamic_object_key(W& dest, const std::string_view source)
   {
     dest.key(source);
   }
