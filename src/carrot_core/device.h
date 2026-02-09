@@ -202,6 +202,8 @@ struct generate_image_key_device
      */
     virtual crypto::ec_point generate_image_scalar_mult_hash_to_point(
         const crypto::public_key &onetime_address) const = 0;
+
+    virtual ~generate_image_key_device() = default;
 };
 
 } //namespace carrot
