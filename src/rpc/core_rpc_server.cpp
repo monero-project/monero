@@ -782,8 +782,6 @@ namespace cryptonote
         for (auto i = bd.second.begin(); i != bd.second.end(); ++i)
         {
           res.blocks.back().txs.push_back({std::move(std::get<2>(*i)), std::get<1>(*i)});
-          std::get<2>(*i).clear();
-          std::get<2>(*i).shrink_to_fit();
           size += res.blocks.back().txs.back().blob.size();
         }
 
