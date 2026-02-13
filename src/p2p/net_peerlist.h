@@ -533,7 +533,7 @@ namespace nodetool
     size_t filtered = 0;
     TRY_ENTRY();
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
-    peers_indexed::index<by_addr>::type& sorted_index = white ? m_peers_gray.get<by_addr>() : m_peers_white.get<by_addr>();
+    peers_indexed::index<by_addr>::type& sorted_index = white ? m_peers_white.get<by_addr>() : m_peers_gray.get<by_addr>();
     auto i = sorted_index.begin();
     while (i != sorted_index.end())
     {
