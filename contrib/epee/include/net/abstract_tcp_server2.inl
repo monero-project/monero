@@ -38,7 +38,7 @@
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/bind_executor.hpp>
-#include <boost/asio/deadline_timer.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp> // TODO
 #include <boost/thread/condition_variable.hpp> // TODO
 #include <boost/make_shared.hpp>
@@ -1894,7 +1894,7 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler> template<class t_callback>
-  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support, t_connection_context&& initial)
+  bool boosted_tcp_server<t_protocol_handler>::connect_async(const std::string& adr, const std::string& port, const std::chrono::milliseconds conn_timeout, const t_callback &cb, const std::string& bind_ip, epee::net_utils::ssl_support_t ssl_support, t_connection_context&& initial)
   {
     TRY_ENTRY();    
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_context_, m_state, m_connection_type, ssl_support, std::move(initial)) );
@@ -1975,14 +1975,14 @@ namespace net_utils
       }
     }
     
-    boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(io_context_));
+    std::shared_ptr<boost::asio::steady_timer> sh_deadline(std::make_shared<boost::asio::steady_timer>(io_context_));
     //start deadline
-    sh_deadline->expires_from_now(boost::posix_time::milliseconds(conn_timeout));
+    sh_deadline->expires_after(conn_timeout);
     sh_deadline->async_wait([=](const boost::system::error_code& error)
       {
           if(error != boost::asio::error::operation_aborted) 
           {
-            _dbg3("Failed to connect to " << adr << ':' << port << ", because of timeout (" << conn_timeout << ")");
+            _dbg3("Failed to connect to " << adr << ':' << port << ", because of timeout (" << conn_timeout.count() << ")");
             new_connection_l->socket().close();
           }
       });

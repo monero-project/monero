@@ -50,7 +50,7 @@ using namespace net_load_tests;
 namespace
 {
   const size_t CONNECTION_COUNT = 100000;
-  const size_t CONNECTION_TIMEOUT = 10000;
+  constexpr const std::chrono::seconds CONNECTION_TIMEOUT{10};
   const size_t DEFAULT_OPERATION_TIMEOUT = 30000;
   const size_t RESERVED_CONN_CNT = 1;
 

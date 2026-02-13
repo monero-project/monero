@@ -404,7 +404,7 @@ namespace net_utils
     try_connect_result_t try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support);
     bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
     template<class t_callback>
-    bool connect_async(const std::string& adr, const std::string& port, uint32_t conn_timeot, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, t_connection_context&& initial = t_connection_context{});
+    bool connect_async(const std::string& adr, const std::string& port, std::chrono::milliseconds conn_timeout, const t_callback &cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, t_connection_context&& initial = t_connection_context{});
 
     boost::asio::ssl::context& get_ssl_context() noexcept
     {
@@ -445,42 +445,43 @@ namespace net_utils
       idle_callback_conext_base(boost::asio::io_context& io_serice):
                                                           m_timer(io_serice)
       {}
-      boost::asio::deadline_timer m_timer;
+      boost::asio::steady_timer m_timer;
     };
 
     template <class t_handler>
     struct idle_callback_conext: public idle_callback_conext_base
     {
-      idle_callback_conext(boost::asio::io_context& io_serice, t_handler& h, uint64_t period):
+      idle_callback_conext(boost::asio::io_context& io_serice, t_handler& h, std::chrono::milliseconds period):
                                                     idle_callback_conext_base(io_serice),
-                                                    m_handler(h)
-      {this->m_period = period;}
+                                                    m_handler(h),
+                                                    m_period(period)
+      {}
 
       t_handler m_handler;
       virtual bool call_handler()
       {
         return m_handler();
       }
-      uint64_t m_period;
+      const std::chrono::milliseconds m_period;
     };
 
     template<class t_handler>
-    bool add_idle_handler(t_handler t_callback, uint64_t timeout_ms)
+    bool add_idle_handler(t_handler t_callback, const std::chrono::milliseconds timeout)
       {
-        boost::shared_ptr<idle_callback_conext<t_handler>> ptr(new idle_callback_conext<t_handler>(io_context_, t_callback, timeout_ms));
+        std::shared_ptr<idle_callback_conext<t_handler>> ptr(std::make_shared<idle_callback_conext<t_handler>>(io_context_, t_callback, timeout));
         //needed call handler here ?...
-        ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
+        ptr->m_timer.expires_after(ptr->m_period);
         ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
         return true;
       }
 
     template<class t_handler>
-    bool global_timer_handler(/*const boost::system::error_code& err, */boost::shared_ptr<idle_callback_conext<t_handler>> ptr)
+    bool global_timer_handler(/*const boost::system::error_code& err, */std::shared_ptr<idle_callback_conext<t_handler>> ptr)
     {
       //if handler return false - he don't want to be called anymore
       if(!ptr->call_handler())
         return true;
-      ptr->m_timer.expires_from_now(boost::posix_time::milliseconds(ptr->m_period));
+      ptr->m_timer.expires_after(ptr->m_period);
       ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
       return true;
     }

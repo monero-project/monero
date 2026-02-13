@@ -571,7 +571,7 @@ namespace trezor{
     return ping_int();
   }
 
-  bool UdpTransport::ping_int(boost::posix_time::time_duration timeout){
+  bool UdpTransport::ping_int(boost::asio::steady_timer::duration timeout){
     require_socket();
     try {
       std::string req = "PINGPING";
@@ -619,7 +619,7 @@ namespace trezor{
     m_socket.reset(new udp::socket(m_io_service));
     m_socket->open(udp::v4());
 
-    m_deadline.expires_at(boost::posix_time::pos_infin);
+    m_deadline.expires_after(boost::asio::steady_timer::duration::max());
     check_deadline();
 
     m_proto->session_begin(*this);
@@ -701,14 +701,14 @@ namespace trezor{
     return static_cast<size_t>(len);
   }
 
-  ssize_t UdpTransport::receive(void * buff, size_t size, boost::system::error_code * error_code, bool no_throw, boost::posix_time::time_duration timeout){
+  ssize_t UdpTransport::receive(void * buff, size_t size, boost::system::error_code * error_code, bool no_throw, const boost::asio::steady_timer::duration timeout){
     boost::system::error_code ec;
     boost::asio::mutable_buffer buffer = boost::asio::buffer(buff, size);
 
     require_socket();
 
     // Set a deadline for the asynchronous operation.
-    m_deadline.expires_from_now(timeout);
+    m_deadline.expires_after(timeout);
 
     // Set up the variables that receive the result of the asynchronous
     // operation. The error code is set to would_block to signal that the
@@ -766,7 +766,7 @@ namespace trezor{
     // Check whether the deadline has passed. We compare the deadline against
     // the current time since a new asynchronous operation may have moved the
     // deadline before this actor had a chance to run.
-    if (m_deadline.expires_at() <= boost::asio::deadline_timer::traits_type::now())
+    if (m_deadline.expiry() <= boost::asio::steady_timer::clock_type::now())
     {
       // The deadline has passed. The outstanding asynchronous operation needs
       // to be cancelled so that the blocked receive() function will return.
@@ -778,7 +778,7 @@ namespace trezor{
 
       // There is no longer an active deadline. The expiry is set to positive
       // infinity so that the actor takes no action until a new deadline is set.
-      m_deadline.expires_at(boost::posix_time::pos_infin);
+      m_deadline.expires_after(boost::asio::steady_timer::duration::max());
     }
 
     // Put the actor back to sleep.

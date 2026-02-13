@@ -267,7 +267,7 @@ namespace tools
         }
       }
       return true;
-    }, auto_refresh_evaluation_ms.count());
+    }, auto_refresh_evaluation_ms);
     m_net_server.add_idle_handler([this](){
       if (m_stop.load(std::memory_order_relaxed))
       {
@@ -275,7 +275,7 @@ namespace tools
         return false;
       }
       return true;
-    }, 500);
+    }, std::chrono::milliseconds{500});
 
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);

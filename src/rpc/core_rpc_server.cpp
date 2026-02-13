@@ -350,7 +350,7 @@ namespace cryptonote
       http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
 
     if (m_rpc_payment)
-      m_net_server.add_idle_handler([this](){ return m_rpc_payment->on_idle(); }, 60 * 1000);
+      m_net_server.add_idle_handler([this](){ return m_rpc_payment->on_idle(); }, std::chrono::minutes{1});
 
     bool store_ssl_key = !restricted && rpc_config->ssl_options && rpc_config->ssl_options.auth.certificate_path.empty();
     const auto ssl_base_path = (boost::filesystem::path{data_dir} / "rpc_ssl").string();
