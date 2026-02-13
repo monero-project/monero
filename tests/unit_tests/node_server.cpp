@@ -690,7 +690,7 @@ TEST(cryptonote_protocol_handler, race_condition)
             net_node.core_protocol->process_payload_sync_data(msg.payload_data, context, true);
             handshaked.raise();
           },
-          P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT
+          std::chrono::milliseconds{P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT}
         );
         return true;
       }
@@ -1202,7 +1202,7 @@ TEST(node_server, race_condition)
         EXPECT_TRUE(code >= 0);
         handshaked.raise();
       },
-      P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT
+      std::chrono::milliseconds{P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT}
     );
     handshaked.wait();
     boost::asio::post(conn->strand_, [conn]{

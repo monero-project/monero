@@ -57,7 +57,7 @@ namespace epee
   namespace net_utils
   {
     template<class t_result, class t_arg, class callback_t, class t_transport>
-    bool async_invoke_remote_command2(const epee::net_utils::connection_context_base &context, int command, const t_arg& out_struct, t_transport& transport, const callback_t &cb, size_t inv_timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
+    bool async_invoke_remote_command2(const epee::net_utils::connection_context_base &context, int command, const t_arg& out_struct, t_transport& transport, const callback_t &cb, const std::chrono::milliseconds inv_timeout = levin::LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
     {
       const boost::uuids::uuid &conn_id = context.m_connection_id;
       typename serialization::portable_storage stg;

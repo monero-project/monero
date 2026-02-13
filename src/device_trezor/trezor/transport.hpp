@@ -32,7 +32,7 @@
 
 
 #include <boost/asio.hpp>
-#include <boost/asio/deadline_timer.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/array.hpp>
 #include <boost/utility/string_ref.hpp>
 
@@ -233,11 +233,11 @@ namespace trezor {
 
   private:
     void require_socket();
-    ssize_t receive(void * buff, size_t size, boost::system::error_code * error_code=nullptr, bool no_throw=false, boost::posix_time::time_duration timeout=boost::posix_time::seconds(10));
+    ssize_t receive(void * buff, size_t size, boost::system::error_code * error_code=nullptr, bool no_throw=false, boost::asio::steady_timer::duration timeout = std::chrono::seconds(10));
     void check_deadline();
     static void handle_receive(const boost::system::error_code& ec, std::size_t length,
                                boost::system::error_code* out_ec, std::size_t* out_length);
-    bool ping_int(boost::posix_time::time_duration timeout=boost::posix_time::milliseconds(1500));
+    bool ping_int(boost::asio::steady_timer::duration = std::chrono::milliseconds(1500));
 
     std::shared_ptr<Protocol> m_proto;
     std::string m_device_host;
@@ -245,7 +245,7 @@ namespace trezor {
 
     std::unique_ptr<udp::socket> m_socket;
     boost::asio::io_context m_io_service;
-    boost::asio::deadline_timer m_deadline;
+    boost::asio::steady_timer m_deadline;
     udp::endpoint m_endpoint;
   };
 
