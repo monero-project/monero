@@ -136,10 +136,10 @@ namespace nodetool
       KV_SERIALIZE(config_id)
     END_KV_SERIALIZE_MAP()
 
+    std::chrono::milliseconds ping_connection_timeout;
     uint32_t max_out_connection_count;
     uint32_t max_in_connection_count;
     uint32_t connection_timeout;
-    uint32_t ping_connection_timeout;
     uint32_t handshake_interval;
     uint32_t packet_max_size;
     uint32_t config_id;

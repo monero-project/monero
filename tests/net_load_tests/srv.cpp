@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <boost/asio/steady_timer.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/thread.hpp>
 
@@ -189,10 +190,10 @@ namespace
       if (0 < count)
       {
         // Perhaps not all connections were closed, try to close it after 7 seconds
-        boost::shared_ptr<boost::asio::deadline_timer> sh_deadline(new boost::asio::deadline_timer(m_tcp_server.get_io_context(), boost::posix_time::seconds(7)));
+        std::shared_ptr<boost::asio::steady_timer> sh_deadline(std::make_shared<boost::asio::steady_timer>(m_tcp_server.get_io_context(), std::chrono::seconds(7)));
         sh_deadline->async_wait([=](const boost::system::error_code& ec)
         {
-          boost::shared_ptr<boost::asio::deadline_timer> t = sh_deadline; // Capture sh_deadline
+          std::shared_ptr<boost::asio::steady_timer> t = sh_deadline; // Capture sh_deadline
           if (!ec)
           {
             close_connections(cmd_conn_id);
@@ -229,7 +230,7 @@ int main(int argc, char** argv)
 
   srv_levin_commands_handler *commands_handler = new srv_levin_commands_handler(tcp_server);
   tcp_server.get_config_object().set_handler(commands_handler, [](epee::levin::levin_commands_handler<test_connection_context> *handler) { delete handler; });
-  tcp_server.get_config_object().m_invoke_timeout = 10000;
+  tcp_server.get_config_object().m_invoke_timeout = std::chrono::seconds{10};
   //tcp_server.get_config_object().m_max_packet_size = max_packet_size;
 
   if (!tcp_server.run_server(thread_count, true))

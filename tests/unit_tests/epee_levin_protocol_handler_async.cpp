@@ -185,7 +185,7 @@ namespace
   class async_protocol_handler_test : public ::testing::Test
   {
   public:
-    const static uint64_t invoke_timeout = 5 * 1000;
+    constexpr const static std::chrono::seconds invoke_timeout{5};
     const static size_t max_packet_size = 10 * 1024 * 1024;
 
     typedef std::unique_ptr<test_connection> test_connection_ptr;

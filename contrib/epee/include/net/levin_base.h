@@ -29,6 +29,7 @@
 #ifndef _LEVIN_BASE_H_
 #define _LEVIN_BASE_H_
 
+#include <chrono>
 #include <cstdint>
 
 #include "byte_stream.h"
@@ -72,7 +73,7 @@ namespace levin
 #pragma pack(pop)
 
 
-#define LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED 0
+constexpr const std::chrono::milliseconds LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED{0};
 #define LEVIN_INITIAL_MAX_PACKET_SIZE  256*1024      // 256 KiB before handshake
 #define LEVIN_DEFAULT_MAX_PACKET_SIZE 100000000      //100MB by default after handshake
 
