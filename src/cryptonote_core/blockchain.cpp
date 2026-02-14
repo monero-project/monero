@@ -88,8 +88,8 @@ DISABLE_VS_WARNINGS(4267)
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
 //------------------------------------------------------------------
-Blockchain::Blockchain(tx_memory_pool& tx_pool) :
-  m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
+Blockchain::Blockchain(tx_memory_pool& tx_pool, BlockchainDB* db, const network_type nettype, bool offline, const cryptonote::test_options *test_options, difficulty_type fixed_difficulty, const GetCheckpointsCallback& get_checkpoints/* = nullptr*/) :
+  m_db(nullptr), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_weights_window(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_long_term_effective_median_block_weight(0),
@@ -102,6 +102,193 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_prepare_height(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+  
+  // Here I fix by checking not just nullptr but any db with falsey values.
+  if (!db) {
+    LOG_ERROR("Attempted to init Blockchain with null DB");
+    throw std::runtime_error("Blockchain initialization failed: Attempted to init Blockchain with null DB");
+  }
+
+  CHECK_AND_ASSERT_MES(nettype != FAKECHAIN || test_options, false, "fake chain network type used without options");
+
+  CRITICAL_REGION_LOCAL(m_tx_pool);
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+
+  if (!db->is_open())
+  {
+    LOG_ERROR("Attempted to init Blockchain with unopened DB");
+    delete db;
+    throw std::runtime_error("Blockchain initialization failed: Attempted to init Blockchain with unopened DB");
+  }
+
+  m_db = db;
+
+  m_nettype = test_options != NULL ? FAKECHAIN : nettype;
+  m_offline = offline;
+  m_fixed_difficulty = fixed_difficulty;
+  if (m_hardfork == nullptr)
+  {
+    if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
+      m_hardfork = new HardFork(*db, 1, 0);
+    else if (m_nettype == TESTNET)
+      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+    else
+      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+  }
+  if (m_nettype == FAKECHAIN)
+  {
+    for (size_t n = 0; test_options->hard_forks[n].first; ++n)
+      m_hardfork->add_fork(test_options->hard_forks[n].first, test_options->hard_forks[n].second, 0, n + 1);
+  }
+  else if (m_nettype == TESTNET)
+  {
+    for (size_t n = 0; n < num_testnet_hard_forks; ++n)
+      m_hardfork->add_fork(testnet_hard_forks[n].version, testnet_hard_forks[n].height, testnet_hard_forks[n].threshold, testnet_hard_forks[n].time);
+  }
+  else if (m_nettype == STAGENET)
+  {
+    for (size_t n = 0; n < num_stagenet_hard_forks; ++n)
+      m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time);
+  }
+  else
+  {
+    for (size_t n = 0; n < num_mainnet_hard_forks; ++n)
+      m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
+  }
+  m_hardfork->init();
+
+  m_db->set_hard_fork(m_hardfork);
+
+  // if the blockchain is new, add the genesis block
+  // this feels kinda kludgy to do it this way, but can be looked at later.
+  // TODO: add function to create and store genesis block,
+  //       taking testnet into account
+  if(!m_db->height())
+  {
+    MINFO("Blockchain not loaded, generating genesis block.");
+    block bl;
+    block_verification_context bvc = {};
+    generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
+    db_wtxn_guard wtxn_guard(m_db);
+    add_new_block(bl, bvc);
+    CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
+  }
+  // TODO: if blockchain load successful, verify blockchain against both
+  //       hard-coded and runtime-loaded (and enforced) checkpoints.
+  else
+  {
+  }
+
+  if (m_nettype != FAKECHAIN)
+  {
+    // ensure we fixup anything we found and fix in the future
+    m_db->fixup();
+  }
+
+  db_rtxn_guard rtxn_guard(m_db);
+
+  // check how far behind we are
+  uint64_t top_block_timestamp = m_db->get_top_block_timestamp();
+  uint64_t timestamp_diff = time(NULL) - top_block_timestamp;
+
+  // genesis block has no timestamp, could probably change it to have timestamp of 1397818133...
+  if(!top_block_timestamp)
+    timestamp_diff = time(NULL) - 1397818133;
+
+  // create general purpose async service queue
+
+  m_async_work_idle = std::make_unique<boost::asio::executor_work_guard<boost::asio::io_context::executor_type>>(m_async_service.get_executor());
+  // we only need 1
+  m_async_pool.create_thread(boost::bind(&boost::asio::io_context::run, &m_async_service));
+
+#if defined(PER_BLOCK_CHECKPOINT)
+  if (m_nettype != FAKECHAIN)
+    load_compiled_in_block_hashes(get_checkpoints);
+#endif
+
+  MINFO("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block());
+
+  rtxn_guard.stop();
+
+  uint64_t num_popped_blocks = 0;
+  while (!m_db->is_read_only())
+  {
+    uint64_t top_height;
+    const crypto::hash top_id = m_db->top_block_hash(&top_height);
+    const block top_block = m_db->get_top_block();
+    const uint8_t ideal_hf_version = get_ideal_hard_fork_version(top_height);
+    if (ideal_hf_version <= 1 || ideal_hf_version == top_block.major_version)
+    {
+      if (num_popped_blocks > 0)
+        MGINFO("Initial popping done, top block: " << top_id << ", top height: " << top_height << ", block version: " << (uint64_t)top_block.major_version);
+      break;
+    }
+    else
+    {
+      if (num_popped_blocks == 0)
+        MGINFO("Current top block " << top_id << " at height " << top_height << " has version " << (uint64_t)top_block.major_version << " which disagrees with the ideal version " << (uint64_t)ideal_hf_version);
+      if (num_popped_blocks % 100 == 0)
+        MGINFO("Popping blocks... " << top_height);
+      ++num_popped_blocks;
+      block popped_block;
+      std::vector<transaction> popped_txs;
+      try
+      {
+        m_db->pop_block(popped_block, popped_txs);
+      }
+      // anything that could cause this to throw is likely catastrophic,
+      // so we re-throw
+      catch (const std::exception& e)
+      {
+        MERROR("Error popping block from blockchain: " << e.what());
+        throw;
+      }
+      catch (...)
+      {
+        MERROR("Error popping block from blockchain, throwing!");
+        throw;
+      }
+    }
+  }
+  if (num_popped_blocks > 0)
+  {
+    m_timestamps_and_difficulties_height = 0;
+    m_reset_timestamps_and_difficulties_height = true;
+    m_hardfork->reorganize_from_chain_height(get_current_blockchain_height());
+    uint64_t top_block_height;
+    crypto::hash top_block_hash = get_tail_id(top_block_height);
+    m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
+  }
+
+  if (test_options && test_options->long_term_block_weight_window)
+  {
+    m_long_term_block_weights_window = test_options->long_term_block_weight_window;
+    m_long_term_block_weights_cache_rolling_median = epee::misc_utils::rolling_median_t<uint64_t>(m_long_term_block_weights_window);
+  }
+
+  bool difficulty_ok;
+  uint64_t difficulty_recalc_height;
+  std::tie(difficulty_ok, difficulty_recalc_height) = check_difficulty_checkpoints();
+  if (!difficulty_ok)
+  {
+    MERROR("Difficulty drift detected!");
+    recalculate_difficulties(difficulty_recalc_height);
+  }
+
+  {
+    db_txn_guard txn_guard(m_db, m_db->is_read_only());
+    if (!update_next_cumulative_weight_limit()) {
+      LOG_ERROR("Cumulative weight limit update failed");
+      throw std::runtime_error("Blockchain initialization failed: cumulative weight limit update failed");
+    }
+  }
+
+  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  {
+    const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(m_db->height()));
+    if (seedhash != crypto::null_hash)
+      rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
+  }
 }
 //------------------------------------------------------------------
 Blockchain::~Blockchain()
