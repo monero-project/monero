@@ -2199,10 +2199,9 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
   THROW_WALLET_EXCEPTION_IF(i >= tx.vout.size(), error::wallet_internal_error, "Invalid vout index");
 
   // if keys are encrypted, ask for password
-  if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only && m_multisig_rescan_k.empty() && !m_background_syncing)
+  if (is_key_encryption_enabled() && !m_multisig)
   {
-    static critical_section password_lock;
-    CRITICAL_REGION_LOCAL(password_lock);
+    const boost::lock_guard password_lock(m_encrypt_keys_after_refresh_mutex);
     if (!m_encrypt_keys_after_refresh && !m_processing_background_cache)
     {
       boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password(pool ? "output found in pool" : "output received");
@@ -2561,13 +2560,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    m_pub_keys[tx_scan_info[o].in_ephemeral.pub] = m_transfers.size()-1;
             if (output_tracker_cache)
               (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = m_transfers.size() - 1;
-            if (m_multisig)
-            {
-              THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
-                  error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
-                update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
-            }
+            if (is_multisig_key_image_rescan_possible(td.get_public_key()))
+              update_multisig_rescan_info(m_transfers.size() - 1);
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
 	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, spends_one_of_ours(tx), td.m_tx.unlock_time);
@@ -2636,13 +2630,8 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
             if (output_tracker_cache)
               (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = kit->second;
-            if (m_multisig)
-            {
-              THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
-                  error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
-                update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
-            }
+            if (is_multisig_key_image_rescan_possible(td.get_public_key()))
+              update_multisig_rescan_info(m_transfers.size() - 1);
             THROW_WALLET_EXCEPTION_IF(td.get_public_key() != tx_scan_info[o].in_ephemeral.pub, error::wallet_internal_error, "Inconsistent public keys");
 	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
 
@@ -3785,6 +3774,7 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
   process_txs.clear();
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    const boost::lock_guard encrypt_keys_after_refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -3858,6 +3848,7 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
 {
   MTRACE("update_pool_state_from_pool_data start");
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    const boost::lock_guard encrypt_keys_after_refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -4122,6 +4113,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   start_height = 0;
 
   auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+    const boost::lock_guard encrypt_keys_after_refresh_lock(m_encrypt_keys_after_refresh_mutex);
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -4290,12 +4282,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   m_first_refresh_done = true;
   if (m_background_syncing || m_is_background_wallet)
     m_background_sync_data.first_refresh_done = true;
-
-  m_multisig_rescan_info = std::vector<std::vector<tools::wallet2::multisig_info>>{};
-  for (auto &v: m_multisig_rescan_k)
-    memwipe(v.data(), v.size() * sizeof(v[0]));
-
-  m_multisig_rescan_k = std::vector<std::vector<rct::key>>{};
 
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance (all accounts): " << print_money(balance_all(false)) << ", unlocked: " << print_money(unlocked_balance_all(false)));
 }
@@ -6532,6 +6518,17 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
         mk_it = td.m_multisig_k.erase(mk_it);
       else
         ++mk_it;
+    }
+  }
+
+  // Populate `m_multsig_rescan_info` and `m_multisig_rescan_k` with existing data in `m_transfers`
+  if (m_multisig)
+  {
+    for (const auto &td : m_transfers)
+    {
+      const crypto::public_key output_pubkey = td.get_public_key();
+      m_multisig_rescan_info[output_pubkey] = td.m_multisig_info;
+      m_multisig_rescan_k[output_pubkey] = td.m_multisig_k;
     }
   }
 
@@ -14544,6 +14541,8 @@ cryptonote::blobdata wallet2::export_multisig()
 
   const crypto::public_key signer = get_multisig_signer_public_key();
 
+  MDEBUG("Start export_multisig()");
+
   // For each transfer (output owned by the multisig wallet):
   // 1) Record the output's partial key image (from the local signer), so other signers can assemble the output's full key image.
   // 2) Prepare enough signing nonces for one signing attempt with each possible combination of 'threshold' signers
@@ -14591,6 +14590,7 @@ cryptonote::blobdata wallet2::export_multisig()
       const rct::multisig_kLRki kLRki = get_multisig_kLRki(n, td.m_multisig_k.back());
       info[n].m_LR.push_back({kLRki.L, kLRki.R});
     }
+    m_multisig_rescan_k[td.get_public_key()] = td.m_multisig_k;
 
     info[n].m_signer = signer;
   }
@@ -14609,34 +14609,88 @@ cryptonote::blobdata wallet2::export_multisig()
   return MULTISIG_EXPORT_FILE_MAGIC + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key>> &multisig_k, const std::vector<std::vector<tools::wallet2::multisig_info>> &info, size_t n)
+bool wallet2::is_multisig_key_image_rescan_possible(const crypto::public_key &onetime_pubkey) const
 {
+  if (!m_multisig)
+    return false; // not multisig
+  const auto msinfo_it = m_multisig_rescan_info.find(onetime_pubkey);
+  if (msinfo_it == m_multisig_rescan_info.cend())
+    return false; // don't have exported multsig info for this output
+  else if (msinfo_it->second.size() + 1 < m_multisig_threshold)
+    return false; // don't have *enough* exported multsig info for this output
+ return true;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::update_multisig_rescan_info(const size_t n)
+{
+  CHECK_AND_ASSERT_THROW_MES(m_multisig, "Cannot update multisig rescan info in a non-multisig wallet");
   CHECK_AND_ASSERT_THROW_MES(n < m_transfers.size(), "Bad index in update_multisig_info");
-  CHECK_AND_ASSERT_THROW_MES(multisig_k.size() >= m_transfers.size(), "Mismatched sizes of multisig_k and info");
+
+  transfer_details &td = m_transfers[n];
+  const crypto::public_key output_pubkey = td.get_public_key();
+  const auto msinfo_it = m_multisig_rescan_info.find(output_pubkey);
+  CHECK_AND_ASSERT_THROW_MES(msinfo_it != m_multisig_rescan_info.cend(),
+    "multisig rescan info missing for output pubkey: " << output_pubkey);
+
+  if (is_key_encryption_enabled() && !m_processing_background_cache)
+  {
+    const boost::lock_guard password_lock(m_encrypt_keys_after_refresh_mutex);
+    if (!m_encrypt_keys_after_refresh)
+    {
+      boost::optional<epee::wipeable_string> pwd = m_callback->on_get_password("output received");
+      THROW_WALLET_EXCEPTION_IF(!pwd, error::password_needed, tr("Password is needed to compute key image for incoming monero"));
+      THROW_WALLET_EXCEPTION_IF(!verify_password(*pwd), error::password_needed, tr("Invalid password: password is needed to compute key image for incoming monero"));
+      m_encrypt_keys_after_refresh.reset(new wallet_keys_unlocker(*this, &*pwd));
+    }
+  }
 
   MDEBUG("update_multisig_rescan_info: updating index " << n);
-  transfer_details &td = m_transfers[n];
-  td.m_multisig_info.clear();
-  for (const auto &pi: info)
+  const crypto::key_image old_key_image = td.m_key_image;
+  std::vector<multisig_info> old_multisig_info = msinfo_it->second;
+  std::swap(old_multisig_info, td.m_multisig_info);
+  try
   {
-    CHECK_AND_ASSERT_THROW_MES(n < pi.size(), "Bad pi size");
-    td.m_multisig_info.push_back(pi[n]);
+    // try update key images and multisig exchange infos
+    td.m_key_image = get_multisig_composite_key_image(n); // may throw
+    m_key_images.erase(old_key_image);
+    td.m_key_image_known = true;
+    td.m_key_image_request = false;
+    td.m_key_image_partial = false;
+    m_key_images[td.m_key_image] = n;
+
+    // update local multisig keys
+    const auto mskey_it = m_multisig_rescan_k.find(output_pubkey);
+    if (mskey_it != m_multisig_rescan_k.cend())
+    {
+      memwipe(td.m_multisig_k.data(), td.m_multisig_k.size() * sizeof(td.m_multisig_k[0]));
+      td.m_multisig_k = mskey_it->second;
+    }
   }
-  m_key_images.erase(td.m_key_image);
-  td.m_key_image = get_multisig_composite_key_image(n);
-  td.m_key_image_known = true;
-  td.m_key_image_request = false;
-  td.m_key_image_partial = false;
-  td.m_multisig_k = multisig_k[n];
-  m_key_images[td.m_key_image] = n;
+  catch (const std::exception &e)
+  {
+    MERROR("Encountered exception while attempting to build composite multisig key image, reverting state: "
+      << e.what());
+    std::swap(old_multisig_info, td.m_multisig_info);
+  }
 }
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
+  CHECK_AND_ASSERT_THROW_MES(!m_processing_background_cache,
+    "Multisig wallet is marked as proccesing background cache");
 
-  if (!m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty())
-    refresh(false);
+  // Set `m_processing_background_cache=true` just long enough for calls to
+  // `update_multisig_rescan_info()` to not ask for the password.
+  m_processing_background_cache = true;
+  const auto done_processing = epee::misc_utils::create_scope_leave_handler([this]() {
+    m_processing_background_cache = false;
+  });
+
+  // Unconditionally refresh to attempt to capture latest on-chain received enotes that other
+  // participants have seen and we have not.
+  try { refresh(false); }
+  catch (...) {}
 
   std::unordered_set<crypto::public_key> seen;
   for (cryptonote::blobdata &data: blobs)
@@ -14661,6 +14715,9 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
       MINFO("Multisig info from this wallet ignored");
       continue;
     }
+    const bool is_signer_recognized = std::find(m_multisig_signers.cbegin(), m_multisig_signers.cend(), signer)
+      != m_multisig_signers.cend();
+    CHECK_AND_ASSERT_THROW_MES(is_signer_recognized, "Signer is not a member of this multisig wallet");
     if (seen.find(signer) != seen.end())
     {
       MINFO("Duplicate multisig info ignored");
@@ -14695,48 +14752,39 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
       }
     }
 
+    // Insert multisig infos into `m_multisig_rescan_info` based on current signer and output pubkeys in `m_transfers`.
+    // We are forced to guess because the output pubkey that a multisig export is tied to isn't explicitly provided in
+    // message. This causes problems if the order is different from when a peer exports to when we import (like during a
+    // reorg). However, this isn't really fixable without introducing backwards-incompatible changes to the messaging
+    // protocol or the API for multisig app developers.
     MINFO(boost::format("%u outputs found") % boost::lexical_cast<std::string>(i.size()));
-    m_multisig_rescan_info.push_back(std::move(i));
+    for (std::size_t transfers_idx = 0; transfers_idx < i.size(); ++transfers_idx)
+    {
+      if (transfers_idx >= m_transfers.size())
+        break;
+      const crypto::public_key assumed_onetime_pubkey = m_transfers.at(transfers_idx).get_public_key();
+      auto &ms_info_for_otpk = m_multisig_rescan_info[assumed_onetime_pubkey];
+      const auto signer_it = std::find_if(ms_info_for_otpk.begin(), ms_info_for_otpk.end(),
+        [&signer](const auto &x) { return x.m_signer == signer; });
+      // if multisig info for this signer and OTA was already present, replace it, else append it
+      if (signer_it != ms_info_for_otpk.end())
+        *signer_it = i.at(transfers_idx);
+      else
+        ms_info_for_otpk.push_back(i.at(transfers_idx));
+    }
   }
-
-  CHECK_AND_ASSERT_THROW_MES(m_multisig_rescan_info.size() + 1 <= m_multisig_signers.size() && m_multisig_rescan_info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
-
-  m_multisig_rescan_k.reserve(m_transfers.size());
-  for (const auto &td: m_transfers)
-    m_multisig_rescan_k.push_back(td.m_multisig_k);
-
-  // how many outputs we're going to update
-  size_t n_outputs = m_transfers.size();
-  for (const auto &pi: m_multisig_rescan_info)
-    if (pi.size() < n_outputs)
-      n_outputs = pi.size();
-
-  if (n_outputs == 0)
-    return 0;
-
-  // check signers are consistent
-  for (const auto &pi: m_multisig_rescan_info)
-  {
-    CHECK_AND_ASSERT_THROW_MES(std::find(m_multisig_signers.begin(), m_multisig_signers.end(), pi[0].m_signer) != m_multisig_signers.end(),
-        "Signer is not a member of this multisig wallet");
-    for (size_t n = 1; n < n_outputs; ++n)
-      CHECK_AND_ASSERT_THROW_MES(pi[n].m_signer == pi[0].m_signer, "Mismatched signers in imported multisig info");
-  }
-
-  // trim data we don't have info for from all participants
-  for (auto &pi: m_multisig_rescan_info)
-    pi.resize(n_outputs);
 
   // sort by signer
-  if (!m_multisig_rescan_info.empty() && !m_multisig_rescan_info.front().empty())
+  for (auto &p : m_multisig_rescan_info)
   {
-    std::sort(m_multisig_rescan_info.begin(), m_multisig_rescan_info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
+    std::sort(p.second.begin(), p.second.end(),
+      [](const multisig_info &i0, const multisig_info &i1) { return i0.m_signer < i1.m_signer; });
   }
 
-  // first pass to determine where to detach the blockchain
-  for (size_t n = 0; n < n_outputs; ++n)
+  // First pass to determine where to detach the blockchain.
+  // This allows us to find where enotes were spent on-chain next refresh, even if we have scanned past that point.
+  for (const transfer_details &td : m_transfers)
   {
-    const transfer_details &td = m_transfers[n];
     if (!td.m_key_image_partial)
       continue;
     MINFO("Multisig info importing from block height " << td.m_block_height);
@@ -14744,13 +14792,26 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     break;
   }
 
-  for (size_t n = 0; n < n_outputs && n < m_transfers.size(); ++n)
+  // Preliminary round of updating multisig infos. This updates multisig info for outputs which
+  // have already been imported and their key images are calculated. These won't be touched in the
+  // following refresh.
+  for (std::size_t transfer_idx = 0; transfer_idx < m_transfers.size(); ++transfer_idx)
   {
-    update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, n);
+    const transfer_details &td = m_transfers.at(transfer_idx);
+    if (is_multisig_key_image_rescan_possible(td.get_public_key()))
+      update_multisig_rescan_info(transfer_idx);
   }
 
-
+  // refresh to find where enotes are spent and fill in key image details
   refresh(false);
+
+  // count number of known key images after refresh
+  std::size_t n_outputs = 0;
+  for (const transfer_details &td : m_transfers)
+  {
+    if (td.m_key_image_known && !td.m_key_image_partial)
+      ++n_outputs;
+  }
 
   return n_outputs;
 }

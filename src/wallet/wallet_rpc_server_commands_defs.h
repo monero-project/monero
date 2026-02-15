@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 29
+#define WALLET_RPC_VERSION_MINOR 30
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2538,9 +2538,11 @@ namespace wallet_rpc
     struct request_t
     {
       std::string tx_data_hex;
+      bool include_raw_tx;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_data_hex)
+        KV_SERIALIZE_OPT(include_raw_tx, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2549,10 +2551,12 @@ namespace wallet_rpc
     {
       std::string tx_data_hex;
       std::list<std::string> tx_hash_list;
+      std::list<std::string> tx_raw_list;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(tx_data_hex)
         KV_SERIALIZE(tx_hash_list)
+        KV_SERIALIZE(tx_raw_list)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
