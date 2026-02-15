@@ -112,6 +112,35 @@ class BanTest():
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
+        print('Testing unban_all')
+
+        # unban_all with no bans should succeed
+        daemon.unban_all()
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
+        # ban multiple IPs, then unban_all
+        daemon.set_bans([{'host': '1.2.3.4', 'ban': True, 'seconds': 100}])
+        daemon.set_bans([{'host': '5.6.7.8', 'ban': True, 'seconds': 100}])
+        daemon.set_bans([{'host': '9.10.11.12', 'ban': True, 'seconds': 100}])
+        res = daemon.get_bans()
+        assert len(res.bans) == 3
+
+        daemon.unban_all()
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
+        # ban again after unban_all to confirm banning still works
+        daemon.set_bans([{'host': '1.2.3.4', 'ban': True, 'seconds': 100}])
+        res = daemon.get_bans()
+        assert len(res.bans) == 1
+        assert res.bans[0].host == '1.2.3.4'
+
+        # clean up
+        daemon.unban_all()
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
 
 if __name__ == '__main__':
     BanTest().run_test()

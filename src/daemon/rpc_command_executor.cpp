@@ -1788,6 +1788,33 @@ bool t_rpc_command_executor::unban(const std::string &address)
     return true;
 }
 
+bool t_rpc_command_executor::unban_all()
+{
+    cryptonote::COMMAND_RPC_UNBAN_ALL::request req;
+    cryptonote::COMMAND_RPC_UNBAN_ALL::response res;
+    std::string fail_message = "Unsuccessful";
+    epee::json_rpc::error error_resp;
+
+    if (m_is_rpc)
+    {
+        if (!m_rpc_client->json_rpc_request(req, res, "unban_all", fail_message.c_str()))
+        {
+            return true;
+        }
+    }
+    else
+    {
+        if (!m_rpc_server->on_unban_all(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+        {
+            tools::fail_msg_writer() << make_error(fail_message, res.status);
+            return true;
+        }
+    }
+
+    tools::msg_writer() << "All bans have been cleared.";
+    return true;
+}
+
 bool t_rpc_command_executor::banned(const std::string &address)
 {
     cryptonote::COMMAND_RPC_BANNED::request req;

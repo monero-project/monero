@@ -62,6 +62,7 @@ namespace nodetool
     virtual bool for_connection(const boost::uuids::uuid&, std::function<bool(t_connection_context&, peerid_type, uint32_t)> f)=0;
     virtual bool block_host(epee::net_utils::network_address address, time_t seconds = 0, bool add_only = false)=0;
     virtual bool unblock_host(const epee::net_utils::network_address &address)=0;
+    virtual bool unblock_all_hosts()=0;
     virtual std::map<std::string, time_t> get_blocked_hosts()=0;
     virtual std::map<epee::net_utils::ipv4_network_subnet, time_t> get_blocked_subnets()=0;
     virtual bool add_host_fail(const epee::net_utils::network_address &address, unsigned int score = 1)=0;
@@ -111,6 +112,10 @@ namespace nodetool
       return true;
     }
     virtual bool unblock_host(const epee::net_utils::network_address &address)
+    {
+      return true;
+    }
+    virtual bool unblock_all_hosts()
     {
       return true;
     }

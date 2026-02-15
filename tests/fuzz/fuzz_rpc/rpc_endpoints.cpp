@@ -658,6 +658,13 @@ void fuzz_banned(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider)
   rpc.on_banned(req, res, error_resp, &ctx);
 }
 
+void fuzz_unban_all(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
+  cryptonote::COMMAND_RPC_UNBAN_ALL::request req;
+  cryptonote::COMMAND_RPC_UNBAN_ALL::response res;
+
+  rpc.on_unban_all(req, res, error_resp, &ctx);
+}
+
 void fuzz_flush_txpool(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
   cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::request req;
   cryptonote::COMMAND_RPC_FLUSH_TRANSACTION_POOL::response res;
@@ -908,32 +915,33 @@ std::map<int, std::function<void(cryptonote::core_rpc_server&, FuzzedDataProvide
   {45, fuzz_set_bans},
   {46, fuzz_get_bans},
   {47, fuzz_banned},
-  {48, fuzz_get_output_histogram},
-  {49, fuzz_get_version},
-  {50, fuzz_get_coinbase_tx_sum},
-  {51, fuzz_get_base_fee_estimate},
-  {52, fuzz_get_alternate_chains},
-  {53, fuzz_sync_info},
-  {54, fuzz_get_txpool_backlog},
+  {48, fuzz_unban_all},
+  {49, fuzz_get_output_histogram},
+  {50, fuzz_get_version},
+  {51, fuzz_get_coinbase_tx_sum},
+  {52, fuzz_get_base_fee_estimate},
+  {53, fuzz_get_alternate_chains},
+  {54, fuzz_sync_info},
+  {55, fuzz_get_txpool_backlog},
 };
 
 std::map<int, std::function<void(cryptonote::core_rpc_server&, FuzzedDataProvider&)>> risky_fuzz_targets = {
-  {55, fuzz_start_mining},
-  {56, fuzz_stop_mining},
-  {57, fuzz_mining_status},
-  {58, fuzz_save_bc},
-  {59, fuzz_set_bootstrap_daemon},
-  {60, fuzz_stop_daemon},
-  {61, fuzz_update},
-  {62, fuzz_add_aux_pow},
-  {63, fuzz_flush_txpool},
-  {64, fuzz_flush_cache},
-  {65, fuzz_get_txids_loose},
-  {66, fuzz_rpc_access_info},
-  {67, fuzz_rpc_access_submit_nonce},
-  {68, fuzz_rpc_access_pay},
-  {69, fuzz_rpc_access_tracking},
-  {70, fuzz_rpc_access_data},
-  {71, fuzz_rpc_access_account},
-//  {72, fuzz_prune_blockchain},
+  {56, fuzz_start_mining},
+  {57, fuzz_stop_mining},
+  {58, fuzz_mining_status},
+  {59, fuzz_save_bc},
+  {60, fuzz_set_bootstrap_daemon},
+  {61, fuzz_stop_daemon},
+  {62, fuzz_update},
+  {63, fuzz_add_aux_pow},
+  {64, fuzz_flush_txpool},
+  {65, fuzz_flush_cache},
+  {66, fuzz_get_txids_loose},
+  {67, fuzz_rpc_access_info},
+  {68, fuzz_rpc_access_submit_nonce},
+  {69, fuzz_rpc_access_pay},
+  {70, fuzz_rpc_access_tracking},
+  {71, fuzz_rpc_access_data},
+  {72, fuzz_rpc_access_account},
+//  {73, fuzz_prune_blockchain},
 };

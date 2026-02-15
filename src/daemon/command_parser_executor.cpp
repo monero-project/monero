@@ -742,6 +742,9 @@ bool t_command_parser_executor::unban(const std::vector<std::string>& args)
     return true;
   }
 
+  if (args[0] == "all")
+    return m_executor.unban_all();
+
   std::string ip = args[0];
   return m_executor.unban(ip);
 }

@@ -136,6 +136,8 @@ public:
 
   bool unban(const std::string &address);
 
+  bool unban_all();
+
   bool banned(const std::string &address);
 
   bool flush_txpool(const std::string &txid);
