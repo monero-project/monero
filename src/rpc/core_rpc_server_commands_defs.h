@@ -2064,7 +2064,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-  struct COMMAND_RPC_UNBAN_ALL
+  struct COMMAND_RPC_CLEAR_BANS
   {
     struct request_t: public rpc_request_base
     {

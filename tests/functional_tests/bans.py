@@ -35,7 +35,7 @@ import time
 Test the following RPCs:
     - set_bans
     - get_bans
-    - unban_all
+    - clear_bans
 
 """
 
@@ -113,9 +113,9 @@ class BanTest():
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
-        print('Testing unban_all')
+        print('Testing clear_bans')
 
-        daemon.unban_all()
+        daemon.clear_bans()
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
@@ -125,7 +125,7 @@ class BanTest():
         res = daemon.get_bans()
         assert len(res.bans) == 3
 
-        daemon.unban_all()
+        daemon.clear_bans()
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
@@ -134,7 +134,7 @@ class BanTest():
         assert len(res.bans) == 1
         assert res.bans[0].host == '1.2.3.4'
 
-        daemon.unban_all()
+        daemon.clear_bans()
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 

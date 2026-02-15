@@ -658,11 +658,11 @@ void fuzz_banned(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider)
   rpc.on_banned(req, res, error_resp, &ctx);
 }
 
-void fuzz_unban_all(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
-  cryptonote::COMMAND_RPC_UNBAN_ALL::request req;
-  cryptonote::COMMAND_RPC_UNBAN_ALL::response res;
+void fuzz_clear_bans(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
+  cryptonote::COMMAND_RPC_CLEAR_BANS::request req;
+  cryptonote::COMMAND_RPC_CLEAR_BANS::response res;
 
-  rpc.on_unban_all(req, res, error_resp, &ctx);
+  rpc.on_clear_bans(req, res, error_resp, &ctx);
 }
 
 void fuzz_flush_txpool(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
@@ -915,7 +915,7 @@ std::map<int, std::function<void(cryptonote::core_rpc_server&, FuzzedDataProvide
   {45, fuzz_set_bans},
   {46, fuzz_get_bans},
   {47, fuzz_banned},
-  {48, fuzz_unban_all},
+  {48, fuzz_clear_bans},
   {49, fuzz_get_output_histogram},
   {50, fuzz_get_version},
   {51, fuzz_get_coinbase_tx_sum},

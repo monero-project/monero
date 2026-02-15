@@ -66,7 +66,7 @@ void fuzz_hard_fork_info(cryptonote::core_rpc_server&, FuzzedDataProvider& provi
 void fuzz_set_bans(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_bans(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_banned(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
-void fuzz_unban_all(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
+void fuzz_clear_bans(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_flush_txpool(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_output_histogram(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_version(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);

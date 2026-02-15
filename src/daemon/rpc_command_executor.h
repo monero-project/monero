@@ -136,7 +136,7 @@ public:
 
   bool unban(const std::string &address);
 
-  bool unban_all();
+  bool clear_bans();
 
   bool banned(const std::string &address);
 

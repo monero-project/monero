@@ -329,15 +329,15 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(banned)
 
-    def unban_all(self):
-        unban_all = {
-            'method': 'unban_all',
+    def clear_bans(self):
+        clear_bans = {
+            'method': 'clear_bans',
             'params': {
             },
             'jsonrpc': '2.0',
             'id': '0'
         }
-        return self.rpc.send_json_rpc_request(unban_all)
+        return self.rpc.send_json_rpc_request(clear_bans)
 
     def set_bootstrap_daemon(self, address, username = '', password = ''):
         set_bootstrap_daemon = {

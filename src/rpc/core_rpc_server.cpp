@@ -2945,9 +2945,9 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::on_unban_all(const COMMAND_RPC_UNBAN_ALL::request& req, COMMAND_RPC_UNBAN_ALL::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
+  bool core_rpc_server::on_clear_bans(const COMMAND_RPC_CLEAR_BANS::request& req, COMMAND_RPC_CLEAR_BANS::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
-    RPC_TRACKER(unban_all);
+    RPC_TRACKER(clear_bans);
 
     m_p2p.unblock_all_hosts();
 
