@@ -44,6 +44,16 @@ else
   deldirs  := $(builddir)/debug $(builddir)/release $(builddir)/fuzz
 endif
 
+# Forward GNU make -j/--jobs to cmake --build.
+make_jobs := $(patsubst -j%,%,$(firstword $(filter -j%,$(MAKEFLAGS))))
+ifneq ($(make_jobs),)
+  cmake_build_parallel := --parallel $(make_jobs)
+else ifneq ($(filter -j --jobs,$(MAKEFLAGS)),)
+  cmake_build_parallel := --parallel
+else
+  cmake_build_parallel :=
+endif
+
 all: release-all
 
 depends:
@@ -55,7 +65,7 @@ cmake-debug:
 	cd $(builddir)/debug && cmake -D CMAKE_BUILD_TYPE=Debug $(topdir)
 
 debug: cmake-debug
-	cd $(builddir)/debug && cmake --build .
+	cd $(builddir)/debug && cmake --build . $(cmake_build_parallel)
 
 # Temporarily disable some tests:
 #  * libwallet_api_tests fail (Issue #895)
@@ -80,7 +90,7 @@ cmake-release:
 	cd $(builddir)/release && cmake -D CMAKE_BUILD_TYPE=Release $(topdir)
 
 release: cmake-release
-	cd $(builddir)/release && cmake --build .
+	cd $(builddir)/release && cmake --build . $(cmake_build_parallel)
 
 release-test:
 	mkdir -p $(builddir)/release
@@ -92,7 +102,7 @@ release-all:
 
 release-static:
 	mkdir -p $(builddir)/release
-	cd $(builddir)/release && cmake -D STATIC=ON -D ARCH="default" -D CMAKE_BUILD_TYPE=Release $(topdir) && cmake --build .
+	cd $(builddir)/release && cmake -D STATIC=ON -D ARCH="default" -D CMAKE_BUILD_TYPE=Release $(topdir) && cmake --build . $(cmake_build_parallel)
 
 coverage:
 	mkdir -p $(builddir)/debug
