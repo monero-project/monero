@@ -52,10 +52,10 @@ depends:
 
 cmake-debug:
 	mkdir -p $(builddir)/debug
-	cd $(builddir)/debug && cmake -D CMAKE_BUILD_TYPE=Debug $(topdir)
+	cd $(builddir)/debug && cmake -G "Unix Makefiles" -D CMAKE_BUILD_TYPE=Debug $(topdir)
 
 debug: cmake-debug
-	cd $(builddir)/debug && cmake --build .
+	cd $(builddir)/debug && $(MAKE)
 
 # Temporarily disable some tests:
 #  * libwallet_api_tests fail (Issue #895)
@@ -77,10 +77,10 @@ debug-all:
 
 cmake-release:
 	mkdir -p $(builddir)/release
-	cd $(builddir)/release && cmake -D CMAKE_BUILD_TYPE=Release $(topdir)
+	cd $(builddir)/release && cmake -G "Unix Makefiles" -D CMAKE_BUILD_TYPE=Release $(topdir)
 
 release: cmake-release
-	cd $(builddir)/release && cmake --build .
+	cd $(builddir)/release && $(MAKE)
 
 release-test:
 	mkdir -p $(builddir)/release
@@ -92,7 +92,7 @@ release-all:
 
 release-static:
 	mkdir -p $(builddir)/release
-	cd $(builddir)/release && cmake -D STATIC=ON -D ARCH="default" -D CMAKE_BUILD_TYPE=Release $(topdir) && cmake --build .
+	cd $(builddir)/release && cmake -G "Unix Makefiles" -D STATIC=ON -D ARCH="default" -D CMAKE_BUILD_TYPE=Release $(topdir) && $(MAKE)
 
 coverage:
 	mkdir -p $(builddir)/debug
