@@ -644,6 +644,9 @@ TEST(cryptonote_protocol_handler, race_condition)
     virtual bool unblock_host(const address_t&) override {
       return {};
     }
+    virtual bool unblock_all_hosts() override {
+      return {};
+    }
     virtual zone_t send_txs(blobs_t, const zone_t, const uuid_t&, relay_t) override {
       return {};
     }

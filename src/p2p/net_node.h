@@ -290,6 +290,7 @@ namespace nodetool
     uint32_t get_max_in_public_peers() const;
     virtual bool block_host(epee::net_utils::network_address address, time_t seconds = P2P_IP_BLOCKTIME, bool add_only = false);
     virtual bool unblock_host(const epee::net_utils::network_address &address);
+    virtual bool unblock_all_hosts();
     virtual bool block_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet);
     virtual bool is_host_blocked(const epee::net_utils::network_address &address, time_t *seconds) { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return !is_remote_host_allowed(address, seconds); }

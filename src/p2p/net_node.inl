@@ -340,6 +340,16 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::unblock_all_hosts()
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    m_blocked_hosts.clear();
+    m_blocked_subnets.clear();
+    MCLOG_CYAN(el::Level::Info, "global", "All blocked hosts and subnets unblocked.");
+    return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::block_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds)
   {
     const time_t now = time(nullptr);

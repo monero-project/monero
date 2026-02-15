@@ -35,6 +35,7 @@ import time
 Test the following RPCs:
     - set_bans
     - get_bans
+    - clear_bans
 
 """
 
@@ -109,6 +110,31 @@ class BanTest():
         assert res.bans[0].seconds >= 198 and res.bans[0].seconds <= 200 # allow for slow RPC
 
         daemon.set_bans([{'host': '5.6.7.8', 'ban': False}])
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
+        print('Testing clear_bans')
+
+        daemon.clear_bans()
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
+        daemon.set_bans([{'host': '1.2.3.4', 'ban': True, 'seconds': 100}])
+        daemon.set_bans([{'host': '5.6.7.8', 'ban': True, 'seconds': 100}])
+        daemon.set_bans([{'host': '9.10.11.12', 'ban': True, 'seconds': 100}])
+        res = daemon.get_bans()
+        assert len(res.bans) == 3
+
+        daemon.clear_bans()
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
+        daemon.set_bans([{'host': '1.2.3.4', 'ban': True, 'seconds': 100}])
+        res = daemon.get_bans()
+        assert len(res.bans) == 1
+        assert res.bans[0].host == '1.2.3.4'
+
+        daemon.clear_bans()
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
