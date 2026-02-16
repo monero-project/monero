@@ -40,8 +40,11 @@ set(unit_tests_sources
   canonical_amounts.cpp
   chacha.cpp
   checkpoints.cpp
+  combinator.cpp
   command_line.cpp
+  container_helpers.cpp
   crypto.cpp
+  data_cache.cpp
   decompose_amount_into_digits.cpp
   device.cpp
   difficulty.cpp
@@ -74,6 +77,7 @@ set(unit_tests_sources
   notify.cpp
   output_distribution.cpp
   parse_amount.cpp
+  powerof.cpp
   pruning.cpp
   random.cpp
   rolling_median.cpp
