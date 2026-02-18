@@ -6479,12 +6479,12 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   {
     std::string payment_id_str = local_args.back();
     crypto::hash payment_id;
-    bool r = true;
-    if (tools::wallet2::parse_long_payment_id(payment_id_str, payment_id))
+    bool r = tools::wallet2::parse_long_payment_id(payment_id_str, payment_id);
+    if (r)
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
     }
-    if(!r)
+    else
     {
       fail_msg_writer() << tr("payment id failed to encode");
       return false;
