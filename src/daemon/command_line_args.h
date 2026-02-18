@@ -138,6 +138,19 @@ namespace daemon_args
   , "Disable ZMQ RPC server"
   };
 
+  const command_line::arg_descriptor<std::string> arg_i2p_sam = {
+    "i2p-sam"
+  , "I2P SAM proxy to reach I2P peers and accept I2P connections (default: none)"
+  };
+  const command_line::arg_descriptor<unsigned> arg_i2p_accept_incoming = {
+    "i2p-accept-incoming"
+  , "Whether to accept inbound I2P connections; ignored if i2p-sam is not set."
+  , 0
+  };
+  const command_line::arg_descriptor<std::string> arg_only_net = {
+    "onlynet"
+  , "Only make outbound connections to addresses using the specified protocol (onion,i2p)"
+  };
 }  // namespace daemon_args
 
 #endif // DAEMON_COMMAND_LINE_ARGS_H

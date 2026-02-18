@@ -160,6 +160,9 @@ int main(int argc, char const * argv[])
       command_line::add_arg(core_settings, daemon_args::arg_zmq_rpc_disabled);
       command_line::add_arg(core_settings, daemonizer::arg_non_interactive);
 
+      command_line::add_arg(core_settings, daemon_args::arg_i2p_sam);
+      command_line::add_arg(core_settings, daemon_args::arg_i2p_accept_incoming);
+      command_line::add_arg(core_settings, daemon_args::arg_only_net);
       daemonizer::init_options(hidden_options, visible_options);
       daemonize::t_executor::init_options(core_settings);
 
