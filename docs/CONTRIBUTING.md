@@ -140,7 +140,6 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Maintainers SHOULD NOT merge their own patches unless they were added to the merge queue on irc and have at least 3 approvals from contributors OR unless urgent as defined by the Monero Maintainers Team.
 - Maintainers MUST NOT make value judgments on correct patches unless the Maintainer (as may happen in rare circumstances) is a core code developer.
 - Maintainers MUST NOT merge pull requests in less than 168 hours (1 week) unless deemed urgent by at least 2 Maintainers.
-- The Contributor MAY tag an issue as "Ready" after making a pull request for the issue.
 - The user who created an issue SHOULD close the issue after checking the patch is successful.
 - Maintainers SHOULD ask for improvements to incorrect patches and SHOULD reject incorrect patches if the Contributor does not respond constructively.
 - Any Contributor who has value judgments on a correct patch SHOULD express these via their own patches.
