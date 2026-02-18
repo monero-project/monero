@@ -981,7 +981,7 @@ HTML_INDEX_NUM_ENTRIES = 100
 # directory and running "make install" will install the docset in 
 # ~/Library/Developer/Shared/Documentation/DocSets so that Xcode will find 
 # it at startup. 
-# See https://developer.apple.com/tools/creatingdocsetswithdoxygen.html 
+# See https://developer.apple.com/xcode/resources/
 # for more information.
 
 GENERATE_DOCSET        = NO
