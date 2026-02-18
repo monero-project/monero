@@ -119,6 +119,7 @@ target_link_libraries(unit_tests
     daemon_messages
     daemon_rpc_server
     blockchain_db
+    fcmp_pp
     lmdb_lib
     rpc
     net
