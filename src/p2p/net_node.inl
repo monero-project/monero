@@ -2153,7 +2153,7 @@ namespace nodetool
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
       return true;
 
-    unsigned good = 0, bad = 0;
+    unsigned good = 0;
     for (const auto& record : records)
     {
       std::vector<std::string> ips;
@@ -2177,7 +2177,6 @@ namespace nodetool
           continue;
         }
         MWARNING("Invalid IP address or subnet from DNS blocklist: " << ip << " - " << parsed_addr.error());
-        ++bad;
       }
     }
     if (good > 0)

@@ -228,15 +228,15 @@ namespace cryptonote
       *
       * @return true if the block was added to the main chain, otherwise false
       */
-     virtual bool handle_block_found(block& b, block_verification_context &bvc) override;
+     bool handle_block_found(block& b, block_verification_context &bvc) final;
 
      /**
       * @copydoc Blockchain::create_block_template
       *
       * @note see Blockchain::create_block_template
       */
-     virtual bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) override;
-     virtual bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) final;
+     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
 
      /**
       * @copydoc Blockchain::get_miner_data
@@ -249,7 +249,7 @@ namespace cryptonote
       * @brief called when a transaction is relayed.
       * @note Should only be invoked from `levin_notify`.
       */
-     virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, relay_method tx_relay) final;
+     void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, relay_method tx_relay) final;
 
 
      /**
@@ -341,7 +341,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_current_blockchain_height()
       */
-     virtual uint64_t get_current_blockchain_height() const final;
+     uint64_t get_current_blockchain_height() const final;
 
      /**
       * @brief get the hash and height of the most recent block
@@ -672,7 +672,7 @@ namespace cryptonote
       *
       * @return core synchronization status
       */
-     virtual bool is_synchronized() const final;
+     bool is_synchronized() const final;
 
      /**
       * @copydoc miner::on_synchronized
