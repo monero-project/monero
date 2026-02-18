@@ -790,6 +790,24 @@ void drop_from_short_history(std::list<crypto::hash> &short_chain_history, size_
   }
 }
 
+static tools::wallet2::unconfirmed_transfer_details disconfirm_transfer(const tools::wallet2::confirmed_transfer_details &ctd)
+{
+  tools::wallet2::unconfirmed_transfer_details utd{};
+  utd.m_tx = ctd.m_tx;
+  utd.m_amount_in = ctd.m_amount_in;
+  utd.m_amount_out = ctd.m_amount_out;
+  utd.m_change = ctd.m_change;
+  utd.m_sent_time = ctd.m_timestamp;
+  utd.m_dests = ctd.m_dests;
+  utd.m_payment_id = ctd.m_payment_id;
+  utd.m_state = tools::wallet2::unconfirmed_transfer_details::pending;
+  utd.m_timestamp = ctd.m_timestamp;
+  utd.m_subaddr_account = ctd.m_subaddr_account;
+  utd.m_subaddr_indices = ctd.m_subaddr_indices;
+  utd.m_rings = ctd.m_rings;
+  return utd;
+}
+
 size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags)
 {
   size_t size = 0;
@@ -1839,9 +1857,9 @@ void wallet2::process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_
 
     // Re-set destination addresses if they were previously set
     if (m_confirmed_txs.find(tx_info.tx_hash) != m_confirmed_txs.end() &&
-        dbd.detached_confirmed_txs_dests.find(tx_info.tx_hash) != dbd.detached_confirmed_txs_dests.end())
+        dbd.detached_confirmed_txs.count(tx_info.tx_hash))
     {
-      m_confirmed_txs[tx_info.tx_hash].m_dests = std::move(dbd.detached_confirmed_txs_dests[tx_info.tx_hash]);
+      m_confirmed_txs[tx_info.tx_hash].m_dests = std::move(dbd.detached_confirmed_txs[tx_info.tx_hash].m_dests);
     }
   }
 
@@ -4442,7 +4460,7 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
     if(height <= it->second.m_block_height)
     {
       dbd.detached_tx_hashes.insert(it->first);
-      dbd.detached_confirmed_txs_dests[it->first] = std::move(it->second.m_dests);
+      dbd.detached_confirmed_txs[it->first] = std::move(it->second);
       it = m_confirmed_txs.erase(it);
     }
     else
@@ -4462,6 +4480,10 @@ void wallet2::handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_
       error::wallet_internal_error, "Daemon claims reorg below last checkpoint");
 
   detached_blockchain_data dbd = detach_blockchain(height, output_tracker_cache);
+
+  // move detached confirmed transfer details back into unconfirmd transfer details
+  for (const auto &p : dbd.detached_confirmed_txs)
+    m_unconfirmed_txs[p.first] = disconfirm_transfer(p.second);
 
   if (m_background_syncing && height < m_background_sync_data.start_height)
     m_background_sync_data.start_height = height;
@@ -13756,9 +13778,9 @@ void wallet2::process_background_cache(const background_sync_data_t &background_
 
     // Re-set destination addresses if they were previously set
     if (m_confirmed_txs.find(bgs_tx.first) != m_confirmed_txs.end() &&
-        dbd.detached_confirmed_txs_dests.find(bgs_tx.first) != dbd.detached_confirmed_txs_dests.end())
+        dbd.detached_confirmed_txs.count(bgs_tx.first))
     {
-      m_confirmed_txs[bgs_tx.first].m_dests = std::move(dbd.detached_confirmed_txs_dests[bgs_tx.first]);
+      m_confirmed_txs[bgs_tx.first].m_dests = std::move(dbd.detached_confirmed_txs[bgs_tx.first].m_dests);
     }
   }
 
