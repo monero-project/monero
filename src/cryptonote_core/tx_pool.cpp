@@ -1780,6 +1780,98 @@ namespace cryptonote
     return n_removed;
   }
   //---------------------------------------------------------------------------------
+  size_t tx_memory_pool::kick_invalid_txs(const std::unordered_set<crypto::hash> &keep_txids)
+  {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    LockedTXN lock(m_blockchain.get_db());
+
+    const uint64_t cur_n_blocks = m_blockchain.get_db().height();
+
+    // Get all tx id's that reference inputs that can no longer be valid
+    std::vector<crypto::hash> remove;
+    std::unordered_map<uint64_t/*amount*/, uint64_t/*n_outputs*/> n_outputs;
+    m_blockchain.for_all_txpool_txes([&, this](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd) {
+      if (keep_txids.count(txid))
+        return true;
+      if (meta.max_used_block_height > 0)
+      {
+        if (meta.max_used_block_height >= cur_n_blocks)
+          remove.push_back(txid);
+        return true;
+      }
+      cryptonote::transaction tx;
+      if (!parse_and_validate_tx_base_from_blob(*bd, tx))
+      {
+        MWARNING("Failed to parse tx base from txpool, removing");
+        remove.push_back(txid);
+        return true;
+      }
+      for (const auto &vin : tx.vin)
+      {
+        if (vin.type() != typeid(cryptonote::txin_to_key))
+        {
+          MERROR("Unexpected input type in pool");
+          continue;
+        }
+        const cryptonote::txin_to_key &txin = boost::get<cryptonote::txin_to_key>(vin);
+        if (txin.key_offsets.empty())
+        {
+          MERROR("Unexpected empty key_offsets in pool");
+          continue;
+        }
+        const std::vector<uint64_t> output_ids = cryptonote::relative_output_offsets_to_absolute(txin.key_offsets);
+        if (output_ids.empty())
+        {
+          MERROR("Unexpected empty output_ids in pool");
+          continue;
+        }
+        if (!n_outputs.count(txin.amount))
+        {
+          n_outputs[txin.amount] = m_blockchain.get_db().get_num_outputs(txin.amount);
+        }
+        // If any rings in the tx use an output ID that can no longer be in the chain, then remove the tx from pool
+        if (output_ids.back() >= n_outputs[txin.amount])
+        {
+          remove.push_back(txid);
+          break;
+        }
+      }
+      return true;
+    }, true, relay_category::all);
+
+    // Remove them from pool
+    std::size_t count = 0;
+    for (const crypto::hash &txid : remove)
+    {
+      try
+      {
+        size_t weight;
+        uint64_t fee;
+        cryptonote::transaction tx;
+        cryptonote::blobdata blob;
+        bool relayed, do_not_relay, double_spend_seen, pruned;
+        if (!take_tx(txid, tx, blob, weight, fee, relayed, do_not_relay, double_spend_seen, pruned))
+        {
+          MERROR("Failed to remove invalid tx " << txid << " from txpool");
+        }
+        else
+        {
+          MINFO("Removed invalid tx " << txid << " from pool");
+          ++count;
+        }
+        continue;
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to remove invalid tx " << txid << " from txpool: " << e.what());
+        continue;
+      }
+    }
+    return count;
+  }
+  //---------------------------------------------------------------------------------
   void tx_memory_pool::add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time)
   {
 
