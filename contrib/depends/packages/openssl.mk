@@ -1,9 +1,9 @@
 package=openssl
-$(package)_version=3.5.4
+$(package)_version=3.6.1
 $(package)_download_path=https://github.com/openssl/openssl/releases/download/openssl-$($(package)_version)
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99
-$(package)_patches=fix-android.patch
+$(package)_sha256_hash=b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e
+$(package)_patches=fix-android.patch fix-mingw64.patch
 
 define $(package)_set_vars
 $(package)_config_env=AR="$($(package)_ar)" RANLIB="$($(package)_ranlib)" CC="$($(package)_cc)"
@@ -53,6 +53,7 @@ endef
 define $(package)_preprocess_cmds
   sed -i.old 's|crypto ssl apps util tools fuzz providers doc|crypto ssl util tools providers|' build.info && \
   patch -p1 < $($(package)_patch_dir)/fix-android.patch && \
+  patch -p1 < $($(package)_patch_dir)/fix-mingw64.patch && \
   rm -rf doc demos apps test
 endef
 

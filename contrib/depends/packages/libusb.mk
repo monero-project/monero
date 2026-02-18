@@ -1,8 +1,8 @@
 package=libusb
-$(package)_version=1.0.27
+$(package)_version=1.0.29
 $(package)_download_path=https://github.com/libusb/libusb/releases/download/v$($(package)_version)
 $(package)_file_name=$(package)-$($(package)_version).tar.bz2
-$(package)_sha256_hash=ffaa41d741a8a3bee244ac8e54a72ea05bf2879663c098c82fc5757853441575
+$(package)_sha256_hash=5977fc950f8d1395ccea9bd48c06b3f808fd3c2c961b44b0c2e6e29fc3a70a85
 
 define $(package)_preprocess_cmds
   cp -f $(BASEDIR)/config.guess $(BASEDIR)/config.sub .
