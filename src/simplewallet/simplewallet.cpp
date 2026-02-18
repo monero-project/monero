@@ -189,7 +189,8 @@ namespace
   const command_line::arg_descriptor<std::string> arg_subaddress_lookahead = {"subaddress-lookahead", tools::wallet2::tr("Set subaddress lookahead sizes to <major>:<minor>"), ""};
   const command_line::arg_descriptor<bool> arg_use_english_language_names = {"use-english-language-names", sw::tr("Display English language names"), false};
 
-  const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
+  const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", sw::tr("Command for wallet to run it. E.g. --command help all.")};
+  const command_line::arg_descriptor<bool> arg_skip_check_background_mining = {"skip-checking-background-mining", sw::tr("Skip checking background mining during startup."), true};
 
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
   const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted|this-is-probably-a-spy-node]");
@@ -4616,8 +4617,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
   m_wallet->callback(this);
 
-  bool skip_check_backround_mining = !command_line::get_arg(vm, arg_command).empty();
-  if (!skip_check_backround_mining)
+  bool skip_check_background_mining = !command_line::get_arg(vm, arg_skip_check_background_mining);
+  if (skip_check_background_mining && command_line::get_arg(vm, arg_command).empty())
     check_background_mining(password);
 
   if (welcome)
@@ -10428,6 +10429,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_generate_from_json);
   command_line::add_arg(desc_params, arg_mnemonic_language);
   command_line::add_arg(desc_params, arg_command);
+  command_line::add_arg(desc_params, arg_skip_check_background_mining);
 
   command_line::add_arg(desc_params, arg_restore_deterministic_wallet );
   command_line::add_arg(desc_params, arg_restore_from_seed );
