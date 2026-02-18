@@ -313,6 +313,20 @@ void fe_invert(fe out, const fe z) {
   return;
 }
 
+// return 1 if a == b, else 0
+int fe_equals(const fe a, const fe b) {
+  unsigned char a_bytes[32];
+  unsigned char b_bytes[32];
+  fe_tobytes(a_bytes, a);
+  fe_tobytes(b_bytes, b);
+
+  int r = 1;
+  for (int i = 0; i < 32; ++i) {
+    r &= a_bytes[i] == b_bytes[i];
+  }
+  return r;
+}
+
 // Montgomery's trick
 // https://iacr.org/archive/pkc2004/29470042/29470042.pdf 2.2
 void fe_batch_invert(fe *out, const fe *in, const int n) {
