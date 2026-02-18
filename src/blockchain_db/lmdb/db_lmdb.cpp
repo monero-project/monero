@@ -3663,6 +3663,49 @@ bool BlockchainLMDB::for_blocks_range(const uint64_t& h1, const uint64_t& h2, st
   return fret;
 }
 
+bool BlockchainLMDB::for_all_block_info(const uint64_t start_height
+    , const uint64_t stop_height
+    , const std::function<bool(/*height*/ uint64_t
+      , /*block ID*/ const crypto::hash&
+      , /*block weight*/ uint64_t
+      )> &f
+  ) const
+{
+  LOG_PRINT_L3("BlockchainLMDB::" << __func__);
+  check_open();
+
+  if (stop_height < start_height)
+    throw0(DB_ERROR("Invalid stop height, lower than start height"));
+
+  TXN_PREFIX_RDONLY();
+  RCURSOR(block_info);
+
+  MDB_val_set(k, zerokey);
+  MDB_val_set(v, start_height);
+  bool fret = true;
+  MDB_cursor_op op = MDB_GET_BOTH;
+
+  for (uint64_t height = start_height; height <= stop_height; ++height)
+  {
+    int ret = mdb_cursor_get(m_cur_block_info, &k, &v, op);
+    op = MDB_NEXT;
+    if (ret)
+      throw0(DB_ERROR(lmdb_error("Failed to get block info at given height", ret).c_str()));
+    assert(v.mv_size == sizeof(mdb_block_info));
+    assert(reinterpret_cast<uintptr_t>(v.mv_data) % alignof(mdb_block_info) == 0);
+    const mdb_block_info *bi = (const mdb_block_info *)v.mv_data;
+    assert(bi->bi_height == height);
+    if (!f(height, bi->bi_hash, bi->bi_weight)) {
+      fret = false;
+      break;
+    }
+  }
+
+  TXN_POSTFIX_RDONLY();
+
+  return fret;
+}
+
 bool BlockchainLMDB::for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)> f, bool pruned) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
