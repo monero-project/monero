@@ -30,6 +30,8 @@
 
 #include "rctSigs.h"
 
+#include <atomic>
+
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "common/perf_timer.h"
@@ -39,6 +41,7 @@
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
 #include "device/device.hpp"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "serialization/crypto.h"
 
 using namespace crypto;
@@ -1573,5 +1576,34 @@ namespace rct {
     xmr_amount decodeRct(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev) {
       key mask;
       return decodeRct(rv, sk, i, mask, hwdev);
+    }
+
+    bool verPointsForTorsion(const std::vector<key> & pts) {
+      if (pts.empty())
+        return true;
+
+      tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+      tools::threadpool::waiter waiter(tpool);
+
+      std::atomic<bool> all_valid{true};
+      for (std::size_t i = 0; i < pts.size(); ++i)
+      {
+        tpool.submit(&waiter, [&pts, &all_valid, i]
+          {
+            const crypto::ec_point &point = rct::rct2pt(pts[i]);
+            crypto::ec_point torsion_cleared_point;
+            if (fcmp_pp::get_valid_torsion_cleared_point_vartime(point, torsion_cleared_point)
+                && point == torsion_cleared_point)
+            {
+              // Point is torsion free if it's equal to itself after clearing torsion
+              return;
+            }
+            all_valid.store(false);
+          });
+      }
+
+      CHECK_AND_ASSERT_MES(waiter.wait(), false, "threadpool waiter failed in torsion check");
+      CHECK_AND_ASSERT_MES(all_valid.load(), false, "Torsion check failed");
+      return true;
     }
 }
