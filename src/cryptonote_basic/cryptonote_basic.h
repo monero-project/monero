@@ -53,26 +53,7 @@
 
 namespace cryptonote
 {
-  typedef std::vector<crypto::signature> ring_signature;
-
-
   /* outputs */
-
-  struct txout_to_script
-  {
-    std::vector<crypto::public_key> keys;
-    std::vector<uint8_t> script;
-
-    BEGIN_SERIALIZE_OBJECT()
-      FIELD(keys)
-      FIELD(script)
-    END_SERIALIZE()
-  };
-
-  struct txout_to_scripthash
-  {
-    crypto::hash hash;
-  };
 
   // outputs <= HF_VERSION_VIEW_TAGS
   struct txout_to_key
@@ -107,34 +88,6 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
-  struct txin_to_script
-  {
-    crypto::hash prev;
-    size_t prevout;
-    std::vector<uint8_t> sigset;
-
-    BEGIN_SERIALIZE_OBJECT()
-      FIELD(prev)
-      VARINT_FIELD(prevout)
-      FIELD(sigset)
-    END_SERIALIZE()
-  };
-
-  struct txin_to_scripthash
-  {
-    crypto::hash prev;
-    size_t prevout;
-    txout_to_script script;
-    std::vector<uint8_t> sigset;
-
-    BEGIN_SERIALIZE_OBJECT()
-      FIELD(prev)
-      VARINT_FIELD(prevout)
-      FIELD(script)
-      FIELD(sigset)
-    END_SERIALIZE()
-  };
-
   struct txin_to_key
   {
     uint64_t amount;
@@ -148,12 +101,19 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
+  //! @brief A placeholder for types in variants which aren't currently used
+  // You can replace instances of reserved<X> in a variant with no meaningful difference
+  template <int TAG>
+  struct reserved
+  {
+    BEGIN_SERIALIZE()
+    END_SERIALIZE()
+  };
 
-  typedef boost::variant<txin_gen, txin_to_script, txin_to_scripthash, txin_to_key> txin_v;
+  typedef boost::variant<txin_gen, reserved<0>, reserved<1>, txin_to_key> txin_v;
 
-  typedef boost::variant<txout_to_script, txout_to_scripthash, txout_to_key, txout_to_tagged_key> txout_target_v;
+  typedef boost::variant<reserved<0>, reserved<1>, txout_to_key, txout_to_tagged_key> txout_target_v;
 
-  //typedef std::pair<uint64_t, txout> out_t;
   struct tx_out
   {
     uint64_t amount;
@@ -468,8 +428,8 @@ namespace cryptonote
     struct txin_signature_size_visitor : public boost::static_visitor<size_t>
     {
       size_t operator()(const txin_gen& txin) const{return 0;}
-      size_t operator()(const txin_to_script& txin) const{return 0;}
-      size_t operator()(const txin_to_scripthash& txin) const{return 0;}
+      size_t operator()(const reserved<0>&) const { return 0; }
+      size_t operator()(const reserved<1>&) const { return 0; }
       size_t operator()(const txin_to_key& txin) const {return txin.key_offsets.size();}
     };
 
@@ -636,37 +596,30 @@ namespace std {
 }
 
 BLOB_SERIALIZER(cryptonote::txout_to_key);
-BLOB_SERIALIZER(cryptonote::txout_to_scripthash);
 
 VARIANT_TAG(binary_archive, cryptonote::txin_gen, 0xff);
-VARIANT_TAG(binary_archive, cryptonote::txin_to_script, 0x0);
-VARIANT_TAG(binary_archive, cryptonote::txin_to_scripthash, 0x1);
 VARIANT_TAG(binary_archive, cryptonote::txin_to_key, 0x2);
-VARIANT_TAG(binary_archive, cryptonote::txout_to_script, 0x0);
-VARIANT_TAG(binary_archive, cryptonote::txout_to_scripthash, 0x1);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_key, 0x2);
 VARIANT_TAG(binary_archive, cryptonote::txout_to_tagged_key, 0x3);
 VARIANT_TAG(binary_archive, cryptonote::transaction, 0xcc);
 VARIANT_TAG(binary_archive, cryptonote::block, 0xbb);
+VARIANT_TAG(binary_archive, cryptonote::reserved<0>, 0x00);
+VARIANT_TAG(binary_archive, cryptonote::reserved<1>, 0x01);
 
 VARIANT_TAG(json_archive, cryptonote::txin_gen, "gen");
-VARIANT_TAG(json_archive, cryptonote::txin_to_script, "script");
-VARIANT_TAG(json_archive, cryptonote::txin_to_scripthash, "scripthash");
 VARIANT_TAG(json_archive, cryptonote::txin_to_key, "key");
-VARIANT_TAG(json_archive, cryptonote::txout_to_script, "script");
-VARIANT_TAG(json_archive, cryptonote::txout_to_scripthash, "scripthash");
 VARIANT_TAG(json_archive, cryptonote::txout_to_key, "key");
 VARIANT_TAG(json_archive, cryptonote::txout_to_tagged_key, "tagged_key");
 VARIANT_TAG(json_archive, cryptonote::transaction, "tx");
 VARIANT_TAG(json_archive, cryptonote::block, "block");
+VARIANT_TAG(json_archive, cryptonote::reserved<0>, "reserved_0");
+VARIANT_TAG(json_archive, cryptonote::reserved<1>, "reserved_1");
 
 VARIANT_TAG(debug_archive, cryptonote::txin_gen, "gen");
-VARIANT_TAG(debug_archive, cryptonote::txin_to_script, "script");
-VARIANT_TAG(debug_archive, cryptonote::txin_to_scripthash, "scripthash");
 VARIANT_TAG(debug_archive, cryptonote::txin_to_key, "key");
-VARIANT_TAG(debug_archive, cryptonote::txout_to_script, "script");
-VARIANT_TAG(debug_archive, cryptonote::txout_to_scripthash, "scripthash");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_key, "key");
 VARIANT_TAG(debug_archive, cryptonote::txout_to_tagged_key, "tagged_key");
 VARIANT_TAG(debug_archive, cryptonote::transaction, "tx");
 VARIANT_TAG(debug_archive, cryptonote::block, "block");
+VARIANT_TAG(debug_archive, cryptonote::reserved<0>, "reserved_0");
+VARIANT_TAG(debug_archive, cryptonote::reserved<1>, "reserved_1");
