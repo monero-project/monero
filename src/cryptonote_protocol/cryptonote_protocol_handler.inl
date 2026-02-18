@@ -903,6 +903,22 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_transactions(int command, NOTIFY_NEW_TRANSACTIONS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_NEW_TRANSACTIONS (" << arg.txs.size() << " txes)");
+
+    if(context.m_state != cryptonote_connection_context::state_normal)
+    {
+      LOG_DEBUG_CC(context, "Received new tx, while not in normal state, ignored");
+      return 1;
+    }
+
+    // while syncing, core will lock for a long time, so we ignore
+    // those txes as they aren't really needed anyway, and avoid a
+    // long block before replying
+    if(!is_synchronized())
+    {
+      LOG_DEBUG_CC(context, "Received new tx while syncing, ignored");
+      return 1;
+    }
+
     std::unordered_set<blobdata> seen;
     for (const auto &blob: arg.txs)
     {
@@ -914,18 +930,6 @@ namespace cryptonote
         return 1;
       }
       seen.insert(blob);
-    }
-
-    if(context.m_state != cryptonote_connection_context::state_normal)
-      return 1;
-
-    // while syncing, core will lock for a long time, so we ignore
-    // those txes as they aren't really needed anyway, and avoid a
-    // long block before replying
-    if(!is_synchronized())
-    {
-      LOG_DEBUG_CC(context, "Received new tx while syncing, ignored");
-      return 1;
     }
 
     /* If the txes were received over i2p/tor, the default is to "forward"
