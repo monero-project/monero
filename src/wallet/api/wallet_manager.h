@@ -31,6 +31,7 @@
 
 #include "wallet/api/wallet2_api.h"
 #include "net/http.h"
+#include "wipeable_string.h"
 #include <string>
 
 namespace Monero {
