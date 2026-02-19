@@ -345,3 +345,48 @@ TEST(Crypto, generator_consistency)
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
 }
+
+TEST(Crypto, batch_inversion)
+{
+  const std::size_t MAX_TEST_ELEMS = 1000;
+
+  std::unique_ptr<fe[]> init_elems = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+  std::unique_ptr<fe[]> norm_inverted = std::make_unique<fe[]>(MAX_TEST_ELEMS);
+
+  // Init test elems and individual inversions
+  for (std::size_t i = 0; i < MAX_TEST_ELEMS; ++i)
+  {
+    const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+    ASSERT_EQ(fe_frombytes_vartime(init_elems[i], (unsigned char*)kp.pub.data), 0);
+    fe_invert(norm_inverted[i], init_elems[i]);
+  }
+
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t n_elems = 1; n_elems <= MAX_TEST_ELEMS; ++n_elems)
+  {
+    std::unique_ptr<fe[]> batch_inverted = std::make_unique<fe[]>(n_elems);
+    fe_batch_invert(batch_inverted.get(), init_elems.get(), n_elems);
+    for (std::size_t i = 0; i < n_elems; ++i)
+      ASSERT_EQ(fe_equals(batch_inverted[i], norm_inverted[i]), 1);
+  }
+}
+
+TEST(Crypto, fe_equals)
+{
+  // Test equality
+  ASSERT_EQ(fe_equals(fe_d, fe_d), 1);
+
+  // Test inequality
+  fe fe_d2;
+  fe_add(fe_d2, fe_d, fe_d);
+  ASSERT_EQ(fe_equals(fe_d2, fe_d), 0);
+
+  // Test different fe reprs that are actually equal
+  unsigned char fe_d2_bytes[32];
+  fe fe_d2_reduced;
+  fe_tobytes(fe_d2_bytes, fe_d2);
+  fe_frombytes_vartime(fe_d2_reduced, fe_d2_bytes);
+  // We expect distinct fe_d2_reduced and fe_d2 reprs, since fe_add produces fe repr elems in a larger subdomain.
+  ASSERT_NE(memcmp(fe_d2_reduced, fe_d2, sizeof(fe)), 0);
+  ASSERT_EQ(fe_equals(fe_d2_reduced, fe_d2), 1);
+}
