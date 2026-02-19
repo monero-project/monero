@@ -29,6 +29,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <boost/lexical_cast.hpp>
+#include "crypto/generators.h"
 #include "misc_log_ex.h"
 #include "rctOps.h"
 using namespace crypto;
@@ -216,6 +217,33 @@ static const zero_commitment zero_commitments[] = {
   { (uint64_t)10000000000000000000ull, {{0x65, 0x8d, 0x1, 0x37, 0x6d, 0x18, 0x63, 0xe7, 0x7b, 0x9, 0x6f, 0x98, 0xe6, 0xe5, 0x13, 0xc2, 0x4, 0x10, 0xf5, 0xc7, 0xfb, 0x18, 0xa6, 0xe5, 0x9a, 0x52, 0x66, 0x84, 0x5c, 0xd9, 0xb1, 0xe3}} },
 };
 
+static constexpr std::size_t H_TABLE_SIZE = 64;
+const std::vector<ge_cached>& H_TABLE()
+{
+    struct static_h_table
+    {
+        std::vector<ge_cached> h_table;
+        static_h_table()
+            : h_table()
+        {
+            h_table.resize(H_TABLE_SIZE);
+
+            ge_p3_to_cached(&h_table.at(0), &ge_p3_H);
+            ge_p3 H_bit_p3 = ge_p3_H;
+
+            for (std::size_t i = 1; i < H_TABLE_SIZE; ++i)
+            {
+                ge_p1p1 H_bit_p1p1;
+                ge_p3_dbl(&H_bit_p1p1, &H_bit_p3);
+                ge_p1p1_to_p3(&H_bit_p3, &H_bit_p1p1);
+                ge_p3_to_cached(&h_table.at(i), &H_bit_p3);
+            }
+        }
+    };
+    static const static_h_table out;
+    return out.h_table;
+}
+
 namespace rct {
 
     //Various key initialization functions
@@ -318,7 +346,7 @@ namespace rct {
         return make_tuple(sk, pk);
     }
     
-    key zeroCommit(xmr_amount amount) {
+    key zeroCommitVartime(xmr_amount amount) {
         const zero_commitment *begin = zero_commitments;
         const zero_commitment *end = zero_commitments + sizeof(zero_commitments) / sizeof(zero_commitments[0]);
         const zero_commitment value{amount, rct::zero()};
@@ -327,9 +355,20 @@ namespace rct {
         {
             return it->commitment;
         }
-        key am = d2h(amount);
-        key bH = scalarmultH(am);
-        return addKeys(G, bH);
+        ge_p3 res_ge_p3 = get_G_p3();
+        static_assert(sizeof(xmr_amount) * 8 == H_TABLE_SIZE, "unexpected size of h table");
+        for (size_t i = 0; i < H_TABLE_SIZE; ++i)
+        {
+            if (amount & (xmr_amount(1) << i))
+            {
+                ge_p1p1 p1p1;
+                ge_add(&p1p1, &res_ge_p3, &H_TABLE()[i]);
+                ge_p1p1_to_p3(&res_ge_p3, &p1p1);
+            }
+        }
+        rct::key res;
+        ge_p3_tobytes(res.bytes, &res_ge_p3);
+        return res;
     }
 
     key commit(xmr_amount amount, const key &mask) {
