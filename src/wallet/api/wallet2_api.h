@@ -118,6 +118,12 @@ struct PendingTransaction
      * @return vector of base58-encoded signers' public keys
      */
     virtual std::vector<std::string> signersKeys() const = 0;
+    
+    /**
+     * @brief destAddresses
+     * @return vector of base58-encoded addresses of transaction recipients
+     */
+    virtual std::vector<std::string> destAddresses() const = 0;
 };
 
 /**
@@ -816,16 +822,34 @@ struct Wallet
      */
     virtual bool exportMultisigImages(std::string& images) = 0;
     /**
+     * @brief exportMultisigImagesToFile - exports transfers' key images to a file
+     * @param filename - path of the file to save images to
+     * @return true if success
+     */
+    virtual bool exportMultisigImagesToFile(const std::string& filename) = 0;
+    /**
      * @brief importMultisigImages - imports other participants' multisig images
      * @param images - array of hex encoded arrays of images obtained with exportMultisigImages
      * @return number of imported images
      */
     virtual size_t importMultisigImages(const std::vector<std::string>& images) = 0;
     /**
+     * @brief importMultisigImagesFromFile - imports other participants' multisig images from file
+     * @param filename - path of the file containing multisig images
+     * @return number of imported images
+     */
+    virtual size_t importMultisigImagesFromFile(const std::string& filename) = 0;
+    /**
      * @brief hasMultisigPartialKeyImages - checks if wallet needs to import multisig key images from other participants
      * @return true if there are partial key images
      */
     virtual bool hasMultisigPartialKeyImages() const = 0;
+    /**
+     * @brief loadMultisigTxFromFile - grabs transaction information encoded in a partially signed transction file
+     * @param filename - path of the file to load
+     * @return PendingTransaction
+     */
+    virtual PendingTransaction* loadMultisigTxFromFile(const std::string& filename) = 0;
 
     /**
      * @brief restoreMultisigTransaction creates PendingTransaction from signData
@@ -833,6 +857,13 @@ struct Wallet
      * @return PendingTransaction
      */
     virtual PendingTransaction*  restoreMultisigTransaction(const std::string& signData) = 0;
+
+   /**
+     * @brief signMultisigTxFromFile loads a transaction from file, signs it, then saves it again
+     * @param filename path to file containing a partially signed transaction
+     * @return true if successful
+     */
+    virtual bool signMultisigTxFromFile(const std::string& filename) = 0;
 
     /*!
      * \brief createTransactionMultDest creates transaction with multiple destinations. if dst_addr is an integrated address, payment_id is ignored
