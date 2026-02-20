@@ -175,6 +175,16 @@ jobs:
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT_LINUX}}
 
+  build-docker:
+    name: 'Docker'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: build image
+        run: docker build .
+
   test-ubuntu:
     name: "${{ matrix.name }} (tests)"
     runs-on: ubuntu-latest
