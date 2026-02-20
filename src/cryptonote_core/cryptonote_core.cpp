@@ -36,6 +36,7 @@
 using namespace epee;
 
 #include <unordered_set>
+#include <thread>
 #include "cryptonote_core.h"
 #include "common/util.h"
 #include "common/updates.h"
@@ -161,7 +162,7 @@ namespace cryptonote
   static const command_line::arg_descriptor<uint64_t> arg_prep_blocks_threads = {
     "prep-blocks-threads"
   , "Max number of threads to use when preparing block hashes in groups."
-  , 4
+  , std::thread::hardware_concurrency() > 0 ? std::thread::hardware_concurrency() : 4
   };
   static const command_line::arg_descriptor<uint64_t> arg_show_time_stats  = {
     "show-time-stats"
