@@ -1935,6 +1935,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
   {
     MERROR_VER("Block with id: " << id << std::endl << " can't be accepted for alternative chain, block height: " << block_height << std::endl << " blockchain height: " << get_current_blockchain_height());
     bvc.m_verifivation_failed = true;
+    bvc.m_failed_checkpoint = true;
     return false;
   }
 
@@ -4618,6 +4619,11 @@ bool Blockchain::update_checkpoints(const std::string& file_path, bool check_dns
 void Blockchain::set_enforce_dns_checkpoints(bool enforce_checkpoints)
 {
   m_enforce_dns_checkpoints = enforce_checkpoints;
+}
+//------------------------------------------------------------------
+bool Blockchain::get_enforce_dns_checkpoints() const
+{
+  return m_enforce_dns_checkpoints;
 }
 
 //------------------------------------------------------------------
