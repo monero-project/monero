@@ -193,6 +193,7 @@ namespace cryptonote
     std::atomic<bool> m_ask_for_txpool_complement;
     boost::mutex m_sync_lock;
     block_queue m_block_queue;
+    boost::mutex m_check_span_queue_mutex;
     epee::math_helper::once_a_time_seconds<8> m_idle_peer_kicker;
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
