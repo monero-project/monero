@@ -126,7 +126,7 @@ namespace rpc
 
   void DaemonHandler::handle(const GetBlocksFast::Request& req, GetBlocksFast::Response& res)
   {
-    std::vector<std::pair<std::pair<blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, blobdata> > > > blocks;
+    std::vector<std::pair<std::pair<blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, blobdata> > > > blocks;
 
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, blocks, res.current_height, res.top_block_hash, res.start_height, req.prune, true, COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
     {
@@ -185,8 +185,8 @@ namespace rpc
         bwt.transactions.back().pruned = req.prune;
 
         const bool parsed = req.prune ?
-          parse_and_validate_tx_base_from_blob(blob.second, bwt.transactions.back()) :
-          parse_and_validate_tx_from_blob(blob.second, bwt.transactions.back());
+          parse_and_validate_tx_base_from_blob(std::get<2>(blob), bwt.transactions.back()) :
+          parse_and_validate_tx_from_blob(std::get<2>(blob), bwt.transactions.back());
         if (!parsed)
         {
           res.blocks.clear();
