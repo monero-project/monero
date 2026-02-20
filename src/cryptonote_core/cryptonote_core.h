@@ -902,7 +902,7 @@ namespace cryptonote
       *
       * @return true iff success, false otherwise
       */
-     bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
+     bool get_txpool_complement(std::vector<crypto::hash> hashes, std::vector<cryptonote::blobdata> &txes);
 
      /**
       * @brief validates some simple properties of a transaction

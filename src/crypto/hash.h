@@ -101,6 +101,9 @@ namespace crypto {
 
   constexpr static crypto::hash null_hash = {};
   constexpr static crypto::hash8 null_hash8 = {};
+
+  inline bool operator<(const hash &lhs, const hash &rhs) noexcept { return memcmp(&lhs, &rhs, sizeof(hash)) < 0; }
+  inline bool operator>(const hash &lhs, const hash &rhs) noexcept { return rhs < lhs; }
 }
 
 CRYPTO_MAKE_HASHABLE(hash)
