@@ -39,6 +39,7 @@ set(unit_tests_sources
   bulletproofs_plus.cpp
   canonical_amounts.cpp
   chacha.cpp
+  twofish.cpp
   checkpoints.cpp
   command_line.cpp
   crypto.cpp
