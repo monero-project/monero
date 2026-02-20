@@ -57,8 +57,8 @@ export SOURCE_DATE_EPOCH=1397818193
 
 # Collect some information about the build environment to help debug potential reproducibility issues
 mkdir -p "${LOGDIR}"
-ls -1 /gnu/store | sort > ${LOGDIR}/guix-hashes.txt
-printenv | sort | grep -v '^\(BASE_CACHE=\|DISTNAME=\|DISTSRC=\|OUTDIR=\|LOGDIR=\|SOURCES_PATH=\|JOBS=\|OPTIONS=\|DEPENDS_ONLY=\)' > ${LOGDIR}/guix-env.txt
+ls -1 /gnu/store | sort > "${LOGDIR}/guix-hashes.txt"
+printenv | sort | grep -v '^\(BASE_CACHE=\|DISTNAME=\|DISTSRC=\|OUTDIR=\|LOGDIR=\|SOURCES_PATH=\|JOBS=\|OPTIONS=\|DEPENDS_ONLY=\)' > "${LOGDIR}/guix-env.txt"
 
 # The depends folder also serves as a base-prefix for depends packages for
 # $HOSTs after successfully building.
@@ -218,7 +218,7 @@ export TZ="UTC"
 mkdir -p "${OUTDIR}"
 
 # Log the depends build ids
-make -C contrib/depends --no-print-directory HOST="$HOST" print-final_build_id_long | tr ':' '\n' > ${LOGDIR}/depends-hashes.txt
+make -C contrib/depends --no-print-directory HOST="$HOST" print-final_build_id_long | tr ':' '\n' > "${LOGDIR}/depends-hashes.txt"
 
 # Build the depends tree, overriding variables that assume multilib gcc
 make -C contrib/depends --jobs="$JOBS" HOST="$HOST" \
@@ -273,7 +273,7 @@ if [ ! -e "$GIT_ARCHIVE" ]; then
     git ls-files --recurse-submodules \
     | sort \
     | tar --create --transform "s,^,monero-source-${VERSION}/," --mode='u+rw,go+r-w,a+X' --files-from=- \
-    | gzip -9n > ${GIT_ARCHIVE}
+    | gzip -9n > "${GIT_ARCHIVE}"
     sha256sum "$GIT_ARCHIVE"
 fi
 
