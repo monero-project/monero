@@ -810,7 +810,7 @@ include(CheckTrezor)
   endif()
 
   # linker
-  if (NOT SANITIZE AND NOT OSSFUZZ AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND (CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1 OR NOT STATIC))))
+  if (NOT DEPENDS AND NOT SANITIZE AND NOT OSSFUZZ AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND (CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1 OR NOT STATIC))))
     # PIE executables randomly crash at startup with ASAN
     # Windows binaries die on startup with PIE when compiled with GCC <9.x
     # Windows dynamically-linked binaries die on startup with PIE regardless of GCC version
@@ -1006,7 +1006,7 @@ include(CheckTrezor)
       set(STATIC_FLAGS "-static")
     elseif (NOT (APPLE OR FREEBSD OR OPENBSD OR DRAGONFLY))
       # On Linux, we don't support fully static build, but these can be static
-      set(STATIC_FLAGS "-static-libgcc -static-libstdc++")
+#      set(STATIC_FLAGS "-static-libgcc -static-libstdc++")
     endif()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${STATIC_FLAGS} ")
   endif()
