@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,9 +29,8 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+
 #include "cryptonote_basic/cryptonote_format_utils.h"
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/utility.hpp>
 #include "ringct/rctOps.h"
 
 namespace cryptonote
@@ -151,29 +150,12 @@ namespace cryptonote
 
 }
 
-BOOST_CLASS_VERSION(cryptonote::tx_source_entry, 1)
 BOOST_CLASS_VERSION(cryptonote::tx_destination_entry, 2)
 
 namespace boost
 {
   namespace serialization
   {
-    template <class Archive>
-    inline void serialize(Archive &a, cryptonote::tx_source_entry &x, const boost::serialization::version_type ver)
-    {
-      a & x.outputs;
-      a & x.real_output;
-      a & x.real_out_tx_key;
-      a & x.real_output_in_tx_index;
-      a & x.amount;
-      a & x.rct;
-      a & x.mask;
-      if (ver < 1)
-        return;
-      a & x.multisig_kLRki;
-      a & x.real_out_additional_tx_keys;
-    }
-
     template <class Archive>
     inline void serialize(Archive& a, cryptonote::tx_destination_entry& x, const boost::serialization::version_type ver)
     {
