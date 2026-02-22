@@ -230,7 +230,7 @@ namespace nodetool
         m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE;
         m_config.m_net_config.config_id = 0;
         m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
-        m_config.m_net_config.ping_connection_timeout = P2P_DEFAULT_PING_CONNECTION_TIMEOUT;
+        m_config.m_net_config.ping_connection_timeout = std::chrono::milliseconds{P2P_DEFAULT_PING_CONNECTION_TIMEOUT};
         m_config.m_net_config.send_peerlist_sz = P2P_DEFAULT_PEERS_IN_HANDSHAKE;
         m_config.m_support_flags = 0; // only set in public zone
       }

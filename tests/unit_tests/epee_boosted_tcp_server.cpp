@@ -282,7 +282,7 @@ TEST(test_epee_connection, test_lifetime)
     while (shared_state->sock_count);
     ASSERT_TRUE(shared_state->get_connections_count() == 0);
     constexpr auto DELAY = 30;
-    constexpr auto TIMEOUT = 1;
+    constexpr std::chrono::milliseconds TIMEOUT{1};
     while (server.get_connections_count()) {
       server.get_config_shared()->del_in_connections(
         server.get_config_shared()->get_in_connections_count()

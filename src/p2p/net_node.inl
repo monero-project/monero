@@ -988,7 +988,7 @@ namespace nodetool
     for (auto& zone : m_network_zones)
     {
       zone.second.m_net_server.get_config_object().set_handler(this);
-      zone.second.m_net_server.get_config_object().m_invoke_timeout = P2P_DEFAULT_INVOKE_TIMEOUT;
+      zone.second.m_net_server.get_config_object().m_invoke_timeout = std::chrono::milliseconds{P2P_DEFAULT_INVOKE_TIMEOUT};
 
       if (!zone.second.m_bind_ip.empty())
       {
@@ -1073,8 +1073,8 @@ namespace nodetool
     })); // lambda
 
     network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
-    public_zone.m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), 1000);
-    public_zone.m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), 1000);
+    public_zone.m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), std::chrono::seconds{1});
+    public_zone.m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), std::chrono::seconds{1});
 
     //here you can set worker threads count
     int thrds_count = 10;
@@ -1234,7 +1234,7 @@ namespace nodetool
         LOG_DEBUG_CC(context, " COMMAND_HANDSHAKE(AND CLOSE) INVOKED OK");
       }
       context_ = context;
-    }, P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT);
+    }, std::chrono::milliseconds{P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT});
 
     if(r)
     {
@@ -2563,7 +2563,7 @@ namespace nodetool
         
         f(context_, rsp.support_flags);
       },
-      P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT
+      std::chrono::milliseconds{P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT}
     );
 
     return r;
