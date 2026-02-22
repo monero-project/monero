@@ -70,6 +70,7 @@ namespace crypto
   namespace ElectrumWords
   {
     std::vector<const Language::Base*> get_language_list();
+    std::vector<const Language::Base*> get_language_list_2();
   }
 }
 
@@ -89,31 +90,16 @@ namespace
    * \return                 true if all the words were present in some language false if not.
    */
   bool find_seed_language(const std::vector<epee::wipeable_string> &seed,
-    bool has_checksum, std::vector<uint32_t> &matched_indices, Language::Base **language)
+    bool has_checksum, std::vector<uint32_t> &matched_indices, const Language::Base **language)
   {
-    // If there's a new language added, add an instance of it here.
-    std::vector<Language::Base*> language_instances({
-      Language::Singleton<Language::Chinese_Simplified>::instance(),
-      Language::Singleton<Language::English>::instance(),
-      Language::Singleton<Language::Dutch>::instance(),
-      Language::Singleton<Language::French>::instance(),
-      Language::Singleton<Language::Spanish>::instance(),
-      Language::Singleton<Language::German>::instance(),
-      Language::Singleton<Language::Italian>::instance(),
-      Language::Singleton<Language::Portuguese>::instance(),
-      Language::Singleton<Language::Japanese>::instance(),
-      Language::Singleton<Language::Russian>::instance(),
-      Language::Singleton<Language::Esperanto>::instance(),
-      Language::Singleton<Language::Lojban>::instance(),
-      Language::Singleton<Language::EnglishOld>::instance()
-    });
-    Language::Base *fallback = NULL;
+    std::vector<const Language::Base*> language_instances = crypto::ElectrumWords::get_language_list_2();
+    const Language::Base *fallback = NULL;
 
     std::vector<epee::wipeable_string>::const_iterator it2;
     matched_indices.reserve(seed.size());
 
     // Iterate through all the languages and find a match
-    for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
+    for (std::vector<const Language::Base*>::const_iterator it1 = language_instances.begin();
       it1 != language_instances.end(); it1++)
     {
       const std::unordered_map<epee::wipeable_string, uint32_t, Language::WordHash, Language::WordEqual> &word_map = (*it1)->get_word_map();
@@ -292,7 +278,7 @@ namespace crypto
 
       std::vector<uint32_t> matched_indices;
       auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(matched_indices.data(), matched_indices.size() * sizeof(matched_indices[0]));});
-      Language::Base *language;
+      const Language::Base *language;
       if (!find_seed_language(seed, has_checksum, matched_indices, &language))
       {
         MERROR("Invalid seed: language not found");
@@ -369,6 +355,43 @@ namespace crypto
       }
       dst = *(const crypto::secret_key*)s.data();
       return true;
+    }
+
+    std::string get_invalid_word(const epee::wipeable_string &words)
+    {
+      std::vector<const Language::Base*> language_instances = crypto::ElectrumWords::get_language_list_2();
+      std::vector<epee::wipeable_string> seed;
+      words.split(seed);
+
+      for (
+        std::vector<epee::wipeable_string>::const_iterator seed_i = seed.begin();
+        seed_i != seed.end();
+        seed_i++
+      )
+      {
+        bool has_any = false;
+
+        for (
+          std::vector<const Language::Base*>::const_iterator lang_i = language_instances.begin();
+          lang_i != language_instances.end() && !has_any;
+          lang_i++
+        )
+        {
+          auto &word_map = (*lang_i)->get_word_map();
+
+          if (word_map.count(*seed_i) != 0)
+          {
+            has_any = true;
+            break;
+          }
+        }
+
+        if (!has_any) {
+          return std::string(seed_i->data(), seed_i->size());
+        }
+      }
+
+      return "";
     }
 
     /*!
@@ -451,6 +474,26 @@ namespace crypto
         Language::Singleton<Language::Lojban>::instance()
       });
       return language_instances;
+    }
+
+    std::vector<const Language::Base*> get_language_list_2()
+    {
+      static const std::vector<const Language::Base*> language_instances_2({
+        Language::Singleton<Language::German>::instance(),
+        Language::Singleton<Language::English>::instance(),
+        Language::Singleton<Language::Spanish>::instance(),
+        Language::Singleton<Language::French>::instance(),
+        Language::Singleton<Language::Italian>::instance(),
+        Language::Singleton<Language::Dutch>::instance(),
+        Language::Singleton<Language::Portuguese>::instance(),
+        Language::Singleton<Language::Russian>::instance(),
+        Language::Singleton<Language::Japanese>::instance(),
+        Language::Singleton<Language::Chinese_Simplified>::instance(),
+        Language::Singleton<Language::Esperanto>::instance(),
+        Language::Singleton<Language::Lojban>::instance(),
+        Language::Singleton<Language::EnglishOld>::instance()
+      });
+      return language_instances_2;
     }
 
     /*!
