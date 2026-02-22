@@ -1048,7 +1048,7 @@ namespace wallet_rpc
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
-  
+
   struct transfer_details
   {
     uint64_t amount;
@@ -1848,6 +1848,60 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct COMMAND_RPC_EXPORT_ENCRYPTED_KEY_IMAGES
+  {
+    struct request_t
+    {
+      bool all;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(all, false)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      uint32_t offset;
+      std::string encrypted_key_images_blob;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(offset)
+        KV_SERIALIZE(encrypted_key_images_blob)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_IMPORT_ENCRYPTED_KEY_IMAGES
+  {
+    struct request_t
+    {
+      uint32_t offset;
+      std::string encrypted_key_images_blob;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(offset, (uint32_t)0)
+        KV_SERIALIZE(encrypted_key_images_blob)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      uint64_t height;
+      uint64_t spent;
+      uint64_t unspent;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(height)
+        KV_SERIALIZE(spent)
+        KV_SERIALIZE(unspent)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct uri_spec
   {
     std::string address;
@@ -2333,7 +2387,7 @@ namespace wallet_rpc
     };
     typedef epee::misc_utils::struct_init<response_t> response;
   };
-  
+
   struct COMMAND_RPC_IS_MULTISIG
   {
     struct request_t
