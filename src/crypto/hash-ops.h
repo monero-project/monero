@@ -100,6 +100,7 @@ bool is_branch_in_tree(const char hash[HASH_SIZE], const char root[HASH_SIZE], c
 #define RX_BLOCK_VERSION	12
 #define RX_VARIANT_1       1
 #define RX_VARIANT_2       2
+#define RX_VARIANT_LATEST  0
 void rx_slow_hash_allocate_state(void);
 void rx_slow_hash_free_state(void);
 uint64_t rx_seedheight(const uint64_t height);

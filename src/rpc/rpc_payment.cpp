@@ -234,16 +234,14 @@ namespace cryptonote
 
     block = is_current ? info.block : info.previous_block;
     *(uint32_t*)(hashing_blob.data() + 39) = SWAP32LE(nonce);
-    if (block.major_version >= RX_BLOCK_VERSION)
-    {
-      const crypto::hash &seed_hash = is_current ? info.seed_hash : info.previous_seed_hash;
-      crypto::rx_slow_hash(seed_hash.data, RX_VARIANT_1, hashing_blob.data(), hashing_blob.size(), hash.data);
-    }
-    else
-    {
-      const int cn_variant = hashing_blob[0] >= 7 ? hashing_blob[0] - 6 : 0;
-      crypto::cn_slow_hash(hashing_blob.data(), hashing_blob.size(), hash, cn_variant, cryptonote::get_block_height(block));
-    }
+    const crypto::hash &seed_hash = is_current ? info.seed_hash : info.previous_seed_hash;
+    crypto::hash intermediate_hash;
+    hash = get_block_longhash(hashing_blob,
+      cryptonote::get_block_height(block),
+      block.major_version,
+      seed_hash,
+      intermediate_hash);
+
     if (!check_hash(hash, m_diff))
     {
       MWARNING("Payment too low");

@@ -136,6 +136,28 @@ static inline int enabled_flags(void) {
   return flags;
 }
 
+static randomx_flags get_variant_flags(const int variant) {
+  switch (variant)
+  {
+  case RX_VARIANT_1:
+    break;
+  case RX_VARIANT_LATEST:
+  case RX_VARIANT_2:
+    return RANDOMX_FLAG_V2;
+  default:
+    local_abort("Unrecognized RandomX variant");
+  }
+
+  return RANDOMX_FLAG_DEFAULT;
+}
+
+static void rx_destroy_vm(randomx_vm** vm) {
+  if (*vm) {
+    randomx_destroy_vm(*vm);
+    *vm = NULL;
+  }
+}
+
 #define SEEDHASH_EPOCH_BLOCKS	2048	/* Must be same as BLOCKS_SYNCHRONIZING_MAX_COUNT in cryptonote_config.h */
 #define SEEDHASH_EPOCH_LAG		64
 
@@ -252,11 +274,17 @@ static void rx_init_full_vm(const int variant, randomx_vm** vm, int* vm_variant)
   else if (*vm && variant == *vm_variant) {
     return;
   }
+  else if (*vm)
+  {
+    // VM is already constructed, but has wrong variant
+    rx_destroy_vm(vm);
+  }
 
   randomx_flags flags = enabled_flags();
   if ((flags & RANDOMX_FLAG_JIT) && !miner_thread) {
     flags |= RANDOMX_FLAG_SECURE;
   }
+  flags |= get_variant_flags(variant);
 
   *vm = randomx_create_vm((flags | RANDOMX_FLAG_LARGE_PAGES | RANDOMX_FLAG_FULL_MEM) & ~disabled_flags(), NULL, main_dataset);
   *vm_variant = variant;
@@ -279,11 +307,17 @@ static void rx_init_light_vm(const int variant, randomx_vm** vm, int* vm_variant
     randomx_vm_set_cache(*vm, cache);
     return;
   }
+  else if (*vm)
+  {
+    // VM is already constructed, but has wrong variant
+    rx_destroy_vm(vm);
+  }
 
   randomx_flags flags = enabled_flags();
   if ((flags & RANDOMX_FLAG_JIT) && !miner_thread) {
     flags |= RANDOMX_FLAG_SECURE;
   }
+  flags |= get_variant_flags(variant);
 
   flags &= ~RANDOMX_FLAG_FULL_MEM;
 
@@ -524,13 +558,6 @@ uint32_t rx_get_miner_thread() {
 }
 
 void rx_slow_hash_allocate_state() {}
-
-static void rx_destroy_vm(randomx_vm** vm) {
-  if (*vm) {
-    randomx_destroy_vm(*vm);
-    *vm = NULL;
-  }
-}
 
 void rx_slow_hash_free_state() {
   rx_destroy_vm(&main_vm_full);

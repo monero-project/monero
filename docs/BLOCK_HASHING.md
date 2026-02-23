@@ -3,7 +3,7 @@
 ## Background
 
 In Bitcoin, block IDs and Proof-of-Work (PoW) hashes are calculated the same way, which is why on-chain block IDs always start
-with many 0s. However, in Monero, block IDs and PoW hashes are calcuated using different hash functions and slightly different
+with many 0s. However, in Monero, block IDs and PoW hashes are calculated using different hash functions and slightly different
 inputs. This is because the hash functions used for PoW (CryptoNight and RandomX) are much slower to run than other
 cryptographic hash functions, specifically Keccak256, which Monero uses for block IDs. By contrast, Bitcoin uses SHA-256 for
 both block IDs and PoW. The reason that CryptoNight and RandomX were chosen for PoW in Monero is to protect against
@@ -45,7 +45,7 @@ The way that the hashes are calculated allows us to do partial PoW verification 
 ![Partial RandomX verification data flow](resources/partial-pow-verify-data-flow.png)
 
 A node can be given simply the block header, block content hash, and intermediate PoW hash, and verify that some PoW was done
-using only `randomx_calculate_commitment()` (Blake2B undernath). Passing this partial verification requires PoW to done using
+using only `randomx_calculate_commitment()` (Blake2B underneath). Passing this partial verification requires PoW to be done using
 Blake2B up to the relevant difficulty. While doing so is much easier than doing the full RandomX PoW, it still requires
 significant work. It is very important that we can calculate the block ID from the same information (or a subset thereof)
 that we calculate PoW from, since each block header contains the previous block ID. Binding the block headers as such makes
