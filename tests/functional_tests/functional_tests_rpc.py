@@ -12,7 +12,7 @@ import time
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
 DEFAULT_TESTS = [
   'address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution',
-  'http_digest_auth', 'integrated_address', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs',
+  'http_digest_auth', 'integrated_address', 'is_key_image_spent', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs',
   'rpc_payment', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
 ]
 try:
