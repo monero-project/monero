@@ -172,7 +172,7 @@ bool install_service(
   )
 {
   std::string command = epee::string_tools::get_current_module_path();
-  std::string full_command = command + arguments;
+  std::string full_command = "\"" + command + "\"" + arguments;
 
   service_handle p_manager{
     OpenSCManager(
