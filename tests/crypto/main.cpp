@@ -194,11 +194,11 @@ int main(int argc, char *argv[]) {
       if (expected != actual) {
         goto error;
       }
-    } else if (cmd == "hash_to_ec") {
+    } else if (cmd == "biased_hash_to_ec") {
       public_key key;
       ec_point expected, actual;
       get(input, key, expected);
-      hash_to_ec(key, actual);
+      biased_hash_to_ec(key, actual);
       if (expected != actual) {
         goto error;
       }
@@ -285,6 +285,15 @@ int main(int argc, char *argv[]) {
         goto error;
       }
       if (expected_wei_x != actual_wei_x || expected_wei_y != actual_wei_y) {
+        goto error;
+      }
+    } else if (cmd == "derive_key_image_generator") {
+      public_key point;
+      bool biased;
+      ec_point expected_result, actual_result;
+      get(input, point, biased, expected_result);
+      crypto::derive_key_image_generator(point, biased, actual_result);
+      if (expected_result != actual_result) {
         goto error;
       }
     } else {

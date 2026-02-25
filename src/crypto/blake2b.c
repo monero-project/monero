@@ -36,6 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "memwipe.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -280,9 +281,12 @@ int blake2b_init_key(blake2b_state *S, size_t outlen, const void *key, size_t ke
 		uint8_t block[BLAKE2B_BLOCKBYTES];
 		memset(block, 0, BLAKE2B_BLOCKBYTES);
 		memcpy(block, key, keylen);
-		blake2b_update(S, block, BLAKE2B_BLOCKBYTES);
+		int r = blake2b_update(S, block, BLAKE2B_BLOCKBYTES);
 		/* Burn the key from stack */
 		clear_internal_memory(block, BLAKE2B_BLOCKBYTES);
+		if (r < 0) {
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -514,5 +518,74 @@ fail:
 #undef TRY
 }
 /* Argon2 Team - End Code */
+
+int blake2b_monero(void *out, size_t outlen, const void *in, size_t inlen,
+	const void *key, size_t keylen) {
+	// At this time, we expect all Monero-based callers to use a keylen=32
+	// if a key is included. If a caller wants to use a key and keylen != 32,
+	// just remove this assert (and #include <assert.h>).
+	assert(keylen == 0 || keylen == 32);
+
+	static const uint8_t PERSONAL[BLAKE2B_PERSONALBYTES] = {'M', 'o', 'n', 'e', 'r', 'o'};
+
+	blake2b_param P;
+	blake2b_state S;
+	int ret = -1;
+
+	/* Verify parameters */
+	if (NULL == in && inlen > 0) {
+		goto fail;
+	}
+
+	if (NULL == out || outlen == 0 || outlen > BLAKE2B_OUTBYTES) {
+		goto fail;
+	}
+
+	if ((NULL == key && keylen > 0) || keylen > BLAKE2B_KEYBYTES) {
+		goto fail;
+	}
+
+	if (NULL != key && keylen == 0) {
+		goto fail;
+	}
+
+	/* Setup Parameter Block */
+	P.digest_length = (uint8_t)outlen;
+	P.key_length = (uint8_t)keylen;
+	P.fanout = 1;
+	P.depth = 1;
+	P.leaf_length = 0;
+	P.node_offset = 0;
+	P.node_depth = 0;
+	P.inner_length = 0;
+	memset(P.reserved, 0, sizeof(P.reserved));
+	memset(P.salt, 0, sizeof(P.salt));
+	memcpy(P.personal, PERSONAL, sizeof(PERSONAL));
+
+	if (blake2b_init_param(&S, &P) < 0) {
+		goto fail;
+	}
+
+	if (NULL != key) {
+		uint8_t block[BLAKE2B_BLOCKBYTES];
+		memset(block, 0, BLAKE2B_BLOCKBYTES);
+		memcpy(block, key, keylen);
+		int r = blake2b_update(&S, block, BLAKE2B_BLOCKBYTES);
+		/* Burn the key from stack */
+		clear_internal_memory(block, BLAKE2B_BLOCKBYTES);
+		if (r < 0) {
+			goto fail;
+		}
+	}
+
+	if (blake2b_update(&S, in, inlen) < 0) {
+		goto fail;
+	}
+	ret = blake2b_final(&S, out, outlen);
+
+fail:
+	clear_internal_memory(&S, sizeof(S));
+	return ret;
+}
 
 /// END: blake2b.c
