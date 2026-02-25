@@ -190,11 +190,11 @@ int main(int argc, char *argv[]) {
       if (expected != actual) {
         goto error;
       }
-    } else if (cmd == "hash_to_ec") {
+    } else if (cmd == "biased_hash_to_ec") {
       public_key key;
       ec_point expected, actual;
       get(input, key, expected);
-      hash_to_ec(key, actual);
+      biased_hash_to_ec(key, actual);
       if (expected != actual) {
         goto error;
       }
