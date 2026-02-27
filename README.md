@@ -203,6 +203,10 @@ Install all dependencies at once on Fedora:
 sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel xz-devel readline-devel expat-devel ccache doxygen graphviz qt5-linguist hidapi-devel libusbx-devel protobuf-devel protobuf-compiler systemd-devel
 ```
 
+Install all dependencies at once on Fedora:
+
+```dnf install systemd-devel protobuf-compiler protobuf-devel libusbx-devel hidapi-devel qt5-linguist graphviz doxygen ccache gtest-devel expat-devel ldns-devel readline-devel xz-devel  libunwind-devel libsodium-devel unbound-devel openpgm-devel zeromq-devel openssl-devel boost-devel pkgconf cmake gcc```
+
 Install all dependencies at once on openSUSE:
 
 ```
