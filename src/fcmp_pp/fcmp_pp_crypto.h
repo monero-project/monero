@@ -37,10 +37,21 @@ extern "C"
 namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
+// Field elems needed to get wei x and y coords
+struct EdDerivatives final
+{
+    fe one_plus_y;
+    fe one_minus_y;
+    fe one_minus_y_mul_x;
+};
 //----------------------------------------------------------------------------------------------------------------------
 bool mul8_is_identity(const ge_p3 &point);
 crypto::ec_point clear_torsion(const ge_p3 &point);
 bool get_valid_torsion_cleared_point(const crypto::ec_point &point, crypto::ec_point &torsion_cleared_out);
+// TODO: tests for these functions
+bool point_to_ed_derivatives(const crypto::ec_point &pub, EdDerivatives &ed_derivatives);
+bool ed_derivatives_to_wei_x_y(const EdDerivatives &ed_derivatives, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y);
+bool point_to_wei_x_y(const crypto::ec_point &pub, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
