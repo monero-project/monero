@@ -66,5 +66,51 @@ bool get_valid_torsion_cleared_point(const crypto::ec_point &point, crypto::ec_p
     return true;
 }
 //----------------------------------------------------------------------------------------------------------------------
+bool point_to_ed_derivatives(const crypto::ec_point &pub, EdDerivatives &ed_derivatives) {
+    if (pub == crypto::EC_I)
+        return false;
+    // fe y;
+    ge_p3 p3;
+    if (ge_frombytes_vartime(&p3, to_bytes(pub)) != 0)
+        return false;
+    fe one;
+    fe_1(one);
+    // (1+y),(1-y)
+    fe_add(ed_derivatives.one_plus_y, one, p3.Y);
+    fe_sub(ed_derivatives.one_minus_y, one, p3.Y);
+    // (1-y) * x
+    fe_mul(ed_derivatives.one_minus_y_mul_x, ed_derivatives.one_minus_y, p3.X);
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool ed_derivatives_to_wei_x_y(const EdDerivatives &ed_derivatives, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y) {
+    static const int N_ELEMS = 2;
+
+    // Get inverse of (1-y) and ((1-y)*x)
+    std::unique_ptr<fe[]> fe_batch = std::make_unique<fe[]>(N_ELEMS);
+    std::unique_ptr<fe[]> inv_res = std::make_unique<fe[]>(N_ELEMS);
+
+    memcpy(&fe_batch[0], &ed_derivatives.one_minus_y, sizeof(fe));
+    memcpy(&fe_batch[1], &ed_derivatives.one_minus_y_mul_x, sizeof(fe));
+
+    fe_batch_invert(inv_res.get(), fe_batch.get(), N_ELEMS);
+
+    fe_ed_derivatives_to_wei_x_y(
+        to_bytes(wei_x),
+        to_bytes(wei_y),
+        inv_res[0]/*(1/(1-y))*/,
+        ed_derivatives.one_plus_y,
+        inv_res[1]/*(1/((1-y)*x))*/);
+
+    return true;
+}
+//----------------------------------------------------------------------------------------------------------------------
+bool point_to_wei_x_y(const crypto::ec_point &pub, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y) {
+    EdDerivatives ed_derivatives;
+    if (!point_to_ed_derivatives(pub, ed_derivatives))
+        return false;
+    return ed_derivatives_to_wei_x_y(ed_derivatives, wei_x, wei_y);
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

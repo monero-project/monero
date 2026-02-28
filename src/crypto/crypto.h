@@ -60,6 +60,11 @@ namespace crypto {
     char data[32];
   };
 
+  // x or y coordinate
+  POD_CLASS ec_coord {
+    char data[32];
+  };
+
   POD_CLASS public_key: ec_point {
     friend class crypto_ops;
   };
@@ -352,6 +357,8 @@ inline unsigned char* to_bytes(crypto::ec_scalar &scalar) { return &reinterpret_
 inline const unsigned char* to_bytes(const crypto::ec_scalar &scalar) { return &reinterpret_cast<const unsigned char&>(scalar); }
 inline unsigned char* to_bytes(crypto::ec_point &point) { return &reinterpret_cast<unsigned char&>(point); }
 inline const unsigned char* to_bytes(const crypto::ec_point &point) { return &reinterpret_cast<const unsigned char&>(point); }
+inline unsigned char* to_bytes(crypto::ec_coord &coord) { return &reinterpret_cast<unsigned char&>(coord); }
+inline const unsigned char* to_bytes(const crypto::ec_coord &coord) { return &reinterpret_cast<const unsigned char&>(coord); }
 
 CRYPTO_MAKE_HASHABLE(ec_point)
 CRYPTO_MAKE_HASHABLE(public_key)

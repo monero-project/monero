@@ -495,3 +495,27 @@ TEST(Crypto, fe_equals)
   ASSERT_NE(memcmp(fe_d2_reduced, fe_d2, sizeof(fe)), 0);
   ASSERT_EQ(fe_equals(fe_d2_reduced, fe_d2), 1);
 }
+
+TEST(Crypto, fe_constants)
+{
+  // A / 3
+  fe inv_3;
+  static const fe fe_3{3, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  fe_invert(inv_3, fe_3);
+  fe a_inv_3;
+  fe_mul(a_inv_3, fe_a, inv_3);
+
+  // c = sqrt(-(A + 2))
+  // Since sqrt isn't implemented, instead showing: c^2 = -(A + 2)
+  // TODO: test fe_c directly once sqrt is implemented
+  fe c_sq;
+  fe_sq(c_sq, fe_c);
+  // -(A + 2) = -A - 2
+  static const fe fe_2{2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  fe ma_sub_2;
+  fe_sub(ma_sub_2, fe_ma, fe_2);
+  fe_reduce_vartime(ma_sub_2, ma_sub_2);
+
+  ASSERT_TRUE(memcmp(fe_a_inv_3, a_inv_3,  sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(c_sq,       ma_sub_2, sizeof(fe)) == 0);
+}

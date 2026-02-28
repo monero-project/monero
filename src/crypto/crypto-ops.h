@@ -138,12 +138,15 @@ void ge_triple_scalarmult_precomp_vartime(ge_p2 *, const unsigned char *, const 
 void ge_double_scalarmult_precomp_vartime2(ge_p2 *, const unsigned char *, const ge_dsmp, const unsigned char *, const ge_dsmp);
 void ge_double_scalarmult_precomp_vartime2_p3(ge_p3 *, const unsigned char *, const ge_dsmp, const unsigned char *, const ge_dsmp);
 void ge_mul8(ge_p1p1 *, const ge_p2 *);
+extern const fe fe_a;
 extern const fe fe_ma2;
 extern const fe fe_ma;
 extern const fe fe_fffb1;
 extern const fe fe_fffb2;
 extern const fe fe_fffb3;
 extern const fe fe_fffb4;
+extern const fe fe_a_inv_3;
+extern const fe fe_c;
 extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
@@ -174,8 +177,14 @@ If `out` and `in` overlap, it will cause undefined output.
 **/
 void fe_batch_invert(fe *out, const fe *in, const int n);
 void fe_mul(fe out, const fe, const fe);
+void fe_neg(fe h, const fe f);
+void fe_sq(fe h, const fe f);
+void fe_sub(fe h, const fe f, const fe g);
 void fe_0(fe h);
+void fe_1(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
+
+void fe_ed_derivatives_to_wei_x_y(unsigned char *, unsigned char *, const fe, const fe, const fe);
 
 int fe_reduce_vartime(fe reduced_f, const fe f);
