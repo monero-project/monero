@@ -227,7 +227,7 @@ namespace
   const char* USAGE_CHECK_RESERVE_PROOF("check_reserve_proof <address> <signature_file> [<message>]");
   const char* USAGE_SHOW_TRANSFERS("show_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]]");
   const char* USAGE_UNSPENT_OUTPUTS("unspent_outputs [index=<N1>[,<N2>,...]] [<min_amount> [<max_amount>]]");
-  const char* USAGE_RESCAN_BC("rescan_bc [hard|soft|keep_ki] [start_height=0]");
+  const char* USAGE_RESCAN_BC("rescan_bc [soft|hard|keep_ki] [start_height=0]");
   const char* USAGE_SET_TX_NOTE("set_tx_note <txid> [free text note]");
   const char* USAGE_GET_TX_NOTE("get_tx_note <txid>");
   const char* USAGE_GET_DESCRIPTION("get_description");
@@ -3426,7 +3426,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("rescan_bc",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::rescan_blockchain, _1),
                            tr(USAGE_RESCAN_BC),
-                           tr("Rescan the blockchain from scratch. If \"hard\" is specified, you will lose any information which can not be recovered from the blockchain itself."));
+                           tr("Rescan the blockchain from scratch, defaulting to \"soft\". If \"hard\" is specified, you will lose any information which can not be recovered from the blockchain itself."));
   m_cmd_binder.set_handler("set_tx_note",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::set_tx_note, _1),
                            tr(USAGE_SET_TX_NOTE),
@@ -9036,6 +9036,15 @@ bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
     message_writer() << tr("Warning: this will lose any information which can not be recovered from the blockchain.");
     message_writer() << tr("This includes destination addresses, tx secret keys, tx notes, etc");
     std::string confirm = input_line(tr("Rescan anyway?"), true);
+    if(!std::cin.eof())
+    {
+      if (!command_line::is_yes(confirm))
+        return true;
+    }
+  }
+  else
+  {
+    std::string confirm = input_line(tr("Rescan the blockchain from the wallet's restore height?"), true);
     if(!std::cin.eof())
     {
       if (!command_line::is_yes(confirm))
