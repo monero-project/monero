@@ -1,9 +1,9 @@
-ANDROID_API=21
+android_version=28
 
 ifeq ($(host_arch),arm)
-host_toolchain=armv7a-linux-androideabi$(ANDROID_API)-
+host_toolchain=armv7a-linux-androideabi$(android_version)-
 else ifeq ($(host_arch),aarch64)
-host_toolchain=aarch64-linux-android$(ANDROID_API)-
+host_toolchain=aarch64-linux-android$(android_version)-
 endif
 
 clear_guix_env=env -u C_INCLUDE_PATH -u CPLUS_INCLUDE_PATH \
