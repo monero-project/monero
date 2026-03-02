@@ -9,7 +9,7 @@ template class nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<c
 struct DummyProtocol : public cryptonote::i_cryptonote_protocol {
 public:
   bool is_synchronized() const;
-  bool relay_transactions(cryptonote::NOTIFY_NEW_TRANSACTIONS::request&, const boost::uuids::uuid&, epee::net_utils::zone, cryptonote::relay_method);
+  bool relay_transactions(cryptonote::NOTIFY_NEW_TRANSACTIONS::request&, std::vector<crypto::hash>&&, const boost::uuids::uuid&, epee::net_utils::zone, cryptonote::relay_method) override;
   bool relay_block(cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request&, cryptonote::cryptonote_connection_context&);
 };
 

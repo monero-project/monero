@@ -123,10 +123,11 @@ namespace cryptonote
       * @param tvc metadata about the transaction's validity
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
+      * @param txid return by reference
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed, crypto::hash& txid);
 
     /**
       * @brief handles a single incoming block
@@ -896,13 +897,13 @@ namespace cryptonote
      void flush_invalid_blocks();
 
      /**
-      * @brief returns the set of transactions in the txpool which are not in the argument
+      * @brief returns the set of transaction hashes in the txpool which are not in the argument
       *
       * @param hashes hashes of transactions to exclude from the result
       *
       * @return true iff success, false otherwise
       */
-     bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes);
+     bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<crypto::hash> &inv_txes);
 
      /**
       * @brief validates some simple properties of a transaction
