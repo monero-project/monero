@@ -120,7 +120,7 @@ public:
   bool is_within_compiled_block_hash_area(uint64_t height) const { return false; }
   bool has_block_weights(uint64_t height, uint64_t nblocks) const { return false; }
   bool check_block_weights(uint64_t height, const std::vector<cryptonote::block_complete_entry> &blocks) const { return false; }
-  bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) { return false; }
+  bool get_txpool_complement(std::vector<crypto::hash> hashes, std::vector<crypto::hash> &inv_txes) { return false; }
   bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const { return false; }
   crypto::hash get_block_id_by_height(uint64_t height) const { return crypto::null_hash; }
   void stop() {}
