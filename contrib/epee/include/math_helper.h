@@ -27,6 +27,8 @@
 #pragma once
 
 #include <cstdint> // uint64_t
+#include <cstdlib> // NULL
+#include <utility>
 
 #ifdef _WIN32
 #include <sysinfoapi.h> // GetSystemTimeAsFileTime
@@ -41,6 +43,7 @@ namespace math_helper
 	template<typename get_interval, bool start_immediate = true>
 	class once_a_time
 	{
+    get_interval m_get_interval;
     uint64_t get_time() const
     {
 #ifdef _WIN32
@@ -61,11 +64,12 @@ namespace math_helper
 
     void set_next_interval()
     {
-      m_interval = get_interval()();
+      m_interval = m_get_interval();
     }
 
 	public:
-		once_a_time()
+    once_a_time(get_interval gi = get_interval())
+    : m_get_interval(std::move(gi))
 		{
 			m_last_worked_time = 0;
       if(!start_immediate)

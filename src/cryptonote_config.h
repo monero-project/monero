@@ -146,6 +146,9 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define P2P_DEFAULT_PEERS_IN_HANDSHAKE                  250
 #define P2P_MAX_PEERS_IN_HANDSHAKE                      250
 #define P2P_DEFAULT_CONNECTION_TIMEOUT                  5000       //5 seconds
+#define P2P_DEFAULT_REQUEST_TIMEOUT                     (P2P_DEFAULT_CONNECTION_TIMEOUT*6) // 30 seconds
+#define P2P_QUEUED_REQUEST_TIMEOUT                      (P2P_DEFAULT_REQUEST_TIMEOUT*120) // 1 hour, for tx requests waiting to be sent
+#define P2P_MAX_QUEUED_REQUEST_MESSAGES                 4          // tx requests across all peers, in full tx hash messages
 #define P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT               45         // seconds
 #define P2P_DEFAULT_I2P_SAM_CONNECT_TIMEOUT             60         // seconds
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
@@ -156,6 +159,8 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
+#define P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE        70          // drop a peer if more than 70% of its tx request rounds time out
+#define P2P_MIN_SAMPLE_SIZE_FOR_DROPPING                5           // minimum number of completed tx request rounds
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_FAILED_SEED_ADDR_FORGET_SECONDS             (60*5)      //5 minutes
@@ -164,7 +169,8 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
 #define P2P_SUPPORT_FLAG_FLUFFY_BLOCKS                  0x01
-#define P2P_SUPPORT_FLAGS                               P2P_SUPPORT_FLAG_FLUFFY_BLOCKS
+#define P2P_SUPPORT_FLAG_TX_RELAY_V2                    0x02
+#define P2P_SUPPORT_FLAGS                               (P2P_SUPPORT_FLAG_FLUFFY_BLOCKS | P2P_SUPPORT_FLAG_TX_RELAY_V2)
 
 #define RPC_IP_FAILS_BEFORE_BLOCK                       3
 
