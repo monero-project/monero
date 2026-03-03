@@ -178,7 +178,7 @@ struct view_balance_secret_device
 struct generate_address_secret_device
 {
     /**
-    * brief: make_index_extension_generator - make carrot index extension generator s^j_gen
+    * brief: make carrot address index preimage 1 s^j_ap1
     *   s^j_ap1 = H_32[s_ga](j_major, j_minor)
     * param: major_index - j_major
     * param: minor_index - j_minor
