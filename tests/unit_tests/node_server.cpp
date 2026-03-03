@@ -608,7 +608,7 @@ TEST(cryptonote_protocol_handler, race_condition)
         core_protocol->on_connection_close(context);
     }
     virtual ~net_node_t() override {}
-    virtual bool add_host_fail(const address_t&, unsigned int = {}) override {
+    virtual bool add_host_fail(const address_t&, unsigned int = {}, bool = {}) override {
       return {};
     }
     virtual bool block_host(address_t address, time_t = {}, bool = {}) override {

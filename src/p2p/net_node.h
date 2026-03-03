@@ -350,7 +350,7 @@ namespace nodetool
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
     virtual bool for_connection(const boost::uuids::uuid&, std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
-    virtual bool add_host_fail(const epee::net_utils::network_address &address, unsigned int score = 1);
+    virtual bool add_host_fail(const epee::net_utils::network_address &address, unsigned int score = 1, bool block_light = false);
     //----------------- i_connection_filter  --------------------------------------------------------
     virtual bool is_remote_host_allowed(const epee::net_utils::network_address &address, time_t *t = NULL);
     //----------------- i_connection_limit  ---------------------------------------------------------
@@ -509,6 +509,7 @@ namespace nodetool
 
     epee::critical_section m_host_fails_score_lock;
     std::map<std::string, uint64_t> m_host_fails_score;
+    std::map<std::string, uint64_t> m_host_fails_score_light;
 
     boost::mutex m_used_stripe_peers_mutex;
     std::array<std::list<epee::net_utils::network_address>, 1 << CRYPTONOTE_PRUNING_LOG_STRIPES> m_used_stripe_peers;

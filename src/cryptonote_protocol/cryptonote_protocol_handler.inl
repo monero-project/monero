@@ -1544,7 +1544,7 @@ namespace cryptonote
 
             if(bvc.m_verifivation_failed)
             {
-              drop_connections(span_origin);
+              drop_connections(span_origin, /* score */ 5, bvc.m_failed_checkpoint);
               if (!m_p2p->for_connection(span_connection_id, [&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
                 LOG_PRINT_CCONTEXT_L1("Block verification failed, dropping connection");
                 drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, true);
@@ -2849,11 +2849,11 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  void t_cryptonote_protocol_handler<t_core>::drop_connections(const epee::net_utils::network_address address)
+  void t_cryptonote_protocol_handler<t_core>::drop_connections(const epee::net_utils::network_address address, unsigned score, bool block_light)
   {
     MWARNING("dropping connections to " << address.str());
 
-    m_p2p->add_host_fail(address, 5);
+    m_p2p->add_host_fail(address, score, block_light);
 
     std::vector<boost::uuids::uuid> drop;
     m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags) {
