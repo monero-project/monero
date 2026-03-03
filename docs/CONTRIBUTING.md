@@ -137,7 +137,7 @@ C4 is meant to provide a reusable optimal collaboration model for open source so
 - Patches MUST NOT be committed directly to the project.
 - To discuss a patch, people MAY comment on the Platform pull request, on the commit, or elsewhere.
 - To accept or reject a patch, a Maintainer MUST use the Platform interface.
-- Maintainers SHOULD NOT merge their own patches unless they were added to the merge queue on irc and have at least 3 approvals from contributors OR unless urgent as defined by the Monero Maintainers Team.
+- Maintainers SHOULD NOT merge their own patches unless they were added to the merge queue on irc and have at least 2 approvals from contributors OR unless urgent as defined by the Monero Maintainers Team.
 - Maintainers MUST NOT make value judgments on correct patches unless the Maintainer (as may happen in rare circumstances) is a core code developer.
 - Maintainers MUST NOT merge pull requests in less than 168 hours (1 week) unless deemed urgent by at least 2 Maintainers.
 - The Contributor MAY tag an issue as "Ready" after making a pull request for the issue.
