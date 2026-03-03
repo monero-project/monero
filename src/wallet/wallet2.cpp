@@ -2303,8 +2303,9 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   PERF_TIMER(process_new_transaction);
   // In this function, tx (probably) only contains the base information
   // (that is, the prunable stuff may or may not be included)
+  confirmed_transfer_details* just_confirmed = nullptr;
   if (!miner_tx && !pool)
-    process_unconfirmed(txid, tx, height);
+    just_confirmed = process_unconfirmed(txid, tx, height);
 
   // per receiving subaddress index
   std::unordered_map<cryptonote::subaddress_index, uint64_t> tx_money_got_in_outs;
@@ -2832,6 +2833,11 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     else
       ++i;
   }
+  // Update the "change" value in the confirmed details to include everything we sent to ourselves
+  // as changed so that we properly reflect net output amounts when reporting transfer details.
+  if (just_confirmed && sub_change > 0)
+      just_confirmed->m_change = sub_change;
+
 
   // create payment_details for each incoming transfer to a subaddress index
   if (tx_money_got_in_outs.size() > 0)
@@ -2934,16 +2940,23 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_unconfirmed(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height)
-{
-  if (m_unconfirmed_txs.empty())
-    return;
+// Called when processing incoming txes; if we find the given txid in the unconfirmed txes set then
+// we move it into confirmed txs, and return a pointer to the new confirmed details struct; the
+// amounts in it may need to be updated needs to have any tx outputs that come back to ourself
+// removed (because the unconfirmed_tx does not know whether the values are to itself or not, and so
+// will currently contain an amount set to the sum of all outputs other than the implicit change
+// output).
 
+wallet2::confirmed_transfer_details* wallet2::process_unconfirmed(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height)
+{
+  confirmed_transfer_details* ctd = nullptr;
   auto unconf_it = m_unconfirmed_txs.find(txid);
   if(unconf_it != m_unconfirmed_txs.end()) {
     if (store_tx_info()) {
       try {
-        m_confirmed_txs.insert(std::make_pair(txid, confirmed_transfer_details(unconf_it->second, height)));
+        auto ins = m_confirmed_txs.insert(std::make_pair(txid, confirmed_transfer_details(unconf_it->second, height)));
+        if (ins.second)
+          ctd = &ins.first->second;
       }
       catch (...) {
         // can fail if the tx has unexpected input types
@@ -2952,6 +2965,7 @@ void wallet2::process_unconfirmed(const crypto::hash &txid, const cryptonote::tr
     }
     m_unconfirmed_txs.erase(unconf_it);
   }
+  return ctd;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_outgoing(const crypto::hash &txid, const cryptonote::transaction &tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received, uint32_t subaddr_account, const std::set<uint32_t>& subaddr_indices)
