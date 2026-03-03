@@ -257,7 +257,7 @@ namespace nodetool
         m_offline(false),
         is_closing(false),
         m_network_id(),
-        m_enable_dns_seed_nodes(true),
+        m_enable_dns_seed_nodes(false),
         max_connections(1)
     {}
     virtual ~node_server();
