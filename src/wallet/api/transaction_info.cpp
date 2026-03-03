@@ -35,12 +35,6 @@ using namespace std;
 
 namespace Monero {
 
-TransactionInfo::~TransactionInfo() {}
-
-TransactionInfo::Transfer::Transfer(uint64_t _amount, const string &_address)
-    : amount(_amount), address(_address) {}
-
-
 TransactionInfoImpl::TransactionInfoImpl()
     : m_direction(Direction_Out)
       , m_pending(false)
