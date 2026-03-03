@@ -880,6 +880,11 @@ void BlockchainLMDB::remove_block()
   if ((result = mdb_cursor_del(m_cur_block_heights, 0)))
       throw1(DB_ERROR(lmdb_error("Failed to add removal of block height by hash to db transaction: ", result).c_str()));
 
+  MDB_val block_val;
+  // Use MDB_SET to position the cursor directly at the key
+  // If this fails, the DB is inconsistent (info/height exists, but block data doesn't)
+  if ((result = mdb_cursor_get(m_cur_blocks, &k, &block_val, MDB_SET)))
+          throw1(DB_ERROR(lmdb_error("Failed to locate block data for removal: ", result).c_str()));
   if ((result = mdb_cursor_del(m_cur_blocks, 0)))
       throw1(DB_ERROR(lmdb_error("Failed to add removal of block to db transaction: ", result).c_str()));
 
