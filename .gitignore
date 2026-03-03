@@ -122,3 +122,7 @@ nbproject
 __pycache__/
 *.pyc
 *.log
+
+# virtualenv
+venv/
+.venv/
