@@ -2331,11 +2331,17 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
+    if (req.hard && req.keep_key_images)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Cannot preserve key images on hard rescan";
+      return false;
+    }
     CHECK_IF_BACKGROUND_SYNCING();
 
     try
     {
-      m_wallet->rescan_blockchain(req.hard);
+      m_wallet->rescan_blockchain(req.hard, true, req.keep_key_images);
     }
     catch (const std::exception& e)
     {
