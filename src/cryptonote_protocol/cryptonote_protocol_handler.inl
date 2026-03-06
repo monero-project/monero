@@ -997,6 +997,7 @@ namespace cryptonote
     {
       NOTIFY_NEW_TRANSACTIONS::request request = {};
       request.txs = std::move(txs);
+      request.dandelionpp_fluff = true;
       pad_tx_request(request);
       post_notify<NOTIFY_NEW_TRANSACTIONS>(request, context);
     }
