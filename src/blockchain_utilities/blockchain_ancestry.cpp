@@ -507,6 +507,7 @@ int main(int argc, char* argv[])
     state.block_cache.reserve(db_height);
     for (uint64_t h = state.height; h < db_height; ++h)
     {
+      tools::signal_handler::dispatch();
       size_t block_ancestry_size = 0;
       const cryptonote::blobdata bd = db->get_block_blob_from_height(h);
       ++total_blocks;
@@ -664,6 +665,7 @@ int main(int argc, char* argv[])
     txids.push_back(start_txid);
     while (!txids.empty())
     {
+      tools::signal_handler::dispatch();
       const crypto::hash txid = txids.front();
       txids.pop_front();
 

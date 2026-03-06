@@ -3962,6 +3962,7 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   size_t current_index = m_blockchain.size();
   while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
+    tools::signal_handler::dispatch();
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() <= 3)
       return;
@@ -4140,6 +4141,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   bool first = true, last = false;
   while(m_run.load(std::memory_order_relaxed) && blocks_fetched < max_blocks)
   {
+    tools::signal_handler::dispatch();
     uint64_t next_blocks_start_height;
     std::vector<cryptonote::block_complete_entry> next_blocks;
     std::vector<parsed_block> next_parsed_blocks;

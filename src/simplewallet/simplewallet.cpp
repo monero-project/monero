@@ -9081,6 +9081,7 @@ void simple_wallet::wallet_idle_thread()
   const boost::posix_time::ptime start_time = boost::posix_time::microsec_clock::universal_time();
   while (true)
   {
+    tools::signal_handler::dispatch();
     boost::unique_lock<boost::mutex> lock(m_idle_mutex);
     if (!m_idle_run.load(std::memory_order_relaxed))
       break;
