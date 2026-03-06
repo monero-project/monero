@@ -1285,6 +1285,15 @@ namespace cryptonote
       }
     }
 
+    // Request the next span before processing blocks so the peer can
+    // prepare it while we are busy adding blocks to the chain.  With a
+    // single peer this turns download→process→download into pipelined I/O.
+    //
+    // Return value intentionally ignored: on failure m_expect_response
+    // stays 0 and try_add_next_blocks handles it via the original path
+    // at its skip: label.
+    request_missing_objects(context, true, false);
+
     try_add_next_blocks(context);
     return 1;
   }
@@ -1645,27 +1654,33 @@ namespace cryptonote
 
       MLOG_PEER_STATE("stopping adding blocks");
 
-      if (should_download_next_span(context, false))
+      if (context.m_expect_response == 0)
       {
-        force_next_span = true;
-      }
-      else if (should_drop_connection(context, get_next_needed_pruning_stripe().first))
-      {
-        if (!context.m_is_income)
+        if (should_download_next_span(context, false))
         {
-          m_p2p->add_used_stripe_peer(context);
-          drop_connection(context, false, false);
+          force_next_span = true;
         }
-        return 1;
+        else if (should_drop_connection(context, get_next_needed_pruning_stripe().first))
+        {
+          if (!context.m_is_income)
+          {
+            m_p2p->add_used_stripe_peer(context);
+            drop_connection(context, false, false);
+          }
+          return 1;
+        }
       }
     }
 
 skip:
-    if (!request_missing_objects(context, true, force_next_span))
+    if (context.m_expect_response == 0)
     {
-      LOG_ERROR_CCONTEXT("Failed to request missing objects, dropping connection");
-      drop_connection(context, false, false);
-      return 1;
+      if (!request_missing_objects(context, true, force_next_span))
+      {
+        LOG_ERROR_CCONTEXT("Failed to request missing objects, dropping connection");
+        drop_connection(context, false, false);
+        return 1;
+      }
     }
     return 1;
   }
