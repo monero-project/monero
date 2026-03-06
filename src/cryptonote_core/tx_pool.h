@@ -116,6 +116,10 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      * @param valid_input_verification_id a previously valid verID if non-null
+     * @return True if first observation of tx OR `tx_relay == block`
+     *    OR `matches_category(tx_relay) == broadcasted` for first time. Thus
+     *    the return value is primarily an indicator when the tx should be
+     *    relayed via ZMQ-PUB.
      */
     bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
       size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
