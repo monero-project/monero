@@ -204,6 +204,7 @@ namespace tools
     const auto auto_refresh_evaluation_ms = std::chrono::milliseconds(200);
 
     m_net_server.add_idle_handler([=] { // Implicit capture of this-pointer deprecated in C++20.
+      tools::signal_handler::dispatch();
       const auto auto_refresh_period = m_auto_refresh_period.load(std::memory_order_relaxed);
       if (auto_refresh_period == 0) // disabled
         return true;
@@ -269,6 +270,7 @@ namespace tools
       return true;
     }, auto_refresh_evaluation_ms);
     m_net_server.add_idle_handler([this](){
+      tools::signal_handler::dispatch();
       if (m_stop.load(std::memory_order_relaxed))
       {
         send_stop_signal();

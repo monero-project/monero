@@ -1706,26 +1706,37 @@ namespace net_utils
     boost::unique_lock<boost::mutex> lock(local_shared_context->connect_mut);
     auto connect_callback = [](boost::system::error_code ec_, boost::shared_ptr<local_async_context> shared_context)
     {
-      shared_context->connect_mut.lock(); shared_context->ec = ec_; shared_context->cond.notify_one(); shared_context->connect_mut.unlock();
+      boost::lock_guard<boost::mutex> callback_lock(shared_context->connect_mut);
+      shared_context->ec = ec_;
+      shared_context->cond.notify_one();
     };
 
     sock_.async_connect(remote_endpoint, std::bind<void>(connect_callback, std::placeholders::_1, local_shared_context));
+    const auto deadline = boost::get_system_time() + boost::posix_time::milliseconds(conn_timeout);
     while(local_shared_context->ec == boost::asio::error::would_block)
     {
-      bool r = local_shared_context->cond.timed_wait(lock, boost::get_system_time() + boost::posix_time::milliseconds(conn_timeout));
       if (m_stop_signal_sent)
       {
+        boost::system::error_code ignored_ec;
+        sock_.cancel(ignored_ec);
         if (sock_.is_open())
           sock_.close();
         return CONNECT_FAILURE;
       }
-      if(local_shared_context->ec == boost::asio::error::would_block && !r)
+      const auto now = boost::get_system_time();
+      if (now >= deadline)
       {
-        //timeout
+        // timeout
         sock_.close();
         _dbg3("Failed to connect to " << adr << ":" << port << ", because of timeout (" << conn_timeout << ")");
         return CONNECT_FAILURE;
       }
+      const auto remaining = deadline - now;
+      const boost::posix_time::time_duration wait_step = std::min<boost::posix_time::time_duration>(
+        remaining,
+        boost::posix_time::milliseconds(100)
+      );
+      local_shared_context->cond.timed_wait(lock, now + wait_step);
     }
     ec = local_shared_context->ec;
 

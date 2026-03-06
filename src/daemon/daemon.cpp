@@ -197,7 +197,10 @@ bool t_daemon::run(bool interactive)
   std::atomic<bool> stop(false), shutdown(false);
   boost::thread stop_thread = boost::thread([&stop, &shutdown, this] {
     while (!stop)
+    {
+      tools::signal_handler::dispatch();
       epee::misc_utils::sleep_no_w(100);
+    }
     if (shutdown)
       this->stop_p2p();
   });
