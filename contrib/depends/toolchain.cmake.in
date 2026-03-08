@@ -13,7 +13,10 @@ SET(TREZOR_DEBUG @build_tests@)
 # where is the target environment 
 SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
 
-SET(ENV{PKG_CONFIG_PATH} @prefix@/lib/pkgconfig)
+# Isolate pkg-config to the depends prefix so host package metadata cannot leak
+# target include and library paths into cross-builds.
+SET(ENV{PKG_CONFIG_PATH} "")
+SET(ENV{PKG_CONFIG_LIBDIR} @prefix@/lib/pkgconfig)
 
 SET(Readline_ROOT_DIR @prefix@)
 SET(Readline_INCLUDE_DIR @prefix@/include)
@@ -49,6 +52,29 @@ SET(TARGET_OS @host_os@)
 set (CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER) # Find programs on host
 set (CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY) # Find libs in target
 set (CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY) # Find includes in target
+set (CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY) # Find packages in target
+
+# Prevent common host package manager prefixes from overriding depends-provided
+# libraries, headers, or package config metadata.
+list(APPEND CMAKE_IGNORE_PREFIX_PATH /opt/homebrew /usr/local /opt/local)
+list(APPEND CMAKE_SYSTEM_IGNORE_PREFIX_PATH /opt/homebrew /usr/local /opt/local)
+list(APPEND CMAKE_IGNORE_PATH
+  /opt/homebrew
+  /opt/homebrew/include
+  /opt/homebrew/lib
+  /opt/homebrew/share
+  /usr/local
+  /usr/local/include
+  /usr/local/lib
+  /usr/local/share
+  /opt/local
+  /opt/local/include
+  /opt/local/lib
+  /opt/local/share
+)
+
+set(CMAKE_FIND_USE_PACKAGE_REGISTRY FALSE)
+set(CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY FALSE)
 
 function(split_program input_string program arguments)
   # CMake < 3.19 only understands setting CMAKE_<LANG>_COMPILER using "<program>" "<arguments>".
