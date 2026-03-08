@@ -87,6 +87,7 @@ using namespace epee;
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
+#include <boost/thread/thread.hpp>
 #include <openssl/evp.h>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -117,14 +118,42 @@ static int flock_exnb(int fd)
 struct posix_signal_state
 {
   boost::asio::io_context io;
+  boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work;
   boost::asio::signal_set signals;
+  boost::thread worker;
   bool wait_active;
 
   posix_signal_state()
-    : io(), signals(io), wait_active(false)
+    : io(), work(boost::asio::make_work_guard(io)), signals(io), worker(), wait_active(false)
   {
     signals.add(SIGINT);
     signals.add(SIGTERM);
+  }
+
+  ~posix_signal_state()
+  {
+    try
+    {
+      signals.cancel();
+      work.reset();
+      io.stop();
+    }
+    catch (...)
+    {
+    }
+    try
+    {
+      if (worker.joinable())
+      {
+        if (worker.get_id() == boost::this_thread::get_id())
+          worker.detach();
+        else
+          worker.join();
+      }
+    }
+    catch (...)
+    {
+    }
   }
 };
 #endif
@@ -142,9 +171,26 @@ void arm_posix_wait();
 
 void handle_signal(int type)
 {
-  boost::lock_guard<boost::mutex> lock(signal_handler_handler_mutex);
-  if (signal_handler_handler)
-    signal_handler_handler(type);
+  std::function<void(int)> handler;
+  {
+    boost::lock_guard<boost::mutex> lock(signal_handler_handler_mutex);
+    handler = signal_handler_handler;
+  }
+  if (handler)
+  {
+    try
+    {
+      handler(type);
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("Exception in signal handler: " << e.what());
+    }
+    catch (...)
+    {
+      MERROR("Unknown exception in signal handler");
+    }
+  }
 }
 
 #if defined(WIN32)
@@ -166,19 +212,39 @@ BOOL WINAPI win_handler(DWORD type)
 #ifndef WIN32
 bool install_posix()
 {
+  std::shared_ptr<posix_signal_state> signal_state;
   try
   {
+    signal_state = std::make_shared<posix_signal_state>();
     {
       boost::lock_guard<boost::mutex> signal_lock(signal_handler_posix_mutex);
-      signal_handler_posix = std::make_shared<posix_signal_state>();
+      if (signal_handler_posix)
+        return true;
+      signal_handler_posix = signal_state;
     }
     arm_posix_wait();
+    posix_signal_state *raw_signal_state = signal_state.get();
+    signal_state->worker = boost::thread([raw_signal_state]() {
+      try
+      {
+        raw_signal_state->io.run();
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Signal processing thread failed: " << e.what());
+      }
+      catch (...)
+      {
+        MERROR("Signal processing thread failed");
+      }
+    });
   }
   catch (const std::exception &e)
   {
     MERROR("Failed to install signal handler: " << e.what());
     boost::lock_guard<boost::mutex> signal_lock(signal_handler_posix_mutex);
-    signal_handler_posix.reset();
+    if (signal_handler_posix == signal_state)
+      signal_handler_posix.reset();
     return false;
   }
   signal(SIGPIPE, SIG_IGN);
@@ -195,17 +261,36 @@ void arm_posix_wait()
     signal_handler_posix->wait_active = true;
     signal_state = signal_handler_posix;
   }
-  signal_state->signals.async_wait([signal_state](const boost::system::error_code& ec, int signal_number)
+  signal_state->signals.async_wait([weak_state = std::weak_ptr<posix_signal_state>(signal_state)](const boost::system::error_code& ec, int signal_number)
   {
+    try
     {
-      boost::lock_guard<boost::mutex> signal_lock(signal_handler_posix_mutex);
-      signal_state->wait_active = false;
+      const std::shared_ptr<posix_signal_state> signal_state = weak_state.lock();
+      if (!signal_state)
+        return;
+      {
+        boost::lock_guard<boost::mutex> signal_lock(signal_handler_posix_mutex);
+        signal_state->wait_active = false;
+      }
+      if (!ec)
+      {
+        handle_signal(signal_number);
+        arm_posix_wait();
+      }
+      else if (ec != boost::asio::error::operation_aborted)
+      {
+        MDEBUG("Signal wait error: " << ec.message());
+        arm_posix_wait();
+      }
     }
-    if (!ec)
-      handle_signal(signal_number);
-    else if (ec != boost::asio::error::operation_aborted)
-      MDEBUG("Signal wait error: " << ec.message());
-    arm_posix_wait();
+    catch (const std::exception &e)
+    {
+      MERROR("Exception while processing signal event: " << e.what());
+    }
+    catch (...)
+    {
+      MERROR("Unknown exception while processing signal event");
+    }
   });
 }
 #endif
@@ -259,15 +344,6 @@ namespace tools
 
   void signal_handler::dispatch()
   {
-#ifndef WIN32
-    std::shared_ptr<posix_signal_state> signal_state;
-    {
-      boost::lock_guard<boost::mutex> signal_lock(signal_handler_posix_mutex);
-      signal_state = signal_handler_posix;
-    }
-    if (signal_state)
-      signal_state->io.poll();
-#endif
   }
 
   private_file::private_file() noexcept : m_handle(), m_filename() {}
