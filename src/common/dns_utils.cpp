@@ -32,12 +32,14 @@
 #include "unbound.h"
 
 #include <deque>
+#include <memory>
 #include <set>
 #include <stdlib.h>
 #include "include_base_utils.h"
-#include "common/threadpool.h"
 #include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/condition_variable.hpp>
+#include <boost/thread/thread.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
@@ -224,6 +226,51 @@ static void add_anchors(ub_ctx *ctx)
   }
 }
 
+static void configure_public_dns(ub_ctx *ctx, const std::vector<std::string> &dns_public_addr)
+{
+  for (const auto &ip: dns_public_addr)
+    ub_ctx_set_fwd(ctx, string_copy(ip.c_str()));
+  ub_ctx_set_option(ctx, string_copy("do-udp:"), string_copy("no"));
+  ub_ctx_set_option(ctx, string_copy("do-tcp:"), string_copy("yes"));
+}
+
+static void configure_system_dns(ub_ctx *ctx)
+{
+  ub_ctx_resolvconf(ctx, NULL);
+  ub_ctx_hosts(ctx, NULL);
+}
+
+static bool should_use_dns_public_fallback()
+{
+  static boost::mutex probe_lock;
+  static boost::optional<bool> cached;
+
+  boost::lock_guard<boost::mutex> lock(probe_lock);
+  if (cached)
+    return *cached;
+
+  bool valid = false;
+  ub_ctx *ctx = ub_ctx_create();
+  if (ctx)
+  {
+    configure_system_dns(ctx);
+    add_anchors(ctx);
+
+    static const char *probe_hostname = "updates.moneropulse.org";
+    ub_result *result = NULL;
+    if (!ub_resolve(ctx, string_copy(probe_hostname), DNS_TYPE_TXT, DNS_CLASS_IN, &result) && result)
+      valid = result->secure && !result->bogus;
+    if (result)
+      ub_resolve_free(result);
+    ub_ctx_delete(ctx);
+  }
+
+  cached = !valid;
+  if (*cached)
+    MINFO("Failed to verify DNSSEC record from updates.moneropulse.org, falling back to TCP with well known DNSSEC resolvers");
+  return *cached;
+}
+
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
@@ -248,39 +295,18 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dns_public)
   {
-    for (const auto &ip: dns_public_addr)
-      ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
-    ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
-    ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+    configure_public_dns(m_data->m_ub_context, dns_public_addr);
   }
-  else {
-    // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
-    ub_ctx_resolvconf(m_data->m_ub_context, NULL);
-    ub_ctx_hosts(m_data->m_ub_context, NULL);
+  else if (should_use_dns_public_fallback())
+  {
+    configure_public_dns(m_data->m_ub_context, std::vector<std::string>(std::begin(DEFAULT_DNS_PUBLIC_ADDR), std::end(DEFAULT_DNS_PUBLIC_ADDR)));
+  }
+  else
+  {
+    configure_system_dns(m_data->m_ub_context);
   }
 
   add_anchors(m_data->m_ub_context);
-
-  if (!DNS_PUBLIC)
-  {
-    // if no DNS_PUBLIC specified, we try a lookup to what we know
-    // should be a valid DNSSEC record, and switch to known good
-    // DNSSEC resolvers if verification fails
-    bool available, valid;
-    static const char *probe_hostname = "updates.moneropulse.org";
-    auto records = get_txt_record(probe_hostname, available, valid);
-    if (!valid)
-    {
-      MINFO("Failed to verify DNSSEC record from " << probe_hostname << ", falling back to TCP with well known DNSSEC resolvers");
-      ub_ctx_delete(m_data->m_ub_context);
-      m_data->m_ub_context = ub_ctx_create();
-      add_anchors(m_data->m_ub_context);
-      for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
-        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
-      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
-      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
-    }
-  }
 }
 
 DNSResolver::~DNSResolver()
@@ -301,7 +327,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   dnssec_available = false;
   dnssec_valid = false;
   
-  ub_result *result;
+  ub_result *result = NULL;
   // Make sure we are cleaning after result.
   epee::misc_utils::auto_scope_leave_caller scope_exit_handler =
     epee::misc_utils::create_scope_leave_handler([&](){
@@ -480,37 +506,139 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   // Prevent infinite recursion when distributing
   if (dns_urls.empty()) return false;
 
-  std::vector<std::set<std::string> > records;
-  records.resize(dns_urls.size());
+  struct dns_txt_query_state
+  {
+    boost::mutex mutex;
+    boost::condition_variable cv;
+    std::vector<std::set<std::string>> records;
+    std::deque<bool> avail;
+    std::deque<bool> valid;
+    size_t pending;
+    bool stopped;
+
+    explicit dns_txt_query_state(size_t count)
+      : records(count), avail(count, false), valid(count, false), pending(count), stopped(false)
+    {}
+  };
+
+  auto state = std::make_shared<dns_txt_query_state>(dns_urls.size());
+  std::vector<boost::thread> workers;
+  workers.reserve(dns_urls.size());
+  bool timed_out = false;
+  auto detach_workers = [&workers]() noexcept
+  {
+    for (auto &worker : workers)
+      if (worker.joinable())
+        worker.detach();
+  };
 
   size_t first_index = crypto::rand_idx(dns_urls.size());
 
   // send all requests in parallel
-  std::deque<bool> avail(dns_urls.size(), false), valid(dns_urls.size(), false);
-  tools::threadpool& tpool = tools::threadpool::getInstanceForIO();
-  tools::threadpool::waiter waiter(tpool);
-  for (size_t n = 0; n < dns_urls.size(); ++n)
+  try
   {
-    tpool.submit(&waiter,[n, dns_urls, &records, &avail, &valid](){
-       const auto res = tools::DNSResolver::instance().get_txt_record(dns_urls[n], avail[n], valid[n]);
-       for (const auto &s: res)
-         records[n].insert(s);
-    });
+    for (size_t n = 0; n < dns_urls.size(); ++n)
+    {
+      const std::string url = dns_urls[n];
+      workers.emplace_back([state, n, url]() {
+        bool avail = false, valid = false;
+        std::set<std::string> records;
+        try
+        {
+          tools::DNSResolver resolver = tools::DNSResolver::create();
+          const auto res = resolver.get_txt_record(url, avail, valid);
+          records.insert(res.begin(), res.end());
+        }
+      catch (const boost::thread_interrupted&)
+      {
+      }
+      catch (const std::exception &e)
+      {
+        boost::lock_guard<boost::mutex> lock(state->mutex);
+        if (!state->stopped)
+          MDEBUG("DNS TXT lookup for " << url << " failed: " << e.what());
+      }
+      catch (...)
+      {
+      }
+
+        boost::lock_guard<boost::mutex> lock(state->mutex);
+        if (!state->stopped)
+        {
+          state->avail[n] = avail;
+          state->valid[n] = valid;
+          state->records[n].swap(records);
+        }
+        --state->pending;
+        state->cv.notify_all();
+      });
+    }
   }
-  waiter.wait();
+  catch (...)
+  {
+    boost::lock_guard<boost::mutex> state_lock(state->mutex);
+    state->stopped = true;
+    detach_workers();
+    return false;
+  }
+
+  boost::unique_lock<boost::mutex> lock(state->mutex);
+  const boost::system_time deadline = boost::get_system_time() + boost::posix_time::seconds(10);
+  try
+  {
+    while (state->pending)
+    {
+      const boost::system_time now = boost::get_system_time();
+      if (now >= deadline)
+      {
+        state->stopped = true;
+        timed_out = true;
+        lock.unlock();
+        detach_workers();
+        break;
+      }
+      state->cv.timed_wait(lock, std::min(deadline, now + boost::posix_time::milliseconds(250)));
+    }
+  }
+  catch (const boost::thread_interrupted&)
+  {
+    state->stopped = true;
+    lock.unlock();
+    detach_workers();
+    return false;
+  }
+  if (lock.owns_lock())
+    lock.unlock();
+
+  try
+  {
+    if (!timed_out)
+    {
+      for (auto &worker : workers)
+        if (worker.joinable())
+          worker.join();
+    }
+  }
+  catch (const boost::thread_interrupted&)
+  {
+    boost::lock_guard<boost::mutex> state_lock(state->mutex);
+    state->stopped = true;
+    detach_workers();
+    return false;
+  }
 
   size_t cur_index = first_index;
   do
   {
     const std::string &url = dns_urls[cur_index];
-    if (!avail[cur_index])
+    if (!state->avail[cur_index])
     {
-      records[cur_index].clear();
+      state->records[cur_index].clear();
       LOG_PRINT_L2("DNSSEC not available for hostname: " << url << ", skipping.");
     }
-    if (!valid[cur_index])
+    if (!state->valid[cur_index])
     {
-      records[cur_index].clear();
+      state->records[cur_index].clear();
       LOG_PRINT_L2("DNSSEC validation failed for hostname: " << url << ", skipping.");
     }
 
@@ -523,7 +651,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   size_t num_valid_records = 0;
 
-  for( const auto& record_set : records)
+  for( const auto& record_set : state->records)
   {
     if (record_set.size() != 0)
     {
@@ -539,7 +667,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
   typedef std::map<std::set<std::string>, uint32_t> map_t;
   map_t record_count;
-  for (const auto &e: records)
+  for (const auto &e: state->records)
   {
     if (!e.empty())
       ++record_count[e];
