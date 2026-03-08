@@ -1304,6 +1304,7 @@ int main(int argc, char* argv[])
     uint64_t prev_height = 0;
     for_all_transactions(inputs[0], start_idx, n_txes, [&](bool last_tx, uint64_t height, const cryptonote::transaction_prefix &tx)->bool
     {
+      tools::signal_handler::dispatch();
       if (height != prev_height)
       {
         if (height % 100 == 0) std::cout << "\r" << height << ": " << (100.0f * outs_spent / outs_total) << "% ( " << outs_spent << " / " << outs_total << " )       \r" << std::flush;
@@ -1395,6 +1396,7 @@ int main(int argc, char* argv[])
     uint64_t n_txes;
     for_all_transactions(filename, start_idx, n_txes, [&](const cryptonote::transaction_prefix &tx)->bool
     {
+      tools::signal_handler::dispatch();
       std::cout << "\r" << start_idx << "/" << n_txes << "         \r" << std::flush;
       const bool miner_tx = tx.vin.size() == 1 && tx.vin[0].type() == typeid(txin_gen);
       for (const auto &in: tx.vin)
@@ -1593,6 +1595,7 @@ int main(int argc, char* argv[])
 
   while (!work_spent.empty())
   {
+    tools::signal_handler::dispatch();
     LOG_PRINT_L0("Secondary pass on " << work_spent.size() << " spent outputs");
 
     int dbr = resize_env(cache_dir.c_str());
@@ -1610,6 +1613,7 @@ int main(int argc, char* argv[])
     work_spent.clear();
     for (const output_data &od: scan_spent)
     {
+      tools::signal_handler::dispatch();
       std::vector<crypto::key_image> key_images = get_key_images(txn, od);
       for (const crypto::key_image &ki: key_images)
       {

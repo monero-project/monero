@@ -240,6 +240,9 @@ int main(int argc, char* argv[])
   size_t num_total_outputs = 0, num_prunable_outputs = 0, num_known_spent_outputs = 0, num_eligible_outputs = 0, num_eligible_known_spent_outputs = 0;
   for (auto i = known_spent_outputs.begin(); i != known_spent_outputs.end(); ++i)
   {
+    tools::signal_handler::dispatch();
+    if (stop_requested)
+      break;
     uint64_t num_outputs = db->get_num_outputs(i->first);
     num_total_outputs += num_outputs;
     num_known_spent_outputs += i->second;
