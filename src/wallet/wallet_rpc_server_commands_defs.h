@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 29
+#define WALLET_RPC_VERSION_MINOR 30
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -698,6 +698,21 @@ namespace wallet_rpc
 
   struct COMMAND_RPC_DESCRIBE_TRANSFER
   {
+    struct source
+    {
+      uint64_t amount;
+      uint64_t global_index;
+      bool rct;
+      std::string pubkey;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(amount)
+        KV_SERIALIZE(global_index)
+        KV_SERIALIZE(rct)
+        KV_SERIALIZE(pubkey)
+      END_KV_SERIALIZE_MAP()
+    };
+
     struct recipient
     {
       std::string address;
@@ -715,6 +730,7 @@ namespace wallet_rpc
       uint64_t amount_out;
       uint32_t ring_size;
       uint64_t unlock_time;
+      std::list<source> sources;
       std::list<recipient> recipients;
       std::string payment_id;
       uint64_t change_amount;
@@ -728,6 +744,7 @@ namespace wallet_rpc
         KV_SERIALIZE(amount_out)
         KV_SERIALIZE(ring_size)
         KV_SERIALIZE(unlock_time)
+        KV_SERIALIZE(sources)
         KV_SERIALIZE(recipients)
         KV_SERIALIZE(payment_id)
         KV_SERIALIZE(change_amount)
