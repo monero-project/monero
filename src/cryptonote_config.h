@@ -59,8 +59,10 @@
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2    60000 //size of block (bytes) after which reward for block calculated using block size
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1    20000 //size of block (bytes) after which reward for block calculated using block size - before first fork
 #define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5    300000 //size of block (bytes) after which reward for block calculated using block size - second change, from v5
+#define CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V17   625000 //size of block (bytes) after which reward for block calculated using block size - third change, from v17
 #define CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE   100000 // size in blocks of the long term block weight median window
-#define CRYPTONOTE_SHORT_TERM_BLOCK_WEIGHT_SURGE_FACTOR 50
+#define CRYPTONOTE_SHORT_TERM_BLOCK_SURGE_FACTOR_V10    50
+#define CRYPTONOTE_SHORT_TERM_BLOCK_SURGE_FACTOR_V17    8
 #define CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE          600
 #define CRYPTONOTE_DISPLAY_DECIMAL_POINT                12
 // COIN - number of smallest units in one coin
@@ -72,7 +74,8 @@
 #define DYNAMIC_FEE_PER_KB_BASE_FEE                     ((uint64_t)2000000000) // 2 * pow(10,9)
 #define DYNAMIC_FEE_PER_KB_BASE_BLOCK_REWARD            ((uint64_t)10000000000000) // 10 * pow(10,12)
 #define DYNAMIC_FEE_PER_KB_BASE_FEE_V5                  ((uint64_t)2000000000 * (uint64_t)CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2 / CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5)
-#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT         ((uint64_t)3000)
+#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT_V8     ((uint64_t)3000)
+#define DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT_V17    ((uint64_t)10000)
 
 #define ORPHANED_BLOCKS_MAX_COUNT                       100
 
@@ -145,6 +148,7 @@
 #define P2P_DEFAULT_PEERS_IN_HANDSHAKE                  250
 #define P2P_MAX_PEERS_IN_HANDSHAKE                      250
 #define P2P_DEFAULT_CONNECTION_TIMEOUT                  5000       //5 seconds
+#define P2P_DEFAULT_REQUEST_TIMEOUT                     (P2P_DEFAULT_CONNECTION_TIMEOUT*6) // 30 seconds
 #define P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT               45         // seconds
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
@@ -154,6 +158,8 @@
 #define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
+#define P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE        70          // if more than 70% of requests fail, the peer is dropped
+#define P2P_MIN_SAMPLE_SIZE_FOR_DROPPING                5          // minimum number of requests to consider dropping a peer for failed requests
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
@@ -161,7 +167,8 @@
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
 #define P2P_SUPPORT_FLAG_FLUFFY_BLOCKS                  0x01
-#define P2P_SUPPORT_FLAGS                               P2P_SUPPORT_FLAG_FLUFFY_BLOCKS
+#define P2P_SUPPORT_FLAG_TX_RELAY_V2                    0x02
+#define P2P_SUPPORT_FLAGS                               (P2P_SUPPORT_FLAG_FLUFFY_BLOCKS | P2P_SUPPORT_FLAG_TX_RELAY_V2)
 
 #define RPC_IP_FAILS_BEFORE_BLOCK                       3
 
@@ -196,6 +203,13 @@
 #define HF_VERSION_BULLETPROOF_PLUS             15
 #define HF_VERSION_VIEW_TAGS                    15
 #define HF_VERSION_2021_SCALING                 15
+#define HF_VERSION_FCMP_PLUS_PLUS               17
+#define HF_VERSION_CARROT                       17
+#define HF_VERSION_REJECT_UNLOCK_TIME           17
+#define HF_VERSION_REJECT_LARGE_EXTRA           17
+#define HF_VERSION_REJECT_UNMIXABLE_V1          17
+#define HF_VERSION_REJECT_MANY_MINER_OUTPUTS    17
+#define HF_VERSION_2026_SCALING                 17
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
@@ -206,6 +220,20 @@
 
 #define BULLETPROOF_MAX_OUTPUTS                 16
 #define BULLETPROOF_PLUS_MAX_OUTPUTS            16
+
+// TODO: settle on figures here
+// https://gist.github.com/kayabaNerve/dbbadf1f2b0f4e04732fc5ac559745b7
+// https://gist.github.com/Rucknium/784b243d75184333144a92b3258788f6
+// Discussions on PoW-enabled relay for high input txs:
+// https://libera.monerologs.net/monero-research-lab/20250430#c522449-c522790
+// https://libera.monerologs.net/no-wallet-left-behind/20250505#c523568-c523686
+#define FCMP_PLUS_PLUS_MAX_INPUTS               128
+#define FCMP_PLUS_PLUS_MAX_OUTPUTS              16
+#define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS        10000
+
+// Restricting n layers keeps the proof_len table size very small and portable
+// 12 layers means the tree can support over 100 quadrillion outputs
+#define FCMP_PLUS_PLUS_MAX_LAYERS               12
 
 #define CRYPTONOTE_PRUNING_STRIPE_SIZE          4096 // the smaller, the smoother the increase
 #define CRYPTONOTE_PRUNING_LOG_STRIPES          3 // the higher, the more space saved
@@ -265,6 +293,7 @@ namespace config
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS_SEED[] = "multisig_tx_privkeys_seed";
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS[] = "multisig_tx_privkeys";
   const constexpr char HASH_KEY_TXHASH_AND_MIXRING[] = "txhash_and_mixring";
+  const constexpr char HASH_KEY_TXHASH_AND_TREE_ROOT[] = "txhash_and_tree_root";
 
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};

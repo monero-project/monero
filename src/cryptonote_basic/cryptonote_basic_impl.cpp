@@ -72,7 +72,9 @@ namespace cryptonote {
       return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V1;
     if (version < 5)
       return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V2;
-    return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
+    if (version < HF_VERSION_2026_SCALING)
+      return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V5;
+    return CRYPTONOTE_BLOCK_GRANTED_FULL_REWARD_ZONE_V17;
   }
   //-----------------------------------------------------------------------------------------------
   size_t get_max_tx_size()

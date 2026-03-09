@@ -162,6 +162,8 @@ class KAnonymityTest:
 
         print("Creating transfers b/t wallets")
 
+        max_n_inputs = 8
+
         num_successful_transfers = 0
         fee_margin = 0.05 # 5%
         for sender in range(N):
@@ -175,6 +177,15 @@ class KAnonymityTest:
                     break
                 imperfect_starting_balance = unlocked_balance * (N - 1) / (N - 1 - j) * (1 - fee_margin)
                 transfer_amount = int(imperfect_starting_balance / (N - 1))
+
+                # Limit transfer amount to sum of max_n_inputs-1 random unlocked input candidates,
+                # so that FCMP++ txs can always pay the target sum
+                incoming_transfers = self.wallet[sender].get_transfers(out=False, pending=False, pool=False)['in']
+                unlocked_incoming_transfers = list(filter(lambda e: not e.locked, incoming_transfers))
+                random.shuffle(unlocked_incoming_transfers)
+                random_unlocked_subset_sum = sum(e.amount for e in unlocked_incoming_transfers[:(max_n_inputs-1)])
+                transfer_amount = min(transfer_amount, random_unlocked_subset_sum)
+
                 assert transfer_amount < unlocked_balance
                 dst = {'address': pub_addrs[receiver], 'amount': transfer_amount}
                 res = self.wallet[sender].transfer([dst], get_tx_metadata = True)

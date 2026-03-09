@@ -133,7 +133,6 @@ namespace cryptonote
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
   };
-
   static const command_line::arg_descriptor<bool> arg_test_drop_download = {
     "test-drop-download"
   , "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
@@ -458,6 +457,9 @@ namespace cryptonote
   bool core::init(const boost::program_options::variables_map& vm, const cryptonote::test_options *test_options, const GetCheckpointsCallback& get_checkpoints/* = nullptr */, bool allow_dns)
   {
     start_time = std::time(nullptr);
+
+    // Necessary for FCMP++ sync on Linux platforms, especially with limited memory
+    rct::limitMaxMemArenas();
 
     const bool regtest = command_line::get_arg(vm, arg_regtest_on);
     if (test_options != NULL || regtest)
@@ -808,7 +810,7 @@ namespace cryptonote
     return false;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
+  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed, crypto::hash& txid)
   {
     tvc = {};
 
@@ -825,7 +827,6 @@ namespace cryptonote
     }
 
     transaction tx;
-    crypto::hash txid;
     if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
     {
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
@@ -1160,6 +1161,9 @@ namespace cryptonote
       NOTIFY_NEW_TRANSACTIONS::request public_req{};
       NOTIFY_NEW_TRANSACTIONS::request private_req{};
       NOTIFY_NEW_TRANSACTIONS::request stem_req{};
+      std::vector<crypto::hash> public_tx_hashes{};
+      std::vector<crypto::hash> private_tx_hashes{};
+      std::vector<crypto::hash> stem_tx_hashes{};
       for (auto& tx : txs)
       {
         switch (std::get<2>(tx))
@@ -1169,14 +1173,17 @@ namespace cryptonote
             break;
           case relay_method::local:
             private_req.txs.push_back(std::move(std::get<1>(tx)));
+            private_tx_hashes.push_back(std::move(std::get<0>(tx)));
             break;
           case relay_method::forward:
             stem_req.txs.push_back(std::move(std::get<1>(tx)));
+            stem_tx_hashes.push_back(std::move(std::get<0>(tx)));
             break;
           case relay_method::block:
           case relay_method::fluff:
           case relay_method::stem:
             public_req.txs.push_back(std::move(std::get<1>(tx)));
+            public_tx_hashes.push_back(std::move(std::get<0>(tx)));
             break;
         }
       }
@@ -1187,11 +1194,11 @@ namespace cryptonote
          re-relaying public and private _should_ be acceptable here. */
       const boost::uuids::uuid source = boost::uuids::nil_uuid();
       if (!public_req.txs.empty())
-        get_protocol()->relay_transactions(public_req, source, epee::net_utils::zone::public_, relay_method::fluff);
+        get_protocol()->relay_transactions(public_req, std::move(public_tx_hashes), source, epee::net_utils::zone::public_, relay_method::fluff);
       if (!private_req.txs.empty())
-        get_protocol()->relay_transactions(private_req, source, epee::net_utils::zone::invalid, relay_method::local);
+        get_protocol()->relay_transactions(private_req, std::move(private_tx_hashes), source, epee::net_utils::zone::invalid, relay_method::local);
       if (!stem_req.txs.empty())
-        get_protocol()->relay_transactions(stem_req, source, epee::net_utils::zone::public_, relay_method::stem);
+        get_protocol()->relay_transactions(stem_req, std::move(stem_tx_hashes), source, epee::net_utils::zone::public_, relay_method::stem);
     }
     return true;
   }
@@ -1265,9 +1272,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
+  bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, uint8_t& fcmp_pp_n_tree_layers, crypto::ec_point& fcmp_pp_tree_root, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
   {
-    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
+    return m_blockchain_storage.get_miner_data(major_version, height, prev_id, fcmp_pp_n_tree_layers, fcmp_pp_tree_root, seed_hash, difficulty, median_weight, already_generated_coins, tx_backlog);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp) const
@@ -1275,9 +1282,9 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(qblock_ids, clip_pruned, resp);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count) const
+  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, size_t max_block_count, size_t max_tx_count, bool qblock_ids_skip_common_block) const
   {
-    return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, top_hash, start_height, pruned, get_miner_tx_hash, max_block_count, max_tx_count);
+    return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, top_hash, start_height, pruned, get_miner_tx_hash, max_block_count, max_tx_count, qblock_ids_skip_common_block);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMAND_RPC_GET_OUTPUTS_BIN::response& res) const
@@ -1901,9 +1908,9 @@ namespace cryptonote
     m_blockchain_storage.flush_invalid_blocks();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes)
+  bool core::get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<crypto::hash> &inv_txes)
   {
-    return m_mempool.get_complement(hashes, txes);
+    return m_mempool.get_complement(hashes, inv_txes);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::update_blockchain_pruning()

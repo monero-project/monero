@@ -44,7 +44,11 @@
 #define MAKE_IPV4_SUBNET(a,b,c,d,e) epee::net_utils::ipv4_network_subnet{MAKE_IP(a,b,c,d),e}
 
 namespace cryptonote {
-  class blockchain_storage;
+  class blockchain_storage
+  {
+  public:
+    bool have_tx(const crypto::hash &id) const { return false; }
+  };
 }
 
 class test_core : public cryptonote::i_core_events
@@ -61,7 +65,7 @@ public:
   bool have_block(const crypto::hash& id, int *where = NULL) const {return false;}
   bool have_block_unlocked(const crypto::hash& id, int *where = NULL) const {return false;}
   void get_blockchain_top(uint64_t& height, crypto::hash& top_id)const{height=0;top_id=crypto::null_hash;}
-  bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed) { return true; }
+  bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed, crypto::hash& txid) { return true; }
   bool handle_single_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *b, cryptonote::block_verification_context& bvc, cryptonote::pool_supplement& extra_block_txs, bool update_miner_blocktemplate = true) { return true; }
   bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true) { return true; }
   bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, cryptonote::pool_supplement& extra_block_txs, bool update_miner_blocktemplate = true) { return true; }
@@ -98,7 +102,7 @@ public:
   bool prune_blockchain(uint32_t pruning_seed = 0) { return true; }
   bool is_within_compiled_block_hash_area(uint64_t height) const { return false; }
   bool has_block_weights(uint64_t height, uint64_t nblocks) const { return false; }
-  bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<cryptonote::blobdata> &txes) { return false; }
+  bool get_txpool_complement(const std::vector<crypto::hash> &hashes, std::vector<crypto::hash> &inv_txes) { return false; }
   bool get_pool_transaction_hashes(std::vector<crypto::hash>& txs, bool include_unrelayed_txes = true) const { return false; }
   crypto::hash get_block_id_by_height(uint64_t height) const { return crypto::null_hash; }
   void stop() {}
@@ -534,7 +538,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     const stat::chain &stat
   ){
     core.get_blockchain_storage().get_db().batch_start({}, {});
-    core.get_blockchain_storage().get_db().add_block(
+    uint64_t new_height = core.get_blockchain_storage().get_db().add_block(
       {block, cryptonote::block_to_blob(block)},
       cryptonote::get_transaction_weight(block.miner_tx),
       core.get_blockchain_storage().get_next_long_term_block_weight(
@@ -542,8 +546,10 @@ TEST(cryptonote_protocol_handler, race_condition)
       ),
       stat.diff,
       stat.reward,
+      {},
       {}
     );
+    core.get_blockchain_storage().get_db().advance_tree(new_height - 1, {});
     core.get_blockchain_storage().get_db().batch_stop();
   };
   struct messages {
@@ -558,6 +564,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     using uuid_t = boost::uuids::uuid;
     using relay_t = cryptonote::relay_method;
     using blobs_t = std::vector<cryptonote::blobdata>;
+    using hashes_t = std::vector<crypto::hash>;
     using id_t = nodetool::peerid_type;
     using callback_t = std::function<bool(contexts::cryptonote &, id_t, uint32_t)>;
     using address_t = epee::net_utils::network_address;
@@ -644,7 +651,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     virtual bool unblock_host(const address_t&) override {
       return {};
     }
-    virtual zone_t send_txs(blobs_t, const zone_t, const uuid_t&, relay_t) override {
+    virtual zone_t send_txs(blobs_t, hashes_t&&, const zone_t, const uuid_t&, relay_t) override {
       return {};
     }
     virtual bans::subnets get_blocked_subnets() override {
@@ -1089,6 +1096,7 @@ TEST(node_server, race_condition)
       }
       p2p_endpoint->send_txs(
         std::move(txs),
+        std::vector<crypto::hash>(txs.size()),
         epee::net_utils::zone::public_,
         {},
         relay_t::fluff

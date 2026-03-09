@@ -175,7 +175,8 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       CHECK_AND_ASSERT_THROW_MES(tx_blob.prunable_hash == crypto::null_hash,
         "block entry must not contain pruned txs");
-      core.handle_incoming_tx(tx_blob.blob, tvc, relay_method::block, true);
+      crypto::hash txid;
+      core.handle_incoming_tx(tx_blob.blob, tvc, relay_method::block, true, txid);
       if(tvc.m_verifivation_failed)
       {
         cryptonote::transaction transaction;
@@ -487,10 +488,14 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
           cumulative_difficulty = bp.cumulative_difficulty;
           coins_generated = bp.coins_generated;
 
+          std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
+          cryptonote::collect_transparent_amount_commitments(b.miner_tx, txs, transparent_amount_commitments);
+
           try
           {
             uint64_t long_term_block_weight = core.get_blockchain_storage().get_next_long_term_block_weight(block_weight);
-            core.get_blockchain_storage().get_db().add_block(std::make_pair(b, block_to_blob(b)), block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs);
+            core.get_blockchain_storage().get_db().add_block(std::make_pair(b, block_to_blob(b)), block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs, transparent_amount_commitments);
+            // FIXME: add locked outputs and advance the tree (call handle_fcmp_tree)
           }
           catch (const std::exception& e)
           {
