@@ -33,12 +33,24 @@
 #include "fcmp_pp_types.h"
 #include "profile_tools.h"
 
+namespace
+{
+    // Struct composed of ec elems needed to get a full-fledged leaf tuple
+    struct PreLeafTuple final
+    {
+        fcmp_pp::EdDerivatives O_derivatives;
+        fcmp_pp::EdDerivatives I_derivatives;
+        fcmp_pp::EdDerivatives C_derivatives;
+    };
+}
 
 namespace fcmp_pp
 {
 namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Public helper functions
 //----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_to_tuple(const OutputPair &output_pair)
 {
@@ -102,6 +114,43 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
         throw std::runtime_error("C cannot equal identity");
 
     return output_tuple_from_bytes(O, I, C);
+}
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Static functions
+//----------------------------------------------------------------------------------------------------------------------
+static PreLeafTuple output_tuple_to_pre_leaf_tuple(const OutputTuple &o)
+{
+    TIME_MEASURE_NS_START(point_to_ed_derivatives_ns);
+
+    const crypto::ec_point &O = (crypto::ec_point&) o.O;
+    const crypto::ec_point &I = (crypto::ec_point&) o.I;
+    const crypto::ec_point &C = (crypto::ec_point&) o.C;
+
+    /*
+        TODO: investigate perf impact of the following extraneous ops:
+        - Decompressing O and C when checking points for torsion and again here.
+        - Compressing I in derive_key_image_generator and decompressing again here.
+    */
+    PreLeafTuple plt;
+    if (!fcmp_pp::point_to_ed_derivatives(O, plt.O_derivatives))
+        throw std::runtime_error("failed to get ed derivatives from O");
+    if (!fcmp_pp::point_to_ed_derivatives(I, plt.I_derivatives))
+        throw std::runtime_error("failed to get ed derivatives from I");
+    if (!fcmp_pp::point_to_ed_derivatives(C, plt.C_derivatives))
+        throw std::runtime_error("failed to get ed derivatives from C");
+
+    TIME_MEASURE_NS_FINISH(point_to_ed_derivatives_ns);
+
+    LOG_PRINT_L3("point_to_ed_derivatives_ns: " << point_to_ed_derivatives_ns);
+
+    return plt;
+}
+//----------------------------------------------------------------------------------------------------------------------
+static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair)
+{
+    const auto o = output_to_tuple(output_pair);
+    return output_tuple_to_pre_leaf_tuple(o);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
