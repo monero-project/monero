@@ -321,6 +321,9 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::ec_point &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
 
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;
@@ -329,6 +332,19 @@ namespace crypto {
   inline bool operator>(const public_key &p1, const public_key &p2) { return p2 < p1; }
   inline bool operator<(const key_image &p1, const key_image &p2) { return memcmp(&p1, &p2, sizeof(key_image)) < 0; }
   inline bool operator>(const key_image &p1, const key_image &p2) { return p2 < p1; }
+
+  static const ec_point EC_I = {1};
+
+  static const ec_point EC_INV_EIGHT = {{
+      static_cast<char>(0x79), static_cast<char>(0x2f), static_cast<char>(0xdc), static_cast<char>(0xe2),
+      static_cast<char>(0x29), static_cast<char>(0xe5), static_cast<char>(0x06), static_cast<char>(0x61),
+      static_cast<char>(0xd0), static_cast<char>(0xda), static_cast<char>(0x1c), static_cast<char>(0x7d),
+      static_cast<char>(0xb3), static_cast<char>(0x9d), static_cast<char>(0xd3), static_cast<char>(0x07),
+      static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00),
+      static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00),
+      static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00),
+      static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x00), static_cast<char>(0x06)
+    }};
 }
 
 // type conversions for easier calls to sc_add(), sc_sub(), hash functions
@@ -337,6 +353,7 @@ inline const unsigned char* to_bytes(const crypto::ec_scalar &scalar) { return &
 inline unsigned char* to_bytes(crypto::ec_point &point) { return &reinterpret_cast<unsigned char&>(point); }
 inline const unsigned char* to_bytes(const crypto::ec_point &point) { return &reinterpret_cast<const unsigned char&>(point); }
 
+CRYPTO_MAKE_HASHABLE(ec_point)
 CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)
