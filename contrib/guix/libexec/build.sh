@@ -302,7 +302,7 @@ esac
 
 # todo: remove this hack
 case "$HOST" in
-    *)  LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/gnu/store/m2vhzr0dy352cn59sgcklcaykprrr4j6-gcc-14.3.0-lib/lib" ;;
+    *)  LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/gnu/store/2z12pygbg988r7kk34rvy37mg091kic2-gcc-14.3.0-lib/lib" ;;
 esac
 
 # error: "/gnu/store/<...>-rust-1.82.0/lib/rustlib/src/rust/library/Cargo.lock" does not exist,

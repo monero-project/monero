@@ -273,7 +273,7 @@ mkdir -p "$LOGDIR_BASE"
 # Download and archive Rust dependencies.
 # Version and Hash need to be updated when src/fcmp_pp/fcmp_pp_rust/Cargo.lock is updated.
 RUST_DEPS_VERSION=0
-RUST_DEPS_HASH="rqgrqfnwygq58hsr3fs5i47wmz2fkmij"
+RUST_DEPS_HASH="h6nk2bzjq78b0wi5wibrpxilfbf53hi2"
 RUST_DEPS_ARCHIVE="rust_deps-${RUST_DEPS_VERSION}.tar.gz"
 RUST_DEPS_STORE_ITEM="/gnu/store/${RUST_DEPS_HASH}-${RUST_DEPS_ARCHIVE}"
 if [ ! -f "${RUST_DEPS_STORE_ITEM}" ]; then
