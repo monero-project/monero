@@ -99,6 +99,19 @@ const crypto::ec_point &commitment_cref(const OutputPair &output_pair);
 
 bool output_checked_for_torsion(const OutputPair &output_pair);
 bool use_biased_hash_to_point(const OutputPair &output_pair);
+
+// Wrapper for outputs with context to insert the output into the FCMP++ curve tree
+struct UnifiedOutput final
+{
+    // Output's unique id in the chain, used to insert the output in the tree in the order it entered the chain
+    uint64_t unified_id{0};
+    OutputPair output_pair;
+
+    bool operator==(const UnifiedOutput &other) const
+    {
+        return unified_id == other.unified_id && output_pair == other.output_pair;
+    }
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
