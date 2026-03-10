@@ -373,7 +373,7 @@ mkdir -p "$DISTSRC"
 
     # Unpack rust dependencies
     mkdir -p /rust/vendor
-    #UNCOMMENT_IN_10359# tar xf /rust-deps -C /rust
+    tar xf /rust-deps -C /rust
 
     # "vendor" rust std
     for dir in "${RUST_STD}"/vendor/*/; do
