@@ -12,6 +12,7 @@ ciphersuite = { version = "0.4.2", features = ["ed25519"] }
 dalek-ff-group = "0.4.4"
 helioselene = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
 
+ec-divisors = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2", features = ["ed25519"] }
 full-chain-membership-proofs = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }
 
 monero-generators = { git = "https://github.com/monero-oxide/monero-oxide", rev = "50dd3dbc0cc9048247eb734d27eb1d516aecacd2" }

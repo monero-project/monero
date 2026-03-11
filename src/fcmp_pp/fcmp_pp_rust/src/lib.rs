@@ -6,6 +6,8 @@ use ciphersuite::{
     Ciphersuite,
 };
 
+use ec_divisors::DivisorCurve;
+
 use full_chain_membership_proofs::tree::hash_grow;
 use helioselene::{
     Field25519 as SeleneScalar, HeliosPoint, HelioseleneField as HeliosScalar, Selene,
@@ -77,6 +79,28 @@ ec_elem_to_bytes!(helios_point_to_bytes, HeliosPoint, to_bytes);
 ec_elem_to_bytes!(selene_point_to_bytes, SelenePoint, to_bytes);
 
 ec_elem_from_bytes!(selene_scalar_from_bytes, SeleneScalar, Selene, read_F);
+
+macro_rules! point_to_cycle_scalar {
+    ($fn_name:ident, $Point:ty, $Scalar:ty) => {
+        /// # Safety
+        ///
+        /// This function assumes scalar_out is a non-null pointer to the expected type.
+        #[no_mangle]
+        pub unsafe extern "C" fn $fn_name(point: $Point, scalar_out: *mut $Scalar) -> c_int {
+            if scalar_out.is_null() {
+                return -1;
+            }
+            let Some(xy_coords) = <$Point>::to_xy(point) else {
+                return -2;
+            };
+            *scalar_out = xy_coords.0;
+            0
+        }
+    };
+}
+
+point_to_cycle_scalar!(selene_point_to_helios_scalar, SelenePoint, HeliosScalar);
+point_to_cycle_scalar!(helios_point_to_selene_scalar, HeliosPoint, SeleneScalar);
 
 // Undefined behavior occurs when the data pointer passed to core::slice::from_raw_parts is null,
 // even when len is 0. slice_from_raw_parts_0able() lets you pass p as null, as long as len is 0

@@ -98,6 +98,10 @@ struct HeliosPoint helios_hash_init_point(void);
 
 struct SelenePoint selene_hash_init_point(void);
 
+int selene_point_to_helios_scalar(struct SelenePoint selene_point, struct HeliosScalar *helios_scalar_out);
+
+int helios_point_to_selene_scalar(struct HeliosPoint helios_point, struct SeleneScalar *selene_scalar_out);
+
 struct HeliosScalar helios_zero_scalar(void);
 
 struct SeleneScalar selene_zero_scalar(void);

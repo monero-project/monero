@@ -61,6 +61,22 @@ Helios::Point Helios::hash_init_point() const
     return ::helios_hash_init_point();
 }
 //----------------------------------------------------------------------------------------------------------------------
+Selene::CycleScalar Selene::point_to_cycle_scalar(const Selene::Point &point) const
+{
+    Selene::CycleScalar helios_scalar;
+    int r = ::selene_point_to_helios_scalar(point, &helios_scalar);
+    CHECK_FFI_RES;
+    return helios_scalar;
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::CycleScalar Helios::point_to_cycle_scalar(const Helios::Point &point) const
+{
+    Helios::CycleScalar selene_scalar;
+    int r = ::helios_point_to_selene_scalar(point, &selene_scalar);
+    CHECK_FFI_RES;
+    return selene_scalar;
+}
+//----------------------------------------------------------------------------------------------------------------------
 Selene::Scalar Selene::zero_scalar() const
 {
     return ::selene_zero_scalar();

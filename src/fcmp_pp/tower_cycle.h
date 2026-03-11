@@ -48,6 +48,9 @@ class Curve
 public:
     virtual typename C::Point hash_init_point() const = 0;
 
+    // Read the x-coordinate from this curve's point to get this curve's cycle scalar
+    virtual typename C::CycleScalar point_to_cycle_scalar(const typename C::Point &point) const = 0;
+
     virtual typename C::Point hash_grow(
         const typename C::Point &existing_hash,
         const std::size_t offset,
@@ -77,6 +80,8 @@ public:
 public:
     Point hash_init_point() const override;
 
+    CycleScalar point_to_cycle_scalar(const Point &point) const override;
+
     Point hash_grow(
         const Point &existing_hash,
         const std::size_t offset,
@@ -105,6 +110,8 @@ public:
 //member functions
 public:
     Point hash_init_point() const override;
+
+    CycleScalar point_to_cycle_scalar(const Point &point) const override;
 
     Point hash_grow(
         const Point &existing_hash,
