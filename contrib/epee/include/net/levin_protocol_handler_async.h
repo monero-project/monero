@@ -468,18 +468,26 @@ public:
               return false;
             }
 
-            temp = std::move(m_fragment_buffer);
-            m_fragment_buffer.clear();
+            temp.swap(m_fragment_buffer);
             std::memcpy(std::addressof(m_current_head), std::addressof(temp[0]), sizeof(bucket_head2));
+            const std::uint64_t inner_size = SWAP64LE(m_current_head.m_cb);
+            buff_to_invoke = {reinterpret_cast<const uint8_t*>(temp.data()) + sizeof(bucket_head2), temp.size() - sizeof(bucket_head2)};
+            if (buff_to_invoke.size() < inner_size)
+            {
+              MERROR(m_connection_context << "Invalid fragmented buffer size: " << buff_to_invoke.size() << " vs " << inner_size);
+              return false;
+            }
+
+            buff_to_invoke = {buff_to_invoke.data(), std::size_t(inner_size)};
+
             const size_t max_bytes = m_connection_context.get_max_bytes(m_current_head.m_command);
-            if(m_current_head.m_cb > std::min<size_t>(max_packet_size, max_bytes))
+            if(buff_to_invoke.size() > std::min<size_t>(max_packet_size, max_bytes))
             {
               MERROR(m_connection_context << "Maximum packet size exceed!, m_max_packet_size = " << std::min<size_t>(max_packet_size, max_bytes)
                 << ", packet header received " << m_current_head.m_cb << ", command " << m_current_head.m_command
                 << ", connection will be closed.");
               return false;
             }
-            buff_to_invoke = {reinterpret_cast<const uint8_t*>(temp.data()) + sizeof(bucket_head2), temp.size() - sizeof(bucket_head2)};
           }
 
           bool is_response = (m_oponent_protocol_ver == LEVIN_PROTOCOL_VER_1 && m_current_head.m_flags&LEVIN_PACKET_RESPONSE);
