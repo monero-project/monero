@@ -116,6 +116,18 @@ public:
     const std::size_t m_c2_width;
 };
 //----------------------------------------------------------------------------------------------------------------------
+using Selene       = tower_cycle::Selene;
+using Helios       = tower_cycle::Helios;
+using CurveTreesV1 = CurveTrees<Selene, Helios>;
+
+// https://github.com/monero-oxide/monero-oxide/blob/31c26d96eaadbba910ffe3613ad8b4cf9c598a93/crypto/fcmps/src/lib.rs#L54-L59
+const std::size_t SELENE_CHUNK_WIDTH = 38;
+const std::size_t HELIOS_CHUNK_WIDTH = 18;
+
+std::shared_ptr<CurveTreesV1> curve_trees_v1(
+    const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH,
+    const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH);
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
 } //namespace fcmp_pp
