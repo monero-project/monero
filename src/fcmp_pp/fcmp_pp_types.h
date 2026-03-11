@@ -42,6 +42,29 @@ namespace fcmp_pp
 //----------------------------------------------------------------------------------------------------------------------
 // Rust types
 //----------------------------------------------------------------------------------------------------------------------
+using SeleneScalar = ::SeleneScalar;
+static_assert(sizeof(SeleneScalar) == 32, "unexpected size of selene scalar");
+using HeliosScalar = ::HeliosScalar;
+static_assert(sizeof(HeliosScalar) == 32, "unexpected size of helios scalar");
+//----------------------------------------------------------------------------------------------------------------------
+struct SeleneT final
+{
+    using Scalar       = SeleneScalar;
+    using Point        = ::SelenePoint;
+    using Chunk        = ::SeleneScalarSlice;
+    using CycleScalar  = HeliosScalar;
+    using ScalarChunks = ::SeleneScalarChunks;
+};
+//----------------------------------------------------------------------------------------------------------------------
+struct HeliosT final
+{
+    using Scalar       = HeliosScalar;
+    using Point        = ::HeliosPoint;
+    using Chunk        = ::HeliosScalarSlice;
+    using CycleScalar  = SeleneScalar;
+    using ScalarChunks = ::HeliosScalarChunks;
+};
+//----------------------------------------------------------------------------------------------------------------------
 using OutputTuple = ::OutputTuple;
 //----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_tuple_from_bytes(const crypto::ec_point &O, const crypto::ec_point &I, const crypto::ec_point &C);

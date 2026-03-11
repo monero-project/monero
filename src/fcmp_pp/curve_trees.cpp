@@ -114,6 +114,20 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
     return output_tuple_from_bytes(O, I, C);
 }
 //----------------------------------------------------------------------------------------------------------------------
+std::shared_ptr<CurveTreesV1> curve_trees_v1(const std::size_t selene_chunk_width, const std::size_t helios_chunk_width)
+{
+    std::unique_ptr<Selene> selene(new Selene());
+    std::unique_ptr<Helios> helios(new Helios());
+    return std::shared_ptr<CurveTreesV1>(
+            new CurveTreesV1(
+                std::move(selene),
+                std::move(helios),
+                selene_chunk_width,
+                helios_chunk_width
+            )
+        );
+};
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // Static functions
 //----------------------------------------------------------------------------------------------------------------------

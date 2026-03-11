@@ -38,6 +38,23 @@ struct SeleneScalar {
   uintptr_t _0[32 / sizeof(uintptr_t)];
 };
 
+/// The field novel to Helios/Selene.
+struct HeliosScalar {
+  uintptr_t _0[32 / sizeof(uintptr_t)];
+};
+
+struct HeliosPoint {
+  struct SeleneScalar x;
+  struct SeleneScalar y;
+  struct SeleneScalar z;
+};
+
+struct SelenePoint {
+  struct HeliosScalar x;
+  struct HeliosScalar y;
+  struct HeliosScalar z;
+};
+
 // ----- End deps C bindings -----
 
 struct OutputTuple
@@ -47,11 +64,63 @@ struct OutputTuple
   uint8_t C[32];
 };
 
+struct HeliosScalarSlice
+{
+  const struct HeliosScalar *buf;
+  uintptr_t len;
+};
+
+struct SeleneScalarSlice
+{
+  const struct SeleneScalar *buf;
+  uintptr_t len;
+};
+
+struct HeliosScalarChunks
+{
+  const struct HeliosScalarSlice *buf;
+  uintptr_t len;
+};
+
+struct SeleneScalarChunks
+{
+  const struct SeleneScalarSlice *buf;
+  uintptr_t len;
+};
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 int selene_scalar_from_bytes(const uint8_t *selene_scalar_bytes, struct SeleneScalar *selene_scalar_out);
+
+struct HeliosPoint helios_hash_init_point(void);
+
+struct SelenePoint selene_hash_init_point(void);
+
+struct HeliosScalar helios_zero_scalar(void);
+
+struct SeleneScalar selene_zero_scalar(void);
+
+void helios_scalar_to_bytes(const struct HeliosScalar *helios_scalar, uint8_t bytes_out[32]);
+
+void selene_scalar_to_bytes(const struct SeleneScalar *selene_scalar, uint8_t bytes_out[32]);
+
+void helios_point_to_bytes(const struct HeliosPoint *helios_point, uint8_t bytes_out[32]);
+
+void selene_point_to_bytes(const struct SelenePoint *selene_point, uint8_t bytes_out[32]);
+
+int hash_grow_helios(struct HeliosPoint existing_hash,
+                                             uintptr_t offset,
+                                             struct HeliosScalar existing_child_at_offset,
+                                             struct HeliosScalarSlice new_children,
+                                             struct HeliosPoint *hash_out);
+
+int hash_grow_selene(struct SelenePoint existing_hash,
+                                             uintptr_t offset,
+                                             struct SeleneScalar existing_child_at_offset,
+                                             struct SeleneScalarSlice new_children,
+                                             struct SelenePoint *hash_out);
 
 #ifdef __cplusplus
 } //extern "C"

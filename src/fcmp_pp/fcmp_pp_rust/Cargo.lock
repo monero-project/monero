@@ -113,6 +113,7 @@ source = "git+https://github.com/kayabaNerve/crypto-bigint?branch=c-repr#7835277
 dependencies = [
  "generic-array 0.14.7",
  "rand_core",
+ "serdect",
  "subtle",
  "zeroize",
 ]
@@ -200,6 +201,7 @@ name = "ec-divisors"
 version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
 dependencies = [
+ "crypto-bigint",
  "dalek-ff-group",
  "ff",
  "group",
@@ -247,7 +249,10 @@ version = "0.0.0"
 dependencies = [
  "ciphersuite",
  "dalek-ff-group",
+ "full-chain-membership-proofs",
  "helioselene",
+ "monero-fcmp-plus-plus",
+ "monero-generators",
 ]
 
 [[package]]
@@ -282,10 +287,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "full-chain-membership-proofs"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "ec-divisors",
+ "generalized-bulletproofs",
+ "generalized-bulletproofs-circuit-abstraction",
+ "generalized-bulletproofs-ec-gadgets",
+ "generic-array 1.1.1",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+
+[[package]]
+name = "generalized-bulletproofs"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "ff",
+ "flexible-transcript",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "generalized-bulletproofs-circuit-abstraction"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "ciphersuite",
+ "generalized-bulletproofs",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "generalized-bulletproofs-ec-gadgets"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "ciphersuite",
+ "generalized-bulletproofs-circuit-abstraction",
+ "generic-array 1.1.1",
+ "std-shims",
+]
 
 [[package]]
 name = "generic-array"
@@ -412,6 +472,73 @@ dependencies = [
 ]
 
 [[package]]
+name = "monero-fcmp-plus-plus"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "curve25519-dalek",
+ "dalek-ff-group",
+ "ec-divisors",
+ "flexible-transcript",
+ "full-chain-membership-proofs",
+ "generalized-bulletproofs",
+ "generalized-bulletproofs-ec-gadgets",
+ "generic-array 1.1.1",
+ "helioselene",
+ "monero-generators",
+ "multiexp",
+ "rand_chacha",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "monero-generators"
+version = "0.4.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "crypto-bigint",
+ "curve25519-dalek",
+ "dalek-ff-group",
+ "full-chain-membership-proofs",
+ "generalized-bulletproofs",
+ "group",
+ "helioselene",
+ "monero-io",
+ "sha3",
+ "std-shims",
+ "subtle",
+]
+
+[[package]]
+name = "monero-io"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=50dd3dbc0cc9048247eb734d27eb1d516aecacd2#50dd3dbc0cc9048247eb734d27eb1d516aecacd2"
+dependencies = [
+ "curve25519-dalek",
+ "std-shims",
+]
+
+[[package]]
+name = "multiexp"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ec2ce93a6f06ac6cae04c1da3f2a6a24fcfc1f0eb0b4e0f3d302f0df45326cb"
+dependencies = [
+ "ff",
+ "group",
+ "rand_core",
+ "rustversion",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -436,6 +563,15 @@ checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
 dependencies = [
  "der",
  "spki",
+]
+
+[[package]]
+name = "ppv-lite86"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
+dependencies = [
+ "zerocopy",
 ]
 
 [[package]]
@@ -470,6 +606,16 @@ name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
+
+[[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core",
+]
 
 [[package]]
 name = "rand_core"
@@ -514,6 +660,45 @@ name = "semver"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
+
+[[package]]
+name = "serde"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "serdect"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
+dependencies = [
+ "base16ct",
+ "serde",
+]
 
 [[package]]
 name = "sha2"

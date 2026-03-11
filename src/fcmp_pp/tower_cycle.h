@@ -30,12 +30,96 @@
 
 #include "crypto/crypto.h"
 #include "fcmp_pp_rust/fcmp++.h"
+#include "fcmp_pp_types.h"
 
+#include <string>
 
 namespace fcmp_pp
 {
 namespace tower_cycle
 {
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Abstract parent curve class that curves in a cycle must implement
+template<typename C>
+class Curve
+{
+//member functions
+public:
+    virtual typename C::Point hash_init_point() const = 0;
+
+    virtual typename C::Point hash_grow(
+        const typename C::Point &existing_hash,
+        const std::size_t offset,
+        const typename C::Scalar &existing_child_at_offset,
+        const typename C::Chunk &new_children) const = 0;
+
+    virtual typename C::Scalar zero_scalar() const = 0;
+
+    virtual crypto::ec_scalar to_bytes(const typename C::Scalar &scalar) const = 0;
+    virtual crypto::ec_point to_bytes(const typename C::Point &point) const = 0;
+
+    virtual std::string to_string(const typename C::Scalar &scalar) const = 0;
+    virtual std::string to_string(const typename C::Point &point) const = 0;
+};
+//----------------------------------------------------------------------------------------------------------------------
+class Selene final : public Curve<SeleneT>
+{
+//typedefs
+public:
+    using Scalar       = SeleneT::Scalar;
+    using Point        = SeleneT::Point;
+    using Chunk        = SeleneT::Chunk;
+    using CycleScalar  = SeleneT::CycleScalar;
+    using ScalarChunks = SeleneT::ScalarChunks;
+
+//member functions
+public:
+    Point hash_init_point() const override;
+
+    Point hash_grow(
+        const Point &existing_hash,
+        const std::size_t offset,
+        const Scalar &existing_child_at_offset,
+        const Chunk &new_children) const override;
+
+    Scalar zero_scalar() const override;
+
+    crypto::ec_scalar to_bytes(const Scalar &scalar) const override;
+    crypto::ec_point to_bytes(const Point &point) const override;
+
+    std::string to_string(const Scalar &scalar) const override;
+    std::string to_string(const Point &point) const override;
+};
+//----------------------------------------------------------------------------------------------------------------------
+class Helios final : public Curve<HeliosT>
+{
+//typedefs
+public:
+    using Scalar       = HeliosT::Scalar;
+    using Point        = HeliosT::Point;
+    using Chunk        = HeliosT::Chunk;
+    using CycleScalar  = HeliosT::CycleScalar;
+    using ScalarChunks = HeliosT::ScalarChunks;
+
+//member functions
+public:
+    Point hash_init_point() const override;
+
+    Point hash_grow(
+        const Point &existing_hash,
+        const std::size_t offset,
+        const Scalar &existing_child_at_offset,
+        const Chunk &new_children) const override;
+
+    Scalar zero_scalar() const override;
+
+    crypto::ec_scalar to_bytes(const Scalar &scalar) const override;
+    crypto::ec_point to_bytes(const Point &point) const override;
+
+    std::string to_string(const Scalar &scalar) const override;
+    std::string to_string(const Point &point) const override;
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 SeleneScalar selene_scalar_from_bytes(const crypto::ec_coord &bytes);
