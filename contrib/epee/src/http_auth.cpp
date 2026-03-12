@@ -64,6 +64,7 @@
 #include <iterator>
 #include <limits>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include <tuple>
 #include <type_traits>
 
@@ -296,13 +297,21 @@ namespace
 
       std::array<char, 8> nc{{}};
       boost::copy(out, nc.data());
+
+      std::array<uint8_t, 16> rbuf{{}};
+      if (RAND_bytes(rbuf.data(), rbuf.size()) != 1)
+        return {};
+
+      const std::string cnonce = epee::string_encoding::base64_encode(rbuf.data(), rbuf.size());
       const auto response = digest(
-        generate_a1(digest, user), u8":", user.server.nonce, u8":", nc, u8"::auth:", digest(method, u8":", uri)
+        generate_a1(digest, user), u8":", user.server.nonce, u8":", nc, u8":", cnonce, u8":auth:", digest(method, u8":", uri)
       );
+
       out.clear();
       init_client_value(out, Digest::name, user, uri, response);
       add_field(out, u8"qop", ceref(u8"auth"));
       add_field(out, u8"nc", nc);
+      add_field(out, u8"cnonce", quoted_(cnonce));
       return out;
     }
 
@@ -592,7 +601,7 @@ namespace
           boost::equals((*digest).name, request.algorithm, ascii_iequal)
         );
         if (request.qop.empty())
-          value_generator = old_algorithm<digest_type>{*digest};
+          index = boost::fusion::size(digest_algorithms);
         else
         {
           for (auto elem = boost::make_split_iterator(request.qop, boost::token_finder(http_list_separator));
