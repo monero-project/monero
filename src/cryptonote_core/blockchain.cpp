@@ -2946,11 +2946,11 @@ bool Blockchain::check_for_double_spend(const transaction& tx, key_images_contai
     {
       return true;
     }
-    bool operator()(const txin_to_script& tx) const
+    bool operator()(const reserved<0>&) const
     {
       return false;
     }
-    bool operator()(const txin_to_scripthash& tx) const
+    bool operator()(const reserved<1>&) const
     {
       return false;
     }
