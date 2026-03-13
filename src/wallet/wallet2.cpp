@@ -9117,6 +9117,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       req_t.to_height = segregation_fork_height + 1;
       req_t.cumulative = true;
       req_t.binary = true;
+      req_t.compress = true;
 
       {
         const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
