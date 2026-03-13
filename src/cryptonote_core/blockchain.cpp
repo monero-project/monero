@@ -3879,6 +3879,17 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
   return res;
 }
 //------------------------------------------------------------------
+bool Blockchain::flush_txes_from_pool()
+{
+  CRITICAL_REGION_LOCAL(m_tx_pool);
+
+  std::vector<crypto::hash> txids;
+  bool include_sensitive = true;
+  m_tx_pool.get_transaction_hashes(txids, include_sensitive);
+
+  return flush_txes_from_pool(txids);
+}
+//------------------------------------------------------------------
 //      Needs to validate the block and acquire each transaction from the
 //      transaction mem_pool, then pass the block and transactions to
 //      m_db->add_block()
