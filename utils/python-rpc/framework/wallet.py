@@ -1015,6 +1015,61 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(make_uri)
 
+    def make_uri_v2(self, addresses, amounts, recipient_names, tx_description):
+        rpc_amounts = []
+        for a in amounts:
+            if isinstance(a, dict):
+                amount = a['amount']
+                currency = a.get('currency', 'XMR')
+            else:
+                amount = a
+                currency = 'XMR'
+
+            rpc_amounts.append({
+                'amount': str(amount),
+                'currency': currency
+            })
+
+        make_uri_v2 = {
+            'jsonrpc': '2.0',
+            'method': 'make_uri_v2',
+            'params': {
+                'addresses': addresses,
+                'amounts': rpc_amounts,
+                'recipient_names': recipient_names,
+                'tx_description': tx_description
+            },
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(make_uri_v2)
+    
+    def parse_uri_v2(self, uri):
+        parse_uri_v2 = {
+            'method': 'parse_uri_v2',
+            'jsonrpc': '2.0',
+            'params': {
+                'uri': uri,
+            },
+            'id': '0'
+        }
+        res = self.rpc.send_json_rpc_request(parse_uri_v2)
+        uri_block = res.get('uri')
+        if not isinstance(uri_block, dict):
+            return res
+
+        amounts = uri_block.get('amounts')
+        if not isinstance(amounts, list):
+            uri_block['amounts'] = []
+            return res
+
+        for a in amounts:
+            try:
+                a['amount'] = int(a['amount'])
+            except Exception:
+                pass
+
+        return res
+    
     def parse_uri(self, uri):
         parse_uri = {
             'method': 'parse_uri',

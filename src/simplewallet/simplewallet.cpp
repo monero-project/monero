@@ -73,6 +73,7 @@
 #include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
 #include "wallet/fee_priority.h"
+#include "wallet/uri.hpp"
 #include "version.h"
 #include <stdexcept>
 #include "wallet/message_store.h"
@@ -6479,15 +6480,9 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   {
     std::string payment_id_str = local_args.back();
     crypto::hash payment_id;
-    bool r = true;
     if (tools::wallet2::parse_long_payment_id(payment_id_str, payment_id))
     {
       LONG_PAYMENT_ID_SUPPORT_CHECK();
-    }
-    if(!r)
-    {
-      fail_msg_writer() << tr("payment id failed to encode");
-      return false;
     }
   }
 
@@ -6514,6 +6509,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
   vector<cryptonote::address_parse_info> dsts_info;
   vector<cryptonote::tx_destination_entry> dsts;
+  std::string tx_description;
   for (size_t i = 0; i < local_args.size(); )
   {
     dsts_info.emplace_back();
@@ -6522,25 +6518,42 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     bool r = true;
 
     // check for a URI
-    std::string address_uri, payment_id_uri, tx_description, recipient_name, error;
+    std::string error;
     std::vector<std::string> unknown_parameters;
-    uint64_t amount = 0;
-    bool has_uri = m_wallet->parse_uri(local_args[i], address_uri, payment_id_uri, amount, tx_description, recipient_name, unknown_parameters, error);
+    std::vector<cryptonote::tx_destination_entry> parsed_dests;
+    std::optional<crypto::hash8> short_payment_id_opt;
+    bool has_uri = tools::wallet::parse_uri_to_dests(local_args[i], parsed_dests, short_payment_id_opt, tx_description, unknown_parameters, error, m_wallet->nettype(), &oa_prompter);
     if (has_uri)
     {
-      r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), address_uri, oa_prompter);
-      if (payment_id_uri.size() == 16)
+      dsts_info.pop_back();
+      if (short_payment_id_opt.has_value())
       {
-        if (!tools::wallet2::parse_short_payment_id(payment_id_uri, info.payment_id))
+        if (payment_id_seen)
         {
-          fail_msg_writer() << tr("failed to parse short payment ID from URI");
+          fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
           return false;
         }
-        info.has_payment_id = true;
+        std::string extra_nonce;
+        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, *short_payment_id_opt);
+        if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
+        {
+          fail_msg_writer() << tr("failed to set up payment id");
+          return false;
+        }
+        payment_id_seen = true;
       }
-      de.amount = amount;
-      de.original = local_args[i];
+      
+      for (const auto &pd : parsed_dests)
+      {
+        cryptonote::address_parse_info dst_info;
+        dst_info.address = pd.addr;
+        dst_info.is_subaddress = pd.is_subaddress;
+        dst_info.has_payment_id = pd.is_integrated;
+        dsts_info.push_back(dst_info);
+        dsts.push_back(pd);
+      }
       ++i;
+      continue;
     }
     else if (i + 1 < local_args.size())
     {
@@ -6573,33 +6586,18 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     de.is_subaddress = info.is_subaddress;
     de.is_integrated = info.has_payment_id;
 
-    if (info.has_payment_id || !payment_id_uri.empty())
+    if (info.has_payment_id)
     {
       if (payment_id_seen)
       {
         fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
         return false;
       }
-
-      crypto::hash payment_id;
       std::string extra_nonce;
-      if (info.has_payment_id)
+      set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
+      if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
       {
-        set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, info.payment_id);
-      }
-      else if (tools::wallet2::parse_payment_id(payment_id_uri, payment_id))
-      {
-        LONG_PAYMENT_ID_SUPPORT_CHECK();
-      }
-      else
-      {
-        fail_msg_writer() << tr("failed to parse payment id, though it was detected");
-        return false;
-      }
-      bool r = add_extra_nonce_to_tx_extra(extra, extra_nonce);
-      if(!r)
-      {
-        fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+        fail_msg_writer() << tr("failed to set up payment id");
         return false;
       }
       payment_id_seen = true;
@@ -6747,6 +6745,14 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         }
     }
 
+    if (!tx_description.empty())
+    {
+      for (const auto &ptx : ptx_vector)
+      {
+        crypto::hash txid = get_transaction_hash(ptx.tx);
+        m_wallet->set_tx_note(txid, tx_description);
+      }
+    }
     // actually commit the transactions
     const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
     if (ms_status.multisig_is_active && called_by_mms)
@@ -8699,12 +8705,21 @@ bool simple_wallet::show_transfers(const std::vector<std::string> &args_)
     std::string destinations = "-";
     if (!transfer.outputs.empty())
     {
-      destinations = "";
-      for (const auto& output : transfer.outputs)
+      if (transfer.outputs.size() == 1)
       {
-        if (!destinations.empty())
-          destinations += ", ";
-        destinations += (transfer.direction == "in" ? output.first.substr(0, 6) : output.first) + ":" + print_money(output.second);
+        destinations = (transfer.direction == "in" ? transfer.outputs[0].first.substr(0, 6) : transfer.outputs[0].first);
+      }
+      else
+      {
+        destinations.clear();
+        for (const auto& output : transfer.outputs)
+        {
+          if (!destinations.empty())
+          {
+            destinations += ", ";
+          }
+          destinations += (transfer.direction == "in" ? output.first.substr(0, 6) : output.first) + ":" + print_money(output.second);
+        }
       }
     }
 
