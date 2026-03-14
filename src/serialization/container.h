@@ -57,8 +57,23 @@ namespace serialization
       return true;
     }
 
-    template <typename C>
-    void do_reserve(C &c, size_t N) {}
+    //! @brief Reserve space for N elements if applicable for container.
+    template<typename... C>
+    void do_reserve(const C&...) {}
+    template<typename C>
+    auto do_reserve(C &c, std::size_t N, std::size_t B) -> decltype(c.reserve(N))
+    {
+      using T = typename C::value_type;
+
+      // max compression ratio for upfront memory usage
+      B /= sizeof(T);
+      if (std::numeric_limits<std::size_t>::max() / 4 <= B)
+        B = std::numeric_limits<std::size_t>::max();
+      else
+        B *= 4;
+
+      return c.reserve(std::min(N, B));
+    }
   }
 }
 
@@ -77,7 +92,7 @@ bool do_serialize_container(Archive<false> &ar, C &v)
     return false;
   }
 
-  ::serialization::detail::do_reserve(v, cnt);
+  ::serialization::detail::do_reserve(v, cnt, ar.remaining_bytes());
 
   for (size_t i = 0; i < cnt; i++) {
     if (i > 0)
