@@ -304,6 +304,20 @@ TEST(Serialization, serializes_vector_int64_as_fixed_int)
   ASSERT_EQ(57, blob.size());
 }
 
+TEST(Serialization, deserializes_vector_reserve)
+{
+  std::vector<int64_t> v;
+  string blob;
+
+  tools::write_varint(std::back_inserter(blob), unsigned(100));
+  blob.append(std::string(100, 0));
+
+  ASSERT_LT(v.capacity(), 20);
+  ASSERT_FALSE(serialization::parse_binary(blob, v));
+  ASSERT_EQ(48, v.capacity());
+}
+
+
 namespace
 {
   template<typename T>
