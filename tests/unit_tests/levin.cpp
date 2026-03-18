@@ -63,7 +63,7 @@ namespace
             return true;
         }
 
-        virtual bool close() override final
+        virtual bool close(const bool wait_for_shutdown) override final
         {
             return true;
         }

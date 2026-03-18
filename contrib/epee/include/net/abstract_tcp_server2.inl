@@ -35,6 +35,7 @@
 #include <boost/asio/post.hpp>
 #include <boost/foreach.hpp>
 #include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/bind_executor.hpp>
@@ -247,7 +248,7 @@ namespace net_utils
               )
             ) {
               m_state.ssl.enabled = false;
-              finish_read(bytes_transferred);
+              handle_read(bytes_transferred);
             }
             else {
               m_state.ssl.detected = true;
@@ -385,7 +386,7 @@ namespace net_utils
           m_conn_context.m_recv_cnt += bytes_transferred;
           start_timer(get_timeout_from_bytes_read(bytes_transferred), true);
         }
-        finish_read(bytes_transferred);
+        handle_read(bytes_transferred);
       }
     };
     if (!m_state.ssl.enabled)
@@ -412,7 +413,7 @@ namespace net_utils
   }
 
   template<typename T>
-  void connection<T>::finish_read(size_t bytes_transferred)
+  void connection<T>::handle_read(size_t bytes_transferred)
   {
     // Post handle_recv to a separate `strand_`, distinct from `m_strand`
     // which is listening for reads/writes. This avoids a circular dep.
@@ -738,6 +739,7 @@ namespace net_utils
     }
     else
       m_state.status = status_t::WASTED;
+    m_state.condition.notify_all();
   }
 
   template<typename T>
@@ -796,6 +798,7 @@ namespace net_utils
       m_state.socket.connected = false;
     }
     m_state.status = status_t::WASTED;
+    m_state.condition.notify_all();
   }
 
   template<typename T>
@@ -1114,7 +1117,7 @@ namespace net_utils
   template<typename T>
   bool connection<T>::cancel()
   {
-    return close();
+    return close(false);
   }
 
   template<typename T>
@@ -1130,12 +1133,34 @@ namespace net_utils
   }
 
   template<typename T>
-  bool connection<T>::close()
+  bool connection<T>::close(const bool wait_for_shutdown)
   {
     std::lock_guard<std::mutex> guard(m_state.lock);
     if (m_state.status != status_t::RUNNING)
       return false;
     terminate_async();
+
+    // Sometimes we do *not* want to wait for the connection to shut down because for example handle_recv might try to
+    // close the connection when handling a request. But handle_recv can't complete the shutdown sequence because
+    // handle_read is set to true. So, in that case we call terminate_async and return here.
+    if (!wait_for_shutdown)
+      return true;
+
+    // Sometimes we *do* want to wait for the connection to shut down for example when stopping the server. When
+    // stopping the server, we don't want the io_context to stop before the shutdown sequence completes, since we
+    // execute terminate inside m_strand. So we wait for the connection's shutdown sequence to complete before stopping
+    // the io_context.
+    MDEBUG("Waiting for connection " << m_conn_context.m_connection_id << " to shutdown, current state: " << m_state.status);
+    m_state.condition.wait(
+      m_state.lock,
+      [this]{
+        return (
+          m_state.status == status_t::TERMINATED || m_state.status == status_t::WASTED
+        );
+      }
+    );
+    MDEBUG("Shut down connection " << m_conn_context.m_connection_id);
+
     return true;
   }
 
@@ -1542,7 +1567,7 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  void boosted_tcp_server<t_protocol_handler>::send_stop_signal()
+  void boosted_tcp_server<t_protocol_handler>::send_stop_signal(std::function<void()> close_all_connections)
   {
     m_stop_signal_sent = true;
     typename connection<t_protocol_handler>::shared_state *state = static_cast<typename connection<t_protocol_handler>::shared_state*>(m_state.get());
@@ -1555,7 +1580,13 @@ namespace net_utils
     }
     connections_.clear();
     connections_mutex.unlock();
+
+    // Since we shut down connections in the strand, we want to make sure to complete the shutdown sequence before
+    // stopping the io_context. We let the caller handle closing because the caller is the one keeping track of all
+    // connections (connections_ is only a subset of all connections).
+    close_all_connections();
     io_context_.stop();
+    MDEBUG("Done with send_stop_signal");
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::send_stop_signal()", void());
   }
   //---------------------------------------------------------------------------------

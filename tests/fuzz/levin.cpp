@@ -159,7 +159,7 @@ namespace
       return m_send_return;
     }
 
-    virtual bool close()                              { return true; }
+    virtual bool close(const bool wait_for_shutdown)  { return true; }
     virtual bool send_done()                          { return true; }
     virtual bool call_run_once_service_io()           { return true; }
     virtual bool request_callback()                   { return true; }

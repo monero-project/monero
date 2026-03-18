@@ -151,7 +151,7 @@ namespace
       return m_send_return;
     }
 
-    virtual bool close()                              { /*std::cout << "test_connection::close()" << std::endl; */return true; }
+    virtual bool close(const bool wait_for_shutdown)  { /*std::cout << "test_connection::close()" << std::endl; */return true; }
     virtual bool send_done()                          { /*std::cout << "test_connection::send_done()" << std::endl; */return true; }
     virtual bool call_run_once_service_io()           { std::cout << "test_connection::call_run_once_service_io()" << std::endl; return true; }
     virtual bool request_callback()                   { std::cout << "test_connection::request_callback()" << std::endl; return true; }
@@ -573,7 +573,7 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, does_not_handl
 {
   prepare_buf();
 
-  ASSERT_TRUE(m_conn->m_protocol_handler.close());
+  ASSERT_TRUE(m_conn->m_protocol_handler.close(true));
   ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
 }
 

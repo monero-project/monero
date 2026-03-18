@@ -110,7 +110,7 @@ namespace
     {
       if (!m_connections[id].is_nil())
       {
-        m_tcp_server.get_config_object().close(m_connections[id]);
+        m_tcp_server.get_config_object().close(m_connections[id], true);
         return true;
       }
       else
