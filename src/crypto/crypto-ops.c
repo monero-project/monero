@@ -3810,6 +3810,15 @@ static int64_t signum(int64_t a) {
   return a > 0 ? 1 : a < 0 ? -1 : 0;
 }
 
+//! @brief arithmetic left shift for signed operands
+static int64_t signed_lshift(const int64_t a, const int b) {
+#ifdef __GNUC__
+  return a << b; // well-defined in GCC
+#else
+  return a * ((int64_t)1 << b);
+#endif
+}
+
 int sc_check(const unsigned char *s) {
   int64_t s0 = load_4(s);
   int64_t s1 = load_4(s + 4);
@@ -3819,7 +3828,16 @@ int sc_check(const unsigned char *s) {
   int64_t s5 = load_4(s + 20);
   int64_t s6 = load_4(s + 24);
   int64_t s7 = load_4(s + 28);
-  return (signum(1559614444 - s0) + (signum(1477600026 - s1) << 1) + (signum(2734136534 - s2) << 2) + (signum(350157278 - s3) << 3) + (signum(-s4) << 4) + (signum(-s5) << 5) + (signum(-s6) << 6) + (signum(268435456 - s7) << 7)) >> 8;
+  return -(0 >
+    (                 signum(1559614444 - s0)
+      + signed_lshift(signum(1477600026 - s1), 1)
+      + signed_lshift(signum(2734136534 - s2), 2)
+      + signed_lshift(signum(350157278  - s3), 3)
+      + signed_lshift(signum(           - s4), 4)
+      + signed_lshift(signum(           - s5), 5)
+      + signed_lshift(signum(           - s6), 6)
+      + signed_lshift(signum(268435456  - s7), 7)
+    ));
 }
 
 int sc_isnonzero(const unsigned char *s) {
