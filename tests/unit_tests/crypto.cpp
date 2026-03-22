@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Monero Project
+// Copyright (c) 2017-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,13 +31,13 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 extern "C"
 {
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/generators.h"
-#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/merge_mining.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
@@ -55,9 +55,6 @@ namespace
     "8b655970153799af2aeadc9ff1add0ea6c7251d54154cfa92c173a0dd39c1f94"
     "6c7251d54154cfa92c173a0dd39c1f948b655970153799af2aeadc9ff1add0ea";
 
-  template<typename T> void *addressof(T &t) { return &t; }
-  template<> void *addressof(crypto::secret_key &k) { return addressof(unwrap(unwrap(k))); }
-
   template<typename T>
   bool is_formatted()
   {
@@ -66,7 +63,8 @@ namespace
     static_assert(alignof(T) == 1, "T must have 1 byte alignment");
     static_assert(sizeof(T) <= sizeof(source), "T is too large for source");
     static_assert(sizeof(T) * 2 <= sizeof(expected), "T is too large for destination");
-    std::memcpy(addressof(value), source, sizeof(T));
+    static_assert(std::has_unique_object_representations_v<T>);
+    std::memcpy(std::addressof(value), source, sizeof(T));
 
     std::stringstream out;
     out << "BEGIN" << value << "END";  
