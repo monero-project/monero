@@ -37,7 +37,6 @@
 #define CHACHA_IV_SIZE 8
 
 #if defined(__cplusplus)
-#include <memory.h>
 
 #include "memwipe.h"
 #include "mlocker.h"

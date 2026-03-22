@@ -4,15 +4,11 @@ D. J. Bernstein
 Public domain.
 */
 
-#include <memory.h>
-#include <stdio.h>
-#ifndef _MSC_VER
-#include <sys/param.h>
-#endif
+#include <stdint.h>
+#include <string.h>
 
 #include "chacha.h"
 #include "int-util.h"
-#include "warnings.h"
 
 /*
  * The following macros are used to obtain exact-width results.
@@ -24,8 +20,8 @@ Public domain.
  * The following macros load words from an array of bytes with
  * different types of endianness, and vice versa.
  */
-#define U8TO32_LITTLE(p) SWAP32LE(((uint32_t*)(p))[0])
-#define U32TO8_LITTLE(p, v) (((uint32_t*)(p))[0] = SWAP32LE(v))
+#define U8TO32_LITTLE(p) load_num_32(p)
+#define U32TO8_LITTLE(p, v) save_num_32(p, v)
 
 #define ROTATE(v,c) (rol32(v,c))
 #define XOR(v,w) ((v) ^ (w))
@@ -40,7 +36,16 @@ Public domain.
 
 static const char sigma[] = "expand 32-byte k";
 
-DISABLE_GCC_AND_CLANG_WARNING(strict-aliasing)
+static uint32_t load_num_32(const void* p) {
+  uint32_t v;
+  memcpy(&v, p, sizeof(v));
+  return SWAP32LE(v);
+}
+
+static void save_num_32(void* p, uint32_t v) {
+  v = SWAP32LE(v);
+  memcpy(p, &v, sizeof(v));
+}
 
 static void chacha(unsigned rounds, const void* data, size_t length, const uint8_t* key, const uint8_t* iv, char* cipher) {
   uint32_t x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15;
