@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2024, Monero Research Labs
+// Copyright (c) 2016-2026, Monero Research Labs
 //
 // Author: Shen Noether <shen.noether@gmx.com>
 //
@@ -30,7 +30,11 @@
 
 #include <boost/lexical_cast.hpp>
 #include "misc_log_ex.h"
+extern "C" {
+#include "rctCryptoOps.h"
+}
 #include "rctOps.h"
+
 using namespace crypto;
 using namespace std;
 
@@ -340,7 +344,8 @@ namespace rct {
 
     //generates a random uint long long (for testing)
     xmr_amount randXmrAmount(xmr_amount upperlimit) {
-        return h2d(skGen()) % (upperlimit);
+        assert(upperlimit > 0);
+        return crypto::rand<xmr_amount>() % upperlimit;
     }
 
     //Scalar multiplications of curve points

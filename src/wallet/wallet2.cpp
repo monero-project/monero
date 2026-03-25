@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -12131,7 +12131,10 @@ void wallet2::check_tx_key_helper(const cryptonote::transaction &tx, const crypt
         THROW_WALLET_EXCEPTION_IF(sc_check(ecdh_info.amount.bytes) != 0, error::wallet_internal_error, "Bad ECDH input amount");
         rct::addKeys2(Ctmp, ecdh_info.mask, ecdh_info.amount, rct::H);
         if (rct::equalKeys(C, Ctmp))
-          amount = rct::h2d(ecdh_info.amount);
+        {
+          if (!rct::h2d(amount, ecdh_info.amount))
+            amount = 0;
+        }
         else
           amount = 0;
       }
@@ -12794,7 +12797,8 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
       crypto::derivation_to_scalar(derivation, proof.index_in_tx, shared_secret);
       rct::ecdhTuple ecdh_info = tx.rct_signatures.ecdhInfo[proof.index_in_tx];
       rct::ecdhDecode(ecdh_info, rct::sk2rct(shared_secret), tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
-      amount = rct::h2d(ecdh_info.amount);
+      if (!rct::h2d(amount, ecdh_info.amount))
+        return false;
     }
     total += amount;
     if (kispent_res.spent_status[i])
