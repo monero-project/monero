@@ -51,7 +51,7 @@ class DaemonHandler : public RpcHandler
 {
   public:
 
-    DaemonHandler(cryptonote::core& c, t_p2p& p2p);
+    DaemonHandler(cryptonote::core& c, t_p2p& p2p, bool restricted = false);
 
     ~DaemonHandler() { }
 
@@ -143,6 +143,7 @@ class DaemonHandler : public RpcHandler
 
     cryptonote::core& m_core;
     t_p2p& m_p2p;
+    bool m_restricted;
 };
 
 }  // namespace rpc

@@ -47,6 +47,7 @@ set(rpc_pub_sources zmq_pub.cpp)
 
 set(daemon_rpc_server_sources
   daemon_handler.cpp
+  zmq_restricted_methods.cpp
   zmq_pub.cpp
   zmq_server.cpp)
 
@@ -79,6 +80,7 @@ set(daemon_rpc_server_private_headers
   message.h
   daemon_messages.h
   daemon_handler.h
+  zmq_restricted_methods.h
   zmq_server.h)
 
 
