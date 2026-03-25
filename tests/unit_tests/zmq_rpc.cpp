@@ -39,6 +39,7 @@
 #include "net/zmq.h"
 #include "rpc/message.h"
 #include "rpc/zmq_pub.h"
+#include "rpc/zmq_restricted_methods.h"
 #include "rpc/zmq_server.h"
 #include "serialization/json_object.h"
 
@@ -67,6 +68,23 @@ TEST(ZmqFullMessage, Request)
 
   cryptonote::rpc::FullMessage parsed{request, true};
   EXPECT_STREQ("foo", parsed.getRequestType().c_str());
+}
+
+TEST(ZmqRestrictedMethods, BasicCoverage)
+{
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("flush_txpool"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("get_peer_list"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("mining_status"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("relay_tx"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("save_bc"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("set_log_categories"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("set_log_level"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("start_mining"));
+  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("stop_mining"));
+
+  EXPECT_FALSE(cryptonote::rpc::is_blocked_in_restricted_mode("get_height"));
+  EXPECT_FALSE(cryptonote::rpc::is_blocked_in_restricted_mode("get_info"));
+  EXPECT_FALSE(cryptonote::rpc::is_blocked_in_restricted_mode("send_raw_tx"));
 }
 
 namespace

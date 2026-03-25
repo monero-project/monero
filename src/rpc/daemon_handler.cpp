@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "daemon_handler.h"
+#include "rpc/zmq_restricted_methods.h"
 
 #include <algorithm>
 #include <cstring>
@@ -109,12 +110,14 @@ namespace rpc
     };
   } // anonymous
 
-  DaemonHandler::DaemonHandler(cryptonote::core& c, t_p2p& p2p)
-    : m_core(c), m_p2p(p2p)
+  DaemonHandler::DaemonHandler(cryptonote::core& c, t_p2p& p2p, bool restricted)
+    : m_core(c), m_p2p(p2p), m_restricted(restricted)
   {
     const auto last_sorted = std::is_sorted_until(std::begin(handlers), std::end(handlers));
     if (last_sorted != std::end(handlers))
       throw std::logic_error{std::string{"ZMQ JSON-RPC handlers map is not properly sorted, see "} + last_sorted->method_name};
+
+    check_blocked_methods_sorted();
   }
 
   void DaemonHandler::handle(const GetHeight::Request& req, GetHeight::Response& res)
@@ -930,13 +933,24 @@ namespace rpc
 
   epee::byte_slice DaemonHandler::handle(std::string&& request)
   {
-    MDEBUG("Handling RPC request: " << request);
+    if (m_restricted)
+        MDEBUG("Handling RPC request");
+    else
+        MDEBUG("Handling RPC request: " << request);
 
     try
     {
       FullMessage req_full(std::move(request), true);
 
       const std::string request_type = req_full.getRequestType();
+      if (m_restricted && is_blocked_in_restricted_mode(request_type))
+      {
+        Message fail;
+        fail.status = Message::STATUS_FAILED;
+        fail.error_details = "\"" + request_type + "\" is not available in restricted mode.";
+        return FullMessage::getResponse(fail, req_full.getID());
+      }
+
       const auto matched_handler = std::lower_bound(std::begin(handlers), std::end(handlers), request_type);
       if (matched_handler == std::end(handlers) || matched_handler->method_name != request_type)
         return BAD_REQUEST(request_type, req_full.getID());
