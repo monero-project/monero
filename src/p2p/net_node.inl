@@ -791,8 +791,14 @@ namespace nodetool
     // TODO: at some point add IPv6 support, but that won't be relevant
     // for some time yet.
 
-    std::vector<std::vector<std::string>> dns_results;
-    dns_results.resize(m_seed_nodes_list.size());
+    struct frame_t
+    {
+      std::vector<std::vector<std::string>> dns_results;
+      boost::mutex sync;
+    };
+
+    const auto frame = std::make_shared<frame_t>();
+    frame->dns_results.resize(m_seed_nodes_list.size());
 
     // some libc implementation provide only a very small stack
     // for threads, e.g. musl only gives +- 80kb, which is not
@@ -803,32 +809,22 @@ namespace nodetool
 
     std::list<boost::thread> dns_threads;
     uint64_t result_index = 0;
+    const std::weak_ptr<frame_t> frame_weak{frame};
     for (const std::string& addr_str : m_seed_nodes_list)
     {
-      boost::thread th = boost::thread(thread_attributes, [=, &dns_results, &addr_str]
+      boost::thread th = boost::thread(thread_attributes, [frame_weak, addr_str, result_index]
       {
         MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
         // TODO: care about dnssec avail/valid
         bool avail, valid;
-        std::vector<std::string> addr_list;
-
-        try
-        {
-          addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
-          MDEBUG("dns_threads[" << result_index << "] DNS resolve done");
-          boost::this_thread::interruption_point();
-        }
-        catch(const boost::thread_interrupted&)
-        {
-          // thread interruption request
-          // even if we now have results, finish thread without setting
-          // result variables, which are now out of scope in main thread
-          MWARNING("dns_threads[" << result_index << "] interrupted");
-          return;
-        }
-
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
         MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
-        dns_results[result_index] = addr_list;
+        const auto frame = frame_weak.lock();
+        if (frame)
+        {
+          const boost::lock_guard<boost::mutex> lock{frame->sync};
+          frame->dns_results.at(result_index) = std::move(addr_list);
+        }
       });
 
       dns_threads.push_back(std::move(th));
@@ -842,14 +838,15 @@ namespace nodetool
     {
       if (! th.try_join_until(deadline))
       {
-        MWARNING("dns_threads[" << i << "] timed out, sending interrupt");
-        th.interrupt();
+        MWARNING("dns_threads[" << i << "] timed out");
+        th.detach();
       }
       ++i;
     }
 
     i = 0;
-    for (const auto& result : dns_results)
+    const boost::lock_guard<boost::mutex> lock{frame->sync};
+    for (const auto& result : frame->dns_results)
     {
       MDEBUG("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
       // if no results for node, thread's lookup likely timed out
