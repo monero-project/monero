@@ -516,6 +516,7 @@ namespace net_utils
             start_write();
           }
         });
+        return;
       }
     }
 
