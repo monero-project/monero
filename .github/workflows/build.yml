@@ -86,7 +86,7 @@ jobs:
       image: archlinux:latest
     steps:
       - name: install dependencies
-        run: pacman -Syyu --noconfirm base-devel git cmake boost openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
+        run: pacman -Syyu --noconfirm base-devel git cmake boost boost-libs openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v4
