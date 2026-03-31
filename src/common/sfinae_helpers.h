@@ -29,6 +29,7 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
 
 // the loose definitions of types in this file are, well, loose.
 //
