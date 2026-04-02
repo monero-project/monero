@@ -136,6 +136,18 @@ namespace daemon_args
   , "Address for ZMQ pub - tcp://ip:port or ipc://path"
   };
 
+  const command_line::arg_descriptor<bool> arg_restricted_zmq_rpc = {
+    "restricted-zmq-rpc"
+  , "Restrict ZMQ RPC to view-only / non-sensitive methods"
+  , false
+  };
+
+  const command_line::arg_descriptor<bool> arg_confirm_zmq_rpc_external_bind = {
+    "confirm-zmq-rpc-external-bind"
+  , "Confirm zmq-rpc-bind-ip value is NOT a loopback (local) IP"
+  , false
+  };
+
   const command_line::arg_descriptor<bool> arg_zmq_rpc_disabled = {
     "no-zmq"
   , "Disable ZMQ RPC server"

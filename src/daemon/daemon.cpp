@@ -31,6 +31,7 @@
 #include <memory>
 #include <stdexcept>
 #include <boost/algorithm/string/split.hpp>
+#include <boost/asio/ip/address.hpp>
 #include "misc_log_ex.h"
 #include "daemon/daemon.h"
 #include "rpc/daemon_handler.h"
@@ -58,10 +59,39 @@ using namespace epee;
 
 namespace daemonize {
 
+namespace
+{
+  void verify_zmq_rpc_bind(const boost::program_options::variables_map& vm)
+  {
+    std::string bind_ip = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_ip);
+    if (bind_ip.empty())
+      return;
+
+    // ZMQ bind input already accepts bracketed IPv6 literals, but
+    // boost::asio::ip::make_address does not.
+    if (bind_ip.size() >= 2 && bind_ip.front() == '[' && bind_ip.back() == ']')
+      bind_ip = bind_ip.substr(1, bind_ip.size() - 2);
+
+    boost::system::error_code ec{};
+    const auto parsed_ip = boost::asio::ip::make_address(bind_ip, ec);
+    if (ec)
+      throw std::runtime_error{"Invalid IP address given for --" + std::string(daemon_args::arg_zmq_rpc_bind_ip.name)};
+
+    if (!parsed_ip.is_loopback() && !command_line::get_arg(vm, daemon_args::arg_confirm_zmq_rpc_external_bind))
+    {
+      throw std::runtime_error{
+        std::string{"--"} + daemon_args::arg_zmq_rpc_bind_ip.name +
+        " permits inbound unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --" +
+        daemon_args::arg_confirm_zmq_rpc_external_bind.name
+      };
+    }
+  }
+}
+
 struct zmq_internals
 {
-  explicit zmq_internals(t_core& core, t_p2p& p2p)
-    : rpc_handler{core.get(), p2p.get()}
+  explicit zmq_internals(t_core& core, t_p2p& p2p, const bool restricted)
+    : rpc_handler{core.get(), p2p.get(), restricted}
     , server{rpc_handler}
   {}
 
@@ -104,7 +134,10 @@ public:
 
     if (!command_line::get_arg(vm, daemon_args::arg_zmq_rpc_disabled))
     {
-      zmq.reset(new zmq_internals{core, p2p});
+      verify_zmq_rpc_bind(vm);
+
+      const bool restricted = command_line::get_arg(vm, daemon_args::arg_restricted_zmq_rpc);
+      zmq.reset(new zmq_internals{core, p2p, restricted});
 
       const std::string zmq_port = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_port);
       const std::string zmq_address = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_ip);
@@ -122,6 +155,33 @@ public:
         core.get().get_blockchain_storage().set_txpool_notify(cryptonote::listener::zmq_pub::txpool_add{shared});
         core.get().get_blockchain_storage().add_block_notify(cryptonote::listener::zmq_pub::chain_main{shared});
         core.get().get_blockchain_storage().add_miner_notify(cryptonote::listener::zmq_pub::miner_data{shared});
+      }
+    }
+    else // if --no-zmq specified
+    {
+      // Assert that none of --zmq-rpc-bind-port, --zmq-rpc-bind-ip, and --zmq-pub are specified b/c
+      // that does not make semantic sense with --no-zmq.
+      if (command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_port) !=
+          daemon_args::arg_zmq_rpc_bind_port.default_value)
+      {
+        MWARNING("WARN: --zmq-rpc-bind-port has no effect because --no-zmq was specified");
+      }
+      if (command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_ip) !=
+          daemon_args::arg_zmq_rpc_bind_ip.default_value)
+      {
+        MWARNING("WARN: --zmq-rpc-bind-ip has no effect because --no-zmq was specified");
+      }
+      if (command_line::get_arg(vm, daemon_args::arg_confirm_zmq_rpc_external_bind))
+      {
+        MWARNING("WARN: --confirm-zmq-rpc-external-bind has no effect because --no-zmq was specified");
+      }
+      if (command_line::get_arg(vm, daemon_args::arg_restricted_zmq_rpc))
+      {
+        MWARNING("WARN: --restricted-zmq-rpc has no effect because --no-zmq was specified");
+      }
+      if (!command_line::get_arg(vm, daemon_args::arg_zmq_pub).empty())
+      {
+        MWARNING("WARN: --zmq-pub has no effect because --no-zmq was specified");
       }
     }
   }
