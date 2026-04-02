@@ -208,7 +208,7 @@ esac
 export GLIBC_DYNAMIC_LINKER=${glibc_dynamic_linker}
 
 # Environment variables for determinism
-export TAR_OPTIONS="--owner=0 --group=0 --numeric-owner --mtime='@${SOURCE_DATE_EPOCH}' --sort=name"
+export TAR_OPTIONS="--no-same-owner --owner=0 --group=0 --numeric-owner --mtime='@${SOURCE_DATE_EPOCH}' --sort=name"
 export TZ="UTC"
 
 ####################
@@ -261,7 +261,7 @@ fi
 
 # Use COMMIT_TIMESTAMP for the source and release binary archives
 export SOURCE_DATE_EPOCH=${COMMIT_TIMESTAMP}
-export TAR_OPTIONS="--owner=0 --group=0 --numeric-owner --mtime='@${SOURCE_DATE_EPOCH}' --sort=name"
+export TAR_OPTIONS="--no-same-owner --owner=0 --group=0 --numeric-owner --mtime='@${SOURCE_DATE_EPOCH}' --sort=name"
 
 GIT_ARCHIVE="${DIST_ARCHIVE_BASE}/monero-source-${VERSION}.tar.gz"
 
