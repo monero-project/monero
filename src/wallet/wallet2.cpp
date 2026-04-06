@@ -5502,7 +5502,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
     {
       get_custom_background_key(password, key, kdf_rounds);
       crypto::chacha20(keys_file_data.account_data.data(), keys_file_data.account_data.size(), key, keys_file_data.iv, &account_data[0]);
-      const bool is_background_wallet = json.Parse(account_data.c_str()).HasParseError() && json.IsObject();
+      const bool is_background_wallet = !json.Parse(account_data.c_str()).HasParseError() && json.IsObject();
       no_spend_key = no_spend_key || is_background_wallet;
     }
   }
