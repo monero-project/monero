@@ -52,14 +52,14 @@ namespace carrot { struct CarrotDestinationV1; }
 namespace carrot
 {
 /**
- * brief: make_carrot_uncontextualized_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
+ * brief: try_make_carrot_uncontextualized_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
  *   s_sr = k_v D_e
  * param: k_view_dev -
  * param: enote_ephemeral_pubkey - D_e
  * outparam: s_sender_receiver_unctx_out - s_sr
  * return: true if successful, false if a failure occurred in point decompression
  */
-bool make_carrot_uncontextualized_shared_key_receiver(
+bool try_make_carrot_uncontextualized_shared_key_receiver(
     const view_incoming_key_device &k_view_dev,
     const mx25519_pubkey &enote_ephemeral_pubkey,
     mx25519_pubkey &s_sender_receiver_unctx_out);
@@ -72,7 +72,7 @@ bool make_carrot_uncontextualized_shared_key_receiver(
  * param: s_sender_receiver_unctx - s_sr
  * param: main_address_spend_pubkeys - {K^0_s, ...}
  * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_t_out - k^t_o
  * outparam: main_address_spend_pubkey_out - K^0_s, which will be one of main_address_spend_pubkeys
  * return: true iff the scan process succeeded
  */
@@ -112,7 +112,7 @@ bool try_scan_carrot_coinbase_enote_receiver(
  * param: main_address_spend_pubkeys - {K^0_s, ...}
  * param: k_view_dev -
  * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_t_out - k^t_o
  * outparam: address_spend_pubkey_out - K^j_s
  * outparam: amount_out - a
  * outparam: amount_blinding_factor_out - k_a
@@ -169,7 +169,7 @@ bool try_scan_carrot_enote_external_receiver(const CarrotEnoteV1 &enote,
  * param: enote -
  * param: s_view_balance_dev -
  * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_t_out - k^t_o
  * outparam: address_spend_pubkey_out - K^j_s
  * outparam: amount_out - a
  * outparam: amount_blinding_factor_out - k_a

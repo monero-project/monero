@@ -95,7 +95,7 @@ void make_carrot_subaddress_v1(const crypto::public_key &account_spend_pubkey,
     // K^j_s = k^j_subscal * K_s
     const rct::key address_spend_pubkey =
         rct::scalarmultKey(rct::pk2rct(account_spend_pubkey), rct::sk2rct(subaddress_scalar));
-    
+
     // K^j_v = k^j_subscal * K_v
     const rct::key address_view_pubkey =
         rct::scalarmultKey(rct::pk2rct(account_view_pubkey), rct::sk2rct(subaddress_scalar));

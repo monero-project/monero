@@ -51,7 +51,7 @@ namespace carrot
 
 /**
 * brief: make_carrot_provespend_key - prove-spend key, for signing input proofs to spend enotes
-*   k_ps = H_n(s_m)
+*   k_ps = H_n[s_m]()
 * param: s_master - s_m
 * outparam: k_prove_spend_out - k_ps
 */
@@ -67,7 +67,7 @@ void make_carrot_partial_spend_pubkey(const crypto::secret_key &k_prove_spend,
     crypto::public_key &partial_spend_pubkey_out);
 /**
 * brief: make_carrot_viewbalance_secret - view-balance secret, for viewing all balance information
-*   s_vb = H_n(s_m)
+*   s_vb = H_n[s_m]()
 * param: s_master - s_m
 * outparam: s_view_balance_out - s_vb
 */
@@ -75,7 +75,7 @@ void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
     crypto::secret_key &s_view_balance_out);
 /**
 * brief: make_carrot_generateimage_preimage - generate-image key preimage
-*   s_gp = H_n(s_vb)
+*   s_gp = H_n[s_vb]()
 * param: s_view_balance - s_vb
 * outparam: s_generate_image_preimage_out - s_gp
 */
@@ -83,7 +83,7 @@ void make_carrot_generateimage_preimage(const crypto::secret_key &s_view_balance
     crypto::secret_key &s_generate_image_preimage_out);
     /**
 * brief: make_carrot_generateimage_key - generate-image key, for identifying enote spends
-*   k_gi = H_n(s_gp, K_ps)
+*   k_gi = H_n[s_gp](K_ps)
 * param: s_generate_image_preimage - s_gp
 * param: partial_spend_pubkey - K_ps
 * outparam: k_generate_image_out - k_gi
@@ -93,7 +93,7 @@ void make_carrot_generateimage_key(const crypto::secret_key &s_generate_image_pr
     crypto::secret_key &k_generate_image_out);
 /**
 * brief: make_carrot_viewincoming_key - view-incoming key, for identifying received external enotes
-*   k_v = H_n(s_vb)
+*   k_v = H_n[s_vb]()
 * param: s_view_balance - s_vb
 * outparam: k_view_out - k_v
 */
@@ -101,7 +101,7 @@ void make_carrot_viewincoming_key(const crypto::secret_key &s_view_balance,
     crypto::secret_key &k_view_out);
 /**
 * brief: make_carrot_generateaddress_secret - generate-address secret, for generating addresses
-*   s_ga = H_32(s_vb)
+*   s_ga = H_32[s_vb]()
 * param: s_view_balance - s_vb
 * outparam: s_generate_address_out - s_ga
 */

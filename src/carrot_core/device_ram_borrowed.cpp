@@ -52,7 +52,7 @@ bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_ed25519(const c
 bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_x25519(const mx25519_pubkey &D,
     mx25519_pubkey &kvD) const
 {
-    return make_carrot_uncontextualized_shared_key_receiver(m_k_view_incoming, D, kvD);
+    return try_make_carrot_uncontextualized_shared_key_receiver(m_k_view_incoming, D, kvD);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void view_incoming_key_ram_borrowed_device::make_janus_anchor_special(

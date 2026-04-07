@@ -56,11 +56,11 @@ static bool is_main_address_spend_pubkey(const crypto::public_key &address_spend
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static crypto::secret_key make_enote_ephemeral_privkey_sender(const janus_anchor_t &anchor_norm,
+static crypto::secret_key get_enote_ephemeral_privkey_sender(const janus_anchor_t &anchor_norm,
     const CarrotDestinationV1 &destination,
     const input_context_t &input_context)
 {
-    // d_e = H_n(anchor_norm, input_context, K^j_s, pid))
+    // d_e = H_n(anchor_norm, input_context, K^j_s, pid)
     crypto::secret_key enote_ephemeral_privkey;
     make_carrot_enote_ephemeral_privkey(anchor_norm,
         input_context,
@@ -135,7 +135,7 @@ static bool try_scan_carrot_enote_external_normal_checked(const CarrotEnoteV1 &e
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool make_carrot_uncontextualized_shared_key_receiver(
+bool try_make_carrot_uncontextualized_shared_key_receiver(
     const view_incoming_key_device &k_view_dev,
     const mx25519_pubkey &enote_ephemeral_pubkey,
     mx25519_pubkey &s_sender_receiver_unctx_out)
@@ -150,7 +150,7 @@ bool try_scan_carrot_coinbase_enote_sender(
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out)
 {
-    const crypto::secret_key enote_ephemeral_privkey = make_enote_ephemeral_privkey_sender(anchor_norm,
+    const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey_sender(anchor_norm,
         destination,
         make_carrot_input_context_coinbase(enote.block_index));
 
@@ -170,7 +170,7 @@ bool try_scan_carrot_coinbase_enote_sender(
 {
     // s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+    try_make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
         destination.address_view_pubkey,
         s_sender_receiver_unctx);
 
@@ -231,7 +231,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     CarrotEnoteType &enote_type_out,
     const bool check_pid)
 {
-    const crypto::secret_key enote_ephemeral_privkey = make_enote_ephemeral_privkey_sender(anchor_norm,
+    const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey_sender(anchor_norm,
         destination,
         make_carrot_input_context(enote.tx_first_key_image));
 
@@ -260,7 +260,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
 {
     // s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+    try_make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
         destination.address_view_pubkey,
         s_sender_receiver_unctx);
 
@@ -371,7 +371,7 @@ bool try_scan_carrot_enote_internal_receiver(const CarrotEnoteV1 &enote,
     // input_context
     const input_context_t input_context = make_carrot_input_context(enote.tx_first_key_image);
 
-    // vt = H_3(s_sr || input_context || Ko)
+    // vt = H_3[s_vb](input_context || Ko)
     view_tag_t nominal_view_tag;
     s_view_balance_dev.make_internal_view_tag(input_context, enote.onetime_address, nominal_view_tag);
 
@@ -379,7 +379,7 @@ bool try_scan_carrot_enote_internal_receiver(const CarrotEnoteV1 &enote,
     if (nominal_view_tag != enote.view_tag)
         return false;
 
-    // s^ctx_sr = H_32(s_vb, D_e, input_context)
+    // s^ctx_sr = H_32[s_vb](D_e, input_context)
     crypto::hash s_sender_receiver;
     s_view_balance_dev.make_internal_sender_receiver_secret(enote.enote_ephemeral_pubkey,
         input_context,

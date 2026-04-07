@@ -97,7 +97,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_output_proposal(
+std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_payment_proposal(
     const size_t num_outgoing,
     const size_t num_selfsend,
     const rct::xmr_amount needed_change_amount,
@@ -178,12 +178,12 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     CARROT_CHECK_AND_THROW(num_integrated <= 1,
         bad_address_type, "only one integrated address is allowed per tx output set");
 
-    // assert anchor_norm != 0 for payments
+    // assert anchor_norm != 0 for normal payments
     for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
         CARROT_CHECK_AND_THROW(normal_payment_proposal.randomness != janus_anchor_t{},
             missing_randomness, "normal payment proposal has unset anchor_norm AKA randomness");
 
-    // assert uniqueness of randomness for each payment
+    // assert uniqueness of randomness for each normal payment
     memcmp_set<janus_anchor_t> randomnesses;
     for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
         randomnesses.insert(normal_payment_proposal.randomness);
@@ -210,7 +210,7 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
             output_entry.first,
             encrypted_payment_id);
 
-        // if 1 normal, and 2 self-send, set D^other_e equal to this D_e
+        // if 1 normal and 1 self-send, set D^other_e equal to this D_e
         if (num_proposals == 2)
             other_enote_ephemeral_pubkey = output_entry.first.enote.enote_ephemeral_pubkey;
 
@@ -233,6 +233,8 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     {
         const size_t present_ephem_pk_index = selfsend_payment_proposals.at(0).enote_ephemeral_pubkey ? 0 : 1;
         other_enote_ephemeral_pubkey = selfsend_payment_proposals.at(present_ephem_pk_index).enote_ephemeral_pubkey;
+        CARROT_CHECK_AND_THROW(other_enote_ephemeral_pubkey,
+            missing_ephemeral_key, "missing ephemeral key: 2-out tx with 2 selfsends needs 1 non-null D_e");
     }
 
     // construct selfsend enotes, preferring internal enotes over special enotes when possible
@@ -331,7 +333,7 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     // assert payment proposals numbers
     const size_t num_proposals = normal_payment_proposals.size();
 
-    // assert there is a max of 1 integrated address payment proposals
+    // assert there are no subaddress or integrated address payment proposals
     for (const CarrotPaymentProposalV1 &normal_payment_proposal : normal_payment_proposals)
     {
         const CarrotDestinationV1 &destination = normal_payment_proposal.destination;
@@ -356,7 +358,7 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     output_coinbase_enotes_out.reserve(num_proposals);
     for (size_t i = 0; i < normal_payment_proposals.size(); ++i)
     {
-        get_coinbase_output_proposal_v1(normal_payment_proposals[i],
+        get_coinbase_enote_v1(normal_payment_proposals[i],
             block_index,
             output_coinbase_enotes_out.emplace_back());
     }
@@ -374,7 +376,7 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     }
     const bool has_unique_ephemeral_pubkeys = ephemeral_pubkeys.size() == output_coinbase_enotes_out.size();
     CARROT_CHECK_AND_THROW(has_unique_ephemeral_pubkeys,
-        missing_randomness, "a coinbase enote set needs unique ephemeral pubkeys, but this set doesn't");
+        missing_randomness, "a coinbase enote set needs unique ephemeral pubkeys, but this set isn't unique");
 
     // sort enotes by K_o
     const auto sort_output_enote_proposal = [](const CarrotCoinbaseEnoteV1 &a, const CarrotCoinbaseEnoteV1 &b)

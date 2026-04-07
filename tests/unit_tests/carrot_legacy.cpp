@@ -105,7 +105,7 @@ static void unittest_legacy_scan_enote_set(const std::vector<CarrotEnoteV1> &eno
 
         // s_sr = k_v D_e
         mx25519_pubkey s_sr;
-        make_carrot_uncontextualized_shared_key_receiver(acb.get_keys().m_view_secret_key,
+        try_make_carrot_uncontextualized_shared_key_receiver(acb.get_keys().m_view_secret_key,
             enote.enote_ephemeral_pubkey,
             s_sr);
 
