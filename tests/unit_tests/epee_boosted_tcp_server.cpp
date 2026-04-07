@@ -37,10 +37,12 @@
 
 #include "gtest/gtest.h"
 
+#include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "include_base_utils.h"
 #include "string_tools.h"
 #include "net/abstract_tcp_server2.h"
 #include "net/levin_protocol_handler_async.h"
+#include "p2p/net_node.h"
 
 namespace
 {
@@ -234,7 +236,7 @@ TEST(test_epee_connection, test_lifetime)
     auto tag = create_connection();
     ASSERT_TRUE(shared_state->get_connections_count() == 1);
     bool success = shared_state->for_connection(tag, [shared_state](context_t& context){
-      shared_state->close(context.m_connection_id);
+      shared_state->close(context.m_connection_id, true);
       context.m_remote_address.get_zone();
       return true;
     });
@@ -250,9 +252,9 @@ TEST(test_epee_connection, test_lifetime)
     success = shared_state->foreach_connection([&index, shared_state, &tags, &create_connection](context_t& context){
       if (!index)
         for (const auto &t: tags)
-          shared_state->close(t);
+          shared_state->close(t, true);
 
-      shared_state->close(context.m_connection_id);
+      shared_state->close(context.m_connection_id, true);
       context.m_remote_address.get_zone();
       ++index;
 
@@ -266,7 +268,7 @@ TEST(test_epee_connection, test_lifetime)
 
     index = 0;
     success = shared_state->foreach_connection([&index, shared_state](context_t& context){
-      shared_state->close(context.m_connection_id);
+      shared_state->close(context.m_connection_id, true);
       context.m_remote_address.get_zone();
       ++index;
       return true;
@@ -296,7 +298,7 @@ TEST(test_epee_connection, test_lifetime)
         });
         ASSERT_TRUE(success);
       }
-      shared_state->close(tag);
+      shared_state->close(tag, true);
       ASSERT_TRUE(shared_state->get_connections_count() == 0);
     }
 
@@ -450,7 +452,7 @@ TEST(test_epee_connection, test_lifetime)
           auto tag = context.m_connection_id;
           boost::asio::post(io_context, [conn] { conn->cancel(); });
           conn.reset();
-          s->close(tag);
+          s->close(tag, true);
           while (s->sock_count);
         }
       });
@@ -643,7 +645,7 @@ TEST(boosted_tcp_server, strand_deadlock)
         }
         else if(context.m_recv_cnt == 2) {
           guard.unlock();
-          socket->close();
+          socket->close(false);
         }
       }
       return true;
@@ -710,4 +712,105 @@ TEST(boosted_tcp_server, strand_deadlock)
   server.send_stop_signal();
   server.timed_wait_server_stop(5 * 1000);
   server.deinit_server();
+}
+
+TEST(boosted_tcp_server, shutdown)
+{
+  struct context_t: epee::net_utils::connection_context_base {
+    static constexpr size_t get_max_bytes(int) noexcept { return -1; }
+    static constexpr int handshake_command() noexcept { return 1001; }
+    static constexpr bool handshake_complete() noexcept { return true; }
+  };
+
+  struct config_t : epee::levin::async_protocol_handler_config<context_t> {
+    void received_handshake() { handshake_received.raise(); }
+    epee::simple_event handshake_received;
+  };
+
+  struct handler_t : epee::levin::async_protocol_handler<context_t> {
+    using config_type = config_t;
+    using connection_context = context_t;
+    using epee::levin::async_protocol_handler<context_t>::async_protocol_handler;
+
+    bool handle_recv(const void *data, size_t bytes_transferred)
+    {
+      // We don't respond to the handshake (the async_invoke_remote_command2 is waiting for a response)
+      MINFO("handle_recv just came in");
+      config_t* config = dynamic_cast<config_t*>(&m_config);
+      if (config == nullptr)
+        throw std::runtime_error("m_config must be of type config_t");
+      config->received_handshake();
+      return true;
+    }
+  };
+
+  boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::make_address("127.0.0.1"), 5262);
+  epee::net_utils::boosted_tcp_server<handler_t> server(epee::net_utils::e_connection_type_P2P);
+  server.init_server(
+    endpoint.port(),
+    endpoint.address().to_string(),
+    {},
+    {},
+    {},
+    true,
+    epee::net_utils::ssl_support_t::e_ssl_support_disabled
+  );
+
+  // Run the server in a thread and wait for it to start
+  MINFO("Starting the server");
+  std::thread running_server([&]{server.run_server(2, true/*wait*/);} );
+
+  // Have the server connect to itself
+  MINFO("Connecting the server to itself");
+  context_t context;
+  {
+    epee::simple_event connected;
+    server.async_call(
+      [&]{
+        ASSERT_TRUE(
+          server.connect(
+            endpoint.address().to_string(),
+            std::to_string(endpoint.port()),
+            5,
+            context,
+            "0.0.0.0",
+            epee::net_utils::ssl_support_t::e_ssl_support_disabled
+          )
+        );
+        connected.raise();
+      }
+    );
+    connected.wait();
+  }
+
+  // Invoke handshake to the connection, and wait for cb cancel in a separate thread
+  MINFO("Invoking handshake");
+  epee::simple_event ev;
+  {
+    using COMMAND_HANDSHAKE = nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>;
+    COMMAND_HANDSHAKE::request arg;
+    bool r = epee::net_utils::async_invoke_remote_command2<COMMAND_HANDSHAKE::response>(context, COMMAND_HANDSHAKE::ID, arg, server.get_config_object(),
+      [&ev](int code, const COMMAND_HANDSHAKE::response&, context_t&)
+    {
+      ASSERT_EQ(code, LEVIN_ERROR_CONNECTION_DESTROYED);
+      ev.raise();
+    }, P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT);
+    ASSERT_TRUE(r);
+
+    MINFO("Waiting for handshake invocation to be received");
+    server.get_config_object().handshake_received.wait();
+  }
+
+  // Now stop the server, providing the callback necessary to wait for all connections to shutdown
+  const auto close_all_connections = [&]()
+  {
+    server.get_config_object().close(context.m_connection_id, true/*wait_for_shutdown*/);
+  };
+
+  MINFO("Stopping the server");
+  server.send_stop_signal(close_all_connections);
+  running_server.join();
+
+  MINFO("Waiting for handshake to cancel");
+  ev.wait();
 }

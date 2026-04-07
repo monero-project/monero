@@ -176,7 +176,7 @@ namespace
           if (!ctx.m_closed)
           {
             ctx.m_closed = true;
-            m_tcp_server.get_config_object().close(ctx.m_connection_id);
+            m_tcp_server.get_config_object().close(ctx.m_connection_id, true);
           }
           else
           {
