@@ -70,7 +70,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
     const bool need_change_output,
     const bool have_payment_type_selfsend);
 /**
- * brief: get_additional_output_proposal - get an additional output proposal to complete an output set
+ * brief: get_additional_payment_proposal - get an additional payment proposal to complete an output set
  * param: num_outgoing - number of outgoing transfers
  * param: num_selfsend - number of selfsend transfers
  * param: needed_change_amount - the amount of leftover change needed to be included
@@ -79,7 +79,7 @@ std::optional<AdditionalOutputType> get_additional_output_type(const size_t num_
  * return: an output proposal if need an additional enote, else none
  * throw: std::runtime_error if the output set is in a state where it cannot be finalized
  */
-std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_output_proposal(
+std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::nullopt_t> get_additional_payment_proposal(
     const size_t num_outgoing,
     const size_t num_selfsend,
     const rct::xmr_amount needed_change_amount,

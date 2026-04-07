@@ -56,12 +56,12 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
     rct::xmr_amount &amount_out,
     crypto::secret_key &amount_blinding_factor_out)
 {
-    // k^o_g = H_n("..g..", s^ctx_sr, C_a)
+    // k^o_g = H_n[s^ctx_sr]("..g..", C_a)
     make_carrot_sender_extension_g(s_sender_receiver,
         enote.amount_commitment,
         sender_extension_g_out);
 
-    // k^o_t = H_n("..t..", s^ctx_sr, C_a)
+    // k^o_t = H_n[s^ctx_sr]("..t..", C_a)
     make_carrot_sender_extension_t(s_sender_receiver,
         enote.amount_commitment,
         sender_extension_t_out);
@@ -112,7 +112,7 @@ bool try_scan_carrot_coinbase_enote_no_janus(
     if (!test_carrot_view_tag(s_sender_receiver_unctx.data, input_context, enote.onetime_address, enote.view_tag))
         return false;
 
-    // s^ctx_sr = H_32(s_sr, D_e, input_context)
+    // s^ctx_sr = H_32[s_sr](D_e, input_context)
     crypto::hash s_sender_receiver;
     make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
         enote.enote_ephemeral_pubkey,
@@ -122,13 +122,13 @@ bool try_scan_carrot_coinbase_enote_no_janus(
     bool recovered_main_pubkey = false;
     for (const crypto::public_key &main_address_spend_pubkey : main_address_spend_pubkeys)
     {
-        // k^o_g = H_n("..g..", s^ctx_sr, C_a)
+        // k^o_g = H_n[s^ctx_sr]("..g..", a, K^0_s)
         make_carrot_sender_extension_g_coinbase(s_sender_receiver,
             enote.amount,
             main_address_spend_pubkey,
             sender_extension_g_out);
 
-        // k^o_t = H_n("..t..", s^ctx_sr, C_a)
+        // k^o_t = H_n[s^ctx_sr]("..t..", a, K^0_s)
         make_carrot_sender_extension_t_coinbase(s_sender_receiver,
             enote.amount,
             main_address_spend_pubkey,
@@ -177,7 +177,7 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     if (!test_carrot_view_tag(s_sender_receiver_unctx.data, input_context, enote.onetime_address, enote.view_tag))
         return false;
 
-    // s^ctx_sr = H_32(s_sr, D_e, input_context)
+    // s^ctx_sr = H_32[s_sr](D_e, input_context)
     crypto::hash s_sender_receiver;
     make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
         enote.enote_ephemeral_pubkey,
@@ -258,7 +258,7 @@ bool verify_carrot_special_janus_protection(const crypto::key_image &tx_first_ke
     // input_context = "R" || KI_1
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
 
-    // anchor_sp = H_16(D_e, input_context, Ko, k_v)
+    // anchor_sp = H_16[k_v](D_e, input_context, Ko)
     janus_anchor_t expected_special_anchor;
     k_view_dev.make_janus_anchor_special(enote_ephemeral_pubkey,
         input_context,

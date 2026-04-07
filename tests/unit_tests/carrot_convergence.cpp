@@ -268,19 +268,19 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_subaddress)
     EXPECT_TRUE(enote_ephemeral_pubkey_subaddress.matches(enote_ephemeral_pubkey_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, make_carrot_uncontextualized_shared_key_receiver)
+TEST(carrot_convergence, try_make_carrot_uncontextualized_shared_key_receiver)
 {
     mx25519_pubkey s_sender_receiver_unctx_rc;
-    make_carrot_uncontextualized_shared_key_receiver(k_view_incoming.value,
+    try_make_carrot_uncontextualized_shared_key_receiver(k_view_incoming.value,
         enote_ephemeral_pubkey_subaddress.value,
         s_sender_receiver_unctx_rc);
     EXPECT_TRUE(s_sender_receiver_unctx.matches(s_sender_receiver_unctx_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, make_carrot_uncontextualized_shared_key_sender)
+TEST(carrot_convergence, try_make_carrot_uncontextualized_shared_key_sender)
 {
     mx25519_pubkey s_sender_receiver_unctx_rc;
-    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey.value,
+    try_make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey.value,
         subaddress_view_pubkey.value,
         s_sender_receiver_unctx_rc);
     EXPECT_TRUE(s_sender_receiver_unctx.matches(s_sender_receiver_unctx_rc));

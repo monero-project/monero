@@ -110,7 +110,7 @@ static void hash_base(const void *derivation_key,  //32 bytes
 //-------------------------------------------------------------------------------------------------------------------
 void derive_bytes_3(const void *data, const std::size_t data_length, const void *key, void *hash_out)
 {
-    // H_3(x): 2-byte output
+    // H_3(x): 3-byte output
     hash_base(key, data, data_length, hash_out, 3);
 }
 //-------------------------------------------------------------------------------------------------------------------

@@ -58,7 +58,7 @@ struct CarrotDestinationV1 final
     crypto::public_key address_view_pubkey;
     /// is a subaddress?
     bool is_subaddress;
-    /// legacy payment id pid: null for main addresses and subaddresses
+    /// legacy payment id pid: null for subaddresses
     payment_id_t payment_id;
 };
 
@@ -106,11 +106,11 @@ void make_carrot_integrated_address_v1(const crypto::public_key &account_spend_p
 */
 CarrotDestinationV1 gen_carrot_main_address_v1();
 /**
-* brief: gen_carrot_main_address_v1 - generate a random subaddress
+* brief: gen_carrot_subaddress_v1 - generate a random subaddress
 */
 CarrotDestinationV1 gen_carrot_subaddress_v1();
 /**
-* brief: gen_carrot_main_address_v1 - generate a random integrated address
+* brief: gen_carrot_integrated_address_v1 - generate a random integrated address
 */
 CarrotDestinationV1 gen_carrot_integrated_address_v1();
 

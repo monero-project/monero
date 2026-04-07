@@ -46,7 +46,7 @@ namespace carrot
 
 constexpr std::size_t JANUS_ANCHOR_BYTES{16};
 
-/// either encodes randomness the private key of, or an HMAC of, the ephemeral pubkey 
+/// encodes either an HMAC of the ephemeral pubkey, or randomness for deriving the pubkey
 struct janus_anchor_t final
 {
     unsigned char bytes[JANUS_ANCHOR_BYTES];
@@ -99,7 +99,7 @@ struct input_context_t final
     unsigned char bytes[INPUT_CONTEXT_BYTES];
 };
 
-/// overloaded operators: address tag
+/// overloaded operators: janus anchor
 bool operator==(const janus_anchor_t &a, const janus_anchor_t &b);
 static inline bool operator!=(const janus_anchor_t &a, const janus_anchor_t &b) { return !(a == b); }
 janus_anchor_t operator^(const janus_anchor_t &a, const janus_anchor_t &b);
