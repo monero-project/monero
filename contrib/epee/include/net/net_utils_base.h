@@ -441,7 +441,7 @@ namespace net_utils
 	struct i_service_endpoint
 	{
 		virtual bool do_send(byte_slice message)=0;
-    virtual bool close()=0;
+    virtual bool close(const bool wait_for_shutdown)=0;
     virtual bool send_done()=0;
     virtual bool call_run_once_service_io()=0;
     virtual bool request_callback()=0;

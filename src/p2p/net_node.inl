@@ -315,7 +315,7 @@ namespace nodetool
      }
 
       for (const auto &c: conns)
-        zone.second.m_net_server.get_config_object().close(c);
+        zone.second.m_net_server.get_config_object().close(c, false);
 
       conns.clear();
     }
@@ -371,7 +371,7 @@ namespace nodetool
         return true;
       });
       for (const auto &c: conns)
-        zone.second.m_net_server.get_config_object().close(c);
+        zone.second.m_net_server.get_config_object().close(c, false);
 
       for (int i = 0; i < 2; ++i)
         zone.second.m_peerlist.filter(i == 0, [&subnet](const peerlist_entry &pe){
@@ -1146,19 +1146,26 @@ namespace nodetool
   {
     MDEBUG("[node] sending stop signal");
     for (auto& zone : m_network_zones)
-        zone.second.m_net_server.send_stop_signal();
-    MDEBUG("[node] Stop signal sent");
-
-    for (auto& zone : m_network_zones)
     {
-      std::list<boost::uuids::uuid> connection_ids;
-      zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
-        connection_ids.push_back(cntxt.m_connection_id);
-        return true;
-      });
-      for (const auto &connection_id: connection_ids)
-        zone.second.m_net_server.get_config_object().close(connection_id);
+      const auto close_all_connections = [&, this]()
+      {
+        std::list<boost::uuids::uuid> connection_ids;
+        zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
+          connection_ids.push_back(cntxt.m_connection_id);
+          return true;
+        });
+        for (const auto &connection_id: connection_ids)
+        {
+          MDEBUG("Closing connection " << connection_id);
+          // We need to wait for every connection's shutdown sequence to complete before stopping the io_context.
+          zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
+          MDEBUG("Closed connection " << connection_id);
+        }
+      };
+
+      zone.second.m_net_server.send_stop_signal(close_all_connections);
     }
+    MDEBUG("[node] Stop signal sent");
     m_payload_handler.stop();
     return true;
   }
@@ -1245,7 +1252,7 @@ namespace nodetool
     {
       LOG_WARNING_CC(context_, "COMMAND_HANDSHAKE Failed");
       if (!timeout)
-        zone.m_net_server.get_config_object().close(context_.m_connection_id);
+        zone.m_net_server.get_config_object().close(context_.m_connection_id, false);
     }
     else if (!just_take_peerlist)
     {
@@ -1279,14 +1286,14 @@ namespace nodetool
       if(!handle_remote_peerlist(rsp.local_peerlist_new, context))
       {
         LOG_WARNING_CC(context, "COMMAND_TIMED_SYNC: failed to handle_remote_peerlist(...), closing connection.");
-        m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
+        m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id, false);
         add_host_fail(context.m_remote_address);
       }
       if(!context.m_is_income)
         m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(context.peer_id, context.m_remote_address, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
       if (!m_payload_handler.process_payload_sync_data(rsp.payload_data, context, false))
       {
-        m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id );
+        m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id, false);
       }
     });
 
@@ -1443,7 +1450,7 @@ namespace nodetool
 
     if(just_take_peerlist)
     {
-      zone.m_net_server.get_config_object().close(con->m_connection_id);
+      zone.m_net_server.get_config_object().close(con->m_connection_id, false);
       LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK AND CLOSED.");
       return true;
     }
@@ -1505,7 +1512,7 @@ namespace nodetool
       return false;
     }
 
-    zone.m_net_server.get_config_object().close(con->m_connection_id);
+    zone.m_net_server.get_config_object().close(con->m_connection_id, false);
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK AND CLOSED.");
 
@@ -2435,7 +2442,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::drop_connection(const epee::net_utils::connection_context_base& context)
   {
-    m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id);
+    m_network_zones.at(context.m_remote_address.get_zone()).m_net_server.get_config_object().close(context.m_connection_id, false);
     return true;
   }
   //-----------------------------------------------------------------------------------
@@ -2518,17 +2525,17 @@ namespace nodetool
         if(rsp.status != PING_OK_RESPONSE_STATUS_TEXT || pr != rsp.peer_id)
         {
           LOG_WARNING_CC(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << address.str() << ", hsh_peer_id=" << pr_ << ", rsp.peer_id=" << peerid_to_string(rsp.peer_id));
-          zone.m_net_server.get_config_object().close(ping_context.m_connection_id);
+          zone.m_net_server.get_config_object().close(ping_context.m_connection_id, false);
           return;
         }
-        zone.m_net_server.get_config_object().close(ping_context.m_connection_id);
+        zone.m_net_server.get_config_object().close(ping_context.m_connection_id, false);
         cb();
       });
 
       if(!inv_call_res)
       {
         LOG_WARNING_CC(ping_context, "back ping invoke failed to " << address.str());
-        zone.m_net_server.get_config_object().close(ping_context.m_connection_id);
+        zone.m_net_server.get_config_object().close(ping_context.m_connection_id, false);
         return false;
       }
       return true;

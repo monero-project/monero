@@ -106,7 +106,7 @@ public:
   int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
   int send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
-  bool close(boost::uuids::uuid connection_id);
+  bool close(boost::uuids::uuid connection_id, const bool wait_for_shutdown);
   bool update_connection_context(const t_connection_context& contxt);
   bool request_callback(boost::uuids::uuid connection_id);
   template<class callback_t>
@@ -120,7 +120,7 @@ public:
 
   async_protocol_handler_config():m_pcommands_handler(NULL), m_pcommands_handler_destroy(NULL), m_initial_max_packet_size(LEVIN_INITIAL_MAX_PACKET_SIZE), m_max_packet_size(LEVIN_DEFAULT_MAX_PACKET_SIZE), m_invoke_timeout(LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
   {}
-  ~async_protocol_handler_config() { set_handler(NULL, NULL); }
+  virtual ~async_protocol_handler_config() { set_handler(NULL, NULL); }
   void del_out_connections(size_t count);
   void del_in_connections(size_t count);
 };
@@ -205,7 +205,7 @@ public:
           MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command << " timeout: " << timeout.count());
           epee::span<const uint8_t> fake;
           cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
-          con.close();
+          con.close(false);
           con.finish_outer_call();
         });
         m_timer_started = true;
@@ -267,7 +267,7 @@ public:
           MINFO(con.get_context_ref() << "Timeout on invoke operation happened, command: " << command << " timeout: " << timeout.count());
           epee::span<const uint8_t> fake;
           cb(LEVIN_ERROR_CONNECTION_TIMEDOUT, fake, con.get_context_ref());
-          con.close();
+          con.close(false);
           con.finish_outer_call();
         });
       }
@@ -366,11 +366,11 @@ public:
     return true;
   }
   
-  bool close()
+  bool close(const bool wait_for_shutdown)
   {    
     ++m_close_called;
 
-    m_pservice_endpoint->close();
+    m_pservice_endpoint->close(wait_for_shutdown);
     return true;
   }
 
@@ -714,7 +714,7 @@ void async_protocol_handler_config<t_connection_context>::delete_connections(siz
   CRITICAL_REGION_END();
 
   for (size_t i = 0; i < connections.size() && i < count; ++i)
-    connections[i]->close();
+    connections[i]->close(false);
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
@@ -849,14 +849,14 @@ int async_protocol_handler_config<t_connection_context>::send(byte_slice message
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
-bool async_protocol_handler_config<t_connection_context>::close(boost::uuids::uuid connection_id)
+bool async_protocol_handler_config<t_connection_context>::close(boost::uuids::uuid connection_id, const bool wait_for_shutdown)
 {
   async_protocol_handler<t_connection_context>* aph = nullptr;
   if (find_and_lock_connection(connection_id, aph) != LEVIN_OK)
     return false;
   auto scope_exit_handler = misc_utils::create_scope_leave_handler(
     boost::bind(&async_protocol_handler<t_connection_context>::finish_outer_call, aph));
-  if (!aph->close())
+  if (!aph->close(wait_for_shutdown))
     return false;
   CRITICAL_REGION_LOCAL(m_connects_lock);
   m_connects.erase(connection_id);

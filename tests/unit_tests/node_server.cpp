@@ -43,6 +43,21 @@
 #define MAKE_IPV4_ADDRESS_PORT(a,b,c,d,e) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),e}
 #define MAKE_IPV4_SUBNET(a,b,c,d,e) epee::net_utils::ipv4_network_subnet{MAKE_IP(a,b,c,d),e}
 
+namespace
+{
+  boost::filesystem::path create_temp_dir()
+  {
+    boost::system::error_code ec;
+    auto path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("daemon-%%%%%%%%%%%%%%%%", ec);
+    if (ec)
+      return boost::filesystem::path{};
+    auto success = boost::filesystem::create_directory(path, ec);
+    if (!ec && success)
+      return path;
+    return boost::filesystem::path{};
+  }
+}
+
 namespace cryptonote {
   class blockchain_storage;
 }
@@ -301,17 +316,7 @@ TEST(ban, file_banlist)
   Server server(cprotocol);
   cprotocol.set_p2p_endpoint(&server);
 
-  auto create_node_dir = [](){
-    boost::system::error_code ec;
-    auto path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("daemon-%%%%%%%%%%%%%%%%", ec);
-    if (ec)
-      return boost::filesystem::path{};
-    auto success = boost::filesystem::create_directory(path, ec);
-    if (!ec && success)
-      return path;
-    return boost::filesystem::path{};
-  };
-  const auto node_dir = create_node_dir();
+  const auto node_dir = create_temp_dir();
   ASSERT_TRUE(!node_dir.empty());
   auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
       boost::filesystem::remove_all(node_dir);
@@ -616,7 +621,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     }
     virtual bool drop_connection(const contexts::basic& context) override {
       if (shared_state)
-        return shared_state->close(context.m_connection_id);
+        return shared_state->close(context.m_connection_id, true);
       else
         return {};
     }
@@ -698,16 +703,6 @@ TEST(cryptonote_protocol_handler, race_condition)
     handshaked.wait();
   };
   using path_t = boost::filesystem::path;
-  auto create_dir = []{
-    ec_t ec;
-    path_t path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("daemon-%%%%%%%%%%%%%%%%", ec);
-    if (ec)
-      return path_t{};
-    auto success = boost::filesystem::create_directory(path, ec);
-    if (not ec && success)
-      return path;
-    return path_t{};
-  };
   auto remove_tree = [](const path_t &path){
     ec_t ec;
     boost::filesystem::remove_all(path, ec);
@@ -727,7 +722,7 @@ TEST(cryptonote_protocol_handler, race_condition)
   };
   using options_description_t = boost::program_options::options_description;
 
-  const auto dir = create_dir();
+  const auto dir = create_temp_dir();
   ASSERT_TRUE(not dir.empty());
 
   daemons_t daemon{
@@ -1216,21 +1211,11 @@ TEST(node_server, race_condition)
   };
   using path_t = boost::filesystem::path;
   using ec_t = boost::system::error_code;
-  auto create_dir = []{
-    ec_t ec;
-    path_t path = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path("daemon-%%%%%%%%%%%%%%%%", ec);
-    if (ec)
-      return path_t{};
-    auto success = boost::filesystem::create_directory(path, ec);
-    if (not ec && success)
-      return path;
-    return path_t{};
-  };
   auto remove_tree = [](const path_t &path){
     ec_t ec;
     boost::filesystem::remove_all(path, ec);
   };
-  const auto dir = create_dir();
+  const auto dir = create_temp_dir();
   ASSERT_TRUE(not dir.empty());
   protocol_t protocol{};
   node_server_t node_server(protocol);
