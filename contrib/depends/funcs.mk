@@ -225,7 +225,7 @@ $($(1)_preprocessed): | $($(1)_dependencies) $($(1)_extracted)
 	$(AT)touch $$@
 $($(1)_configured): | $($(1)_preprocessed)
 	$(AT)echo Configuring $(1)...
-	$(AT)rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar xf $($(package)_cached); )
+	$(AT)rm -rf $(host_prefix); mkdir -p $(host_prefix)/lib; cd $(host_prefix); $(foreach package,$($(1)_all_dependencies), tar --no-same-owner -xf $($(package)_cached); )
 	$(AT)mkdir -p $$(@D)
 	$(AT)+cd $$(@D); $($(1)_config_env) $(call $(1)_config_cmds, $(1))
 	$(AT)touch $$@
