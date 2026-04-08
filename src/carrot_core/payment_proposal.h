@@ -58,13 +58,13 @@ struct CarrotPaymentProposalV1 final
     CarrotDestinationV1 destination;
     /// b
     rct::xmr_amount amount;
-    /// anchor_norm: secret 16-byte randomness for Janus anchor
+    /// anchor_norm: secret randomness for Janus anchor
     janus_anchor_t randomness;
 };
 
 ////
 // CarrotPaymentProposalSelfSendV1
-// - for creating an output proposal to send an change to yourself
+// - for creating an output proposal to send change to yourself
 ///
 struct CarrotPaymentProposalSelfSendV1 final
 {
@@ -81,7 +81,7 @@ struct CarrotPaymentProposalSelfSendV1 final
     std::optional<janus_anchor_t> internal_message;
 };
 
-struct RCTOutputEnoteProposal
+struct RCTOutputEnoteProposal final
 {
     CarrotEnoteV1 enote;
 
@@ -112,13 +112,12 @@ crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposalV1 &pr
 mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context);
 /**
-* brief: get_coinbase_output_proposal_v1 - convert the carrot proposal to a coinbase output proposal
+* brief: get_coinbase_enote_v1 - convert the carrot proposal to a coinbase output enote
 * param: proposal -
 * param: block_index - index of the coinbase tx's block
 * outparam: output_enote_out -
-* outparam: partial_memo_out -
 */
-void get_coinbase_output_proposal_v1(const CarrotPaymentProposalV1 &proposal,
+void get_coinbase_enote_v1(const CarrotPaymentProposalV1 &proposal,
     const std::uint64_t block_index,
     CarrotCoinbaseEnoteV1 &output_enote_out);
 /**
@@ -133,7 +132,7 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
     RCTOutputEnoteProposal &output_enote_out,
     encrypted_payment_id_t &encrypted_payment_id_out);
 /**
-* brief: get_output_proposal_v1 - convert the carrot proposal to an output proposal (external selfsend)
+* brief: get_output_proposal_special_v1 - convert the carrot proposal to an output proposal (external selfsend)
 * param: proposal -
 * param: k_view_dev -
 * param: tx_first_key_image -
@@ -149,7 +148,6 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
 * brief: get_output_proposal_internal_v1 - convert the carrot proposal to an output proposal (internal)
 * param: proposal -
 * param: s_view_balance_dev -
-* param: account_spend_pubkey -
 * param: tx_first_key_image -
 * param: other_enote_ephemeral_pubkey -
 * outparam: output_enote_out -
@@ -160,7 +158,7 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
     const std::optional<mx25519_pubkey> &other_enote_ephemeral_pubkey,
     RCTOutputEnoteProposal &output_enote_out);
 /**
-* brief: gen_jamtis_payment_proposal_v1 - generate a random proposal
+* brief: gen_carrot_payment_proposal_v1 - generate a random proposal
 * param: is_subaddress - whether to generate a proposal to subaddress
 * param: has_payment_id - true to generate non-zero payment ID, false for null payment ID
 * param: amount -

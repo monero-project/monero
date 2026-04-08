@@ -49,8 +49,8 @@ namespace carrot
 void make_carrot_provespend_key(const crypto::secret_key &s_master,
     crypto::secret_key &k_prove_spend_out)
 {
-    // k_ps = H_n(s_m)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_PROVE_SPEND_KEY>();
+    // k_ps = H_n[s_m]()
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_PROVE_SPEND_KEY>();
     derive_scalar(transcript.data(), transcript.size(), &s_master, to_bytes(k_prove_spend_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -65,16 +65,16 @@ void make_carrot_partial_spend_pubkey(const crypto::secret_key &k_prove_spend,
 void make_carrot_viewbalance_secret(const crypto::secret_key &s_master,
     crypto::secret_key &s_view_balance_out)
 {
-    // s_vb = H_32(s_m)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_VIEW_BALANCE_SECRET>();
+    // s_vb = H_32[s_m]()
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_VIEW_BALANCE_SECRET>();
     derive_bytes_32(transcript.data(), transcript.size(), &s_master, to_bytes(s_view_balance_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_generateimage_preimage(const crypto::secret_key &s_view_balance,
     crypto::secret_key &s_generate_image_preimage_out)
 {
-    // s_gp = H_n(s_vb)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_PREIMAGE>();
+    // s_gp = H_n[s_vb]()
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_PREIMAGE>();
     derive_bytes_32(transcript.data(), transcript.size(), &s_view_balance, to_bytes(s_generate_image_preimage_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -82,24 +82,24 @@ void make_carrot_generateimage_key(const crypto::secret_key &s_generate_image_pr
     const crypto::public_key &partial_spend_pubkey,
     crypto::secret_key &k_generate_image_out)
 {
-    // k_gi = H_n(s_gp, K_ps)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_KEY>(partial_spend_pubkey);
+    // k_gi = H_n[s_gp](K_ps)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_IMAGE_KEY>(partial_spend_pubkey);
     derive_scalar(transcript.data(), transcript.size(), &s_generate_image_preimage, to_bytes(k_generate_image_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_viewincoming_key(const crypto::secret_key &s_view_balance,
     crypto::secret_key &k_view_out)
 {
-    // k_v = H_n(s_vb)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_INCOMING_VIEW_KEY>();
+    // k_v = H_n[s_vb]()
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_INCOMING_VIEW_KEY>();
     derive_scalar(transcript.data(), transcript.size(), &s_view_balance, to_bytes(k_view_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_generateaddress_secret(const crypto::secret_key &s_view_balance,
     crypto::secret_key &s_generate_address_out)
 {
-    // s_ga = H_32(s_vb)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_ADDRESS_SECRET>();
+    // s_ga = H_32[s_vb]()
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_GENERATE_ADDRESS_SECRET>();
     derive_bytes_32(transcript.data(), transcript.size(), &s_view_balance, to_bytes(s_generate_address_out));
 }
 //-------------------------------------------------------------------------------------------------------------------

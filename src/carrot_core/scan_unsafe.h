@@ -57,7 +57,7 @@ namespace carrot
  * param: s_sender_receiver_unctx - s_sr
  * param: main_address_spend_pubkeys - {K^0_s, ...}
  * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_t_out - k^t_o
  * outparam: nominal_address_spend_pubkey - K^j_s'
  * outparam: nominal_janus_anchor_out - anchor'
  * return: true iff the scan process (w/o Janus checks) succeeded
@@ -76,13 +76,12 @@ bool try_scan_carrot_coinbase_enote_no_janus(
  * param: enote -
  * param: encrypted_payment_id - pid_enc
  * param: s_sender_receiver_unctx - s_sr
- * param: k_view_dev -
  * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_t_out - k^t_o
  * outparam: address_spend_pubkey_out - K^j_s
  * outparam: amount_out - a
  * outparam: amount_blinding_factor_out - k_a
- * outparam: payment_id_out - pid
+ * outparam: nominal_payment_id_out - pid
  * outparam: enote_type_out - enote_type
  * outparam: nominal_janus_anchor_out - anchor'
  * return: true iff the scan process (w/o Janus or PID checks) succeeded
@@ -104,7 +103,7 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
  * param: enote -
  * param: s_sender_receiver - s^ctx_sr
  * outparam: sender_extension_g_out - k^g_o
- * outparam: sender_extension_g_out - k^t_o
+ * outparam: sender_extension_t_out - k^t_o
  * outparam: address_spend_pubkey_out - K^j_s
  * outparam: amount_out - a
  * outparam: amount_blinding_factor_out - k_a

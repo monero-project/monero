@@ -410,7 +410,7 @@ void mock_scan_coinbase_enote_set(const std::vector<CarrotCoinbaseEnoteV1> &coin
         scan_result.internal_message = janus_anchor_t{};
 
         mx25519_pubkey s_sender_receiver_unctx;
-        make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
+        try_make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
             enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
 

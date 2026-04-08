@@ -26,7 +26,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Utilities for scanning carrot enotes
+// Utilities for scanning carrot enotes.
 
 //paired header
 #include "carrot_enote_types.h"
@@ -38,13 +38,15 @@
 //standard headers
 
 /*
- onetime address
-// - amount commitment
-// - encrypted amount
-// - encrypted janus anchor
-// - view tag
-// - ephemeral pubkey
-// - tx first key image*/
+Expected:
+- onetime address
+- amount commitment
+- encrypted amount
+- encrypted janus anchor
+- view tag
+- ephemeral pubkey
+- tx first key image
+*/
 
 namespace carrot
 {

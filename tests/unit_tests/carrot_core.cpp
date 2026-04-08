@@ -51,10 +51,10 @@ TEST(carrot_core, ECDH_cryptonote_completeness)
     make_carrot_enote_ephemeral_pubkey_cryptonote(k_ephem, enote_ephemeral_pubkey);
 
     mx25519_pubkey s_sr_sender;
-    ASSERT_TRUE(make_carrot_uncontextualized_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
+    ASSERT_TRUE(try_make_carrot_uncontextualized_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
 
     mx25519_pubkey s_sr_receiver;
-    ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
+    ASSERT_TRUE(try_make_carrot_uncontextualized_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
 
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
 }
@@ -71,10 +71,10 @@ TEST(carrot_core, ECDH_subaddress_completeness)
     make_carrot_enote_ephemeral_pubkey_subaddress(k_ephem, spend_pubkey, enote_ephemeral_pubkey);
 
     mx25519_pubkey s_sr_sender;
-    ASSERT_TRUE(make_carrot_uncontextualized_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
+    ASSERT_TRUE(try_make_carrot_uncontextualized_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
 
     mx25519_pubkey s_sr_receiver;
-    ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
+    ASSERT_TRUE(try_make_carrot_uncontextualized_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
 
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
 }
@@ -91,9 +91,9 @@ TEST(carrot_core, ECDH_mx25519_convergence)
     mx25519_pubkey Q_mx25519;
     mx25519_scmul_key(impl, &Q_mx25519, reinterpret_cast<const mx25519_privkey*>(&a), &P);
 
-    // do Q = a * P using make_carrot_uncontextualized_shared_key_receiver()
+    // do Q = a * P using try_make_carrot_uncontextualized_shared_key_receiver()
     mx25519_pubkey Q_carrot;
-    ASSERT_TRUE(make_carrot_uncontextualized_shared_key_receiver(a, P, Q_carrot));
+    ASSERT_TRUE(try_make_carrot_uncontextualized_shared_key_receiver(a, P, Q_carrot));
 
     // check equal
     EXPECT_EQ(Q_mx25519, Q_carrot);
@@ -126,7 +126,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
+    try_make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -196,7 +196,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
+    try_make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -263,7 +263,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
+    try_make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -334,7 +334,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
         ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
         mx25519_pubkey s_sender_receiver_unctx;
-        make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
+        try_make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
             enote_proposal.enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
 
@@ -411,7 +411,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
         ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
         mx25519_pubkey s_sender_receiver_unctx;
-        make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
+        try_make_carrot_uncontextualized_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
             enote_proposal.enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
 
@@ -605,14 +605,14 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
     const uint64_t block_index = crypto::rand<uint64_t>();
 
     CarrotCoinbaseEnoteV1 enote;
-    get_coinbase_output_proposal_v1(proposal,
+    get_coinbase_enote_v1(proposal,
         block_index,
         enote);
 
     ASSERT_EQ(proposal.amount, enote.amount);
 
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
+    try_make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
         enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -900,7 +900,7 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
 
     // 6. s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+    try_make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
         destination.address_view_pubkey,
         s_sender_receiver_unctx);
 
@@ -985,7 +985,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_NOT_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1078,7 +1078,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1171,7 +1171,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_NOT_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1264,7 +1264,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1357,7 +1357,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_NOT_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1450,7 +1450,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1552,7 +1552,7 @@ static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackPropos
 
     // 6. s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
+    try_make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey,
         destination.address_view_pubkey,
         s_sender_receiver_unctx);
 
@@ -1616,7 +1616,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_NOT_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -1686,7 +1686,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_in_d_e)
 
     // s_sr = k_v D_e
     mx25519_pubkey s_sender_receiver_unctx;
-    carrot::make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    carrot::try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
 
@@ -2041,7 +2041,7 @@ TEST(carrot_core, pq_turnstile_completeness_main)
     {
         // s_sr = k_v D_e
         mx25519_pubkey s_sender_receiver_unctx;
-        make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+        try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
             output_enote.enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
 
@@ -2073,7 +2073,7 @@ TEST(carrot_core, pq_turnstile_completeness_main)
 
     // scan and compute key image to test pq_turnstile_verify()
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
     crypto::secret_key recovered_sender_extension_g;
@@ -2140,7 +2140,7 @@ TEST(carrot_core, pq_turnstile_completeness_sub)
     {
         // s_sr = k_v D_e
         mx25519_pubkey s_sender_receiver_unctx;
-        make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+        try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
             output_enote.enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
 
@@ -2172,7 +2172,7 @@ TEST(carrot_core, pq_turnstile_completeness_sub)
 
     // scan and compute key image to test pq_turnstile_verify()
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
     crypto::secret_key recovered_sender_extension_g;
@@ -2217,7 +2217,7 @@ TEST(carrot_core, pq_turnstile_completeness_coinbase)
     const std::uint64_t block_index = mock::gen_block_index();
 
     CarrotCoinbaseEnoteV1 output_enote;
-    get_coinbase_output_proposal_v1(payment_proposal, block_index, output_enote);
+    get_coinbase_enote_v1(payment_proposal, block_index, output_enote);
 
     const crypto::hash migration_tx_signable_hash = crypto::rand<crypto::hash>();
     crypto::signature migration_sig;
@@ -2227,7 +2227,7 @@ TEST(carrot_core, pq_turnstile_completeness_coinbase)
     {
         // s_sr = k_v D_e
         mx25519_pubkey s_sender_receiver_unctx;
-        make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+        try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
             output_enote.enote_ephemeral_pubkey,
             s_sender_receiver_unctx);
 
@@ -2256,7 +2256,7 @@ TEST(carrot_core, pq_turnstile_completeness_coinbase)
 
     // scan and compute key image to test pq_turnstile_verify()
     mx25519_pubkey s_sender_receiver_unctx;
-    make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_uncontextualized_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver_unctx);
     crypto::secret_key recovered_sender_extension_g;

@@ -44,7 +44,7 @@
 //forward declarations
 
 
-namespace sp
+namespace carrot
 {
 namespace detail
 {
@@ -62,7 +62,7 @@ constexpr size_t sizeof_sum<>()
 } //namespace detail
 
 ////
-// SpFixedTranscript
+// FixedTransport
 // - build a transcript of a fixed bytesize and input types, enforced at compile time
 // - written to be the simplest correct transcript of data possible
 // - requires domain separators at compile-time as well
@@ -72,14 +72,15 @@ constexpr size_t sizeof_sum<>()
 // - signed integers are not allowed
 // - domain separator is length-prefixed with a single unsigned byte at the beginning
 // - passed domain separator can be null terminated or not, null bytes and after will be dropped
+// - does not include an environment-specific prefix string; see the `carrot::derive_*()` hash functions
 ///
 template <std::size_t N, const unsigned char domain_sep[N], typename... Ts>
-class SpFixedTranscript final
+class FixedTransport final
 {
 public:
 //constructors
     /// normal constructor
-    SpFixedTranscript(const Ts&... args)
+    FixedTransport(const Ts&... args)
     {
         // copy domain separator length prefix
         m_transcript[0] = static_cast<unsigned char>(domain_sep_size());
@@ -93,8 +94,8 @@ public:
 
 //overloaded operators
     /// disable copy/move
-    SpFixedTranscript& operator=(const SpFixedTranscript&) = delete;
-    SpFixedTranscript& operator=(SpFixedTranscript&&) = delete;
+    FixedTransport& operator=(const FixedTransport&) = delete;
+    FixedTransport& operator=(FixedTransport&&) = delete;
 
 //member functions
     constexpr const void* data() const noexcept { return m_transcript; }
@@ -105,7 +106,7 @@ public:
     }
 
 //destructors
-    ~SpFixedTranscript()
+    ~FixedTransport()
     {
         // wipe the buffer on leave in case it contains sensitive data
         memwipe(m_transcript, sizeof(m_transcript));
@@ -179,7 +180,7 @@ private:
 template <const auto & domain_sep, typename... Ts>
 auto make_fixed_transcript(const Ts&... args)
 {
-    return SpFixedTranscript<std::size(domain_sep), domain_sep, Ts...>(args...);
+    return FixedTransport<std::size(domain_sep), domain_sep, Ts...>(args...);
 }
 
-} //namespace sp
+} //namespace carrot

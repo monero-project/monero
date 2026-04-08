@@ -51,8 +51,8 @@ void make_carrot_address_index_preimage_1(const crypto::secret_key &s_generate_a
     crypto::secret_key &address_index_preimage_1_out)
 {
     // s^j_ap1 = H_32[s_ga](j_major, j_minor)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ADDRESS_INDEX_PREIMAGE_1>(j_major, j_minor);
-    derive_bytes_32(transcript.data(), transcript.size(), &s_generate_address, &address_index_preimage_1_out);
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ADDRESS_INDEX_PREIMAGE_1>(j_major, j_minor);
+    derive_bytes_32(transcript.data(), transcript.size(), &s_generate_address, to_bytes(address_index_preimage_1_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_address_index_preimage_2(const crypto::secret_key &address_index_preimage_1,
@@ -63,9 +63,9 @@ void make_carrot_address_index_preimage_2(const crypto::secret_key &address_inde
     crypto::secret_key &address_index_preimage_2_out)
 {
     // s^j_ap2 = H_32[s^j_ap1](j_major, j_minor, K_s, K_v)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ADDRESS_INDEX_PREIMAGE_2>(j_major, j_minor,
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ADDRESS_INDEX_PREIMAGE_2>(j_major, j_minor,
         account_spend_pubkey, account_view_pubkey);
-    derive_bytes_32(transcript.data(), transcript.size(), &address_index_preimage_1, &address_index_preimage_2_out);
+    derive_bytes_32(transcript.data(), transcript.size(), &address_index_preimage_1, to_bytes(address_index_preimage_2_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_subaddress_scalar(const crypto::secret_key &address_index_preimage_2,
@@ -73,8 +73,8 @@ void make_carrot_subaddress_scalar(const crypto::secret_key &address_index_preim
     crypto::secret_key &subaddress_scalar_out)
 {
     // k^j_subscal = H_n[s^j_ap2](K_s)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR>(account_spend_pubkey);
-    derive_scalar(transcript.data(), transcript.size(), &address_index_preimage_2, subaddress_scalar_out.data);
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_SUBADDRESS_SCALAR>(account_spend_pubkey);
+    derive_scalar(transcript.data(), transcript.size(), &address_index_preimage_2, to_bytes(subaddress_scalar_out));
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

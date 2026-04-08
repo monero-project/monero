@@ -40,6 +40,7 @@ extern "C"
 #include "hash_functions.h"
 #include "int-util.h"
 #include "misc_language.h"
+#include "mx25519.h"
 #include "ringct/rctOps.h"
 #include "transcript_fixed.h"
 
@@ -61,7 +62,7 @@ static const mx25519_impl* get_mx25519_impl()
     static const mx25519_impl *impl;
     std::call_once(of, [&](){ impl = mx25519_select_impl(MX25519_TYPE_AUTO); });
     if (impl == nullptr)
-        throw std::runtime_error("failed to obtain a mx25519 implementation");
+        throw std::runtime_error("failed to obtain an mx25519 implementation");
     return impl;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -82,9 +83,9 @@ static rct::xmr_amount dec_amount(const encrypted_amount_t &encrypted_amount, co
     static_assert(sizeof(rct::xmr_amount) == sizeof(encrypted_amount_t), "");
 
     // system_endian(encrypted_amount XOR H_8(q, Ko))
-    const encrypted_amount_t decryptd_amount{encrypted_amount ^ mask};
+    const encrypted_amount_t decrypted_amount{encrypted_amount ^ mask};
     rct::xmr_amount amount;
-    memcpy_swap64le(&amount, &decryptd_amount, 1);
+    memcpy_swap64le(&amount, &decrypted_amount, 1);
     return amount;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -113,11 +114,11 @@ static void make_carrot_sender_extension_pubkey_coinbase(const crypto::hash &s_s
     const crypto::public_key &main_address_spend_pubkey,
     crypto::public_key &sender_extension_pubkey_out)
 {
-    // k^o_g = H_n("..g..", s^ctx_sr, a, K^0_s)
+    // k^o_g = H_n[s^ctx_sr]("..g..", a, K^0_s)
     crypto::secret_key sender_extension_g;
     make_carrot_sender_extension_g_coinbase(s_sender_receiver, amount, main_address_spend_pubkey, sender_extension_g);
 
-    // k^o_t = H_n("..t..", s^ctx_sr, a, K^0_s)
+    // k^o_t = H_n[s^ctx_sr]("..t..", a, K^0_s)
     crypto::secret_key sender_extension_t;
     make_carrot_sender_extension_t_coinbase(s_sender_receiver, amount, main_address_spend_pubkey, sender_extension_t);
 
@@ -168,8 +169,8 @@ void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out)
 {
-    // k_e = (H_64(anchor_norm, input_context, K^j_s, pid)) mod l
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_EPHEMERAL_PRIVKEY>(
+    // d_e = (H_64(anchor_norm, input_context, K^j_s, pid)) mod l
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_EPHEMERAL_PRIVKEY>(
         anchor_norm, input_context, address_spend_pubkey, payment_id);
     derive_scalar(transcript.data(), transcript.size(), nullptr, &enote_ephemeral_privkey_out);
 }
@@ -218,7 +219,7 @@ void make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemera
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &k_view,
+bool try_make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &k_view,
     const mx25519_pubkey &enote_ephemeral_pubkey,
     mx25519_pubkey &s_sender_receiver_unctx_out)
 {
@@ -231,7 +232,7 @@ bool make_carrot_uncontextualized_shared_key_receiver(const crypto::secret_key &
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool make_carrot_uncontextualized_shared_key_sender(const crypto::secret_key &enote_ephemeral_privkey,
+bool try_make_carrot_uncontextualized_shared_key_sender(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_view_pubkey,
     mx25519_pubkey &s_sender_receiver_unctx_out)
 {
@@ -258,8 +259,8 @@ void make_carrot_view_tag(const unsigned char s_sender_receiver_unctx[32],
     const crypto::public_key &onetime_address,
     view_tag_t &view_tag_out)
 {
-    // vt = H_3(s_sr || input_context || Ko)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_VIEW_TAG>(input_context, onetime_address);
+    // vt = H_3[s_sr](input_context || Ko)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_VIEW_TAG>(input_context, onetime_address);
     derive_bytes_3(transcript.data(), transcript.size(), s_sender_receiver_unctx, &view_tag_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -286,8 +287,8 @@ void make_carrot_sender_receiver_secret(const unsigned char s_sender_receiver_un
     const input_context_t &input_context,
     crypto::hash &s_sender_receiver_out)
 {
-    // s^ctx_sr = H_32(s_sr, D_e, input_context)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_SENDER_RECEIVER_SECRET>(
+    // s^ctx_sr = H_32[s_sr](D_e, input_context)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_SENDER_RECEIVER_SECRET>(
         enote_ephemeral_pubkey, input_context);
     derive_bytes_32(transcript.data(), transcript.size(), s_sender_receiver_unctx, &s_sender_receiver_out);
 }
@@ -297,8 +298,8 @@ void make_carrot_sender_extension_g_coinbase(const crypto::hash &s_sender_receiv
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_out)
 {
-    // k^o_g = H_n("..g..", s^ctx_sr, a, K^0_s)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G_COINBASE>(amount,
+    // k^o_g = H_n[s^ctx_sr]("..g..", a, K^0_s)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G_COINBASE>(amount,
         main_address_spend_pubkey);
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
 }
@@ -308,8 +309,8 @@ void make_carrot_sender_extension_t_coinbase(const crypto::hash &s_sender_receiv
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_out)
 {
-    // k^o_t = H_n("..t..", s^ctx_sr, a, K^0_s)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T_COINBASE>(amount,
+    // k^o_t = H_n[s^ctx_sr]("..t..", a, K^0_s)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T_COINBASE>(amount,
         main_address_spend_pubkey);
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
 }
@@ -333,8 +334,8 @@ void make_carrot_sender_extension_g(const crypto::hash &s_sender_receiver,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
-    // k^o_g = H_n("..g..", s^ctx_sr, C_a)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G>(amount_commitment);
+    // k^o_g = H_n[s^ctx_sr]("..g..", C_a)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_G>(amount_commitment);
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -342,8 +343,8 @@ void make_carrot_sender_extension_t(const crypto::hash &s_sender_receiver,
     const rct::key &amount_commitment,
     crypto::secret_key &sender_extension_out)
 {
-    // k^o_t = H_n("..t..", s^ctx_sr, C_a)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T>(amount_commitment);
+    // k^o_t = H_n[s^ctx_sr]("..t..", C_a)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ONETIME_EXTENSION_T>(amount_commitment);
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &sender_extension_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -367,8 +368,8 @@ void make_carrot_amount_blinding_factor(const crypto::hash &s_sender_receiver,
     const CarrotEnoteType enote_type,
     crypto::secret_key &amount_blinding_factor_out)
 {
-    // k_a = H_n(s^ctx_sr, a, K^j_s, enote_type)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_AMOUNT_BLINDING_FACTOR>(
+    // k_a = H_n[s^ctx_sr](a, K^j_s, enote_type)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_AMOUNT_BLINDING_FACTOR>(
         amount, address_spend_pubkey, static_cast<unsigned char>(enote_type));
     derive_scalar(transcript.data(), transcript.size(), &s_sender_receiver, &amount_blinding_factor_out);
 }
@@ -377,8 +378,8 @@ void make_carrot_anchor_encryption_mask(const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address,
     encrypted_janus_anchor_t &anchor_encryption_mask_out)
 {
-    // m_anchor = H_16(s^ctx_sr, Ko)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ENCRYPTION_MASK_ANCHOR>(onetime_address);
+    // m_anchor = H_16[s^ctx_sr](Ko)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ENCRYPTION_MASK_ANCHOR>(onetime_address);
     derive_bytes_16(transcript.data(), transcript.size(), &s_sender_receiver, &anchor_encryption_mask_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -386,7 +387,7 @@ encrypted_janus_anchor_t encrypt_carrot_anchor(const janus_anchor_t &anchor,
     const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address)
 {
-    // m_anchor = H_16(s^ctx_sr, Ko)
+    // m_anchor = H_16[s^ctx_sr](Ko)
     encrypted_janus_anchor_t mask;
     make_carrot_anchor_encryption_mask(s_sender_receiver, onetime_address, mask);
 
@@ -398,7 +399,7 @@ janus_anchor_t decrypt_carrot_anchor(const encrypted_janus_anchor_t &encrypted_a
     const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address)
 {
-    // m_anchor = H_16(s^ctx_sr, Ko)
+    // m_anchor = H_16[s^ctx_sr](Ko)
     encrypted_janus_anchor_t mask;
     make_carrot_anchor_encryption_mask(s_sender_receiver, onetime_address, mask);
 
@@ -410,8 +411,8 @@ void make_carrot_amount_encryption_mask(const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address,
     encrypted_amount_t &amount_encryption_mask_out)
 {
-    // m_a = H_8(s^ctx_sr, Ko)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ENCRYPTION_MASK_AMOUNT>(onetime_address);
+    // m_a = H_8[s^ctx_sr](Ko)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ENCRYPTION_MASK_AMOUNT>(onetime_address);
     derive_bytes_8(transcript.data(), transcript.size(), &s_sender_receiver, &amount_encryption_mask_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -419,7 +420,7 @@ encrypted_amount_t encrypt_carrot_amount(const rct::xmr_amount amount,
     const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address)
 {
-    // m_a = H_8(s^ctx_sr, Ko)
+    // m_a = H_8[s^ctx_sr](Ko)
     encrypted_amount_t mask;
     make_carrot_amount_encryption_mask(s_sender_receiver, onetime_address, mask);
 
@@ -431,7 +432,7 @@ rct::xmr_amount decrypt_carrot_amount(const encrypted_amount_t encrypted_amount,
     const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address)
 {
-    // m_a = H_8(s^ctx_sr, Ko)
+    // m_a = H_8[s^ctx_sr](Ko)
     encrypted_amount_t mask;
     make_carrot_amount_encryption_mask(s_sender_receiver, onetime_address, mask);
 
@@ -443,8 +444,8 @@ void make_carrot_payment_id_encryption_mask(const crypto::hash &s_sender_receive
     const crypto::public_key &onetime_address,
     encrypted_payment_id_t &payment_id_encryption_mask_out)
 {
-    // m_pid = H_8(s^ctx_sr, Ko)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_ENCRYPTION_MASK_PAYMENT_ID>(onetime_address);
+    // m_pid = H_8[s^ctx_sr](Ko)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_ENCRYPTION_MASK_PAYMENT_ID>(onetime_address);
     derive_bytes_8(transcript.data(), transcript.size(), &s_sender_receiver, &payment_id_encryption_mask_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -452,7 +453,7 @@ encrypted_payment_id_t encrypt_legacy_payment_id(const payment_id_t payment_id,
     const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address)
 {
-    // m_pid = H_8(s^ctx_sr, Ko)
+    // m_pid = H_8[s^ctx_sr](Ko)
     encrypted_payment_id_t mask;
     make_carrot_payment_id_encryption_mask(s_sender_receiver, onetime_address, mask);
 
@@ -464,7 +465,7 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_pa
     const crypto::hash &s_sender_receiver,
     const crypto::public_key &onetime_address)
 {
-    // m_pid = H_8(s^ctx_sr, Ko)
+    // m_pid = H_8[s^ctx_sr](Ko)
     encrypted_payment_id_t mask;
     make_carrot_payment_id_encryption_mask(s_sender_receiver, onetime_address, mask);
 
@@ -478,8 +479,8 @@ void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubk
     const crypto::secret_key &k_view,
     janus_anchor_t &anchor_special_out)
 {
-    // anchor_sp = H_16(D_e, input_context, Ko, k_v)
-    const auto transcript = sp::make_fixed_transcript<CARROT_DOMAIN_SEP_JANUS_ANCHOR_SPECIAL>(
+    // anchor_sp = H_16[k_v](D_e, input_context, Ko)
+    const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_JANUS_ANCHOR_SPECIAL>(
         enote_ephemeral_pubkey, input_context, onetime_address);
     derive_bytes_16(transcript.data(), transcript.size(), &k_view, &anchor_special_out);
 }
@@ -507,7 +508,7 @@ bool test_carrot_view_tag(const unsigned char s_sender_receiver_unctx[32],
     const crypto::public_key &onetime_address,
     const view_tag_t view_tag)
 {
-    // vt' = H_3(s_sr || input_context || Ko)
+    // vt' = H_3[s_sr](input_context || Ko)
     view_tag_t nominal_view_tag;
     make_carrot_view_tag(s_sender_receiver_unctx, input_context, onetime_address, nominal_view_tag);
 
@@ -522,7 +523,7 @@ bool try_recompute_carrot_amount_commitment(const crypto::hash &s_sender_receive
     const rct::key &amount_commitment,
     crypto::secret_key &amount_blinding_factor_out)
 {
-    // k_a' = H_n(s^ctx_sr, a', K^j_s', enote_type')
+    // k_a' = H_n[s^ctx_sr](a', K^j_s', enote_type')
     make_carrot_amount_blinding_factor(s_sender_receiver,
         nominal_amount,
         nominal_address_spend_pubkey,
@@ -583,7 +584,7 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const payment_id_t nominal_payment_id,
     const mx25519_pubkey &enote_ephemeral_pubkey)
 {
-    // d_e' = H_n(anchor_norm, input_context, K^j_s, pid))
+    // d_e' = H_n(anchor_norm, input_context, K^j_s, pid)
     crypto::secret_key nominal_enote_ephemeral_privkey;
     make_carrot_enote_ephemeral_privkey(nominal_anchor,
         input_context,
