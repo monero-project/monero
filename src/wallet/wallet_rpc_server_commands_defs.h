@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 29
+#define WALLET_RPC_VERSION_MINOR 30
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2437,9 +2437,11 @@ namespace wallet_rpc
     struct request_t
     {
       std::vector<std::string> info;
+      bool refresh_after_import;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(info)
+        KV_SERIALIZE_OPT(refresh_after_import, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
