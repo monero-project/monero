@@ -46,8 +46,8 @@ namespace carrot
 
 constexpr std::size_t JANUS_ANCHOR_BYTES{16};
 
-/// Encodes either randomness for deriving the pubkey, an HMAC of the view key (external selfsends), or
-/// a custom message (internal selfsends).
+/// Encodes either randomness for deriving the ephemeral key (normal), an HMAC of the view key plus
+/// ephemeral pubkey (external selfsends), or a custom message (internal selfsends).
 struct janus_anchor_t final
 {
     unsigned char bytes[JANUS_ANCHOR_BYTES];
