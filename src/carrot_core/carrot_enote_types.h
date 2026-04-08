@@ -45,16 +45,6 @@
 namespace carrot
 {
 
-////
-// CarrotEnoteV1
-// - onetime address
-// - amount commitment
-// - encrypted amount
-// - encrypted janus anchor
-// - view tag
-// - ephemeral pubkey
-// - tx first key image
-///
 struct CarrotEnoteV1 final
 {
     /// K_o
@@ -77,15 +67,6 @@ struct CarrotEnoteV1 final
 bool operator==(const CarrotEnoteV1 &a, const CarrotEnoteV1 &b);
 static inline bool operator!=(const CarrotEnoteV1 &a, const CarrotEnoteV1 &b) { return !(a == b); }
 
-////
-// CarrotCoinbaseEnoteV1
-// - onetime address
-// - cleartext amount
-// - encrypted janus anchor
-// - view tag
-// - ephemeral pubkey
-// - block index
-///
 struct CarrotCoinbaseEnoteV1 final
 {
     /// K_o
