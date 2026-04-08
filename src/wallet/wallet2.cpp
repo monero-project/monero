@@ -15398,7 +15398,7 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   m_key_images[td.m_key_image] = n;
 }
 //----------------------------------------------------------------------------------------------------
-size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
+size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool refresh_after_import)
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
 
@@ -15523,8 +15523,8 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs)
     update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, n);
   }
 
-
-  refresh(false);
+  if (refresh_after_import)
+    refresh(false);
 
   return n_outputs;
 }

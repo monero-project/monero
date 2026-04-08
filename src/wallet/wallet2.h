@@ -994,9 +994,11 @@ private:
     cryptonote::blobdata export_multisig();
     /*!
      * Import a set of multisig info from multisig partners
+     * \param info Multisig info from other participants
+     * \param refresh_after_import Whether to refresh the wallet and rescan spent outputs after importing
      * \return the number of inputs which were imported
      */
-    size_t import_multisig(std::vector<cryptonote::blobdata> info);
+    size_t import_multisig(std::vector<cryptonote::blobdata> info, bool refresh_after_import = true);
     /*!
      * \brief Rewrites to the wallet file for wallet upgrade (doesn't generate key, assumes it's already there)
      * \param wallet_name Name of wallet file (should exist)
