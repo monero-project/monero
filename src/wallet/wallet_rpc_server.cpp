@@ -4466,7 +4466,7 @@ namespace tools
 
     try
     {
-      res.n_outputs = m_wallet->import_multisig(info);
+      res.n_outputs = m_wallet->import_multisig(info, req.refresh_after_import);
     }
     catch (const std::exception &e)
     {
@@ -4475,20 +4475,23 @@ namespace tools
       return false;
     }
 
-    if (m_wallet->is_trusted_daemon())
+    if (req.refresh_after_import)
     {
-      try
+      if (m_wallet->is_trusted_daemon())
       {
-        m_wallet->rescan_spent();
+        try
+        {
+          m_wallet->rescan_spent();
+        }
+        catch (const std::exception &e)
+        {
+          er.message = std::string("Success, but failed to update spent status after import multisig info: ") + e.what();
+        }
       }
-      catch (const std::exception &e)
+      else
       {
-        er.message = std::string("Success, but failed to update spent status after import multisig info: ") + e.what();
+        er.message = "Success, but cannot update spent status after import multisig info as daemon is untrusted";
       }
-    }
-    else
-    {
-      er.message = "Success, but cannot update spent status after import multisig info as daemon is untrusted";
     }
 
     return true;
