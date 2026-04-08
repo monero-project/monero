@@ -54,7 +54,7 @@ namespace carrot
 /**
  * brief: try_scan_carrot_coinbase_enote_no_janus - attempt scan process on coinbase enote w/o Janus protection
  * param: enote -
- * param: s_sender_receiver_unctx - s_sr
+ * param: s_sender_receiver - s_sr
  * param: main_address_spend_pubkeys - {K^0_s, ...}
  * outparam: sender_extension_g_out - k^g_o
  * outparam: sender_extension_t_out - k^t_o
@@ -64,7 +64,7 @@ namespace carrot
  */
 bool try_scan_carrot_coinbase_enote_no_janus(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
@@ -75,7 +75,7 @@ bool try_scan_carrot_coinbase_enote_no_janus(
  *                                                  w/o Janus protection nor correct PID
  * param: enote -
  * param: encrypted_payment_id - pid_enc
- * param: s_sender_receiver_unctx - s_sr
+ * param: s_sender_receiver - s_sr
  * outparam: sender_extension_g_out - k^g_o
  * outparam: sender_extension_t_out - k^t_o
  * outparam: address_spend_pubkey_out - K^j_s
@@ -88,7 +88,7 @@ bool try_scan_carrot_coinbase_enote_no_janus(
  */
 bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -99,9 +99,9 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     janus_anchor_t &nominal_janus_anchor_out);
 /**
  * brief: try_scan_carrot_enote_internal_burnt - attempt scan process on internal enote w/o
- *                                               regular burning bug check or view tag check
+ *                                               input_context burning bug check or view tag check
  * param: enote -
- * param: s_sender_receiver - s^ctx_sr
+ * param: s_sender_receiver_ctx - s^ctx_sr, SHOULD BE function of its respective input_context
  * outparam: sender_extension_g_out - k^g_o
  * outparam: sender_extension_t_out - k^t_o
  * outparam: address_spend_pubkey_out - K^j_s
@@ -110,9 +110,13 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
  * outparam: enote_type_out - enote_type
  * outparam: internal_message_out - anchor'
  * return: true iff the scan process (w/o view tag check) succeeded
+ *
+ * The amount commitment recompute burning bug *is* checked, but `s^ctx_sr`
+ * cannot be validated as being a function of the `input_context`, so that
+ * burning bug check is not done. The view tag is not checked either.
  */
 bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
-    const crypto::hash &s_sender_receiver,
+    const crypto::hash &s_sender_receiver_ctx,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,

@@ -46,7 +46,7 @@ namespace carrot
 //-------------------------------------------------------------------------------------------------------------------
 static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const crypto::hash &s_sender_receiver,
+    const crypto::hash &s_sender_receiver_ctx,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -57,12 +57,12 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
     crypto::secret_key &amount_blinding_factor_out)
 {
     // k^o_g = H_n[s^ctx_sr]("..g..", C_a)
-    make_carrot_sender_extension_g(s_sender_receiver,
+    make_carrot_sender_extension_g(s_sender_receiver_ctx,
         enote.amount_commitment,
         sender_extension_g_out);
 
     // k^o_t = H_n[s^ctx_sr]("..t..", C_a)
-    make_carrot_sender_extension_t(s_sender_receiver,
+    make_carrot_sender_extension_t(s_sender_receiver_ctx,
         enote.amount_commitment,
         sender_extension_t_out);
 
@@ -75,17 +75,17 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
     // pid = pid_enc XOR m_pid, if applicable
     if (encrypted_payment_id)
         nominal_payment_id_out = decrypt_legacy_payment_id(*encrypted_payment_id,
-            s_sender_receiver,
+            s_sender_receiver_ctx,
             enote.onetime_address);
     else
         nominal_payment_id_out = null_payment_id;
 
     // anchor = anchor_enc XOR m_anchor
     nominal_janus_anchor_out = decrypt_carrot_anchor(enote.anchor_enc,
-        s_sender_receiver,
+        s_sender_receiver_ctx,
         enote.onetime_address);
 
-    return try_get_carrot_amount(s_sender_receiver,
+    return try_get_carrot_amount(s_sender_receiver_ctx,
         enote.amount_enc,
         enote.onetime_address,
         address_spend_pubkey_out,
@@ -98,7 +98,7 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_coinbase_enote_no_janus(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
@@ -109,27 +109,27 @@ bool try_scan_carrot_coinbase_enote_no_janus(
     const input_context_t input_context = make_carrot_input_context_coinbase(enote.block_index);
 
     // if vt' != vt, then FAIL
-    if (!test_carrot_view_tag(s_sender_receiver_unctx.data, input_context, enote.onetime_address, enote.view_tag))
+    if (!test_carrot_view_tag(s_sender_receiver.data, input_context, enote.onetime_address, enote.view_tag))
         return false;
 
     // s^ctx_sr = H_32[s_sr](D_e, input_context)
-    crypto::hash s_sender_receiver;
-    make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+    crypto::hash s_sender_receiver_ctx;
+    make_carrot_contextualized_sender_receiver_secret(s_sender_receiver.data,
         enote.enote_ephemeral_pubkey,
         input_context,
-        s_sender_receiver);
+        s_sender_receiver_ctx);
 
     bool recovered_main_pubkey = false;
     for (const crypto::public_key &main_address_spend_pubkey : main_address_spend_pubkeys)
     {
         // k^o_g = H_n[s^ctx_sr]("..g..", a, K^0_s)
-        make_carrot_sender_extension_g_coinbase(s_sender_receiver,
+        make_carrot_sender_extension_g_coinbase(s_sender_receiver_ctx,
             enote.amount,
             main_address_spend_pubkey,
             sender_extension_g_out);
 
         // k^o_t = H_n[s^ctx_sr]("..t..", a, K^0_s)
-        make_carrot_sender_extension_t_coinbase(s_sender_receiver,
+        make_carrot_sender_extension_t_coinbase(s_sender_receiver_ctx,
             enote.amount,
             main_address_spend_pubkey,
             sender_extension_t_out);
@@ -152,7 +152,7 @@ bool try_scan_carrot_coinbase_enote_no_janus(
 
     // anchor = anchor_enc XOR m_anchor
     nominal_janus_anchor_out = decrypt_carrot_anchor(enote.anchor_enc,
-        s_sender_receiver,
+        s_sender_receiver_ctx,
         enote.onetime_address);
 
     return true;
@@ -160,7 +160,7 @@ bool try_scan_carrot_coinbase_enote_no_janus(
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -174,20 +174,20 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     const input_context_t input_context = make_carrot_input_context(enote.tx_first_key_image);
 
     // if vt' != vt, then FAIL
-    if (!test_carrot_view_tag(s_sender_receiver_unctx.data, input_context, enote.onetime_address, enote.view_tag))
+    if (!test_carrot_view_tag(s_sender_receiver.data, input_context, enote.onetime_address, enote.view_tag))
         return false;
 
     // s^ctx_sr = H_32[s_sr](D_e, input_context)
-    crypto::hash s_sender_receiver;
-    make_carrot_sender_receiver_secret(s_sender_receiver_unctx.data,
+    crypto::hash s_sender_receiver_ctx;
+    make_carrot_contextualized_sender_receiver_secret(s_sender_receiver.data,
         enote.enote_ephemeral_pubkey,
         input_context,
-        s_sender_receiver);
+        s_sender_receiver_ctx);
 
     // k^g_o, k^g_t, K^j_s, pid, a, z
     return scan_non_coinbase_info(enote,
         encrypted_payment_id,
-        s_sender_receiver,
+        s_sender_receiver_ctx,
         sender_extension_g_out,
         sender_extension_t_out,
         address_spend_pubkey_out,
@@ -199,7 +199,7 @@ bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
-    const crypto::hash &s_sender_receiver,
+    const crypto::hash &s_sender_receiver_ctx,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -212,7 +212,7 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
     payment_id_t dummy_payment_id;
     return scan_non_coinbase_info(enote,
         std::nullopt,
-        s_sender_receiver,
+        s_sender_receiver_ctx,
         sender_extension_g_out,
         sender_extension_t_out,
         address_spend_pubkey_out,

@@ -76,7 +76,7 @@ public:
 
     void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
-        crypto::hash &s_sender_receiver_out) const override;
+        crypto::hash &s_sender_receiver_ctx_out) const override;
 
 protected:
     const crypto::secret_key &m_s_view_balance;

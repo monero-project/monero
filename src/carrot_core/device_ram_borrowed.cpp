@@ -52,7 +52,7 @@ bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_ed25519(const c
 bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_x25519(const mx25519_pubkey &D,
     mx25519_pubkey &kvD) const
 {
-    return try_make_carrot_uncontextualized_shared_key_receiver(m_k_view_incoming, D, kvD);
+    return try_make_carrot_shared_key_receiver(m_k_view_incoming, D, kvD);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void view_incoming_key_ram_borrowed_device::make_janus_anchor_special(
@@ -78,12 +78,12 @@ void view_balance_secret_ram_borrowed_device::make_internal_view_tag(const input
 void view_balance_secret_ram_borrowed_device::make_internal_sender_receiver_secret(
     const mx25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
-    crypto::hash &s_sender_receiver_out) const
+    crypto::hash &s_sender_receiver_ctx_out) const
 {
-    make_carrot_sender_receiver_secret(to_bytes(m_s_view_balance),
+    make_carrot_contextualized_sender_receiver_secret(to_bytes(m_s_view_balance),
         enote_ephemeral_pubkey,
         input_context,
-        s_sender_receiver_out);
+        s_sender_receiver_ctx_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void generate_address_secret_ram_borrowed_device::make_address_index_preimage_1(
