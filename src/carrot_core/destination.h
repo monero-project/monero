@@ -58,7 +58,7 @@ struct CarrotDestinationV1 final
     crypto::public_key address_view_pubkey;
     /// is a subaddress?
     bool is_subaddress;
-    /// legacy payment id pid: null for subaddresses
+    /// legacy payment id pid: non-null only for integrated addresses (main address + payment id)
     payment_id_t payment_id;
 };
 

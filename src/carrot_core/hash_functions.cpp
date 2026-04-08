@@ -62,7 +62,7 @@ static void hash_base(const void *derivation_key,  //32 bytes
     const std::size_t out_length)
 {
     CARROT_CHECK_AND_THROW(out_length && out_length <= BLAKE2B_OUTBYTES,
-        carrot::carrot_logic_error, "Invalid blake2b digest length");
+        carrot_logic_error, "Invalid blake2b digest length");
 
     const bool is_keyed = derivation_key != nullptr;
 
