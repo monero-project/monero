@@ -166,11 +166,11 @@ struct view_balance_secret_device
      *   s^ctx_sr = H_32(s_sr, D_e, input_context)
      * param: enote_ephemeral_pubkey - D_e
      * param: input_context - input_context
-     * outparam: s_sender_receiver_out - s^ctx_sr
+     * outparam: s_sender_receiver_ctx_out - s^ctx_sr
      */
     virtual void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
-        crypto::hash &s_sender_receiver_out) const = 0;
+        crypto::hash &s_sender_receiver_ctx_out) const = 0;
 
     virtual ~view_balance_secret_device() = default;
 };

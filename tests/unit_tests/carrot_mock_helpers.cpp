@@ -409,13 +409,13 @@ void mock_scan_coinbase_enote_set(const std::vector<CarrotCoinbaseEnoteV1> &coin
         scan_result.enote_type = CarrotEnoteType::PAYMENT;
         scan_result.internal_message = janus_anchor_t{};
 
-        mx25519_pubkey s_sender_receiver_unctx;
-        try_make_carrot_uncontextualized_shared_key_receiver(keys.k_view_incoming_dev,
+        mx25519_pubkey s_sender_receiver;
+        try_make_carrot_shared_key_receiver(keys.k_view_incoming_dev,
             enote.enote_ephemeral_pubkey,
-            s_sender_receiver_unctx);
+            s_sender_receiver);
 
         if (try_scan_carrot_coinbase_enote_receiver(enote,
-            s_sender_receiver_unctx,
+            s_sender_receiver,
             {main_address_spend_pubkeys, 2},
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,

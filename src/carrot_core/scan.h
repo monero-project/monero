@@ -52,24 +52,24 @@ namespace carrot { struct CarrotDestinationV1; }
 namespace carrot
 {
 /**
- * brief: try_make_carrot_uncontextualized_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
+ * brief: try_make_carrot_shared_key_receiver - perform the receiver-side ECDH exchange for Carrot enotes
  *   s_sr = k_v D_e
  * param: k_view_dev -
  * param: enote_ephemeral_pubkey - D_e
- * outparam: s_sender_receiver_unctx_out - s_sr
+ * outparam: s_sender_receiver_out - s_sr
  * return: true if successful, false if a failure occurred in point decompression
  */
-bool try_make_carrot_uncontextualized_shared_key_receiver(
+bool try_make_carrot_shared_key_receiver(
     const view_incoming_key_device &k_view_dev,
     const mx25519_pubkey &enote_ephemeral_pubkey,
-    mx25519_pubkey &s_sender_receiver_unctx_out);
+    mx25519_pubkey &s_sender_receiver_out);
 /**
  * brief: try_scan_carrot_coinbase_enote_[sender/receiver] - attempt scan process on coinbase enote
  * param: enote -
  * param: destination - (is_subaddress, K^j_s, K^j_v, pid)
  * param: anchor_norm - anchor_norm
  * param: enote_ephemeral_privkey - d_e
- * param: s_sender_receiver_unctx - s_sr
+ * param: s_sender_receiver - s_sr
  * param: main_address_spend_pubkeys - {K^0_s, ...}
  * outparam: sender_extension_g_out - k^g_o
  * outparam: sender_extension_t_out - k^t_o
@@ -90,14 +90,14 @@ bool try_scan_carrot_coinbase_enote_sender(
     crypto::secret_key &sender_extension_t_out);
 bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &main_address_spend_pubkey_out);
 bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out);
@@ -108,7 +108,7 @@ bool try_scan_carrot_coinbase_enote_receiver(
  * param: destination - (is_subaddress, K^j_s, K^j_v, pid)
  * param: anchor_norm - anchor_norm
  * param: enote_ephemeral_privkey - d_e
- * param: s_sender_receiver_unctx - s_sr
+ * param: s_sender_receiver - s_sr
  * param: main_address_spend_pubkeys - {K^0_s, ...}
  * param: k_view_dev -
  * outparam: sender_extension_g_out - k^g_o
@@ -145,7 +145,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
 bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
     const CarrotDestinationV1 &destination,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     rct::xmr_amount &amount_out,
@@ -154,7 +154,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     const bool check_pid = true);
 bool try_scan_carrot_enote_external_receiver(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver_unctx,
+    const mx25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device &k_view_dev,
     crypto::secret_key &sender_extension_g_out,

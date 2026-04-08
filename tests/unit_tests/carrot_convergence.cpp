@@ -122,8 +122,8 @@ static const hex_value_t<carrot::payment_id_t> payment_id("4321734f56621440");
 static const hex_value_t<crypto::secret_key> enote_ephemeral_privkey("6aea0ed0c34ad3483415377658841a75e0da8b462e637d8bf783b9bcd320b303");
 static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_cryptonote("8df2a40a42ecc10348a461310c1afc2c2b1be7b29fd27a3921a1aefba5efa27b");
 static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_subaddress("a3c3cdf84fd301cfc4675096f1c896543f2efc1001d899bbab3a0fd137f6a630");
-static const hex_value_t<mx25519_pubkey> s_sender_receiver_unctx("1f848f8384e7a9f217dc9dc2691703cf392eaf6c92931acd0fc840c900d3ed49");
-static const hex_value_t<crypto::hash> s_sender_receiver("6e99852ed7b3744177bb669e73fd1c544d88555ea6fffe3787ca6af48d2fe9f6");
+static const hex_value_t<mx25519_pubkey> s_sender_receiver("1f848f8384e7a9f217dc9dc2691703cf392eaf6c92931acd0fc840c900d3ed49");
+static const hex_value_t<crypto::hash> s_sender_receiver_ctx("6e99852ed7b3744177bb669e73fd1c544d88555ea6fffe3787ca6af48d2fe9f6");
 static const rct::xmr_amount amount = 67000000000000;
 static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("5a01cc9f8ca9556c429d623d848fe036c76593005c63a62df57afc4b51d3c20b");
 static const hex_value_t<crypto::secret_key> amount_blinding_factor_change("f69587a2e01d039758b5dd61999e4d60f226eb7b8027be2ff2656ecbb584d103");
@@ -268,38 +268,38 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_subaddress)
     EXPECT_TRUE(enote_ephemeral_pubkey_subaddress.matches(enote_ephemeral_pubkey_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, try_make_carrot_uncontextualized_shared_key_receiver)
+TEST(carrot_convergence, try_make_carrot_shared_key_receiver)
 {
-    mx25519_pubkey s_sender_receiver_unctx_rc;
-    try_make_carrot_uncontextualized_shared_key_receiver(k_view_incoming.value,
+    mx25519_pubkey s_sender_receiver_rc;
+    try_make_carrot_shared_key_receiver(k_view_incoming.value,
         enote_ephemeral_pubkey_subaddress.value,
-        s_sender_receiver_unctx_rc);
-    EXPECT_TRUE(s_sender_receiver_unctx.matches(s_sender_receiver_unctx_rc));
-}
-//---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, try_make_carrot_uncontextualized_shared_key_sender)
-{
-    mx25519_pubkey s_sender_receiver_unctx_rc;
-    try_make_carrot_uncontextualized_shared_key_sender(enote_ephemeral_privkey.value,
-        subaddress_view_pubkey.value,
-        s_sender_receiver_unctx_rc);
-    EXPECT_TRUE(s_sender_receiver_unctx.matches(s_sender_receiver_unctx_rc));
-}
-//---------------------------------------------------------------------------------------------------------------------
-TEST(carrot_convergence, make_carrot_sender_receiver_secret)
-{
-    crypto::hash s_sender_receiver_rc;
-    make_carrot_sender_receiver_secret(s_sender_receiver_unctx.value.data,
-        enote_ephemeral_pubkey_subaddress.value,
-        input_context.value,
         s_sender_receiver_rc);
     EXPECT_TRUE(s_sender_receiver.matches(s_sender_receiver_rc));
+}
+//---------------------------------------------------------------------------------------------------------------------
+TEST(carrot_convergence, try_make_carrot_shared_key_sender)
+{
+    mx25519_pubkey s_sender_receiver_rc;
+    try_make_carrot_shared_key_sender(enote_ephemeral_privkey.value,
+        subaddress_view_pubkey.value,
+        s_sender_receiver_rc);
+    EXPECT_TRUE(s_sender_receiver.matches(s_sender_receiver_rc));
+}
+//---------------------------------------------------------------------------------------------------------------------
+TEST(carrot_convergence, make_carrot_contextualized_sender_receiver_secret)
+{
+    crypto::hash s_sender_receiver_ctx_rc;
+    make_carrot_contextualized_sender_receiver_secret(s_sender_receiver.value.data,
+        enote_ephemeral_pubkey_subaddress.value,
+        input_context.value,
+        s_sender_receiver_ctx_rc);
+    EXPECT_TRUE(s_sender_receiver_ctx.matches(s_sender_receiver_ctx_rc));
 }
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, make_carrot_amount_blinding_factor_payment)
 {
     crypto::secret_key amount_blinding_factor_rc;
-    make_carrot_amount_blinding_factor(s_sender_receiver.value,
+    make_carrot_amount_blinding_factor(s_sender_receiver_ctx.value,
         amount,
         subaddress_spend_pubkey.value,
         CarrotEnoteType::PAYMENT,
@@ -310,7 +310,7 @@ TEST(carrot_convergence, make_carrot_amount_blinding_factor_payment)
 TEST(carrot_convergence, make_carrot_amount_blinding_factor_change)
 {
     crypto::secret_key amount_blinding_factor_rc;
-    make_carrot_amount_blinding_factor(s_sender_receiver.value,
+    make_carrot_amount_blinding_factor(s_sender_receiver_ctx.value,
         amount,
         subaddress_spend_pubkey.value,
         CarrotEnoteType::CHANGE,
@@ -328,7 +328,7 @@ TEST(carrot_convergence, make_carrot_onetime_address_coinbase)
 {
     crypto::public_key onetime_address_coinbase_rc;
     make_carrot_onetime_address_coinbase(subaddress_spend_pubkey.value,
-        s_sender_receiver.value,
+        s_sender_receiver_ctx.value,
         amount,
         onetime_address_coinbase_rc);
     EXPECT_TRUE(onetime_address_coinbase.matches(onetime_address_coinbase_rc));
@@ -338,7 +338,7 @@ TEST(carrot_convergence, make_carrot_onetime_address)
 {
     crypto::public_key onetime_address_rc;
     make_carrot_onetime_address(subaddress_spend_pubkey.value,
-        s_sender_receiver.value,
+        s_sender_receiver_ctx.value,
         amount_commitment.value,
         onetime_address_rc);
     EXPECT_TRUE(onetime_address.matches(onetime_address_rc));
@@ -347,7 +347,7 @@ TEST(carrot_convergence, make_carrot_onetime_address)
 TEST(carrot_convergence, make_carrot_view_tag)
 {
     view_tag_t view_tag_rc;
-    make_carrot_view_tag(s_sender_receiver_unctx.value.data,
+    make_carrot_view_tag(s_sender_receiver.value.data,
         input_context.value,
         onetime_address.value,
         view_tag_rc);
@@ -357,7 +357,7 @@ TEST(carrot_convergence, make_carrot_view_tag)
 TEST(carrot_convergence, make_carrot_anchor_encryption_mask)
 {
     encrypted_janus_anchor_t anchor_encryption_mask_rc;
-    make_carrot_anchor_encryption_mask(s_sender_receiver.value,
+    make_carrot_anchor_encryption_mask(s_sender_receiver_ctx.value,
         onetime_address.value,
         anchor_encryption_mask_rc);
     EXPECT_TRUE(anchor_encryption_mask.matches(anchor_encryption_mask_rc));
@@ -366,7 +366,7 @@ TEST(carrot_convergence, make_carrot_anchor_encryption_mask)
 TEST(carrot_convergence, make_carrot_amount_encryption_mask)
 {
     encrypted_amount_t amount_encryption_mask_rc;
-    make_carrot_amount_encryption_mask(s_sender_receiver.value,
+    make_carrot_amount_encryption_mask(s_sender_receiver_ctx.value,
         onetime_address.value,
         amount_encryption_mask_rc);
     EXPECT_TRUE(amount_encryption_mask.matches(amount_encryption_mask_rc));
@@ -375,7 +375,7 @@ TEST(carrot_convergence, make_carrot_amount_encryption_mask)
 TEST(carrot_convergence, make_carrot_payment_id_encryption_mask)
 {
     encrypted_payment_id_t payment_id_encryption_mask_rc;
-    make_carrot_payment_id_encryption_mask(s_sender_receiver.value,
+    make_carrot_payment_id_encryption_mask(s_sender_receiver_ctx.value,
         onetime_address.value,
         payment_id_encryption_mask_rc);
     EXPECT_TRUE(payment_id_encryption_mask.matches(payment_id_encryption_mask_rc));
