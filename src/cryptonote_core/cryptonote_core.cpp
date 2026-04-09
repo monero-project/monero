@@ -98,16 +98,18 @@ namespace cryptonote
   , "Fixed difficulty used for testing."
   , 0
   };
-  const command_line::arg_descriptor<std::string, false, true, 2> arg_data_dir = {
+  const command_line::arg_descriptor<std::string, false, true, 3> arg_data_dir = {
     "data-dir"
   , "Specify data directory"
   , tools::get_default_data_dir()
-  , {{ &arg_testnet_on, &arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-      if (testnet_stagenet[0])
+  , {{ &arg_testnet_on, &arg_stagenet_on, &arg_regtest_on }}
+  , [](std::array<bool, 3> nets, bool defaulted, std::string val)->std::string {
+      if (nets[0])
         return (boost::filesystem::path(val) / "testnet").string();
-      else if (testnet_stagenet[1])
+      else if (nets[1])
         return (boost::filesystem::path(val) / "stagenet").string();
+      else if (nets[2])
+        return (boost::filesystem::path(val) / "fake").string();
       return val;
     }
   };
@@ -479,8 +481,6 @@ namespace cryptonote
     bool keep_fakechain = command_line::get_arg(vm, arg_keep_fakechain);
 
     boost::filesystem::path folder(m_config_folder);
-    if (m_nettype == FAKECHAIN)
-      folder /= "fake";
 
     // make sure the data directory exists, and try to lock it
     CHECK_AND_ASSERT_MES (boost::filesystem::exists(folder) || boost::filesystem::create_directories(folder), false,
