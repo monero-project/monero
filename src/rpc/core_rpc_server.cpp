@@ -2138,6 +2138,15 @@ namespace cryptonote
     if (use_bootstrap_daemon_if_necessary<COMMAND_RPC_ADD_AUX_POW>(invoke_http_mode::JON_RPC, "add_aux_pow", req, res, r))
       return r;
 
+    const bool restricted = m_restricted && ctx;
+
+    if (restricted && req.aux_pow.size() > 10)
+    {
+      error_resp.code = CORE_RPC_ERROR_CODE_RESTRICTED;
+      error_resp.message = "Too many aux pow hashes";
+      return false;
+    }
+
     if (req.aux_pow.empty())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
@@ -2173,7 +2182,7 @@ namespace cryptonote
     while ((1u << path_domain) < aux_pow.size())
       ++path_domain;
     uint32_t nonce;
-    const uint32_t max_nonce = 65535;
+    const uint32_t max_nonce = restricted ? 16384 : 65535;
     bool collision = true;
     std::vector<uint32_t> slots(aux_pow.size());
     for (nonce = 0; nonce <= max_nonce; ++nonce)
