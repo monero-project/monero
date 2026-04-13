@@ -5,9 +5,9 @@ use ciphersuite::{
         ff::{Field, PrimeField},
         Group, GroupEncoding,
     },
-    Ciphersuite, Ed25519,
+    Ciphersuite,
 };
-use dalek_ff_group::{EdwardsPoint, Scalar};
+use dalek_ff_group::{Ed25519, EdwardsPoint, Scalar};
 use helioselene::{
     Field25519 as SeleneScalar, Helios, HeliosPoint, HelioseleneField as HeliosScalar, Selene,
     SelenePoint,
@@ -24,12 +24,11 @@ use monero_fcmp_plus_plus::{
     },
     sal::{OpenedInputTuple, RerandomizedOutput, SpendAuthAndLinkability},
     Curves, FcmpPlusPlus, Input, Output, FCMP_PARAMS, HELIOS_FCMP_GENERATORS,
-    SELENE_FCMP_GENERATORS,
+    SELENE_FCMP_GENERATORS, T,
 };
-use monero_generators::{
-    FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT, T,
+use monero_fcmp_plus_plus_generators::{
+    FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT,
 };
-use monero_io::CompressedPoint;
 
 use std::os::raw::c_int;
 
@@ -135,21 +134,10 @@ fn ed25519_scalar_from_bytes(ed25519_scalar: *const u8) -> std::io::Result<Scala
     <Ed25519>::read_F(&mut ed25519_scalar)
 }
 
-fn to_byte_slice(x: *const u8) -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
-    unsafe { core::slice::from_raw_parts(x, 32) }.try_into()
-}
-
-fn to_byte_slice_vec(
-    x: &[*const u8],
-) -> std::result::Result<Vec<[u8; 32]>, std::array::TryFromSliceError> {
-    x.iter()
-        .map(
-            |&v| -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
-                let v = to_byte_slice(v)?;
-                Ok(v)
-            },
-        )
-        .collect::<Result<Vec<_>, _>>()
+fn hash_array_from_bytes(
+    h: *const u8,
+) -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
+    unsafe { core::slice::from_raw_parts(h, 32) }.try_into()
 }
 
 // @TODO: this is horrible :(, expose direct read/write for Input in the fcmp-plus-plus crate
@@ -236,7 +224,7 @@ destroy_fn!(destroy_tree_root, TreeRoot::<Selene, Helios>);
 
 #[allow(non_snake_case)]
 #[repr(C)]
-pub struct OutputBytes {
+pub struct OutputTuple {
     O: [u8; 32],
     I: [u8; 32],
     C: [u8; 32],
@@ -249,7 +237,7 @@ pub struct Slice<T> {
 }
 pub type HeliosScalarSlice = Slice<HeliosScalar>;
 pub type SeleneScalarSlice = Slice<SeleneScalar>;
-pub type OutputSlice = Slice<OutputBytes>;
+pub type OutputSlice = Slice<OutputTuple>;
 pub type HeliosScalarChunks = Slice<HeliosScalarSlice>;
 pub type SeleneScalarChunks = Slice<SeleneScalarSlice>;
 pub type HeliosBranchBlindSlice = Slice<*const BranchBlind<<Helios as Ciphersuite>::G>>;
@@ -350,7 +338,7 @@ pub unsafe extern "C" fn path_new(
     }
 
     // Collect decompressed leaves
-    let leaves_slice: &[OutputBytes] = leaves.into();
+    let leaves_slice: &[OutputTuple] = leaves.into();
     let mut leaves: Vec<Output> = Vec::with_capacity(leaves_slice.len());
     #[allow(non_snake_case)]
     for leaf in leaves_slice {
@@ -424,7 +412,7 @@ destroy_fn!(destroy_path, Path<Curves>);
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn rerandomize_output(
-    output: OutputBytes,
+    output: OutputTuple,
     rerandomized_output_bytes: *mut u8,
 ) -> c_int {
     let O = if let Some(O) = EdwardsPoint::from_bytes(&output.O).into() {
@@ -501,7 +489,7 @@ pub unsafe extern "C" fn blind_o_blind(
         return -2;
     };
 
-    let blinded_o_blind = OBlind::new(EdwardsPoint(*T), scalar_decomp);
+    let blinded_o_blind = OBlind::new(EdwardsPoint(**T), scalar_decomp);
     *blinded_o_blind_out = new_box_raw(blinded_o_blind);
     0
 }
@@ -596,8 +584,8 @@ pub unsafe extern "C" fn blind_i_blind(
     };
 
     let blinded_i_blind = IBlind::new(
-        EdwardsPoint(*FCMP_PLUS_PLUS_U),
-        EdwardsPoint(*FCMP_PLUS_PLUS_V),
+        EdwardsPoint((*FCMP_PLUS_PLUS_U).into()),
+        EdwardsPoint((*FCMP_PLUS_PLUS_V).into()),
         scalar_decomp,
     );
     *blinded_i_blind_out = new_box_raw(blinded_i_blind);
@@ -646,7 +634,7 @@ pub unsafe extern "C" fn blind_i_blind_blind(
         return -2;
     };
 
-    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(*T), scalar_decomp);
+    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(**T), scalar_decomp);
     *blinded_i_blind_blind_out = new_box_raw(blinded_i_blind_blind);
     0
 }
@@ -873,7 +861,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(
     sal_proof_out: *mut u8,
     key_image_out: *mut u8,
 ) -> c_int {
-    let Ok(signable_tx_hash) = to_byte_slice(signable_tx_hash) else {
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
         return -1;
     };
 
@@ -952,7 +940,7 @@ pub struct FcmpPpVerifyInput {
     tree_root: TreeRoot<Selene, Helios>,
     n_tree_layers: usize,
     signable_tx_hash: [u8; 32],
-    key_images: Vec<CompressedPoint>,
+    key_images: Vec<EdwardsPoint>,
 }
 
 /// # Safety
@@ -984,30 +972,40 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     }
     debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
-    let Ok(signable_tx_hash) = to_byte_slice(signable_tx_hash) else {
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
         return -4;
     };
 
     let mut proof: &[u8] = unsafe { core::slice::from_raw_parts(proof, proof_len) };
 
     // 32 byte pseudo outs
-    let Ok(pseudo_outs) = to_byte_slice_vec(pseudo_outs.into()) else {
-        return -5;
-    };
-    let pseudo_outs = pseudo_outs.iter().map(|&x| CompressedPoint(x)).collect();
+    let pseudo_outs: &[*const u8] = pseudo_outs.into();
+    let pseudo_outs: Vec<[u8; 32]> = pseudo_outs
+        .iter()
+        .map(|&x| {
+            let x = unsafe { core::slice::from_raw_parts(x, 32) };
+            let mut pseudo_out = [0u8; 32];
+            pseudo_out.copy_from_slice(x);
+            pseudo_out
+        })
+        .collect();
 
     // Read the FCMP++ proof
     let Ok(fcmp_plus_plus) = FcmpPlusPlus::read(&pseudo_outs, n_tree_layers, &mut proof) else {
-        return -6;
+        return -5;
     };
 
     let tree_root: TreeRoot<Selene, Helios> = unsafe { *tree_root };
 
-    // Collect compressed key images into a Vec
-    let Ok(key_images) = to_byte_slice_vec(key_images.into()) else {
-        return -7;
-    };
-    let key_images = key_images.iter().map(|&x| CompressedPoint(x)).collect();
+    // Collect de-compressed key images into a Vec
+    let key_images_slice: &[*const u8] = key_images.into();
+    let mut key_images = Vec::with_capacity(key_images_slice.len());
+    for compressed_ki in key_images_slice {
+        let Ok(key_image) = ed25519_point_from_bytes(*compressed_ki) else {
+            return -6;
+        };
+        key_images.push(key_image);
+    }
 
     let fcmp_pp_verify_input = FcmpPpVerifyInput {
         fcmp_pp: fcmp_plus_plus,
@@ -1034,7 +1032,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
     key_image: *const u8,
     sal_proof: *const u8,
 ) -> bool {
-    let Ok(signable_tx_hash) = to_byte_slice(signable_tx_hash) else {
+    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
         return false;
     };
     let input_bytes = core::slice::from_raw_parts(input_bytes, 4 * 32);
@@ -1059,8 +1057,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
         signable_tx_hash,
         &input,
         key_image,
-    )
-    else {
+    ) else {
         return false;
     };
 
@@ -1072,6 +1069,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
 /// This function assumes that each element of inputs is heap allocated via a
 /// CResult, [fcmp_proof, fcmp_proof+fcmp_proof_len) is a valid readable range
 #[no_mangle]
+#[allow(non_snake_case)]
 pub unsafe extern "C" fn fcmp_pp_verify_membership(
     inputs: Slice<[u8; 4 * 32]>,
     tree_root: *const TreeRoot<Selene, Helios>,
@@ -1084,7 +1082,13 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(
         .iter()
         .map(|i| {
             let i = input_from_bytes(i.as_slice())?;
-            fcmps::Input::new(i.O_tilde(), i.I_tilde(), i.R(), i.C_tilde())
+
+            let O_tilde = Ed25519::read_G(&mut i.O_tilde().as_slice())?;
+            let I_tilde = Ed25519::read_G(&mut i.I_tilde().as_slice())?;
+            let R = Ed25519::read_G(&mut i.R().as_slice())?;
+            let C_tilde = Ed25519::read_G(&mut i.C_tilde().as_slice())?;
+
+            fcmps::Input::new(O_tilde, I_tilde, R, C_tilde)
         })
         .collect::<Result<Vec<_>, _>>()
     else {
