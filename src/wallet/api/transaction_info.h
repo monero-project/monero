@@ -51,6 +51,7 @@ public:
     virtual uint64_t amount() const override;
     //! always 0 for incoming txes
     virtual uint64_t fee() const override;
+    virtual uint64_t changeAmount() const override;
     virtual uint64_t blockHeight() const override;
     virtual std::string description() const override;
     virtual std::set<uint32_t> subaddrIndex() const override;
@@ -76,6 +77,7 @@ private:
     bool        m_is_unlocked;
     uint64_t    m_amount;
     uint64_t    m_fee;
+    uint64_t    m_change_amount;
     uint64_t    m_blockheight;
     std::string m_description;
     std::set<uint32_t> m_subaddrIndex;        // always unique index for incoming transfers; can be multiple indices for outgoing transfers
