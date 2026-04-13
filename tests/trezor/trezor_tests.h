@@ -407,12 +407,15 @@ public:
 
   Monero::optional<std::string> onDevicePinRequest() override;
   Monero::optional<std::string> onDevicePassphraseRequest(bool &on_device) override;
-  void moneySpent(const std::string &txId, uint64_t amount) override {};
-  void moneyReceived(const std::string &txId, uint64_t amount) override {};
+  void moneySpent(const std::string &txId, uint64_t amount, const std::string &enote_pub_key, std::pair<uint32_t, uint32_t> subaddr_index = {}) override {};
+  void moneyReceived(const std::string &txId, uint64_t amount, const uint64_t burnt, const std::string &enote_pub_key, const bool is_change = false, const bool is_coinbase = false) override {};
   void unconfirmedMoneyReceived(const std::string &txId, uint64_t amount) override {};
   void newBlock(uint64_t height) override {};
   void updated() override {};
   void refreshed() override {};
+  void onReorg(std::uint64_t height, std::uint64_t blocks_detached, std::size_t transfers_detached) override {};
+  Monero::optional<std::string> onGetPassword(const char *reason) override { return {}; };
+  void onPoolTxRemoved(const std::string &txid) override {};
 
 protected:
   boost::filesystem::path m_wallet_dir;

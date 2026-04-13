@@ -1174,6 +1174,12 @@ wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const epee::wipeable_stri
   }
 }
 
+bool wallet_keys_unlocker::is_unlocked(wallet2 &w)
+{
+    wallet2* w_ptr = std::addressof(w);
+    return lockers_per_wallet.count(w_ptr) != 0;
+}
+
 wallet_keys_unlocker::~wallet_keys_unlocker()
 {
   if (!should_relock)
@@ -1191,7 +1197,6 @@ wallet_keys_unlocker::~wallet_keys_unlocker()
     if (--lockers_per_wallet[w_ptr] > 0)
       return; // there are other unlock-ers for this wallet, do nothing for now
     lockers_per_wallet.erase(w_ptr);
-
     w.encrypt_keys(key);
   }
   catch (...)
@@ -6206,6 +6211,8 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   const std::vector<std::string> &initial_kex_msgs,
   const std::uint32_t threshold)
 {
+  verify_password_with_cached_key(password);
+
   // decrypt account keys
   std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
 
@@ -6304,6 +6311,8 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
   const std::vector<std::string> &kex_messages,
   const bool force_update_use_with_caution /*= false*/)
 {
+  verify_password_with_cached_key(password);
+
   const multisig::multisig_account_status ms_status{this->get_multisig_status()};
   CHECK_AND_ASSERT_THROW_MES(ms_status.multisig_is_active, "The wallet is not multisig");
 
@@ -6407,7 +6416,7 @@ std::string wallet2::get_multisig_key_exchange_booster(const epee::wipeable_stri
   CHECK_AND_ASSERT_THROW_MES(kex_messages.size() > 0, "No key exchange messages passed in.");
 
   // decrypt account keys
-  std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
+  wallet_keys_unlocker unlocker(*this, &password);
 
   // prepare multisig account
   multisig::multisig_account multisig_account;
@@ -8490,6 +8499,20 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &c_ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 
+  // sanity checks
+  for (const auto &ptx : signed_txs.ptx)
+  {
+    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
+    for (size_t idx: ptx.selected_transfers)
+      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
+    CHECK_AND_ASSERT_MES(ptx.construction_data.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched cd selected_transfers/vin sizes");
+    for (size_t idx: ptx.construction_data.selected_transfers)
+      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
+    CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
+    CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Tx has no inputs");
+    CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Tx has no sources");
+  }
+
   if (accept_func && !accept_func(signed_txs))
   {
     LOG_PRINT_L1("Transactions rejected by callback");
@@ -8505,18 +8528,18 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
 
     // remember key images for this tx, for when we get those txes from the blockchain
     insert_cold_key_images(signed_txs.tx_key_images);
-  }
 
-  try
-  {
-    // extra/redundant validation making sure key images line up
-    for (const auto &ptx : signed_txs.ptx)
-      this->sanity_check_pending_tx(ptx, true, true, std::nullopt, true);
-  }
-  catch (const std::exception &e)
-  {
-    LOG_PRINT_L0("Failed to validate signed transaction (post import): " << e.what());
-    return false;
+    try
+    {
+      // extra/redundant validation making sure key images line up
+      for (const auto &ptx : signed_txs.ptx)
+        this->sanity_check_pending_tx(ptx, true, true, std::nullopt, true);
+    }
+    catch (const std::exception &e)
+    {
+      LOG_PRINT_L0("Failed to validate signed transaction (post import): " << e.what());
+      return false;
+    }
   }
 
   ptx = signed_txs.ptx;
@@ -8679,8 +8702,7 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
-  finish_loading_accepted_multisig_tx(exported_txs);
-  return true;
+  return finish_loading_accepted_multisig_tx(exported_txs);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func, bool skip_callback /* = false */)
@@ -8707,7 +8729,7 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs)
+bool wallet2::finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs)
 {
   const bool is_signed = exported_txs.m_signers.size() >= m_multisig_threshold;
   if (is_signed)
@@ -8740,6 +8762,7 @@ void wallet2::finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs)
       }
     }
   }
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<crypto::hash> &txids)
@@ -14083,7 +14106,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
 
 bool wallet2::import_key_images(std::vector<crypto::key_image> key_images, size_t offset, boost::optional<std::unordered_set<size_t>> selected_transfers)
 {
-  if (key_images.size() + offset > m_transfers.size())
+  if (offset > m_transfers.size() || key_images.size() > m_transfers.size() - offset)
   {
     LOG_PRINT_L1("More key images returned that we know outputs for");
     return false;
