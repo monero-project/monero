@@ -43,8 +43,10 @@ public:
     virtual int count() const;
     virtual TransactionInfo * transaction(int index)  const;
     virtual TransactionInfo * transaction(const std::string &id) const;
-    virtual std::vector<TransactionInfo*> getAll() const;
-    virtual void refresh();
+    virtual std::vector<TransactionInfo*> getAll();
+    std::vector<std::unique_ptr<TransactionInfo>> getPayments(std::uint64_t min_height = 0, std::uint64_t max_height = std::numeric_limits<std::uint64_t>::max()) const override;
+    std::vector<std::unique_ptr<TransactionInfo>> getPaymentsById(const std::string &payment_id_str, std::uint64_t min_height = 0, std::uint64_t max_height = std::numeric_limits<std::uint64_t>::max()) const override;
+    virtual void refresh(bool do_refresh_pool = false);
     virtual void setTxNote(const std::string &txid, const std::string &note);
 
 private:

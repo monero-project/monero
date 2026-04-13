@@ -31,6 +31,7 @@
 
 #include "wallet/api/wallet2_api.h"
 #include "net/http.h"
+#include <boost/thread/mutex.hpp>
 #include <string>
 
 namespace Monero {
@@ -41,7 +42,7 @@ public:
     virtual ~WalletManagerImpl() override;
 
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, bool create_address_file = false, bool non_deterministic = false, bool unattended = true) override;
+                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, bool create_address_file = false, bool non_deterministic = false, bool unattended = true, const std::string extra_entropy = "") override;
     Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr, bool unattended = true) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
@@ -50,6 +51,8 @@ public:
                                        uint64_t restoreHeight,
                                        uint64_t kdf_rounds = 1,
                                        const std::string &seed_offset = {},
+                                       const std::string &seed_language = {},
+                                       const bool create_address_file = false,
                                        const bool unattended = true) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
@@ -114,14 +117,15 @@ public:
     bool queryWalletDevice(Wallet::Device& device_type, const std::string &keys_file_name, const std::string &password, uint64_t kdf_rounds = 1) const override;
     std::vector<std::string> findWallets(const std::string &path) override;
     std::string errorString() const override;
-    void setDaemonAddress(const std::string &address) override;
+    void setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password = nullptr) override;
+    bool setDaemon(Wallet *wallet, const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, SSLOptions::SSLSupport ssl_support = SSLOptions::SSLSupport::SSLSupport_Autodetect, const std::string &ssl_private_key_path = "", const std::string &ssl_certificate_path = "", const std::string &ssl_ca_file_path = "", const std::vector<std::string> &ssl_allowed_fingerprints_str = {}, bool ssl_allow_any_cert = false, bool ssl_allow_chained = false, const std::string &proxy = "") override;
+    bool setDaemon(Wallet *wallet, const std::string &daemon_address, const std::string &daemon_username = "", const std::string &daemon_password = "", bool trusted_daemon = false, const SSLOptions &ssl_options = {}, const std::string &proxy = "") override;
     bool connected(uint32_t *version = NULL) override;
     uint64_t blockchainHeight() override;
     uint64_t blockchainTargetHeight() override;
     uint64_t networkDifficulty() override;
     double miningHashRate() override;
     uint64_t blockTarget() override;
-    bool wasBootstrapEverUsed() override;
     bool isBackgroundMiningEnabled() override;
     bool isMining() override;
     bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) override;
@@ -129,13 +133,19 @@ public:
     bool saveBlockchain() override;
     bool getOutsBin(const std::vector<std::pair<std::uint64_t, std::uint64_t>> &output_amount_index, const bool do_get_txid, std::vector<std::string> &enote_public_key_out, std::vector<std::string> &rct_key_mask_out, std::vector<bool> &unlocked_out, std::vector<std::uint64_t> &height_out, std::vector<std::string> &tx_id_out) override;
     std::string resolveOpenAlias(const std::string &address, bool &dnssec_valid) const override;
-    bool setProxy(const std::string &address) override;
+    bool setProxy(const std::string &address, Wallet *wallet = nullptr) override;
+
+    static bool sslOptionsToEpeeSslOptions(const SSLOptions &ssl_in, epee::net_utils::ssl_options_t &ssl_out, const std::string &daemon_address, const std::string &proxy_address, std::string &error_out);
 
 private:
     WalletManagerImpl();
     friend struct WalletManagerFactory;
+
+    void setErrorString(const std::string& message) const;
+
     net::http::client m_http_client;
-    std::string m_errorString;
+    mutable std::string m_errorString;
+    mutable boost::mutex m_statusMutex;
 };
 
 } // namespace

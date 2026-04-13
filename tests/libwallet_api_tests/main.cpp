@@ -1111,7 +1111,7 @@ struct MyWalletListener : public Monero::WalletListener
         send_triggered = receive_triggered = newblock_triggered = update_triggered = refresh_triggered = false;
     }
 
-    virtual void moneySpent(const string &txId, uint64_t amount)
+    void moneySpent(const string &txId, uint64_t amount, const string &enote_pub_key, std::pair<uint32_t, uint32_t> subaddr_index /* = {} */) override
     {
         std::cerr << "wallet: " << wallet->mainAddress() << "**** just spent money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
@@ -1120,7 +1120,7 @@ struct MyWalletListener : public Monero::WalletListener
         cv_send.notify_one();
     }
 
-    virtual void moneyReceived(const string &txId, uint64_t amount)
+    void moneyReceived(const string &txId, uint64_t amount, const uint64_t burnt, const string &enote_pub_key, const bool is_change /* = false */, const bool is_coinbase /* = false */) override
     {
         std::cout << "wallet: " << wallet->mainAddress() << "**** just received money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
@@ -1129,7 +1129,7 @@ struct MyWalletListener : public Monero::WalletListener
         cv_receive.notify_one();
     }
 
-    virtual void unconfirmedMoneyReceived(const string &txId, uint64_t amount)
+    void unconfirmedMoneyReceived(const string &txId, uint64_t amount) override
     {
         std::cout << "wallet: " << wallet->mainAddress() << "**** just received unconfirmed money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
@@ -1139,7 +1139,7 @@ struct MyWalletListener : public Monero::WalletListener
         // cv_receive.notify_one();
     }
 
-    virtual void newBlock(uint64_t height)
+    void newBlock(uint64_t height) override
     {
 //        std::cout << "wallet: " << wallet->mainAddress()
 //                  <<", new block received, blockHeight: " << height << std::endl;
@@ -1151,20 +1151,25 @@ struct MyWalletListener : public Monero::WalletListener
         cv_newblock.notify_one();
     }
 
-    virtual void updated()
+    void updated() override
     {
         std::cout << __FUNCTION__ << "Wallet updated";
         update_triggered = true;
         cv_update.notify_one();
     }
 
-    virtual void refreshed()
+    void refreshed() override
     {
         std::cout << __FUNCTION__ <<  "Wallet refreshed";
         refresh_triggered = true;
         cv_refresh.notify_one();
     }
 
+    void onReorg(uint64_t height, uint64_t blocks_detached, size_t transfers_detached) override {}
+
+    optional<std::string> onGetPassword(const char *reason) override { return {}; }
+
+    void onPoolTxRemoved(const string &txid) override {}
 };
 
 
