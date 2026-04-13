@@ -1848,7 +1848,6 @@ uint64_t BlockchainLMDB::get_txpool_tx_count(relay_category category) const
   {
     // Filter unrelayed tx out of the result, so we need to loop over transactions and check their meta data
     RCURSOR(txpool_meta);
-    RCURSOR(txpool_blob);
 
     MDB_val k;
     MDB_val v;
