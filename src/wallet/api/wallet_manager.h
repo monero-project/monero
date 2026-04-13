@@ -39,7 +39,7 @@ class WalletManagerImpl : public WalletManager
 {
 public:
     Wallet * createWallet(const std::string &path, const std::string &password,
-                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, bool create_address_file = false, bool non_deterministic = false, bool unattended = true) override;
+                          const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, bool create_address_file = false, bool non_deterministic = false, bool unattended = true, const std::string extra_entropy = "") override;
     Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr, bool unattended = true) override;
     virtual Wallet * recoveryWallet(const std::string &path,
                                        const std::string &password,
@@ -48,6 +48,7 @@ public:
                                        uint64_t restoreHeight,
                                        uint64_t kdf_rounds = 1,
                                        const std::string &seed_offset = {},
+                                       const bool create_address_file = false,
                                        const bool unattended = true) override;
     virtual Wallet * createWalletFromKeys(const std::string &path,
                                              const std::string &password,
@@ -102,14 +103,13 @@ public:
     bool queryWalletDevice(Wallet::Device& device_type, const std::string &keys_file_name, const std::string &password, uint64_t kdf_rounds = 1) const override;
     std::vector<std::string> findWallets(const std::string &path) override;
     std::string errorString() const override;
-    void setDaemonAddress(const std::string &address) override;
+    void setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password = nullptr) override;
     bool connected(uint32_t *version = NULL) override;
     uint64_t blockchainHeight() override;
     uint64_t blockchainTargetHeight() override;
     uint64_t networkDifficulty() override;
     double miningHashRate() override;
     uint64_t blockTarget() override;
-    bool wasBootstrapEverUsed() override;
     bool isBackgroundMiningEnabled() override;
     bool isMining() override;
     bool startMining(const std::string &address, uint32_t threads = 1, bool background_mining = false, bool ignore_battery = true) override;

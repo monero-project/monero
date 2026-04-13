@@ -62,13 +62,14 @@ public:
                             const std::string &language) const override;
     bool open(const std::string &path, const std::string &password);
     bool recover(const std::string &path,const std::string &password,
-                            const std::string &seed, const std::string &seed_offset = {});
+                            const std::string &seed, const std::string &seed_offset = {}, const bool create_address_file = false);
     bool recoverFromKeysWithPassword(const std::string &path,
                             const std::string &password,
                             const std::string &language,
                             const std::string &address_string,
                             const std::string &viewkey_string,
-                            const std::string &spendkey_string = "");
+                            const std::string &spendkey_string = "",
+                            const bool create_address_file = false);
     // following two methods are deprecated since they create passwordless wallets
     // use the two equivalent methods above
     bool recover(const std::string &path, const std::string &seed);
@@ -87,13 +88,14 @@ public:
                                  const bool do_create_address_file = false);
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
-                           const std::string &device_name);
+                           const std::string &device_name,
+                           const bool create_address_file = false);
     Device getDeviceType() const override;
     bool close(bool store = true);
     std::string seed(const std::string& seed_offset = "") const override;
     int status() const override;
     std::string errorString() const override;
-    void statusWithErrorString(int& status, std::string& errorString) const override;
+    void statusWithErrorString(int& status, std::string& errorString, int* extendedStatusOut = nullptr) const override;
     bool setPassword(const std::string &password) override;
     const std::string& getPassword() const override;
     bool setDevicePin(const std::string &password) override;
@@ -117,10 +119,10 @@ public:
     void setTrustedDaemon(bool arg) override;
     bool trustedDaemon() const override;
     bool setProxy(const std::string &address) override;
-    uint64_t balance(uint32_t accountIndex = 0) const override;
-    std::map<uint32_t, uint64_t> balancePerSubaddress(uint32_t accountIndex = 0) const override;
-    uint64_t unlockedBalance(uint32_t accountIndex = 0, std::uint64_t *blocks_to_unlock = NULL, std::uint64_t *time_to_unlock = NULL) const override;
-    std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlockedBalancePerSubaddress(uint32_t accountIndex = 0) const override;
+    uint64_t balance(uint32_t accountIndex = 0, bool is_strict = false) const override;
+    std::map<uint32_t, uint64_t> balancePerSubaddress(uint32_t accountIndex = 0, bool is_strict = false) const override;
+    uint64_t unlockedBalance(uint32_t accountIndex = 0, std::uint64_t *blocks_to_unlock = NULL, std::uint64_t *time_to_unlock = NULL, bool is_strict = false) const override;
+    std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlockedBalancePerSubaddress(uint32_t accountIndex = 0, bool is_strict = false) const override;
     uint64_t blockChainHeight() const override;
     uint64_t approximateBlockChainHeight() const override;
     uint64_t estimateBlockChainHeight() const override;
@@ -128,7 +130,7 @@ public:
     uint64_t daemonBlockChainTargetHeight() const override;
     bool daemonSynced() const override;
     bool synchronized() const override;
-    bool refresh(std::uint64_t start_height = 0, bool check_pool = true, bool try_incremental = false, std::uint64_t max_blocks = std::numeric_limits<uint64_t>::max(), std::uint64_t *blocks_fetched_out = nullptr, bool *received_money_out = nullptr) override;
+    bool refresh(std::uint64_t start_height = 0, bool check_pool = true, bool try_incremental = false, std::uint64_t max_blocks = std::numeric_limits<uint64_t>::max(), bool skip_refresh_if_daemon_not_synced = true, std::uint64_t *blocks_fetched_out = nullptr, bool *received_money_out = nullptr) override;
     void refreshAsync() override;
     bool rescanBlockchain(bool do_hard_rescan = true, bool do_keep_key_images = false, bool do_skip_refresh = false) override;
     void rescanBlockchainAsync(bool do_hard_rescan = true, bool do_keep_key_images = false) override;
@@ -180,6 +182,7 @@ public:
     UnsignedTransaction * loadUnsignedTxFromStr(const std::string &unsigned_tx_str) override;
     bool exportKeyImages(const std::string &filename, bool all = false) override;
     std::string exportKeyImagesAsString(bool all = false) override;
+    void exportKeyImages(bool all, std::uint64_t &offset_out, std::vector<std::pair<std::string, std::string>> &key_images_and_signatures_out) override;
     bool importKeyImages(const std::string &filename, std::uint64_t *spent_out = nullptr, std::uint64_t *unspent_out = nullptr, std::uint64_t *import_height = nullptr) override;
     bool importKeyImagesFromStr(const std::string &data) override;
     bool exportOutputs(const std::string &filename, bool all = false) override;
@@ -189,7 +192,7 @@ public:
     bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password = optional<std::string>()) override;
     BackgroundSyncType getBackgroundSyncType() const override;
     bool startBackgroundSync() override;
-    bool stopBackgroundSync(const std::string &wallet_password) override;
+    bool stopBackgroundSync(const std::string &wallet_password, const std::string_view *spend_secret_key = nullptr) override;
     bool isBackgroundSyncing() const override;
     bool isBackgroundWallet() const override;
 
@@ -221,7 +224,7 @@ public:
     virtual std::string getReserveProof(bool all, uint32_t account_index, uint64_t amount, const std::string &message) const override;
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const override;
     virtual std::string signMessage(const std::string &message, const std::string &address, bool sign_with_view_key = false) override;
-    virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature, bool *is_old_out = nullptr, std::string *signature_type_out = nullptr) const override;
+    virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature, bool *is_old_out = nullptr, std::string *signature_type_out = nullptr, unsigned *version_out = nullptr) const override;
     virtual std::string signMultisigParticipant(const std::string &message) const override;
     virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const override;
     virtual void startRefresh() override;
@@ -265,6 +268,7 @@ public:
     bool saveMultisigTx(const PendingTransaction &multisig_ptx, const std::string &filename) const override;
     PendingTransaction* parseTxFromStr(const std::string &signed_tx_str) override;
     PendingTransaction* parseMultisigTxFromStr(const std::string &multisig_tx_str) override;
+    std::unique_ptr<PendingTransaction> deserializePtxFromBlobStr(const std::string &tx_blob) override;
     std::uint64_t getFeeMultiplier(std::uint32_t priority, int fee_algorithm) const override;
     std::uint64_t getBaseFee() const override;
     std::uint32_t adjustPriority(std::uint32_t priority) override;
@@ -303,6 +307,8 @@ public:
 
     bool getExplicitRefreshFromBlockHeight() const override;
     void setExplicitRefreshFromBlockHeight(bool do_explicit_refresh) override;
+
+    void setTxNotify(const std::string &tx_notify) override;
 
     // Wallet Settings getter/setter
     std::string getSeedLanguage() const override;
@@ -370,11 +376,11 @@ public:
 
 private:
     void clearStatus() const;
-    void setStatusError(const std::string& message) const;
+    void setStatusError(const std::string& messagee, const int* extended_status = nullptr) const;
     void setStatusCritical(const std::string& message) const;
-    void setStatus(int status, const std::string& message) const;
+    void setStatus(int status, const std::string& message, const int* extended_status = nullptr) const;
     void refreshThreadFunc();
-    void doRefresh(std::uint64_t start_height = 0, bool check_pool = true, bool try_incremental = false, std::uint64_t max_blocks = std::numeric_limits<uint64_t>::max(), bool *error_out = nullptr, std::uint64_t *blocks_fetched_out = nullptr, bool *received_money_out = nullptr);
+    void doRefresh(std::uint64_t start_height = 0, bool check_pool = true, bool try_incremental = false, std::uint64_t max_blocks = std::numeric_limits<uint64_t>::max(), bool skip_refresh_if_daemon_not_synced = true, bool *error_out = nullptr, std::uint64_t *blocks_fetched_out = nullptr, bool *received_money_out = nullptr);
     void stopRefresh();
     bool isNewWallet() const;
     void pendingTxPostProcess(PendingTransactionImpl * pending);
@@ -400,6 +406,14 @@ private:
     * return: true if status is ok, else false
     */
     bool statusOk() const;
+    /**
+    * brief: getTxDescription - helper for [Pending/Unsigned]Transaction::getTransactionDescription()
+    * param: cds - all the tx construction data
+    * param: error_code_out - [Pending/Unsigned]Transaction::m_status
+    * param: error_msg_out - [Pending/Unsigned]Transaction::m_errorString
+    * return: TransactionDescription on success, else nullptr
+    */
+    std::unique_ptr<TransactionDescription> getTxDescription(const std::vector<tools::wallet2::tx_construction_data> &cds, int &error_code_out, std::string &error_msg_out) const;
 
 private:
     friend class PendingTransactionImpl;
@@ -415,6 +429,7 @@ private:
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
+    mutable int m_extendedStatus;
     // TODO: harden password handling in the wallet API, see relevant discussion
     // https://github.com/monero-project/monero-gui/issues/1537
     // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142
