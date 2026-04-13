@@ -134,6 +134,74 @@ struct EnoteDetails
 };
 
 /**
+ * @brief TxSource -
+ */
+struct TxSource
+{
+    // enote amount
+    std::uint64_t amount;
+    // part of amount-global output index pair {rct ? 0 : amount, global_index}
+    std::uint64_t global_index;
+    // true if enote was created in RingCT, else false
+    bool rct;
+    // enote pubkey
+    std::string pubkey;
+};
+/**
+ * @brief TxRecipient -
+ */
+struct TxRecipient
+{
+    std::string address;
+    std::uint64_t amount;
+};
+/**
+ * @brief TxDesctiptionSingle - description of a single tx in PendingTransaction/UnsignedTransaction
+ */
+struct TxDescriptionSingle
+{
+    std::uint64_t amount_in;
+    std::uint64_t amount_out;
+    std::uint32_t ring_size;
+    std::uint64_t unlock_time;
+    std::list<TxSource> sources;
+    std::list<TxRecipient> recipients;
+    std::string payment_id;
+    std::uint64_t change_amount;
+    std::string change_address;
+    std::uint64_t fee;
+    std::uint32_t dummy_outputs;
+    std::string extra;
+};
+/**
+ * @brief TxSummary - summary for all txs in a PendingTransaction/UnsignedTransaction
+ */
+struct TxSummary
+{
+    // Sum of amounts for all enotes that were used to create the tx
+    std::uint64_t amount_in;
+    // Sum of amounts for all enotes that were created by this tx
+    std::uint64_t amount_out;
+    // All recipients, excluding change
+    std::list<TxRecipient> recipients;
+    // Sum of all change amounts created by this tx
+    std::uint64_t change_amount;
+    // Address receiving change
+    std::string change_address;
+    // Total fee
+    std::uint64_t fee;
+};
+/**
+ * @brief TransactionDescription - description of each tx in a PendingTransaction/UnsignedTransaction
+ *                                 and a summary for the entire PendingTransaction/UnsignedTransaction
+ */
+struct TransactionDescription
+{
+    std::list<TxDescriptionSingle> tx_descriptions;
+    TxSummary tx_summary;
+};
+
+/**
  * @brief Transaction-like interface for sending money
  */
 struct PendingTransaction
@@ -156,13 +224,25 @@ struct PendingTransaction
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
+    virtual int extendedStatus() const = 0;
     virtual std::string confirmationMessage() const = 0;
     // commit transaction or save to file if filename is provided.
+    // note: be careful, after calling this method other methods in this class may not work as expected anymore
+    //       if you want to get any info about the ptx, you should fetch it before calling commit()
+    // note: this method sets extendedStatus if it catches one of the following exceptions:
+    //          `no_connection_to_daemon`, `daemon_busy`, `not_enough_unlocked_money`, `not_enough_money`,
+    //          `tx_not_possible`, `not_enough_outs_to_mix`, `zero_amount`, `zero_destination`
     virtual bool commit(const std::string &filename = "", bool overwrite = false) = 0;
+    // summed up total amount for all txs and destinations, excluding change and fee
     virtual uint64_t amount() const = 0;
+    // amount for each destination per tx
+    virtual std::vector<std::vector<uint64_t>> amountsPerDestination() const = 0;
     virtual uint64_t dust() const = 0;
     virtual uint64_t dustInFee() const = 0;
+    // summed up total fee for all txs
     virtual uint64_t fee() const = 0;
+    // fee amount per tx
+    virtual std::vector<uint64_t> fees() const = 0;
     virtual uint64_t change() const = 0;
     virtual std::vector<std::string> txid() const = 0;
     /*!
@@ -194,6 +274,20 @@ struct PendingTransaction
     */
     virtual std::vector<std::string> convertTxToRawBlobStr() = 0;
     /**
+    * brief: asHexStr - create hex string for each tx in `PendingTransaction`
+    *                   which can be used as arguments for `tx_as_hex`
+    *                   for daemon RPC `/send_raw_transaction`
+    * return: serialized ptx objects as hex strings if succeeded, else empty vector
+    * note: sets status error on failure
+    */
+    virtual std::vector<std::string> asHexStr() = 0;
+    /**
+    * brief: txWeights -
+    * return: weight per tx
+    * note: sets status error on failure
+    */
+    virtual std::vector<std::uint64_t> txWeights() = 0;
+    /**
     * brief: getWorstFeePerByte - needed when checking for backlog
     * return: worst fee per bytes
     */
@@ -220,11 +314,17 @@ struct PendingTransaction
     */
     virtual std::vector<std::vector<std::uint64_t>> vinAmounts() const = 0;
     /**
-    * brief: getEnoteDetailsIn -
-    * return: enote details for all enotes that are used as inputs per tx
-    *         [ tx_idx : [ enote_idx : EnoteDetails, ... ], ... ]
+    * brief: getTxKeys - tx_key + optional additional_tx_keys concatenated to a single string per tx
+    * return: secret tx keys
     */
-    virtual std::vector<std::vector<std::unique_ptr<EnoteDetails>>> getEnoteDetailsIn() const =0;
+    virtual std::vector<std::string> getTxKeys() const = 0;
+    /**
+    * brief: getEnoteDetailsIn -
+    * return: enote details for all enotes that are used as inputs per tx if succeeded, else empty vector
+    *         [ tx_idx : [ enote_idx : EnoteDetails, ... ], ... ]
+    * note: sets status error on failure
+    */
+    virtual std::vector<std::vector<std::unique_ptr<EnoteDetails>>> getEnoteDetailsIn() = 0;
     /**
     * brief: finishParsingTx - remember cold key images for parsed tx, for when we get those txes from the blockchain
     *                           call this after both:
@@ -233,6 +333,12 @@ struct PendingTransaction
     * return: true on success
     */
     virtual bool finishParsingTx() = 0;
+    /**
+    * brief: getTransactionDescription - details for each tx
+    * return: TransactionDescription on success, else nullptr
+    * note: sets status error on failure
+    */
+    virtual std::unique_ptr<TransactionDescription> getTransactionDescription() = 0;
 
     /**
      * @brief multisigSignData
@@ -314,6 +420,12 @@ struct UnsignedTransaction
     * note: sets status error on failure
     */
     virtual std::string signAsString() = 0;
+    /**
+    * brief: getTransactionDescription - details for each tx
+    * return: TransactionDescription on success, else nullptr
+    * note: sets status error on failure
+    */
+    virtual std::unique_ptr<TransactionDescription> getTransactionDescription() = 0;
 };
 
 /**
@@ -348,7 +460,10 @@ struct TransactionInfo
     virtual bool isCoinbase() const = 0;
     virtual bool isUnlocked() const = 0;
     virtual uint64_t amount() const = 0;
+    // individual amounts for incoming transactions
+    virtual std::vector<uint64_t> amounts() const = 0;
     virtual uint64_t fee() const = 0;
+    virtual uint64_t changeAmount() const = 0;
     virtual uint64_t blockHeight() const = 0;
     virtual std::string description() const = 0;
     virtual std::set<uint32_t> subaddrIndex() const = 0;
@@ -363,7 +478,6 @@ struct TransactionInfo
     //! only applicable for output transactions
     virtual const std::vector<Transfer> & transfers() const = 0;
 
-    virtual std::uint64_t receivedChangeAmount() const = 0;
     virtual TxState txState() const = 0;
     virtual bool isDoubleSpendSeen() const = 0;
 };
@@ -376,8 +490,10 @@ struct TransactionHistory
     virtual int count() const = 0;
     virtual TransactionInfo * transaction(int index)  const = 0;
     virtual TransactionInfo * transaction(const std::string &id) const = 0;
-    virtual std::vector<TransactionInfo*> getAll() const = 0;
-    virtual void refresh() = 0;
+    // note: usually you would call tx_history->refresh() on the wallets moneyReceived/moneySpent callbacks
+    //       though there are no callbacks if the wallet is unattended
+    virtual std::vector<TransactionInfo*> getAll(bool do_refresh = false) = 0;
+    virtual void refresh(bool do_refresh_pool = false) = 0;
     virtual void setTxNote(const std::string &txid, const std::string &note) = 0;
 };
 
@@ -422,6 +538,7 @@ struct AddressBook
     virtual bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description) = 0;  
     virtual bool deleteRow(std::size_t rowId) = 0;
     virtual bool setDescription(std::size_t index, const std::string &description) = 0;
+    virtual bool setAddress(std::size_t index, const std::string &address) = 0;
     virtual void refresh() = 0;  
     virtual std::string errorString() const = 0;
     virtual int errorCode() const = 0;
@@ -597,7 +714,9 @@ struct WalletListener
     */
     virtual void onReorg(std::uint64_t height, std::uint64_t blocks_detached, std::size_t transfers_detached) = 0;
     /**
-    * brief: onGetPassword - called by scan_output() to decrypt keys
+    * @brief onGetPassword called by scan_output() to decrypt keys for non-unattended wallets
+    * @param reason a C-string to describe why the user is prompted for a password
+    * @return password entered by user
     */
     virtual optional<std::string> onGetPassword(const char *reason) = 0;
     /**
@@ -632,6 +751,26 @@ struct Wallet
         Status_Ok,
         Status_Error,
         Status_Critical
+    };
+
+    // Matching error codes in src/wallet/wallet_rpc_server_error_codes.h
+    enum ExtendedStatus {
+        ExtendedStatus_Ok                       =   0,
+        ExtendedStatus_Unknown_Error            =  -1,
+        ExtendedStatus_DaemonIsBusy             =  -3,
+        ExtendedStatus_WrongSignature           =  -9,
+        ExtendedStatus_AccountIndexOutOfBounds  = -14,
+        ExtendedStatus_AddressIndexOutOfBounds  = -15,
+        ExtendedStatus_TxNotPossible            = -16,
+        ExtendedStatus_NotEnoughMoney           = -17,
+        ExtendedStatus_NotEnoughOutsToMix       = -19,
+        ExtendedStatus_ZeroDestination          = -20,
+        ExtendedStatus_WalletAlreadyExists      = -21,
+        ExtendedStatus_InvalidPassword          = -22,
+        ExtendedStatus_NotEnoughUnlockedMoney   = -37,
+        ExtendedStatus_NoDaemonConnection       = -38,
+        ExtendedStatus_ZeroAmount               = -46,
+        ExtendedStatus_NonZeroUnlockTime        = -50,
     };
 
     enum ConnectionStatus {
@@ -715,6 +854,7 @@ struct Wallet
         // is wallet file format deprecated
         bool is_deprecated;
         bool is_unattended;
+        bool has_proxy_flag;
         std::string daemon_address;
         std::string ring_database;
         std::uint64_t n_enotes;
@@ -722,12 +862,12 @@ struct Wallet
 
     virtual ~Wallet() = 0;
     virtual std::string seed(const std::string& seed_offset = "") const = 0;
-    //! returns wallet status (Status_Ok | Status_Error)
+    //! returns wallet status (Status_Ok | Status_Error | Status_Critical)
     virtual int status() const = 0; //deprecated: use safe alternative statusWithErrorString
     //! in case error status, returns error string
     virtual std::string errorString() const = 0; //deprecated: use safe alternative statusWithErrorString
-    //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
-    virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
+    //! returns both error and error string atomically. suggested to use in instead of status() and errorString(), optionally gives ExtendedStatus code if any
+    virtual void statusWithErrorString(int& status, std::string& errorString, int* extendedStatus = nullptr) const = 0;
     virtual bool setPassword(const std::string &password) = 0;
     virtual const std::string& getPassword() const = 0;
     virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };
@@ -789,6 +929,11 @@ struct Wallet
      */
     virtual void stop() = 0;
 
+    /**
+     * @brief teardown-only: a permanent stop that also aborts an in-flight daemon request
+     */
+    virtual void shutdown() = 0;
+
     /*!
      * \brief store - stores wallet to file.
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
@@ -820,7 +965,6 @@ struct Wallet
      * \return  - true on success
      */
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") = 0;
-    virtual void allowMismatchedDaemonVersion(bool allow_mismatch) = 0;
     virtual void setRingDatabase(const std::string &path) = 0;
 
    /*!
@@ -864,21 +1008,43 @@ struct Wallet
     virtual ConnectionStatus connected() const = 0;
     virtual void setTrustedDaemon(bool arg) = 0;
     virtual bool trustedDaemon() const = 0;
+    /**
+     * @brief set wallets daemon proxy
+     * @param address -
+     * @return always true
+     * @note DEPRECATED - use WalletManager::setProxy() with `wallet` arg instead, to keep wallet managers and wallets daemon proxy synced
+     */
     virtual bool setProxy(const std::string &address) = 0;
-    virtual uint64_t balance(uint32_t accountIndex = 0) const = 0;
-    virtual std::map<uint32_t, uint64_t> balancePerSubaddress(uint32_t accountIndex = 0) const = 0;
-    uint64_t balanceAll() const {
+    virtual uint64_t balance(uint32_t accountIndex = 0, bool is_strict = false) const = 0;
+    virtual std::map<uint32_t, uint64_t> balancePerSubaddress(uint32_t accountIndex = 0, bool is_strict = false) const = 0;
+    /**
+     * @brief balanceAll - sum of balances for all accounts and subaddresses
+     * @param is_strict - true = only consider blockchain state, false = also consider pool state (Default: false)
+     * @return - balance
+     */
+    uint64_t balanceAll(bool is_strict = false) const {
         uint64_t result = 0;
         for (uint32_t i = 0; i < numSubaddressAccounts(); ++i)
-            result += balance(i);
+            result += balance(i, is_strict);
         return result;
     }
-    virtual uint64_t unlockedBalance(uint32_t accountIndex = 0, uint64_t *blocks_to_unlock = NULL, uint64_t *time_to_unlock = NULL) const = 0;
-    virtual std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlockedBalancePerSubaddress(uint32_t accountIndex = 0) const = 0;
-    uint64_t unlockedBalanceAll() const {
+    virtual uint64_t unlockedBalance(uint32_t accountIndex = 0, uint64_t *blocks_to_unlock = NULL, uint64_t *time_to_unlock = NULL, bool is_strict = false) const = 0;
+    virtual std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlockedBalancePerSubaddress(uint32_t accountIndex = 0, bool is_strict = false) const = 0;
+    uint64_t unlockedBalanceAll(uint64_t *blocks_to_unlock = nullptr, uint64_t *time_to_unlock = nullptr, bool is_strict = false) const {
         uint64_t result = 0;
+        if (blocks_to_unlock)
+            *blocks_to_unlock = 0;
+        if (time_to_unlock)
+            *time_to_unlock = 0;
         for (uint32_t i = 0; i < numSubaddressAccounts(); ++i)
-            result += unlockedBalance(i);
+        {
+            uint64_t local_blocks_to_unlock, local_time_to_unlock;
+            result += unlockedBalance(i, blocks_to_unlock ? &local_blocks_to_unlock : nullptr,  time_to_unlock ? &local_time_to_unlock : nullptr, is_strict);
+            if (blocks_to_unlock)
+                *blocks_to_unlock = std::max(*blocks_to_unlock, local_blocks_to_unlock);
+            if (time_to_unlock)
+                *time_to_unlock = std::max(*time_to_unlock, local_time_to_unlock);
+        }
         return result;
     }
 
@@ -988,6 +1154,7 @@ struct Wallet
      * @param check_pool            - wether to also scan tx pool (Default: true)
      * @param try_incremental       - if daemon supports it, only get txs from the pool which the wallet hasn't seen before (Default: false)
      * @param max_blocks            - refresh returns when blocks fetched reaches max_blocks (Default: std::numeric_limits<std::uint64_t>::max())
+     * @param skip_refresh_if_daemon_not_synced - (Default: true)
      * @outparam blocks_fetched_out - number of blocks fetched during refresh (Default: nullptr)
      * @outparam received_money_out - true if the wallet received money in the blocks fetched during refresh (Default: nullptr)
      * @return - true if refreshed successfully;
@@ -996,6 +1163,7 @@ struct Wallet
                          bool check_pool = true,
                          bool try_incremental = false,
                          std::uint64_t max_blocks = std::numeric_limits<std::uint64_t>::max(),
+                         bool skip_refresh_if_daemon_not_synced = true,
                          std::uint64_t *blocks_fetched_out = nullptr,
                          bool *received_money_out = nullptr) = 0;
 
@@ -1006,7 +1174,7 @@ struct Wallet
 
     /**
      * @brief rescanBlockchain - rescans the wallet, updating transactions from daemon
-     * @param do_hard_rescan     - if true you will lose any information which can not be recovered from the blockchain itself (Default: true)
+     * @param do_hard_rescan     - if true you will lose any information which can not be recovered from the blockchain itself (Default: false)
      * @param do_keep_key_images - keep key images, only works with soft rescan,
      *                             if set `true` you may want to check `hashEnotes()` and `finishRescanBcKeepKeyImages()` for manual control,
      *                             else set `do_skip_refresh = false` and the two methods get handled automatically by the backend (Default: false)
@@ -1019,12 +1187,12 @@ struct Wallet
      *          true             false                  hard rescan
      *          true             true                   ERROR: cannot preserve key images on hard rescan
      */
-    virtual bool rescanBlockchain(bool do_hard_rescan = true, bool do_keep_key_images = false, bool do_skip_refresh = false) = 0;
+    virtual bool rescanBlockchain(bool do_hard_rescan = false, bool do_keep_key_images = false, bool do_skip_refresh = false) = 0;
 
     /**
      * @brief rescanBlockchainAsync - rescans wallet asynchronously, starting from genesis
      */
-    virtual void rescanBlockchainAsync(bool do_hard_rescan = true, bool do_keep_key_images = false) = 0;
+    virtual void rescanBlockchainAsync(bool do_hard_rescan = false, bool do_keep_key_images = false) = 0;
 
     /**
      * @brief setAutoRefreshInterval - setup interval for automatic refresh.
@@ -1041,6 +1209,7 @@ struct Wallet
     /**
      * @brief addSubaddressAccount - appends a new subaddress account at the end of the last major index of existing subaddress accounts
      * @param label - the label for the new account (which is the as the label of the primary address (accountIndex,0))
+     * @note - sets status error on failure
      */
     virtual void addSubaddressAccount(const std::string& label) = 0;
     /**
@@ -1056,6 +1225,7 @@ struct Wallet
      * @brief addSubaddress - appends a new subaddress at the end of the last minor index of the specified subaddress account
      * @param accountIndex - the major index specifying the subaddress account
      * @param label - the label for the new subaddress
+     * @note - sets status error on failure
      */
     virtual void addSubaddress(uint32_t accountIndex, const std::string& label) = 0;
     /**
@@ -1148,6 +1318,10 @@ struct Wallet
      * \param below                     threshold for sweep_below, only used if `amount` is not set (Default: 0)
      * \return                          PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                                  after object returned
+     * \note: sets status error on failure
+     * \note: this method sets `extendedStatus` if it catches one of the following exceptions:
+     *           `no_connection_to_daemon`, `daemon_busy`, `not_enough_unlocked_money`, `not_enough_money`,
+     *           `tx_not_possible`, `not_enough_outs_to_mix`, `zero_amount`, `zero_destination`
      */
 
     virtual PendingTransaction * createTransactionMultDest(const std::vector<std::string> &dst_addr, const std::string &payment_id,
@@ -1242,6 +1416,14 @@ struct Wallet
     * note: sets status error on failure
     */
     virtual std::string exportKeyImagesAsString(bool all = false) = 0;
+    /**
+    * brief: exportKeyImages - export key images
+    * param: all - export all key images or only those that have not yet been exported
+    * outparam: offset_out - number of skipped key images, 0 if `all = true`
+    * outparam: key_images_and_signatures_out - pairs of key_image + signature both as hex string
+    * note: sets status error on failure
+    */
+    virtual void exportKeyImages(bool all, std::uint64_t &offset_out, std::vector<std::pair<std::string, std::string>> &key_images_and_signatures_out) = 0;
    
    /*!
     * \brief importKeyImages  - imports key images from file
@@ -1305,8 +1487,9 @@ struct Wallet
     /**
      * @brief stopBackgroundSync  - bring back spend key and process background synced txs
      * \param wallet_password
+     * \param spend_secret_key (optional)
      */
-    virtual bool stopBackgroundSync(const std::string &wallet_password) = 0;
+    virtual bool stopBackgroundSync(const std::string &wallet_password, const std::string_view *spend_secret_key = nullptr) = 0;
 
     /**
      * @brief isBackgroundSyncing - returns true if the wallet is background syncing
@@ -1387,8 +1570,6 @@ struct Wallet
      * \param message - the message (arbitrary byte data)
      * \param address - the address the signature claims to be made with
      * \param signature - the signature
-     * \outparam is_old_out - true if signature uses old format (optional)
-     * \outparam signature_type_out - either signed by: spendkey | viewkey | unkown (suspicious); (optional)
      * \return true if the signature verified, false otherwise
      */
     virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
@@ -1560,9 +1741,12 @@ struct Wallet
     * brief: refreshPoolOnly - calls wallet2 update_pool_state and process_pool_state
     * param: refreshed - (default: false)
     * param: try_incremental - (default: false)
+    * param: do_ignore_status - do not mutate wallet status when this method gets called from callback in refresh thread, e.g. from TransactionHistory::refresh() (default: false)
     * note: sets status error on failure
+    * note: this method sets `extendedStatus` if it catches one of the following exceptions:
+    *          `no_connection_to_daemon`, `daemon_busy`
     */
-    virtual void refreshPoolOnly(bool refreshed = false, bool try_incremental = false) = 0;
+    virtual void refreshPoolOnly(bool refreshed = false, bool try_incremental = false, bool do_ignore_status = false) = 0;
     /**
     * brief: getEnoteDetails - get information about all enotes
     * return: vector of enotes details
@@ -1609,10 +1793,20 @@ struct Wallet
     /**
     * brief: parseMultisigTxFromStr - get pending multisig transaction from encrypted unsigned multisig transaction as hex string
     * param: multisig_tx_str -
+    * param: ask_for_confirmation - if set true the transaction doesn't get fully loaded,
+    *                               in case you want to get a confirmation text from ptx->confirmationMessage()
+    *                               and then, if the user accepts the message, call ptx->finishRestoringMultisigTransaction() to complete loading the tx (Default: false)
     * return: ptx if succeeded, else nullptr
     * note: sets status error on failure
     */
-    virtual PendingTransaction* parseMultisigTxFromStr(const std::string &multisig_tx_str) = 0;
+    virtual PendingTransaction* parseMultisigTxFromStr(const std::string &multisig_tx_str, bool ask_for_confirmation = true) = 0;
+    /**
+    * brief: deserializePtxFromBlobStr - get pending transaction from unencrypted BLOB string
+    * param: tx_blob - also known as `tx_metadata` returned by wallet-rpc transfer/sweep methods
+    * return: ptx if succeeded, else nullptr
+    * note: sets status error on failure
+    */
+    virtual std::unique_ptr<PendingTransaction> deserializePtxFromBlobStr(const std::string &tx_blob) = 0;
     /**
     * brief: getFeeMultiplier -
     * param: priority -
@@ -1796,33 +1990,6 @@ struct Wallet
     */
     virtual void setDeviceDerivationPath(std::string device_derivation_path) = 0;
     /**
-    * brief: setDaemon -
-    * param: daemon_address       -
-    * param: daemon_username      - for daemon login (default: empty string)
-    * param: daemon_password      - for daemon login (default: empty string)
-    * param: trusted_daemon       - (default: false)
-    * param: ssl_support          - SSLSupport_Disabled | SSLSupport_Enabled | SSLSupport_Autodetect (default: SSLSupport_Autodetect)
-    * param: ssl_private_key_path - (default: empty string)
-    * param: ssl_certificate_path - (default: empty string)
-    * param: ssl_ca_file_path     - (default: empty string)
-    * param: ssl_allowed_fingerprints_str - (default: empty vector)
-    * param: ssl_allow_any_cert   - (default: false)
-    * param: proxy                - (default: empty string)
-    * return: true if succeeded
-    * note: sets status error on failure
-    */
-    virtual bool setDaemon(const std::string &daemon_address,
-        const std::string &daemon_username = "",
-        const std::string &daemon_password = "",
-        bool trusted_daemon = false,
-        const SSLSupport ssl_support = Wallet::SSLSupport::SSLSupport_Autodetect,
-        const std::string &ssl_private_key_path = "",
-        const std::string &ssl_certificate_path = "",
-        const std::string &ssl_ca_file_path = "",
-        const std::vector<std::string> &ssl_allowed_fingerprints_str = {},
-        bool ssl_allow_any_cert = false,
-        const std::string &proxy = "") = 0;
-    /**
     * brief: verifyPassword -
     * param: password   - password to verify
     * return: true if succeeded
@@ -1834,13 +2001,17 @@ struct Wallet
     /**
     * brief: encryptKeys - encrypt cached secret keys
     * param: password    - wallet password
+    * return: true if succeeded
+    * note: sets status error on failure
     */
-    virtual void encryptKeys(const std::string_view &password) = 0;
+    virtual bool encryptKeys(const std::string_view &password) = 0;
     /**
     * brief: decryptKeys - decrypt cached secret keys
     * param: password    - wallet password
+    * return: true if succeeded
+    * note: sets status error on failure
     */
-    virtual void decryptKeys(const std::string_view &password) = 0;
+    virtual bool decryptKeys(const std::string_view &password) = 0;
     /**
     * brief: getMinRingSize -
     * return: minimal ring size
@@ -1873,6 +2044,9 @@ struct Wallet
     //! return: true if block height was explicitly set to 0
     virtual bool getExplicitRefreshFromBlockHeight() const = 0;
     virtual void setExplicitRefreshFromBlockHeight(bool do_explicit_refresh) = 0;
+
+    // "Run a program for each new incoming transaction, '%s' will be replaced by the transaction hash" (Default: disabled)
+    virtual void setTxNotify(const std::string &tx_notify) = 0;
 
     // Wallet Settings getter/setter
     virtual std::string getSeedLanguage() const = 0;
@@ -1916,6 +2090,7 @@ struct Wallet
     virtual bool getKeyReuseMitigation2() const = 0;
     virtual void setKeyReuseMitigation2(bool do_key_reuse_mitigation) = 0;
     virtual std::pair<std::uint32_t, std::uint32_t> getSubaddressLookahead() const = 0;
+    // note: sets status error on failure
     virtual void setSubaddressLookahead(uint32_t major, uint32_t minor) = 0;
     virtual std::uint64_t getSegregationHeight() const = 0;
     virtual void setSegregationHeight(std::uint64_t segregation_height) = 0;
@@ -1939,6 +2114,8 @@ struct Wallet
     virtual void setInactivityLockTimeout(std::uint32_t seconds) = 0;
     virtual bool getEnableMultisig() const = 0;
     virtual void setEnableMultisig(bool do_enable_multisig) = 0;
+    virtual bool getEnableDNS() const = 0;
+    virtual void setEnableDNS(bool do_enable_dns) = 0;
 };
 
 /**
@@ -1954,14 +2131,17 @@ struct WalletManager
      * \param  language       Language to be used to generate electrum seed mnemonic
      * \param  nettype        Network type
      * \param  kdf_rounds     Number of rounds for key derivation function
-     * \param  create_address_file - Create <wallet_name>.address.txt file (Default: false)
-     *                               NOTE: gets irgnored for stagenet and testnet and will create .address.txt file even if set to false
-     * \param  non_determinisitc - Whether to create a non-deterministic wallet, where the secret-spend-key and secret-view-key are both random and not in relation (Default: false)
-     *                             NOTE: this old way to create keys should not be used, except you have a good reason and you know what you do
-     * \param  unattended     Whether the wallet is unattended (GUI is unattended, CLI is not unattended) (Default: true)
+     * \param  create_address_file  - Create <wallet_name>.address.txt file (Default: false)
+     *                                NOTE: gets irgnored for stagenet and testnet and will create .address.txt file even if set to false
+     * \param  non_determinisitc    - Whether to create a non-deterministic wallet, where the secret-spend-key and secret-view-key are both random and not in relation (Default: false)
+     *                                NOTE: this old way to create keys should not be used, except you have a good reason and you know what you do
+     * \param  unattended           - Whether the wallet is unattended (GUI is unattended, CLI is not unattended) (Default: true)
+     * \param  extra_entropy_file   - "File containing extra entropy to initialize the PRNG
+     *                                 (any data, aim for 256 bits of entropy to be useful, which typically means more than 256 bits of data)"
+     *                                (Default: empty string)
      * \return                Wallet instance (Wallet::status() needs to be called to check if created successfully)
      */
-    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, const bool create_address_file = false, const bool non_determinisitc = false, const bool unattended = true) = 0;
+    virtual Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1, const bool create_address_file = false, const bool non_determinisitc = false, const bool unattended = true, const std::string extra_entropy_file = "") = 0;
     Wallet * createWallet(const std::string &path, const std::string &password, const std::string &language, bool testnet = false)      // deprecated
     {
         return createWallet(path, password, language, testnet ? TESTNET : MAINNET);
@@ -1992,12 +2172,13 @@ struct WalletManager
      * \param  restoreHeight  restore from start height
      * \param  kdf_rounds     Number of rounds for key derivation function
      * \param  seed_offset    Seed offset passphrase (optional)
+     * \param  create_address_file Create <wallet_name>.address.txt file (Default: false)
      * \param  unattended     Whether the wallet is unattended (GUI is unattended, CLI is not unattended) (Default: true)
      * \return                Wallet instance (Wallet::status() needs to be called to check if recovered successfully)
      */
     virtual Wallet * recoveryWallet(const std::string &path, const std::string &password, const std::string &mnemonic,
                                     NetworkType nettype = MAINNET, uint64_t restoreHeight = 0, uint64_t kdf_rounds = 1,
-                                    const std::string &seed_offset = {}, const bool unattended = true) = 0;
+                                    const std::string &seed_offset = {}, const bool create_address_file = false, const bool unattended = true) = 0;
     Wallet * recoveryWallet(const std::string &path, const std::string &password, const std::string &mnemonic,
                                     bool testnet = false, uint64_t restoreHeight = 0)           // deprecated
     {
@@ -2223,8 +2404,40 @@ struct WalletManager
     //! returns verbose error string regarding last error;
     virtual std::string errorString() const = 0;
 
-    //! set the daemon address (hostname and port)
-    virtual void setDaemonAddress(const std::string &address) = 0;
+    /**
+     * @brief set daemon for WalletManager and optionally also for a Wallet
+     * @param wallet -
+     * @param daemon_address accepts format [http(s)://]hostname[:port] where hostname can be URL or IP
+     * @param daemon_username for daemon login (default: empty string)
+     * @param daemon_password for daemon login (default: empty string)
+     * @param trusted_daemon (default: false)
+     * @param ssl_support SSLSupport_Disabled | SSLSupport_Enabled | SSLSupport_Autodetect (default: SSLSupport_Autodetect)
+     * @param ssl_private_key_path (default: empty string)
+     * @param ssl_certificate_path (default: empty string)
+     * @param ssl_ca_file_path (default: empty string)
+     * @param ssl_allowed_fingerprints_str (default: empty vector)
+     * @param ssl_allow_any_cert (default: false)
+     * @param ssl_allow_chained (default: false)
+     * @param proxy (default: empty string)
+     * @return true if succeeded
+     * @note sets status error on failure
+     */
+    virtual bool setDaemon(Wallet *wallet,
+        const std::string &daemon_address,
+        const std::string &daemon_username = "",
+        const std::string &daemon_password = "",
+        bool trusted_daemon = false,
+        const Wallet::SSLSupport ssl_support = Wallet::SSLSupport::SSLSupport_Autodetect,
+        const std::string &ssl_private_key_path = "",
+        const std::string &ssl_certificate_path = "",
+        const std::string &ssl_ca_file_path = "",
+        const std::vector<std::string> &ssl_allowed_fingerprints_str = {},
+        bool ssl_allow_any_cert = false,
+        bool ssl_allow_chained = false,
+        const std::string &proxy = "") = 0;
+
+    //! set the daemon address (hostname and port) and, if necessary, daemon login
+    virtual void setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password = nullptr) = 0;
 
     //! returns whether the daemon can be reached, and its version number
     virtual bool connected(uint32_t *version = NULL) = 0;
@@ -2243,9 +2456,6 @@ struct WalletManager
 
     //! returns current block target
     virtual uint64_t blockTarget() = 0;
-
-    //! returns true if bootstrap mode was used by daemon or if bootstrap daemon address is set
-    virtual bool wasBootstrapEverUsed() = 0;
 
     //! returns true iff backgound mining is enabled
     virtual bool isBackgroundMiningEnabled() = 0;
@@ -2276,7 +2486,7 @@ struct WalletManager
         const char *current_version = nullptr);
 
     //! sets proxy address, empty string to disable
-    virtual bool setProxy(const std::string &address) = 0;
+    virtual bool setProxy(const std::string &address, Wallet *wallet = nullptr) = 0;
 };
 
 
