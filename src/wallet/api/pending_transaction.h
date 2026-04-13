@@ -45,12 +45,15 @@ public:
     ~PendingTransactionImpl();
     int status() const override;
     std::string errorString() const override;
+    int extendedStatus() const override;
     std::string confirmationMessage() const override { return m_confirmationMessage; }
     bool commit(const std::string &filename = "", bool overwrite = false) override;
     uint64_t amount() const override;
+    std::vector<std::vector<uint64_t>> amountsPerDestination() const override;
     uint64_t dust() const override;
     uint64_t dustInFee() const override;
     uint64_t fee() const override;
+    std::vector<std::uint64_t> fees() const override;
     uint64_t change() const override;
     std::vector<std::string> txid() const override;
     uint64_t txCount() const override;
@@ -58,12 +61,16 @@ public:
     std::vector<std::set<uint32_t>> subaddrIndices() const override;
     std::string convertTxToStr() override;
     std::vector<std::string> convertTxToRawBlobStr() override;
+    std::vector<std::string> asHexStr() override;
+    std::vector<std::uint64_t> txWeights() override;
     double getWorstFeePerByte() const override;
     std::vector<std::vector<std::vector<std::uint64_t>>> vinOffsets() const override;
     std::vector<std::vector<std::uint64_t>> constructionDataRealOutputIndices() const override;
     std::vector<std::vector<std::uint64_t>> vinAmounts() const override;
+    std::vector<std::string> getTxKeys() const override;
     std::vector<std::vector<std::unique_ptr<EnoteDetails>>> getEnoteDetailsIn() const override;
     bool finishParsingTx() override;
+    void *getConstructionData() const override;
     // TODO: continue with interface;
 
     std::string multisigSignData() override;
@@ -79,6 +86,7 @@ private:
     WalletImpl &m_wallet;
 
     int  m_status;
+    int  m_extendedStatus;
     std::string m_errorString;
     std::string m_confirmationMessage;
     std::vector<tools::wallet2::pending_tx> m_pending_tx;
