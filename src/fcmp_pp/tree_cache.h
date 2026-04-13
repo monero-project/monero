@@ -235,6 +235,9 @@ public:
         const CompressedPath &path_bytes,
         const uint64_t n_leaf_tuples);
 
+    // Useful for testing
+    void force_set_top_block_unsafe(const BlockMeta &top_block);
+
 // Internal helper functions
 private:
     typename CurveTrees<C1, C2>::LastHashes get_last_hashes() const;

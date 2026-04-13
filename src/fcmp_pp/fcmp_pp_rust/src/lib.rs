@@ -29,6 +29,7 @@ use monero_fcmp_plus_plus::{
 use monero_generators::{
     FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT, T,
 };
+use monero_io::CompressedPoint;
 
 use std::os::raw::c_int;
 
@@ -134,10 +135,21 @@ fn ed25519_scalar_from_bytes(ed25519_scalar: *const u8) -> std::io::Result<Scala
     <Ed25519>::read_F(&mut ed25519_scalar)
 }
 
-fn hash_array_from_bytes(
-    h: *const u8,
-) -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
-    unsafe { core::slice::from_raw_parts(h, 32) }.try_into()
+fn to_byte_slice(x: *const u8) -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
+    unsafe { core::slice::from_raw_parts(x, 32) }.try_into()
+}
+
+fn to_byte_slice_vec(
+    x: &[*const u8],
+) -> std::result::Result<Vec<[u8; 32]>, std::array::TryFromSliceError> {
+    x.iter()
+        .map(
+            |&v| -> std::result::Result<[u8; 32], std::array::TryFromSliceError> {
+                let v = to_byte_slice(v)?;
+                Ok(v)
+            },
+        )
+        .collect::<Result<Vec<_>, _>>()
 }
 
 // @TODO: this is horrible :(, expose direct read/write for Input in the fcmp-plus-plus crate
@@ -224,7 +236,7 @@ destroy_fn!(destroy_tree_root, TreeRoot::<Selene, Helios>);
 
 #[allow(non_snake_case)]
 #[repr(C)]
-pub struct OutputTuple {
+pub struct OutputBytes {
     O: [u8; 32],
     I: [u8; 32],
     C: [u8; 32],
@@ -237,7 +249,7 @@ pub struct Slice<T> {
 }
 pub type HeliosScalarSlice = Slice<HeliosScalar>;
 pub type SeleneScalarSlice = Slice<SeleneScalar>;
-pub type OutputSlice = Slice<OutputTuple>;
+pub type OutputSlice = Slice<OutputBytes>;
 pub type HeliosScalarChunks = Slice<HeliosScalarSlice>;
 pub type SeleneScalarChunks = Slice<SeleneScalarSlice>;
 pub type HeliosBranchBlindSlice = Slice<*const BranchBlind<<Helios as Ciphersuite>::G>>;
@@ -338,7 +350,7 @@ pub unsafe extern "C" fn path_new(
     }
 
     // Collect decompressed leaves
-    let leaves_slice: &[OutputTuple] = leaves.into();
+    let leaves_slice: &[OutputBytes] = leaves.into();
     let mut leaves: Vec<Output> = Vec::with_capacity(leaves_slice.len());
     #[allow(non_snake_case)]
     for leaf in leaves_slice {
@@ -412,7 +424,7 @@ destroy_fn!(destroy_path, Path<Curves>);
 #[no_mangle]
 #[allow(non_snake_case)]
 pub unsafe extern "C" fn rerandomize_output(
-    output: OutputTuple,
+    output: OutputBytes,
     rerandomized_output_bytes: *mut u8,
 ) -> c_int {
     let O = if let Some(O) = EdwardsPoint::from_bytes(&output.O).into() {
@@ -861,7 +873,7 @@ pub unsafe extern "C" fn fcmp_pp_prove_sal(
     sal_proof_out: *mut u8,
     key_image_out: *mut u8,
 ) -> c_int {
-    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
+    let Ok(signable_tx_hash) = to_byte_slice(signable_tx_hash) else {
         return -1;
     };
 
@@ -940,7 +952,7 @@ pub struct FcmpPpVerifyInput {
     tree_root: TreeRoot<Selene, Helios>,
     n_tree_layers: usize,
     signable_tx_hash: [u8; 32],
-    key_images: Vec<EdwardsPoint>,
+    key_images: Vec<CompressedPoint>,
 }
 
 /// # Safety
@@ -972,40 +984,30 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     }
     debug_assert_eq!(proof_len, _slow_fcmp_pp_proof_size(n_inputs, n_tree_layers));
 
-    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
+    let Ok(signable_tx_hash) = to_byte_slice(signable_tx_hash) else {
         return -4;
     };
 
     let mut proof: &[u8] = unsafe { core::slice::from_raw_parts(proof, proof_len) };
 
     // 32 byte pseudo outs
-    let pseudo_outs: &[*const u8] = pseudo_outs.into();
-    let pseudo_outs: Vec<[u8; 32]> = pseudo_outs
-        .iter()
-        .map(|&x| {
-            let x = unsafe { core::slice::from_raw_parts(x, 32) };
-            let mut pseudo_out = [0u8; 32];
-            pseudo_out.copy_from_slice(x);
-            pseudo_out
-        })
-        .collect();
+    let Ok(pseudo_outs) = to_byte_slice_vec(pseudo_outs.into()) else {
+        return -5;
+    };
+    let pseudo_outs = pseudo_outs.iter().map(|&x| CompressedPoint(x)).collect();
 
     // Read the FCMP++ proof
     let Ok(fcmp_plus_plus) = FcmpPlusPlus::read(&pseudo_outs, n_tree_layers, &mut proof) else {
-        return -5;
+        return -6;
     };
 
     let tree_root: TreeRoot<Selene, Helios> = unsafe { *tree_root };
 
-    // Collect de-compressed key images into a Vec
-    let key_images_slice: &[*const u8] = key_images.into();
-    let mut key_images = Vec::with_capacity(key_images_slice.len());
-    for compressed_ki in key_images_slice {
-        let Ok(key_image) = ed25519_point_from_bytes(*compressed_ki) else {
-            return -6;
-        };
-        key_images.push(key_image);
-    }
+    // Collect compressed key images into a Vec
+    let Ok(key_images) = to_byte_slice_vec(key_images.into()) else {
+        return -7;
+    };
+    let key_images = key_images.iter().map(|&x| CompressedPoint(x)).collect();
 
     let fcmp_pp_verify_input = FcmpPpVerifyInput {
         fcmp_pp: fcmp_plus_plus,
@@ -1032,7 +1034,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
     key_image: *const u8,
     sal_proof: *const u8,
 ) -> bool {
-    let Ok(signable_tx_hash) = hash_array_from_bytes(signable_tx_hash) else {
+    let Ok(signable_tx_hash) = to_byte_slice(signable_tx_hash) else {
         return false;
     };
     let input_bytes = core::slice::from_raw_parts(input_bytes, 4 * 32);
@@ -1051,13 +1053,16 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
 
     let mut ed_verifier = multiexp::BatchVerifier::new(/*capacity: */ 1);
 
-    sal_proof.verify(
+    let Ok(_) = sal_proof.verify(
         &mut OsRng,
         &mut ed_verifier,
         signable_tx_hash,
         &input,
         key_image,
-    );
+    )
+    else {
+        return false;
+    };
 
     ed_verifier.verify_vartime()
 }

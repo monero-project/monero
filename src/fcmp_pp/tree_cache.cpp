@@ -1355,6 +1355,15 @@ template void TreeCache<Selene, Helios>::force_add_output_path(const OutputPair 
     const uint64_t n_leaf_tuples);
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
+void TreeCache<C1, C2>::force_set_top_block_unsafe(const BlockMeta &top_block)
+{
+    m_cached_blocks.push_back(top_block);
+}
+
+// Explicit instantiation
+template void TreeCache<Selene, Helios>::force_set_top_block_unsafe(const BlockMeta &top_block);
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
 uint8_t TreeCache<C1, C2>::get_tree_root(crypto::ec_point &tree_root_out) const
 {
     tree_root_out = crypto::ec_point{};
