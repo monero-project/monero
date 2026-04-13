@@ -86,8 +86,10 @@ TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) cons
     return itr != m_history.end() ? *itr : nullptr;
 }
 
-std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
+std::vector<TransactionInfo *> TransactionHistoryImpl::getAll(bool do_refresh /* = false */)
 {
+    if (do_refresh)
+        refresh();
     boost::shared_lock<boost::shared_mutex> lock(m_historyMutex);
     return m_history;
 }
@@ -268,6 +270,7 @@ void TransactionHistoryImpl::refresh()
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
         ti->m_amount    = pd.m_amount;
+        ti->m_fee       = pd.m_fee;
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
