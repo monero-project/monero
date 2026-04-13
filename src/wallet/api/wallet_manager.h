@@ -102,7 +102,7 @@ public:
     bool queryWalletDevice(Wallet::Device& device_type, const std::string &keys_file_name, const std::string &password, uint64_t kdf_rounds = 1) const override;
     std::vector<std::string> findWallets(const std::string &path) override;
     std::string errorString() const override;
-    void setDaemonAddress(const std::string &address) override;
+    void setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password = nullptr) override;
     bool connected(uint32_t *version = NULL) override;
     uint64_t blockchainHeight() override;
     uint64_t blockchainTargetHeight() override;
