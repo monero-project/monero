@@ -958,7 +958,7 @@ private:
     bool load_multisig_tx(cryptonote::blobdata blob, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL, bool skip_callback = false);
     bool load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func = NULL, bool skip_callback = false);
     // call this after load_multisig_tx*(..., skip_callback = true), when loading the tx was accepted
-    void finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs);
+    bool finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs);
     bool sign_multisig_tx_from_file(const std::string &filename, std::vector<crypto::hash> &txids, std::function<bool(const multisig_tx_set&)> accept_func);
     bool sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<crypto::hash> &txids);
     bool sign_multisig_tx_to_file(multisig_tx_set &exported_txs, const std::string &filename, std::vector<crypto::hash> &txids);
