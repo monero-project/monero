@@ -37,7 +37,6 @@
 
 #include <memory>
 #include <vector>
-#include <sstream>
 #include <boost/format.hpp>
 
 using namespace std;
@@ -95,7 +94,6 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName, bool do_ex
   }
   if (tx_ids_out)
   {
-    std::string tx_id_str;
     for (const auto &tx : ptx)
     {
       (*tx_ids_out).push_back(epee::string_tools::pod_to_hex(get_transaction_hash(tx.tx)));
@@ -137,6 +135,8 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
             if (e.is_integrated)
               is_dummy = false;
 
+          CHECK_AND_ASSERT_MES(is_dummy == (payment_id8 == crypto::null_hash8), false, "Bad loaded tx: mismatched payment ID info");
+
           if (is_dummy)
             payment_id_string += std::string("dummy encrypted payment ID");
           else
@@ -150,6 +150,7 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
           if (!payment_id_string.empty())
             payment_id_string += ", ";
           payment_id_string = std::string("unencrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id);
+          payment_id_string += " (OBSOLETE)";
         }
       }
     }
@@ -216,12 +217,24 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
     payment_id_string = "no payment ID";
 
   std::string dest_string;
+  size_t n_dummy_outputs = 0;
   for (auto i = dests.begin(); i != dests.end(); )
   {
-    dest_string += (boost::format(tr("sending %s to %s")) % cryptonote::print_money(i->second.second) % i->second.first).str();
+    if (i->second.second > 0)
+    {
+      if (!dest_string.empty())
+        dest_string += ", ";
+      dest_string += (boost::format(tr("sending %s to %s")) % cryptonote::print_money(i->second.second) % i->second.first).str();
+    }
+    else
+      ++n_dummy_outputs;
     ++i;
-    if (i != dests.end())
+  }
+  if (n_dummy_outputs > 0)
+  {
+    if (!dest_string.empty())
       dest_string += ", ";
+    dest_string += std::to_string(n_dummy_outputs) + tr(" dummy output(s)");
   }
   if (dest_string.empty())
     dest_string = tr("with no destinations");
@@ -236,7 +249,7 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
   else
     change_string += tr("no change");
   uint64_t fee = amount - amount_to_dests;
-  m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu, %s. %s. Is this okay?")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % payment_id_string % extra_message).str();
+  m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu, %s. %sIs this okay?")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % payment_id_string % extra_message).str();
   return true;
 }
 
@@ -362,6 +375,15 @@ std::string UnsignedTransactionImpl::signAsString()
         m_status = Status_Error;
         return "";
     }
+}
+
+std::unique_ptr<TransactionDescription> UnsignedTransactionImpl::getTransactionDescription()
+{
+    std::vector<tools::wallet2::tx_construction_data> tx_construction_data;
+    for (size_t i = 0; i < m_unsigned_tx_set.txes.size(); ++i)
+        tx_construction_data.push_back(m_unsigned_tx_set.txes[i]);
+
+    return m_wallet.getTxDescription(tx_construction_data, m_status, m_errorString);
 }
 
 } // namespace
