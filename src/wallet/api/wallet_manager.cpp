@@ -37,6 +37,7 @@
 #include "common/dns_utils.h"
 #include "common/util.h"
 #include "common/updates.h"
+#include "crypto/crypto.h"
 #include "version.h"
 #include "net/http_client.h"
 #include <boost/filesystem.hpp>
@@ -73,9 +74,18 @@ Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::stri
                                     const std::string &language, NetworkType nettype, uint64_t kdf_rounds,
                                     const bool create_address_file /* = false */,
                                     const bool non_deterministic /* = false */,
-                                    const bool unattended /* = true */)
+                                    const bool unattended /* = true */,
+                                    const std::string extra_entropy_file /* = "" */)
 {
     WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
+    if (!extra_entropy_file.empty())
+    {
+        std::string data;
+        THROW_WALLET_EXCEPTION_IF(!epee::file_io_utils::load_file_to_string(extra_entropy_file, data),
+                                  tools::error::wallet_internal_error, "Failed to load extra entropy from " + extra_entropy_file);
+        crypto::add_extra_entropy_thread_safe(data.data(), data.size());
+    }
+
     wallet->create(path, password, language, create_address_file, non_deterministic);
     return wallet;
 }
@@ -118,13 +128,14 @@ Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
                                                 uint64_t restoreHeight,
                                                 uint64_t kdf_rounds,
                                                 const std::string &seed_offset/* = {}*/,
+                                                const bool create_address_file /* = false */,
                                                 const bool unattended /* = true */)
 {
     WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recover(path, password, mnemonic, seed_offset);
+    wallet->recover(path, password, mnemonic, seed_offset, create_address_file);
     return wallet;
 }
 
@@ -144,7 +155,7 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recoverFromKeysWithPassword(path, password, language, addressString, viewKeyString, spendKeyString);
+    wallet->recoverFromKeysWithPassword(path, password, language, addressString, viewKeyString, spendKeyString, create_address_file);
     return wallet;
 }
 
@@ -208,7 +219,7 @@ Wallet *WalletManagerImpl::createWalletFromDevice(const std::string &path,
     {
         wallet->setSubaddressLookahead(lookahead->first, lookahead->second);
     }
-    wallet->recoverFromDevice(path, password, deviceName);
+    wallet->recoverFromDevice(path, password, deviceName, create_address_file);
     return wallet;
 }
 
@@ -287,9 +298,12 @@ std::string WalletManagerImpl::errorString() const
     return m_errorString;
 }
 
-void WalletManagerImpl::setDaemonAddress(const std::string &address)
+void WalletManagerImpl::setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password /* = nullptr */)
 {
-    m_http_client.set_server(address, boost::none);
+    boost::optional<epee::net_utils::http::login> daemon_login{boost::none};
+    if (daemon_username_password)
+        daemon_login.emplace(daemon_username_password->first, daemon_username_password->second);
+    m_http_client.set_server(address, daemon_login);
 }
 
 bool WalletManagerImpl::connected(uint32_t *version)
