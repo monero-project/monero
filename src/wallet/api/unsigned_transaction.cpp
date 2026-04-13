@@ -95,7 +95,6 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName, bool do_ex
   }
   if (tx_ids_out)
   {
-    std::string tx_id_str;
     for (const auto &tx : ptx)
     {
       (*tx_ids_out).push_back(epee::string_tools::pod_to_hex(get_transaction_hash(tx.tx)));
@@ -359,6 +358,15 @@ std::string UnsignedTransactionImpl::signAsString()
         m_status = Status_Error;
         return "";
     }
+}
+
+std::unique_ptr<TransactionDescription> UnsignedTransactionImpl::getTransactionDescription()
+{
+    std::vector<tools::wallet2::tx_construction_data> tx_construction_data;
+    for (size_t i = 0; i < m_unsigned_tx_set.txes.size(); ++i)
+        tx_construction_data.push_back(m_unsigned_tx_set.txes[i]);
+
+    return m_wallet.getTxDescription(tx_construction_data, m_status, m_errorString);
 }
 
 } // namespace

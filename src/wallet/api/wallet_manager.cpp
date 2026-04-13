@@ -287,9 +287,12 @@ std::string WalletManagerImpl::errorString() const
     return m_errorString;
 }
 
-void WalletManagerImpl::setDaemonAddress(const std::string &address)
+void WalletManagerImpl::setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password /* = nullptr */)
 {
-    m_http_client.set_server(address, boost::none);
+    boost::optional<epee::net_utils::http::login> daemon_login{boost::none};
+    if (daemon_username_password)
+        daemon_login.emplace(daemon_username_password->first, daemon_username_password->second);
+    m_http_client.set_server(address, daemon_login);
 }
 
 bool WalletManagerImpl::connected(uint32_t *version)
