@@ -66,6 +66,11 @@ int PendingTransactionImpl::status() const
     return m_status;
 }
 
+int PendingTransactionImpl::extendedStatus() const
+{
+    return m_extendedStatus;
+}
+
 string PendingTransactionImpl::errorString() const
 {
     return m_errorString;
@@ -142,9 +147,11 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
     } catch (const tools::error::no_connection_to_daemon&) {
         m_errorString = tr("no connection to daemon. Please make sure daemon is running.");
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_NoDaemonConnection;
     } catch (const tools::error::daemon_busy&) {
         m_errorString = tr("daemon is busy. Please try again later.");
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_DaemonIsBusy;
     } catch (const tools::error::wallet_rpc_error& e) {
         m_errorString = (boost::format(tr("RPC error: %s")) % e.what()).str();
         m_status = Status_Error;
@@ -157,6 +164,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
                             % cryptonote::print_money(e.available())
                             % cryptonote::print_money(e.tx_amount())).str();
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_NotEnoughUnlockedMoney;
         LOG_PRINT_L0(m_errorString);
         warn_of_possible_attack = false;
     } catch (const tools::error::not_enough_money& e) {
@@ -164,6 +172,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
                             % cryptonote::print_money(e.available())
                             % cryptonote::print_money(e.tx_amount())).str();
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_NotEnoughMoney;
         LOG_PRINT_L0(m_errorString);
         warn_of_possible_attack = false;
     } catch (const tools::error::tx_not_possible& e) {
@@ -173,6 +182,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
                             % cryptonote::print_money(e.tx_amount())
                             % cryptonote::print_money(e.fee())).str();
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_TxNotPossible;
         LOG_PRINT_L0(m_errorString);
         warn_of_possible_attack = false;
     } catch (const tools::error::not_enough_outs_to_mix& e) {
@@ -182,6 +192,7 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
             writer << "\n" << tr("output amount") << " = " << cryptonote::print_money(outs_for_amount.first) << ", " << tr("found outputs to use") << " = " << outs_for_amount.second;
         m_errorString = writer.str();
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_NotEnoughOutsToMix;
         LOG_PRINT_L0(m_errorString);
     } catch (const tools::error::tx_not_constructed&) {
         m_errorString = tr("transaction was not constructed");
@@ -202,10 +213,12 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
     } catch (const tools::error::zero_amount&) {
         m_errorString = tr("destination amount is zero");
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_ZeroAmount;
         warn_of_possible_attack = false;
     } catch (const tools::error::zero_destination&) {
         m_errorString = tr("transaction has no destination");
         m_status = Status_Error;
+        m_extendedStatus = Wallet::ExtendedStatus_ZeroDestination;
         warn_of_possible_attack = false;
     } catch (const tools::error::tx_too_big& e) {
         m_errorString = tr("failed to find a suitable way to split transactions");
@@ -250,6 +263,19 @@ uint64_t PendingTransactionImpl::amount() const
     return result;
 }
 
+std::vector<std::vector<std::uint64_t>> PendingTransactionImpl::amountsPerDestination() const
+{
+    std::vector<std::vector<std::uint64_t>> result{};
+    for (const auto &ptx : m_pending_tx)   {
+        std::vector<std::uint64_t> amounts_per_tx{};
+        for (const auto &dest : ptx.dests) {
+            amounts_per_tx.push_back(dest.amount);
+        }
+        result.push_back(amounts_per_tx);
+    }
+    return result;
+}
+
 uint64_t PendingTransactionImpl::dust() const
 {
     uint64_t result = 0;
@@ -274,6 +300,15 @@ uint64_t PendingTransactionImpl::fee() const
     uint64_t result = 0;
     for (const auto &ptx : m_pending_tx) {
         result += ptx.fee;
+    }
+    return result;
+}
+
+std::vector<std::uint64_t> PendingTransactionImpl::fees() const
+{
+    std::vector<std::uint64_t> result{};
+    for (const auto &ptx : m_pending_tx) {
+        result.push_back(ptx.fee);
     }
     return result;
 }
@@ -351,6 +386,50 @@ std::vector<std::string> PendingTransactionImpl::convertTxToRawBlobStr()
     return tx_blobs;
 }
 
+std::vector<std::string> PendingTransactionImpl::asHexStr()
+{
+    std::vector<std::string> tx_hex_strings{};
+    m_status = Status_Ok;
+    m_errorString = "";
+    for (const auto &ptx : m_pending_tx)
+    {
+        std::ostringstream oss;
+        binary_archive<true> ar(oss);
+        try
+        {
+            if (::serialization::serialize(ar, const_cast<tools::wallet2::pending_tx&>(ptx)))
+                tx_hex_strings.push_back(epee::string_tools::buff_to_hex_nodelimer(oss.str()));
+            else
+            {
+                m_status = Status_Error;
+                m_errorString = tr("failed to serialize tx");
+                return {};
+            }
+        }
+        catch (...)
+        {
+            m_status = Status_Error;
+            m_errorString = tr("failed to serialize tx");
+            return {};
+        }
+    }
+    return tx_hex_strings;
+}
+
+std::vector<std::uint64_t> PendingTransactionImpl::txWeights()
+{
+    std::vector<std::uint64_t> tx_weights{};
+    try {
+        for (const auto &ptx : m_pending_tx)
+            tx_weights.push_back(cryptonote::get_transaction_weight(ptx.tx));
+        m_status = Status_Ok;
+    } catch (const std::exception &e) {
+        m_errorString = string(tr("failed to get transaction weight: ")) + e.what();
+        m_status = Status_Error;
+    }
+    return tx_weights;
+}
+
 double PendingTransactionImpl::getWorstFeePerByte() const
 {
     double worst_fee_per_byte = std::numeric_limits<double>::max();
@@ -425,6 +504,18 @@ std::vector<std::vector<std::uint64_t>> PendingTransactionImpl::vinAmounts() con
     return vin_amounts;
 }
 
+std::vector<std::string> PendingTransactionImpl::getTxKeys() const
+{
+    std::vector<std::string> tx_keys{};
+    for (const auto &ptx : m_pending_tx)
+    {
+        epee::wipeable_string s = epee::to_hex::wipeable_string(ptx.tx_key);
+        for (const crypto::secret_key& additional_tx_key : ptx.additional_tx_keys)
+            s += epee::to_hex::wipeable_string(additional_tx_key);
+        tx_keys.push_back(std::string(s.data(), s.size()));
+    }
+    return tx_keys;
+}
 std::vector<std::vector<std::unique_ptr<EnoteDetails>>> PendingTransactionImpl::getEnoteDetailsIn() const
 {
     std::vector<std::unique_ptr<EnoteDetails>> eds = m_wallet.getEnoteDetails();
@@ -447,6 +538,15 @@ bool PendingTransactionImpl::finishParsingTx()
     // remember key images for this tx, for when we get those txes from the blockchain
     m_wallet.m_wallet->insert_cold_key_images(m_tx_key_images);
     return true;
+}
+
+std::unique_ptr<TransactionDescription> PendingTransactionImpl::getTransactionDescription()
+{
+    std::vector<tools::wallet2::tx_construction_data> tx_construction_data;
+    for (size_t i = 0; i < m_pending_tx.size(); ++i)
+        tx_construction_data.push_back(m_pending_tx[i].construction_data);
+
+    return m_wallet.getTxDescription(tx_construction_data, m_status, m_errorString);
 }
 
 std::string PendingTransactionImpl::multisigSignData() {
@@ -515,149 +615,149 @@ void PendingTransactionImpl::finishRestoringMultisigTransaction() {
 //----------------------------------------------------------------------------------------------------
 bool PendingTransactionImpl::checkLoadedTx(const std::function<size_t()> get_num_txes, const std::function<const tools::wallet2::tx_construction_data&(size_t)> &get_tx, const std::string &extra_message)
 {
-  // gather info to ask the user
-  uint64_t amount = 0, amount_to_dests = 0, change = 0;
-  size_t min_ring_size = ~0;
-  std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> dests;
-  int first_known_non_zero_change_index = -1;
-  std::string payment_id_string = "";
-  for (size_t n = 0; n < get_num_txes(); ++n)
-  {
-    const tools::wallet2::tx_construction_data &cd = get_tx(n);
-
-    std::vector<cryptonote::tx_extra_field> tx_extra_fields;
-    bool has_encrypted_payment_id = false;
-    crypto::hash8 payment_id8 = crypto::null_hash8;
-    if (cryptonote::parse_tx_extra(cd.extra, tx_extra_fields))
+    // gather info to ask the user
+    uint64_t amount = 0, amount_to_dests = 0, change = 0;
+    size_t min_ring_size = ~0;
+    std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> dests;
+    int first_known_non_zero_change_index = -1;
+    std::string payment_id_string = "";
+    for (size_t n = 0; n < get_num_txes(); ++n)
     {
-      cryptonote::tx_extra_nonce extra_nonce;
-      if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
-      {
-        crypto::hash payment_id;
-        if(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+        const tools::wallet2::tx_construction_data &cd = get_tx(n);
+
+        std::vector<cryptonote::tx_extra_field> tx_extra_fields;
+        bool has_encrypted_payment_id = false;
+        crypto::hash8 payment_id8 = crypto::null_hash8;
+        if (cryptonote::parse_tx_extra(cd.extra, tx_extra_fields))
         {
-          if (!payment_id_string.empty())
-            payment_id_string += ", ";
+            cryptonote::tx_extra_nonce extra_nonce;
+            if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
+            {
+                crypto::hash payment_id;
+                if(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+                {
+                    if (!payment_id_string.empty())
+                        payment_id_string += ", ";
 
-          // if none of the addresses are integrated addresses, it's a dummy one
-          bool is_dummy = true;
-          for (const auto &e: cd.dests)
-            if (e.is_integrated)
-              is_dummy = false;
+                    // if none of the addresses are integrated addresses, it's a dummy one
+                    bool is_dummy = true;
+                    for (const auto &e: cd.dests)
+                        if (e.is_integrated)
+                            is_dummy = false;
 
-          if (is_dummy)
-            payment_id_string += std::string("dummy encrypted payment ID");
-          else
-          {
-            payment_id_string = std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
-            has_encrypted_payment_id = true;
-          }
+                    if (is_dummy)
+                        payment_id_string += std::string("dummy encrypted payment ID");
+                    else
+                    {
+                        payment_id_string = std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
+                        has_encrypted_payment_id = true;
+                    }
+                }
+                else if (cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+                {
+                    if (!payment_id_string.empty())
+                        payment_id_string += ", ";
+                    payment_id_string = std::string("unencrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id);
+                    payment_id_string += " (OBSOLETE)";
+                }
+            }
         }
-        else if (cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
+
+        for (size_t s = 0; s < cd.sources.size(); ++s)
         {
-          if (!payment_id_string.empty())
-            payment_id_string += ", ";
-          payment_id_string = std::string("unencrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id);
-          payment_id_string += " (OBSOLETE)";
+            amount += cd.sources[s].amount;
+            size_t ring_size = cd.sources[s].outputs.size();
+            if (ring_size < min_ring_size)
+                min_ring_size = ring_size;
         }
-      }
-    }
-
-    for (size_t s = 0; s < cd.sources.size(); ++s)
-    {
-      amount += cd.sources[s].amount;
-      size_t ring_size = cd.sources[s].outputs.size();
-      if (ring_size < min_ring_size)
-        min_ring_size = ring_size;
-    }
-    for (size_t d = 0; d < cd.splitted_dsts.size(); ++d)
-    {
-      const cryptonote::tx_destination_entry &entry = cd.splitted_dsts[d];
-      std::string address, standard_address = get_account_address_as_str(m_wallet.m_wallet->nettype(), entry.is_subaddress, entry.addr);
-      if (has_encrypted_payment_id && !entry.is_subaddress)
-      {
-        address = get_account_integrated_address_as_str(m_wallet.m_wallet->nettype(), entry.addr, payment_id8);
-        address += std::string(" (" + standard_address + " with encrypted payment id " + epee::string_tools::pod_to_hex(payment_id8) + ")");
-      }
-      else
-        address = standard_address;
-      auto i = dests.find(entry.addr);
-      if (i == dests.end())
-        dests.insert(std::make_pair(entry.addr, std::make_pair(address, entry.amount)));
-      else
-        i->second.second += entry.amount;
-      amount_to_dests += entry.amount;
-    }
-    if (cd.change_dts.amount > 0)
-    {
-      auto it = dests.find(cd.change_dts.addr);
-      if (it == dests.end())
-      {
-        m_status = Status_Error;
-        m_errorString = tr("Claimed change does not go to a paid address");
-        return false;
-      }
-      if (it->second.second < cd.change_dts.amount)
-      {
-        m_status = Status_Error;
-        m_errorString = tr("Claimed change is larger than payment to the change address");
-        return  false;
-      }
-      if (cd.change_dts.amount > 0)
-      {
-        if (first_known_non_zero_change_index == -1)
-          first_known_non_zero_change_index = n;
-        if (memcmp(&cd.change_dts.addr, &get_tx(first_known_non_zero_change_index).change_dts.addr, sizeof(cd.change_dts.addr)))
+        for (size_t d = 0; d < cd.splitted_dsts.size(); ++d)
         {
-          m_status = Status_Error;
-          m_errorString = tr("Change goes to more than one address");
-          return false;
+            const cryptonote::tx_destination_entry &entry = cd.splitted_dsts[d];
+            std::string address, standard_address = get_account_address_as_str(m_wallet.m_wallet->nettype(), entry.is_subaddress, entry.addr);
+            if (has_encrypted_payment_id && !entry.is_subaddress)
+            {
+                address = get_account_integrated_address_as_str(m_wallet.m_wallet->nettype(), entry.addr, payment_id8);
+                address += std::string(" (" + standard_address + " with encrypted payment id " + epee::string_tools::pod_to_hex(payment_id8) + ")");
+            }
+            else
+                address = standard_address;
+            auto i = dests.find(entry.addr);
+            if (i == dests.end())
+                dests.insert(std::make_pair(entry.addr, std::make_pair(address, entry.amount)));
+            else
+                i->second.second += entry.amount;
+            amount_to_dests += entry.amount;
         }
-      }
-      change += cd.change_dts.amount;
-      it->second.second -= cd.change_dts.amount;
-      if (it->second.second == 0)
-        dests.erase(cd.change_dts.addr);
+        if (cd.change_dts.amount > 0)
+        {
+            auto it = dests.find(cd.change_dts.addr);
+            if (it == dests.end())
+            {
+                m_status = Status_Error;
+                m_errorString = tr("Claimed change does not go to a paid address");
+                return false;
+            }
+            if (it->second.second < cd.change_dts.amount)
+            {
+                m_status = Status_Error;
+                m_errorString = tr("Claimed change is larger than payment to the change address");
+                return  false;
+            }
+            if (cd.change_dts.amount > 0)
+            {
+                if (first_known_non_zero_change_index == -1)
+                    first_known_non_zero_change_index = n;
+                if (memcmp(&cd.change_dts.addr, &get_tx(first_known_non_zero_change_index).change_dts.addr, sizeof(cd.change_dts.addr)))
+                {
+                    m_status = Status_Error;
+                    m_errorString = tr("Change goes to more than one address");
+                    return false;
+                }
+            }
+            change += cd.change_dts.amount;
+            it->second.second -= cd.change_dts.amount;
+            if (it->second.second == 0)
+                dests.erase(cd.change_dts.addr);
+        }
     }
-  }
 
-  if (payment_id_string.empty())
-    payment_id_string = "no payment ID";
+    if (payment_id_string.empty())
+        payment_id_string = "no payment ID";
 
-  std::string dest_string;
-  size_t n_dummy_outputs = 0;
-  for (auto i = dests.begin(); i != dests.end(); )
-  {
-    if (i->second.second > 0)
+    std::string dest_string;
+    size_t n_dummy_outputs = 0;
+    for (auto i = dests.begin(); i != dests.end(); )
     {
-      if (!dest_string.empty())
-        dest_string += ", ";
-      dest_string += (boost::format(tr("sending %s to %s")) % cryptonote::print_money(i->second.second) % i->second.first).str();
+        if (i->second.second > 0)
+        {
+            if (!dest_string.empty())
+                dest_string += ", ";
+            dest_string += (boost::format(tr("sending %s to %s")) % cryptonote::print_money(i->second.second) % i->second.first).str();
+        }
+        else
+            ++n_dummy_outputs;
+        ++i;
+    }
+    if (n_dummy_outputs > 0)
+    {
+        if (!dest_string.empty())
+            dest_string += ", ";
+        dest_string += std::to_string(n_dummy_outputs) + tr(" dummy output(s)");
+    }
+    if (dest_string.empty())
+        dest_string = tr("with no destinations");
+
+    std::string change_string;
+    if (change > 0)
+    {
+        std::string address = get_account_address_as_str(m_wallet.m_wallet->nettype(), get_tx(0).subaddr_account > 0, get_tx(0).change_dts.addr);
+        change_string += (boost::format(tr("%s change to %s")) % cryptonote::print_money(change) % address).str();
     }
     else
-      ++n_dummy_outputs;
-    ++i;
-  }
-  if (n_dummy_outputs > 0)
-  {
-    if (!dest_string.empty())
-      dest_string += ", ";
-    dest_string += std::to_string(n_dummy_outputs) + tr(" dummy output(s)");
-  }
-  if (dest_string.empty())
-    dest_string = tr("with no destinations");
-
-  std::string change_string;
-  if (change > 0)
-  {
-    std::string address = get_account_address_as_str(m_wallet.m_wallet->nettype(), get_tx(0).subaddr_account > 0, get_tx(0).change_dts.addr);
-    change_string += (boost::format(tr("%s change to %s")) % cryptonote::print_money(change) % address).str();
-  }
-  else
-    change_string += tr("no change");
-  uint64_t fee = amount - amount_to_dests;
-  m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu, %s. %s. Is this okay?")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % payment_id_string % extra_message).str();
-  return true;
+        change_string += tr("no change");
+    uint64_t fee = amount - amount_to_dests;
+    m_confirmationMessage = (boost::format(tr("Loaded %lu transactions, for %s, fee %s, %s, %s, with min ring size %lu, %s. %s. Is this okay?")) % (unsigned long)get_num_txes() % cryptonote::print_money(amount) % cryptonote::print_money(fee) % dest_string % change_string % (unsigned long)min_ring_size % payment_id_string % extra_message).str();
+    return true;
 }
 
 
