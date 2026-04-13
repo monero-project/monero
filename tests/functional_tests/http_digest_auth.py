@@ -51,25 +51,27 @@ class HttpDigestAuthTest():
         self.make_daemon_conn()
         self.create_wallet()
 
-        self.mine_through_wallet()
+        self.scan_wallet()
 
     def test_daemon_login_required(self):
         print('Attempting to connect to daemon loginless with RPC digest authentication required...')
         bad_daemon = Daemon(idx = DAEMON_IDX)
+        rejected = False
         try:
             res = bad_daemon.get_height()
-            assert(False)
         except:
-            pass
-    
+            rejected = True
+        assert(rejected)
+
     def test_wallet_login_required(self):
         print('Attempting to connect to wallet server loginless with RPC digest authentication required...')
         bad_wallet = Wallet(idx = WALLET_IDX)
+        rejected = False
         try:
             res = bad_wallet.get_balance()
-            assert(False)
         except:
-            pass
+            rejected = True
+        assert(rejected)
 
     def make_daemon_conn(self):
         print('Connecting to daemon with RPC digest authentication required...')
@@ -85,26 +87,20 @@ class HttpDigestAuthTest():
         try: self.wallet.close_wallet()
         except: pass
         res = self.wallet.restore_deterministic_wallet(seed = WALLET_SEED)
+        self.wallet_address = res.address
+        self.wallet.auto_refresh(False)
 
-    def mine_through_wallet(self):
-        print('Telling login-required daemon to start mining through login-required wallet server...')
-        start_height = self.daemon.get_height().height
-        self.wallet.start_mining(2)
-
-        print("Waiting a few seconds for mining to occur...")
-        for tries in range(20):
-            time.sleep(1)
-
-            stop_height = self.daemon.get_height().height
-            if stop_height > start_height:
-                break
-
-        print('Telling login-required daemon to stop mining through login-required wallet server...')
-        self.wallet.stop_mining()
-
-        num_blocks_mined = stop_height - start_height
-        assert num_blocks_mined > 0
-        print('Mined {} blocks!'.format(num_blocks_mined))
+    def scan_wallet(self):
+        print('Telling login-required wallet server to rescan blockchain from login-required daemon...')
+        self.wallet.refresh()
+        h1 = self.daemon.get_height().height
+        assert(self.wallet.get_height().height == h1)
+        self.daemon.generateblocks(self.wallet_address, 1)
+        h2 = self.daemon.get_height().height
+        assert(h2 > h1)
+        assert(self.wallet.get_height().height == h1)
+        self.wallet.rescan_blockchain(hard = True)
+        assert(self.wallet.get_height().height == h2)
 
 if __name__ == '__main__':
     HttpDigestAuthTest().run_test()
