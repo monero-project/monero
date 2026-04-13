@@ -48,6 +48,7 @@ TransactionInfoImpl::TransactionInfoImpl()
       , m_coinbase(false)
       , m_amount(0)
       , m_fee(0)
+      , m_change_amount(0)
       , m_blockheight(0)
       , m_subaddrAccount(0)
       , m_timestamp(0)
@@ -96,6 +97,11 @@ uint64_t TransactionInfoImpl::amount() const
 uint64_t TransactionInfoImpl::fee() const
 {
     return m_fee;
+}
+
+uint64_t TransactionInfoImpl::changeAmount() const
+{
+    return m_change_amount;
 }
 
 uint64_t TransactionInfoImpl::blockHeight() const

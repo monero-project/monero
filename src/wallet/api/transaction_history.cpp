@@ -86,8 +86,10 @@ TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) cons
     return itr != m_history.end() ? *itr : nullptr;
 }
 
-std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
+std::vector<TransactionInfo *> TransactionHistoryImpl::getAll(bool do_refresh /* = false */)
 {
+    if (do_refresh)
+        refresh();
     boost::shared_lock<boost::shared_mutex> lock(m_historyMutex);
     return m_history;
 }
@@ -104,8 +106,15 @@ void TransactionHistoryImpl::setTxNote(const std::string &txid, const std::strin
     refresh();
 }
 
-void TransactionHistoryImpl::refresh()
+void TransactionHistoryImpl::refresh(bool do_refresh_pool /* = false */)
 {
+    // simplewallet called m_wallet.update_pool_state() & m_wallet.process_pool_state() before getting unconfirmed incoming transfers from the tx pool
+    // src: https://github.com/monero-project/monero/blob/8d4c625713e3419573dfcc7119c8848f47cabbaa/src/simplewallet/simplewallet.cpp#L10293-L10296
+    // we do it here, before the lock, because down the line `refreshPoolOnly()` can call this `refresh()` through listeners like `moneyReceived()`
+    // which can lead to deadlocks
+    if (do_refresh_pool && !m_wallet->isOffline())
+        m_wallet->refreshPoolOnly(/* refreshed */ false, /* try_incremental */ false, /* do_ignore_status */ true);
+
     // multithreaded access:
     // boost::lock_guard<boost::mutex> guarg(m_historyMutex);
     // for "write" access, locking exclusively
@@ -141,6 +150,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_coinbase = pd.m_coinbase;
         ti->m_amount    = pd.m_amount;
         ti->m_fee       = pd.m_fee;
+        ti->m_change_amount = 0;
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
@@ -191,6 +201,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_paymentid = payment_id;
         ti->m_amount = pd.m_amount_in - change - fee;
         ti->m_fee    = fee;
+        ti->m_change_amount = change;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_hash = string_tools::pod_to_hex(hash);
         ti->m_blockheight = pd.m_block_height;
@@ -232,6 +243,7 @@ void TransactionHistoryImpl::refresh()
         ti->m_paymentid = payment_id;
         ti->m_amount = amount - pd.m_change - fee;
         ti->m_fee    = fee;
+        ti->m_change_amount = pd.m_change;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_failed = is_failed;
         ti->m_pending = true;
@@ -255,9 +267,6 @@ void TransactionHistoryImpl::refresh()
         m_history.push_back(ti);
     }
     
-    // simplewallet called m_wallet.update_pool_state() & m_wallet.process_pool_state() before getting unconfirmed incoming transfers from the tx pool
-    // src: https://github.com/monero-project/monero/blob/8d4c625713e3419573dfcc7119c8848f47cabbaa/src/simplewallet/simplewallet.cpp#L10293-L10296
-    m_wallet->refreshPoolOnly();
     // unconfirmed payments (tx pool)
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> upayments;
     m_wallet->m_wallet->get_unconfirmed_payments(upayments);
@@ -269,6 +278,8 @@ void TransactionHistoryImpl::refresh()
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
         ti->m_amount    = pd.m_amount;
+        ti->m_fee       = pd.m_fee;
+        ti->m_change_amount = 0;
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
