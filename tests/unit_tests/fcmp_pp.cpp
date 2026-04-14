@@ -1030,6 +1030,14 @@ TEST(fcmp_pp, tx_weight_monotonicity)
     MDEBUG("Max FCMP++ tx weight: " << max_weight);
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, max_tx_weight)
+{
+    const uint64_t max_weight = cryptonote::get_fcmp_pp_transaction_weight_v1(FCMP_PLUS_PLUS_MAX_INPUTS,
+        FCMP_PLUS_PLUS_MAX_OUTPUTS,
+        MAX_TX_EXTRA_SIZE);
+    ASSERT_EQ(max_weight, FCMP_PLUS_PLUS_MAX_TX_WEIGHT);
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, tx_weight_accuracy)
 {
     // see fake_n_tree_layers comment in cryptonote::get_fcmp_pp_transaction_weight_v1
