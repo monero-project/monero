@@ -1670,4 +1670,49 @@ namespace cryptonote
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
   }
+  //---------------------------------------------------------------
+  // Generate a key to serve as the spend secret key, given Polyseed data and an optional passphrase / seed offset;
+  //
+  // We use the following restore strategy regarding passphrase: If the seed is encrypted in the sense of the
+  // Polyseed 'Encrypted' feature bit, we take the passphrase to be the password / decryption key and decrypt.
+  // If the Polyseed is not encrypted, we use the passphrase to do the usual "seed offsetting" as we do it
+  // already for a long time in the core software with secret keys defined through 25 word legacy seeds.
+  //
+  // Although strictly speaking seed offsetting is not part of the Polyseed spec, various third-party wallet
+  // apps do it already in this way for quite some time, and there are zero technical problems with it,
+  // thus we follow this as some sort of "de facto standard".
+  //
+  // We support encrypted Polyseeds here because an important third-party wallet app does NOT do seed
+  // offsetting if the user specifies a passphrase at new wallet creation, but encrypts the seed with it,
+  // and we want to be able to restore wallets from those seeds. However, we don't ever produce encrypted
+  // Polyseeds ourselves in the Monero core code and always offset the seed with any giving passphrase.
+  //
+  // Said third-party wallet app uses, as far as RESTORING from Polyseed with optional passphrase is
+  // concerned, exactly the same strategy as implemented here.
+  crypto::secret_key polyseed_keygen(const polyseed::data& seed, const epee::wipeable_string &passphrase)
+  {
+    bool is_encrypted = seed.encrypted();
+    bool has_passphrase = !passphrase.empty();
+
+    polyseed_storage storage;
+    seed.save(storage);
+    polyseed::data seed_copy(POLYSEED_MONERO);
+    seed_copy.load(storage);
+
+    if (is_encrypted) {
+      if (!has_passphrase) {
+          throw std::runtime_error("encrypted polyseed needs a passphrase");
+      }
+      epee::wipeable_string zero_terminated_passphrase(passphrase);
+      zero_terminated_passphrase.push_back('\0');
+      seed_copy.crypt(zero_terminated_passphrase.data());
+    }
+    crypto::secret_key secret_key;
+    seed_copy.keygen(&secret_key, sizeof(secret_key));
+
+    if (!is_encrypted && has_passphrase) {
+      secret_key = decrypt_key(secret_key, passphrase);
+    }
+    return secret_key;
+  }
 }

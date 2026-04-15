@@ -33,6 +33,7 @@
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
 #include "serialization/keyvalue_serialization.h"
+#include "polyseed/polyseed.hpp"
 
 namespace cryptonote
 {
@@ -45,6 +46,8 @@ namespace cryptonote
     std::vector<crypto::secret_key> m_multisig_keys;
     hw::device *m_device = &hw::get_device("default");
     crypto::chacha_iv m_encryption_iv;
+    crypto::secret_key m_polyseed;
+    epee::wipeable_string m_passphrase; // Only used with polyseed
 
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(m_account_address)
@@ -71,6 +74,8 @@ namespace cryptonote
       }
       const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
       KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
+      KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_polyseed)
+      KV_SERIALIZE(m_passphrase)
     END_KV_SERIALIZE_MAP()
 
     void encrypt(const crypto::chacha_key &key);
@@ -97,6 +102,7 @@ namespace cryptonote
     void create_from_device(hw::device &hwdev);
     void create_from_keys(const cryptonote::account_public_address& address, const crypto::secret_key& spendkey, const crypto::secret_key& viewkey);
     void create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey);
+    void create_from_polyseed(const polyseed::data &polyseed, const epee::wipeable_string &passphrase);
     bool make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys);
     const account_keys& get_keys() const;
     std::string get_public_address_str(network_type nettype) const;
@@ -114,6 +120,7 @@ namespace cryptonote
 
     void forget_spend_key();
     void set_spend_key(const crypto::secret_key& spend_secret_key);
+    void set_polyseed(const crypto::secret_key& polyseed, const epee::wipeable_string& passphrase);
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }
 
     void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt(key); }
