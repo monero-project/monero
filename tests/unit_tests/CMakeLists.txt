@@ -105,6 +105,7 @@ set(unit_tests_sources
   tx_verification_utils.cpp
   hardfork.cpp
   unbound.cpp
+  unit_tests_utils.cpp
   uri.cpp
   util.cpp
   varint.cpp
@@ -162,6 +163,10 @@ set_property(TARGET unit_tests
   APPEND_STRING
   PROPERTY
     COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
+
+add_library(unit_tests_utils
+  STATIC
+    unit_tests_utils.cpp)
 
 SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 

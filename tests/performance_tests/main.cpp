@@ -43,6 +43,7 @@
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
 #include "derive_view_tag.h"
+#include "fcmp_pp.h"
 #include "fe_batch_invert.h"
 #include "ge_frombytes_vartime.h"
 #include "ge_tobytes.h"
@@ -616,6 +617,13 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE1(filter, p, test_zero_commit, true); // fast
   TEST_PERFORMANCE1(filter, p, test_zero_commit, false);
+
+  // Test with different n inputs
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 1);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 2);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 4);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 8);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 128);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 
