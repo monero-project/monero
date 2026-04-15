@@ -24,13 +24,23 @@ use monero_fcmp_plus_plus::{
     },
     sal::{OpenedInputTuple, RerandomizedOutput, SpendAuthAndLinkability},
     Curves, FcmpPlusPlus, Input, Output, FCMP_PARAMS, HELIOS_FCMP_GENERATORS,
-    SELENE_FCMP_GENERATORS, T,
+    SELENE_FCMP_GENERATORS,
 };
 use monero_fcmp_plus_plus_generators::{
     FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT,
 };
+use monero_ed25519::CompressedPoint;
+use std_shims::sync::LazyLock;
 
 use std::os::raw::c_int;
+
+//-------------------------------------------------------------------------------------- Generators
+
+// This T generator may be exposed by one of the crates in the future, for now use a static
+static T: LazyLock<EdwardsPoint> = LazyLock::new(|| {
+  Ed25519::read_G(&mut CompressedPoint::T.to_bytes().as_slice())
+    .expect("couldn't decompress `CompressedPoint::T`")
+});
 
 //-------------------------------------------------------------------------------------- Curve points
 
