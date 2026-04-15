@@ -261,4 +261,14 @@ wipeable_string &wipeable_string::operator=(const wipeable_string &other)
   return *this;
 }
 
+char& wipeable_string::operator[](size_t idx) {
+  CHECK_AND_ASSERT_THROW_MES(idx < buffer.size(), "Index out of bounds");
+  return buffer[idx];
+}
+
+const char& wipeable_string::operator[](size_t idx) const {
+  CHECK_AND_ASSERT_THROW_MES(idx < buffer.size(), "Index out of bounds");
+  return buffer[idx];
+}
+
 }

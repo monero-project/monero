@@ -87,12 +87,16 @@ DISABLE_VS_WARNINGS(4244 4345)
   void account_keys::xor_with_key_stream(const crypto::chacha_key &key)
   {
     // encrypt a large enough byte stream with chacha20
-    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * (2 + m_multisig_keys.size()));
+    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * (3 + m_multisig_keys.size()) + m_monero_c_passphrase.buffer.size());
     const char *ptr = key_stream.data();
     for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
       m_spend_secret_key.data[i] ^= *ptr++;
     for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
       m_view_secret_key.data[i] ^= *ptr++;
+    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
+      m_polyseed.data[i] ^= *ptr++;
+    for (size_t i = 0; i < m_monero_c_passphrase.buffer.size(); ++i)
+      m_monero_c_passphrase.buffer.data()[i] ^= *ptr++;
     for (crypto::secret_key &k: m_multisig_keys)
     {
       for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
@@ -150,6 +154,7 @@ DISABLE_VS_WARNINGS(4244 4345)
   {
     m_keys.m_spend_secret_key = crypto::secret_key();
     m_keys.m_multisig_keys.clear();
+    m_keys.m_polyseed = crypto::secret_key();
   }
   //-----------------------------------------------------------------
   void account_base::set_spend_key(const crypto::secret_key& spend_secret_key)
@@ -161,6 +166,11 @@ DISABLE_VS_WARNINGS(4244 4345)
         "Unexpected derived public spend key");
 
     m_keys.m_spend_secret_key = spend_secret_key;
+  }
+  //-----------------------------------------------------------------
+  void account_base::set_polyseed(const crypto::secret_key& polyseed)
+  {
+    m_keys.m_polyseed = polyseed;
   }
   //-----------------------------------------------------------------
   crypto::secret_key account_base::generate(const crypto::secret_key& recovery_key, bool recover, bool two_random)
@@ -253,6 +263,13 @@ DISABLE_VS_WARNINGS(4244 4345)
     crypto::secret_key fake;
     memset(&unwrap(unwrap(fake)), 0, sizeof(fake));
     create_from_keys(address, fake, viewkey);
+  }
+  //-----------------------------------------------------------------
+  void account_base::create_from_polyseed(const crypto::secret_key& spend_secret_key, const crypto::secret_key &polyseed)
+  {
+    generate(spend_secret_key, true, false);
+
+    m_keys.m_polyseed = polyseed;
   }
   //-----------------------------------------------------------------
   bool account_base::make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys)
