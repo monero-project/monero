@@ -32,7 +32,6 @@
 
 //local headers
 #include "carrot_enote_types.h"
-#include "config.h"
 #include "payment_proposal.h"
 #include "ringct/rctTypes.h"
 

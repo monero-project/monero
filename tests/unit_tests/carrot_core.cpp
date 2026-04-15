@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -28,11 +28,17 @@
 
 #include "gtest/gtest.h"
 
+#include "carrot_core/enote_utils.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_core/scan.h"
 #include "carrot_core/scan_unsafe.h"
 #include "carrot_mock_helpers.h"
+#include "crypto/crypto.h"
+#include "mx25519.h"
+#include "ringct/rctTypes.h"
+
+#include <openssl/evp.h>
 
 using namespace carrot;
 
@@ -97,6 +103,52 @@ TEST(carrot_core, ECDH_mx25519_convergence)
 
     // check equal
     EXPECT_EQ(Q_mx25519, Q_carrot);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, ECDH_openssl_convergence_clamped)
+{
+    MDEBUG("Testing OpenSSL impl of Carrot's X25519 ECDH using clamped keys.");
+
+    // generate clamped privkey as uniform 32 byte string
+    crypto::secret_key k;
+    unwrap(unwrap(k)) = crypto::rand<crypto::ec_scalar>();
+    k.data[31] &= 0x7f; // clear   255th bit
+    k.data[31] |= 0x40; // set     254th bit
+    k.data[0]  &= 0xf8; // clear 0th-2nd bit
+
+    // load privkey into OpenSSL from bytes
+    EVP_PKEY* ssl_privkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_X25519, NULL, to_bytes(k), sizeof(k));
+    ASSERT_TRUE(ssl_privkey);
+
+    // generate pubkey and load into OpenSSL from bytes
+    const mx25519_pubkey P = gen_x25519_pubkey();
+    EVP_PKEY* ssl_peer_pubkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_X25519, NULL, P.data, sizeof(P));
+    ASSERT_TRUE(ssl_peer_pubkey);
+
+    // setup OpenSSL ECDH context
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new(ssl_privkey, NULL);
+    ASSERT_TRUE(ctx);
+    ASSERT_GT(EVP_PKEY_derive_init(ctx), 0);
+    ASSERT_GT(EVP_PKEY_derive_set_peer(ctx, ssl_peer_pubkey), 0);
+    std::size_t ecdh_len = 0;
+    ASSERT_GT(EVP_PKEY_derive(ctx, NULL, &ecdh_len), 0);
+    ASSERT_EQ(32, ecdh_len); // sanity check shared secret buffer length
+
+    // do ECDH (OpenSSL)
+    mx25519_pubkey Q_ssl{};
+    ASSERT_GT(EVP_PKEY_derive(ctx, Q_ssl.data, &ecdh_len), 0);
+
+    // do ECDH (carrot_core lib)
+    mx25519_pubkey Q_cc;
+    ASSERT_TRUE(try_make_carrot_shared_key_receiver(k, P, Q_cc));
+
+    // compare results
+    ASSERT_EQ(0, memcmp(Q_ssl.data, Q_cc.data, sizeof(Q_ssl)));
+
+    // cleanup
+    EVP_PKEY_free(ssl_privkey);
+    EVP_PKEY_free(ssl_peer_pubkey);
+    EVP_PKEY_CTX_free(ctx);
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, main_address_normal_scan_completeness)

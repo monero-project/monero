@@ -31,7 +31,7 @@
 
 //local headers
 #include "common/container_helpers.h"
-#include "enote_utils.h"
+#include "config.h"
 #include "exceptions.h"
 #include "misc_log_ex.h"
 #include "ringct/rctOps.h"
