@@ -146,7 +146,8 @@ namespace rct {
     bool verPointsForTorsion(const std::vector<key> & pts);
 
     // Split into batches and verify each batch in parallel
-    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs);
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs,
+        const std::vector<std::size_t> & n_inputs_per_proof);
 
     // The default libc allocator on most Linux systems may cache allocated memory for reuse.
     // As a result, verifying many large batches of FCMP++ proofs in multithreaded contexts
