@@ -42,6 +42,7 @@
 #include <string>
 #include <cstdint>
 #include "crypto/crypto.h"  // for declaration of crypto::secret_key
+#include "polyseed/polyseed.hpp"
 
 namespace epee {  class wipeable_string; }
 
@@ -84,6 +85,18 @@ namespace crypto
       std::string &language_name);
 
     /*!
+     * \brief Converts seed words to bytes (secret key), with Polyseed support.
+     * \param  words           String containing the words separated by spaces.
+     * \param  dst             To put the secret key restored from the words.
+     * \param  language_name   Language of the seed as found gets written here.
+     * \param  is_polyseed     True if it's a Polyseed, false if it's a legacy seed
+     * \param  polyseed        Set to a valid Polyseed object if it's a Polyseed
+     * \return                 false if it is not a valid legacy seed or Polyseed
+     */
+    bool words_to_bytes_ex(const epee::wipeable_string &words, crypto::secret_key& dst,
+      std::string &language_name, bool &is_polyseed, polyseed::data &polyseed);
+
+    /*!
      * \brief Converts bytes to seed words.
      * \param  src           Secret data
      * \param  len           Secret data length in bytes (positive multiples of 4 only)
@@ -108,8 +121,9 @@ namespace crypto
      * \brief Gets a list of seed languages that are supported.
      * \param languages A vector is set to the list of languages.
      * \param english whether to get the names in English or the language language
+     * \param polyseed whether to get the list of Polyseed languages or languages for legacy seeds
      */
-    void get_language_list(std::vector<std::string> &languages, bool english = false);
+    void get_language_list(std::vector<std::string> &languages, bool english = false, bool polyseed = true);
 
     /*!
      * \brief Tells if the seed passed is an old style seed or not.
@@ -123,9 +137,9 @@ namespace crypto
      * \param  name the name of the language in its own language
      * \return      the name of the language in English
      */
-    std::string get_english_name_for(const std::string &name);
+    std::string get_english_name_for(const std::string &name, bool polyseed = true);
 
-    bool is_valid_language(const std::string &language);
+    bool is_valid_language(const std::string &language, bool polyseed = true);
   }
 }
 
