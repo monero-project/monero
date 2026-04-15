@@ -1146,7 +1146,7 @@ namespace cryptonote
     const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
 
     // If new incoming tx passed verification and entered the pool, notify ZMQ
-    if (!tvc.m_verifivation_failed && res && matches_category(tx_relay, relay_category::legacy))
+    if (!tvc.m_verifivation_failed && res && matches_category(tvc.m_relay, relay_category::legacy))
     {
       m_blockchain_storage.notify_txpool_event({txpool_event{
         .tx = tx,
