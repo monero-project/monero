@@ -46,6 +46,25 @@ namespace cryptonote
     hw::device *m_device = &hw::get_device("default");
     crypto::chacha_iv m_encryption_iv;
 
+    // Note that 'm_polyseed' is not a true 'crypto::secret_key'; it's only declared here that way for
+    // simple handling and avoiding an undesired reference of the Polyseed library, but it's a "stored"
+    // Polyseed in the sense of 'polyseed_storage'
+    crypto::secret_key m_polyseed;
+
+    // The following struct and the 'm_monero_c_passphrase' member implement a mechanism to preserve
+    // passphrases stored as a value with the key 'm_passphrase' in the JSON by wallet apps based on
+    // the 'monero_c' library, and still allow access e.g. for upgrading wallets. The Monero core
+    // software itself does NOT store passphrases, and completely ignores this except while reading
+    // and writing .keys files and encrypting/decrypting the key material.
+    struct passphrase_container
+    {
+      std::vector<char> buffer;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(buffer)
+      END_KV_SERIALIZE_MAP()
+    };
+    passphrase_container m_monero_c_passphrase;
+
     BEGIN_KV_SERIALIZE_MAP()
       KV_SERIALIZE(m_account_address)
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_spend_secret_key)
@@ -71,6 +90,8 @@ namespace cryptonote
       }
       const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
       KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
+      KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_polyseed)
+      epee::serialization::selector<is_store>::serialize(this_ref.m_monero_c_passphrase, stg, hparent_section, "m_passphrase");
     END_KV_SERIALIZE_MAP()
 
     void encrypt(const crypto::chacha_key &key);
@@ -97,6 +118,7 @@ namespace cryptonote
     void create_from_device(hw::device &hwdev);
     void create_from_keys(const cryptonote::account_public_address& address, const crypto::secret_key& spendkey, const crypto::secret_key& viewkey);
     void create_from_viewkey(const cryptonote::account_public_address& address, const crypto::secret_key& viewkey);
+    void create_from_polyseed(const crypto::secret_key &spend_secret_key, const crypto::secret_key &polyseed);
     bool make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys);
     const account_keys& get_keys() const;
     std::string get_public_address_str(network_type nettype) const;
@@ -114,6 +136,7 @@ namespace cryptonote
 
     void forget_spend_key();
     void set_spend_key(const crypto::secret_key& spend_secret_key);
+    void set_polyseed(const crypto::secret_key& polyseed);
     const std::vector<crypto::secret_key> &get_multisig_keys() const { return m_keys.m_multisig_keys; }
 
     void encrypt_keys(const crypto::chacha_key &key) { m_keys.encrypt(key); }
