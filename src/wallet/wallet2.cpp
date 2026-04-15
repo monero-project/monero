@@ -1268,7 +1268,8 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_enable_multisig(false),
   m_pool_info_query_time(0),
   m_has_ever_refreshed_from_node(false),
-  m_allow_mismatched_daemon_version(false)
+  m_allow_mismatched_daemon_version(false),
+  m_polyseed(false)
 {
 }
 
@@ -1434,7 +1435,7 @@ bool wallet2::is_deterministic() const
   return memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::get_seed(epee::wipeable_string& electrum_words, const epee::wipeable_string &passphrase) const
+bool wallet2::get_seed(epee::wipeable_string& electrum_words, const epee::wipeable_string &passphrase, bool force_english) const
 {
   bool keys_deterministic = is_deterministic();
   if (!keys_deterministic)
@@ -1442,21 +1443,63 @@ bool wallet2::get_seed(epee::wipeable_string& electrum_words, const epee::wipeab
     std::cout << "This is not a deterministic wallet" << std::endl;
     return false;
   }
-  if (seed_language.empty())
+  std::string seed_language_to_use;
+  if (force_english)
   {
-    std::cout << "seed_language not set" << std::endl;
-    return false;
+    seed_language_to_use = "English";
+  }
+  else if (seed_language.empty())
+  {
+    // Don't refuse query anymore as it was done for a decade, but also default to English;
+    // There are important third-party wallet apps around that don't set the seed language
+    // under some circumstances
+    seed_language_to_use = "English";
+  }
+  else
+  {
+    seed_language_to_use = seed_language;
   }
 
   crypto::secret_key key = get_account().get_keys().m_spend_secret_key;
   if (!passphrase.empty())
     key = cryptonote::encrypt_key(key, passphrase);
-  if (!crypto::ElectrumWords::bytes_to_words(key, electrum_words, seed_language))
+  if (!crypto::ElectrumWords::bytes_to_words(key, electrum_words, seed_language_to_use))
   {
-    std::cout << "Failed to create seed from key for language: " << seed_language << std::endl;
+    std::cout << "Failed to create seed from key for language: " << seed_language_to_use << std::endl;
     return false;
   }
 
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::get_polyseed(epee::wipeable_string& polyseed, uint64_t& birthday, bool& is_encrypted) const
+{
+  if (!m_polyseed)
+  {
+    return false;
+  }
+
+  try
+  {
+    polyseed::data data(POLYSEED_MONERO);
+    data.load(get_account().get_keys().m_polyseed);
+    std::string seed_language_to_use;
+    if (seed_language.empty())
+    {
+      seed_language_to_use = "English";
+    }
+    else
+    {
+      seed_language_to_use = seed_language;
+    }
+    data.encode(polyseed::get_lang_by_name(seed_language_to_use), polyseed);
+    birthday = data.birthday();
+    is_encrypted = data.encrypted();
+  }
+  catch (...)
+  {
+    return false;
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4826,6 +4869,9 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetInt(m_enable_multisig ? 1 : 0);
   json.AddMember("enable_multisig", value2, json.GetAllocator());
 
+  value2.SetInt(m_polyseed ? 1 : 0);
+  json.AddMember("polyseed", value2, json.GetAllocator());
+
   if (m_background_sync_type == BackgroundSyncCustomPassword && !background_keys_file && m_custom_background_key)
   {
     value.SetString(reinterpret_cast<const char*>(m_custom_background_key.get().data()), m_custom_background_key.get().size());
@@ -5060,6 +5106,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_enable_multisig = false;
     m_allow_mismatched_daemon_version = false;
     m_custom_background_key = boost::none;
+    m_polyseed = false;
   }
   else if(json.IsObject())
   {
@@ -5284,6 +5331,8 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, enable_multisig, int, Int, false, false);
     m_enable_multisig = field_enable_multisig;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, polyseed, int, Int, false, false);
+    m_polyseed = field_polyseed;
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, background_sync_type, BackgroundSyncType, Int, false, BackgroundSyncOff);
     m_background_sync_type = field_background_sync_type;
@@ -5405,12 +5454,12 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const epee::wipeable_string& password, crypto::secret_key &spend_key_out)
+bool wallet2::verify_password(const epee::wipeable_string& password, crypto::secret_key &spend_key_out, cryptonote::account_keys &keys_out)
 {
   // this temporary unlocking is necessary for Windows (otherwise the file couldn't be loaded).
   unlock_keys_file();
   const bool no_spend_key = m_account.get_device().device_protocol() == hw::device::PROTOCOL_COLD || m_watch_only || m_multisig || m_is_background_wallet;
-  bool r = verify_password(m_keys_file, password, no_spend_key, m_account.get_device(), m_kdf_rounds, spend_key_out);
+  bool r = verify_password(m_keys_file, password, no_spend_key, m_account.get_device(), m_kdf_rounds, spend_key_out, keys_out);
   lock_keys_file();
   return r;
 }
@@ -5428,7 +5477,7 @@ bool wallet2::verify_password(const epee::wipeable_string& password, crypto::sec
  * can be used prior to rewriting wallet keys file, to ensure user has entered the correct password
  *
  */
-bool wallet2::verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds, crypto::secret_key &spend_key_out)
+bool wallet2::verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds, crypto::secret_key &spend_key_out, cryptonote::account_keys &keys_out)
 {
   rapidjson::Document json;
   wallet2::keys_file_data keys_file_data;
@@ -5486,6 +5535,7 @@ bool wallet2::verify_password(const std::string& keys_file_name, const epee::wip
   if(!no_spend_key)
     r = r && hwdev.verify_keys(keys.m_spend_secret_key, keys.m_account_address.m_spend_public_key);
   spend_key_out = (!no_spend_key && r) ? keys.m_spend_secret_key : crypto::null_skey;
+  keys_out = keys;
   return r;
 }
 
@@ -5615,6 +5665,28 @@ void wallet2::init_type(hw::device::device_type device_type)
   m_key_device_type = device_type;
 }
 
+void wallet2::prepare_generate(const std::string& wallet_)
+{
+  clear();
+  prepare_file_names(wallet_);
+
+  if (!wallet_.empty())
+  {
+    boost::system::error_code ignored_ec;
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+  }
+}
+
+void wallet2::finish_generate(const std::string& wallet_, bool watch_only, const epee::wipeable_string& password, bool create_address_file)
+{
+  create_keys_file(wallet_, watch_only, password, m_nettype != MAINNET || create_address_file);
+  setup_new_blockchain();
+
+  if (!wallet_.empty())
+    store();
+}
+
 /*!
  * \brief  Generates a wallet or restores one. Assumes the multisig setup
  *         has already completed for the provided multisig info.
@@ -5626,15 +5698,7 @@ void wallet2::init_type(hw::device::device_type device_type)
 void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const epee::wipeable_string& multisig_data, bool create_address_file)
 {
-  clear();
-  prepare_file_names(wallet_);
-
-  if (!wallet_.empty())
-  {
-    boost::system::error_code ignored_ec;
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
-  }
+  prepare_generate(wallet_);
 
   m_account.generate(rct::rct2sk(rct::zero()), true, false);
 
@@ -5701,11 +5765,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_multisig_rounds_passed = multisig::multisig_setup_rounds_required(m_multisig_signers.size(), m_multisig_threshold);
   setup_keys(password);
 
-  create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
-  setup_new_blockchain();
-
-  if (!wallet_.empty())
-    store();
+  finish_generate(wallet_, false, password, create_address_file);
 }
 
 /*!
@@ -5721,15 +5781,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
 crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
   const crypto::secret_key& recovery_param, bool recover, bool two_random, bool create_address_file)
 {
-  clear();
-  prepare_file_names(wallet_);
-
-  if (!wallet_.empty())
-  {
-    boost::system::error_code ignored_ec;
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
-  }
+  prepare_generate(wallet_);
 
   crypto::secret_key retval = m_account.generate(recovery_param, recover, two_random);
 
@@ -5741,57 +5793,118 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
     m_refresh_from_block_height = estimate_blockchain_height();
   }
 
-  create_keys_file(wallet_, false, password, m_nettype != MAINNET || create_address_file);
-
-  setup_new_blockchain();
-
-  if (!wallet_.empty())
-    store();
+  finish_generate(wallet_, false, password, create_address_file);
 
   return retval;
 }
 
- uint64_t wallet2::estimate_blockchain_height()
- {
-   // -1 month for fluctuations in block time and machine date/time setup.
-   // avg seconds per block
-   const int seconds_per_block = DIFFICULTY_TARGET_V2;
-   // ~num blocks per month
-   const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
+/*!
+* \brief Generates a wallet or restores one from a Polyseed.
+* \param wallet_              Name of wallet file
+* \param password             Password of wallet file
+* \param seed                 Polyseed data
+* \param passphrase           Optional seed offset passphrase
+* \param recover              Whether it is a restore
+* \param restoreHeight        Override the Polyseed's embedded restore height
+* \param create_address_file  Whether to create an address file
+* \return                     The secret key of the generated wallet
+*/
+crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wipeable_string& password,
+  const polyseed::data &seed, const epee::wipeable_string& passphrase, bool recover, uint64_t restoreHeight, bool create_address_file)
+{
+  prepare_generate(wallet_);
 
-   // try asking the daemon first
-   std::string err;
-   uint64_t height = 0;
+  crypto::secret_key spend_secret_key = seed.generate_secret_key(passphrase);
+  crypto::secret_key polyseed_storage;
+  seed.save(&polyseed_storage);
+  m_account.create_from_polyseed(spend_secret_key, polyseed_storage);
 
-   // we get the max of approximated height and local height.
-   // approximated height is the least of daemon target height
-   // (the max of what the other daemons are claiming is their
-   // height) and the theoretical height based on the local
-   // clock. This will be wrong only if both the local clock
-   // is bad *and* a peer daemon claims a highest height than
-   // the real chain.
-   // local height is the height the local daemon is currently
-   // synced to, it will be lower than the real chain height if
-   // the daemon is currently syncing.
-   // If we use the approximate height we subtract one month as
-   // a safety margin.
-   height = get_approximate_blockchain_height();
-   uint64_t target_height = get_daemon_blockchain_target_height(err);
-   if (err.empty()) {
-     if (target_height < height)
-       height = target_height;
-   } else {
-     // if we couldn't talk to the daemon, check safety margin.
-     if (height > blocks_per_month)
-       height -= blocks_per_month;
-     else
-       height = 0;
-   }
-   uint64_t local_height = get_daemon_blockchain_height(err);
-   if (err.empty() && local_height > height)
-     height = local_height;
-   return height;
- }
+  init_type(hw::device::device_type::SOFTWARE);
+  m_polyseed = true;
+  setup_keys(password);
+
+  if (recover) {
+    m_refresh_from_block_height = restoreHeight > 0 ? restoreHeight : estimate_blockchain_height(seed.birthday());
+  }
+  else {
+    if (m_refresh_from_block_height == 0) {
+      m_refresh_from_block_height = estimate_blockchain_height();
+    }
+  }
+
+  finish_generate(wallet_, false, password, create_address_file);
+
+  return m_account.get_keys().m_spend_secret_key;
+}
+
+/*!
+* \brief Estimate current blockchain height, or blockchain height at a given time
+* \param time     If not 0, ask for blockchain height at a given time
+* \return         Blockchain height estimated as best as possible
+*/
+uint64_t wallet2::estimate_blockchain_height(uint64_t time)
+{
+  // -1 month for fluctuations in block time and machine date/time setup.
+  // avg seconds per block
+  const int seconds_per_block = DIFFICULTY_TARGET_V2;
+  // ~num blocks per month
+  const uint64_t blocks_per_month = 60*60*24*30/seconds_per_block;
+
+  std::string err;
+  uint64_t height = 0;
+
+  height = get_approximate_blockchain_height(time);
+  if (time == 0) {
+    // we get the max of approximated height and local height.
+    // approximated height is the least of daemon target height
+    // (the max of what the other daemons are claiming is their
+    // height) and the theoretical height based on the local
+    // clock. This will be wrong only if both the local clock
+    // is bad *and* a peer daemon claims a highest height than
+    // the real chain.
+    // local height is the height the local daemon is currently
+    // synced to, it will be lower than the real chain height if
+    // the daemon is currently syncing.
+    // If we use the approximate height we subtract one month as
+    // a safety margin.
+    uint64_t target_height = get_daemon_blockchain_target_height(err);
+    if (err.empty()) {
+      if (target_height < height)
+        height = target_height;
+    } else {
+      // if we couldn't talk to the daemon, check safety margin.
+      if (height > blocks_per_month)
+        height -= blocks_per_month;
+      else
+        height = 0;
+    }
+    uint64_t local_height = get_daemon_blockchain_height(err);
+    if (err.empty() && local_height > height)
+      height = local_height;
+  }
+
+  else {
+    // Try to ask the daemon, if connected it will know better than our approximation
+    uint64_t daemon_height = 0;
+    try {
+      daemon_height = get_blockchain_height_by_timestamp(time);
+    }
+    catch (const std::runtime_error& e) {
+    }
+    if (daemon_height != 0) {
+      height = daemon_height;
+    }
+    else {
+      // Subtract safety margin from the approximation
+      if (height > blocks_per_month)
+        height -= blocks_per_month;
+      else
+        height = 0;
+    }
+  }
+
+  return height;
+}
 
 /*!
 * \brief Creates a watch only wallet from a public address and a view secret key.
@@ -5805,15 +5918,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   const cryptonote::account_public_address &account_public_address,
   const crypto::secret_key& viewkey, bool create_address_file)
 {
-  clear();
-  prepare_file_names(wallet_);
-
-  if (!wallet_.empty())
-  {
-    boost::system::error_code ignored_ec;
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
-  }
+  prepare_generate(wallet_);
 
   m_account.create_from_viewkey(account_public_address, viewkey);
   init_type(hw::device::device_type::SOFTWARE);
@@ -5821,12 +5926,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   m_account_public_address = account_public_address;
   setup_keys(password);
 
-  create_keys_file(wallet_, true, password, m_nettype != MAINNET || create_address_file);
-
-  setup_new_blockchain();
-
-  if (!wallet_.empty())
-    store();
+  finish_generate(wallet_, true, password, create_address_file);
 }
 
 /*!
@@ -5842,27 +5942,14 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   const cryptonote::account_public_address &account_public_address,
   const crypto::secret_key& spendkey, const crypto::secret_key& viewkey, bool create_address_file)
 {
-  clear();
-  prepare_file_names(wallet_);
-
-  if (!wallet_.empty())
-  {
-    boost::system::error_code ignored_ec;
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
-  }
+  prepare_generate(wallet_);
 
   m_account.create_from_keys(account_public_address, spendkey, viewkey);
   init_type(hw::device::device_type::SOFTWARE);
   m_account_public_address = account_public_address;
   setup_keys(password);
 
-  create_keys_file(wallet_, false, password, create_address_file);
-
-  setup_new_blockchain();
-
-  if (!wallet_.empty())
-    store();
+  finish_generate(wallet_, false, password, create_address_file);
 }
 
 /*!
@@ -12733,7 +12820,7 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
   return target_height;
 }
 
-uint64_t wallet2::get_approximate_blockchain_height() const
+uint64_t wallet2::get_approximate_blockchain_height(uint64_t t) const
 {
   const size_t wallet_num_hard_forks = m_nettype == TESTNET  ? num_testnet_hard_forks
                                      : m_nettype == STAGENET ? num_stagenet_hard_forks
@@ -12749,7 +12836,7 @@ uint64_t wallet2::get_approximate_blockchain_height() const
   const int seconds_per_block = DIFFICULTY_TARGET_V2;
   // Calculated blockchain height
   uint64_t approx_blockchain_height = fork_block;
-  const time_t now = time(NULL);
+  const time_t now = t > 0 ? t : time(NULL);
   if (now > fork_time)
   {
     const uint64_t blocks_since_last_fork = static_cast<uint64_t>((now - fork_time) / seconds_per_block);
@@ -13875,9 +13962,10 @@ void wallet2::stop_background_sync(const epee::wipeable_string &wallet_password,
   // Verify provided password and spend secret key. If no spend secret key is
   // provided, recover it from the wallet keys file
   crypto::secret_key recovered_spend_key = crypto::null_skey;
+  cryptonote::account_keys recovered_keys;
   if (!m_wallet_file.empty())
   {
-    THROW_WALLET_EXCEPTION_IF(!verify_password(wallet_password, recovered_spend_key), error::invalid_password);
+    THROW_WALLET_EXCEPTION_IF(!verify_password(wallet_password, recovered_spend_key, recovered_keys), error::invalid_password);
   }
   else
   {
@@ -13925,6 +14013,13 @@ void wallet2::stop_background_sync(const epee::wipeable_string &wallet_password,
 
   // Set the plaintext spend key
   m_account.set_spend_key(recovered_spend_key);
+
+  // Restore m_polyseed
+  if (m_polyseed && m_background_sync_type == BackgroundSyncReusePassword && !m_wallet_file.empty())
+  {
+    m_account.set_polyseed(recovered_keys.m_polyseed);
+  }
+
   if (is_key_encryption_enabled())
     this->encrypt_keys(wallet_password);
 
@@ -14956,6 +15051,21 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day)
 {
+  std::tm date = { 0, 0, 0, 0, 0, 0, 0, 0 };
+  date.tm_year = year - 1900;
+  date.tm_mon  = month - 1;
+  date.tm_mday = day;
+  if (date.tm_mon < 0 || 11 < date.tm_mon || date.tm_mday < 1 || 31 < date.tm_mday)
+  {
+    throw std::runtime_error("month or day out of range");
+  }
+
+  uint64_t timestamp_target = std::mktime(&date);
+
+  return get_blockchain_height_by_timestamp(timestamp_target);
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_blockchain_height_by_timestamp(uint64_t timestamp_target) {
   uint32_t version;
   if (!check_connection(&version))
   {
@@ -14965,15 +15075,7 @@ uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, ui
   {
     throw std::runtime_error("this function requires RPC version 1.6 or higher");
   }
-  std::tm date = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  date.tm_year = year - 1900;
-  date.tm_mon  = month - 1;
-  date.tm_mday = day;
-  if (date.tm_mon < 0 || 11 < date.tm_mon || date.tm_mday < 1 || 31 < date.tm_mday)
-  {
-    throw std::runtime_error("month or day out of range");
-  }
-  uint64_t timestamp_target = std::mktime(&date);
+  
   std::string err;
   uint64_t height_min = 0;
   uint64_t height_max = get_daemon_blockchain_height(err) - 1;

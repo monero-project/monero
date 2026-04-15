@@ -303,13 +303,25 @@ class WalletTest():
     def languages(self):
         print('Testing languages')
         wallet = Wallet()
-        res = wallet.get_languages()
+
+        # Legacy languages
+        res = wallet.get_languages(polyseed = False)
         assert 'English' in res.languages
         assert 'English' in res.languages_local
         assert 'Dutch' in res.languages
         assert 'Nederlands' in res.languages_local
         assert 'Japanese' in res.languages
         assert u'日本語' in res.languages_local
+
+        # Polyseed languages
+        res = wallet.get_languages()
+        assert 'English' in res.languages
+        assert 'English' in res.languages_local
+        assert 'Spanish' in res.languages
+        assert 'español' in res.languages_local
+        assert 'Japanese' in res.languages
+        assert u'日本語' in res.languages_local
+
         try: wallet.close_wallet()
         except: pass
         languages = res.languages
