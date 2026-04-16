@@ -15,7 +15,7 @@ env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
   BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all && cmake --build build --target wallet_api'
-  APT_INSTALL_LINUX: 'apt -y install build-essential cargo cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
+  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
     Acquire::Retries "3";
@@ -26,6 +26,12 @@ env:
     ccache --max-size=150M
     ccache --set-config=compression=true
   USE_DEVICE_TREZOR_MANDATORY: ON
+  INSTALL_RUST: |
+    curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
+    echo "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10 rustup-init" | sha256sum -c
+    chmod +x rustup-init
+    ./rustup-init -y --default-toolchain 1.93
+    echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
 jobs:
   build-macos:
@@ -116,13 +122,7 @@ jobs:
       - name: install monero dependencies
         run: ${{env.APT_INSTALL_LINUX}}
       - name: install rust
-        # Debian 11 ships Rust 1.48.0. We need >=1.69 to build FCMP++.
-        run: |
-          curl -O https://static.rust-lang.org/rustup/archive/1.27.1/x86_64-unknown-linux-gnu/rustup-init
-          echo "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d rustup-init" | sha256sum -c
-          chmod +x rustup-init
-          ./rustup-init -y --default-toolchain 1.69
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: ${{env.INSTALL_RUST}}
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v5
@@ -157,6 +157,8 @@ jobs:
         run: apt update
       - name: install monero dependencies
         run: ${{env.APT_INSTALL_LINUX}}
+      - name: install rust
+        run: ${{env.INSTALL_RUST}}
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v5
@@ -200,6 +202,8 @@ jobs:
         run: apt update
       - name: install monero dependencies
         run: ${{env.APT_INSTALL_LINUX}}
+      - name: install rust
+        run: ${{env.INSTALL_RUST}}
       - name: install pip
         run: apt install -y python3-pip
       - name: install Python dependencies
