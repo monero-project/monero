@@ -301,6 +301,11 @@ void fcmp_pp_parts_from_proof_v1(
     CHECK_AND_ASSERT_THROW_MES(proof_bytes_idx == 0, "fcmp_pp_parts_from_proof_v1: expected to get to 0");
 }
 //----------------------------------------------------------------------------------------------------------------------
+std::size_t n_inputs_in_fcmp_pp(const FcmpPpVerifyInput &fcmp_pp_verify_input)
+{
+    return ::fcmp_pp_n_inputs(fcmp_pp_verify_input.get());
+}
+//----------------------------------------------------------------------------------------------------------------------
 const crypto::public_key &output_pubkey_cref(const OutputPair &output_pair)
 {
     struct output_pair_visitor

@@ -359,6 +359,8 @@ bool fcmp_pp_verify_membership(struct InputSlice inputs,
   const uint8_t fcmp_proof[],
   const uintptr_t fcmp_proof_len);
 
+uintptr_t fcmp_pp_n_inputs(const struct FcmpPpVerifyInputUnsafe *fcmp_pp_verify_input);
+
 bool fcmp_pp_verify(const struct FcmpPpVerifyInputSliceUnsafe fcmp_pp_verify_inputs);
 
 #ifdef __cplusplus

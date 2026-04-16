@@ -1135,6 +1135,15 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(
 ///
 /// This function assumes that the inputs are from fcmp_pp_verify_input_new
 #[no_mangle]
+pub unsafe extern "C" fn fcmp_pp_n_inputs(input: *const FcmpPpVerifyInput) -> usize {
+    let fcmp_pp_verify_input = &*input;
+    fcmp_pp_verify_input.key_images.len()
+}
+
+/// # Safety
+///
+/// This function assumes that the inputs are from fcmp_pp_verify_input_new
+#[no_mangle]
 pub unsafe extern "C" fn fcmp_pp_verify(inputs: Slice<*const FcmpPpVerifyInput>) -> bool {
     let inputs: &[*const FcmpPpVerifyInput] = inputs.into();
 

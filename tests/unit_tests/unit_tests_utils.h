@@ -145,7 +145,7 @@ namespace unit_test
     const bool m_is_copy{false};
   };
 
-  bool write_fcmp_pp_verify_input_to_file(const std::string &filename,
+  bool write_fcmp_pp_verify_input_to_file(
     const std::size_t n_inputs,
     const crypto::hash &signable_tx_hash,
     const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
@@ -154,7 +154,7 @@ namespace unit_test
     const std::vector<crypto::ec_point> &pseudo_outs,
     const std::vector<crypto::key_image> &key_images);
 
-  bool read_fcmp_pp_verify_input_from_file(const std::string &filename,
+  bool read_fcmp_pp_verify_input_from_file(
     const std::size_t n_inputs,
     crypto::hash &signable_tx_hash,
     fcmp_pp::FcmpPpProof &fcmp_pp_proof,

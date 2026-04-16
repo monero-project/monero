@@ -164,9 +164,15 @@ set_property(TARGET unit_tests
   PROPERTY
     COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 
-add_library(unit_tests_utils
-  STATIC
-    unit_tests_utils.cpp)
+monero_add_library(unit_tests_utils
+  unit_tests_utils.cpp)
+
+target_link_libraries(unit_tests_utils
+  PUBLIC
+    fcmp_pp
+    serialization
+  PRIVATE
+    ${EXTRA_LIBRARIES})
 
 SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 

@@ -311,6 +311,9 @@ void fcmp_pp_parts_from_proof_v1(
     fcmp_pp::FcmpMembershipProof &membership_proof_out,
     std::vector<fcmp_pp::FcmpPpSalProof> &sal_proofs_out,
     std::vector<FcmpInputCompressed> &fcmp_raw_inputs_out);
+
+// Get the number of inputs included in the FCMP++ verify input
+std::size_t n_inputs_in_fcmp_pp(const FcmpPpVerifyInput &fcmp_pp_verify_input);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

@@ -36,6 +36,7 @@
 #include <system_error>
 #include <csignal>
 #include <cstdio>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>

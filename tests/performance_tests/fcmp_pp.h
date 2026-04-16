@@ -38,12 +38,6 @@
 
 #include <iosfwd>
 
-
-static std::string get_fcmp_pp_filename(const std::size_t n_inputs)
-{
-    return "../data/fcmp_pp_verify_inputs_" + std::to_string(n_inputs) + "in.bin";
-}
-
 template<std::size_t n_inputs>
 class test_fcmp_pp_verify
 {
@@ -55,7 +49,7 @@ public:
 
     bool init()
     {
-        return unit_test::read_fcmp_pp_verify_input_from_file(get_fcmp_pp_filename(n_inputs),
+        return unit_test::read_fcmp_pp_verify_input_from_file(
                 n_inputs,
                 signable_tx_hash,
                 fcmp_pp_proof,

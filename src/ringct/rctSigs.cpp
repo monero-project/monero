@@ -1694,27 +1694,14 @@ done:
       return true;
     }
 
-    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs,
-        const std::vector<std::size_t> & n_inputs_per_proof) {
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs) {
       const std::size_t n_proofs = fcmp_pp_verify_inputs.size();
-      CHECK_AND_ASSERT_MES(n_proofs == n_inputs_per_proof.size(), false, "Did not have matching n inputs per proof");
       if (n_proofs == 0)
           return true;
 
-      struct ProofIndex
-      {
-        std::size_t fcmp_pp_verify_idx{0};
-        std::size_t n_inputs{0};
-      };
-
       // Sort the inputs in descending order based on input count. We will use a bin packing algo to spread the load.
-      std::vector<ProofIndex> verify_inputs;
-      verify_inputs.reserve(n_proofs);
-      for (std::size_t i = 0; i < n_proofs; ++i)
-      {
-        verify_inputs.emplace_back(ProofIndex{.fcmp_pp_verify_idx = i, .n_inputs = n_inputs_per_proof.at(i)});
-      }
-      std::sort(verify_inputs.begin(), verify_inputs.end(), [](auto &a, auto &b) { return a.n_inputs > b.n_inputs; });
+      std::sort(fcmp_pp_verify_inputs.begin(), fcmp_pp_verify_inputs.end(), [](auto &a, auto &b)
+      { return fcmp_pp::n_inputs_in_fcmp_pp(a) > fcmp_pp::n_inputs_in_fcmp_pp(b); });
 
       tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
       tools::threadpool::waiter waiter(tpool);
@@ -1737,9 +1724,8 @@ done:
       for (std::size_t i = 0; i < n_proofs; ++i)
       {
         // Here's the proof we're adding to a batch
-        ProofIndex &fcmp_pp_meta = verify_inputs.at(i);
-        fcmp_pp::FcmpPpVerifyInput &fcmp_pp_verify_input = fcmp_pp_verify_inputs.at(fcmp_pp_meta.fcmp_pp_verify_idx);
-        const std::size_t n_inputs = fcmp_pp_meta.n_inputs;
+        fcmp_pp::FcmpPpVerifyInput &fcmp_pp_verify_input = fcmp_pp_verify_inputs.at(i);
+        const std::size_t n_inputs = fcmp_pp::n_inputs_in_fcmp_pp(fcmp_pp_verify_input);
 
         // Find the batch with the lowest weight
         std::size_t min_weight_batch_idx = 0;
@@ -1768,8 +1754,8 @@ done:
         min_weight_batch.batch.emplace_back(std::move(fcmp_pp_verify_input));
         min_weight_batch.total_inputs += n_inputs;
 
-        MDEBUG("Placed FCMP++ tx at idx " << fcmp_pp_meta.fcmp_pp_verify_idx << " in batch "
-            << (min_weight_batch_idx+1) << ", batch now has " << min_weight_batch.total_inputs << " total inputs");
+        MDEBUG("Placed FCMP++ tx in batch " << (min_weight_batch_idx+1)
+          << ", batch now has " << min_weight_batch.total_inputs << " total inputs");
       }
       CHECK_AND_ASSERT_MES(batches.size() <= n_batches, false, "Too many batches");
 
@@ -1789,7 +1775,7 @@ done:
         }
 
         tpool.submit(&waiter,
-            [&, i]()
+            [&batches, &results, i]()
             {
               results[i] = fcmp_pp::verify(batches[i].batch);
 

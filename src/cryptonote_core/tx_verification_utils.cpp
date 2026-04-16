@@ -867,9 +867,7 @@ bool batch_ver_fcmp_pp_consensus
     // Collect unverified FCMP++ txs for batch verification
     std::unordered_map<uint64_t, fcmp_pp::TreeRootShared> decompressed_tree_roots_by_block_index;
     std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
-    std::vector<std::size_t> n_inputs_per_proof;
     fcmp_pp_verify_inputs.reserve(ps.txs_by_txid.size());
-    n_inputs_per_proof.reserve(ps.txs_by_txid.size());
 
     // Prepare input verification ID's for FCMP++'s we are verifying
     std::unordered_map<crypto::hash, crypto::hash> input_verification_id_by_txid;
@@ -892,8 +890,6 @@ bool batch_ver_fcmp_pp_consensus
             decompressed_tree_roots_by_block_index[reference_block],
             fcmp_pp_verify_inputs.emplace_back());
 
-        n_inputs_per_proof.push_back(tx.vin.size());
-
         if (!r)
         {
             return false;
@@ -911,7 +907,7 @@ bool batch_ver_fcmp_pp_consensus
     // Ok, we're ready to batch verify all FCMP++ txs now
     const std::size_t n_proofs = fcmp_pp_verify_inputs.size();
     MDEBUG("Batch verifying " << n_proofs << " FCMP++ txs");
-    if (!rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof))
+    if (!rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs)))
     {
         return false;
     }

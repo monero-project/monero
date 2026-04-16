@@ -336,12 +336,6 @@ static std::map<std::tuple<size_t, size_t, size_t>, uint64_t> get_all_fcmp_tx_we
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static std::string get_fcmp_pp_filename(const std::size_t n_inputs)
-{
-    return unit_test::data_dir.string() + "/fcmp_pp_verify_inputs_" + std::to_string(n_inputs) + "in.bin";
-}
-//----------------------------------------------------------------------------------------------------------------------
-//----------------------------------------------------------------------------------------------------------------------
 TEST(fcmp_pp, prove)
 {
     static const std::size_t selene_chunk_width = fcmp_pp::curve_trees::SELENE_CHUNK_WIDTH;
@@ -690,8 +684,7 @@ TEST(fcmp_pp, verify)
         //     ? curve_trees->m_c2->to_bytes(paths.c2_layers.back().find(0)->second.back())
         //     : curve_trees->m_c1->to_bytes(paths.c1_layers.back().find(0)->second.back());
 
-        // const std::string filename = get_fcmp_pp_filename(n_inputs);
-        // unit_test::write_fcmp_pp_verify_input_to_file(filename,
+        // unit_test::write_fcmp_pp_verify_input_to_file(
         //     n_inputs,
         //     signable_tx_hash,
         //     fcmp_pp_proof,
@@ -699,7 +692,6 @@ TEST(fcmp_pp, verify)
         //     tree_root_bytes,
         //     pseudo_outs,
         //     key_images);
-        // LOG_PRINT_L0("Proof written to file " << filename);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -722,7 +714,7 @@ TEST(fcmp_pp, batch_verify_from_file)
     std::vector<crypto::ec_point> pseudo_outs;
     std::vector<crypto::key_image> key_images;
 
-    unit_test::read_fcmp_pp_verify_input_from_file(get_fcmp_pp_filename(n_inputs),
+    unit_test::read_fcmp_pp_verify_input_from_file(
         n_inputs,
         signable_tx_hash,
         fcmp_pp_proof,
@@ -749,9 +741,7 @@ TEST(fcmp_pp, batch_verify_from_file)
     {
         // Collect the FCMP++ verify inputs
         std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
-        std::vector<std::size_t> n_inputs_per_proof;
         fcmp_pp_verify_inputs.reserve(n_proofs);
-        n_inputs_per_proof.reserve(n_proofs);
         for (std::size_t i = 0; i < n_proofs; ++i)
         {
             fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
@@ -762,12 +752,11 @@ TEST(fcmp_pp, batch_verify_from_file)
                     pseudo_outs,
                     key_images
                 ));
-            n_inputs_per_proof.push_back(n_inputs);
         }
 
         // Verify FCMP++ 128-in proofs in parallel using the batch verifier
         LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs, attempt " << i+1);
-        ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs), n_inputs_per_proof));
+        ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs)));
         LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs, attempt " << i+1);
     }
 }
