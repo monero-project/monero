@@ -870,6 +870,13 @@ namespace rpc
   {
     try
     {
+      if (m_restricted && req.amounts != std::vector<uint64_t>(1, 0))
+      {
+        res.distributions.clear();
+        res.status = Message::STATUS_FAILED;
+        res.error_details = "Restricted RPC can only get output distribution for rct outputs. Use your own node.";
+        return;
+      }
       res.distributions.reserve(req.amounts.size());
 
       const uint64_t req_to_height = req.to_height ? req.to_height : (m_core.get_current_blockchain_height() - 1);
