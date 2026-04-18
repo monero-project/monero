@@ -27,12 +27,14 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "version.h"
 #include "device_ledger.hpp"
-#include "ringct/rctOps.h"
+
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "device/device_io_hid.hpp"
+#include "log.hpp"
+#include "version.h"
 
 namespace hw {
 
@@ -41,8 +43,29 @@ namespace hw {
   #ifdef WITH_DEVICE_LEDGER
 
     namespace {
-        bool apdu_verbose =true;
-    }
+      bool apdu_verbose =true;
+
+      static const std::vector<hw::io::hid_conn_params> known_devices {
+        {0x2c97, 0x0001, 0, 0xffa0},
+        {0x2c97, 0x0004, 0, 0xffa0},
+        {0x2c97, 0x0005, 0, 0xffa0},
+        {0x2c97, 0x0006, 0, 0xffa0},
+        {0x2c97, 0x0007, 0, 0xffa0},
+        {0x2c97, 0x0008, 0, 0xffa0},
+      };
+
+      class default_device_io_hid: public io::device_io_hid {
+      public:
+        default_device_io_hid():
+          io::device_io_hid(0x0101, 0x05, 64, 2000)
+        {}
+
+        void connect(void *parms) final {
+          assert(nullptr == parms);
+          io::device_io_hid::connect(known_devices);
+        }
+      };
+    } //anonymous namespace
 
     #undef MONERO_DEFAULT_LOG_CATEGORY
     #define MONERO_DEFAULT_LOG_CATEGORY "device.ledger"
@@ -298,7 +321,11 @@ namespace hw {
     #define INS_GET_RESPONSE                    0xc0
 
 
-    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 2000) {
+    device_ledger::device_ledger():
+      device_ledger(std::make_unique<default_device_io_hid>())
+    {}
+
+    device_ledger::device_ledger(std::unique_ptr<io::device_io> &&device_io) : hw_device_io(std::move(device_io)) {
       this->id = device_id++;
       this->reset_buffer();      
       this->mode = NONE;
@@ -478,7 +505,7 @@ namespace hw {
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
       logCMD();
 
-      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, false);
+      this->length_recv =  hw_device_io->exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, false);
       ASSERT_X(this->length_recv>=2, "Communication error, less than two bytes received");
 
       this->length_recv -= 2;
@@ -495,7 +522,7 @@ namespace hw {
     unsigned int device_ledger::exchange_wait_on_input(unsigned int ok, unsigned int mask) {
       logCMD();
       unsigned int deny = 0;
-      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, true);
+      this->length_recv =  hw_device_io->exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, true);
       ASSERT_X(this->length_recv>=2, "Communication error, less than two bytes received");
 
       this->length_recv -= 2;
@@ -537,23 +564,13 @@ namespace hw {
     bool device_ledger::init(void) {
       this->controle_device = &hw::get_device("default");
       this->release();
-      hw_device.init();      
-      MDEBUG( "Device "<<this->id <<" HIDUSB initiated");
+      hw_device_io->init();
       return true;
     }
-    
-    static const std::vector<hw::io::hid_conn_params> known_devices {
-        {0x2c97, 0x0001, 0, 0xffa0}, 
-        {0x2c97, 0x0004, 0, 0xffa0},       
-        {0x2c97, 0x0005, 0, 0xffa0},
-        {0x2c97, 0x0006, 0, 0xffa0},
-        {0x2c97, 0x0007, 0, 0xffa0},
-        {0x2c97, 0x0008, 0, 0xffa0},
-    };
 
     bool device_ledger::connect(void) {
       this->disconnect();
-      hw_device.connect(known_devices);
+      this->hw_device_io->connect(nullptr);
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
@@ -564,20 +581,21 @@ namespace hw {
     }
 
     bool device_ledger::connected(void) const {
-      return hw_device.connected();
+      return hw_device_io->connected();
     }
 
     bool device_ledger::disconnect() {
-      hw_device.disconnect();
+      hw_device_io->disconnect();
       this->viewkey.scrub();
       this->has_view_key = false;
       this->requested_view_key = false;
+
       return true;
     }
 
     bool device_ledger::release() {
       this->disconnect();
-      hw_device.release();
+      hw_device_io->release();
       return true;
     }
 
