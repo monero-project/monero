@@ -8185,6 +8185,8 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
     for (size_t idx: ptx.construction_data.selected_transfers)
       CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
     CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
+    CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Multisig tx has no inputs");
+    CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Multisig tx has no sources");
   }
 
   return true;
