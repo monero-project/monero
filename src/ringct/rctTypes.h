@@ -505,7 +505,7 @@ namespace rct {
             VARINT_FIELD(reference_block)
             // n_tree_layers can be inferred from the reference_block, however, if we didn't save n_tree_layers on the
             // tx, we would need a db read (for n_tree_layers as of the block) in order to de-serialize the FCMP++ proof
-            VARINT_FIELD(n_tree_layers)
+            FIELD(n_tree_layers)
             ar.tag("fcmp_pp");
             if (inputs == 0)
               return false;
@@ -640,7 +640,7 @@ namespace rct {
           FIELD(MGs)
           FIELD(CLSAGs)
           VARINT_FIELD(reference_block)
-          VARINT_FIELD(n_tree_layers)
+          FIELD(n_tree_layers)
           FIELD(fcmp_pp)
           FIELD(pseudoOuts)
         END_SERIALIZE()
