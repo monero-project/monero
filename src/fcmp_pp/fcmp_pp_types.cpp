@@ -252,6 +252,60 @@ fcmp_pp::FcmpPpProof fcmp_pp_proof_from_parts_v1(
     return proof_bytes;
 }
 //----------------------------------------------------------------------------------------------------------------------
+void fcmp_pp_parts_from_proof_v1(
+    const fcmp_pp::FcmpPpProof &proof_bytes,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::uint8_t n_tree_layers,
+    fcmp_pp::FcmpMembershipProof &membership_proof_out,
+    std::vector<fcmp_pp::FcmpPpSalProof> &sal_proofs_out,
+    std::vector<FcmpInputCompressed> &fcmp_raw_inputs_out)
+{
+    const size_t n_inputs = pseudo_outs.size();
+    CHECK_AND_ASSERT_THROW_MES(proof_bytes.size() == fcmp_pp::fcmp_pp_proof_len(n_inputs, n_tree_layers),
+        "fcmp_pp_proof_from_parts_v1: bug: bad length calculation");
+    const std::size_t membership_proof_len = fcmp_pp::membership_proof_len(n_inputs, n_tree_layers);
+
+    // Copy the membership proof
+    CHECK_AND_ASSERT_THROW_MES(proof_bytes.size() > membership_proof_len,
+        "fcmp_pp_parts_from_proof_v1: unexpected proof_bytes.size() <= membership_proof_len");
+    size_t proof_bytes_idx = proof_bytes.size() - membership_proof_len;
+    membership_proof_out = fcmp_pp::FcmpMembershipProof(proof_bytes.begin() + proof_bytes_idx, proof_bytes.end());
+    CHECK_AND_ASSERT_THROW_MES(membership_proof_out.size() == membership_proof_len,
+        "fcmp_pp_parts_from_proof_v1: unexpeted membership proof len");
+
+    sal_proofs_out.resize(n_inputs);
+    fcmp_raw_inputs_out.resize(n_inputs);
+    for (size_t i = 0; i < n_inputs; ++i)
+    {
+        const size_t input_idx = n_inputs - 1 - i;
+
+        // Copy SAL proof
+        CHECK_AND_ASSERT_THROW_MES(proof_bytes_idx > FCMP_PP_SAL_PROOF_SIZE_V1,
+            "fcmp_pp_parts_from_proof_v1: proof bytes not larger than SAL proof size");
+        proof_bytes_idx -= FCMP_PP_SAL_PROOF_SIZE_V1;
+        auto proof_it = proof_bytes.begin() + proof_bytes_idx;
+        sal_proofs_out.at(input_idx) = fcmp_pp::FcmpPpSalProof(proof_it, proof_it + FCMP_PP_SAL_PROOF_SIZE_V1);
+        CHECK_AND_ASSERT_THROW_MES(sal_proofs_out.at(input_idx).size() == FCMP_PP_SAL_PROOF_SIZE_V1,
+            "fcmp_pp_parts_from_proof_v1: unexpeted SAL proof len");
+
+        // Copy O~, I~, R
+        CHECK_AND_ASSERT_THROW_MES(proof_bytes_idx >= (32*3),
+            "fcmp_pp_parts_from_proof_v1: proof bytes not larger than 32*3");
+        proof_bytes_idx -= 32*3;
+        memcpy(&fcmp_raw_inputs_out.at(input_idx), proof_bytes.data() + proof_bytes_idx, 32*3);
+
+        // Copy pseudo out
+        memcpy(&fcmp_raw_inputs_out.at(input_idx).C_tilde, &pseudo_outs.at(input_idx), 32);
+    }
+
+    CHECK_AND_ASSERT_THROW_MES(proof_bytes_idx == 0, "fcmp_pp_parts_from_proof_v1: expected to get to 0");
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::size_t n_inputs_in_fcmp_pp(const FcmpPpVerifyInput &fcmp_pp_verify_input)
+{
+    return ::fcmp_pp_n_inputs(fcmp_pp_verify_input.get());
+}
+//----------------------------------------------------------------------------------------------------------------------
 const crypto::public_key &output_pubkey_cref(const OutputPair &output_pair)
 {
     struct output_pair_visitor

@@ -28,10 +28,16 @@
 
 #include "gtest/gtest.h"
 
+#include "carrot_core/device_ram_borrowed.h"
 #include "carrot_impl/format_utils.h"
+#include "carrot_impl/address_device_ram_borrowed.h"
+#include "carrot_impl/spend_device_ram_borrowed.h"
+#include "carrot_impl/subaddress_map_legacy.h"
 #include "common/container_helpers.h"
 #include "common/threadpool.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_basic/verification_context.h"
+#include "cryptonote_core/tx_verification_utils.h"
 #include "curve_trees.h"
 #include "fcmp_pp/fcmp_pp_serialization.h"
 #include "fcmp_pp/fcmp_pp_types.h"
@@ -39,8 +45,12 @@
 #include "fcmp_pp/prove.h"
 #include "fcmp_pp/tower_cycle.h"
 #include "misc_log_ex.h"
+#include "profile_tools.h"
 #include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
+#include "unit_tests_utils.h"
 #include "string_tools.h"
+#include "wallet/tx_builder.h"
 
 #include "crypto/crypto.h"
 #include "crypto/generators.h"
@@ -644,7 +654,11 @@ TEST(fcmp_pp, verify)
 
         // Create membership proof
         LOG_PRINT_L1("Proving " << n_inputs << "-in " << std::to_string(n_layers) << "-layer FCMP");
+        TIME_MEASURE_START(prove_ms);
         const auto membership_proof = fcmp_pp::prove_membership(fcmp_prove_inputs, n_layers);
+        TIME_MEASURE_FINISH(prove_ms);
+
+        LOG_PRINT_L0("Constructed membership proof (n_inputs=" << n_inputs << ", " << prove_ms << "ms)");
 
         // Serialize FCMP++ proof and verify
         const auto fcmp_pp_proof = fcmp_pp::fcmp_pp_proof_from_parts_v1(rerandomized_outputs,
@@ -653,6 +667,7 @@ TEST(fcmp_pp, verify)
             n_layers);
 
         LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
+        TIME_MEASURE_START(verify_ms);
         bool verify = fcmp_pp::verify(
                 signable_tx_hash,
                 fcmp_pp_proof,
@@ -661,8 +676,88 @@ TEST(fcmp_pp, verify)
                 pseudo_outs,
                 key_images
             );
+        TIME_MEASURE_FINISH(verify_ms);
         ASSERT_TRUE(verify);
-        LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
+        LOG_PRINT_L0("Successfully verified (n_inputs=" << n_inputs << ", " << verify_ms << "ms)");
+
+        // const crypto::ec_point tree_root_bytes = n_layers % 2 == 0
+        //     ? curve_trees->m_c2->to_bytes(paths.c2_layers.back().find(0)->second.back())
+        //     : curve_trees->m_c1->to_bytes(paths.c1_layers.back().find(0)->second.back());
+
+        // unit_test::write_fcmp_pp_verify_input_to_file(
+        //     n_inputs,
+        //     signable_tx_hash,
+        //     fcmp_pp_proof,
+        //     n_layers,
+        //     tree_root_bytes,
+        //     pseudo_outs,
+        //     key_images);
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, batch_verify_from_file)
+{
+    const std::size_t n_inputs = 128;
+
+    // We want a proof per thread, or 4 proofs if < 4 threads
+    tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+    const std::size_t n_proofs = std::max<std::size_t>(4, tpool.get_max_concurrency());
+
+    // We repeat verify attempts in hopes of using all malloc arenas (glibc specific)
+    const std::size_t repeat_n_times = 10;
+
+    // Read from file
+    crypto::hash signable_tx_hash;
+    std::vector<uint8_t> fcmp_pp_proof;
+    uint8_t n_layers;
+    fcmp_pp::TreeRootShared tree_root;
+    std::vector<crypto::ec_point> pseudo_outs;
+    std::vector<crypto::key_image> key_images;
+
+    unit_test::read_fcmp_pp_verify_input_from_file(
+        n_inputs,
+        signable_tx_hash,
+        fcmp_pp_proof,
+        n_layers,
+        tree_root,
+        pseudo_outs,
+        key_images);
+
+    // Test single verification
+    LOG_PRINT_L1("Verifying (n_inputs=" << n_inputs << ")");
+    bool verify = fcmp_pp::verify(
+            signable_tx_hash,
+            fcmp_pp_proof,
+            n_layers,
+            tree_root,
+            pseudo_outs,
+            key_images
+        );
+    ASSERT_TRUE(verify);
+    LOG_PRINT_L1("Successfully verified (n_inputs=" << n_inputs << ")");
+
+    // Repeat batch verify attempts and observe memory usage
+    for (std::size_t i = 0; i < repeat_n_times; ++i)
+    {
+        // Collect the FCMP++ verify inputs
+        std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
+        fcmp_pp_verify_inputs.reserve(n_proofs);
+        for (std::size_t i = 0; i < n_proofs; ++i)
+        {
+            fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
+                    signable_tx_hash,
+                    fcmp_pp_proof,
+                    n_layers,
+                    tree_root,
+                    pseudo_outs,
+                    key_images
+                ));
+        }
+
+        // Verify FCMP++ 128-in proofs in parallel using the batch verifier
+        LOG_PRINT_L1("Batch verifying " << n_proofs << " FCMP++ txs, attempt " << i+1);
+        ASSERT_TRUE(rct::batchVerifyFcmpPpProofs(std::move(fcmp_pp_verify_inputs)));
+        LOG_PRINT_L1("Successfully batch verified " << n_proofs << " FCMP++ txs, attempt " << i+1);
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -1155,6 +1250,250 @@ TEST(fcmp_pp, output_serialization)
         fcmp_pp::UnifiedOutput output;
         ASSERT_TRUE(cryptonote::t_serializable_object_from_blob(output, serialized.second));
         ASSERT_EQ(output, serialized.first);
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(fcmp_pp, tx_sizes_and_verification_times)
+{
+    // 1. Make fake paths for a tree of 7 layers
+    const uint8_t n_layers = 7;
+    const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
+
+    // Generate full chunks of outputs, enough to construct a tx with max inputs
+    std::size_t n_generated_outputs = FCMP_PLUS_PLUS_MAX_INPUTS;
+    if (n_generated_outputs % curve_trees->m_c1_width)
+        n_generated_outputs = curve_trees->m_c1_width * ((n_generated_outputs / curve_trees->m_c1_width) + 1);
+
+    // Make sure we generated enough outputs and calculate expected n leaves in a dummy tree
+    uint64_t expected_n_leaves = curve_trees->m_c1_width;
+    for (uint8_t i = 1; i < n_layers; ++i)
+        expected_n_leaves *= (i % 2 != 0) ? curve_trees->m_c2_width : curve_trees->m_c1_width;
+    ASSERT_EQ(curve_trees->n_layers(expected_n_leaves), n_layers);
+
+    // Init an account we're going to "receive" the outputs to and "send" from
+    cryptonote::account_base account;
+    account.generate();
+    const auto account_keys = account.get_keys();
+
+    const crypto::secret_key &k_s = account_keys.m_spend_secret_key;
+    const crypto::secret_key &k_v = account_keys.m_view_secret_key;
+    const crypto::public_key &K_s = account_keys.m_account_address.m_spend_public_key;
+    const auto k_view_incoming_dev = std::make_shared<carrot::cryptonote_view_incoming_key_ram_borrowed_device>(k_v);
+    const carrot::cryptonote_hierarchy_address_device cn_addr_dev(k_view_incoming_dev, K_s);
+
+    // Generate a bunch of miner txs, we'll use outputs from the miner txs to make the tree
+    std::vector<fcmp_pp::UnifiedOutput> outputs;
+    std::vector<cryptonote::transaction> txs;
+    std::unordered_map<rct::xmr_amount, crypto::ec_point> transparent_amount_commitments;
+    for (std::size_t i = 0; i < n_generated_outputs; ++i)
+    {
+        bool r = cryptonote::construct_miner_tx(0, 0, 5000, 500, 500, account_keys.m_account_address, txs.emplace_back());
+        ASSERT_TRUE(r);
+
+        const auto tx_out = txs.back().vout.back();
+        crypto::public_key out_pubkey;
+        ASSERT_TRUE(cryptonote::get_output_public_key(tx_out, out_pubkey));
+
+        if (transparent_amount_commitments.find(tx_out.amount) == transparent_amount_commitments.end())
+            transparent_amount_commitments[tx_out.amount] = rct::rct2pt(rct::zeroCommitVartime(tx_out.amount));
+
+        fcmp_pp::LegacyOutputPair legacy_out{{out_pubkey, transparent_amount_commitments[tx_out.amount]}};
+
+        outputs.push_back(fcmp_pp::UnifiedOutput{
+                .unified_id = i,
+                .output_pair = std::move(legacy_out),
+            });
+    }
+    ASSERT_GE(expected_n_leaves, outputs.size());
+
+    // Instantiate dummy paths in the truee
+    const auto paths = curve_trees->get_dummy_paths(outputs, n_layers);
+
+    // 2. Initialize tree cache
+    fcmp_pp::curve_trees::TreeCacheV1 tree_cache(curve_trees);
+    tree_cache.force_set_top_block_unsafe({ .blk_idx = 60/*coinbase unlock*/, .blk_hash = {}, .n_leaf_tuples = expected_n_leaves });
+
+    // 3. Force add paths for every input
+    for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
+    {
+        const size_t leaf_idx = n_inputs - 1;
+        const auto &output = outputs.at(leaf_idx).output_pair;
+        const auto path = curve_trees->get_single_dummy_path(paths, expected_n_leaves, leaf_idx);
+        tree_cache.register_output(output);
+
+        const auto path_idxs = curve_trees->get_path_indexes(expected_n_leaves, leaf_idx);
+        std::vector<fcmp_pp::UnifiedOutput> unified_outputs;
+        for (std::size_t l_idx = path_idxs.leaf_range.first; l_idx < path_idxs.leaf_range.second; ++l_idx)
+            unified_outputs.push_back(outputs.at(l_idx));
+
+        const auto compressed_path = curve_trees->compress_path(path, unified_outputs);
+        tree_cache.force_add_output_path(output, leaf_idx, compressed_path, expected_n_leaves);
+    }
+
+    crypto::ec_point tree_root;
+    tree_cache.get_tree_root(tree_root);
+    const auto tree_root_ptr = curve_trees->get_tree_root_from_bytes(n_layers, tree_root);
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddrs{{ account_keys.m_account_address.m_spend_public_key, {0,0} }};
+
+    // 4. Build the txs
+    printf("Inputs, Outputs, Tx Size (bytes), Verify (ms), Membership Proof Size (bytes), Membership Proof Verify (ms)\n");
+    for (std::size_t n_inputs = 1; n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS; ++n_inputs)
+    {
+        if (!is_power_of_2(n_inputs))
+            continue;
+
+        // 4a. Collect inputs
+        std::vector<wallet2_basic::transfer_details> inputs;
+        inputs.reserve(n_inputs);
+        for (std::size_t i = 0; i < n_inputs; ++i)
+        {
+            const auto &input_tx = txs.at(i);
+            const auto &output = outputs.at(i);
+            const size_t internal_output_idx = input_tx.vout.size() - 1;
+
+            const crypto::public_key in_tx_pub_key = cryptonote::get_tx_pub_key_from_extra(input_tx);
+            cryptonote::keypair in_ephemeral;
+            crypto::key_image key_image;
+            bool r = cryptonote::generate_key_image_helper(
+                account_keys,
+                subaddrs,
+                fcmp_pp::output_pubkey_cref(output.output_pair),
+                in_tx_pub_key,
+                {},
+                internal_output_idx,
+                in_ephemeral,
+                key_image,
+                hw::get_device("default"));
+            ASSERT_TRUE(r);
+
+            wallet2_basic::transfer_details wallet2_td{
+                    .m_block_height = 0,
+                    .m_tx = input_tx,
+                    .m_txid = cryptonote::get_transaction_hash(input_tx),
+                    .m_internal_output_index = internal_output_idx,
+                    .m_global_output_index = i,
+                    .m_spent = false,
+                    .m_frozen = false,
+                    .m_spent_height = 0,
+                    .m_key_image = key_image,
+                    .m_mask = rct::identity(),
+                    .m_amount = input_tx.vout.at(internal_output_idx).amount,
+                    .m_rct = input_tx.version >= 2,
+                    .m_key_image_known = true,
+                    .m_key_image_request = false,
+                    .m_pk_index = 0,
+                    .m_subaddr_index = {},
+                    .m_key_image_partial = false,
+                    .m_multisig_k = {},
+                    .m_multisig_info = {},
+                    .m_uses = {},
+                };
+
+            inputs.emplace_back(std::move(wallet2_td));
+        }
+
+        // 4b. Make the txs with the inputs
+        for (std::size_t n_outputs = 2; n_outputs <= 2/*FCMP_PLUS_PLUS_MAX_OUTPUTS*/; ++n_outputs)
+        {
+            const auto tx_proposals = tools::wallet::make_carrot_transaction_proposals_wallet2_sweep_all(
+                inputs,
+                carrot::subaddress_map_legacy(subaddrs),
+                /*only_below*/MONEY_SUPPLY,
+                /*address*/account_keys.m_account_address,
+                /*is_subaddress*/false,
+                /*n_dests_per_tx*/n_outputs,
+                /*fee_per_weight=*/1,
+                /*extra=*/{},
+                /*subaddr_account=*/0,
+                /*subaddr_indices=*/{},
+                /*top_block_index*/tree_cache.n_synced_blocks()-1);
+
+            ASSERT_EQ(tx_proposals.size(), 1);
+
+            const cryptonote::transaction finalized_tx = tools::wallet::finalize_all_fcmp_pp_proofs(
+                tx_proposals.front(),
+                tree_cache,
+                *curve_trees,
+                cn_addr_dev,
+                *k_view_incoming_dev,
+                /*s_view_balance_dev=*/nullptr,
+                carrot::spend_device_ram_borrowed(k_s, k_v));
+
+            // Serialize and de-serialize, then validate the de-serialized tx
+            cryptonote::blobdata tx_blob;
+            ASSERT_TRUE(cryptonote::tx_to_blob(finalized_tx, tx_blob));
+
+            // 4c. Validate the tx
+            const uint64_t start_validate = tools::get_tick_count();
+
+            // Parse the tx
+            const uint64_t start_parse = tools::get_tick_count();
+            cryptonote::transaction tx;
+            ASSERT_TRUE(cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx));
+            const uint64_t end_parse = tools::get_tick_count();
+
+            // Verify non-input consensus rules
+            const uint64_t start_non_input = tools::get_tick_count();
+            cryptonote::tx_verification_context tvc{};
+            ASSERT_TRUE(cryptonote::ver_non_input_consensus(tx, tvc, HF_VERSION_FCMP_PLUS_PLUS));
+            ASSERT_FALSE(tvc.m_verifivation_failed);
+            const uint64_t end_non_input = tools::get_tick_count();
+
+            // Verify input proofs
+            const uint64_t start_input = tools::get_tick_count();
+            ASSERT_TRUE(cryptonote::ver_input_proofs_fcmps(tx, tree_root));
+            const uint64_t end_input = tools::get_tick_count();
+
+            // 4d. Print byte size and verification time
+            // Collect timings
+            const auto ticks_to_ms = [](const uint64_t ticks) -> uint64_t { return tools::ticks_to_ns(ticks) / 1e6; };
+            const uint64_t validate_ms = ticks_to_ms(end_input - start_validate);
+            const uint64_t parse_ms = ticks_to_ms(end_parse - start_parse);
+            const uint64_t non_input_ms = ticks_to_ms(end_non_input - start_non_input);
+            const uint64_t input_ms = ticks_to_ms(end_input - start_input);
+
+            // 5. Do the membership proof only
+            fcmp_pp::FcmpMembershipProof membership_proof;
+            std::vector<FcmpInputCompressed> fcmp_raw_inputs;
+
+            // Collect the membership proof inputs only
+            {
+                std::vector<crypto::ec_point> pseudo_outs;
+                for (const auto &po : finalized_tx.rct_signatures.p.pseudoOuts)
+                    pseudo_outs.emplace_back(rct::rct2pt(po));
+
+                std::vector<fcmp_pp::FcmpPpSalProof> sal_proofs;
+                fcmp_pp::fcmp_pp_parts_from_proof_v1(
+                    tx.rct_signatures.p.fcmp_pp,
+                    pseudo_outs,
+                    n_layers,
+                    membership_proof,
+                    sal_proofs,
+                    fcmp_raw_inputs);
+            }
+
+            const uint64_t start_membership = tools::get_tick_count();
+            ASSERT_TRUE(fcmp_pp::verify_membership(membership_proof, n_layers, tree_root_ptr, fcmp_raw_inputs));
+            const uint64_t end_membership = tools::get_tick_count();
+
+            const uint64_t membership_ms = ticks_to_ms(end_membership - start_membership);
+
+            LOG_PRINT_L1("Tx: " << obj_to_json_str(tx));
+            LOG_PRINT_L1("Timings (ms) ... validate: " << validate_ms
+                << " , parse: "                        << parse_ms
+                << " , non_input_ms: "                 << non_input_ms
+                << " , input_ms: "                     << input_ms
+                << " , membership_ms: "                << membership_ms);
+
+            // Inputs, Outputs, Tx Size (bytes), Verify (ms), Membership Proof Size (bytes), Membership Proof Verify (ms)
+            printf("%lu, %lu, %lu, %lu, %lu, %lu\n",
+                tx.vin.size(),
+                tx.vout.size(),
+                tx_blob.size(),
+                validate_ms,
+                membership_proof.size(),
+                membership_ms);
+        }
     }
 }
 //----------------------------------------------------------------------------------------------------------------------

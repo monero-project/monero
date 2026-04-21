@@ -297,10 +297,23 @@ struct FcmpVerifyHelperData final
 };
 
 // Serialize types into a single byte buffer
-FcmpPpProof fcmp_pp_proof_from_parts_v1(const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
+FcmpPpProof fcmp_pp_proof_from_parts_v1(
+    const std::vector<FcmpRerandomizedOutputCompressed> &rerandomized_outputs,
     const std::vector<FcmpPpSalProof> &sal_proofs,
     const FcmpMembershipProof &membership_proof,
     const std::uint8_t n_tree_layers);
+
+// De-serialize types from a single byte buffer
+void fcmp_pp_parts_from_proof_v1(
+    const fcmp_pp::FcmpPpProof &proof_bytes,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::uint8_t n_tree_layers,
+    fcmp_pp::FcmpMembershipProof &membership_proof_out,
+    std::vector<fcmp_pp::FcmpPpSalProof> &sal_proofs_out,
+    std::vector<FcmpInputCompressed> &fcmp_raw_inputs_out);
+
+// Get the number of inputs included in the FCMP++ verify input
+std::size_t n_inputs_in_fcmp_pp(const FcmpPpVerifyInput &fcmp_pp_verify_input);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp

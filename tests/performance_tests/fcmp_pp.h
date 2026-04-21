@@ -1,21 +1,21 @@
-// Copyright (c) 2024, The Monero Project
-//
+// Copyright (c) 2025, The Monero Project
+// 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-//
+// 
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-//
+// 
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-//
+// 
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -25,25 +25,58 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// 
+// Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "proof_len.h"
+#pragma once
 
-#include "fcmp_pp_rust/fcmp++.h"
-#include "misc_log_ex.h"
+#include "crypto/crypto.h"
+#include "crypto/hash.h"
+#include "fcmp_pp/fcmp_pp_types.h"
+#include "fcmp_pp/prove.h"
+#include "unit_tests_utils.h"
 
-namespace fcmp_pp
+#include <iosfwd>
+
+template<std::size_t n_inputs>
+class test_fcmp_pp_verify
 {
-//----------------------------------------------------------------------------------------------------------------------
-std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
-{
-    // TODO: just remove this proof_len table altogether now that the calculation is fast
-    return ::_slow_membership_proof_size(n_inputs, n_layers);
+public:
+    static constexpr size_t loop_count =
+        n_inputs < 2 ? 1000 :
+        n_inputs < 16 ? 100 :
+        /*n_inputs >= 16*/ 8;
+
+    bool init()
+    {
+        return unit_test::read_fcmp_pp_verify_input_from_file(
+                n_inputs,
+                signable_tx_hash,
+                fcmp_pp_proof,
+                n_layers,
+                tree_root,
+                pseudo_outs,
+                key_images
+            );
+    }
+
+    bool test()
+    {
+        return fcmp_pp::verify(
+                signable_tx_hash,
+                fcmp_pp_proof,
+                n_layers,
+                tree_root,
+                pseudo_outs,
+                key_images
+            );
+    }
+
+private:
+    crypto::hash signable_tx_hash;
+    std::vector<uint8_t> fcmp_pp_proof;
+    uint8_t n_layers;
+    fcmp_pp::TreeRootShared tree_root;
+    std::vector<crypto::ec_point> pseudo_outs;
+    std::vector<crypto::key_image> key_images;
 };
-
-std::size_t fcmp_pp_proof_len(const std::size_t n_inputs, const uint8_t n_layers)
-{
-    return membership_proof_len(n_inputs, n_layers)
-        + (n_inputs * (FCMP_PP_INPUT_TUPLE_SIZE_V1 + FCMP_PP_SAL_PROOF_SIZE_V1));
-};
-//----------------------------------------------------------------------------------------------------------------------
-}//namespace fcmp_pp

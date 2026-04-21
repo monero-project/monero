@@ -36,6 +36,7 @@ set(performance_tests_headers
   construct_tx.h
   derive_public_key.h
   derive_secret_key.h
+  fcmp_pp.h
   fe_batch_invert.h
   ge_frombytes_vartime.h
   generate_key_derivation.h
@@ -75,9 +76,14 @@ target_link_libraries(performance_tests
     fcmp_pp
     ringct
     seraphis_crypto
+    unit_tests_utils
     ${Boost_CHRONO_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES})
 set_property(TARGET performance_tests
   PROPERTY
     FOLDER "tests")
+
+target_include_directories(performance_tests
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/tests/unit_tests)

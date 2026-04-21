@@ -28,6 +28,7 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
 
 #include "common/util.h"
@@ -43,6 +44,7 @@
 #include "derive_public_key.h"
 #include "derive_secret_key.h"
 #include "derive_view_tag.h"
+#include "fcmp_pp.h"
 #include "fe_batch_invert.h"
 #include "ge_frombytes_vartime.h"
 #include "ge_tobytes.h"
@@ -73,6 +75,8 @@
 
 namespace po = boost::program_options;
 
+boost::filesystem::path unit_test::data_dir;
+
 int main(int argc, char** argv)
 {
   TRY_ENTRY();
@@ -93,6 +97,10 @@ int main(int argc, char** argv)
   command_line::add_arg(desc_options, arg_stats);
   command_line::add_arg(desc_options, arg_loop_multiplier);
   command_line::add_arg(desc_options, arg_timings_database);
+
+  // the default test data directory is ../data (relative to the executable's directory)
+  const auto default_test_data_dir = boost::filesystem::canonical(argv[0]).parent_path().parent_path() / "data";
+  unit_test::data_dir = default_test_data_dir;
 
   po::variables_map vm;
   bool r = command_line::handle_error_helper(desc_options, [&]()
@@ -616,6 +624,13 @@ int main(int argc, char** argv)
 
   TEST_PERFORMANCE1(filter, p, test_zero_commit, true); // fast
   TEST_PERFORMANCE1(filter, p, test_zero_commit, false);
+
+  // Test with different n inputs
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 1);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 2);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 4);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 8);
+  TEST_PERFORMANCE1(filter, p, test_fcmp_pp_verify, 128);
 
   std::cout << "Tests finished. Elapsed time: " << timer.elapsed_ms() / 1000 << " sec" << std::endl;
 

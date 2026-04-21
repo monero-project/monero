@@ -5,9 +5,9 @@ use ciphersuite::{
         ff::{Field, PrimeField},
         Group, GroupEncoding,
     },
-    Ciphersuite, Ed25519,
+    Ciphersuite,
 };
-use dalek_ff_group::{EdwardsPoint, Scalar};
+use dalek_ff_group::{Ed25519, EdwardsPoint, Scalar};
 use helioselene::{
     Field25519 as SeleneScalar, Helios, HeliosPoint, HelioseleneField as HeliosScalar, Selene,
     SelenePoint,
@@ -26,11 +26,21 @@ use monero_fcmp_plus_plus::{
     Curves, FcmpPlusPlus, Input, Output, FCMP_PARAMS, HELIOS_FCMP_GENERATORS,
     SELENE_FCMP_GENERATORS,
 };
-use monero_generators::{
-    FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT, T,
+use monero_fcmp_plus_plus_generators::{
+    FCMP_PLUS_PLUS_U, FCMP_PLUS_PLUS_V, HELIOS_HASH_INIT, SELENE_HASH_INIT,
 };
+use monero_ed25519::CompressedPoint;
+use std_shims::sync::LazyLock;
 
 use std::os::raw::c_int;
+
+//-------------------------------------------------------------------------------------- Generators
+
+// This T generator may be exposed by one of the crates in the future, for now use a static
+static T: LazyLock<EdwardsPoint> = LazyLock::new(|| {
+  Ed25519::read_G(&mut CompressedPoint::T.to_bytes().as_slice())
+    .expect("couldn't decompress `CompressedPoint::T`")
+});
 
 //-------------------------------------------------------------------------------------- Curve points
 
@@ -489,7 +499,7 @@ pub unsafe extern "C" fn blind_o_blind(
         return -2;
     };
 
-    let blinded_o_blind = OBlind::new(EdwardsPoint(*T), scalar_decomp);
+    let blinded_o_blind = OBlind::new(EdwardsPoint(**T), scalar_decomp);
     *blinded_o_blind_out = new_box_raw(blinded_o_blind);
     0
 }
@@ -584,8 +594,8 @@ pub unsafe extern "C" fn blind_i_blind(
     };
 
     let blinded_i_blind = IBlind::new(
-        EdwardsPoint(*FCMP_PLUS_PLUS_U),
-        EdwardsPoint(*FCMP_PLUS_PLUS_V),
+        EdwardsPoint((*FCMP_PLUS_PLUS_U).into()),
+        EdwardsPoint((*FCMP_PLUS_PLUS_V).into()),
         scalar_decomp,
     );
     *blinded_i_blind_out = new_box_raw(blinded_i_blind);
@@ -634,7 +644,7 @@ pub unsafe extern "C" fn blind_i_blind_blind(
         return -2;
     };
 
-    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(*T), scalar_decomp);
+    let blinded_i_blind_blind = IBlindBlind::new(EdwardsPoint(**T), scalar_decomp);
     *blinded_i_blind_blind_out = new_box_raw(blinded_i_blind_blind);
     0
 }
@@ -1051,13 +1061,15 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
 
     let mut ed_verifier = multiexp::BatchVerifier::new(/*capacity: */ 1);
 
-    sal_proof.verify(
+    let Ok(_) = sal_proof.verify(
         &mut OsRng,
         &mut ed_verifier,
         signable_tx_hash,
         &input,
         key_image,
-    );
+    ) else {
+        return false;
+    };
 
     ed_verifier.verify_vartime()
 }
@@ -1067,6 +1079,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_sal(
 /// This function assumes that each element of inputs is heap allocated via a
 /// CResult, [fcmp_proof, fcmp_proof+fcmp_proof_len) is a valid readable range
 #[no_mangle]
+#[allow(non_snake_case)]
 pub unsafe extern "C" fn fcmp_pp_verify_membership(
     inputs: Slice<[u8; 4 * 32]>,
     tree_root: *const TreeRoot<Selene, Helios>,
@@ -1079,7 +1092,13 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(
         .iter()
         .map(|i| {
             let i = input_from_bytes(i.as_slice())?;
-            fcmps::Input::new(i.O_tilde(), i.I_tilde(), i.R(), i.C_tilde())
+
+            let O_tilde = Ed25519::read_G(&mut i.O_tilde().as_slice())?;
+            let I_tilde = Ed25519::read_G(&mut i.I_tilde().as_slice())?;
+            let R = Ed25519::read_G(&mut i.R().as_slice())?;
+            let C_tilde = Ed25519::read_G(&mut i.C_tilde().as_slice())?;
+
+            fcmps::Input::new(O_tilde, I_tilde, R, C_tilde)
         })
         .collect::<Result<Vec<_>, _>>()
     else {
@@ -1110,6 +1129,15 @@ pub unsafe extern "C" fn fcmp_pp_verify_membership(
         }
         Err(_) => false,
     }
+}
+
+/// # Safety
+///
+/// This function assumes that the inputs are from fcmp_pp_verify_input_new
+#[no_mangle]
+pub unsafe extern "C" fn fcmp_pp_n_inputs(input: *const FcmpPpVerifyInput) -> usize {
+    let fcmp_pp_verify_input = &*input;
+    fcmp_pp_verify_input.key_images.len()
 }
 
 /// # Safety

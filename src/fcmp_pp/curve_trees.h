@@ -234,6 +234,8 @@ public:
 
     Path path_bytes_to_path(const CompressedPath &path_bytes) const;
 
+    CompressedPath compress_path(const Path &path, const std::vector<fcmp_pp::UnifiedOutput> &outputs) const;
+
     PathForProof path_for_proof(const Path &path, const OutputTuple &output_tuple) const;
 
     std::vector<crypto::ec_point> calc_hashes_from_path(const Path &path, const bool replace_last_hash = false) const;

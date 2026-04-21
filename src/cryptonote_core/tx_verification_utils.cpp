@@ -879,9 +879,10 @@ bool batch_ver_fcmp_pp_consensus
         cryptonote::transaction &tx = tx_entry.second.first;
         if (tx.pruned || tx.version != 2 || tx.rct_signatures.type != rct::RCTTypeFcmpPlusPlus)
         {
-            MDEBUG("FCMP batching verification: tx " << txid << " skipped");
             continue;
         }
+
+        MDEBUG("Preparing FCMP++ tx " << txid << " for batch verification " << "(" << tx.vin.size() << " inputs)");
 
         const uint64_t reference_block = tx.rct_signatures.p.reference_block;
         const bool r = collect_fcmp_pp_tx_verify_input(tx,
