@@ -116,7 +116,7 @@ namespace cryptonote
       if (is_pruned)
       {
         if ((parse_success = cryptonote::parse_and_validate_tx_base_from_blob(tx_entry.blob, tx)))
-          tx_hash = cryptonote::get_pruned_transaction_hash(tx, tx_entry.prunable_hash);
+          parse_success = cryptonote::get_pruned_transaction_hash(tx, tx_entry.prunable_hash, tx_hash);
       }
       else
       {
