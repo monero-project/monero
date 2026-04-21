@@ -47,7 +47,6 @@ extern "C" {
 }
 #include "crypto/crypto.h"
 
-
 #include "rctTypes.h"
 #include "rctOps.h"
 
@@ -64,6 +63,10 @@ namespace hw {
 
 
 namespace rct {
+    // helpers for mock txs
+    Bulletproof make_dummy_bulletproof(const std::vector<uint64_t> &outamounts, keyV &C, keyV &masks);
+    BulletproofPlus make_dummy_bulletproof_plus(const std::vector<uint64_t> &outamounts, keyV &C, keyV &masks);
+    clsag make_dummy_clsag(size_t ring_size);
 
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices);
     bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2);
@@ -138,6 +141,23 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask, hw::device &hwdev);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev);
     key get_pre_mlsag_hash(const rctSig &rv, hw::device &hwdev);
+
+    // Make sure points are valid points, don't have torsion, and are not equal to identity
+    bool verPointsForTorsion(const std::vector<key> & pts);
+
+    // Split into batches and verify each batch in parallel
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs);
+
+    // The default libc allocator on most Linux systems may cache allocated memory for reuse.
+    // As a result, verifying many large batches of FCMP++ proofs in multithreaded contexts
+    // can end up using a lot of memory that does not get released back to the OS, even
+    // though memory is already freed.
+    // This function uses the mallopt syscall to limit the max number of "arenas" the system
+    // may use, setting it to the number of threads the system has. This way there won't
+    // be more memory allocated and kept around than expected in a potentially unbounded
+    // number of arenas.
+    // More on this here: https://gotplt.org/posts/malloc-per-thread-arenas-in-glibc.html
+    void limitMaxMemArenas();
 }
 #endif  /* RCTSIGS_H */
 

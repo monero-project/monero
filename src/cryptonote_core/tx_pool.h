@@ -504,7 +504,7 @@ namespace cryptonote
     /**
      * @brief get transactions not in the passed set
      */
-    bool get_complement(std::vector<crypto::hash> hashes, std::vector<cryptonote::blobdata> &txes) const;
+    bool get_complement(std::vector<crypto::hash> hashes, std::vector<crypto::hash> &inv_txes) const;
 
     /**
      * @brief get info necessary for update of pool-related info in a wallet, preferably incremental
@@ -616,6 +616,21 @@ namespace cryptonote
      * @brief mark all transactions double spending the one passed
      */
     void mark_double_spend(const transaction &tx);
+
+    /**
+     * @brief check if pool has capacity for the given tx
+     *
+     * If the tx would push the pool above its max weight limit, then the tx
+     * must pay a fee higher than txs in the pool already in order to enter the
+     * pool. Otherwise, the pool does not have capacity for the tx.
+     *
+     * @param txid the txid of the transaction to check, strictly used for logging
+     * @param weight the transaction weight
+     * @param fee the tx fee
+     *
+     * @return true if the pool has capacity for the tx
+     */
+    bool check_pool_capacity(const crypto::hash &id, const size_t weight, const uint64_t fee) const;
 
     /**
      * @brief prune lowest fee/byte txes till we're not above bytes

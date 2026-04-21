@@ -128,8 +128,8 @@ public:
       case op_addKeys_aGbBcC: rct::addKeys_aGbBcC(key, scalar0, scalar1, precomp1, scalar2, precomp2); break;
       case op_addKeys_aAbBcC: rct::addKeys_aAbBcC(key, scalar0, precomp0, scalar1, precomp1, scalar2, precomp2); break;
       case op_isInMainSubgroup: rct::isInMainSubgroup(point0); break;
-      case op_zeroCommitUncached: rct::zeroCommit(9001); break;
-      case op_zeroCommitCached: rct::zeroCommit(9000); break;
+      case op_zeroCommitUncached: rct::zeroCommitVartime(9001); break;
+      case op_zeroCommitCached: rct::zeroCommitVartime(9000); break;
       default: return false;
     }
     return true;

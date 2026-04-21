@@ -31,16 +31,16 @@
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "cryptonote_core/tx_verification_utils.h"
 
-TEST(tx_verification_utils, make_input_verification_id)
+TEST(tx_verification_utils, make_input_verification_id_ring)
 {
     rct::key key1, key2, key3;
     epee::from_hex::to_buffer(epee::as_mut_byte_span(key1), "e50f476129d40af31e0938743f7f2d60e867aab31294f7acaf6e38f0976f0228");
     epee::from_hex::to_buffer(epee::as_mut_byte_span(key2), "e50f476129d40af31e0938743f7f2d60e867aab31294f7acaf6e38f0976f0227");
     epee::from_hex::to_buffer(epee::as_mut_byte_span(key3), "d50f476129d40af31e0938743f7f2d60e867aab31294f7acaf6e38f0976f0228");
 
-    const crypto::hash hash1 = cryptonote::make_input_verification_id(rct::rct2hash(key1), {});
-    const crypto::hash hash2 = cryptonote::make_input_verification_id(rct::rct2hash(key2), {});    
-    const crypto::hash hash3 = cryptonote::make_input_verification_id(rct::rct2hash(key3), {});
+    const crypto::hash hash1 = cryptonote::make_input_verification_id(rct::rct2hash(key1), rct::ctkeyM{});
+    const crypto::hash hash2 = cryptonote::make_input_verification_id(rct::rct2hash(key2), rct::ctkeyM{});    
+    const crypto::hash hash3 = cryptonote::make_input_verification_id(rct::rct2hash(key3), rct::ctkeyM{});
     ASSERT_NE(hash1, hash2);
     ASSERT_NE(hash1, hash3);
     ASSERT_NE(hash2, hash3);
@@ -56,9 +56,9 @@ TEST(tx_verification_utils, make_input_verification_id)
     const crypto::hash hash8 = cryptonote::make_input_verification_id(rct::rct2hash(key1), {{{key1, key1}},{{key1, key1}}});
     ASSERT_NE(hash7, hash8);
 
-    const crypto::hash hash1_eq = cryptonote::make_input_verification_id(rct::rct2hash(key1), {});
-    const crypto::hash hash2_eq = cryptonote::make_input_verification_id(rct::rct2hash(key2), {});    
-    const crypto::hash hash3_eq = cryptonote::make_input_verification_id(rct::rct2hash(key3), {});
+    const crypto::hash hash1_eq = cryptonote::make_input_verification_id(rct::rct2hash(key1), rct::ctkeyM{});
+    const crypto::hash hash2_eq = cryptonote::make_input_verification_id(rct::rct2hash(key2), rct::ctkeyM{});    
+    const crypto::hash hash3_eq = cryptonote::make_input_verification_id(rct::rct2hash(key3), rct::ctkeyM{});
     const crypto::hash hash4_eq = cryptonote::make_input_verification_id(rct::rct2hash(key1), {{{key1, key1}}});
     const crypto::hash hash5_eq = cryptonote::make_input_verification_id(rct::rct2hash(key1), {{{key1, key2}}});
     const crypto::hash hash6_eq = cryptonote::make_input_verification_id(rct::rct2hash(key1), {{{key1, key3}}});

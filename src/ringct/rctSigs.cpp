@@ -30,16 +30,25 @@
 
 #include "rctSigs.h"
 
+#include <algorithm>
+
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
 #include "common/util.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
+#include "fcmp_pp/proof_len.h"
+#include "fcmp_pp/prove.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
 #include "device/device.hpp"
 #include "serialization/crypto.h"
+
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 using namespace crypto;
 using namespace std;
@@ -49,8 +58,7 @@ using namespace std;
 
 #define CHECK_AND_ASSERT_MES_L1(expr, ret, message) {if(!(expr)) {MCERROR("verify", message); return ret;}}
 
-namespace
-{
+namespace rct {
     rct::Bulletproof make_dummy_bulletproof(const std::vector<uint64_t> &outamounts, rct::keyV &C, rct::keyV &masks)
     {
         const size_t n_outs = outamounts.size();
@@ -119,9 +127,7 @@ namespace
         const size_t n_scalars = ring_size;
         return rct::clsag{rct::keyV(n_scalars, I), I, I, I};
     }
-}
 
-namespace rct {
     Bulletproof proveRangeBulletproof(keyV &C, keyV &masks, const std::vector<uint64_t> &amounts, epee::span<const key> sk, hw::device &hwdev)
     {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == sk.size(), "Invalid amounts/sk sizes");
@@ -608,8 +614,10 @@ namespace rct {
 
       std::stringstream ss;
       binary_archive<true> ba(ss);
-      CHECK_AND_ASSERT_THROW_MES(!rv.mixRing.empty(), "Empty mixRing");
-      const size_t inputs = is_rct_simple(rv.type) ? rv.mixRing.size() : rv.mixRing[0].size();
+      const size_t inputs = !rct::is_rct_simple(rv.type) ? rv.mixRing.at(0).size()
+        : rct::is_rct_fcmp(rv.type) ? 0
+        : rv.mixRing.size();
+      CHECK_AND_ASSERT_THROW_MES(rct::is_rct_fcmp(rv.type) || inputs > 0, "Empty pseudoOuts");
       const size_t outputs = rv.ecdhInfo.size();
       key prehash;
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
@@ -619,6 +627,12 @@ namespace rct {
       hashes.push_back(hash2rct(h));
 
       keyV kv;
+      if (rv.type == RCTTypeFcmpPlusPlus)
+      {
+        // Don't hash range proof data to enable cleaner separation of SAL signature <> membership proof <> range proof
+        goto done;
+      }
+
       if (rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG)
       {
         kv.reserve((6*2+9) * rv.p.bulletproofs.size());
@@ -675,6 +689,7 @@ namespace rct {
         }
       }
       hashes.push_back(cn_fast_hash(kv));
+done:
       hwdev.mlsag_prehash(ss.str(), inputs, outputs, hashes, rv.outPk, prehash);
       return  prehash;
     }
@@ -1076,7 +1091,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rct::is_rct_short_amount(rv.type));
         }
 
         //set txn fee
@@ -1107,6 +1122,8 @@ namespace rct {
     //for post-rct only
     rctSig genRctSimple(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> &inamounts, const vector<xmr_amount> &outamounts, xmr_amount txnFee, const ctkeyM & mixRing, const keyV &amount_keys, const std::vector<unsigned int> & index, ctkeyV &outSk, const RCTConfig &rct_config, hw::device &hwdev) {
         const bool bulletproof_or_plus = rct_config.range_proof_type > RangeProofBorromean;
+        const bool is_fcmp_pp = rct_config.bp_version >= 5;
+        CHECK_AND_ASSERT_THROW_MES(!is_fcmp_pp, "cannot use genRctSimple for FCMP++ tx");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() > 0, "Empty inamounts");
         CHECK_AND_ASSERT_THROW_MES(inamounts.size() == inSk.size(), "Different number of inamounts/inSk");
         CHECK_AND_ASSERT_THROW_MES(outamounts.size() == destinations.size(), "Different number of amounts/destinations");
@@ -1211,7 +1228,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rct::is_rct_short_amount(rv.type));
         }
             
         //set txn fee
@@ -1357,8 +1374,7 @@ namespace rct {
         {
           CHECK_AND_ASSERT_MES(rvp, false, "rctSig pointer is NULL");
           const rctSig &rv = *rvp;
-          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
-              false, "verRctSemanticsSimple called on non simple rctSig");
+          CHECK_AND_ASSERT_MES(is_rct_simple(rv.type), false, "verRctSemanticsSimple called on non simple rctSig");
           const bool bulletproof = is_rct_bulletproof(rv.type);
           const bool bulletproof_plus = is_rct_bulletproof_plus(rv.type);
           if (bulletproof || bulletproof_plus)
@@ -1367,7 +1383,17 @@ namespace rct {
               CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_plus_amounts(rv.p.bulletproofs_plus), false, "Mismatched sizes of outPk and bulletproofs_plus");
             else
               CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_amounts(rv.p.bulletproofs), false, "Mismatched sizes of outPk and bulletproofs");
-            if (is_rct_clsag(rv.type))
+            if (rv.type == RCTTypeFcmpPlusPlus)
+            {
+              CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for FCMP++");
+              CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs are not empty for FCMP++");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size(), false, "Empty pseudo outs");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() <= FCMP_PLUS_PLUS_MAX_INPUTS, false, "Too many pseudo outs");
+              CHECK_AND_ASSERT_MES(rv.p.n_tree_layers > 0, false, "0 tree layers");
+              CHECK_AND_ASSERT_MES(rv.p.n_tree_layers <= FCMP_PLUS_PLUS_MAX_LAYERS, false, "Too many layers");
+              CHECK_AND_ASSERT_MES(rv.p.fcmp_pp.size() == fcmp_pp::fcmp_pp_proof_len(rv.p.pseudoOuts.size(), rv.p.n_tree_layers), false, "Unexpected FCMP++ proof size");
+            }
+            else if (is_rct_clsag(rv.type))
             {
               CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for CLSAG");
               CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.CLSAGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.CLSAGs");
@@ -1486,10 +1512,34 @@ namespace rct {
       {
         PERF_TIMER(verRctNonSemanticsSimple);
 
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
-            false, "verRctNonSemanticsSimple called on non simple rctSig");
+        CHECK_AND_ASSERT_MES(is_rct_simple(rv.type), false, "verRctNonSemanticsSimple called on non simple rctSig");
         const bool bulletproof = is_rct_bulletproof(rv.type);
         const bool bulletproof_plus = is_rct_bulletproof_plus(rv.type);
+        const keyV &pseudoOuts = (bulletproof || bulletproof_plus) ? rv.p.pseudoOuts : rv.pseudoOuts;
+
+        const key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
+
+        if (is_rct_fcmp(rv.type))
+        {
+          CHECK_AND_ASSERT_MES(rv.type == rct::RCTTypeFcmpPlusPlus, false, "verRctNonSemanticsSimple called on unsupported FCMP type");
+
+          // Type conversion on pseudo outs
+          std::vector<crypto::ec_point> pseudo_outs;
+          pseudo_outs.reserve(pseudoOuts.size());
+          for (const auto &po : pseudoOuts)
+            pseudo_outs.emplace_back(rct::rct2pt(po));
+
+          bool r = fcmp_pp::verify(rct::rct2hash(message),
+              rv.p.fcmp_pp,
+              rv.p.n_tree_layers,
+              rv.p.fcmp_ver_helper_data.tree_root,
+              pseudo_outs,
+              rv.p.fcmp_ver_helper_data.key_images);
+
+          CHECK_AND_ASSERT_MES(r, false, "Failed to verify FCMP++ proof");
+          return true;
+        }
+
         // semantics check is early, and mixRing/MGs aren't resolved yet
         if (bulletproof || bulletproof_plus)
           CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.mixRing.size(), false, "Mismatched sizes of rv.p.pseudoOuts and mixRing");
@@ -1501,10 +1551,6 @@ namespace rct {
         std::deque<bool> results(threads);
         tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
         tools::threadpool::waiter waiter(tpool);
-
-        const keyV &pseudoOuts = bulletproof || bulletproof_plus ? rv.p.pseudoOuts : rv.pseudoOuts;
-
-        const key message = get_pre_mlsag_hash(rv, hw::get_device("default"));
 
         results.clear();
         results.resize(rv.mixRing.size());
@@ -1558,7 +1604,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+        hwdev.ecdhDecode(ecdh_info, sk, rct::is_rct_short_amount(rv.type));
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1582,14 +1628,13 @@ namespace rct {
     }
 
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key &mask, hw::device &hwdev) {
-        CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
-            false, "decodeRct called on non simple rctSig");
+        CHECK_AND_ASSERT_MES(rct::is_rct_simple(rv.type), false, "decodeRct called on non simple rctSig");
         CHECK_AND_ASSERT_THROW_MES(i < rv.ecdhInfo.size(), "Bad index");
         CHECK_AND_ASSERT_THROW_MES(rv.outPk.size() == rv.ecdhInfo.size(), "Mismatched sizes of rv.outPk and rv.ecdhInfo");
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+        hwdev.ecdhDecode(ecdh_info, sk, rct::is_rct_short_amount(rv.type));
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
@@ -1610,5 +1655,171 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev) {
       key mask;
       return decodeRctSimple(rv, sk, i, mask, hwdev);
+    }
+
+    bool verPointsForTorsion(const std::vector<key> & pts) {
+      if (pts.empty())
+        return true;
+
+      tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+      tools::threadpool::waiter waiter(tpool);
+
+      std::deque<bool> torsion_free;
+
+      torsion_free.resize(pts.size());
+      for (size_t i = 0; i < pts.size(); i++) {
+        tpool.submit(&waiter, [&pts, &torsion_free, i]
+          {
+            const crypto::ec_point &point = rct::rct2pt(pts[i]);
+            crypto::ec_point torsion_cleared_point;
+            if (!fcmp_pp::get_valid_torsion_cleared_point(point, torsion_cleared_point))
+            {
+              torsion_free[i] = false;
+              return;
+            }
+            // Point is torsion free if after clearing torsion, it's equal to itself
+            torsion_free[i] = point == torsion_cleared_point;
+          });
+      }
+
+      if (!waiter.wait())
+        return false;
+      for (size_t i = 0; i < torsion_free.size(); ++i) {
+        if (!torsion_free[i]) {
+          LOG_PRINT_L1("Torsion check failed for point " << i);
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs) {
+      const std::size_t n_proofs = fcmp_pp_verify_inputs.size();
+      if (n_proofs == 0)
+          return true;
+
+      // Sort the inputs in descending order based on input count. We will use a bin packing algo to spread the load.
+      std::sort(fcmp_pp_verify_inputs.begin(), fcmp_pp_verify_inputs.end(), [](auto &a, auto &b)
+      { return fcmp_pp::n_inputs_in_fcmp_pp(a) > fcmp_pp::n_inputs_in_fcmp_pp(b); });
+
+      tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
+      tools::threadpool::waiter waiter(tpool);
+      const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
+      const bool multithreaded = n_threads > 1;
+
+      // 1 batch per thread
+      const std::size_t n_batches = std::min(n_threads, n_proofs);
+
+      struct ProofBatch
+      {
+        std::vector<fcmp_pp::FcmpPpVerifyInput> batch;
+        std::size_t total_inputs{0};
+      };
+
+      std::vector<ProofBatch> batches;
+      batches.reserve(n_batches);
+
+      // Spread the load based on n inputs in each proof, to make it more even.
+      for (std::size_t i = 0; i < n_proofs; ++i)
+      {
+        // Here's the proof we're adding to a batch
+        fcmp_pp::FcmpPpVerifyInput &fcmp_pp_verify_input = fcmp_pp_verify_inputs.at(i);
+        const std::size_t n_inputs = fcmp_pp::n_inputs_in_fcmp_pp(fcmp_pp_verify_input);
+
+        // Find the batch with the lowest weight
+        std::size_t min_weight_batch_idx = 0;
+        std::size_t min_weight = 0;
+        for (std::size_t j = 0; j < n_batches; ++j)
+        {
+          if (batches.size() <= j)
+          {
+            // We found an empty batch, use it
+            batches.emplace_back();
+            batches.back().batch.reserve(n_proofs - i);
+            min_weight_batch_idx = j;
+            break;
+          }
+
+          if (min_weight > 0 && batches.at(j).total_inputs >= min_weight)
+            continue;
+
+          // We found a batch with a lower weight
+          min_weight = batches.at(j).total_inputs;
+          min_weight_batch_idx = j;
+        }
+
+        // Add the proof to the min weight batch
+        auto &min_weight_batch = batches.at(min_weight_batch_idx);
+        assert(min_weight_batch.batch.size() < min_weight_batch.batch.capacity()); // if tripped, we pre-reserved wrong
+        min_weight_batch.batch.emplace_back(std::move(fcmp_pp_verify_input));
+        min_weight_batch.total_inputs += n_inputs;
+
+        MDEBUG("Placed FCMP++ tx in batch " << (min_weight_batch_idx+1)
+          << ", batch now has " << min_weight_batch.total_inputs << " total inputs");
+      }
+      CHECK_AND_ASSERT_MES(batches.size() <= n_batches, false, "Too many batches");
+
+      std::deque<bool> results;
+      results.resize(batches.size());
+      for (std::size_t i = 0; i < batches.size(); ++i)
+      {
+        CHECK_AND_ASSERT_MES(batches[i].batch.size(), false, "Empty batch in batchVerifyFcmpPpProofs");
+
+        MDEBUG("Verifying FCMP++ batch " << (i+1) << " ("
+            << batches[i].total_inputs << " total inputs across " << batches[i].batch.size() << " txs)");
+
+        if (!multithreaded)
+        {
+          results[i] = fcmp_pp::verify(batches[i].batch);
+          continue;
+        }
+
+        tpool.submit(&waiter,
+            [&batches, &results, i]()
+            {
+              results[i] = fcmp_pp::verify(batches[i].batch);
+
+              MDEBUG("Finished verifying FCMP++ batch " << (i+1) << " / " << batches.size());
+            },
+            true
+          );
+      }
+
+      if (multithreaded)
+        CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed to batch verify FCMP++ proofs");
+
+      for (bool r : results) {
+        if (!r)
+          return false;
+      }
+      return true;
+    }
+
+    void limitMaxMemArenas()
+    {
+#ifdef M_ARENA_MAX
+      tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
+      const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
+
+      // Use at least 2 arenas always to match glibc's default minimum
+      // https://github.com/bminor/glibc/blob/40a751b0044114488e841f0223e630596c527c53/malloc/arena.c#L824-L834
+      // https://github.com/bminor/glibc/blob/40a751b0044114488e841f0223e630596c527c53/malloc/malloc.c#L1974
+      const std::size_t max_arenas = std::max<std::size_t>(2, n_threads);
+
+      // See mallopt and M_ARENA_MAX at: https://man7.org/linux/man-pages/man3/mallopt.3.html
+      int r = mallopt(M_ARENA_MAX, max_arenas);
+      if (r == 1)
+      {
+        MDEBUG("Set max arenas to " << max_arenas);
+        return;
+      }
+
+      MWARNING("Failed to set max arenas, the system may use more memory than expected during sync.");
+#else
+      MDEBUG("System does not have mallopt and M_ARENA_MAX setting. This setting is crucial for some Linux platforms to"
+        << " avoid OOM's when batch verifying FCMP++ txs. If we see OOM's in the future when batch verifying on a non-"
+        << "Linux platform, then check the system allocator behavior and see if it has a setting similar to mallopt");
+#endif
     }
 }

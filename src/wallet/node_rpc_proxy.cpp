@@ -223,8 +223,9 @@ boost::optional<std::string> NodeRPCProxy::get_earliest_height(uint8_t version, 
   return boost::optional<std::string>();
 }
 
-boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees)
+boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate(uint64_t grace_blocks, std::vector<uint64_t> &fees)
 {
+  fees.clear();
   uint64_t height;
 
   boost::optional<std::string> result = get_height(height);
@@ -253,16 +254,6 @@ boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate_2021_sc
   }
 
   fees = m_dynamic_base_fee_estimate_vector;
-  return boost::optional<std::string>();
-}
-
-boost::optional<std::string> NodeRPCProxy::get_dynamic_base_fee_estimate(uint64_t grace_blocks, uint64_t &fee)
-{
-  std::vector<uint64_t> fees;
-  auto res = get_dynamic_base_fee_estimate_2021_scaling(grace_blocks, fees);
-  if (res)
-    return res;
-  fee = fees[0];
   return boost::none;
 }
 

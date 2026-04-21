@@ -53,7 +53,7 @@ static std::string db_path;
 static uint64_t records_per_sync = 16 * 65536;
 static const size_t slack = 512 * 1024 * 1024;
 
-static constexpr uint32_t MAX_SUPPORTED_DB_VERSION = 5;
+static constexpr uint32_t MAX_SUPPORTED_DB_VERSION = 6;
 
 static std::vector<bool> is_v1;
 
@@ -709,6 +709,12 @@ int main(int argc, char* argv[])
   copy_table(env0, env1, "alt_blocks", 0, 0, BlockchainLMDB::compare_hash32);
   copy_table(env0, env1, "hf_versions", MDB_INTEGERKEY, 0);
   copy_table(env0, env1, "properties", 0, 0, BlockchainLMDB::compare_string);
+  copy_table(env0, env1, "locked_outputs", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "leaves", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "layers", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "tree_edges", MDB_INTEGERKEY, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "tree_meta", MDB_INTEGERKEY, 0, BlockchainLMDB::compare_uint64);
+  copy_table(env0, env1, "timelocked_outputs", MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED, 0, BlockchainLMDB::compare_uint64);
   if (already_pruned)
   {
     MINFO("Copying already-pruned tables...");

@@ -42,6 +42,7 @@
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
+#include "blake2b.h"
 
 #include "cryptonote_config.h"
 
@@ -608,7 +609,7 @@ namespace crypto {
     return sc_isnonzero(&c2) == 0;
   }
 
-  static void hash_to_ec(const public_key &key, ge_p3 &res) {
+  static void biased_hash_to_ec(const public_key &key, ge_p3 &res) {
     hash h;
     ge_p2 point;
     ge_p1p1 point2;
@@ -618,11 +619,56 @@ namespace crypto {
     ge_p1p1_to_p3(&res, &point2);
   }
 
+  void crypto_ops::unbiased_hash_to_ec(const unsigned char *preimage, const size_t length, ec_point &res) {
+    uint8_t hash[64];
+    blake2b(std::addressof(hash), 64, preimage, length, NULL, 0);
+
+    ge_p2 first;
+    ge_fromfe_frombytes_vartime(&first, reinterpret_cast<const unsigned char *>(&hash));
+    ge_p1p1 first_p1p1;
+    ge_mul8(&first_p1p1, &first);
+    ge_p3 first_p3;
+    ge_p1p1_to_p3(&first_p3, &first_p1p1);
+
+    ge_p2 second;
+    ge_fromfe_frombytes_vartime(&second, reinterpret_cast<const unsigned char *>(&hash) + 32);
+    ge_p1p1 second_p1p1;
+    ge_mul8(&second_p1p1, &second);
+    ge_p3 second_p3;
+    ge_p1p1_to_p3(&second_p3, &second_p1p1);
+    ge_cached second_cached;
+    ge_p3_to_cached(&second_cached, &second_p3);
+
+    ge_p1p1 point;
+    ge_add(&point, &first_p3, &second_cached);
+
+    ge_p3 res_ge_p3;
+    ge_p1p1_to_p3(&res_ge_p3, &point);
+    ge_p3_tobytes(&res, &res_ge_p3);
+  }
+
+  static void biased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    ge_p3 point;
+    biased_hash_to_ec(pub, point);
+    ge_p3_tobytes(&ki_gen, &point);
+  }
+
+  static void unbiased_derive_key_image_generator(const public_key &pub, ec_point &ki_gen) {
+    unbiased_hash_to_ec(&pub, sizeof(public_key), ki_gen);
+  }
+
+  void crypto_ops::derive_key_image_generator(const public_key &pub, const bool biased, ec_point &ki_gen) {
+    if (biased)
+      biased_derive_key_image_generator(pub, ki_gen);
+    else
+      unbiased_derive_key_image_generator(pub, ki_gen);
+  }
+
   void crypto_ops::generate_key_image(const public_key &pub, const secret_key &sec, key_image &image) {
     ge_p3 point;
     ge_p2 point2;
     assert(sc_check(&sec) == 0);
-    hash_to_ec(pub, point);
+    biased_hash_to_ec(pub, point);
     ge_scalarmult(&point2, &unwrap(sec), &point);
     ge_tobytes(&image, &point2);
   }
@@ -683,7 +729,7 @@ POP_WARNINGS
         random_scalar(k);
         ge_scalarmult_base(&tmp3, &k);
         ge_p3_tobytes(&buf->ab[i].a, &tmp3);
-        hash_to_ec(*pubs[i], tmp3);
+        biased_hash_to_ec(*pubs[i], tmp3);
         ge_scalarmult(&tmp2, &k, &tmp3);
         ge_tobytes(&buf->ab[i].b, &tmp2);
       } else {
@@ -695,7 +741,7 @@ POP_WARNINGS
         }
         ge_double_scalarmult_base_vartime(&tmp2, &sig[i].c, &tmp3, &sig[i].r);
         ge_tobytes(&buf->ab[i].a, &tmp2);
-        hash_to_ec(*pubs[i], tmp3);
+        biased_hash_to_ec(*pubs[i], tmp3);
         ge_double_scalarmult_precomp_vartime(&tmp2, &sig[i].r, &tmp3, &sig[i].c, image_pre);
         ge_tobytes(&buf->ab[i].b, &tmp2);
         sc_add(&sum, &sum, &sig[i].c);
@@ -740,7 +786,7 @@ POP_WARNINGS
       }
       ge_double_scalarmult_base_vartime(&tmp2, &sig[i].c, &tmp3, &sig[i].r);
       ge_tobytes(&buf->ab[i].a, &tmp2);
-      hash_to_ec(*pubs[i], tmp3);
+      biased_hash_to_ec(*pubs[i], tmp3);
       ge_double_scalarmult_precomp_vartime(&tmp2, &sig[i].r, &tmp3, &sig[i].c, image_pre);
       ge_tobytes(&buf->ab[i].b, &tmp2);
       sc_add(&sum, &sum, &sig[i].c);

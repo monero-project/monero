@@ -26,7 +26,7 @@ jobs:
   build-cross:
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:22.04
+      image: ${{ matrix.toolchain.container || 'ubuntu:22.04' }}
       env:
         DEBIAN_FRONTEND: noninteractive
         CCACHE_TEMPDIR: /tmp/.ccache-temp
@@ -38,6 +38,7 @@ jobs:
             host: "riscv64-linux-gnu"
             rust_host: "riscv64gc-unknown-linux-gnu"
             packages: "g++-riscv64-linux-gnu"
+            container: "ubuntu:26.04" # RandomX v2 requires GCC 14 or above for riscv64
           - name: "ARM v8"
             host: "aarch64-linux-gnu"
             rust_host: "aarch64-unknown-linux-gnu"
@@ -50,6 +51,7 @@ jobs:
             host: "x86_64-w64-mingw32"
             rust_host: "x86_64-pc-windows-gnu"
             packages: "g++-mingw-w64-x86-64"
+            container: "ubuntu:24.04" # Rust >= 1.70 requires binutils >= 2.40
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
             rust_host: "x86_64-unknown-linux-gnu"
@@ -91,14 +93,11 @@ jobs:
     - name: install dependencies
       run: apt update; apt -y install build-essential cmake pkg-config git ccache ${{ matrix.toolchain.packages }}
     - name: install rust
-      # We can't use the latest Rust due to LLVM 17 not working with old `ld`s (such as in Ubuntu 20.04) for RISC-V
-      # We could update ld (a pain), update Ubuntu (requires a large amount of changes), or downgrade Rust
-      # We can't use Rust 1.70 due to LLVM 16 requiring ld >= 2.40 when building for Windows
       run: |
-          curl -O https://static.rust-lang.org/rustup/archive/1.27.1/x86_64-unknown-linux-gnu/rustup-init
-          echo "6aeece6993e902708983b209d04c0d1dbb14ebb405ddb87def578d41f920f56d rustup-init" | sha256sum -c
+          curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
+          echo "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10 rustup-init" | sha256sum -c
           chmod +x rustup-init
-          ./rustup-init -y --default-toolchain 1.69 --target ${{ matrix.toolchain.rust_host }}
+          ./rustup-init -y --default-toolchain 1.93 --target ${{ matrix.toolchain.rust_host }}
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
     - name: configure git
       run: git config --global --add safe.directory '*'
