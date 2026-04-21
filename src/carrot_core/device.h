@@ -1,21 +1,21 @@
 // Copyright (c) 2024, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -77,7 +77,7 @@ struct device_error: public std::runtime_error
             std::string &&func_called,
             std::string &&msg,
             const int code)
-        : std::runtime_error(make_formatted_message(dev_make, dev_model, func_called, msg, code)), 
+        : std::runtime_error(make_formatted_message(dev_make, dev_model, func_called, msg, code)),
             dev_make(dev_make), dev_model(dev_model), func_called(func_called), msg(msg), code(code)
     {}
 
@@ -95,7 +95,7 @@ struct device_error: public std::runtime_error
     }
 
     const std::string dev_make;
-    const std::string dev_model; 
+    const std::string dev_model;
     const std::string func_called;
     const std::string msg;
     const int code;
@@ -194,7 +194,7 @@ struct generate_address_secret_device
 struct generate_image_key_device
 {
     /**
-     * brief: generate_image_scalar_mult_hash_to_point - 
+     * brief: generate_image_scalar_mult_hash_to_point -
      *   [carrot] L_partial = k_gi Hp(K_o)
      *   [legacy] L_partial = k_s Hp(K_o)
      * param: onetime_address - K_o

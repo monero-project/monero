@@ -1,21 +1,21 @@
 // Copyright (c) 2024, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -112,7 +112,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
         .randomness = gen_janus_anchor()
     };
 
-    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
     RCTOutputEnoteProposal enote_proposal;
     encrypted_payment_id_t encrypted_payment_id;
@@ -149,7 +149,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
         recovered_amount_blinding_factor,
         recovered_payment_id,
         recovered_enote_type);
-    
+
     ASSERT_TRUE(scan_success);
 
     // check recovered data
@@ -182,7 +182,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
         .randomness = gen_janus_anchor()
     };
 
-    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
     RCTOutputEnoteProposal enote_proposal;
     encrypted_payment_id_t encrypted_payment_id;
@@ -219,7 +219,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
         recovered_amount_blinding_factor,
         recovered_payment_id,
         recovered_enote_type);
-    
+
     ASSERT_TRUE(scan_success);
 
     // check recovered data
@@ -249,7 +249,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
         .randomness = gen_janus_anchor()
     };
 
-    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
     RCTOutputEnoteProposal enote_proposal;
     encrypted_payment_id_t encrypted_payment_id;
@@ -286,7 +286,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
         recovered_amount_blinding_factor,
         recovered_payment_id,
         recovered_enote_type);
-    
+
     ASSERT_TRUE(scan_success);
 
     // check recovered data
@@ -320,7 +320,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
             .enote_ephemeral_pubkey = gen_x25519_pubkey(),
         };
 
-        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
         RCTOutputEnoteProposal enote_proposal;
         get_output_proposal_special_v1(proposal,
@@ -357,7 +357,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
             recovered_amount_blinding_factor,
             recovered_payment_id,
             recovered_enote_type);
-        
+
         ASSERT_TRUE(scan_success);
 
         // check recovered data
@@ -397,7 +397,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
             .enote_ephemeral_pubkey = gen_x25519_pubkey(),
         };
 
-        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
         RCTOutputEnoteProposal enote_proposal;
         get_output_proposal_special_v1(proposal,
@@ -434,7 +434,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
             recovered_amount_blinding_factor,
             recovered_payment_id,
             recovered_enote_type);
-        
+
         ASSERT_TRUE(scan_success);
 
         // check recovered data
@@ -472,7 +472,7 @@ TEST(carrot_core, main_address_internal_scan_completeness)
             .internal_message = gen_janus_anchor()
         };
 
-        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
         RCTOutputEnoteProposal enote_proposal;
         get_output_proposal_internal_v1(proposal,
@@ -542,7 +542,7 @@ TEST(carrot_core, subaddress_internal_scan_completeness)
             .internal_message = gen_janus_anchor()
         };
 
-        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen()); 
+        const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
 
         RCTOutputEnoteProposal enote_proposal;
         get_output_proposal_internal_v1(proposal,
@@ -770,7 +770,7 @@ static void subtest_2out_transfer_get_output_enote_proposals_completeness(const 
         alice_scan.sender_extension_g,
         alice_scan.sender_extension_t,
         alice_enote.onetime_address));
-    
+
     // check Bob spendability
     EXPECT_TRUE(bob.can_open_fcmp_onetime_address(bob_payment_proposal.destination.address_spend_pubkey,
         bob_scan.sender_extension_g,
@@ -927,7 +927,7 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
         s_sender_receiver_ctx,
         output_enote_out.enote.amount_commitment,
         output_enote_out.enote.onetime_address);
-    
+
     // 11. a_enc = a XOR m_a
     output_enote_out.enote.amount_enc = carrot::encrypt_carrot_amount(proposal.normal.amount,
         s_sender_receiver_ctx,
@@ -2126,7 +2126,7 @@ TEST(carrot_core, pq_turnstile_completeness_sub)
     const crypto::hash migration_tx_signable_hash = crypto::rand<crypto::hash>();
     crypto::signature migration_sig;
     generate_signature_T(migration_tx_signable_hash, bob.carrot_partial_spend_pubkey, bob.k_prove_spend, migration_sig);
-    
+
     crypto::secret_key address_index_preimage_2;
     {
         crypto::secret_key address_index_preimage_1;

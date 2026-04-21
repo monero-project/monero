@@ -1,21 +1,21 @@
 // Copyright (c) 2024, The Monero Project
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification, are
 // permitted provided that the following conditions are met:
-// 
+//
 // 1. Redistributions of source code must retain the above copyright notice, this list of
 //    conditions and the following disclaimer.
-// 
+//
 // 2. Redistributions in binary form must reproduce the above copyright notice, this list
 //    of conditions and the following disclaimer in the documentation and/or other
 //    materials provided with the distribution.
-// 
+//
 // 3. Neither the name of the copyright holder nor the names of its contributors may be
 //    used to endorse or promote products derived from this software without specific
 //    prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 // MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
@@ -122,7 +122,7 @@ static void unittest_legacy_scan_enote_set(const std::vector<CarrotEnoteV1> &eno
             scan_result.amount_blinding_factor,
             scan_result.payment_id,
             scan_result.enote_type);
-        
+
         scan_result.output_index = output_index;
 
         if (r)
@@ -242,7 +242,7 @@ static void subtest_legacy_2out_transfer_get_output_enote_proposals_completeness
         alice_scan.sender_extension_g,
         alice_scan.sender_extension_t,
         alice_enote.onetime_address));
-    
+
     // check Bob spendability
     EXPECT_TRUE(can_open_fcmp_onetime_address_from_legacy_addr(bob.get_keys(),
         bob_j_major,
