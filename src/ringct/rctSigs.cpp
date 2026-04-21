@@ -1751,6 +1751,7 @@ done:
 
         // Add the proof to the min weight batch
         auto &min_weight_batch = batches.at(min_weight_batch_idx);
+        assert(min_weight_batch.batch.size() < min_weight_batch.batch.capacity()); // if tripped, we pre-reserved wrong
         min_weight_batch.batch.emplace_back(std::move(fcmp_pp_verify_input));
         min_weight_batch.total_inputs += n_inputs;
 
