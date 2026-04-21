@@ -322,7 +322,7 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin,
     const size_t min_tx_version = get_minimum_transaction_version(hf_version, /*has_unmixable_ring=*/true);
     const size_t max_tx_version = get_maximum_transaction_version(hf_version);
 
-    const size_t tx_weight_limit = get_transaction_weight_limit(hf_version);
+    const size_t tx_weight_limit = get_non_coinbase_tx_weight_limit(hf_version);
 
     for (; tx_begin != tx_end; ++tx_begin)
     {
@@ -563,17 +563,11 @@ void collect_transparent_amount_commitments(
     collect_transparent_amount_commitments(tx_refs, transparent_amount_commitments_inout);
 }
 
-uint64_t get_transaction_weight_limit(const uint8_t hf_version)
+uint64_t get_non_coinbase_tx_weight_limit(const uint8_t hf_version)
 {
-    // FIXME: get_transaction_weight_limit for FCMP++
+    static_assert(MAX_HF_VERSION == 18, "Max fork version bumped, check the max non coinbase tx weight limit");
     if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
-    {
-        static bool print_once = true;
-        if (print_once)
-            MERROR("FIXME: get_transaction_weight_limit for FCMP++");
-        print_once = false;
-        return 1000000;
-    }
+        return FCMP_PLUS_PLUS_MAX_TX_WEIGHT;
     // from v8, limit a tx to 50% of the minimum block weight
     else if (hf_version >= HF_VERSION_PER_BYTE_FEE)
         return get_min_block_weight(hf_version) / 2 - CRYPTONOTE_COINBASE_BLOB_RESERVED_SIZE;

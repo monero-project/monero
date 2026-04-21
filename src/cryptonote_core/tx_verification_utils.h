@@ -72,7 +72,7 @@ void collect_transparent_amount_commitments(
  * @param hf_version hard fork version
  * @return the maximum unconditional transaction weight
  */
-uint64_t get_transaction_weight_limit(uint8_t hf_version);
+uint64_t get_non_coinbase_tx_weight_limit(uint8_t hf_version);
 
 /**
  * @brief Check whether transaction's output pubkeys are sorted in strictly increasing lexicographical order
@@ -202,7 +202,7 @@ bool batch_ver_fcmp_pp_consensus
  *     1. Check tx blob size < get_max_tx_size()
  *     2. Check tx version >= get_minimum_transaction_version()
  *     3. Check tx version <= get_maximum_transaction_version()
- *     4. Check tx weight < get_transaction_weight_limit()
+ *     4. Check tx weight < get_non_coinbase_tx_weight_limit()
  *     5. Passes core::check_tx_semantic()
  *     6. Passes Blockchain::check_tx_outputs()
  *     7. Passes ver_mixed_rct_semantics() [Uses batch RingCT verification when applicable]

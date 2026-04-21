@@ -210,6 +210,7 @@
 #define HF_VERSION_REJECT_UNMIXABLE_V1          17
 #define HF_VERSION_REJECT_MANY_MINER_OUTPUTS    17
 #define HF_VERSION_2026_SCALING                 17
+#define MAX_HF_VERSION                          18
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
@@ -230,6 +231,7 @@
 #define FCMP_PLUS_PLUS_MAX_INPUTS               128
 #define FCMP_PLUS_PLUS_MAX_OUTPUTS              16
 #define FCMP_PLUS_PLUS_MAX_MINER_OUTPUTS        10000
+#define FCMP_PLUS_PLUS_MAX_TX_WEIGHT            203599
 
 // Restricting n layers keeps the proof_len table size very small and portable
 // 12 layers means the tree can support over 100 quadrillion outputs
