@@ -172,6 +172,17 @@ namespace debug
   return return_val; \
 }
 
+#define CATCH_ENTRY_SWALLOW_EX(location) } \
+  catch(const std::exception& ex) \
+{ \
+  (void)(ex); \
+  LOG_ERROR("Exception at [" << location << "], what=" << ex.what()); \
+}\
+  catch(...)\
+{\
+  LOG_ERROR("Exception at [" << location << "], generic exception \"...\"");\
+}
+
 #define CATCH_ENTRY_L0(lacation, return_val) CATCH_ENTRY(lacation, return_val)
 #define CATCH_ENTRY_L1(lacation, return_val) CATCH_ENTRY(lacation, return_val)
 #define CATCH_ENTRY_L2(lacation, return_val) CATCH_ENTRY(lacation, return_val)

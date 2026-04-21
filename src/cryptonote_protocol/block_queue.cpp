@@ -345,10 +345,10 @@ std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled(std::vecto
 void block_queue::reset_next_span_time(boost::posix_time::ptime t)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  CHECK_AND_ASSERT_THROW_MES(!blocks.empty(), "No next span to reset time");
+  CHECK_AND_ASSERT_MES_NO_RET(!blocks.empty(), "No next span to reset time");
   block_map::iterator i = blocks.begin();
-  CHECK_AND_ASSERT_THROW_MES(i != blocks.end(), "No next span to reset time");
-  CHECK_AND_ASSERT_THROW_MES(i->blocks.empty(), "Next span is not empty");
+  CHECK_AND_ASSERT_MES_NO_RET(i != blocks.end(), "No next span to reset time");
+  CHECK_AND_ASSERT_MES_NO_RET(i->blocks.empty(), "Next span is not empty");
   (boost::posix_time::ptime&)i->time = t; // sod off, time doesn't influence sorting
 }
 
