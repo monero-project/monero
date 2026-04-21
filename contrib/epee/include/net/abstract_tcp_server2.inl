@@ -423,10 +423,13 @@ namespace net_utils
     boost::asio::post(
       connection_basic::strand_,
       [this, self, bytes_transferred]{
-        bool success = m_handler.handle_recv(
+        bool success = false;
+        TRY_ENTRY();
+        success = m_handler.handle_recv(
           reinterpret_cast<char *>(m_state.data.read.buffer.data()),
           bytes_transferred
         );
+        CATCH_ENTRY_SWALLOW_EX("m_handler.handle_recv");
         std::lock_guard<std::mutex> guard(m_state.lock);
         const bool error_status = m_state.status == status_t::INTERRUPTED
             || m_state.status == status_t::TERMINATING
@@ -1186,7 +1189,9 @@ namespace net_utils
     auto self = connection<T>::shared_from_this();
     ++m_state.protocol.wait_callback;
     boost::asio::post(connection_basic::strand_, [this, self]{
+      TRY_ENTRY();
       m_handler.handle_qued_callback();
+      CATCH_ENTRY_SWALLOW_EX("m_handler.handle_qued_callback");
       std::lock_guard<std::mutex> guard(m_state.lock);
       --m_state.protocol.wait_callback;
       if (m_state.status == status_t::INTERRUPTED)
