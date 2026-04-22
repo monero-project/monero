@@ -1330,10 +1330,10 @@ namespace cryptonote
     return res;
   }
   //---------------------------------------------------------------
-  crypto::hash get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash)
+  bool get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash, crypto::hash &res)
   {
     // v1 transactions hash the entire blob
-    CHECK_AND_ASSERT_THROW_MES(t.version > 1, "Hash for pruned v1 tx cannot be calculated");
+    CHECK_AND_ASSERT_MES(t.version > 1, false, "Hash for pruned v1 tx cannot be calculated");
 
     // v2 transactions hash different parts together, than hash the set of those hashes
     crypto::hash hashes[3];
@@ -1350,7 +1350,7 @@ namespace cryptonote
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
       bool r = tt.rct_signatures.serialize_rctsig_base(ba, inputs, outputs);
-      CHECK_AND_ASSERT_THROW_MES(r, "Failed to serialize rct signatures base");
+      CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures base");
       cryptonote::get_blob_hash(ss.str(), hashes[1]);
     }
 
@@ -1361,9 +1361,9 @@ namespace cryptonote
       hashes[2] = pruned_data_hash;
 
     // the tx hash is the hash of the 3 hashes
-    crypto::hash res = cn_fast_hash(hashes, sizeof(hashes));
+    res = cn_fast_hash(hashes, sizeof(hashes));
     t.set_hash(res);
-    return res;
+    return true;
   }
   //---------------------------------------------------------------
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size)
