@@ -63,6 +63,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_data_dir);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_stagenet_on);
+  command_line::add_arg(desc_cmd_sett, cryptonote::arg_regtest_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_txid);
   command_line::add_arg(desc_cmd_sett, arg_height);
@@ -99,9 +100,7 @@ int main(int argc, char* argv[])
   LOG_PRINT_L0("Starting...");
 
   std::string opt_data_dir = command_line::get_arg(vm, cryptonote::arg_data_dir);
-  bool opt_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-  bool opt_stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
-  network_type net_type = opt_testnet ? TESTNET : opt_stagenet ? STAGENET : MAINNET;
+  const network_type net_type = core::get_network_type_from_args(vm);
   std::string opt_txid_string = command_line::get_arg(vm, arg_txid);
   uint64_t opt_height = command_line::get_arg(vm, arg_height);
   bool opt_include_coinbase = command_line::get_arg(vm, arg_include_coinbase);
