@@ -667,13 +667,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  opt_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-  opt_stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
-  if (opt_testnet && opt_stagenet)
-  {
-    std::cerr << "Error: Can't specify more than one of --testnet and --stagenet" << ENDL;
-    return 1;
-  }
   m_config_folder = command_line::get_arg(vm, cryptonote::arg_data_dir);
 
   mlog_configure(mlog_get_default_log_path("monero-blockchain-import.log"), true);
