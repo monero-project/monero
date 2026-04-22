@@ -247,10 +247,8 @@ int main(int argc, char const * argv[])
       return 1;
     }
 
-    const bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-    const bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
-    const bool regtest = command_line::get_arg(vm, cryptonote::arg_regtest_on);
-    if (testnet + stagenet + regtest > 1)
+    try { cryptonote::core::get_network_type_from_args(vm); }
+    catch (const std::runtime_error&)
     {
       std::cerr << "Can't specify more than one of --tesnet and --stagenet and --regtest" << ENDL;
       return 1;
