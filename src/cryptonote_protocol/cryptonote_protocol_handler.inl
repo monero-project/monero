@@ -1493,14 +1493,28 @@ namespace cryptonote
             return 1;
           }
 
+          bool stopped = false;
+          auto cleanup_on_exit = epee::misc_utils::create_scope_leave_handler([this, &stopped, &context, span_connection_id, start_height]() {
+            if (!m_core.cleanup_handle_incoming_blocks())
+            {
+              LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
+              return;
+            }
+
+            if (stopped)
+              return;
+
+            m_block_queue.remove_spans(span_connection_id, start_height);
+          });
+
           uint64_t block_process_time_full = 0, transactions_process_time_full = 0;
           size_t num_txs = 0, blockidx = 0;
           for(const block_complete_entry& block_entry: blocks)
           {
             if (m_stopping)
             {
-                m_core.cleanup_handle_incoming_blocks();
-                return 1;
+              stopped = true;
+              return 1;
             }
 
             // process transactions
@@ -1519,13 +1533,6 @@ namespace cryptonote
                 }))
                   LOG_ERROR_CCONTEXT("span connection id not found");
 
-                if (!m_core.cleanup_handle_incoming_blocks())
-                {
-                  LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
-                  return 1;
-                }
-                // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
-                m_block_queue.remove_spans(span_connection_id, start_height);
                 return 1;
             }
             TIME_MEASURE_FINISH(transactions_process_time);
@@ -1552,14 +1559,6 @@ namespace cryptonote
               }))
                 LOG_ERROR_CCONTEXT("span connection id not found");
 
-              if (!m_core.cleanup_handle_incoming_blocks())
-              {
-                LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
-                return 1;
-              }
-
-              // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
-              m_block_queue.remove_spans(span_connection_id, start_height);
               return 1;
             }
             if(bvc.m_marked_as_orphaned)
@@ -1572,14 +1571,6 @@ namespace cryptonote
               }))
                 LOG_ERROR_CCONTEXT("span connection id not found");
 
-              if (!m_core.cleanup_handle_incoming_blocks())
-              {
-                LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
-                return 1;
-              }
-
-              // in case the peer had dropped beforehand, remove the span anyway so other threads can wake up and get it
-              m_block_queue.remove_spans(span_connection_id, start_height);
               return 1;
             }
 
@@ -1591,13 +1582,7 @@ namespace cryptonote
 
           MDEBUG(context << "Block process time (" << blocks.size() << " blocks, " << num_txs << " txs): " << block_process_time_full + transactions_process_time_full << " (" << transactions_process_time_full << "/" << block_process_time_full << ") ms");
 
-          if (!m_core.cleanup_handle_incoming_blocks())
-          {
-            LOG_PRINT_CCONTEXT_L0("Failure in cleanup_handle_incoming_blocks");
-            return 1;
-          }
-
-          m_block_queue.remove_spans(span_connection_id, start_height);
+          cleanup_on_exit.reset();
 
           const uint64_t current_blockchain_height = m_core.get_current_blockchain_height();
           if (current_blockchain_height > previous_height)
