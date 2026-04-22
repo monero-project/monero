@@ -277,6 +277,15 @@ namespace cryptonote
      static void init_options(boost::program_options::options_description& desc);
 
      /**
+      * @brief resolves the network type based on command line arguments
+      * @param vm variables map
+      * @return network type corresponding to arg_{testnet,stagenet,regtest}_on, defaulting to MAINNET
+      * @throw std::runtime_error if more than 1 of arg_{testnet,stagenet,regtest}_on is present
+      * @throw boost::bad_any_cast if arg_{testnet,stagenet,regtest}_on weren't added to vm
+      */
+     static network_type get_network_type_from_args(const boost::program_options::variables_map& vm);
+
+     /**
       * @brief initializes the core as needed
       *
       * This function initializes the transaction pool, the Blockchain, and

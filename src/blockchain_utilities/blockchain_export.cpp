@@ -68,6 +68,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_cmd_sett, arg_output_file);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_testnet_on);
   command_line::add_arg(desc_cmd_sett, cryptonote::arg_stagenet_on);
+  command_line::add_arg(desc_cmd_sett, cryptonote::arg_regtest_on);
   command_line::add_arg(desc_cmd_sett, arg_log_level);
   command_line::add_arg(desc_cmd_sett, arg_block_start);
   command_line::add_arg(desc_cmd_sett, arg_block_stop);
@@ -105,13 +106,6 @@ int main(int argc, char* argv[])
 
   LOG_PRINT_L0("Starting...");
 
-  bool opt_testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
-  bool opt_stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
-  if (opt_testnet && opt_stagenet)
-  {
-    std::cerr << "Can't specify more than one of --testnet and --stagenet" << std::endl;
-    return 1;
-  }
   bool opt_blocks_dat = command_line::get_arg(vm, arg_blocks_dat);
 
   std::string m_config_folder;
@@ -162,7 +156,8 @@ int main(int argc, char* argv[])
     LOG_PRINT_L0("Error opening database: " << e.what());
     return 1;
   }
-  r = core_storage->init(db, opt_testnet ? cryptonote::TESTNET : opt_stagenet ? cryptonote::STAGENET : cryptonote::MAINNET);
+  const network_type net_type = core::get_network_type_from_args(vm);
+  r = core_storage->init(db, net_type);
 
   if (core_storage->get_blockchain_pruning_seed() && !opt_blocks_dat)
   {
