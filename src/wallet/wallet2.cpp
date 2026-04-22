@@ -984,7 +984,7 @@ bool get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry,
     // only v2 txes can calculate their txid after pruned
     if (bd[0] > 1)
     {
-      tx_hash = cryptonote::get_pruned_transaction_hash(tx, ph);
+      CHECK_AND_ASSERT_MES(cryptonote::get_pruned_transaction_hash(tx, ph, tx_hash), false, "Failed to get pruned tx hash");
     }
     else
     {
