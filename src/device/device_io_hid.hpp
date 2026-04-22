@@ -40,7 +40,7 @@ namespace hw {
 
 
 
-    /** HID class base. Commands are formated as follow:
+    /** HID class base. Commands are formatted as follows:
      *
      * |----------------------------------------------------------|
      * |  2 bytes  |  1 byte  |  2 bytes  | 2 bytes  |  len bytes |

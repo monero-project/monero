@@ -460,7 +460,7 @@ namespace hw {
       logCMD();
 
       this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, false);
-      ASSERT_X(this->length_recv>=2, "Communication error, less than tow bytes received");
+      ASSERT_X(this->length_recv>=2, "Communication error, less than two bytes received");
 
       this->length_recv -= 2;
       this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
@@ -519,7 +519,7 @@ namespace hw {
       this->controle_device = &hw::get_device("default");
       this->release();
       hw_device.init();      
-      MDEBUG( "Device "<<this->id <<" HIDUSB inited");
+      MDEBUG( "Device "<<this->id <<" HIDUSB initiated");
       return true;
     }
     
@@ -619,7 +619,7 @@ namespace hw {
         //spcialkey, normal conf handled in decrypt
         send_simple(INS_GET_KEY, 0x02);
 
-        //View key is retrievied, if allowed, to speed up blockchain parsing
+        //View key is retrieved, if allowed, to speed up blockchain parsing
         crypto::secret_key view_secret_key;
         memmove(view_secret_key.data, this->buffer_recv+0, 32);
 
@@ -704,7 +704,7 @@ namespace hw {
         #endif
 
       if ((this->mode == TRANSACTION_PARSE) && has_view_key) {     
-        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved uncrypted (wihtout the help
+        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved unencrypted (without the help
         //of the device), so continue that way.
         MDEBUG( "derive_subaddress_public_key  : PARSE mode with known viewkey");     
         if (!crypto::derive_subaddress_public_key(pub, derivation, output_index,derived_pub))
@@ -1064,8 +1064,8 @@ namespace hw {
         #endif
 
       if ((this->mode == TRANSACTION_PARSE)  && has_view_key) {
-        //A derivation is resquested in PASRE mode and we have the view key,
-        //so do that wihtout the device and return the derivation unencrypted.
+        //A derivation is requested in PARSE mode and we have the view key,
+        //so do that without the device and return the derivation unencrypted.
         MDEBUG( "generate_key_derivation  : PARSE mode with known viewkey");     
         //Note derivation in PARSE mode can only happen with viewkey, so assert it!
         assert(is_fake_view_key(sec));
@@ -1084,7 +1084,7 @@ namespace hw {
         this->exchange();
 
         offset = 0;
-        //derivattion data
+        //derivation data
         this->receive_secret((unsigned char*)derivation.data, offset);
 
         r = true;
@@ -1329,7 +1329,7 @@ namespace hw {
       #endif
 
       if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
-        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved uncrypted (wihtout the help
+        //If we are in TRANSACTION_PARSE, the given derivation has been retrieved unencrypted (without the help
         //of the device), so continue that way.
         MDEBUG( "derive_view_tag  : PARSE mode with known viewkey");
         crypto::derive_view_tag(derivation, output_index, view_tag);
