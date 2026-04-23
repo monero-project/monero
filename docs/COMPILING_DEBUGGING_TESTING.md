@@ -2,7 +2,7 @@
 
 This document describes ways of compiling, debugging and testing efficiently for various use cases.
 The intended audience are developers, who want to leverage newly added tricks to Monero via `CMake`. The document will lower the entry point for these developers.
-Before reading this document, please consult section "Build instructions" in the main README.md. 
+Before reading this document, please consult section "Build instructions" in the main README.md.
 Some information from README.md will be repeated here, but the aim is to go beyond it.
 
 ## Basic compilation
@@ -59,7 +59,7 @@ This parameter is what we need to transfer to CB, in order to reflect the same b
 
 `Project -> Set program's arguments...`
 
-Then in the `Program's arguments` textbox you'd write in this case: 
+Then in the `Program's arguments` textbox you'd write in this case:
 
 `--gtest_filter="logging.*"`
 
@@ -72,15 +72,51 @@ If everything looks fine, then after setting some breakpoints of your choice, th
 `Debug -> Start/Continue`
 
 ## To be done (and merged):
+
 ### Multihost parallel compilation
+
 https://github.com/monero-project/monero/pull/7160
 
 ### Faster core_tests with caching
+
 https://github.com/monero-project/monero/pull/5821
 
 ### Precompiled headers
+
 https://github.com/monero-project/monero/pull/7216
 
 ### Unity builds
+
 https://github.com/monero-project/monero/pull/7217
 
+## Common Build Errors (Linux)
+
+The following are common issues encountered during compilation on Linux systems and their solutions.
+
+### Missing dependencies
+
+Error:
+
+```
+fatal error: unbound.h: No such file or directory
+```
+
+Solution:
+
+```bash
+sudo apt install libunbound-dev
+```
+
+### Build fails due to missing Boost
+
+Error:
+
+```
+Could not find Boost
+```
+
+Solution:
+
+```bash
+sudo apt install libboost-all-dev
+```
