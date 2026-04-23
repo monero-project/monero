@@ -77,6 +77,9 @@ outputs = []
 ports = []
 
 for i in range(N_MONERODS):
+  # monerod's default --config-file is resolved from daemonizer::get_default_data_dir()
+  # rather than --data-dir, so pass an explicit empty config to keep these tests
+  # hermetic even when the developer has a local ~/.bitmonero/bitmonero.conf.
   monerod_data_dir = builddir + "/functional-tests-directory/monerod" + str(i)
   os.makedirs(monerod_data_dir, exist_ok = True)
   monerod_config_path = monerod_data_dir + "/monerod.conf"
