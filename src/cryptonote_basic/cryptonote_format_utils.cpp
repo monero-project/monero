@@ -1138,15 +1138,15 @@ namespace cryptonote
     switch (decimal_point)
     {
       case 12:
-        return "monero";
+        return "battleground";
       case 9:
-        return "millinero";
+        return "milliground";
       case 6:
-        return "micronero";
+        return "microground";
       case 3:
-        return "nanonero";
+        return "nanoground";
       case 0:
-        return "piconero";
+        return "picoground";
       default:
         ASSERT_MES_AND_THROW("Invalid decimal point specification: " << decimal_point);
     }

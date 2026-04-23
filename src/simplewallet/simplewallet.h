@@ -52,8 +52,11 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
-// Hardcode Monero's donation address (see #1447)
-constexpr const char MONERO_DONATION_ADDR[] = "888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H";
+// No canonical Battleground donation address is configured yet. Leaving this
+// empty causes the `donate` CLI command to fail to parse a mainnet address and
+// surface an explicit error to the user instead of forwarding to a stale
+// Monero address that would never be valid under Battleground's prefixes.
+constexpr const char MONERO_DONATION_ADDR[] = "";
 
 /*!
  * \namespace cryptonote

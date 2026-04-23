@@ -314,26 +314,17 @@ namespace cryptonote
   {
     std::vector<std::string> records;
 
-    // All four MoneroPulse domains have DNSSEC on and valid
-    static const std::vector<std::string> dns_urls = { "checkpoints.moneropulse.se"
-						     , "checkpoints.moneropulse.org"
-						     , "checkpoints.moneropulse.net"
-						     , "checkpoints.moneropulse.co"
-    };
+    // Battleground has no canonical DNS checkpoint hosts yet. Keep the lists
+    // empty so that no Monero infrastructure is queried for our chain.
+    static const std::vector<std::string> dns_urls = {};
+    static const std::vector<std::string> testnet_dns_urls = {};
+    static const std::vector<std::string> stagenet_dns_urls = {};
 
-    static const std::vector<std::string> testnet_dns_urls = { "testpoints.moneropulse.se"
-							     , "testpoints.moneropulse.org"
-							     , "testpoints.moneropulse.net"
-							     , "testpoints.moneropulse.co"
-    };
+    const auto &urls = nettype == TESTNET ? testnet_dns_urls : nettype == STAGENET ? stagenet_dns_urls : dns_urls;
+    if (urls.empty())
+      return true;
 
-    static const std::vector<std::string> stagenet_dns_urls = { "stagenetpoints.moneropulse.se"
-                   , "stagenetpoints.moneropulse.org"
-                   , "stagenetpoints.moneropulse.net"
-                   , "stagenetpoints.moneropulse.co"
-    };
-
-    if (!tools::dns_utils::load_txt_records_from_dns(records, nettype == TESTNET ? testnet_dns_urls : nettype == STAGENET ? stagenet_dns_urls : dns_urls))
+    if (!tools::dns_utils::load_txt_records_from_dns(records, urls))
       return true; // why true ?
 
     for (const auto& record : records)

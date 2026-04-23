@@ -301,12 +301,11 @@ namespace nodetool
     virtual void clear_used_stripe_peers();
 
   private:
-    const std::vector<std::string> m_seed_nodes_list =
-    { "seeds.moneroseeds.se"
-    , "seeds.moneroseeds.ae.org"
-    , "seeds.moneroseeds.ch"
-    , "seeds.moneroseeds.li"
-    };
+    // Battleground has no canonical DNS seed hosts yet. This list is
+    // intentionally empty so a newly launched node does not query Monero
+    // seed infrastructure. Add authoritative Battleground hostnames here
+    // once such infrastructure exists.
+    const std::vector<std::string> m_seed_nodes_list = {};
 
     bool islimitup=false;
     bool islimitdown=false;
