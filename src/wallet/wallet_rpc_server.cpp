@@ -4701,10 +4701,25 @@ namespace tools
     ssl_allowed_fingerprints.reserve(req.ssl_allowed_fingerprints.size());
     for (const std::string &fp: req.ssl_allowed_fingerprints)
     {
-      ssl_allowed_fingerprints.push_back({});
-      std::vector<uint8_t> &v = ssl_allowed_fingerprints.back();
-      for (auto c: fp)
-        v.push_back(c);
+      std::vector<uint8_t> decoded;
+      try
+      {
+        decoded = epee::from_hex_locale::to_vector(fp);
+      }
+      catch (const std::exception &)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+        er.message = "ssl_allowed_fingerprints[] entries must be hex-encoded SHA-256 values";
+        return false;
+      }
+
+      if (decoded.size() != SSL_FINGERPRINT_SIZE)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+        er.message = "Each ssl_allowed_fingerprints[] entry must decode to exactly " BOOST_PP_STRINGIZE(SSL_FINGERPRINT_SIZE) " bytes";
+        return false;
+      }
+      ssl_allowed_fingerprints.emplace_back(std::move(decoded));
     }
 
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
