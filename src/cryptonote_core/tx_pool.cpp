@@ -339,15 +339,15 @@ namespace cryptonote
         MERROR("internal error: error adding transaction to txpool: " << e.what());
         return false;
       }
-
-      static_assert(unsigned(relay_method::none) == 0, "expected relay_method::none value to be zero");
-      if(meta.fee > 0 && tx_relay != relay_method::forward)
-        tvc.m_relay = tx_relay;
     }
 
     tvc.m_verifivation_failed = false;
     if (tvc.m_added_to_pool)
       m_txpool_weight += tx_weight;
+
+    static_assert(unsigned(relay_method::none) == 0, "expected relay_method::none value to be zero");
+    if (meta.fee > 0 && tx_relay != relay_method::forward)
+      tvc.m_relay = tx_relay;
 
     ++m_cookie;
 
