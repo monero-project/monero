@@ -116,6 +116,8 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      * @param valid_input_verification_id a previously valid verID if non-null
+     * @return True if tx passes verification checks AND is first observation
+     *   of tx in `broadcasted` relay method.
      */
     bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
       size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
@@ -144,7 +146,8 @@ namespace cryptonote
      * passes the non-input consensus tests (e.g. for newly received relayed txs), then leave
      * "nic_verified_hf_version" as its default value of 0 (there is no v0 fork).
      *
-     * @return true if the transaction passes validations, otherwise false
+     * @return True if tx passes verification checks AND is first observation
+     *   of tx in `broadcasted` relay method.
      */
     bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
       uint8_t version, uint8_t nic_verified_hf_version = 0,
