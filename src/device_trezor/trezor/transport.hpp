@@ -383,7 +383,7 @@ namespace trezor {
                        boost::optional<messages::MessageType> resp_type = boost::none)
   {
     // Require strictly protocol buffers response in the template.
-    BOOST_STATIC_ASSERT(boost::is_base_of<google::protobuf::Message, t_message>::value);
+    static_assert(std::is_base_of_v<google::protobuf::Message, t_message>);
 
     // Write the request
     transport.write(req);
