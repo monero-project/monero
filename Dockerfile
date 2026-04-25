@@ -1,7 +1,7 @@
 # Multistage docker build, requires docker 17.05
 
 # builder stage
-FROM ubuntu:20.04 AS builder
+FROM ubuntu:26.04 AS builder
 
 RUN set -ex && \
     apt-get update && \
@@ -26,7 +26,9 @@ RUN set -ex && \
     fi
 
 # runtime stage
-FROM ubuntu:20.04
+FROM ubuntu:26.04
+
+ENV UID=999
 
 RUN set -ex && \
     apt-get update && \
@@ -36,7 +38,7 @@ RUN set -ex && \
 COPY --from=builder /src/build/x86_64-linux-gnu/release/bin /usr/local/bin/
 
 # Create monero user
-RUN adduser --system --group --disabled-password monero && \
+RUN useradd --system --user-group --uid $UID monero && \
 	mkdir -p /wallet /home/monero/.bitmonero && \
 	chown -R monero:monero /home/monero/.bitmonero && \
 	chown -R monero:monero /wallet
@@ -57,4 +59,3 @@ USER monero
 
 ENTRYPOINT ["monerod"]
 CMD ["--p2p-bind-ip=0.0.0.0", "--p2p-bind-port=18080", "--rpc-bind-ip=0.0.0.0", "--rpc-bind-port=18081", "--non-interactive", "--confirm-external-bind"]
-
