@@ -12481,7 +12481,7 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, s
       req.client = get_client_signature();
       uint64_t pre_call_credits = m_rpc_payment_state.credits;
       bool ok = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-      THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+      THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
                                 error::wallet_internal_error, "Failed to get transaction from daemon");
       check_rpc_cost("/gettransactions", res.credits, pre_call_credits, res.txs.size() * COST_PER_TX);
     }
@@ -12489,15 +12489,12 @@ bool wallet2::get_tx_key(const crypto::hash &txid, crypto::secret_key &tx_key, s
     cryptonote::transaction tx;
     crypto::hash tx_hash{};
     cryptonote::blobdata tx_data;
-    crypto::hash tx_prefix_hash{};
-    bool ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
+    bool ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
     THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx, tx_hash, tx_prefix_hash),
-                              error::wallet_internal_error, "Failed to validate transaction from daemon");
     THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
                               "Failed to get the right transaction from daemon");
 
-    tx_key_data.tx_prefix_hash = std::string(tx_prefix_hash.data, 32);
+    tx_key_data.tx_prefix_hash = std::string(get_transaction_prefix_hash(tx).data, 32);
   }
 
   std::vector<crypto::secret_key> tx_keys;
@@ -12886,27 +12883,15 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
     uint64_t pre_call_credits = m_rpc_payment_state.credits;
     req.client = get_client_signature();
     ok = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-    THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+    THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
       error::wallet_internal_error, "Failed to get transaction from daemon");
     check_rpc_cost("/gettransactions", res.credits, pre_call_credits, COST_PER_TX);
   }
 
   cryptonote::transaction tx;
   crypto::hash tx_hash;
-  if (res.txs.size() == 1)
-  {
-    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
-    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-  }
-  else
-  {
-    cryptonote::blobdata tx_data;
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx),
-        error::wallet_internal_error, "Failed to validate transaction from daemon");
-    tx_hash = cryptonote::get_transaction_hash(tx);
-  }
+  ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
 
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
     "Failed to get the right transaction from daemon");
@@ -12984,27 +12969,15 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
       uint64_t pre_call_credits = m_rpc_payment_state.credits;
       req.client = get_client_signature();
       ok = net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-      THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+      THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
         error::wallet_internal_error, "Failed to get transaction from daemon");
       check_rpc_cost("/gettransactions", res.credits, pre_call_credits, COST_PER_TX);
     }
 
     cryptonote::transaction tx;
     crypto::hash tx_hash;
-    if (res.txs.size() == 1)
-    {
-      ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
-      THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-    }
-    else
-    {
-      cryptonote::blobdata tx_data;
-      ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-      THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-      THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx),
-          error::wallet_internal_error, "Failed to validate transaction from daemon");
-      tx_hash = cryptonote::get_transaction_hash(tx);
-    }
+    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
 
     THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
 
@@ -13145,27 +13118,15 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
     uint64_t pre_call_credits = m_rpc_payment_state.credits;
     req.client = get_client_signature();
     ok = net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-    THROW_WALLET_EXCEPTION_IF(!ok || (res.txs.size() != 1 && res.txs_as_hex.size() != 1),
+    THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
       error::wallet_internal_error, "Failed to get transaction from daemon");
     check_rpc_cost("/gettransactions", res.credits, pre_call_credits, COST_PER_TX);
   }
 
   cryptonote::transaction tx;
   crypto::hash tx_hash;
-  if (res.txs.size() == 1)
-  {
-    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
-    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-  }
-  else
-  {
-    cryptonote::blobdata tx_data;
-    ok = string_tools::parse_hexstr_to_binbuff(res.txs_as_hex.front(), tx_data);
-    THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_from_blob(tx_data, tx),
-        error::wallet_internal_error, "Failed to validate transaction from daemon");
-    tx_hash = cryptonote::get_transaction_hash(tx);
-  }
+  ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
 
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
 
@@ -13178,7 +13139,7 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
   {
     std::string err;
     uint64_t bc_height = get_daemon_blockchain_height(err);
-    if (err.empty())
+    if (err.empty() && bc_height > res.txs.front().block_height)
       confirmations = bc_height - res.txs.front().block_height;
   }
 
