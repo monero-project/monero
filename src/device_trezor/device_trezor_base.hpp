@@ -33,6 +33,7 @@
 
 #include <cstddef>
 #include <string>
+#include <type_traits>
 #include "device/device.hpp"
 #include "device/device_default.hpp"
 #include "device/device_cold.hpp"
@@ -147,7 +148,7 @@ namespace trezor {
                       bool open_session = false)
       {
         // Require strictly protocol buffers response in the template.
-        BOOST_STATIC_ASSERT(boost::is_base_of<google::protobuf::Message, t_message>::value);
+        static_assert(std::is_base_of<google::protobuf::Message, t_message>::value);
         const bool accepting_base = boost::is_same<google::protobuf::Message, t_message>::value;
         if (resp_types && !accepting_base){
           throw std::invalid_argument("Cannot specify list of accepted types and not using generic response");

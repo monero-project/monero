@@ -32,6 +32,7 @@
 
 #include "transport.hpp"
 #include "messages/messages-debug.pb.h"
+#include <type_traits>
 
 
 namespace hw {
@@ -60,7 +61,7 @@ namespace trezor {
         const boost::optional<messages::MessageType> &resp_type = boost::none,
         bool no_wait = false)
     {
-      BOOST_STATIC_ASSERT(boost::is_base_of<google::protobuf::Message, t_message>::value);
+      static_assert(std::is_base_of<google::protobuf::Message, t_message>::value);
 
       m_transport->write(req);
       if (no_wait){
