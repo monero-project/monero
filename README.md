@@ -206,7 +206,7 @@ sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-deve
 Install all dependencies at once on openSUSE:
 
 ```
-sudo zypper ref && sudo zypper in cppzmq-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libexpat-devel libminiupnpc-devel libsodium-devel libunwind-devel unbound-devel cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel xz-devel libqt5-qttools-devel patterns-devel-C-C++-devel_C_C++
+sudo zypper ref && sudo zypper in cppzmq-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libexpat-devel libsodium-devel libunwind-devel unbound-devel cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel xz-devel libqt5-qttools-devel patterns-devel-C-C++-devel_C_C++
 ```
 
 Install all dependencies at once on macOS with the provided Brewfile:
@@ -633,15 +633,13 @@ setting the following configuration parameters and environment variables:
 
 * `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in
   monerod.conf to disable listening for connections on external interfaces.
-* `--no-igd` on the command line or `no-igd=1` in monerod.conf to disable IGD
-  (UPnP port forwarding negotiation), which is pointless with Tor.
 * If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
   then use `--untrusted-daemon` unless it is your own hidden service.
 
 Example command line to start monerod through Tor:
 
 ```bash
-monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1 --no-igd
+monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1
 ```
 
 A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed
@@ -655,7 +653,7 @@ allow inbound connections. Full example:
 
 ```bash
 sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
-DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --no-igd --rpc-bind-ip 127.0.0.1 \
+DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --rpc-bind-ip 127.0.0.1 \
     --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
 ```
 
