@@ -14,7 +14,7 @@ on:
 env:
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
   BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all && cmake --build build --target wallet_api'
-  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev miniupnpc libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
+  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
     Acquire::Retries "3";
@@ -45,7 +45,7 @@ jobs:
         run: |
           brew uninstall cmake
           brew update
-          brew install --quiet cmake boost hidapi openssl zmq libpgm miniupnpc expat libunwind-headers protobuf ccache
+          brew install --quiet cmake boost hidapi openssl zmq libpgm expat libunwind-headers protobuf ccache
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}

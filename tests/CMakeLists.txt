@@ -36,8 +36,6 @@ set(TEST_DATA_DIR "${CMAKE_CURRENT_LIST_DIR}/data")
 
 if (WIN32 AND STATIC)
   add_definitions(-DSTATICLIB)
-  # miniupnp changed their static define
-  add_definitions(-DMINIUPNP_STATICLIB)
 endif ()
 
 find_package(GTest)
