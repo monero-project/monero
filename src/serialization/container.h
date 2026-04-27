@@ -28,6 +28,12 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <algorithm>
+#include <cstdint>
+#include <cstddef>
+#include <limits>
+#include <type_traits>
+
 namespace serialization
 {
   namespace detail
@@ -57,8 +63,30 @@ namespace serialization
       return true;
     }
 
-    template <typename C>
-    void do_reserve(C &c, size_t N) {}
+    //! @brief Reserve space for N elements if applicable for container.
+    template<typename... C>
+    void do_reserve(const C&...) {}
+    template<typename C>
+    auto do_reserve(C &c, std::size_t N, std::size_t B) -> decltype(c.reserve(N))
+    {
+      using T = typename C::value_type;
+
+      static constexpr std::size_t max_compression_ratio =
+        is_blob_type<T>::type::value ? 1 :
+        use_container_varint<T>() ? sizeof(T) :
+        (std::is_same<T, char>::value || std::is_same<T, unsigned char>::value) ? 1:
+        4; // default
+
+      // max compression ratio for upfront memory usage
+      B /= sizeof(T);
+      B = std::max(std::size_t(1), B);
+      if (std::numeric_limits<std::size_t>::max() / max_compression_ratio <= B)
+        B = std::numeric_limits<std::size_t>::max();
+      else
+        B *= max_compression_ratio;
+
+      return c.reserve(std::min(N, B));
+    }
   }
 }
 
@@ -77,7 +105,7 @@ bool do_serialize_container(Archive<false> &ar, C &v)
     return false;
   }
 
-  ::serialization::detail::do_reserve(v, cnt);
+  ::serialization::detail::do_reserve(v, cnt, ar.remaining_bytes());
 
   for (size_t i = 0; i < cnt; i++) {
     if (i > 0)

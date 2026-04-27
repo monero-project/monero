@@ -87,7 +87,6 @@ namespace serialization
 {
   namespace detail
   {
-    template <typename T> void do_reserve(std::vector<T> &c, size_t N) { c.reserve(N); }
     template <typename T> void do_add(std::vector<T> &c, T &&e) { c.emplace_back(std::forward<T>(e)); }
 
     template <typename T> void do_add(std::deque<T> &c, T &&e) { c.emplace_back(std::forward<T>(e)); }
