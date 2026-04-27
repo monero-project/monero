@@ -75,6 +75,9 @@ if(DEVICE_TREZOR_READY)
 
     if(ANDROID)
         set(TREZOR_EXTRA_LIBRARIES "log")
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|armv7)")
+            list(APPEND TREZOR_EXTRA_LIBRARIES atomic)
+        endif()
     endif()
 
     monero_private_headers(device_trezor
