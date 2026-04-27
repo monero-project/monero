@@ -50,6 +50,7 @@ constexpr size_t restricted_max_fake_outs = 5000;
 constexpr auto restricted_histogram_cutoff = std::chrono::hours{3 * 24};
 constexpr size_t restricted_max_txs = 100;
 constexpr size_t restricted_max_key_images = 5000;
+constexpr size_t restricted_max_block_headers = 1000;
 }
 
 namespace cryptonote
@@ -697,6 +698,13 @@ namespace rpc
 
   void DaemonHandler::handle(const GetBlockHeadersByHeight::Request& req, GetBlockHeadersByHeight::Response& res)
   {
+    if (m_restricted && req.heights.size() > restricted_max_block_headers)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Too many block headers requested in restricted mode";
+      return;
+    }
+
     res.headers.resize(req.heights.size());
 
     for (size_t i=0; i < req.heights.size(); i++)
