@@ -107,7 +107,8 @@ set(unit_tests_sources
   aligned.cpp
   rpc_version_str.cpp
   x25519.cpp
-  zmq_rpc.cpp)
+  zmq_rpc.cpp
+  i2p_sam.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
