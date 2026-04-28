@@ -57,6 +57,7 @@
 #include "net/enums.h"
 #include "net/parse.h"
 #include "common/command_line.h"
+#include "net/i2p_sam.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -104,6 +105,8 @@ namespace nodetool
   // hides boost::future and chrono stuff from mondo template file
   boost::optional<boost::asio::ip::tcp::socket>
   socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote);
+  boost::optional<boost::asio::ip::tcp::socket>
+  sam_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& router, const net::i2p_address& remote);
 
 
   template<class base_type>
@@ -216,6 +219,7 @@ namespace nodetool
       peerlist_manager m_peerlist;
       config m_config;
       net::socks::endpoint m_proxy_address;
+      boost::asio::ip::tcp::endpoint m_sam_router_endpoint;
       std::atomic<unsigned int> m_current_number_of_out_peers;
       std::atomic<unsigned int> m_current_number_of_in_peers;
       boost::shared_mutex m_seed_nodes_lock;
@@ -473,6 +477,7 @@ namespace nodetool
 
     static boost::optional<p2p_connection_context> public_connect(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
     static boost::optional<p2p_connection_context> socks_connect(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
+    static boost::optional<p2p_connection_context> sam_connect(network_zone&, const epee::net_utils::network_address&, epee::net_utils::ssl_support_t);
 
 
     /* A `std::map` provides constant iterators and key/value pointers even with
@@ -522,6 +527,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy;
+    extern const command_line::arg_descriptor<std::string> arg_i2p_sam;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound;
     extern const command_line::arg_descriptor<std::string> arg_ban_list;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
