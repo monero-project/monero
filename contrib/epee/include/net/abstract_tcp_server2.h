@@ -153,7 +153,8 @@ namespace net_utils
     bool start_internal(
       bool is_income,
       bool is_multithreaded,
-      boost::optional<network_address> real_remote
+      boost::optional<network_address> real_remote,
+      std::string initial_data = {}
     );
 
     struct state_t {
@@ -307,7 +308,8 @@ namespace net_utils
     bool start(bool is_income, bool is_multithreaded);
 
     // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
-    bool start(bool is_income, bool is_multithreaded, network_address real_remote);
+    // `initial_data`, if non-empty, is treated as already read from the socket.
+    bool start(bool is_income, bool is_multithreaded, network_address real_remote, std::string initial_data = {});
 
     void get_context(t_connection_context& context_){context_ = get_context();}
 
@@ -416,7 +418,8 @@ namespace net_utils
       default_remote = std::move(remote);
     }
 
-    bool add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+    // `initial_data`, if non-empty, is treated as already read from `sock`.
+    bool add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, std::string initial_data = {});
     try_connect_result_t try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support);
     bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
     template<class t_callback>
