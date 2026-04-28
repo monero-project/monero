@@ -337,7 +337,7 @@ public:
 
   void pop_block(block& blk, std::vector<transaction>& txs) override;
 
-  bool can_thread_bulk_indices() const { return true; }
+  bool can_thread_bulk_indices() const override { return true; }
 
   /**
    * @brief return a histogram of outputs on the blockchain
