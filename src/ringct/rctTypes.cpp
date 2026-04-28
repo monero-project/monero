@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2024, Monero Research Labs
+// Copyright (c) 2016-2026, Monero Research Labs
 //
 // Author: Shen Noether <shen.noether@gmx.com>
 // 
@@ -140,14 +140,18 @@ namespace rct {
     
     //32 byte key to uint long long
     // if the key holds a value > 2^64
-    // then the value in the first 8 bytes is returned    
-    xmr_amount h2d(const key & test) {
-        xmr_amount vali = 0;
+    // then false is returned
+    bool h2d(xmr_amount &amountd, const key & test) {
+        amountd = 0;
         int j = 0;
-        for (j = 7; j >= 0; j--) {
-            vali = (xmr_amount)(vali * 256 + (unsigned char)test.bytes[j]);
+        for (j = 8; j < 32; ++j) {
+            if (test.bytes[j])
+                return false;
         }
-        return vali;
+        for (j = 7; j >= 0; j--) {
+            amountd = (xmr_amount)(amountd * 256 + (unsigned char)test.bytes[j]);
+        }
+        return true;
     }
     
     //32 byte key to int[64]
