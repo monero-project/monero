@@ -38,6 +38,8 @@ int main(int argc, char *argv[]) {
 
   Success sc;
   sc.set_message("test");
-  sc.SerializeToOstream(&std::cerr);
+  if (!sc.SerializeToOstream(&std::cerr)) {
+      return -1;
+  }
   return 0;
 }
