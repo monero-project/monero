@@ -49,10 +49,6 @@ bool operator !=(const ec_scalar &a, const ec_scalar &b) {
   return 0 != memcmp(&a, &b, sizeof(ec_scalar));
 }
 
-bool operator !=(const ec_point &a, const ec_point &b) {
-  return 0 != memcmp(&a, &b, sizeof(ec_point));
-}
-
 bool operator !=(const key_derivation &a, const key_derivation &b) {
   return 0 != memcmp(&a, &b, sizeof(key_derivation));
 }
@@ -194,11 +190,11 @@ int main(int argc, char *argv[]) {
       if (expected != actual) {
         goto error;
       }
-    } else if (cmd == "hash_to_ec") {
+    } else if (cmd == "biased_hash_to_ec") {
       public_key key;
       ec_point expected, actual;
       get(input, key, expected);
-      hash_to_ec(key, actual);
+      biased_hash_to_ec(key, actual);
       if (expected != actual) {
         goto error;
       }
