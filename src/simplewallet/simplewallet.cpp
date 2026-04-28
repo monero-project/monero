@@ -6689,14 +6689,12 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
         uint64_t total_fee = 0;
         uint64_t dust_not_in_fee = 0;
         uint64_t dust_in_fee = 0;
-        uint64_t change = 0;
         for (size_t n = 0; n < ptx_vector.size(); ++n)
         {
           total_fee += ptx_vector[n].fee;
           for (auto i: ptx_vector[n].selected_transfers)
             total_sent += m_wallet->get_transfer_details(i).amount();
           total_sent -= ptx_vector[n].change_dts.amount + ptx_vector[n].fee;
-          change += ptx_vector[n].change_dts.amount;
 
           if (ptx_vector[n].dust_added_to_fee)
             dust_in_fee += ptx_vector[n].dust;

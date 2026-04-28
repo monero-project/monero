@@ -5055,7 +5055,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         } while(0); \
 
   // generate sorted tables for all amounts and absolute offsets
-  size_t tx_index = 0, block_index = 0;
+  size_t tx_index = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
@@ -5120,7 +5120,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
       }
     }
-    ++block_index;
   }
 
   // sort and remove duplicate absolute_offsets in offset_map

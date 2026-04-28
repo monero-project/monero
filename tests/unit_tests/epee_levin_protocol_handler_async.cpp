@@ -657,9 +657,6 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_bad_cb
   m_req_head.m_cb = sizeof(epee::levin::bucket_head2);
   m_req_head.m_flags = LEVIN_PACKET_BEGIN;
   m_req_head.m_command = 0;
-
-  epee::levin::bucket_head2 inner{};
-  inner.m_cb = 2;
   m_in_data.resize(sizeof(epee::levin::bucket_head2));
   prepare_buf();
 
