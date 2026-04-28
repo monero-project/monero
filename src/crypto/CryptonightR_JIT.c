@@ -14,8 +14,8 @@
 #include "CryptonightR_JIT.h"
 #include "CryptonightR_template.h"
 
-static const uint8_t prologue[] = {
 #if defined __i386 || defined __x86_64__
+static const uint8_t prologue[] = {
 	0x4C, 0x8B, 0xD7,	// mov r10, rdi
 	0x53,			// push rbx
 	0x55,			// push rbp
@@ -30,11 +30,9 @@ static const uint8_t prologue[] = {
 	0x41, 0x8B, 0x42, 0x18,	// mov eax, DWORD PTR [r10+24]
 	0x41, 0x8B, 0x52, 0x1C,	// mov edx, DWORD PTR [r10+28]
 	0x45, 0x8B, 0x4A, 0x20,	// mov r9d, DWORD PTR [r10+32]
-#endif
 };
 
 static const uint8_t epilogue[] = {
-#if defined __i386 || defined __x86_64__
 	0x49, 0x8B, 0xE3,	// mov rsp, r11
 	0x41, 0x89, 0x1A,	// mov DWORD PTR [r10], ebx
 	0x41, 0x89, 0x72, 0x04,	// mov DWORD PTR [r10+4], esi
@@ -44,8 +42,8 @@ static const uint8_t epilogue[] = {
 	0x5D,			// pop rbp
 	0x5B,			// pop rbx
 	0xC3,			// ret
-#endif
 };
+#endif
 
 #define APPEND_CODE(src, size) \
 	do { \
