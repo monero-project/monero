@@ -232,7 +232,7 @@ using testing::Types;
 
 typedef Types<BlockchainLMDB> implementations;
 
-TYPED_TEST_CASE(BlockchainDBTest, implementations);
+TYPED_TEST_SUITE(BlockchainDBTest, implementations);
 
 TYPED_TEST(BlockchainDBTest, OpenAndClose)
 {
