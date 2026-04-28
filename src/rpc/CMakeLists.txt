@@ -148,6 +148,7 @@ target_link_libraries(rpc_pub
     net
     cryptonote_basic
     serialization
+    wire-json
     ${Boost_THREAD_LIBRARY})
 
 target_link_libraries(daemon_messages
@@ -167,6 +168,7 @@ target_link_libraries(daemon_rpc_server
     version
     daemon_messages
     serialization
+    wire-json
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
