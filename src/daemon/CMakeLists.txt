@@ -33,6 +33,7 @@ set(daemon_sources
   executor.cpp
   main.cpp
   rpc_command_executor.cpp
+  landlock.cpp
 )
 
 set(daemon_headers)
