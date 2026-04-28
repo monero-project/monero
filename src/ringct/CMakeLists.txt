@@ -70,6 +70,7 @@ target_link_libraries(ringct
     common
     cncrypto
     device
+    fcmp_pp
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
