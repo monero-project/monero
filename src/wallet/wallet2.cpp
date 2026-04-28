@@ -13396,13 +13396,19 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
           loaded = true;
   }
   catch(...) {}
-  if (!loaded && m_load_deprecated_formats)
+  try
   {
-    std::istringstream iss(sig_decoded);
-    boost::archive::portable_binary_iarchive ar(iss);
-    ar >> proofs >> subaddr_spendkeys.parent();
+    if (!loaded && m_load_deprecated_formats)
+    {
+      std::istringstream iss(sig_decoded);
+      boost::archive::portable_binary_iarchive ar(iss);
+      ar >> proofs >> subaddr_spendkeys.parent();
+      loaded = true;
+    }
   }
+  catch(...) {}
 
+  THROW_WALLET_EXCEPTION_IF(!loaded, error::wallet_internal_error, "Failed to parse reserve proof signature data");
   THROW_WALLET_EXCEPTION_IF(subaddr_spendkeys.count(address.m_spend_public_key) == 0, error::wallet_internal_error,
     "The given address isn't found in the proof");
 
