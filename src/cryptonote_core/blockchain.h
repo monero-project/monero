@@ -992,6 +992,13 @@ namespace cryptonote
     bool flush_txes_from_pool(const std::vector<crypto::hash> &txids);
 
     /**
+     * @brief remove all transactions from the transaction pool (if present)
+     *
+     * @return false if any removals fail, otherwise true
+     */
+    bool flush_txes_from_pool();
+
+    /**
      * @brief return a histogram of outputs on the blockchain
      *
      * @param amounts optional set of amounts to lookup
