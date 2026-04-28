@@ -199,6 +199,7 @@ case "$HOST" in
                 aarch64-linux-gnu)     echo /lib/ld-linux-aarch64.so.1 ;;
                 riscv64-linux-gnu)     echo /lib/ld-linux-riscv64-lp64d.so.1 ;;
                 i686-linux-gnu)        echo /lib/ld-linux.so.2 ;;
+                loongarch64-linux-gnu) echo /lib64/ld-linux-loongarch-lp64d.so.1 ;;
                 *)                     exit 1 ;;
             esac
         )

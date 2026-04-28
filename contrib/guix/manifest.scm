@@ -276,7 +276,9 @@ chain for " target " development."))
            (list
              gcc-toolchain-14
              (list gcc-toolchain-14 "static")
-             (make-monero-cross-toolchain target)))
+             (if (string-contains target "loongarch64")
+               (make-monero-cross-toolchain target #:base-libc glibc)
+               (make-monero-cross-toolchain target))))
           ((string-contains target "freebsd")
            (list
              xz ; used to unpack freebsd_base
