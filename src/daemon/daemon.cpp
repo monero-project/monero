@@ -39,6 +39,7 @@
 #include "rpc/zmq_server.h"
 
 #include "common/password.h"
+#include "common/scoped_message_writer.h"
 #include "common/util.h"
 #include "cryptonote_basic/events.h"
 #include "daemon/core.h"
@@ -238,7 +239,10 @@ bool t_daemon::run(bool interactive)
   std::atomic<bool> stop(false), shutdown(false);
   boost::thread stop_thread = boost::thread([&stop, &shutdown, this] {
     while (!stop)
+    {
+      tools::signal_handler::dispatch();
       epee::misc_utils::sleep_no_w(100);
+    }
     if (shutdown)
       this->stop_p2p();
   });
@@ -246,7 +250,12 @@ bool t_daemon::run(bool interactive)
     stop = true;
     stop_thread.join();
   });
-  tools::signal_handler::install([&stop, &shutdown](int){ stop = shutdown = true; });
+  tools::signal_handler::install([&stop, &shutdown](int){
+    bool expected = false;
+    if (shutdown.compare_exchange_strong(expected, true))
+      tools::scoped_message_writer(epee::console_color_red, true, std::string(), el::Level::Warning) << "Ctrl-C received, shutting down node...";
+    stop = true;
+  });
 
   try
   {

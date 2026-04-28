@@ -1130,6 +1130,10 @@ namespace nodetool
     }
     MDEBUG("[node] Stop signal sent");
     m_payload_handler.stop();
+    // Join worker threads quickly on shutdown; if some are still stuck in
+    // connect/cancel paths, timed_wait_server_stop() will interrupt them.
+    for (auto& zone : m_network_zones)
+      zone.second.m_net_server.timed_wait_server_stop(2000);
     return true;
   }
   //-----------------------------------------------------------------------------------

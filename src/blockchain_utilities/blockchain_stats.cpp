@@ -280,6 +280,7 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
 
   for (h = block_start; h < block_stop; ++h)
   {
+    tools::signal_handler::dispatch();
     cryptonote::blobdata bd = db->get_block_blob_from_height(h);
     cryptonote::block blk;
     if (!cryptonote::parse_and_validate_block_from_blob(bd, blk))
