@@ -43,6 +43,7 @@ set(unit_tests_sources
   command_line.cpp
   crypto.cpp
   cryptonote_format_utils.cpp
+  curve_trees.cpp
   decompose_amount_into_digits.cpp
   device.cpp
   difficulty.cpp
@@ -120,6 +121,7 @@ target_link_libraries(unit_tests
     daemon_messages
     daemon_rpc_server
     blockchain_db
+    fcmp_pp
     lmdb_lib
     rpc
     net
