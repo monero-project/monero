@@ -1153,17 +1153,21 @@ namespace net_utils
     // execute terminate inside m_strand. So we wait for the connection's shutdown sequence to complete before stopping
     // the io_context.
     MDEBUG("Waiting for connection " << m_conn_context.m_connection_id << " to shutdown, current state: " << m_state.status);
-    m_state.condition.wait(
+    const bool shutdown = m_state.condition.wait_for(
       m_state.lock,
+      std::chrono::seconds(5),
       [this]{
         return (
           m_state.status == status_t::TERMINATED || m_state.status == status_t::WASTED
         );
       }
     );
-    MDEBUG("Shut down connection " << m_conn_context.m_connection_id);
+    if (shutdown)
+      MDEBUG("Shut down connection " << m_conn_context.m_connection_id);
+    else
+      MERROR("Connection " << m_conn_context.m_connection_id << " did not shut down");
 
-    return true;
+    return shutdown;
   }
 
   template<typename T>
