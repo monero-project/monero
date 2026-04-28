@@ -2626,8 +2626,7 @@ namespace tools
   }
   bool wallet_rpc_server::on_get_tx_key(const wallet_rpc::COMMAND_RPC_GET_TX_KEY::request& req, wallet_rpc::COMMAND_RPC_GET_TX_KEY::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
-    if (!m_wallet) return not_open(er);
-    CHECK_IF_BACKGROUND_SYNCING();
+    CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
 
     crypto::hash txid;
     if (!epee::string_tools::hex_to_pod(req.txid, txid))
@@ -2718,8 +2717,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_tx_proof(const wallet_rpc::COMMAND_RPC_GET_TX_PROOF::request& req, wallet_rpc::COMMAND_RPC_GET_TX_PROOF::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
-    if (!m_wallet) return not_open(er);
-    CHECK_IF_BACKGROUND_SYNCING();
+    CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
 
     crypto::hash txid;
     if (!epee::string_tools::hex_to_pod(req.txid, txid))
@@ -2785,6 +2783,12 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_spend_proof(const wallet_rpc::COMMAND_RPC_GET_SPEND_PROOF::request& req, wallet_rpc::COMMAND_RPC_GET_SPEND_PROOF::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
     if (!m_wallet) return not_open(er);
 
     crypto::hash txid;
@@ -2835,8 +2839,7 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_get_reserve_proof(const wallet_rpc::COMMAND_RPC_GET_RESERVE_PROOF::request& req, wallet_rpc::COMMAND_RPC_GET_RESERVE_PROOF::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
-    if (!m_wallet) return not_open(er);
-    CHECK_IF_BACKGROUND_SYNCING();
+    CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
 
     boost::optional<std::pair<uint32_t, uint64_t>> account_minreserve;
     if (!req.all)
