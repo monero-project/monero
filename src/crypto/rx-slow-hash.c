@@ -504,11 +504,11 @@ void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads) {
   CTHR_RWLOCK_UNLOCK_WRITE(main_dataset_lock);
 }
 
-uint32_t rx_get_miner_thread() {
+uint32_t rx_get_miner_thread(void) {
   return miner_thread;
 }
 
-void rx_slow_hash_allocate_state() {}
+void rx_slow_hash_allocate_state(void) {}
 
 static void rx_destroy_vm(randomx_vm** vm) {
   if (*vm) {
@@ -517,7 +517,7 @@ static void rx_destroy_vm(randomx_vm** vm) {
   }
 }
 
-void rx_slow_hash_free_state() {
+void rx_slow_hash_free_state(void) {
   rx_destroy_vm(&main_vm_full);
   rx_destroy_vm(&main_vm_light);
   rx_destroy_vm(&secondary_vm_light);
