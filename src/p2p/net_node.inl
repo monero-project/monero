@@ -1110,7 +1110,7 @@ namespace nodetool
     MDEBUG("[node] sending stop signal");
     for (auto& zone : m_network_zones)
     {
-      const auto close_all_connections = [&, this]()
+      const auto close_all_connections = [&]()
       {
         std::list<boost::uuids::uuid> connection_ids;
         zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
