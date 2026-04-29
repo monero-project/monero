@@ -182,7 +182,6 @@ void connection_basic::set_rate_up_limit(uint64_t limit) {
 		CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
 		network_throttle_manager::get_global_throttle_out().set_target_speed(limit);
 	}
-	save_limit_to_file(limit);
 }
 
 void connection_basic::set_rate_down_limit(uint64_t limit) {
@@ -195,7 +194,6 @@ void connection_basic::set_rate_down_limit(uint64_t limit) {
 	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_inreq );
 		network_throttle_manager::get_global_throttle_inreq().set_target_speed(limit);
 	}
-    save_limit_to_file(limit);
 }
 
 uint64_t connection_basic::get_rate_up_limit() {
@@ -214,9 +212,6 @@ uint64_t connection_basic::get_rate_down_limit() {
          limit = network_throttle_manager::get_global_throttle_in().get_target_speed();
 	}
     return limit;
-}
-
-void connection_basic::save_limit_to_file(int limit) {
 }
  
 void connection_basic::set_tos_flag(int tos) {
