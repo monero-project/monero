@@ -484,6 +484,11 @@ namespace cryptonote
     bool keep_fakechain = command_line::get_arg(vm, arg_keep_fakechain);
 
     boost::filesystem::path folder(m_config_folder);
+    // --regtest already appends "fake" through arg_data_dir. Some tests set
+    // FAKECHAIN directly through test_options instead of command line args, so
+    // preserve the legacy fakechain isolation for those callers.
+    if (m_nettype == FAKECHAIN && !command_line::get_arg(vm, arg_regtest_on))
+      folder /= "fake";
 
     // make sure the data directory exists, and try to lock it
     CHECK_AND_ASSERT_MES (boost::filesystem::exists(folder) || boost::filesystem::create_directories(folder), false,
