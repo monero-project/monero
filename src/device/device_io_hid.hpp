@@ -58,7 +58,7 @@ namespace hw {
     };
     
 
-    class device_io_hid: device_io {
+    class device_io_hid: public device_io {
       
 
     private:

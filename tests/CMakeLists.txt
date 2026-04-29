@@ -68,6 +68,11 @@ if (BUILD_GUI_DEPS)
   add_subdirectory(libwallet_api_tests)
 endif()
 
+option(LEDGER_DEBUG "Ledger debugging enabled" OFF)
+if (LEDGER_DEBUG)
+  add_subdirectory(ledger)
+endif()
+
 if (TREZOR_DEBUG)
   add_subdirectory(trezor)
 endif()
