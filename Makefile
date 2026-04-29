@@ -114,7 +114,4 @@ clean-all:
 	[ $$CONTINUE = "y" ] || [ $$CONTINUE = "Y" ] || (echo "Exiting."; exit 1;)
 	rm -rf ./build
 
-tags:
-	ctags -R --sort=1 --c++-kinds=+p --fields=+iaS --extra=+q --language-force=C++ src contrib tests/gtest
-
-.PHONY: all cmake-debug debug debug-test debug-all cmake-release release release-test release-all clean tags
+.PHONY: all cmake-debug debug debug-test debug-all cmake-release release release-test release-all clean
