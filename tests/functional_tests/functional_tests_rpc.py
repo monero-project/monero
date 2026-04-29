@@ -78,7 +78,15 @@ outputs = []
 ports = []
 
 for i in range(N_MONERODS):
-  command_lines.append([str(18180+i) if x == "monerod_rpc_port" else str(18280+i) if x == "monerod_p2p_port" else str(18380+i) if x == "monerod_zmq_port" else "tcp://127.0.0.1:" + str(18480+i) if x == "monerod_zmq_pub" else builddir + "/functional-tests-directory/monerod" + str(i) if x == "monerod_data_dir" else x for x in monerod_base])
+  # monerod's default --config-file is resolved from daemonizer::get_default_data_dir()
+  # rather than --data-dir, so pass an explicit empty config to keep these tests
+  # hermetic even when the developer has a local ~/.bitmonero/bitmonero.conf.
+  monerod_data_dir = builddir + "/functional-tests-directory/monerod" + str(i)
+  os.makedirs(monerod_data_dir, exist_ok = True)
+  monerod_config_path = monerod_data_dir + "/monerod.conf"
+  with open(monerod_config_path, 'w', encoding = 'utf-8'):
+    pass
+  command_lines.append([str(18180+i) if x == "monerod_rpc_port" else str(18280+i) if x == "monerod_p2p_port" else str(18380+i) if x == "monerod_zmq_port" else "tcp://127.0.0.1:" + str(18480+i) if x == "monerod_zmq_pub" else monerod_data_dir if x == "monerod_data_dir" else x for x in monerod_base] + ["--config-file", monerod_config_path])
   if i < len(monerod_extra):
     command_lines[-1] += monerod_extra[i]
   outputs.append(open(FUNCTIONAL_TESTS_DIRECTORY + '/monerod' + str(i) + '.log', 'a+'))
