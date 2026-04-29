@@ -5383,6 +5383,12 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     return true;
   }
 
+  const unsigned int hw_concurrency = boost::thread::hardware_concurrency();
+  if (hw_concurrency && req.threads_count > hw_concurrency)
+  {
+    message_writer(console_color_yellow, false) << boost::format(tr("Warning: %u mining threads requested exceeds the %u hardware threads available on this CPU. Consider using %u for best performance.")) % req.threads_count % hw_concurrency % hw_concurrency;
+  }
+
   COMMAND_RPC_START_MINING::response res;
   bool r = m_wallet->invoke_http_json("/start_mining", req, res);
   std::string err = interpret_rpc_response(r, res.status);
