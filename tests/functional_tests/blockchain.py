@@ -219,9 +219,12 @@ class BlockchainTest():
         assert res.emission_amount < extrapolated and res.emission_amount > extrapolated - 1e12
         assert res.fee_amount == 0
         sum_blocks_emission = res.emission_amount
-        res = daemon.get_coinbase_tx_sum(1, sum_blocks)
+        res = daemon.get_coinbase_tx_sum(1, sum_blocks - 1)
         assert res.emission_amount == sum_blocks_emission - 17592186044415
         assert res.fee_amount == 0
+        # height + count must not exceed the blockchain height
+        res = daemon.get_coinbase_tx_sum(1, sum_blocks)
+        assert res.status != 'OK'
 
         res = daemon.get_output_distribution([0, 1, 17592186044415], 0, 0)
         assert len(res.distributions) == 3
