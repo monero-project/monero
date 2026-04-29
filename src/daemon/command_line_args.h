@@ -135,7 +135,7 @@ namespace daemon_args
 
   const command_line::arg_descriptor<bool> arg_restricted_zmq_rpc = {
     "restricted-zmq-rpc"
-  , "Restrict ZMQ RPC to view-only / non-sensitive methods"
+  , "Restrict ZMQ RPC by disabling some sensitive methods; does not guarantee filtering of sensitive data"
   , false
   };
 
