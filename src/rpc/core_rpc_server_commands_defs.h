@@ -2440,7 +2440,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     {
       rpc::output_distribution_data data;
       uint64_t amount;
-      std::string compressed_data;
       bool binary;
       bool compress;
 
@@ -2449,31 +2448,24 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_N(data.start_height, "start_height")
         KV_SERIALIZE(binary)
         KV_SERIALIZE(compress)
-        if (this_ref.binary)
+        if (this_ref.binary && this_ref.compress)
         {
           if (is_store)
           {
-            if (this_ref.compress)
-            {
-              const_cast<std::string&>(this_ref.compressed_data) = compress_integer_array(this_ref.data.distribution);
-              KV_SERIALIZE(compressed_data)
-            }
-            else
-              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
+            std::string compressed_data = compress_integer_array(this_ref.data.distribution);
+            epee::serialization::selector<is_store>::serialize(compressed_data, stg, hparent_section, "compressed_data");
           }
           else
           {
-            if (this_ref.compress)
-            {
-              KV_SERIALIZE(compressed_data)
-              const_cast<std::vector<uint64_t>&>(this_ref.data.distribution) = decompress_integer_array<uint64_t>(this_ref.compressed_data);
-            }
-            else
-              KV_SERIALIZE_CONTAINER_POD_AS_BLOB_N(data.distribution, "distribution")
+            std::string compressed_data;
+            epee::serialization::selector<is_store>::serialize(compressed_data, stg, hparent_section, "compressed_data");
+            this_ref.data.distribution = decompress_integer_array<uint64_t>(compressed_data);
           }
         }
         else
+        {
           KV_SERIALIZE_N(data.distribution, "distribution")
+        }
         KV_SERIALIZE_N(data.base, "base")
       END_KV_SERIALIZE_MAP()
     };
