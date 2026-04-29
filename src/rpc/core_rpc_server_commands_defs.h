@@ -418,6 +418,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     struct response_t: public rpc_access_response_base
     {
       // older compatibility stuff
+      // TODO: remove after FCMP++ hf
       std::vector<std::string> txs_as_hex;  //transactions blobs as hex (old compat)
       std::vector<std::string> txs_as_json; //transactions decoded as json (old compat)
 

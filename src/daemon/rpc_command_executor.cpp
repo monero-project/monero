@@ -1006,23 +1006,20 @@ bool t_rpc_command_executor::print_transaction(crypto::hash transaction_hash,
     }
   }
 
-  if (1 == res.txs.size() || 1 == res.txs_as_hex.size())
+  if (1 == res.txs.size())
   {
-    if (1 == res.txs.size())
-    {
-      // only available for new style answers
-      static const std::string empty_hash = epee::string_tools::pod_to_hex(crypto::cn_fast_hash("", 0));
-      // prunable_hash will equal empty_hash when nothing is prunable (mostly when the transaction is coinbase)
-      bool pruned = res.txs.front().prunable_as_hex.empty() && res.txs.front().prunable_hash != epee::string_tools::pod_to_hex(crypto::null_hash) && res.txs.front().prunable_hash != empty_hash;
-      if (res.txs.front().in_pool)
-        tools::success_msg_writer() << "Found in pool";
-      else
-        tools::success_msg_writer() << "Found in blockchain at height " << res.txs.front().block_height << (pruned ? " (pruned)" : "");
-    }
+    // only available for new style answers
+    static const std::string empty_hash = epee::string_tools::pod_to_hex(crypto::cn_fast_hash("", 0));
+    // prunable_hash will equal empty_hash when nothing is prunable (mostly when the transaction is coinbase)
+    bool pruned = res.txs.front().prunable_as_hex.empty() && res.txs.front().prunable_hash != epee::string_tools::pod_to_hex(crypto::null_hash) && res.txs.front().prunable_hash != empty_hash;
+    if (res.txs.front().in_pool)
+      tools::success_msg_writer() << "Found in pool";
+    else
+      tools::success_msg_writer() << "Found in blockchain at height " << res.txs.front().block_height << (pruned ? " (pruned)" : "");
 
-    const std::string &as_hex = (1 == res.txs.size()) ? res.txs.front().as_hex : res.txs_as_hex.front();
-    const std::string &pruned_as_hex = (1 == res.txs.size()) ? res.txs.front().pruned_as_hex : "";
-    const std::string &prunable_as_hex = (1 == res.txs.size()) ? res.txs.front().prunable_as_hex : "";
+    const std::string &as_hex = res.txs.front().as_hex;
+    const std::string &pruned_as_hex = res.txs.front().pruned_as_hex;
+    const std::string &prunable_as_hex = res.txs.front().prunable_as_hex;
     // Print metadata if requested
     if (include_metadata)
     {
