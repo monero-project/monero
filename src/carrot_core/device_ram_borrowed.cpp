@@ -31,8 +31,11 @@
 
 //local headers
 #include "address_utils.h"
+extern "C"
+{
+#include "crypto/crypto-ops.h"
+}
 #include "enote_utils.h"
-#include "ringct/rctOps.h"
 
 //third party headers
 
@@ -45,7 +48,11 @@ namespace carrot
 bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_ed25519(const crypto::public_key &P,
     crypto::public_key &kvP) const
 {
-    kvP = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(P), rct::sk2rct(m_k_view_incoming)));
+    ge_p3 P_p3;
+    if (0 != ge_frombytes_vartime(&P_p3, to_bytes(P)))
+        return false;
+    ge_scalarmult_p3(&P_p3, to_bytes(this->m_k_view_incoming), &P_p3);
+    ge_p3_tobytes(to_bytes(kvP), &P_p3);
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -98,11 +105,16 @@ crypto::ec_point generate_image_key_ram_borrowed_device::generate_image_scalar_m
     const crypto::public_key &onetime_address) const
 {
     // I = Hp(K_o)
-    crypto::ec_point key_image_generator;
-    crypto::derive_key_image_generator(onetime_address, key_image_generator);
+    crypto::ec_point P;
+    crypto::derive_key_image_generator(onetime_address, P);
 
     // L_partial = k_gi I
-    return rct::rct2pt(rct::scalarmultKey(rct::pt2rct(key_image_generator), rct::sk2rct(m_k_generate_image)));
+    ge_p3 P_p3;
+    [[maybe_unused]] const int r = ge_frombytes_vartime(&P_p3, to_bytes(P));
+    assert(0 == r);
+    ge_scalarmult_p3(&P_p3, to_bytes(this->m_k_generate_image), &P_p3);
+    ge_p3_tobytes(to_bytes(P), &P_p3);
+    return P;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
