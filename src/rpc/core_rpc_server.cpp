@@ -3633,7 +3633,8 @@ namespace cryptonote
     // so shunting this request to a random node seems counterproductive.
 
 #if BYTE_ORDER == LITTLE_ENDIAN
-    const uint64_t max_num_txids = RESTRICTED_SPENT_KEY_IMAGES_COUNT * (m_restricted ? 1 : 10);
+    const bool restricted = m_restricted && ctx;
+    const uint64_t max_num_txids = RESTRICTED_SPENT_KEY_IMAGES_COUNT * (restricted ? 1 : 10);
 
     // Sanity check parameters
     if (req.num_matching_bits > 256)
@@ -3673,9 +3674,14 @@ namespace cryptonote
     try
     {
       // Do the DB fetch
-      const auto txids = m_core.get_blockchain_storage().get_db().get_txids_loose(search_hash, req.num_matching_bits, max_num_txids);
+      const relay_category tx_relay_category = restricted ? relay_category::broadcasted : relay_category::all;
+      const std::vector<crypto::hash> txids = m_core.get_blockchain_storage().get_db().get_txids_loose(
+        search_hash,
+        req.num_matching_bits,
+        tx_relay_category,
+        max_num_txids);
       // Fill out response form
-      for (const auto& txid : txids)
+      for (const crypto::hash& txid : txids)
         res.txids.emplace_back(epee::string_tools::pod_to_hex(txid));
     }
     catch (const TX_EXISTS&)
