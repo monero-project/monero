@@ -9870,65 +9870,10 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     THROW_WALLET_EXCEPTION_IF(needed_money < dt.amount, error::tx_sum_overflow, dsts, fee, m_nettype);
   }
 
-  // if this is a multisig wallet, create a list of multisig signers we can use
-  std::deque<crypto::public_key> multisig_signers;
-  size_t n_multisig_txes = 0;
-  std::vector<std::unordered_set<crypto::public_key>> ignore_sets;
-  if (m_multisig && !m_transfers.empty())
-  {
-    const crypto::public_key local_signer = get_multisig_signer_public_key();
-    size_t n_available_signers = 1;
-
-    // At this step we need to define set of participants available for signature,
-    // i.e. those of them who exchanged with multisig info's
-    // note: The oldest unspent owned output's multisig info (in m_transfers) will contain the most recent result of
-    //       'import_multisig()', which means only 'fresh' multisig infos (public nonces) will be used to make tx attempts.
-    //       - If a signer's info was missing from the latest call to 'import_multisig()', then they won't be able to participate!
-    //       - If a newly-acquired output doesn't have enouch nonces from multisig infos, then it can't be spent!
-    for (const crypto::public_key &signer: m_multisig_signers)
-    {
-      if (signer == local_signer)
-        continue;
-      for (const auto &i: m_transfers[0].m_multisig_info)
-      {
-        if (i.m_signer == signer)
-        {
-          multisig_signers.push_back(signer);
-          ++n_available_signers;
-          break;
-        }
-      }
-    }
-    // n_available_signers includes the transaction creator, but multisig_signers doesn't
-    MDEBUG("We can use " << n_available_signers << "/" << m_multisig_signers.size() <<  " other signers");
-    THROW_WALLET_EXCEPTION_IF(n_available_signers < m_multisig_threshold, error::multisig_import_needed);
-    if (n_available_signers > m_multisig_threshold)
-    {
-      // If there more potential signers (those who exchanged with multisig info)
-      // than threshold needed some of them should be skipped since we don't know
-      // who will sign tx and who won't. Hence we don't contribute their LR pairs to the signature.
-
-      // We create as many transactions as many combinations of excluded signers may be.
-      // For example, if we have 2/4 wallet and wallets are: A, B, C and D. Let A be
-      // transaction creator, so we need just 1 signature from set of B, C, D.
-      // Using "excluding" logic here we have to exclude 2-of-3 wallets. Combinations go as follows:
-      // BC, BD, and CD. We save these sets to use later and counting the number of required txs.
-      tools::Combinator<crypto::public_key> c(std::vector<crypto::public_key>(multisig_signers.begin(), multisig_signers.end()));
-      auto ignore_combinations = c.combine(multisig_signers.size() + 1 - m_multisig_threshold);
-      for (const auto& combination: ignore_combinations)
-      {
-        ignore_sets.push_back(std::unordered_set<crypto::public_key>(combination.begin(), combination.end()));
-      }
-
-      n_multisig_txes = ignore_sets.size();
-    }
-    else
-    {
-      // If we have exact count of signers just to fit in threshold we don't exclude anyone and create 1 transaction
-      n_multisig_txes = 1;
-    }
-    MDEBUG("We will create " << n_multisig_txes << " txes");
-  }
+  // if this is a multisig wallet, get a list of signing attempts to make; each attempt contains a set of signers
+  // to ignore for the attempt (all other signers may participate)
+  std::vector<std::unordered_set<crypto::public_key>> ignore_sets{};
+  this->multisig_attempt_ignore_sets(ignore_sets);
 
   bool all_rct = true;
   uint64_t found_money = 0;
@@ -10086,8 +10031,6 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
 
   std::vector<tools::wallet2::multisig_sig> multisig_sigs;
   if (m_multisig) {
-    if (ignore_sets.empty())
-      ignore_sets.emplace_back();
     const std::size_t num_multisig_attempts = ignore_sets.size();
     multisig_sigs.resize(num_multisig_attempts);
     std::unordered_set<rct::key> all_used_L;
@@ -14499,6 +14442,82 @@ crypto::key_image wallet2::get_multisig_composite_key_image(size_t n) const
   bool r = multisig::generate_multisig_composite_key_image(get_account().get_keys(), m_subaddresses, td.get_public_key(), tx_key, additional_tx_keys, td.m_internal_output_index, pkis, ki);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
   return ki;
+}
+//----------------------------------------------------------------------------------------------------
+// Gets the set of participants available for a signature, i.e. those who exchanged multisig infos with us.
+//
+// Assumes the oldest unspent owned output's multisig info (in m_transfers) will contain the most recent result of
+// 'import_multisig()', which means only 'fresh' multisig infos (public nonces) will be used to make tx attempts.
+// - If a signer's info was missing from the latest call to 'import_multisig()', then they won't be able to participate!
+// - If a newly-acquired output doesn't have enough nonces from multisig infos, then it can't be spent!
+void wallet2::multisig_available_signers(std::deque<crypto::public_key> &available_signers_out) const
+{
+  available_signers_out.clear();
+  if (!m_multisig || m_transfers.empty()) { return; }
+
+  const crypto::public_key local_signer = this->get_multisig_signer_public_key();
+
+  for (const crypto::public_key &signer : m_multisig_signers)
+  {
+    if (signer == local_signer)
+      continue;
+    for (const auto &i: m_transfers[0].m_multisig_info)
+    {
+      if (i.m_signer == signer)
+      {
+        available_signers_out.push_back(signer);
+        break;
+      }
+    }
+  }
+}
+//----------------------------------------------------------------------------------------------------
+// Sets of multisig signers who should be ignored from a multisig tx signing attempt.
+// One set exists for each permutation of available signers equal to the multisig threshold.
+// An empty set is returned if there is only one permutation available.
+void wallet2::multisig_attempt_ignore_sets(std::vector<std::unordered_set<crypto::public_key>> &ignore_sets_out) const
+{
+  ignore_sets_out.clear();
+
+  if (!m_multisig) { return; }
+
+  // Get signers who provided nonces recently.
+  std::deque<crypto::public_key> available_signers{};
+  this->multisig_available_signers(available_signers);
+
+  // +1 for the local signer
+  size_t n_available_signers = 1 + available_signers.size();
+  MDEBUG("We can use " << n_available_signers << "/" << m_multisig_signers.size() <<  " other signers");
+  THROW_WALLET_EXCEPTION_IF(n_available_signers < m_multisig_threshold, error::multisig_import_needed);
+
+  size_t n_multisig_txes = 0;
+  if (n_available_signers > m_multisig_threshold)
+  {
+    // If there more potential signers (those who exchanged with multisig info)
+    // than m_multisig_threshold needed, some of them should be skipped since we don't know
+    // who will sign the tx and who won't. Hence we don't contribute their LR pairs to the signature.
+
+    // We create as many transactions as many combinations of excluded signers may be.
+    // For example, if we have 2/4 wallet and wallets are: A, B, C and D. Let A be
+    // transaction creator, so we need just 1 signature from set of B, C, D.
+    // Using "excluding" logic here we have to exclude 2-of-3 wallets. Combinations go as follows:
+    // BC, BD, and CD. We save these sets to use later and counting the number of required txs.
+    tools::Combinator<crypto::public_key> c(std::vector<crypto::public_key>(available_signers.begin(), available_signers.end()));
+    auto ignore_combinations = c.combine(available_signers.size() + 1 - m_multisig_threshold);
+    for (const auto& combination: ignore_combinations)
+    {
+      ignore_sets_out.push_back(std::unordered_set<crypto::public_key>(combination.begin(), combination.end()));
+    }
+
+    n_multisig_txes = ignore_sets_out.size();
+  }
+  else //(n_available_signers == m_multisig_threshold)
+  {
+    // If we have exact count of signers just to fit in m_multisig_threshold we don't exclude anyone and create 1 transaction
+    n_multisig_txes = 1;
+    ignore_sets_out.emplace_back();
+  }
+  MDEBUG("We will create " << n_multisig_txes << " txes");
 }
 //----------------------------------------------------------------------------------------------------
 cryptonote::blobdata wallet2::export_multisig()
