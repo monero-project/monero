@@ -1107,6 +1107,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    MDEBUG("[node] stopping server payload handler");
+    m_payload_handler.stop();
     MDEBUG("[node] sending stop signal");
     for (auto& zone : m_network_zones)
     {
@@ -1129,7 +1131,6 @@ namespace nodetool
       zone.second.m_net_server.send_stop_signal(close_all_connections);
     }
     MDEBUG("[node] Stop signal sent");
-    m_payload_handler.stop();
     return true;
   }
   //-----------------------------------------------------------------------------------
