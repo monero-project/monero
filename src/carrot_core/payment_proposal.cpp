@@ -114,9 +114,11 @@ static void get_normal_proposal_ecdh_parts(const CarrotPaymentProposalV1 &propos
     enote_ephemeral_pubkey_out = get_enote_ephemeral_pubkey(proposal, input_context);
 
     // 3. s_sr = d_e ConvertPointE(K^j_v)
-    try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
-        proposal.destination.address_view_pubkey,
-        s_sender_receiver_out);
+    CARROT_CHECK_AND_THROW(
+        try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
+            proposal.destination.address_view_pubkey,
+            s_sender_receiver_out),
+        invalid_point, "invalid address view pubkey point");
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------

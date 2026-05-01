@@ -170,9 +170,10 @@ bool try_scan_carrot_coinbase_enote_sender(
 {
     // s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver;
-    try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
-        destination.address_view_pubkey,
-        s_sender_receiver);
+    if (!try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
+            destination.address_view_pubkey,
+            s_sender_receiver))
+        return false;
 
     crypto::public_key dummy_main_address_spend_pubkey;
     if (!try_scan_carrot_coinbase_enote_checked(enote,
@@ -260,9 +261,10 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
 {
     // s_sr = d_e ConvertPointE(K^j_v)
     mx25519_pubkey s_sender_receiver;
-    try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
-        destination.address_view_pubkey,
-        s_sender_receiver);
+    if (!try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
+            destination.address_view_pubkey,
+            s_sender_receiver))
+        return false;
 
     return try_scan_carrot_enote_external_sender(enote,
         encrypted_payment_id,
