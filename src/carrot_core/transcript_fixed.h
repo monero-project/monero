@@ -62,7 +62,7 @@ constexpr size_t sizeof_sum<>()
 } //namespace detail
 
 ////
-// FixedTransport
+// FixedTranscript
 // - build a transcript of a fixed bytesize and input types, enforced at compile time
 // - written to be the simplest correct transcript of data possible
 // - requires domain separators at compile-time as well
@@ -75,12 +75,12 @@ constexpr size_t sizeof_sum<>()
 // - does not include an environment-specific prefix string; see the `carrot::derive_*()` hash functions
 ///
 template <std::size_t N, const unsigned char domain_sep[N], typename... Ts>
-class FixedTransport final
+class FixedTranscript final
 {
 public:
 //constructors
     /// normal constructor
-    FixedTransport(const Ts&... args)
+    FixedTranscript(const Ts&... args)
     {
         // copy domain separator length prefix
         m_transcript[0] = static_cast<unsigned char>(domain_sep_size());
@@ -94,8 +94,8 @@ public:
 
 //overloaded operators
     /// disable copy/move
-    FixedTransport& operator=(const FixedTransport&) = delete;
-    FixedTransport& operator=(FixedTransport&&) = delete;
+    FixedTranscript& operator=(const FixedTranscript&) = delete;
+    FixedTranscript& operator=(FixedTranscript&&) = delete;
 
 //member functions
     constexpr const void* data() const noexcept { return m_transcript; }
@@ -106,7 +106,7 @@ public:
     }
 
 //destructors
-    ~FixedTransport()
+    ~FixedTranscript()
     {
         // wipe the buffer on leave in case it contains sensitive data
         memwipe(m_transcript, sizeof(m_transcript));
@@ -180,7 +180,7 @@ private:
 template <const auto & domain_sep, typename... Ts>
 auto make_fixed_transcript(const Ts&... args)
 {
-    return FixedTransport<std::size(domain_sep), domain_sep, Ts...>(args...);
+    return FixedTranscript<std::size(domain_sep), domain_sep, Ts...>(args...);
 }
 
 } //namespace carrot
