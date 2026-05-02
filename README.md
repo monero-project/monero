@@ -16,7 +16,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Supporting the project](#supporting-the-project)
   - [License](#license)
   - [Contributing](#contributing)
-  - [Scheduled software upgrades](#scheduled-software-upgrades)
+  - [Scheduled software upgrades](#scheduled-softwarenetwork-upgrades)
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
