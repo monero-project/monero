@@ -65,6 +65,6 @@
 #define CTHR_THREAD_RETURN	return NULL
 #define CTHR_THREAD_CREATE(thr, func, arg)	(pthread_create(&thr, NULL, func, arg) == 0)
 #define CTHR_THREAD_JOIN(thr)			pthread_join(thr, NULL)
-#define CTHR_THREAD_CLOSE(thr)
+#define CTHR_THREAD_CLOSE(thr)			pthread_detach(thr)
 
 #endif
