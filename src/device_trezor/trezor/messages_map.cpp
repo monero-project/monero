@@ -71,9 +71,9 @@ namespace trezor
 
   google::protobuf::Message * MessageMapper::get_message(const std::string & msg_name) {
     // Each package instantiation so lookup works
-    hw::trezor::messages::common::Success::default_instance();
-    hw::trezor::messages::management::Cancel::default_instance();
-    hw::trezor::messages::monero::MoneroGetAddress::default_instance();
+    (void)hw::trezor::messages::common::Success::default_instance();
+    (void)hw::trezor::messages::management::Cancel::default_instance();
+    (void)hw::trezor::messages::monero::MoneroGetAddress::default_instance();
 
 #ifdef WITH_TREZOR_DEBUGGING
     hw::trezor::messages::debug::DebugLinkDecision::default_instance();

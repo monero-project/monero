@@ -686,7 +686,8 @@ std::string get_hr_ssl_fingerprint_from_file(const std::string& cert_path, const
     const boost::system::error_code err_code(errno, boost::system::system_category());
     throw boost::system::system_error(err_code, "Failed to open certificate file '" + cert_path + "'");
   }
-  std::unique_ptr<FILE, decltype(&fclose)> file(fp, &fclose);
+  auto _fclose = [](FILE* f){ if (f) fclose(f); };
+  std::unique_ptr<FILE, decltype(_fclose)> file(fp, _fclose);
 
   // Extract certificate structure from file
   X509* ssl_cert_handle = PEM_read_X509(file.get(), NULL, NULL, NULL);
