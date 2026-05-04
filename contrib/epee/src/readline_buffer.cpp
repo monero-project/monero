@@ -203,9 +203,8 @@ static bool same_as_last_line(const std::string& test_line)
 {
   // Note that state->offset == state->length, when a new line was entered.
   auto state = std::unique_ptr<HISTORY_STATE, decltype(free)*>{reinterpret_cast<HISTORY_STATE*>(history_get_history_state()), free};
-  bool same = state->length > 0
+  return state->length > 0
     && test_line.compare(state->entries[state->length-1]->line) == 0;
-  return same;
 }
 
 static char* completion_matches(const char* text, int state)
