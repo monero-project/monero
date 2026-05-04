@@ -33,6 +33,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/system/system_error.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/asio/bind_executor.hpp>
 #include <chrono>
 #include <deque>
 #include <stdexcept>
@@ -354,7 +355,7 @@ namespace levin
         detail::zone& this_zone = *zone;
         ++this_zone.flush_callbacks;
         this_zone.flush_txs.expires_at(flush_time);
-        this_zone.flush_txs.async_wait(this_zone.strand.wrap(fluff_flush{std::move(zone)}));
+        this_zone.flush_txs.async_wait(boost::asio::bind_executor(this_zone.strand, fluff_flush{std::move(zone)}));
       }
 
       void operator()(const boost::system::error_code error)
@@ -628,9 +629,7 @@ namespace levin
 
         noise_channel& channel = zone->channels.at(index);
         channel.next_noise.expires_at(start + noise_min_delay + random_duration(noise_delay_range));
-        channel.next_noise.async_wait(
-          channel.strand.wrap(send_noise{std::move(zone), index, core})
-        );
+        channel.next_noise.async_wait(boost::asio::bind_executor(channel.strand, send_noise{std::move(zone), index, core}));
       }
 
       //! \pre Called within `zone_->channels[channel_].strand`.
