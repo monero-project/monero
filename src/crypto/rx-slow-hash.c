@@ -66,8 +66,11 @@ static int secondary_seedhash_set = 0;
 #define THREADV __thread
 #endif
 
+static THREADV int main_vm_full_variant = 0;
 static THREADV randomx_vm *main_vm_full = NULL;
+static THREADV int main_vm_light_variant = 0;
 static THREADV randomx_vm *main_vm_light = NULL;
+static THREADV int secondary_vm_light_variant = 0;
 static THREADV randomx_vm *secondary_vm_light = NULL;
 
 static THREADV uint32_t miner_thread = 0;
@@ -86,7 +89,7 @@ static void local_abort(const char *msg)
 #endif
 }
 
-static void hash2hex(const char* hash, char* hex) {
+static void hash2hex(const char hash[HASH_SIZE], char hex[HASH_SIZE * 2 + 1]) {
   const char* d = "0123456789abcdef";
   for (int i = 0; i < HASH_SIZE; ++i) {
     const uint8_t b = hash[i];
@@ -131,6 +134,28 @@ static inline int enabled_flags(void) {
   flags = randomx_get_flags();
 
   return flags;
+}
+
+static randomx_flags get_variant_flags(const int variant) {
+  switch (variant)
+  {
+  case RX_VARIANT_1:
+    break;
+  case RX_VARIANT_LATEST:
+  case RX_VARIANT_2:
+    return RANDOMX_FLAG_V2;
+  default:
+    local_abort("Unrecognized RandomX variant");
+  }
+
+  return RANDOMX_FLAG_DEFAULT;
+}
+
+static void rx_destroy_vm(randomx_vm** vm) {
+  if (*vm) {
+    randomx_destroy_vm(*vm);
+    *vm = NULL;
+  }
 }
 
 #define SEEDHASH_EPOCH_BLOCKS	2048	/* Must be same as BLOCKS_SYNCHRONIZING_MAX_COUNT in cryptonote_config.h */
@@ -189,7 +214,7 @@ void rx_seedheights(const uint64_t height, uint64_t *seedheight, uint64_t *nexth
   *nextheight = rx_seedheight(height + get_seedhash_epoch_lag());
 }
 
-static void rx_alloc_dataset(randomx_flags flags, randomx_dataset** dataset, int ignore_env)
+static void rx_alloc_dataset(randomx_dataset** dataset, int ignore_env)
 {
   if (*dataset) {
     return;
@@ -213,6 +238,8 @@ static void rx_alloc_dataset(randomx_flags flags, randomx_dataset** dataset, int
     return;
   }
 
+  const randomx_flags flags = enabled_flags();
+
   *dataset = randomx_alloc_dataset((flags | RANDOMX_FLAG_LARGE_PAGES) & ~disabled_flags());
   if (!*dataset) {
     alloc_err_msg("Couldn't allocate RandomX dataset using large pages");
@@ -223,11 +250,13 @@ static void rx_alloc_dataset(randomx_flags flags, randomx_dataset** dataset, int
   }
 }
 
-static void rx_alloc_cache(randomx_flags flags, randomx_cache** cache)
+static void rx_alloc_cache(randomx_cache** cache)
 {
   if (*cache) {
     return;
   }
+
+  const randomx_flags flags = enabled_flags();
 
   *cache = randomx_alloc_cache((flags | RANDOMX_FLAG_LARGE_PAGES) & ~disabled_flags());
   if (!*cache) {
@@ -237,17 +266,28 @@ static void rx_alloc_cache(randomx_flags flags, randomx_cache** cache)
   }
 }
 
-static void rx_init_full_vm(randomx_flags flags, randomx_vm** vm)
+static void rx_init_full_vm(const int variant, randomx_vm** vm, int* vm_variant)
 {
-  if (*vm || !main_dataset || (disabled_flags() & RANDOMX_FLAG_FULL_MEM)) {
+  if (!main_dataset || (disabled_flags() & RANDOMX_FLAG_FULL_MEM)) {
     return;
   }
+  else if (*vm && variant == *vm_variant) {
+    return;
+  }
+  else if (*vm)
+  {
+    // VM is already constructed, but has wrong variant
+    rx_destroy_vm(vm);
+  }
 
+  randomx_flags flags = enabled_flags();
   if ((flags & RANDOMX_FLAG_JIT) && !miner_thread) {
     flags |= RANDOMX_FLAG_SECURE;
   }
+  flags |= get_variant_flags(variant);
 
   *vm = randomx_create_vm((flags | RANDOMX_FLAG_LARGE_PAGES | RANDOMX_FLAG_FULL_MEM) & ~disabled_flags(), NULL, main_dataset);
+  *vm_variant = variant;
   if (!*vm) {
     static int shown = 0;
     if (!shown) {
@@ -261,20 +301,28 @@ static void rx_init_full_vm(randomx_flags flags, randomx_vm** vm)
   }
 }
 
-static void rx_init_light_vm(randomx_flags flags, randomx_vm** vm, randomx_cache* cache)
+static void rx_init_light_vm(const int variant, randomx_vm** vm, int* vm_variant, randomx_cache* cache)
 {
-  if (*vm) {
+  if (*vm && variant == *vm_variant) {
     randomx_vm_set_cache(*vm, cache);
     return;
   }
+  else if (*vm)
+  {
+    // VM is already constructed, but has wrong variant
+    rx_destroy_vm(vm);
+  }
 
+  randomx_flags flags = enabled_flags();
   if ((flags & RANDOMX_FLAG_JIT) && !miner_thread) {
     flags |= RANDOMX_FLAG_SECURE;
   }
+  flags |= get_variant_flags(variant);
 
   flags &= ~RANDOMX_FLAG_FULL_MEM;
 
   *vm = randomx_create_vm((flags | RANDOMX_FLAG_LARGE_PAGES) & ~disabled_flags(), cache, NULL);
+  *vm_variant = variant;
   if (!*vm) {
     static int shown = 0;
     if (!shown) {
@@ -367,9 +415,8 @@ static CTHR_THREAD_RTYPE rx_set_main_seedhash_thread(void *arg) {
   hash2hex(main_seedhash, buf);
   minfo(RX_LOGCAT, "RandomX new main seed hash is %s", buf);
 
-  const randomx_flags flags = enabled_flags() & ~disabled_flags();
-  rx_alloc_dataset(flags, &main_dataset, 0);
-  rx_alloc_cache(flags, &main_cache);
+  rx_alloc_dataset(&main_dataset, 0);
+  rx_alloc_cache(&main_cache);
 
   randomx_init_cache(main_cache, info->seedhash, HASH_SIZE);
   minfo(RX_LOGCAT, "RandomX main cache initialized");
@@ -405,8 +452,7 @@ void rx_set_main_seedhash(const char *seedhash, size_t max_dataset_init_threads)
   CTHR_THREAD_CLOSE(t);
 }
 
-void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *result_hash) {
-  const randomx_flags flags = enabled_flags() & ~disabled_flags();
+void rx_slow_hash(const char *seedhash, const int variant, const void *data, size_t length, char *result_hash) {
   int success = 0;
 
   // Fast path (seedhash == main_seedhash)
@@ -416,7 +462,7 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
     if (main_dataset && CTHR_RWLOCK_TRYLOCK_READ(main_dataset_lock)) {
       // Double check that main_seedhash didn't change
       if (is_main(seedhash)) {
-        rx_init_full_vm(flags, &main_vm_full);
+        rx_init_full_vm(variant, &main_vm_full, &main_vm_full_variant);
         if (main_vm_full) {
           randomx_calculate_hash(main_vm_full, data, length, result_hash);
           success = 1;
@@ -427,7 +473,7 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
       CTHR_RWLOCK_LOCK_READ(main_cache_lock);
       // Double check that main_seedhash didn't change
       if (is_main(seedhash)) {
-        rx_init_light_vm(flags, &main_vm_light, main_cache);
+        rx_init_light_vm(variant, &main_vm_light, &main_vm_light_variant, main_cache);
         randomx_calculate_hash(main_vm_light, data, length, result_hash);
         success = 1;
       }
@@ -449,7 +495,7 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
       hash2hex(seedhash, buf);
       minfo(RX_LOGCAT, "RandomX new secondary seed hash is %s", buf);
 
-      rx_alloc_cache(flags, &secondary_cache);
+      rx_alloc_cache(&secondary_cache);
       randomx_init_cache(secondary_cache, seedhash, HASH_SIZE);
       minfo(RX_LOGCAT, "RandomX secondary cache updated");
       memcpy(secondary_seedhash, seedhash, HASH_SIZE);
@@ -460,7 +506,7 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
 
   CTHR_RWLOCK_LOCK_READ(secondary_cache_lock);
   if (is_secondary(seedhash)) {
-    rx_init_light_vm(flags, &secondary_vm_light, secondary_cache);
+    rx_init_light_vm(variant, &secondary_vm_light, &secondary_vm_light_variant, secondary_cache);
     randomx_calculate_hash(secondary_vm_light, data, length, result_hash);
     success = 1;
   }
@@ -482,9 +528,13 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
     memcpy(secondary_seedhash, seedhash, HASH_SIZE);
     secondary_seedhash_set = 1;
   }
-  rx_init_light_vm(flags, &secondary_vm_light, secondary_cache);
+  rx_init_light_vm(variant, &secondary_vm_light, &secondary_vm_light_variant, secondary_cache);
   randomx_calculate_hash(secondary_vm_light, data, length, result_hash);
   CTHR_RWLOCK_UNLOCK_WRITE(secondary_cache_lock);
+}
+
+void rx_commitment(const void *data, size_t length, const void *rx_hash, char *result_commitment) {
+  randomx_calculate_commitment(data, length, rx_hash, result_commitment);
 }
 
 void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads) {
@@ -497,8 +547,7 @@ void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads) {
     return;
   }
 
-  const randomx_flags flags = enabled_flags() & ~disabled_flags();
-  rx_alloc_dataset(flags, &main_dataset, 1);
+  rx_alloc_dataset(&main_dataset, 1);
   rx_init_dataset(max_dataset_init_threads);
 
   CTHR_RWLOCK_UNLOCK_WRITE(main_dataset_lock);
@@ -509,13 +558,6 @@ uint32_t rx_get_miner_thread() {
 }
 
 void rx_slow_hash_allocate_state() {}
-
-static void rx_destroy_vm(randomx_vm** vm) {
-  if (*vm) {
-    randomx_destroy_vm(*vm);
-    *vm = NULL;
-  }
-}
 
 void rx_slow_hash_free_state() {
   rx_destroy_vm(&main_vm_full);
