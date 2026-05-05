@@ -599,6 +599,18 @@ namespace nodetool
             boost::asio::ip::address_v4{boost::endian::native_to_big(ip)}, port
         };
 
+        auto handler = [](boost::system::error_code ec, boost::asio::ip::tcp::socket socket)
+        {
+            if (ec)
+            {
+                MERROR("Failed to create I2P SAM control socket: " << ec.message());
+                return;
+            }
+        };
+
+        i2p_sam_zone.m_sam_control_socket = net::sam::make_connect_client(
+            net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()}, handler);
+
         if (!set_max_out_peers(i2p_sam_zone, 8))
             return false;
         else
