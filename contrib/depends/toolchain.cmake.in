@@ -20,9 +20,6 @@ SET(Readline_INCLUDE_DIR @prefix@/include)
 SET(Readline_LIBRARY @prefix@/lib/libreadline.a)
 SET(Terminfo_LIBRARY @prefix@/lib/libtinfo.a)
 
-SET(UNBOUND_INCLUDE_DIR @prefix@/include)
-SET(UNBOUND_LIBRARIES @prefix@/lib/libunbound.a)
-
 SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
 SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
 
