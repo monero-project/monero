@@ -105,19 +105,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-function (die msg)
-  if (NOT WIN32)
-    string(ASCII 27 Esc)
-    set(ColourReset "${Esc}[m")
-    set(BoldRed     "${Esc}[1;31m")
-  else ()
-    set(ColourReset "")
-    set(BoldRed     "")
-  endif ()
-
-  message(FATAL_ERROR "${BoldRed}${msg}${ColourReset}")
-endfunction ()
-
 function (add_c_flag_if_supported flag var)
   # Prepending the flag with -Werror will only add the flag,
   # if it doesn't result in generation of a warning of using a flag unknown to the compiler.
@@ -944,7 +931,7 @@ set(BOOST_MIN_VER 1.62)
 find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED)
 
 if(NOT Boost_FOUND)
-  die("Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (>=${BOOST_MIN_VER}) or the equivalent")
+  message(FATAL_ERROR "Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (>=${BOOST_MIN_VER}) or the equivalent")
 elseif(Boost_FOUND)
   message(STATUS "Found Boost Version: ${Boost_VERSION_STRING}")
 
