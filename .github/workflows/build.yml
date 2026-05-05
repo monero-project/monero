@@ -14,7 +14,7 @@ on:
 env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
-  BUILD_DEFAULT_LINUX: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all && cmake --build build --target wallet_api'
+  BUILD_DEFAULT: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all && cmake --build build --target wallet_api'
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
@@ -55,9 +55,11 @@ jobs:
           brew update
           brew install --quiet cmake boost hidapi openssl zmq expat libunwind-headers protobuf ccache
       - name: build
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
-          make -j${{env.MAKE_JOB_COUNT}}
+          ${{env.BUILD_DEFAULT}}
 
   build-windows:
     name: 'Windows (MSYS2)'
@@ -83,9 +85,11 @@ jobs:
           install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound mingw-w64-x86_64-rust git pkg-config
       - uses: ./.github/actions/set-make-job-count
       - name: build
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
-          make release-static -j${{env.MAKE_JOB_COUNT}}
+          ${{env.BUILD_DEFAULT}}
 
   build-arch:
     name: 'Arch Linux'
@@ -104,7 +108,7 @@ jobs:
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: ${{env.BUILD_DEFAULT_LINUX}}
+        run: ${{env.BUILD_DEFAULT}}
 
   build-debian:
     # Oldest supported Debian version
@@ -132,7 +136,7 @@ jobs:
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: ${{env.BUILD_DEFAULT_LINUX}}
+        run: ${{env.BUILD_DEFAULT}}
 
   build-ubuntu:
     name: ${{ matrix.name }}
@@ -175,7 +179,7 @@ jobs:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT_LINUX}}
+          ${{env.BUILD_DEFAULT}}
 
   test-ubuntu:
     name: "${{ matrix.name }} (tests)"
@@ -228,7 +232,7 @@ jobs:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT_LINUX}}
+          ${{env.BUILD_DEFAULT}}
           cmake --build build --target test
 
   source-archive:
