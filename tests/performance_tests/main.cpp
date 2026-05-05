@@ -66,6 +66,7 @@
 #include "multiexp.h"
 #include "sig_mlsag.h"
 #include "sig_clsag.h"
+#include "tx_blob_to_hash.h"
 
 namespace po = boost::program_options;
 
@@ -309,6 +310,47 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_isInMainSubgroup);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitUncached);
   TEST_PERFORMANCE1(filter, p, test_crypto_ops, op_zeroCommitCached);
+
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  1,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  1,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  1,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  1,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  1,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  1,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  1, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  1, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  2,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  2,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  2,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  2,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  2,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  2,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  2, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  2, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  4,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  4,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  4,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  4,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  4,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  4,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  4, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  4, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  8,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  8,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  8,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  8,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  8,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  8,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false,  8, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true,  8, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false, 16,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true, 16,  2);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false, 16,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true, 16,  4);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false, 16,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true, 16,  8);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash, false, 16, 16);
+  TEST_PERFORMANCE3(filter, p, test_bpp_tx_blob_to_hash,  true, 16, 16);
 
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 2);
   TEST_PERFORMANCE2(filter, p, test_multiexp, multiexp_bos_coster, 4);
