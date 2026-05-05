@@ -127,25 +127,6 @@ if ( LibUSB_FOUND )
             message(WARNING "libudev library not found, binaries may fail to link.")
         endif()
     endif()
-
-    check_library_exists ( "${LibUSB_LIBRARIES}" usb_open "" LibUSB_FOUND )
-    check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_device_list "" LibUSB_VERSION_1.0 )
-    check_library_exists ( "${LibUSB_LIBRARIES}" libusb_get_port_numbers "" LibUSB_VERSION_1.0.16 )
-
-    # Library 1.0.16+ compilation test.
-    # The check_library_exists does not work well on Apple with shared libs.
-    if (APPLE OR LibUSB_VERSION_1.0.16 OR STATIC)
-        try_compile(LibUSB_COMPILE_TEST_PASSED
-                ${CMAKE_BINARY_DIR}
-                "${CMAKE_CURRENT_LIST_DIR}/test-libusb-version.c"
-                CMAKE_FLAGS
-                    "-DINCLUDE_DIRECTORIES=${LibUSB_INCLUDE_DIRS}"
-                    "-DLINK_DIRECTORIES=${LibUSB_LIBRARIES}"
-                LINK_LIBRARIES ${LibUSB_LIBRARIES} ${TEST_COMPILE_EXTRA_LIBRARIES}
-                OUTPUT_VARIABLE OUTPUT)
-        unset(TEST_COMPILE_EXTRA_LIBRARIES)
-        message(STATUS "LibUSB Compilation test: ${LibUSB_COMPILE_TEST_PASSED}")
-    endif()
 endif ( LibUSB_FOUND )
 
 if ( NOT LibUSB_FOUND )

@@ -1010,7 +1010,7 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
-if (HIDAPI_FOUND OR LibUSB_COMPILE_TEST_PASSED)
+if (HIDAPI_FOUND OR LibUSB_FOUND)
   if (APPLE)
     if(DEPENDS)
       list(APPEND EXTRA_LIBRARIES "-framework Foundation -framework AppKit -framework IOKit -framework Security")
