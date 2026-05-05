@@ -335,6 +335,9 @@ mkdir -p "$DISTSRC"
         *linux-gnu*)  CMAKEFLAGS+=" -DSTACK_TRACE=OFF" ;;
     esac
 
+    # Turn off unused default options
+    CMAKEFLAGS+=" -DUSE_CCACHE=OFF -DBUILD_DOCUMENTATION=OFF"
+
     # Configure this DISTSRC for $HOST
     # shellcheck disable=SC2086
     env CFLAGS="${HOST_CFLAGS}" CXXFLAGS="${HOST_CXXFLAGS}" \
