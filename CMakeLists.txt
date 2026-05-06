@@ -742,12 +742,6 @@ include(CheckTrezor)
   endif()
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
-  try_compile(STATIC_ASSERT_RES "${CMAKE_CURRENT_BINARY_DIR}/static-assert" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-static-assert.c" CMAKE_FLAGS -DCMAKE_C_STANDARD=11)
-  if(STATIC_ASSERT_RES)
-    set(STATIC_ASSERT_FLAG "")
-  else()
-    set(STATIC_ASSERT_FLAG "-Dstatic_assert=_Static_assert")
-  endif()
 
   monero_enable_coverage()
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
