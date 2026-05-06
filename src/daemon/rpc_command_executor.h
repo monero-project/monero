@@ -68,6 +68,28 @@ public:
 
   ~t_rpc_command_executor();
 
+  inline void log_rpc_error(const std::string &msg, const tools::rpc_result_code code, const std::string &detail)
+  {
+    switch (code)
+    {
+    case tools::rpc_result_code::BUSY:
+      tools::fail_msg_writer() << msg << " (daemon busy)";
+      break;
+    case tools::rpc_result_code::NETWORK_ERROR:
+      tools::fail_msg_writer() << msg << " (network error)";
+      break;
+    case tools::rpc_result_code::RPC_ERROR:
+      tools::fail_msg_writer() << msg << " (" << detail << ")";
+      break;
+    case tools::rpc_result_code::TIMEOUT:
+      tools::fail_msg_writer() << msg << " (timeout)";
+      break;
+    default:
+      tools::fail_msg_writer() << msg;
+      break;
+    }
+  }
+
   bool print_peer_list(bool white = true, bool gray = true, size_t limit = 0, bool pruned_only = false, bool publicrpc_only = false);
 
   bool print_peer_list_stats();
