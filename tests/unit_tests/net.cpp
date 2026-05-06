@@ -1,5 +1,4 @@
 // Copyright (c) 2018-2024, The Monero Project
-
 //
 // All rights reserved.
 //
@@ -450,6 +449,9 @@ namespace
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p";
     static constexpr const char b32_i2p_2[] =
         "xmrto2bturnore26xmrto2bturnore26xmrto2bturnore26xmr2.b32.i2p";
+
+    static constexpr const char standard_i2p[] = "test.i2p";
+    static constexpr const char standard_i2p_2[] = "reg.i2p";
 }
 
 TEST(i2p_address, constants)
@@ -470,12 +472,29 @@ TEST(i2p_address, invalid)
     EXPECT_TRUE(net::i2p_address::make(":").has_error());
     EXPECT_TRUE(net::i2p_address::make(".b32.i2p").has_error());
     EXPECT_TRUE(net::i2p_address::make(".b32.i2p:").has_error());
+    EXPECT_TRUE(net::i2p_address::make(".i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make(".i2p:").has_error());
+
+    EXPECT_TRUE(net::i2p_address::make("MONERO.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("m=nero.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("-monero.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("monero222222222222222222222222222222222222222222222222222222222222222.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("monero-.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("a.-monero.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("m..ero.i2p").has_error());
+    EXPECT_TRUE(net::i2p_address::make("m..ero.b32.i2p.i2p").has_error());
     EXPECT_TRUE(net::i2p_address::make(b32_i2p + 1).has_error());
+
     EXPECT_TRUE(net::i2p_address::make(boost::string_ref{b32_i2p, sizeof(b32_i2p) - 2}).has_error());
+    EXPECT_TRUE(net::i2p_address::make(boost::string_ref{standard_i2p, sizeof(standard_i2p) - 2}).has_error());
 
     std::string i2p{b32_i2p};
     i2p.at(10) = 1;
     EXPECT_TRUE(net::i2p_address::make(i2p).has_error());
+
+    std::string i2p_standard{standard_i2p};
+    i2p_standard.at(7) = 1;
+    EXPECT_TRUE(net::i2p_address::make(i2p_standard).has_error());
 }
 
 TEST(i2p_address, unblockable_types)
@@ -506,7 +525,7 @@ TEST(i2p_address, unblockable_types)
     EXPECT_EQ(net::i2p_address{}, net::i2p_address::unknown());
 }
 
-TEST(i2p_address, valid)
+TEST(i2p_address, valid_b32)
 {
     const auto address1 = net::i2p_address::make(b32_i2p);
 
@@ -579,6 +598,79 @@ TEST(i2p_address, valid)
     EXPECT_FALSE(address2.less(address3));
 }
 
+TEST(i2p_address, valid_standard)
+{
+    const auto address1 = net::i2p_address::make(standard_i2p);
+
+    ASSERT_TRUE(address1.has_value());
+    EXPECT_EQ(1u, address1->port());
+    EXPECT_STREQ(standard_i2p, address1->host_str());
+    EXPECT_STREQ(standard_i2p, address1->str().c_str());
+    EXPECT_TRUE(address1->is_blockable());
+
+    net::i2p_address address2{*address1};
+
+    EXPECT_EQ(1u, address2.port());
+    EXPECT_STREQ(standard_i2p, address2.host_str());
+    EXPECT_STREQ(standard_i2p, address2.str().c_str());
+    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_TRUE(address2.equal(*address1));
+    EXPECT_TRUE(address1->equal(address2));
+    EXPECT_TRUE(address2 == *address1);
+    EXPECT_TRUE(*address1 == address2);
+    EXPECT_FALSE(address2 != *address1);
+    EXPECT_FALSE(*address1 != address2);
+    EXPECT_TRUE(address2.is_same_host(*address1));
+    EXPECT_TRUE(address1->is_same_host(address2));
+    EXPECT_FALSE(address2.less(*address1));
+    EXPECT_FALSE(address1->less(address2));
+
+    address2 = MONERO_UNWRAP(net::i2p_address::make(std::string{standard_i2p_2} + ":6545"));
+
+    EXPECT_EQ(1u, address2.port());
+    EXPECT_STREQ(standard_i2p_2, address2.host_str());
+    EXPECT_EQ(std::string{standard_i2p_2}, address2.str().c_str());
+    EXPECT_TRUE(address2.is_blockable());
+    EXPECT_FALSE(address2.equal(*address1));
+    EXPECT_FALSE(address1->equal(address2));
+    EXPECT_FALSE(address2 == *address1);
+    EXPECT_FALSE(*address1 == address2);
+    EXPECT_TRUE(address2 != *address1);
+    EXPECT_TRUE(*address1 != address2);
+    EXPECT_FALSE(address2.is_same_host(*address1));
+    EXPECT_FALSE(address1->is_same_host(address2));
+    EXPECT_FALSE(address1->less(address2));
+    EXPECT_TRUE(address2.less(*address1));
+
+    net::i2p_address address3 = MONERO_UNWRAP(net::i2p_address::make(std::string{standard_i2p} + ":65535"));
+
+    EXPECT_EQ(1u, address3.port());
+    EXPECT_STREQ(standard_i2p, address3.host_str());
+    EXPECT_EQ(std::string{standard_i2p}, address3.str().c_str());
+    EXPECT_TRUE(address3.is_blockable());
+    EXPECT_TRUE(address3.equal(*address1));
+    EXPECT_TRUE(address1->equal(address3));
+    EXPECT_TRUE(address3 == *address1);
+    EXPECT_TRUE(*address1 == address3);
+    EXPECT_FALSE(address3 != *address1);
+    EXPECT_FALSE(*address1 != address3);
+    EXPECT_TRUE(address3.is_same_host(*address1));
+    EXPECT_TRUE(address1->is_same_host(address3));
+    EXPECT_FALSE(address3.less(*address1));
+    EXPECT_FALSE(address1->less(address3));
+
+    EXPECT_FALSE(address3.equal(address2));
+    EXPECT_FALSE(address2.equal(address3));
+    EXPECT_FALSE(address3 == address2);
+    EXPECT_FALSE(address2 == address3);
+    EXPECT_TRUE(address3 != address2);
+    EXPECT_TRUE(address2 != address3);
+    EXPECT_FALSE(address3.is_same_host(address2));
+    EXPECT_FALSE(address2.is_same_host(address3));
+    EXPECT_TRUE(address2.less(address3));
+    EXPECT_FALSE(address3.less(address2));
+}
+
 TEST(i2p_address, generic_network_address)
 {
     const epee::net_utils::network_address i2p1{MONERO_UNWRAP(net::i2p_address::make(b32_i2p))};
@@ -600,6 +692,22 @@ TEST(i2p_address, generic_network_address)
     EXPECT_TRUE(i2p1.is_blockable());
     EXPECT_TRUE(i2p2.is_blockable());
     EXPECT_TRUE(ip.is_blockable());
+
+    const epee::net_utils::network_address i2p1_standard{MONERO_UNWRAP(net::i2p_address::make(standard_i2p))};
+    const epee::net_utils::network_address i2p2_standard{MONERO_UNWRAP(net::i2p_address::make(standard_i2p))};
+
+    EXPECT_EQ(i2p1_standard, i2p2_standard);
+    EXPECT_NE(ip, i2p1_standard);
+    EXPECT_LT(ip, i2p1_standard);
+
+    EXPECT_STREQ(standard_i2p, i2p1_standard.host_str().c_str());
+    EXPECT_STREQ(standard_i2p, i2p1_standard.str().c_str());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, i2p1_standard.get_type_id());
+    EXPECT_EQ(epee::net_utils::address_type::i2p, i2p2_standard.get_type_id());
+    EXPECT_EQ(epee::net_utils::zone::i2p, i2p1_standard.get_zone());
+    EXPECT_EQ(epee::net_utils::zone::i2p, i2p2_standard.get_zone());
+    EXPECT_TRUE(i2p1_standard.is_blockable());
+    EXPECT_TRUE(i2p2_standard.is_blockable());
 }
 
 namespace
@@ -788,9 +896,8 @@ TEST(i2p_address, boost_serialize_unknown)
 
 TEST(get_network_address, i2p)
 {
-    expect<epee::net_utils::network_address> address =
-        net::get_network_address("i2p", 0);
-    EXPECT_EQ(net::error::unsupported_address, address);
+    expect<epee::net_utils::network_address> address = net::get_network_address(".i2p", 0);
+    EXPECT_EQ(net::error::invalid_i2p_address, address);
 
     address = net::get_network_address(".b32.i2p", 0);
     EXPECT_EQ(net::error::invalid_i2p_address, address);
@@ -806,6 +913,18 @@ TEST(get_network_address, i2p)
     EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
     EXPECT_STREQ(b32_i2p, address->host_str().c_str());
     EXPECT_EQ(std::string{b32_i2p}, address->str());
+
+    address = net::get_network_address(standard_i2p, 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(standard_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{standard_i2p}, address->str());
+
+    address = net::get_network_address(std::string{standard_i2p} + ":2000", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(standard_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{standard_i2p}, address->str());
 }
 
 TEST(get_network_address, ipv4)
