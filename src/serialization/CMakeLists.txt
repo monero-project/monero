@@ -45,7 +45,6 @@ target_link_libraries(serialization
     cryptonote_core
     cryptonote_protocol
     epee
-    ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
