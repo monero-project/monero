@@ -109,6 +109,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
     command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_tx_proxy);
+    command_line::add_arg(desc, arg_i2p_sam);
     command_line::add_arg(desc, arg_anonymous_inbound);
     command_line::add_arg(desc, arg_ban_list);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
@@ -575,8 +576,59 @@ namespace nodetool
     if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
       return false;
 
+    if (command_line::has_arg(vm, arg_i2p_sam) && !command_line::is_arg_defaulted(vm, arg_i2p_sam))
+    {
+        if (!command_line::is_arg_defaulted(vm, arg_tx_proxy) || !command_line::is_arg_defaulted(vm, arg_anonymous_inbound))
+            MWARNING("--i2p-sam will override --tx-proxy and --anonymous-inbound");
 
+        const std::string sam_endpoint = command_line::get_arg(vm, arg_i2p_sam);
+
+        std::uint32_t ip = 0;
+        std::uint16_t port = 0;
+        if (!epee::string_tools::parse_peer_from_string(ip, port, sam_endpoint))
+        {
+            MERROR("Invalid I2P SAM endpoint: " << sam_endpoint);
+            return false;
+        }
+
+        m_network_zones.clear();
+
+        network_zone& i2p_sam_zone = add_zone(epee::net_utils::zone::i2p);
+        i2p_sam_zone.m_connect = &sam_connect;
+        i2p_sam_zone.m_sam_router_endpoint = boost::asio::ip::tcp::endpoint{
+            boost::asio::ip::address_v4{boost::endian::native_to_big(ip)}, port
+        };
+
+        auto handler = [](boost::system::error_code ec, boost::asio::ip::tcp::socket socket)
+        {
+            if (ec)
+            {
+                MERROR("Failed to create I2P SAM control socket: " << ec.message());
+                return;
+            }
+        };
+
+        i2p_sam_zone.m_sam_control_socket = net::sam::make_connect_client(
+            net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()}, handler);
+
+        const std::string private_dest_key = i2p_sam_zone.m_sam_control_socket->private_key_from_file();
+
+        if (!net::sam::client::generate_destination(
+            i2p_sam_zone.m_sam_control_socket,
+            i2p_sam_zone.m_sam_router_endpoint))
+        {
+            throw std::runtime_error("Failed to generate destination");
+        }
+
+        if (!set_max_out_peers(i2p_sam_zone, 8))
+            return false;
+        else
+            m_payload_handler.set_max_out_peers(epee::net_utils::zone::i2p, 8);
+    }
+    else
+    {
     epee::byte_slice noise = nullptr;
+
     auto proxies = get_proxies(vm);
     if (!proxies)
       return false;
@@ -652,6 +704,7 @@ namespace nodetool
     }
 
     max_connections = command_line::get_arg(vm, arg_max_connections_per_ip);
+    }
 
     return true;
   }
@@ -3035,6 +3088,25 @@ namespace nodetool
   node_server<t_payload_net_handler>::socks_connect(network_zone& zone, const epee::net_utils::network_address& remote, epee::net_utils::ssl_support_t ssl_support)
   {
     auto result = socks_connect_internal(zone.m_net_server.get_stop_signal(), zone.m_net_server.get_io_context(), zone.m_proxy_address, remote);
+    if (result) // if no error
+    {
+      p2p_connection_context context{};
+      if (zone.m_net_server.add_connection(context, std::move(*result), remote, ssl_support))
+        return {std::move(context)};
+    }
+    return boost::none;
+  }
+
+  template<typename t_payload_net_handler>
+  boost::optional<p2p_connection_context_t<typename t_payload_net_handler::connection_context>>
+  node_server<t_payload_net_handler>::sam_connect(network_zone& zone, const epee::net_utils::network_address& remote, epee::net_utils::ssl_support_t ssl_support)
+  {
+    if (remote.get_type_id() != net::i2p_address::get_type_id())
+      return boost::none;
+
+    const net::i2p_address& i2p_addr = remote.as<net::i2p_address>();
+    auto result = sam_connect_internal(zone.m_net_server.get_stop_signal(), zone.m_net_server.get_io_context(), zone.m_sam_router_endpoint, i2p_addr);
+
     if (result) // if no error
     {
       p2p_connection_context context{};

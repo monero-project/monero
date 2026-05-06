@@ -114,6 +114,13 @@ namespace
         CHECK_AND_ASSERT_MES(sent, false, "Unexpected failure to init socks client");
         return true;
     }
+
+    bool start_sam(std::shared_ptr<net::sam::client> client, const boost::asio::ip::tcp::endpoint& router, const net::i2p_address& remote)
+    {
+        CHECK_AND_ASSERT_MES(client != nullptr, false, "Unexpected null client");
+        if (!client->set_connect_command(remote)) return false;
+        return net::sam::client::connect_and_send(std::move(client), router);
+    }
 }
 
 namespace nodetool
@@ -156,6 +163,7 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy = {"tx-proxy", "Send local txes through proxy: <network-type>,[socks5://[user:pass@]]<socks-ip:port>[,max_connections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""};
     const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound = {"anonymous-inbound", "<hidden-service-address>,<[bind-ip:]port>[,max_connections] i.e. \"x.onion,127.0.0.1:18083,100\""};
+    const command_line::arg_descriptor<std::string> arg_i2p_sam = {"i2p-sam", "Use I2P router's SAM bridge for network traffic: <router-ip:sam-port> i.e. \"127.0.0.1:7656\""};
     const command_line::arg_descriptor<std::string> arg_ban_list = {"ban-list", "Specify ban list file, one IP address per line"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
     const command_line::arg_descriptor<bool> arg_no_sync = {"no-sync", "Don't synchronize the blockchain with other peers", false};
@@ -389,6 +397,65 @@ namespace nodetool
         }
         catch (boost::broken_promise const&)
         {}
+
+        return boost::none;
+    }
+
+    boost::optional<boost::asio::ip::tcp::socket>
+    sam_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& router, const net::i2p_address& remote)
+    {
+        using socket_type = net::sam::client::stream_type::socket;
+        using client_result = std::pair<boost::system::error_code, socket_type>;
+
+        struct notify
+        {
+            boost::promise<client_result> sam_promise;
+
+            void operator()(boost::system::error_code error, socket_type&& sock)
+            {
+                sam_promise.set_value(std::make_pair(error, std::move(sock)));
+            }
+        };
+
+        net::sam::client::close_on_exit close_client{};
+        boost::unique_future<client_result> sam_result{};
+        {
+            boost::promise<client_result> sam_promise{};
+            sam_result = sam_promise.get_future();
+
+            auto client = net::sam::make_connect_client(
+                boost::asio::ip::tcp::socket{service}, notify{std::move(sam_promise)}
+            );
+            close_client.self = client;
+
+            if (!start_sam(std::move(client), router, remote))
+                return boost::none;
+        }
+
+        const auto start = std::chrono::steady_clock::now();
+        while (sam_result.wait_for(future_poll_interval) == boost::future_status::timeout)
+        {
+            if (socks_connect_timeout < std::chrono::steady_clock::now() - start)
+            {
+                MERROR("Timeout on SAM connect (" << router << " to " << remote.str() << ")");
+                return boost::none;
+            }
+
+            if (stop_signal) return boost::none;
+        }
+
+        try
+        {
+            auto result = sam_result.get();
+            if (!result.first)
+            {
+                close_client.self.reset();
+                return {std::move(result.second)};
+            }
+
+            MERROR("Failed to make SAM connection to " << remote.str() << " (via " << router << "): " << result.first.message());
+        }
+        catch (const boost::broken_promise&) {}
 
         return boost::none;
     }

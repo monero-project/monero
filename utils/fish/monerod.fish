@@ -68,6 +68,7 @@ complete -c monerod -l add-exclusive-node -r -d "Specify list of peers to connec
 complete -c monerod -l seed-node -r -d "Connect to a node to retrieve peer addresses, and disconnect"
 complete -c monerod -l tx-proxy -r -d "Send local txes through proxy: <network-type>,<socks-ip:port>[,max_con nections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""
 complete -c monerod -l anonymous-inbound -r -d "<hidden-service-address>,<[bind-ip:]port>[,max_connections] i.e. \"x.onion,127.0.0.1:18083,100\""
+complete -c monerod -l i2p-sam -r -d "Use I2P router's SAM bridge for network traffic: <router-ip:sam-port> i.e. \"127.0.0.1:7656\""
 complete -c monerod -l ban-list -r -F -d "Specify ban list file, one IP address per line"
 complete -c monerod -l hide-my-port -d "Do not announce yourself as peerlist candidate"
 complete -c monerod -l no-sync -d "Don't synchronize the blockchain with other peers"
