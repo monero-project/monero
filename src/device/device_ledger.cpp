@@ -303,6 +303,7 @@ namespace hw {
       this->reset_buffer();      
       this->mode = NONE;
       this->has_view_key = false;
+      this->requested_view_key = false;
       this->tx_in_progress = false;
       MDEBUG( "Device "<<this->id <<" Created");
     }
@@ -440,6 +441,24 @@ namespace hw {
       }
     }
 
+    bool device_ledger::soft_request_view_key() {
+      if (this->has_view_key)
+        return true;
+      else if (this->requested_view_key)
+        return false;
+
+      this->requested_view_key = true;
+      try
+      {
+        crypto::secret_key v, s;
+        this->get_secret_keys(v, s);
+      }
+      catch (...)
+      { /* error message is logged in get_secret_keys()*/ }
+
+      return this->has_view_key;
+    }
+
     bool device_ledger::reset() {
       reset_buffer();
       int offset = set_command_header_noopt(INS_RESET);
@@ -540,9 +559,6 @@ namespace hw {
       cryptonote::account_public_address pubkey;
       this->get_public_address(pubkey);
       #endif
-      crypto::secret_key vkey;
-      crypto::secret_key skey;
-      this->get_secret_keys(vkey,skey);
 
       return true;
     }
@@ -553,6 +569,9 @@ namespace hw {
 
     bool device_ledger::disconnect() {
       hw_device.disconnect();
+      this->viewkey.scrub();
+      this->has_view_key = false;
+      this->requested_view_key = false;
       return true;
     }
 
@@ -688,7 +707,7 @@ namespace hw {
         #ifdef DEBUG_HWDEVICE
         const crypto::public_key pub_x = pub;
         crypto::key_derivation derivation_x;
-         if ((this->mode == TRANSACTION_PARSE) && has_view_key) {    
+         if ((this->mode == TRANSACTION_PARSE) && this->soft_request_view_key()) {
           derivation_x = derivation;
         } else {
           derivation_x = hw::ledger::decrypt(derivation);
@@ -703,7 +722,7 @@ namespace hw {
         log_hexbuffer("derive_subaddress_public_key: [[OUT]] derived_pub", derived_pub_x.data, 32);
         #endif
 
-      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {     
+      if ((this->mode == TRANSACTION_PARSE) && this->soft_request_view_key()) {
         //If we are in TRANSACTION_PARSE, the given derivation has been retrieved unencrypted (without the help
         //of the device), so continue that way.
         MDEBUG( "derive_subaddress_public_key  : PARSE mode with known viewkey");     
@@ -739,7 +758,7 @@ namespace hw {
     }
 
     crypto::public_key device_ledger::get_subaddress_spend_public_key(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
-        if (has_view_key) {
+        if (this->soft_request_view_key()) {
             cryptonote::account_keys keys_{keys};
             keys_.m_view_secret_key = this->viewkey;
             return this->controle_device->get_subaddress_spend_public_key(keys_, index);
@@ -796,7 +815,7 @@ namespace hw {
     }
 
     cryptonote::account_public_address device_ledger::get_subaddress(const cryptonote::account_keys& keys, const cryptonote::subaddress_index &index) {
-        if (has_view_key) {
+        if (this->soft_request_view_key()) {
             cryptonote::account_keys keys_{keys};
             keys_.m_view_secret_key = this->viewkey;
             return this->controle_device->get_subaddress(keys_, index);
@@ -1063,7 +1082,7 @@ namespace hw {
         log_hexbuffer("generate_key_derivation: [[OUT]] derivation", derivation_x.data, 32);
         #endif
 
-      if ((this->mode == TRANSACTION_PARSE)  && has_view_key) {
+      if ((this->mode == TRANSACTION_PARSE)  && this->soft_request_view_key()) {
         //A derivation is requested in PARSE mode and we have the view key,
         //so do that without the device and return the derivation unencrypted.
         MDEBUG( "generate_key_derivation  : PARSE mode with known viewkey");     
@@ -1091,7 +1110,7 @@ namespace hw {
       }
       #ifdef DEBUG_HWDEVICE
       crypto::key_derivation derivation_clear ;
-      if ((this->mode == TRANSACTION_PARSE)  && has_view_key) {
+      if ((this->mode == TRANSACTION_PARSE)  && this->soft_request_view_key()) {
         derivation_clear  = derivation;
       } else {
         derivation_clear  = hw::ledger::decrypt(derivation);
@@ -1315,7 +1334,7 @@ namespace hw {
     bool device_ledger::derive_view_tag(const crypto::key_derivation &derivation, const std::size_t output_index, crypto::view_tag &view_tag){
       #ifdef DEBUG_HWDEVICE
       crypto::key_derivation derivation_x;
-      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
+      if ((this->mode == TRANSACTION_PARSE) && this->soft_request_view_key()) {
         derivation_x = derivation;
       } else {
         derivation_x = hw::ledger::decrypt(derivation);
@@ -1328,7 +1347,7 @@ namespace hw {
       log_hexbuffer("derive_view_tag: [[OUT]] view_tag ", &view_tag_x.data, 1);
       #endif
 
-      if ((this->mode == TRANSACTION_PARSE) && has_view_key) {
+      if ((this->mode == TRANSACTION_PARSE) && this->soft_request_view_key()) {
         //If we are in TRANSACTION_PARSE, the given derivation has been retrieved unencrypted (without the help
         //of the device), so continue that way.
         MDEBUG( "derive_view_tag  : PARSE mode with known viewkey");

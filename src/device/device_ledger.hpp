@@ -160,6 +160,7 @@ namespace hw {
         void send_simple(unsigned char ins, unsigned char p1 = 0x00);
         void send_secret(const unsigned char sec[32], int &offset);
         void receive_secret(unsigned char sec[32], int &offset);
+        bool soft_request_view_key();
 
         bool tx_in_progress;
 
@@ -174,6 +175,7 @@ namespace hw {
         // To speed up blockchain parsing the view key maybe handle here.
         crypto::secret_key viewkey = crypto::null_skey;
         bool has_view_key = false;
+        bool requested_view_key = false;
 
         device *controle_device;
 
