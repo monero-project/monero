@@ -156,7 +156,6 @@ namespace net::sam
         , strand_(socket_.get_executor())
         , state_(state::hello_version)
         , session_id_(random_session_id())
-        , transient_(true)
     {}
 
     client::~client() = default;
