@@ -173,6 +173,7 @@ namespace net::sam
         //! Parse response from router to get error code
         boost::system::error_code parse_result(const std::string& line);
 
+    public:
         /**
          * @brief Attempts to load the private I2P destination key from a file;
          *        generates and stores a new destination if not existent.

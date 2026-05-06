@@ -611,7 +611,11 @@ namespace nodetool
         i2p_sam_zone.m_sam_control_socket = net::sam::make_connect_client(
             net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()}, handler);
 
-        if (!net::sam::client::generate_destination(i2p_sam_zone.m_sam_control_socket, i2p_sam_zone.m_sam_router_endpoint))
+        const std::string private_dest_key = i2p_sam_zone.m_sam_control_socket->private_key_from_file();
+
+        if (!net::sam::client::generate_destination(
+            i2p_sam_zone.m_sam_control_socket,
+            i2p_sam_zone.m_sam_router_endpoint))
         {
             throw std::runtime_error("Failed to generate destination");
         }

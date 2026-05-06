@@ -417,17 +417,6 @@ namespace nodetool
             }
         };
 
-        // TODO
-        // This function needs to do "HELLO VERSION" + "SESSION CREATE" using network_zone members
-
-        try
-        {
-            //net::sam::client::private_key_from_file();
-        }
-        catch (const std::exception& e)
-        {
-        }
-
         net::sam::client::close_on_exit close_client{};
         boost::unique_future<client_result> sam_result{};
         {
