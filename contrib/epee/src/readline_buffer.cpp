@@ -2,6 +2,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <iostream>
+#include <memory>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/algorithm/string.hpp>
@@ -201,7 +202,7 @@ static void handle_line(char* line)
 static bool same_as_last_line(const std::string& test_line)
 {
   // Note that state->offset == state->length, when a new line was entered.
-  HISTORY_STATE* state = history_get_history_state();
+  auto state = std::unique_ptr<HISTORY_STATE, decltype(free)*>{history_get_history_state(), free};
   return state->length > 0
     && test_line.compare(state->entries[state->length-1]->line) == 0;
 }
