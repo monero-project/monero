@@ -131,6 +131,10 @@ namespace net::sam
         return instance;
     }
 
+    /**
+     * @brief Generates a random SAM session ID.
+     * @return A random 10-character string.
+     */
     std::string random_session_id()
     {
         std::random_device rng;
@@ -145,19 +149,6 @@ namespace net::sam
         }
 
         return result;
-    }
-
-    std::string private_key_from_file()
-    {
-        const auto data_dir = tools::get_default_data_dir();
-        const auto key_path = data_dir + "/i2p_private_key";
-
-        std::string private_key;
-
-        epee::file_io_utils::load_file_to_string(key_path, private_key);
-        CHECK_AND_ASSERT_THROW_MES(!private_key.empty(), "Failed to load I2P destination key from " + key_path);
-
-        return private_key;
     }
 
     client::client(stream_type::socket&& socket)
@@ -522,5 +513,34 @@ namespace net::sam
                 }
             });
         }
+    }
+
+    std::string client::private_key_from_file()
+    {
+        const std::string data_dir = tools::get_default_data_dir();
+        const std::string key_path = data_dir + "/i2p_private_key";
+
+        std::string private_key;
+
+        if (epee::file_io_utils::is_file_exist(key_path))
+        {
+            if (!epee::file_io_utils::load_file_to_string(key_path, private_key))
+                throw std::runtime_error("Failed to load I2P destination key from " + key_path);
+
+            if (private_key.empty())
+                throw std::runtime_error("I2P destination key is empty: " + key_path);
+        }
+        else
+        {
+            send_dest_generate();
+
+            if (private_key.empty())
+                throw std::runtime_error("Failed to generate I2P destination");
+
+            if (!epee::file_io_utils::save_string_to_file(key_path, private_key))
+                throw std::runtime_error("Failed to save I2P destination key to " + key_path);
+        }
+
+        return private_key;
     }
 } // namespace net::sam

@@ -21,3 +21,7 @@ At a later date, when full support arrives, signature types should be updated to
 To use SAM functionality, the I2P router's SAM bridge must first be enabled. The bridge is enabled by default in [`i2pd`](https://github.com/PurpleI2P/i2pd) (C++), but not in [`i2prouter`](https://github.com/i2p/i2p.i2p) (Java). See [here](https://github.com/bitcoin/bitcoin/blob/master/doc/i2p.md#run-bitcoin-core-with-an-i2p-router-proxy) for more information on how to enable the SAM bridge.
 
 While default router settings will likely be sufficient for most users, the maximum bandwidth usage of the I2P router may be reduced if it is too high. See [here](https://github.com/bitcoin/bitcoin/blob/master/doc/i2p.md#bandwidth) for more information.
+
+## Key storage
+
+[TODO]

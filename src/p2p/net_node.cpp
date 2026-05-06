@@ -422,7 +422,7 @@ namespace nodetool
 
         try
         {
-            const auto dest_privkey = net::sam::private_key_from_file();
+            //net::sam::client::private_key_from_file();
         }
         catch (const std::exception& e)
         {
