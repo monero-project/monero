@@ -341,10 +341,13 @@ namespace cryptonote
      *
      * @param tx_infos [out] the transactions' information
      * @param key_image_infos [out] the spent key images' information
+     * @param include_sensitive include fields that are sensitive to node privacy
+     *    (currently: receive_time and last_relayed_time). Stem-phase txs are
+     *    never returned regardless.
      *
      * @return true
      */
-    bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
+    bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const;
 
     /**
      * @brief check for presence of key images in the pool

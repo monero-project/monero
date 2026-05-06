@@ -74,7 +74,6 @@ TEST(ZmqRestrictedMethods, BasicCoverage)
 {
   EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("flush_txpool"));
   EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("get_peer_list"));
-  EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("get_transaction_pool"));
   EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("mining_status"));
   EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("relay_tx"));
   EXPECT_TRUE(cryptonote::rpc::is_blocked_in_restricted_mode("save_bc"));

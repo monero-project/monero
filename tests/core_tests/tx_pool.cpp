@@ -455,7 +455,7 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
   {
     std::vector<cryptonote::rpc::tx_in_pool> infos{};
     cryptonote::rpc::key_images_with_tx_hashes key_images{};
-    if (!c.get_pool_for_rpc(infos, key_images) || infos.size() != m_broadcasted_hashes.size() || key_images.size() != m_broadcasted_hashes.size())
+    if (!c.get_pool_for_rpc(infos, key_images, true) || infos.size() != m_broadcasted_hashes.size() || key_images.size() != m_broadcasted_hashes.size())
     {
       MERROR("Expected broadcasted rpc data to return " << m_broadcasted_hashes.size() << " but got " << infos.size() << " infos and " << key_images.size() << "key images");
       return false;

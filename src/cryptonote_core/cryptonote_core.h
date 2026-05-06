@@ -556,10 +556,11 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_pool_for_rpc
+      * @param include_sensitive include node-private fields (timing)
       *
       * @note see tx_memory_pool::get_pool_for_rpc
       */
-     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
+     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const;
 
      /**
       * @copydoc tx_memory_pool::get_transactions_count
