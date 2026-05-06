@@ -25,8 +25,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-MESSAGE(STATUS "Looking for libunbound")
-
 FIND_PATH(UNBOUND_INCLUDE_DIR
   NAMES unbound.h
   PATH_SUFFIXES include/ include/unbound/
@@ -38,3 +36,21 @@ FIND_PATH(UNBOUND_INCLUDE_DIR
 )
 
 find_library(UNBOUND_LIBRARIES unbound)
+
+find_package_handle_standard_args(Unbound
+        REQUIRED_VARS
+        UNBOUND_LIBRARIES
+        UNBOUND_INCLUDE_DIR
+)
+
+add_library(unbound UNKNOWN IMPORTED)
+
+set_target_properties(unbound PROPERTIES
+        IMPORTED_LOCATION ${UNBOUND_LIBRARIES}
+        INTERFACE_INCLUDE_DIRECTORIES ${UNBOUND_INCLUDE_DIR}
+        IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+)
+
+if(MINGW)
+    target_link_libraries(unbound INTERFACE "iphlpapi;ws2_32;crypt32")
+endif()

@@ -28,19 +28,6 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-find_package(Unbound)
-
-if(NOT UNBOUND_INCLUDE_DIR)
-  message(FATAL_ERROR "Could not find libunbound")
-else()
-  message(STATUS "Found libunbound include (unbound.h) in ${UNBOUND_INCLUDE_DIR}")
-  if(UNBOUND_LIBRARIES)
-    message(STATUS "Found libunbound library")
-  else()
-    message(FATAL_ERROR "Found libunbound includes, but could not find libunbound library. Please make sure you have installed libunbound or libunbound-dev or the equivalent")
-  endif()
-endif()
-
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
 add_subdirectory(qrcodegen)
