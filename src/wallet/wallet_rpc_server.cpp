@@ -3882,10 +3882,10 @@ namespace tools
       er.message = "field 'viewkey' is mandatory. Please provide a view key you want to restore from.";
       return false;
     }
-    if (req.address.empty())
+    if (req.address.empty() && req.spendkey.empty())
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "field 'address' is mandatory. Please provide a public address.";
+      er.message = "field 'address' is mandatory when creating a view-only wallet. Please provide a public address or a spend key.";
       return false;
     }
 
@@ -3945,12 +3945,16 @@ namespace tools
       return false;
     }
 
-    cryptonote::address_parse_info info;
-    if(!get_account_address_from_str(info, wal->nettype(), req.address))
+    cryptonote::address_parse_info info{};
+    const bool address_provided = !req.address.empty();
+    if (address_provided)
     {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Failed to parse public address";
-      return false;
+      if(!get_account_address_from_str(info, wal->nettype(), req.address))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "Failed to parse public address";
+        return false;
+      }
     }
 
     epee::wipeable_string password = rc.second.password();
@@ -3964,10 +3968,19 @@ namespace tools
     }
 
     hw::device &hwdev = hw::get_device("default");
-    if (!hwdev.verify_keys(viewkey, info.address.m_view_public_key))
+    if (address_provided)
+    {
+      if (!hwdev.verify_keys(viewkey, info.address.m_view_public_key))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+        er.message = "view secret key does not match main address";
+        return false;
+      }
+    }
+    else if (!crypto::secret_key_to_public_key(viewkey, info.address.m_view_public_key))
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "view secret key does not match main address";
+      er.message = "Failed to derive view public key from view secret key";
       return false;
     }
 
@@ -3998,10 +4011,19 @@ namespace tools
           return false;
         }
 
-        if (!hwdev.verify_keys(spendkey, info.address.m_spend_public_key))
+        if (address_provided)
+        {
+          if (!hwdev.verify_keys(spendkey, info.address.m_spend_public_key))
+          {
+            er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+            er.message = "spend secret key does not match main address";
+            return false;
+          }
+        }
+        else if (!crypto::secret_key_to_public_key(spendkey, info.address.m_spend_public_key))
         {
           er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-          er.message = "spend secret key does not match main address";
+          er.message = "Failed to derive spend public key from spend secret key";
           return false;
         }
 
