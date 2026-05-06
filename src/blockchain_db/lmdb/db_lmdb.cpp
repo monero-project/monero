@@ -3137,7 +3137,10 @@ bool BlockchainLMDB::get_pruned_tx_blobs_from(const crypto::hash& h, size_t coun
   return true;
 }
 
-std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& txid_template, std::uint32_t bits, uint64_t max_num_txs)
+std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& txid_template,
+  std::uint32_t bits,
+  relay_category category,
+  uint64_t max_num_txs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3180,6 +3183,14 @@ std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& tx
     }
     else if (matching_hashes.size() >= max_num_txs && max_num_txs != 0)
       throw0(TX_EXISTS("number of tx hashes in template range exceeds maximum"));
+
+    // If processing mempool, check that the tx matches relay category
+    if (!doing_chain)
+    {
+      const txpool_tx_meta_t &meta = *(const txpool_tx_meta_t*)v.mv_data;
+      if (!meta.matches(category))
+        continue;
+    }
 
     matching_hashes.push_back(*p_dbtxid);
   }
