@@ -138,7 +138,7 @@ TEST(bulletproofs, multi_splitting)
     for (size_t i = 0; i < n_outputs; ++i)
     {
       rct::key mask;
-      rct::decodeRctSimple(s, amount_keys[i], i, mask, hw::get_device("default"));
+      rct::decodeRct(s, amount_keys[i], i, mask, hw::get_device("default"));
       ASSERT_TRUE(mask == outSk[i].mask);
     }
   }

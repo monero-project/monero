@@ -157,11 +157,7 @@ bool gen_bp_tx_validation_base::generate_with(std::vector<test_event_entry>& eve
       crypto::secret_key amount_key;
       crypto::derivation_to_scalar(derivation, o, amount_key);
       rct::key rct_tx_mask;
-      const uint8_t type = rct_txes.back().rct_signatures.type;
-      if (rct::is_rct_simple(type))
-        rct::decodeRctSimple(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
-      else
-        rct::decodeRct(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
+      rct::decodeRct(rct_txes.back().rct_signatures, rct::sk2rct(amount_key), o, rct_tx_mask, hw::get_device("default"));
     }
 
     while (amounts_paid[0] != (size_t)-1)
