@@ -250,6 +250,18 @@ namespace net::sam
         }
     };
 
+    bool client::generate_destination(std::shared_ptr<client> self_, const stream_type::endpoint& router)
+    {
+        if (!self_) return false;
+
+        client& self = *self_;
+
+        self.socket_.async_connect(router,
+            boost::asio::bind_executor(self.strand_, send_dest_generate{std::move(self_)}));
+
+        return true;
+    }
+
     struct client::send_naming_lookup
     {
         std::shared_ptr<client> self;

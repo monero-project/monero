@@ -143,6 +143,7 @@ namespace net::sam
         bool set_connect_command(const net::i2p_address& address);
 
         static bool connect_and_send(std::shared_ptr<client> self_, const stream_type::endpoint& router);
+        static bool generate_destination(std::shared_ptr<client> self_, const stream_type::endpoint& router);
 
         struct async_close
         {
