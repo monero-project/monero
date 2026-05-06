@@ -44,6 +44,8 @@
 #include "misc_log_ex.h"
 #include "file_io_utils.h"
 #include "common/util.h"
+#include "crypto/crypto.h"
+#include "hex.h"
 
 namespace net::sam
 {
@@ -129,7 +131,6 @@ namespace net::sam
         return instance;
     }
 
-    //! Generates a random 10-character session ID.
     std::string random_session_id()
     {
         std::random_device rng;
@@ -144,6 +145,19 @@ namespace net::sam
         }
 
         return result;
+    }
+
+    std::string private_key_from_file()
+    {
+        const auto data_dir = tools::get_default_data_dir();
+        const auto key_path = data_dir + "/i2p_private_key";
+
+        std::string private_key;
+
+        epee::file_io_utils::load_file_to_string(key_path, private_key);
+        CHECK_AND_ASSERT_THROW_MES(!private_key.empty(), "Failed to load I2P destination key from " + key_path);
+
+        return private_key;
     }
 
     client::client(stream_type::socket&& socket)

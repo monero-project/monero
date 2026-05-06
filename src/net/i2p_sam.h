@@ -72,6 +72,9 @@ namespace net::sam
         return boost::system::error_code{int(value), sam::error_category()};
     }
 
+    //! Loads the saved I2P destination private key from a file.
+    std::string private_key_from_file();
+
     /**
      * I2P SAM protocol client, used for connecting to the router.
      * This is invoked by code in p2p/net_node.{cpp,h,inl}.
