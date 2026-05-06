@@ -30,11 +30,12 @@
 
 #pragma once
 
-#include <cstddef>
-#include <string>
 #include "device.hpp"
-#include "log.hpp"
-#include "device_io_hid.hpp"
+#include "device_io.hpp"
+
+#include <cstddef>
+#include <memory>
+#include <string>
 #include <mutex>
 
 namespace hw {
@@ -143,7 +144,7 @@ namespace hw {
         mutable std::mutex   command_locker;
 
         //IO
-        hw::io::device_io_hid hw_device;
+        std::unique_ptr<io::device_io> hw_device_io;
         unsigned int  length_send;
         unsigned char buffer_send[BUFFER_SEND_SIZE];
         unsigned int  length_recv;
@@ -160,6 +161,7 @@ namespace hw {
         void send_simple(unsigned char ins, unsigned char p1 = 0x00);
         void send_secret(const unsigned char sec[32], int &offset);
         void receive_secret(unsigned char sec[32], int &offset);
+        bool soft_request_view_key();
 
         bool tx_in_progress;
 
@@ -174,11 +176,16 @@ namespace hw {
         // To speed up blockchain parsing the view key maybe handle here.
         crypto::secret_key viewkey = crypto::null_skey;
         bool has_view_key = false;
+        bool requested_view_key = false;
 
         device *controle_device;
 
     public:
+        // assumes default HID transport for device I/O
         device_ledger();
+        // explicit transport for device I/O
+        device_ledger(std::unique_ptr<io::device_io> &&device_io);
+
         ~device_ledger();
 
         device_ledger(const device_ledger &device) = delete ;
