@@ -33,6 +33,7 @@
 #include <boost/range/algorithm_ext/iota.hpp>
 #include <boost/range/iterator_range.hpp>
 #include <cstdint>
+#include <functional>
 #include <gtest/gtest.h>
 #include <iomanip>
 #include <iterator>
@@ -54,6 +55,7 @@
 #include "net/local_ip.h"
 #include "net/buffer.h"
 #include "p2p/net_peerlist_boost_serialization.h"
+#include "scope_guard.h"
 #include "span.h"
 #include "string_tools.h"
 #include "storages/parserse_base_utils.h"
@@ -72,7 +74,7 @@ namespace
       unsigned(std::is_assignable<Destination, Source&>());
     EXPECT_TRUE(count == 6 || count == 0) <<
       "Mismatch on construction results - " << count << " were true";
-    return count == 6; 
+    return count == 6;
   }
 
   // This is probably stressing the compiler more than the implementation ...
@@ -277,7 +279,7 @@ TEST(Span, Nullptr)
     EXPECT_EQ(0, data.size_bytes());
   };
   check_empty({});
-  check_empty(nullptr); 
+  check_empty(nullptr);
 }
 
 TEST(Span, Writing)
@@ -1923,4 +1925,116 @@ TEST(parsing, strtoul)
   ul = std::strtoul(p, const_cast<char**>(&endp), 10);
   EXPECT_EQ(ERANGE, errno);
   EXPECT_EQ(ULLONG_MAX, ul);
+}
+
+TEST(scope_guard, scope_guard)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    const epee::scope_guard g([&count](){++count;});
+    ASSERT_EQ(0, count);
+  }
+  ASSERT_EQ(1, count);
+}
+
+TEST(scope_guard, scope_guard_error)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    const epee::scope_guard g([&count](){++count; throw std::logic_error(
+      "! Error"
+      "If you're seeing this, the code is in what I thought was an unreachable state."
+      "I could give you advice for what to do. But honestly, why should you trust me? I clearly screwed this up."
+      "I'm writing a message that should never appear, yet I know it will probably appear someday."
+      "On a deep level, I know I'm not up to this task. I'm so sorry.");});
+    ASSERT_EQ(0, count);
+  } // hopefully no exception in destructor...
+  ASSERT_EQ(1, count);
+}
+
+TEST(scope_guard, unique_scope_guard_basic)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    const epee::unique_scope_guard g([&count](){++count;});
+    ASSERT_EQ(0, count);
+  }
+  ASSERT_EQ(1, count);
+}
+
+TEST(scope_guard, unique_scope_guard_error)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    const epee::unique_scope_guard g([&count](){++count; throw std::logic_error(
+      "Never write error messages tired.");});
+    ASSERT_EQ(0, count);
+  } // hopefully no exception in destructor...
+  ASSERT_EQ(1, count);
+}
+
+TEST(scope_guard, unique_scope_guard_reset)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    epee::unique_scope_guard g([&count](){++count;});
+    ASSERT_EQ(0, count);
+    g.reset();
+    ASSERT_EQ(1, count);
+  }
+  ASSERT_EQ(1, count);
+}
+
+TEST(scope_guard, unique_scope_guard_release)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    epee::unique_scope_guard g([&count](){++count;});
+    ASSERT_EQ(0, count);
+    g.release();
+    ASSERT_EQ(0, count);
+  }
+  ASSERT_EQ(0, count);
+}
+
+TEST(scope_guard, unique_scope_guard_move_construct)
+{
+  int count = 0;
+  {
+    ASSERT_EQ(0, count);
+    epee::unique_scope_guard g([&count](){++count;});
+    ASSERT_EQ(0, count);
+    epee::unique_scope_guard h(std::move(g));
+    ASSERT_EQ(0, count);
+    g.reset();
+    ASSERT_EQ(0, count);
+  }
+  ASSERT_EQ(1, count);
+}
+
+TEST(scope_guard, unique_scope_guard_move_assign)
+{
+  int count1 = 0;
+  int count2 = 0;
+  {
+    ASSERT_EQ(0, count1);
+    ASSERT_EQ(0, count2);
+    epee::unique_scope_guard g(std::function([&count1](){++count1;}));
+    ASSERT_EQ(0, count1);
+    ASSERT_EQ(0, count2);
+    epee::unique_scope_guard h(std::function([&count2](){++count2;}));
+    ASSERT_EQ(0, count1);
+    ASSERT_EQ(0, count2);
+    h = std::move(g);
+    ASSERT_EQ(0, count1);
+    ASSERT_EQ(1, count2);
+  }
+  ASSERT_EQ(1, count1);
+  ASSERT_EQ(1, count2);
 }
