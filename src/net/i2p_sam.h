@@ -73,27 +73,34 @@ namespace net::sam
     }
 
     /**
-     * I2P SAM protocol client, used for connecting to the router.
-     * This is invoked by code in p2p/net_node.{cpp,h,inl}.
+     * Represents an I2P connection, either directly to the router's SAM bridge,
+     * or to a network peer (via a proxy set up by the router).
+     *
+     * This is invoked by code in `p2p/net_node.{cpp,h,inl}`.
      */
     class client : public std::enable_shared_from_this<client>
     {
         boost::asio::ip::tcp::socket socket_;
         boost::asio::strand<boost::asio::ip::tcp::socket::executor_type> strand_;
 
-        std::array<char, 1024> buffer_;
         std::string line_;
 
+        //! The SAM session ID (global).
         std::string session_id_;
+
+        //! I2P address stored for querying using the `NAMING LOOKUP` command.
         std::string naming_lookup_;
+
+        //! Base64-encoded I2P destination; result of `NAMING LOOKUP` command.
         std::string destination_;
 
+        //! The public I2P address of this node.
         std::string public_key_;
+
+        //! Our I2P private key; retrieved from a file.
         std::string private_key_;
 
-        bool transient_;
-
-        //! Current state of the connection process
+        //! Current state of the connection process.
         enum class state : std::uint8_t
         {
             hello_version,
@@ -167,7 +174,8 @@ namespace net::sam
         boost::system::error_code parse_result(const std::string& line);
 
         /**
-         * @brief Attempts to load the private I2P destination key from a file.
+         * @brief Attempts to load the private I2P destination key from a file;
+         *        generates and stores a new destination if not existent.
          * @return The contents of the file as a string.
          */
         std::string private_key_from_file();

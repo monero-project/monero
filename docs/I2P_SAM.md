@@ -1,6 +1,6 @@
 # I2P SAM support in Monero
 
-`monerod` supports the I2P network's [SAM](https://i2p.net/en/docs/api/samv3/) protocol (version 3.1) for automatically configuring and managing I2P connections. Though it is also possible to use I2P with SOCKS proxies, this requires extra setup and can [leak metadata](https://i2p.net/en/docs/api/socks/); SAM is the recommended way to use Monero over I2P instead.
+`monerod` supports the I2P network's [SAM](https://i2p.net/en/docs/api/samv3/) protocol (version 3.1) for automatically configuring and managing I2P connections. Though it is also possible to use I2P by means of SOCKS proxies, this requires extra setup and can [leak metadata](https://i2p.net/en/docs/api/socks/); SAM is the recommended way to use Monero over I2P instead.
 When passed to the daemon, the `--i2p-sam` argument will override the `--tx-proxy` and `--anonymous-inbound` parameters to use SAM instead.
 
 Please see [this documentation](./ANONYMITY_NETWORKS.md) for a guide on how to use SAM with `monerod`.
