@@ -428,7 +428,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       tools::error::wallet_internal_error,
       tools::wallet2::tr("Enabling --") + std::string{use_proxy ? opts.proxy.name : opts.daemon_ssl.name} + tools::wallet2::tr(" requires --") +
         opts.daemon_ssl_allow_any_cert.name + tools::wallet2::tr(" or --") +
-        opts.daemon_ssl_ca_certificates.name + tools::wallet2::tr(" or --") + opts.daemon_ssl_allowed_fingerprints.name + tools::wallet2::tr(" or use of a .onion/.i2p domain")
+        opts.daemon_ssl_ca_certificates.name + tools::wallet2::tr(" or --") + opts.daemon_ssl_allowed_fingerprints.name + tools::wallet2::tr(" or use of a Tor/I2P domain")
     );
   }
 
