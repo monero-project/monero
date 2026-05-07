@@ -77,6 +77,7 @@ private:
   uint32_t m_rpc_version;
   uint64_t m_target_height;
   uint64_t m_block_weight_limit;
+  bool m_restricted;
   time_t m_get_info_time;
   time_t m_height_time;
   time_t m_target_height_time;

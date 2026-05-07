@@ -79,6 +79,7 @@ namespace cryptonote
 #define CORE_RPC_STATUS_BUSY   "BUSY"
 #define CORE_RPC_STATUS_NOT_MINING "NOT MINING"
 #define CORE_RPC_STATUS_PAYMENT_REQUIRED "PAYMENT REQUIRED"
+#define CORE_RPC_STATUS_TOO_LARGE "TOO LARGE"
 
 inline const std::string get_rpc_status(const bool trusted_daemon, const std::string &s)
 {
@@ -89,6 +90,8 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
   if (s == CORE_RPC_STATUS_BUSY)
     return s;
   if (s == CORE_RPC_STATUS_PAYMENT_REQUIRED)
+    return s;
+  if (s == CORE_RPC_STATUS_TOO_LARGE)
     return s;
   return "<error>";
 }
