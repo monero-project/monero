@@ -39,6 +39,7 @@
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
 #include "device/device.hpp"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "serialization/crypto.h"
 
 using namespace crypto;
@@ -1610,5 +1611,42 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev) {
       key mask;
       return decodeRctSimple(rv, sk, i, mask, hwdev);
+    }
+
+    bool verPointsForTorsion(const std::vector<key> & pts) {
+      if (pts.empty())
+        return true;
+
+      tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
+      tools::threadpool::waiter waiter(tpool);
+
+      std::deque<bool> torsion_free;
+
+      torsion_free.resize(pts.size());
+      for (size_t i = 0; i < pts.size(); i++) {
+        tpool.submit(&waiter, [&pts, &torsion_free, i]
+          {
+            const crypto::ec_point &point = rct::rct2pt(pts[i]);
+            crypto::ec_point torsion_cleared_point;
+            if (!fcmp_pp::get_valid_torsion_cleared_point(point, torsion_cleared_point))
+            {
+              torsion_free[i] = false;
+              return;
+            }
+            // Point is torsion free if after clearing torsion, it's equal to itself
+            torsion_free[i] = point == torsion_cleared_point;
+          });
+      }
+
+      if (!waiter.wait())
+        return false;
+      for (size_t i = 0; i < torsion_free.size(); ++i) {
+        if (!torsion_free[i]) {
+          LOG_PRINT_L1("Torsion check failed for point " << i);
+          return false;
+        }
+      }
+
+      return true;
     }
 }
