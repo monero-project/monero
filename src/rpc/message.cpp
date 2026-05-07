@@ -80,7 +80,7 @@ FullMessage::FullMessage(std::string&& json_string, bool request)
 {
   /* Insitu parsing does not copy data from `contents` to DOM,
      accelerating string heavy content. */
-  doc.ParseInsitu(std::addressof(contents[0]));
+  doc.ParseInsitu<rapidjson::kParseIterativeFlag>(std::addressof(contents[0]));
   if (doc.HasParseError() || !doc.IsObject())
   {
     throw cryptonote::json::PARSE_FAIL();
