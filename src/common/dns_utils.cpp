@@ -553,7 +553,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   }
 
   MDEBUG("Found " << (good_record == record_count.end() ? 0 : good_record->second) << "/" << dns_urls.size() << " matching records from " << num_valid_records << " valid records");
-  if (good_record == record_count.end() || good_record->second < dns_urls.size() / 2 + 1)
+  if (good_record == record_count.end() || good_record->second < dns_urls.size() * 2 / 3 + 1)
   {
     LOG_PRINT_L0("WARNING: no majority of DNS TXT records matched (only " << good_record->second << "/" << dns_urls.size() << ")");
     return false;
