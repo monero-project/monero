@@ -1,0 +1,4 @@
+# If a developer runs cargo build inside this sub-directory to only work with
+# the Rust side of things, they'll create this target directory which shouldn't
+# be committed
+target
