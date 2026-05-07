@@ -51,6 +51,10 @@
 #include "serialization/json_object.h"
 #include "ringct/rctTypes.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "serialization/wire.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/json.h"
+#include "serialization/wire/wrapper/range.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.zmq"
@@ -59,9 +63,9 @@ namespace
 {
   constexpr const char txpool_signal[] = "tx_signal";
 
-  using chain_writer =  void(epee::byte_stream&, std::uint64_t, epee::span<const cryptonote::block>);
-  using miner_writer =  void(epee::byte_stream&, uint8_t, uint64_t, const crypto::hash&, const crypto::hash&, cryptonote::difficulty_type, uint64_t, uint64_t, const std::vector<cryptonote::tx_block_template_backlog_entry>&);
-  using txpool_writer = void(epee::byte_stream&, epee::span<const cryptonote::txpool_event>);
+  using chain_writer =  std::error_code(epee::byte_stream&, std::uint64_t, epee::span<const cryptonote::block>);
+  using miner_writer =  std::error_code(epee::byte_stream&, uint8_t, uint64_t, const crypto::hash&, const crypto::hash&, cryptonote::difficulty_type, uint64_t, uint64_t, const std::vector<cryptonote::tx_block_template_backlog_entry>&);
+  using txpool_writer = std::error_code(epee::byte_stream&, epee::span<const cryptonote::txpool_event>);
 
   template<typename F>
   struct context
@@ -106,44 +110,23 @@ namespace
 
   //! \return `name:...` where `...` is JSON and `name` is directly copied (no quotes - not JSON).
   template<typename T>
-  void json_pub(epee::byte_stream& buf, const T value)
+  std::error_code json_pub(epee::byte_stream& buf, const T value)
   {
     rapidjson::Writer<epee::byte_stream> dest{buf};
     using cryptonote::json::toJsonValue;
     toJsonValue(dest, value);
+    return {};
   }
 
   //! Object for "minimal" block serialization
   struct minimal_chain
   {
+    WIRE_DEFINE_CONVERSIONS()
+
     const std::uint64_t height;
     const epee::span<const cryptonote::block> blocks;
   };
-
-  //! Object for miner data serialization
-  struct miner_data
-  {
-    uint8_t major_version;
-    uint64_t height;
-    const crypto::hash& prev_id;
-    const crypto::hash& seed_hash;
-    cryptonote::difficulty_type diff;
-    uint64_t median_weight;
-    uint64_t already_generated_coins;
-    const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog;
-  };
-
-  //! Object for "minimal" tx serialization
-  struct minimal_txpool
-  {
-    const cryptonote::transaction& tx;
-    crypto::hash hash;
-    uint64_t blob_size;
-    uint64_t weight;
-    uint64_t fee;
-  };
-
-  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const minimal_chain& self)
+  void write_bytes(wire::writer& dest, const minimal_chain& self)
   {
     namespace adapt = boost::adaptors;
 
@@ -157,90 +140,119 @@ namespace
 
     assert(!self.blocks.empty()); // checked in zmq_pub::send_chain_main
 
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, first_height, self.height);
-    INSERT_INTO_JSON_OBJECT(dest, first_prev_id, self.blocks[0].prev_id);
-    INSERT_INTO_JSON_OBJECT(dest, ids, (self.blocks | adapt::transformed(to_block_id)));
-    dest.EndObject();
+    wire::object(dest,
+      wire::field("first_height", self.height),
+      wire::field("first_prev_id", std::cref(self.blocks[0].prev_id)),
+      wire::field("ids", wire::range(self.blocks | adapt::transformed(to_block_id)))
+    );
   }
 
-  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const miner_data& self)
+  //! Object for miner data serialization
+  struct miner_data
   {
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, major_version, self.major_version);
-    INSERT_INTO_JSON_OBJECT(dest, height, self.height);
-    INSERT_INTO_JSON_OBJECT(dest, prev_id, self.prev_id);
-    INSERT_INTO_JSON_OBJECT(dest, seed_hash, self.seed_hash);
-    INSERT_INTO_JSON_OBJECT(dest, difficulty, cryptonote::hex(self.diff));
-    INSERT_INTO_JSON_OBJECT(dest, median_weight, self.median_weight);
-    INSERT_INTO_JSON_OBJECT(dest, already_generated_coins, self.already_generated_coins);
-    INSERT_INTO_JSON_OBJECT(dest, tx_backlog, self.tx_backlog);
-    dest.EndObject();
+    WIRE_DEFINE_CONVERSIONS()
+
+    uint8_t major_version;
+    uint64_t height;
+    const crypto::hash& prev_id;
+    const crypto::hash& seed_hash;
+    cryptonote::difficulty_type diff;
+    uint64_t median_weight;
+    uint64_t already_generated_coins;
+    const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog;
+  };
+  void write_bytes(wire::writer& dest, const miner_data& self)
+  {
+    wire::object(dest,
+      WIRE_FIELD_COPY(major_version),
+      WIRE_FIELD_COPY(height),
+      WIRE_FIELD(prev_id),
+      WIRE_FIELD(seed_hash),
+      wire::field("difficulty", cryptonote::hex(self.diff)),
+      WIRE_FIELD_COPY(median_weight),
+      WIRE_FIELD_COPY(already_generated_coins),
+      WIRE_FIELD(tx_backlog)
+    );
   }
 
-  void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const minimal_txpool& self)
+  //! Object for "minimal" tx serialization
+  struct minimal_txpool
   {
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, id, self.hash);
-    INSERT_INTO_JSON_OBJECT(dest, blob_size, self.blob_size);
-    INSERT_INTO_JSON_OBJECT(dest, weight, self.weight);
-    INSERT_INTO_JSON_OBJECT(dest, fee, self.fee);
-    dest.EndObject();
+    WIRE_DEFINE_CONVERSIONS()
+
+    const cryptonote::transaction& tx;
+    crypto::hash hash;
+    uint64_t blob_size;
+    uint64_t weight;
+    uint64_t fee;
+  };
+  void write_bytes(wire::writer& dest, const minimal_txpool& self)
+  {
+    wire::object(dest,
+      wire::field("id", std::cref(self.hash)),
+      WIRE_FIELD_COPY(blob_size),
+      WIRE_FIELD_COPY(weight),
+      WIRE_FIELD_COPY(fee)
+    );
   }
 
-  void json_full_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
+  std::error_code json_full_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
-    json_pub(buf, blocks);
+    return json_pub(buf, blocks);
   }
 
-  void json_minimal_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
+  template<typename F>
+  std::error_code minimal_chain_format(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
-    json_pub(buf, minimal_chain{height, blocks});
+    return F::to_bytes(buf, minimal_chain{height, blocks});
   }
 
-  void json_miner_data(epee::byte_stream& buf, uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::hash& seed_hash, cryptonote::difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog)
+  template<typename F>
+  std::error_code miner_data_format(epee::byte_stream& buf, uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::hash& seed_hash, cryptonote::difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog)
   {
-    json_pub(buf, miner_data{major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog});
+    return F::to_bytes(buf, miner_data{major_version, height, prev_id, seed_hash, diff, median_weight, already_generated_coins, tx_backlog});
   }
 
   // boost::adaptors are in place "views" - no copy/move takes place
   // moving transactions (via sort, etc.), is expensive!
 
-  void json_full_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
+  std::error_code json_full_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
   {
     namespace adapt = boost::adaptors;
     const auto to_full_tx = [](const cryptonote::txpool_event& event)
     {
       return event.tx;
     };
-    json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
+    return json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
   }
 
-  void json_minimal_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
+  template<typename F>
+  std::error_code minimal_txpool_format(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
   {
     namespace adapt = boost::adaptors;
     const auto to_minimal_tx = [](const cryptonote::txpool_event& event)
     {
       return minimal_txpool{event.tx, event.hash, event.blob_size, event.weight, cryptonote::get_tx_fee(event.tx)};
     };
-    json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_minimal_tx)));
+
+    return F::to_bytes(buf, wire::range(txes | adapt::filtered(is_valid{}) | adapt::transformed(to_minimal_tx)));
   }
 
   constexpr const std::array<context<chain_writer>, 2> chain_contexts =
   {{
     {u8"json-full-chain_main", json_full_chain},
-    {u8"json-minimal-chain_main", json_minimal_chain}
+    {u8"json-minimal-chain_main", minimal_chain_format<wire::json>}
   }};
 
   constexpr const std::array<context<miner_writer>, 1> miner_contexts =
   {{
-    {u8"json-full-miner_data", json_miner_data},
+    {u8"json-full-miner_data", miner_data_format<wire::json>}
   }};
 
   constexpr const std::array<context<txpool_writer>, 2> txpool_contexts =
   {{
     {u8"json-full-txpool_add", json_full_txpool},
-    {u8"json-minimal-txpool_add", json_minimal_txpool}
+    {u8"json-minimal-txpool_add", minimal_txpool_format<wire::json>}
   }};
 
   template<typename T, std::size_t N>
@@ -288,20 +300,25 @@ namespace
     epee::byte_stream buf{};
 
     std::size_t last_offset = 0;
+    std::array<epee::byte_slice, N> out;
     std::array<std::size_t, N> offsets{{}};
     for (std::size_t i = 0; i < N; ++i)
     {
       if (subs[i])
       {
         write_header(buf, contexts[i].name);
-        contexts[i].generate_pub(buf, std::forward<U>(args)...);
+        const std::error_code error = contexts[i].generate_pub(buf, std::forward<U>(args)...);
+        if (error)
+        {
+          MERROR("Failed to serialize " << contexts[i].name << ": " << error.message());
+          return out;
+        }
         offsets[i] = buf.size() - last_offset;
         last_offset = buf.size();
       }
     }
 
     epee::byte_slice bytes{std::move(buf)};
-    std::array<epee::byte_slice, N> out;
     for (std::size_t i = 0; i < N; ++i)
       out[i] = bytes.take_slice(offsets[i]);
 
