@@ -42,6 +42,12 @@
 #include "transport.hpp"
 #include "messages/messages-common.pb.h"
 
+// https://github.com/Tencent/rapidjson/issues/1448
+#ifdef _WIN32
+#undef GetObject
+#endif
+#include <rapidjson/document.h>
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "device.trezor.transport"
 
