@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -192,6 +192,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       bool        block_ids_exclusive;
       uint64_t    pool_info_since;
       uint64_t    max_block_count;
+      bool        get_tx_blobs;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
@@ -203,6 +204,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(block_ids_exclusive, false)
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
         KV_SERIALIZE_OPT(max_block_count, (uint64_t)0)
+        KV_SERIALIZE_OPT(get_tx_blobs, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
