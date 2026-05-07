@@ -248,7 +248,6 @@ namespace nodetool
         m_hide_my_port(false),
         m_offline(false),
         is_closing(false),
-        m_fallback_seed_nodes_added(ATOMIC_FLAG_INIT),
         m_network_id(),
         m_enable_dns_seed_nodes(true),
         max_connections(1)
@@ -466,7 +465,7 @@ namespace nodetool
 
     std::list<epee::net_utils::network_address>   m_priority_peers;
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
-    std::atomic_flag m_fallback_seed_nodes_added;
+    std::atomic_flag m_fallback_seed_nodes_added = ATOMIC_FLAG_INIT;
     std::vector<nodetool::peerlist_entry> m_command_line_peers;
     uint64_t m_peer_livetime;
     //keep connections to initiate some interactions
