@@ -48,6 +48,7 @@ namespace net
         invalid_port,       //!< Outside of 0-65535 range
         invalid_scheme,     //!< Provided URI scheme was unspported
         invalid_tor_address,//!< Invalid base32 or length
+        legacy_tor_address, //!< Legacy address type; not supported
         unexpected_userinfo,//!< User or pass was provided unexpectedly
         unsupported_address,//!< Type not supported by `get_network_address`
 
