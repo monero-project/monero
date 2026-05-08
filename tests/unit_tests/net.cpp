@@ -76,6 +76,13 @@ namespace
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion";
     static constexpr const char v3_onion_2[] =
         "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ad.onion";
+
+    static constexpr const char v3_onion_bad_checksum[] =
+        "wrongchecksum777777777777777777777777777777777777777777d.onion";
+    static constexpr const char v3_onion_bad_pubkey[] =
+        "civ5tgldg3yx73ytse6hvvk3nm6q3zctbqvytpszihm35b33ze73kxad.onion";
+    static constexpr const char v3_onion_bad_version[] =
+        "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ac.onion";
 }
 
 TEST(tor_address, constants)
@@ -106,6 +113,10 @@ TEST(tor_address, invalid)
     std::string onion{v3_onion};
     onion.at(10) = 1;
     EXPECT_TRUE(net::tor_address::make(onion).has_error());
+
+    EXPECT_TRUE(net::tor_address::make(v3_onion_bad_checksum).has_error());
+    EXPECT_TRUE(net::tor_address::make(v3_onion_bad_pubkey).has_error());
+    EXPECT_TRUE(net::tor_address::make(v3_onion_bad_version).has_error());
 }
 
 TEST(tor_address, unblockable_types)
@@ -426,7 +437,7 @@ TEST(get_network_address, onion)
     EXPECT_EQ(net::error::invalid_tor_address, address);
 
     address = net::get_network_address(v2_onion, 1000);
-    EXPECT_EQ(net::error::invalid_tor_address, address);
+    EXPECT_EQ(net::error::legacy_tor_address, address);
 
     address = net::get_network_address(v3_onion, 1000);
     ASSERT_TRUE(bool(address));

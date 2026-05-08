@@ -530,7 +530,7 @@ if (APPLE AND NOT IOS)
   endif()
 endif()
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL 1.1.1 REQUIRED)
 message(STATUS "Using OpenSSL include dir at ${OPENSSL_INCLUDE_DIR}")
 include_directories(${OPENSSL_INCLUDE_DIR})
 if(STATIC AND NOT IOS)
