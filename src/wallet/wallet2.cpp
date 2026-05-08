@@ -1091,7 +1091,7 @@ uint64_t gamma_picker::pick()
     return std::numeric_limits<uint64_t>::max(); // bad pick
   output_index = num_rct_outputs - 1 - output_index;
 
-  const uint64_t *it = std::lower_bound(begin, end, output_index);
+  const uint64_t *it = std::upper_bound(begin, end, output_index);
   THROW_WALLET_EXCEPTION_IF(it == end, error::wallet_internal_error, "output_index not found");
   uint64_t index = std::distance(begin, it);
 
