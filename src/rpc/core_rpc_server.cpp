@@ -1259,8 +1259,6 @@ namespace cryptonote
       return ok;
 
     const bool restricted = m_restricted && ctx;
-    const bool request_has_rpc_origin = ctx != NULL;
-
     if (restricted && req.key_images.size() > RESTRICTED_SPENT_KEY_IMAGES_COUNT)
     {
       res.status = "Too many key images queried in restricted mode";
