@@ -8,6 +8,15 @@ $(package)_patches=06aba27b04c5822cb88a69677382a0f053367143.patch
 define $(package)_set_vars
   $(package)_config_opts=--without-documentation --disable-shared --without-libsodium --disable-curve
   $(package)_config_opts_linux=--with-pic
+  $(package)_config_opts_linux+=libzmq_cv_o_cloexec=yes
+  $(package)_config_opts_linux+=libzmq_cv_efd_cloexec=yes
+  $(package)_config_opts_linux+=libzmq_cv_sock_cloexec=yes
+  $(package)_config_opts_linux+=libzmq_cv_so_bindtodevice=yes
+  $(package)_config_opts_linux+=libzmq_cv_so_keepalive=yes
+  $(package)_config_opts_linux+=libzmq_cv_so_priority=yes
+  $(package)_config_opts_linux+=libzmq_cv_tcp_keepcnt=yes
+  $(package)_config_opts_linux+=libzmq_cv_tcp_keepidle=yes
+  $(package)_config_opts_linux+=libzmq_cv_tcp_keepintvl=yes
   $(package)_config_opts_freebsd=--with-pic
   $(package)_cxxflags=-std=c++11
 endef
