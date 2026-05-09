@@ -502,7 +502,9 @@ void fuzz_add_aux_pow(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& prov
 
   req.blocktemplate_blob = provider.ConsumeRandomLengthString(128);
 
-  size_t count = provider.ConsumeIntegralInRange<size_t>(0, 4);
+  // Exercise the restricted-RPC aux-pow guard by letting the fuzzer reach
+  // counts above the current 10-entry limit as well as smaller edge cases.
+  size_t count = provider.ConsumeIntegralInRange<size_t>(0, 16);
   for (size_t i = 0; i < count; ++i) {
     cryptonote::COMMAND_RPC_ADD_AUX_POW::aux_pow_t aux;
     aux.id = provider.ConsumeRandomLengthString(32);
