@@ -2121,7 +2121,7 @@ namespace nodetool
     };
 
     std::vector<std::string> records;
-    if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
+    if (!tools::dns_utils::load_chunked_txt_records_from_dns(records, dns_urls))
       return true;
 
     unsigned good = 0;
