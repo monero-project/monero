@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include <thread>
+#include <boost/asio/bind_executor.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -615,7 +616,7 @@ bool ssl_options_t::handshake(
         socket.async_handshake(
           type,
           boost::asio::buffer(buffer),
-          strand.wrap(on_handshake)
+          boost::asio::bind_executor(strand, on_handshake)
         );
       }
     );
