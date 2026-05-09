@@ -962,14 +962,16 @@ namespace net_utils
 
     ec_t ec;
     #if !defined(_WIN32) || !defined(__i686)
-    connection_basic::socket_.next_layer().set_option(
-      boost::asio::detail::socket_option::integer<IPPROTO_IP, IP_TOS>{
-        connection_basic::get_tos_flag()
-      },
-      ec
-    );
-    if (ec.value())
-      return false;
+    if (real_remote->get_type_id() == ipv4_network_address::get_type_id()) {
+      connection_basic::socket_.next_layer().set_option(
+        boost::asio::detail::socket_option::integer<IPPROTO_IP, IP_TOS>{
+          connection_basic::get_tos_flag()
+        },
+        ec
+      );
+      if (ec.value())
+        return false;
+    }
     #endif
     connection_basic::socket_.next_layer().set_option(
       boost::asio::ip::tcp::no_delay{false},
