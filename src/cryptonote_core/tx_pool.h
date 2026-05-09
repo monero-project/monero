@@ -83,7 +83,15 @@ namespace cryptonote
   public:
     bool operator()(const crypto::hash& a, const crypto::hash& b) const
     {
+      // Workaround for a GCC bug causing warnings
+      #if __GNUC__
+      # pragma GCC diagnostic push
+      # pragma GCC diagnostic ignored "-Wstringop-overread"
+      #endif
       return memcmp(a.data, b.data, sizeof(crypto::hash)) < 0;
+      #if __GNUC__
+      # pragma GCC diagnostic pop
+      #endif
     }
   };
 
