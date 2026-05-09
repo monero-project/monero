@@ -1393,6 +1393,7 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
   bool ret =  m_http_client->set_server(address, get_daemon_login(), std::move(ssl_options));
   if (ret)
   {
+    set_offline(false);
     CRITICAL_REGION_LOCAL(default_daemon_address_lock);
     default_daemon_address = address;
   }
