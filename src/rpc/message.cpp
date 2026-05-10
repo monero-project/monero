@@ -62,6 +62,17 @@ const rapidjson::Value& get_method_field(const rapidjson::Value& src)
 }
 }
 
+void validate_id_field(const rapidjson::Value& src)
+{
+  const auto member = src.FindMember(id_field);
+  if (member == src.MemberEnd())
+    return;
+
+  // If present, JSON-RPC 2.0 request ids must be String, Number, or Null.
+  if (!member->value.IsString() && !member->value.IsNumber() && !member->value.IsNull())
+    throw cryptonote::json::WRONG_TYPE{"Expected string, number or null"};
+}
+
 void Message::toJson(rapidjson::Writer<epee::byte_stream>& dest) const
 {
   dest.StartObject();
@@ -92,6 +103,7 @@ FullMessage::FullMessage(std::string&& json_string, bool request)
   {
     get_method_field(doc); // throws on errors
     OBJECT_HAS_MEMBER_OR_THROW(doc, params_field)
+    validate_id_field(doc);
   }
   else
   {
