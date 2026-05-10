@@ -595,3 +595,26 @@ TEST(wallet_keys_unlocker, first_not_locked)
         ASSERT_TRUE(verify_wallet_privkeys(w1));
     }
 }
+
+TEST(wallet_keys_unlocker, construction_failure_rolls_back_lock_count)
+{
+    const epee::wipeable_string password("correct horse battery staple");
+    const epee::wipeable_string wrong_password("correct horse battery stable");
+
+    tools::wallet2 w;
+    w.generate("", password);
+    ASSERT_TRUE(w.is_key_encryption_enabled());
+    ASSERT_FALSE(w.is_unattended());
+    ASSERT_FALSE(verify_wallet_privkeys(w));
+
+    ASSERT_ANY_THROW({
+        tools::wallet_keys_unlocker ul(w, &wrong_password);
+    });
+    ASSERT_FALSE(verify_wallet_privkeys(w));
+
+    {
+        tools::wallet_keys_unlocker ul(w, &password);
+        ASSERT_TRUE(verify_wallet_privkeys(w));
+    }
+    ASSERT_FALSE(verify_wallet_privkeys(w));
+}
