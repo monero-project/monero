@@ -235,6 +235,16 @@ jobs:
           ${{env.BUILD_DEFAULT}}
           cmake --build build --target test
 
+  build-docker:
+    name: 'Docker'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: build image
+        run: docker build .
+
   source-archive:
     name: "source archive"
     runs-on: ubuntu-latest
