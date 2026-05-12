@@ -102,6 +102,7 @@ namespace net_utils
 	//---------------------------------------------------------------------------
 	namespace http
 	{
+		constexpr const std::size_t DEFAULT_MAX_RESPONSE_BODY_SIZE = 250 * 1024 * 1024;
 
 		template<typename net_client_type>
     class http_simple_client_template : public i_target_handler, public abstract_http_client
@@ -140,11 +141,12 @@ namespace net_utils
 			reciev_machine_state m_state;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
+			size_t m_max_response_body_size;
 			bool m_auto_connect;
 			critical_section m_lock;
 
 		public:
-			explicit http_simple_client_template()
+			explicit http_simple_client_template(size_t max_response_body_size = DEFAULT_MAX_RESPONSE_BODY_SIZE)
 				: i_target_handler(), abstract_http_client()
 				, m_net_client()
 				, m_host_buff()
@@ -158,6 +160,7 @@ namespace net_utils
 				, m_state()
 				, m_chunked_state()
 				, m_chunked_cache()
+				, m_max_response_body_size(max_response_body_size)
 				, m_auto_connect(true)
 				, m_lock()
 			{}
@@ -210,6 +213,12 @@ namespace net_utils
 			virtual bool handle_target_data(std::string& piece_of_transfer) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
+				if (m_response_info.m_body.size() > m_max_response_body_size ||
+					piece_of_transfer.size() > m_max_response_body_size - m_response_info.m_body.size())
+				{
+					LOG_ERROR("HTTP response body is too large: limit is " << m_max_response_body_size << " bytes");
+					return false;
+				}
 				m_response_info.m_body += piece_of_transfer;
         piece_of_transfer.clear();
 				return true;

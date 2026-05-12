@@ -28,6 +28,7 @@
 
 #include "gtest/gtest.h"
 #include "net/http_auth.h"
+#include "net/http_client.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -66,6 +67,28 @@ namespace {
 namespace http = epee::net_utils::http;
 using fields = std::unordered_map<std::string, std::string>;
 using auth_responses = std::vector<fields>;
+
+class dummy_client
+{
+public:
+  bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout) { return true; }
+  bool disconnect() { return true; }
+  bool send(const boost::string_ref buff, std::chrono::milliseconds timeout) { return true; }
+  bool is_connected(bool *ssl = NULL) { return true; }
+  bool recv(std::string& buff, std::chrono::milliseconds timeout)
+  {
+    buff = std::move(data);
+    return true;
+  }
+  void set_ssl(epee::net_utils::ssl_options_t ssl_options) { }
+  uint64_t get_bytes_sent() const  { return 1; }
+  uint64_t get_bytes_received() const { return 1; }
+
+  void set_test_data(std::string s) { data = std::move(s); }
+
+private:
+  std::string data;
+};
 
 void rng(size_t len, uint8_t *ptr)
 {
@@ -709,4 +732,20 @@ TEST(HTTP, Add_Field)
   epee::net_utils::http::add_field(str, {"moarbars", "moarfoo"});
 
   EXPECT_STREQ("leading textfoo: bar\r\nbar: foo\r\nmoarbars: moarfoo\r\n", str.c_str());
+}
+
+TEST(HTTP_Client, EnforcesContentLengthResponseBodyLimit)
+{
+  http::http_simple_client_template<dummy_client> client{16};
+
+  EXPECT_TRUE(client.test("HTTP/1.1 200 OK\r\nContent-Length: 16\r\n\r\n1234567890123456", std::chrono::seconds(1)));
+  EXPECT_FALSE(client.test("HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n12345678901234567", std::chrono::seconds(1)));
+}
+
+TEST(HTTP_Client, EnforcesChunkedResponseBodyLimit)
+{
+  http::http_simple_client_template<dummy_client> client{16};
+
+  EXPECT_TRUE(client.test("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n10\r\n1234567890123456\r\n0\r\n\r\n", std::chrono::seconds(1)));
+  EXPECT_FALSE(client.test("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n11\r\n12345678901234567\r\n0\r\n\r\n", std::chrono::seconds(1)));
 }
