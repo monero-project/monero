@@ -1389,6 +1389,17 @@ namespace cryptonote
       }
     }
 
+    if (skip_validation && req.do_not_relay)
+    {
+      // Bootstrap-daemon compatibility: when local validation is skipped, handle_incoming_tx() is
+      // not called, so relay_method::none is not handled above.
+      LOG_PRINT_L0("[on_send_raw_tx]: tx not relayed");
+      res.reason = "Not relayed";
+      res.not_relayed = true;
+      res.status = CORE_RPC_STATUS_OK;
+      return true;
+    }
+
     NOTIFY_NEW_TRANSACTIONS::request r;
     r.txs.push_back(std::move(tx_blob));
     m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, relay_method::local);
