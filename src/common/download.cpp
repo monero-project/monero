@@ -108,6 +108,8 @@ namespace tools
           {
             MINFO("Content-Length: " << length);
             content_length = length;
+            if (control->progress_cb && !control->progress_cb(control->path, control->uri, 0, content_length))
+              return false;
             boost::filesystem::path path(control->path);
             try
             {
