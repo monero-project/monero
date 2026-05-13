@@ -69,9 +69,14 @@ std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() 
           << " from peer " << it->peer_id
           << ", age: " << elapsed.count() << "ms");
 
+    const auto &peer_id = it->peer_id;
+
+    if (m_connection_stats[peer_id].in_flight_requests > 0)
+      --m_connection_stats[peer_id].in_flight_requests;
+
     // If this peer has missed too many requests, we want to drop it
-    if (this->missed_request(it->peer_id, 1)) {
-      drop_peers_out.insert(it->peer_id);
+    if (this->missed_request(peer_id, 1)) {
+      drop_peers_out.insert(peer_id);
     }
 
     it = m_requested_txs.erase(it);
