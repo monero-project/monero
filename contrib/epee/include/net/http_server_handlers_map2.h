@@ -28,6 +28,9 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 #include "storages/portable_storage.h"
 #include "storages/portable_storage_template_helper.h"
 
@@ -138,41 +141,44 @@
 #define END_URI_MAP2() return handled;}
 
 
-#define BEGIN_JSON_RPC_MAP(uri)    else if(query_info.m_URI == uri) \
+#define BEGIN_JSON_RPC_MAP(uri) \
+    else if(query_info.m_URI == uri) \
     { \
-    uint64_t ticks = epee::misc_utils::get_tick_count(); \
-    response_info.m_mime_tipe = "application/json"; \
-    epee::serialization::portable_storage ps; \
-    if(!ps.load_from_json(query_info.m_body)) \
-    { \
-       boost::value_initialized<epee::json_rpc::error_response> rsp; \
-       static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
-       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-       return true; \
-    } \
-    epee::serialization::storage_entry id_; \
-    id_ = epee::serialization::storage_entry(std::string()); \
-    ps.get_value("id", id_, nullptr); \
-    std::string callback_name; \
-    if(!ps.get_value("method", callback_name, nullptr)) \
-    { \
-      epee::json_rpc::error_response rsp; \
-      rsp.jsonrpc = "2.0"; \
-      rsp.error.code = -32600; \
-      rsp.error.message = "Invalid Request"; \
-      epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-      return true; \
-    } \
-    epee::serialization::storage_entry params_; \
-    params_ = epee::serialization::storage_entry(epee::serialization::section()); \
-    if(!ps.get_value("params", params_, nullptr)) \
-    { \
-      epee::serialization::section params_section; \
-      ps.set_value("params", std::move(params_section), nullptr); \
-    } \
-    if(false) return true; //just a stub to have "else if"
+        auto process_single_request = [&](const std::string& request_body, epee::net_utils::http::http_response_info& response_info) -> bool { \
+            uint64_t ticks = epee::misc_utils::get_tick_count(); \
+            response_info.m_mime_tipe = "application/json"; \
+            epee::serialization::portable_storage ps; \
+            if(!ps.load_from_json(request_body)) \
+            { \
+               boost::value_initialized<epee::json_rpc::error_response> rsp; \
+               static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
+               static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
+               static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
+               epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+               return true; \
+            } \
+            epee::serialization::storage_entry id_; \
+            id_ = epee::serialization::storage_entry(std::string()); \
+            ps.get_value("id", id_, nullptr); \
+            std::string callback_name; \
+            if(!ps.get_value("method", callback_name, nullptr)) \
+            { \
+              epee::json_rpc::error_response rsp; \
+              rsp.jsonrpc = "2.0"; \
+              rsp.error.code = -32600; \
+              rsp.error.message = "Invalid Request"; \
+              epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+              return true; \
+            } \
+            epee::serialization::storage_entry params_; \
+            params_ = epee::serialization::storage_entry(epee::serialization::section()); \
+            if(!ps.get_value("params", params_, nullptr)) \
+            { \
+              epee::serialization::section params_section; \
+              ps.set_value("params", std::move(params_section), nullptr); \
+            } \
+            if(false) return true; //just a stub to have "else if"
+                 
 
 
 #define PREPARE_OBJECTS_FROM_JSON(command_type) \
@@ -249,13 +255,45 @@
 }
 
 #define END_JSON_RPC_MAP() \
-  epee::json_rpc::error_response rsp; \
-  rsp.id = id_; \
-  rsp.jsonrpc = "2.0"; \
-  rsp.error.code = -32601; \
-  rsp.error.message = "Method not found"; \
-  epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-  return true; \
-}
+          epee::json_rpc::error_response rsp; \
+          rsp.id = id_; \
+          rsp.jsonrpc = "2.0"; \
+          rsp.error.code = -32601; \
+          rsp.error.message = "Method not found"; \
+          epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+          return true; \
+        };\
+        \
+        size_t first_char_idx = query_info.m_body.find_first_not_of(" \t\n\r"); \
+        if (first_char_idx != std::string::npos && query_info.m_body[first_char_idx] == '[') { \
+            rapidjson::Document doc; \
+            doc.Parse(query_info.m_body.c_str()); \
+            if (doc.HasParseError() || !doc.IsArray() || doc.Empty()) { \
+                response_info.m_response_code = 400; \
+                response_info.m_body = "{\"jsonrpc\": \"2.0\", \"error\": {\"code\": -32600, \"message\": \"Invalid Request\"}, \"id\": null}"; \
+                return true; \
+            } \
+            std::string batch_response = "["; \
+            bool first = true; \
+            for (auto& v : doc.GetArray()) { \
+                if (!first) batch_response += ","; \
+                first = false; \
+                rapidjson::StringBuffer buffer; \
+                rapidjson::Writer<rapidjson::StringBuffer> writer(buffer); \
+                v.Accept(writer); \
+                std::string single_req_body = buffer.GetString(); \
+                epee::net_utils::http::http_response_info local_resp; \
+                process_single_request(single_req_body, local_resp); \
+                batch_response += local_resp.m_body; \
+            } \
+            batch_response += "]"; \
+            response_info.m_body = batch_response; \
+            response_info.m_mime_tipe = "application/json"; \
+            response_info.m_header_info.m_content_type = " application/json"; \
+            return true; \
+        } else { \
+            return process_single_request(query_info.m_body, response_info); \
+        } \
+    }
 
 
