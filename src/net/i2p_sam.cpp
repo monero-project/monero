@@ -259,7 +259,7 @@ namespace sam
         {
             if (ec) return self->done(ec);
 
-            const std::string cmd = "STREAM CONNECT ID=" + session_id + "DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
+            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
 
             MDEBUG("Sending STREAM CONNECT command: " << cmd << " with ID of " << session_id);
 
