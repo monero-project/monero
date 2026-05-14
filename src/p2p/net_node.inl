@@ -612,6 +612,8 @@ namespace nodetool
         i2p_sam_zone.m_sam_session_id = session_id;
         i2p_sam_zone.m_sam_control_socket->set_session_id(session_id);
 
+        net::sam::control_socket::connect_and_send(i2p_sam_zone.m_sam_control_socket, i2p_sam_zone.m_sam_router_endpoint);
+
         if (!set_max_out_peers(i2p_sam_zone, 8))
             return false;
         else
