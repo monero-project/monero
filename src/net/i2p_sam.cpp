@@ -321,6 +321,12 @@ namespace sam
                 [self, this](){ send_session_create{self}({}, session_id_, private_key_); });
             return;
 
+        case state::session_create:
+            state_ = state::stream_accept;
+            boost::asio::dispatch(strand_,
+                [self, this](){ send_stream_accept{self}({}, session_id_); });
+            return;
+
         default:
             MINFO("Done with SAM loop");
             done({});
