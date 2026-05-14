@@ -1281,10 +1281,6 @@ namespace cryptonote
 
       const crypto::hash last_block_hash = cryptonote::get_block_hash(b);
       context.m_last_known_hash = last_block_hash;
-
-      if (!m_core.get_test_drop_download() || !m_core.get_test_drop_download_height()) { // DISCARD BLOCKS for testing
-        return 1;
-      }
     }
 
     try_add_next_blocks(context);

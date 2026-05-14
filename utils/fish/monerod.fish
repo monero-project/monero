@@ -19,8 +19,6 @@ complete -c monerod -l zmq-rpc-bind-port -r -d "Port for ZMQ RPC server to liste
 complete -c monerod -l zmq-pub -r -d "Address for ZMQ pub - tcp://ip:port or ipc://path "
 complete -c monerod -l no-zmq -d "Disable ZMQ RPC server [114/349]"
 complete -c monerod -l data-dir -x -a "(__fish_complete_directories)" -d "Specify data directory"
-complete -c monerod -l test-drop-download -d "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
-complete -c monerod -l test-drop-download-height -r -d "Like test-drop-download but discards only after around certain height. Default: 0"
 complete -c monerod -l testnet -d "Run on testnet. The wallet must be launched with --testnet flag."
 complete -c monerod -l stagenet -d "Run on stagenet. The wallet must be launched with --stagenet flag."
 complete -c monerod -l regtest -d "Run in a regression testing mode."
