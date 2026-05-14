@@ -76,7 +76,7 @@ namespace epee
   std::make_tuple(::wire::field(val_name, std::ref(self.variable))),
 
 #define KV_SERIALIZE_PARENT(type) \
-  type::template get_field_list(format, self),
+  type::get_field_list(format, self),
 
 #define KV_SERIALIZE_OPT_N(variable, val_name, default_value) \
   std::make_tuple(::wire::optional_field(val_name, ::wire::defaulted(std::ref(self.variable), default_value))),

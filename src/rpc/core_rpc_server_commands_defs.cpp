@@ -51,14 +51,6 @@ namespace cryptonote
   WIRE_EPEE_DEFINE_COMMAND(COMMAND_RPC_GET_OUTPUTS_BIN)
   WIRE_JSON_DEFINE_COMMAND(COMMAND_RPC_GET_HEIGHT)
   WIRE_JSON_DEFINE_COMMAND(COMMAND_RPC_GET_ALT_BLOCKS_HASHES)
-  WIRE_EPEE_DEFINE_COMMAND(COMMAND_RPC_SUBMIT_RAW_TX)
-
-  std::error_code convert_to_json(std::string& dest, const COMMAND_RPC_SUBMIT_RAW_TX::request& source)
-  { return wire_write::to_bytes<wire::json_string_writer>(dest, source); }
-
-  std::error_code convert_from_json(const epee::span<const char> source, COMMAND_RPC_SUBMIT_RAW_TX::response& dest)
-  { return wire_read::from_bytes<wire::json_reader>(source, dest); }
-
 
   namespace
   {

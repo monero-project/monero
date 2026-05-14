@@ -1007,10 +1007,10 @@ namespace rpc
       const std::string& request_type = parsed.method;
       if (m_restricted && is_blocked_in_restricted_mode(request_type))
       {
-        Message fail;
+        Message fail{};
         fail.status = Message::STATUS_FAILED;
         fail.error_details = "\"" + request_type + "\" is not available in restricted mode.";
-        return FullMessage::getResponse(fail, req_full.getID());
+        return getJsonResponse(fail, parsed.id);
       }
 
     const auto matched_handler = std::lower_bound(std::begin(handlers), std::end(handlers), parsed.method);
