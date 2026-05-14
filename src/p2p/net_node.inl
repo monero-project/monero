@@ -601,7 +601,7 @@ namespace nodetool
         };
 
         // TODO don't pass dummy value to function
-        const std::string private_key = net::sam::private_key_from_file("~/.bitmonero");
+        const std::string private_key = net::sam::private_key_from_file("");
         const std::string session_id = net::sam::random_session_id();
 
         i2p_sam_zone.m_sam_control_socket = net::sam::make_control_client(
@@ -611,6 +611,8 @@ namespace nodetool
         );
         i2p_sam_zone.m_sam_session_id = session_id;
         i2p_sam_zone.m_sam_control_socket->set_session_id(session_id);
+
+        MDEBUG("Attempting to start SAM control socket");
 
         net::sam::control_socket::connect_and_send(i2p_sam_zone.m_sam_control_socket, i2p_sam_zone.m_sam_router_endpoint);
 

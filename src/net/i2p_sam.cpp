@@ -158,9 +158,9 @@ namespace sam
 
     void client::handle_write(boost::system::error_code ec)
     {
-        auto self = shared_from_this();
-
         if (ec) return done(ec);
+
+        auto self = shared_from_this();
 
         boost::asio::async_read_until(socket_, boost::asio::dynamic_buffer(line_), '\n',
             boost::asio::bind_executor(strand_,
@@ -175,11 +175,9 @@ namespace sam
         if (ec) return done(ec);
 
         std::string line = line_.substr(0, bytes);
-
         line_.erase(0, bytes);
 
         auto result = parse_result(line);
-
         if (result) return done(result);
 
         next_state({});
@@ -206,14 +204,13 @@ namespace sam
         {
             if (ec) return self->done(ec);
 
-            /**
-             * Reference for signature/leaseset types:
-             * https://docs.i2pd.website/en/latest/user-guide/tunnels/#
-             */
+            //! Reference: https://docs.i2pd.website/en/latest/user-guide/tunnels/#
             std::string cmd;
             cmd.append("SESSION CREATE STYLE=STREAM ID=" + id + ' ');
             cmd.append("DESTINATION=" + private_key + " SIGNATURE_TYPE=7 ");
             cmd.append("i2cp.leaseSetEncType=6,4 inbound.quantity=2 outbound.quantity=2\n");
+
+            MDEBUG("Sending SESSION CREATE command: " << cmd);
 
             self->async_write_command(cmd);
         }
@@ -239,8 +236,7 @@ namespace sam
         {
             if (ec) return self->done(ec);
             //! Reference: https://i2p.net/en/docs/api/samv3/#signature-and-encryption-types
-            const std::string cmd = "DEST GENERATE SIGNATURE_TYPE=7\n";
-            self->async_write_command(cmd);
+            self->async_write_command("DEST GENERATE SIGNATURE_TYPE=7\n");
         }
     };
 
@@ -251,8 +247,7 @@ namespace sam
         void operator()(boost::system::error_code ec, const std::string& address)
         {
             if (ec) return self->done(ec);
-            const std::string cmd = "NAMING LOOKUP NAME=" + address + '\n';
-            self->async_write_command(cmd);
+            self->async_write_command("NAMING LOOKUP NAME=" + address + '\n');
         }
     };
 
@@ -263,7 +258,11 @@ namespace sam
         void operator()(boost::system::error_code ec, const std::string& session_id)
         {
             if (ec) return self->done(ec);
-            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
+
+            const std::string cmd = "STREAM CONNECT ID=" + session_id + "DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
+
+            MDEBUG("Sending STREAM CONNECT command: " << cmd << " with ID of " << session_id);
+
             self->async_write_command(cmd);
         }
     };
@@ -275,8 +274,7 @@ namespace sam
         void operator()(boost::system::error_code ec, const std::string& session_id)
         {
             if (ec) return self->done(ec);
-            const std::string cmd = "STREAM ACCEPT ID=" + session_id + " SILENT=FALSE\n";
-            self->async_write_command(cmd);
+            self->async_write_command("STREAM ACCEPT ID=" + session_id + " SILENT=FALSE\n");
         }
     };
 
@@ -297,7 +295,7 @@ namespace sam
         case state::naming_lookup:
             state_ = state::stream_connect;
             boost::asio::dispatch(strand_,
-                [self, this](){ send_stream_connect{self}({}, destination_); });
+                [self, this](){ send_stream_connect{self}({}, session_id_); });
             return;
 
         default:
@@ -446,7 +444,7 @@ namespace sam
             ec = get_value(line, "DESTINATION", destination_);
             if (!ec)
             {
-                MDEBUG("Created session DESTINATION=" << destination_);
+                MDEBUG("Created session with DESTINATION=" << destination_);
                 return {};
             }
 

@@ -426,6 +426,8 @@ namespace nodetool
             auto client = net::sam::make_connect_client(
                 boost::asio::ip::tcp::socket{service}, notify{std::move(sam_promise)}
             );
+            client->set_session_id(session_id);
+
             close_client.self = client;
 
             if (!start_sam(std::move(client), router, remote))

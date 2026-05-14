@@ -101,6 +101,8 @@ namespace sam
         //! Base64-encoded I2P destination; result of `NAMING LOOKUP` command.
         std::string destination_;
 
+        std::string session_id_;
+
     public:
         using stream_type = boost::asio::ip::tcp;
 
@@ -134,6 +136,7 @@ namespace sam
 
         void set_naming_lookup(std::string address) { naming_lookup_ = std::move(address); }
         bool set_connect_command(const net::i2p_address& address);
+        void set_session_id(const std::string& id) { session_id_ = id; }
 
         static bool connect_and_send(std::shared_ptr<client> self_, const stream_type::endpoint& router);
         static bool generate_destination(std::shared_ptr<client> self_, const stream_type::endpoint& router);
@@ -169,10 +172,6 @@ namespace sam
         //! Our private destination key; generated or retrieved from a file.
         std::string private_key_;
 
-        std::string public_key_;
-
-        std::string session_id_;
-
         void next_state(boost::system::error_code ec) override;
 
     public:
@@ -188,7 +187,6 @@ namespace sam
         explicit control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket);
 
         std::string get_private_key() { return private_key_; }
-        void set_session_id(const std::string& id) { session_id_ = id; }
     };
 
     /**
