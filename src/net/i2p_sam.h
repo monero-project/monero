@@ -89,6 +89,7 @@ namespace sam
     //! An I2P connection, to the router's SAM bridge or to a network peer.
     class client : public std::enable_shared_from_this<client>
     {
+    protected:
         boost::asio::ip::tcp::socket socket_;
         boost::asio::strand<boost::asio::ip::tcp::socket::executor_type> strand_;
 
@@ -170,6 +171,8 @@ namespace sam
 
         std::string public_key_;
 
+        std::string session_id_;
+
         void next_state(boost::system::error_code ec) override;
 
     public:
@@ -185,6 +188,7 @@ namespace sam
         explicit control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket);
 
         std::string get_private_key() { return private_key_; }
+        void set_session_id(const std::string& id) { session_id_ = id; }
     };
 
     /**

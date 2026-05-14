@@ -222,7 +222,7 @@ namespace nodetool
 
       std::string m_sam_session_id;
       boost::asio::ip::tcp::endpoint m_sam_router_endpoint;
-      std::shared_ptr<net::sam::client> m_sam_control_socket;
+      std::shared_ptr<net::sam::control_socket> m_sam_control_socket;
 
       std::atomic<unsigned int> m_current_number_of_out_peers;
       std::atomic<unsigned int> m_current_number_of_in_peers;

@@ -282,9 +282,9 @@ namespace sam
 
     void client::next_state(boost::system::error_code ec)
     {
-        auto self = shared_from_this();
-
         if (ec) return done(ec);
+
+        auto self = shared_from_this();
 
         switch (state_)
         {
@@ -309,13 +309,18 @@ namespace sam
 
     void control_socket::next_state(boost::system::error_code ec)
     {
-        auto self = std::static_pointer_cast<control_socket>(shared_from_this());
-
         if (ec) return done(ec);
 
-        // TODO
+        auto self = shared_from_this();
+
         switch (state_)
         {
+        case state::hello_version:
+            state_ = state::session_create;
+            boost::asio::dispatch(strand_,
+                [self, this](){ send_session_create{self}({}, session_id_, private_key_); });
+            return;
+
         default:
             MINFO("Done with SAM loop");
             done({});

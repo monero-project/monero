@@ -602,13 +602,15 @@ namespace nodetool
 
         // TODO don't pass dummy value to function
         const std::string private_key = net::sam::private_key_from_file("~/.bitmonero");
+        const std::string session_id = net::sam::random_session_id();
 
         i2p_sam_zone.m_sam_control_socket = net::sam::make_control_client(
             std::move(private_key),
             net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()},
             handler
         );
-        i2p_sam_zone.m_sam_session_id = net::sam::random_session_id();
+        i2p_sam_zone.m_sam_session_id = session_id;
+        i2p_sam_zone.m_sam_control_socket->set_session_id(session_id);
 
         if (!set_max_out_peers(i2p_sam_zone, 8))
             return false;
