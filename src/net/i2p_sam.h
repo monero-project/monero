@@ -74,10 +74,19 @@ namespace sam
         return boost::system::error_code{int(value), sam::error_category()};
     }
 
-    /**
-     * Represents an I2P connection, either directly to the router's SAM bridge,
-     * or to a network peer (via the router).
-     */
+    //! States of the SAM connection process.
+    enum class state : int
+    {
+        hello_version,
+        dest_generate,
+        load_key,
+        session_create,
+        naming_lookup,
+        stream_accept,
+        stream_connect
+    };
+
+    //! An I2P connection, to the router's SAM bridge or to a network peer.
     class client : public std::enable_shared_from_this<client>
     {
         boost::asio::ip::tcp::socket socket_;
@@ -85,47 +94,24 @@ namespace sam
 
         std::string line_;
 
-        //! The SAM session ID (global).
-        std::string session_id_;
-
         //! I2P address stored for querying using the `NAMING LOOKUP` command.
         std::string naming_lookup_;
 
         //! Base64-encoded I2P destination; result of `NAMING LOOKUP` command.
         std::string destination_;
 
-        //! The public I2P address of this node.
-        std::string public_key_;
-
-        //! Our I2P private key; retrieved from a file.
-        std::string private_key_;
-
-        //! Current state of the connection process.
-        enum class state : std::uint8_t
-        {
-            hello_version,
-            dest_generate,
-            naming_lookup,
-            session_create,
-            stream_connect,
-            stream_accept
-        };
-
-        state state_;
-
-        //! Invoked after `send` function completes or fails.
-        virtual void done(boost::system::error_code error, const std::shared_ptr<client>& self) = 0;
-
     public:
         using stream_type = boost::asio::ip::tcp;
 
-        bool is_control_socket_;
+        //! Current state of the connection process.
+        state state_;
+
+        //! Invoked after `send` function completes or fails.
+        virtual void done(boost::system::error_code error) = 0;
 
         // defined in cpp
         struct send_hello_version;
-        struct send_dest_generate;
         struct send_naming_lookup;
-        struct send_session_create;
         struct send_stream_connect;
         struct send_stream_accept;
 
@@ -145,11 +131,7 @@ namespace sam
             return stream_type::socket{std::move(socket_)};
         }
 
-        std::string& get_session_id() { return session_id_; }
-
-        void set_session_id(std::string id) { session_id_ = std::move(id); }
         void set_naming_lookup(std::string address) { naming_lookup_ = std::move(address); }
-
         bool set_connect_command(const net::i2p_address& address);
 
         static bool connect_and_send(std::shared_ptr<client> self_, const stream_type::endpoint& router);
@@ -170,36 +152,60 @@ namespace sam
             ~close_on_exit() { async_close{std::move(self)}(); }
         };
 
-    private:
-        struct read_line;
-        struct after_write;
-        struct parse_line;
+        void async_write_command(const std::string& cmd);
+        void handle_write(boost::system::error_code ec);
+        void handle_read(boost::system::error_code ec, std::size_t bytes);
 
-        void next_state(const std::shared_ptr<client>& self, boost::system::error_code ec);
+    private:
+        virtual void next_state(boost::system::error_code ec);
 
         //! Parse response from router to get error code
         boost::system::error_code parse_result(const std::string& line);
+    };
+
+    class control_socket : public client
+    {
+        //! Our private destination key; generated or retrieved from a file.
+        std::string private_key_;
+
+        std::string public_key_;
+
+        void next_state(boost::system::error_code ec) override;
 
     public:
-        /**
-         * @brief Attempts to load the private I2P destination key from a file;
-         * generates and stores a new destination if it doesn't exist.
-         */
-        void private_key_from_file();
+        // defined in cpp
+        struct send_dest_generate;
+        struct send_session_create;
+        struct get_private_key;
 
         /**
-         * @brief Generates a random SAM session ID (or "nickname").
-         * This is in the form of a 10-letter lowercase string.
+         * Socket ownership is passed into this.
+         * Does not have to be in connected state.
          */
-        void random_session_id();
+        explicit control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket);
+
+        std::string get_private_key() { return private_key_; }
     };
+
+    /**
+     * @brief Loads the private I2P destination key from a file.
+     * @param data_dir The directory to use for loading/storing the key file.
+     * @return The private key, as a string.
+     */
+    std::string private_key_from_file(const std::string& data_dir);
+
+    /**
+     * @brief Generates a random SAM session ID.
+     * @return A string consisting of 10 random lowercase letters.
+     */
+    std::string random_session_id();
 
     template<typename Handler>
     class connect_client : public client
     {
         Handler handler_;
 
-        virtual void done(boost::system::error_code error, const std::shared_ptr<client>&) override
+        virtual void done(boost::system::error_code error) override
         {
             handler_(error, take_socket());
         }
@@ -217,6 +223,33 @@ namespace sam
     inline std::shared_ptr<client> make_connect_client(client::stream_type::socket&& router, Handler handler)
     {
         return std::make_shared<connect_client<Handler>>(std::move(router), std::move(handler));
+    }
+
+//--------------------------------------------------------------------------------------------------
+
+    template<typename Handler>
+    class control_client : public control_socket
+    {
+        Handler handler_;
+
+        virtual void done(boost::system::error_code error) override
+        {
+            handler_(error, take_socket());
+        }
+
+    public:
+        explicit control_client(const std::string& private_key, boost::asio::ip::tcp::socket&& router, Handler&& handler)
+            : control_socket(std::move(private_key), std::move(router))
+            , handler_(std::move(handler))
+        {}
+
+        virtual ~control_client() override {}
+    };
+
+    template<typename Handler>
+    inline std::shared_ptr<control_socket> make_control_client(const std::string& private_key, boost::asio::ip::tcp::socket&& router, Handler handler)
+    {
+        return std::make_shared<control_client<Handler>>(std::move(private_key), std::move(router), std::move(handler));
     }
 } // namespace net
 } // namespace sam

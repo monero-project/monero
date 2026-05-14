@@ -600,19 +600,15 @@ namespace nodetool
             }
         };
 
-        i2p_sam_zone.m_sam_control_socket = net::sam::make_connect_client(
-            net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()}, handler);
-        i2p_sam_zone.m_sam_control_socket->private_key_from_file();
-        i2p_sam_zone.m_sam_control_socket->is_control_socket_ = true;
+        // TODO don't pass dummy value to function
+        const std::string private_key = net::sam::private_key_from_file("~/.bitmonero");
 
-        i2p_sam_zone.m_sam_session_id = i2p_sam_zone.m_sam_control_socket->get_session_id();
-
-        if (!net::sam::client::generate_destination(
-            i2p_sam_zone.m_sam_control_socket,
-            i2p_sam_zone.m_sam_router_endpoint))
-        {
-            throw std::runtime_error("Failed to generate destination");
-        }
+        i2p_sam_zone.m_sam_control_socket = net::sam::make_control_client(
+            std::move(private_key),
+            net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()},
+            handler
+        );
+        i2p_sam_zone.m_sam_session_id = net::sam::random_session_id();
 
         if (!set_max_out_peers(i2p_sam_zone, 8))
             return false;

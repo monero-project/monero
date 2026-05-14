@@ -428,8 +428,6 @@ namespace nodetool
             );
             close_client.self = client;
 
-            client->set_session_id(session_id);
-
             if (!start_sam(std::move(client), router, remote))
                 return boost::none;
         }

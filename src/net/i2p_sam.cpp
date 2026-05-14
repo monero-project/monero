@@ -131,61 +131,59 @@ namespace sam
         return instance;
     }
 
-    void client::random_session_id()
-    {
-        std::random_device rng;
-        std::mt19937 gen(rng());
-        std::uniform_int_distribution<> dist('a', 'z');
-
-        std::string result;
-        result.reserve(10);
-        for (std::size_t i = 0; i < 10; ++i)
-        {
-            result += static_cast<char>(dist(gen));
-        }
-
-        session_id_ = result;
-    }
-
     client::client(stream_type::socket&& socket)
         : socket_(std::move(socket))
         , strand_(socket_.get_executor())
         , state_(state::hello_version)
-        , is_control_socket_{false}
     {}
 
     client::~client() = default;
 
-    struct client::read_line
+    control_socket::control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket)
+        : client(std::move(socket))
+        , private_key_(private_key)
+    {}
+
+    void client::async_write_command(const std::string& cmd)
     {
-        std::shared_ptr<client> self;
+        auto self = shared_from_this();
 
-        void operator()(boost::system::error_code ec, std::size_t bytes)
-        {
-            if (ec) return self->done(ec, self);
+        boost::asio::async_write(socket_, boost::asio::buffer(cmd),
+            boost::asio::bind_executor(strand_,
+                [self](boost::system::error_code ec, std::size_t)
+                {
+                    self->handle_write(ec);
+                }));
+    }
 
-            std::string line = self->line_.substr(0, bytes);
-            self->line_.erase(0, bytes);
-
-            auto result = self->parse_result(line);
-            if (result) return self->done(result, self);
-
-            self->next_state(self, {});
-        }
-    };
-
-    struct client::after_write
+    void client::handle_write(boost::system::error_code ec)
     {
-        std::shared_ptr<client> self;
+        auto self = shared_from_this();
 
-        void operator()(boost::system::error_code ec, std::size_t)
-        {
-            if (ec) return self->done(ec, self);
+        if (ec) return done(ec);
 
-            boost::asio::async_read_until(self->socket_, boost::asio::dynamic_buffer(self->line_), '\n',
-                boost::asio::bind_executor(self->strand_, read_line{self}));
-        }
-    };
+        boost::asio::async_read_until(socket_, boost::asio::dynamic_buffer(line_), '\n',
+            boost::asio::bind_executor(strand_,
+                [self](boost::system::error_code ec, std::size_t bytes)
+                {
+                    self->handle_read(ec, bytes);
+                }));
+    }
+
+    void client::handle_read(boost::system::error_code ec, std::size_t bytes)
+    {
+        if (ec) return done(ec);
+
+        std::string line = line_.substr(0, bytes);
+
+        line_.erase(0, bytes);
+
+        auto result = parse_result(line);
+
+        if (result) return done(result);
+
+        next_state({});
+    }
 
     struct client::send_hello_version
     {
@@ -193,21 +191,20 @@ namespace sam
 
         void operator()(boost::system::error_code ec)
         {
-            if (ec) return self->done(ec, self);
+            if (ec) return self->done(ec);
             //! Reference: https://i2p.net/en/docs/api/samv3/#version-31-changes
             const std::string cmd = "HELLO VERSION MIN=3.1 MAX=3.1\n";
-            boost::asio::async_write(self->socket_, boost::asio::buffer(cmd),
-                boost::asio::bind_executor(self->strand_, after_write{self}));
+            self->async_write_command(cmd);
         }
     };
 
-    struct client::send_session_create
+    struct control_socket::send_session_create
     {
         std::shared_ptr<client> self;
 
-        void operator()(boost::system::error_code ec, const std::string& id)
+        void operator()(boost::system::error_code ec, const std::string& id, const std::string& private_key)
         {
-            if (ec) return self->done(ec, self);
+            if (ec) return self->done(ec);
 
             /**
              * Reference for signature/leaseset types:
@@ -215,11 +212,10 @@ namespace sam
              */
             std::string cmd;
             cmd.append("SESSION CREATE STYLE=STREAM ID=" + id + ' ');
-            cmd.append("DESTINATION=" + self->private_key_ + " SIGNATURE_TYPE=7 ");
+            cmd.append("DESTINATION=" + private_key + " SIGNATURE_TYPE=7 ");
             cmd.append("i2cp.leaseSetEncType=6,4 inbound.quantity=2 outbound.quantity=2\n");
 
-            boost::asio::async_write(self->socket_, boost::asio::buffer(cmd),
-                boost::asio::bind_executor(self->strand_, after_write{self}));
+            self->async_write_command(cmd);
         }
     };
 
@@ -235,34 +231,18 @@ namespace sam
         return true;
     }
 
-    struct client::send_dest_generate
+    struct control_socket::send_dest_generate
     {
         std::shared_ptr<client> self;
 
         void operator()(boost::system::error_code ec)
         {
-            if (ec) return self->done(ec, self);
+            if (ec) return self->done(ec);
             //! Reference: https://i2p.net/en/docs/api/samv3/#signature-and-encryption-types
             const std::string cmd = "DEST GENERATE SIGNATURE_TYPE=7\n";
-            boost::asio::async_write(self->socket_, boost::asio::buffer(cmd),
-                boost::asio::bind_executor(self->strand_, after_write{self}));
+            self->async_write_command(cmd);
         }
     };
-
-    bool client::generate_destination(std::shared_ptr<client> self_, const stream_type::endpoint& router)
-    {
-        if (!self_) return false;
-
-        client& self = *self_;
-
-        if (self.is_control_socket_) self.random_session_id();
-
-        self.state_ = state::hello_version;
-        self.socket_.async_connect(router,
-            boost::asio::bind_executor(self.strand_, send_hello_version{std::move(self_)}));
-
-        return true;
-    }
 
     struct client::send_naming_lookup
     {
@@ -270,10 +250,9 @@ namespace sam
 
         void operator()(boost::system::error_code ec, const std::string& address)
         {
-            if (ec) return self->done(ec, self);
+            if (ec) return self->done(ec);
             const std::string cmd = "NAMING LOOKUP NAME=" + address + '\n';
-            boost::asio::async_write(self->socket_, boost::asio::buffer(cmd),
-                boost::asio::bind_executor(self->strand_, after_write{self}));
+            self->async_write_command(cmd);
         }
     };
 
@@ -281,14 +260,11 @@ namespace sam
     {
         std::shared_ptr<client> self;
 
-        void operator()(boost::system::error_code ec)
+        void operator()(boost::system::error_code ec, const std::string& session_id)
         {
-            if (ec) return self->done(ec, self);
-
-            const std::string cmd = "STREAM CONNECT ID=" + self->session_id_ + " DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
-
-            boost::asio::async_write(self->socket_, boost::asio::buffer(cmd),
-                boost::asio::bind_executor(self->strand_, after_write{self}));
+            if (ec) return self->done(ec);
+            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
+            self->async_write_command(cmd);
         }
     };
 
@@ -296,69 +272,53 @@ namespace sam
     {
         std::shared_ptr<client> self;
 
-        void operator()(boost::system::error_code ec)
+        void operator()(boost::system::error_code ec, const std::string& session_id)
         {
-            if (ec) return self->done(ec, self);
-
-            const std::string cmd = "STREAM ACCEPT ID=" + self->session_id_ + " SILENT=FALSE\n";
-
-            boost::asio::async_write(self->socket_, boost::asio::buffer(cmd),
-                boost::asio::bind_executor(self->strand_, after_write{self}));
+            if (ec) return self->done(ec);
+            const std::string cmd = "STREAM ACCEPT ID=" + session_id + " SILENT=FALSE\n";
+            self->async_write_command(cmd);
         }
     };
 
-    void client::next_state(const std::shared_ptr<client>& self, boost::system::error_code ec)
+    void client::next_state(boost::system::error_code ec)
     {
-        if (ec) return done(ec, self);
+        auto self = shared_from_this();
+
+        if (ec) return done(ec);
 
         switch (state_)
         {
         case state::hello_version:
-            state_ = (is_control_socket_) ? state::session_create : state::stream_connect;
-            switch (state_)
-            {
-            case state::session_create:
-                boost::asio::dispatch(strand_,
-                    [self](){ send_session_create{self}({}, self->session_id_); });
-                break;
-
-            case state::stream_connect:
-                boost::asio::dispatch(strand_,
-                    [self](){ send_stream_connect{self}({}); });
-                break;
-
-            default:
-                throw std::runtime_error("Unexpected SAM state");
-                break;
-            }
-            return;
-
-        case state::session_create:
-            MINFO("Done with SAM loop");
-            done({}, self);
+            state_ = state::naming_lookup;
+            boost::asio::dispatch(strand_,
+                [self, this](){ send_naming_lookup{self}({}, naming_lookup_); });
             return;
 
         case state::naming_lookup:
-            state_ = state::stream_accept;
-            boost::asio::dispatch(strand_,
-                [self](){ send_stream_accept{self}({}); });
-            return;
-
-        case state::stream_accept:
             state_ = state::stream_connect;
             boost::asio::dispatch(strand_,
-                [self](){ send_stream_connect{self}({}); });
-            return;
-
-        case state::stream_connect:
-            state_ = state::stream_accept;
-            boost::asio::dispatch(strand_,
-                [self](){ send_stream_accept{self}({}); });
+                [self, this](){ send_stream_connect{self}({}, destination_); });
             return;
 
         default:
             MINFO("Done with SAM loop");
-            done({}, self);
+            done({});
+            return;
+        }
+    }
+
+    void control_socket::next_state(boost::system::error_code ec)
+    {
+        auto self = std::static_pointer_cast<control_socket>(shared_from_this());
+
+        if (ec) return done(ec);
+
+        // TODO
+        switch (state_)
+        {
+        default:
+            MINFO("Done with SAM loop");
+            done({});
             return;
         }
     }
@@ -438,21 +398,21 @@ namespace sam
             return parse_result_code(line);
         }
 
-        case state::dest_generate:
-        {
-            boost::system::error_code ec1, ec2;
-
-            ec1 = get_value(line, "PUB", public_key_);
-            ec2 = get_value(line, "PRIV", private_key_);
-
-            if (!ec1 && !ec2)
-            {
-                MDEBUG("Generated I2P destination PUB=" << public_key_);
-                return{};
-            }
-
-            return parse_result_code(line);
-        }
+//        case state::dest_generate:
+//        {
+//            boost::system::error_code ec1, ec2;
+//
+//            ec1 = get_value(line, "PUB", public_key_);
+//            ec2 = get_value(line, "PRIV", private_key_);
+//
+//            if (!ec1 && !ec2)
+//            {
+//                MDEBUG("Generated I2P destination PUB=" << public_key_);
+//                return{};
+//            }
+//
+//            return parse_result_code(line);
+//        }
 
         case state::naming_lookup:
         {
@@ -519,12 +479,13 @@ namespace sam
         }
     }
 
-    void client::private_key_from_file()
+    // TODO use the data_dir argument instead of the default directory
+    std::string private_key_from_file(const std::string& data_dir)
     {
-        const std::string data_dir = tools::get_default_data_dir();
-        const std::string key_path = data_dir + "/i2p_private_key";
+        const std::string default_dir = tools::get_default_data_dir();
+        const std::string key_path = default_dir + "/i2p_private_key";
 
-        std::string private_key;
+        std::string private_key{};
 
         if (epee::file_io_utils::is_file_exist(key_path))
         {
@@ -535,17 +496,25 @@ namespace sam
 
             if (private_key.empty())
                 throw std::runtime_error("I2P destination key is empty: " + key_path);
-
-            private_key_ = std::move(private_key);
         }
-        else
+
+        return private_key;
+    }
+
+    std::string random_session_id()
+    {
+        std::random_device rng;
+        std::mt19937 gen(rng());
+        std::uniform_int_distribution<> dist('a', 'z');
+
+        std::string result;
+        result.reserve(10);
+        for (std::size_t i = 0; i < 10; ++i)
         {
-            if (private_key_.empty())
-                throw std::runtime_error("Failed to generate I2P destination");
-
-            if (!epee::file_io_utils::save_string_to_file(key_path, private_key_))
-                throw std::runtime_error("Failed to save I2P destination key to " + key_path);
+            result += static_cast<char>(dist(gen));
         }
+
+        return result;
     }
 } // namespace net
 } // namespace sam
