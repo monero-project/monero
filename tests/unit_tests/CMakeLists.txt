@@ -143,8 +143,6 @@ set_property(TARGET unit_tests
   PROPERTY
     COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
 
-SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
-
 add_test(
   NAME    unit_tests
   COMMAND unit_tests --data-dir "${TEST_DATA_DIR}")
