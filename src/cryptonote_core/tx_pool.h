@@ -457,9 +457,9 @@ namespace cryptonote
      */
     struct tx_details
     {
-      transaction tx;  //!< the transaction
       cryptonote::blobdata tx_blob; //!< the transaction's binary blob
       size_t blob_size;  //!< the transaction's size
+      size_t unprunable_size; //!< the transactions unprunable size
       size_t weight;  //!< the transaction's weight
       uint64_t fee;  //!< the transaction's fee amount
       crypto::hash max_used_block_id;  //!< the hash of the highest block referenced by an input
@@ -497,12 +497,12 @@ namespace cryptonote
     /**
      * @brief get information about a single transaction
      */
-    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool pruned) const;
 
     /**
      * @brief get information about multiple transactions
      */
-    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t cumul_txblob_size_limit = 0, size_t max_tx_count = 0) const;
+    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t cumul_txblob_size_limit = 0, size_t max_tx_count = 0, bool pruned = false) const;
 
     /**
      * @brief get transactions not in the passed set
@@ -514,7 +514,7 @@ namespace cryptonote
      *
      * @return true on success, false on error
      */
-    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size = 0) const;
+    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size = 0, bool pruned = false) const;
 
   private:
 

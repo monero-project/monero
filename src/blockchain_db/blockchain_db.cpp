@@ -28,6 +28,7 @@
 
 #include <boost/range/adaptor/reversed.hpp>
 
+#include "misc_log_ex.h"
 #include "string_tools.h"
 #include "blockchain_db.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
@@ -486,6 +487,19 @@ void BlockchainDB::fixup()
       }
     }
   }
+}
+
+bool BlockchainDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const
+{
+  return this->get_txpool_tx_blob(txid, bd, tx_category, /*pruned=*/false);
+}
+
+cryptonote::blobdata BlockchainDB::get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const
+{
+  cryptonote::blobdata bd;
+  if (!this->get_txpool_tx_blob(txid, bd, tx_category))
+    throw DB_ERROR("Tx not found in txpool: ");
+  return bd;
 }
 
 bool BlockchainDB::txpool_tx_matches_category(const crypto::hash& tx_hash, relay_category category)

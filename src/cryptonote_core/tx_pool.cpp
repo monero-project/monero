@@ -225,6 +225,7 @@ namespace cryptonote
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta{};
+    meta.unprunable_size = tx.unprunable_size;
     meta.valid_input_verification_id = valid_input_verification_id;
     const bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id,
       meta.valid_input_verification_id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
@@ -605,7 +606,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob) const
+  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool pruned) const
   {
     PERF_TIMER(get_transaction_info);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -625,22 +626,19 @@ namespace cryptonote
         // We don't want sensitive data && the tx is sensitive, so no need to return it
         return false;
       }
-      cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
-      auto ci = m_parsed_tx_cache.find(txid);
-      if (ci != m_parsed_tx_cache.end())
-      {
-        td.tx = ci->second;
-      }
-      else if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(txblob, td.tx) : parse_and_validate_tx_from_blob(txblob, td.tx)))
-      {
-        MERROR("Failed to parse tx from txpool");
+
+      // Fetch tx blob and prune if applicable
+      td.blob_size = m_blockchain.get_txpool_tx_blob(txid, td.tx_blob, relay_category::all, pruned);
+      if (!td.blob_size)
         return false;
-      }
-      else
+      td.unprunable_size = meta.unprunable_size;
+      if (pruned)
       {
-        td.tx.set_hash(txid);
+        if (!prune_transaction_blob(td.tx_blob, meta.unprunable_size))
+          return false;
       }
-      td.blob_size = txblob.size();
+
+      // Fill in other details from meta entry
       td.weight = meta.weight;
       td.fee = meta.fee;
       td.max_used_block_id = meta.max_used_block_id;
@@ -653,8 +651,6 @@ namespace cryptonote
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
-      if (include_blob)
-        td.tx_blob = std::move(txblob);
     }
     catch (const std::exception &e)
     {
@@ -665,7 +661,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit, size_t max_tx_count) const
+  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit, size_t max_tx_count, bool pruned) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -682,15 +678,15 @@ namespace cryptonote
       {
         const crypto::hash &it{txids[i]};
         tx_details details;
-        const bool success = get_transaction_info(it, details, include_sensitive, true /*include_blob*/);
+        const bool success = get_transaction_info(it, details, include_sensitive, pruned);
         if (!success)
           continue;
 
         if (cumul_txblob_size_limit &&
-            cumul_txblob_size + details.blob_size >= cumul_txblob_size_limit)
+            cumul_txblob_size + details.tx_blob.size() >= cumul_txblob_size_limit)
           continue;
 
-        cumul_txblob_size += details.blob_size;
+        cumul_txblob_size += details.tx_blob.size();
         txs.emplace_back(it, std::move(details));
       }
 
@@ -719,7 +715,7 @@ namespace cryptonote
         cryptonote::blobdata bd;
         try
         {
-          if (!m_blockchain.get_txpool_tx_blob(txid, bd, cryptonote::relay_category::broadcasted))
+          if (!m_blockchain.get_txpool_tx_blob(txid, bd, cryptonote::relay_category::broadcasted, /*pruned=*/false))
           {
             MERROR("Failed to get blob for txpool transaction " << txid);
             return true;
@@ -972,7 +968,7 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size) const
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size, bool pruned) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1053,7 +1049,8 @@ namespace cryptonote
                                  added_txs,
                                  include_sensitive,
                                  cumulative_txblob_size_limit,
-                                 max_tx_count))
+                                 max_tx_count,
+                                 pruned))
         return false;
     }
 
@@ -1128,7 +1125,7 @@ namespace cryptonote
           continue;
 
         cryptonote::blobdata txblob;
-        if (!m_blockchain.get_txpool_tx_blob(e.id, txblob, relay_category::all))
+        if (!m_blockchain.get_txpool_tx_blob(e.id, txblob, relay_category::all, /*pruned=*/false))
           continue;
 
         cryptonote::transaction tx;
@@ -1373,7 +1370,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     try
     {
-      return m_blockchain.get_txpool_tx_blob(id, txblob, tx_category);
+      return m_blockchain.get_txpool_tx_blob(id, txblob, tx_category, /*pruned=*/false);
     }
     catch (const std::exception &e)
     {
