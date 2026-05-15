@@ -44,6 +44,14 @@ if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif()
 
+# Let CMake de-duplicate link libraries according to linker/platform capabilities.
+if (POLICY CMP0156)
+    cmake_policy(SET CMP0156 NEW)
+endif()
+if (POLICY CMP0179)
+    cmake_policy(SET CMP0179 NEW)
+endif()
+
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
 endif()
