@@ -17,6 +17,8 @@ complete -c monerod -l public-node -d "Allow other users to use the node as a re
 complete -c monerod -l zmq-rpc-bind-ip -r -d "IP for ZMQ RPC server to listen on. Default: 127.0.0.1"
 complete -c monerod -l zmq-rpc-bind-port -r -d "Port for ZMQ RPC server to listen on. Default: 18082, 28082 if 'testnet', 38082 if 'stagenet'"
 complete -c monerod -l zmq-pub -r -d "Address for ZMQ pub - tcp://ip:port or ipc://path "
+complete -c monerod -l restricted-zmq-rpc -d "Restrict ZMQ RPC by disabling some sensitive methods; does not guarantee filtering of sensitive data"
+complete -c monerod -l confirm-zmq-rpc-external-bind -d "Confirm zmq-rpc-bind-ip value is NOT a loopback (local) IP"
 complete -c monerod -l no-zmq -d "Disable ZMQ RPC server [114/349]"
 complete -c monerod -l data-dir -x -a "(__fish_complete_directories)" -d "Specify data directory"
 complete -c monerod -l test-drop-download -d "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
