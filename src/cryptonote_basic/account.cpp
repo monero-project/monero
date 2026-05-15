@@ -41,6 +41,12 @@ extern "C"
 #include "cryptonote_basic_impl.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
+#include "memwipe.h"
+#include "misc_language.h"
+#include "serialization/wire/epee.h"
+#include "serialization/wire/wrapper/array_blob.h"
+#include "serialization/wire/wrapper/defaulted.h"
+#include "serialization/wire/wrappers_impl.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "account"
@@ -51,6 +57,48 @@ DISABLE_VS_WARNINGS(4244 4345)
 
   namespace cryptonote
 {
+  namespace
+  {
+    template<typename F, typename T>
+    void account_keys_map(F& format, T& self, std::vector<crypto::ec_scalar>& multisig_keys)
+    {
+      static constexpr const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
+      wire::object(format,
+        WIRE_FIELD(m_account_address),
+        WIRE_FIELD(m_spend_secret_key),
+        WIRE_FIELD(m_view_secret_key),
+        wire::optional_field("m_multisig_keys", wire::array_as_blob(std::ref(multisig_keys))),
+        WIRE_FIELD_DEFAULTED(m_encryption_iv, std::cref(default_iv))
+      );
+    }
+  }
+  void read_bytes(wire::epee_reader& source, account_keys& dest)
+  {
+    using value_type = crypto::ec_scalar;
+    std::vector<value_type> temp_keys;
+    const auto cleanup = epee::misc_utils::create_scope_leave_handler(
+      [&temp_keys] { memwipe(temp_keys.data(), temp_keys.size() * sizeof(value_type)); }
+    );
+
+    account_keys_map(source, dest, temp_keys);
+    dest.m_multisig_keys.resize(temp_keys.size());
+    for (std::size_t i = 0; i < temp_keys.size(); ++i)
+      unwrap(unwrap(dest.m_multisig_keys[i])) = temp_keys[i];
+  }
+  void write_bytes(wire::epee_writer& dest, const account_keys& source)
+  {
+    using value_type = crypto::ec_scalar;
+    std::vector<value_type> temp_keys;
+    temp_keys.resize(source.m_multisig_keys.size());
+    const auto cleanup = epee::misc_utils::create_scope_leave_handler(
+      [&temp_keys] { memwipe(temp_keys.data(), temp_keys.size() * sizeof(value_type)); }
+    );
+
+    for (std::size_t i = 0; i < temp_keys.size(); ++i)
+      temp_keys[i] = unwrap(unwrap(source.m_multisig_keys[i]));
+    account_keys_map(dest, source, temp_keys);
+  }
+  WIRE_EPEE_DEFINE_CONVERSION(account_base)
 
   //-----------------------------------------------------------------
   hw::device& account_keys::get_device() const  {

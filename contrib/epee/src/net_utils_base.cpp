@@ -3,6 +3,8 @@
 
 #include <boost/uuid/uuid_io.hpp>
 
+#include "serialization/wire/adapted/asio.h"
+#include "serialization/wire.h"
 #include "string_tools.h"
 #include "net/local_ip.h"
 
@@ -32,6 +34,23 @@ namespace epee { namespace net_utils
 	bool ipv4_network_address::is_loopback() const { return net_utils::is_ip_loopback(ip()); }
 	bool ipv4_network_address::is_local() const { return net_utils::is_ip_local(ip()); }
 
+	void ipv4_network_address::read_bytes(wire::reader& source)
+	{
+		ipv4_network_address& self = *this;
+		wire::object(source, WIRE_FIELD(m_ip), WIRE_FIELD(m_port));
+		m_ip = SWAP32LE(m_ip);
+	}
+	void ipv4_network_address::write_bytes(wire::writer& dest) const
+	{
+		const ipv4_network_address& self = *this;
+		wire::object(dest, wire::field("m_ip", SWAP32LE(m_ip)), WIRE_FIELD_COPY(m_port));
+	}
+
+
+	template<typename F, typename T>
+	void ipv6_network_address::serialize_map(F& format, T& self)
+	{ wire::object(format, wire::field("addr", std::ref(self.m_address)), WIRE_FIELD(m_port)); }
+
 	bool ipv6_network_address::equal(const ipv6_network_address& other) const noexcept
 	{ return is_same_host(other) && port() == other.port(); }
 
@@ -45,6 +64,10 @@ namespace epee { namespace net_utils
 	bool ipv6_network_address::is_loopback() const { return m_address.is_loopback(); }
 	bool ipv6_network_address::is_local() const { return m_address.is_link_local(); }
 
+	void ipv6_network_address::read_bytes(wire::reader& source)
+	{ serialize_map(source, *this); }
+	void ipv6_network_address::write_bytes(wire::writer& dest) const
+	{ serialize_map(dest, *this); }
 
 	bool ipv4_network_subnet::equal(const ipv4_network_subnet& other) const noexcept
 	{ return is_same_host(other) && m_mask == other.m_mask; }

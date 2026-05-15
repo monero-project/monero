@@ -41,6 +41,8 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <deque>
+#include <set>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
