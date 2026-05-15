@@ -605,7 +605,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob) const
+  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data) const
   {
     PERF_TIMER(get_transaction_info);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -625,22 +625,11 @@ namespace cryptonote
         // We don't want sensitive data && the tx is sensitive, so no need to return it
         return false;
       }
-      cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
-      auto ci = m_parsed_tx_cache.find(txid);
-      if (ci != m_parsed_tx_cache.end())
-      {
-        td.tx = ci->second;
-      }
-      else if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(txblob, td.tx) : parse_and_validate_tx_from_blob(txblob, td.tx)))
-      {
-        MERROR("Failed to parse tx from txpool");
-        return false;
-      }
-      else
-      {
-        td.tx.set_hash(txid);
-      }
-      td.blob_size = txblob.size();
+
+      // Fetch tx blob
+      td.tx_blob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
+
+      // Fill in other details from meta entry
       td.weight = meta.weight;
       td.fee = meta.fee;
       td.max_used_block_id = meta.max_used_block_id;
@@ -653,8 +642,6 @@ namespace cryptonote
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
-      if (include_blob)
-        td.tx_blob = std::move(txblob);
     }
     catch (const std::exception &e)
     {
@@ -681,7 +668,7 @@ namespace cryptonote
       {
         const crypto::hash &it{txids[i]};
         tx_details details;
-        const bool success = get_transaction_info(it, details, include_sensitive, true /*include_blob*/);
+        const bool success = get_transaction_info(it, details, include_sensitive);
         if (!success)
           continue;
 

@@ -449,9 +449,7 @@ namespace cryptonote
      */
     struct tx_details
     {
-      transaction tx;  //!< the transaction
       cryptonote::blobdata tx_blob; //!< the transaction's binary blob
-      size_t blob_size;  //!< the transaction's size
       size_t weight;  //!< the transaction's weight
       uint64_t fee;  //!< the transaction's fee amount
       crypto::hash max_used_block_id;  //!< the hash of the highest block referenced by an input
@@ -489,7 +487,7 @@ namespace cryptonote
     /**
      * @brief get information about a single transaction
      */
-    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
+    bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data) const;
 
     /**
      * @brief get information about multiple transactions
