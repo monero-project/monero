@@ -48,6 +48,7 @@
 #include "version.h"
 #include "string_tools.h"
 #include "common/util.h"
+#include "common/download.h"
 #include "common/dns_utils.h"
 #include "common/pruning.h"
 #include "net/error.h"
@@ -860,7 +861,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  size_t node_server<t_payload_net_handler>::apply_blocklist_file(const std::string& path, time_t seconds, bool add_only, std::string *error)
+  size_t node_server<t_payload_net_handler>::apply_blocklist_file(const std::string& path, time_t seconds, bool add_only, std::string *error, size_t max_size)
   {
     const boost::filesystem::path blocklist_path(path);
     if (!boost::filesystem::exists(blocklist_path))
@@ -874,7 +875,7 @@ namespace nodetool
     }
 
     std::string banned_ips;
-    if (!epee::file_io_utils::load_file_to_string(path, banned_ips))
+    if (!epee::file_io_utils::load_file_to_string(path, banned_ips, max_size))
     {
       if (error)
       {
@@ -2134,47 +2135,130 @@ namespace nodetool
       return true;
 
     static const std::vector<std::string> dns_urls = {
-      "blocklist.moneropulse.se"
-    , "blocklist.moneropulse.org"
-    , "blocklist.moneropulse.net"
-    , "blocklist.moneropulse.co"
-    , "blocklist.moneropulse.fr"
-    , "blocklist.moneropulse.de"
-    , "blocklist.moneropulse.ch"
+      "blocklist-hash.moneropulse.se"
+    , "blocklist-hash.moneropulse.org"
+    , "blocklist-hash.moneropulse.net"
+    , "blocklist-hash.moneropulse.co"
+    , "blocklist-hash.moneropulse.fr"
+    , "blocklist-hash.moneropulse.de"
+    , "blocklist-hash.moneropulse.ch"
     };
 
+    // TXT format <url>;<sha256>
     std::vector<std::string> records;
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
       return true;
 
-    unsigned good = 0;
-    for (const auto& record : records)
+    if (records.empty())
     {
-      std::vector<std::string> ips;
-      boost::split(ips, record, boost::is_any_of(";"));
-      for (const auto &ip: ips)
-      {
-        if (ip.empty())
-          continue;
-        auto subnet = net::get_ipv4_subnet_address(ip);
-        if (subnet)
-        {
-          block_subnet(*subnet, DNS_BLOCKLIST_LIFETIME);
-          ++good;
-          continue;
-        }
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
-        if (parsed_addr)
-        {
-          block_host(*parsed_addr, DNS_BLOCKLIST_LIFETIME, true);
-          ++good;
-          continue;
-        }
-        MWARNING("Invalid IP address or subnet from DNS blocklist: " << ip << " - " << parsed_addr.error());
-      }
+      MWARNING("DNS blocklist: no TXT record found");
+      return true;
     }
-    if (good > 0)
-      MINFO(good << " addresses added to the blocklist");
+
+    std::vector<std::string> fields;
+    std::string record = records[0];
+    boost::split(fields, record, boost::is_any_of(";"));
+    if (fields.size() != 2)
+    {
+      MWARNING("DNS blocklist: no valid TXT record found");
+      return true;
+    }
+
+    boost::trim(fields[0]);
+    boost::trim(fields[1]);
+    std::string url = fields[0];
+    std::string expected_hash = fields[1];
+
+    if (expected_hash.size() != 64)
+    {
+      MWARNING("DNS blocklist: no valid TXT record found");
+      return true;
+    }
+
+    const boost::filesystem::path cache_path = boost::filesystem::path{m_config_folder} / "dns_blocklist.txt";
+    static constexpr size_t max_blocklist_size = DNS_BLOCKLIST_MAX_SIZE;
+    std::string error;
+    const auto apply_cached_blocklist = [&]() -> bool {
+      const size_t good = apply_blocklist_file(cache_path.string(), DNS_BLOCKLIST_LIFETIME, true, &error, DNS_BLOCKLIST_MAX_SIZE);
+      if (good > 0)
+        MINFO(good << " addresses added to the blocklist");
+      return good > 0;
+    };
+
+    crypto::hash cached_hash;
+    const bool cache_ok =
+      epee::file_io_utils::is_file_exist(cache_path.string()) &&
+      tools::sha256sum(cache_path.string(), cached_hash) &&
+      expected_hash == epee::string_tools::pod_to_hex(cached_hash);
+
+    bool rejected_oversize = false;
+    const auto size_guard = [&rejected_oversize](const std::string& /*path*/, const std::string& /*uri*/, size_t bytes_written, ssize_t /*content_length*/) {
+      if (bytes_written > max_blocklist_size)
+      {
+        rejected_oversize = true;
+        MWARNING("DNS blocklist: download rejected, blocklist exceeds maximum size");
+        return false;
+      }
+      return true;
+    };
+
+    const auto cleanup_tmp = [](const std::string& tmp_path) {
+      try
+      {
+        boost::filesystem::remove(tmp_path);
+      }
+      catch (const std::exception &e)
+      {
+        MWARNING("DNS blocklist: failed to remove tmp file: " << e.what());
+      }
+    };
+
+    const auto refresh_cache = [&]() -> bool {
+      const std::string tmp_path = cache_path.string() + ".tmp";
+
+      MDEBUG("DNS blocklist: downloading from " << url);
+      if (!tools::download(tmp_path, url, size_guard) || rejected_oversize)
+      {
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+
+      crypto::hash file_hash;
+      if (!tools::sha256sum(tmp_path, file_hash))
+      {
+        MWARNING("DNS blocklist: failed to hash downloaded file from " << url);
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+      if (expected_hash != epee::string_tools::pod_to_hex(file_hash))
+      {
+        MWARNING("DNS blocklist: hash mismatch from " << url);
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+
+      const std::error_code e = tools::replace_file(tmp_path, cache_path.string());
+      if (e)
+      {
+        MWARNING("DNS blocklist: failed to replace cache: " << e.message());
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+
+      return true;
+    };
+
+    if (!cache_ok && !refresh_cache())
+    {
+      MWARNING("DNS blocklist: could not obtain a verified blocklist");
+      MWARNING("DNS blocklist: applying cached blocklist (may be outdated)");
+      if (!apply_cached_blocklist())
+        MWARNING("DNS blocklist: no cached blocklist available");
+      return true;
+    }
+
+    if (!apply_cached_blocklist())
+      MWARNING("DNS blocklist: verified blocklist is missing/unreadable");
     return true;
   }
   //-----------------------------------------------------------------------------------
