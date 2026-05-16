@@ -72,7 +72,7 @@
 #include "QrCode.hpp"
 #include "net/parse.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <boost/locale.hpp>
 #include <fcntl.h>
 #include <io.h>
@@ -806,7 +806,7 @@ namespace
     fflush(stdout);
     while (size > 0)
     {
-#ifdef WIN32
+#ifdef _WIN32
       const int n = _write(_fileno(stdout), data, size > INT_MAX ? INT_MAX : (unsigned int)size);
 #else
       const ssize_t n = ::write(STDOUT_FILENO, data, size);
@@ -10664,7 +10664,7 @@ int main(int argc, char* argv[])
 {
   TRY_ENTRY();
 
-#ifdef WIN32
+#ifdef _WIN32
   // Activate UTF-8 support for Boost filesystem classes on Windows
   std::locale::global(boost::locale::generator().generate(""));
   boost::filesystem::path::imbue(std::locale());
@@ -10740,7 +10740,7 @@ int main(int argc, char* argv[])
   }
   else
   {
-#ifndef WIN32
+#ifndef _WIN32
     // Stopping the console takes the console lock, which the thread receiving
     // the signal may already hold. The handler only writes to a pipe, and
     // this thread does the actual work.
@@ -10794,7 +10794,7 @@ int main(int argc, char* argv[])
         // must be prompting for password so return and let the signal stop prompt
         return;
       }
-#ifdef WIN32
+#ifdef _WIN32
       const bool is_interrupt = type == CTRL_C_EVENT;
 #else
       const bool is_interrupt = type == SIGINT;
@@ -10819,7 +10819,7 @@ int main(int argc, char* argv[])
     });
     w.run();
 
-#ifndef WIN32
+#ifndef _WIN32
     stop_signal_thread();
 #endif
     w.deinit();
