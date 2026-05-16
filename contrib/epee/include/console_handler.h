@@ -113,7 +113,7 @@ namespace epee
       {
         m_run.store(false, std::memory_order_relaxed);
 
-#if defined(WIN32)
+#if defined(_WIN32)
         ::CloseHandle(::GetStdHandle(STD_INPUT_HANDLE));
 #endif
 
@@ -164,7 +164,7 @@ namespace epee
 
     bool wait_stdin_data()
     {
-#if !defined(WIN32)
+#if !defined(_WIN32)
       #if defined(__OpenBSD__) || defined(__ANDROID__)
       int stdin_fileno = fileno(stdin);
       #else

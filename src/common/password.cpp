@@ -109,7 +109,7 @@ namespace
     return r;
   }
 
-#else // end WIN32 
+#else // if not _WIN32
 
   bool is_cin_tty() noexcept
   {
@@ -173,7 +173,7 @@ namespace
     return true;
   }
 
-#endif // end !WIN32
+#endif // not _WIN32
 
   bool read_from_tty(const bool verify, const char *message, bool hide_input, epee::wipeable_string& pass1, epee::wipeable_string& pass2)
   {

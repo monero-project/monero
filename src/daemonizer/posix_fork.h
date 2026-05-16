@@ -29,7 +29,7 @@
 #pragma once
 #include <string>
 
-#ifndef WIN32
+#ifndef _WIN32
 
 namespace posix {
 

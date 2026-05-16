@@ -6931,7 +6931,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   }
 
   // Save cache to new file. If storing to the same file, the temp path has the ".new" extension
-#ifdef WIN32
+#ifdef _WIN32
     // On Windows avoid using std::ofstream which does not work with UTF-8 filenames
     // The price to pay is temporary higher memory consumption for string stream + binary archive
     std::ostringstream oss;

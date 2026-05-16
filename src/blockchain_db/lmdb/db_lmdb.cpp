@@ -34,7 +34,7 @@
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <winioctl.h>
 #endif
 
@@ -1326,7 +1326,7 @@ BlockchainLMDB::BlockchainLMDB(bool batch_transactions): BlockchainDB()
   m_hardfork = nullptr;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 static bool disable_ntfs_compression(const boost::filesystem::path& filepath)
 {
   DWORD file_attributes = ::GetFileAttributesW(filepath.c_str());
@@ -1400,7 +1400,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
     throw DB_ERROR("Database could not be opened");
   }
 
-#ifdef WIN32
+#ifdef _WIN32
   // ensure NTFS compression is disabled on the directory and database file to avoid corruption of the blockchain
   if (!disable_ntfs_compression(filename))
     LOG_PRINT_L0("Failed to disable NTFS compression on folder: " << filename << ". Error: " << ::GetLastError());
