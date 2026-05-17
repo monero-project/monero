@@ -30,6 +30,7 @@
 #include <array>
 #include <cerrno>
 #include <climits>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <ostream>
@@ -128,6 +129,21 @@ namespace file_io_utils
 			int sync() override
 			{
 				return flush() ? 0 : -1;
+			}
+
+			pos_type seekoff(const off_type off, const std::ios_base::seekdir direction, const std::ios_base::openmode mode) override
+			{
+				if (!(mode & std::ios_base::out) || direction != std::ios_base::cur || off != 0)
+					return pos_type(off_type(-1));
+
+#ifdef _WIN32
+				const __int64 position = _lseeki64(fd_, 0, SEEK_CUR);
+#else
+				const off_t position = lseek(fd_, 0, SEEK_CUR);
+#endif
+				if (position < 0)
+					return pos_type(off_type(-1));
+				return pos_type(static_cast<off_type>(position) + static_cast<off_type>(pptr() - pbase()));
 			}
 
 		private:

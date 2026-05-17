@@ -2118,6 +2118,30 @@ TEST(FileIOUtils, SaveStreamToFileTruncatesRegularFile)
   ASSERT_EQ("short", contents);
 }
 
+TEST(FileIOUtils, SaveStreamToFileReportsOutputPosition)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path file = dir / "positioned-stream";
+  ASSERT_TRUE(epee::file_io_utils::save_stream_to_file(file.string(), [](std::ostream& stream)
+  {
+    stream << "abc";
+    if (stream.tellp() != std::streampos{3})
+      return false;
+    stream.flush();
+    return stream.good() && stream.tellp() == std::streampos{3};
+  }));
+
+  std::string contents;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(file.string(), contents));
+  ASSERT_EQ("abc", contents);
+}
+
 TEST(FileIOUtils, SaveStringToFileRefusesDirectory)
 {
   boost::system::error_code ec;
