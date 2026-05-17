@@ -119,6 +119,29 @@ namespace cryptonote
   crypto::hash get_transaction_prunable_hash(const transaction& t, const cryptonote::blobdata_ref *blob = NULL);
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size);
   bool get_pruned_transaction_hash(const transaction& t, const crypto::hash &pruned_data_hash, crypto::hash& res);
+  /**
+   * @brief: calculate a TXID directly from a transaction hash
+   * @param tx_blob transaction blob
+   * @param pruned_data_hash hash of prunable data if applicable, else null (see below)
+   * @param[out] res resultant TXID
+   * @return true on successful TXID calculation, false otherwise
+   *
+   * This function should succeed in all scenarios where
+   * `parse_and_validate_tx_from_blob(tx_blob, tx)` is `true`, and input types are of `txin_gen` or
+   * `txin_to_key`. The converse is not necessarily true: this function MAY succeed when
+   * `parse_and_validate_tx_from_blob(...)` fails. In other words, it should work on ALL valid
+   * Monero transactions, but may also succeed on invalid Monero transactions. However, this
+   * function should always return the same TXID as `calculate_transaction_hash(...)` when they both
+   * return `true`.
+   *
+   * To calculate the TXID of a pruned transaction blob, pass the hash of the pruned data in
+   * `pruned_data_hash`. If this argument is null, and the blob contains a pruned transaction, then
+   * this function will return `false`. Inversely, if this argument is non-null, and the blob
+   * contains a transaction which cannot have a prunable section, or the prunable section is present
+   * in the blob, then this function will return false.
+   */
+  bool calculate_transaction_hash_from_blob(const blobdata_ref tx_blob,
+    const crypto::hash &pruned_data_hash, crypto::hash &res);
 
   blobdata get_block_hashing_blob(const block& b);
   bool calculate_block_hash(const block& b, crypto::hash& res, const blobdata_ref *blob = NULL);
