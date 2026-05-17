@@ -137,8 +137,6 @@ namespace sam
         , state_(state::hello_version)
     {}
 
-    client::~client() = default;
-
     control_socket::control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket)
         : client(std::move(socket))
         , private_key_(private_key)

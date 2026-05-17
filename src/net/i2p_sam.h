@@ -125,7 +125,7 @@ namespace sam
         explicit client(stream_type::socket&& socket);
 
         client(const client&) = delete;
-        virtual ~client();
+        virtual ~client() = default;
         client& operator=(const client&) = delete;
 
         //! \return Ownership of socks client socket object.
