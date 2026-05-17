@@ -611,15 +611,43 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
   if (!dflt_SSL || !(ssl_key = SSL_get_privatekey(dflt_SSL.get())) || !(ssl_cert = SSL_get_certificate(dflt_SSL.get())))
     return {EINVAL, boost::system::system_category()};
 
-  using file_closer = int(std::FILE*);
   boost::system::error_code error{};
-  std::unique_ptr<std::FILE, file_closer*> file{nullptr, std::fclose};
+  auto save_pem_to_file = [](const boost::filesystem::path& path, const std::function<bool(BIO*)>& writer, epee::file_io_utils::file_mode create_mode = 0666) -> boost::system::error_code
+  {
+    unsigned long ssl_error = 0;
+    errno = 0;
+    const bool saved = epee::file_io_utils::detail::save_fd_to_file(path.string(), [&writer, &ssl_error](const int fd)
+    {
+      std::unique_ptr<BIO, decltype(&BIO_free)> file{BIO_new_fd(fd, BIO_NOCLOSE), BIO_free};
+      if (!file)
+      {
+        ssl_error = ERR_get_error();
+        return false;
+      }
+      if (!writer(file.get()) || BIO_flush(file.get()) != 1)
+      {
+        ssl_error = ERR_get_error();
+        return false;
+      }
+      return true;
+    }, create_mode);
+    if (!saved)
+    {
+      if (ssl_error)
+        return boost::asio::error::ssl_errors(ssl_error);
+      return {errno ? errno : EIO, boost::system::system_category()};
+    }
+    return {};
+  };
 
   // write key file unencrypted
   {
     const boost::filesystem::path key_file{base.string() + ".key"};
-    file.reset(std::fopen(key_file.string().c_str(), "wb"));
-    if (!file)
+    error = save_pem_to_file(key_file, [ssl_key](BIO* file)
+    {
+      return PEM_write_bio_PrivateKey(file, ssl_key, nullptr, nullptr, 0, nullptr, nullptr) != 0;
+    }, 0600);
+    if (error)
     {
       if (epee::file_io_utils::is_file_exist(key_file.string())) {
         MERROR("Permission denied to overwrite SSL private key file: '" << key_file.string() << "'");
@@ -627,52 +655,43 @@ boost::system::error_code store_ssl_keys(boost::asio::ssl::context& ssl, const b
         MERROR("Could not open SSL private key file for writing: '" << key_file.string() << "'");
       }
 
-      return {errno, boost::system::system_category()};
+      return error;
     }
     boost::filesystem::permissions(key_file, boost::filesystem::owner_read, error);
     if (error)
       return error;
-    if (!PEM_write_PrivateKey(file.get(), ssl_key, nullptr, nullptr, 0, nullptr, nullptr))
-      return boost::asio::error::ssl_errors(ERR_get_error());
-    if (std::fclose(file.release()) != 0)
-      return {errno, boost::system::system_category()};
   }
 
   // write certificate file in standard SSL X.509 unencrypted
   const boost::filesystem::path cert_file{base.string() + ".crt"};
-  file.reset(std::fopen(cert_file.string().c_str(), "wb"));
-  if (!file)
-    return {errno, boost::system::system_category()};
+  error = save_pem_to_file(cert_file, [ssl_cert](BIO* file)
+  {
+    return PEM_write_bio_X509(file, ssl_cert) != 0;
+  });
+  if (error)
+    return error;
   const auto cert_perms = (boost::filesystem::owner_read | boost::filesystem::group_read | boost::filesystem::others_read);
   boost::filesystem::permissions(cert_file, cert_perms, error);
   if (error)
     return error;
-  if (!PEM_write_X509(file.get(), ssl_cert))
-    return boost::asio::error::ssl_errors(ERR_get_error());
-  if (std::fclose(file.release()) != 0)
-    return {errno, boost::system::system_category()};
 
   // write SHA-256 fingerprint file
   const boost::filesystem::path fp_file{base.string() + ".fingerprint"};
-  file.reset(std::fopen(fp_file.string().c_str(), "w"));
-  if (!file)
-    return {errno, boost::system::system_category()};
-  const auto fp_perms = (boost::filesystem::owner_read | boost::filesystem::group_read | boost::filesystem::others_read);
-  boost::filesystem::permissions(fp_file, fp_perms, error);
-  if (error)
-    return error;
   try
   {
     const std::string fingerprint = get_hr_ssl_fingerprint(ssl_cert);
-    if (fingerprint.length() != fwrite(fingerprint.c_str(), sizeof(char), fingerprint.length(), file.get()))
-      return {errno, boost::system::system_category()};
+    errno = 0;
+    if (!epee::file_io_utils::save_string_to_file(fp_file.string(), fingerprint))
+      return {errno ? errno : EIO, boost::system::system_category()};
   }
   catch (const boost::system::system_error& fperr)
   {
     return fperr.code();
   }
-  if (std::fclose(file.release()) != 0)
-    return {errno, boost::system::system_category()};
+  const auto fp_perms = (boost::filesystem::owner_read | boost::filesystem::group_read | boost::filesystem::others_read);
+  boost::filesystem::permissions(fp_file, fp_perms, error);
+  if (error)
+    return error;
 
   return error;
 }
