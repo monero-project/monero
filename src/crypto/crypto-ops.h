@@ -88,6 +88,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *, const unsigned char *, const 
 
 extern const fe fe_sqrtm1;
 extern const fe fe_d;
+int fe_frombytes_vartime(fe, const unsigned char *);
 int ge_frombytes_vartime(ge_p3 *, const unsigned char *);
 
 /* From ge_p1p1_to_p2.c */
@@ -155,6 +156,12 @@ void sc_mul(unsigned char *, const unsigned char *, const unsigned char *);
 void sc_muladd(unsigned char *s, const unsigned char *a, const unsigned char *b, const unsigned char *c);
 int sc_check(const unsigned char *);
 int sc_isnonzero(const unsigned char *); /* Doesn't normalize */
+
+/**
+ * brief: Convert Ed25519 y-coord to X25519 x-coord, AKA "ConvertPointE()" in the Carrot spec
+ */
+void ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h);
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s);
 
 // internal
 uint64_t load_3(const unsigned char *in);
