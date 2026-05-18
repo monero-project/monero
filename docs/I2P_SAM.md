@@ -13,7 +13,7 @@ Please see [this documentation](./ANONYMITY_NETWORKS.md) for information on how 
 | Protocol version | 3.1                    | Chosen for maximum compatibility with router software                                     |
 | Signature type   | Ed25519-SHA512         | Default value; recommended by the I2P project                                             |
 | Encryption type  | MLKEM-768/ECIES-X25519 | Same reason as above; falls back to the second if the first is unavailable. Post-quantum. |
-| Tunnel quantity  | 3                      | Java I2P uses 2 by default; `i2pd` uses 5                                                 |
+| Tunnel quantity  | 2                      | Java I2P uses 2 by default; `i2pd` uses 5                                                 |
 
 At a later date, when support arrives, the signature type parameters should be updated to use post-quantum schemes (if not already the default by then).
 
