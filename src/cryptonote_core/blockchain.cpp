@@ -2090,13 +2090,13 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     bei.block_cumulative_weight = cryptonote::get_transaction_weight(b.miner_tx);
     for (const crypto::hash &txid: b.tx_hashes)
     {
-      cryptonote::tx_memory_pool::tx_details td;
       cryptonote::blobdata blob;
       if (m_tx_pool.have_tx(txid, relay_category::legacy))
       {
-        if (m_tx_pool.get_transaction_info(txid, td, true/*include_sensitive_data*/))
+        cryptonote::txpool_tx_meta_t tx_meta;
+        if (this->get_txpool_tx_meta(txid, tx_meta))
         {
-          bei.block_cumulative_weight += td.weight;
+          bei.block_cumulative_weight += tx_meta.weight;
         }
         else
         {
@@ -2643,17 +2643,6 @@ bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>& txs_ids
     }
   }
   return true;
-}
-//------------------------------------------------------------------
-size_t get_transaction_version(const cryptonote::blobdata &bd)
-{
-  size_t version;
-  const char* begin = static_cast<const char*>(bd.data());
-  const char* end = begin + bd.size();
-  int read = tools::read_varint(begin, end, version);
-  if (read <= 0)
-    throw std::runtime_error("Internal error getting transaction version");
-  return version;
 }
 //------------------------------------------------------------------
 template<class t_ids_container, class t_tx_container, class t_missed_container>
@@ -5281,9 +5270,9 @@ bool Blockchain::get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &
   return m_db->get_txpool_tx_meta(txid, meta);
 }
 
-bool Blockchain::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const
+std::size_t Blockchain::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category, bool pruned) const
 {
-  return m_db->get_txpool_tx_blob(txid, bd, tx_category);
+  return m_db->get_txpool_tx_blob(txid, bd, tx_category, pruned);
 }
 
 cryptonote::blobdata Blockchain::get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const

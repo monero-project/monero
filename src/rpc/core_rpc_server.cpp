@@ -144,7 +144,7 @@ namespace
   {
     store_128(difficulty, sdiff, swdiff, stop64);
   }
-}
+} //anonymous namespace
 
 namespace cryptonote
 {
@@ -619,16 +619,6 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  class pruned_transaction {
-    transaction& tx;
-  public:
-    pruned_transaction(transaction& tx) : tx(tx) {}
-    BEGIN_SERIALIZE_OBJECT()
-      bool r = tx.serialize_base(ar);
-      if (!r) return false;
-    END_SERIALIZE()
-  };
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_blocks);
@@ -673,53 +663,7 @@ namespace cryptonote
 
     res.pool_info_extent = COMMAND_RPC_GET_BLOCKS_FAST::NONE;
 
-    if (get_pool)
-    {
-      const bool restricted = m_restricted && ctx;
-      const bool request_has_rpc_origin = ctx != NULL;
-      const bool allow_sensitive = !request_has_rpc_origin || !restricted;
-      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
-
-      bool incremental;
-      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
-      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count, added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids, incremental);
-      if (success)
-      {
-        res.added_pool_txs.clear();
-        if (m_rpc_payment)
-        {
-          CHECK_PAYMENT_SAME_TS(req, res, added_pool_txs.size() * COST_PER_TX + (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
-        }
-        for (const auto &added_pool_tx: added_pool_txs)
-        {
-          COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
-          info.tx_hash = added_pool_tx.first;
-          std::stringstream oss;
-          binary_archive<true> ar(oss);
-          bool r = req.prune
-            ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-            : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-          if (!r)
-          {
-            res.status = "Failed to serialize transaction";
-            return true;
-          }
-          info.tx_blob = oss.str();
-          info.double_spend_seen = added_pool_tx.second.double_spend_seen;
-          res.added_pool_txs.push_back(std::move(info));
-        }
-      }
-      if (success)
-      {
-        res.pool_info_extent = incremental ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
-      }
-      else
-      {
-        res.status = "Failed to get pool info";
-        return true;
-      }
-    }
-
+    size_t cumul_block_data_size = 0;
     if (get_blocks)
     {
       // quick check for noop
@@ -764,7 +708,7 @@ namespace cryptonote
 
       CHECK_PAYMENT_SAME_TS(req, res, bs.size() * COST_PER_BLOCK);
 
-      size_t size = 0, ntxes = 0;
+      size_t ntxes = 0;
       res.blocks.reserve(bs.size());
       res.output_indices.reserve(bs.size());
       for(auto& bd: bs)
@@ -772,7 +716,7 @@ namespace cryptonote
         res.blocks.resize(res.blocks.size()+1);
         res.blocks.back().pruned = req.prune;
         res.blocks.back().block = bd.first.first;
-        size += bd.first.first.size();
+        cumul_block_data_size += bd.first.first.size();
         res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
         ntxes += bd.second.size();
         res.output_indices.back().indices.reserve(1 + bd.second.size());
@@ -784,7 +728,7 @@ namespace cryptonote
           res.blocks.back().txs.push_back({std::move(i->second), crypto::null_hash});
           i->second.clear();
           i->second.shrink_to_fit();
-          size += res.blocks.back().txs.back().blob.size();
+          cumul_block_data_size += res.blocks.back().txs.back().blob.size();
         }
 
         const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
@@ -806,7 +750,73 @@ namespace cryptonote
             res.output_indices.back().indices.push_back({std::move(indices[i])});
         }
       }
-      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
+      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << cumul_block_data_size);
+    }
+
+    if (get_pool)
+    {
+      const bool restricted = m_restricted && ctx;
+      const bool request_has_rpc_origin = ctx != NULL;
+      const bool allow_sensitive = !request_has_rpc_origin || !restricted;
+      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
+
+      const size_t limit = LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9;
+
+      // If the blocks alone already consume the safe packet budget, skip pool info
+      if (cumul_block_data_size >= limit)
+      {
+        LOG_ERROR("on_get_blocks: omitting pool info, response already "
+               << cumul_block_data_size << " bytes (limit " << limit << ")");
+        // res.pool_info_extent stays as NONE (set earlier), which tells wallets
+        // that there is no pool info in this response.
+      }
+      else
+      {
+        const size_t pool_limit = limit - cumul_block_data_size;
+
+        bool incremental;
+        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
+        bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count,
+                                            added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids,
+                                            incremental, pool_limit, req.prune);
+
+        if (!success)
+        {
+          res.status = "Failed to get pool info";
+          return true;
+        }
+
+        res.added_pool_txs.clear();
+        if (m_rpc_payment)
+        {
+          CHECK_PAYMENT_SAME_TS(req, res,
+                                added_pool_txs.size() * COST_PER_TX +
+                                (res.remaining_added_pool_txids.size() + res.removed_pool_txids.size()) * COST_PER_POOL_HASH);
+        }
+        for (auto &added_pool_tx: added_pool_txs)
+        {
+          COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info &info = res.added_pool_txs.emplace_back();
+          info.tx_hash = added_pool_tx.first;
+          tx_memory_pool::tx_details &tx_details = added_pool_tx.second;
+          info.tx_blob = std::move(tx_details.tx_blob);
+          if (req.prune && 0 == tx_details.unprunable_size)
+          {
+            // If the tx was added to the mempool before the pruned fetching feature was enabled,
+            // then `tx_details.unprunable_size` is 0 and we need to deserialize the unpruned part
+            // to figure out how to prune the tx
+            if (!prune_transaction_blob(info.tx_blob, 0))
+            {
+              res.status = "Failed to prune transaction blob";
+              return true;
+            }
+          }
+          info.double_spend_seen = tx_details.double_spend_seen;
+        }
+
+        res.pool_info_extent = incremental
+          ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL
+          : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
+      }
     }
 
     res.status = CORE_RPC_STATUS_OK;
@@ -1009,7 +1019,6 @@ namespace cryptonote
       return ok;
 
     const bool restricted = m_restricted && ctx;
-    const bool request_has_rpc_origin = ctx != NULL;
 
     if (restricted && req.txs_hashes.size() > RESTRICTED_TRANSACTIONS_COUNT)
     {
@@ -1052,12 +1061,13 @@ namespace cryptonote
     if (!missed_txs.empty())
     {
       std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> pool_txs;
-      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !request_has_rpc_origin || !restricted);
+      const bool fetch_as_pruned = req.prune && req.exclude_prunable_hashes;
+      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !restricted, /*limit_size=*/0, fetch_as_pruned);
       if(r)
       {
         // sort to match original request
         std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> sorted_txs;
-        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>::const_iterator i;
+        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>::iterator i;
         unsigned txs_processed = 0;
         for (const crypto::hash &h: vh)
         {
@@ -1079,18 +1089,32 @@ namespace cryptonote
           }
           else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](const std::pair<crypto::hash, tx_memory_pool::tx_details> &pt) { return h == pt.first; })) != pool_txs.end())
           {
-            const tx_memory_pool::tx_details &td = i->second;
-            std::stringstream ss;
-            binary_archive<true> ba(ss);
-            bool r = const_cast<cryptonote::transaction&>(td.tx).serialize_base(ba);
-            if (!r)
+            tx_memory_pool::tx_details &td = i->second;
+
+            // split pruned/prunable tx blobs
+            blobdata pruned_tx_blob = td.tx_blob;
+            blobdata &prunable_tx_blob = td.tx_blob;
+            if (!prune_transaction_blob(pruned_tx_blob, td.unprunable_size))
             {
-              res.status = "Failed to serialize transaction base";
+              res.status = "Failed to prune transaction blob";
               return true;
             }
-            const cryptonote::blobdata pruned = ss.str();
-            const crypto::hash prunable_hash = td.tx.version == 1 ? crypto::null_hash : get_transaction_prunable_hash(td.tx);
-            sorted_txs.push_back(std::make_tuple(h, pruned, prunable_hash, std::string(td.tx_blob, pruned.size())));
+            assert(pruned_tx_blob.size() <= prunable_tx_blob.size());
+            prunable_tx_blob.erase(prunable_tx_blob.cbegin(), prunable_tx_blob.cbegin() + pruned_tx_blob.size());
+  
+            // calculate unprunable hash if applicable
+            const std::size_t tx_version = get_tx_version(pruned_tx_blob);
+            crypto::hash prunable_hash = crypto::null_hash;
+            if (!req.exclude_prunable_hashes && 1 != tx_version)
+            {
+              if (!calculate_transaction_prunable_hash(tx_version, prunable_tx_blob, prunable_hash))
+              {
+                res.status = "Failed to calculate transaction prunable hash";
+                return true;
+              }
+            }
+
+            sorted_txs.emplace_back(h, std::move(pruned_tx_blob), prunable_hash, std::move(prunable_tx_blob));
             missed_txs.erase(std::find(missed_txs.begin(), missed_txs.end(), h));
             pool_tx_hashes.insert(h);
             per_tx_pool_tx_details.insert(std::make_pair(h, td));
@@ -1123,14 +1147,16 @@ namespace cryptonote
       crypto::hash tx_hash = *vhi++;
       CHECK_AND_ASSERT_MES(tx_hash == std::get<0>(tx), false, "mismatched tx hash");
       e.tx_hash = *txhi++;
-      e.prunable_hash = epee::string_tools::pod_to_hex(std::get<2>(tx));
+      const crypto::hash &tx_prunable_hash = std::get<2>(tx);
+      if (tx_prunable_hash != crypto::null_hash)
+        e.prunable_hash = epee::string_tools::pod_to_hex(tx_prunable_hash);
 
       // coinbase txes do not have signatures to prune, so they appear to be pruned if looking just at prunable data being empty
       bool pruned = std::get<3>(tx).empty();
       if (pruned)
       {
-        cryptonote::transaction t;
-        if (cryptonote::parse_and_validate_tx_base_from_blob(std::get<1>(tx), t) && is_coinbase(t))
+        unprunable_summary_t tx_desc;
+        if (get_transaction_unprunable_summary(std::get<1>(tx), tx_desc) && tx_desc.is_coinbase)
           pruned = false;
       }
 
@@ -1150,8 +1176,8 @@ namespace cryptonote
             tx_data = std::get<1>(tx);
             if (cryptonote::parse_and_validate_tx_base_from_blob(tx_data, t))
             {
-              pruned_transaction pruned_tx{t};
-              e.as_json = obj_to_json_str(pruned_tx);
+              assert(t.pruned);
+              e.as_json = obj_to_json_str(t);
             }
             else
             {

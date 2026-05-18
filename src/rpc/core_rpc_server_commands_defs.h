@@ -365,6 +365,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       bool decode_as_json;
       bool prune;
       bool split;
+      bool exclude_prunable_hashes = false;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
@@ -372,6 +373,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(decode_as_json)
         KV_SERIALIZE_OPT(prune, false)
         KV_SERIALIZE_OPT(split, false)
+        KV_SERIALIZE_OPT(exclude_prunable_hashes, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

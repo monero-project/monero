@@ -172,7 +172,10 @@ struct txpool_tx_meta_t
   uint8_t is_forwarding: 1;
   uint8_t bf_padding: 3;
 
-  uint8_t padding[44]; // til 160 bytes
+  uint8_t padding[40]; // til 160 bytes
+
+  // If non-zero, then this is the size in bytes of the unprunable part of the transaction blob
+  uint32_t unprunable_size;
 
   // If non-null, this verification ID is set for this tx only when some mixring passed ver_input_proofs_rings()
   crypto::hash valid_input_verification_id;
@@ -1566,19 +1569,35 @@ public:
    * @param txid the transaction id of the transation to lookup
    * @param bd the blob to return
    * @param tx_category for filtering out hidden/private txes
+   * @param pruned true if tx blob should be pruned if possible
+   *
+   * @return Full tx blob size iff `txid` is in the pool and meets `tx_category` requirements, 0 otherwise
+   */
+  virtual std::size_t get_txpool_tx_blob(const crypto::hash& txid,
+    cryptonote::blobdata &bd,
+    relay_category tx_category,
+    bool pruned) const = 0;
+
+  /**
+   * @brief get a txpool transaction's blob (unpruned)
+   *
+   * @param txid the transaction id of the transation to lookup
+   * @param bd the blob to return
+   * @param tx_category for filtering out hidden/private txes
    *
    * @return True iff `txid` is in the pool and meets `tx_category` requirements
    */
-  virtual bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const = 0;
+  bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const;
 
   /**
-   * @brief get a txpool transaction's blob
+   * @brief get a txpool transaction's blob (unpruned)
    *
    * @param txid the transaction id of the transation to lookup
+   * @param tx_category for filtering out hidden/private txes
    *
    * @return the blob for that transaction
    */
-  virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const = 0;
+  cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const;
 
   /**
    * @brief Check if `tx_hash` relay status is in `category`.
