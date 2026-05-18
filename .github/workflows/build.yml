@@ -24,7 +24,6 @@ env:
     EOF
   CCACHE_SETTINGS: |
     ccache --max-size=150M
-    ccache --set-config=compression=true
   USE_DEVICE_TREZOR_MANDATORY: ON
   INSTALL_RUST: |
     curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
@@ -37,8 +36,6 @@ jobs:
   build-macos:
     name: 'macOS (brew)'
     runs-on: macOS-latest
-    env:
-      CCACHE_TEMPDIR: /tmp/.ccache-temp
     steps:
       - uses: actions/checkout@v5
         with:
@@ -64,9 +61,6 @@ jobs:
   build-windows:
     name: 'Windows (MSYS2)'
     runs-on: windows-latest
-    env:
-      CCACHE_TEMPDIR: C:\Users\runneradmin\.ccache-temp
-      CCACHE_DIR: C:\Users\runneradmin\.ccache
     defaults:
       run:
         shell: msys2 {0}
@@ -76,7 +70,7 @@ jobs:
           submodules: recursive
       - uses: actions/cache@v5
         with:
-          path: C:\Users\runneradmin\.ccache
+          path: C:\Users\runneradmin\AppData\Local\ccache
           key: ccache-${{ runner.os }}-build-${{ github.sha }}
           restore-keys: ccache-${{ runner.os }}-build-
       - uses: msys2/setup-msys2@v2
@@ -98,17 +92,24 @@ jobs:
       image: archlinux:latest
     steps:
       - name: install dependencies
-        run: pacman -Syyu --noconfirm base-devel git rust cmake boost boost-libs openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
+        run: pacman -Syyu --noconfirm base-devel git rust cmake boost boost-libs openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf ccache
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ccache
+          key: ccache-arch-build-${{ github.sha }}
+          restore-keys: ccache-arch-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: ${{env.BUILD_DEFAULT}}
+        run: |
+          ${{ env.CCACHE_SETTINGS }}
+          ${{ env.BUILD_DEFAULT }}
 
   build-debian:
     # Oldest supported Debian version
@@ -132,11 +133,18 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/ccache
+          key: ccache-debian-11-build-${{ github.sha }}
+          restore-keys: ccache-debian-11-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: ${{env.BUILD_DEFAULT}}
+        run: |
+          ${{ env.CCACHE_SETTINGS }}
+          ${{ env.BUILD_DEFAULT }}
 
   build-ubuntu:
     name: ${{ matrix.name }}
@@ -152,8 +160,6 @@ jobs:
       image: ${{ matrix.container }}
       env:
         DEBIAN_FRONTEND: noninteractive
-        CCACHE_TEMPDIR: /tmp/.ccache-temp
-        CCACHE_DIR: ~/.ccache
     steps:
       - name: set apt conf
         run: ${{env.APT_SET_CONF}}
@@ -170,7 +176,7 @@ jobs:
           submodules: recursive
       - uses: actions/cache@v5
         with:
-          path: ~/.ccache
+          path: ~/.cache/ccache
           key: ccache-${{ matrix.container }}-build-${{ github.sha }}
           restore-keys: ccache-${{ matrix.container }}-build-
       - uses: ./.github/actions/set-make-job-count
@@ -194,8 +200,6 @@ jobs:
       image: ${{ matrix.container }}
       env:
         DEBIAN_FRONTEND: noninteractive
-        CCACHE_TEMPDIR: /tmp/.ccache-temp
-        CCACHE_DIR: ~/.ccache
       # Setting up a loop device (losetup) requires additional capabilities.
       # tests/create_test_disks.sh
       options: --privileged
@@ -219,7 +223,7 @@ jobs:
           submodules: recursive
       - uses: actions/cache@v5
         with:
-          path: ~/.ccache
+          path: ~/.cache/ccache
           key: ccache-${{ matrix.container }}-build-${{ github.sha }}
           restore-keys: ccache-${{ matrix.container }}-build-
       - name: create dummy disk drives for testing

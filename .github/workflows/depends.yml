@@ -19,7 +19,6 @@ env:
     EOF
   CCACHE_SETTINGS: |
         ccache --max-size=150M
-        ccache --set-config=compression=true
   USE_DEVICE_TREZOR_MANDATORY: ON
 
 jobs:
@@ -29,7 +28,6 @@ jobs:
       image: ${{ matrix.toolchain.container || 'ubuntu:22.04' }}
       env:
         DEBIAN_FRONTEND: noninteractive
-        CCACHE_TEMPDIR: /tmp/.ccache-temp
     strategy:
       fail-fast: false
       matrix:
@@ -109,7 +107,7 @@ jobs:
     - name: ccache
       uses: actions/cache@v5
       with:
-        path: ~/.ccache
+        path: ~/.cache/ccache
         key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
         restore-keys: ccache-${{ matrix.toolchain.host }}-
 # Less volatile cache
