@@ -36,6 +36,7 @@ set(performance_tests_headers
   construct_tx.h
   derive_public_key.h
   derive_secret_key.h
+  fe_batch_invert.h
   ge_frombytes_vartime.h
   generate_key_derivation.h
   generate_key_image.h
