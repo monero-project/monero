@@ -73,6 +73,7 @@ using namespace epee;
 
 #define RESTRICTED_BLOCK_HEADER_RANGE 1000
 #define RESTRICTED_TRANSACTIONS_COUNT 100
+#define UNRESTRICTED_TRANSACTIONS_COUNT 10000
 #define RESTRICTED_SPENT_KEY_IMAGES_COUNT 5000
 #define RESTRICTED_BLOCK_COUNT 1000
 
@@ -1011,10 +1012,14 @@ namespace cryptonote
     const bool restricted = m_restricted && ctx;
     const bool request_has_rpc_origin = ctx != NULL;
 
-    if (restricted && req.txs_hashes.size() > RESTRICTED_TRANSACTIONS_COUNT)
+    if (request_has_rpc_origin)
     {
-      res.status = "Too many transactions requested in restricted mode";
-      return true;
+      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : UNRESTRICTED_TRANSACTIONS_COUNT;
+      if (req.txs_hashes.size() > max_tx_count)
+      {
+        res.status = CORE_RPC_STATUS_TOO_LARGE;
+        return true;
+      }
     }
 
     CHECK_PAYMENT_MIN1(req, res, req.txs_hashes.size() * COST_PER_TX, false);

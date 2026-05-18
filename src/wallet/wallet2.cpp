@@ -1677,7 +1677,7 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
   tx_entry_data tx_entries;
   tx_entries.tx_entries.reserve(txids.size());
 
-  const size_t SLICE_SIZE =  100; // RESTRICTED_TRANSACTIONS_COUNT as defined in rpc/core_rpc_server.cpp, hardcoded in daemon code
+  const size_t SLICE_SIZE = 100; // RESTRICTED_TRANSACTIONS_COUNT as defined in rpc/core_rpc_server.cpp
   std::unordered_set<crypto::hash>::const_iterator it = txids.begin();
   for(size_t slice = 0; slice < txids.size(); slice += SLICE_SIZE) {
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);

@@ -72,6 +72,7 @@ void NodeRPCProxy::invalidate()
   m_target_height = 0;
   m_block_weight_limit = 0;
   m_adjusted_time = 0;
+  m_restricted = true;
   m_get_info_time = 0;
   m_height_time = 0;
   m_target_height_time = 0;
@@ -143,6 +144,7 @@ boost::optional<std::string> NodeRPCProxy::get_info()
     m_target_height = resp_t.target_height;
     m_block_weight_limit = resp_t.block_weight_limit ? resp_t.block_weight_limit : resp_t.block_size_limit;
     m_adjusted_time = resp_t.adjusted_time;
+    m_restricted = resp_t.restricted;
     m_get_info_time = now;
     m_height_time = now;
     m_target_height_time = now;
@@ -304,14 +306,25 @@ boost::optional<std::string> NodeRPCProxy::get_fee_quantization_mask(uint64_t &f
 
 boost::optional<std::string> NodeRPCProxy::get_transactions(const std::vector<crypto::hash> &txids, const std::function<void(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request&, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response&, bool)> &f)
 {
-  const size_t SLICE_SIZE = 100; // RESTRICTED_TRANSACTIONS_COUNT as defined in rpc/core_rpc_server.cpp
-  for (size_t offset = 0; offset < txids.size(); offset += SLICE_SIZE)
+  constexpr size_t RESTRICTED_BATCH = 100;    // RESTRICTED_TRANSACTIONS_COUNT in daemon
+  constexpr size_t UNRESTRICTED_BATCH = 10000; // UNRESTRICTED_TRANSACTIONS_COUNT in daemon
+
+  if (m_get_info_time == 0)
   {
+    if (auto err = get_info())
+      MERROR("get_info failed in get_transactions: " << *err);
+  }
+
+  size_t batch_size = m_restricted ? RESTRICTED_BATCH : UNRESTRICTED_BATCH;
+
+  for (size_t offset = 0; offset < txids.size(); )
+  {
+    const size_t request_size = std::min(batch_size, txids.size() - offset);
+
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request req_t = AUTO_VAL_INIT(req_t);
     cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response resp_t = AUTO_VAL_INIT(resp_t);
 
-    const size_t n_txids = std::min<size_t>(SLICE_SIZE, txids.size() - offset);
-    for (size_t n = offset; n < (offset + n_txids); ++n)
+    for (size_t n = offset; n < (offset + request_size); ++n)
       req_t.txs_hashes.push_back(epee::string_tools::pod_to_hex(txids[n]));
     MDEBUG("asking for " << req_t.txs_hashes.size() << " transactions");
     req_t.decode_as_json = false;
@@ -323,7 +336,29 @@ boost::optional<std::string> NodeRPCProxy::get_transactions(const std::vector<cr
       r = net_utils::invoke_http_json("/gettransactions", req_t, resp_t, m_http_client, rpc_timeout);
     }
 
+    if (r && resp_t.status == CORE_RPC_STATUS_OK)
+    {
+      f(req_t, resp_t, r);
+      offset += request_size;
+      continue;
+    }
+
+    if (r && resp_t.status == CORE_RPC_STATUS_TOO_LARGE && batch_size > 1)
+    {
+      batch_size = batch_size / 2;
+      MDEBUG("Daemon indicates batch too large, reducing to " << batch_size);
+      continue;
+    }
+
+    if (!r && batch_size > RESTRICTED_BATCH)
+    {
+      batch_size = RESTRICTED_BATCH;
+      MDEBUG("Transport failure, falling back to batch size " << batch_size);
+      continue;
+    }
+
     f(req_t, resp_t, r);
+    offset += request_size;
   }
   return boost::optional<std::string>();
 }
