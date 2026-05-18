@@ -1965,7 +1965,6 @@ std::size_t BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, crypton
   // if filtering, make sure those requirements are met before copying blob
   // also get unprunable tx blob size
   std::size_t unprunable_size = 0;
-  if (tx_category != relay_category::all)
   {
     RCURSOR(txpool_meta)
     auto result = mdb_cursor_get(m_cur_txpool_meta, &k, &v, MDB_SET);
