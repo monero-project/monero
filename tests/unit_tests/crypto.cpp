@@ -39,8 +39,11 @@ extern "C"
 }
 #include "crypto/generators.h"
 #include "cryptonote_basic/merge_mining.h"
+#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "ringct/rctOps.h"
+#include "ringct/rctSigs.h"
 #include "ringct/rctTypes.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -342,4 +345,106 @@ TEST(Crypto, generator_consistency)
 
   // ringct/rctTypes.h
   ASSERT_TRUE(memcmp(H.data, rct::H.bytes, 32) == 0);
+}
+
+TEST(Crypto, ec_constants_rct_parity)
+{
+  ASSERT_TRUE(memcmp(&crypto::EC_I,         &rct::I,         32) == 0);
+  ASSERT_TRUE(memcmp(&crypto::EC_INV_EIGHT, &rct::INV_EIGHT, 32) == 0);
+}
+
+#define CHECK_CLEARED(k, cleared) \
+  crypto::ec_point cleared2; \
+  const bool r = fcmp_pp::get_valid_torsion_cleared_point(rct::rct2pt(k), cleared2); \
+  ASSERT_TRUE(r); \
+  ASSERT_EQ(cleared, cleared2);
+
+TEST(Crypto, torsion_check_pass_random)
+{
+  std::vector<rct::key> pts;
+  for (int i = 0; i < 1000; ++i)
+  {
+    const cryptonote::keypair kp = cryptonote::keypair::generate(hw::get_device("default"));
+    ge_p3 x;
+    ASSERT_EQ(ge_frombytes_vartime(&x, (const unsigned char*)kp.pub.data), 0);
+    const rct::key k = rct::pk2rct(kp.pub);
+    ASSERT_TRUE(rct::isInMainSubgroup(k));
+    ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+    const crypto::ec_point cleared = fcmp_pp::clear_torsion(x);
+    ASSERT_EQ(rct::rct2pt(k), cleared);
+    CHECK_CLEARED(k, cleared);
+    pts.emplace_back(k);
+  }
+  ASSERT_TRUE(rct::verPointsForTorsion(pts));
+}
+
+static const char *torsioned_point = "b10ba13e303cbe9abf7d5d44f1d417727abcc14903a74e071abd652ce1bf76dd";
+static constexpr const char *torsion_free_points[] = {
+    "785eda585dca4f3d27976106008ccfbca13146c8b21b8c7e4909032639a776e1",
+    "9a7b10563aa266032cd075f4e347f348a3841ae4f41572633351a97dd44066b4"
+  };
+
+TEST(Crypto, torsion_check_pass_hardcoded)
+{
+  std::vector<rct::key> pts;
+  for (const auto point : torsion_free_points)
+  {
+    rct::key k;
+    epee::string_tools::hex_to_pod(point, k);
+    ge_p3 x;
+    ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
+    ASSERT_TRUE(rct::isInMainSubgroup(k));
+    ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+    const crypto::ec_point cleared = fcmp_pp::clear_torsion(x);
+    ASSERT_EQ(rct::rct2pt(k), cleared);
+    CHECK_CLEARED(k, cleared);
+    pts.emplace_back(k);
+  }
+  ASSERT_TRUE(rct::verPointsForTorsion(pts));
+}
+
+TEST(Crypto, torsion_check_torsioned_point)
+{
+  rct::key k;
+  epee::string_tools::hex_to_pod(torsioned_point, k);
+  ge_p3 x;
+  ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
+  ASSERT_FALSE(rct::isInMainSubgroup(k));
+  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+  const crypto::ec_point cleared = fcmp_pp::clear_torsion(x);
+  ASSERT_NE(rct::rct2pt(k), cleared);
+  CHECK_CLEARED(k, cleared);
+  ASSERT_FALSE(rct::verPointsForTorsion({k}));
+}
+
+TEST(Crypto, genesis_tx_output_torsion)
+{
+  rct::key k;
+  // see config::GENESIS_TX
+  epee::string_tools::hex_to_pod("9b2e4c0281c0b02e7c53291a94d1d0cbff8883f8024f5142ee494ffbbd088071", k);
+  ge_p3 x;
+  ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
+  EXPECT_FALSE(rct::isInMainSubgroup(k));
+  ASSERT_FALSE(fcmp_pp::mul8_is_identity(x));
+  const crypto::ec_point cleared = fcmp_pp::clear_torsion(x);
+  ASSERT_NE(rct::rct2pt(k), cleared);
+  CHECK_CLEARED(k, cleared);
+  ASSERT_FALSE(rct::verPointsForTorsion({k}));
+}
+
+TEST(Crypto, mixed_torsioned_and_not)
+{
+  std::vector<rct::key> pts;
+  for (const auto point : torsion_free_points)
+  {
+    rct::key k;
+    epee::string_tools::hex_to_pod(point, k);
+    pts.push_back(k);
+  }
+
+  rct::key torsioned;
+  epee::string_tools::hex_to_pod(torsioned_point, torsioned);
+  pts.push_back(torsioned);
+
+  ASSERT_FALSE(rct::verPointsForTorsion(pts));
 }
