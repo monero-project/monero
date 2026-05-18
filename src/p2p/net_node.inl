@@ -600,8 +600,11 @@ namespace nodetool
             }
         };
 
-        // TODO don't pass dummy value to function
-        const std::string private_key = net::sam::private_key_from_file("");
+        const std::string data_dir = command_line::get_arg(vm, cryptonote::arg_data_dir);
+
+        const std::string private_key = net::sam::private_key_from_file(data_dir);
+        CHECK_AND_ASSERT_THROW_MES(private_key.empty() == false, "Key generation is not implemented yet; please manually add the destination key to [data-dir]/i2p_private_key");
+
         const std::string session_id = net::sam::random_session_id();
 
         i2p_sam_zone.m_sam_control_socket = net::sam::make_control_client(
