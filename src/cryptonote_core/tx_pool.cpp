@@ -258,7 +258,7 @@ namespace cryptonote
             return false;
 
           m_blockchain.add_txpool_tx(id, blob, meta);
-          add_tx_to_transient_lists(id, fee / (double)(tx_weight ? tx_weight : 1), receive_time);
+          add_tx_to_transient_lists(id, fee / (double)(tx_weight ? tx_weight : 1), receive_time, !meta.matches(relay_category::broadcasted));
           lock.commit();
         }
         catch (const std::exception &e)
@@ -329,7 +329,7 @@ namespace cryptonote
 
           m_blockchain.remove_txpool_tx(id);
           m_blockchain.add_txpool_tx(id, blob, meta);
-          add_tx_to_transient_lists(id, meta.fee / (double)(tx_weight ? tx_weight : 1), receive_time);
+          add_tx_to_transient_lists(id, meta.fee / (double)(tx_weight ? tx_weight : 1), receive_time, !meta.matches(relay_category::broadcasted));
         }
         lock.commit();
         tvc.m_added_to_pool = !existing_tx;
@@ -912,7 +912,7 @@ namespace cryptonote
 
           if (was_just_broadcasted)
             // Make sure the tx gets re-added with an updated time
-            add_tx_to_transient_lists(hash, meta.fee / (double)meta.weight, std::chrono::system_clock::to_time_t(now));
+            add_tx_to_transient_lists(hash, meta.fee / (double)meta.weight, std::chrono::system_clock::to_time_t(now), false/*sensitive*/);
         }
       }
       catch (const std::exception &e)
@@ -1025,7 +1025,9 @@ namespace cryptonote
     txids.reserve(m_added_txs_by_id.size());
     for (const auto &pit : m_added_txs_by_id)
     {
-      const bool relevant_txid{!incremental || pit.second >= start_time};
+      if (!include_sensitive && pit.second.sensitive)
+        continue;
+      const bool relevant_txid{!incremental || pit.second.receive_time >= start_time};
       if (relevant_txid)
         txids.push_back(pit.first);
     }
@@ -1822,14 +1824,14 @@ namespace cryptonote
     return n_removed;
   }
   //---------------------------------------------------------------------------------
-  void tx_memory_pool::add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time)
+  void tx_memory_pool::add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time, bool sensitive)
   {
 
     time_t now = time(NULL);
-    const std::unordered_map<crypto::hash, time_t>::iterator it = m_added_txs_by_id.find(txid);
+    const std::unordered_map<crypto::hash, added_tx_info>::iterator it = m_added_txs_by_id.find(txid);
     if (it == m_added_txs_by_id.end())
     {
-       m_added_txs_by_id.insert(std::make_pair(txid, now));
+       m_added_txs_by_id[txid] = {now, sensitive};
     }
     else
     {
@@ -1837,7 +1839,8 @@ namespace cryptonote
       // phase of Dandelion++ and now is in the "fluff" phase i.e. got broadcasted: We have to set
       // a new time for clients that are not allowed to see sensitive txs to make sure they will
       // see it now if they query incrementally
-      it->second = now;
+      it->second.receive_time = now;
+      it->second.sensitive = sensitive;
 
       auto sorted_it = find_tx_in_sorted_container(txid);
       if (sorted_it == m_txs_by_fee_and_receive_time.end())
@@ -1876,7 +1879,7 @@ namespace cryptonote
       m_txs_by_fee_and_receive_time.erase(sorted_it);
     }
 
-    const std::unordered_map<crypto::hash, time_t>::iterator it = m_added_txs_by_id.find(txid);
+    const std::unordered_map<crypto::hash, added_tx_info>::iterator it = m_added_txs_by_id.find(txid);
     if (it != m_added_txs_by_id.end())
     {
        m_added_txs_by_id.erase(it);
@@ -1961,7 +1964,7 @@ namespace cryptonote
           MFATAL("Failed to insert key images from txpool tx");
           return false;
         }
-        add_tx_to_transient_lists(txid, meta.fee / (double)meta.weight, meta.receive_time);
+        add_tx_to_transient_lists(txid, meta.fee / (double)meta.weight, meta.receive_time, !meta.matches(relay_category::broadcasted));
         m_txpool_weight += meta.weight;
         return true;
       }, true, relay_category::all);

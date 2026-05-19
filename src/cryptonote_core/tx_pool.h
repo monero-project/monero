@@ -624,7 +624,7 @@ namespace cryptonote
      */
     void prune(size_t bytes = 0);
 
-    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time);
+    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time, bool sensitive);
     void remove_tx_from_transient_lists(const cryptonote::sorted_tx_container::iterator& sorted_it, const crypto::hash& txid, bool sensitive);
     void track_removed_tx(const crypto::hash& txid, bool sensitive);
 
@@ -660,8 +660,14 @@ private:
 
     std::atomic<uint64_t> m_cookie; //!< incremented at each change
 
+    struct added_tx_info
+    {
+      time_t receive_time;
+      bool sensitive;
+    };
+
     // Info when transactions entered the pool, accessible by txid
-    std::unordered_map<crypto::hash, time_t> m_added_txs_by_id;
+    std::unordered_map<crypto::hash, added_tx_info> m_added_txs_by_id;
 
     // Info at what time the pool started to track the adding of transactions
     time_t m_added_txs_start_time;
