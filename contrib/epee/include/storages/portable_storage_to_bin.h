@@ -127,15 +127,6 @@ namespace epee
           pack_entry_to_buff(m_strm, s);
         return true;
       }
-      bool operator()(const array_entry_t<array_entry>& arra_ar)    
-      {
-        uint8_t type = SERIALIZE_TYPE_ARRAY|SERIALIZE_FLAG_ARRAY;
-        m_strm.write((const char*)&type, 1);
-        pack_varint(m_strm, arra_ar.m_array.size());
-        for(const array_entry& s: arra_ar.m_array)
-          pack_entry_to_buff(m_strm, s);
-        return true;
-      }
     };
 
     template<class t_stream>
@@ -178,8 +169,6 @@ namespace epee
 
       bool operator()(const array_entry& v)  
       {
-        //uint8_t type = SERIALIZE_TYPE_ARRAY;
-        //m_strm.write((const char*)&type, 1);
         return pack_entry_to_buff(m_strm, v);
       }
     };
