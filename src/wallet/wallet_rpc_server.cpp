@@ -1551,12 +1551,13 @@ namespace tools
         for (size_t s = 0; s < cd.sources.size(); ++s)
         {
           const cryptonote::tx_source_entry &src_in = cd.sources[s];
+          const cryptonote::tx_source_entry::output_entry &real_ring_member = src_in.outputs.at(src_in.real_output);
           desc.sources.emplace_back();
           wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::source &src_out = desc.sources.back();
           src_out.amount = src_in.amount;
-          src_out.global_index = src_in.outputs.at(src_in.real_output_in_tx_index).first;
+          src_out.global_index = real_ring_member.first;
           src_out.rct = src_in.rct;
-          src_out.pubkey = epee::string_tools::pod_to_hex(src_in.outputs.at(src_in.real_output_in_tx_index).second);
+          src_out.pubkey = epee::string_tools::pod_to_hex(real_ring_member.second);
           desc.amount_in += src_in.amount;
           size_t ring_size = src_in.outputs.size();
           if (ring_size < desc.ring_size)
