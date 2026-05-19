@@ -612,7 +612,6 @@ private:
       std::unordered_set<crypto::public_key> ignore;
       std::unordered_set<rct::key> used_L;
       std::unordered_set<crypto::public_key> signing_keys;
-      rct::multisig_out msout;
 
       rct::keyM total_alpha_G;
       rct::keyM total_alpha_H;
@@ -620,14 +619,20 @@ private:
       rct::keyV s;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
+        VERSION_FIELD(2)
         if (version < 1)
           return false;
         FIELD(sigs)
         FIELD(ignore)
         FIELD(used_L)
         FIELD(signing_keys)
-        FIELD(msout)
+        if (version < 2 && !W)
+        {
+          // read 2 empty key vectors inside defunct `multisig_out`
+          rct::keyV dummy;
+          FIELDS(dummy)
+          FIELDS(dummy)
+        }
         FIELD(total_alpha_G)
         FIELD(total_alpha_H)
         FIELD(c_0)
