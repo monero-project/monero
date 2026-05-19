@@ -3051,6 +3051,22 @@ bool simple_wallet::set_enable_multisig(const std::vector<std::string> &args/* =
   return true;
 }
 
+bool simple_wallet::set_change_output_index(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
+{
+  const auto pwd_container = get_and_verify_password();
+  if (pwd_container)
+  {
+    uint32_t index;
+    if (!epee::string_tools::get_xtype_from_string(index, args[1]))
+    {
+      fail_msg_writer() << tr("Invalid index");
+      return true;
+    }
+    m_wallet->set_change_output_address_index(index);
+    m_wallet->rewrite(m_wallet_file, pwd_container->password());
+  }
+  return true;
+}
 bool simple_wallet::help(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   if(args.empty())
@@ -3351,6 +3367,8 @@ simple_wallet::simple_wallet()
                                   "  Device name for hardware wallet.\n "
                                   "export-format <\"binary\"|\"ascii\">\n "
                                   "  Save all exported files as binary (cannot be copied and pasted) or ascii (can be).\n "
+                                  "change-output-index <n>\n "
+                                  "  the destination address index for generating the change output if needed.\n "
                                   "load-deprecated-formats <1|0>\n "
                                   "  Whether to enable importing data in deprecated formats.\n "
                                   "show-wallet-name-when-locked <1|0>\n "
@@ -3751,6 +3769,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     success_msg_writer() << "setup-background-mining = " << setup_background_mining_string;
     success_msg_writer() << "device-name = " << m_wallet->device_name();
     success_msg_writer() << "export-format = " << (m_wallet->export_format() == tools::wallet2::ExportFormat::Ascii ? "ascii" : "binary");
+    success_msg_writer() << "change-output-index = " << m_wallet->change_output_address_index();
     success_msg_writer() << "show-wallet-name-when-locked = " << m_wallet->show_wallet_name_when_locked();
     success_msg_writer() << "inactivity-lock-timeout = " << m_wallet->inactivity_lock_timeout()
 #ifdef _WIN32
@@ -3824,6 +3843,7 @@ bool simple_wallet::set_variable(const std::vector<std::string> &args)
     CHECK_SIMPLE_VARIABLE("export-format", set_export_format, tr("\"binary\" or \"ascii\""));
     CHECK_SIMPLE_VARIABLE("load-deprecated-formats", set_load_deprecated_formats, tr("0 or 1"));
     CHECK_SIMPLE_VARIABLE("enable-multisig-experimental", set_enable_multisig, tr("0 or 1"));
+    CHECK_SIMPLE_VARIABLE("change-output-index", set_change_output_index, tr("unsigned integer"));
   }
   fail_msg_writer() << tr("set: unrecognized argument(s)");
   return true;
