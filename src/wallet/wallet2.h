@@ -877,7 +877,7 @@ private:
       hashchain detached_blockchain;
       size_t original_chain_size;
       std::unordered_set<crypto::hash> detached_tx_hashes;
-      std::unordered_map<crypto::hash, std::vector<cryptonote::tx_destination_entry>> detached_confirmed_txs_dests;
+      std::unordered_map<crypto::hash, confirmed_transfer_details> detached_confirmed_txs;
     };
 
     struct process_tx_entry_t
