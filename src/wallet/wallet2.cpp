@@ -1121,10 +1121,20 @@ wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const epee::wipeable_stri
   w.generate_chacha_key_from_password(*password, key);
 
   boost::lock_guard<boost::mutex> lock(lockers_lock);
-  if (lockers_per_wallet[std::addressof(w)]++ > 0)
+  wallet2* w_ptr = std::addressof(w);
+  if (lockers_per_wallet[w_ptr]++ > 0)
     return;
 
-  w.decrypt_keys(key);
+  try
+  {
+    w.decrypt_keys(key);
+  }
+  catch (...)
+  {
+    if (--lockers_per_wallet[w_ptr] == 0)
+      lockers_per_wallet.erase(w_ptr);
+    throw;
+  }
 }
 
 wallet_keys_unlocker::~wallet_keys_unlocker()
