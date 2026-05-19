@@ -47,6 +47,7 @@ set(unit_tests_sources
   device.cpp
   difficulty.cpp
   dns_resolver.cpp
+  download.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
   epee_http_server.cpp
