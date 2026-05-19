@@ -247,7 +247,7 @@ union semun {
 #ifdef __GNUC__
 /** Put infrequently used env functions in separate section */
 # ifdef __APPLE__
-#  define	ESECT	__attribute__ ((section("__TEXT,text_env")))
+#  define	ESECT	__attribute__ ((section("__TEXT,text_env,regular,pure_instructions")))
 # else
 #  define	ESECT	__attribute__ ((section("text_env")))
 # endif
