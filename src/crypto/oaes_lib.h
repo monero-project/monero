@@ -32,106 +32,12 @@
 #define _OAES_LIB_H
 
 #include <stdint.h>
-#include <stdlib.h>
 
 #ifdef __cplusplus 
 extern "C" {
 #endif
 
-#ifdef _WIN32
-#	ifdef OAES_SHARED
-#		ifdef oaes_lib_EXPORTS
-#			define OAES_API __declspec(dllexport)
-#		else
-#			define OAES_API __declspec(dllimport)
-#		endif
-#	else
-#		define OAES_API
-#	endif
-#else
-#	define OAES_API
-#endif // WIN32
-
-#define OAES_VERSION "0.8.1"
-#define OAES_BLOCK_SIZE 16
-
-typedef void OAES_CTX;
-
-typedef enum
-{
-	OAES_RET_FIRST = 0,
-	OAES_RET_SUCCESS = 0,
-	OAES_RET_UNKNOWN,
-	OAES_RET_ARG1,
-	OAES_RET_ARG2,
-	OAES_RET_ARG3,
-	OAES_RET_ARG4,
-	OAES_RET_ARG5,
-	OAES_RET_NOKEY,
-	OAES_RET_MEM,
-	OAES_RET_BUF,
-	OAES_RET_HEADER,
-	OAES_RET_COUNT
-} OAES_RET;
-
-typedef uint16_t OAES_OPTION;
-
-typedef struct _oaes_key
-{
-  size_t data_len;
-  uint8_t *data;
-  size_t exp_data_len;
-  uint8_t *exp_data;
-  size_t num_keys;
-  size_t key_base;
-} oaes_key;
-
-typedef struct _oaes_ctx
-{
-  oaes_key * key;
-} oaes_ctx;
-/*
- * // usage:
- * 
- * OAES_CTX * ctx = oaes_alloc();
- * .
- * .
- * .
- * {
- *   oaes_gen_key_xxx( ctx );
- *   {
- *     oaes_key_export( ctx, _buf, &_buf_len );
- *     // or
- *     oaes_key_export_data( ctx, _buf, &_buf_len );\
- *   }
- * }
- * // or
- * {
- *   oaes_key_import( ctx, _buf, _buf_len );
- *   // or
- *   oaes_key_import_data( ctx, _buf, _buf_len );
- * }
- * .
- * .
- * .
- * oaes_encrypt( ctx, m, m_len, c, &c_len );
- * .
- * .
- * .
- * oaes_decrypt( ctx, c, c_len, m, &m_len );
- * .
- * .
- * .
- * oaes_free( &ctx );
- */
-
-OAES_API OAES_CTX * oaes_alloc(void);
-
-OAES_API OAES_RET oaes_free( OAES_CTX ** ctx );
-
-// directly import data into key
-OAES_API OAES_RET oaes_key_import_data( OAES_CTX * ctx,
-		const uint8_t * data, size_t data_len );
+void aes_expand_256key_portable(const uint8_t data[32], uint8_t expanded_key_out[240]);
 
 #ifdef __cplusplus 
 }
