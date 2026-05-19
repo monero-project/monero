@@ -361,7 +361,11 @@ namespace net_utils
 					recv_buff.assign(m_header_cache.begin()+pos+4, m_header_cache.end());
 					m_header_cache.erase(m_header_cache.begin()+pos+4, m_header_cache.end());
 
-					analize_cached_header_and_invoke_state();
+					if(!analize_cached_header_and_invoke_state())
+					{
+						m_state = reciev_machine_state_error;
+						return false;
+					}
           if (!on_header(m_response_info))
           {
             MDEBUG("Connection cancelled by on_header");
@@ -594,64 +598,46 @@ namespace net_utils
 			{
 				MTRACE("http_stream_filter::parse_cached_header(*)");
 
-				const char *ptr = m_cache_to_process.c_str();
-				while (ptr[0] != '\r' || ptr[1] != '\n')
+				size_t cur = 0;
+				while(cur < m_cache_to_process.size())
 				{
-					// optional \n
-					if (*ptr == '\n')
-						++ptr;
-					// an identifier composed of letters or -
-					const char *key_pos = ptr;
-					while (isalnum(*ptr) || *ptr == '_' || *ptr == '-')
-						++ptr;
-					const char *key_end = ptr;
-					// optional space (not in RFC, but in previous code)
-					if (*ptr == ' ')
-						++ptr;
-					CHECK_AND_ASSERT_MES(*ptr == ':', true, "http_stream_filter::parse_cached_header() invalid header in: " << m_cache_to_process);
-					++ptr;
-					// optional whitespace, but not newlines - line folding is obsolete, let's ignore it
-					while (isblank(*ptr))
-						++ptr;
-					const char *value_pos = ptr;
-					while (*ptr != '\r' && *ptr != '\n')
-						++ptr;
-					const char *value_end = ptr;
-					// optional trailing whitespace
-					while (value_end > value_pos && isblank(*(value_end-1)))
-						--value_end;
-					if (*ptr == '\r')
-						++ptr;
-					CHECK_AND_ASSERT_MES(*ptr == '\n', true, "http_stream_filter::parse_cached_header() invalid header in: " << m_cache_to_process);
-					++ptr;
+					const size_t line_end = m_cache_to_process.find('\n', cur);
+					CHECK_AND_ASSERT_MES(line_end != std::string::npos, false, "http_stream_filter::parse_cached_header() invalid header in: " << m_cache_to_process);
 
-					const std::string key = std::string(key_pos, key_end - key_pos);
-					const std::string value = std::string(value_pos, value_end - value_pos);
-					if (!key.empty())
-					{
-						if (!string_tools::compare_no_case(key, "Connection"))
-							body_info.m_connection = value;
-						else if(!string_tools::compare_no_case(key, "Referrer"))
-							body_info.m_referer = value;
-						else if(!string_tools::compare_no_case(key, "Content-Length"))
-							body_info.m_content_length = value;
-						else if(!string_tools::compare_no_case(key, "Content-Type"))
-							body_info.m_content_type = value;
-						else if(!string_tools::compare_no_case(key, "Transfer-Encoding"))
-							body_info.m_transfer_encoding = value;
-						else if(!string_tools::compare_no_case(key, "Content-Encoding"))
-							body_info.m_content_encoding = value;
-						else if(!string_tools::compare_no_case(key, "Host"))
-							body_info.m_host = value;
-						else if(!string_tools::compare_no_case(key, "Cookie"))
-							body_info.m_cookie = value;
-						else if(!string_tools::compare_no_case(key, "User-Agent"))
-							body_info.m_user_agent = value;
-						else if(!string_tools::compare_no_case(key, "Origin"))
-							body_info.m_origin = value;
-						else
-							body_info.m_etc_fields.emplace_back(key, value);
-					}
+					boost::string_view line(m_cache_to_process.data() + cur, line_end - cur);
+					cur = line_end + 1;
+
+					if(line == "\r" || line.empty())
+						break;
+
+					boost::string_view name;
+					boost::string_view value;
+					CHECK_AND_ASSERT_MES(detail::parse_header_line(line, name, value), false, "http_stream_filter::parse_cached_header() invalid header in: " << m_cache_to_process);
+
+					std::string key(name.data(), name.size());
+					std::string val(value.data(), value.size());
+					if (!string_tools::compare_no_case(key, "Connection"))
+						body_info.m_connection = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Referer"))
+						body_info.m_referer = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Content-Length"))
+						body_info.m_content_length = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Content-Type"))
+						body_info.m_content_type = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Transfer-Encoding"))
+						body_info.m_transfer_encoding = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Content-Encoding"))
+						body_info.m_content_encoding = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Host"))
+						body_info.m_host = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Cookie"))
+						body_info.m_cookie = std::move(val);
+					else if(!string_tools::compare_no_case(key, "User-Agent"))
+						body_info.m_user_agent = std::move(val);
+					else if(!string_tools::compare_no_case(key, "Origin"))
+						body_info.m_origin = std::move(val);
+					else
+						body_info.m_etc_fields.emplace_back(std::move(key), std::move(val));
 				}
 				return true;
 			}
