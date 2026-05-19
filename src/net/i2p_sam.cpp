@@ -470,7 +470,6 @@ namespace sam
         }
     }
 
-    // TODO use the data_dir argument instead of the default directory
     std::string private_key_from_file(const std::string& data_dir)
     {
         const std::string key_path = data_dir + "/i2p_private_key";
