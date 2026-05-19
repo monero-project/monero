@@ -405,22 +405,6 @@ namespace sam
             return parse_result_code(line);
         }
 
-//        case state::dest_generate:
-//        {
-//            boost::system::error_code ec1, ec2;
-//
-//            ec1 = get_value(line, "PUB", public_key_);
-//            ec2 = get_value(line, "PRIV", private_key_);
-//
-//            if (!ec1 && !ec2)
-//            {
-//                MDEBUG("Generated I2P destination PUB=" << public_key_);
-//                return{};
-//            }
-//
-//            return parse_result_code(line);
-//        }
-
         case state::naming_lookup:
         {
             boost::system::error_code ec;

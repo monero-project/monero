@@ -54,6 +54,7 @@ namespace
 {
     constexpr const boost::chrono::milliseconds future_poll_interval{500};
     constexpr const std::chrono::seconds socks_connect_timeout{P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT};
+    constexpr const std::chrono::seconds sam_connect_timeout{P2P_DEFAULT_I2P_SAM_CONNECT_TIMEOUT};
 
     std::int64_t get_max_connections(const boost::iterator_range<boost::string_ref::const_iterator> value) noexcept
     {
@@ -437,7 +438,7 @@ namespace nodetool
         const auto start = std::chrono::steady_clock::now();
         while (sam_result.wait_for(future_poll_interval) == boost::future_status::timeout)
         {
-            if (socks_connect_timeout < std::chrono::steady_clock::now() - start)
+            if (sam_connect_timeout < std::chrono::steady_clock::now() - start)
             {
                 MERROR("Timeout on SAM connect (" << router << " to " << remote.str() << ")");
                 return boost::none;
