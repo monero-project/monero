@@ -31,6 +31,8 @@ import requests
 from requests.auth import HTTPDigestAuth
 import json
 
+from . import epee_binary
+
 class Response(dict):
     def __init__(self, d):
         for k, v in d.items():
@@ -74,5 +76,20 @@ class JSONRPC(object):
     def send_json_rpc_request(self, inputs):
         return self.send_request("/json_rpc", inputs, 'result')
 
+    def send_binary_request(self, path, inputs):
+        binary_req = epee_binary.Serializer().serialize(inputs)
 
+        res = requests.post(
+            self.url + path,
+            data=binary_req,
+            headers={'content-type': 'application/octet-stream'},
+            auth=HTTPDigestAuth(self.username, self.password) if self.username is not None else None,
+            stream=True)
 
+        assert res.status_code == 200, res.status_code
+
+        res = epee_binary.Deserializer(res.raw).deserialize()
+
+        assert res['status'] == b'OK', res['status']
+
+        return Response(res)
