@@ -47,10 +47,18 @@ namespace serialization
 
 namespace net
 {
-    //! b32 i2p address; internal format not condensed/decoded.
+    /**
+     * I2P address; internal format not condensed/decoded.
+     * Supports human-readable and Base32 types.
+     */
     class i2p_address
     {
-        char host_[61]; // null-terminated
+        /**
+         * Host size (including TLD):
+         * - 60 for Base32 (52 chars of Base32 + ".b32.i2p")
+         * - Maximum of 67 for human-readable (63 or less chars + ".i2p")
+         */
+        char host_[67 + 1] = {}; // null-terminated
 
         //! Keep in private, `host.size()` has no runtime check
         i2p_address(boost::string_ref host) noexcept;
@@ -59,7 +67,7 @@ namespace net
         //! \return Size of internal buffer for host.
         static constexpr std::size_t buffer_size() noexcept { return sizeof(host_); }
 
-        //! \return `<unknown tor host>`.
+        //! \return `<unknown i2p host>`.
         static const char* unknown_str() noexcept;
 
         //! An object with `port() == 0` and `host_str() == unknown_str()`.
@@ -69,7 +77,7 @@ namespace net
         static i2p_address unknown() noexcept { return i2p_address{}; }
 
         /*!
-            Parse `address` in b32 i2p format (i.e. x.b32.i2p:80)
+            Parse `address` in the detected format (i.e. x[.b32].i2p:80)
             with `default_port` being used if port is not specified in
             `address`.
         */
@@ -96,10 +104,10 @@ namespace net
         //! \return True if i2p addresses are identical.
         bool is_same_host(const i2p_address& rhs) const noexcept;
 
-        //! \return `x.b32.i2p` or `x.b32.i2p:z` if `port() != 0`.
+        //! \return `x[.b32].i2p` or `x[.b32].i2p:z` if `port() != 0`.
         std::string str() const;
 
-        //! \return Null-terminated `x.b32.i2p` value or `unknown_str()`.
+        //! \return Null-terminated `x[.b32].i2p` value or `unknown_str()`.
         const char* host_str() const noexcept { return host_; }
 
         //! \return `1` to work with I2P socks which considers `0` error.
