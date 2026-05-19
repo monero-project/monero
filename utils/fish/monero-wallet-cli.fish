@@ -52,7 +52,6 @@ complete -c monero-wallet-cli -l do-not-relay -d "The newly created transaction 
 complete -c monero-wallet-cli -l create-address-file -d "Create an address file for new wallets"
 complete -c monero-wallet-cli -l subaddress-lookahead -r -d "Set subaddress lookahead sizes to <major>:<minor>"
 complete -c monero-wallet-cli -l use-english-language-names -d "Display English language names"
-complete -c monero-wallet-cli -l rpc-client-secret-key -r -d "Set RPC client secret key for RPC payments"
 complete -c monero-wallet-cli -l log-file -r -F -d "Specify log file"
 complete -c monero-wallet-cli -l log-level -r -a "0 1 2 3 4" -d "0-4 or categories"
 complete -c monero-wallet-cli -l max-log-file-size -r -d "Specify maximum log file size [B]. Default: 104850000"

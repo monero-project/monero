@@ -303,11 +303,6 @@ t_command_server::t_command_server(
     , "Remove blocks from end of blockchain"
     );
     m_command_lookup.set_handler(
-      "rpc_payments"
-    , std::bind(&t_command_parser_executor::rpc_payments, &m_parser, p::_1)
-    , "Print information about RPC payments."
-    );
-    m_command_lookup.set_handler(
       "version"
     , std::bind(&t_command_parser_executor::version, &m_parser, p::_1)
     , "Print version information."
