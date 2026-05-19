@@ -128,6 +128,10 @@ void ge_tobytes(unsigned char *, const ge_p2 *);
 
 void sc_reduce(unsigned char *);
 
+/* From fe_pow22523.c */
+
+void fe_pow22523(fe, const fe);
+
 /* New code */
 
 void ge_scalarmult(ge_p2 *, const unsigned char *, const ge_p3 *);
