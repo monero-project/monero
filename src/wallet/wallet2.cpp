@@ -12182,8 +12182,14 @@ bool wallet2::is_out_to_acc(const cryptonote::account_public_address &address, c
   crypto::public_key derived_out_key;
   bool found = false;
   bool r;
+
+  const auto is_null_derivation = [](const crypto::key_derivation &d) {
+    static const crypto::key_derivation null_derivation{};
+    return memcmp(&d, &null_derivation, sizeof(d)) == 0;
+  };
+
   // first run quick check if output has matching view tag, otherwise output should not belong to account
-  if (out_can_be_to_acc(view_tag_opt, derivation, output_index))
+  if (!is_null_derivation(derivation) && out_can_be_to_acc(view_tag_opt, derivation, output_index))
   {
     // if view tag match, run slower check deriving output pub key and comparing to expected
     r = crypto::derive_public_key(derivation, output_index, address.m_spend_public_key, derived_out_key);
@@ -12195,17 +12201,20 @@ bool wallet2::is_out_to_acc(const cryptonote::account_public_address &address, c
     }
   }
 
-  if (!found && !additional_derivations.empty())
+  if (!found && output_index < additional_derivations.size())
   {
     const crypto::key_derivation &additional_derivation = additional_derivations[output_index];
-    if (out_can_be_to_acc(view_tag_opt, additional_derivation, output_index))
+    if (!is_null_derivation(additional_derivation))
     {
-      r = crypto::derive_public_key(additional_derivation, output_index, address.m_spend_public_key, derived_out_key);
-      THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to derive public key");
-      if (out_key == derived_out_key)
+      if (out_can_be_to_acc(view_tag_opt, additional_derivation, output_index))
       {
-        found = true;
-        found_derivation = additional_derivation;
+        r = crypto::derive_public_key(additional_derivation, output_index, address.m_spend_public_key, derived_out_key);
+        THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to derive public key");
+        if (out_key == derived_out_key)
+        {
+          found = true;
+          found_derivation = additional_derivation;
+        }
       }
     }
   }
@@ -12482,7 +12491,7 @@ bool wallet2::check_tx_proof(const cryptonote::transaction &tx, const cryptonote
   if (std::any_of(good_signature.begin(), good_signature.end(), [](int i) { return i > 0; }))
   {
     // obtain key derivation by multiplying scalar 1 to the shared secret
-    crypto::key_derivation derivation;
+    crypto::key_derivation derivation{};
     if (good_signature[0])
       THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(shared_secret[0], rct::rct2sk(rct::I), derivation), error::wallet_internal_error, "Failed to generate key derivation");
 
