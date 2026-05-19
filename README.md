@@ -566,21 +566,15 @@ Packages are available for
 * Docker
 
     ```bash
-    # Build using all available cores
-    docker build -t monero .
+    # Build image
+    docker build -t monerod .
 
-    # or build using a specific number of cores (reduce RAM requirement)
-    docker build --build-arg NPROC=1 -t monero .
+    # Create a directory on the host for the blockchain
+    mkdir -p /path/to/bitmonero
 
-    # either run in foreground
-    docker run -it -v /monero/chain:/home/monero/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
-
-    # or in background
-    docker run -it -d -v /monero/chain:/home/monero/.bitmonero -v /monero/wallet:/wallet -p 18080:18080 monero
+    # Run it
+    docker run -d --user $(id -u):$(id -g) -v /path/to/bitmonero:/.bitmonero -p 18080:18080 -p 18081:18081 monerod
     ```
-
-  * The build needs 3 GB space.
-  * Wait one hour or more
 
 Packaging for your favorite distribution would be a welcome contribution!
 
