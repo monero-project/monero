@@ -224,7 +224,7 @@ OAES_RET oaes_key_import_data( OAES_CTX * ctx,
 	if( _ctx->key )
 		oaes_key_destroy( &(_ctx->key) );
 	
-	_ctx->key = (oaes_key *) calloc( sizeof( oaes_key ), 1 );
+	_ctx->key = (oaes_key *) calloc( 1, sizeof( oaes_key ) );
 	
 	if( NULL == _ctx->key )
 		return OAES_RET_MEM;
@@ -253,7 +253,7 @@ OAES_RET oaes_key_import_data( OAES_CTX * ctx,
 
 OAES_CTX * oaes_alloc(void)
 {
-	oaes_ctx * _ctx = (oaes_ctx *) calloc( sizeof( oaes_ctx ), 1 );
+	oaes_ctx * _ctx = (oaes_ctx *) calloc( 1, sizeof( oaes_ctx ) );
 	
 	if( NULL == _ctx )
 		return NULL;
