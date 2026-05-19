@@ -1,6 +1,6 @@
 /// @file
 /// @author rfree (current maintainer in monero.cc project)
-/// @brief implementaion for throttling of connection (count and rate-limit speed etc)
+/// @brief implementation for throttling of connection (count and rate-limit speed etc)
 
 // Copyright (c) 2014-2024, The Monero Project
 // 
@@ -64,7 +64,7 @@
 
 // ################################################################################################
 // ################################################################################################
-// the "header part". Not separeted out for .hpp because point of this modification is 
+// the "header part". Not separated out for .hpp because point of this modification is
 // to rebuild just 1 translation unit while working on this code.
 // (But maybe common parts will be separated out later though - if needed)
 // ################################################################################################

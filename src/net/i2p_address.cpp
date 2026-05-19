@@ -127,7 +127,7 @@ namespace net
 
     bool i2p_address::store(epee::serialization::portable_storage& dest, epee::serialization::section* hparent) const
     {
-        // Set port to 1 for backwards compatability; zero is invalid port
+        // Set port to 1 for backwards compatibility; zero is invalid port
         const i2p_serialized out{std::string{host_}, 1};
         return out.store(dest, hparent);
     }

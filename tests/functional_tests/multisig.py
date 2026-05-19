@@ -153,7 +153,7 @@ class MultisigTest():
         addresses.append(res.address)
         next_stage.append(res.multisig_info)
 
-      # Assert multisig paramaters M/N for each wallet
+      # Assert multisig parameters M/N for each wallet
       for i in range(N_total):
         res = wallet[i].is_multisig()
         assert res.multisig == True
@@ -189,7 +189,7 @@ class MultisigTest():
         assert addresses[i] == expected_address, addresses[i]
       wallet_address = expected_address
 
-      # Assert multisig paramaters M/N and "ready" for each wallet
+      # Assert multisig parameters M/N and "ready" for each wallet
       for i in range(N_total):
         res = wallet[i].is_multisig()
         assert res.multisig == True

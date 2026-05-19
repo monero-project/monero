@@ -988,7 +988,7 @@ bool get_pruned_tx(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry &entry,
     }
     else
     {
-      // for v1, we trust the dameon
+      // for v1, we trust the daemon
       CHECK_AND_ASSERT_MES(epee::string_tools::hex_to_pod(entry.tx_hash, tx_hash), false, "Failed to parse tx hash");
     }
     return true;
@@ -2258,7 +2258,7 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
       return;
   }
 
-  // Don't try to extract tx public key if tx has no ouputs
+  // Don't try to extract tx public key if tx has no outputs
   const bool is_miner = tx.vin.size() == 1 && tx.vin[0].type() == typeid(cryptonote::txin_gen);
   if (!is_miner || m_refresh_type != RefreshType::RefreshNoCoinbase)
   {
@@ -2325,7 +2325,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   const std::vector<tx_extra_field> &tx_extra_fields = tx_cache_data.tx_extra_fields.empty() ? local_tx_extra_fields : tx_cache_data.tx_extra_fields;
   crypto::hash payment_id = crypto::null_hash;
 
-  // Don't try to extract tx public key if tx has no ouputs
+  // Don't try to extract tx public key if tx has no outputs
   size_t pk_index = 0;
   std::vector<tx_scan_info_t> tx_scan_info(tx.vout.size());
   std::deque<bool> output_found(tx.vout.size(), false);
@@ -3590,7 +3590,7 @@ void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashe
 
 //----------------------------------------------------------------------------------------------------
 // Code that is common to 'update_pool_state_by_pool_query' and 'update_pool_state_from_pool_data':
-// Check wether a tx in the pool is worthy of processing because we did not see it
+// Check whether a tx in the pool is worthy of processing because we did not see it
 // yet or because it is "interesting" out of special circumstances
 bool wallet2::accept_pool_tx_for_processing(const crypto::hash &txid)
 {
@@ -9883,7 +9883,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
     // note: The oldest unspent owned output's multisig info (in m_transfers) will contain the most recent result of
     //       'import_multisig()', which means only 'fresh' multisig infos (public nonces) will be used to make tx attempts.
     //       - If a signer's info was missing from the latest call to 'import_multisig()', then they won't be able to participate!
-    //       - If a newly-acquired output doesn't have enouch nonces from multisig infos, then it can't be spent!
+    //       - If a newly-acquired output doesn't have enough nonces from multisig infos, then it can't be spent!
     for (const crypto::public_key &signer: m_multisig_signers)
     {
       if (signer == local_signer)
@@ -11045,7 +11045,7 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, c
     error::wallet_internal_error, "feature subtractfeefrom not supported for split transactions");
 
   // For destinations from where the fee is subtracted, the required amount has to be at least
-  // target amount - (tx fee / num_subtractable + 1). +1 since fee might not be evenly divisble by
+  // target amount - (tx fee / num_subtractable + 1). +1 since fee might not be evenly divisible by
   // the number of subtractble destinations. For non-subtractable destinations, we need at least
   // the target amount.
   const size_t num_subtractable_dests = subtract_fee_from_outputs.size();
@@ -12725,7 +12725,7 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
     THROW_WALLET_EXCEPTION_IF(tx_pub_key == crypto::null_pkey, error::wallet_internal_error, "The tx public key isn't found");
     const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
 
-    // check singature for shared secret
+    // check signature for shared secret
     ok = crypto::check_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, boost::none, proof.shared_secret, proof.shared_secret_sig, version);
     if (!ok && additional_tx_pub_keys.size() == tx.vout.size())
       ok = crypto::check_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[proof.index_in_tx], boost::none, proof.shared_secret, proof.shared_secret_sig, version);

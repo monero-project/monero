@@ -56,7 +56,7 @@ DISABLE_VS_WARNINGS(4244)
  * \brief base for the binary archive type
  * 
  * \detailed It isn't used outside of this file, which its only
- * purpse is to define the functions used for the binary_archive. Its
+ * purpose is to define the functions used for the binary_archive. Its
  * a header, basically. I think it was declared simply to save typing...
  */
 template <bool IsSaving>

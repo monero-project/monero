@@ -678,7 +678,7 @@ private:
     };
 
     // The term "Unsigned tx" is not really a tx since it's not signed yet.
-    // It doesnt have tx hash, key and the integrated address is not separated into addr + payment id.
+    // It doesn't have tx hash, key and the integrated address is not separated into addr + payment id.
     struct unsigned_tx_set
     {
       std::vector<tx_construction_data> txes;

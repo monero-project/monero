@@ -711,7 +711,7 @@ public:
    *
    * @param folder    The path of the folder containing the database file(s) which must not end with slash '/'.
    *
-   * @return          true if the operation is succesfull
+   * @return          true if the operation is successful
    */
   virtual bool remove_data_file(const std::string& folder) const = 0;
 
@@ -939,7 +939,7 @@ public:
   /**
    * @brief fetch a block's cumulative number of rct outputs
    *
-   * The subclass should return the numer of rct outputs in the blockchain
+   * The subclass should return the number of rct outputs in the blockchain
    * up to the block with the given height (inclusive).
    *
    * If the block does not exist, the subclass should throw BLOCK_DNE
@@ -1546,14 +1546,14 @@ public:
   /**
    * @brief remove a txpool transaction
    *
-   * @param txid the transaction id of the transation to remove
+   * @param txid the transaction id of the transaction to remove
    */
   virtual void remove_txpool_tx(const crypto::hash& txid) = 0;
 
   /**
    * @brief get a txpool transaction's metadata
    *
-   * @param txid the transaction id of the transation to lookup
+   * @param txid the transaction id of the transaction to lookup
    * @param meta the metadata to return
    *
    * @return true if the tx meta was found, false otherwise
@@ -1563,7 +1563,7 @@ public:
   /**
    * @brief get a txpool transaction's blob
    *
-   * @param txid the transaction id of the transation to lookup
+   * @param txid the transaction id of the transaction to lookup
    * @param bd the blob to return
    * @param tx_category for filtering out hidden/private txes
    *
@@ -1574,7 +1574,7 @@ public:
   /**
    * @brief get a txpool transaction's blob
    *
-   * @param txid the transaction id of the transation to lookup
+   * @param txid the transaction id of the transaction to lookup
    *
    * @return the blob for that transaction
    */

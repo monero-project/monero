@@ -203,7 +203,7 @@ namespace multisig
     *
     *    - For example, in 2-of-3 escrowed purchasing, the [vendor, arbitrator] pair can boost the second round
     *      of key exchange by calling this function with the 'round 1' messages of each other.
-    *      Then the [buyer] can use the resulting boost messages, in combination with [vender, arbitrator] round 1 messages,
+    *      Then the [buyer] can use the resulting boost messages, in combination with [vendor, arbitrator] round 1 messages,
     *      to complete the address in one step. In other words, call initialize_kex() on the round 1 messages,
     *      then call kex_update() on the round 2 booster messages to finish the multisig key.
     * 

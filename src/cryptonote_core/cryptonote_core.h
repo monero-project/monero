@@ -479,7 +479,7 @@ namespace cryptonote
      /**
       * @brief set whether or not to enable or disable DNS checkpoints
       *
-      * @param disble whether to disable DNS checkpoints
+      * @param disable whether to disable DNS checkpoints
       */
      void disable_dns_checkpoints(bool disable = true) { m_disable_dns_checkpoints = disable; }
 
@@ -1081,7 +1081,7 @@ namespace cryptonote
 
      epee::critical_section m_incoming_tx_lock; //!< incoming transaction lock
 
-     //m_miner and m_miner_addres are probably temporary here
+     //m_miner and m_miner_address are probably temporary here
      miner m_miner; //!< miner instance
 
      std::string m_config_folder; //!< folder to look in for configs and other files

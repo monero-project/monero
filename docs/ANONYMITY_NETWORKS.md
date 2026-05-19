@@ -56,7 +56,7 @@ You can also combine `--proxy` with `--tx-proxy` (see below).
 
 ### Hidden Services
 
-Hidden services - onion and I2P domains - are available to use for transation broadcasts.
+Hidden services - onion and I2P domains - are available to use for transaction broadcasts.
 You may use the below options with or without `--proxy`.
 
 #### Outbound Connections
@@ -318,7 +318,7 @@ persistent public key identity - the creation of a new circuit will generate
 a new public key identity. The lock time on a change address is ~20 minutes, so
 `monerod` will have rotated its selected outgoing connections several times in
 most cases. However, the number of outgoing connections is typically a small
-fixed number, so there is a decent probability of re-use with the same public
+fixed number, so there is a decent probability of reuse with the same public
 key identity.
 
 @secparam ([Twitter](https://twitter.com/secparam/status/1153411968147042304)) recommended changing circuits (Tor) as an additional

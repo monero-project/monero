@@ -584,7 +584,7 @@ namespace cryptonote
     /**
      * @brief gets per block distribution of outputs of a given amount
      *
-     * @param amount the amount to get a ditribution for
+     * @param amount the amount to get a distribution for
      * @param from_height the height before which we do not care about the data
      * @param to_height the height after which we do not care about the data
      * @param return-by-reference start_height the height of the first rct output
@@ -600,7 +600,7 @@ namespace cryptonote
      * to a specific transaction.
      *
      * @param tx_id the hash of the transaction to fetch indices for
-     * @param indexs return-by-reference the global indices for the transaction's outputs
+     * @param indices return-by-reference the global indices for the transaction's outputs
      * @param n_txes how many txes in a row to get results for
      *
      * @return false if the transaction does not exist, or if no indices are found, otherwise true
@@ -1567,7 +1567,7 @@ namespace cryptonote
      *
      * This function grabs the timestamps from the most recent <n> blocks,
      * where n = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.  If there are not those many
-     * blocks in the blockchain, the timestap is assumed to be valid.  If there
+     * blocks in the blockchain, the timestamp is assumed to be valid.  If there
      * are, this function returns:
      *   true if the block's timestamp is not less than the timestamp of the
      *       median of the selected blocks

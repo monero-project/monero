@@ -1590,7 +1590,7 @@ namespace nodetool
 
     std::set<uint64_t> tried_peers;  // all peers ever tried
 
-    // Outer try loop, with up to 3 attempts to actually connect to a suitable randomly choosen candidate
+    // Outer try loop, with up to 3 attempts to actually connect to a suitable randomly chosen candidate
     size_t outer_loop_count = 0;
     while ((outer_loop_count < 3) && !zone.m_net_server.is_stop_signal_sent())
     {

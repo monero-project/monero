@@ -146,7 +146,7 @@ namespace tools
 
   /*! \brief creates directories for a path
    *
-   *  wrapper around boost::filesyste::create_directories.  
+   *  wrapper around boost::filesystem::create_directories.  
    *  (ensure-directory-exists): greenspun's tenth rule in action!
    */
   bool create_directories_if_necessary(const std::string& path);
@@ -214,7 +214,7 @@ namespace tools
     }
 #endif
 
-    /*! \brief calles m_handler */
+    /*! \brief calls m_handler */
     static void handle_signal(int type)
     {
       static boost::mutex m_mutex;

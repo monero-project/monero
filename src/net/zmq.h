@@ -67,7 +67,7 @@ namespace zmq
     //! \return Category for ZMQ errors.
     const std::error_category& error_category() noexcept;
 
-    //! \return `code` (usally from zmq_errno()`) using `net::zmq::error_category()`.
+    //! \return `code` (usually from zmq_errno()`) using `net::zmq::error_category()`.
     inline std::error_code make_error_code(int code) noexcept
     {
         return std::error_code{code, error_category()};
@@ -111,7 +111,7 @@ namespace zmq
       values less than 0 on error.
 
       \param op The ZMQ function to execute + retry
-      \param args Forwarded to `op`. Must be resuable in case of retry.
+      \param args Forwarded to `op`. Must be reusable in case of retry.
       \return All errors except for `EINTR`. */
     template<typename F, typename... T>
     expect<void> retry_op(F op, T&&... args) noexcept(noexcept(op(args...)))
@@ -175,7 +175,7 @@ namespace zmq
         \param socket Handle created with `zmq_socket`.
         \param flags See `zmq_msg_send` for possible flags.
 
-        \post `payload.emtpy()` - ownership is transferred to zmq.
+        \post `payload.empty()` - ownership is transferred to zmq.
         \return `success()` if sent, otherwise ZMQ error. */
     expect<void> send(epee::byte_slice&& payload, void* socket, int flags = 0) noexcept;
 } // zmq

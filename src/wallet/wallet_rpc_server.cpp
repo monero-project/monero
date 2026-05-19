@@ -272,7 +272,7 @@ namespace tools
         if (over_one_refresh_period_passed)
         {
           // auto_refresh_interval_ms of straight-blasting through blocks has elapsed without end.
-          // Let's freee up the network thread for between 200ms to 300ms (non-deterministic) to handle other requests.
+          // Let's free up the network thread for between 200ms to 300ms (non-deterministic) to handle other requests.
           const auto refresh_throttle = auto_refresh_evaluation_ms + std::chrono::milliseconds(100);
           m_last_auto_refresh_time = end - auto_refresh_interval_ms + refresh_throttle;
           LOG_PRINT_L3((boost::format(tr("Temporarily throttling wallet block refresh by around %i ms")) % refresh_throttle.count()).str());

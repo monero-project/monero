@@ -169,7 +169,7 @@ bool gen_rct_tx_validation_base::generate_with_full(std::vector<test_event_entry
     blk_r = blk_last;
   }
 
-  // create a tx from the requested ouputs
+  // create a tx from the requested outputs
   std::vector<tx_source_entry> sources;
   size_t global_rct_idx = 6; // skip first coinbase (6 outputs)
   size_t rct_idx = 0;

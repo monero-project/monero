@@ -61,7 +61,7 @@ namespace cryptonote
 
 namespace hw {
     namespace {
-        //device funcion not supported
+        //device function not supported
         #define dfns()  \
            throw std::runtime_error(std::string("device function not supported: ")+ std::string(__FUNCTION__) + \
                                     std::string(" (device.hpp line ")+std::to_string(__LINE__)+std::string(").")); \

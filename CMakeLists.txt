@@ -150,7 +150,7 @@ endfunction()
 option(RELINK_TARGETS "Relink targets, when just a dependant .so changed, but not its header?" OFF)
 function (monero_set_target_no_relink target)
   if (RELINK_TARGETS MATCHES OFF)
-    # Will not relink the target, when just its dependant .so has changed, but not it's interface
+    # Will not relink the target, when just its dependent .so has changed, but not its interface
     set_target_properties("${target}" PROPERTIES LINK_DEPENDS_NO_SHARED true)
   endif()
 endfunction()

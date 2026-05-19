@@ -79,7 +79,7 @@ namespace cryptonote
 
         This value was calculated with k=5, ep=0.10, and hop = 175 ms. A
         testrun from a recent Intel laptop took ~80ms to
-        receive+parse+proces+send transaction. At least 50ms will be added to
+        receive+parse+process+send transaction. At least 50ms will be added to
         the latency if crossing an ocean. So 175ms is the fudge factor for
         a single hop with 39s being the embargo timer. */
     constexpr const std::chrono::seconds dandelionpp_embargo_average{CRYPTONOTE_DANDELIONPP_EMBARGO_AVERAGE};
@@ -1865,7 +1865,7 @@ namespace cryptonote
 
     // Simple system to make sure the list of removed ids does not swell to an unmanageable size: Set
     // an absolute size limit plus delete entries that are x minutes old (which is ok because clients
-    // will sync with sensible time intervalls and should not ask for incremental info e.g. 1 hour back)
+    // will sync with sensible time intervals and should not ask for incremental info e.g. 1 hour back)
     const int MAX_REMOVED = 20000;
     if (m_removed_txs_by_time.size() > MAX_REMOVED)
     {

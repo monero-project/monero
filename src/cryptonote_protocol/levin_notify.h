@@ -108,7 +108,7 @@ namespace levin
     //! Run the logic for the next epoch immediately. Only use in testing.
     void run_epoch();
 
-    //! Run the logic for the next stem timeout imemdiately. Only use in  testing.
+    //! Run the logic for the next stem timeout immediately. Only use in testing.
     void run_stems();
 
     //! Run the logic for flushing all Dandelion++ fluff queued txs. Only use in testing.

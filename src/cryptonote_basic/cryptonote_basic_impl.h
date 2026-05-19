@@ -123,7 +123,7 @@ namespace cryptonote {
    * The comparison essentially goes from the 31th, 30th, 29th, ..., 0th byte and compares the MSBs
    * to the LSBs in each byte, up to `nbits` bits. If we use up `nbits` bits before finding a
    * difference in the bits between the two hashes, we return 0. If we encounter a zero bit in `ha`
-   * where `hb` has a one in that bit place, then we reutrn -1. If the converse scenario happens,
+   * where `hb` has a one in that bit place, then we return -1. If the converse scenario happens,
    * we return a 1. When `nbits` == 256 (there are 256 bits in `crypto::hash`), calling this is
    * functionally identical to `BlockchainLMDB::compare_hash32`.
    *
@@ -137,7 +137,7 @@ namespace cryptonote {
   /**
    * @brief Make a template which matches `h` in LMDB order up to `nbits` bits, safe for k-anonymous fetching
    *
-   * To be more technical, this function creates a hash which satifies the following property:
+   * To be more technical, this function creates a hash which satisfies the following property:
    *     For all `H_prime` s.t. `0 == compare_hash32_reversed_nbits(real_hash, H_prime, nbits)`,
    *     `1 > compare_hash32_reversed_nbits(real_hash, H_prime, 256)`.
    * In other words, we return the "least" hash nbit-equal to `real_hash`.

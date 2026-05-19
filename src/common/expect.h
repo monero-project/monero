@@ -372,7 +372,7 @@ public:
     //! \return True if `this` is storing an error instead of a value.
     bool has_error() const noexcept { return bool(code_); }
 
-    //! \return Error - alway
+    //! \return Error - always
     std::error_code error() const noexcept { return code_; }
 
     //! \return `error() == rhs.error()`.

@@ -208,7 +208,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
                      << ", burnt: " << print_money(burnt)
                      << ", raw_output_value: " << print_money(amount)
                      << ", idx: " << subaddr_index);
-        // do not signal on received tx if wallet is not syncronized completely
+        // do not signal on received tx if wallet is not synchronized completely
         if (m_listener && m_wallet->synchronized()) {
             m_listener->moneyReceived(tx_hash, amount - burnt);
             m_listener->updated();
@@ -224,7 +224,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount)
                      << ", idx: " << subaddr_index);
-        // do not signal on received tx if wallet is not syncronized completely
+        // do not signal on received tx if wallet is not synchronized completely
         if (m_listener && m_wallet->synchronized()) {
             m_listener->unconfirmedMoneyReceived(tx_hash, amount);
             m_listener->updated();
@@ -240,7 +240,7 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
                      << ", tx: " << tx_hash
                      << ", amount: " << print_money(amount)
                      << ", idx: " << subaddr_index);
-        // do not signal on sent tx if wallet is not syncronized completely
+        // do not signal on sent tx if wallet is not synchronized completely
         if (m_listener && m_wallet->synchronized()) {
             m_listener->moneySpent(tx_hash, amount);
             m_listener->updated();
@@ -1069,7 +1069,7 @@ bool WalletImpl::synchronized() const
 bool WalletImpl::refresh()
 {
     clearStatus();
-    //TODO: make doRefresh return bool to know whether the error occured during refresh or not
+    //TODO: make doRefresh return bool to know whether the error occurred during refresh or not
     //otherwise one may try, say, to send transaction, transfer fails and this method returns false
     doRefresh();
     return status() == Status_Ok;
@@ -1608,7 +1608,7 @@ PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signDat
 }
 
 // TODO:
-// 1 - properly handle payment id (add another menthod with explicit 'payment_id' param)
+// 1 - properly handle payment id (add another method with explicit 'payment_id' param)
 // 2 - check / design how "Transaction" can be single interface
 // (instead of few different data structures within wallet2 implementation:
 //    - pending_tx;

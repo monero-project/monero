@@ -36,7 +36,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-/* rfree: place for hanlers for the non-template base, can be used by connection<> template class in abstract_tcp_server2 file  */
+/* rfree: place for handlers for the non-template base, can be used by connection<> template class in abstract_tcp_server2 file  */
 
 #ifndef INCLUDED_p2p_connection_basic_hpp
 #define INCLUDED_p2p_connection_basic_hpp
@@ -105,7 +105,7 @@ class connection_basic { // not-templated base class for rapid developmet of som
 
 		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
 
-		// moved here from orginal connecton<> - common member variables that do not depend on template in connection<>
+		// moved here from original connection<> - common member variables that do not depend on template in connection<>
     std::atomic<bool> m_want_close_connection;
     std::atomic<bool> m_was_shutdown;
     critical_section m_send_que_lock;

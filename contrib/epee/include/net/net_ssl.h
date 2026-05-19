@@ -72,7 +72,7 @@ namespace net_utils
 
   /*!
     \note `verification != disabled && support == disabled` is currently
-      "allowed" via public interface but obviously invalid configuation.
+      "allowed" via public interface but obviously invalid configuration.
    */
   class ssl_options_t
   {

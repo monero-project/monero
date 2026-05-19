@@ -1820,7 +1820,7 @@ class Configurations : public base::utils::RegistryWithPred<Configuration, Confi
   ///
   /// @detail Any existing configuration for specified level will be replaced. Also note that configuration types
   /// ConfigurationType::SubsecondPrecision and ConfigurationType::PerformanceTracking will be ignored if not set for
-  /// Level::Global because these configurations are not dependant on level.
+  /// Level::Global because these configurations are not dependent on level.
   /// @param level Level to set configuration for (el::Level).
   /// @param configurationType Type of configuration (el::ConfigurationType)
   /// @param value A string based value. Regardless of what the data type of configuration is, it will always be string

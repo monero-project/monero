@@ -277,7 +277,7 @@ namespace net_utils
 		template<typename Type>
 		Type& as_mutable() const
 		{
-			// types `implmentation<Type>` and `implementation<const Type>` are unique
+			// types `implementation<Type>` and `implementation<const Type>` are unique
 			using Type_ = typename std::remove_const<Type>::type;
 			network_address::interface* const self_ = self.get(); // avoid clang warning in typeid
 			if (!self_ || typeid(implementation<Type_>) != typeid(*self_))

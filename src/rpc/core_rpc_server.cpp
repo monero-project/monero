@@ -360,7 +360,7 @@ namespace cryptonote
     if (store_ssl_key)
     {
       // .key files are often given different read permissions as their corresponding .crt files.
-      // Consequently, sometimes the .key file wont't get copied, while the .crt file will.
+      // Consequently, sometimes the .key file won't get copied, while the .crt file will.
       if (ssl_cert_file_exists != ssl_pkey_file_exists)
       {
         MFATAL("Certificate (.crt) and private key (.key) files must both exist or both not exist at path: " << ssl_base_path);

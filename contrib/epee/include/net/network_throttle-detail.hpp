@@ -1,6 +1,6 @@
 /// @file
 /// @author rfree (current maintainer in monero.cc project)
-/// @brief implementaion for throttling of connection (count and rate-limit speed etc)
+/// @brief implementation for throttling of connection (count and rate-limit speed etc)
 
 // Copyright (c) 2014-2024, The Monero Project
 // 
@@ -60,7 +60,7 @@ class network_throttle : public i_network_throttle {
 
 		const size_t m_window_size; // the number of samples to average over
 		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
-		// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
+		// TODO for big window size, for performance better the subtract on change of m_last_sample_time instead of recalculating average of eg >100 elements
 
 		boost::circular_buffer< packet_info > m_history; // the history of bw usage
 		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer

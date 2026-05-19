@@ -242,7 +242,7 @@ static HashReturn Init(hashState *state, int hashbitlen)
       /*initialize the initial hash value of JH*/
       state->hashbitlen = hashbitlen;
 
-      /*load the intital hash value into state*/
+      /*load the initial hash value into state*/
       switch (hashbitlen)
       {
             case 224: memcpy(state->x,JH224_H0,128); break;

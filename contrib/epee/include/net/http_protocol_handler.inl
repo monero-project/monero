@@ -308,7 +308,7 @@ namespace net_utils
 				if (ndel != 0)
 				{
           //some times it could be that before query line cold be few line breaks
-          //so we have to be calm without panic with assers
+          //so we have to be calm without panic with asserts
 					m_newlines += std::string::npos == ndel ? m_cache.size() : ndel;
 					if (m_newlines > HTTP_MAX_STARTING_NEWLINES)
 					{
@@ -467,7 +467,7 @@ namespace net_utils
 		m_cache.erase(0, pos);
 
 		std::string req_command_str = m_query_info.m_full_request_str;
-    //if we have POST or PUT command, it is very possible tha we will get body
+    //if we have POST or PUT command, it is very possible that we will get body
     //but now, we suppose than we have body only in case of we have "ContentLength" 
 		if(m_query_info.m_header_info.m_content_length.size())
 		{

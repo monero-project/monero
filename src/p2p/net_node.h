@@ -98,7 +98,7 @@ namespace nodetool
   boost::optional<std::vector<proxy>> get_proxies(const boost::program_options::variables_map& vm);
   boost::optional<std::vector<anonymous_inbound>> get_anonymous_inbounds(const boost::program_options::variables_map& vm);
 
-  //! \return True if `commnd` is filtered (ignored/dropped) for `address`
+  //! \return True if `command` is filtered (ignored/dropped) for `address`
   bool is_filtered_command(epee::net_utils::network_address const& address, int command);
 
   // hides boost::future and chrono stuff from mondo template file

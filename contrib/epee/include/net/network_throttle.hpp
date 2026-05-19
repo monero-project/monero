@@ -92,7 +92,7 @@ typedef calculate_times_struct calculate_times_struct;
 
 
 /*** 
-@brief Access to simple throttles, with singlton to access global network limits
+@brief Access to simple throttles, with singleton to access global network limits
 */
 class network_throttle_manager {
 	// provides global (singleton) in/inreq/out throttle access
@@ -134,7 +134,7 @@ class i_network_throttle {
 		// time calculations:
 		
 		virtual void calculate_times(size_t packet_size, calculate_times_struct &cts, bool dbg, double force_window) const =0; // assuming sending new package (or 0), calculate:
-		// Average, Window, Delay, Recommended data size ; also gets dbg=debug flag, and forced widnow size if >0 or -1 for not forcing window size 
+		// Average, Window, Delay, Recommended data size ; also gets dbg=debug flag, and forced window size if >0 or -1 for not forcing window size
 
 		// Average speed, Window size, recommended Delay to sleep now, Recommended size of data to send now
 

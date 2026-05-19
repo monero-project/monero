@@ -77,7 +77,7 @@ namespace epee
       m_net_server.get_config_object().m_phandler = static_cast<t_child_class*>(this);
       m_net_server.get_config_object().rng = std::move(rng);
 
-      //here set folder for hosting reqests
+      //here set folder for hosting requests
       m_net_server.get_config_object().m_folder = "";
 
       //set access control allow origins if configured

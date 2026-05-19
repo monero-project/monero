@@ -207,7 +207,7 @@ static bool tx_ver_legacy_ring_sigs(transaction& tx, const rct::ctkeyM& mix_ring
         }
     };
 
-    // Multi-thread calls to check_ring_signature_job() for each input if available, else iterate on ths thread
+    // Multi-thread calls to check_ring_signature_job() for each input if available, else iterate on this thread
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     const int threads = tpool.get_max_concurrency();
     const bool multi_threaded = threads > 1;
@@ -375,7 +375,7 @@ crypto::hash make_input_verification_id(const crypto::hash &tx_hash, const rct::
 {
     std::stringstream ss;
 
-    // Start with domain seperation
+    // Start with domain separation
     ss << config::HASH_KEY_TXHASH_AND_MIXRING;
 
     // Then add TX hash

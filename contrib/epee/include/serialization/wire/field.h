@@ -58,7 +58,7 @@ namespace wire
     automatically be converted to an optional field iff `value_type` has an
     `empty()` method that returns `true`. The old output engine omitted fields
     when an array was empty, and the standard input macro would ignore the
-    `false` return for the missing field. For compability reasons, the
+    `false` return for the missing field. For compatibility reasons, the
     input/output engine here matches that behavior. See `wrapper/array.h` to
     enforce a required field even when the array is empty or specialize the
     `is_optional_on_empty` trait. Only new fields should use this behavior.

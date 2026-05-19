@@ -697,7 +697,7 @@ block Blockchain::pop_block_from_blockchain()
       // as a whole. However, if we had mined that block, that might not be always true. Unlikely
       // though, and always relaying these again might cause a spike of traffic as many nodes
       // re-relay all the transactions in a popped block when a reorg happens. You might notice that
-      // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
+      // we also set the "nic_verified_hf_version" parameter. Since we know we took this transaction
       // from the mempool earlier in this function call, when the mempool has the same current fork
       // version, we can return it without re-verifying the consensus rules on it.
       const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version, valid_input_verification_id);
@@ -2313,7 +2313,7 @@ uint64_t Blockchain::get_num_mature_outputs(uint64_t amount) const
 {
   uint64_t num_outs = m_db->get_num_outputs(amount);
   // ensure we don't include outputs that aren't yet eligible to be used
-  // outpouts are sorted by height
+  // outputs are sorted by height
   const uint64_t blockchain_height = m_db->height();
   while (num_outs > 0)
   {
@@ -3836,7 +3836,7 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
 //------------------------------------------------------------------
 // This function grabs the timestamps from the most recent <n> blocks,
 // where n = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.  If there are not those many
-// blocks in the blockchain, the timestap is assumed to be valid.  If there
+// blocks in the blockchain, the timestamp is assumed to be valid.  If there
 // are, this function returns:
 //   true if the block's timestamp is not less than the timestamp of the
 //       median of the selected blocks
@@ -4102,7 +4102,7 @@ leave:
       // as a whole. However, if we had mined that block, that might not be always true. Unlikely
       // though, and always relaying these again might cause a spike of traffic as many nodes
       // re-relay all the transactions in a popped block when a reorg happens. You might notice that
-      // we also set the "nic_verified_hf_version" paramater. Since we know we took this transaction
+      // we also set the "nic_verified_hf_version" parameter. Since we know we took this transaction
       // from the mempool earlier in this function call, when the mempool has the same current fork
       // version, we can return it without re-verifying the consensus rules on it.
       cryptonote::tx_verification_context tvc{};

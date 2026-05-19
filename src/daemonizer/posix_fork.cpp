@@ -31,7 +31,7 @@ void fork(const std::string & pidfile)
 {
   // If a PID file is specified, we open the file here, because
   // we can't report errors after the fork operation.
-  // When we fork, we close thise file in each of the parent
+  // When we fork, we close this file in each of the parent
   // processes.
   // Only in the final child process do we write the PID to the
   // file (and close it).

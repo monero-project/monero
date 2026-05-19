@@ -208,7 +208,7 @@ namespace mms
     END_SERIALIZE()
   };
 
-  // Overal .mms file structure, with the "message_store" object serialized to and
+  // Overall .mms file structure, with the "message_store" object serialized to and
   // encrypted in "encrypted_data"
   struct file_data
   {

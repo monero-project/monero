@@ -686,7 +686,7 @@ namespace rct {
     //   the last row is the sum of input commitments from that column - sum output commitments
     //   this shows that sum inputs = sum outputs
     //Ver:    
-    //   verifies the above sig is created corretly
+    //   verifies the above sig is created correctly
     mgSig proveRctMG(const key &message, const ctkeyM & pubs, const ctkeyV & inSk, const ctkeyV &outSk, const ctkeyV & outPk, unsigned int index, const key &txnFeeKey, hw::device &hwdev) {
         //setup vars
         size_t cols = pubs.size();
@@ -801,7 +801,7 @@ namespace rct {
     //   the last row is the sum of input commitments from that column - sum output commitments
     //   this shows that sum inputs = sum outputs
     //Ver:    
-    //   verifies the above sig is created corretly
+    //   verifies the above sig is created correctly
     bool verRctMG(const mgSig &mg, const ctkeyM & pubs, const ctkeyV & outPk, const key &txnFeeKey, const key &message) {
         PERF_TIMER(verRctMG);
         //setup vars
