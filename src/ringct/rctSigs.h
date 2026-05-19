@@ -138,6 +138,9 @@ namespace rct {
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, key & mask, hw::device &hwdev);
     xmr_amount decodeRctSimple(const rctSig & rv, const key & sk, unsigned int i, hw::device &hwdev);
     key get_pre_mlsag_hash(const rctSig &rv, hw::device &hwdev);
+
+    // Make sure points are valid points, don't have torsion, and are not equal to identity
+    bool verPointsForTorsion(const std::vector<key> & pts);
 }
 #endif  /* RCTSIGS_H */
 
