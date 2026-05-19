@@ -253,11 +253,11 @@ namespace sam
     {
         std::shared_ptr<client> self;
 
-        void operator()(boost::system::error_code ec, const std::string& session_id)
+        void operator()(boost::system::error_code ec, const std::string& session_id, const std::string& destination)
         {
             if (ec) return self->done(ec);
 
-            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + self->destination_ + " SILENT=FALSE\n";
+            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + destination + " SILENT=FALSE\n";
 
             MDEBUG("Sending STREAM CONNECT command: " << cmd << " with ID of " << session_id);
 
@@ -293,7 +293,7 @@ namespace sam
         case state::naming_lookup:
             state_ = state::stream_connect;
             boost::asio::dispatch(strand_,
-                [self, this](){ send_stream_connect{self}({}, session_id_); });
+                [self, this](){ send_stream_connect{self}({}, session_id_, destination_); });
             return;
 
         default:
