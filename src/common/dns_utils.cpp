@@ -41,6 +41,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <openssl/x509.h>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -53,6 +54,18 @@ static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
   "89.233.43.71",       // http://censurfridns.dk (Denmark)
   "109.69.8.51",        // punCAT (Spain)
   "193.58.251.251",     // SkyDNS (Russia)
+};
+
+/*
+ * When adding new servers to this list or using one from the environment 
+ * variables, remember to add a "#domain" suffix to it, so that it performs 
+ * hostname verification of the SSL cert. Without this, unbound will 
+ * perform no validation of the given certificate.
+ */
+static const char *DEFAULT_DOT_PUBLIC_ADDR[] =
+{
+  "9.9.9.9@853#dns.quad9.net", // Quad-9
+  "194.242.2.2@853#dns.mullvad.net" // Mullvad
 };
 
 static boost::mutex instance_lock;
@@ -226,9 +239,21 @@ static void add_anchors(ub_ctx *ctx)
 
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
+  int use_dot = 0;
   int use_dns_public = 0;
   std::vector<std::string> dns_public_addr;
   const char *DNS_PUBLIC = getenv("DNS_PUBLIC");
+  const char *DNS_TLS = getenv("DNS_TLS");
+  if (DNS_TLS)
+  {
+    // Check for two common values for enabling DNS-over-TLS
+    if (!strncmp(DNS_TLS, "1", 1) || !strncmp(DNS_TLS, "true", 4))
+    {
+      MGINFO("Enabling DNS-over-TLS");
+      use_dot = 1;
+    }
+  }
+
   if (DNS_PUBLIC)
   {
     dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
@@ -246,22 +271,39 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   // init libunbound context
   m_data->m_ub_context = ub_ctx_create();
 
+  if (use_dot)
+  {
+    const char *tls_cert = X509_get_default_cert_file();
+    // Add the TLS certificate bundle file to unbound for DNS-over-TLS
+    ub_ctx_set_option(m_data->m_ub_context, string_copy("tls-cert-bundle:"), tls_cert);
+  }
+
   if (use_dns_public)
   {
     for (const auto &ip: dns_public_addr)
       ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
     ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+    ub_ctx_set_tls(m_data->m_ub_context, use_dot);
   }
   else {
-    // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
-    ub_ctx_resolvconf(m_data->m_ub_context, NULL);
-    ub_ctx_hosts(m_data->m_ub_context, NULL);
+    // DNS-over-TLS is unlikely to be stored in the hosts or resolv.conf file.
+    // so if the user wants DoT, we'll use a preloaded list anyway
+    if (use_dot) {
+      for (const auto &ip: DEFAULT_DOT_PUBLIC_ADDR)
+        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
+      ub_ctx_set_tls(m_data->m_ub_context, use_dot);
+    }
+    else {
+      // otherwise, look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
+      ub_ctx_resolvconf(m_data->m_ub_context, NULL);
+      ub_ctx_hosts(m_data->m_ub_context, NULL);
+    }
   }
 
   add_anchors(m_data->m_ub_context);
 
-  if (!DNS_PUBLIC)
+  if (!(DNS_PUBLIC || use_dot))
   {
     // if no DNS_PUBLIC specified, we try a lookup to what we know
     // should be a valid DNSSEC record, and switch to known good
@@ -319,6 +361,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
     {
       MWARNING("Invalid DNSSEC " << get_record_name(record_type) << " record signature for " << url << ": " << result->why_bogus);
       MWARNING("Possibly your DNS service is problematic. You can have monerod use an alternate via env variable DNS_PUBLIC. Example: DNS_PUBLIC=tcp://9.9.9.9");
+      MWARNING("Or, if you have DNS-over-TLS enabled, You can set DNS_PUBLIC to a tls:// URI. Example: tls://9.9.9.9#dns.quad9.net");
     }
     if (result->havedata)
     {
@@ -569,12 +612,39 @@ std::vector<std::string> parse_dns_public(const char *s)
 {
   unsigned ip0, ip1, ip2, ip3;
   char c;
+  char dot_domain[256] = { '\0' };
+  std::string dot_string;
+
   std::vector<std::string> dns_public_addr;
-  if (!strcmp(s, "tcp"))
+  if (!strcmp(s, "tcp") || !strcmp(s, "tls"))
   {
-    for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
-      dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i]);
-    LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
+    if (!strcmp(s, "tls")) {
+      for (size_t i = 0; i < sizeof(DEFAULT_DOT_PUBLIC_ADDR) / sizeof(DEFAULT_DOT_PUBLIC_ADDR[0]); ++i)
+        dns_public_addr.push_back(DEFAULT_DOT_PUBLIC_ADDR[i]);
+      LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (DNS-over-TLS)");
+    }
+    else
+    {
+      for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
+        dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i]);
+      LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
+    }
+  }
+  else if (sscanf(s, "tls://%u.%u.%u.%u#%256s", &ip0, &ip1, &ip2, &ip3, dot_domain) == 5)
+  {
+    if (ip0 > 255 || ip1 > 255 || ip2 > 255 || ip3 > 255) {
+      MERROR("Invalid IP: " << s << ".");
+    }
+    else
+    {
+      dot_string = std::string(s + strlen("tls://"));
+      
+      // Find where # is located and add "@853" before it, since unbound doesn't seem to be communicating on
+      // the right port for DNS-over-TLS.
+      int hash_pos = dot_string.find("#");
+      std::string final_string = dot_string.substr(0, hash_pos) + "@853" + dot_string.substr(hash_pos);
+      dns_public_addr.push_back(final_string);
+    }
   }
   else if (sscanf(s, "tcp://%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) == 4)
   {
