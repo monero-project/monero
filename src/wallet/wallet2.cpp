@@ -2344,7 +2344,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   while (!tx.vout.empty())
   {
     std::vector<size_t> outs;
-    // if tx.vout is not empty, we loop through all tx pubkeys
+    // Scan primary tx pubkeys up to the number of outputs
+    if (pk_index >= tx.vout.size())
+    {
+      MWARNING("tx " << txid << " has more primary tx pubkeys than outputs; ignoring excess primary tx pubkeys");
+      break;
+    }
 
     tx_extra_pub_key pub_key_field;
     if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++))
@@ -2389,6 +2394,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         // additional tx pubkeys and derivations for multi-destination transfers involving one or more subaddresses
         if (find_tx_extra_field_by_type(tx_extra_fields, additional_tx_pub_keys))
         {
+          if (additional_tx_pub_keys.data.size() > tx.vout.size())
+          {
+            MWARNING("tx " << txid << " has " << additional_tx_pub_keys.data.size() << " additional tx pubkeys but only "
+                << tx.vout.size() << " outputs; ignoring excess additional tx pubkeys");
+            additional_tx_pub_keys.data.resize(tx.vout.size());
+          }
           for (size_t i = 0; i < additional_tx_pub_keys.data.size(); ++i)
           {
             additional_derivations.push_back({});
@@ -2417,6 +2428,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       }
     }
 
+    const size_t outputs_found_before = std::count(output_found.begin(), output_found.end(), true);
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -2713,6 +2725,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         }
       }
     }
+    const size_t outputs_found_after = std::count(output_found.begin(), output_found.end(), true);
+    if (outputs_found_after == tx.vout.size())
+      break;
+    // Ignore later primary tx pubkeys once a scan finds no new outputs
+    if (outputs_found_after == outputs_found_before)
+      break;
   }
 
   THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs.size() != tx_amounts_individual_outs.size(), error::wallet_internal_error, "Inconsistent size of output arrays");
