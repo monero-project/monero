@@ -135,16 +135,6 @@ namespace cryptonote
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
   };
-
-  static const command_line::arg_descriptor<bool> arg_test_drop_download = {
-    "test-drop-download"
-  , "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
-  };
-  static const command_line::arg_descriptor<uint64_t> arg_test_drop_download_height = {
-    "test-drop-download-height"
-  , "Like test-drop-download but discards only after around certain height"
-  , 0
-  };
   static const command_line::arg_descriptor<int> arg_test_dbg_lock_sleep = {
     "test-dbg-lock-sleep"
   , "Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests."
@@ -322,9 +312,6 @@ namespace cryptonote
   {
     command_line::add_arg(desc, arg_data_dir);
 
-    command_line::add_arg(desc, arg_test_drop_download);
-    command_line::add_arg(desc, arg_test_drop_download_height);
-
     command_line::add_arg(desc, arg_testnet_on);
     command_line::add_arg(desc, arg_stagenet_on);
     command_line::add_arg(desc, arg_regtest_on);
@@ -392,12 +379,8 @@ namespace cryptonote
 
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
-    test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
     m_offline = get_arg(vm, arg_offline);
     m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
-
-    if (command_line::get_arg(vm, arg_test_drop_download) == true)
-      test_drop_download();
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
 
@@ -793,32 +776,6 @@ namespace cryptonote
     m_mempool.deinit();
     m_blockchain_storage.deinit();
     return true;
-  }
-  //-----------------------------------------------------------------------------------------------
-  void core::test_drop_download()
-  {
-    m_test_drop_download = false;
-  }
-  //-----------------------------------------------------------------------------------------------
-  void core::test_drop_download_height(uint64_t height)
-  {
-    m_test_drop_download_height = height;
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::get_test_drop_download() const
-  {
-    return m_test_drop_download;
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::get_test_drop_download_height() const
-  {
-    if (m_test_drop_download_height == 0)
-      return true;
-
-    if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
-      return true;
-
-    return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
