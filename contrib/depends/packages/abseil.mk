@@ -1,23 +1,18 @@
-package=protobuf
+package=abseil
 $(package)_version=$(native_$(package)_version)
 $(package)_download_path=$(native_$(package)_download_path)
+$(package)_download_file=$(native_$(package)_download_file)
 $(package)_file_name=$(native_$(package)_file_name)
 $(package)_sha256_hash=$(native_$(package)_sha256_hash)
-$(package)_dependencies=abseil
+$(package)_patches=no_librt.patch
 
 define $(package)_set_vars
-  $(package)_config_opts=-Dprotobuf_ABSL_PROVIDER=package
-  $(package)_config_opts+=-Dprotobuf_BUILD_TESTS=OFF
-  $(package)_config_opts+=-Dprotobuf_BUILD_SHARED_LIBS=OFF
-  $(package)_config_opts+=-Dprotobuf_BUILD_PROTOC_BINARIES=OFF
-  $(package)_config_opts+=-Dprotobuf_WITH_ZLIB=OFF
-  $(package)_config_opts+=-Dprotobuf_BUILD_LIBUPB=OFF
+  $(package)_cxxflags_mingw32+=-D_WIN32_WINNT=0x0600
   $(package)_config_opts_android+=-DCMAKE_AR=$(build_prefix)/bin/llvm-ar
 endef
 
-# Remove blobs
 define $(package)_preprocess_cmds
-  rm -rf docs php/src/GPBMetadata compatibility objectivec/Tests csharp/keys php/tests src/google/protobuf/testdata csharp/src/Google.Protobuf.Test
+   patch -p1 -i $($(package)_patch_dir)/no_librt.patch
 endef
 
 define $(package)_config_cmds
