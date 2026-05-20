@@ -504,8 +504,17 @@ namespace nodetool
 
     if (!command_line::is_arg_defaulted(vm, arg_ban_list))
     {
+      const std::string ban_list_path = command_line::get_arg(vm, arg_ban_list);
       std::string error;
-      apply_blocklist_file(command_line::get_arg(vm, arg_ban_list), std::numeric_limits<time_t>::max(), false, &error);
+      try
+      {
+        apply_blocklist_file(ban_list_path, std::numeric_limits<time_t>::max(), false, &error);
+      }
+      catch (const std::exception& e)
+      {
+        error = "Failed to read ban list file " + ban_list_path;
+        MWARNING(error << ": " << e.what());
+      }
       if (!error.empty())
         throw std::runtime_error(error);
     }
@@ -2136,7 +2145,10 @@ namespace nodetool
     // TXT format <url>;<sha256>
     std::vector<std::string> records;
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
+    {
+      MWARNING("DNS blocklist: no TXT record found");
       return true;
+    }
 
     if (records.empty())
     {
@@ -2175,10 +2187,15 @@ namespace nodetool
     };
 
     crypto::hash cached_hash;
-    const bool cache_ok =
-      epee::file_io_utils::is_file_exist(cache_path.string()) &&
-      tools::sha256sum(cache_path.string(), cached_hash) &&
-      expected_hash == epee::string_tools::pod_to_hex(cached_hash);
+    bool cache_ok = false;
+    try
+    {
+      cache_ok = tools::sha256sum(cache_path.string(), cached_hash) && expected_hash == epee::string_tools::pod_to_hex(cached_hash);
+    }
+    catch (const std::exception& e)
+    {
+      MWARNING("DNS blocklist: failed to read cached file: " << e.what());
+    }
 
     bool rejected_oversize = false;
     const auto size_guard = [&rejected_oversize](const std::string& /*path*/, const std::string& /*uri*/, size_t bytes_written, ssize_t /*content_length*/) {
@@ -2213,9 +2230,18 @@ namespace nodetool
       }
 
       crypto::hash file_hash;
-      if (!tools::sha256sum(tmp_path, file_hash))
+      try
       {
-        MWARNING("DNS blocklist: failed to hash downloaded file from " << url);
+        if (!tools::sha256sum(tmp_path, file_hash))
+        {
+          MWARNING("DNS blocklist: failed to hash downloaded file from " << url);
+          cleanup_tmp(tmp_path);
+          return false;
+        }
+      }
+      catch (const std::exception &e)
+      {
+        MWARNING("DNS blocklist: failed to hash downloaded file from " << url << ": " << e.what());
         cleanup_tmp(tmp_path);
         return false;
       }
