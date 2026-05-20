@@ -98,6 +98,7 @@ namespace sam
                 switch (sam::error(value))
                 {
                 case sam::error::cant_reach_peer:
+                case sam::error::leaseset_not_found:
                     return boost::system::errc::host_unreachable;
                 case sam::error::duplicated_dest:
                     return boost::system::errc::already_connected;
@@ -107,7 +108,6 @@ namespace sam
                 case sam::error::timeout:
                     return boost::system::errc::timed_out;
                 case sam::error::i2p_error:
-                case sam::error::leaseset_not_found:
                 case sam::error::noversion:
                     return boost::system::errc::protocol_error;
                 case sam::error::parse_failed:
@@ -140,6 +140,7 @@ namespace sam
     control_socket::control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket)
         : client(std::move(socket))
         , private_key_(private_key)
+        , session_socket_(socket_.get_executor())
     {}
 
     void client::async_write_command(const std::string& cmd)
@@ -160,7 +161,9 @@ namespace sam
 
         auto self = shared_from_this();
 
-        boost::asio::async_read_until(socket_, boost::asio::dynamic_buffer(line_), '\n',
+        static constexpr std::size_t MAX_LINE_LEN = 4096;
+
+        boost::asio::async_read_until(socket_, boost::asio::dynamic_buffer(line_, MAX_LINE_LEN), '\n',
             boost::asio::bind_executor(strand_,
                 [self](boost::system::error_code ec, std::size_t bytes)
                 {
@@ -226,6 +229,13 @@ namespace sam
         return true;
     }
 
+    bool control_socket::connect_and_send(std::shared_ptr<control_socket> self_, const stream_type::endpoint& router)
+    {
+        if (!self_) return false;
+        self_->router_endpoint_ = router;
+        return client::connect_and_send(std::move(self_), router);
+    }
+
     struct control_socket::send_dest_generate
     {
         std::shared_ptr<client> self;
@@ -257,7 +267,7 @@ namespace sam
         {
             if (ec) return self->done(ec);
 
-            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + destination + " SILENT=FALSE\n";
+            const std::string cmd = "STREAM CONNECT ID=" + session_id + " DESTINATION=" + destination + " SILENT=FALSE TIMEOUT=60\n";
 
             MDEBUG("Sending STREAM CONNECT command: " << cmd << " with ID of " << session_id);
 
@@ -312,15 +322,28 @@ namespace sam
         switch (state_)
         {
         case state::hello_version:
-            state_ = state::session_create;
-            boost::asio::dispatch(strand_,
-                [self, this](){ send_session_create{self}({}, session_id_, private_key_); });
+            if (stream_accept_phase_)
+            {
+                state_ = state::stream_accept;
+                boost::asio::dispatch(strand_,
+                    [self, this](){ send_stream_accept{self}({}, session_id_); });
+            }
+            else
+            {
+                state_ = state::session_create;
+                boost::asio::dispatch(strand_,
+                    [self, this](){ send_session_create{self}({}, session_id_, private_key_); });
+            }
             return;
 
         case state::session_create:
-            state_ = state::stream_accept;
-            boost::asio::dispatch(strand_,
-                [self, this](){ send_stream_accept{self}({}, session_id_); });
+            session_socket_ = std::move(socket_);
+            socket_ = boost::asio::ip::tcp::socket{session_socket_.get_executor()};
+            line_.clear();
+            stream_accept_phase_ = true;
+            state_ = state::hello_version;
+            socket_.async_connect(router_endpoint_,
+                boost::asio::bind_executor(strand_, send_hello_version{self}));
             return;
 
         default:
@@ -360,40 +383,20 @@ namespace sam
 
         MDEBUG("Parsing line (parse_result_code): " << line);
 
-        if (get_value(line, "RESULT", result))
-            return make_error_code(error::parse_failed);
+        if (get_value(line, "RESULT", result)) return make_error_code(error::parse_failed);
 
         if (result == "OK") return {};
 
-        if (line.find("CANT_REACH_PEER") != std::string::npos)
-            return make_error_code(error::cant_reach_peer);
-
-        if (line.find("I2P_ERROR") != std::string::npos)
-            return make_error_code(error::i2p_error);
-
-        if (line.find("INVALID_KEY") != std::string::npos)
-            return make_error_code(error::invalid_key);
-
-        if (line.find("INVALID_ID") != std::string::npos)
-            return make_error_code(error::invalid_id);
-
-        if (line.find("TIMEOUT") != std::string::npos)
-            return make_error_code(error::timeout);
-
-        if (line.find("DUPLICATED_DEST") != std::string::npos)
-            return make_error_code(error::duplicated_dest);
-
-        if (line.find("KEY_NOT_FOUND") != std::string::npos)
-            return make_error_code(error::key_not_found);
-
-        if (line.find("PEER_NOT_FOUND") != std::string::npos)
-            return make_error_code(error::peer_not_found);
-
-        if (line.find("LEASESET_NOT_FOUND") != std::string::npos)
-            return make_error_code(error::leaseset_not_found);
-
-        if (line.find("NOVERSION") != std::string::npos)
-            return make_error_code(error::noversion);
+        if (result == "CANT_REACH_PEER") return make_error_code(error::cant_reach_peer);
+        if (result == "I2P_ERROR") return make_error_code(error::i2p_error);
+        if (result == "INVALID_KEY") return make_error_code(error::invalid_key);
+        if (result == "INVALID_ID") return make_error_code(error::invalid_id);
+        if (result == "TIMEOUT") return make_error_code(error::timeout);
+        if (result == "DUPLICATED_DEST") return make_error_code(error::duplicated_dest);
+        if (result == "KEY_NOT_FOUND") return make_error_code(error::key_not_found);
+        if (result == "PEER_NOT_FOUND") return make_error_code(error::peer_not_found);
+        if (result == "LEASESET_NOT_FOUND") return make_error_code(error::leaseset_not_found);
+        if (result == "NOVERSION") return make_error_code(error::noversion);
 
         return make_error_code(error::parse_failed);
     }

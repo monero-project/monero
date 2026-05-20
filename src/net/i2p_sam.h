@@ -139,7 +139,6 @@ namespace sam
         void set_session_id(const std::string& id) { session_id_ = id; }
 
         static bool connect_and_send(std::shared_ptr<client> self_, const stream_type::endpoint& router);
-        static bool generate_destination(std::shared_ptr<client> self_, const stream_type::endpoint& router);
 
         /*! Callback for closing socket. Thread-safe with `*send` functions;
             never blocks (uses strands). */
@@ -172,6 +171,15 @@ namespace sam
         //! Our private destination key; generated or retrieved from a file.
         std::string private_key_;
 
+        //! The local SAM bridge endpoint, stored so we can reconnect for STREAM ACCEPT.
+        boost::asio::ip::tcp::endpoint router_endpoint_;
+
+        //! Keeps the SESSION CREATE socket alive while we open a second connection.
+        boost::asio::ip::tcp::socket session_socket_;
+
+        //! True after SESSION CREATE completes.
+        bool stream_accept_phase_{false};
+
         void next_state(boost::system::error_code ec) override;
 
     public:
@@ -187,6 +195,8 @@ namespace sam
         explicit control_socket(const std::string& private_key, boost::asio::ip::tcp::socket&& socket);
 
         std::string get_private_key() { return private_key_; }
+
+        static bool connect_and_send(std::shared_ptr<control_socket> self_, const boost::asio::ip::tcp::endpoint& router);
     };
 
     /**
