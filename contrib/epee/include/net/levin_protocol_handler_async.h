@@ -136,11 +136,11 @@ class async_protocol_handler
 
   bool send_message(byte_slice message)
   {
-    if (message.size() < sizeof(message_writer::header))
+    if (message.size() < levin_v1_header_size)
       return false;
 
     message_writer::header head;
-    std::memcpy(std::addressof(head), message.data(), sizeof(head));
+    read_header(message.data(), head);
     if(!m_pservice_endpoint->do_send(std::move(message)))
       return false;
 
@@ -462,16 +462,16 @@ public:
             if (!(m_current_head.m_flags & LEVIN_PACKET_END))
               break; // skip to next message
 
-            if (m_fragment_buffer.size() < sizeof(bucket_head2))
+            if (m_fragment_buffer.size() < levin_v1_header_size)
             {
               MERROR(m_connection_context << "Fragmented data too small for levin header");
               return false;
             }
 
             temp.swap(m_fragment_buffer);
-            std::memcpy(std::addressof(m_current_head), std::addressof(temp[0]), sizeof(bucket_head2));
-            const std::uint64_t inner_size = SWAP64LE(m_current_head.m_cb);
-            buff_to_invoke = {reinterpret_cast<const uint8_t*>(temp.data()) + sizeof(bucket_head2), temp.size() - sizeof(bucket_head2)};
+            read_header(reinterpret_cast<const unsigned char*>(temp.data()), m_current_head);
+            const std::uint64_t inner_size = m_current_head.m_cb;
+            buff_to_invoke = {reinterpret_cast<const uint8_t*>(temp.data()) + levin_v1_header_size, temp.size() - levin_v1_header_size};
             if (buff_to_invoke.size() < inner_size)
             {
               MERROR(m_connection_context << "Invalid fragmented buffer size: " << buff_to_invoke.size() << " vs " << inner_size);
@@ -548,36 +548,29 @@ public:
         break;
       case stream_state_head:
         {
-          if(m_cache_in_buffer.size() < sizeof(bucket_head2))
+          if(m_cache_in_buffer.size() < levin_v1_header_size)
           {
-            if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.span(8).data()) != SWAP64LE(LEVIN_SIGNATURE))
+            if(m_cache_in_buffer.size() >= sizeof(uint64_t))
             {
-              MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
-              return false;
+              uint64_t levin_sig;
+              memcpy(&levin_sig, m_cache_in_buffer.span(sizeof(uint64_t)).data(), sizeof(uint64_t));
+              if (levin_sig != SWAP64LE(LEVIN_SIGNATURE))
+              {
+                MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
+                return false;
+              }
             }
             is_continue = false;
             break;
           }
 
-#if BYTE_ORDER == LITTLE_ENDIAN
-          bucket_head2& phead = *(bucket_head2*)m_cache_in_buffer.span(sizeof(bucket_head2)).data();
-#else
-          bucket_head2 phead = *(bucket_head2*)m_cache_in_buffer.span(sizeof(bucket_head2)).data();
-          phead.m_signature = SWAP64LE(phead.m_signature);
-          phead.m_cb = SWAP64LE(phead.m_cb);
-          phead.m_command = SWAP32LE(phead.m_command);
-          phead.m_return_code = SWAP32LE(phead.m_return_code);
-          phead.m_flags = SWAP32LE(phead.m_flags);
-          phead.m_protocol_version = SWAP32LE(phead.m_protocol_version);
-#endif
-          if(LEVIN_SIGNATURE != phead.m_signature)
+          read_header(m_cache_in_buffer.carve(levin_v1_header_size).data(), m_current_head);
+          if(LEVIN_SIGNATURE != m_current_head.m_signature)
           {
             LOG_ERROR_CC(m_connection_context, "Signature mismatch, connection will be closed");
             return false;
           }
-          m_current_head = phead;
 
-          m_cache_in_buffer.erase(sizeof(bucket_head2));
           m_state = stream_state_body;
           m_oponent_protocol_ver = m_current_head.m_protocol_version;
           const size_t max_bytes = m_connection_context.get_max_bytes(m_current_head.m_command);

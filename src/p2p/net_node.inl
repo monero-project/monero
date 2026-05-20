@@ -600,7 +600,7 @@ namespace nodetool
       epee::byte_slice this_noise = nullptr;
       if (proxy.noise)
       {
-        static_assert(sizeof(epee::levin::bucket_head2) < CRYPTONOTE_NOISE_BYTES, "noise bytes too small");
+        static_assert(epee::levin::levin_v1_header_size < CRYPTONOTE_NOISE_BYTES, "noise bytes too small");
         if (noise.empty())
           noise = epee::levin::make_noise_notify(CRYPTONOTE_NOISE_BYTES);
 

@@ -43,23 +43,13 @@ namespace epee
 class byte_slice;
 namespace levin
 {
-#pragma pack(push)
-#pragma pack(1)
-	struct bucket_head
-	{
-		uint64_t m_signature;
-		uint64_t m_cb;
-		uint8_t  m_have_to_return_data;
-		uint32_t m_command;
-		int32_t  m_return_code;
-		uint32_t m_reservedA; //probably some flags in future
-		uint32_t m_reservedB; //probably some check sum in future
-	};
-#pragma pack(pop)
-
-
-#pragma pack(push)
-#pragma pack(1)
+  /**
+   * @brief Data representing a levin v1 header
+   *
+   * In-memory representation is not necessarily the same as on-the-wire representation.
+   * On-the-wire, a levin header has no padding bytes and the integers are in little-endian repr.
+   * See write_header()/read_header() for exactly how the header is {de}serialized.
+  */
   struct bucket_head2
   {
     uint64_t m_signature;
@@ -70,8 +60,8 @@ namespace levin
     uint32_t m_flags;
     uint32_t m_protocol_version;
   };
-#pragma pack(pop)
 
+  static constexpr std::size_t levin_v1_header_size = 33; // bucket_head2's on-the-wire size
 
 constexpr const std::chrono::milliseconds LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED{0};
 #define LEVIN_INITIAL_MAX_PACKET_SIZE  256*1024      // 256 KiB before handshake
@@ -146,7 +136,7 @@ constexpr const std::chrono::milliseconds LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED{0}
     //! \return Size of payload (excludes header size).
     std::size_t payload_size() const noexcept
     {
-      return buffer.size() < sizeof(header) ? 0 : buffer.size() - sizeof(header);
+      return buffer.size() < levin_v1_header_size ? 0 : buffer.size() - levin_v1_header_size;
     }
 
     byte_slice finalize_invoke(uint32_t command) { return finalize(command, LEVIN_PACKET_REQUEST, 0, true); }
@@ -162,6 +152,12 @@ constexpr const std::chrono::milliseconds LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED{0}
 
   //! \return Intialized levin header.
   bucket_head2 make_header(uint32_t command, uint64_t msg_size, uint32_t flags, bool expect_response) noexcept;
+
+  //! \brief Serialize levin header.
+  void write_header(const bucket_head2 &head, unsigned char head_bytes[levin_v1_header_size]) noexcept;
+
+  //! \brief Deserialize levin header.
+  void read_header(const unsigned char head_bytes[levin_v1_header_size], bucket_head2 &head) noexcept;
 
   /*! Generate a dummy levin message.
 
