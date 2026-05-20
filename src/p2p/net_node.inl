@@ -39,6 +39,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string.hpp>
 #include <atomic>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -863,19 +864,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   size_t node_server<t_payload_net_handler>::apply_blocklist_file(const std::string& path, time_t seconds, bool add_only, std::string *error, size_t max_size)
   {
-    const boost::filesystem::path blocklist_path(path);
-    if (!boost::filesystem::exists(blocklist_path))
-    {
-      if (error)
-      {
-        *error = "Can't find ban list file " + path;
-        MWARNING(*error);
-      }
-      return 0;
-    }
-
-    std::string banned_ips;
-    if (!epee::file_io_utils::load_file_to_string(path, banned_ips, max_size))
+    std::ifstream iss{path};
+    if (!iss)
     {
       if (error)
       {
@@ -885,7 +875,6 @@ namespace nodetool
       return 0;
     }
 
-    std::istringstream iss(banned_ips);
     unsigned good = 0;
     for (std::string line; std::getline(iss, line); )
     {
