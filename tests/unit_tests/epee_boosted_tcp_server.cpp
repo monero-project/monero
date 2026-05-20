@@ -731,6 +731,16 @@ TEST(boosted_tcp_server, shutdown)
     epee::simple_event handshake_received;
   };
 
+  struct command_handler_t: epee::levin::levin_commands_handler<context_t> {
+    virtual int invoke(int, const epee::span<const uint8_t>, epee::byte_stream&, context_t&) override { return {}; }
+    virtual int notify(int, const epee::span<const uint8_t>, context_t&) override { return {}; }
+    virtual void callback(context_t&) override {}
+    virtual void on_connection_new(context_t&) override {}
+    virtual void on_connection_close(context_t&) override { }
+    virtual ~command_handler_t() override {}
+    static void destroy(epee::levin::levin_commands_handler<context_t>* ptr) { delete ptr; }
+  };
+
   struct handler_t : epee::levin::async_protocol_handler<context_t> {
     using config_type = config_t;
     using connection_context = context_t;
@@ -759,6 +769,7 @@ TEST(boosted_tcp_server, shutdown)
     true,
     epee::net_utils::ssl_support_t::e_ssl_support_disabled
   );
+  server.get_config_shared()->set_handler(new command_handler_t, &command_handler_t::destroy);
 
   // Run the server in a thread and wait for it to start
   MINFO("Starting the server");
