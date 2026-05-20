@@ -105,7 +105,7 @@ namespace tools
     ~file_locker();
     bool locked() const;
   private:
-#ifdef WIN32
+#ifdef _WIN32
     HANDLE m_fd;
 #else
     int m_fd;
@@ -124,7 +124,7 @@ namespace tools
    */
   std::string get_default_data_dir();
 
-#ifdef WIN32
+#ifdef _WIN32
   /**
    * @brief 
    *
@@ -169,7 +169,7 @@ namespace tools
     template<typename T>
     static bool install(T t)
     {
-#if defined(WIN32)
+#if defined(_WIN32)
       bool r = TRUE == ::SetConsoleCtrlHandler(&win_handler, TRUE);
       if (r)
       {
@@ -191,7 +191,7 @@ namespace tools
     }
 
   private:
-#if defined(WIN32)
+#if defined(_WIN32)
     /*! \brief Handler for win */
     static BOOL WINAPI win_handler(DWORD type)
     {

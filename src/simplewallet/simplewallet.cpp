@@ -78,7 +78,7 @@
 #include "wallet/message_store.h"
 #include "QrCode.hpp"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <boost/locale.hpp>
 #include <boost/filesystem.hpp>
 #include <fcntl.h>
@@ -10413,7 +10413,7 @@ int main(int argc, char* argv[])
 {
   TRY_ENTRY();
 
-#ifdef WIN32
+#ifdef _WIN32
   // Activate UTF-8 support for Boost filesystem classes on Windows
   std::locale::global(boost::locale::generator().generate(""));
   boost::filesystem::path::imbue(std::locale());
@@ -10490,7 +10490,7 @@ int main(int argc, char* argv[])
         // must be prompting for password so return and let the signal stop prompt
         return;
       }
-#ifdef WIN32
+#ifdef _WIN32
       if (type == CTRL_C_EVENT)
 #else
       if (type == SIGINT)

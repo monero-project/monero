@@ -120,7 +120,7 @@ static const char *get_default_categories(int level)
   return categories;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 bool EnableVTMode()
 {
   // Set output mode to handle virtual terminal sequences
@@ -231,7 +231,7 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
     monero_log = get_default_categories(0);
   }
   mlog_set_log(monero_log);
-#ifdef WIN32
+#ifdef _WIN32
   EnableVTMode();
 #endif
 }
@@ -328,7 +328,7 @@ bool is_stdout_a_tty()
 
   if (!initialized.load(std::memory_order_acquire))
   {
-#if defined(WIN32)
+#if defined(_WIN32)
     is_a_tty.store(0 != _isatty(_fileno(stdout)), std::memory_order_relaxed);
 #else
     is_a_tty.store(0 != isatty(fileno(stdout)), std::memory_order_relaxed);
@@ -358,7 +358,7 @@ void set_console_color(int color, bool bright)
   {
   case console_color_default:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE| (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -371,7 +371,7 @@ void set_console_color(int color, bool bright)
     break;
   case console_color_white:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -384,7 +384,7 @@ void set_console_color(int color, bool bright)
     break;
   case console_color_red:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_RED | (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -397,7 +397,7 @@ void set_console_color(int color, bool bright)
     break;
   case console_color_green:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_GREEN | (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -411,7 +411,7 @@ void set_console_color(int color, bool bright)
 
   case console_color_blue:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_BLUE | FOREGROUND_INTENSITY);//(bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -425,7 +425,7 @@ void set_console_color(int color, bool bright)
 
   case console_color_cyan:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_GREEN | FOREGROUND_BLUE | (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -439,7 +439,7 @@ void set_console_color(int color, bool bright)
 
   case console_color_magenta:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_BLUE | FOREGROUND_RED | (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -453,7 +453,7 @@ void set_console_color(int color, bool bright)
 
   case console_color_yellow:
     {
-#ifdef WIN32
+#ifdef _WIN32
       HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
       SetConsoleTextAttribute(h_stdout, FOREGROUND_RED | FOREGROUND_GREEN | (bright ? FOREGROUND_INTENSITY:0));
 #else
@@ -475,7 +475,7 @@ void reset_console_color() {
   if (is_nocolor())
     return;
 
-#ifdef WIN32
+#ifdef _WIN32
   HANDLE h_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
   SetConsoleTextAttribute(h_stdout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #else
