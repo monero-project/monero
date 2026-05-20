@@ -2,8 +2,17 @@ name: ci/gh-actions/gitian
 
 on:
   push:
-    tags:
-      - '*'
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/gitian/**'
+      - '!contrib/**.md'
+      - '.github/workflows/gitian.yml'
+  pull_request:
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/gitian/**'
+      - '!contrib/**.md'
+      - '.github/workflows/gitian.yml'
 
 jobs:
   build-gitian:
@@ -24,20 +33,33 @@ jobs:
             option: "m"
     name: ${{ matrix.operating-system.name }}
     steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: recursive
     - name: prepare
       run: |
         sudo apt update
-        curl -O https://raw.githubusercontent.com/monero-project/monero/${{ github.ref_name }}/contrib/gitian/gitian-build.py
+        cp contrib/gitian/gitian-build.py .
         chmod +x gitian-build.py
+    - name: set env
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "GITIAN_VERSION=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          echo "GITIAN_OUTDIR=pull-${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          echo "GITIAN_EXTRA_FLAGS=--pull" >> $GITHUB_ENV
+        else
+          echo "GITIAN_VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "GITIAN_OUTDIR=${{ github.ref_name }}" >> $GITHUB_ENV
+        fi
     - name: setup
       run: |
-        ./gitian-build.py --setup --docker github-actions ${{ github.ref_name }}
+        ./gitian-build.py --setup --docker --url https://github.com/${{ github.repository }} ${{ env.GITIAN_EXTRA_FLAGS }} github-actions ${{ env.GITIAN_VERSION }}
     - name: build
       run: |
-        ./gitian-build.py --docker --detach-sign --no-commit --build -j 3 -o ${{ matrix.operating-system.option }} github-actions ${{ github.ref_name }}
+        ./gitian-build.py --docker --url https://github.com/${{ github.repository }} --detach-sign --no-commit --build -j 3 -o ${{ matrix.operating-system.option }} ${{ env.GITIAN_EXTRA_FLAGS }} github-actions ${{ env.GITIAN_VERSION }}
     - name: post build
       run: |
-        cd out/${{ github.ref_name }}
+        cd out/${{ env.GITIAN_OUTDIR }}
         shasum -a256 *
         echo \`\`\` >> $GITHUB_STEP_SUMMARY
         shasum -a256 * >> $GITHUB_STEP_SUMMARY
@@ -46,4 +68,4 @@ jobs:
       with:
         name: ${{ matrix.operating-system.name }}
         path: |
-          out/${{ github.ref_name }}/*
+          out/${{ env.GITIAN_OUTDIR }}/*
