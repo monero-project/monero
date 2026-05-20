@@ -32,7 +32,6 @@
 import time
 import os
 import math
-import monotonic
 import util_resources
 import multiprocessing
 import string
@@ -95,7 +94,7 @@ class MiningTest():
         # This is the last measurement, since it takes very little time and can be placed timewise-closer to the mining itself.
         available_ram = self.get_available_ram() # So far no ideas how to use this var, other than printing it
 
-        start = monotonic.monotonic()
+        start = time.monotonic()
         daemon = Daemon()
         wallet = Wallet()
 
@@ -165,7 +164,7 @@ class MiningTest():
             seen_height = height
             for _ in range(int(math.ceil(timeout))):
                 time.sleep(1)
-                seconds_passed = monotonic.monotonic() - start
+                seconds_passed = time.monotonic() - start
                 height = daemon.get_info().height
                 if height > seen_height:
                     break
@@ -272,7 +271,7 @@ class MiningTest():
     def print_time_taken(self, start, msg_context):
         if self.is_mining_silent():
             return
-        seconds_passed = monotonic.monotonic() - start
+        seconds_passed = time.monotonic() - start
         print("Time taken for", msg_context, "=", round(seconds_passed, 1), "s.")
 
     def test_randomx(self):

@@ -68,7 +68,7 @@ monero_add_minimal_executable(cpu_power_test cpu_power_test.cpp)
 
 find_package(Python3 REQUIRED)
 
-execute_process(COMMAND ${Python3_EXECUTABLE} "-c" "import requests; import psutil; import monotonic; import zmq; import deepdiff; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${Python3_EXECUTABLE} "-c" "import requests; import psutil; import zmq; import deepdiff; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(
     NAME    functional_tests_rpc
@@ -77,7 +77,7 @@ if (REQUESTS_OUTPUT STREQUAL "OK")
     NAME    check_missing_rpc_methods
     COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")
 else()
-  message(WARNING "functional_tests_rpc and check_missing_rpc_methods skipped, needs the 'requests', 'psutil', 'monotonic', 'zmq', and 'deepdiff' python modules")
+  message(WARNING "functional_tests_rpc and check_missing_rpc_methods skipped, needs the 'requests', 'psutil', 'zmq', and 'deepdiff' python modules")
   set(CTEST_CUSTOM_TESTS_IGNORE ${CTEST_CUSTOM_TESTS_IGNORE} functional_tests_rpc check_missing_rpc_methods)
   if (EXPECT_FUNCTIONAL_TESTS)
     message(FATAL_ERROR "Functional tests are expected")
