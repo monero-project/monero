@@ -208,7 +208,7 @@ namespace sam
             cmd.append("DESTINATION=" + private_key + " SIGNATURE_TYPE=7 ");
             cmd.append("i2cp.leaseSetEncType=6,4 inbound.quantity=2 outbound.quantity=2\n");
 
-            MDEBUG("Sending SESSION CREATE command: " << cmd);
+            MDEBUG("Sending SESSION CREATE command for ID=" << id);
 
             self->async_write_command(cmd);
         }
@@ -346,6 +346,11 @@ namespace sam
             end = line.length();
 
         out = line.substr(pos, end - pos);
+
+        // Strip trailing CR that SAM bridges may include with CRLF line endings
+        if (!out.empty() && out.back() == '\r')
+            out.pop_back();
+
         return {};
     }
 
@@ -481,7 +486,7 @@ namespace sam
             if (!epee::file_io_utils::load_file_to_string(key_path, private_key))
                 throw std::runtime_error("Failed to load I2P destination key from " + key_path);
 
-            MINFO("Read I2P destination key from file (" << key_path << "): " << private_key);
+            MINFO("Read I2P destination key from file (" << key_path << "), length " << private_key.size());
 
             if (private_key.empty())
                 throw std::runtime_error("I2P destination key is empty: " + key_path);
