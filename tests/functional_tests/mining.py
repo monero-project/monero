@@ -92,7 +92,6 @@ class MiningTest():
             time_pi_single_cpu = self.measure_cpu_power_get_time(cores_mine)
             time_pi_all_cores = self.measure_cpu_power_get_time(cores_init)
         # This is the last measurement, since it takes very little time and can be placed timewise-closer to the mining itself.
-        available_ram = self.get_available_ram() # So far no ideas how to use this var, other than printing it
 
         start = time.monotonic()
         daemon = Daemon()
@@ -220,16 +219,6 @@ class MiningTest():
         time_pi = util_resources.get_time_pi_seconds(cores, build_dir_funcional_tests)
         self.print_mining_info("Time taken to calculate Pi on {} core(s) was {:.2f} s.".format(cores, time_pi))
         return time_pi
-
-    def get_available_ram(self):
-        available_ram = util_resources.available_ram_gb()
-        threshold_ram = 3
-        self.print_mining_info("Available RAM = " + str(round(available_ram, 1)) + " GB")
-        if available_ram < threshold_ram and not self.is_mining_silent():
-            print("Warning! Available RAM =", round(available_ram, 1), 
-                  "GB is less than the reasonable threshold =", threshold_ram,
-                  ". The RX init might exceed the calculated timeout.")
-        return available_ram
 
     def submitblock(self):
         print("Test submitblock")
