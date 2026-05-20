@@ -29,6 +29,9 @@
 #pragma once
 
 #include <boost/optional/optional.hpp>
+#include <thread>
+#include <chrono>
+#include <random>
 
 #include "common/http_connection.h"
 #include "common/scoped_message_writer.h"
@@ -41,105 +44,194 @@
 
 namespace tools
 {
+  // ----------------------------------------
+  // Result Types
+  // ----------------------------------------
+  enum class rpc_result_code
+  {
+    OK,
+    BUSY,
+    NETWORK_ERROR,
+    RPC_ERROR,
+    TIMEOUT
+  };
+
+  template <typename T>
+  struct rpc_result
+  {
+    rpc_result_code code;
+    T data;
+    std::string message;
+
+    bool is_ok() const { return code == rpc_result_code::OK; }
+  };
+
+  // ----------------------------------------
+  // Retry Policy
+  // ----------------------------------------
+  struct retry_policy
+  {
+    int max_retries = 5;
+    int base_delay_ms = 500;
+    bool exponential_backoff = true;
+    bool jitter = true;
+
+    int compute_delay(int attempt) const
+    {
+      int delay = base_delay_ms;
+
+      if (exponential_backoff)
+        delay *= (1 << attempt);
+
+      if (jitter)
+      {
+        static thread_local std::mt19937 rng{std::random_device{}()};
+        std::uniform_int_distribution<int> dist(0, delay / 2);
+        delay += dist(rng);
+      }
+
+      return delay;
+    }
+  };
+
+  // ----------------------------------------
+  // RPC Client
+  // ----------------------------------------
   class t_rpc_client final
   {
   private:
     epee::net_utils::http::http_simple_client m_http_client;
+    retry_policy m_policy;
+
   public:
     t_rpc_client(
-        uint32_t ip
-      , uint16_t port
-      , boost::optional<epee::net_utils::http::login> user
-      , epee::net_utils::ssl_options_t ssl_options
-      )
-      : m_http_client{}
+        uint32_t ip,
+        uint16_t port,
+        boost::optional<epee::net_utils::http::login> user,
+        epee::net_utils::ssl_options_t ssl_options,
+        retry_policy policy = {})
+        : m_http_client{}, m_policy(policy)
     {
       m_http_client.set_server(
-        epee::string_tools::get_ip_string_from_int32(ip), std::to_string(port), std::move(user), std::move(ssl_options)
-      );
+          epee::string_tools::get_ip_string_from_int32(ip),
+          std::to_string(port),
+          std::move(user),
+          std::move(ssl_options));
     }
 
+  private:
+    // ----------------------------------------
+    // Core Retry Executor
+    // ----------------------------------------
+    template <typename T_res, typename Fn>
+    rpc_result<T_res> execute_with_retry(Fn &&fn, const std::string &fail_msg)
+    {
+      for (int attempt = 0; attempt < m_policy.max_retries; ++attempt)
+      {
+        t_http_connection connection(&m_http_client);
+
+        if (!connection.is_open())
+        {
+          return {rpc_result_code::NETWORK_ERROR, {}, "Connection failed"};
+        }
+
+        T_res res{};
+        bool ok = fn(res);
+
+        if (!ok)
+        {
+          return {rpc_result_code::NETWORK_ERROR, {}, fail_msg + " -- request failed"};
+        }
+
+        if (res.status == CORE_RPC_STATUS_OK)
+        {
+          return {rpc_result_code::OK, res, ""};
+        }
+
+        if (res.status == CORE_RPC_STATUS_BUSY)
+        {
+          if (attempt < m_policy.max_retries - 1)
+          {
+            std::this_thread::sleep_for(
+                std::chrono::milliseconds(m_policy.compute_delay(attempt)));
+            continue;
+          }
+
+          return {rpc_result_code::BUSY, res, "Daemon busy after retries"};
+        }
+
+        return {rpc_result_code::RPC_ERROR, res, res.status};
+      }
+
+      return {rpc_result_code::TIMEOUT, {}, "Exceeded retry attempts"};
+    }
+
+  public:
+    // JSON RPC
+    template <typename T_req, typename T_res>
+    rpc_result<T_res> json_rpc_request(
+        T_req &req,
+        const std::string &method_name,
+        const std::string &fail_msg)
+    {
+      return execute_with_retry<T_res>(
+          [&](T_res &res)
+          {
+            return epee::net_utils::invoke_http_json_rpc(
+                "/json_rpc",
+                method_name,
+                req,
+                res,
+                m_http_client,
+                t_http_connection::TIMEOUT());
+          },
+          fail_msg);
+    }
+
+    // REST-style RPC
+    template <typename T_req, typename T_res>
+    rpc_result<T_res> rpc_request(
+        T_req &req,
+        const std::string &relative_url,
+        const std::string &fail_msg)
+    {
+      return execute_with_retry<T_res>(
+          [&](T_res &res)
+          {
+            return epee::net_utils::invoke_http_json(
+                relative_url,
+                req,
+                res,
+                m_http_client,
+                t_http_connection::TIMEOUT());
+          },
+          fail_msg);
+    }
+
+    // lightweight (no retry, no status handling)
     template <typename T_req, typename T_res>
     bool basic_json_rpc_request(
-        T_req & req
-      , T_res & res
-      , std::string const & method_name
-      )
+        T_req &req,
+        T_res &res,
+        const std::string &method_name)
     {
       t_http_connection connection(&m_http_client);
 
-      bool ok = connection.is_open();
-      if (!ok)
+      if (!connection.is_open())
       {
-        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
+        fail_msg_writer() << "Couldn't connect to daemon: "
+                          << m_http_client.get_host() << ":"
+                          << m_http_client.get_port();
         return false;
       }
-      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
-      if (!ok)
-      {
-        fail_msg_writer() << "basic_json_rpc_request: Daemon request failed";
-        return false;
-      }
-      else
-      {
-        return true;
-      }
-    }
 
-    template <typename T_req, typename T_res>
-    bool json_rpc_request(
-        T_req & req
-      , T_res & res
-      , std::string const & method_name
-      , std::string const & fail_msg
-      )
-    {
-      t_http_connection connection(&m_http_client);
-
-      bool ok = connection.is_open();
-      if (!ok)
-      {
-        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
-        return false;
-      }
-      ok = epee::net_utils::invoke_http_json_rpc("/json_rpc", method_name, req, res, m_http_client, t_http_connection::TIMEOUT());
-      if (!ok || res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
-      {
-        fail_msg_writer() << fail_msg << " -- json_rpc_request: " << res.status;
-        return false;
-      }
-      else
-      {
-        return true;
-      }
-    }
-
-    template <typename T_req, typename T_res>
-    bool rpc_request(
-        T_req & req
-      , T_res & res
-      , std::string const & relative_url
-      , std::string const & fail_msg
-      )
-    {
-      t_http_connection connection(&m_http_client);
-
-      bool ok = connection.is_open();
-      if (!ok)
-      {
-        fail_msg_writer() << "Couldn't connect to daemon: " << m_http_client.get_host() << ":" << m_http_client.get_port();
-        return false;
-      }
-      ok = epee::net_utils::invoke_http_json(relative_url, req, res, m_http_client, t_http_connection::TIMEOUT());
-      if (!ok || res.status != CORE_RPC_STATUS_OK) // TODO - handle CORE_RPC_STATUS_BUSY ?
-      {
-        fail_msg_writer() << fail_msg << "-- rpc_request: " << res.status;
-        return false;
-      }
-      else
-      {
-        return true;
-      }
+      return epee::net_utils::invoke_http_json_rpc(
+          "/json_rpc",
+          method_name,
+          req,
+          res,
+          m_http_client,
+          t_http_connection::TIMEOUT());
     }
 
     bool check_connection()
