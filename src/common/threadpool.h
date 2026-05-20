@@ -36,6 +36,7 @@
 #include <utility>
 #include <vector>
 #include <stdexcept>
+#include <atomic>
 
 namespace tools
 {
@@ -62,7 +63,7 @@ public:
     boost::condition_variable cv;
     threadpool &pool;
     int num;
-    bool error_flag;
+    std::atomic<bool> error_flag;
     public:
     void inc();
     void dec();
