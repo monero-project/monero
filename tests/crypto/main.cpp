@@ -49,10 +49,6 @@ bool operator !=(const ec_scalar &a, const ec_scalar &b) {
   return 0 != memcmp(&a, &b, sizeof(ec_scalar));
 }
 
-bool operator !=(const ec_point &a, const ec_point &b) {
-  return 0 != memcmp(&a, &b, sizeof(ec_point));
-}
-
 bool operator !=(const key_derivation &a, const key_derivation &b) {
   return 0 != memcmp(&a, &b, sizeof(key_derivation));
 }
