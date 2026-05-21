@@ -3141,7 +3141,10 @@ bool BlockchainLMDB::get_pruned_tx_blobs_from(const crypto::hash& h, size_t coun
   return true;
 }
 
-std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& txid_template, std::uint32_t bits, uint64_t max_num_txs)
+std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& txid_template,
+  std::uint32_t bits,
+  relay_category category,
+  uint64_t max_num_txs)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -3167,6 +3170,7 @@ std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& tx
 
     // In tx_indicies, the hash is stored at the data, in txpool_meta at the key
     const crypto::hash* const p_dbtxid = (const crypto::hash*)(doing_chain ? v.mv_data : k.mv_data);
+    const txpool_tx_meta_t* p_meta = (const txpool_tx_meta_t*)(doing_chain ? nullptr : v.mv_data);
 
     // Check if we reached the end of a DB or the hashes no longer match the template
     if (get_result == MDB_NOTFOUND || compare_hash32_reversed_nbits(txid_template, *p_dbtxid, bits))
@@ -3182,6 +3186,9 @@ std::vector<crypto::hash> BlockchainLMDB::get_txids_loose(const crypto::hash& tx
       }
       break; // if we get to this point, then we finished pool processing and we are done
     }
+    // If processing mempool, check that the tx matches relay category
+    else if (p_meta && !p_meta->matches(category))
+      continue;
     else if (matching_hashes.size() >= max_num_txs && max_num_txs != 0)
       throw0(TX_EXISTS("number of tx hashes in template range exceeds maximum"));
 

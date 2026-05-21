@@ -1286,12 +1286,16 @@ public:
    *
    * @param txid_template the transaction id template
    * @param nbits number of bits to compare against in the template
+   * @param category tx relay category for which to filter txs in the mempool
    * @param max_num_txs The maximum number of txids to match, if we hit this limit, throw early
    * @return std::vector<crypto::hash> the list of all matching txids
    *
    * @throw TX_EXISTS if the number of txids that match exceed `max_num_txs`
    */
-  virtual std::vector<crypto::hash> get_txids_loose(const crypto::hash& txid_template, std::uint32_t nbits, uint64_t max_num_txs = 0) = 0;
+  virtual std::vector<crypto::hash> get_txids_loose(const crypto::hash& txid_template,
+    std::uint32_t nbits,
+    relay_category category,
+    uint64_t max_num_txs = 0) = 0;
 
   /**
    * @brief fetches a variable number of blocks and transactions from the given height, in canonical blockchain order
