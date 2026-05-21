@@ -43,7 +43,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: /Users/runner/Library/Caches/ccache
-          key: ccache-${{ runner.os }}-build-${{ github.sha }}
+          key: ccache-${{ runner.os }}-build
           restore-keys: ccache-${{ runner.os }}-build-
       - uses: ./.github/actions/set-make-job-count
       - name: install dependencies
@@ -71,7 +71,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: C:\Users\runneradmin\AppData\Local\ccache
-          key: ccache-${{ runner.os }}-build-${{ github.sha }}
+          key: ccache-${{ runner.os }}-build
           restore-keys: ccache-${{ runner.os }}-build-
       - uses: msys2/setup-msys2@v2
         with:
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ccache
-          key: ccache-arch-build-${{ github.sha }}
+          key: ccache-arch-build
           restore-keys: ccache-arch-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
@@ -136,7 +136,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ccache
-          key: ccache-debian-11-build-${{ github.sha }}
+          key: ccache-debian-11-build
           restore-keys: ccache-debian-11-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
@@ -177,7 +177,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ matrix.container }}-build-${{ github.sha }}
+          key: ccache-${{ matrix.container }}-build
           restore-keys: ccache-${{ matrix.container }}-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
@@ -224,7 +224,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/ccache
-          key: ccache-${{ matrix.container }}-build-${{ github.sha }}
+          key: ccache-${{ matrix.container }}-build
           restore-keys: ccache-${{ matrix.container }}-build-
       - name: create dummy disk drives for testing
         run: tests/create_test_disks.sh >> $GITHUB_ENV
