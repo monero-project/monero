@@ -2285,18 +2285,31 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
     const size_t rec_size = (is_miner && m_refresh_type == RefreshType::RefreshOptimizeCoinbase && tx.version < 2) ? 1 : tx.vout.size();
     if (!tx.vout.empty())
     {
-      // if tx.vout is not empty, we loop through all tx pubkeys
       const std::vector<boost::optional<cryptonote::subaddress_receive_info>> rec(rec_size, boost::none);
 
       tx_extra_pub_key pub_key_field;
       size_t pk_index = 0;
-      while (find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, pub_key_field, pk_index++))
+      // Cache primary tx pubkeys up to the number of outputs
+      while (pk_index < tx.vout.size() && find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, pub_key_field, pk_index))
+      {
+        ++pk_index;
         tx_cache_data.primary.push_back({pub_key_field.pub_key, {}, rec});
+      }
+      if (pk_index == tx.vout.size() && find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, pub_key_field, pk_index))
+      {
+        MWARNING("tx " << txid << " has more primary tx pubkeys than outputs; ignoring excess primary tx pubkeys");
+      }
 
       // additional tx pubkeys and derivations for multi-destination transfers involving one or more subaddresses
       tx_extra_additional_pub_keys additional_tx_pub_keys;
       if (find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, additional_tx_pub_keys))
       {
+        if (additional_tx_pub_keys.data.size() > tx.vout.size())
+        {
+          MWARNING("tx " << txid << " has " << additional_tx_pub_keys.data.size() << " additional tx pubkeys but only "
+              << tx.vout.size() << " outputs; ignoring excess additional tx pubkeys");
+          additional_tx_pub_keys.data.resize(tx.vout.size());
+        }
         for (size_t i = 0; i < additional_tx_pub_keys.data.size(); ++i)
           tx_cache_data.additional.push_back({additional_tx_pub_keys.data[i], {}, {}});
       }
