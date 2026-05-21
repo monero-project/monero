@@ -58,6 +58,7 @@
 #include "crypto/crypto.h"
 #include "net/dandelionpp.h"
 #include "net/error.h"
+#include "net/host.h"
 #include "net/i2p_address.h"
 #include "net/net_utils_base.h"
 #include "net/socks.h"
@@ -69,12 +70,23 @@
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
 
+TEST(host, canonicalize_host)
+{
+    std::string host{"ABCdef123.ONION"};
+    net::canonicalize_host(host);
+    EXPECT_EQ("abcdef123.onion", host);
+}
+
 namespace
 {
     static constexpr const char v2_onion[] =
         "xmrto2bturnore26.onion";
     static constexpr const char v3_onion[] =
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion";
+    static constexpr const char v3_onion_upper[] =
+        "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPNPYYD.ONION";
+    static constexpr const char v3_onion_2[] =
+        "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ad.onion";
 }
 
 TEST(tor_address, constants)
@@ -146,6 +158,10 @@ TEST(tor_address, valid)
     EXPECT_STREQ(v3_onion, address1->host_str());
     EXPECT_STREQ(v3_onion, address1->str().c_str());
     EXPECT_TRUE(address1->is_blockable());
+
+    const auto uppercase = net::tor_address::make(v3_onion_upper);
+    ASSERT_TRUE(uppercase.has_value());
+    EXPECT_EQ(*address1, *uppercase);
 
     net::tor_address address2{*address1};
 
@@ -532,6 +548,8 @@ namespace
 {
     static constexpr const char b32_i2p[] =
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p";
+    static constexpr const char b32_i2p_upper[] =
+        "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPN.B32.I2P";
     static constexpr const char b32_i2p_2[] =
         "xmrto2bturnore26xmrto2bturnore26xmrto2bturnore26xmr2.b32.i2p";
 }
@@ -599,6 +617,10 @@ TEST(i2p_address, valid)
     EXPECT_STREQ(b32_i2p, address1->host_str());
     EXPECT_STREQ(b32_i2p, address1->str().c_str());
     EXPECT_TRUE(address1->is_blockable());
+
+    const auto uppercase = net::i2p_address::make(b32_i2p_upper);
+    ASSERT_TRUE(uppercase.has_value());
+    EXPECT_EQ(*address1, *uppercase);
 
     net::i2p_address address2{*address1};
 
