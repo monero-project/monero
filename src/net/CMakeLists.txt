@@ -1,5 +1,4 @@
 # Copyright (c) 2018-2024, The Monero Project
-
 #
 # All rights reserved.
 #
@@ -33,4 +32,3 @@ monero_find_all_headers(net_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
 monero_add_library(net ${net_sources} ${net_headers})
 target_link_libraries(net common epee cncrypto PkgConfig::libzmq ${Boost_ASIO_LIBRARY})
-

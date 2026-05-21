@@ -1,4 +1,3 @@
-
 #include <algorithm>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/mutex.hpp>
