@@ -506,9 +506,17 @@ namespace nodetool
     {
       const std::string ban_list_path = command_line::get_arg(vm, arg_ban_list);
       std::string error;
+      boost::system::error_code ec{};
+      if (!boost::filesystem::is_regular_file(boost::filesystem::path{ban_list_path}, ec))
+      {
+        error = "Failed to read ban list file " + ban_list_path;
+        MWARNING(error);
+      }
+
       try
       {
-        apply_blocklist_file(ban_list_path, std::numeric_limits<time_t>::max(), false, &error);
+        if (error.empty())
+          apply_blocklist_file(ban_list_path, std::numeric_limits<time_t>::max(), false, &error);
       }
       catch (const std::exception& e)
       {
