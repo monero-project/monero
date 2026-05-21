@@ -2,8 +2,17 @@ name: ci/gh-actions/gitian
 
 on:
   push:
-    tags:
-      - '*'
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/gitian/**'
+      - '!contrib/**.md'
+      - '.github/workflows/gitian.yml'
+  pull_request:
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/gitian/**'
+      - '!contrib/**.md'
+      - '.github/workflows/gitian.yml'
 
 jobs:
   build-gitian:
@@ -24,17 +33,20 @@ jobs:
             option: "m"
     name: ${{ matrix.operating-system.name }}
     steps:
+    - uses: actions/checkout@v5
+      with:
+        submodules: recursive
     - name: prepare
       run: |
         sudo apt update
-        curl -O https://raw.githubusercontent.com/monero-project/monero/${{ github.ref_name }}/contrib/gitian/gitian-build.py
+        cp contrib/gitian/gitian-build.py .
         chmod +x gitian-build.py
     - name: setup
       run: |
-        ./gitian-build.py --setup --docker github-actions ${{ github.ref_name }}
+        ./gitian-build.py --setup --url https://github.com/${{ github.repository }} --docker github-actions ${{ github.ref_name }}
     - name: build
       run: |
-        ./gitian-build.py --docker --detach-sign --no-commit --build -j 3 -o ${{ matrix.operating-system.option }} github-actions ${{ github.ref_name }}
+        ./gitian-build.py --docker --pull --detach-sign --no-commit --build -j 3 -o ${{ matrix.operating-system.option }} github-actions ${{ github.ref_name }}
     - name: post build
       run: |
         cd out/${{ github.ref_name }}
