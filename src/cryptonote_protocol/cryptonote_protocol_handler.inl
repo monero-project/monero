@@ -1106,6 +1106,14 @@ namespace cryptonote
         return 1;
       }
 
+      if (!m_core.check_incoming_block_size(arg.blocks[i].block))
+      {
+        LOG_ERROR_CCONTEXT("sent oversized block in NOTIFY_RESPONSE_GET_OBJECTS, size=" << arg.blocks[i].block.size() << ", dropping connection");
+        drop_connection(context, false, false);
+        ++m_sync_bad_spans_downloaded;
+        return 1;
+      }
+
       crypto::hash block_hash;
       if(!parse_and_validate_block_from_blob(arg.blocks[i].block, b, block_hash))
       {
