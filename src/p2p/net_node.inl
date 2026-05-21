@@ -871,7 +871,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  size_t node_server<t_payload_net_handler>::apply_blocklist_file(const std::string& path, time_t seconds, bool add_only, std::string *error, size_t max_size)
+  size_t node_server<t_payload_net_handler>::apply_blocklist_file(const std::string& path, time_t seconds, bool add_only, std::string *error)
   {
     std::ifstream iss{path};
     if (!iss)
@@ -2142,7 +2142,7 @@ namespace nodetool
     , "blocklist-hash.moneropulse.ch"
     };
 
-    // TXT format <url>;<sha256>
+    // TXT format <sha256>;<url>
     std::vector<std::string> records;
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
     {
@@ -2150,37 +2150,29 @@ namespace nodetool
       return true;
     }
 
-    if (records.empty())
-    {
-      MWARNING("DNS blocklist: no TXT record found");
-      return true;
-    }
-
-    std::vector<std::string> fields;
-    std::string record = records[0];
-    boost::split(fields, record, boost::is_any_of(";"));
-    if (fields.size() != 2)
+    const size_t first_delim_pos = records.empty() ? std::string::npos : records[0].find(';');
+    if (first_delim_pos == std::string::npos)
     {
       MWARNING("DNS blocklist: no valid TXT record found");
       return true;
     }
 
-    boost::trim(fields[0]);
-    boost::trim(fields[1]);
-    std::string url = fields[0];
-    std::string expected_hash = fields[1];
+    const std::string& record = records[0];
+    std::string expected_hash = record.substr(0, first_delim_pos);
+    std::string url = record.substr(first_delim_pos + 1, std::string::npos); // url may contain ';'
+    boost::trim(expected_hash);
+    boost::trim(url);
 
-    if (expected_hash.size() != 64)
+    if (expected_hash.size() != 64 || url.empty())
     {
       MWARNING("DNS blocklist: no valid TXT record found");
       return true;
     }
 
     const boost::filesystem::path cache_path = boost::filesystem::path{m_config_folder} / "dns_blocklist.txt";
-    static constexpr size_t max_blocklist_size = DNS_BLOCKLIST_MAX_SIZE;
     std::string error;
     const auto apply_cached_blocklist = [&]() -> bool {
-      const size_t good = apply_blocklist_file(cache_path.string(), DNS_BLOCKLIST_LIFETIME, true, &error, DNS_BLOCKLIST_MAX_SIZE);
+      const size_t good = apply_blocklist_file(cache_path.string(), DNS_BLOCKLIST_LIFETIME, true, &error);
       if (good > 0)
         MINFO(good << " addresses added to the blocklist");
       return good > 0;
@@ -2199,7 +2191,7 @@ namespace nodetool
 
     bool rejected_oversize = false;
     const auto size_guard = [&rejected_oversize](const std::string& /*path*/, const std::string& /*uri*/, size_t bytes_written, ssize_t /*content_length*/) {
-      if (bytes_written > max_blocklist_size)
+      if (bytes_written > DNS_BLOCKLIST_MAX_SIZE)
       {
         rejected_oversize = true;
         MWARNING("DNS blocklist: download rejected, blocklist exceeds maximum size");
