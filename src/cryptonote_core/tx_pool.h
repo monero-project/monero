@@ -495,14 +495,14 @@ namespace cryptonote
     };
 
     /**
-     * @brief get infornation about a single transaction
+     * @brief get information about a single transaction
      */
     bool get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob = false) const;
 
     /**
      * @brief get information about multiple transactions
      */
-    bool get_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false) const;
+    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t cumul_txblob_size_limit = 0, size_t max_tx_count = 0) const;
 
     /**
      * @brief get transactions not in the passed set
@@ -514,7 +514,7 @@ namespace cryptonote
      *
      * @return true on success, false on error
      */
-    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size = 0) const;
 
   private:
 
@@ -627,7 +627,7 @@ namespace cryptonote
      */
     void prune(size_t bytes = 0);
 
-    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time);
+    void add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time, bool sensitive);
     void remove_tx_from_transient_lists(const cryptonote::sorted_tx_container::iterator& sorted_it, const crypto::hash& txid, bool sensitive);
     void track_removed_tx(const crypto::hash& txid, bool sensitive);
 
@@ -663,8 +663,14 @@ private:
 
     std::atomic<uint64_t> m_cookie; //!< incremented at each change
 
+    struct added_tx_info
+    {
+      time_t receive_time;
+      bool sensitive;
+    };
+
     // Info when transactions entered the pool, accessible by txid
-    std::unordered_map<crypto::hash, time_t> m_added_txs_by_id;
+    std::unordered_map<crypto::hash, added_tx_info> m_added_txs_by_id;
 
     // Info at what time the pool started to track the adding of transactions
     time_t m_added_txs_start_time;
