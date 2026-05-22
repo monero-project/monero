@@ -1133,6 +1133,10 @@ TEST(node_server, race_condition)
           }
         );
       });
+      struct joiner {
+        worker_t& thread;
+        ~joiner() { if (thread.joinable()) thread.join(); }
+      } join_worker{worker};
       {
         unique_lock_t guard(lock);
         ++counter;
@@ -1148,7 +1152,6 @@ TEST(node_server, race_condition)
         {},
         relay_t::fluff
       );
-      worker.join();
       return {};
     }
     bool init(const options_t &options) { return {}; }
