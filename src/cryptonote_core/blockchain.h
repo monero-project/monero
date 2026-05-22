@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -1131,8 +1131,9 @@ namespace cryptonote
      * @brief removes blocks from the top of the blockchain
      *
      * @param nblocks number of blocks to be removed
+     * @param keep_txs whether to place popped non-coinbase transactions back into the mempool
      */
-    void pop_blocks(uint64_t nblocks);
+    void pop_blocks(uint64_t nblocks, bool keep_txs);
 
     /**
      * @brief checks whether a given block height is included in the precompiled block hash area
@@ -1377,9 +1378,11 @@ namespace cryptonote
     /**
      * @brief removes the most recent block from the blockchain
      *
+     * @param keep_txs whether to place popped non-coinbase transactions back into the mempool
+     *
      * @return the block removed
      */
-    block pop_block_from_blockchain();
+    block pop_block_from_blockchain(bool keep_txs);
 
     /**
      * @brief validate and add a new block to the end of the blockchain

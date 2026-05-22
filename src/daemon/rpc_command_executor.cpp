@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -2310,13 +2310,14 @@ bool t_rpc_command_executor::sync_info()
     return true;
 }
 
-bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks)
+bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks, bool keep_txs)
 {
   cryptonote::COMMAND_RPC_POP_BLOCKS::request req;
   cryptonote::COMMAND_RPC_POP_BLOCKS::response res;
   std::string fail_message = "pop_blocks failed";
 
   req.nblocks = num_blocks;
+  req.keep_txs = keep_txs;
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/pop_blocks", fail_message.c_str()))

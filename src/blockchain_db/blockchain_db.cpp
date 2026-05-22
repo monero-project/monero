@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -172,13 +172,6 @@ void BlockchainDB::init_options(boost::program_options::options_description& des
   command_line::add_arg(desc, arg_db_salvage);
 }
 
-void BlockchainDB::pop_block()
-{
-  block blk;
-  std::vector<transaction> txs;
-  pop_block(blk, txs);
-}
-
 void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   bool miner_tx = false;
@@ -311,7 +304,7 @@ void BlockchainDB::set_hard_fork(HardFork* hf)
   m_hardfork = hf;
 }
 
-void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
+void BlockchainDB::pop_block(block& blk, std::vector<transaction>* txs)
 {
   blk = get_top_block();
 
@@ -319,10 +312,13 @@ void BlockchainDB::pop_block(block& blk, std::vector<transaction>& txs)
 
   for (const auto& h : boost::adaptors::reverse(blk.tx_hashes))
   {
-    cryptonote::transaction tx;
-    if (!get_tx(h, tx) && !get_pruned_tx(h, tx))
-      throw DB_ERROR("Failed to get pruned or unpruned transaction from the db");
-    txs.push_back(std::move(tx));
+    if (txs)
+    {
+      cryptonote::transaction tx;
+      if (!get_tx(h, tx) && !get_pruned_tx(h, tx))
+        throw DB_ERROR("Failed to get pruned or unpruned transaction from the db");
+      txs->push_back(std::move(tx));
+    }
     remove_transaction(h);
   }
   remove_transaction(get_transaction_hash(blk.miner_tx));
@@ -481,8 +477,9 @@ void BlockchainDB::fixup()
       if (!has_key_image(ki))
       {
         LOG_PRINT_L1("Fixup: detected missing key images from block 202612! Popping blocks...");
+        block blk;
         while (height() > 202612)
-          pop_block();
+          pop_block(blk, /*txs=*/nullptr);
       }
     }
   }

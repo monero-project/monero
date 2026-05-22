@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -3174,7 +3174,7 @@ namespace cryptonote
   {
     RPC_TRACKER(pop_blocks);
 
-    m_core.get_blockchain_storage().pop_blocks(req.nblocks);
+    m_core.get_blockchain_storage().pop_blocks(req.nblocks, req.keep_txs);
 
     res.height = m_core.get_current_blockchain_height();
     res.status = CORE_RPC_STATUS_OK;

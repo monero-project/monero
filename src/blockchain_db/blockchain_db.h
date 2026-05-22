@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -538,13 +538,6 @@ private:
   /*********************************************************************
    * private concrete members
    *********************************************************************/
-  /**
-   * @brief private version of pop_block, for undoing if an add_block fails
-   *
-   * This function simply calls pop_block(block& blk, std::vector<transaction>& txs)
-   * with dummy parameters, as the returns-by-reference can be discarded.
-   */
-  void pop_block();
 
   // helper function to remove transaction from blockchain
   /**
@@ -1151,13 +1144,12 @@ public:
    * implements remove_* functions.
    *
    * The subclass should return by reference the popped block and
-   * its associated transactions
+   * its associated transactions, if applicable to that overload
    *
-   * @param blk return-by-reference the block which was popped
-   * @param txs return-by-reference the transactions from the popped block
+   * @param[out] blk the block which was popped
+   * @param[out] txs the non-coinbase transactions from the popped block (optional)
    */
-  virtual void pop_block(block& blk, std::vector<transaction>& txs);
-
+  virtual void pop_block(block& blk, std::vector<transaction>* txs);
 
   /**
    * @brief check if a transaction with a given hash exists

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -408,10 +408,9 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
         MGINFO("Popping blocks... " << top_height);
       ++num_popped_blocks;
       block popped_block;
-      std::vector<transaction> popped_txs;
       try
       {
-        m_db->pop_block(popped_block, popped_txs);
+        m_db->pop_block(popped_block, /*txs=*/nullptr);
       }
       // anything that could cause this to throw is likely catastrophic,
       // so we re-throw
@@ -548,7 +547,7 @@ bool Blockchain::deinit()
 //------------------------------------------------------------------
 // This function removes blocks from the top of blockchain.
 // It starts a batch and calls private method pop_block_from_blockchain().
-void Blockchain::pop_blocks(uint64_t nblocks)
+void Blockchain::pop_blocks(uint64_t nblocks, const bool keep_txs)
 {
   uint64_t i = 0;
   CRITICAL_REGION_LOCAL(m_tx_pool);
@@ -563,7 +562,7 @@ void Blockchain::pop_blocks(uint64_t nblocks)
       nblocks = std::min(nblocks, blockchain_height - 1);
     while (i < nblocks && !m_cancel.load())
     {
-      pop_block_from_blockchain();
+      pop_block_from_blockchain(keep_txs);
       ++i;
     }
   }
@@ -588,9 +587,9 @@ void Blockchain::pop_blocks(uint64_t nblocks)
 }
 //------------------------------------------------------------------
 // This function tells BlockchainDB to remove the top block from the
-// blockchain and then returns all transactions (except the miner tx, of course)
-// from it to the tx_pool
-block Blockchain::pop_block_from_blockchain()
+// blockchain and then, if keep_txs is true, returns all transactions
+// (except the miner tx, of course) from it to the tx_pool
+block Blockchain::pop_block_from_blockchain(bool keep_txs)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -606,7 +605,7 @@ block Blockchain::pop_block_from_blockchain()
   const uint8_t previous_hf_version = get_current_hard_fork_version();
   try
   {
-    m_db->pop_block(popped_block, popped_txs);
+    m_db->pop_block(popped_block, keep_txs ? &popped_txs : nullptr);
   }
   // anything that could cause this to throw is likely catastrophic,
   // so we re-throw
@@ -626,7 +625,7 @@ block Blockchain::pop_block_from_blockchain()
 
   // return transactions from popped block to the tx_pool
   size_t pruned = 0;
-  for (transaction& tx : popped_txs)
+  if (keep_txs) for (transaction& tx : popped_txs)
   {
     if (tx.pruned)
     {
@@ -1117,7 +1116,7 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   // remove blocks from blockchain until we get back to where we should be.
   while (m_db->height() != rollback_height)
   {
-    pop_block_from_blockchain();
+    pop_block_from_blockchain(/*keep_txs=*/true);
   }
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
 
@@ -1167,7 +1166,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
   std::list<block> disconnected_chain;
   while (m_db->top_block_hash() != alt_chain.front().bl.prev_id)
   {
-    block b = pop_block_from_blockchain();
+    block b = pop_block_from_blockchain(/*keep_txs=*/true);
     disconnected_chain.push_front(b);
   }
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
@@ -4342,7 +4341,7 @@ leave:
   if (!update_next_cumulative_weight_limit())
   {
     MERROR("Failed to update next cumulative weight limit");
-    pop_block_from_blockchain();
+    pop_block_from_blockchain(/*keep_txs=*/true);
     return false;
   }
 
