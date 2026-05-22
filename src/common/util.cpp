@@ -40,7 +40,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <unistd.h>
 #include <dirent.h>
 #include <string.h>
 #include <ctype.h>
@@ -80,9 +79,11 @@ using namespace epee;
   #include <sys/file.h>
   #include <sys/stat.h>
 #endif
-#include <boost/filesystem.hpp>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/asio.hpp>
+#include <boost/asio/ip/address.hpp>
 #include <boost/format.hpp>
 #include <openssl/evp.h>
 
