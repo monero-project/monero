@@ -66,14 +66,14 @@ jobs:
           path: contrib/depends/sources
           key: sources-${{ hashFiles('contrib/depends/packages/*') }}
       - name: install dependencies
-        run: sudo apt update; sudo apt -y install guix git ca-certificates
+        run: sudo apt update; sudo apt -y install git ca-certificates
       - name: apparmor workaround
         # https://bugs.launchpad.net/ubuntu/+source/guix/+bug/2064115
         run: |
           sudo tee /etc/apparmor.d/guix << EOF
-          abi <abi/4.0>,
+          abi <abi/3.0>,
           include <tunables/global>
-          profile guix /usr/bin/guix flags=(unconfined) {
+          profile guix /gnu/store/{*-guix-command,*/bin/guix-daemon,*/bin/guix,*/bin/guile} flags=(unconfined) {
             userns,
             include if exists <local/guix>
           }
@@ -81,6 +81,22 @@ jobs:
           sudo /etc/init.d/apparmor reload
           sudo aa-enforce guix || true
           sudo apt purge apparmor
+      - name: install guix
+        run: |
+          set -exo pipefail
+
+          export ARCHIVE="guix-binary-1.5.0.x86_64-linux.tar.xz"
+          export ARCHIVE_HASH=aa41025489c5061543e9c48873eaa829b900b2da75d40f9648913622f5f47817
+
+          wget --tries=5 --no-verbose https://ftpmirror.gnu.org/gnu/guix/${ARCHIVE} -O /tmp/${ARCHIVE}
+          echo "${ARCHIVE_HASH}  /tmp/${ARCHIVE}" | sha256sum -c -
+
+          curl -fsSL https://raw.githubusercontent.com/monero-project/guix/7fd75725c5daf9d3bdfd9122dcdb37f650493d18/etc/guix-install.sh -o /tmp/guix-install.sh
+          chmod +x /tmp/guix-install.sh
+
+          { yes "" 2>/dev/null || true; } | sudo env GUIX_BINARY_FILE_NAME="/tmp/${ARCHIVE}" /tmp/guix-install.sh
+          source /etc/profile.d/zzz-guix.sh
+          /usr/local/bin/guix --version
       - name: build
         run: ADDITIONAL_GUIX_TIMEMACHINE_FLAGS="--disable-authentication" SUBSTITUTE_URLS='https://bordeaux.guix.gnu.org' HOSTS="${{ matrix.toolchain.target }}" ./contrib/guix/guix-build
       - uses: actions/upload-artifact@v7
