@@ -98,7 +98,7 @@ jobs:
           source /etc/profile.d/zzz-guix.sh
           /usr/local/bin/guix --version
       - name: build
-        run: ADDITIONAL_GUIX_TIMEMACHINE_FLAGS="--disable-authentication" SUBSTITUTE_URLS='https://bordeaux.guix.gnu.org' HOSTS="${{ matrix.toolchain.target }}" ./contrib/guix/guix-build
+        run: ADDITIONAL_GUIX_TIMEMACHINE_FLAGS="--disable-authentication" SUBSTITUTE_URLS='https://bordeaux.guix.gnu.org' GUIX_REPO='https://github.com/monero-project/guix.git' HOSTS="${{ matrix.toolchain.target }}" ./contrib/guix/guix-build
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.toolchain.target }}
