@@ -921,7 +921,7 @@ namespace nodetool
         ++good;
         continue;
       }
-      MERROR("Invalid IP address or IPv4 subnet: " << line);
+      MERROR("Invalid IP address or IPv4 subnet: " << line << " - " << parsed_addr.error());
     }
 
     return good;
