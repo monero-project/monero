@@ -1925,6 +1925,85 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct rpc_tx_amount
+  {
+    std::string amount; // atomic uints only
+    std::string currency; // XMR / BTC / ETH / USD / ETH 
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(amount);
+      KV_SERIALIZE(currency);
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct uri_spec_v2
+  {
+    std::vector<std::string> addresses;
+    std::vector<rpc_tx_amount> amounts;
+    std::vector<std::string> recipient_names;
+    std::string tx_description;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(addresses);
+      KV_SERIALIZE(amounts);
+      KV_SERIALIZE(recipient_names);
+      KV_SERIALIZE(tx_description);
+    END_KV_SERIALIZE_MAP()
+  };
+
+  struct COMMAND_RPC_MAKE_URI_V2
+  {
+    struct request_t
+    {
+      std::vector<std::string> addresses;
+      std::vector<rpc_tx_amount> amounts;
+      std::vector<std::string> recipient_names;
+      std::string tx_description;
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(addresses);
+        KV_SERIALIZE(amounts);
+        KV_SERIALIZE(recipient_names);
+        KV_SERIALIZE(tx_description);
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_PARSE_URI_V2
+  {
+    struct request_t
+    {
+      std::string uri;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      uri_spec_v2 uri;
+      std::vector<std::string> unknown_parameters;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(uri)
+        KV_SERIALIZE(unknown_parameters)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
   struct COMMAND_RPC_ADD_ADDRESS_BOOK_ENTRY
   {
     struct request_t
