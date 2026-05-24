@@ -24,6 +24,9 @@ env:
     EOF
   CCACHE_SETTINGS: |
     ccache --max-size=150M
+  CTEST_EXCLUDE_SLOW: |
+    cd build
+    env GTEST_FILTER="-select_outputs.*:DNSResolver.*:AddressFromURL.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
   USE_DEVICE_TREZOR_MANDATORY: ON
   INSTALL_RUST: |
     curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
@@ -59,6 +62,7 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
+          ${{env.CTEST_EXCLUDE_SLOW}}
       - name: save ccache
         uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
@@ -96,6 +100,7 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
+          ${{env.CTEST_EXCLUDE_SLOW}}
       - name: save ccache
         uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
