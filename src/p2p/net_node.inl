@@ -2197,17 +2197,6 @@ namespace nodetool
       MWARNING("DNS blocklist: failed to read cached file: " << e.what());
     }
 
-    bool rejected_oversize = false;
-    const auto size_guard = [&rejected_oversize](const std::string& /*path*/, const std::string& /*uri*/, size_t bytes_written, ssize_t /*content_length*/) {
-      if (bytes_written > DNS_BLOCKLIST_MAX_SIZE)
-      {
-        rejected_oversize = true;
-        MWARNING("DNS blocklist: download rejected, blocklist exceeds maximum size");
-        return false;
-      }
-      return true;
-    };
-
     const auto cleanup_tmp = [](const std::string& tmp_path) {
       try
       {
@@ -2223,7 +2212,7 @@ namespace nodetool
       const std::string tmp_path = cache_path.string() + ".tmp";
 
       MDEBUG("DNS blocklist: downloading from " << url);
-      if (!tools::download(tmp_path, url, size_guard) || rejected_oversize)
+      if (!tools::download(tmp_path, url, DNS_BLOCKLIST_MAX_SIZE))
       {
         cleanup_tmp(tmp_path);
         return false;
