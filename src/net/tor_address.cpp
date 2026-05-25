@@ -26,6 +26,8 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Parts of this file are originally copyright (c) 2021-2026 SChernykh
 
 #include "tor_address.h"
 
@@ -35,11 +37,18 @@
 #include <cassert>
 #include <cstring>
 #include <limits>
+#include <string_view>
 
 #include "net/error.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
 #include "string_tools_lexical.h"
+
+#include <openssl/evp.h>
+
+extern "C" {
+#include "crypto/crypto-ops.h"
+}
 
 namespace net
 {
@@ -48,6 +57,8 @@ namespace net
         constexpr const char tld[] = u8".onion";
         constexpr const char unknown_host[] = "<unknown tor host>";
 
+        //! Length of V1 and V2 onion addresses (in characters).
+        constexpr const unsigned legacy_length = 16;
         constexpr const unsigned v3_length = 56;
 
         constexpr const char base32_alphabet[] =
@@ -60,10 +71,22 @@ namespace net
 
             host.remove_suffix(sizeof(tld) - 1);
 
-            //! \TODO v3 has checksum, base32 decoding is required to verify it
-            if (host.size() != v3_length)
-                return {net::error::invalid_tor_address};
             if (host.find_first_not_of(base32_alphabet) != boost::string_ref::npos)
+                return {net::error::invalid_tor_address};
+
+            if (host.size() != v3_length)
+                return {host.size() == legacy_length
+                    ? net::error::legacy_tor_address
+                    : net::error::invalid_tor_address};
+
+            const std::string_view tmp{host.data(), host.size()};
+            const auto bytes = from_onion_v3(tmp);
+
+            if (!validate_v3_onion_checksum(bytes))
+                return {net::error::invalid_tor_address};
+
+            ge_p3 point;
+            if (ge_frombytes_vartime(&point, bytes.data()) != 0)
                 return {net::error::invalid_tor_address};
 
             return success();
@@ -199,4 +222,80 @@ namespace net
         }
         return out;
     }
-}
+
+    std::array<uint8_t, v3_onion_payload_size> from_onion_v3(const std::string_view address)
+    {
+        if (address.size() != v3_length) return {};
+
+        uint8_t buf[v3_onion_payload_size + 4] = {};
+        uint8_t* p = buf;
+
+        uint64_t data = 0;
+        uint64_t bit_size = 0;
+
+        for (size_t i = 0; i < v3_length; ++i) {
+            const char c = address[i];
+            uint64_t digit = 0;
+
+            if ('a' <= c && c <= 'z') {
+                digit = static_cast<uint64_t>(c - 'a');
+            }
+            else if ('A' <= c && c <= 'Z') {
+                digit = static_cast<uint64_t>(c - 'A');
+            }
+            else if ('2' <= c && c <= '7') {
+                digit = static_cast<uint64_t>(c - '2') + 26;
+            }
+            else {
+                return {};
+            }
+
+            data = (data << 5) | digit;
+            bit_size += 5;
+
+            while (bit_size >= 8) {
+                bit_size -= 8;
+                *(p++) = static_cast<uint8_t>(data >> bit_size);
+            }
+        }
+
+        std::array<uint8_t, v3_onion_payload_size> result{};
+
+        for (size_t i = 0; i < v3_onion_payload_size; ++i) {
+            result[i] = buf[i];
+        }
+
+        return result;
+    }
+
+    bool validate_v3_onion_checksum(const std::array<std::uint8_t, v3_onion_payload_size>& decoded)
+    {
+        constexpr const std::uint8_t prefix[] = ".onion checksum";
+        constexpr const std::uint8_t version = 3;
+
+        if (decoded[34] != version) return false;
+
+        std::array<std::uint8_t, sizeof(prefix) - 1 + v3_onion_pubkey_size + 1> hash{};
+
+        std::memcpy(hash.data(), prefix, sizeof(prefix) - 1);
+        std::memcpy(hash.data() + (sizeof(prefix) - 1), decoded.data(), v3_onion_pubkey_size);
+        hash.back() = version;
+
+        std::uint8_t digest[EVP_MAX_MD_SIZE];
+        unsigned int digest_len = 0;
+
+        EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+        if (!ctx) return false;
+
+        bool result =
+            EVP_DigestInit_ex(ctx, EVP_sha3_256(), nullptr) == 1 &&
+            EVP_DigestUpdate(ctx, hash.data(), hash.size()) == 1 &&
+            EVP_DigestFinal_ex(ctx, digest, &digest_len) == 1;
+
+        EVP_MD_CTX_free(ctx);
+
+        if (!result) return false;
+
+        return decoded[32] == digest[0] && decoded[33] == digest[1];
+    }
+} // net

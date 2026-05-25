@@ -32,6 +32,7 @@
 #include <boost/utility/string_ref.hpp>
 #include <cstdint>
 #include <string>
+#include <array>
 
 #include "common/expect.h"
 #include "net/enums.h"
@@ -48,6 +49,19 @@ namespace serialization
 
 namespace net
 {
+    //! Length in bytes of a V3 onion address pubkey.
+    constexpr std::size_t v3_onion_pubkey_size = 32;
+
+    //! Length in bytes of a V3 onion address checksum.
+    constexpr std::size_t v3_onion_checksum_size = 2;
+
+    /**
+     * Length in bytes of a V3 onion address.
+     * 32 bytes (pubkey) + 2 (checksum) + 1 (version) = 35
+     */
+    constexpr std::size_t v3_onion_payload_size =
+        v3_onion_pubkey_size + v3_onion_checksum_size + 1;
+
     //! Tor onion address; internal format not condensed/decoded.
     class tor_address
     {
@@ -138,4 +152,18 @@ namespace net
     {
         return lhs.less(rhs);
     }
+
+    /**
+     * @brief Decodes an onion address payload from Base32.
+     * @param A string of exactly 56 characters.
+     * @return The decoded address payload.
+     */
+    std::array<uint8_t, v3_onion_payload_size> from_onion_v3(const std::string_view address);
+
+    /**
+     * @brief Validate the checksum of a V3 onion address.
+     * @param The decoded address payload (from Base32).
+     * @return Whether or not validation succeeded, as a boolean.
+     */
+    bool validate_v3_onion_checksum(const std::array<std::uint8_t, v3_onion_payload_size>& decoded);
 } // net
