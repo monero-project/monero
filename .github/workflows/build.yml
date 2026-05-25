@@ -35,7 +35,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - uses: actions/cache@v5
+      - name: restore ccache
+        uses: actions/cache/restore@v5
+        id: ccache-restore
         with:
           path: /Users/runner/Library/Caches/ccache
           key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -50,6 +52,12 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           make -j${{env.MAKE_JOB_COUNT}}
+      - name: save ccache
+        uses: actions/cache/save@v5
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: /Users/runner/Library/Caches/ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   build-windows:
     name: 'Windows (MSYS2)'
@@ -64,7 +72,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - uses: actions/cache@v5
+      - name: restore ccache
+        uses: actions/cache/restore@v5
+        id: ccache-restore
         with:
           path: C:\Users\runneradmin\.ccache
           key: ccache-${{ runner.os }}-build-${{ github.sha }}
@@ -72,12 +82,19 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           update: true
+          cache: false
           install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf-c mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound git
       - uses: ./.github/actions/set-make-job-count
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}
           make release-static-win64 -j${{env.MAKE_JOB_COUNT}}
+      - name: save ccache
+        uses: actions/cache/save@v5
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: C:\Users\runneradmin\.ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   build-arch:
     name: 'Arch Linux'
@@ -86,17 +103,32 @@ jobs:
       image: archlinux:latest
     steps:
       - name: install dependencies
-        run: pacman -Syyu --noconfirm base-devel git cmake boost boost-libs openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf
+        run: pacman -Syyu --noconfirm base-devel git cmake boost boost-libs openssl zeromq unbound libsodium readline expat gtest python3 doxygen graphviz hidapi libusb protobuf ccache
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: restore ccache
+        uses: actions/cache/restore@v5
+        id: ccache-restore
+        with:
+          path: ~/.cache/ccache
+          key: ccache-arch-build-${{ github.sha }}
+          restore-keys: ccache-arch-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: ${{env.BUILD_DEFAULT_LINUX}}
+        run: |
+          ${{ env.CCACHE_SETTINGS }}
+          ${{ env.BUILD_DEFAULT_LINUX }}
+      - name: save ccache
+        uses: actions/cache/save@v5
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   build-debian:
     # Oldest supported Debian version
@@ -118,11 +150,26 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: restore ccache
+        uses: actions/cache/restore@v5
+        id: ccache-restore
+        with:
+          path: ~/.cache/ccache
+          key: ccache-debian-11-build-${{ github.sha }}
+          restore-keys: ccache-debian-11-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: ${{env.BUILD_DEFAULT_LINUX}}
+        run: |
+          ${{ env.CCACHE_SETTINGS }}
+          ${{ env.BUILD_DEFAULT_LINUX }}
+      - name: save ccache
+        uses: actions/cache/save@v5
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   build-ubuntu:
     name: ${{ matrix.name }}
@@ -131,10 +178,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Oldest supported Ubuntu LTS version
-          - name: Ubuntu 20.04
-            container: ubuntu:20.04
-
           # Most popular Ubuntu LTS version
           - name: Ubuntu 22.04
             container: ubuntu:22.04
@@ -156,7 +199,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - uses: actions/cache@v5
+      - name: restore ccache
+        uses: actions/cache/restore@v5
+        id: ccache-restore
         with:
           path: ~/.ccache
           key: ccache-${{ matrix.container }}-build-${{ github.sha }}
@@ -168,10 +213,15 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT_LINUX}}
+      - name: save ccache
+        uses: actions/cache/save@v5
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   test-ubuntu:
     name: "${{ matrix.name }} (tests)"
-    needs: build-ubuntu
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -203,7 +253,9 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
-      - uses: actions/cache@v5
+      - name: restore ccache
+        uses: actions/cache/restore@v5
+        id: ccache-restore
         with:
           path: ~/.ccache
           key: ccache-${{ matrix.container }}-build-${{ github.sha }}
@@ -220,6 +272,12 @@ jobs:
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT_LINUX}}
           cmake --build build --target test
+      - name: save ccache
+        uses: actions/cache/save@v5
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   source-archive:
     name: "source archive"
