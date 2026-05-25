@@ -94,7 +94,7 @@ jobs:
           export ARCHIVE="guix-binary-1.5.0.x86_64-linux.tar.xz"
           export ARCHIVE_HASH=aa41025489c5061543e9c48873eaa829b900b2da75d40f9648913622f5f47817
 
-          wget --tries=5 --no-verbose https://ftpmirror.gnu.org/gnu/guix/${ARCHIVE} -O /tmp/${ARCHIVE}
+          wget --tries=5 --waitretry=10 --no-verbose https://mirrors.ocf.berkeley.edu/gnu/guix/${ARCHIVE} -O /tmp/${ARCHIVE}
           echo "${ARCHIVE_HASH}  /tmp/${ARCHIVE}" | sha256sum -c -
 
           curl -fsSL https://raw.githubusercontent.com/monero-project/guix/7fd75725c5daf9d3bdfd9122dcdb37f650493d18/etc/guix-install.sh -o /tmp/guix-install.sh
