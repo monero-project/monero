@@ -93,6 +93,8 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
+#include "wallet2_basic/wallet2_boost_serialization.h"
+#include "wallet2_basic/wallet2_serialization.h"
 
 extern "C"
 {
