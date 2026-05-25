@@ -32,6 +32,7 @@
 
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "ringct/rctOps.h"
+#include "serialization/wire/fwd.h"
 
 namespace cryptonote
 {
@@ -114,6 +115,7 @@ namespace cryptonote
     uint64_t weight;
     uint64_t fee;
   };
+  WIRE_DECLARE_OBJECT(tx_block_template_backlog_entry);
 
   //---------------------------------------------------------------
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr);

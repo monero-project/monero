@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024, The Monero Project
+// Copyright (c) 2021, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -27,18 +27,30 @@
 
 #pragma once
 
-#include "serialization/wire/error.h"
-#include "serialization/wire/fwd.h"
+#include <string>
+#include "serialization/wire/json/base.h"
+#include "serialization/wire/json/fwd.h"
+#include "serialization/wire/json/write.h"
 #include "serialization/wire/write.h"
+#include "span.h"
 
-//! Define functions that list fields in `type` (using virtual interface)
-#define WIRE_DEFINE_OBJECT(type, map)                          \
-  void write_bytes(::wire::writer& dest, const type& source)   \
+//! Define functions that list fields in `type` (calls de-virtualized)
+#define WIRE_JSON_DEFINE_OBJECT(type, map)                              \
+  void read_bytes(::wire::json_reader& source, type& dest)              \
+  { map(source, dest); }                                                \
+                                                                        \
+  void write_bytes(::wire::json_writer& dest, const type& source)       \
   { map(dest, source); }
 
-//! Define `from_bytes` and `to_bytes` for `this`.
-#define WIRE_DEFINE_CONVERSIONS()                                       \
-  template<typename W, typename T>                                      \
-  std::error_code to_bytes(T& dest) const                               \
-  { return ::wire_write::to_bytes<W>(dest, *this); }
+//! Define functions that convert `type` to/from json bytes
+#define WIRE_JSON_DEFINE_CONVERSION(type)                               \
+  std::error_code convert_from_json(const ::epee::span<const char> source, type& dest) \
+  { return ::wire_read::from_bytes<::wire::json_reader>(source, dest); } \
+                                                                        \
+  std::error_code convert_to_json(std::string& dest, const type& source) \
+  { return ::wire_write::to_bytes<::wire::json_string_writer>(dest, source); }
 
+//! Define functions that convert `type::request` and `type::response` to/from json bytes
+#define WIRE_JSON_DEFINE_COMMAND(type)          \
+  WIRE_JSON_DEFINE_CONVERSION(type::request)    \
+  WIRE_JSON_DEFINE_CONVERSION(type::response)

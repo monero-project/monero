@@ -30,11 +30,14 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <gtest/gtest.h>
 #include <rapidjson/document.h>
+#include <rapidjson/ostreamwrapper.h>
+#include <rapidjson/prettywriter.h> 
 
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/events.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_core/cryptonote_tx_utils.h"
 #include "json_serialization.h"
 #include "net/zmq.h"
 #include "rpc/message.h"
@@ -46,6 +49,17 @@
 #define MASSERT(...)                                                      \
   if (!(__VA_ARGS__))                                                     \
     return testing::AssertionFailure() << BOOST_PP_STRINGIZE(__VA_ARGS__)
+
+namespace rapidjson
+{
+  std::ostream& operator<<(std::ostream& out, const Document& src)
+  {
+    OStreamWrapper buffer{out};
+    PrettyWriter<OStreamWrapper> writer{buffer};
+    src.Accept(writer);
+    return out;
+  }
+}
 
 TEST(ZmqFullMessage, InvalidRequest)
 {
@@ -138,6 +152,16 @@ namespace
     return out;
   }
 
+  testing::AssertionResult compare_json(const std::string expected_json, const rapidjson::Document& published)
+  {
+    rapidjson::Document expected;
+    expected.Parse(expected_json.c_str());
+    MASSERT(!expected.HasParseError());
+    if (expected != published)
+      return testing::AssertionFailure() << expected << " != " << published;
+    return testing::AssertionSuccess();
+  }
+
   testing::AssertionResult compare_full_txpool(epee::span<const cryptonote::txpool_event> events, const published_json& pub)
   {
     MASSERT(pub.first == "json-full-txpool_add");
@@ -191,6 +215,12 @@ namespace
       ++i;
     }
     return testing::AssertionSuccess();
+  }
+
+  testing::AssertionResult compare_miner_data(const std::string expected, const published_json& pub)
+  {
+    MASSERT(pub.first == "json-full-miner_data");
+    return compare_json(expected, pub.second);
   }
 
   testing::AssertionResult compare_full_block(const epee::span<const cryptonote::block> expected, const published_json& pub)
@@ -512,6 +542,66 @@ TEST_F(zmq_pub, JsonFullChain)
   ASSERT_LE(1u, pubs.size());
   EXPECT_TRUE(compare_full_block(epee::to_span(blocks), pubs.front()));
 }
+
+TEST_F(zmq_pub, JsonFullMinerData)
+{
+/*  uint8_t major_version;
+    uint64_t height;
+    const crypto::hash& prev_id;
+    const crypto::hash& seed_hash;
+    cryptonote::difficulty_type diff;
+    uint64_t median_weight;
+    uint64_t already_generated_coins;
+    const std::vector<cryptonote::tx_block_template_backlog_entry>& tx_backlog ; */
+
+  static constexpr const char topic[] = "\1json-full-miner_data";
+  ASSERT_TRUE(sub_request(topic));
+
+    //std::size_t send_miner_data(uint8_t major_version, uint64_t height, const crypto::hash& prev_id, const crypto::hash& seed_hash, difficulty_type diff, uint64_t median_weight, uint64_t already_generated_coins, const std::vector<tx_block_template_backlog_entry>& tx_backlog);
+  
+  const auto hash = crypto::rand<crypto::hash>();
+  const auto seed = crypto::rand<crypto::hash>();
+  const cryptonote::difficulty_type difficulty = 500;
+  const std::vector<cryptonote::tx_block_template_backlog_entry> txs = {
+    {crypto::rand<crypto::hash>(), 7545, 455},
+    {crypto::rand<crypto::hash>(), 755, 34545}
+  };
+  const std::string expected =
+    R"({
+      "major_version": 100,
+      "height": 200,
+      "prev_id": ")" + epee::to_hex::string(epee::as_byte_span(hash)) + R"(",
+      "seed_hash": ")" + epee::to_hex::string(epee::as_byte_span(seed)) + R"(",
+      "difficulty": ")" + cryptonote::hex(difficulty) + R"(",
+      "median_weight": 400,
+      "already_generated_coins": 10000,
+      "tx_backlog": [
+        {
+          "id": ")" + epee::to_hex::string(epee::as_byte_span(txs.at(0).id)) + R"(",
+          "weight": 7545,
+          "fee": 455
+        },{
+          "id": ")" + epee::to_hex::string(epee::as_byte_span(txs.at(1).id)) + R"(",
+          "weight": 755,
+          "fee": 34545
+        }
+      ]
+    })";
+  EXPECT_EQ(1u, pub->send_miner_data(100, 200, hash, seed, difficulty, 400, 10000, txs));
+  EXPECT_TRUE(pub->relay_to_pub(relay.get(), dummy_pub.get()));
+
+  auto pubs = get_published(dummy_client.get());
+  ASSERT_EQ(1u, pubs.size());
+  EXPECT_TRUE(compare_miner_data(expected, pubs.front()));
+
+  EXPECT_NO_THROW(cryptonote::listener::zmq_pub::miner_data{pub}(100, 200, hash, seed, difficulty, 400, 10000, txs));
+  EXPECT_TRUE(pub->relay_to_pub(relay.get(), dummy_pub.get()));
+
+  pubs = get_published(dummy_client.get());
+  ASSERT_EQ(1u, pubs.size());
+  EXPECT_TRUE(compare_miner_data(expected, pubs.front()));
+}
+
 
 TEST_F(zmq_pub, JsonMinimalChain)
 {
