@@ -145,6 +145,7 @@ target_link_libraries(rpc_pub
     cryptonote_basic
     cryptonote_core
     serialization
+    wire-cbor
     wire-json
     ${Boost_THREAD_LIBRARY})
 
@@ -165,6 +166,7 @@ target_link_libraries(daemon_rpc_server
     version
     daemon_messages
     serialization
+    wire-cbor
     wire-json
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

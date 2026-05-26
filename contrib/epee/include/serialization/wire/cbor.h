@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2026, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -27,44 +27,22 @@
 
 #pragma once
 
-#include <type_traits>
-#include <utility>
+#include "serialization/wire/cbor/base.h"
+#include "serialization/wire/cbor/error.h"
+#include "serialization/wire/cbor/write.h"
 
-#include "serialization/wire.h"
-
-namespace wire
-{
-  //! A wrapper that tells `wire::writer`s to write the inner type as an array.
-  template<typename U>
-  struct range_
-  {
-    WIRE_DEFINE_CONVERSIONS()
-
-    using value_type = unwrap_reference_t<U>;
-
-    U value;
-
-    constexpr const value_type& get_value() const noexcept { return value; }
-    value_type& get_value() noexcept { return value; }
-
-    // concept requirements for `is_optional_on_empty`    
-    bool empty() const { return get_value().empty(); }
-
-    // concept requirements for `optional_field`.
-    explicit operator bool() const noexcept { return !empty(); }
-    range_ operator*() const noexcept { return *this; }
-  };
-
-  template<typename F, typename T>
-  void write_bytes(F& format, const range_<T> self)
-  {
-    wire_write::array(format, self.get_value());
+#define WIRE_CBOR_DEFINE_OBJECT(type, map)                        \
+  void write_bytes(::wire::cbor_writer& dest, const type& source) \
+  {                                                               \
+    map(dest, source);                                            \
   }
 
-  //! Links `value` with `range_`.
-  template<typename T>
-  inline constexpr range_<T> range(T value)
-  {
-    return {std::move(value)};
-  }
-} // wire
+//! Define functions that convert `type` to/from cbor bytes
+#define WIRE_CBOR_DEFINE_CONVERSION(type)                                      \
+  std::error_code convert_to_cbor(epee::byte_stream& dest, const type& source) \
+  { return ::wire_write::to_bytes<::wire::cbor_slice_writer>(dest, source); }
+
+//! Define functions that convert `type::request` and `type::response` to/from cbor bytes
+#define WIRE_CBOR_DEFINE_COMMAND(type)          \
+  WIRE_CBOR_DEFINE_CONVERSION(type::request)    \
+  WIRE_CBOR_DEFINE_CONVERSION(type::response)

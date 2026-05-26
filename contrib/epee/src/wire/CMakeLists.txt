@@ -31,4 +31,6 @@ set(wire_sources error.cpp write.cpp)
 add_library(wire ${wire_sources})
 target_link_libraries(wire epee)
 
+add_subdirectory(cbor)
 add_subdirectory(json)
+add_subdirectory(wrapper)

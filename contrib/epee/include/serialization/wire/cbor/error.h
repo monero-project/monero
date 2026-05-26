@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2026, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -27,44 +27,31 @@
 
 #pragma once
 
-#include <type_traits>
-#include <utility>
-
-#include "serialization/wire.h"
+#include <system_error>
 
 namespace wire
 {
-  //! A wrapper that tells `wire::writer`s to write the inner type as an array.
-  template<typename U>
-  struct range_
+namespace error
+{
+  //! Type wrapper to "grab" cbor errors
+  enum class cbor : int
   {
-    WIRE_DEFINE_CONVERSIONS()
-
-    using value_type = unwrap_reference_t<U>;
-
-    U value;
-
-    constexpr const value_type& get_value() const noexcept { return value; }
-    value_type& get_value() noexcept { return value; }
-
-    // concept requirements for `is_optional_on_empty`    
-    bool empty() const { return get_value().empty(); }
-
-    // concept requirements for `optional_field`.
-    explicit operator bool() const noexcept { return !empty(); }
-    range_ operator*() const noexcept { return *this; }
+    success = 0, // required for `expected<T>`
+    incomplete,
+    integer_encoding
   };
 
-  template<typename F, typename T>
-  void write_bytes(F& format, const range_<T> self)
-  {
-    wire_write::array(format, self.get_value());
-  }
+  //! \return Static string describing error `value`.
+  const char* get_string(cbor value) noexcept;
 
-  //! Links `value` with `range_`.
-  template<typename T>
-  inline constexpr range_<T> range(T value)
+  //! \return Category for cbor generated errors.
+  const std::error_category& cbor_category() noexcept;
+
+  //! \return Error code with `value` and `cbor_category()`.
+  inline std::error_code make_error_code(cbor value) noexcept
   {
-    return {std::move(value)};
+    return std::error_code{int(value), cbor_category()};
   }
-} // wire
+}
+}
+

@@ -289,6 +289,6 @@ namespace wire
   template<typename W, typename... T>
   inline void object_fwd(const std::false_type /* is_read */, W& dest, T... fields)
   {
-    wire::object(dest, std::move(fields)...);
+    wire_write::object(dest, std::move(fields)...);
   }
 }

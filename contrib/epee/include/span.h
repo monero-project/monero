@@ -182,3 +182,4 @@ namespace epee
     return {reinterpret_cast<const T*>(s.data()), s.size()};
   }
 }
+
