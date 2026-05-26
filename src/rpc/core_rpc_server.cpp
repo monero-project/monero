@@ -54,6 +54,7 @@ using namespace epee;
 #include "crypto/hash.h"
 #include "rpc/rpc_args.h"
 #include "rpc/rpc_handler.h"
+#include "rpc/zmq_pub.h"
 #include "core_rpc_server_error_codes.h"
 #include "p2p/net_node.h"
 #include "version.h"
@@ -496,6 +497,7 @@ namespace cryptonote
     res.synchronized = check_core_ready();
     res.busy_syncing = m_p2p.get_payload_object().is_busy_syncing();
     res.restricted = restricted;
+    res.zmq_pub_filters = listener::zmq_pub::get_all_filters();
 
     res.status = CORE_RPC_STATUS_OK;
     return true;

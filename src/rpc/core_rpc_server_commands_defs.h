@@ -724,6 +724,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t free_space;
       bool offline;
       std::string bootstrap_daemon_address;
+      std::vector<std::string> zmq_pub_filters;
       uint64_t height_without_bootstrap;
       bool was_bootstrap_ever_used;
       uint64_t database_size;
@@ -766,6 +767,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(free_space)
         KV_SERIALIZE(offline)
         KV_SERIALIZE(bootstrap_daemon_address)
+        KV_SERIALIZE(zmq_pub_filters)
         KV_SERIALIZE(height_without_bootstrap)
         KV_SERIALIZE(was_bootstrap_ever_used)
         KV_SERIALIZE(database_size)

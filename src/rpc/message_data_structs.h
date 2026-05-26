@@ -34,6 +34,7 @@
 #include "ringct/rctSigs.h"
 #include "rpc/rpc_handler.h"
 
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -201,6 +202,7 @@ namespace rpc
     uint64_t block_weight_median;
     uint64_t start_time;
     std::string version;
+    std::vector<std::string> pub_filters;
   };
 
   struct output_distribution
