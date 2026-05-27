@@ -1,10 +1,10 @@
 package=unbound
-$(package)_version=1.19.1
+$(package)_version=1.25.1
 $(package)_download_path=https://www.nlnetlabs.nl/downloads/$(package)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=bc1d576f3dd846a0739adc41ffaa702404c6767d2b6082deb9f2f97cbb24a3a9
+$(package)_sha256_hash=0fe8b6277b0959cfd17562debac0aa5f71e0b02dc4ffa9c60271c583edab586f
 $(package)_dependencies=openssl expat
-$(package)_patches=disable-glibc-reallocarray.patch
+$(package)_patches=disable-glibc-reallocarray.patch hardcode_config_date.patch
 
 
 define $(package)_set_vars
@@ -20,7 +20,10 @@ endef
 
 define $(package)_preprocess_cmds
   patch -p1 < $($(package)_patch_dir)/disable-glibc-reallocarray.patch &&\
-  autoconf
+  patch -p1 < $($(package)_patch_dir)/hardcode_config_date.patch &&\
+  autoconf && \
+  rm doc/*.odp doc/*.pdf contrib/*.tar.gz contrib/*.tar.bz2 &&\
+  rm -rf testdata dnscrypt/testdata
 endef
 
 define $(package)_config_cmds

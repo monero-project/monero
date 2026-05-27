@@ -1,0 +1,22 @@
+diff --git a/configure.ac b/configure.ac
+index f1c5b04..13f4ce6 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -994,7 +994,7 @@ if test "`uname`" = "Linux"; then
+ 	GCC_DOCKER_LINTFLAGS='-syntax'
+ 	AC_SUBST(GCC_DOCKER_LINTFLAGS)
+ fi
+-AX_BUILD_DATE_EPOCH(CONFIG_DATE, [%Y%m%d])
++CONFIG_DATE=20000101
+ AC_ARG_VAR(SOURCE_DATE_EPOCH, [If it is set, it uses the value of that variable instead of the current time as the build timestamp. The format is a unix timestamp. This enables reproducible build output.])
+ AC_SUBST(CONFIG_DATE)
+ 
+@@ -2559,7 +2559,7 @@ char *unbound_stat_strdup_log(const char *s, const char* file, int line,
+ dnl if we build from source tree, the man pages need @date@ and @version@
+ dnl if this is a distro tarball, that was already done by makedist.sh
+ AC_SUBST(version, [VERSION_MAJOR.VERSION_MINOR.VERSION_MICRO])
+-AX_BUILD_DATE_EPOCH(date, [[%b %e, %Y]])
++date='Jan 1, 2000'
+ AC_SUBST(date)
+ 
+ AC_CONFIG_FILES([Makefile doc/example.conf doc/libunbound.3 doc/unbound.8 doc/unbound-anchor.8 doc/unbound-checkconf.8 doc/unbound.conf.5 doc/unbound-control.8 doc/unbound-host.1 smallapp/unbound-control-setup.sh dnstap/dnstap_config.h dnscrypt/dnscrypt_config.h contrib/libunbound.pc contrib/unbound.socket contrib/unbound.service contrib/unbound_portable.service])
