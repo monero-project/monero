@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,12 +31,22 @@
 #pragma once
 
 #include <cstddef>
-#include <cstring>
 #include <cstdint>
-#include <functional>
-#include <memory>
+#include <cstring>
 #include <sodium/crypto_verify_32.h>
 #include <sodium/crypto_shorthash_siphash24.h>
+
+// get declaration of std::hash
+#ifdef __GLIBCXX__
+namespace std _GLIBCXX_VISIBILITY(default) {
+  _GLIBCXX_BEGIN_NAMESPACE_VERSION
+  template<typename _Tp>
+  struct hash;
+  _GLIBCXX_END_NAMESPACE_VERSION
+}
+#else
+#include <typeindex>
+#endif
 
 #include "random.h"
 
@@ -76,14 +86,14 @@ namespace crypto {
 #define CRYPTO_DEFINE_HASH_FUNCTIONS(type) \
 namespace crypto { \
   inline std::size_t hash_value(const type &_v) { \
-    return siphash_to_size_t(std::addressof(_v), sizeof(_v)); \
+    return siphash_to_size_t(&_v, sizeof(_v)); \
   } \
 } \
 namespace std { \
   template<> \
   struct hash<crypto::type> { \
     std::size_t operator()(const crypto::type &_v) const { \
-      return ::crypto::siphash_to_size_t(std::addressof(_v), sizeof(_v)); \
+      return ::crypto::siphash_to_size_t(&_v, sizeof(_v)); \
     } \
   }; \
 }

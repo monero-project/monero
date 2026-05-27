@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -27,6 +27,9 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "fcmp_pp_crypto.h"
+
+#include <cassert>
+#include <memory>
 
 namespace fcmp_pp
 {

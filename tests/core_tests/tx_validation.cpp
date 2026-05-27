@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -124,7 +124,7 @@ namespace
         m_tx.signatures.push_back(std::vector<crypto::signature>());
         std::vector<crypto::signature>& sigs = m_tx.signatures.back();
         sigs.resize(src_entr.outputs.size());
-        generate_ring_signature(m_tx_prefix_hash, boost::get<txin_to_key>(m_tx.vin[i]).k_image, keys_ptrs, m_in_contexts[i].sec, src_entr.real_output, sigs.data());
+        generate_ring_signature(m_tx_prefix_hash, boost::get<txin_to_key>(m_tx.vin[i]).k_image, keys_ptrs.data(), keys_ptrs.size(), m_in_contexts[i].sec, src_entr.real_output, sigs.data());
         i++;
       }
     }
