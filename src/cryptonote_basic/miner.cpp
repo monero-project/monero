@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -82,7 +82,7 @@
 using namespace epee;
 
 #include "miner.h"
-#include "crypto/hash.h"
+#include "crypto/hash-ops.h"
 
 
 extern "C" void slow_hash_allocate_state();
