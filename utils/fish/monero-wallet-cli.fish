@@ -32,6 +32,7 @@ complete -c monero-wallet-cli -l offline -d "Do not connect to a daemon, nor use
 complete -c monero-wallet-cli -l extra-entropy -r -F -d "File containing extra entropy to initialize the PRNG (any data, aim for 256 bits of entropy to be useful, which typically means more than 256 bits of data)"
 complete -c monero-wallet-cli -l allow-mismatched-daemon-version -d "Allow communicating with a daemon that uses a different version"
 complete -c monero-wallet-cli -l wallet-file -r -F -d "Use wallet <arg>"
+complete -c monero-wallet-cli -l wallet-dir -r -f -a "(__fish_complete_directories)" -d "Directory to look for and save wallet files. The path must be absolute and will get ignored if a wallet file is also specified by its absolute path."
 complete -c monero-wallet-cli -l generate-new-wallet -r -F -d "Generate new wallet and save it to <arg>"
 complete -c monero-wallet-cli -l generate-from-device -r -F -d "Generate new wallet from device and save it to <arg>"
 complete -c monero-wallet-cli -l generate-from-view-key -r -d "Generate incoming-only wallet from view key"
