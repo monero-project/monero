@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -1024,7 +1024,7 @@ crypto::chacha_key derive_cache_key(const crypto::chacha_key& keys_data_key, con
   static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
 
   crypto::chacha_key cache_key;
-  epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
+  epee::mlocked<tools::scrubbed<std::array<char, HASH_SIZE+1>>> cache_key_data;
   memcpy(cache_key_data.data(), &keys_data_key, HASH_SIZE);
   cache_key_data[HASH_SIZE] = domain_separator;
   cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&) cache_key);
@@ -11920,7 +11920,7 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
     signatures.push_back(std::vector<crypto::signature>());
     std::vector<crypto::signature>& sigs = signatures.back();
     sigs.resize(in_key->key_offsets.size());
-    crypto::generate_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys, in_ephemeral.sec, sec_index, sigs.data());
+    generate_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys.data(), p_output_keys.size(), in_ephemeral.sec, sec_index, sigs.data());
   }
 
   std::string sig_str = "SpendProofV1";
@@ -12031,7 +12031,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
       p_output_keys.push_back(&out.key);
 
     // check this ring
-    if (!crypto::check_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys, sig_iter->data()))
+    if (!crypto::check_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys.data(), p_output_keys.size(), sig_iter->data()))
       return false;
     ++sig_iter;
   }
@@ -13193,7 +13193,7 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>
     std::vector<const crypto::public_key*> key_ptrs;
     key_ptrs.push_back(&pkey);
 
-    crypto::generate_ring_signature((const crypto::hash&)td.m_key_image, td.m_key_image, key_ptrs, in_ephemeral.sec, 0, &signature);
+    crypto::generate_ring_signature((const crypto::hash&)td.m_key_image, td.m_key_image, key_ptrs.data(), key_ptrs.size(), in_ephemeral.sec, 0, &signature);
 
     ski.push_back(std::make_pair(td.m_key_image, signature));
   }
@@ -13292,7 +13292,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
           error::wallet_internal_error, "Key image out of validity domain: input " + boost::lexical_cast<std::string>(n + offset) + "/"
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image));
 
-      THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys, &signature),
+      THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys.data(), pkeys.size(), &signature),
           error::signature_check_failed, boost::lexical_cast<std::string>(n + offset) + "/"
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
           + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));

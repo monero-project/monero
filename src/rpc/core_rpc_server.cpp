@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -51,7 +51,7 @@ using namespace epee;
 #include "net/local_ip.h"
 #include "net/parse.h"
 #include "storages/http_abstract_invoke.h"
-#include "crypto/hash.h"
+#include "crypto/hash-ops.h"
 #include "rpc/rpc_args.h"
 #include "rpc/rpc_handler.h"
 #include "core_rpc_server_error_codes.h"

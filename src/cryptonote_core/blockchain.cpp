@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -50,7 +50,7 @@
 #include "int-util.h"
 #include "common/threadpool.h"
 #include "warnings.h"
-#include "crypto/hash.h"
+#include "crypto/hash-ops.h"
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"

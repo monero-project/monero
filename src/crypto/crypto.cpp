@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -39,6 +39,7 @@
 #include <boost/shared_ptr.hpp>
 
 #include "common/varint.h"
+#include "hex.h"
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
@@ -90,7 +91,7 @@ namespace crypto {
     return &reinterpret_cast<const unsigned char &>(scalar);
   }
 
-  boost::mutex &get_random_lock()
+  static boost::mutex &get_random_lock()
   {
     static boost::mutex random_lock;
     return random_lock;
@@ -106,6 +107,44 @@ namespace crypto {
   {
     boost::lock_guard<boost::mutex> lock(get_random_lock());
     add_extra_entropy_not_thread_safe(ptr, bytes);
+  }
+
+  template<typename T>
+  typename std::enable_if<std::is_integral<T>::value, T>::type rand_range(T range_min, T range_max) {
+    crypto::random_device rd;
+    std::uniform_int_distribution<T> dis(range_min, range_max);
+    return dis(rd);
+  }
+  #define INSTANTIATE_RAND_RANGE(t) template t rand_range<t>(t,t);
+  INSTANTIATE_RAND_RANGE(long)
+  INSTANTIATE_RAND_RANGE(long long)
+  INSTANTIATE_RAND_RANGE(unsigned)
+  INSTANTIATE_RAND_RANGE(unsigned long)
+  INSTANTIATE_RAND_RANGE(unsigned long long)
+  #undef INSTANTIATE_RAND_RANGE
+
+  std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const secret_key_explicit_print_ref v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(unwrap(unwrap(v.sk)))); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
 
   static inline bool less32(const unsigned char *k0, const unsigned char *k1)

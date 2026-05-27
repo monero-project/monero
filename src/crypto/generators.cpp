@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2022-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -36,9 +36,8 @@ extern "C"
 #include "hash.h"
 
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <mutex>
+#include <stdexcept>
 
 namespace crypto
 {
