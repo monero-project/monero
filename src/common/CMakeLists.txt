@@ -36,7 +36,6 @@ set(common_sources
   error.cpp
   expect.cpp
   util.cpp
-  i18n.cpp
   notify.cpp
   password.cpp
   perf_timer.cpp
@@ -65,10 +64,6 @@ monero_add_library(common
 
 if (STACK_TRACE_USE_WRAP)
   target_compile_definitions(obj_common PRIVATE STACK_TRACE_USE_WRAP)
-endif()
-
-if(BUILD_TRANSLATIONS)
-  add_dependencies(obj_common generate_translations_header)
 endif()
 
 target_link_libraries(common
