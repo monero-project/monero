@@ -36,7 +36,6 @@ set(common_sources
   error.cpp
   expect.cpp
   util.cpp
-  i18n.cpp
   notify.cpp
   password.cpp
   perf_timer.cpp
@@ -61,8 +60,7 @@ monero_private_headers(common
 monero_add_library(common
   ${common_sources}
   ${common_headers}
-  ${common_private_headers}
-  DEPENDS generate_translations_header)
+  ${common_private_headers})
 target_link_libraries(common
   PUBLIC
     cncrypto
