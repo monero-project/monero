@@ -4,10 +4,7 @@
 #     https://github.com/Homebrew/homebrew-bundle
 # execute brew bundle in the directory containing the Brewfile
 
-
-brew "autoconf"
 brew "autogen"
-brew "automake"
 brew "binutils"
 brew "coreutils"
 brew "cmake"
@@ -16,15 +13,12 @@ brew "boost"
 brew "openssl"
 brew "hidapi"
 brew "zmq"
-brew "libpgm"
 brew "unbound"
 brew "libsodium"
 brew "readline"
-brew "expat"
 brew "ccache"
 brew "doxygen"
 brew "graphviz"
 brew "libunwind-headers"
-brew "xz"
 brew "protobuf"
 brew "libusb"
