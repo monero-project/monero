@@ -944,7 +944,7 @@ if(NOT Boost_FOUND)
 elseif(Boost_FOUND)
   message(STATUS "Found Boost Version: ${Boost_VERSION_STRING}")
 
-  set(BOOST_COMPONENTS filesystem thread date_time chrono serialization program_options)
+  set(BOOST_COMPONENTS filesystem thread chrono serialization program_options)
   if (WIN32)
     list(APPEND BOOST_COMPONENTS locale)
   endif()
