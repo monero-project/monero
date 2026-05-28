@@ -52,7 +52,7 @@ jobs:
         run: |
           brew uninstall cmake
           brew update
-          brew install --quiet cmake boost hidapi openssl zmq expat libunwind-headers protobuf ccache
+          brew install --quiet cmake boost hidapi openssl zmq unbound libunwind-headers protobuf ccache
       - name: build
         env:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
