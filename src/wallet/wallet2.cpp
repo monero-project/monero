@@ -4550,6 +4550,7 @@ void wallet2::clear_user_data()
   for (auto i = m_transfers.begin(); i != m_transfers.end(); ++i)
     i->m_frozen = false;
   m_tx_keys.clear();
+  m_additional_tx_keys.clear();
   m_tx_notes.clear();
   m_address_book.clear();
   m_subaddress_labels.clear();
