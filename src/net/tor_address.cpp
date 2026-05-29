@@ -40,6 +40,7 @@
 #include <string_view>
 
 #include "net/error.h"
+#include "net/host.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
 #include "string_tools_lexical.h"
@@ -134,14 +135,16 @@ namespace net
         const boost::string_ref port =
             address.substr(host.size() + (host.size() == address.size() ? 0 : 1));
 
-        MONERO_CHECK(host_check(host));
+        std::string normalized_host{host};
+        net::canonicalize_host(normalized_host);
+        MONERO_CHECK(host_check(normalized_host));
 
         std::uint16_t porti = default_port;
         if (!port.empty() && !epee::string_tools::get_xtype_from_string(porti, std::string{port}))
             return {net::error::invalid_port};
 
         static_assert(v3_length + sizeof(tld) == sizeof(tor_address::host_), "bad internal host size");
-        return tor_address{host, porti};
+        return tor_address{normalized_host, porti};
     }
 
     bool tor_address::_load(epee::serialization::portable_storage& src, epee::serialization::section* hparent)
