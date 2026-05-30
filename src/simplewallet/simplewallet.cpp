@@ -748,7 +748,7 @@ namespace
         fail_msg_writer() << boost::format(sw::tr("File %s likely stores wallet private keys! Use a different file name.")) % filename;
         return false;
       }
-      return command_line::is_yes(input_line((boost::format(sw::tr("File %s already exists. Are you sure to overwrite it?")) % filename).str(), true));
+      return command_line::is_yes(input_line((boost::format(sw::tr("File %s already exists. Are you sure you want to overwrite it?")) % filename).str(), true));
     }
     return true;
   }
