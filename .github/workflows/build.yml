@@ -47,7 +47,7 @@ jobs:
         run: |
           brew uninstall cmake
           brew update
-          brew install --quiet cmake boost hidapi openssl zmq libpgm expat libunwind-headers protobuf ccache
+          brew install --quiet cmake boost hidapi openssl zmq libpgm unbound libunwind-headers protobuf ccache
       - name: build
         run: |
           ${{env.CCACHE_SETTINGS}}
