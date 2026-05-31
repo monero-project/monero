@@ -1107,6 +1107,11 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    if (m_stop_signal_sent_once.exchange(true))
+    {
+      MDEBUG("[node] Stop signal already sent");
+      return true;
+    }
     MDEBUG("[node] stopping server payload handler");
     m_payload_handler.stop();
     MDEBUG("[node] sending stop signal");
