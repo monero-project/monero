@@ -320,10 +320,10 @@ TEST(ban, subnet)
     Server::init_options(opts);
     cryptonote::core::init_options(opts);
 
-    char** args = nullptr;
+    const char *argv[] = {"ban_subnet_test"};
     boost::program_options::variables_map vm;
     boost::program_options::store(
-      boost::program_options::parse_command_line(0, args, opts), vm
+      boost::program_options::parse_command_line(1, argv, opts), vm
     );
     server.init(vm);
   }
@@ -456,7 +456,7 @@ TEST(node_server, bind_same_p2p_port)
     cryptonote::core::init_options(desc_options);
     Server::init_options(desc_options);
 
-    const char *argv[2] = {nullptr, nullptr};
+    const char *argv[] = {"node_server_bind_same_p2p_port_test"};
     boost::program_options::variables_map vm;
     boost::program_options::store(boost::program_options::parse_command_line(1, argv, desc_options), vm);
 
