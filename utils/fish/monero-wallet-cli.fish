@@ -20,7 +20,7 @@ complete -c monero-wallet-cli -l daemon-ssl-allow-any-cert -d "Allow any SSL cer
 complete -c monero-wallet-cli -l daemon-ssl-allow-chained -d "Allow user (via --daemon-ssl-ca-certifi cates) chain certificates"
 complete -c monero-wallet-cli -l testnet -d "For testnet. Daemon must also be launched with --testnet flag"
 complete -c monero-wallet-cli -l stagenet -d "For stagenet. Daemon must also be launched with --stagenet flag"
-complete -c monero-wallet-cli -l shared-ringdb-dir -r -F -d "Set shared ring database path"
+complete -c monero-wallet-cli -l shared-ringdb-dir -r -a "(__fish_complete_directories)" -d "Set shared ring database path"
 complete -c monero-wallet-cli -l kdf-rounds -r -d "Number of rounds for the key derivation function. Default: 1"
 complete -c monero-wallet-cli -l bitmessage-address -r -d "Use PyBitmessage instance at URL <arg>. Default: http://localhost:8442/"
 complete -c monero-wallet-cli -l bitmessage-login -r -d "Specify <arg> as username:password for PyBitmessage API. Default: username:password"
