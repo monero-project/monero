@@ -1581,7 +1581,11 @@ namespace net_utils
   template<class t_protocol_handler>
   void boosted_tcp_server<t_protocol_handler>::send_stop_signal(std::function<void()> close_all_connections)
   {
-    m_stop_signal_sent = true;
+    if (m_stop_signal_sent.exchange(true))
+    {
+      MDEBUG("Stop signal already sent");
+      return;
+    }
     typename connection<t_protocol_handler>::shared_state *state = static_cast<typename connection<t_protocol_handler>::shared_state*>(m_state.get());
     state->stop_signal_sent = true;
     TRY_ENTRY();
