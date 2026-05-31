@@ -320,7 +320,7 @@ namespace net_utils
 
 		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
 
-    bool cancel();
+    bool cancel(bool wait_for_shutdown = false);
     
   private:
     //----------------- i_service_endpoint ---------------------
@@ -378,8 +378,21 @@ namespace net_utils
     /// wait for service workers stop
     bool timed_wait_server_stop(uint64_t wait_mseconds);
 
+    /// Mark the server as stopping without closing connections or stopping the io_context.
+    bool mark_stop_signal_sent();
+
+    /// Close boosted_tcp_server-owned connections, including ones not yet registered with the protocol handler.
+    void close_server_connections();
+
+    /// Stop the server io_context.
+    void stop_io_context();
+
     /// Stop the server.
-    void send_stop_signal(std::function<void()> close_all_connections = [](){});
+    ///
+    /// Warning: Do NOT call this if the io_context is shared for connections
+    /// managed outside the boosted_tcp_server. See p2p net_node shutdown for
+    /// the correct staged shutdown in that case.
+    void send_stop_signal();
 
     bool is_stop_signal_sent() const noexcept { return m_stop_signal_sent; };
 
