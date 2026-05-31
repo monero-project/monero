@@ -329,14 +329,6 @@ class Daemon(object):
         }
         return self.rpc.send_json_rpc_request(banned)
 
-    def set_bootstrap_daemon(self, address, username = '', password = ''):
-        set_bootstrap_daemon = {
-            'address': address,
-            'username': username,
-            'password': password,
-        }
-        return self.rpc.send_request('/set_bootstrap_daemon', set_bootstrap_daemon)
-
     def get_public_nodes(self, gray = False, white = True):
         get_public_nodes = {
             'gray': gray,

@@ -436,10 +436,6 @@ static float get_sync_percentage(uint64_t height, uint64_t target_height)
     return 99.9f; // to avoid 100% when not fully synced
   return pc;
 }
-static float get_sync_percentage(const cryptonote::COMMAND_RPC_GET_INFO::response &ires)
-{
-  return get_sync_percentage(ires.height, ires.target_height);
-}
 
 bool t_rpc_command_executor::show_status() {
   cryptonote::COMMAND_RPC_GET_INFO::request ireq;
@@ -499,27 +495,13 @@ bool t_rpc_command_executor::show_status() {
 
   std::time_t uptime = std::time(nullptr) - ires.start_time;
   uint64_t net_height = ires.target_height > ires.height ? ires.target_height : ires.height;
-  std::string bootstrap_msg;
-  if (ires.was_bootstrap_ever_used)
-  {
-    bootstrap_msg = ", bootstrapping from " + ires.bootstrap_daemon_address;
-    if (ires.untrusted)
-    {
-      bootstrap_msg += (boost::format(", local height: %llu (%.1f%%)") % ires.height_without_bootstrap % get_sync_percentage(ires.height_without_bootstrap, net_height)).str();
-    }
-    else
-    {
-      bootstrap_msg += " was used before";
-    }
-  }
 
   std::stringstream str;
-  str << boost::format("Height: %llu/%llu (%.1f%%) on %s%s, %s, net hash %s, v%u%s, %u(out)+%u(in) connections")
+  str << boost::format("Height: %llu/%llu (%.1f%%) on %s, %s, net hash %s, v%u%s, %u(out)+%u(in) connections")
     % (unsigned long long)ires.height
     % (unsigned long long)net_height
-    % get_sync_percentage(ires)
+    % get_sync_percentage(ires.height, ires.target_height)
     % (ires.testnet ? "testnet" : ires.stagenet ? "stagenet" : "mainnet")
-    % bootstrap_msg
     % (!has_mining_info ? "mining info unavailable" : mining_busy ? "syncing" : mres.active ? ( ( mres.is_background_mining_enabled ? "smart " : "" ) + std::string("mining at ") + get_mining_speed(mres.speed)) : "not mining")
     % get_mining_speed(cryptonote::difficulty_type(ires.wide_difficulty) / ires.target)
     % (unsigned)hfres.version
@@ -2399,44 +2381,6 @@ bool t_rpc_command_executor::check_blockchain_pruning()
     {
       tools::success_msg_writer() << "Blockchain is not pruned";
     }
-    return true;
-}
-
-bool t_rpc_command_executor::set_bootstrap_daemon(
-  const std::string &address,
-  const std::string &username,
-  const std::string &password,
-  const std::string &proxy)
-{
-    cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::request req;
-    cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::response res;
-    const std::string fail_message = "Unsuccessful";
-
-    req.address = address;
-    req.username = username;
-    req.password = password;
-    req.proxy = proxy;
-
-    if (m_is_rpc)
-    {
-        if (!m_rpc_client->rpc_request(req, res, "/set_bootstrap_daemon", fail_message))
-        {
-            return true;
-        }
-    }
-    else
-    {
-        if (!m_rpc_server->on_set_bootstrap_daemon(req, res) || res.status != CORE_RPC_STATUS_OK)
-        {
-            tools::fail_msg_writer() << make_error(fail_message, res.status);
-            return true;
-        }
-    }
-
-    tools::success_msg_writer()
-      << "Successfully set bootstrap daemon address to "
-      << (!req.address.empty() ? req.address : "none");
-
     return true;
 }
 

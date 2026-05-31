@@ -67,9 +67,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     return 0;
   }
 
-  // Disable bootstrap daemon
-  disable_bootstrap_daemon(*rpc_handler->rpc);
-
   for (unsigned selector : selectors) {
     try {
       // Fuzz the target function
