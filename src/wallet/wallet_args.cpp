@@ -36,7 +36,7 @@
 #include "string_tools.h"
 #include "version.h"
 
-#if defined(WIN32)
+#if defined(_WIN32)
 #include <crtdbg.h>
 #endif
 
@@ -99,7 +99,7 @@ namespace wallet_args
   {
     namespace bf = boost::filesystem;
     namespace po = boost::program_options;
-#ifdef WIN32
+#ifdef _WIN32
     _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
 #endif
 

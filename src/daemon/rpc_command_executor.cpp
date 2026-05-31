@@ -1411,7 +1411,7 @@ bool t_rpc_command_executor::stop_daemon()
   cryptonote::COMMAND_RPC_STOP_DAEMON::request req;
   cryptonote::COMMAND_RPC_STOP_DAEMON::response res;
 
-//# ifdef WIN32
+//# ifdef _WIN32
 //    // Stop via service API
 //    // TODO - this is only temporary!  Get rid of hard-coded constants!
 //    bool ok = windows::stop_service("BitMonero Daemon");
