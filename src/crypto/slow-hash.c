@@ -44,8 +44,12 @@
 
 #include <errno.h>
 
+#ifndef MONERO_CRYPTO_SLOW_HASH_ITER
+#define MONERO_CRYPTO_SLOW_HASH_ITER (1 << 20)
+#endif
+
 #define MEMORY         (1 << 21) // 2MB scratchpad
-#define ITER           (1 << 20)
+#define ITER           MONERO_CRYPTO_SLOW_HASH_ITER
 #define AES_BLOCK_SIZE  16
 #define AES_KEY_SIZE    32
 #define INIT_SIZE_BLK   8
