@@ -136,56 +136,16 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
-  build-debian:
-    # Oldest supported Debian version
-    name: 'Debian 11'
-    runs-on: ubuntu-latest
-    container:
-      image: debian:11
-      env:
-        DEBIAN_FRONTEND: noninteractive
-    steps:
-      - name: set apt conf
-        run: ${{env.APT_SET_CONF}}
-      - name: update apt
-        run: apt update
-      - name: install monero dependencies
-        run: ${{env.APT_INSTALL_LINUX}}
-      - name: install rust
-        run: ${{env.INSTALL_RUST}}
-      - name: configure git
-        run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: ~/.cache/ccache
-          key: ccache-debian-11-build-${{ github.sha }}
-          restore-keys: ccache-debian-11-build-
-      - uses: ./.github/actions/set-make-job-count
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{ env.CCACHE_SETTINGS }}
-          ${{ env.BUILD_DEFAULT }}
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  build-ubuntu:
+  build-linux:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Oldest supported Debian version
+          - name: Debian 11
+            container: debian:11
           # Oldest supported Ubuntu LTS version
           - name: Ubuntu 22.04
             container: ubuntu:22.04
