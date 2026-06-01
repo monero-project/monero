@@ -1,4 +1,3 @@
-//#define DBG
 // Copyright (c) 2016-2026, Monero Research Labs
 //
 // Author: Shen Noether <shen.noether@gmx.com>
