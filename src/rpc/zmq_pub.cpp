@@ -45,6 +45,7 @@
 
 #include "common/expect.h"
 #include "crypto/crypto.h"
+#include "crypto/wire.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/events.h"
 #include "misc_log_ex.h"

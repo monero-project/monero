@@ -44,6 +44,7 @@ using namespace epee;
 #include "cryptonote_basic/tx_extra.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "crypto/wire.h"
 #include "ringct/rctSigs.h"
 #include "serialization/wire.h"
 

@@ -42,7 +42,6 @@
 #include "mlocker.h"
 #include "generic-ops.h"
 #include "hex.h"
-#include "span.h"
 #include "hash.h"
 
 namespace crypto {
