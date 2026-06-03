@@ -97,15 +97,15 @@ class AddressBookTest():
 
         # request (partially) out of range
         ok = False
-        try: res = wallet.get_address_book[4, 2]
+        try: res = wallet.get_address_book([4, 2])
         except: ok = True
         assert ok
         ok = False
-        try: res = wallet.get_address_book[0, 2]
+        try: res = wallet.get_address_book([0, 2])
         except: ok = True
         assert ok
         ok = False
-        try: res = wallet.get_address_book[2, 0]
+        try: res = wallet.get_address_book([2, 0])
         except: ok = True
         assert ok
 
