@@ -416,7 +416,7 @@ namespace cryptonote
         break;
       try
       {
-        const crypto::hash &txid = it->second;
+        const crypto::hash txid = it->second;
         txpool_tx_meta_t meta;
         if (!m_blockchain.get_txpool_tx_meta(txid, meta))
         {
