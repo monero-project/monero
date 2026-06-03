@@ -300,6 +300,20 @@ TEST(tor_address, epee_serializev_v3)
     EXPECT_STREQ(v3_onion, command.tor.host_str());
     EXPECT_EQ(10u, command.tor.port());
 
+    // make sure tor_address::_load canonicalizes incoming hosts
+    {
+        epee::serialization::portable_storage stg{};
+        stg.load_from_binary(epee::to_span(buffer));
+
+        EXPECT_TRUE(stg.set_value("host", std::string{v3_onion_upper}, stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(command.load(stg));
+    }
+
+    EXPECT_FALSE(command.tor.is_unknown());
+    EXPECT_NE(net::tor_address{}, command.tor);
+    EXPECT_STREQ(v3_onion, command.tor.host_str());
+    EXPECT_EQ(10u, command.tor.port());
+
     // make sure that exceeding max buffer doesn't destroy tor_address::_load
     {
         epee::serialization::portable_storage stg{};
@@ -671,6 +685,20 @@ TEST(i2p_address, epee_serializev_b32)
         EXPECT_TRUE(stg.load_from_binary(epee::to_span(buffer)));
         EXPECT_TRUE(command.load(stg));
     }
+    EXPECT_FALSE(command.i2p.is_unknown());
+    EXPECT_NE(net::i2p_address{}, command.i2p);
+    EXPECT_STREQ(b32_i2p, command.i2p.host_str());
+    EXPECT_EQ(1u, command.i2p.port());
+
+    // make sure i2p_address::_load canonicalizes incoming hosts
+    {
+        epee::serialization::portable_storage stg{};
+        stg.load_from_binary(epee::to_span(buffer));
+
+        EXPECT_TRUE(stg.set_value("host", std::string{b32_i2p_upper}, stg.open_section("i2p", nullptr, false)));
+        EXPECT_TRUE(command.load(stg));
+    }
+
     EXPECT_FALSE(command.i2p.is_unknown());
     EXPECT_NE(net::i2p_address{}, command.i2p);
     EXPECT_STREQ(b32_i2p, command.i2p.host_str());
