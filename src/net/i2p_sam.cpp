@@ -37,6 +37,7 @@
 #include <cstring>
 #include <limits>
 #include <string>
+#include <random>
 
 #include "misc_log_ex.h"
 #include "file_io_utils.h"
@@ -154,7 +155,7 @@ namespace sam
     {
         auto self = shared_from_this();
 
-        boost::asio::async_write(socket_, boost::asio::buffer(self->get_write_buffer()),
+        boost::asio::async_write(socket_, boost::asio::buffer(write_buffer_),
             boost::asio::bind_executor(strand_,
                 [self](boost::system::error_code ec, std::size_t)
                 {

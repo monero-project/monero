@@ -36,3 +36,12 @@ TEST(i2p_sam, get_value_ok)
     EXPECT_FALSE(ec);
     EXPECT_EQ(out, "OK");
 }
+
+TEST(i2p_sam, get_value_does_not_match_key_inside_value)
+{
+    std::string out;
+    auto ec = net::sam::get_value("MESSAGE=BAD_RESULT=OK", "RESULT", out);
+
+    EXPECT_TRUE(ec);
+    EXPECT_EQ(ec, net::sam::make_error_code(net::sam::error::parse_failed));
+}

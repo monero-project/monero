@@ -144,7 +144,6 @@ namespace sam
         bool set_connect_command(const net::i2p_address& address);
         void set_session_id(const std::string& id) { session_id_ = id; }
 
-        std::string get_write_buffer() { return write_buffer_; }
         void set_write_buffer(std::string in) { write_buffer_ = std::move(in); }
 
         void set_remote_peer(net::i2p_address peer) { remote_peer_ = std::move(peer); }
