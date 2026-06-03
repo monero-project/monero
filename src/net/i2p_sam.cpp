@@ -539,10 +539,15 @@ namespace sam
 
     std::string random_session_id()
     {
+        std::random_device rng;
+        std::mt19937 gen(rng());
+        std::uniform_int_distribution<> dist('a', 'z');
+
         std::string result;
         result.reserve(10);
         for (std::size_t i = 0; i < 10; ++i)
-            result += static_cast<char>(crypto::rand_range('a', 'z'));
+            result += static_cast<char>(dist(gen));
+
         return result;
     }
 } // namespace net
