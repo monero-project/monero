@@ -34,6 +34,7 @@
 #include <deque>
 #include <set>
 #include <stdlib.h>
+#include <cstring>
 #include "include_base_utils.h"
 #include "common/threadpool.h"
 #include "crypto/crypto.h"
@@ -41,6 +42,7 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <boost/asio/ip/address.hpp>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -133,55 +135,32 @@ static const char *get_record_name(int record_type)
   }
 }
 
-// fuck it, I'm tired of dealing with getnameinfo()/inet_ntop/etc
-boost::optional<std::string> ipv4_to_string(const char* src, size_t len)
+static boost::optional<std::string> ipv4_to_string(const char* src, size_t len)
 {
   if (len < 4)
   {
-    MERROR("Invalid IPv4 address: " << std::string(src, len));
+    MERROR("Invalid IPv4 address with length " << len);
     return boost::none;
   }
 
-  std::stringstream ss;
-  unsigned int bytes[4];
-  for (int i = 0; i < 4; i++)
-  {
-    unsigned char a = src[i];
-    bytes[i] = a;
-  }
-  ss << bytes[0] << "."
-     << bytes[1] << "."
-     << bytes[2] << "."
-     << bytes[3];
-  return ss.str();
+  boost::asio::ip::address_v4::bytes_type bytes;
+  std::memcpy(bytes.data(), src, 4);
+  boost::asio::ip::address_v4 addr(bytes);
+  return addr.to_string();
 }
 
-// this obviously will need to change, but is here to reflect the above
-// stop-gap measure and to make the tests pass at least...
-boost::optional<std::string> ipv6_to_string(const char* src, size_t len)
+static boost::optional<std::string> ipv6_to_string(const char* src, size_t len)
 {
-  if (len < 8)
+  if (len < 16)
   {
-    MERROR("Invalid IPv4 address: " << std::string(src, len));
+    MERROR("Invalid IPv6 address with length " << len);
     return boost::none;
   }
 
-  std::stringstream ss;
-  unsigned int bytes[8];
-  for (int i = 0; i < 8; i++)
-  {
-    unsigned char a = src[i];
-    bytes[i] = a;
-  }
-  ss << bytes[0] << ":"
-     << bytes[1] << ":"
-     << bytes[2] << ":"
-     << bytes[3] << ":"
-     << bytes[4] << ":"
-     << bytes[5] << ":"
-     << bytes[6] << ":"
-     << bytes[7];
-  return ss.str();
+  boost::asio::ip::address_v6::bytes_type bytes;
+  std::memcpy(bytes.data(), src, 16);
+  boost::asio::ip::address_v6 addr(bytes);
+  return addr.to_string();
 }
 
 boost::optional<std::string> txt_to_string(const char* src, size_t len)
