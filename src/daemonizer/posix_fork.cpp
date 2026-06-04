@@ -5,13 +5,19 @@
 //
 
 #include "daemonizer/posix_fork.h"
+#include "misc_language.h"
 #include "misc_log_ex.h"
 
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
+#include <fstream>
 #include <unistd.h>
 #include <stdexcept>
 #include <string>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #ifndef TMPDIR
 #define TMPDIR "/tmp"
@@ -35,26 +41,64 @@ void fork(const std::string & pidfile)
   // processes.
   // Only in the final child process do we write the PID to the
   // file (and close it).
-  std::ofstream pidofs;
+  int pid_fd = -1;
+  auto close_pid_fd = [&pid_fd]()
+  {
+    if (pid_fd >= 0)
+    {
+      close(pid_fd);
+      pid_fd = -1;
+    }
+  };
+  epee::misc_utils::auto_scope_leave_caller pid_fd_guard =
+    epee::misc_utils::create_scope_leave_handler(close_pid_fd);
   if (! pidfile.empty ())
   {
-	int oldpid;
-    std::ifstream pidrifs;
-    pidrifs.open(pidfile, std::fstream::in);
-    if (! pidrifs.fail())
+    struct stat st;
+    if (lstat(pidfile.c_str(), &st) == 0)
     {
-	  // Read the PID and send signal 0 to see if the process exists.
-	  if (pidrifs >> oldpid && oldpid > 1 && kill(oldpid, 0) == 0)
+      if (S_ISLNK(st.st_mode))
       {
-        quit("PID file " + pidfile + " already exists and the PID therein is valid");
-	  }
-	  pidrifs.close();
-	}
+        quit("PID file path is a symlink, refusing: " + pidfile);
+      }
+      if (!S_ISREG(st.st_mode))
+      {
+        quit("PID file path exists and is not a regular file: " + pidfile);
+      }
 
-    pidofs.open(pidfile, std::fstream::out | std::fstream::trunc);
-    if (pidofs.fail())
+      int oldpid = 0;
+      std::ifstream pidrifs;
+      pidrifs.open(pidfile, std::fstream::in);
+      if (!pidrifs.fail())
+      {
+        // Read the PID and send signal 0 to see if the process exists.
+        errno = 0;
+        if (pidrifs >> oldpid && oldpid > 1 && (kill(oldpid, 0) == 0 || errno == EPERM))
+        {
+          quit("PID file " + pidfile + " already exists and the PID therein is valid");
+        }
+        pidrifs.close();
+      }
+
+      if (unlink(pidfile.c_str()) != 0)
+      {
+        quit("Failed to remove stale PID file: " + pidfile + ": " + std::strerror(errno));
+      }
+    }
+    else if (errno != ENOENT)
     {
-      quit("Failed to open specified PID file for writing");
+      quit("Failed to inspect PID file path: " + pidfile + ": " + std::strerror(errno));
+    }
+
+#ifdef O_NOFOLLOW
+    const int flags = O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW;
+#else
+    const int flags = O_WRONLY | O_CREAT | O_EXCL;
+#endif
+    pid_fd = open(pidfile.c_str(), flags, 0644);
+    if (pid_fd < 0)
+    {
+      quit("Failed to create PID file: " + pidfile + ": " + std::strerror(errno));
     }
   }
   // Fork the process and have the parent exit. If the process was started
@@ -65,7 +109,7 @@ void fork(const std::string & pidfile)
     if (pid > 0)
     {
       // We're in the parent process and need to exit.
-      pidofs.close();
+      close_pid_fd();
       // When the exit() function is used, the program terminates without
       // invoking local variables' destructors. Only global variables are
       // destroyed.
@@ -86,7 +130,7 @@ void fork(const std::string & pidfile)
   {
     if (pid > 0)
     {
-      pidofs.close();
+      close_pid_fd();
       exit(0);
     }
     else
@@ -95,11 +139,18 @@ void fork(const std::string & pidfile)
     }
   }
 
-  if (! pidofs.fail())
+  if (pid_fd >= 0)
   {
-    int pid = ::getpid();
-    pidofs << pid << std::endl;
-    pidofs.close();
+    const std::string pid = std::to_string(::getpid()) + "\n";
+    const ssize_t written = write(pid_fd, pid.data(), pid.size());
+    if (written < 0)
+    {
+      quit("Failed to write PID file: " + pidfile + ": " + std::strerror(errno));
+    }
+    if (static_cast<size_t>(written) != pid.size())
+    {
+      quit("Failed to write complete PID file: " + pidfile);
+    }
   }
 
   // Close the standard streams. This decouples the daemon from the terminal
