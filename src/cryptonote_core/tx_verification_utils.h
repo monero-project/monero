@@ -89,12 +89,46 @@ bool ver_mixed_rct_semantics(std::vector<const rct::rctSig*> rvv);
  */
 struct pool_supplement
 {
+public:
+    using txs_by_txid_t = std::unordered_map<crypto::hash, std::pair<transaction, blobdata>>;
+
+    bool add_tx(const crypto::hash& id, transaction&& tx, const blobdata& blob)
+    {
+        // Any new tx invalidates previous verification
+        nic_verified_hf_version = 0;
+
+        return txs_by_txid.emplace(id, std::make_pair(std::move(tx), blob)).second;
+    }
+
+    void clear() {
+        txs_by_txid.clear();
+
+        // Empty set can technically stay validated, but reset it to 0 anyway.
+        nic_verified_hf_version = 0;
+    }
+
+    txs_by_txid_t::iterator begin() { return txs_by_txid.begin(); }
+    txs_by_txid_t::iterator end()   { return txs_by_txid.end(); }
+
+    txs_by_txid_t::const_iterator begin() const { return txs_by_txid.begin(); }
+    txs_by_txid_t::const_iterator end()   const { return txs_by_txid.end(); }
+
+    txs_by_txid_t::iterator find(const crypto::hash& id) { return txs_by_txid.find(id); }
+
+    txs_by_txid_t::iterator erase(txs_by_txid_t::iterator it) { return txs_by_txid.erase(it); }
+
+    size_t size() const { return txs_by_txid.size(); }
+
+private:
+    // The only function which can set nic_verified_hf_version to non-zero value
+    friend bool ver_non_input_consensus(pool_supplement& ps, tx_verification_context& tvc, std::uint8_t hf_version);
+
     // Map of supplemental tx info that we might need to validate a block
     // Maps TXID -> transaction and blob
-    std::unordered_map<crypto::hash, std::pair<transaction, blobdata>> txs_by_txid;
+    txs_by_txid_t txs_by_txid;
     // If non-zero, then consider all the txs' non-input consensus (NIC) rules verified for this
     // hard fork. User: If you add an unverified transaction to txs_by_txid, set this field to zero!
-    mutable std::uint8_t nic_verified_hf_version = 0;
+    std::uint8_t nic_verified_hf_version = 0;
 };
 
 /**
@@ -124,7 +158,7 @@ struct pool_supplement
 bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
     std::uint8_t hf_version);
 
-bool ver_non_input_consensus(const pool_supplement& ps, tx_verification_context& tvc,
+bool ver_non_input_consensus(pool_supplement& ps, tx_verification_context& tvc,
     std::uint8_t hf_version);
 
 } // namespace cryptonote

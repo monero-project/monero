@@ -91,8 +91,6 @@ namespace cryptonote
     const bool allow_pruned,
     cryptonote::pool_supplement& pool_supplement)
   {
-    pool_supplement.nic_verified_hf_version = 0;
-
     if (tx_entries.size() > blk_tx_hashes.size())
     {
       MERROR("Failed to make pool supplement: Too many transaction blobs!");
@@ -140,7 +138,7 @@ namespace cryptonote
         return false;
       }
 
-      pool_supplement.txs_by_txid.emplace(tx_hash, std::make_pair(std::move(tx), tx_entry.blob));
+      pool_supplement.add_tx(tx_hash, std::move(tx), tx_entry.blob);
     }
 
     return true;

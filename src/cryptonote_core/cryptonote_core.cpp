@@ -1460,7 +1460,7 @@ namespace cryptonote
     // saving each block, then it doesn't matter either way: cleanup_handle_incoming_blocks()
     // always triggers a sync.
     size_t block_total_bytes = block_blob.size();
-    for (const auto &t : extra_block_txs.txs_by_txid)
+    for (const auto &t : extra_block_txs)
       block_total_bytes += t.second.second.size();
 
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);

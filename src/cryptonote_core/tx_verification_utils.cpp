@@ -469,7 +469,7 @@ bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc
     return ver_non_input_consensus_templated(&tx, &tx + 1, tvc, hf_version);
 }
 
-bool ver_non_input_consensus(const pool_supplement& ps, tx_verification_context& tvc,
+bool ver_non_input_consensus(pool_supplement& ps, tx_verification_context& tvc,
     const std::uint8_t hf_version)
 {
     // We already verified the pool supplement for this hard fork version! Yippee!
