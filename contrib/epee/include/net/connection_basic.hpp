@@ -46,7 +46,11 @@
 #include <atomic>
 #include <memory>
 
-#include <boost/asio.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/asio/ssl.hpp>
 
 #include "byte_slice.h"
