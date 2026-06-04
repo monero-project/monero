@@ -58,7 +58,7 @@
 #if defined(_MSC_VER)
 #define THREADV __declspec(thread)
 #else
-#define THREADV __thread
+#define THREADV _Thread_local
 #endif
 
 extern void aesb_single_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey);
