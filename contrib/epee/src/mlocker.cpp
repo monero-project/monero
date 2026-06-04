@@ -99,9 +99,9 @@ namespace epee
     static boost::mutex *vmutex = new boost::mutex();
     return *vmutex;
   }
-  std::map<size_t, unsigned int> &mlocker::map()
+  std::unordered_map<size_t, unsigned int> &mlocker::map()
   {
-    static std::map<size_t, unsigned int> *vmap = new std::map<size_t, unsigned int>();
+    static std::unordered_map<size_t, unsigned int> *vmap = new std::unordered_map<size_t, unsigned int>();
     return *vmap;
   }
 
@@ -173,7 +173,7 @@ namespace epee
 
   void mlocker::lock_page(size_t page)
   {
-    std::pair<std::map<size_t, unsigned int>::iterator, bool> p = map().insert(std::make_pair(page, 1));
+    auto p = map().insert(std::make_pair(page, 1));
     if (p.second)
     {
       do_lock((void*)(page * page_size), page_size);
@@ -186,7 +186,7 @@ namespace epee
 
   void mlocker::unlock_page(size_t page)
   {
-    std::map<size_t, unsigned int>::iterator i = map().find(page);
+    auto i = map().find(page);
     if (i == map().end())
     {
       MERROR("Attempt to unlock unlocked page at " << (void*)(page * page_size));
