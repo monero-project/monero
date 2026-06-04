@@ -51,7 +51,7 @@ namespace Language
   class Russian: public Base
   {
   public:
-    Russian(): Base("русский язык", "Russian", {}, 4)
+    Russian(): Base("Русский", "Russian", {}, 4)
     {
       static constexpr const char * const words[NWORDS] =
       {

@@ -85,9 +85,10 @@ jobs:
           restore-keys: ccache-${{ runner.os }}-build-
       - uses: msys2/setup-msys2@v2
         with:
+          msystem: ucrt64
           update: true
           cache: false
-          install: mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound mingw-w64-x86_64-rust git pkg-config
+          pacboy: toolchain:p cmake:p ccache:p boost:p openssl:p zeromq:p libsodium:p hidapi:p protobuf:p libusb:p unbound:p rust:p git:p
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
@@ -136,59 +137,19 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
-  build-debian:
-    # Oldest supported Debian version
-    name: 'Debian 11'
-    runs-on: ubuntu-latest
-    container:
-      image: debian:11
-      env:
-        DEBIAN_FRONTEND: noninteractive
-    steps:
-      - name: set apt conf
-        run: ${{env.APT_SET_CONF}}
-      - name: update apt
-        run: apt update
-      - name: install monero dependencies
-        run: ${{env.APT_INSTALL_LINUX}}
-      - name: install rust
-        run: ${{env.INSTALL_RUST}}
-      - name: configure git
-        run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: restore ccache
-        uses: actions/cache/restore@v5
-        id: ccache-restore
-        with:
-          path: ~/.cache/ccache
-          key: ccache-debian-11-build-${{ github.sha }}
-          restore-keys: ccache-debian-11-build-
-      - uses: ./.github/actions/set-make-job-count
-      - name: build
-        env:
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
-        run: |
-          ${{ env.CCACHE_SETTINGS }}
-          ${{ env.BUILD_DEFAULT }}
-      - name: save ccache
-        uses: actions/cache/save@v5
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-
-  build-ubuntu:
+  build-linux:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Most popular Ubuntu LTS version
-          - name: Ubuntu 24.04
-            container: ubuntu:24.04
+          # Oldest supported Debian version
+          - name: Debian 11
+            container: debian:11
+          # Oldest supported Ubuntu LTS version
+          - name: Ubuntu 22.04
+            container: ubuntu:22.04
     container:
       image: ${{ matrix.container }}
       env:
@@ -234,9 +195,9 @@ jobs:
     strategy:
       matrix:
         include:
-          # Oldest supported Ubuntu LTS version
-          - name: Ubuntu 22.04
-            container: ubuntu:22.04
+          # Most popular Ubuntu LTS version
+          - name: Ubuntu 24.04
+            container: ubuntu:24.04
     container:
       image: ${{ matrix.container }}
       env:
@@ -256,7 +217,7 @@ jobs:
       - name: install pip
         run: apt install -y python3-pip
       - name: install Python dependencies
-        run: pip install requests psutil monotonic zmq deepdiff
+        run: python3 -m pip install --break-system-packages requests psutil monotonic zmq deepdiff
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v5
@@ -272,15 +233,26 @@ jobs:
       - name: create dummy disk drives for testing
         run: tests/create_test_disks.sh >> $GITHUB_ENV
       - uses: ./.github/actions/set-make-job-count
-      - name: tests
+      - name: build
         env:
-          CTEST_OUTPUT_ON_FAILURE: ON
-          DNS_PUBLIC: tcp://9.9.9.9
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
-          cmake --build build --target test
+      - name: run tests except core_tests
+        env:
+          DNS_PUBLIC: tcp://9.9.9.9
+        run: ctest --test-dir build --output-on-failure -E core_tests
+      - name: use reduced slow-hash iterations for core_tests
+        if: github.event_name == 'pull_request'
+        env:
+          CFLAGS: -DMONERO_CRYPTO_SLOW_HASH_ITER=20
+          CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
+        run: |
+          cmake -S . -B build --fresh -D ARCH="default" -D BUILD_TESTS=ON
+          cmake --build build --target core_tests
+      - name: run core_tests
+        run: ctest --test-dir build --output-on-failure -R core_tests
       - name: save ccache
         uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'

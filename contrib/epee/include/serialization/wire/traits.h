@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include <cstdint>
+#include <cstddef>
 #include <type_traits>
 
 #define WIRE_DECLARE_BLOB_NS(type) \

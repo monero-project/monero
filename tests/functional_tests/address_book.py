@@ -231,6 +231,18 @@ class AddressBookTest():
         res = wallet.get_address_book([1])
         assert len(res.entries) == 1
         assert e == res.entries[0]
+        # change integrated address to standard address
+        res = wallet.edit_address_book(2, address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm')
+        res = wallet.get_address_book([2])
+        e = res.entries[0]
+        assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        # change integrated address to another integrated address
+        res = wallet.make_integrated_address()
+        integrated_address_2 = res.integrated_address
+        res = wallet.edit_address_book(2, address = integrated_address_2)
+        res = wallet.get_address_book([2])
+        e = res.entries[0]
+        assert e.address == integrated_address_2
 
         # empty
         wallet.delete_address_book(0)

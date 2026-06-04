@@ -69,13 +69,9 @@ using namespace epee;
 #include "readline_buffer.h"
 
 #ifdef WIN32
-#ifndef STRSAFE_NO_DEPRECATE
-#define STRSAFE_NO_DEPRECATE
-#endif
   #include <windows.h>
   #include <shlobj.h>
-  #include <strsafe.h>
-#else 
+#else
   #include <sys/file.h>
   #include <sys/stat.h>
 #endif

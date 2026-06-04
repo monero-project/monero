@@ -12801,6 +12801,13 @@ uint64_t wallet2::get_approximate_blockchain_height() const
   const time_t now = time(NULL);
   if (now > fork_time)
     approx_blockchain_height += (now - fork_time) / seconds_per_block;
+  else if (approx_blockchain_height > (fork_time - now) / seconds_per_block)
+    approx_blockchain_height -= (fork_time - now) / seconds_per_block;
+  else
+  {
+    LOG_ERROR("Failed to approximate blockchain height from future fork block: " << approx_blockchain_height);
+    return 0;
+  }
   // testnet and stagenet got some huge rollbacks, so the estimation is way off
   const uint64_t approximate_rolled_back_blocks = m_nettype == TESTNET ? 26600 : m_nettype == STAGENET ? 48600 : 33600;
   if (approx_blockchain_height > approximate_rolled_back_blocks)

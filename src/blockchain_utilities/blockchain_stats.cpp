@@ -272,7 +272,7 @@ plot 'stats.csv' index "DATA" using (timecolumn(1,"%Y-%m-%d")):4 with lines, '' 
     char buf[8];
     unsigned int i;
     for (i=0; i<24; i++) {
-      sprintf(buf, "\t%02u:00", i);
+      snprintf(buf, sizeof(buf), "\t%02u:00", i);
       std::cout << buf;
     }
   }
