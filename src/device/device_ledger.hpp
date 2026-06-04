@@ -160,6 +160,12 @@ namespace hw {
         void send_simple(unsigned char ins, unsigned char p1 = 0x00);
         void send_secret(const unsigned char sec[32], int &offset);
         void receive_secret(unsigned char sec[32], int &offset);
+        /**
+         * @brief Request user export view privkey if not requested before, then return whether it has been exported
+         *
+         * Thread-safe. Result in this->viewkey iff this->has_view_key. I/O is performed iff !this->requested_view_key
+         */
+        bool soft_request_view_key();
 
         bool tx_in_progress;
 
@@ -174,6 +180,7 @@ namespace hw {
         // To speed up blockchain parsing the view key maybe handle here.
         crypto::secret_key viewkey = crypto::null_skey;
         bool has_view_key = false;
+        bool requested_view_key = false;
 
         device *controle_device;
 
