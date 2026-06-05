@@ -169,6 +169,7 @@ namespace
 {
   constexpr std::array<std::string_view, 5> allowed_priority_strings = tools::fee_priority_utilities::fee_priority_strings;
   const auto arg_wallet_file = wallet_args::arg_wallet_file();
+  const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", sw::tr("Directory to look for and save wallet files. The path must be absolute and will get ignored if a wallet file is also specified by its absolute path."), ""};
   const command_line::arg_descriptor<std::string> arg_generate_new_wallet = {"generate-new-wallet", sw::tr("Generate new wallet and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_device = {"generate-from-device", sw::tr("Generate new wallet from device and save it to <arg>"), ""};
   const command_line::arg_descriptor<std::string> arg_generate_from_view_key = {"generate-from-view-key", sw::tr("Generate incoming-only wallet from view key"), ""};
@@ -611,6 +612,17 @@ namespace
     }
 
     return true;
+  }
+  static std::string resolve_wallet_path(const std::string &filename, const std::string &wallet_dir)
+  {
+    boost::filesystem::path path(filename);
+    if (path.is_absolute() || wallet_dir.empty()) return filename;
+    if (!boost::filesystem::path(wallet_dir).is_absolute())
+    {
+      fail_msg_writer() << "--wallet-dir " << tr("argument is not an absolute path, ignoring it.");
+      return filename;
+    }
+    return (boost::filesystem::path(wallet_dir) / path).string();
   }
 } // anonymous namespace
 
@@ -3859,7 +3871,7 @@ bool simple_wallet::set_log(const std::vector<std::string> &args)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool simple_wallet::ask_wallet_create_if_needed()
+bool simple_wallet::ask_wallet_create_if_needed(const std::string &wallet_dir)
 {
   LOG_PRINT_L3("simple_wallet::ask_wallet_create_if_needed() started");
   std::string wallet_path;
@@ -3881,6 +3893,9 @@ bool simple_wallet::ask_wallet_create_if_needed()
         LOG_ERROR("Unexpected std::cin.eof() - Exited simple_wallet::ask_wallet_create_if_needed()");
         return false;
       }
+
+      wallet_path = resolve_wallet_path(wallet_path, wallet_dir);
+
       if(!tools::wallet2::wallet_valid_path_format(wallet_path))
       {
         fail_msg_writer() << tr("Wallet name not valid. Please try again or use Ctrl-C to quit.");
@@ -4009,6 +4024,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     m_electrum_seed.wipe();
   });
 
+  const std::string wallet_dir = command_line::get_arg(vm, arg_wallet_dir);
   const bool testnet = tools::wallet2::has_testnet_option(vm);
   const bool stagenet = tools::wallet2::has_stagenet_option(vm);
   if (testnet && stagenet)
@@ -4034,7 +4050,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   }
   else if (m_generate_new.empty() && m_wallet_file.empty() && m_generate_from_device.empty() && m_generate_from_view_key.empty() && m_generate_from_spend_key.empty() && m_generate_from_keys.empty() && m_generate_from_multisig_keys.empty() && m_generate_from_json.empty())
   {
-    if(!ask_wallet_create_if_needed()) return false;
+    if(!ask_wallet_create_if_needed(wallet_dir)) return false;
   }
 
   bool enable_multisig = false;
@@ -4133,7 +4149,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
     if (!m_generate_from_view_key.empty())
     {
-      m_wallet_file = m_generate_from_view_key;
+      m_wallet_file = resolve_wallet_path(m_generate_from_view_key, wallet_dir);
       // parse address
       std::string address_string = input_line("Standard address");
       if (std::cin.eof())
@@ -4169,8 +4185,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
 
-      m_wallet_file=m_generate_from_view_key;
-
       // check the view key matches the given address
       crypto::public_key pkey;
       if (!crypto::secret_key_to_public_key(viewkey, pkey)) {
@@ -4189,7 +4203,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
     else if (!m_generate_from_spend_key.empty())
     {
-      m_wallet_file = m_generate_from_spend_key;
+      m_wallet_file = resolve_wallet_path(m_generate_from_spend_key, wallet_dir);
       // parse spend secret key
       epee::wipeable_string spendkey_string = input_secure_line("Secret spend key");
       if (std::cin.eof())
@@ -4210,7 +4224,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
     else if (!m_generate_from_keys.empty())
     {
-      m_wallet_file = m_generate_from_keys;
+      m_wallet_file = resolve_wallet_path(m_generate_from_keys, wallet_dir);
       // parse address
       std::string address_string = input_line("Standard address");
       if (std::cin.eof())
@@ -4261,8 +4275,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         return false;
       }
 
-      m_wallet_file=m_generate_from_keys;
-
       // check the spend and view keys match the given address
       crypto::public_key pkey;
       if (!crypto::secret_key_to_public_key(spendkey, pkey)) {
@@ -4290,7 +4302,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     // Asks user for all the data required to merge secret keys from multisig wallets into one master wallet, which then gets full control of the multisig wallet. The resulting wallet will be the same as any other regular wallet.
     else if (!m_generate_from_multisig_keys.empty())
     {
-      m_wallet_file = m_generate_from_multisig_keys;
+      m_wallet_file = resolve_wallet_path(m_generate_from_multisig_keys, wallet_dir);
       unsigned int multisig_m;
       unsigned int multisig_n;
       
@@ -4440,7 +4452,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
     }
     else if (!m_generate_from_device.empty())
     {
-      m_wallet_file = m_generate_from_device;
+      m_wallet_file = resolve_wallet_path(m_generate_from_device, wallet_dir);
       // create wallet
       auto r = new_wallet(vm);
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
@@ -4469,7 +4481,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << tr("specify a wallet path with --generate-new-wallet (not --wallet-file)");
         return false;
       }
-      m_wallet_file = m_generate_new;
+      m_wallet_file = resolve_wallet_path(m_generate_new, wallet_dir);
       boost::optional<epee::wipeable_string> r;
       if (m_restore_multisig_wallet)
         r = new_wallet(vm, multisig_keys, seed_pass, old_language);
@@ -4578,6 +4590,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   else
   {
     assert(!m_wallet_file.empty());
+    m_wallet_file = resolve_wallet_path(m_wallet_file, wallet_dir);
     if (!m_subaddress_lookahead.empty())
     {
       fail_msg_writer() << tr("can't specify --subaddress-lookahead and --wallet-file at the same time");
@@ -10423,6 +10436,7 @@ int main(int argc, char* argv[])
   po::options_description desc_params(wallet_args::tr("Wallet options"));
   tools::wallet2::init_options(desc_params);
   command_line::add_arg(desc_params, arg_wallet_file);
+  command_line::add_arg(desc_params, arg_wallet_dir);
   command_line::add_arg(desc_params, arg_generate_new_wallet);
   command_line::add_arg(desc_params, arg_generate_from_device);
   command_line::add_arg(desc_params, arg_generate_from_view_key);
