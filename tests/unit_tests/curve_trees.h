@@ -29,7 +29,80 @@
 #pragma once
 
 #include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
+#include "fcmp_pp/tower_cycle.h"
+
+#include <set>
 
 using Selene       = fcmp_pp::curve_trees::Selene;
 using Helios       = fcmp_pp::curve_trees::Helios;
 using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
+
+//----------------------------------------------------------------------------------------------------------------------
+namespace test
+{
+const std::vector<fcmp_pp::UnifiedOutput> generate_random_outputs(const std::size_t old_n_leaf_tuples,
+    const std::size_t new_n_leaf_tuples);
+
+std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,
+    const std::size_t selene_chunk_width,
+    const std::size_t tree_depth,
+    uint64_t &n_leaves_out);
+}//namespace test
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Helper class to read/write a global tree in memory. It's only used in testing because normally the tree isn't kept
+// in memory (it's stored in the db)
+class CurveTreesGlobalTree
+{
+public:
+    CurveTreesGlobalTree(CurveTreesV1 &curve_trees): m_curve_trees(curve_trees) {};
+
+//member structs
+public:
+    template<typename C>
+    using Layer = std::vector<typename C::Point>;
+
+    // A complete tree, useful for testing (don't want to keep the whole tree in memory during normal operation)
+    struct Tree final
+    {
+        std::vector<fcmp_pp::OutputPair> leaves;
+        std::vector<Layer<Selene>> c1_layers;
+        std::vector<Layer<Helios>> c2_layers;
+    };
+
+//public member functions
+public:
+    // Read the in-memory tree and get the number of leaf tuples
+    std::size_t get_n_leaf_tuples() const;
+
+    // Grow tree by provided new_n_leaf_tuples
+    bool grow_tree(const std::size_t expected_old_n_leaf_tuples,
+        const std::size_t new_n_leaf_tuples,
+        const std::vector<fcmp_pp::UnifiedOutput> &new_outputs,
+        const bool audit_tree = true);
+
+    // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
+    bool audit_tree(const std::size_t expected_n_leaf_tuples) const;
+
+    // get all leaf indices with given output pair
+    std::set<std::size_t> get_leaf_idxs_with_output_pair(const fcmp_pp::OutputPair &output_pair) const;
+
+private:
+    // Use the tree extension to extend the in-memory tree
+    void extend_tree(const CurveTreesV1::TreeExtension &tree_extension);
+
+    // Read the in-memory tree and get the last hashes from each layer in the tree
+    CurveTreesV1::LastHashes get_last_hashes() const;
+
+    // logging helpers
+    void log_last_hashes(const CurveTreesV1::LastHashes &last_hashes);
+    void log_tree_extension(const CurveTreesV1::TreeExtension &tree_extension);
+    void log_tree();
+
+private:
+    CurveTreesV1 &m_curve_trees;
+    Tree m_tree = Tree{};
+};
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

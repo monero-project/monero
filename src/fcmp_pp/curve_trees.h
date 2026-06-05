@@ -149,11 +149,25 @@ public:
 
 //member functions
 public:
+    // Convert an output pair into leaf tuple, from {output pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
+    LeafTuple leaf_tuple(const OutputPair &output_pair) const;
+
+    // Flatten leaves
+    // From: [{O.x,O.y,I.x,I.y,C.x,C.y},{O.x,O.y,I.x,I.y,C.x,C.y},...]
+    // To: [O.x,O.y,I.x,I.y,C.x,C.y,O.x,O.y,I.x,I.y,C.x,C.y...]
+    std::vector<typename C1::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
+
     // Take in the existing number of leaf tuples and the existing last hash in each layer in the tree, as well as new
     // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
     TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
         const LastHashes &existing_last_hashes,
         std::vector<std::vector<UnifiedOutput>> &&new_outputs) const;
+
+    // Calculate the number of elems in each layer of the tree based on the number of leaf tuples
+    std::vector<uint64_t> n_elems_per_layer(const uint64_t n_leaf_tuples) const;
+
+    // Calculate how many layers in the tree there are based on the number of leaf tuples
+    std::size_t n_layers(const uint64_t n_leaf_tuples) const;
 
 private:
     // Multithreaded helper function to convert valid outputs to leaf tuples ready for insertion to the tree & db
