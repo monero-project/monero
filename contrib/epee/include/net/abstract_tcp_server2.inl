@@ -1140,7 +1140,9 @@ namespace net_utils
   bool connection<T>::close(const bool wait_for_shutdown)
   {
     std::lock_guard<std::mutex> guard(m_state.lock);
-    if (m_state.status != status_t::RUNNING)
+    if (m_state.status == status_t::TERMINATED || m_state.status == status_t::WASTED)
+      return true;
+    if (!wait_for_shutdown && m_state.status != status_t::RUNNING)
       return false;
     terminate_async();
 
