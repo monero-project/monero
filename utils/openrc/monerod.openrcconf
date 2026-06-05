@@ -1,0 +1,7 @@
+MONEROD_USER="monero"
+MONEROD_GROUP="monero"
+
+MONEROD_DATA_DIR="/var/lib/monero"
+MONEROD_CONFIG="/etc/monerod.conf"
+
+MONEROD_OPTS="--data-dir ${MONEROD_DATA_DIR}"

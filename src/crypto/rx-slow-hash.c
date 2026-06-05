@@ -63,7 +63,7 @@ static int secondary_seedhash_set = 0;
 #if defined(_MSC_VER)
 #define THREADV __declspec(thread)
 #else
-#define THREADV __thread
+#define THREADV _Thread_local
 #endif
 
 static THREADV randomx_vm *main_vm_full = NULL;

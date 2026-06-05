@@ -1,0 +1,34 @@
+#!/sbin/openrc-run
+
+name="Monero Daemon"
+description="Monero cryptocurrency node"
+
+command="/usr/bin/monerod"
+
+command_args="--non-interactive ${MONEROD_OPTS}"
+if [ -n "${MONEROD_CONFIG}" ] && [ -f "${MONEROD_CONFIG}" ]; then
+    command_args="${command_args} --config-file ${MONEROD_CONFIG}"
+fi
+
+command_user="${MONEROD_USER}:${MONEROD_GROUP}"
+
+supervisor="supervise-daemon"
+
+respawn_delay=10
+respawn_max=0
+
+depend() {
+    after net
+}
+
+start_pre() {
+    checkpath \
+        --directory \
+        --owner "${MONEROD_USER}:${MONEROD_GROUP}" \
+        --mode 0750 \
+        "${MONEROD_DATA_DIR}"
+
+    if [ -n "${MONEROD_CONFIG}" ] && [ ! -f "${MONEROD_CONFIG}" ]; then
+        ewarn "Config file not found: ${MONEROD_CONFIG}"
+    fi
+}

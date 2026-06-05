@@ -92,9 +92,9 @@ el::Level performance_timer_log_level = el::Level::Info;
 
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
   #warning "Building with fuzzing mode UNSAFE FOR PRODUCTION!"
-  __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
+  thread_local std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
 #else
-  static __thread std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
+  static thread_local std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
 #endif
 
 void set_performance_timer_log_level(el::Level level)

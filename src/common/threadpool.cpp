@@ -31,8 +31,8 @@
 #include "cryptonote_config.h"
 #include "common/util.h"
 
-static __thread int depth = 0;
-static __thread bool is_leaf = false;
+static thread_local int depth = 0;
+static thread_local bool is_leaf = false;
 
 namespace tools
 {

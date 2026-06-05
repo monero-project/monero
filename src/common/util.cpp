@@ -33,10 +33,6 @@
 #include <wchar.h>
 
 #ifdef __GLIBC__
-#include <gnu/libc-version.h>
-#endif
-
-#ifdef __GLIBC__
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
@@ -542,12 +538,6 @@ namespace tools
     setup_crash_dump();
 
     sanitize_locale();
-
-#ifdef __GLIBC__
-    const char *ver = gnu_get_libc_version();
-    if (!strcmp(ver, "2.25"))
-      MCLOG_RED(el::Level::Warning, "global", "Running with glibc " << ver << ", hangs may occur - change glibc version if possible");
-#endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000 || defined(LIBRESSL_VERSION_TEXT)
     SSL_library_init();
