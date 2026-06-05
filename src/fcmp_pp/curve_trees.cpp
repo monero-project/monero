@@ -595,8 +595,68 @@ static PreLeafTuple output_to_pre_leaf_tuple(const OutputPair &output_pair)
     return output_tuple_to_pre_leaf_tuple(o);
 }
 //----------------------------------------------------------------------------------------------------------------------
+static CurveTrees<Selene, Helios>::LeafTuple pre_leaf_tuple_to_leaf_tuple(const PreLeafTuple &plt)
+{
+    crypto::ec_coord O_x, O_y, I_x, I_y, C_x, C_y;
+    if (!fcmp_pp::ed_derivatives_to_wei_x_y(plt.O_derivatives, O_x, O_y))
+        throw std::runtime_error("failed to get wei x y from O derivatives");
+    if (!fcmp_pp::ed_derivatives_to_wei_x_y(plt.I_derivatives, I_x, I_y))
+        throw std::runtime_error("failed to get wei x y from I derivatives");
+    if (!fcmp_pp::ed_derivatives_to_wei_x_y(plt.C_derivatives, C_x, C_y))
+        throw std::runtime_error("failed to get wei x y from C derivatives");
+
+    return CurveTrees<Selene, Helios>::LeafTuple{
+        .O_x = tower_cycle::selene_scalar_from_bytes(O_x),
+        .O_y = tower_cycle::selene_scalar_from_bytes(O_y),
+
+        .I_x = tower_cycle::selene_scalar_from_bytes(I_x),
+        .I_y = tower_cycle::selene_scalar_from_bytes(I_y),
+
+        .C_x = tower_cycle::selene_scalar_from_bytes(C_x),
+        .C_y = tower_cycle::selene_scalar_from_bytes(C_y)
+    };
+}
+//----------------------------------------------------------------------------------------------------------------------
+static CurveTrees<Selene, Helios>::LeafTuple output_tuple_to_leaf_tuple(const OutputTuple &output_tuple)
+{
+    const auto plt = output_tuple_to_pre_leaf_tuple(output_tuple);
+    return pre_leaf_tuple_to_leaf_tuple(plt);
+}
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // CurveTrees public member functions
+//----------------------------------------------------------------------------------------------------------------------
+template<>
+CurveTrees<Selene, Helios>::LeafTuple CurveTrees<Selene, Helios>::leaf_tuple(const OutputPair &output_pair) const
+{
+    const auto plt = output_to_pre_leaf_tuple(output_pair);
+    return pre_leaf_tuple_to_leaf_tuple(plt);
+};
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+std::vector<typename C1::Scalar> CurveTrees<C1, C2>::flatten_leaves(std::vector<LeafTuple> &&leaves) const
+{
+    std::vector<typename C1::Scalar> flattened_leaves;
+    flattened_leaves.reserve(leaves.size() * LEAF_TUPLE_SIZE);
+
+    for (auto &l : leaves)
+    {
+        flattened_leaves.emplace_back(std::move(l.O_x));
+        flattened_leaves.emplace_back(std::move(l.O_y));
+
+        flattened_leaves.emplace_back(std::move(l.I_x));
+        flattened_leaves.emplace_back(std::move(l.I_y));
+
+        flattened_leaves.emplace_back(std::move(l.C_x));
+        flattened_leaves.emplace_back(std::move(l.C_y));
+    }
+
+    return flattened_leaves;
+};
+
+// Explicit instantiation
+template std::vector<Selene::Scalar> CurveTrees<Selene, Helios>::flatten_leaves(
+    std::vector<LeafTuple> &&leaves) const;
 //----------------------------------------------------------------------------------------------------------------------
 template<typename C1, typename C2>
 typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extension(
@@ -971,6 +1031,40 @@ GrowLayerInstructions CurveTrees<C1, C2>::set_next_layer_extension(
 
     return grow_layer_instructions;
 };
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+std::vector<uint64_t> CurveTrees<C1, C2>::n_elems_per_layer(const uint64_t n_leaf_tuples) const
+{
+    std::vector<uint64_t> n_elems_per_layer;
+    if (n_leaf_tuples == 0)
+        return n_elems_per_layer;
+
+    uint64_t n_children = n_leaf_tuples;
+    bool parent_is_c1 = true;
+    do
+    {
+        const std::size_t parent_chunk_width = parent_is_c1 ? m_c1_width : m_c2_width;
+        const uint64_t n_parents = ((n_children - 1) / parent_chunk_width) + 1;
+        n_elems_per_layer.push_back(n_parents);
+        n_children = n_parents;
+        parent_is_c1 = !parent_is_c1;
+    }
+    while (n_children > 1);
+
+    return n_elems_per_layer;
+}
+
+// Explicit instantiation
+template std::vector<uint64_t> CurveTrees<Selene, Helios>::n_elems_per_layer(const uint64_t n_leaf_tuples) const;
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+std::size_t CurveTrees<C1, C2>::n_layers(const uint64_t n_leaf_tuples) const
+{
+    return this->n_elems_per_layer(n_leaf_tuples).size();
+}
+
+// Explicit instantiation
+template std::size_t CurveTrees<Selene, Helios>::n_layers(const uint64_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
 } //namespace fcmp_pp
