@@ -1107,28 +1107,44 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    if (m_stop_signal_sent_once.exchange(true))
+    {
+      MDEBUG("[node] Stop signal already sent");
+      return true;
+    }
     MDEBUG("[node] stopping server payload handler");
     m_payload_handler.stop();
-    MDEBUG("[node] sending stop signal");
+
+    MDEBUG("[node] marking net servers as stopping");
     for (auto& zone : m_network_zones)
     {
-      const auto close_all_connections = [&, this]()
-      {
-        std::list<boost::uuids::uuid> connection_ids;
-        zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
-          connection_ids.push_back(cntxt.m_connection_id);
-          return true;
-        });
-        for (const auto &connection_id: connection_ids)
-        {
-          MDEBUG("Closing connection " << connection_id);
-          // We need to wait for every connection's shutdown sequence to complete before stopping the io_context.
-          zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
-          MDEBUG("Closed connection " << connection_id);
-        }
-      };
+      zone.second.m_net_server.mark_stop_signal_sent();
+    }
 
-      zone.second.m_net_server.send_stop_signal(close_all_connections);
+    MDEBUG("[node] closing connections");
+    for (auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.close_server_connections();
+
+      std::list<boost::uuids::uuid> connection_ids;
+      zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+      {
+        connection_ids.push_back(cntxt.m_connection_id);
+        return true;
+      });
+      for (const auto &connection_id: connection_ids)
+      {
+        MDEBUG("Closing connection " << connection_id);
+        // All zone connections must finish shutting down before any shared io_context is stopped.
+        zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
+        MDEBUG("Closed connection " << connection_id);
+      }
+    }
+
+    MDEBUG("[node] stopping net server io_contexts");
+    for (auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.stop_io_context();
     }
     MDEBUG("[node] Stop signal sent");
     return true;
