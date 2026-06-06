@@ -19,6 +19,7 @@ Issue Date: 20/12/2007
 */
 
 #include <stdint.h>
+#include <string.h>
 #include "int-util.h"
 
 #if defined(__cplusplus)
@@ -41,12 +42,28 @@ extern "C"
 #endif
 
 #define rf1(r,c) (r)
-#define word_in(x,c) (*((uint32_t*)(x)+(c)))
-#define word_out(x,c,v) (*((uint32_t*)(x)+(c)) = (v))
+
+#if defined(__GNUC__)
+typedef uint32_t aesb_key_word __attribute__((__may_alias__));
+#else
+typedef uint32_t aesb_key_word;
+#endif
+
+static inline uint32_t block_word_in(const void *x, size_t c)
+{
+  uint32_t v;
+  memcpy(&v, (const uint8_t *)x + c * sizeof(v), sizeof(v));
+  return v;
+}
+
+static inline void block_word_out(void *x, size_t c, uint32_t v)
+{
+  memcpy((uint8_t *)x + c * sizeof(v), &v, sizeof(v));
+}
 
 #define s(x,c) x[c]
-#define si(y,x,c) (s(y,c) = word_in(x, c))
-#define so(y,x,c) word_out(y, c, s(x,c))
+#define si(y,x,c) (s(y,c) = block_word_in(x, c))
+#define so(y,x,c) block_word_out(y, c, s(x,c))
 #define state_in(y,x) si(y,x,0); si(y,x,1); si(y,x,2); si(y,x,3)
 #define state_out(y,x)  so(y,x,0); so(y,x,1); so(y,x,2); so(y,x,3)
 #define round(rm,y,x,k) rm(y,x,k,0); rm(y,x,k,1); rm(y,x,k,2); rm(y,x,k,3)
@@ -149,10 +166,10 @@ d_4(uint32_t, t_dec(f,n), sb_data, u0, u1, u2, u3);
 #define INLINE
 #endif
 
-STATIC INLINE void aesb_single_round(const uint8_t *in, uint8_t *out, uint8_t *expandedKey)
+STATIC INLINE void aesb_single_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey)
 {
   uint32_t b0[4], b1[4];
-  const uint32_t  *kp = (uint32_t *) expandedKey;
+  const aesb_key_word *kp = (const aesb_key_word *) expandedKey;
   state_in(b0, in);
 
   round(fwd_rnd,  b1, b0, kp);
@@ -160,10 +177,10 @@ STATIC INLINE void aesb_single_round(const uint8_t *in, uint8_t *out, uint8_t *e
   state_out(out, b1);
 }
 
-STATIC INLINE void aesb_pseudo_round(const uint8_t *in, uint8_t *out, uint8_t *expandedKey)
+STATIC INLINE void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey)
 {
   uint32_t b0[4], b1[4];
-  const uint32_t  *kp = (uint32_t *) expandedKey;
+  const aesb_key_word *kp = (const aesb_key_word *) expandedKey;
   state_in(b0, in);
 
   round(fwd_rnd,  b1, b0, kp);
