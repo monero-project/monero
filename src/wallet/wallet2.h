@@ -116,7 +116,7 @@ private:
     bool should_relock;
     crypto::chacha_key key;
     static boost::mutex lockers_lock;
-    static std::map<wallet2*, std::size_t> lockers_per_wallet;
+    static std::unordered_map<wallet2*, std::size_t> lockers_per_wallet;
   };
 
   class i_wallet2_callback

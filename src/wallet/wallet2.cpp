@@ -1106,7 +1106,7 @@ uint64_t gamma_picker::pick()
 };
 
 boost::mutex wallet_keys_unlocker::lockers_lock;
-std::map<wallet2*, std::size_t> wallet_keys_unlocker::lockers_per_wallet = {};
+std::unordered_map<wallet2*, std::size_t> wallet_keys_unlocker::lockers_per_wallet = {};
 wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const epee::wipeable_string *password):
   w(w),
   should_relock(true)
