@@ -1121,9 +1121,9 @@ namespace net_utils
   }
 
   template<typename T>
-  bool connection<T>::cancel()
+  bool connection<T>::cancel(const bool wait_for_shutdown)
   {
-    return close(false);
+    return close(wait_for_shutdown);
   }
 
   template<typename T>
@@ -1290,7 +1290,7 @@ namespace net_utils
   template<class t_protocol_handler>
   boosted_tcp_server<t_protocol_handler>::~boosted_tcp_server()
   {
-    this->send_stop_signal();
+    send_stop_signal();
     timed_wait_server_stop(10000);
   }
   //---------------------------------------------------------------------------------
@@ -1581,26 +1581,55 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  void boosted_tcp_server<t_protocol_handler>::send_stop_signal(std::function<void()> close_all_connections)
+  bool boosted_tcp_server<t_protocol_handler>::mark_stop_signal_sent()
   {
-    m_stop_signal_sent = true;
+    if (m_stop_signal_sent.exchange(true))
+    {
+      MDEBUG("Stop signal already sent");
+      return false;
+    }
     typename connection<t_protocol_handler>::shared_state *state = static_cast<typename connection<t_protocol_handler>::shared_state*>(m_state.get());
     state->stop_signal_sent = true;
-    TRY_ENTRY();
-    connections_mutex.lock();
-    for (auto &c: connections_)
+    return true;
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::close_server_connections()
+  {
+    decltype(connections_) connections;
     {
-      c->cancel();
+      boost::unique_lock<boost::mutex> lock(connections_mutex);
+      connections.swap(connections_);
     }
-    connections_.clear();
-    connections_mutex.unlock();
 
-    // Since we shut down connections in the strand, we want to make sure to complete the shutdown sequence before
-    // stopping the io_context. We let the caller handle closing because the caller is the one keeping track of all
-    // connections (connections_ is only a subset of all connections).
-    close_all_connections();
+    for (auto &c: connections)
+    {
+      c->cancel(true/*wait_for_shutdown*/);
+    }
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::stop_io_context()
+  {
+    {
+      boost::unique_lock<boost::mutex> lock(connections_mutex);
+      if (!connections_.empty())
+      {
+        MERROR("Stopping io_context with " << connections_.size() << " server-owned connections still open");
+      }
+    }
+    MDEBUG("Stopping io_context");
     io_context_.stop();
-    MDEBUG("Done with send_stop_signal");
+  }
+  //---------------------------------------------------------------------------------
+  template<class t_protocol_handler>
+  void boosted_tcp_server<t_protocol_handler>::send_stop_signal()
+  {
+    TRY_ENTRY();
+    if (!mark_stop_signal_sent())
+      return;
+    close_server_connections();
+    stop_io_context();
     CATCH_ENTRY_L0("boosted_tcp_server<t_protocol_handler>::send_stop_signal()", void());
   }
   //---------------------------------------------------------------------------------
