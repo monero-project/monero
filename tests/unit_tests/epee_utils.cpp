@@ -1856,6 +1856,16 @@ TEST(parsing, unicode)
   si = s.begin();
   EXPECT_THROW(epee::misc_utils::parse::match_string2(si, s.end(), bs), std::runtime_error);
 
+  // truncated \u escape with buf_end right after the hex digits must throw,
+  // not read past buf_end (the closing quote is absent here on purpose)
+  s = "\"\\u123";
+  si = s.begin();
+  EXPECT_THROW(epee::misc_utils::parse::match_string2(si, s.end(), bs), std::runtime_error);
+
+  s = "\"\\u";
+  si = s.begin();
+  EXPECT_THROW(epee::misc_utils::parse::match_string2(si, s.end(), bs), std::runtime_error);
+
   s = "\"\\u1234\"";
   si = s.begin();
   epee::misc_utils::parse::match_string2(si, s.end(), bs);

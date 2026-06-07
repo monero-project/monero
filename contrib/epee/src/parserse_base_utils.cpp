@@ -129,7 +129,7 @@ namespace misc_utils
             case '/':  //Slash character
               val.push_back('/');break;
             case 'u':  //Unicode code point
-              if (buf_end - it < 4)
+              if (buf_end - it < 5)
               {
                 ASSERT_MES_AND_THROW("Invalid Unicode escape sequence");
               }
