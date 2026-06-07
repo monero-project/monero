@@ -4939,11 +4939,11 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
   try { rc = tools::wallet2::make_new(vm, false, password_prompter); }
   catch(const std::exception &e) { fail_msg_writer() << tr("Error creating wallet: ") << e.what(); return {}; }
   m_wallet = std::move(rc.first);
-  m_wallet->callback(this);
   if (!m_wallet)
   {
     return {};
   }
+  m_wallet->callback(this);
   epee::wipeable_string password = rc.second.password();
 
   if (!m_subaddress_lookahead.empty())
