@@ -36,8 +36,6 @@
 #include <vector>
 #include <atomic>
 
-#include <boost/asio.hpp>
-
 #include <memory>
 
 #include "syncobj.h"
