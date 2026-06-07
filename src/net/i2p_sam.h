@@ -51,16 +51,16 @@ namespace sam
      */
     enum class error : int
     {
-        cant_reach_peer,    ///< Peer exists, but cannot be reached
-        i2p_error,          ///< A generic I2P error
-        invalid_key,        ///< Specified key is not valid
-        invalid_id,         ///< Invalid stream ID
-        timeout,            ///< Timeout while waiting for an event
-        duplicated_dest,    ///< Specified destination is already in use
-        key_not_found,      ///< Naming system couldn't resolve the given name
-        peer_not_found,     ///< Peer couldn't be found on the network
-        leaseset_not_found, ///< Leaseset couldn't be found
-        noversion,          ///< I2P router does not support SAM version
+        cant_reach_peer = 1, ///< Peer exists, but cannot be reached
+        i2p_error,           ///< A generic I2P error
+        invalid_key,         ///< Specified key is not valid
+        invalid_id,          ///< Invalid stream ID
+        timeout,             ///< Timeout while waiting for an event
+        duplicated_dest,     ///< Specified destination is already in use
+        key_not_found,       ///< Naming system couldn't resolve the given name
+        peer_not_found,      ///< Peer couldn't be found on the network
+        leaseset_not_found,  ///< Leaseset couldn't be found
+        noversion,           ///< I2P router does not support SAM version
 
         parse_failed        ///< Not a standard SAM error code; used for parsing
     };
@@ -106,6 +106,8 @@ namespace sam
         net::i2p_address remote_peer_;
 
         bool stream_established_{false};
+
+        bool stream_accept_listening_{false};
 
         //! Current state of the connection process.
         state state_;
@@ -172,6 +174,8 @@ namespace sam
 
     private:
         virtual void next_state(boost::system::error_code ec);
+
+        void async_read_line();
 
         //! Parse response from router to get error code
         boost::system::error_code parse_result(const std::string& line);

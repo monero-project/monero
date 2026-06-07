@@ -165,10 +165,8 @@ namespace sam
 
     static constexpr std::size_t MAX_LINE_LEN = 4096;
 
-    void client::handle_write(boost::system::error_code ec)
+    void client::async_read_line()
     {
-        if (ec) return done(ec);
-
         auto self = shared_from_this();
 
         boost::asio::async_read_until(socket_, boost::asio::dynamic_buffer(line_, MAX_LINE_LEN), '\n',
@@ -177,6 +175,12 @@ namespace sam
                 {
                     self->handle_read(ec, bytes);
                 }));
+    }
+
+    void client::handle_write(boost::system::error_code ec)
+    {
+        if (ec) return done(ec);
+        async_read_line();
     }
 
     void client::handle_read(boost::system::error_code ec, std::size_t bytes)
@@ -190,6 +194,12 @@ namespace sam
 
         auto result = parse_result(line);
         if (result) return done(result);
+
+        if (state_ == state::stream_accept && stream_accept_listening_)
+        {
+            async_read_line();
+            return;
+        }
 
         if (state_ == state::session_create)
         {
@@ -374,6 +384,18 @@ namespace sam
                 boost::asio::bind_executor(strand_, send_hello_version{self}));
             return;
 
+        case state::stream_accept:
+            done({});
+
+            socket_ = boost::asio::ip::tcp::socket{session_socket_.get_executor()};
+            line_.clear();
+            stream_established_ = false;
+            stream_accept_listening_ = false;
+            state_ = state::hello_version;
+            socket_.async_connect(router_endpoint_,
+                boost::asio::bind_executor(strand_, send_hello_version{self}));
+            return;
+
         default:
             MINFO("Done with SAM loop");
             done({});
@@ -468,20 +490,29 @@ namespace sam
         }
 
         case state::stream_connect:
-        case state::stream_accept:
         {
             auto ec = parse_result_code(line);
             if (ec) return ec;
 
-            if (line.find("RESULT=OK") == std::string::npos)
-                return make_error_code(error::cant_reach_peer);
+            stream_established_ = true;
+            MDEBUG("SAM stream established to " << remote_peer_.str());
+            return {};
+        }
 
-            if (!ec)
+        case state::stream_accept:
+        {
+            if (stream_accept_listening_)
             {
+                stream_accept_listening_ = false;
                 stream_established_ = true;
-                MDEBUG("SAM stream established to " << remote_peer_.str());
+                MDEBUG("SAM stream accepted from incoming peer");
+                return {};
             }
 
+            auto ec = parse_result_code(line);
+            if (ec) return ec;
+
+            stream_accept_listening_ = true;
             return {};
         }
 
