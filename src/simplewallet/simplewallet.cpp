@@ -1487,7 +1487,7 @@ bool simple_wallet::sign_multisig_main(const std::vector<std::string> &args, boo
   }
   if (!ms_status.multisig_is_active)
   {
-    fail_msg_writer() << tr("This is not a multisig wallet");
+    fail_msg_writer() << tr("This wallet is not multisig");
     return false;
   }
   if (!ms_status.is_ready)
