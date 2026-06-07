@@ -96,7 +96,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ### Licensing and ownership
 
-- The project MUST use a share-alike license, such as BSD-3, the GPLv3 or a variant thereof (LGPL, AGPL), or the MPLv2.
+- The project MUST use a permissive or share-alike license, such as BSD-3, the GPLv3 or a variant thereof (LGPL, AGPL), or the MPLv2.
 - All contributions to the project source code ("patches") MUST use the same license as the project.
 - All patches are owned by their authors. There MUST NOT be any copyright assignment process.
 
