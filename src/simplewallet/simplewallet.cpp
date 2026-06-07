@@ -4440,6 +4440,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         auto rc = tools::wallet2::make_from_json(vm, false, m_generate_from_json, password_prompter);
         m_wallet = std::move(rc.first);
         password = rc.second.password();
+        if (!m_wallet) return false;
         m_wallet_file = m_wallet->path();
       }
       catch (const std::exception &e)
@@ -4447,8 +4448,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << e.what();
         return false;
       }
-      if (!m_wallet)
-        return false;
     }
     else if (!m_generate_from_device.empty())
     {
@@ -5349,6 +5348,12 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
+
   if (!m_wallet->is_trusted_daemon())
   {
     fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
@@ -5358,11 +5363,6 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  if (!m_wallet)
-  {
-    fail_msg_writer() << tr("wallet is null");
-    return true;
-  }
   COMMAND_RPC_START_MINING::request req = AUTO_VAL_INIT(req); 
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
 
