@@ -4322,7 +4322,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       if (multisig_m <= 1 || multisig_m > multisig_n)
       {
-        fail_msg_writer() << tr("Error: expected N > 1 and N <= M, but got: ") << multisig_type_string;
+        fail_msg_writer() << tr("Error: expected M > 1 and M <= N, but got: ") << multisig_type_string;
         return false;
       }
       if (multisig_m != multisig_n)
