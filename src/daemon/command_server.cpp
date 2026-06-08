@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -299,8 +299,8 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "pop_blocks"
     , std::bind(&t_command_parser_executor::pop_blocks, &m_parser, p::_1)
-    , "pop_blocks <nblocks>"
-    , "Remove blocks from end of blockchain"
+    , "pop_blocks <nblocks> [keep-txs|no-keep-txs]"
+    , "Remove blocks from end of blockchain, optionally moving popped txs into the mempool (not default)"
     );
     m_command_lookup.set_handler(
       "version"

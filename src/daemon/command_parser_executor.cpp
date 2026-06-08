@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -931,9 +931,14 @@ bool t_command_parser_executor::sync_info(const std::vector<std::string>& args)
 
 bool t_command_parser_executor::pop_blocks(const std::vector<std::string>& args)
 {
-  if (args.size() != 1)
+  if (args.size() < 1)
   {
-    std::cout << "Invalid syntax: One parameter expected. For more details, use the help command." << std::endl;
+    std::cout << "Invalid syntax: At least one parameter expected. For more details, use the help command." << std::endl;
+    return true;
+  }
+  else if (args.size() > 2)
+  {
+    std::cout << "Invalid syntax: A maximum of two parameters expected. For more details, use the help command." << std::endl;
     return true;
   }
 
@@ -945,7 +950,22 @@ bool t_command_parser_executor::pop_blocks(const std::vector<std::string>& args)
       std::cout << "Invalid syntax: Number of blocks must be greater than 0. For more details, use the help command." << std::endl;
       return true;
     }
-    return m_executor.pop_blocks(nblocks);
+    bool keep_txs = false;
+    if (args.size() > 1)
+    {
+      const std::string keep_arg = args.at(1);
+      if (keep_arg == "keep-txs")
+        keep_txs = true;
+      else if (keep_arg == "no-keep-txs")
+        keep_txs = false;
+      else
+      {
+        std::cout << "Invalid syntax: Unrecognized argument: '" << keep_arg
+          << "'. For more details, use the help command." << std::endl;
+        return true;
+      }
+    }
+    return m_executor.pop_blocks(nblocks, keep_txs);
   }
   catch (const boost::bad_lexical_cast&)
   {

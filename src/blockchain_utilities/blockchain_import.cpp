@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -100,11 +100,10 @@ int pop_blocks(cryptonote::core& core, int num_blocks)
 
   int quit = 0;
   block popped_block;
-  std::vector<transaction> popped_txs;
   for (int i=0; i < num_blocks; ++i)
   {
     // simple_core.m_storage.pop_block_from_blockchain() is private, so call directly through db
-    core.get_blockchain_storage().get_db().pop_block(popped_block, popped_txs);
+    core.get_blockchain_storage().get_db().pop_block(popped_block, /*txs=*/nullptr);
     quit = 1;
   }
 
