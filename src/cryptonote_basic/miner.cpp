@@ -580,7 +580,8 @@ namespace cryptonote
 
       if ((b.major_version >= RX_BLOCK_VERSION) && !rx_set)
       {
-        crypto::rx_set_miner_thread(th_local_index, tools::get_max_concurrency());
+        // Must be non-zero value because 0 means "not a miner thread, run with secure JIT" in rx-slow-hash.c
+        crypto::rx_set_miner_thread(th_local_index + 1, tools::get_max_concurrency());
         rx_set = true;
       }
 
