@@ -371,6 +371,30 @@ TEST(Crypto, batch_inversion)
   }
 }
 
+TEST(Crypto, batch_inversion_touching)
+{
+  // vals[0] and vals[1] are input, vals[2] and vals[3] are output
+  fe vals[4];
+
+  // Init input elems
+  for (std::size_t i = 0; i < 2; ++i)
+  {
+    unsigned char s[32];
+    crypto::random32_unbiased(s);
+    ASSERT_EQ(0, fe_frombytes_vartime(vals[i], s));
+  }
+
+  fe_batch_invert(vals + 2, vals, 2);
+
+  // Do batch inversions and compare to individual inversions
+  for (std::size_t i = 0; i < 2; ++i)
+  {
+    fe inv_simple;
+    fe_invert(inv_simple, vals[i]);
+    ASSERT_EQ(1, fe_equals(inv_simple, vals[2 + i]));
+  }
+}
+
 TEST(Crypto, fe_equals)
 {
   // Test equality
