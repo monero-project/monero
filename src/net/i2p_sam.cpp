@@ -64,9 +64,9 @@ namespace sam
                 switch (sam::error(value))
                 {
                 case sam::error::cant_reach_peer:
-                    return "Peer exists, but cannot be reached";
+                    return "Peer exists, but cannot be reached, or has an outdated router";
                 case sam::error::i2p_error:
-                    return "Generic I2P error";
+                    return "Encountered a generic I2P error";
                 case sam::error::invalid_key:
                     return "Specified key is not valid";
                 case sam::error::invalid_id:
@@ -124,6 +124,10 @@ namespace sam
         };
     } // namespace
 
+    static constexpr std::size_t MAX_LINE_LEN = 4096;
+    static constexpr std::size_t MAX_NAMING_LOOKUP_ATTEMPTS = 5;
+    static constexpr std::size_t NAMING_LOOKUP_RETRY_INTERVAL = 10;
+
     const boost::system::error_category& error_category() noexcept
     {
         static const sam_category instance{};
@@ -163,8 +167,6 @@ namespace sam
                 }));
     }
 
-    static constexpr std::size_t MAX_LINE_LEN = 4096;
-
     void client::async_read_line()
     {
         auto self = shared_from_this();
@@ -193,7 +195,30 @@ namespace sam
         strip_newlines(line);
 
         auto result = parse_result(line);
-        if (result) return done(result);
+        if (result)
+        {
+            if (state_ == state::naming_lookup && (result == error::key_not_found || result == error::leaseset_not_found) &&
+                naming_lookup_attempts_ < MAX_NAMING_LOOKUP_ATTEMPTS)
+            {
+                naming_lookup_attempts_ += 1;
+                line_.clear();
+
+                auto self = shared_from_this();
+                auto timer = std::make_shared<boost::asio::steady_timer>(socket_.get_executor());
+                timer->expires_after(std::chrono::seconds(NAMING_LOOKUP_RETRY_INTERVAL));
+                timer->async_wait(boost::asio::bind_executor(strand_,
+                    [self, timer](boost::system::error_code ec)
+                    {
+                        if (ec) return self->done(ec);
+                        self->set_write_buffer("NAMING LOOKUP NAME=" + self->naming_lookup_ + '\n');
+                        self->async_write_command();
+                    }));
+
+                return;
+            }
+
+            return done(result);
+        }
 
         if (state_ == state::stream_accept && stream_accept_listening_)
         {
@@ -206,7 +231,7 @@ namespace sam
             auto self = shared_from_this();
 
             auto timer = std::make_shared<boost::asio::steady_timer>(socket_.get_executor());
-            timer->expires_after(std::chrono::milliseconds(250));
+            timer->expires_after(std::chrono::milliseconds(500));
             timer->async_wait(boost::asio::bind_executor(strand_,
                 [self, timer](boost::system::error_code ec)
                 {

@@ -106,8 +106,8 @@ namespace sam
         net::i2p_address remote_peer_;
 
         bool stream_established_{false};
-
         bool stream_accept_listening_{false};
+        std::size_t naming_lookup_attempts_{0};
 
         //! Current state of the connection process.
         state state_;
