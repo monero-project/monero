@@ -877,6 +877,13 @@ TEST(get_network_address, ipv4subnet)
 
     address = net::get_ipv4_subnet_address("12.34.56.78/16");
     EXPECT_STREQ("12.34.0.0/16", address->str().c_str());
+
+    address = net::get_ipv4_subnet_address("172.16.1.2/12");
+    EXPECT_STREQ("172.16.0.0/12", address->str().c_str());
+    EXPECT_TRUE(address->matches(epee::net_utils::ipv4_network_address{MAKE_IP(172,16,0,0), 0}));
+    EXPECT_TRUE(address->matches(epee::net_utils::ipv4_network_address{MAKE_IP(172,31,255,255), 0}));
+    EXPECT_FALSE(address->matches(epee::net_utils::ipv4_network_address{MAKE_IP(172,15,255,255), 0}));
+    EXPECT_FALSE(address->matches(epee::net_utils::ipv4_network_address{MAKE_IP(172,32,0,0), 0}));
 }
 
 namespace
