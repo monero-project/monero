@@ -207,6 +207,11 @@ int main(int argc, char const * argv[])
 
     std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
     boost::filesystem::path config_path(config);
+    if (command_line::is_arg_defaulted(vm, daemon_args::arg_config_file))
+    {
+      config_path = boost::filesystem::absolute(
+          command_line::get_arg(vm, cryptonote::arg_data_dir)) / std::string(CRYPTONOTE_NAME ".conf");
+    }
     boost::system::error_code ec;
     if (bf::exists(config_path, ec))
     {
