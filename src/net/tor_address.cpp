@@ -149,12 +149,16 @@ namespace net
     bool tor_address::_load(epee::serialization::portable_storage& src, epee::serialization::section* hparent)
     {
         tor_serialized in{};
-        if (in._load(src, hparent) && in.host.size() < sizeof(host_) && (in.host == unknown_host || !host_check(in.host).has_error()))
+        if (in._load(src, hparent) && in.host.size() < sizeof(host_))
         {
-            std::memcpy(host_, in.host.data(), in.host.size());
-            std::memset(host_ + in.host.size(), 0, sizeof(host_) - in.host.size());
-            port_ = in.port;
-            return true;
+            net::canonicalize_host(in.host);
+            if (in.host == unknown_host || !host_check(in.host).has_error())
+            {
+                std::memcpy(host_, in.host.data(), in.host.size());
+                std::memset(host_ + in.host.size(), 0, sizeof(host_) - in.host.size());
+                port_ = in.port;
+                return true;
+            }
         }
         static_assert(sizeof(unknown_host) <= sizeof(host_), "bad buffer size");
         std::memcpy(host_, unknown_host, sizeof(unknown_host)); // include null terminator
