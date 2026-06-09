@@ -51,7 +51,6 @@
 #define CORE_RPC_ERROR_CODE_DUPLICATE_PAYMENT     -17
 #define CORE_RPC_ERROR_CODE_STALE_PAYMENT         -18
 #define CORE_RPC_ERROR_CODE_RESTRICTED            -19
-#define CORE_RPC_ERROR_CODE_UNSUPPORTED_BOOTSTRAP -20
 #define CORE_RPC_ERROR_CODE_PAYMENTS_NOT_ENABLED  -21
 
 static inline const char *get_rpc_server_error_message(int64_t code)
@@ -76,9 +75,7 @@ static inline const char *get_rpc_server_error_message(int64_t code)
     case CORE_RPC_ERROR_CODE_DUPLICATE_PAYMENT: return "Duplicate payment";
     case CORE_RPC_ERROR_CODE_STALE_PAYMENT: return "Stale payment";
     case CORE_RPC_ERROR_CODE_RESTRICTED: return "Parameters beyond restricted allowance";
-    case CORE_RPC_ERROR_CODE_UNSUPPORTED_BOOTSTRAP: return "Command is unsupported in bootstrap mode";
     case CORE_RPC_ERROR_CODE_PAYMENTS_NOT_ENABLED: return "Payments not enabled";
     default: MERROR("Unknown error: " << code); return "Unknown error";
   }
 }
-

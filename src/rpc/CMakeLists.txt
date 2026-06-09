@@ -31,8 +31,6 @@ set(rpc_base_sources
   rpc_handler.cpp)
 
 set(rpc_sources
-  bootstrap_daemon.cpp
-  bootstrap_node_selector.cpp
   core_rpc_server.cpp
   rpc_version_str.cpp
   instanciations.cpp)
@@ -63,7 +61,6 @@ set(rpc_pub_headers zmq_pub.h)
 set(daemon_rpc_server_headers)
 
 set(rpc_private_headers
-  bootstrap_daemon.h
   core_rpc_server.h
   core_rpc_server_commands_defs.h
   core_rpc_server_error_codes.h)
