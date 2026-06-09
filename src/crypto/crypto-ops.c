@@ -3897,7 +3897,7 @@ fe_add & fe_sub preconditions:
 fe_add & fe_sub postconditions:
    |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
 
-We sometimes need to "reduce" field elems when they are in the poscondition's
+We sometimes need to "reduce" field elems when they are in the postcondition's
 larger domain to match the precondition domain. This way we can take the output
 of fe_add or fe_sub and use it as input to another call to fe_add or fe_sub.
 
