@@ -336,7 +336,7 @@ void fe_batch_invert(fe* __restrict out, const fe* __restrict in, const int n) {
 
   assert(out);
   assert(in);
-  assert(in != out); // also shold not overlap
+  assert(in != out); // also should not overlap
 
   // Step 1: collect initial muls
   fe_copy(out[0], in[0]);
