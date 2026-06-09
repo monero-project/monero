@@ -159,9 +159,27 @@ int sc_check(const unsigned char *);
 int sc_isnonzero(const unsigned char *); /* Doesn't normalize */
 
 /**
- * brief: Convert Ed25519 y-coord to X25519 x-coord, AKA "ConvertPointE()" in the Carrot spec
+ * @brief: Convert Ed25519 y-coord to X25519 x-coord, AKA "ConvertPointE()" in the Carrot spec
+ * @param[out] xbytes X25519 x-coord as a 255-bit little endian integer
+ * @param h Ed25519 point in projective representation
+ * @return: 0 on success, otherwise non-0 on failure
+ *
+ * Returns failure on Ed25519's identity point. Assumes `h` has valid field element representations,
+ * that Z != 0, and that Y/Z is a valid y-coordinate for Ed25519. Returns success iff Y != Z, i.e.
+ * not an identity point. The runtime is constant.
  */
-void ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h);
+int ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h);
+/**
+ * @brief: Convert Ed25519 y-coord to X25519 x-coord, AKA "ConvertPointE()" in the Carrot spec
+ * @param[out] xbytes X25519 x-coord as a 255-bit little endian integer
+ * @param s Ed25519 point in compressed Y representation
+ * @return: 0 on success, otherwise non-0 on failure
+ *
+ * Returns failure on Ed25519's identity point (repr {1, 0, 0, ...}). Otherwise, returns success iff
+ * `s` is a valid compressed Y representation of an Ed25519 point. The runtime is variable *only* in
+ * whether `s` is a valid representation. In other words, for all valid Ed25519 points, the runtime
+ * is constant.
+ */
 int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s);
 
 // internal
