@@ -254,7 +254,7 @@ static void make_tx_secret_key_seed(const crypto::secret_key& tx_secret_key_entr
   rct::keyV hash_context;
   hash_context.reserve(2 + sources.size());
   auto hash_context_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-      memwipe(hash_context.data(), hash_context.size());
+      memwipe(hash_context.data(), hash_context.size() * sizeof(rct::key));
     });
   hash_context.emplace_back();
   rct::cn_fast_hash(hash_context.back(), domain_separator.data(), domain_separator.size());  //domain sep
@@ -282,7 +282,7 @@ static void make_tx_secret_keys(const crypto::secret_key& tx_secret_key_seed,
   rct::keyV hash_context;
   hash_context.resize(2);
   auto hash_context_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-      memwipe(hash_context.data(), hash_context.size());
+      memwipe(hash_context.data(), hash_context.size() * sizeof(rct::key));
     });
   hash_context[0] = rct::sk2rct(tx_secret_key_seed);
   rct::cn_fast_hash(hash_context[1], domain_separator.data(), domain_separator.size());
