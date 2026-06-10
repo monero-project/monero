@@ -98,6 +98,35 @@ struct ObjWithOptChild
     KV_SERIALIZE_OPT(test_value, true);
   END_KV_SERIALIZE_MAP()
 };
+
+struct ObjWithBool
+{
+  bool b;
+
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(b)
+  END_KV_SERIALIZE_MAP()
+};
+}
+
+TEST(epee_json, keyword_values)
+{
+  // true/false/null parse as keyword values
+  ObjWithBool o{};
+
+  o.b = false;
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o, std::string("{\"b\": true}")));
+  EXPECT_TRUE(o.b);
+
+  o.b = true;
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o, std::string("{\"b\": false}")));
+  EXPECT_FALSE(o.b);
+
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o, std::string("{\"b\": null}")));
+
+  // A value beginning with a non-ASCII byte (most significant bit == 1) is not
+  // a keyword and must be rejected.
+  EXPECT_FALSE(epee::serialization::load_t_from_json(o, std::string("{\"b\": \xc3\x28}")));
 }
 
 TEST(epee_binary, serialize_deserialize)

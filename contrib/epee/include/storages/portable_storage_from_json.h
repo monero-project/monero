@@ -146,7 +146,7 @@ namespace epee
                 stg.set_value(name, double(nval), current_section);
               }
               state = match_state_wonder_after_value;
-            }else if(isalpha(*it) )
+            }else if(epee::misc_utils::parse::isalpha(*it) )
             {// could be null, true or false
               boost::string_ref word;
               misc_utils::parse::match_word2(it, buf_end, word);
@@ -245,7 +245,7 @@ namespace epee
             {
               array_md = array_mode_undifined;
               state = match_state_wonder_after_value;
-            }else if(isalpha(*it) )
+            }else if(epee::misc_utils::parse::isalpha(*it) )
             {// array of booleans
               boost::string_ref word;
               misc_utils::parse::match_word2(it, buf_end, word);
@@ -333,7 +333,7 @@ namespace epee
               }else CHECK_ISSPACE();
               break;
             case array_mode_booleans:
-              if(isalpha(*it) )
+              if(epee::misc_utils::parse::isalpha(*it) )
               {// array of booleans
                 boost::string_ref word;
                 misc_utils::parse::match_word2(it, buf_end, word);

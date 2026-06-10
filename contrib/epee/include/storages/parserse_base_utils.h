@@ -93,6 +93,11 @@ namespace misc_utils
       return lut[(uint8_t)c] & 1;
     }
 
+    inline bool isalpha(char c)
+    {
+      return lut[(uint8_t)c] & 4;
+    }
+
     std::string transform_to_escape_sequence(const std::string& src);
     /*
       
