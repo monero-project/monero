@@ -2056,7 +2056,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
 
     // Add pool supplement txs to the main mempool with relay_method::block
     CRITICAL_REGION_LOCAL(m_tx_pool);
-    for (auto& extra_block_tx : extra_block_txs.txs_by_txid)
+    for (auto& extra_block_tx : extra_block_txs)
     {
       const crypto::hash& txid = extra_block_tx.first;
       transaction& tx = extra_block_tx.second.first;
@@ -2083,8 +2083,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
           .weight = get_transaction_weight(tx),
           .res = true}});
     }
-    extra_block_txs.txs_by_txid.clear();
-    extra_block_txs.nic_verified_hf_version = 0;
+    extra_block_txs.clear();
 
     bei.block_cumulative_weight = cryptonote::get_transaction_weight(b.miner_tx);
     for (const crypto::hash &txid: b.tx_hashes)
@@ -4173,15 +4172,15 @@ leave:
     bool find_tx_failure{!found_tx_in_pool};
     if (!found_tx_in_pool) // if not in mempool:
     {
-      const auto extra_txs_it{extra_block_txs.txs_by_txid.find(tx_id)};
-      if (extra_txs_it != extra_block_txs.txs_by_txid.end()) // if in block supplement:
+      const auto extra_txs_it{extra_block_txs.find(tx_id)};
+      if (extra_txs_it != extra_block_txs.end()) // if in block supplement:
       {
         tx = std::move(extra_txs_it->second.first);
         txblob = std::move(extra_txs_it->second.second);
         tx_weight = tx.pruned ? get_pruned_transaction_weight(tx) : get_transaction_weight(tx, txblob.size());
         fee = get_tx_fee(tx);
         pruned = tx.pruned;
-        extra_block_txs.txs_by_txid.erase(extra_txs_it);
+        extra_block_txs.erase(extra_txs_it);
         txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
         find_tx_failure = false;
       }
@@ -4194,7 +4193,7 @@ leave:
     // txs twice.
     if (find_tx_failure) // did not find txid in mempool or provided extra block txs
     {
-      const bool fully_supplemented_block = extra_block_txs.txs_by_txid.size() >= bl.tx_hashes.size();
+      const bool fully_supplemented_block = extra_block_txs.size() >= bl.tx_hashes.size();
       if (fully_supplemented_block)
         MERROR_VER("Block with id: " << id  << " has at least one unknown transaction with id: " << tx_id);
       else
