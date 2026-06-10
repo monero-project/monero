@@ -466,11 +466,12 @@ namespace cryptonote
       crypto::public_key out_eph_public_key;
       crypto::view_tag view_tag;
 
-      hwdev.generate_output_ephemeral_keys(tx.version,sender_account_keys, txkey_pub, tx_key,
+      const bool r = hwdev.generate_output_ephemeral_keys(tx.version,sender_account_keys, txkey_pub, tx_key,
                                            dst_entr, change_addr, output_index,
                                            need_additional_txkeys, additional_tx_keys,
                                            additional_tx_public_keys, amount_keys, out_eph_public_key,
                                            use_view_tags, view_tag);
+      CHECK_AND_ASSERT_MES(r, false, "Failed to generate output ephemeral keys");
 
       tx_out out;
       cryptonote::set_tx_out(dst_entr.amount, out_eph_public_key, use_view_tags, view_tag, out);
