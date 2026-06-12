@@ -518,6 +518,82 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::handle_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx, std::size_t &cumul_block_data_size)
+  {
+    cumul_block_data_size = 0;
+
+    // quick check for noop
+    if (req.start_height > 0 || !req.block_ids.empty())
+    {
+      uint64_t last_block_height;
+      crypto::hash last_block_hash;
+      m_core.get_blockchain_top(last_block_height, last_block_hash);
+
+      if (req.start_height > last_block_height ||
+          (!req.block_ids.empty() && last_block_hash == req.block_ids.front()))
+      {
+        res.start_height = 0;
+        res.current_height = last_block_height + 1;
+        res.top_block_hash = last_block_hash;
+        res.status = CORE_RPC_STATUS_OK;
+        return true;
+      }
+    }
+
+    size_t max_blocks = req.max_block_count > 0
+      ? std::min(req.max_block_count, (uint64_t)COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
+      : COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
+
+    std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > > bs;
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, req.block_ids_exclusive, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+    {
+      add_host_fail(ctx);
+      return false;
+    }
+
+    size_t ntxes = 0;
+    res.blocks.reserve(bs.size());
+    res.output_indices.reserve(bs.size());
+    for(auto& bd: bs)
+    {
+      res.blocks.resize(res.blocks.size()+1);
+      res.blocks.back().pruned = req.prune;
+      res.blocks.back().block = bd.first.first;
+      cumul_block_data_size += bd.first.first.size();
+      res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
+      ntxes += bd.second.size();
+      res.output_indices.back().indices.reserve(1 + bd.second.size());
+      if (req.no_miner_tx)
+        res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
+      res.blocks.back().txs.reserve(bd.second.size());
+      for (auto i = bd.second.begin(); i != bd.second.end(); ++i)
+      {
+        res.blocks.back().txs.emplace_back(std::move(std::get<2>(*i)), std::get<1>(*i));
+        cumul_block_data_size += res.blocks.back().txs.back().blob.size();
+      }
+
+      const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
+      if (n_txes_to_lookup > 0)
+      {
+        std::vector<std::vector<uint64_t>> indices;
+        bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? std::get<0>(bd.second.front()) : bd.first.second, n_txes_to_lookup, indices);
+        if (!r)
+        {
+          return false;
+        }
+        if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
+        {
+          return false;
+        }
+        for (size_t i = 0; i < indices.size(); ++i)
+          res.output_indices.back().indices.push_back({std::move(indices[i])});
+      }
+    }
+    MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << cumul_block_data_size);
+
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   class pruned_transaction {
     transaction& tx;
   public:
@@ -573,77 +649,11 @@ namespace cryptonote
     size_t cumul_block_data_size = 0;
     if (get_blocks)
     {
-      // quick check for noop
-      if (req.start_height > 0 || !req.block_ids.empty())
-      {
-        uint64_t last_block_height;
-        crypto::hash last_block_hash;
-        m_core.get_blockchain_top(last_block_height, last_block_hash);
-
-        if (req.start_height > last_block_height ||
-           (!req.block_ids.empty() && last_block_hash == req.block_ids.front()))
-        {
-          res.start_height = 0;
-          res.current_height = last_block_height + 1;
-          res.top_block_hash = last_block_hash;
-          res.status = CORE_RPC_STATUS_OK;
-          return true;
-        }
-      }
-
-      size_t max_blocks = req.max_block_count > 0
-        ? std::min(req.max_block_count, (uint64_t)COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
-        : COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
-
-      std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > > bs;
-      if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, req.block_ids_exclusive, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+      if (!handle_get_blocks(req, res, ctx, cumul_block_data_size))
       {
         res.status = "Failed";
-        add_host_fail(ctx);
         return true;
       }
-
-      size_t ntxes = 0;
-      res.blocks.reserve(bs.size());
-      res.output_indices.reserve(bs.size());
-      for(auto& bd: bs)
-      {
-        res.blocks.resize(res.blocks.size()+1);
-        res.blocks.back().pruned = req.prune;
-        res.blocks.back().block = bd.first.first;
-        cumul_block_data_size += bd.first.first.size();
-        res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
-        ntxes += bd.second.size();
-        res.output_indices.back().indices.reserve(1 + bd.second.size());
-        if (req.no_miner_tx)
-          res.output_indices.back().indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::tx_output_indices());
-        res.blocks.back().txs.reserve(bd.second.size());
-        for (auto i = bd.second.begin(); i != bd.second.end(); ++i)
-        {
-          res.blocks.back().txs.emplace_back(std::move(std::get<2>(*i)), std::get<1>(*i));
-          cumul_block_data_size += res.blocks.back().txs.back().blob.size();
-        }
-
-        const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
-        if (n_txes_to_lookup > 0)
-        {
-          std::vector<std::vector<uint64_t>> indices;
-          bool r = m_core.get_tx_outputs_gindexs(req.no_miner_tx ? std::get<0>(bd.second.front()) : bd.first.second, n_txes_to_lookup, indices);
-          if (!r)
-          {
-            res.status = "Failed";
-            return true;
-          }
-          if (indices.size() != n_txes_to_lookup || res.output_indices.back().indices.size() != (req.no_miner_tx ? 1 : 0))
-          {
-            res.status = "Failed";
-            return true;
-          }
-          for (size_t i = 0; i < indices.size(); ++i)
-            res.output_indices.back().indices.push_back({std::move(indices[i])});
-        }
-      }
-      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << cumul_block_data_size);
     }
 
     if (get_pool)
