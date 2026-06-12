@@ -34,6 +34,7 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
 #include <chrono>
+#include <cstring>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -2103,11 +2104,11 @@ namespace tools
 
       if(sizeof(payment_id) == payment_id_blob.size())
       {
-        payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+        memcpy(&payment_id, payment_id_blob.data(), sizeof(payment_id));
       }
       else if(sizeof(payment_id8) == payment_id_blob.size())
       {
-        payment_id8 = *reinterpret_cast<const crypto::hash8*>(payment_id_blob.data());
+        memcpy(&payment_id8, payment_id_blob.data(), sizeof(payment_id8));
         memcpy(payment_id.data, payment_id8.data, 8);
         memset(payment_id.data + 8, 0, 24);
       }
@@ -2561,7 +2562,8 @@ namespace tools
         return false;
       }
 
-      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      crypto::hash txid;
+      memcpy(&txid, txid_blob.data(), sizeof(txid));
       txids.push_back(txid);
     }
 
@@ -2592,7 +2594,8 @@ namespace tools
         return false;
       }
 
-      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      crypto::hash txid;
+      memcpy(&txid, txid_blob.data(), sizeof(txid));
       txids.push_back(txid);
     }
 
@@ -2991,7 +2994,7 @@ namespace tools
 
     if(sizeof(txid) == txid_blob.size())
     {
-      txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      memcpy(&txid, txid_blob.data(), sizeof(txid));
     }
     else
     {
@@ -3452,7 +3455,8 @@ namespace tools
               return false;
           }
 
-          crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+          crypto::hash txid;
+          memcpy(&txid, txid_blob.data(), sizeof(txid));
           txids.insert(txid);
       }
 
