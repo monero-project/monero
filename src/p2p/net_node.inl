@@ -39,6 +39,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string.hpp>
 #include <atomic>
+#include <fstream>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -48,6 +49,7 @@
 #include "version.h"
 #include "string_tools.h"
 #include "common/util.h"
+#include "common/download.h"
 #include "common/dns_utils.h"
 #include "common/pruning.h"
 #include "net/error.h"
@@ -502,48 +504,27 @@ namespace nodetool
 
     if (!command_line::is_arg_defaulted(vm, arg_ban_list))
     {
-      const std::string ban_list = command_line::get_arg(vm, arg_ban_list);
-
-      const boost::filesystem::path ban_list_path(ban_list);
-      boost::system::error_code ec;
-      if (!boost::filesystem::exists(ban_list_path, ec))
+      const std::string ban_list_path = command_line::get_arg(vm, arg_ban_list);
+      std::string error;
+      boost::system::error_code ec{};
+      if (!boost::filesystem::is_regular_file(boost::filesystem::path{ban_list_path}, ec))
       {
-        throw std::runtime_error("Can't find ban list file " + ban_list + " - " + ec.message());
+        error = "Failed to read ban list file " + ban_list_path;
+        MWARNING(error);
       }
 
-      std::string banned_ips;
-      if (!epee::file_io_utils::load_file_to_string(ban_list_path.string(), banned_ips))
+      try
       {
-        throw std::runtime_error("Failed to read ban list file " + ban_list);
+        if (error.empty())
+          apply_blocklist_file(ban_list_path, std::numeric_limits<time_t>::max(), false, &error);
       }
-
-      std::istringstream iss(banned_ips);
-      for (std::string line; std::getline(iss, line); )
+      catch (const std::exception& e)
       {
-        // ignore comments after '#' character
-        const size_t pound_idx = line.find('#');
-        if (pound_idx != std::string::npos)
-          line.resize(pound_idx);
-
-        // trim whitespace and ignore empty lines
-        boost::trim(line);
-        if (line.empty())
-          continue;
-
-        auto subnet = net::get_ipv4_subnet_address(line);
-        if (subnet)
-        {
-          block_subnet(*subnet, std::numeric_limits<time_t>::max());
-          continue;
-        }
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
-        if (parsed_addr)
-        {
-          block_host(*parsed_addr, std::numeric_limits<time_t>::max());
-          continue;
-        }
-        MERROR("Invalid IP address or IPv4 subnet: " << line);
+        error = "Failed to read ban list file " + ban_list_path;
+        MWARNING(error << ": " << e.what());
       }
+      if (!error.empty())
+        throw std::runtime_error(error);
     }
 
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
@@ -892,6 +873,55 @@ namespace nodetool
 
     network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
     return m_network_zones.emplace_hint(zone_, std::piecewise_construct, std::make_tuple(zone), std::tie(public_zone.m_net_server.get_io_context()))->second;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  size_t node_server<t_payload_net_handler>::apply_blocklist_file(const std::string& path, time_t seconds, bool add_only, std::string *error)
+  {
+    std::ifstream iss{path};
+    if (!iss)
+    {
+      if (error)
+      {
+        *error = "Failed to read ban list file " + path;
+        MWARNING(*error);
+      }
+      return 0;
+    }
+
+    unsigned good = 0;
+    for (std::string line; std::getline(iss, line); )
+    {
+      // ignore comments after '#' character
+      const size_t pound_idx = line.find('#');
+      if (pound_idx != std::string::npos)
+        line.resize(pound_idx);
+
+      // trim whitespace and ignore empty lines
+      boost::trim(line);
+      if (line.empty())
+        continue;
+
+      auto subnet = net::get_ipv4_subnet_address(line);
+      if (subnet)
+      {
+        block_subnet(*subnet, seconds);
+        ++good;
+        continue;
+      }
+
+      const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
+
+      if (parsed_addr)
+      {
+        block_host(*parsed_addr, seconds, add_only);
+        ++good;
+        continue;
+      }
+      MERROR("Invalid IP address or IPv4 subnet: " << line << " - " << parsed_addr.error());
+    }
+
+    return good;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2124,47 +2154,128 @@ namespace nodetool
       return true;
 
     static const std::vector<std::string> dns_urls = {
-      "blocklist.moneropulse.se"
-    , "blocklist.moneropulse.org"
-    , "blocklist.moneropulse.net"
-    , "blocklist.moneropulse.co"
-    , "blocklist.moneropulse.fr"
-    , "blocklist.moneropulse.de"
-    , "blocklist.moneropulse.ch"
+      "blocklist-hash.moneropulse.se"
+    , "blocklist-hash.moneropulse.org"
+    , "blocklist-hash.moneropulse.net"
+    , "blocklist-hash.moneropulse.co"
+    , "blocklist-hash.moneropulse.fr"
+    , "blocklist-hash.moneropulse.de"
+    , "blocklist-hash.moneropulse.ch"
     };
 
+    // TXT format <sha256>;<url>
     std::vector<std::string> records;
     if (!tools::dns_utils::load_txt_records_from_dns(records, dns_urls))
-      return true;
-
-    unsigned good = 0;
-    for (const auto& record : records)
     {
-      std::vector<std::string> ips;
-      boost::split(ips, record, boost::is_any_of(";"));
-      for (const auto &ip: ips)
-      {
-        if (ip.empty())
-          continue;
-        auto subnet = net::get_ipv4_subnet_address(ip);
-        if (subnet)
-        {
-          block_subnet(*subnet, DNS_BLOCKLIST_LIFETIME);
-          ++good;
-          continue;
-        }
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(ip, 0);
-        if (parsed_addr)
-        {
-          block_host(*parsed_addr, DNS_BLOCKLIST_LIFETIME, true);
-          ++good;
-          continue;
-        }
-        MWARNING("Invalid IP address or subnet from DNS blocklist: " << ip << " - " << parsed_addr.error());
-      }
+      MWARNING("DNS blocklist: no TXT record found");
+      return true;
     }
-    if (good > 0)
-      MINFO(good << " addresses added to the blocklist");
+
+    const size_t first_delim_pos = records.empty() ? std::string::npos : records[0].find(';');
+    if (first_delim_pos == std::string::npos)
+    {
+      MWARNING("DNS blocklist: no valid TXT record found");
+      return true;
+    }
+
+    const std::string& record = records[0];
+    std::string expected_hash = record.substr(0, first_delim_pos);
+    std::string url = record.substr(first_delim_pos + 1, std::string::npos); // url may contain ';'
+    boost::trim(expected_hash);
+    boost::trim(url);
+
+    if (expected_hash.size() != 64 || url.empty())
+    {
+      MWARNING("DNS blocklist: no valid TXT record found");
+      return true;
+    }
+
+    const boost::filesystem::path cache_path = boost::filesystem::path{m_config_folder} / "dns_blocklist.txt";
+    std::string error;
+    const auto apply_cached_blocklist = [&]() -> bool {
+      const size_t good = apply_blocklist_file(cache_path.string(), DNS_BLOCKLIST_LIFETIME, true, &error);
+      if (good > 0)
+        MINFO(good << " addresses added to the blocklist");
+      return good > 0;
+    };
+
+    crypto::hash cached_hash;
+    bool cache_ok = false;
+    try
+    {
+      cache_ok = tools::sha256sum(cache_path.string(), cached_hash) && expected_hash == epee::string_tools::pod_to_hex(cached_hash);
+    }
+    catch (const std::exception& e)
+    {
+      MWARNING("DNS blocklist: failed to read cached file: " << e.what());
+    }
+
+    const auto cleanup_tmp = [](const std::string& tmp_path) {
+      try
+      {
+        boost::filesystem::remove(tmp_path);
+      }
+      catch (const std::exception &e)
+      {
+        MWARNING("DNS blocklist: failed to remove tmp file: " << e.what());
+      }
+    };
+
+    const auto refresh_cache = [&]() -> bool {
+      const std::string tmp_path = cache_path.string() + ".tmp";
+
+      MDEBUG("DNS blocklist: downloading from " << url);
+      if (!tools::download(tmp_path, url, DNS_BLOCKLIST_MAX_SIZE))
+      {
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+
+      crypto::hash file_hash;
+      try
+      {
+        if (!tools::sha256sum(tmp_path, file_hash))
+        {
+          MWARNING("DNS blocklist: failed to hash downloaded file from " << url);
+          cleanup_tmp(tmp_path);
+          return false;
+        }
+      }
+      catch (const std::exception &e)
+      {
+        MWARNING("DNS blocklist: failed to hash downloaded file from " << url << ": " << e.what());
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+      if (expected_hash != epee::string_tools::pod_to_hex(file_hash))
+      {
+        MWARNING("DNS blocklist: hash mismatch from " << url);
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+
+      const std::error_code e = tools::replace_file(tmp_path, cache_path.string());
+      if (e)
+      {
+        MWARNING("DNS blocklist: failed to replace cache: " << e.message());
+        cleanup_tmp(tmp_path);
+        return false;
+      }
+
+      return true;
+    };
+
+    if (!cache_ok && !refresh_cache())
+    {
+      MWARNING("DNS blocklist: could not obtain a verified blocklist");
+      MWARNING("DNS blocklist: applying cached blocklist (may be outdated)");
+      if (!apply_cached_blocklist())
+        MWARNING("DNS blocklist: no cached blocklist available");
+      return true;
+    }
+
+    if (!apply_cached_blocklist())
+      MWARNING("DNS blocklist: verified blocklist is missing/unreadable");
     return true;
   }
   //-----------------------------------------------------------------------------------
