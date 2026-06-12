@@ -5656,13 +5656,13 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   std::vector<crypto::secret_key> multisig_keys;
   std::vector<crypto::public_key> multisig_signers;
   crypto::secret_key spend_secret_key;
-  memcpy(&spend_secret_key, multisig_data.data() + offset, sizeof(crypto::secret_key));
+  memcpy(&unwrap(unwrap(spend_secret_key)), multisig_data.data() + offset, sizeof(crypto::secret_key));
   offset += sizeof(crypto::secret_key);
   crypto::public_key spend_public_key;
   memcpy(&spend_public_key, multisig_data.data() + offset, sizeof(crypto::public_key));
   offset += sizeof(crypto::public_key);
   crypto::secret_key view_secret_key;
-  memcpy(&view_secret_key, multisig_data.data() + offset, sizeof(crypto::secret_key));
+  memcpy(&unwrap(unwrap(view_secret_key)), multisig_data.data() + offset, sizeof(crypto::secret_key));
   offset += sizeof(crypto::secret_key);
   crypto::public_key view_public_key;
   memcpy(&view_public_key, multisig_data.data() + offset, sizeof(crypto::public_key));
@@ -5670,7 +5670,7 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
   for (size_t n = 0; n < n_multisig_keys; ++n)
   {
     crypto::secret_key multisig_key;
-    memcpy(&multisig_key, multisig_data.data() + offset, sizeof(crypto::secret_key));
+    memcpy(&unwrap(unwrap(multisig_key)), multisig_data.data() + offset, sizeof(crypto::secret_key));
     multisig_keys.push_back(multisig_key);
     offset += sizeof(crypto::secret_key);
   }
