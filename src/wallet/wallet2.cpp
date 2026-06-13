@@ -3100,6 +3100,7 @@ void read_pool_txs(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &req,
     MDEBUG("Reading pool txs");
     if (res.txs.size() == req.txs_hashes.size())
     {
+      const std::unordered_set<crypto::hash> txid_set(txids.begin(), txids.end());
       for (const auto &tx_entry: res.txs)
       {
         if (tx_entry.in_pool)
@@ -3110,9 +3111,7 @@ void read_pool_txs(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &req,
 
           if (get_pruned_tx(tx_entry, tx, tx_hash))
           {
-            const std::vector<crypto::hash>::const_iterator i = std::find_if(txids.begin(), txids.end(),
-                [tx_hash](const crypto::hash &e) { return e == tx_hash; });
-            if (i != txids.end())
+            if (txid_set.count(tx_hash) > 0)
             {
               txs.emplace_back(std::move(tx), tx_hash, tx_entry.double_spend_seen);
             }
@@ -3576,18 +3575,11 @@ void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashe
   // remove pool txes to us that aren't in the pool anymore (remove_if_found = false),
   // or remove pool txes to us that were reported as removed (remove_if_found = true)
   std::unordered_multimap<crypto::hash, wallet2::pool_payment_details>::iterator uit = m_unconfirmed_payments.begin();
+  const std::unordered_set<crypto::hash> pool_set(tx_hashes.begin(), tx_hashes.end());
   while (uit != m_unconfirmed_payments.end())
   {
     const crypto::hash &txid = uit->second.m_pd.m_tx_hash;
-    bool found = false;
-    for (const auto &it2: tx_hashes)
-    {
-      if (it2 == txid)
-      {
-        found = true;
-        break;
-      }
-    }
+    const bool found = pool_set.count(txid) > 0;
     auto pit = uit++;
     if ((!remove_if_found && !found) || (remove_if_found && found))
     {
@@ -3603,17 +3595,9 @@ void wallet2::remove_obsolete_pool_txs(const std::vector<crypto::hash> &tx_hashe
 // Code that is common to 'update_pool_state_by_pool_query' and 'update_pool_state_from_pool_data':
 // Check whether a tx in the pool is worthy of processing because we did not see it
 // yet or because it is "interesting" out of special circumstances
-bool wallet2::accept_pool_tx_for_processing(const crypto::hash &txid)
+bool wallet2::accept_pool_tx_for_processing(const crypto::hash &txid, const std::unordered_set<crypto::hash> &payments_tx_hashes)
 {
-  bool txid_found_in_up = false;
-  for (const auto &up: m_unconfirmed_payments)
-  {
-    if (up.second.m_pd.m_tx_hash == txid)
-    {
-      txid_found_in_up = true;
-      break;
-    }
-  }
+  const bool txid_found_in_up = payments_tx_hashes.count(txid) > 0;
   if (m_scanned_pool_txs[0].find(txid) != m_scanned_pool_txs[0].end() || m_scanned_pool_txs[1].find(txid) != m_scanned_pool_txs[1].end())
   {
     // if it's for us, we want to keep track of whether we saw a double spend, so don't bail out
@@ -3626,30 +3610,25 @@ bool wallet2::accept_pool_tx_for_processing(const crypto::hash &txid)
   if (!txid_found_in_up)
   {
     LOG_PRINT_L1("Found new pool tx: " << txid);
-    bool found = false;
-    for (const auto &i: m_unconfirmed_txs)
+    const auto i = m_unconfirmed_txs.find(txid);
+    bool sent_by_us = i != m_unconfirmed_txs.end();
+    if (sent_by_us)
     {
-      if (i.first == txid)
+      const unconfirmed_transfer_details& utd = i->second;
+      for (const auto& dst : utd.m_dests)
       {
-        found = true;
-        // if this is a payment to yourself at a different subaddress account, don't skip it
-        // so that you can see the incoming pool tx with 'show_transfers' on that receiving subaddress account
-        const unconfirmed_transfer_details& utd = i.second;
-        for (const auto& dst : utd.m_dests)
+        auto subaddr_index = m_subaddresses.find(dst.addr.m_spend_public_key);
+        if (subaddr_index != m_subaddresses.end() && subaddr_index->second.major != utd.m_subaddr_account)
         {
-          auto subaddr_index = m_subaddresses.find(dst.addr.m_spend_public_key);
-          if (subaddr_index != m_subaddresses.end() && subaddr_index->second.major != utd.m_subaddr_account)
-          {
-            found = false;
-            break;
-          }
+          // Payment to ourselves at a different subaddress account:
+          // process it so the receiving account can show the incoming pool tx.
+          sent_by_us = false;
+          break;
         }
-        break;
       }
     }
-    if (!found)
+    if (!sent_by_us)
     {
-      // not one of those we sent ourselves
       return true;
     }
     else
@@ -3813,19 +3792,14 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
   // remove any pending tx that's not in the pool
   const auto now = std::chrono::system_clock::now();
   std::unordered_map<crypto::hash, wallet2::unconfirmed_transfer_details>::iterator it = m_unconfirmed_txs.begin();
+
+  const std::unordered_set<crypto::hash> pool_set(res.tx_hashes.begin(), res.tx_hashes.end());
+
   while (it != m_unconfirmed_txs.end())
   {
     const crypto::hash &txid = it->first;
     MDEBUG("Checking m_unconfirmed_txs entry " << txid);
-    bool found = false;
-    for (const auto &it2: res.tx_hashes)
-    {
-      if (it2 == txid)
-      {
-        found = true;
-        break;
-      }
-    }
+    const bool found = pool_set.count(txid) > 0;
     auto pit = it++;
     process_unconfirmed_transfer(false, txid, pit->second, found, now, refreshed);
     MDEBUG("New state of that entry: " << pit->second.m_state);
@@ -3841,11 +3815,17 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
 
   MTRACE("update_pool_state_by_pool_query done second loop");
 
+  std::unordered_set<crypto::hash> payments_tx_hashes;
+  payments_tx_hashes.reserve(m_unconfirmed_payments.size());
+  for (const auto &p: m_unconfirmed_payments)
+    payments_tx_hashes.insert(p.second.m_pd.m_tx_hash);
+
   // gather txids of new pool txes to us
   std::vector<crypto::hash> txids;
+  txids.reserve(res.tx_hashes.size());
   for (const auto &txid: res.tx_hashes)
   {
-    if (accept_pool_tx_for_processing(txid))
+    if (accept_pool_tx_for_processing(txid, payments_tx_hashes))
       txids.push_back(txid);
   }
 
@@ -3922,9 +3902,13 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
   // if we work incrementally and thus see only new pool txs since last time we asked it should
   // be rare that we know already about one of those, but check nevertheless
   process_txs.clear();
+  std::unordered_set<crypto::hash> payments_tx_hashes;
+  payments_tx_hashes.reserve(m_unconfirmed_payments.size());
+  for (const auto &p: m_unconfirmed_payments)
+    payments_tx_hashes.insert(p.second.m_pd.m_tx_hash);
   for (const auto &pool_tx: added_pool_txs)
   {
-    if (accept_pool_tx_for_processing(std::get<1>(pool_tx)))
+    if (accept_pool_tx_for_processing(std::get<1>(pool_tx), payments_tx_hashes))
     {
       process_txs.push_back(pool_tx);
     }
