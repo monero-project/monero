@@ -270,6 +270,7 @@ namespace cryptonote
             context.m_expect_response = 0;
             context.m_expect_height = 0;
             context.m_requested_objects.clear();
+            context.m_requested_objects_from_chain_entry = false;
             context.m_state = cryptonote_connection_context::state_standby; // we'll go back to adding, then (if we can't), download
           }
           else
@@ -561,7 +562,7 @@ namespace cryptonote
     ++context.m_callback_request_count;
     m_p2p->request_callback(context);
     MLOG_PEER_STATE("requesting callback");
-    context.m_num_requested = 0;
+    context.m_requested_objects_from_chain_entry = false;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
@@ -2030,7 +2031,7 @@ skip:
         const size_t block_queue_size_threshold = m_block_download_max_size ? m_block_download_max_size : BLOCK_QUEUE_SIZE_THRESHOLD;
         const bool queue_proceed_init = (nspans < m_span_limit.load()) && (size < block_queue_size_threshold);
         // get rid of blocks we already requested, or already have
-        if (skip_unneeded_hashes(context, true) && context.m_needed_objects.empty() && context.m_num_requested == 0)
+        if (skip_unneeded_hashes(context, true) && context.m_needed_objects.empty() && !context.m_requested_objects_from_chain_entry)
         {
           if (context.m_remote_blockchain_height > m_block_queue.get_next_needed_height(bc_height))
           {
@@ -2189,7 +2190,7 @@ skip:
           context.m_last_response_height = 0;
           goto skip;
         }
-        if (skip_unneeded_hashes(context, false) && context.m_needed_objects.empty() && context.m_num_requested == 0)
+        if (skip_unneeded_hashes(context, false) && context.m_needed_objects.empty() && !context.m_requested_objects_from_chain_entry)
         {
           if (context.m_remote_blockchain_height > m_block_queue.get_next_needed_height(m_core.get_current_blockchain_height()))
           {
@@ -2300,7 +2301,7 @@ skip:
           << "/" << tools::get_pruning_stripe(span.first + span.second - 1, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES)
           << ", ours " << tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed()) << ", peer stripe " << tools::get_pruning_stripe(context.m_pruning_seed));
 
-        context.m_num_requested += req.blocks.size();
+        context.m_requested_objects_from_chain_entry = true;
         post_notify<NOTIFY_REQUEST_GET_OBJECTS>(req, context);
         MLOG_PEER_STATE("requesting objects");
         return true;
@@ -2645,7 +2646,7 @@ skip:
     if (arg.total_height > m_core.get_target_blockchain_height())
       m_core.set_target_blockchain_height(arg.total_height);
 
-    context.m_num_requested = 0;
+    context.m_requested_objects_from_chain_entry = false;
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
