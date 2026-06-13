@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2024, The Monero Project
+// Copyright (c) 2018-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,6 +31,7 @@
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/filesystem.hpp>
 #include "common/util.h"
+#include "crypto/hash-ops.h"
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "wallet_errors.h"

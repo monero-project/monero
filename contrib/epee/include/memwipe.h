@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Monero Project
+// Copyright (c) 2017-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,9 +30,10 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #ifdef __cplusplus
-#include <array>
-#include <cstddef>
+#include <type_traits>
 
 extern "C" {
 #endif
@@ -73,9 +74,6 @@ namespace tools {
 
   template<typename T>
   const T& unwrap(scrubbed<T> const& src) { return src; }
-
-  template <class T, size_t N>
-  using scrubbed_arr = scrubbed<std::array<T, N>>;
 } // namespace tools
 
 #endif // __cplusplus

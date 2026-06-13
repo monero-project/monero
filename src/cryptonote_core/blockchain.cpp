@@ -50,7 +50,7 @@
 #include "int-util.h"
 #include "common/threadpool.h"
 #include "warnings.h"
-#include "crypto/hash.h"
+#include "crypto/hash-ops.h"
 #include "cryptonote_core.h"
 #include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
