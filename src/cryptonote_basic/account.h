@@ -50,7 +50,25 @@ namespace cryptonote
       KV_SERIALIZE(m_account_address)
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_spend_secret_key)
       KV_SERIALIZE_VAL_POD_AS_BLOB_FORCE(m_view_secret_key)
-      KV_SERIALIZE_CONTAINER_POD_AS_BLOB(m_multisig_keys)
+      if constexpr (is_store)
+      {
+        std::vector<crypto::ec_scalar> multisig_keys;
+        multisig_keys.reserve(this_ref.m_multisig_keys.size());
+        for (const crypto::secret_key& key : this_ref.m_multisig_keys)
+          multisig_keys.push_back(unwrap(unwrap(key)));
+        epee::serialization::selector<is_store>::serialize_stl_container_pod_val_as_blob(
+          multisig_keys, stg, hparent_section, "m_multisig_keys");
+      }
+      else
+      {
+        std::vector<crypto::ec_scalar> multisig_keys;
+        epee::serialization::selector<is_store>::serialize_stl_container_pod_val_as_blob(
+          multisig_keys, stg, hparent_section, "m_multisig_keys");
+        this_ref.m_multisig_keys.clear();
+        this_ref.m_multisig_keys.reserve(multisig_keys.size());
+        for (const crypto::ec_scalar& key : multisig_keys)
+          this_ref.m_multisig_keys.emplace_back(tools::scrubbed<crypto::ec_scalar>{key});
+      }
       const crypto::chacha_iv default_iv{{0, 0, 0, 0, 0, 0, 0, 0}};
       KV_SERIALIZE_VAL_POD_AS_BLOB_OPT(m_encryption_iv, default_iv)
     END_KV_SERIALIZE_MAP()
