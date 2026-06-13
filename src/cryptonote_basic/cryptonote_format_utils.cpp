@@ -30,6 +30,10 @@
 
 #include <atomic>
 #include <boost/algorithm/string.hpp>
+#include <cstddef>
+#include <limits>
+#include "common/varint.h"
+#include "ringct/rctTypes.h"
 #include "wipeable_string.h"
 #include "string_tools.h"
 #include "string_tools_lexical.h"
@@ -1435,6 +1439,164 @@ namespace cryptonote
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t& blob_size)
   {
     return get_transaction_hash(t, res, &blob_size);
+  }
+  //---------------------------------------------------------------
+  bool calculate_transaction_hash_from_blob(const blobdata_ref tx_blob,
+    const crypto::hash &pruned_data_hash, crypto::hash &res)
+  {
+    //! @TODO: update for FCMP++:
+    //!    * Allow rct::RctTypeFcmpPlusPlus
+    //!    * Set output length for txout_to_carrot_v1
+
+    const unsigned char *p = reinterpret_cast<const unsigned char*>(tx_blob.data());
+    const unsigned char *end = reinterpret_cast<const unsigned char*>(tx_blob.data() + tx_blob.size());
+
+    #define READ_VARINT(v) if (tools::read_varint(p, end, v) <= 0) return false
+    #define READ_BYTE(v) if (end <= p ) { return false; } else { v = *p; ++p; }
+    #define SKIP(n) if (end - p < static_cast<std::ptrdiff_t>(n)) { return false; } else { p += (n); }
+
+    // read and validate tx version
+    std::size_t tx_version = 0;
+    READ_VARINT(tx_version);
+    if (tx_version < 1 || tx_version > 2)
+      return false;
+
+    // v1 is simple hash of tx blob
+    if (1 == tx_version)
+    {
+      res = get_blob_hash(tx_blob);
+      return true;
+    }
+
+    // skip unlock_time
+    std::size_t dummy;
+    READ_VARINT(dummy);
+
+    // read number of inputs
+    std::size_t n_inputs = 0;
+    READ_VARINT(n_inputs);
+
+    // skip n_inputs inputs
+    for (std::size_t i = 0; i < n_inputs; ++i)
+    {
+      std::size_t input_tag = 0;
+      READ_BYTE(input_tag);
+      switch (input_tag)
+      {
+      case 0xff: //txin_gen
+        READ_VARINT(dummy); //height
+        break;
+      case 0x02: //txin_to_key
+        READ_VARINT(dummy); //amount
+        READ_VARINT(input_tag); //key_offsets.size()
+        for (;input_tag-->0;)
+          READ_VARINT(dummy);
+        SKIP(32); //k_image
+        break;
+      default:
+        return false;
+      }
+    }
+
+    // read number of outputs
+    std::size_t n_outputs = 0;
+    READ_VARINT(n_outputs);
+
+    // skip n_outputs outputs
+    for (std::size_t i = 0; i < n_outputs; ++i)
+    {
+      READ_VARINT(dummy); //amount
+      std::size_t output_tag = 0;
+      READ_BYTE(output_tag); //target variant tag
+      std::ptrdiff_t output_length = 0;
+      switch (output_tag)
+      {
+      case 0x02: //txout_to_key
+        output_length = 32;
+        break;
+      case 0x03: //txout_to_tagged_key
+        output_length = 32 + 1;
+        break;
+      default:
+        return false;
+      }
+      SKIP(output_length);
+    }
+
+    // read extra length and skip that
+    std::size_t extra_len = 0;
+    READ_VARINT(extra_len);
+    if (extra_len > CRYPTONOTE_MAX_TX_SIZE)
+      return false;
+    SKIP(extra_len);
+
+    // now `p` is at end of tx prefix...
+    const unsigned char * const tx_prefix_end = p;
+
+    // read RingCT type
+    std::uint8_t rct_type = std::numeric_limits<std::uint8_t>::max();
+    READ_BYTE(rct_type);
+    if (rct_type > rct::RCTTypeBulletproofPlus)
+      return false;
+
+    // skip unprunable RingCT fields
+    if (rct_type != rct::RCTTypeNull)
+    {
+      // skip txnFee
+      READ_VARINT(dummy);
+
+      // if RCTTypeSimple, skip pseudoOutputs
+      if (rct_type == rct::RCTTypeSimple)
+      {
+        SKIP(32 * n_inputs);
+      }
+
+      // skip ECDH info and amount commitments
+      const bool short_amount = rct_type >= rct::RCTTypeBulletproof2;
+      const std::ptrdiff_t ecdh_tuple_len = short_amount ? 8 : 64;
+      const std::ptrdiff_t output_stuff_len = n_outputs * (ecdh_tuple_len + 32);
+      SKIP(output_stuff_len);
+    }
+
+    #undef READ_VARINT
+    #undef READ_BYTE
+    #undef SKIP
+
+    // now `p` is at end of unprunable part of v2 tx...
+
+    // check prunable
+    const bool has_prunable_data = end > p;
+    const bool provided_pruned_data_hash = crypto::null_hash != pruned_data_hash;
+    const bool null_rct = rct::RCTTypeNull == rct_type;
+    if (null_rct) //coinbase
+    {
+      if (has_prunable_data || provided_pruned_data_hash)
+        return false;
+    }
+    else //non-coinbase
+    {
+      if (has_prunable_data == provided_pruned_data_hash)
+        return false; 
+    }
+
+    // hash tx prefix
+    crypto::hash tx_subhashes[3] = {};
+    crypto::cn_fast_hash(tx_blob.data(), reinterpret_cast<const char*>(tx_prefix_end) - tx_blob.data(), 
+      tx_subhashes[0]);
+
+    // hash unprunable
+    crypto::cn_fast_hash(tx_prefix_end, p - tx_prefix_end, tx_subhashes[1]);
+
+    // hash prunable
+    if (provided_pruned_data_hash)
+      tx_subhashes[2] = pruned_data_hash;
+    else if (!null_rct)
+      crypto::cn_fast_hash(p, end - p, tx_subhashes[2]);
+
+    // do final hash
+    res = crypto::cn_fast_hash(tx_subhashes, sizeof(tx_subhashes));
+
+    return true;
   }
   //---------------------------------------------------------------
   blobdata get_block_hashing_blob(const block& b)
