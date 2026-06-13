@@ -34,6 +34,7 @@
 #include <utility>
 
 #include "byte_slice.h"
+#include "common/fence.h"
 
 namespace net
 {
@@ -150,7 +151,10 @@ namespace zmq
                     if ((last = zmq_msg_recv(part.handle(), socket, flags)) < 0)
                         return last;
 
-                    payload.append(part.data(), part.size());
+                    char const* const data = part.data();
+                    mark_tsan_acquire(const_cast<char*>(data));
+
+                    payload.append(data, part.size());
                     if (!zmq_msg_more(part.handle()))
                         break;
                 }
@@ -169,7 +173,10 @@ namespace zmq
 
     expect<void> send(const epee::span<const std::uint8_t> payload, void* const socket, const int flags) noexcept
     {
-        return retry_op(zmq_send, socket, payload.data(), payload.size(), flags);
+        std::uint8_t const* const data = payload.data();
+        mark_tsan_release(const_cast<std::uint8_t*>(data));
+
+        return retry_op(zmq_send, socket, data, payload.size(), flags);
     }
 
     expect<void> send(epee::byte_slice&& payload, void* socket, int flags) noexcept
@@ -181,6 +188,8 @@ namespace zmq
         zmq_msg_t msg{};
         MONERO_ZMQ_CHECK(zmq_msg_init_data(std::addressof(msg), data, size, epee::release_byte_slice::call, buffer.get()));
         buffer.release(); // zmq will now decrement byte_slice ref-count
+
+        mark_tsan_release(const_cast<void*>(data));
 
         expect<void> sent = retry_op(zmq_msg_send, std::addressof(msg), socket, flags);
         if (!sent) // beware if removing `noexcept` from this function - possible leak here
