@@ -61,6 +61,7 @@
 #include <boost/spirit/include/qi_symbols.hpp>
 #include <boost/spirit/include/qi_uint.hpp>
 #include <cassert>
+#include <ctime>
 #include <iterator>
 #include <limits>
 #include <openssl/evp.h>
@@ -102,6 +103,98 @@ namespace
   constexpr const auto sess_algo = ceref(u8"-sess");
 
   constexpr const unsigned client_reserve_size = 512; //!< std::string::reserve size for clients
+  constexpr const std::time_t server_nonce_ttl = 300; //!< seconds
+  constexpr const std::size_t server_nonce_max_count = 1024;
+
+  using server_session = http::http_server_auth::session;
+  using nonce_iterator = std::unordered_map<std::string, server_session::nonce_state>::iterator;
+
+  bool server_nonce_expired(const server_session::nonce_state& nonce, const std::time_t now)
+  {
+    return nonce.created + server_nonce_ttl < now;
+  }
+
+  void erase_server_nonce(server_session& user, nonce_iterator nonce)
+  {
+    user.created_nonce_order.erase(nonce->second.created_order);
+    if (nonce->second.used)
+      user.used_nonce_order.erase(nonce->second.cache_order);
+    else
+      user.unused_nonce_order.erase(nonce->second.cache_order);
+    user.nonces.erase(nonce);
+  }
+
+  void prune_expired_server_nonces(server_session& user, const std::time_t now)
+  {
+    while (!user.created_nonce_order.empty())
+    {
+      auto nonce = user.nonces.find(user.created_nonce_order.front());
+      if (nonce == user.nonces.end())
+      {
+        user.created_nonce_order.pop_front();
+        continue;
+      }
+
+      if (!server_nonce_expired(nonce->second, now))
+        break;
+
+      erase_server_nonce(user, nonce);
+    }
+  }
+
+  bool evict_server_nonce(server_session& user)
+  {
+    if (!user.unused_nonce_order.empty())
+    {
+      auto nonce = user.nonces.find(user.unused_nonce_order.front());
+      if (nonce == user.nonces.end())
+      {
+        user.unused_nonce_order.pop_front();
+        return true;
+      }
+
+      erase_server_nonce(user, nonce);
+      return true;
+    }
+
+    if (!user.used_nonce_order.empty())
+    {
+      auto nonce = user.nonces.find(user.used_nonce_order.front());
+      if (nonce == user.nonces.end())
+      {
+        user.used_nonce_order.pop_front();
+        return true;
+      }
+
+      erase_server_nonce(user, nonce);
+      return true;
+    }
+
+    return false;
+  }
+
+  void evict_server_nonces_until_space(server_session& user)
+  {
+    while (server_nonce_max_count <= user.nonces.size())
+    {
+      if (!evict_server_nonce(user))
+        break;
+    }
+  }
+
+  void mark_server_nonce_used(server_session& user, nonce_iterator nonce)
+  {
+    if (nonce->second.used)
+    {
+      user.used_nonce_order.splice(user.used_nonce_order.end(), user.used_nonce_order, nonce->second.cache_order);
+      return;
+    }
+
+    user.unused_nonce_order.erase(nonce->second.cache_order);
+    user.used_nonce_order.push_back(nonce->first);
+    nonce->second.cache_order = std::prev(user.used_nonce_order.end());
+    nonce->second.used = true;
+  }
 
   //// Digest Algorithms
 
@@ -325,24 +418,98 @@ namespace
 
     //! \return Status of the `response` field from the client
     static status verify(const boost::string_ref method, const boost::string_ref request,
-      const http::http_server_auth::session& user)
+      http::http_server_auth::session& user, std::mutex& mutex)
     {
       const auto parsed = parse(request);
-      if (parsed &&
-          boost::equals(parsed->username, user.credentials.username) &&
-          boost::fusion::any(digest_algorithms, has_valid_response{*parsed, user, method}))
-      {
-        if (boost::equals(parsed->nonce, user.nonce))
+      if (!parsed)
+        return kFail;
+
+      const auto has_required_fields = [] (const auth_message& message) {
+        if (message.username.empty() || message.nonce.empty() ||
+            message.realm.empty() || message.uri.empty() || message.response.empty())
         {
-          // RFC 2069 format does not verify nc value - allow just once
-          if (user.counter == 1 || (!parsed->qop.empty() && parsed->counter() == user.counter))
-          {
-            return kPass;
-          }
+          return false;
+        }
+
+        if (!message.qop.empty())
+        {
+          if (!boost::equals(ceref(u8"auth"), message.qop, ascii_iequal))
+            return false;
+          if (message.nc.empty() || message.cnonce.empty())
+            return false;
+        }
+
+        if (boost::ends_with(message.algorithm, sess_algo, ascii_iequal) && message.cnonce.empty())
+          return false;
+
+        return true;
+      };
+
+      if (!has_required_fields(*parsed))
+        return kFail;
+
+      const std::string nonce = to_string(parsed->nonce);
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        auto nonce_info = user.nonces.find(nonce);
+        if (nonce_info == user.nonces.end())
+          return kStale;
+
+        const std::time_t now = std::time(nullptr);
+        if (server_nonce_expired(nonce_info->second, now))
+        {
+          erase_server_nonce(user, nonce_info);
+          return kStale;
+        }
+      }
+
+      if (!boost::equals(parsed->username, user.credentials.username))
+        return kFail;
+
+      if (!boost::fusion::any(digest_algorithms, has_valid_response{*parsed, user, method}))
+        return kFail;
+
+      const bool old_style = parsed->qop.empty();
+      std::uint32_t counter = 0;
+      if (!old_style)
+      {
+        const boost::optional<std::uint32_t> parsed_counter = parsed->counter();
+        if (!parsed_counter || *parsed_counter == 0)
+          return kStale;
+        counter = *parsed_counter;
+      }
+
+      std::lock_guard<std::mutex> lock(mutex);
+      auto nonce_info = user.nonces.find(nonce);
+      if (nonce_info == user.nonces.end())
+        return kStale;
+
+      const std::time_t now = std::time(nullptr);
+      if (server_nonce_expired(nonce_info->second, now))
+      {
+        erase_server_nonce(user, nonce_info);
+        return kStale;
+      }
+
+      // RFC 2069 format does not verify nc value - allow just once per nonce
+      if (old_style)
+      {
+        if (nonce_info->second.counter == 0)
+        {
+          nonce_info->second.counter = 1;
+          mark_server_nonce_used(user, nonce_info);
+          return kPass;
         }
         return kStale;
       }
-      return kFail;
+
+      if (nonce_info->second.counter < counter)
+      {
+        nonce_info->second.counter = counter;
+        mark_server_nonce_used(user, nonce_info);
+        return kPass;
+      }
+      return kStale;
     }
 
     //! \return Information needed to generate client authentication `response`s.
@@ -729,8 +896,7 @@ namespace epee
         bool is_stale = false;
         if (auth != fields.end())
         {
-          ++(user->counter);
-          switch (auth_message::verify(request.m_http_method_str, auth->second, *user))
+          switch (auth_message::verify(request.m_http_method_str, auth->second, *user, mutex))
           {
           case auth_message::kPass:
             return boost::none;
@@ -744,13 +910,44 @@ namespace epee
             break;
           }
         }
-        user->counter = 0;
+
+        for (;;)
         {
           std::array<std::uint8_t, 16> rand_128bit{{}};
           rng(rand_128bit.size(), rand_128bit.data());
-          user->nonce = string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size());
+          const std::string nonce = string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size());
+
+          bool inserted_nonce = false;
+          {
+            std::lock_guard<std::mutex> lock(mutex);
+            const std::time_t now = std::time(nullptr);
+
+            prune_expired_server_nonces(*user, now);
+            evict_server_nonces_until_space(*user);
+
+            user->created_nonce_order.push_back(nonce);
+            auto created_order = std::prev(user->created_nonce_order.end());
+
+            user->unused_nonce_order.push_back(nonce);
+            auto cache_order = std::prev(user->unused_nonce_order.end());
+
+            const auto inserted = user->nonces.emplace(
+              nonce, http_server_auth::session::nonce_state{now, created_order, cache_order}
+            );
+            if (inserted.second)
+            {
+              inserted_nonce = true;
+            }
+            else
+            {
+              user->created_nonce_order.erase(created_order);
+              user->unused_nonce_order.erase(cache_order);
+            }
+          }
+
+          if (inserted_nonce)
+            return create_digest_response(nonce, is_stale);
         }
-        return create_digest_response(user->nonce, is_stale);
       }
 
       http_client_auth::http_client_auth(login credentials)
