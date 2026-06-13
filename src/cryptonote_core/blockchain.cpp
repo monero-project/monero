@@ -1460,9 +1460,10 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
   PERF_TIMER(get_long_term_block_weights);
 
   CHECK_AND_ASSERT_THROW_MES(count > 0, "count == 0");
+  const uint64_t blockchain_height = m_db->height();
+  CHECK_AND_ASSERT_THROW_MES(start_height < blockchain_height, "start of block LTM range lies outside of chain");
 
   bool cached = false;
-  uint64_t blockchain_height = m_db->height();
   uint64_t tip_height = start_height + count - 1;
   crypto::hash tip_hash = crypto::null_hash;
   if (tip_height < blockchain_height)
@@ -1477,15 +1478,17 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
   if (cached)
   {
     MTRACE("requesting " << count << " from " << start_height << ", cached");
+    assert(static_cast<size_t>(m_long_term_block_weights_cache_rolling_median.size()) == count);
     return m_long_term_block_weights_cache_rolling_median.median();
   }
 
   // in the vast majority of uncached cases, most is still cached,
   // as we just move the window one block up:
+  const size_t rmcap = m_long_term_block_weights_cache_rolling_median.capacity();
   if (tip_height > 0 && tip_height < blockchain_height)
   {
    const size_t rmsize = m_long_term_block_weights_cache_rolling_median.size();
-   if (count == rmsize || (count == rmsize + 1 && rmsize < CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE))
+   if ((count == rmsize && rmsize == rmcap) || (count == rmsize + 1 && rmsize < rmcap))
    {
     crypto::hash old_tip_hash = m_db->get_block_hash_from_height(tip_height - 1);
     if (old_tip_hash == m_long_term_block_weights_cache_tip_hash)
@@ -1493,17 +1496,32 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
       MTRACE("requesting " << count << " from " << start_height << ", incremental");
       m_long_term_block_weights_cache_tip_hash = tip_hash;
       m_long_term_block_weights_cache_rolling_median.insert(m_db->get_block_long_term_weight(tip_height));
+      assert(static_cast<size_t>(m_long_term_block_weights_cache_rolling_median.size()) == count);
       return m_long_term_block_weights_cache_rolling_median.median();
     }
    }
   }
 
+  // The target capacity for the new rolling median cache A) must fit the current query,
+  // B) shouldn't re-alloc on incremental calls, and C) shouldn't trigger invalidations every
+  // call because its capacity is regularly higher than query count. We use
+  // m_long_term_block_weights_window as a hint for the upper bound on capacity.
+  // Clearing the median cache before a potentially fallible block weight fetch leaves the
+  // cache invalidated correctly.
+  const size_t target_cap = std::max<size_t>(count, m_long_term_block_weights_window);
+  if (rmcap == target_cap)
+    m_long_term_block_weights_cache_rolling_median.clear(); // avoid reallocation
+  else
+    m_long_term_block_weights_cache_rolling_median = epee::misc_utils::rolling_median_t<uint64_t>(target_cap);
+
   MTRACE("requesting " << count << " from " << start_height << ", uncached");
-  std::vector<uint64_t> weights = m_db->get_long_term_block_weights(start_height, count);
+  const std::vector<uint64_t> weights = m_db->get_long_term_block_weights(start_height, count);
+  assert(weights.size() == std::min(count, blockchain_height - start_height));
   m_long_term_block_weights_cache_tip_hash = tip_hash;
-  m_long_term_block_weights_cache_rolling_median.clear();
-  for (uint64_t w: weights)
+  for (const uint64_t w: weights)
     m_long_term_block_weights_cache_rolling_median.insert(w);
+
+  assert(static_cast<size_t>(m_long_term_block_weights_cache_rolling_median.size()) == weights.size());
   return m_long_term_block_weights_cache_rolling_median.median();
 }
 //------------------------------------------------------------------
