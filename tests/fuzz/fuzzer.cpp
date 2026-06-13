@@ -35,7 +35,7 @@
 
 #ifndef OSSFUZZ
 
-#if (!defined(__clang__) || (__clang__ < 5))
+#ifndef __AFL_LOOP
 static int __AFL_LOOP(int)
 {
   static int once = 0;
