@@ -123,7 +123,7 @@ int  device_io_tcp::exchange(
         // check failure
         CHECK_AND_ASSERT_MES(!ec, -1, "Got error code while writing APDU to TCP: " << ec);
         CHECK_AND_ASSERT_MES(bytes_transfered == cmd_len + sizeof(uint32_t),
-            -1, "Transferred the wrong number of bytes to ADPU TCP: " << bytes_transfered
+            -1, "Transferred the wrong number of bytes to APDU TCP: " << bytes_transfered
                 << " vs " << (cmd_len + sizeof(uint32_t)));
     }
 
