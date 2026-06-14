@@ -136,11 +136,12 @@ namespace net_utils
 
 		bool equal(const ipv4_network_subnet& other) const noexcept;
 		bool less(const ipv4_network_subnet& other) const noexcept;
-		constexpr bool is_same_host(const ipv4_network_subnet& other) const noexcept
+		bool is_same_host(const ipv4_network_subnet& other) const noexcept
 		{ return subnet() == other.subnet(); }
                 bool matches(const ipv4_network_address &address) const;
 
-		constexpr uint32_t subnet() const noexcept { return m_ip & ~(0xffffffffull << m_mask); }
+		uint8_t mask() const noexcept { return m_mask; }
+		uint32_t subnet() const noexcept;
 		std::string str() const;
 		std::string host_str() const;
 		bool is_loopback() const;
