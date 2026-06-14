@@ -3654,6 +3654,7 @@ void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t base_reward
 
 void Blockchain::get_dynamic_base_fee_estimate_2021_scaling(uint64_t grace_blocks, std::vector<uint64_t> &fees) const
 {
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   const uint8_t version = get_current_hard_fork_version();
   const uint64_t db_height = m_db->height();
 
