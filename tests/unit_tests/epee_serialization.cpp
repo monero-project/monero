@@ -231,3 +231,44 @@ TEST(epee_binary, any_empty_seq)
   EXPECT_TRUE(epee::serialization::load_t_from_binary(i, epee::span<const std::uint8_t>(data_empty_object)));
   EXPECT_EQ(0, i.x.size());
 }
+
+namespace
+{
+struct ObjOfString
+{
+  std::string x;
+
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(x)
+  END_KV_SERIALIZE_MAP()
+};
+}
+
+TEST(epee_json, unicode_escape_surrogate_pair)
+{
+  // 😀 is the UTF-16 surrogate pair for U+1F600, which must decode to
+  // the 4-byte UTF-8 sequence F0 9F 98 80 (not two 3-byte encoded surrogates).
+  ObjOfString o{};
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uD83D\\uDE00\"}"));
+  EXPECT_EQ(std::string("\xF0\x9F\x98\x80"), o.x);
+
+  // Highest valid code point U+10FFFF.
+  ObjOfString o2{};
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o2, "{\"x\":\"\\uDBFF\\uDFFF\"}"));
+  EXPECT_EQ(std::string("\xF4\x8F\xBF\xBF"), o2.x);
+
+  // A basic multilingual plane escape is unaffected.
+  ObjOfString o3{};
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o3, "{\"x\":\"\\u20AC\"}"));
+  EXPECT_EQ(std::string("\xE2\x82\xAC"), o3.x);
+}
+
+TEST(epee_json, unicode_escape_bad_surrogate)
+{
+  // A lone high surrogate, a lone low surrogate, and a high surrogate not
+  // followed by a low surrogate are all invalid and must fail to parse.
+  ObjOfString o{};
+  EXPECT_FALSE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uD83D\"}"));
+  EXPECT_FALSE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uDE00\"}"));
+  EXPECT_FALSE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uD83D\\u0041\"}"));
+}
