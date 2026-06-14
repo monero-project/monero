@@ -66,7 +66,7 @@ void device_io_tcp::init()
 void device_io_tcp::connect(void *params)
 {
     static const conn_params_t conn_params{}; // default params
-    const conn_params_t &params_cref = params ? reinterpret_cast<const conn_params_t &>(params) : conn_params;
+    const conn_params_t &params_cref = params ? *static_cast<const conn_params_t *>(params) : conn_params;
     this->connect(params_cref);
 }
 //-------------------------------------------------------------------------------------------------------------------
