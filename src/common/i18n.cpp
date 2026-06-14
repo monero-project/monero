@@ -33,7 +33,14 @@
 #include <map>
 #include "file_io_utils.h"
 #include "common/i18n.h"
+
+#if __has_include("translation_files.h")
 #include "translation_files.h"
+#else
+static bool find_embedded_file(const std::string &name, std::string &data) {
+  return false;
+}
+#endif
 
 #include <boost/system/error_code.hpp>
 #include <boost/filesystem.hpp>

@@ -410,6 +410,7 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
+option(BUILD_TRANSLATIONS "Build translations using lrelease (Qt)" OFF)
 option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
 option(BUILD_TESTS "Build tests." OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -632,8 +633,9 @@ function (monero_add_library_with_deps)
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
 endfunction ()
 
+if(BUILD_TRANSLATIONS)
 # Generate header for embedded translations
-# Generate header for embedded translations, use target toolchain if depends, otherwise use the
+# use target toolchain if depends, otherwise use the
 # lrelease and lupdate binaries from the host
 include(ExternalProject)
 ExternalProject_Add(generate_translations_header
@@ -643,6 +645,8 @@ ExternalProject_Add(generate_translations_header
   CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
   INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
+endif()
+
 add_subdirectory(external)
 
 # Final setup for libunbound
