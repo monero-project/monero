@@ -135,7 +135,7 @@ int  device_io_tcp::exchange(
         if (!user_input)
             set_deadline();
 
-        // read in [response payload length as big-endian 32-bit int, beginnig of payload...]
+        // read in [response payload length as big-endian 32-bit int, beginning of payload...]
         const std::array<boost::asio::mutable_buffer, 2> read_buffers{{
             {&n_read_bytes, sizeof(n_read_bytes)},
             {response, max_resp_len}
