@@ -54,6 +54,7 @@
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "serialization/wire.h"
 #include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/cbor.h"
 #include "serialization/wire/json.h"
 #include "serialization/wire/wrapper/range.h"
 
@@ -221,7 +222,7 @@ namespace
       wire::field("difficulty", cryptonote::hex(self.diff)),
       WIRE_FIELD_COPY(median_weight),
       WIRE_FIELD_COPY(already_generated_coins),
-      WIRE_FIELD(tx_backlog)
+      wire::field("tx_backlog", wire::range(std::cref(self.tx_backlog))) // always output
     );
   }
 
@@ -246,9 +247,10 @@ namespace
     );
   }
 
-  std::error_code json_full_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
+  template<typename F>
+  std::error_code full_chain_format(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
-    return json_pub(buf, blocks);
+    return F::to_bytes(buf, wire::range(blocks));
   }
 
   template<typename F>
@@ -266,14 +268,15 @@ namespace
   // boost::adaptors are in place "views" - no copy/move takes place
   // moving transactions (via sort, etc.), is expensive!
 
-  std::error_code json_full_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
+  template<typename F>
+  std::error_code full_txpool_format(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
   {
     namespace adapt = boost::adaptors;
     const auto to_full_tx = [](const cryptonote::txpool_event& event)
     {
       return event.tx;
     };
-    return json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
+    return F::to_bytes(buf, wire::range(txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
   }
 
   template<typename F>
@@ -288,20 +291,25 @@ namespace
     return F::to_bytes(buf, wire::range(txes | adapt::filtered(is_valid{}) | adapt::transformed(to_minimal_tx)));
   }
 
-  constexpr const std::array<context<chain_writer>, 2> chain_contexts =
+  constexpr const std::array<context<chain_writer>, 4> chain_contexts =
   {{
-    {u8"json-full-chain_main", json_full_chain},
+    {u8"cbor-full-chain_main", full_chain_format<wire::cbor>},
+    {u8"cbor-minimal-chain_main", minimal_chain_format<wire::cbor>},
+    {u8"json-full-chain_main", full_chain_format<wire::json>},
     {u8"json-minimal-chain_main", minimal_chain_format<wire::json>}
   }};
 
-  constexpr const std::array<context<miner_writer>, 1> miner_contexts =
+  constexpr const std::array<context<miner_writer>, 2> miner_contexts =
   {{
+    {u8"cbor-full-miner_data", miner_data_format<wire::cbor>},
     {u8"json-full-miner_data", miner_data_format<wire::json>}
   }};
 
-  constexpr const std::array<context<txpool_writer>, 2> txpool_contexts =
+  constexpr const std::array<context<txpool_writer>, 4> txpool_contexts =
   {{
-    {u8"json-full-txpool_add", json_full_txpool},
+    {u8"cbor-full-txpool_add", full_txpool_format<wire::cbor>},
+    {u8"cbor-minimal-txpool_add", minimal_txpool_format<wire::cbor>},
+    {u8"json-full-txpool_add", full_txpool_format<wire::json>},
     {u8"json-minimal-txpool_add", minimal_txpool_format<wire::json>}
   }};
 
@@ -497,7 +505,7 @@ bool zmq_pub::relay_to_pub(void* const relay, void* const pub)
 
   if (!*relayed)
   {
-    std::array<std::size_t, 2> subs;
+    std::array<std::size_t, 4> subs;
     std::vector<cryptonote::txpool_event> events;
     {
       const boost::lock_guard<boost::mutex> lock{sync_};

@@ -59,9 +59,9 @@ class zmq_pub
 
     net::zmq::socket relay_;
     std::deque<std::vector<txpool_event>> txes_;
-    std::array<std::size_t, 2> chain_subs_;
-    std::array<std::size_t, 1> miner_subs_;
-    std::array<std::size_t, 2> txpool_subs_;
+    std::array<std::size_t, 4> chain_subs_;
+    std::array<std::size_t, 2> miner_subs_;
+    std::array<std::size_t, 4> txpool_subs_;
     boost::mutex sync_; //!< Synchronizes counts in `*_subs_` arrays.
 
   public:
