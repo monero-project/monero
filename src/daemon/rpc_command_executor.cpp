@@ -644,7 +644,11 @@ bool t_rpc_command_executor::print_connections() {
     }
   }
 
-  tools::msg_writer() << std::setw(30) << std::left << "Remote Host"
+  int host_field_width = 15;
+  for (const auto &conn : res.connections)
+    host_field_width = std::max(host_field_width, 8 + (int) conn.address.length());
+
+  tools::msg_writer() << std::setw(host_field_width) << std::left << "Remote Host"
       << std::setw(8) << "Type"
       << std::setw(6) << "SSL"
       << std::setw(20) << "Peer id"
@@ -661,11 +665,11 @@ bool t_rpc_command_executor::print_connections() {
   for (auto & info : res.connections)
   {
     std::string address = info.incoming ? "INC " : "OUT ";
-    address += info.ip + ":" + info.port;
+    address += info.address;
     //std::string in_out = info.incoming ? "INC " : "OUT ";
     tools::msg_writer() 
      //<< std::setw(30) << std::left << in_out
-     << std::setw(30) << std::left << address
+     << std::setw(host_field_width) << std::left << address
      << std::setw(8) << (get_address_type_name((epee::net_utils::address_type)info.address_type))
      << std::setw(6) << (info.ssl ? "yes" : "no")
      << std::setw(20) << info.peer_id
