@@ -31,7 +31,6 @@
 #pragma once
 
 #include "cryptonote_basic.h"
-#include "crypto/crypto.h"
 #include "crypto/hash.h"
 
 
@@ -72,6 +71,13 @@ namespace cryptonote {
     bool is_subaddress;
     bool has_payment_id;
     crypto::hash8 payment_id;
+  };
+
+  struct hashable_block_header_info
+  {
+    block_header header;
+    crypto::hash block_content_hash;
+    std::uint64_t n_txs_in_block;
   };
 
   /************************************************************************/
@@ -147,7 +153,35 @@ namespace cryptonote {
    * @return crypto::hash hash template that contains `nbits` bits matching real_hash and no more
    */
   crypto::hash make_hash32_loose_template(unsigned int nbits, const crypto::hash& real_hash);
-}
+
+  /**
+   * @brief calculate a block hash (AKA blockID) from its header info
+   * @param header_info header_info: block header, content hash, and number of txs in block
+   * @param[out] hash_out resulting blockID
+   * @return true iff blockID was successfully calculated
+   */
+  bool calculate_block_hash_from_header_info(const hashable_block_header_info &header_info, crypto::hash &hash_out);
+
+  /**
+   * @brief Compresses a *consecutive* chain of block header infos into a compact binary blob
+   * @param headers header infos of consecutive blocks
+   * @param[out] headers_blob_out compact binary blob representing data in `headers`
+   * @return true iff header chain was successfully compressed
+   */
+  bool compress_block_header_chain(epee::span<const hashable_block_header_info> headers, std::string &headers_blob_out);
+
+  /**
+   * @brief Decompresses a *consecutive* chain of block header infos from a compact binary blob
+   * @param headers_blob binary blob potentially representing a consecutive chain of blok headers
+   * @param[out] headers_out header infos of consecutive blocks
+   * @return true iff header chain was successfully decompressed
+   */
+  bool decompress_block_header_chain(epee::span<const unsigned char> headers_blob,
+    std::vector<hashable_block_header_info> &headers_out);
+  bool decompress_block_header_chain(const std::string &headers_blob,
+    std::vector<hashable_block_header_info> &headers_out);
+
+} //namespace cryptonote
 
 bool parse_hash256(const std::string &str_hash, crypto::hash& hash);
 
