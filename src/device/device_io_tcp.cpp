@@ -84,7 +84,7 @@ int  device_io_tcp::exchange(
 {
     boost::asio::steady_timer deadline(this->m_io_context);
     boost::system::error_code ec = boost::asio::error::would_block;
-    std::size_t bytes_transfered = 0;
+    std::size_t bytes_transferred = 0;
     const auto io_cb = [&](const boost::system::error_code ec_, const std::size_t bytes_transfered_)
     {
         ec = ec_;
