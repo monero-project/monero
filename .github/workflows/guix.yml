@@ -6,6 +6,7 @@ on:
       - 'contrib/depends/**'
       - 'contrib/guix/**'
       - '!contrib/**.md'
+      - 'external/**'
       - '.github/workflows/guix.yml'
       - '**/Cargo.lock'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - 'contrib/depends/**'
       - 'contrib/guix/**'
       - '!contrib/**.md'
+      - 'external/**'
       - '.github/workflows/guix.yml'
       - '**/Cargo.lock'
 
