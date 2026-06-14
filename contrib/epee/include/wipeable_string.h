@@ -34,6 +34,7 @@
 #include <string>
 #include "memwipe.h"
 #include "fnv1.h"
+#include "serialization/keyvalue_serialization.h"
 
 namespace epee
 {
@@ -75,6 +76,12 @@ namespace epee
     bool operator!=(const wipeable_string &other) const noexcept { return buffer != other.buffer; }
     wipeable_string &operator=(wipeable_string &&other);
     wipeable_string &operator=(const wipeable_string &other);
+    char& operator[](size_t idx);
+    const char& operator[](size_t idx) const;
+
+    BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(buffer)
+    END_KV_SERIALIZE_MAP()
 
   private:
     void grow(size_t sz, size_t reserved = 0);

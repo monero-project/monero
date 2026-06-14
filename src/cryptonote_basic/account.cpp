@@ -87,12 +87,16 @@ DISABLE_VS_WARNINGS(4244 4345)
   void account_keys::xor_with_key_stream(const crypto::chacha_key &key)
   {
     // encrypt a large enough byte stream with chacha20
-    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * (2 + m_multisig_keys.size()));
+    epee::wipeable_string key_stream = get_key_stream(key, m_encryption_iv, sizeof(crypto::secret_key) * (3 + m_multisig_keys.size()) + m_passphrase.size());
     const char *ptr = key_stream.data();
     for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
       m_spend_secret_key.data[i] ^= *ptr++;
     for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
       m_view_secret_key.data[i] ^= *ptr++;
+    for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
+      m_polyseed.data[i] ^= *ptr++;
+    for (size_t i = 0; i < m_passphrase.size(); ++i)
+      m_passphrase.data()[i] ^= *ptr++;
     for (crypto::secret_key &k: m_multisig_keys)
     {
       for (size_t i = 0; i < sizeof(crypto::secret_key); ++i)
@@ -150,6 +154,8 @@ DISABLE_VS_WARNINGS(4244 4345)
   {
     m_keys.m_spend_secret_key = crypto::secret_key();
     m_keys.m_multisig_keys.clear();
+    m_keys.m_polyseed = crypto::secret_key();
+    m_keys.m_passphrase.wipe();
   }
   //-----------------------------------------------------------------
   void account_base::set_spend_key(const crypto::secret_key& spend_secret_key)
@@ -161,6 +167,14 @@ DISABLE_VS_WARNINGS(4244 4345)
         "Unexpected derived public spend key");
 
     m_keys.m_spend_secret_key = spend_secret_key;
+  }
+  //-----------------------------------------------------------------
+  void account_base::set_polyseed(const crypto::secret_key& polyseed, const epee::wipeable_string& passphrase)
+  {
+    // Note that 'm_polyseed'  is not a true 'crypto::secret_key'; it's only declared here that way for
+    // simple handling, but it's a "stored" Polyseed in the sense of 'polyseed_storage'
+    m_keys.m_polyseed = polyseed;
+    m_keys.m_passphrase = passphrase;
   }
   //-----------------------------------------------------------------
   crypto::secret_key account_base::generate(const crypto::secret_key& recovery_key, bool recover, bool two_random)
@@ -253,6 +267,15 @@ DISABLE_VS_WARNINGS(4244 4345)
     crypto::secret_key fake;
     memset(&unwrap(unwrap(fake)), 0, sizeof(fake));
     create_from_keys(address, fake, viewkey);
+  }
+  //-----------------------------------------------------------------
+  void account_base::create_from_polyseed(const polyseed::data& seed, const epee::wipeable_string &passphrase)
+  {
+    crypto::secret_key secret_key = cryptonote::polyseed_keygen(seed, passphrase);
+    generate(secret_key, true, false);
+
+    seed.save(m_keys.m_polyseed.data);
+    m_keys.m_passphrase = passphrase;
   }
   //-----------------------------------------------------------------
   bool account_base::make_multisig(const crypto::secret_key &view_secret_key, const crypto::secret_key &spend_secret_key, const crypto::public_key &spend_public_key, const std::vector<crypto::secret_key> &multisig_keys)
