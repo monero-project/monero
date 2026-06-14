@@ -442,7 +442,7 @@ namespace tools
     struct out_of_hashchain_bounds_error : public refresh_error
     {
       explicit out_of_hashchain_bounds_error(std::string&& loc)
-        : refresh_error(std::move(loc), "Index out of bounds of of hashchain")
+        : refresh_error(std::move(loc), "Index out of bounds of hashchain")
       {
       }
 
