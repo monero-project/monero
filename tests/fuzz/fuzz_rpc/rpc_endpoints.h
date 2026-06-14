@@ -9,7 +9,6 @@ namespace tools {
   extern __thread std::vector<LoggingPerformanceTimer*> *performance_timers;
 }
 
-void disable_bootstrap_daemon(cryptonote::core_rpc_server& rpc);
 std::map<int, std::function<void(cryptonote::core_rpc_server& rpc, FuzzedDataProvider&)>> get_fuzz_targets(bool safe);
 
 void fuzz_get_height(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
@@ -35,7 +34,6 @@ void fuzz_get_transaction_pool(cryptonote::core_rpc_server&, FuzzedDataProvider&
 void fuzz_get_transaction_pool_hashes_bin(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_transaction_pool_hashes(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_transaction_pool_stats(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
-void fuzz_set_bootstrap_daemon(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_stop_daemon(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_info(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
 void fuzz_get_net_stats(cryptonote::core_rpc_server&, FuzzedDataProvider& provider);
