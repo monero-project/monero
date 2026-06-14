@@ -44,7 +44,6 @@ int main(int argc, char** argv)
     tools::on_startup();
     epee::string_tools::set_module_name_and_folder(argv[0]);
     mlog_configure(mlog_get_default_log_path("ledger_tests.log"), true);
-    epee::debug::get_set_enable_assert(true, false);
 
     ::testing::InitGoogleTest(&argc, argv);
 

@@ -52,40 +52,37 @@ namespace io {
  * |----------------------------------------------|
  */
 
-class device_io_tcp final: public device_io
+class device_io_tcp: public device_io
 {
 public:
     static constexpr const char DEFAULT_ADDRESS[] = "127.0.0.1";
     static constexpr unsigned int DEFAULT_PORT = 9999;
     static constexpr unsigned int DEFAULT_TIMEOUT = 60; // seconds
 
-    struct conn_params_t
-    {
-        const char *address = DEFAULT_ADDRESS;
-        unsigned int port = DEFAULT_PORT;
-    };
-
-    device_io_tcp(boost::asio::io_context &io_context);
+    device_io_tcp(boost::asio::io_context &io_context,
+        std::string address = DEFAULT_ADDRESS,
+        unsigned int port = DEFAULT_PORT,
+        unsigned int timeout = DEFAULT_TIMEOUT);
     ~device_io_tcp();
 
-    void init() final;
-    void connect(void *params) final;
-    bool connected() const final;
+    void init() override;
+    void connect() override;
+    bool connected() const override;
     int  exchange(unsigned char *command,
         unsigned int cmd_len,
         unsigned char *response,
         unsigned int max_resp_len,
-        bool user_input) final;
-    void disconnect() final;
-    void release() final;
+        bool user_input) override;
+    void disconnect() override;
+    void release() override;
 
     void connect(const char *address, unsigned int port);
-    void connect(const conn_params_t &conn_params);
-    void set_timeout(unsigned int timeout);
 
 private:
     boost::asio::io_context &m_io_context;
     boost::asio::ip::tcp::socket m_socket;
+    std::string m_address;
+    unsigned int m_port;
     unsigned int m_timeout;
 }; //class device_io_tcp
 }  //namespace io

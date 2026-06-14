@@ -135,10 +135,10 @@ cryptonote::tx_source_entry gen_ringed_tx_source_entry(
 
         // derive ECDH and one-time address
         crypto::key_derivation kd;
-        assert(crypto::generate_key_derivation(address.m_view_public_key, tx_privkey, kd));
+        crypto::generate_key_derivation(address.m_view_public_key, tx_privkey, kd);
         crypto::public_key onetime_address;
-        assert(crypto::derive_public_key(kd, src.real_output_in_tx_index,
-            address.m_spend_public_key, onetime_address));
+        crypto::derive_public_key(kd, src.real_output_in_tx_index,
+            address.m_spend_public_key, onetime_address);
 
         // calculate amount blinding factor
         if (is_ringct)

@@ -67,24 +67,37 @@ TEST(ledger, sign_ringct_to_ringct_bpp_tx)
     ASSERT_TRUE(alice.get_device().set_mode(hw::device::TRANSACTION_PARSE));
     std::vector<cryptonote::tx_source_entry> srcs{
         mock::gen_ringed_tx_source_entry(input_amount, alice_addr , false)};
+    rct::ctkeyM input_rings;
+    input_rings.reserve(srcs.size());
+    for (const cryptonote::tx_source_entry &src : srcs)
+    {
+        rct::ctkeyV &ring = input_rings.emplace_back();
+        ring.reserve(src.outputs.size());
+        for (const cryptonote::tx_source_entry::output_entry &ring_member : src.outputs)
+            ring.push_back(ring_member.second);
+    }
 
     // subaddress map for Alice
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> alice_subaddresses;
     alice_subaddresses[alice_addr.m_spend_public_key];
 
-    // make tx from Alice to Bob
+    // make tx from Alice to Bob, using Ledger
     cryptonote::transaction tx;
     crypto::secret_key tx_key;
     std::vector<crypto::secret_key> additional_tx_keys;
+    ASSERT_EQ(hw::device::device_type::LEDGER, alice.get_device().get_type());
     ASSERT_TRUE(alice.get_device().set_mode(hw::device::TRANSACTION_CREATE_REAL));
     ASSERT_TRUE(cryptonote::construct_tx_and_get_tx_key(alice, alice_subaddresses, srcs, dests,
         alice_addr, {}, tx, tx_key, additional_tx_keys, true, {rct::RangeProofPaddedBulletproof, 0}, true));
+
+    // verify tx
     ASSERT_EQ(2, tx.version);
     ASSERT_EQ(1, tx.vin.size());
     ASSERT_EQ(2, tx.vout.size());
     ASSERT_EQ(rct::RCTTypeBulletproofPlus, tx.rct_signatures.type);
     ASSERT_EQ(fee, tx.rct_signatures.txnFee);
     cryptonote::tx_verification_context tvc{};
-    ASSERT_TRUE(cryptonote::ver_non_input_consensus(tx, tvc, HF_VERSION_BULLETPROOF_PLUS));
+    EXPECT_TRUE(cryptonote::ver_non_input_consensus(tx, tvc, HF_VERSION_BULLETPROOF_PLUS));
+    EXPECT_TRUE(cryptonote::ver_input_proofs_rings(tx, input_rings));
 }
 //----------------------------------------------------------------------------------------------------------------------

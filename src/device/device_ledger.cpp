@@ -279,8 +279,7 @@ namespace hw {
           io::device_io_hid(0x0101, 0x05, 64, 2000)
         {}
 
-        void connect(void *parms) final {
-          assert(nullptr == parms);
+        void connect() final {
           unsigned int pid = 0;
           if (find_ledger_without_app(pid)) {
             // Ask the Ledger OS for the running application: a locked device answers
@@ -622,7 +621,7 @@ namespace hw {
     bool device_ledger::connect(void) {
       this->disconnect();
 
-      this->hw_device_io->connect(nullptr);
+      this->hw_device_io->connect();
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;

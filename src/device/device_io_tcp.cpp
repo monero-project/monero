@@ -33,6 +33,7 @@
 #include "int-util.h"
 #include "misc_log_ex.h"
 #include "net/net_helper.h"
+#include "scope_guard.h"
 
 //third party headers
 #include <array>
@@ -49,10 +50,15 @@
 namespace hw {
 namespace io {
 //-------------------------------------------------------------------------------------------------------------------
-device_io_tcp::device_io_tcp(boost::asio::io_context &io_context):
+device_io_tcp::device_io_tcp(boost::asio::io_context &io_context,
+        std::string address,
+        unsigned int port,
+        unsigned int timeout):
     m_io_context(io_context),
     m_socket(m_io_context),
-    m_timeout(DEFAULT_TIMEOUT)
+    m_address(std::move(address)),
+    m_port(port),
+    m_timeout(timeout)
 {}
 //-------------------------------------------------------------------------------------------------------------------
 device_io_tcp::~device_io_tcp()
@@ -63,11 +69,9 @@ void device_io_tcp::init()
     // no global setup
 }
 //-------------------------------------------------------------------------------------------------------------------
-void device_io_tcp::connect(void *params)
+void device_io_tcp::connect()
 {
-    static const conn_params_t conn_params{}; // default params
-    const conn_params_t &params_cref = params ? *static_cast<const conn_params_t *>(params) : conn_params;
-    this->connect(params_cref);
+    this->connect(m_address.c_str(), m_port);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool device_io_tcp::connected() const
@@ -82,34 +86,46 @@ int  device_io_tcp::exchange(
     unsigned int max_resp_len,
     const bool user_input)
 {
-    boost::asio::steady_timer deadline(this->m_io_context);
     boost::system::error_code ec = boost::asio::error::would_block;
-    std::size_t bytes_transfered = 0;
-    const auto io_cb = [&](const boost::system::error_code ec_, const std::size_t bytes_transfered_)
+    std::size_t bytes_transferred = 0;
+    bool timed_out = false;
+    boost::asio::steady_timer deadline(this->m_io_context);
+    deadline.async_wait([&](const boost::system::error_code ec_){
+        if (ec_ != boost::asio::error::operation_aborted) timed_out = true;
+    });
+    const auto io_cb = [&](const boost::system::error_code ec_, const std::size_t bytes_transferred_)
     {
         ec = ec_;
-        bytes_transfered = bytes_transfered_;
+        bytes_transferred = bytes_transferred_;
     };
-    const auto block_io = [&ec, this]()
+    const auto block_io = [&, this]()
     {
-        while (ec == boost::asio::error::would_block)
+        while (ec == boost::asio::error::would_block && !timed_out)
         {
             this->m_io_context.restart();
             this->m_io_context.run_one();
         }
+        CHECK_AND_ASSERT_THROW_MES(!timed_out, "Timed out while exchanging data with TCP socket");
+        CHECK_AND_ASSERT_THROW_MES(!ec, "Got system error while exchanging data with TCP socket: " << ec);
     };
-    const auto set_deadline = [&ec, &deadline, this]()
-    {
-        deadline.expires_after(std::chrono::seconds(this->m_timeout));
-        deadline.async_wait([&ec](const boost::system::error_code ec_){
-            if (ec_ != boost::asio::error::operation_aborted) ec = boost::asio::error::operation_aborted;
-        });
-    };
+    const epee::scope_guard cleanup([&, this]{
+        try { deadline.cancel(); } catch (...) {}
+        this->m_socket.cancel();
+        if (timed_out)
+        {
+            // at most one I/O operation is pending, wait until that one is done
+            while (ec == boost::asio::error::would_block)
+            {
+                this->m_io_context.restart();
+                this->m_io_context.run_one();
+            }
+        }
+    });
 
     // if command to send, then send...
     if (nullptr != command && 0 != cmd_len)
     {
-        set_deadline();
+        deadline.expires_after(std::chrono::seconds(this->m_timeout));
 
         // write [payload length as big-endian 32-bit int, payload bytes...]
         const std::uint32_t cmd_len_be = SWAP32BE(static_cast<std::uint32_t>(cmd_len));
@@ -121,9 +137,8 @@ int  device_io_tcp::exchange(
         block_io();
 
         // check failure
-        CHECK_AND_ASSERT_MES(!ec, -1, "Got error code while writing APDU to TCP: " << ec);
-        CHECK_AND_ASSERT_MES(bytes_transfered == cmd_len + sizeof(uint32_t),
-            -1, "Transferred the wrong number of bytes to APDU TCP: " << bytes_transfered
+        CHECK_AND_ASSERT_THROW_MES(bytes_transferred == cmd_len + sizeof(uint32_t),
+            "Transferred the wrong number of bytes to APDU TCP: " << bytes_transferred
                 << " vs " << (cmd_len + sizeof(uint32_t)));
     }
 
@@ -131,9 +146,11 @@ int  device_io_tcp::exchange(
     std::uint32_t n_read_bytes = -1;
     {
         ec = boost::asio::error::would_block;
-        bytes_transfered = 0;
+        bytes_transferred = 0;
         if (!user_input)
-            set_deadline();
+            deadline.expires_after(std::chrono::seconds(this->m_timeout));
+        else
+            deadline.cancel();
 
         // read in [response payload length as big-endian 32-bit int, beginning of payload...]
         const std::array<boost::asio::mutable_buffer, 2> read_buffers{{
@@ -144,46 +161,47 @@ int  device_io_tcp::exchange(
         block_io();
 
         // check I/O failure
-        CHECK_AND_ASSERT_MES(!ec, -1, "Got error code while performing TCP read: " << ec);
+        CHECK_AND_ASSERT_THROW_MES(!ec, "Got error code while performing TCP read: " << ec);
 
-        MDEBUG("Read " << bytes_transfered << " bytes from the TCP APDU device from first read");
+        MDEBUG("Read " << bytes_transferred << " bytes from the TCP APDU device from first read");
 
         // get payload length and check against buffer length...
-        CHECK_AND_ASSERT_MES(bytes_transfered >= sizeof(n_read_bytes),
-            -1, "Did not read enough bytes to get ADPU payload length");
+        CHECK_AND_ASSERT_THROW_MES(bytes_transferred >= sizeof(n_read_bytes),
+            "Did not read enough bytes to get ADPU payload length");
 
         // recv length is encoded as a 32-bit big-endian int, minus 2 for some reason
         n_read_bytes = SWAP32BE(n_read_bytes);
         n_read_bytes += 2;
         MDEBUG("ADPU payload length will be " << n_read_bytes << " bytes");
 
-        CHECK_AND_ASSERT_MES(n_read_bytes <= max_resp_len, -1, "Not enough space in buffer for APDU payload");
+        CHECK_AND_ASSERT_THROW_MES(n_read_bytes <= max_resp_len, "Not enough space in buffer for APDU payload");
 
         // buffer length is shrunk to payload length
         max_resp_len = n_read_bytes;
-        bytes_transfered -= 4;
+        bytes_transferred -= 4;
     }
 
     do
     {
-        CHECK_AND_ASSERT_MES(bytes_transfered <= max_resp_len, -1, "Buffer overflow occurred on APDU TCP read ;(");
-        response += bytes_transfered;
-        max_resp_len -= bytes_transfered;
+        CHECK_AND_ASSERT_THROW_MES(bytes_transferred <= max_resp_len,
+            "Buffer overflow occurred on APDU TCP read ;(");
+        response += bytes_transferred;
+        max_resp_len -= bytes_transferred;
 
         // if ended a read on payload length line, then we are done
         if (!max_resp_len)
             break;
 
         ec = boost::asio::error::would_block;
-        bytes_transfered = 0;
-        set_deadline();
+        bytes_transferred = 0;
+        deadline.expires_after(std::chrono::seconds(this->m_timeout));
 
         // read in [rest of payload bytes...]
         boost::asio::async_read(this->m_socket, boost::asio::mutable_buffer(response, max_resp_len), io_cb);
         block_io();
 
         // check I/O failure
-        CHECK_AND_ASSERT_MES(!ec, -1, "Got error code while performing TCP read: " << ec);
+        CHECK_AND_ASSERT_THROW_MES(!ec, "Got error code while performing TCP read: " << ec);
     }
     while (true);
 
@@ -194,8 +212,9 @@ void device_io_tcp::disconnect()
 {
     if (this->m_socket.is_open())
     {
-        this->m_socket.shutdown(boost::asio::socket_base::shutdown_both);
-        this->m_socket.close();
+        boost::system::error_code ec;
+        this->m_socket.shutdown(boost::asio::socket_base::shutdown_both, ec);
+        this->m_socket.close(ec);
     }
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -222,16 +241,6 @@ void device_io_tcp::connect(const char *address, unsigned int port)
     }
 
     this->m_socket = socket_future.get();
-}
-//-------------------------------------------------------------------------------------------------------------------
-void device_io_tcp::connect(const conn_params_t &conn_params)
-{
-    this->connect(conn_params.address, conn_params.port);
-}
-//-------------------------------------------------------------------------------------------------------------------
-void device_io_tcp::set_timeout(unsigned int timeout)
-{
-    this->m_timeout = timeout;
 }
 //-------------------------------------------------------------------------------------------------------------------
 }  //namespace io
