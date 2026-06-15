@@ -2825,11 +2825,6 @@ bool simple_wallet::set_device_name(const std::vector<std::string> &args/* = std
   const auto pwd_container = get_and_verify_password();
   if (pwd_container)
   {
-    if (args.size() == 0){
-      fail_msg_writer() << tr("Device name not specified");
-      return true;
-    }
-
     m_wallet->device_name(args[1]);
     bool r = false;
     try {
@@ -4279,6 +4274,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         auto rc = tools::wallet2::make_from_json(vm, false, m_generate_from_json, password_prompter);
         m_wallet = std::move(rc.first);
         password = rc.second.password();
+        if (!m_wallet) return false;
         m_wallet_file = m_wallet->path();
       }
       catch (const std::exception &e)
@@ -4286,8 +4282,6 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         fail_msg_writer() << e.what();
         return false;
       }
-      if (!m_wallet)
-        return false;
     }
     else if (!m_generate_from_device.empty())
     {
@@ -4778,11 +4772,11 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
   try { rc = tools::wallet2::make_new(vm, false, password_prompter); }
   catch(const std::exception &e) { fail_msg_writer() << tr("Error creating wallet: ") << e.what(); return {}; }
   m_wallet = std::move(rc.first);
-  m_wallet->callback(this);
   if (!m_wallet)
   {
     return {};
   }
+  m_wallet->callback(this);
   epee::wipeable_string password = rc.second.password();
 
   if (!m_subaddress_lookahead.empty())
@@ -5018,6 +5012,12 @@ bool simple_wallet::close_wallet()
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::save(const std::vector<std::string> &args)
 {
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
+
   try
   {
     LOCK_IDLE_SCOPE();
@@ -5034,6 +5034,12 @@ bool simple_wallet::save(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
+
   if (m_wallet->get_multisig_status().multisig_is_active)
   {
     fail_msg_writer() << tr("wallet is multisig and cannot save a watch-only version");
@@ -5124,6 +5130,8 @@ void simple_wallet::stop_background_mining()
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::check_background_mining(const epee::wipeable_string &password)
 {
+  if (!m_wallet) return;
+
   // Background mining can be toggled from the main wallet
   if (m_wallet->is_background_wallet() || m_wallet->is_background_syncing())
     return;
@@ -5188,6 +5196,12 @@ void simple_wallet::check_background_mining(const epee::wipeable_string &passwor
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::start_mining(const std::vector<std::string>& args)
 {
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
+
   if (!m_wallet->is_trusted_daemon())
   {
     fail_msg_writer() << tr("this command requires a trusted daemon. Enable with --trusted-daemon");
@@ -5197,11 +5211,6 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
   if (!try_connect_to_daemon())
     return true;
 
-  if (!m_wallet)
-  {
-    fail_msg_writer() << tr("wallet is null");
-    return true;
-  }
   COMMAND_RPC_START_MINING::request req = AUTO_VAL_INIT(req); 
   req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
 
@@ -6273,6 +6282,12 @@ bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std:
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool called_by_mms)
 {
+  if (!m_wallet)
+  {
+    fail_msg_writer() << tr("wallet is null");
+    return true;
+  }
+
 //  "transfer [index=<N1>[,<N2>,...]] [<priority>] [<ring_size>] <address> <amount> [<payment_id>]"
   CHECK_IF_BACKGROUND_SYNCING("cannot transfer");
   if (!try_connect_to_daemon())
@@ -6294,8 +6309,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
 
   priority = m_wallet->adjust_priority(priority);
 
-  const size_t min_ring_size = m_wallet->get_min_ring_size();
-  size_t fake_outs_count = min_ring_size - 1;
+  size_t fake_outs_count = std::max<uint64_t>(m_wallet->get_min_ring_size(), 1) - 1;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -6857,7 +6871,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  size_t fake_outs_count = std::max<uint64_t>(m_wallet->get_min_ring_size(), 1) - 1;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
@@ -7101,7 +7115,7 @@ bool simple_wallet::sweep_single(const std::vector<std::string> &args_)
 
   priority = m_wallet->adjust_priority(priority);
 
-  size_t fake_outs_count = m_wallet->get_min_ring_size() - 1;
+  size_t fake_outs_count = std::max<uint64_t>(m_wallet->get_min_ring_size(), 1) - 1;
   if(local_args.size() > 0) {
     size_t ring_size;
     if(!epee::string_tools::get_xtype_from_string(ring_size, local_args[0]))
