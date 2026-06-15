@@ -5640,9 +5640,10 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
 
   THROW_WALLET_EXCEPTION_IF(multisig_data.size() < 32, error::invalid_multisig_seed);
   size_t offset = 0;
-  uint32_t threshold = *(uint32_t*)(multisig_data.data() + offset);
+  uint32_t threshold, total;
+  memcpy(&threshold, multisig_data.data() + offset, sizeof(uint32_t));
   offset += sizeof(uint32_t);
-  uint32_t total = *(uint32_t*)(multisig_data.data() + offset);
+  memcpy(&total, multisig_data.data() + offset, sizeof(uint32_t));
   offset += sizeof(uint32_t);
 
   THROW_WALLET_EXCEPTION_IF(threshold < 1, error::invalid_multisig_seed);
@@ -5653,22 +5654,30 @@ void wallet2::generate(const std::string& wallet_, const epee::wipeable_string& 
 
   std::vector<crypto::secret_key> multisig_keys;
   std::vector<crypto::public_key> multisig_signers;
-  crypto::secret_key spend_secret_key = *(crypto::secret_key*)(multisig_data.data() + offset);
+  crypto::secret_key spend_secret_key;
+  memcpy(&unwrap(unwrap(spend_secret_key)), multisig_data.data() + offset, sizeof(crypto::secret_key));
   offset += sizeof(crypto::secret_key);
-  crypto::public_key spend_public_key = *(crypto::public_key*)(multisig_data.data() + offset);
+  crypto::public_key spend_public_key;
+  memcpy(&spend_public_key, multisig_data.data() + offset, sizeof(crypto::public_key));
   offset += sizeof(crypto::public_key);
-  crypto::secret_key view_secret_key = *(crypto::secret_key*)(multisig_data.data() + offset);
+  crypto::secret_key view_secret_key;
+  memcpy(&unwrap(unwrap(view_secret_key)), multisig_data.data() + offset, sizeof(crypto::secret_key));
   offset += sizeof(crypto::secret_key);
-  crypto::public_key view_public_key = *(crypto::public_key*)(multisig_data.data() + offset);
+  crypto::public_key view_public_key;
+  memcpy(&view_public_key, multisig_data.data() + offset, sizeof(crypto::public_key));
   offset += sizeof(crypto::public_key);
   for (size_t n = 0; n < n_multisig_keys; ++n)
   {
-    multisig_keys.push_back(*(crypto::secret_key*)(multisig_data.data() + offset));
+    crypto::secret_key multisig_key;
+    memcpy(&unwrap(unwrap(multisig_key)), multisig_data.data() + offset, sizeof(crypto::secret_key));
+    multisig_keys.push_back(multisig_key);
     offset += sizeof(crypto::secret_key);
   }
   for (size_t n = 0; n < total; ++n)
   {
-    multisig_signers.push_back(*(crypto::public_key*)(multisig_data.data() + offset));
+    crypto::public_key signer;
+    memcpy(&signer, multisig_data.data() + offset, sizeof(crypto::public_key));
+    multisig_signers.push_back(signer);
     offset += sizeof(crypto::public_key);
   }
 
