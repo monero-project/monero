@@ -386,15 +386,34 @@ namespace cryptonote {
   //--------------------------------------------------------------------------------
   bool calculate_block_hash_from_header_info(const hashable_block_header_info &header_info, crypto::hash &hash_out)
   {
-    hashable_block_header_info &h = const_cast<hashable_block_header_info&>(header_info);
     //! @TODO: Update header info -> block hashing blob logic when we bump to v17 w/ commitments
-    CHECK_AND_ASSERT_MES(h.header.major_version <= 16,
-      false, "Unrecognized block major version: " << h.header.major_version);
+    CHECK_AND_ASSERT_MES(header_info.header.major_version <= 16,
+      false, "Unrecognized block major version: " << header_info.header.major_version);
 
+    static constexpr crypto::hash EXISTING_202612_MERKLE_HASH = {{
+      -117, 103, 77, -22, -59, 70, 109, 119,
+      -33, 58, 49, -74, 41, -46, -29, 3,
+      -98, -91, 124, 33, -109, -40, -110, 56,
+      92, -5, -36, 80, 24, -119, 26, 51}};
+
+    static constexpr crypto::hash CORRECT_202612_MERKLE_HASH = {{
+      -13, 83, -55, 109, -25, 76, 83, -8,
+      115, -119, -74, 111, -90, 37, -19, 31,
+      -122, 118, -66, -21, 93, 71, -76, -16,
+      25, 59, -47, 107, 88, 73, 51, -66}};
+
+    CHECK_AND_ASSERT_MES(header_info.block_content_hash != EXISTING_202612_MERKLE_HASH,
+      false, "Block content hash cannot be old, unbinding 202612 merkle root");
+
+    const crypto::hash adjusted_block_content_hash = (header_info.block_content_hash == CORRECT_202612_MERKLE_HASH)
+      ? EXISTING_202612_MERKLE_HASH
+      : header_info.block_content_hash;
+
+    hashable_block_header_info &h = const_cast<hashable_block_header_info&>(header_info);
     std::ostringstream ss;
     binary_archive<true> ar(ss);
     FIELDS(h.header);
-    FIELDS(h.block_content_hash);
+    FIELDS(const_cast<crypto::hash&>(adjusted_block_content_hash));
     FIELDS_VARINT(h.n_txs_in_block);
     CHECK_AND_ASSERT_MES(ar.good(), false, "Bad serializer state converting header info into block hashable blob");
 
@@ -424,10 +443,12 @@ namespace cryptonote {
     FIELDS(compressed_header_version);
     FIELDS_VARINT(n_blocks);
     if (0 == n_blocks)
-      return true;
+    {
+      headers_blob_out = ss.str();
+      return ar.good();
+    }
     const block_header first_header = headers[0].header;
-    crypto::hash prev_id = first_header.prev_id;
-    FIELDS(prev_id);
+    FIELDS(const_cast<crypto::hash&>(first_header.prev_id));
 
     std::size_t header_begin = 0;
     std::int64_t last_timestamp = 0;
@@ -435,17 +456,25 @@ namespace cryptonote {
     while (header_begin < n_blocks)
     {
       // Search for next span of consecutive headers sharing the same major version.
-      // While doing do, record the sum of the difference in consecutive timestamps
       const std::uint8_t major_version = headers[header_begin].header.major_version;
       std::size_t header_end = header_begin;
       for (; header_end < n_blocks && headers[header_end].header.major_version == major_version; ++header_end) {}
       assert(header_end > header_begin);
       const std::size_t n_headers_of_major_version = header_end - header_begin;
-      const std::uint64_t top_timestamp = headers[header_end - 1].header.timestamp;
-      const std::uint64_t bottom_timestamp = headers[header_begin].header.timestamp;
+
+      // Calculate a good timestamp difference to use as a reference, we use the average diff, excluding genesis.
+      // You could also do the median, but that's more expensive to calculate. Average tends to be pretty good.
+      const bool begin_is_genesis = headers[header_begin].header.prev_id == crypto::null_hash;
+      const std::size_t top_timestamp_index = header_end - 1;
+      const std::size_t bottom_timestamp_index = header_begin + begin_is_genesis;
       std::uint64_t ts_diff_avg = 0;
-      if (n_headers_of_major_version > 1 && top_timestamp > bottom_timestamp)
-        ts_diff_avg = (top_timestamp - bottom_timestamp) / (n_headers_of_major_version - 1);
+      if (top_timestamp_index > bottom_timestamp_index)
+      {
+        const std::uint64_t top_timestamp = headers[top_timestamp_index].header.timestamp;
+        const std::uint64_t bottom_timestamp = headers[bottom_timestamp_index].header.timestamp;
+        if (top_timestamp > bottom_timestamp)
+          ts_diff_avg = (top_timestamp - bottom_timestamp) / (top_timestamp_index - bottom_timestamp_index);
+      }
 
       // Before the first major span prefix is serialized, put the "base timestamp" into the main prefix
       const bool first_major_span = 0 == header_begin;
