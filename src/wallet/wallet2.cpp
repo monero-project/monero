@@ -3712,16 +3712,14 @@ void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash 
   }
   else
   {
-    if (!incremental)
+    if (tx_details.m_state == wallet2::unconfirmed_transfer_details::pending_in_pool)
     {
-      if (tx_details.m_state == wallet2::unconfirmed_transfer_details::pending_in_pool)
-      {
-        // For the probably unlikely case that a tx once seen in the pool vanishes
-        // again set back to 'pending'
-        tx_details.m_state = wallet2::unconfirmed_transfer_details::pending;
-        MINFO("Already seen txid " << txid << " vanished from pool, marking as pending");
-      }
+      // For the probably unlikely case that a tx once seen in the pool vanishes
+      // again set back to 'pending'
+      tx_details.m_state = wallet2::unconfirmed_transfer_details::pending;
+      MINFO("Already seen txid " << txid << " vanished from pool, marking as pending");
     }
+
     // If a tx is pending for a "long time" without appearing in the pool, and if
     // we have refreshed and thus had a chance to really see it if it was there,
     // judge it as failed; the waiting for timeout and refresh happened avoids
@@ -3904,17 +3902,34 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
   {
     const crypto::hash &txid = it->first;
     MDEBUG("Checking m_unconfirmed_txs entry " << txid);
-    bool found = false;
+    bool is_in_pool = false;
     for (const auto &pool_tx: added_pool_txs)
     {
       if (std::get<1>(pool_tx) == txid)
       {
-        found = true;
+        is_in_pool = true;
         break;
       }
     }
+
+    if (incremental && !is_in_pool && it->second.m_state == wallet2::unconfirmed_transfer_details::pending_in_pool)
+    {
+      // If it's already been seen in the pool before and wasn't removed, then we expect it's still in the pool.
+      // Check if the tx has been removed.
+      bool removed = false;
+      for (const auto &removed_tx : removed_pool_txids)
+      {
+        if (txid == removed_tx)
+        {
+          removed = true;
+          break;
+        }
+      }
+      is_in_pool = !removed;
+    }
+
     auto pit = it++;
-    process_unconfirmed_transfer(incremental, txid, pit->second, found, now, refreshed);
+    process_unconfirmed_transfer(incremental, txid, pit->second, is_in_pool, now, refreshed);
     MDEBUG("Resulting state of that entry: " << pit->second.m_state);
   }
 
