@@ -1484,7 +1484,7 @@ bool simple_wallet::sign_multisig_main(const std::vector<std::string> &args, boo
   }
   if (!ms_status.multisig_is_active)
   {
-    fail_msg_writer() << tr("This is not a multisig wallet");
+    fail_msg_writer() << tr("This wallet is not multisig");
     return false;
   }
   if (!ms_status.is_ready)
@@ -1600,7 +1600,7 @@ bool simple_wallet::submit_multisig_main(const std::vector<std::string> &args, b
   }
   if (!ms_status.multisig_is_active)
   {
-    fail_msg_writer() << tr("This is not a multisig wallet");
+    fail_msg_writer() << tr("This wallet is not multisig");
     return false;
   }
   if (!ms_status.is_ready)
@@ -1677,7 +1677,7 @@ bool simple_wallet::export_raw_multisig(const std::vector<std::string> &args)
   }
   if (!ms_status.multisig_is_active)
   {
-    fail_msg_writer() << tr("This is not a multisig wallet");
+    fail_msg_writer() << tr("This wallet is not multisig");
     return true;
   }
   if (!ms_status.is_ready)
@@ -4156,7 +4156,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       if (multisig_m <= 1 || multisig_m > multisig_n)
       {
-        fail_msg_writer() << tr("Error: expected N > 1 and N <= M, but got: ") << multisig_type_string;
+        fail_msg_writer() << tr("Error: expected M > 1 and M <= N, but got: ") << multisig_type_string;
         return false;
       }
       if (multisig_m != multisig_n)
