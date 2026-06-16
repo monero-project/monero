@@ -665,7 +665,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit, size_t max_tx_count) const
+  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t max_tx_count) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -676,7 +676,6 @@ namespace cryptonote
       max_tx_count ? std::min(max_tx_count, txids.size()) : txids.size();
 
     txs.reserve(std::min<size_t>(max_allowed, 1000000)); // reserve limited to min(1 million, max_allowed)
-    size_t cumul_txblob_size = 0;
 
     for (size_t i = 0; i < txids.size() && txs.size() < max_allowed; ++i)
       {
@@ -686,11 +685,6 @@ namespace cryptonote
         if (!success)
           continue;
 
-        if (cumul_txblob_size_limit &&
-            cumul_txblob_size + details.blob_size >= cumul_txblob_size_limit)
-          continue;
-
-        cumul_txblob_size += details.blob_size;
         txs.emplace_back(it, std::move(details));
       }
 
@@ -972,7 +966,7 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size) const
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1007,8 +1001,7 @@ namespace cryptonote
       LOG_PRINT_L2("Giving back the whole pool");
 
     // If incremental, handle removed TXIDs first since it's important that txs are removed
-    // from synchronizers' pools, and we need need to estimate how much space we have left to
-    // request full-bodied txs
+    // from synchronizers' pools.
     if (incremental)
     {
       std::multimap<time_t, removed_tx_info>::const_iterator rit = m_removed_txs_by_time.lower_bound(start_time);
@@ -1039,20 +1032,12 @@ namespace cryptonote
         txids.push_back(pit.first);
     }
 
-    // Estimate max cumulative size left for full tx blobs
-    const size_t removed_txids_clawback{32 * removed_txs.size()};
-    const size_t remaining_txids_clawback{32 * txids.size()};
-    const size_t added_tx_txid_clawback(32 * txids.size());
-    const size_t total_clawback{removed_txids_clawback + remaining_txids_clawback + added_tx_txid_clawback};
-    const size_t cumulative_txblob_size_limit{cumul_limit_size > total_clawback ? cumul_limit_size - total_clawback : 0};
-
-    // Perform TX info fetch, limited to max_tx_count and cumulative_txblob_size_limit
-    if (cumulative_txblob_size_limit && !txids.empty() && max_tx_count)
+    // Perform TX info fetch, limited to max_tx_count.
+    if (!txids.empty())
     {
       if (!get_transactions_info(epee::to_span(txids),
                                  added_txs,
                                  include_sensitive,
-                                 cumulative_txblob_size_limit,
                                  max_tx_count))
         return false;
     }
