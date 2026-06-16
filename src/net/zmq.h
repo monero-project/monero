@@ -64,6 +64,8 @@ namespace net
 {
 namespace zmq
 {
+    constexpr std::size_t max_message_size = 10 * 1024 * 1024; // 10 MiB
+
     //! \return Category for ZMQ errors.
     const std::error_category& error_category() noexcept;
 

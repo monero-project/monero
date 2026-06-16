@@ -150,6 +150,12 @@ namespace zmq
                     if ((last = zmq_msg_recv(part.handle(), socket, flags)) < 0)
                         return last;
 
+                    if (max_message_size < payload.size() ||
+                        max_message_size - payload.size() < part.size())
+                    {
+                        errno = EMSGSIZE;
+                        return -1;
+                    }
                     payload.append(part.data(), part.size());
                     if (!zmq_msg_more(part.handle()))
                         break;
