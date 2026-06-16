@@ -64,7 +64,8 @@ public:
     {
         os << "Number of blocks" << delim << "Payload byte size" << delim
             << "Compress time (" << TARGET_DURATION_UNIT_NAME << ")" << delim
-            << "Decompress time (" << TARGET_DURATION_UNIT_NAME << ")" << std::endl;
+            << "Decompress time (" << TARGET_DURATION_UNIT_NAME << ")" << delim
+            << "Average bytes per block" << std::endl;
     }
 
     void write_row(const std::size_t n_blocks,
@@ -72,8 +73,11 @@ public:
         const std::chrono::steady_clock::duration compress_duration,
         const std::chrono::steady_clock::duration decompress_duration)
     {
+        const float avg_byte_size = static_cast<float>(byte_size) / std::max<float>(1, n_blocks);
+
         os << n_blocks << delim << byte_size << delim
-            << raw_duration(compress_duration) << delim << raw_duration(decompress_duration) << std::endl;
+            << raw_duration(compress_duration) << delim << raw_duration(decompress_duration) << delim
+            << avg_byte_size << std::endl;
     }
 
 private:
@@ -199,7 +203,8 @@ int main(int argc, const char* const argv[])
         "Block stop " << block_stop << " must be greater than or equal to block start: " << block_start);
     CHECK_AND_ASSERT_MES(block_stop < db_height, 1,
         "Block stop " << block_stop << " must be less than number of blocks in chain: " << db_height);
-    LOG_PRINT_L0("Chain height range is [" << block_start << ", " << block_stop << "]");
+    LOG_PRINT_L0("Select chain height range is [" << block_start << ", " << block_stop << "]");
+    LOG_PRINT_L0("Top block ID of range is " << db->get_block_hash_from_height(block_stop));
 
     // Open output file and write CSV header
     std::ofstream csv_ofs(output_file_path);
@@ -270,10 +275,12 @@ int main(int argc, const char* const argv[])
 
         LOG_PRINT_L0("Doing compress/decompress cycle for " << n_blocks << " headers");
 
+        const std::size_t offset = block_stop + 1 - n_blocks;
+
         // Compress
         std::chrono::steady_clock::time_point tick = std::chrono::steady_clock::now();
         std::string headers_blob;
-        const epee::span<const cn::hashable_block_header_info> headers{header_infos.data(), n_blocks};
+        const epee::span<const cn::hashable_block_header_info> headers{header_infos.data() + offset, n_blocks};
         CHECK_AND_ASSERT_MES(cn::compress_block_header_chain(headers, headers_blob), 1,
             "Failed to compress " << n_blocks << "headers, starting at height " << block_start);
         std::chrono::steady_clock::time_point tock = std::chrono::steady_clock::now();
@@ -286,6 +293,14 @@ int main(int argc, const char* const argv[])
             "Failed to decompress " << n_blocks << "headers, starting at height " << block_start);
         tock = std::chrono::steady_clock::now();
         const std::chrono::steady_clock::duration decompress_duration = tock - tick;
+
+        // Check decompression completeness
+        CHECK_AND_ASSERT_MES(decompressed_headers.size() == n_blocks, 1, "Decompressed wrong number of headers");
+        for (std::size_t i = 0; i < n_blocks; ++i)
+        {
+            CHECK_AND_ASSERT_MES(decompressed_headers.at(i) == headers[i], 1,
+                "Header at index " << i << " decompressed incorrectly");
+        }
 
         // Write results to CSV
         csv.write_row(n_blocks, headers_blob.size(), compress_duration, decompress_duration);

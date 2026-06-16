@@ -80,26 +80,21 @@ std::vector<hashable_block_header_info> gen_header_chain(
 }
 } //anonymous namespace
 
-namespace cryptonote
+TEST(cn_impl, compress_decompress_header_chain_zero)
 {
-bool operator==(const block_header &a, const block_header &b)
-{
-    assert(a.major_version <= MAX_HF_VERSION);
-    assert(b.major_version <= MAX_HF_VERSION);
-    return a.major_version == b.major_version
-        && a.minor_version == b.minor_version
-        && a.timestamp     == b.timestamp
-        && a.prev_id       == b.prev_id
-        && a.nonce         == b.nonce;
-}
+    // compress and test size
+    std::string header_blob;
+    ASSERT_TRUE(compress_block_header_chain({}, header_blob));
+    ASSERT_LE(header_blob.size(), 10);
+    MDEBUG("Compressed header blob for 0 headers is " << header_blob.size() << " bytes");
 
-bool operator==(const hashable_block_header_info &a, const hashable_block_header_info &b)
-{
-    return a.header             == b.header
-        && a.block_content_hash == b.block_content_hash
-        && a.n_txs_in_block     == b.n_txs_in_block;
+    // decompress
+    std::vector<hashable_block_header_info> decompressed_header;
+    ASSERT_TRUE(decompress_block_header_chain(header_blob, decompressed_header));
+
+    // check equality
+    ASSERT_EQ(0, decompressed_header.size());
 }
-} //namespace cryptonote
 
 TEST(cn_impl, compress_decompress_header_chain_single)
 {

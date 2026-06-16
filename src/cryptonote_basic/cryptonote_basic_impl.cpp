@@ -333,9 +333,25 @@ namespace cryptonote {
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {
     return cryptonote::get_transaction_hash(a) == cryptonote::get_transaction_hash(b);
   }
-
+  //--------------------------------------------------------------------------------
+  bool operator ==(const block_header &a, const block_header &b)
+  {
+    static_assert(MAX_HF_VERSION == 16, "Double check this impl when bumping HF versions");
+    return a.major_version == b.major_version
+        && a.minor_version == b.minor_version
+        && a.timestamp     == b.timestamp
+        && a.prev_id       == b.prev_id
+        && a.nonce         == b.nonce
+    ;
+  }
+  //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b) {
     return cryptonote::get_block_hash(a) == cryptonote::get_block_hash(b);
+  }
+  //--------------------------------------------------------------------------------
+  bool operator ==(const hashable_block_header_info &a, const hashable_block_header_info &b)
+  {
+    return a.header == b.header && a.block_content_hash == b.block_content_hash && a.n_txs_in_block == b.n_txs_in_block;
   }
   //--------------------------------------------------------------------------------
   int compare_hash32_reversed_nbits(const crypto::hash& ha, const crypto::hash& hb, unsigned int nbits)
@@ -409,16 +425,31 @@ namespace cryptonote {
       ? EXISTING_202612_MERKLE_HASH
       : header_info.block_content_hash;
 
-    hashable_block_header_info &h = const_cast<hashable_block_header_info&>(header_info);
-    std::ostringstream ss;
-    binary_archive<true> ar(ss);
-    FIELDS(h.header);
-    FIELDS(const_cast<crypto::hash&>(adjusted_block_content_hash));
-    FIELDS_VARINT(h.n_txs_in_block);
-    CHECK_AND_ASSERT_MES(ar.good(), false, "Bad serializer state converting header info into block hashable blob");
+    static constexpr std::size_t max_varint_size = 10;
+    static constexpr std::size_t max_blob_size = 2 + 2 + 2 * max_varint_size + 32 + 4 + 32 + /*object_hash*/1;
+    static_assert(max_blob_size < 128, "Object hash varint prefix cannot fit in one byte");
 
-    const std::string block_hashing_blob = ss.str();
-    return get_object_hash(block_hashing_blob, hash_out);
+    // This "block hashing blob" is slightly different from the one in cryptonote_format_utils
+    // in that it includes the varint prefix added by get_object_hash(). This skips one allocation.
+    unsigned char block_hashing_blob[max_blob_size];
+    unsigned char *p = block_hashing_blob + 1;
+    tools::write_varint(p, header_info.header.major_version);
+    tools::write_varint(p, header_info.header.minor_version);
+    tools::write_varint(p, header_info.header.timestamp);
+    memcpy(p, header_info.header.prev_id.data, 32);
+    p += 32;
+    const uint32_t nonce_le = SWAP32LE(header_info.header.nonce);
+    memcpy(p, &nonce_le, 4);
+    p += 4;
+    memcpy(p, adjusted_block_content_hash.data, 32);
+    p += 32;
+    tools::write_varint(p, header_info.n_txs_in_block);
+    assert(p >= block_hashing_blob + 73);
+    assert(p <= block_hashing_blob + max_blob_size);
+    block_hashing_blob[0] = p - 1 - block_hashing_blob; // varint length prefix  added by get_object_hash()
+
+    crypto::cn_fast_hash(block_hashing_blob, p - block_hashing_blob, hash_out);
+    return true;
   }
   //--------------------------------------------------------------------------------
   static constexpr std::uint8_t compressed_header_version = 0;

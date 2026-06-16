@@ -117,7 +117,9 @@ namespace cryptonote {
   bool is_coinbase(const transaction_prefix& tx);
 
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);
+  bool operator ==(const block_header &a, const block_header &b);
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
+  bool operator ==(const hashable_block_header_info &a, const hashable_block_header_info &b);
 
   /************************************************************************/
   /* K-anonymity helper functions                                         */
