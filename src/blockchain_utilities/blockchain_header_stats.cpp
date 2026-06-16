@@ -42,6 +42,7 @@
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "misc_log_ex.h"
+#include "serialization/binary_utils.h"
 #include "string_tools.h"
 #include "version.h"
 
@@ -62,27 +63,55 @@ public:
 
     void write_header()
     {
-        os << "Number of blocks" << delim << "Payload byte size" << delim
+        os  << "Number of blocks" << delim
+            << "Payload byte size" << delim
             << "Compress time (" << TARGET_DURATION_UNIT_NAME << ")" << delim
             << "Decompress time (" << TARGET_DURATION_UNIT_NAME << ")" << delim
-            << "Average bytes per block" << std::endl;
+            << "Average bytes per block" << delim
+            << "Payload byte size [naive]" << delim
+            << "Compress time [naive] (" << TARGET_DURATION_UNIT_NAME << ")" << delim
+            << "Decompress time [naive] (" << TARGET_DURATION_UNIT_NAME << ")" << delim
+            << "Improvement in payload size (%)" << delim
+            << "Improvement in compress time (%)" << delim
+            << "Improvement in decompress time (%)" << delim
+            << std::endl;
     }
 
     void write_row(const std::size_t n_blocks,
         const std::size_t byte_size,
         const std::chrono::steady_clock::duration compress_duration,
-        const std::chrono::steady_clock::duration decompress_duration)
+        const std::chrono::steady_clock::duration decompress_duration,
+        const std::size_t byte_size_naive,
+        const std::chrono::steady_clock::duration compress_duration_naive,
+        const std::chrono::steady_clock::duration decompress_duration_naive)
     {
         const float avg_byte_size = static_cast<float>(byte_size) / std::max<float>(1, n_blocks);
 
-        os << n_blocks << delim << byte_size << delim
-            << raw_duration(compress_duration) << delim << raw_duration(decompress_duration) << delim
-            << avg_byte_size << std::endl;
+        const float byte_improv = 100.0f * (static_cast<float>(byte_size_naive) - byte_size) / byte_size_naive;
+        const float compress_improv = 100.0f
+            * (compress_duration_naive.count() - compress_duration.count())
+            / compress_duration_naive.count();
+        const float decompress_improv = 100.0f
+            * (decompress_duration_naive.count() - decompress_duration.count())
+            / decompress_duration_naive.count();
+
+        os  << n_blocks << delim
+            << byte_size << delim
+            << raw_duration(compress_duration) << delim
+            << raw_duration(decompress_duration) << delim
+            << avg_byte_size << delim
+            << byte_size_naive << delim
+            << raw_duration(compress_duration_naive) << delim
+            << raw_duration(decompress_duration_naive) << delim
+            << byte_improv << delim
+            << compress_improv << delim
+            << decompress_improv
+            << std::endl;
     }
 
 private:
     static constexpr const char TARGET_DURATION_UNIT_NAME[] = "ms";
-    using target_duration_t = std::chrono::milliseconds;
+    using target_duration_t = std::chrono::duration<std::chrono::steady_clock::rep, std::milli>;
 
     static target_duration_t::rep raw_duration(const std::chrono::steady_clock::duration &d)
     {
@@ -92,11 +121,42 @@ private:
     std::string delim;
     std::ostream &os;
 };
+
+struct naive_hashable_block_header_chain
+{
+    std::vector<cn::hashable_block_header_info> headers;
+};
+
+BEGIN_SERIALIZE_OBJECT_FN(naive_hashable_block_header_chain)
+    FIELD_F(headers)
+    if (v.headers.empty())
+        return ar.good();
+    crypto::hash first_prev_id = v.headers.at(0).header.prev_id;
+    FIELD(first_prev_id)
+    if constexpr (!W)
+    {
+        // fill in prev_id's
+        v.headers.front().header.prev_id = first_prev_id;
+        for (std::size_t i = 1; i < v.headers.size(); ++i)
+            cn::calculate_block_hash_from_header_info(v.headers.at(i - 1),
+                v.headers.at(i).header.prev_id);
+    }
+END_SERIALIZE()
 } //anonymous namespace
+
+BEGIN_SERIALIZE_OBJECT_FN(cn::hashable_block_header_info)
+    VARINT_FIELD_N("major_version", v.header.major_version)
+    VARINT_FIELD_N("minor_version", v.header.minor_version)
+    VARINT_FIELD_N("timestamp", v.header.timestamp)
+    // skip prev_id
+    VARINT_FIELD_N("nonce", v.header.nonce)
+    FIELD_F(block_content_hash)
+    VARINT_FIELD_F(n_txs_in_block)
+END_SERIALIZE()
 
 int main(int argc, const char* const argv[])
 {
-    static constexpr const char DEFAULT_OUTPUT_FILENAME[] = "header-compression-stats.csv";
+    constexpr const char DEFAULT_OUTPUT_FILENAME[] = "header-compression-stats.csv";
 
     TRY_ENTRY();
 
@@ -234,7 +294,7 @@ int main(int argc, const char* const argv[])
     }
 
     // Query the block hashing info for entire applicable region of the chain
-    const std::uint64_t total_n_blocks = block_stop - block_start + 1;
+    const std::size_t total_n_blocks = block_stop - block_start + 1;
     std::vector<cn::hashable_block_header_info> header_infos;
     header_infos.reserve(total_n_blocks);
     std::vector<crypto::hash> blk_ids;
@@ -242,7 +302,7 @@ int main(int argc, const char* const argv[])
     LOG_PRINT_L0("Collecting " << total_n_blocks << " blocks from database...");
     while (header_infos.size() < total_n_blocks)
     {
-        static constexpr std::size_t MAX_CHUNK_SIZE = 10000;
+        constexpr std::size_t MAX_CHUNK_SIZE = 10000;
         const std::size_t next_chunk_size = std::min(MAX_CHUNK_SIZE, total_n_blocks - header_infos.size());
         const std::size_t chunk_start = block_start + header_infos.size();
         const std::vector<cn::block> blocks = db->get_blocks_range(chunk_start, chunk_start + next_chunk_size - 1);
@@ -267,7 +327,7 @@ int main(int argc, const char* const argv[])
     }
 
     // For n_blocks in {1..20, 30, 40, 50, ..., 100, 200, ... 900, 1000, 2000, ..., block_stop - block_start + 1}, do:    
-    for (std::uint64_t n_blocks = 1; n_blocks <= total_n_blocks; ++n_blocks)
+    for (std::size_t n_blocks = 1; n_blocks <= total_n_blocks; ++n_blocks)
     {
         const bool do_test = n_blocks <= 20 || cn::is_valid_decomposed_amount(n_blocks) || n_blocks == total_n_blocks;
         if (!do_test)
@@ -282,15 +342,16 @@ int main(int argc, const char* const argv[])
         std::string headers_blob;
         const epee::span<const cn::hashable_block_header_info> headers{header_infos.data() + offset, n_blocks};
         CHECK_AND_ASSERT_MES(cn::compress_block_header_chain(headers, headers_blob), 1,
-            "Failed to compress " << n_blocks << "headers, starting at height " << block_start);
+            "Failed to compress " << n_blocks << "headers, offset " << offset);
         std::chrono::steady_clock::time_point tock = std::chrono::steady_clock::now();
+        const std::size_t compressed_byte_size = headers_blob.size();
         const std::chrono::steady_clock::duration compress_duration = tock - tick;
 
         // Decompress
         tick = tock;
         std::vector<cn::hashable_block_header_info> decompressed_headers;
         CHECK_AND_ASSERT_MES(cn::decompress_block_header_chain(headers_blob, decompressed_headers), 1,
-            "Failed to decompress " << n_blocks << "headers, starting at height " << block_start);
+            "Failed to decompress " << n_blocks << "headers, offset " << offset);
         tock = std::chrono::steady_clock::now();
         const std::chrono::steady_clock::duration decompress_duration = tock - tick;
 
@@ -302,8 +363,37 @@ int main(int argc, const char* const argv[])
                 "Header at index " << i << " decompressed incorrectly");
         }
 
+        // Compress (control)
+        naive_hashable_block_header_chain naive_chain{{header_infos.cbegin() + offset,
+            header_infos.cbegin() + offset + n_blocks}};
+        tick = std::chrono::steady_clock::now();
+        CHECK_AND_ASSERT_MES(::serialization::dump_binary(naive_chain, headers_blob), 1,
+            "Failed to compress " << n_blocks << "headers using naive method, offset " << offset);
+        tock = std::chrono::steady_clock::now();
+        const std::size_t compressed_byte_size_naive = headers_blob.size();
+        const std::chrono::steady_clock::duration compress_duration_naive = tock - tick;
+
+        // Decompress (control)
+        naive_hashable_block_header_chain decompressed_naive_chain;
+        tick = tock;
+        CHECK_AND_ASSERT_MES(::serialization::parse_binary(headers_blob, decompressed_naive_chain), 1,
+            "Failed to decompress " << n_blocks << "headers using naive method, offset " << offset);
+        tock = std::chrono::steady_clock::now();
+        const std::chrono::steady_clock::duration decompress_duration_naive = tock - tick;
+
+        // Check decompression completeness (control)
+        CHECK_AND_ASSERT_MES(decompressed_naive_chain.headers.size() == n_blocks,
+            1, "Decompressed wrong number of headers using naive method");
+        for (std::size_t i = 0; i < n_blocks; ++i)
+        {
+            CHECK_AND_ASSERT_MES(decompressed_naive_chain.headers.at(i) == headers[i], 1,
+                "Header at index " << i << " decompressed incorrectly");
+        }
+
         // Write results to CSV
-        csv.write_row(n_blocks, headers_blob.size(), compress_duration, decompress_duration);
+        csv.write_row(n_blocks,
+            compressed_byte_size, compress_duration, decompress_duration,
+            compressed_byte_size_naive, compress_duration_naive, decompress_duration_naive);
     }
 
     CHECK_AND_ASSERT_MES(csv_ofs, 1, "Output file stream in bad state after write");
