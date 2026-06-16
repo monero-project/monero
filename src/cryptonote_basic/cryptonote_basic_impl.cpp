@@ -406,27 +406,29 @@ namespace cryptonote {
     CHECK_AND_ASSERT_MES(header_info.header.major_version <= 16,
       false, "Unrecognized block major version: " << header_info.header.major_version);
 
-    static constexpr crypto::hash EXISTING_202612_MERKLE_HASH = {{
-      -117, 103, 77, -22, -59, 70, 109, 119,
-      -33, 58, 49, -74, 41, -46, -29, 3,
-      -98, -91, 124, 33, -109, -40, -110, 56,
-      92, -5, -36, 80, 24, -119, 26, 51}};
+    constexpr unsigned char EXISTING_202612_MERKLE_HASH[32] = {
+      139, 103, 77, 234, 197, 70, 109, 119,
+      223, 58, 49, 182, 41, 210, 227, 3,
+      158, 165, 124, 33, 147, 216, 146, 56,
+      92, 251, 220, 80, 24, 137, 26, 51
+    };
 
-    static constexpr crypto::hash CORRECT_202612_MERKLE_HASH = {{
-      -13, 83, -55, 109, -25, 76, 83, -8,
-      115, -119, -74, 111, -90, 37, -19, 31,
-      -122, 118, -66, -21, 93, 71, -76, -16,
-      25, 59, -47, 107, 88, 73, 51, -66}};
+    constexpr unsigned char CORRECT_202612_MERKLE_HASH[32] = {
+      243, 83, 201, 109, 231, 76, 83, 248,
+      115, 137, 182, 111, 166, 37, 237, 31,
+      134, 118, 190, 235, 93, 71, 180, 240,
+      25, 59, 209, 107, 88, 73, 51, 190
+    };
 
-    CHECK_AND_ASSERT_MES(header_info.block_content_hash != EXISTING_202612_MERKLE_HASH,
+    CHECK_AND_ASSERT_MES(0 != memcmp(&header_info.block_content_hash, EXISTING_202612_MERKLE_HASH, crypto::HASH_SIZE),
       false, "Block content hash cannot be old, unbinding 202612 merkle root");
 
-    const crypto::hash adjusted_block_content_hash = (header_info.block_content_hash == CORRECT_202612_MERKLE_HASH)
-      ? EXISTING_202612_MERKLE_HASH
-      : header_info.block_content_hash;
+    crypto::hash adjusted_block_content_hash = header_info.block_content_hash;
+    if (0 == memcmp(&header_info.block_content_hash, CORRECT_202612_MERKLE_HASH, crypto::HASH_SIZE))
+      memcpy(&adjusted_block_content_hash, EXISTING_202612_MERKLE_HASH, crypto::HASH_SIZE);
 
-    static constexpr std::size_t max_varint_size = 10;
-    static constexpr std::size_t max_blob_size = 2 + 2 + 2 * max_varint_size + 32 + 4 + 32 + /*object_hash*/1;
+    constexpr std::size_t max_varint_size = 10;
+    constexpr std::size_t max_blob_size = 2 + 2 + 2 * max_varint_size + 2 * crypto::HASH_SIZE + 4 + /*object_hash*/1;
     static_assert(max_blob_size < 128, "Object hash varint prefix cannot fit in one byte");
 
     // This "block hashing blob" is slightly different from the one in cryptonote_format_utils
@@ -436,12 +438,12 @@ namespace cryptonote {
     tools::write_varint(p, header_info.header.major_version);
     tools::write_varint(p, header_info.header.minor_version);
     tools::write_varint(p, header_info.header.timestamp);
-    memcpy(p, header_info.header.prev_id.data, 32);
+    memcpy(p, header_info.header.prev_id.data, crypto::HASH_SIZE);
     p += 32;
     const uint32_t nonce_le = SWAP32LE(header_info.header.nonce);
     memcpy(p, &nonce_le, 4);
     p += 4;
-    memcpy(p, adjusted_block_content_hash.data, 32);
+    memcpy(p, adjusted_block_content_hash.data, crypto::HASH_SIZE);
     p += 32;
     tools::write_varint(p, header_info.n_txs_in_block);
     assert(p >= block_hashing_blob + 73);
@@ -457,9 +459,6 @@ namespace cryptonote {
   bool compress_block_header_chain(epee::span<const hashable_block_header_info> headers, std::string &headers_blob_out)
   {
     //! @TODO: intermediate PoW hash when applicable
-
-    static constexpr std::size_t max_header_size = 1 + 1 + 10 + 1 + 1 + 10 + 4 + 32 + 10;
-    static constexpr std::size_t max_overhead = 1 + 10 + 32 + 10;
 
     headers_blob_out.clear();
     const std::size_t n_blocks = headers.size();
@@ -583,7 +582,7 @@ namespace cryptonote {
   {
     headers_out.clear();
 
-    static constexpr std::size_t min_header_size = 1 + 4 + 32 + 1;
+    constexpr std::size_t min_header_size = 1 + 4 + 32 + 1;
 
     binary_archive<false> ar(headers_blob);
 
