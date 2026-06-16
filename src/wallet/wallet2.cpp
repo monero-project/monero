@@ -8080,14 +8080,6 @@ std::string wallet2::save_multisig_tx(multisig_tx_set txs)
 {
   LOG_PRINT_L0("saving " << txs.m_ptx.size() << " multisig transactions");
 
-  // txes generated, get rid of used k values
-  for (size_t n = 0; n < txs.m_ptx.size(); ++n)
-    for (size_t idx: txs.m_ptx[n].construction_data.selected_transfers)
-    {
-      memwipe(m_transfers[idx].m_multisig_k.data(), m_transfers[idx].m_multisig_k.size() * sizeof(m_transfers[idx].m_multisig_k[0]));
-      m_transfers[idx].m_multisig_k.clear();
-    }
-
   // zero out some data we don't want to share
   for (auto &ptx: txs.m_ptx)
   {
@@ -8115,6 +8107,11 @@ std::string wallet2::save_multisig_tx(multisig_tx_set txs)
   }
   LOG_PRINT_L2("Saving multisig unsigned tx data: " << oss.str());
   std::string ciphertext = encrypt_with_view_secret_key(oss.str());
+
+  // The transaction creator has already signed, so do not expose the txset
+  // until the corresponding one-time nonce erasure is stored.
+  clear_multisig_k_and_store(txs);
+
   return std::string(MULTISIG_UNSIGNED_TX_PREFIX) + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
@@ -8262,8 +8259,12 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto::hash> &txids)
+bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<crypto::hash> &txids)
 {
+  multisig_tx_set exported_txs = exported_txs_inout;
+  std::vector<crypto::hash> signed_txids;
+  std::vector<std::pair<crypto::hash, size_t>> signed_tx_key_indices;
+
   THROW_WALLET_EXCEPTION_IF(exported_txs.m_ptx.empty(), error::wallet_internal_error, "No tx found");
 
   const crypto::public_key local_signer = get_multisig_signer_public_key();
@@ -8276,8 +8277,6 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
       error::wallet_internal_error, "Transaction is already fully signed");
   THROW_WALLET_EXCEPTION_IF(frozen(exported_txs),
     error::wallet_internal_error, "Will not sign multisig tx containing frozen outputs")
-
-  txids.clear();
 
   // The 'exported_txs' contains a set of different transactions for the multisig group to try to sign. Each of those
   //   transactions has a set of 'signing attempts' corresponding to all the possible signing groups within the multisig.
@@ -8388,25 +8387,26 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs, std::vector<crypto
           "Unable to finalize the transaction: the ignore sets for these tx attempts seem to be malformed.");
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       if (store_tx_info())
-      {
-        m_tx_keys[txid] = ptx.tx_key;
-        m_additional_tx_keys[txid] = ptx.additional_tx_keys;
-      }
-      txids.push_back(txid);
+        signed_tx_key_indices.emplace_back(txid, n);
+      signed_txids.push_back(txid);
     }
   }
 
-  // signatures generated, get rid of any unused k values (must do export_multisig() to make more tx attempts with the
-  //   inputs in the transactions worked on here)
-  for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n)
-    for (size_t idx: exported_txs.m_ptx[n].construction_data.selected_transfers)
-    {
-      memwipe(m_transfers[idx].m_multisig_k.data(), m_transfers[idx].m_multisig_k.size() * sizeof(m_transfers[idx].m_multisig_k[0]));
-      m_transfers[idx].m_multisig_k.clear();
-    }
+  exported_txs.m_signers.insert(local_signer);
 
-  exported_txs.m_signers.insert(get_multisig_signer_public_key());
+  // Do not expose signatures until all nonce material for the selected inputs
+  // has been erased from the wallet cache.
+  clear_multisig_k_and_store(exported_txs);
 
+  for (const auto &entry: signed_tx_key_indices)
+  {
+    const auto &ptx = exported_txs.m_ptx[entry.second];
+    m_tx_keys[entry.first] = ptx.tx_key;
+    m_additional_tx_keys[entry.first] = ptx.additional_tx_keys;
+  }
+
+  exported_txs_inout = std::move(exported_txs);
+  txids = std::move(signed_txids);
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -14362,6 +14362,27 @@ void wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &use
     }
   }
   THROW_WALLET_EXCEPTION(tools::error::multisig_export_needed);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::clear_multisig_k_and_store(const multisig_tx_set &txs)
+{
+  // Must succeed before any txset produced with these nonces is exposed.
+  bool changed = false;
+  for (const auto &ptx: txs.m_ptx)
+  {
+    for (size_t idx: ptx.construction_data.selected_transfers)
+    {
+      std::vector<rct::key> &multisig_k = m_transfers[idx].m_multisig_k;
+      if (multisig_k.empty())
+        continue;
+      memwipe(multisig_k.data(), multisig_k.size() * sizeof(multisig_k[0]));
+      multisig_k.clear();
+      changed = true;
+    }
+  }
+
+  if (changed)
+    store();
 }
 //----------------------------------------------------------------------------------------------------
 rct::multisig_kLRki wallet2::get_multisig_kLRki(size_t n, const rct::key &k) const
