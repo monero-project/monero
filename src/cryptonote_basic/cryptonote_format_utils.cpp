@@ -374,16 +374,6 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  uint64_t power_integral(uint64_t a, uint64_t b)
-  {
-    if(b == 0)
-      return 1;
-    uint64_t total = a;
-    for(uint64_t i = 1; i != b; i++)
-      total *= a;
-    return total;
-  }
-  //---------------------------------------------------------------
   bool parse_amount(uint64_t& amount, const std::string& str_amount_)
   {
     std::string str_amount = str_amount_;
