@@ -38,6 +38,9 @@
 #include "unit_tests_utils.h"
 #include <condition_variable>
 #include <thread>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
 
 #define MAKE_IPV4_ADDRESS(a,b,c,d) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),0}
 #define MAKE_IPV4_ADDRESS_PORT(a,b,c,d,e) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),e}
@@ -45,6 +48,58 @@
 
 namespace
 {
+  // Serves a fixed body over plain HTTP on an ephemeral loopback port, for tests.
+  class scoped_http_file_server
+  {
+  public:
+    explicit scoped_http_file_server(std::string body)
+      : m_body(std::move(body))
+      , m_acceptor(m_ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), 0))
+    {
+      m_port = m_acceptor.local_endpoint().port();
+      do_accept();
+      m_thread = std::thread([this]{ m_ioc.run(); });
+    }
+    ~scoped_http_file_server()
+    {
+      m_ioc.stop(); // unblocks io_context::run() even while awaiting a connection
+      if (m_thread.joinable())
+        m_thread.join();
+    }
+    uint16_t port() const { return m_port; }
+  private:
+    void do_accept()
+    {
+      m_acceptor.async_accept([this](boost::system::error_code ec, boost::asio::ip::tcp::socket socket){
+        if (ec)
+          return;
+        serve(std::move(socket));
+        do_accept();
+      });
+    }
+    void serve(boost::asio::ip::tcp::socket socket)
+    {
+      namespace http = boost::beast::http;
+      boost::system::error_code ec;
+      boost::beast::flat_buffer buffer;
+      http::request<http::string_body> req;
+      http::read(socket, buffer, req, ec);
+      if (ec)
+        return;
+      http::response<http::string_body> res{http::status::ok, req.version()};
+      res.set(http::field::content_type, "text/plain");
+      res.body() = m_body;
+      res.prepare_payload();
+      http::write(socket, res, ec);
+      socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+    }
+    std::string m_body;
+    boost::asio::io_context m_ioc{1};
+    boost::asio::ip::tcp::acceptor m_acceptor;
+    uint16_t m_port = 0;
+    std::thread m_thread;
+  };
+
   boost::filesystem::path create_temp_dir()
   {
     boost::system::error_code ec;
@@ -429,6 +484,134 @@ TEST(ban, file_banlist)
 
   // random IP
   EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(145,036,205,235,9999)) );
+}
+
+TEST(ban, parse_ban_list_string)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto node_dir = create_temp_dir();
+  ASSERT_TRUE(!node_dir.empty());
+  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+      boost::filesystem::remove_all(node_dir);
+    });
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(
+    boost::program_options::command_line_parser({
+      "--data-dir", node_dir.string()
+    }).options([]{
+      boost::program_options::options_description options_description{};
+      cryptonote::core::init_options(options_description);
+      Server::init_options(options_description);
+      return options_description;
+    }()).run(),
+    vm
+  );
+  ASSERT_TRUE(server.init(vm));
+
+  // host, subnet, inline comment, full-line comment, blank line, and an invalid line
+  const std::string ban_list =
+    "1.2.3.4            # a host\n"
+    "99.98.0.0/16       # a subnet\n"
+    "# a full-line comment\n"
+    "\n"
+    "not-an-ip-address  # ignored, logged as invalid\n";
+
+  const size_t applied = server.load_ban_list(ban_list);
+  EXPECT_EQ(2u, applied);
+
+  EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(1,2,3,4,9999)) );
+  EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(99,98,1,1,9999)) );
+  EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(99,99,0,0,9999)) );
+}
+
+TEST(ban, url_banlist)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto node_dir = create_temp_dir();
+  ASSERT_TRUE(!node_dir.empty());
+  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+      boost::filesystem::remove_all(node_dir);
+    });
+
+  std::string banlist;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(
+    (unit_test::data_dir / "node" / "banlist_1.txt").string(), banlist));
+  scoped_http_file_server http_server(banlist);
+  const std::string url = "http://127.0.0.1:" + std::to_string(http_server.port()) + "/block.txt";
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(
+    boost::program_options::command_line_parser({
+      "--data-dir", node_dir.string(),
+      "--ban-list", url
+    }).options([]{
+      boost::program_options::options_description options_description{};
+      cryptonote::core::init_options(options_description);
+      Server::init_options(options_description);
+      return options_description;
+    }()).run(),
+    vm
+  );
+
+  ASSERT_TRUE(server.init(vm));
+
+  // same matrix as ban.file_banlist (banlist_1.txt)
+  EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(255,255,255,0,9999)) );
+  EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(99,98,1,0,9999)) );
+  EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(1,2,3,4,9999)) );
+  EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(100,98,1,13,9999)) );
+  EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(99,99,0,0,9999)) );
+  EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(007,007,007,007,9999)) );
+}
+
+TEST(ban, url_banlist_unreachable)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto node_dir = create_temp_dir();
+  ASSERT_TRUE(!node_dir.empty());
+  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+      boost::filesystem::remove_all(node_dir);
+    });
+
+  // Reserve an ephemeral port, then release it so the connection is refused.
+  uint16_t dead_port = 0;
+  {
+    boost::asio::io_context ioc;
+    boost::asio::ip::tcp::acceptor acceptor(ioc,
+      boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), 0));
+    dead_port = acceptor.local_endpoint().port();
+  }
+  const std::string url = "http://127.0.0.1:" + std::to_string(dead_port) + "/block.txt";
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(
+    boost::program_options::command_line_parser({
+      "--data-dir", node_dir.string(),
+      "--ban-list", url
+    }).options([]{
+      boost::program_options::options_description options_description{};
+      cryptonote::core::init_options(options_description);
+      Server::init_options(options_description);
+      return options_description;
+    }()).run(),
+    vm
+  );
+
+  // Fetch failure must be fatal: handle_command_line throws, init propagates.
+  EXPECT_ANY_THROW(server.init(vm));
 }
 
 TEST(node_server, bind_same_p2p_port)
