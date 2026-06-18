@@ -51,13 +51,13 @@ namespace wire
     static void Flush() noexcept {}
   };
 
-  //! Compatability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
   inline void PutReserve(string_stream& dest, const std::size_t length)
   {
     dest.buffer_.reserve(length);
   }
 
-  //! Compability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
   inline void PutN(string_stream& dest, const std::uint8_t ch, const std::size_t count)
   {
     dest.buffer_.append(count, ch);

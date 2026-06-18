@@ -57,7 +57,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_trezor_path                 = {"trezor-path", "Path to the trezor device to use, has to support debug link", ""};
   const command_line::arg_descriptor<bool>        arg_heavy_tests                 = {"heavy-tests", "Runs expensive tests (volume tests)", false};
   const command_line::arg_descriptor<std::string> arg_chain_path                  = {"chain-path", "Path to the serialized blockchain, speeds up testing", ""};
-  const command_line::arg_descriptor<bool>        arg_fix_chain                   = {"fix-chain", "If chain-patch is given and file cannot be used, it is ignored and overwriten", false};
+  const command_line::arg_descriptor<bool>        arg_fix_chain                   = {"fix-chain", "If chain-patch is given and file cannot be used, it is ignored and overwritten", false};
 }
 
 #define HW_TREZOR_NAME "Trezor"

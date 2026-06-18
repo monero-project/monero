@@ -496,7 +496,7 @@ class MultisigTest():
         assert frozen
 
         # Try signing multisig (this operation should fail b/c of the frozen key image)
-        print("Attemping to sign with frozen key image. This should fail")
+        print("Attempting to sign with frozen key image. This should fail")
         try:
           res = self.wallet[signers[1]].sign_multisig(multisig_txset)
           raise ValueError('sign_multisig should not have succeeded w/ frozen enotes')

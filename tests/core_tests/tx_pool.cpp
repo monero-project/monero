@@ -307,7 +307,7 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
 
       if (!public_hashes.erase(hash))
       {
-        MERROR("An unexected transaction was returned from the public pool");
+        MERROR("An unexpected transaction was returned from the public pool");
         return false;
       }
     }
@@ -336,7 +336,7 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
 
       if (!public_hashes.erase(hash))
       {
-        MERROR("An unexected transaction was returned from the public pool");
+        MERROR("An unexpected transaction was returned from the public pool");
         return false;
       }
     }
@@ -364,7 +364,7 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
     {
       if (!all_hashes.erase(hash))
       {
-        MERROR("An unexected transaction was returned from the all pool");
+        MERROR("An unexpected transaction was returned from the all pool");
         return false;
       }
     }

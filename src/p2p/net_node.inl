@@ -1305,7 +1305,7 @@ namespace nodetool
 
     const bool is_public = (zone == epee::net_utils::zone::public_);
     if(is_public && server->second.m_config.m_peer_id == peer.id)
-      return true;//dont make connections to ourself
+      return true;//don't make connections to ourself
 
     bool used = false;
     server->second.m_net_server.get_config_object().foreach_connection([&, is_public](const p2p_connection_context& cntxt)
@@ -1330,7 +1330,7 @@ namespace nodetool
 
     const bool is_public = (zone == epee::net_utils::zone::public_);
     if(is_public && server->second.m_config.m_peer_id == peer.id)
-      return true;//dont make connections to ourself
+      return true;//don't make connections to ourself
 
     bool used = false;
     server->second.m_net_server.get_config_object().foreach_connection([&, is_public](const p2p_connection_context& cntxt)

@@ -307,7 +307,7 @@ class KAnonymityTest:
             ok = False
             try: res = daemon.get_txids_loose(txid_template, num_matching_bits)
             except: ok = True
-            assert ok, 'bad template didnt error: {} {}'.format(txid_template, num_matching_bits)
+            assert ok, 'bad template did not error: {} {}'.format(txid_template, num_matching_bits)
 
 if __name__ == '__main__':
     KAnonymityTest().run_test()

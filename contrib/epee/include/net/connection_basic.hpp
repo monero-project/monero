@@ -98,7 +98,7 @@ class connection_basic_pimpl; // PIMPL for this class
   
   std::string to_string(t_connection_type type);
 
-class connection_basic { // not-templated base class for rapid developmet of some code parts
+class connection_basic { // not-templated base class for rapid development of some code parts
 		// beware of removing const, net_utils::connection is sketchily doing a cast to prevent storing ptr twice
 		const std::shared_ptr<connection_basic_shared_state> m_state;
 	public:

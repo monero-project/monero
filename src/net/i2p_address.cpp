@@ -72,7 +72,7 @@ namespace net
         struct i2p_serialized
         {
             std::string host;
-            std::uint16_t port; //! Leave for compatability with older clients
+            std::uint16_t port; //! Leave for compatibility with older clients
 
             BEGIN_KV_SERIALIZE_MAP()
                 KV_SERIALIZE(host)

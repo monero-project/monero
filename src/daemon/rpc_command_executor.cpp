@@ -654,7 +654,7 @@ bool t_rpc_command_executor::print_connections() {
       << std::setw(20) << "Support Flags"      
       << std::setw(30) << "Recv/Sent (inactive,sec)"
       << std::setw(25) << "State"
-      << std::setw(20) << "Livetime(sec)"
+      << std::setw(20) << "Lifetime(sec)"
       << std::setw(12) << "Down (kB/s)"
       << std::setw(14) << "Down(now)"
       << std::setw(10) << "Up (kB/s)" 
@@ -2035,7 +2035,7 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above
         if (start_difficulty > 0)
           tools::msg_writer() << "Approximated " << 100.f * DIFFICULTY_TARGET_V2 * chain.length / dt << "% of network hash rate";
         else
-          tools::fail_msg_writer() << "Bad cmumulative difficulty reported by dameon";
+          tools::fail_msg_writer() << "Bad cumulative difficulty reported by daemon";
       }
     }
     else

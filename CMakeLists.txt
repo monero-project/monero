@@ -170,7 +170,7 @@ function (add_definition_if_library_exists library function header var)
   endif()
 endfunction()
 
-option(RELINK_TARGETS "Relink targets, when just a dependant .so changed, but not its header?" OFF)
+option(RELINK_TARGETS "Relink targets, when just a dependent .so changed, but not its header?" OFF)
 function (monero_set_target_no_relink target)
   if (RELINK_TARGETS MATCHES OFF)
     # Will not relink the target, when just its dependent .so has changed, but not its interface

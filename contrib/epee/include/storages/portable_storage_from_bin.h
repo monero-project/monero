@@ -292,7 +292,7 @@ namespace epee
       RECURSION_LIMITATION();
       uint8_t ent_type = 0;
       read(ent_type);
-      CHECK_AND_ASSERT_THROW_MES(ent_type&SERIALIZE_FLAG_ARRAY, "wrong type sequenses");
+      CHECK_AND_ASSERT_THROW_MES(ent_type&SERIALIZE_FLAG_ARRAY, "wrong type sequences");
       return load_storage_array_entry(ent_type);
     }
 

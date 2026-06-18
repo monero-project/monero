@@ -266,7 +266,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 
 	if (!m_any_packet_yet) {
 		cts.window=0; cts.average=0; cts.delay=0; 
-		cts.recomendetDataSize = m_network_minimal_segment; // should be overrided by caller anyway
+		cts.recomendetDataSize = m_network_minimal_segment; // should be overridden by caller anyway
 		return ; // no packet yet, I can not decide about sleep time
 	}
 
@@ -288,7 +288,7 @@ void network_throttle::calculate_times(size_t packet_size, calculate_times_struc
 	const double D1 = (Epast - M*cts.window) / M; // delay - how long to sleep to get back to target speed
 	const double D2 = (Enow  - M*cts.window) / M; // delay - how long to sleep to get back to target speed (including current packet)
 
-    cts.delay = (D1*0.80 + D2*0.20); // finall sleep depends on both with/without current packet
+    cts.delay = (D1*0.80 + D2*0.20); // final sleep depends on both with/without current packet
 	//				update_overheat();
 	cts.average = Epast/cts.window; // current avg. speed (for info)
 
