@@ -58,6 +58,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "net/parse.h"
 #include "net/http_client.h"
+#include "net/http.h"
 #include "p2p/net_node.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -436,7 +437,7 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  std::string node_server<t_payload_net_handler>::fetch_ban_list(const std::string &url)
+  std::string node_server<t_payload_net_handler>::fetch_ban_list(const std::string &url, const std::string &proxy)
   {
     epee::net_utils::http::url_content u_c;
     if (!epee::net_utils::parse_url(url, u_c))
@@ -454,7 +455,16 @@ namespace nodetool
 
     const uint16_t port = u_c.port ? u_c.port : (https ? 443 : 80);
 
-    epee::net_utils::http::http_simple_client client;
+    // When a proxy is configured, route the fetch through it. The socks connector
+    // sends the hostname to the proxy (remote DNS), so neither the connection nor
+    // the name resolution reveals the operator's address to the list host.
+    net::http::client client;
+    if (!proxy.empty())
+    {
+      if (!net::socks::endpoint::get(proxy))
+        throw std::runtime_error("Failed to parse proxy address for ban list URL: " + proxy);
+      client.set_proxy(proxy);
+    }
     client.set_server(u_c.host, std::to_string(port), boost::none, std::move(ssl_options));
 
     const epee::net_utils::http::http_response_info *info = nullptr;
@@ -516,6 +526,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_command_line(
       const boost::program_options::variables_map& vm
+    , const std::string& proxy
     )
   {
     bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
@@ -603,7 +614,7 @@ namespace nodetool
       std::string ban_list_contents;
       if (is_ban_list_url(ban_list))
       {
-        ban_list_contents = fetch_ban_list(ban_list);
+        ban_list_contents = fetch_ban_list(ban_list, proxy);
       }
       else
       {
@@ -974,7 +985,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, const std::string& proxy, bool proxy_dns_leaks_allowed)
   {
-    bool res = handle_command_line(vm);
+    bool res = handle_command_line(vm, proxy);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
     if (proxy.size())
     {

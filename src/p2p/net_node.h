@@ -352,9 +352,10 @@ namespace nodetool
 
     bool parse_peer_from_string(epee::net_utils::network_address& pe, const std::string& node_addr, uint16_t default_port = 0);
     static bool is_ban_list_url(const std::string &spec);
-    static std::string fetch_ban_list(const std::string &url);
+    static std::string fetch_ban_list(const std::string &url, const std::string &proxy);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
+      , const std::string& proxy
       );
     bool idle_worker();
     bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context);

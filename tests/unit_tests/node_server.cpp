@@ -614,6 +614,38 @@ TEST(ban, url_banlist_unreachable)
   EXPECT_ANY_THROW(server.init(vm));
 }
 
+TEST(ban, url_banlist_bad_proxy)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto node_dir = create_temp_dir();
+  ASSERT_TRUE(!node_dir.empty());
+  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+      boost::filesystem::remove_all(node_dir);
+    });
+
+  boost::program_options::variables_map vm;
+  boost::program_options::store(
+    boost::program_options::command_line_parser({
+      "--data-dir", node_dir.string(),
+      "--ban-list", "http://127.0.0.1:1/block.txt"
+    }).options([]{
+      boost::program_options::options_description options_description{};
+      cryptonote::core::init_options(options_description);
+      Server::init_options(options_description);
+      return options_description;
+    }()).run(),
+    vm
+  );
+
+  // A malformed proxy must abort before any network access, so the URL host is
+  // never contacted directly and no IP leaks.
+  EXPECT_ANY_THROW(server.init(vm, "this_is_not_a_proxy"));
+}
+
 TEST(node_server, bind_same_p2p_port)
 {
   struct test_data_t
