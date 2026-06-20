@@ -65,6 +65,10 @@ debug-test-asan:
 	mkdir -p $(builddir)/debug
 	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug $(topdir) &&  $(MAKE) && $(MAKE) ARGS="-E libwallet_api_tests" test
 
+debug-asan:
+	mkdir -p $(builddir)/debug
+	cd $(builddir)/debug && cmake -D BUILD_TESTS=OFF -D SANITIZE=ON -D CMAKE_BUILD_TYPE=Debug $(topdir) && $(MAKE)
+
 debug-test-trezor:
 	mkdir -p $(builddir)/debug
 	cd $(builddir)/debug && cmake -D BUILD_TESTS=ON -D TREZOR_DEBUG=ON -D CMAKE_BUILD_TYPE=Debug $(topdir) &&  $(MAKE) && $(MAKE) ARGS="-E libwallet_api_tests" test
@@ -112,4 +116,4 @@ clean-all:
 	[ $$CONTINUE = "y" ] || [ $$CONTINUE = "Y" ] || (echo "Exiting."; exit 1;)
 	rm -rf ./build
 
-.PHONY: all cmake-debug debug debug-test debug-all cmake-release release release-test release-all clean
+.PHONY: all cmake-debug debug debug-test debug-test-asan debug-asan debug-all cmake-release release release-test release-all clean
