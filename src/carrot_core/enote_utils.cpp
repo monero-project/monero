@@ -46,35 +46,24 @@ extern "C"
 //third party headers
 
 //standard headers
-#include <mutex>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "carrot"
 
 namespace carrot
 {
+namespace
+{
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static const ge_p3 H_p3 = crypto::get_H_p3();
 static const ge_p3 T_p3 = crypto::get_T_p3();
-static const unsigned char l[32] = { // curve order
-    0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
-    0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 };
+static const mx25519_impl* auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO);
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-static const mx25519_impl* get_mx25519_impl()
-{
-    static std::once_flag of;
-    static const mx25519_impl *impl;
-    std::call_once(of, [&](){ impl = mx25519_select_impl(MX25519_TYPE_AUTO); });
-    if (impl == nullptr)
-        throw std::runtime_error("failed to obtain an mx25519 implementation");
-    return impl;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
+/**
+ * @brief encrypt and encode 64-bit amount with given encryption XOR mask
+ */
 static encrypted_amount_t enc_amount(const xmr_amount amount, const encrypted_amount_t &mask)
 {
     static_assert(sizeof(xmr_amount) == sizeof(encrypted_amount_t), "");
@@ -86,6 +75,9 @@ static encrypted_amount_t enc_amount(const xmr_amount amount, const encrypted_am
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+/**
+ * @brief decode and decrypt 64-bit amount with given encryption XOR mask
+ */
 static xmr_amount dec_amount(const encrypted_amount_t &encrypted_amount, const encrypted_amount_t &mask)
 {
     static_assert(sizeof(xmr_amount) == sizeof(encrypted_amount_t), "");
@@ -98,17 +90,9 @@ static xmr_amount dec_amount(const encrypted_amount_t &encrypted_amount, const e
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
-template <typename Pid,
-    typename OtherPid = std::conditional_t<std::is_same_v<Pid, payment_id_t>, encrypted_payment_id_t, payment_id_t>>
-static OtherPid convert_payment_id(const Pid &v)
-{
-    static_assert(sizeof(Pid) == PAYMENT_ID_BYTES);
-    OtherPid conv;
-    memcpy(&conv, &v, PAYMENT_ID_BYTES);
-    return conv;
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
+/**
+ * @brief calculate x G + y T
+ */
 static crypto::public_key scalar_mult_gt(const crypto::ec_scalar &x, const crypto::ec_scalar &y)
 {
     ge_p2 tmp1;
@@ -120,13 +104,13 @@ static crypto::public_key scalar_mult_gt(const crypto::ec_scalar &x, const crypt
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 /**
-* brief: create a coinbase FCMP++ onetime address extension pubkey
-*    K^o_ext = k^o_g G + k^o_t T
-* param: s_sender_receiver_ctx - s^ctx_sr
-* param: amount - a
-* param: main_address_spend_pubkey - K^0_s
-* outparam: sender_extension_pubkey_out - K^o_ext
-*/
+ * @brief create a coinbase FCMP++ onetime address extension pubkey
+ *    K^o_ext = k^o_g G + k^o_t T
+ * @param s_sender_receiver_ctx - s^ctx_sr
+ * @param amount - a
+ * @param main_address_spend_pubkey - K^0_s
+ * @param[out] sender_extension_pubkey_out - K^o_ext
+ */
 static void make_carrot_sender_extension_pubkey_coinbase(const crypto::hash &s_sender_receiver_ctx,
     const xmr_amount amount,
     const crypto::public_key &main_address_spend_pubkey,
@@ -146,12 +130,12 @@ static void make_carrot_sender_extension_pubkey_coinbase(const crypto::hash &s_s
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 /**
-* brief: create a non-coinbase FCMP++ onetime address extension pubkey
-*    K^o_ext = k^o_g G + k^o_t T
-* param: s_sender_receiver_ctx - s^ctx_sr
-* param: amount_commitment - C_a
-* outparam: sender_extension_pubkey_out - K^o_ext
-*/
+ * @brief create a non-coinbase FCMP++ onetime address extension pubkey
+ *    K^o_ext = k^o_g G + k^o_t T
+ * @param s_sender_receiver_ctx - s^ctx_sr
+ * @param amount_commitment - C_a
+ * @param[out] sender_extension_pubkey_out - K^o_ext
+ */
 static void make_carrot_sender_extension_pubkey(const crypto::hash &s_sender_receiver_ctx,
     const amount_commitment_t &amount_commitment,
     crypto::public_key &sender_extension_pubkey_out)
@@ -167,6 +151,9 @@ static void make_carrot_sender_extension_pubkey(const crypto::hash &s_sender_rec
     // K^o_ext = k^o_g G + k^o_t T
     sender_extension_pubkey_out = scalar_mult_gt(sender_extension_g, sender_extension_t);
 }
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+} //anonymous namespace
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
@@ -185,7 +172,7 @@ void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &eno
     mx25519_pubkey &enote_ephemeral_pubkey_out)
 {
     // D_e = d_e B
-    mx25519_scmul_base(get_mx25519_impl(),
+    mx25519_scmul_base(auto_mx25519_impl,
         &enote_ephemeral_pubkey_out,
         reinterpret_cast<const mx25519_privkey*>(&enote_ephemeral_privkey));
 }
@@ -230,7 +217,7 @@ bool try_make_carrot_shared_key_receiver(const crypto::secret_key &k_view,
     mx25519_pubkey &s_sender_receiver_out)
 {
     // s_sr = k_v D_e
-    mx25519_scmul_key(get_mx25519_impl(),
+    mx25519_scmul_key(auto_mx25519_impl,
         &s_sender_receiver_out,
         reinterpret_cast<const mx25519_privkey*>(&k_view),
         &enote_ephemeral_pubkey);
@@ -243,21 +230,16 @@ bool try_make_carrot_shared_key_sender(const crypto::secret_key &enote_ephemeral
     mx25519_pubkey &s_sender_receiver_out)
 {
     // if K^j_v not in prime order subgroup, then FAIL
-    ge_p3 address_view_pubkey_p3;
-    if (0 != ge_frombytes_vartime(&address_view_pubkey_p3, to_bytes(address_view_pubkey)))
-        return false;
-    // 0 ?= l * K^j_v
-    ge_p3 tmp1;
-    ge_scalarmult_p3(&tmp1, l, &address_view_pubkey_p3);
-    if (!ge_p3_is_point_at_infinity_vartime(&tmp1))
+    if (!verify_point_is_in_main_subgroup(address_view_pubkey))
         return false;
 
     // D^j_v = ConvertPointE(K^j_v)
     mx25519_pubkey address_view_pubkey_x25519;
-    ge_p3_to_x25519(address_view_pubkey_x25519.data, &address_view_pubkey_p3);
+    if (0 != edwards_bytes_to_x25519_vartime(address_view_pubkey_x25519.data, to_bytes(address_view_pubkey)))
+        return false;
 
     // s_sr = d_e D^j_v
-    mx25519_scmul_key(get_mx25519_impl(),
+    mx25519_scmul_key(auto_mx25519_impl,
         &s_sender_receiver_out,
         reinterpret_cast<const mx25519_privkey*>(&enote_ephemeral_privkey),
         &address_view_pubkey_x25519);
@@ -505,7 +487,9 @@ encrypted_payment_id_t encrypt_legacy_payment_id(const payment_id_t payment_id,
     make_carrot_payment_id_encryption_mask(s_sender_receiver_ctx, onetime_address, mask);
 
     // pid_enc = pid XOR m_pid
-    return convert_payment_id(payment_id) ^ mask;
+    encrypted_payment_id_t payment_id_conv;
+    memcpy(&payment_id_conv, &payment_id, sizeof(payment_id_conv));
+    return payment_id_conv ^ mask;
 }
 //-------------------------------------------------------------------------------------------------------------------
 payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_payment_id,
@@ -517,7 +501,10 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_pa
     make_carrot_payment_id_encryption_mask(s_sender_receiver_ctx, onetime_address, mask);
 
     // pid = pid_enc XOR m_pid
-    return convert_payment_id(encrypted_payment_id ^ mask);
+    mask = mask ^ encrypted_payment_id;
+    payment_id_t payment_id;
+    memcpy(&payment_id, &mask, sizeof(payment_id));
+    return payment_id;
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
@@ -663,12 +650,18 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_point_is_in_main_subgroup(const crypto::ec_point &P)
 {
+    constexpr unsigned char curve_order[32] = {
+        0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
+        0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 };
+
     // valid point?
     ge_p3 p3;
     if (0 != ge_frombytes_vartime(&p3, to_bytes(P)))
         return false;
     // 0 ?= l * K^j_v
-    ge_scalarmult_p3(&p3, l, &p3);
+    ge_scalarmult_p3(&p3, curve_order, &p3);
     return ge_p3_is_point_at_infinity_vartime(&p3);
 }
 //-------------------------------------------------------------------------------------------------------------------

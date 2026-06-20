@@ -49,12 +49,13 @@ extern "C"
 namespace {
 crypto::public_key genPk()
 {
-    crypto::public_key s;
+    crypto::ec_scalar s;
     crypto::random32_unbiased(to_bytes(s));
-    ge_p3 P;
-    ge_scalarmult_base(&P, to_bytes(s));
-    ge_p3_tobytes(to_bytes(s), &P);
-    return s;    
+    ge_p3 P_p3;
+    ge_scalarmult_base(&P_p3, to_bytes(s));
+    crypto::public_key P;
+    ge_p3_tobytes(to_bytes(P), &P_p3);
+    return P;
 }
 } //anonymous namespace
 
