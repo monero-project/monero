@@ -1025,6 +1025,16 @@ TEST(get_network_address, ipv4)
     EXPECT_STREQ("23.0.0.254:2000", address->str().c_str());
 }
 
+TEST(get_network_address, ipv4_mapped_ipv6)
+{
+    expect<epee::net_utils::network_address> address =
+        net::get_network_address("[::ffff:203.0.113.1]:18080", 0);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::ipv4, address->get_type_id());
+    EXPECT_STREQ("203.0.113.1", address->host_str().c_str());
+    EXPECT_STREQ("203.0.113.1:18080", address->str().c_str());
+}
+
 TEST(get_network_address, ipv4subnet)
 {
     expect<epee::net_utils::ipv4_network_subnet> address = net::get_ipv4_subnet_address("0.0.0.0", true);
