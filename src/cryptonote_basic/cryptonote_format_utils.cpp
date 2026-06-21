@@ -1608,6 +1608,32 @@ namespace cryptonote
     return get_tx_tree_hash(txs_ids);
   }
   //---------------------------------------------------------------
+  static bool get_block_longhash_202612(const blobdata_ref block_hashing_blob, crypto::hash &res)
+  {
+    static constexpr const char longhash_202612[] = "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000";
+    // Object hashes of get_block_hashing_blob(block). The mainnet value differs
+    // from the public block id because calculate_block_hash() replaces that id.
+    static constexpr const char * const block_hashing_blob_ids_202612[] =
+    {
+      "426d16cff04c71f8b16340b722dc4010a2dd3831c22041431f772547ba6e331a", // mainnet
+      "248fde4b96b829c4ddbd00e3f76d35b03d01257898bc1b5578bc9e04b379a676", // testnet
+      "f3449e658b5f880c4b0e69007ed5d092c9c883ac3a518166fa652d5cc505e7b1", // stagenet
+    };
+
+    crypto::hash block_id;
+    const blobdata block_hashing_blob_copy(block_hashing_blob.data(), block_hashing_blob.size());
+    get_object_hash(block_hashing_blob_copy, block_id);
+    const std::string block_id_hex = string_tools::pod_to_hex(block_id);
+    for (const char * const expected_block_id: block_hashing_blob_ids_202612)
+    {
+      if (block_id_hex == expected_block_id)
+      {
+        return epee::string_tools::hex_to_pod(longhash_202612, res);
+      }
+    }
+    return false;
+  }
+  //---------------------------------------------------------------
   crypto::hash get_block_longhash(const blobdata_ref block_hashing_blob,
     const uint64_t height,
     const uint8_t major_version,
@@ -1615,12 +1641,10 @@ namespace cryptonote
   {
     crypto::hash res;
 
-    if (height == 202612) // block 202612 bug workaround
-    {
-      static const std::string longhash_202612 = "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000";
-      epee::string_tools::hex_to_pod(longhash_202612, res);
-    }
-    else if (major_version >= RX_BLOCK_VERSION) // RandomX
+    if (height == 202612 && get_block_longhash_202612(block_hashing_blob, res))
+      return res;
+
+    if (major_version >= RX_BLOCK_VERSION) // RandomX
     {
       crypto::rx_slow_hash(seed_hash.data, block_hashing_blob.data(), block_hashing_blob.size(), res.data);
     }
