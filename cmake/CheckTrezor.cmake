@@ -152,6 +152,18 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
         file(WRITE "${_proto_out_dir}/messages-monero.pb.h" "${updated_content}")
     endif()
 
+    set(_deprecated_enum_files
+            "messages-common.pb.h"
+            "messages-management.pb.h"
+    )
+
+    foreach(file IN LISTS _deprecated_enum_files)
+        file(READ "${_proto_out_dir}/${file}" file_content)
+        string(REPLACE "PROTOBUF_DEPRECATED_ENUM" ""
+                updated_content "${file_content}")
+        file(WRITE "${_proto_out_dir}/${file}" "${updated_content}")
+    endforeach ()
+
     message(STATUS "Trezor: protobuf messages regenerated out.")
     set(DEVICE_TREZOR_READY 1)
     add_definitions(-DDEVICE_TREZOR_READY=1)
