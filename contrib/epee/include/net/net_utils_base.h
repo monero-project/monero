@@ -31,7 +31,9 @@
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <boost/optional/optional.hpp>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
@@ -221,6 +223,16 @@ namespace net_utils
 	inline bool operator>=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return !lhs.less(rhs); }
 
+	inline boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address)
+	{
+		const boost::asio::ip::address_v6 ip = address.ip();
+		if (!ip.is_v4_mapped())
+			return boost::none;
+
+		const boost::asio::ip::address_v4 ipv4 = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, ip);
+		return ipv4_network_address{SWAP32BE(ipv4.to_uint()), address.port()};
+	}
+
 	class network_address
 	{
 		struct interface
@@ -346,6 +358,13 @@ namespace net_utils
 			return false;
 		END_KV_SERIALIZE_MAP()
 	};
+
+	inline boost::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address)
+	{
+		if (address.get_type_id() != ipv6_network_address::get_type_id())
+			return boost::none;
+		return get_ipv4_mapped_address(address.as<const ipv6_network_address>());
+	}
 
 	inline bool operator==(const network_address& lhs, const network_address& rhs)
 	{ return lhs.equal(rhs); }
