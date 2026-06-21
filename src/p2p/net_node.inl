@@ -64,17 +64,6 @@
 
 #define MIN_WANTED_SEED_NODES 12
 
-static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::asio::ip::address_v6& a)
-{
-  const auto &bytes = a.to_bytes();
-  uint32_t v4 = 0;
-  v4 = (v4 << 8) | bytes[12];
-  v4 = (v4 << 8) | bytes[13];
-  v4 = (v4 << 8) | bytes[14];
-  v4 = (v4 << 8) | bytes[15];
-  return boost::asio::ip::address_v4(v4);
-}
-
 namespace nodetool
 {
   template<class t_payload_net_handler>
@@ -1566,7 +1555,7 @@ namespace nodetool
         const boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
         if (actual_ip.is_v4_mapped())
         {
-          boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+          auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
           uint32_t actual_ipv4;
           memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
           return epee::net_utils::ipv4_network_address(actual_ipv4, 0).host_str();
@@ -1632,7 +1621,7 @@ namespace nodetool
             const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
             if (actual_ip.is_v4_mapped())
             {
-              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+              auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
               uint32_t actual_ipv4;
               memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
               connected_subnets.insert(actual_ipv4 & subnet_mask);
@@ -1688,7 +1677,7 @@ namespace nodetool
               const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
               if (actual_ip.is_v4_mapped())
               {
-                boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+                auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
                 uint32_t actual_ipv4;
                 memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
                 uint32_t subnet = actual_ipv4 & subnet_mask;
