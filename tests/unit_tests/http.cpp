@@ -28,6 +28,9 @@
 
 #include "gtest/gtest.h"
 #include "net/http_auth.h"
+#include "net/http_client.h"
+#include "syncobj.h"
+#include "net/http_protocol_handler.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -51,6 +54,7 @@
 #include <boost/spirit/include/qi_plus.hpp>
 #include <boost/spirit/include/qi_sequence.hpp>
 #include <boost/spirit/include/qi_string.hpp>
+#include <chrono>
 #include <cstdint>
 #include <iterator>
 #include <openssl/evp.h>
@@ -66,6 +70,111 @@ namespace {
 namespace http = epee::net_utils::http;
 using fields = std::unordered_map<std::string, std::string>;
 using auth_responses = std::vector<fields>;
+
+class test_http_endpoint final : public epee::net_utils::i_service_endpoint
+{
+public:
+  bool do_send(epee::byte_slice message) override
+  {
+    sent.append(reinterpret_cast<const char*>(message.data()), message.size());
+    return true;
+  }
+  bool close(const bool) override { return true; }
+  bool send_done() override { return true; }
+  bool call_run_once_service_io() override { return true; }
+  bool request_callback() override { return true; }
+  boost::asio::io_context& get_io_context() override { return io_context; }
+  bool add_ref() override { return true; }
+  bool release() override { return true; }
+
+  boost::asio::io_context io_context;
+  std::string sent;
+};
+
+class dummy_client
+{
+public:
+  bool connect(const std::string&, int, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
+  bool connect(const std::string&, const std::string&, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
+  bool disconnect() { return true; }
+  bool send(const boost::string_ref, std::chrono::milliseconds) { return true; }
+  bool send(const void*, size_t) { return true; }
+  bool recv(std::string& buff, std::chrono::milliseconds)
+  {
+    buff = data;
+    data.clear();
+    return true;
+  }
+  void set_ssl(epee::net_utils::ssl_options_t) { }
+  bool is_connected(bool *ssl = NULL) { return true; }
+  uint64_t get_bytes_sent() const { return 1; }
+  uint64_t get_bytes_received() const { return 1; }
+
+  void set_test_data(const std::string& s) { data = s; }
+
+private:
+  std::string data;
+};
+
+class test_http_client final : public http::http_simple_client_template<dummy_client>
+{
+public:
+  bool on_header(const http::http_response_info& headers) override
+  {
+    ++headers_seen;
+    last_headers = headers;
+    return true;
+  }
+
+  http::http_response_info last_headers;
+  unsigned headers_seen = 0;
+};
+
+class capturing_http_handler final : public http::i_http_server_handler<epee::net_utils::connection_context_base>
+{
+public:
+  bool handle_http_request(
+    const http::http_request_info& query_info,
+    http::http_response_info& response,
+    epee::net_utils::connection_context_base&) override
+  {
+    requests.push_back(query_info);
+    response.m_response_code = 200;
+    response.m_response_comment = "OK";
+    response.m_mime_tipe = "text/plain";
+    return true;
+  }
+
+  std::vector<http::http_request_info> requests;
+};
+
+struct http_request_capture
+{
+  std::vector<bool> results;
+  std::vector<http::http_request_info> requests;
+  std::string sent;
+};
+
+http_request_capture feed_http_request(const std::vector<std::string>& chunks)
+{
+  capturing_http_handler handler;
+  test_http_endpoint endpoint;
+  epee::net_utils::connection_context_base context;
+  http::custum_handler_config<epee::net_utils::connection_context_base> config;
+  config.m_phandler = &handler;
+
+  http::http_custom_handler<epee::net_utils::connection_context_base> connection(&endpoint, config, context);
+  std::vector<bool> results;
+  for (const std::string& chunk : chunks)
+    results.push_back(connection.handle_recv(chunk.data(), chunk.size()));
+
+  return {results, handler.requests, endpoint.sent};
+}
+
+http_request_capture feed_http_request(const std::string& request)
+{
+  return feed_http_request(std::vector<std::string>{request});
+}
 
 void rng(size_t len, uint8_t *ptr)
 {
@@ -700,6 +809,149 @@ TEST(HTTP_Client_Auth, MD5_auth)
   EXPECT_EQ(http::http_client_auth::kSuccess, auth.handle_401(response));
 }
 
+
+TEST(HTTP, Parse_Header_Line)
+{
+  boost::string_view name;
+  boost::string_view value;
+
+  ASSERT_TRUE(http::detail::parse_header_line("Host: example.com\r", name, value));
+  EXPECT_EQ("Host", name);
+  EXPECT_EQ("example.com", value);
+
+  ASSERT_TRUE(http::detail::parse_header_line("Content-Type:\t application/json \t", name, value));
+  EXPECT_EQ("Content-Type", name);
+  EXPECT_EQ("application/json", value);
+
+  ASSERT_TRUE(http::detail::parse_header_line("Host:example.com", name, value));
+  EXPECT_EQ("Host", name);
+  EXPECT_EQ("example.com", value);
+
+  ASSERT_TRUE(http::detail::parse_header_line("X!#$%&'*+-.^_`|~: value", name, value));
+  EXPECT_EQ("X!#$%&'*+-.^_`|~", name);
+  EXPECT_EQ("value", value);
+
+  EXPECT_FALSE(http::detail::parse_header_line("", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("Host : example.com", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line(" Content-Length: 1", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("\tContent-Length: 1", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("Bad Header", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("Host example.com", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("GET / HTTP/1.1", name, value));
+}
+
+TEST(HTTP, Server_Parses_Content_Length_First_Header)
+{
+  const std::string body = "0123456789";
+  const auto capture = feed_http_request(
+    "POST /json_rpc HTTP/1.1\r\n"
+    "Content-Length: 10\r\n"
+    "Host: example.com\r\n"
+    "\r\n" + body
+  );
+
+  ASSERT_EQ(1u, capture.results.size());
+  ASSERT_TRUE(capture.results.front());
+  ASSERT_EQ(1u, capture.requests.size());
+  EXPECT_STREQ("10", capture.requests.front().m_header_info.m_content_length.c_str());
+  EXPECT_EQ(body, capture.requests.front().m_body);
+}
+
+TEST(HTTP, Server_Parses_First_Header_After_Split_Request_Line)
+{
+  const std::string body = "0123456789";
+  const auto capture = feed_http_request({
+    "POST /json_rpc HTTP/1.1\r\n",
+    "Content-Length: 10\r\n"
+    "Host: example.com\r\n"
+    "\r\n" + body
+  });
+
+  ASSERT_EQ(2u, capture.results.size());
+  EXPECT_TRUE(capture.results[0]);
+  EXPECT_TRUE(capture.results[1]);
+  ASSERT_EQ(1u, capture.requests.size());
+  EXPECT_STREQ("10", capture.requests.front().m_header_info.m_content_length.c_str());
+  EXPECT_EQ(body, capture.requests.front().m_body);
+}
+
+TEST(HTTP, Server_Rejects_Malformed_First_Header)
+{
+  const auto capture = feed_http_request(
+    "GET / HTTP/1.1\r\n"
+    "Bad Header Without Colon\r\n"
+    "Host: example.com\r\n"
+    "\r\n"
+  );
+
+  ASSERT_EQ(1u, capture.results.size());
+  EXPECT_FALSE(capture.results.front());
+  EXPECT_TRUE(capture.requests.empty());
+}
+
+TEST(HTTP, Server_Rejects_Malformed_Later_Header)
+{
+  const auto capture = feed_http_request(
+    "GET / HTTP/1.1\r\n"
+    "Host: example.com\r\n"
+    "Bad Header Without Colon\r\n"
+    "\r\n"
+  );
+
+  ASSERT_EQ(1u, capture.results.size());
+  EXPECT_FALSE(capture.results.front());
+  EXPECT_TRUE(capture.requests.empty());
+}
+
+TEST(HTTP, Server_Keeps_Unknown_First_Header)
+{
+  const auto capture = feed_http_request(
+    "GET / HTTP/1.1\r\n"
+    "X-Test: abc\r\n"
+    "Host: example.com\r\n"
+    "\r\n"
+  );
+
+  ASSERT_EQ(1u, capture.results.size());
+  ASSERT_TRUE(capture.results.front());
+  ASSERT_EQ(1u, capture.requests.size());
+  ASSERT_EQ(1u, capture.requests.front().m_header_info.m_etc_fields.size());
+  EXPECT_STREQ("X-Test", capture.requests.front().m_header_info.m_etc_fields.front().first.c_str());
+  EXPECT_STREQ("abc", capture.requests.front().m_header_info.m_etc_fields.front().second.c_str());
+}
+
+TEST(HTTP, Client_Keeps_Unknown_Header)
+{
+  test_http_client client;
+  const bool result = client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "X-Test: abc\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n",
+    std::chrono::milliseconds(1000)
+  );
+
+  ASSERT_TRUE(result);
+  EXPECT_EQ(1u, client.headers_seen);
+  ASSERT_EQ(1u, client.last_headers.m_header_info.m_etc_fields.size());
+  EXPECT_STREQ("X-Test", client.last_headers.m_header_info.m_etc_fields.front().first.c_str());
+  EXPECT_STREQ("abc", client.last_headers.m_header_info.m_etc_fields.front().second.c_str());
+}
+
+TEST(HTTP, Client_Rejects_Malformed_Response_Header)
+{
+  test_http_client client;
+  const bool result = client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "Bad Header Without Colon\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n",
+    std::chrono::milliseconds(1000)
+  );
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(0u, client.headers_seen);
+}
 
 TEST(HTTP, Add_Field)
 {
