@@ -41,8 +41,14 @@ namespace misc_utils
   {
     std::string transform_to_escape_sequence(const std::string& src)
     {
-      static const char escaped[] = "\b\f\n\r\t\v\"\\/";
-      std::string::const_iterator it = std::find_first_of(src.begin(), src.end(), escaped, escaped + sizeof(escaped));
+      // RFC 8259: the double quote, reverse solidus and every control character
+      // (U+0000 - U+001F) must be escaped inside a JSON string. The forward slash
+      // is escaped too, as it has been historically.
+      std::string::const_iterator it = std::find_if(src.begin(), src.end(),
+        [](char ch) {
+          const unsigned char c = static_cast<unsigned char>(ch);
+          return c < 0x20 || c == '"' || c == '\\' || c == '/';
+        });
       if (it == src.end())
         return src;
 
@@ -51,7 +57,8 @@ namespace misc_utils
       res.assign(src.begin(), it);
       for(; it!=src.end(); ++it)
       {
-        switch(*it)
+        const unsigned char c = static_cast<unsigned char>(*it);
+        switch(c)
         {
         case '\b':  //Backspace (ascii code 08)
           res+="\\b"; break;
@@ -63,18 +70,22 @@ namespace misc_utils
           res+="\\r"; break;
         case '\t':  //Tab
           res+="\\t"; break;
-        case '\v':  //Vertical tab
-          res+="\\v"; break;
-        //case '\'':  //Apostrophe or single quote
-        //  res+="\\'"; break;
         case '"':  //Double quote
           res+="\\\""; break;
         case '\\':  //Backslash character
           res+="\\\\"; break;
-        case '/':  //Backslash character
+        case '/':  //Slash character
           res+="\\/"; break;
         default:
-          res.push_back(*it);
+          if (c < 0x20)
+          {
+            //control character without a short escape (\v is not valid JSON)
+            static const char hex[] = "0123456789abcdef";
+            const char u[] = { '\\', 'u', '0', '0', hex[c >> 4], hex[c & 0xf] };
+            res.append(u, sizeof(u));
+          }
+          else
+            res.push_back(*it);
         }
       }
       return res;

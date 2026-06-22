@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "serialization/keyvalue_serialization.h"
+#include "storages/parserse_base_utils.h"
 #include "storages/portable_storage.h"
 #include "storages/portable_storage_template_helper.h"
 #include "span.h"
@@ -107,6 +108,15 @@ struct ObjWithBool
     KV_SERIALIZE(b)
   END_KV_SERIALIZE_MAP()
 };
+
+struct ObjWithString
+{
+  std::string s;
+
+  BEGIN_KV_SERIALIZE_MAP()
+    KV_SERIALIZE(s)
+  END_KV_SERIALIZE_MAP()
+};
 }
 
 TEST(epee_json, keyword_values)
@@ -127,6 +137,36 @@ TEST(epee_json, keyword_values)
   // A value beginning with a non-ASCII byte (most significant bit == 1) is not
   // a keyword and must be rejected.
   EXPECT_FALSE(epee::serialization::load_t_from_json(o, std::string("{\"b\": \xc3\x28}")));
+}
+
+TEST(epee_json, escape_control_characters)
+{
+  using epee::misc_utils::parse::transform_to_escape_sequence;
+
+  // control characters must be escaped (RFC 8259): the short escapes are used
+  // where JSON defines them and \u00xx otherwise. \v is not a valid JSON escape.
+  EXPECT_EQ(transform_to_escape_sequence(std::string("\x01")), "\\u0001");
+  EXPECT_EQ(transform_to_escape_sequence(std::string("\x07")), "\\u0007");
+  EXPECT_EQ(transform_to_escape_sequence(std::string("\x0b")), "\\u000b");
+  EXPECT_EQ(transform_to_escape_sequence(std::string("\x1f")), "\\u001f");
+  EXPECT_EQ(transform_to_escape_sequence(std::string("a\x00" "b", 3)), "a\\u0000b");
+
+  // short escapes and printable text are unchanged
+  EXPECT_EQ(transform_to_escape_sequence(std::string("a\tb\n\r\f\b")), "a\\tb\\n\\r\\f\\b");
+  EXPECT_EQ(transform_to_escape_sequence(std::string("plain text")), "plain text");
+
+  // control characters round trip through the json serialiser and parser, and
+  // never appear verbatim in the serialised output
+  ObjWithString o{};
+  o.s = std::string("x\x01\x0b" "y", 4);
+  std::string j;
+  EXPECT_TRUE(epee::serialization::store_t_to_json(o, j));
+  EXPECT_EQ(j.find('\x01'), std::string::npos);
+  EXPECT_EQ(j.find('\x0b'), std::string::npos);
+
+  ObjWithString o2{};
+  EXPECT_TRUE(epee::serialization::load_t_from_json(o2, j));
+  EXPECT_EQ(o2.s, o.s);
 }
 
 TEST(epee_binary, serialize_deserialize)
