@@ -1,6 +1,8 @@
 
 #include "net/net_utils_base.h"
 
+#include <algorithm>
+
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
@@ -51,6 +53,34 @@ namespace epee { namespace net_utils
 		const boost::asio::ip::address_v4 ipv4 =
 			boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, ip);
 		return ipv4_network_address{SWAP32BE(ipv4.to_uint()), address.port()};
+	}
+
+	static bool is_ipv6_unique_local(const boost::asio::ip::address_v6& ip)
+	{
+		const boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
+		return (bytes[0] & 0xfe) == 0xfc;
+	}
+
+	bool should_group_ipv6_by_prefix(const boost::asio::ip::address_v6& ip)
+	{
+		return !ip.is_unspecified() && !ip.is_loopback() && !ip.is_multicast() &&
+			!ip.is_link_local() && !ip.is_site_local() && !is_ipv6_unique_local(ip) &&
+			!ip.is_v4_mapped();
+	}
+
+	boost::asio::ip::address_v6 get_ipv6_subnet_address(const boost::asio::ip::address_v6& ip, const std::size_t prefix_bits)
+	{
+		boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
+		const std::size_t bits = std::min(prefix_bits, std::size_t{128});
+		if (bits < 128)
+		{
+			const std::size_t full_bytes = bits / 8;
+			const std::size_t remainder_bits = bits % 8;
+			if (remainder_bits != 0)
+				bytes[full_bytes] &= uint8_t(0xffu << (8 - remainder_bits));
+			std::fill(bytes.begin() + full_bytes + (remainder_bits != 0), bytes.end(), 0);
+		}
+		return boost::asio::ip::address_v6(bytes);
 	}
 
 
