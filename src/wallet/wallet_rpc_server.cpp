@@ -144,7 +144,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_wallet_dir = {"wallet-dir", "Directory for newly created wallets"};
   const command_line::arg_descriptor<bool> arg_prompt_for_password = {"prompt-for-password", "Prompts for password when not provided", false};
   const command_line::arg_descriptor<bool> arg_no_initial_sync = {"no-initial-sync", "Skips the initial sync before listening for connections", false};
-  const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_public_ip = {"rpc-max-connections-per-public-ip", "Max RPC connections per public IP permitted", DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP};
+  const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_public_ip = {"rpc-max-connections-per-public-ip", "Max RPC connections per public IPv4 address or IPv6 /64 subnet permitted", DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP};
   const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_private_ip = {"rpc-max-connections-per-private-ip", "Max RPC connections per private and localhost IP permitted", DEFAULT_RPC_MAX_CONNECTIONS_PER_PRIVATE_IP};
   const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections = {"rpc-max-connections", "Max RPC connections permitted", DEFAULT_RPC_MAX_CONNECTIONS};
   const command_line::arg_descriptor<std::size_t> arg_rpc_response_soft_limit = {"rpc-response-soft-limit", "Max response bytes that can be queued, enforced at next response attempt", DEFAULT_RPC_SOFT_LIMIT_SIZE};
