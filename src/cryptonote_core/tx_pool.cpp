@@ -371,18 +371,6 @@ namespace cryptonote
       nic_verified_hf_version, valid_input_verification_id);
   }
   //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::get_txpool_weight() const
-  {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    return m_txpool_weight;
-  }
-  //---------------------------------------------------------------------------------
-  void tx_memory_pool::set_txpool_max_weight(size_t bytes)
-  {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    m_txpool_max_weight = bytes;
-  }
-  //---------------------------------------------------------------------------------
   void tx_memory_pool::reduce_txpool_weight(size_t weight)
   {
     if (weight > m_txpool_weight)

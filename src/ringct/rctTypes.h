@@ -724,10 +724,6 @@ namespace rct {
     // if the key holds a value > 2^64
     // then false is returned
     bool h2d(xmr_amount &amountd, const key &test);
-    //32 byte key to int[64]
-    void h2b(bits  amountb2, const key & test);
-    //int[64] to 32 byte key
-    void b2h(key  & amountdh, bits amountb2);
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
 

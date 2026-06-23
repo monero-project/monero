@@ -131,15 +131,12 @@ namespace multisig
 
   //getters
     // get threshold
-    std::uint32_t get_threshold() const { return m_threshold; }
     // get signers
-    const std::vector<crypto::public_key>& get_signers() const { return m_signers; }
     // get base privkey
     const crypto::secret_key& get_base_privkey() const { return m_base_privkey; }
     // get base pubkey
     const crypto::public_key& get_base_pubkey() const { return m_base_pubkey; }
     // get base common privkey
-    const crypto::secret_key& get_base_common_privkey() const { return m_base_common_privkey; }
     // get multisig privkeys
     const std::vector<crypto::secret_key>& get_multisig_privkeys() const { return m_multisig_privkeys; }
     // get common privkey
@@ -147,7 +144,6 @@ namespace multisig
     // get multisig pubkey
     const crypto::public_key& get_multisig_pubkey() const { return m_multisig_pubkey; }
     // get common pubkey
-    const crypto::public_key& get_common_pubkey() const { return m_common_pubkey; }
     // get kex rounds complete
     std::uint32_t get_kex_rounds_complete() const { return m_kex_rounds_complete; }
     // get kex keys to origins map

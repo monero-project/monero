@@ -156,17 +156,6 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
   template <bool W, template <bool> class Archive>			\
   bool member_do_serialize(Archive<W> &ar) {
 
-/*! \macro BEGIN_SERIALIZE_FN
- *
- * \brief Begins the environment of the DSL as a free function
- *
- * Inside, instead of FIELD() and VARINT_FIELD(), use FIELD_F() and
- * VARINT_FIELD_F(). Otherwise, this macro is similar to BEGIN_SERIALIZE().
- */
-#define BEGIN_SERIALIZE_FN(stype)                   \
-  template <bool W, template <bool> class Archive>  \
-  bool do_serialize(Archive<W> &ar, stype &v) {
-
 /*! \macro BEGIN_SERIALIZE_OBJECT
  *
  *  \brief begins the environment of the DSL

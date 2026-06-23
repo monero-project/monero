@@ -70,7 +70,6 @@ namespace cryptonote
     static const char *tr(const char *str) { return i18n_translate(str, "cryptonote::simple_wallet"); }
 
   public:
-    typedef std::vector<std::string> command_type;
 
     simple_wallet();
     bool init(const boost::program_options::variables_map& vm);
@@ -451,7 +450,6 @@ namespace cryptonote
     // MMS
     mms::message_store& get_message_store() const { return m_wallet->get_message_store(); };
     mms::multisig_wallet_state get_multisig_wallet_state() const { return m_wallet->get_multisig_wallet_state(); };
-    bool mms_active() const { return get_message_store().get_active(); };
     bool choose_mms_processing(const std::vector<mms::processing_data> &data_list, uint32_t &choice);
     void list_mms_messages(const std::vector<mms::message> &messages);
     void list_signers(const std::vector<mms::authorized_signer> &signers);

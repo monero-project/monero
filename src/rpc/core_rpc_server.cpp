@@ -87,7 +87,6 @@ namespace
     {
       uint64_t count;
       uint64_t time;
-      uint64_t credits;
     };
 
     RPCTracker(const char *rpc, tools::LoggingPerformanceTimer &timer): rpc(rpc), timer(timer) {
@@ -102,14 +101,6 @@ namespace
       }
       catch (...) { /* ignore */ }
     }
-    void pay(uint64_t amount) {
-      boost::unique_lock<boost::mutex> lock(mutex);
-      auto &e = tracker[rpc];
-      e.credits += amount;
-    }
-    const std::string &rpc_name() const { return rpc; }
-    static void clear() { boost::unique_lock<boost::mutex> lock(mutex); tracker.clear(); }
-    static std::unordered_map<std::string, entry_t> data() { boost::unique_lock<boost::mutex> lock(mutex); return tracker; }
   private:
     std::string rpc;
     tools::LoggingPerformanceTimer &timer;

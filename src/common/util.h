@@ -142,7 +142,6 @@ namespace tools
    * get_windows_version_display_string() and
    * get_nix_version_display_string()
    */
-  std::string get_os_version_string();
 
   /*! \brief creates directories for a path
    *

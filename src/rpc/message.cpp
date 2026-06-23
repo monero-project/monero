@@ -136,28 +136,10 @@ const rapidjson::Value& FullMessage::getMessage() const
 
 }
 
-rapidjson::Value FullMessage::getMessageCopy()
-{
-  return rapidjson::Value(getMessage(), doc.GetAllocator());
-}
-
 const rapidjson::Value& FullMessage::getID() const
 {
   OBJECT_HAS_MEMBER_OR_THROW(doc, id_field)
   return doc[id_field];
-}
-
-cryptonote::rpc::error FullMessage::getError()
-{
-  cryptonote::rpc::error err;
-  err.use = false;
-  if (doc.HasMember(error_field))
-  {
-    GET_FROM_JSON_OBJECT(doc, err, error);
-    err.use = true;
-  }
-
-  return err;
 }
 
 epee::byte_slice FullMessage::getRequest(const std::string& request, const Message& message, const unsigned id)

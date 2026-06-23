@@ -129,8 +129,6 @@ namespace nodetool
                      public epee::net_utils::i_connection_filter,
                      public epee::net_utils::i_connection_limit
   {
-    struct by_conn_id{};
-    struct by_peer_id{};
     struct by_addr{};
 
     typedef p2p_connection_context_t<typename t_payload_net_handler::connection_context> p2p_connection_context;
@@ -265,7 +263,6 @@ namespace nodetool
     t_payload_net_handler& get_payload_object();
 
     // debug functions
-    bool log_peerlist();
     bool log_connections();
 
     // These functions only return information for the "public" zone
@@ -325,8 +322,6 @@ namespace nodetool
     int handle_ping(int command, COMMAND_PING::request& arg, COMMAND_PING::response& rsp, p2p_connection_context& context);
     int handle_get_support_flags(int command, COMMAND_REQUEST_SUPPORT_FLAGS::request& arg, COMMAND_REQUEST_SUPPORT_FLAGS::response& rsp, p2p_connection_context& context);
     bool init_config();
-    bool make_default_peer_id();
-    bool make_default_config();
     bool store_config();
 
 
@@ -349,7 +344,6 @@ namespace nodetool
     virtual bool is_host_limit(const epee::net_utils::network_address &address);
     //-----------------------------------------------------------------------------------------------
 
-    bool parse_peer_from_string(epee::net_utils::network_address& pe, const std::string& node_addr, uint16_t default_port = 0);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
       );
@@ -400,9 +394,7 @@ namespace nodetool
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
     bool has_too_many_connections(const epee::net_utils::network_address &address);
-    size_t get_incoming_connections_count();
     size_t get_incoming_connections_count(network_zone&);
-    size_t get_outgoing_connections_count();
     size_t get_outgoing_connections_count(network_zone&);
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
@@ -426,11 +418,6 @@ namespace nodetool
     void set_rpc_port(uint16_t rpc_port)
     {
       m_rpc_port = rpc_port;
-    }
-
-    void set_rpc_credits_per_hash(uint32_t rpc_credits_per_hash)
-    {
-      m_rpc_credits_per_hash = rpc_credits_per_hash;
     }
 
   private:

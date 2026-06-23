@@ -77,7 +77,6 @@
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (30 * 1000000) // microseconds
 #define IDLE_PEER_KICK_TIME (240 * 1000000) // microseconds
 #define NON_RESPONSIVE_PEER_KICK_TIME (20 * 1000000) // microseconds
-#define PASSIVE_PEER_KICK_TIME (60 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
 #define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
 #define DROP_PEERS_ON_SCORE -2
@@ -2467,18 +2466,6 @@ skip:
     }
 
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------
-  template<class t_core>
-  size_t t_cryptonote_protocol_handler<t_core>::get_synchronizing_connections_count()
-  {
-    size_t count = 0;
-    m_p2p->for_each_connection([&](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t support_flags)->bool{
-      if(context.m_state == cryptonote_connection_context::state_synchronizing)
-        ++count;
-      return true;
-    });
-    return count;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>

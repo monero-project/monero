@@ -51,10 +51,6 @@ using namespace crypto;
 
 static std::atomic<unsigned int> default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
 
-static std::atomic<uint64_t> tx_hashes_calculated_count(0);
-static std::atomic<uint64_t> tx_hashes_cached_count(0);
-static std::atomic<uint64_t> block_hashes_calculated_count(0);
-static std::atomic<uint64_t> block_hashes_cached_count(0);
 
 #define CHECK_AND_ASSERT_THROW_MES_L1(expr, message) {if(!(expr)) {MWARNING(message); throw std::runtime_error(message);}}
 
@@ -372,16 +368,6 @@ namespace cryptonote
 
     hwdev.generate_key_image(in_ephemeral.pub, in_ephemeral.sec, ki);
     return true;
-  }
-  //---------------------------------------------------------------
-  uint64_t power_integral(uint64_t a, uint64_t b)
-  {
-    if(b == 0)
-      return 1;
-    uint64_t total = a;
-    for(uint64_t i = 1; i != b; i++)
-      total *= a;
-    return total;
   }
   //---------------------------------------------------------------
   bool parse_amount(uint64_t& amount, const std::string& str_amount_)
@@ -1303,11 +1289,9 @@ namespace cryptonote
       CHECK_AND_ASSERT_THROW_MES(!calculate_transaction_prunable_hash(t, blobdata, res) || t.hash == res, "tx hash cash integrity failure");
 #endif
       res = t.prunable_hash;
-      ++tx_hashes_cached_count;
       return res;
     }
 
-    ++tx_hashes_calculated_count;
     CHECK_AND_ASSERT_THROW_MES(calculate_transaction_prunable_hash(t, blobdata, res), "Failed to calculate tx prunable hash");
     t.set_prunable_hash(res);
     return res;
@@ -1417,10 +1401,8 @@ namespace cryptonote
         }
         *blob_size = t.blob_size;
       }
-      ++tx_hashes_cached_count;
       return true;
     }
-    ++tx_hashes_calculated_count;
     bool ret = calculate_transaction_hash(t, res, blob_size);
     if (!ret)
       return false;
@@ -1499,10 +1481,8 @@ namespace cryptonote
       CHECK_AND_ASSERT_THROW_MES(!calculate_block_hash(b, res) || b.hash == res, "block hash cash integrity failure");
 #endif
       res = b.hash;
-      ++block_hashes_cached_count;
       return true;
     }
-    ++block_hashes_calculated_count;
     bool ret = calculate_block_hash(b, res);
     if (!ret)
       return false;
@@ -1547,8 +1527,7 @@ namespace cryptonote
     if (block_hash)
     {
       calculate_block_hash(b, *block_hash, &b_blob);
-      ++block_hashes_calculated_count;
-      b.set_hash(*block_hash);
+        b.set_hash(*block_hash);
     }
     return true;
   }
@@ -1645,14 +1624,6 @@ namespace cryptonote
       amount /= 10;
 
     return amount < 10; // are we left with 1 leading digit?
-  }
-  //---------------------------------------------------------------
-  void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached)
-  {
-    tx_hashes_calculated = tx_hashes_calculated_count;
-    tx_hashes_cached = tx_hashes_cached_count;
-    block_hashes_calculated = block_hashes_calculated_count;
-    block_hashes_cached = block_hashes_cached_count;
   }
   //---------------------------------------------------------------
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)

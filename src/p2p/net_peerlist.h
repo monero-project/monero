@@ -106,8 +106,6 @@ namespace nodetool
     bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, bool anonymize, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
     void get_peerlist(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
     void get_peerlist(peerlist_types& peers);
-    bool get_white_peer_by_index(peerlist_entry& p, size_t i);
-    bool get_gray_peer_by_index(peerlist_entry& p, size_t i);
     template<typename F> bool foreach(bool white, const F &f);
     void evict_host_from_peerlist(bool white, const peerlist_entry& pr);
     bool append_with_peer_white(const peerlist_entry& pr, bool trust_last_seen = false);
@@ -124,7 +122,6 @@ namespace nodetool
     
   private:
     struct by_time{};
-    struct by_id{};
     struct by_addr{};
 
     struct modify_all_but_id
@@ -240,28 +237,6 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::get_white_peer_by_index(peerlist_entry& p, size_t i)
-  {
-    CRITICAL_REGION_LOCAL(m_peerlist_lock);
-    if(i >= m_peers_white.size())
-      return false;
-
-    p = peerlist_manager::get_nth_latest_peer(m_peers_white, i);
-    return true;
-  }
-  //--------------------------------------------------------------------------------------------------
-  inline
-    bool peerlist_manager::get_gray_peer_by_index(peerlist_entry& p, size_t i)
-  {
-    CRITICAL_REGION_LOCAL(m_peerlist_lock);
-    if(i >= m_peers_gray.size())
-      return false;
-
-    p = peerlist_manager::get_nth_latest_peer(m_peers_gray, i);
-    return true;
-  }
-  //--------------------------------------------------------------------------------------------------
-  inline 
   bool peerlist_manager::is_host_allowed(const epee::net_utils::network_address &address)
   {
     //never allow loopback ip

@@ -1369,13 +1369,6 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const 
   return {make_basic(vm, unattended, opts, password_prompter), std::move(*pwd)};
 }
 
-std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
-{
-  const options opts{};
-  return make_basic(vm, unattended, opts, password_prompter);
-}
-
-//----------------------------------------------------------------------------------------------------
 bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options, const std::string& proxy)
 {
   boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
@@ -2905,7 +2898,6 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       MCLOG_RED(level, "global", "Check transaction " << txid);
       MCLOG_RED(level, "global", "**********************************************************************");
       exit(1);
-      return;
     }
 
     bool all_same = true;
@@ -7393,15 +7385,6 @@ namespace
   }
 
   template<typename T>
-  T pop_random_value(std::vector<T>& vec)
-  {
-    CHECK_AND_ASSERT_MES(!vec.empty(), T(), "Vector must be non-empty");
-
-    size_t idx = crypto::rand_idx(vec.size());
-    return pop_index (vec, idx);
-  }
-
-  template<typename T>
   T pop_back(std::vector<T>& vec)
   {
     CHECK_AND_ASSERT_MES(!vec.empty(), T(), "Vector must be non-empty");
@@ -7514,22 +7497,6 @@ size_t wallet2::pop_best_value(std::vector<size_t> &unused_indices, const std::v
 // returns:
 //    direct return: amount of money found
 //    modified reference: selected_transfers, a list of iterators/indices of input sources
-uint64_t wallet2::select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::vector<size_t>& selected_transfers) const
-{
-  uint64_t found_money = 0;
-  selected_transfers.reserve(unused_transfers_indices.size());
-  while (found_money < needed_money && !unused_transfers_indices.empty())
-  {
-    size_t idx = pop_best_value(unused_transfers_indices, selected_transfers);
-
-    const transfer_container::const_iterator it = m_transfers.begin() + idx;
-    selected_transfers.push_back(idx);
-    found_money += it->amount();
-  }
-
-  return found_money;
-}
-//----------------------------------------------------------------------------------------------------
 void wallet2::add_unconfirmed_tx(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t amount_in, const std::vector<cryptonote::tx_destination_entry> &dests, const crypto::hash &payment_id, uint64_t change_amount, uint32_t subaddr_account, const std::set<uint32_t>& subaddr_indices)
 {
   unconfirmed_transfer_details& utd = m_unconfirmed_txs[txid];
@@ -8875,17 +8842,6 @@ bool wallet2::unset_ring(const crypto::hash &txid)
 
   try { return m_ringdb->remove_rings(get_ringdb_key(), tx); }
   catch (const std::exception &e) { return false; }
-}
-
-bool wallet2::find_and_save_rings(bool force)
-{
-  if (force)
-  {
-    MWARNING("wallet2::find_and_save_rings() is deprecated");
-    return false;
-  }
-  m_ring_history_saved = true;
-  return true;
 }
 
 bool wallet2::lock_keys_file()
@@ -11543,27 +11499,6 @@ std::vector<size_t> wallet2::select_available_outputs_from_histogram(uint64_t co
   });
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_num_rct_outputs()
-{
-  cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::request req_t = AUTO_VAL_INIT(req_t);
-  cryptonote::COMMAND_RPC_GET_OUTPUT_HISTOGRAM::response resp_t = AUTO_VAL_INIT(resp_t);
-  req_t.amounts.push_back(0);
-  req_t.min_count = 0;
-  req_t.max_count = 0;
-  req_t.unlocked = true;
-  req_t.recent_cutoff = 0;
-
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_histogram", req_t, resp_t, *m_http_client, rpc_timeout);
-    THROW_ON_RPC_RESPONSE_ERROR(r, {}, resp_t, "get_output_histogram", error::get_histogram_error, resp_t.status);
-    THROW_WALLET_EXCEPTION_IF(resp_t.histogram.size() != 1, error::get_histogram_error, "Expected exactly one response");
-    THROW_WALLET_EXCEPTION_IF(resp_t.histogram[0].amount != 0, error::get_histogram_error, "Expected 0 amount");
-  }
-
-  return resp_t.histogram[0].total_instances;
-}
-//----------------------------------------------------------------------------------------------------
 const wallet2::transfer_details &wallet2::get_transfer_details(size_t idx) const
 {
   THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error, "Bad transfer index");
@@ -11574,12 +11509,6 @@ std::vector<size_t> wallet2::select_available_unmixable_outputs()
 {
   // request all outputs with less instances than the min ring size
   return select_available_outputs_from_histogram(get_min_ring_size(), false, true, false);
-}
-//----------------------------------------------------------------------------------------------------
-std::vector<size_t> wallet2::select_available_mixable_outputs()
-{
-  // request all outputs with at least as many instances as the min ring size
-  return select_available_outputs_from_histogram(get_min_ring_size(), true, true, true);
 }
 //----------------------------------------------------------------------------------------------------
 std::vector<wallet2::pending_tx> wallet2::create_unmixable_sweep_transactions()
@@ -12795,14 +12724,6 @@ std::string wallet2::get_tx_note(const crypto::hash &txid) const
 void wallet2::set_tx_device_aux(const crypto::hash &txid, const std::string &aux)
 {
   m_tx_device[txid] = aux;
-}
-
-std::string wallet2::get_tx_device_aux(const crypto::hash &txid) const
-{
-  std::unordered_map<crypto::hash, std::string>::const_iterator i = m_tx_device.find(txid);
-  if (i == m_tx_device.end())
-    return std::string();
-  return i->second;
 }
 
 void wallet2::set_attribute(const std::string &key, const std::string &value)

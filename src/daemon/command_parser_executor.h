@@ -78,8 +78,6 @@ public:
 
   bool set_log_level(const std::vector<std::string>& args);
 
-  bool set_log_categories(const std::vector<std::string>& args);
-
   bool print_height(const std::vector<std::string>& args);
 
   bool print_block(const std::vector<std::string>& args);

@@ -60,7 +60,6 @@ struct json_archive_base
 
   bool good() const { return stream_.good(); }
   void set_fail() { stream_.setstate(std::ios::failbit); }
-  void clear_fail() { stream_.clear(); }
 
   void tag(const char *tag) {
     if (!object_begin)

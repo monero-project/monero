@@ -119,4 +119,3 @@ bool do_serialize(Archive<W>& ar, std::tuple<Ts...>& v)
 
 #define TUPLE_COMPACT_FIELD(f) TUPLE_COMPACT_FIELD_N(#f, f)
 
-#define TUPLE_COMPACT_FIELD_F(f) TUPLE_COMPACT_FIELD_N(#f, v.f)

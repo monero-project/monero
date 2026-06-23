@@ -51,10 +51,6 @@ namespace hw {
     /* ===                           Debug                              ==== */
     /* ===================================================================== */
 
-    void set_apdu_verbose(bool verbose) {
-      apdu_verbose = verbose;
-    }
-
     #define TRACKD MTRACE("hw")
     #define ASSERT_SW(sw,ok,msk) CHECK_AND_ASSERT_THROW_MES(((sw)&(msk))==(ok), \
       "Wrong Device Status: " << "0x" << std::hex << (sw) << " (" << Status::to_string(sw) << "), " << \

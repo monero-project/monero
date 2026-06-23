@@ -99,7 +99,6 @@ using tools::fee_priority;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.simplewallet"
 
-#define EXTENDED_LOGS_FILE "wallet_details.log"
 
 #define OLD_AGE_WARN_THRESHOLD (30 * 86400 / DIFFICULTY_TARGET_V2) // 30 days
 
@@ -134,7 +133,6 @@ using tools::fee_priority;
     return true; \
   } while(0)
 
-#define REFRESH_PERIOD 90 // seconds
 
 #define MAX_MNEW_ADDRESSES 65536
 

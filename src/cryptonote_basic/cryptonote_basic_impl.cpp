@@ -136,16 +136,6 @@ namespace cryptonote {
 
     return summ;
   }
-  //------------------------------------------------------------------------------------
-  uint8_t get_account_integrated_address_checksum(const public_integrated_address_outer_blob& bl)
-  {
-    const unsigned char* pbuf = reinterpret_cast<const unsigned char*>(&bl);
-    uint8_t summ = 0;
-    for(size_t i = 0; i!= sizeof(public_integrated_address_outer_blob)-1; i++)
-      summ += pbuf[i];
-
-    return summ;
-  }
   //-----------------------------------------------------------------------
   std::string get_account_address_as_str(
       network_type nettype

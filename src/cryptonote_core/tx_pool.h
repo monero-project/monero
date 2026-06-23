@@ -62,7 +62,6 @@ namespace cryptonote
   /************************************************************************/
 
   //! pair of <transaction fee, transaction hash> for organization
-  typedef std::pair<std::pair<double, std::time_t>, crypto::hash> tx_by_fee_and_receive_time_entry;
 
   class txFeeCompare
   {
@@ -431,20 +430,6 @@ namespace cryptonote
       * @return the cookie
       */
     uint64_t cookie() const { return m_cookie; }
-
-    /**
-     * @brief get the cumulative txpool weight in bytes
-     *
-     * @return the cumulative txpool weight in bytes
-     */
-    size_t get_txpool_weight() const;
-
-    /**
-     * @brief set the max cumulative txpool weight in bytes
-     *
-     * @param bytes the max cumulative txpool weight in bytes
-     */
-    void set_txpool_max_weight(size_t bytes);
 
     /**
      * @brief reduce the cumulative txpool weight by the weight provided
