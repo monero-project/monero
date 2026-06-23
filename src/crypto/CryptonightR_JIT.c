@@ -102,7 +102,7 @@ int v4_generate_JIT_code(const struct V4_Instruction* code, v4_random_math_JIT_f
 		APPEND_CODE(p1, p2 - p1);
 
 		if (inst.opcode == ADD)
-			*(uint32_t*)(JIT_code - 4) = inst.C;
+			memcpy(JIT_code - 4, &inst.C, sizeof(inst.C));
 	}
 
 	APPEND_CODE(epilogue, sizeof(epilogue));
