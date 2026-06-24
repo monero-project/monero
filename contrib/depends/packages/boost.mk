@@ -41,3 +41,78 @@ endef
 define $(package)_stage_cmds
   ./b2 -d0 -j4 --prefix=$($(package)_staging_prefix_dir) $($(package)_config_opts) install
 endef
+
+ifeq ($(release_type),release)
+define $(package)_postprocess_cmds
+  cd include/boost && \
+  find . -mindepth 1 -maxdepth 1 -type d \
+    ! -name algorithm \
+    ! -name align \
+    ! -name any \
+    ! -name archive \
+    ! -name asio \
+    ! -name assert \
+    ! -name atomic \
+    ! -name bimap \
+    ! -name bind \
+    ! -name chrono \
+    ! -name circular_buffer \
+    ! -name concept \
+    ! -name config \
+    ! -name container \
+    ! -name container_hash \
+    ! -name core \
+    ! -name date_time \
+    ! -name describe \
+    ! -name detail \
+    ! -name endian \
+    ! -name exception \
+    ! -name filesystem \
+    ! -name format \
+    ! -name function \
+    ! -name function_types \
+    ! -name functional \
+    ! -name fusion \
+    ! -name integer \
+    ! -name intrusive \
+    ! -name io \
+    ! -name iostreams \
+    ! -name iterator \
+    ! -name lambda \
+    ! -name lexical_cast \
+    ! -name locale \
+    ! -name logic \
+    ! -name math \
+    ! -name move \
+    ! -name mp11 \
+    ! -name mpl \
+    ! -name multi_index \
+    ! -name multiprecision \
+    ! -name numeric \
+    ! -name optional \
+    ! -name phoenix \
+    ! -name predef \
+    ! -name preprocessor \
+    ! -name program_options \
+    ! -name proto \
+    ! -name range \
+    ! -name ratio \
+    ! -name regex \
+    ! -name serialization \
+    ! -name smart_ptr \
+    ! -name spirit \
+    ! -name system \
+    ! -name thread \
+    ! -name tuple \
+    ! -name type_index \
+    ! -name type_traits \
+    ! -name typeof \
+    ! -name unordered \
+    ! -name utility \
+    ! -name uuid \
+    ! -name variant \
+    ! -name variant2 \
+    ! -name winapi \
+    -exec rm -rf {} +
+endef
+endif
