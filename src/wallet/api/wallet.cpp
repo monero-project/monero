@@ -972,6 +972,16 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
     return doInit(daemon_address, proxy_address, upper_transaction_size_limit, use_ssl);
 }
 
+void WalletImpl::allowMismatchedDaemonVersion(bool allow_mismatch)
+{
+    m_wallet->allow_mismatched_daemon_version(allow_mismatch);
+}
+
+void WalletImpl::setRingDatabase(const std::string &path)
+{
+    m_wallet->set_ring_database(path);
+}
+
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
 {
     if (checkBackgroundSync("cannot change refresh height"))
