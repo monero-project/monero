@@ -50,7 +50,7 @@ target_link_libraries(libwallet_api_tests
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
-    ${Boost_LOCALE_LIBRARY}
+    $<TARGET_NAME_IF_EXISTS:Boost::locale>
     ${ICU_LIBRARIES}
     ${GTEST_LIBRARIES}
     ${CMAKE_THREAD_LIBS_INIT}
