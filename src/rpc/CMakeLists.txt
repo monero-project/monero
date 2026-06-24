@@ -35,7 +35,7 @@ set(rpc_sources
   bootstrap_node_selector.cpp
   core_rpc_server.cpp
   rpc_version_str.cpp
-  instanciations.cpp)
+  instantiations.cpp)
 
 set(daemon_messages_sources
   message.cpp

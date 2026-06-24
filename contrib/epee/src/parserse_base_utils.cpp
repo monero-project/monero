@@ -69,9 +69,9 @@ namespace misc_utils
         //  res+="\\'"; break;
         case '"':  //Double quote
           res+="\\\""; break;
-        case '\\':  //Backslash caracter
+        case '\\':  //Backslash character
           res+="\\\\"; break;
-        case '/':  //Backslash caracter
+        case '/':  //Backslash character
           res+="\\/"; break;
         default:
           res.push_back(*it);

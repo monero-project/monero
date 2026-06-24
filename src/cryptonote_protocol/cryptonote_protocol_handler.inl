@@ -327,7 +327,7 @@ namespace cryptonote
       << std::setw(20) << "Support Flags"      
       << std::setw(30) << "Recv/Sent (inactive,sec)"
       << std::setw(25) << "State"
-      << std::setw(20) << "Livetime(sec)"
+      << std::setw(20) << "Lifetime(sec)"
       << std::setw(12) << "Down (kB/s)"
       << std::setw(14) << "Down(now)"
       << std::setw(10) << "Up (kB/s)"

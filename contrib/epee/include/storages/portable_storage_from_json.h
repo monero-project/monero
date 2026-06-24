@@ -188,7 +188,7 @@ namespace epee
           case match_state_wonder_array:
             if(*it == '[')
             {
-              ASSERT_MES_AND_THROW("array of array not suppoerted yet :( sorry"); 
+              ASSERT_MES_AND_THROW("array of array not supported yet :( sorry"); 
               //mean array of array
             }
             if(*it == '{')

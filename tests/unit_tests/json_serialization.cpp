@@ -130,7 +130,7 @@ namespace
             false, "compare_tx_to_json_tx: missing prefix members");
 
         // version
-        CHECK_AND_ASSERT_MES(tx_document["version"].IsInt(), false, "compare_tx_to_json_tx: version isnt integer");
+        CHECK_AND_ASSERT_MES(tx_document["version"].IsInt(), false, "compare_tx_to_json_tx: version isn't integer");
         CHECK_AND_ASSERT_MES(tx_document["version"].GetInt() == tx.version, false, "compare_tx_to_json_tx: wrong version");
 
         // unlock_time

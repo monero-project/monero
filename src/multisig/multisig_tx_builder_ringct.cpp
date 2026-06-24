@@ -759,7 +759,7 @@ static bool set_tx_rct_signatures(
       rct::hash_to_p3(H_p3, rv.mixRing[i][l].dest);
       rct::key H_l;
       ge_p3_tobytes(H_l.bytes, &H_p3);
-      D = rct::scalarmultKey(H_l, z);  //auxilliary key image (for commitment to zero)
+      D = rct::scalarmultKey(H_l, z);  //auxiliary key image (for commitment to zero)
       rv.p.CLSAGs[i].D = rct::scalarmultKey(D, rct::INV_EIGHT);
       rv.p.CLSAGs[i].I = I;
     }

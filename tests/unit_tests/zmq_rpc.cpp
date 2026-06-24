@@ -379,7 +379,7 @@ namespace
       const std::string endpoint = inproc_pub;
       pub = server.init_pub({std::addressof(endpoint), 1});
       if (!pub)
-        throw std::runtime_error{"failed to initiaze zmq/pub"};
+        throw std::runtime_error{"failed to initialize zmq/pub"};
 
       sub.reset(zmq_socket(ctx, ZMQ_SUB));
       if (!sub)

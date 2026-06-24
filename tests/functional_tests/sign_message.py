@@ -67,7 +67,7 @@ class MessageSigningTest():
             assert res.seed == seeds[i]
 
     def check_signing(self, subaddress, spend_key):
-        print('Signing/verifing messages with ' + ('subaddress' if subaddress else 'standard address') + ' ' + ('spend key' if spend_key else 'view key'))
+        print('Signing/verifying messages with ' + ('subaddress' if subaddress else 'standard address') + ' ' + ('spend key' if spend_key else 'view key'))
         messages = ['foo', '']
         if subaddress:
             address = []

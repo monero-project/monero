@@ -415,7 +415,7 @@ namespace trezor{
     }
 
     if (!m_device_path){
-      throw exc::CommunicationException("Coud not open, empty device path");
+      throw exc::CommunicationException("Could not open, empty device path");
     }
 
     std::string uri = "/acquire/" + m_device_path.get() + "/null";

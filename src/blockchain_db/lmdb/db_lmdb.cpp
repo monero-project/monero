@@ -2579,7 +2579,7 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
         range_begin = ((const mdb_block_info*)v.mv_data)->bi_height;
         range_end = range_begin + v.mv_size / sizeof(mdb_block_info); // whole records please
         if (height < range_begin || height >= range_end)
-          throw0(DB_ERROR(("Height " + std::to_string(height) + " not included in multuple record range: " + std::to_string(range_begin) + "-" + std::to_string(range_end)).c_str()));
+          throw0(DB_ERROR(("Height " + std::to_string(height) + " not included in multiple record range: " + std::to_string(range_begin) + "-" + std::to_string(range_end)).c_str()));
       }
       else
       {

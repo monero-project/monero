@@ -42,9 +42,9 @@ def get_time_pi_seconds(cores, app_dir='.'):
     app_path = '{}/cpu_power_test'.format(app_dir)
     time_calc = subprocess.check_output([app_path, str(cores)])
     decoded = time_calc.decode('utf-8')
-    miliseconds = int(decoded)
+    milliseconds = int(decoded)
 
-    return miliseconds / 1000.0
+    return milliseconds / 1000.0
 
 def remove_file(name):
     WALLET_DIRECTORY = os.environ['WALLET_DIRECTORY']

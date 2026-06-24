@@ -192,8 +192,8 @@ namespace net_utils
 			std::string			m_body;
 			std::string			m_mime_tipe;
 			http_header_info    m_header_info;
-			int                 m_http_ver_hi;// OUT paramter only
-			int                 m_http_ver_lo;// OUT paramter only
+			int                 m_http_ver_hi;// OUT parameter only
+			int                 m_http_ver_lo;// OUT parameter only
 
 			void clear()
 			{

@@ -1453,7 +1453,7 @@ namespace net_utils
       }
       catch(...)
       {
-        _erro("Exception at server worker thread, unknown execption");
+        _erro("Exception at server worker thread, unknown exception");
       }
     }
     //_info("Worker thread finished");
