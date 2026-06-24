@@ -77,7 +77,6 @@ class TransferTest():
         self.check_get_bulk_payments()
         self.check_get_payments()
         self.check_double_spend_detection()
-        self.sweep_dust()
         self.sweep_single()
         self.check_destinations()
         self.check_tx_notes()
@@ -545,6 +544,8 @@ class TransferTest():
         self.wallet[0].refresh()
         res = self.wallet[0].get_bulk_payments()
         assert len(res.payments) >= 83 # at least 83 coinbases
+        res = self.wallet[0].get_bulk_payments(payment_ids = ['0'*16])
+        assert len(res.payments) >= 83 # at least 83 with dummy encrypted payment id
         res = self.wallet[0].get_bulk_payments(payment_ids = ['1234500000012345abcde00000abcdeff1234500000012345abcde00000abcde'])
         assert 'payments' not in res or len(res.payments) == 0
         res = self.wallet[0].get_bulk_payments(min_block_height = height)
@@ -590,7 +591,11 @@ class TransferTest():
         res = self.wallet[1].get_payments('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff')
         assert 'payments' not in res or len(res.payments) == 0
 
+        res = self.wallet[1].get_payments(payment_id = '0'*16)
+        assert len(res.payments) >= 1 # one tx with dummy payment id
         res = self.wallet[1].get_payments(payment_id = '1111111122222222' + '0'*48)
+        assert len(res.payments) >= 1 # one tx to integrated address
+        res = self.wallet[1].get_payments(payment_id = '1111111122222222')
         assert len(res.payments) >= 1 # one tx to integrated address
 
     def check_double_spend_detection(self):
@@ -651,12 +656,7 @@ class TransferTest():
         assert tx.in_pool
         assert tx.double_spend_seen
 
-    def sweep_dust(self):
-        print("Sweeping dust")
-        daemon = Daemon()
-        self.wallet[0].refresh()
-        res = self.wallet[0].sweep_dust()
-        assert not 'tx_hash_list' in res or len(res.tx_hash_list) == 0 # there's just one, but it cannot meet the fee
+    # removed: sweep_dust/sweep_unmixable; reason: not needed anymore after FCMP++ fork, discussed in "Monero Tech Meeting #140" https://github.com/monero-project/meta/issues/1277
 
     def sweep_single(self):
         daemon = Daemon()
