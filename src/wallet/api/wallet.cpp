@@ -2740,7 +2740,6 @@ void WalletImpl::setStatus(int status, const std::string& message, const int* ex
     m_status = status;
     m_errorString = message;
     m_extendedStatus = (extended_status ? *extended_status : status == Status_Ok ? ExtendedStatus_Ok : ExtendedStatus_Unknown_Error);
-
 }
 
 void WalletImpl::refreshThreadFunc()
