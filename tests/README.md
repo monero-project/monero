@@ -209,7 +209,19 @@ ctest -R hash-blake2b
 
 # Libwallet API tests
 
-[TODO]
+The libwallet API tests are located under `tests/libwallet_api_tests/`.
+They are run through `ctest` like the functional tests and do not require a
+pre-existing testnet blockchain or manually created wallets. The CTest wrapper
+starts a temporary fakechain daemon, creates temporary wallets and ring database
+directories, mines the required blocks, and removes the process when the test
+finishes.
+
+These tests are added to CTest when the build is configured with
+`BUILD_GUI_DEPS=ON`. To run only this test from such a build directory:
+
+```bash
+ctest --test-dir build -R libwallet_api_tests --output-on-failure
+```
 
 # Net Load tests
 
