@@ -35,14 +35,12 @@
 #define CRYPTONOTE_PROTOCOL_REQUEST_MANAGER_H
 
 #include "crypto/hash.h"
-#include "string_tools.h"
 #include "txrequestqueue.h"
 
 #include <atomic>
 #include <boost/functional/hash.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_hash.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
