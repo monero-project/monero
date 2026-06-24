@@ -35,18 +35,19 @@
 #include "cryptonote_protocol/request_manager.h"
 #include "cryptonote_protocol/txrequestqueue.h"
 #include "misc_log_ex.h"
+#include <boost/uuid/uuid_io.hpp>
 #include <cstddef>
 #include <cstdint>
 
 void request_manager::remove_peer(const boost::uuids::uuid &peer_id) {
-  MINFO("Removing all requests for disconnected peer: " << epee::string_tools::pod_to_hex(peer_id));
+  MINFO("Removing all requests for disconnected peer: " << peer_id);
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
   auto& by_peer = get_requests_by_peer_id(m_requested_txs);
   auto peer_range = by_peer.equal_range(peer_id);
   if (peer_range.first != peer_range.second) {
     size_t removed = std::distance(peer_range.first, peer_range.second);
     by_peer.erase(peer_range.first, peer_range.second);
-    MINFO("Removed " << removed << " requests for peer " << epee::string_tools::pod_to_hex(peer_id));
+    MINFO("Removed " << removed << " requests for peer " << peer_id);
   }
   m_connection_stats.erase(peer_id);
 }
@@ -65,7 +66,7 @@ std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() 
     }
 
     MINFO("Removing stale request for tx " << it->tx_hash 
-          << " from peer " << epee::string_tools::pod_to_hex(it->peer_id)
+          << " from peer " << it->peer_id
           << ", age: " << elapsed.count() << "ms");
 
     // If this peer has missed too many requests, we want to drop it
@@ -82,7 +83,7 @@ std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() 
 }
 
 bool request_manager::add_request(const crypto::hash &tx_hash, const boost::uuids::uuid &peer_id) {
-  MINFO("Requesting from peer: " << epee::string_tools::pod_to_hex(peer_id) << " the transaction: " << tx_hash);
+  MINFO("Requesting from peer: " << peer_id << " the transaction: " << tx_hash);
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
   auto& by_peer_and_tx = get_requests_by_peer_and_tx(m_requested_txs);
@@ -94,7 +95,7 @@ bool request_manager::add_request(const crypto::hash &tx_hash, const boost::uuid
 
   if (in_queue && !let_it_fly) {
     // already have this peer for this tx, we can't process additional reqs at this time
-    MDEBUG("Peer " << epee::string_tools::pod_to_hex(peer_id)
+    MDEBUG("Peer " << peer_id
            << " already in request queue for tx " << tx_hash);
     return false;
   }
@@ -148,11 +149,11 @@ bool request_manager::remove_request(const crypto::hash &tx_hash) {
   }
   for (auto it = range.first; it != range.second;) {
     const boost::uuids::uuid &peer_id = it->peer_id;
-    MDEBUG("Removing tx request " << it->tx_hash << " for peer " << epee::string_tools::pod_to_hex(peer_id));
+    MDEBUG("Removing tx request " << it->tx_hash << " for peer " << peer_id);
     if (it->in_flight && m_connection_stats[peer_id].in_flight_requests > 0)
     {
       --m_connection_stats[peer_id].in_flight_requests;
-      MINFO("Decremented in_flight_requests count for peer: " << epee::string_tools::pod_to_hex(peer_id) << ", current in_flight_requests: " << m_connection_stats[peer_id].in_flight_requests);
+      MINFO("Decremented in_flight_requests count for peer: " << peer_id << ", current in_flight_requests: " << m_connection_stats[peer_id].in_flight_requests);
     }
     it = by_tx_hash.erase(it);
   }
@@ -169,7 +170,7 @@ bool request_manager::missed_request(const boost::uuids::uuid &peer_id, const st
   if (n_total_reqs < P2P_MIN_SAMPLE_SIZE_FOR_DROPPING) return false;
 
   const size_t percent = (m_connection_stats[peer_id].missed * 100) / n_total_reqs;
-  MINFO("Peer " << epee::string_tools::pod_to_hex(peer_id)
+  MINFO("Peer " << peer_id
         << " has missed " << m_connection_stats[peer_id].missed << " out of "
         << n_total_reqs << " total requests (" << percent << "%)");
   return percent > P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE;
