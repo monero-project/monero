@@ -120,9 +120,11 @@ namespace cryptonote
   core_rpc_server::core_rpc_server(
       core& cr
     , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+    , bool restricted
     )
     : m_core(cr)
     , m_p2p(p2p)
+    , m_restricted(restricted)
     , disable_rpc_ban(false)
   {}
   //------------------------------------------------------------------------------------------------------------------------------
