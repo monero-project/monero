@@ -7746,7 +7746,7 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
 {
   std::string s = unsigned_tx_st;
   const size_t magiclen = strlen(UNSIGNED_TX_PREFIX) - 1;
-  if (strncmp(s.c_str(), UNSIGNED_TX_PREFIX, magiclen))
+  if (s.size() < magiclen + 1 || strncmp(s.c_str(), UNSIGNED_TX_PREFIX, magiclen))
   {
     LOG_PRINT_L0("Bad magic from unsigned tx");
     return false;
@@ -8024,7 +8024,7 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   signed_tx_set signed_txs;
 
   const size_t magiclen = strlen(SIGNED_TX_PREFIX) - 1;
-  if (strncmp(s.c_str(), SIGNED_TX_PREFIX, magiclen))
+  if (s.size() < magiclen + 1 || strncmp(s.c_str(), SIGNED_TX_PREFIX, magiclen))
   {
     LOG_PRINT_L0("Bad magic from signed transaction");
     return false;
