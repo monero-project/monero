@@ -29,6 +29,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import json
+import time
 import util_resources
 import pprint
 from deepdiff import DeepDiff
@@ -686,7 +687,10 @@ class TransferTest():
         tx_hash = res.tx_hash
         res = daemon.is_key_image_spent([ki])
         assert len(res.spent_status) == 1
-        assert res.spent_status[0] == 2
+        if res.spent_status[0] != 2:
+            self.print_sweep_single_failure_context(daemon, ki, tx_hash, amount, balance, res.spent_status)
+            self.check_sweep_single_spent_status_race(daemon, ki, tx_hash, 2)
+            assert False, 'Unexpected spent_status after sweep_single: {}, expected 2'.format(res.spent_status)
         daemon.generateblocks('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', 1)
         res = daemon.is_key_image_spent([ki])
         assert len(res.spent_status) == 1
@@ -713,6 +717,83 @@ class TransferTest():
         assert len([t for t in res.transfers if t.key_image == ki]) == 0
         res = self.wallet[0].incoming_transfers(transfer_type = 'unavailable')
         assert len([t for t in res.transfers if t.key_image == ki]) == 1
+
+    def safe_get(self, obj, name, default = 'n/a'):
+        try:
+            return getattr(obj, name)
+        except Exception:
+            return default
+
+    def print_sweep_single_failure_context(self, daemon, ki, tx_hash, amount, balance, spent_status):
+        print('Unexpected spent_status after sweep_single: {}'.format(spent_status))
+        print('sweep_single context: tx_hash={}, key_image={}, amount={}, balance_before={}'.format(tx_hash, ki, amount, balance))
+        try:
+            info = daemon.get_info()
+            print('daemon info: height={}, tx_pool_size={}'.format(
+                self.safe_get(info, 'height'),
+                self.safe_get(info, 'tx_pool_size')))
+        except Exception as e:
+            print('daemon info lookup failed: {}'.format(e))
+        try:
+            balance_res = self.wallet[0].get_balance()
+            print('wallet balance: balance={}, unlocked_balance={}, blocks_to_unlock={}'.format(
+                self.safe_get(balance_res, 'balance'),
+                self.safe_get(balance_res, 'unlocked_balance'),
+                self.safe_get(balance_res, 'blocks_to_unlock')))
+        except Exception as e:
+            print('wallet balance lookup failed: {}'.format(e))
+        try:
+            tx_res = daemon.get_transactions([tx_hash], decode_as_json = True)
+            txs = self.safe_get(tx_res, 'txs', [])
+            missed = self.safe_get(tx_res, 'missed_tx', [])
+            txs_as_hex = self.safe_get(tx_res, 'txs_as_hex', [])
+            txs_as_json = self.safe_get(tx_res, 'txs_as_json', [])
+            print('get_transactions: found={}, missed={}, txs_as_hex={}, txs_as_json={}'.format(
+                len(txs),
+                missed,
+                len(txs_as_hex),
+                len(txs_as_json)))
+            for i, tx in enumerate(txs):
+                print('get_transactions tx[{}]: in_pool={}, tx_hash={}, block_height={}'.format(
+                    i,
+                    self.safe_get(tx, 'in_pool'),
+                    self.safe_get(tx, 'tx_hash'),
+                    self.safe_get(tx, 'block_height')))
+        except Exception as e:
+            print('get_transactions lookup failed: {}'.format(e))
+        try:
+            pool_res = daemon.get_transaction_pool_hashes()
+            tx_hashes = self.safe_get(pool_res, 'tx_hashes', [])
+            print('txpool hashes: contains_tx={}, pool_size={}'.format(tx_hash in tx_hashes, len(tx_hashes)))
+        except Exception as e:
+            print('txpool hash lookup failed: {}'.format(e))
+
+    def check_sweep_single_spent_status_race(self, daemon, ki, tx_hash, expected_status):
+        print('checking whether unexpected spent_status is a race...')
+        for i in range(20):
+            time.sleep(0.1)
+            try:
+                res = daemon.is_key_image_spent([ki])
+                status = res.spent_status
+            except Exception as e:
+                print('race check [{}]: is_key_image_spent failed: {}'.format(i, e))
+                continue
+            try:
+                pool_res = daemon.get_transaction_pool_hashes()
+                tx_hashes = self.safe_get(pool_res, 'tx_hashes', [])
+                contains_tx = tx_hash in tx_hashes
+                pool_size = len(tx_hashes)
+            except Exception as e:
+                contains_tx = 'lookup failed: {}'.format(e)
+                pool_size = 'n/a'
+            print('race check [{}]: spent_status={}, contains_tx={}, pool_size={}'.format(
+                i, status, contains_tx, pool_size))
+            if len(status) == 1 and status[0] == expected_status:
+                print('race check result: spent_status became expected value {} after {} retries'.format(
+                    expected_status, i + 1))
+                print('race check result: still failing test intentionally')
+                return
+        print('race check result: spent_status did not become expected value {}'.format(expected_status))
 
     def check_destinations(self):
         daemon = Daemon()
