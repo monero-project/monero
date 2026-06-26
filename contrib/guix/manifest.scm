@@ -284,7 +284,7 @@ chain for " target " development."))
              xz ; used to unpack freebsd_base
              gcc-toolchain-15
              (list gcc-toolchain-15 "static")
-             clang-toolchain-21
+             clang-toolchain-22
              binutils))
           ((string-contains target "android")
             (list
@@ -294,7 +294,7 @@ chain for " target " development."))
           ((string-contains target "darwin")
            (list
              gcc-toolchain-15
-             clang-toolchain-21
-             lld-21
-             (make-lld-wrapper lld-21 #:lld-as-ld? #t)))
+             clang-toolchain-22
+             lld-22
+             (make-lld-wrapper lld-22 #:lld-as-ld? #t)))
           (else '())))))
