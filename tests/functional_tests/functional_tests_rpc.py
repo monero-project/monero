@@ -126,21 +126,19 @@ deadline = time.monotonic() + startup_timeout
 for port in ports:
   addr = ('127.0.0.1', port)
   delay = 0
-  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  try:
-    while True:
-      timeout = deadline - time.monotonic() - delay
-      if timeout <= 0:
-        print('Failed to start wallet or daemon')
-        kill()
-        sys.exit(1)
-      time.sleep(delay)
+  while True:
+    time.sleep(delay)
+    timeout = deadline - time.monotonic()
+    if timeout <= 0:
+      print('Failed to start wallet or daemon, last port checked: ' + str(port))
+      kill()
+      sys.exit(1)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
       s.settimeout(timeout)
-      if s.connect_ex(addr) == 0:
-        break
-      delay = .1
-  finally:
-    s.close()
+      err = s.connect_ex(addr)
+    if err == 0:
+      break
+    delay = .1
 
 # online daemons need some time to connect to peers to be ready
 time.sleep(2)
