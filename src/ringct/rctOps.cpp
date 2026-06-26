@@ -673,7 +673,7 @@ namespace rct {
         }
     }
 
-    //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
+    //Elliptic Curve Diffie-Hellman: encodes and decodes the amount b and mask a
     // where C= aG + bH
     key genAmountEncodingFactor(const key &k)
     {

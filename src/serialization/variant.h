@@ -45,7 +45,7 @@
 #include <boost/mpl/pop_front.hpp>
 #include "serialization.h"
 
-/*! \struct variant_serialization_triats
+/*! \struct variant_serialization_traits
  * 
  * \brief used internally to contain a variant's traits/possible types
  *

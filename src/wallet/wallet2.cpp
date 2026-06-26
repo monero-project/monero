@@ -342,7 +342,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   auto daemon_ssl_allow_any_cert = command_line::get_arg(vm, opts.daemon_ssl_allow_any_cert);
   auto daemon_ssl = command_line::get_arg(vm, opts.daemon_ssl);
 
-  // user specified CA file or fingeprints implies enabled SSL by default
+  // user specified CA file or fingerprints implies enabled SSL by default
   epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
   if (daemon_ssl_allow_any_cert)
     ssl_options.verification = epee::net_utils::ssl_verification_t::none;
@@ -2070,7 +2070,7 @@ bool wallet2::frozen(const multisig_tx_set& txs) const
   for (const auto& ptx : txs.m_ptx)
   {
     const tools::wallet2::tx_construction_data& cd = ptx.construction_data;
-    CHECK_AND_ASSERT_THROW_MES(cd.sources.size() == ptx.tx.vin.size(), "mismatched multisg tx set source sizes");
+    CHECK_AND_ASSERT_THROW_MES(cd.sources.size() == ptx.tx.vin.size(), "mismatched multisig tx set source sizes");
     for (size_t src_idx = 0; src_idx < cd.sources.size(); ++src_idx)
     {
       // Extract keys images from tx vin and construction data
@@ -9174,7 +9174,7 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
     // statistically independent from other picks, since we pick outputs from a finite set
     // *without replacement*, due to the protocol not allowing duplicate ring members. This effect
     // is exacerbated by the fact that we pick 1.5x + 75 as many outputs as we need per RPC
-    // request to account for unusable outputs. This effect is small, but non-neglibile and gets
+    // request to account for unusable outputs. This effect is small, but non-negligible and gets
     // worse with larger ring sizes.
     std::vector<get_outputs_out> secret_picking_order;
 
@@ -10353,7 +10353,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
       while (subtractable_remaining)
       {
         // Set the amount to subtract iterating at the beginning of the list so equal amounts are
-        // subtracted throughout the list of destinations. We use max(x, 1) so that we we still step
+        // subtracted throughout the list of destinations. We use max(x, 1) so that we still step
         // forwards even when the amount remaining is less than the number of subtractable indices
         if (si_it == subtractable_indices.cbegin())
           amount_to_subtract = std::max<uint64_t>(subtractable_remaining / subtractable_indices.size(), 1);
@@ -10957,7 +10957,7 @@ bool wallet2::sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, c
 
   // For destinations from where the fee is subtracted, the required amount has to be at least
   // target amount - (tx fee / num_subtractable + 1). +1 since fee might not be evenly divisible by
-  // the number of subtractble destinations. For non-subtractable destinations, we need at least
+  // the number of subtractable destinations. For non-subtractable destinations, we need at least
   // the target amount.
   const size_t num_subtractable_dests = subtract_fee_from_outputs.size();
   const uint64_t fee0 = ptx_vector[0].fee;
@@ -14211,7 +14211,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
         continue;
     }
 
-    // construct a synthetix tx prefix that has the info we'll need: the output with its pubkey, the tx pubkey in extra
+    // construct a synthetic tx prefix that has the info we'll need: the output with its pubkey, the tx pubkey in extra
     td.m_tx = {};
 
     THROW_WALLET_EXCEPTION_IF(etd.m_internal_output_index >= 65536, error::wallet_internal_error, "internal output index seems outrageously high, rejecting");

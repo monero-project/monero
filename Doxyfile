@@ -295,7 +295,7 @@ MARKDOWN_SUPPORT       = YES
 
 # When enabled doxygen tries to link words that correspond to documented
 # classes, or namespaces to their corresponding documentation. Such a link can
-# be prevented in individual cases by by putting a % sign in front of the word
+# be prevented in individual cases by putting a % sign in front of the word
 # or globally by setting AUTOLINK_SUPPORT to NO.
 # The default value is: YES.
 
@@ -2068,7 +2068,7 @@ HAVE_DOT               = $(HAVE_DOT)
 
 DOT_NUM_THREADS        = 0
 
-# When you want a differently looking font n the dot files that doxygen
+# When you want a differently looking font in the dot files that doxygen
 # generates you can specify the font name using DOT_FONTNAME. You need to make
 # sure dot is able to find the font, which can be done by putting it in a
 # standard location or by setting the DOTFONTPATH environment variable or by

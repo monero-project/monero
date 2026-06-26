@@ -2568,7 +2568,7 @@ std::vector<uint64_t> BlockchainLMDB::get_block_cumulative_rct_outputs(const std
   {
     if (height >= range_begin && height < range_end)
     {
-      // nohting to do
+      // nothing to do
     }
     else
     {

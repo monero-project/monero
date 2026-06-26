@@ -726,7 +726,7 @@ struct Wallet
     virtual bool rescanBlockchain() = 0;
 
     /**
-     * @brief rescanBlockchainAsync - rescans wallet asynchronously, starting from genesys
+     * @brief rescanBlockchainAsync - rescans wallet asynchronously, starting from genesis
      */
     virtual void rescanBlockchainAsync() = 0;
 
@@ -991,7 +991,7 @@ struct Wallet
      */
     virtual uint32_t defaultMixin() const = 0;
     /*!
-     * \brief setDefaultMixin - setum number of mixins to be used for new transactions
+     * \brief setDefaultMixin - sets the number of mixins to be used for new transactions
      * \param arg
      */
     virtual void setDefaultMixin(uint32_t arg) = 0;

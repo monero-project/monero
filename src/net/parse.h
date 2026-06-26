@@ -126,7 +126,7 @@ namespace net
         get_network_address(boost::string_ref address, std::uint16_t default_port);
 
     /*!
-      Identifies an IPv4 subnet in CIDR notatioa and returns it as a generic
+      Identifies an IPv4 subnet in CIDR notation and returns it as a generic
       `network_address`. If the type is unsupported, it might be a hostname,
       and `error() == net::error::kUnsupportedAddress` is returned.
 

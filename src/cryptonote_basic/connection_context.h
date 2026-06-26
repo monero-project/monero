@@ -57,8 +57,8 @@ namespace cryptonote
 
     /*
       This class was originally from the EPEE module. It is identical in function to std::atomic<uint32_t> except
-      that it has copy-construction and copy-assignment defined, which means that earliers devs didn't have to write
-      custom copy-contructors and copy-assingment operators for the outer class, cryptonote_connection_context.
+      that it has copy-construction and copy-assignment defined, which means that earlier devs didn't have to write
+      custom copy-constructors and copy-assignment operators for the outer class, cryptonote_connection_context.
       cryptonote_connection_context should probably be refactored because it is both trying to be POD-like while
       also (very loosely) controlling access to its atomic members.
     */

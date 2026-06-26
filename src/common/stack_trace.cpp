@@ -67,7 +67,7 @@
 // from https://stackoverflow.com/questions/11665829/how-can-i-print-stack-trace-for-caught-exceptions-in-c-code-injection-in-c
 
 // The decl of __cxa_throw in /usr/include/.../cxxabi.h uses
-// 'std::type_info *', but GCC's built-in protype uses 'void *'.
+// 'std::type_info *', but GCC's built-in prototype uses 'void *'.
 #ifdef __clang__
 #define CXA_THROW_INFO_T std::type_info
 #else // !__clang__

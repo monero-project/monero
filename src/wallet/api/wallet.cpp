@@ -1409,13 +1409,13 @@ size_t WalletImpl::numSubaddresses(uint32_t accountIndex) const
 }
 void WalletImpl::addSubaddress(uint32_t accountIndex, const std::string& label)
 {
-    if (checkBackgroundSync("cannot add subbaddress"))
+    if (checkBackgroundSync("cannot add subaddress"))
         return;
     m_wallet->add_subaddress(accountIndex, label);
 }
 std::string WalletImpl::getSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex) const
 {
-    if (checkBackgroundSync("cannot get subbaddress label"))
+    if (checkBackgroundSync("cannot get subaddress label"))
         return "";
     try
     {
@@ -1430,7 +1430,7 @@ std::string WalletImpl::getSubaddressLabel(uint32_t accountIndex, uint32_t addre
 }
 void WalletImpl::setSubaddressLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label)
 {
-    if (checkBackgroundSync("cannot set subbaddress label"))
+    if (checkBackgroundSync("cannot set subaddress label"))
         return;
     try
     {

@@ -187,7 +187,7 @@ namespace levin
         epee::byte_slice arg_buff;
         epee::serialization::store_t_to_binary(request, arg_buff);
 
-        // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
+        // we probably lowballed the payload size a bit, so added a bit too much. Fix this now.
         size_t remove = arg_buff.size() % granularity;
         if (remove > request._.size())
           request._.clear();
@@ -325,7 +325,7 @@ namespace levin
         : zone_(source.zone_), message_(source.message_.clone()), destination_(source.destination_)
       {}
 
-      //! \pre Called within `zone_->channels[destionation_].strand`.
+      //! \pre Called within `zone_->channels[destination_].strand`.
       void operator()()
       {
         if (!zone_)
