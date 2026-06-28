@@ -29,26 +29,30 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <boost/program_options.hpp>
+#include <exception>
 
 #include "include_base_utils.h"
 #include "string_tools.h"
 using namespace epee;
 
 #include "common/command_line.h"
+#include "common/scoped_message_writer.h"
 #include "common/util.h"
 #include "transactions_flow_test.h"
+#include "wallet_scanner.h"
 
 namespace po = boost::program_options;
 
 namespace
 {
   const command_line::arg_descriptor<bool> arg_test_transactions_flow = {"test_transactions_flow", ""};
+  const command_line::arg_descriptor<bool> arg_wallet_scanner         = {"wallet_scanner", ""};
 
   const command_line::arg_descriptor<std::string> arg_working_folder  = {"working-folder", "", "."};
   const command_line::arg_descriptor<std::string> arg_source_wallet   = {"source-wallet",  "", "", true};
   const command_line::arg_descriptor<std::string> arg_dest_wallet     = {"dest-wallet",    "", "", true};
-  const command_line::arg_descriptor<std::string> arg_daemon_addr_a   = {"daemon-addr-a",  "", "127.0.0.1:8080"};
-  const command_line::arg_descriptor<std::string> arg_daemon_addr_b   = {"daemon-addr-b",  "", "127.0.0.1:8082"};
+  const command_line::arg_descriptor<std::string> arg_daemon_addr_a   = {"daemon-addr-a",  "", "127.0.0.1:18180"};
+  const command_line::arg_descriptor<std::string> arg_daemon_addr_b   = {"daemon-addr-b",  "", "127.0.0.1:18182"};
 
   const command_line::arg_descriptor<uint64_t> arg_transfer_amount = {"transfer_amount",   "", 60000000000000};
   const command_line::arg_descriptor<size_t> arg_mix_in_factor     = {"mix-in-factor",     "", 15};
@@ -59,18 +63,20 @@ namespace
 
 int main(int argc, char* argv[])
 {
-  TRY_ENTRY();
+  try
+  {
   tools::on_startup();
   string_tools::set_module_name_and_folder(argv[0]);
 
   //set up logging options
-  mlog_configure(mlog_get_default_log_path("functional_tests.log"), true);
+  mlog_configure(mlog_get_default_log_path("functional_tests.log"), false);
   mlog_set_log_level(3);
 
   po::options_description desc_options("Allowed options");
   command_line::add_arg(desc_options, command_line::arg_help);
 
   command_line::add_arg(desc_options, arg_test_transactions_flow);
+  command_line::add_arg(desc_options, arg_wallet_scanner);
 
   command_line::add_arg(desc_options, arg_working_folder);
   command_line::add_arg(desc_options, arg_source_wallet);
@@ -118,21 +124,30 @@ int main(int argc, char* argv[])
     size_t repeat_count = command_line::get_arg(vm, arg_test_repeat_count);
 
     for(size_t i = 0; i != repeat_count; i++)
-      if(!transactions_flow_test(working_folder, path_source_wallet, path_target_wallet, daemon_addr_a, daemon_addr_b, amount_to_transfer, mix_in_factor, transactions_count, transactions_per_second))
-        break;
-
-    std::string s;
-    std::cin >> s;
-    
-    return 1;
+    {
+      if (!transactions_flow_test(working_folder, path_source_wallet, path_target_wallet, daemon_addr_a, daemon_addr_b, amount_to_transfer, mix_in_factor, transactions_count, transactions_per_second))
+        return 1;
+    }
   }
-  else
+
+  if (command_line::get_arg(vm, arg_wallet_scanner))
   {
-    std::cout << desc_options << std::endl;
+    std::string daemon_addr = command_line::get_arg(vm, arg_daemon_addr_a);
+    test::WalletScannerTest wallet_scanner{daemon_addr};
+    if (!wallet_scanner.run())
+      return 1;
+  }
+  }
+  catch (const std::exception &e)
+  {
+    tools::fail_msg_writer() << e.what();
     return 1;
   }
-
-  CATCH_ENTRY_L0("main", 1);
+  catch (...)
+  {
+    tools::fail_msg_writer() << "exception in functional tests";
+    return 1;
+  }
 
   return 0;
 }
