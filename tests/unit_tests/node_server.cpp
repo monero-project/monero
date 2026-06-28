@@ -1208,6 +1208,7 @@ TEST(node_server, race_condition)
     using work_ptr = std::shared_ptr<work_t>;
     using workers_t = std::vector<std::thread>;
     using endpoint_t = boost::asio::ip::tcp::endpoint;
+    using ec_t = boost::system::error_code;
     using event_t = epee::simple_event;
     struct command_handler_t: epee::levin::levin_commands_handler<context_t> {
       using span_t = epee::span<const uint8_t>;
@@ -1238,7 +1239,9 @@ TEST(node_server, race_condition)
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
     connection_ptr conn{new connection_t(io_context, shared_state, {}, {})};
     endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 48080);
-    conn->socket().connect(endpoint);
+    ec_t ec;
+    conn->socket().connect(endpoint, ec);
+    ASSERT_EQ(ec.value(), 0) << "connect to 127.0.0.1:48080 failed: " << ec.message();
     conn->socket().set_option(boost::asio::ip::tcp::socket::reuse_address(true));
     conn->start({}, {});
     context_t context;
@@ -1280,7 +1283,7 @@ TEST(node_server, race_condition)
   protocol_t protocol{};
   node_server_t node_server(protocol);
   protocol.set_p2p_endpoint(&node_server);
-  node_server.init(
+  ASSERT_TRUE(node_server.init(
     [&dir]{
       options_t options;
       boost::program_options::store(
@@ -1303,7 +1306,7 @@ TEST(node_server, race_condition)
       );
       return options;
     }()
-  );
+  ));
   worker_t worker([&]{
     node_server.run();
   });
