@@ -768,10 +768,11 @@ namespace cryptonote
       *
       * @param key_im list of key images to check
       * @param spent return-by-reference result for each image checked
+      * @param include_sensitive include key images from hidden pool transactions
       *
       * @return true
       */
-     bool are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const;
+     bool are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent, bool include_sensitive = false) const;
 
      /**
       * @brief get the number of blocks to sync in one go

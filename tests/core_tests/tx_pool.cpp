@@ -74,6 +74,10 @@ bool txpool_base::check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index
     return false;
   }
 
+  std::unordered_set<std::string> broadcasted_key_images;
+  for (const cryptonote::spent_key_image_info& key_image : key_images)
+    broadcasted_key_images.insert(key_image.id_hash);
+
   infos.clear();
   key_images.clear();
   if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images, false) || infos.size() != m_broadcasted_tx_count || key_images.size() != m_broadcasted_tx_count)
@@ -87,6 +91,42 @@ bool txpool_base::check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index
   if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images, true) || infos.size() != m_all_tx_count || key_images.size() != m_all_tx_count)
   {
     MERROR("Failed all spent keys retrieval - Expected All Count: " << m_all_tx_count << " Actual Info Count: " << infos.size() << " Actual Key Image Count: " << key_images.size());
+    return false;
+  }
+
+  std::vector<crypto::key_image> all_key_images;
+  all_key_images.reserve(key_images.size());
+  for (const cryptonote::spent_key_image_info& key_image : key_images)
+  {
+    crypto::key_image parsed_key_image;
+    if (!epee::string_tools::hex_to_pod(key_image.id_hash, parsed_key_image))
+    {
+      MERROR("Failed to parse txpool key image");
+      return false;
+    }
+    all_key_images.push_back(parsed_key_image);
+  }
+
+  std::vector<bool> spent;
+  if (!c.are_key_images_spent_in_pool(all_key_images, spent) || spent.size() != all_key_images.size())
+  {
+    MERROR("Failed broadcasted key image spent check");
+    return false;
+  }
+  for (std::size_t i = 0; i < spent.size(); ++i)
+  {
+    if (spent[i] != (broadcasted_key_images.count(key_images[i].id_hash) != 0))
+    {
+      MERROR("Unexpected broadcasted key image spent status");
+      return false;
+    }
+  }
+
+  if (!c.are_key_images_spent_in_pool(all_key_images, spent, true) ||
+      spent.size() != all_key_images.size() ||
+      std::any_of(spent.begin(), spent.end(), [](const bool value) { return !value; }))
+  {
+    MERROR("Failed sensitive key image spent check");
     return false;
   }
 
