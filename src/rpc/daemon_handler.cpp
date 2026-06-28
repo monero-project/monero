@@ -331,7 +331,7 @@ namespace rpc
     std::vector<bool> pool_spent_status;
 
     m_core.are_key_images_spent(req.key_images, chain_spent_status);
-    m_core.are_key_images_spent_in_pool(req.key_images, pool_spent_status);
+    m_core.are_key_images_spent_in_pool(req.key_images, pool_spent_status, !m_restricted);
 
     if ((chain_spent_status.size() != req.key_images.size()) || (pool_spent_status.size() != req.key_images.size()))
     {

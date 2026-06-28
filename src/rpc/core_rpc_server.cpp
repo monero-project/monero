@@ -1211,7 +1211,7 @@ namespace cryptonote
 
     // check the pool too
     spent_status.clear();
-    r = m_core.are_key_images_spent_in_pool(filtered_key_images, spent_status);
+    r = m_core.are_key_images_spent_in_pool(filtered_key_images, spent_status, !restricted);
     if (!r || spent_status.size() != filtered_key_images.size())
     {
       res.status = "Failed";
