@@ -28,6 +28,8 @@
 #include "net/http_auth.h"
 
 #include <array>
+#include <sstream>
+#include <iomanip>
 #include <boost/algorithm/string/find_iterator.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/fusion/adapted/std_tuple.hpp>
@@ -42,8 +44,6 @@
 #include <boost/range/algorithm/find_if.hpp>
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/join.hpp>
-#include <boost/spirit/include/karma_generate.hpp>
-#include <boost/spirit/include/karma_uint.hpp>
 #include <boost/spirit/include/qi_alternative.hpp>
 #include <boost/spirit/include/qi_and_predicate.hpp>
 #include <boost/spirit/include/qi_char.hpp>
@@ -183,8 +183,7 @@ namespace
     bool operator()(Char value) const noexcept
     {
       static_assert(std::is_integral<Char>::value, "only integral types supported");
-      return boost::spirit::char_encoding::ascii::isascii_(value) &&
-        (value == comma || boost::spirit::char_encoding::ascii::isspace(value));
+      return (value == comma || value == ' ' || value == '\n' || value == '\r' || value == '\t' || value == '\v' || value == '\f');
     }
   };
   constexpr const http_list_separator_ http_list_separator{};
@@ -275,7 +274,6 @@ namespace
     std::string operator()(const http::http_client_auth::session& user,
       const boost::string_ref method, const boost::string_ref uri) const
     {
-      namespace karma = boost::spirit::karma;
       using counter_type = decltype(user.counter);
       static_assert(
         std::numeric_limits<counter_type>::radix == 2, "unexpected radix for counter"
@@ -288,8 +286,11 @@ namespace
       std::string out{};
       out.reserve(client_reserve_size);
 
-      karma::generate(std::back_inserter(out), karma::hex(user.counter));
-      out.insert(out.begin(), 8 - out.size(), zero); // zero left pad
+      {
+        std::ostringstream ss;
+        ss << std::hex << std::setw(8) << std::setfill('0') << user.counter;
+        out = ss.str();
+      }
       if (out.size() != 8)
         return {};
 
