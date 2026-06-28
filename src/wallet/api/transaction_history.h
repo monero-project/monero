@@ -43,7 +43,7 @@ public:
     virtual int count() const;
     virtual TransactionInfo * transaction(int index)  const;
     virtual TransactionInfo * transaction(const std::string &id) const;
-    virtual std::vector<TransactionInfo*> getAll() const;
+    virtual std::vector<TransactionInfo*> getAll(bool do_refresh = false);
     virtual void refresh();
     virtual void setTxNote(const std::string &txid, const std::string &note);
 
