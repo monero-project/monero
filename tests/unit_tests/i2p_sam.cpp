@@ -376,7 +376,7 @@ namespace
     tcp::socket handed_off_socket{io};
 
     auto client = net::sam::make_control_client(
-      "",
+      "FAKE_PRIVATE_KEY",
       "",
       tcp::socket{io},
       [&](boost::system::error_code ec, tcp::socket socket)

@@ -267,8 +267,8 @@ namespace sam
 
         virtual void done(boost::system::error_code error) override
         {
-            if (error) return async_reconnect();
             handler_(error, take_socket());
+            if (error) async_reconnect();
         }
 
     public:
