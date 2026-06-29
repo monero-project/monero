@@ -875,6 +875,24 @@ TEST(HTTP, Server_Parses_First_Header_After_Split_Request_Line)
   EXPECT_EQ(body, capture.requests.front().m_body);
 }
 
+TEST(HTTP, Server_Rejects_Malformed_Content_Length)
+{
+  const std::string body = "0123456789";
+  for (const char* len : {"5abc", "0x10", "+10", "1 0", "abc"})
+  {
+    const auto capture = feed_http_request(
+      "POST /json_rpc HTTP/1.1\r\n"
+      "Content-Length: " + std::string(len) + "\r\n"
+      "Host: example.com\r\n"
+      "\r\n" + body
+    );
+
+    ASSERT_EQ(1u, capture.results.size());
+    EXPECT_FALSE(capture.results.front()) << "accepted Content-Length: " << len;
+    EXPECT_TRUE(capture.requests.empty()) << "accepted Content-Length: " << len;
+  }
+}
+
 TEST(HTTP, Server_Rejects_Malformed_First_Header)
 {
   const auto capture = feed_http_request(

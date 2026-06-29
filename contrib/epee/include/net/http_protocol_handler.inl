@@ -30,6 +30,7 @@
 #include <boost/regex.hpp>
 #include "http_protocol_handler.h"
 #include "string_tools.h"
+#include "string_tools_lexical.h"
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
 #include "time_helper.h"
@@ -599,15 +600,11 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::get_len_from_content_lenght(const std::string& str, size_t& OUT len)
 	{
-		static const boost::regex rexp_mach_field("\\d+", boost::regex::normal);
-		std::string res;
-		boost::smatch result;
-		if(!(boost::regex_search( str, result, rexp_mach_field, boost::match_default) && result[0].matched))
-			return false;
-
-		try { len = boost::lexical_cast<size_t>(result[0]); }
-		catch(...) { return false; }
-		return true;
+		// Content-Length must be 1*DIGIT (RFC 7230 3.3.2). Parse the whole value
+		// strictly, matching the client side, so a field such as "5abc" or "0x10"
+		// is rejected rather than silently yielding a body length from its leading
+		// digits.
+		return string_tools::get_xtype_from_string(len, str);
 	}
 	//-----------------------------------------------------------------------------------
   template<class t_connection_context>
