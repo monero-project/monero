@@ -1839,7 +1839,7 @@ bool simple_wallet::set_ring(const std::vector<std::string> &args)
         }
         if (read == read_after_key_image+8 || (strcmp(type_str, "absolute") && strcmp(type_str, "relative")))
         {
-          fail_msg_writer() << tr("Invalid ring type, expected relative or abosolute: ") << str;
+          fail_msg_writer() << tr("Invalid ring type, expected relative or absolute: ") << str;
           continue;
         }
         bool relative = !strcmp(type_str, "relative");
@@ -4857,7 +4857,7 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
 
     if (!ms_status.multisig_is_active || !ms_status.is_ready)
     {
-      fail_msg_writer() << tr("failed to generate new mutlisig wallet");
+      fail_msg_writer() << tr("failed to generate new multisig wallet");
       return {};
     }
     message_writer(console_color_white, true) << boost::format(tr("Generated new %u/%u multisig wallet: ")) % ms_status.threshold % ms_status.total
@@ -11063,7 +11063,7 @@ void simple_wallet::mms_export(const std::vector<std::string> &args)
     }
     else
     {
-      fail_msg_writer() << tr("Failed to to save message content");
+      fail_msg_writer() << tr("Failed to save message content");
     }
   }
 }
