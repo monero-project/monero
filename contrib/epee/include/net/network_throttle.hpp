@@ -75,7 +75,6 @@ namespace net_utils
 typedef double network_speed_kbps;   // externally, for parameters and return values, all defined in kilobytes per second
 typedef double network_speed_bps;    // throttle-internally, bytes per second
 typedef double network_time_seconds;
-typedef double network_MB;
 
 class i_network_throttle;
 
