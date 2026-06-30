@@ -915,17 +915,23 @@ namespace cryptonote
       return 1;
     }
 
-    std::unordered_set<blobdata> seen;
+    std::unordered_set<crypto::hash> seen;
+    seen.reserve(arg.txs.size());
+
     for (const auto &blob: arg.txs)
     {
       MLOGIF_P2P_MESSAGE(cryptonote::transaction tx; crypto::hash hash; bool ret = cryptonote::parse_and_validate_tx_from_blob(blob, tx, hash);, ret, "Including transaction " << hash);
-      if (seen.find(blob) != seen.end())
+
+      crypto::hash digest{};
+      if (!blob.empty())
+        tools::sha256sum(reinterpret_cast<const uint8_t*>(blob.data()), blob.size(), digest);
+
+      if (!seen.insert(digest).second)
       {
         LOG_PRINT_CCONTEXT_L1("Duplicate transaction in notification, dropping connection");
         drop_connection(context, false, false);
         return 1;
       }
-      seen.insert(blob);
     }
 
     /* If the txes were received over i2p/tor, the default is to "forward"
