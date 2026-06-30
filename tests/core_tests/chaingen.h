@@ -799,13 +799,11 @@ inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cry
   c.get_blockchain_storage().get_db().set_batch_transactions(true);
 
   // start with a clean pool
-  std::vector<crypto::hash> pool_txs;
-  if (!c.get_pool_transaction_hashes(pool_txs))
+  if (!c.get_blockchain_storage().flush_txes_from_pool())
   {
     MERROR("Failed to flush txpool");
     return false;
   }
-  c.get_blockchain_storage().flush_txes_from_pool(pool_txs);
 
   t_test_class validator;
   bool ret = replay_events_through_core<t_test_class>(c, events, validator);
@@ -817,13 +815,11 @@ inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cry
 template<class t_test_class>
 inline bool replay_events_through_core_validate(std::vector<test_event_entry>& events, cryptonote::core & c)
 {
-  std::vector<crypto::hash> pool_txs;
-  if (!c.get_pool_transaction_hashes(pool_txs))
+  if (!c.get_blockchain_storage().flush_txes_from_pool())
   {
     MERROR("Failed to flush txpool");
     return false;
   }
-  c.get_blockchain_storage().flush_txes_from_pool(pool_txs);
 
   t_test_class validator;
   return replay_events_through_core_plain<t_test_class>(c, events, validator, false);
