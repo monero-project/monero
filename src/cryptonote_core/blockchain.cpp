@@ -5092,7 +5092,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       its = m_scan_table.find(tx_prefix_hash);
       assert(its != m_scan_table.end());
 
-      // get all amounts from tx.vin(s)
+      // initialize amount buckets for tx.vin(s)
       for (const auto &txin : tx.vin)
       {
         const txin_to_key &in_to_key = boost::get < txin_to_key > (txin);
@@ -5102,22 +5102,8 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         if (it != its->second.end())
           SCAN_TABLE_QUIT("Duplicate key_image found from incoming blocks.");
 
-        amounts.push_back(in_to_key.amount);
-      }
-
-      // sort and remove duplicate amounts from amounts list
-      std::sort(amounts.begin(), amounts.end());
-      auto last = std::unique(amounts.begin(), amounts.end());
-      amounts.erase(last, amounts.end());
-
-      // add amount to the offset_map and tx_map
-      for (const uint64_t &amount : amounts)
-      {
-        if (offset_map.find(amount) == offset_map.end())
-          offset_map.emplace(amount, std::vector<uint64_t>());
-
-        if (tx_map.find(amount) == tx_map.end())
-          tx_map.emplace(amount, std::vector<output_data_t>());
+        offset_map.emplace(in_to_key.amount, std::vector<uint64_t>());
+        tx_map.emplace(in_to_key.amount, std::vector<output_data_t>());
       }
 
       // add new absolute_offsets to offset_map
@@ -5132,6 +5118,10 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       }
     }
   }
+
+  amounts.reserve(offset_map.size());
+  for (const auto &offsets : offset_map)
+    amounts.push_back(offsets.first);
 
   // sort and remove duplicate absolute_offsets in offset_map
   for (auto &offsets : offset_map)
@@ -5191,25 +5181,24 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         const txin_to_key &in_to_key = boost::get < txin_to_key > (txin);
         auto needed_offsets = relative_output_offsets_to_absolute(in_to_key.key_offsets);
 
+        const auto offset_it = offset_map.find(in_to_key.amount);
+        const auto tx_it = tx_map.find(in_to_key.amount);
+        if (offset_it == offset_map.end() || tx_it == tx_map.end())
+          SCAN_TABLE_QUIT("Amount not found on scan table from incoming blocks.");
+
+        const std::vector<uint64_t> &offsets_found = offset_it->second;
+        const std::vector<output_data_t> &outputs_found = tx_it->second;
+
         std::vector<output_data_t> outputs;
         for (const uint64_t & offset_needed : needed_offsets)
         {
-          size_t pos = 0;
-          bool found = false;
+          // offsets_found is sorted above before output_scan_worker populates outputs_found.
+          const auto found_it = std::lower_bound(offsets_found.begin(), offsets_found.end(), offset_needed);
+          const size_t pos = found_it - offsets_found.begin();
+          const bool found = found_it != offsets_found.end() && *found_it == offset_needed;
 
-          for (const uint64_t &offset_found : offset_map[in_to_key.amount])
-          {
-            if (offset_needed == offset_found)
-            {
-              found = true;
-              break;
-            }
-
-            ++pos;
-          }
-
-          if (found && pos < tx_map[in_to_key.amount].size())
-            outputs.push_back(tx_map[in_to_key.amount].at(pos));
+          if (found && pos < outputs_found.size())
+            outputs.push_back(outputs_found[pos]);
           else
             break;
         }
