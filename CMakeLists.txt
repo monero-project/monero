@@ -462,12 +462,7 @@ endif()
 
 include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
 
-if(MINGW)
-  set(DEFAULT_STATIC true)
-else()
-  set(DEFAULT_STATIC false)
-endif()
-option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
+option(STATIC "Link libraries statically" OFF)
 
 # This is a CMake built-in switch that concerns internal libraries
 set(BUILD_SHARED_LIBS_DEFAULT OFF)
@@ -966,21 +961,6 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32;bcrypt)
-  if(NOT DEPENDS)
-    # This is an extremely ugly hack to get around Boost not being built with static ICU.
-    # We reported the issue, we are waiting for upstream to fix this issue: https://github.com/boostorg/boost/issues/1079#issue-3384962885
-    # This hack links shared ICU libs to avoid linker errors we get in MSYS2 compilation (undefined symbols to ICU).
-    set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".dll.a")
-    find_library(ICUIO_LIBRARIES NAMES icuio REQUIRED)
-    find_library(ICUIN_LIBRARIES NAMES icuin REQUIRED)
-    find_library(ICUUC_LIBRARIES NAMES icuuc REQUIRED)
-    find_library(ICUDT_LIBRARIES NAMES icudt REQUIRED)
-    find_library(ICUTU_LIBRARIES NAMES icutu REQUIRED)
-    find_library(ICONV_LIBRARIES NAMES iconv REQUIRED)
-    set(ICU_LIBRARIES ${ICUIO_LIBRARIES} ${ICUIN_LIBRARIES} ${ICUUC_LIBRARIES} ${ICUDT_LIBRARIES} ${ICUTU_LIBRARIES} ${ICONV_LIBRARIES})
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
-  endif()
 elseif(APPLE OR OPENBSD OR ANDROID)
   set(EXTRA_LIBRARIES "")
 elseif(FREEBSD)
