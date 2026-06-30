@@ -56,17 +56,11 @@ else ( PKGCONFIG_LIBUSB_FOUND )
     if ( ${CMAKE_SYSTEM_NAME} STREQUAL "Windows" )
         # LibUSB-Win32 binary distribution contains several libs.
         # Use the lib that got compiled with the same compiler.
-        if ( MSVC )
-            if ( WIN32 )
-                set ( LibUSB_LIBRARY_PATH_SUFFIX lib/msvc )
-            else ( WIN32 )
-                set ( LibUSB_LIBRARY_PATH_SUFFIX lib/msvc_x64 )
-            endif ( WIN32 )
-        elseif ( BORLAND )
+        if ( BORLAND )
             set ( LibUSB_LIBRARY_PATH_SUFFIX lib/bcc )
         elseif ( CMAKE_COMPILER_IS_GNUCC )
             set ( LibUSB_LIBRARY_PATH_SUFFIX lib/gcc )
-        endif ( MSVC )
+        endif ()
     endif ( ${CMAKE_SYSTEM_NAME} STREQUAL "Windows" )
 
     find_library ( usb_LIBRARY

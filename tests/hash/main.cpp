@@ -267,11 +267,11 @@ int main(int argc, char *argv[]) {
   CATCH_ENTRY_L0("main", 1);
 }
 
-#if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))
+#if defined(__x86_64__)
 
 #include <emmintrin.h>
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
+#if defined(__MINGW32__)
   #include <intrin.h>
 #else
   #include <wmmintrin.h>
@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
 
 static inline bool test_variant2_int_sqrt_sse(const uint64_t sqrt_input, const uint64_t correct_result)
 {
-#if defined(__x86_64__) || (defined(_MSC_VER) && defined(_WIN64))
+#if defined(__x86_64__)
   uint64_t sqrt_result;
   VARIANT2_INTEGER_MATH_SQRT_STEP_SSE2();
   VARIANT2_INTEGER_MATH_SQRT_FIXUP(sqrt_result);

@@ -34,10 +34,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-
-#ifndef _MSC_VER
 #include <sys/param.h>
-#endif
 
 #if defined(__ANDROID__)
 #include <byteswap.h>
@@ -47,20 +44,6 @@
 #include <endian.h>
 #endif
 
-#if defined(_MSC_VER)
-#include <stdlib.h>
-
-static inline uint32_t rol32(uint32_t x, int r) {
-  static_assert(sizeof(uint32_t) == sizeof(unsigned int), "this code assumes 32-bit integers");
-  return _rotl(x, r);
-}
-
-static inline uint64_t rol64(uint64_t x, int r) {
-  return _rotl64(x, r);
-}
-
-#else
-
 static inline uint32_t rol32(uint32_t x, int r) {
   return (x << (r & 31)) | (x >> (-r & 31));
 }
@@ -68,8 +51,6 @@ static inline uint32_t rol32(uint32_t x, int r) {
 static inline uint64_t rol64(uint64_t x, int r) {
   return (x << (r & 63)) | (x >> (-r & 63));
 }
-
-#endif
 
 static inline uint64_t hi_dword(uint64_t val) {
   return val >> 32;
@@ -254,12 +235,6 @@ static inline void memcpy_swap64(void *dst, const void *src, size_t n) {
     ((uint64_t *) dst)[i] = swap64(((const uint64_t *) src)[i]);
   }
 }
-
-#ifdef _MSC_VER
-# define LITTLE_ENDIAN	1234
-# define BIG_ENDIAN	4321
-# define BYTE_ORDER	LITTLE_ENDIAN
-#endif
 
 #if !defined(BYTE_ORDER) || !defined(LITTLE_ENDIAN) || !defined(BIG_ENDIAN)
 static_assert(false, "BYTE_ORDER is undefined. Perhaps, GNU extensions are not enabled");

@@ -162,12 +162,6 @@ namespace cryptonote {
     return (low + time_span - 1) / time_span;
   }
 
-#if defined(_MSC_VER)
-#ifdef max
-#undef max
-#endif
-#endif
-
   const difficulty_type max64bit(std::numeric_limits<std::uint64_t>::max());
   const boost::multiprecision::uint256_t max128bit(std::numeric_limits<boost::multiprecision::uint128_t>::max());
   const boost::multiprecision::uint512_t max256bit(std::numeric_limits<boost::multiprecision::uint256_t>::max());
