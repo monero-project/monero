@@ -17,6 +17,27 @@ static inline uint32_t make_address_v4_from_v6(const boost::asio::ip::address_v6
   return htonl(v4);
 }
 
+static inline boost::asio::ip::address_v6 apply_ipv6_cidr_mask(const boost::asio::ip::address_v6& address, const uint8_t mask)
+{
+  auto bytes = address.to_bytes();
+  uint8_t remaining = mask;
+  for (uint8_t &byte: bytes)
+  {
+    if (remaining >= 8)
+    {
+      remaining -= 8;
+    }
+    else if (remaining > 0)
+    {
+      byte &= static_cast<uint8_t>(0xffu << (8 - remaining));
+      remaining = 0;
+    }
+    else
+      byte = 0;
+  }
+  return boost::asio::ip::address_v6{bytes};
+}
+
 namespace epee { namespace net_utils
 {
 	bool ipv4_network_address::equal(const ipv4_network_address& other) const noexcept
@@ -61,6 +82,26 @@ namespace epee { namespace net_utils
 	bool ipv4_network_subnet::matches(const ipv4_network_address &address) const
 	{
 		return (address.ip() & ~(0xffffffffull << m_mask)) == subnet();
+	}
+
+	bool ipv6_network_subnet::equal(const ipv6_network_subnet& other) const noexcept
+	{ return is_same_host(other) && m_mask == other.m_mask; }
+
+	bool ipv6_network_subnet::less(const ipv6_network_subnet& other) const noexcept
+	{ return subnet() < other.subnet() ? true : (other.subnet() < subnet() ? false : (m_mask < other.m_mask)); }
+
+	boost::asio::ip::address_v6 ipv6_network_subnet::subnet() const noexcept
+	{ return apply_ipv6_cidr_mask(m_address, m_mask); }
+
+	std::string ipv6_network_subnet::str() const
+	{ return subnet().to_string() + "/" + std::to_string(m_mask); }
+
+	std::string ipv6_network_subnet::host_str() const { return str(); }
+	bool ipv6_network_subnet::is_loopback() const { return subnet().is_loopback(); }
+	bool ipv6_network_subnet::is_local() const { return subnet().is_link_local(); }
+	bool ipv6_network_subnet::matches(const ipv6_network_address &address) const
+	{
+		return apply_ipv6_cidr_mask(address.ip(), m_mask) == subnet();
 	}
 
 
@@ -159,4 +200,3 @@ namespace epee { namespace net_utils
     return zone::invalid;
   }
 }}
-

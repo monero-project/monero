@@ -907,6 +907,37 @@ TEST(get_network_address, ipv4subnet)
     EXPECT_STREQ("12.34.0.0/16", address->str().c_str());
 }
 
+TEST(get_network_address, ipv6subnet)
+{
+    expect<epee::net_utils::ipv6_network_subnet> address = net::get_ipv6_subnet_address("::1", true);
+    ASSERT_TRUE(bool(address));
+    EXPECT_STREQ("::1/128", address->str().c_str());
+
+    address = net::get_ipv6_subnet_address("::1");
+    EXPECT_TRUE(!address);
+
+    address = net::get_ipv6_subnet_address("::/0");
+    ASSERT_TRUE(bool(address));
+    EXPECT_STREQ("::/0", address->str().c_str());
+
+    address = net::get_ipv6_subnet_address("2001:db8:abcd:1234::1/32");
+    ASSERT_TRUE(bool(address));
+    EXPECT_STREQ("2001:db8::/32", address->str().c_str());
+    EXPECT_TRUE(address->matches(epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("2001:db8::1"), 0}));
+    EXPECT_TRUE(address->matches(epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("2001:db8:ffff:ffff::1"), 0}));
+    EXPECT_FALSE(address->matches(epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("2001:db9::1"), 0}));
+
+    address = net::get_ipv6_subnet_address("[2001:db8:abcd:1234::1]/64");
+    ASSERT_TRUE(bool(address));
+    EXPECT_STREQ("2001:db8:abcd:1234::/64", address->str().c_str());
+
+    address = net::get_ipv6_subnet_address("2001:db8::/129");
+    EXPECT_EQ(net::error::invalid_mask, address);
+
+    address = net::get_ipv6_subnet_address("[2001:db8::1/64");
+    EXPECT_EQ(net::error::invalid_host, address);
+}
+
 namespace
 {
     void na_host_and_port_test(std::string addr, std::string exp_host, std::string exp_port)
@@ -2322,4 +2353,3 @@ TEST(zmq, read_write_termination)
     ASSERT_FALSE(bool(received));
     EXPECT_EQ(net::zmq::make_error_code(ETERM), received.error());
 }
-

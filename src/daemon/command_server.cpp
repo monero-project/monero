@@ -229,19 +229,19 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "bans"
     , std::bind(&t_command_parser_executor::show_bans, &m_parser, p::_1)
-    , "Show the currently banned IPs."
+    , "Show the currently banned addresses and subnets."
     );
     m_command_lookup.set_handler(
       "ban"
     , std::bind(&t_command_parser_executor::ban, &m_parser, p::_1)
-    , "ban [<IP>|@<filename>] [<seconds>]"
-    , "Ban a given <IP> or list of IPs from a file for a given amount of <seconds>."
+    , "ban [<address>|<subnet>|@<filename>] [<seconds>]"
+    , "Ban a given <address>, <subnet>, or list from a file for a given amount of <seconds>."
     );
     m_command_lookup.set_handler(
       "unban"
     , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
-    , "unban <address>"
-    , "Unban a given <IP>."
+    , "unban <address>|<subnet>"
+    , "Unban a given <address> or <subnet>."
     );
     m_command_lookup.set_handler(
       "banned"

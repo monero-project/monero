@@ -1713,7 +1713,7 @@ bool t_rpc_command_executor::print_bans()
         }
     }
     else 
-        tools::msg_writer() << "No IPs are banned";
+        tools::msg_writer() << "No addresses or subnets are banned";
 
     return true;
 }
