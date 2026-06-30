@@ -136,6 +136,10 @@ TEST(logging, all)
   ASSERT_TRUE(str.find("error") != std::string::npos);
   ASSERT_TRUE(str.find("debug") != std::string::npos);
   ASSERT_TRUE(str.find("trace") != std::string::npos);
+
+  MINFO("after active log read");
+  ASSERT_TRUE(load_log_to_string(log_filename, str));
+  ASSERT_TRUE(str.find("after active log read") != std::string::npos);
   cleanup();
 }
 
