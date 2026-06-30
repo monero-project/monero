@@ -460,21 +460,6 @@ TEST(node_server, bind_same_p2p_port)
     boost::program_options::variables_map vm;
     boost::program_options::store(boost::program_options::parse_command_line(1, argv, desc_options), vm);
 
-    /*
-    Reason for choosing '127.0.0.2' as the IP:
-
-    A TCP local socket address that has been bound is unavailable for some time after closing, unless the SO_REUSEADDR flag has been set.
-    That's why connections with automatically assigned source port 48080/58080 from previous test blocks the next to bind acceptor
-    so solution is to either set reuse_addr option for each socket in all tests
-    or use ip different from localhost for acceptors in order to not interfere with automatically assigned source endpoints
-
-    Relevant part about REUSEADDR from man:
-    https://www.man7.org/linux/man-pages/man7/ip.7.html
-
-    For Mac OSX and OpenBSD, set the following alias (by running the command as root), before running the test, or else it will fail:
-    ifconfig lo0 alias 127.0.0.2
-    */
-    vm.find(nodetool::arg_p2p_bind_ip.name)->second   = boost::program_options::variable_value(std::string("127.0.0.2"), false);
     vm.find(nodetool::arg_p2p_bind_port.name)->second = boost::program_options::variable_value(std::string(port), false);
 
     boost::program_options::notify(vm);
@@ -482,8 +467,13 @@ TEST(node_server, bind_same_p2p_port)
     return server->server->init(vm);
   };
 
-  constexpr char port[] = "48080";
-  constexpr char port_another[] = "58080";
+  /*
+  Use fixed test ports outside common ephemeral ranges to avoid bind
+  failures from recently closed TCP connections that used the same local
+  source port.
+  */
+  constexpr char port[] = "19080";
+  constexpr char port_another[] = "19081";
 
   const auto node = new_node();
   EXPECT_TRUE(init(node, port));
@@ -1238,18 +1228,17 @@ TEST(node_server, race_condition)
     shared_state_ptr shared_state = std::make_shared<shared_state_t>();
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
     connection_ptr conn{new connection_t(io_context, shared_state, {}, {})};
-    endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 48080);
+    endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 19082);
     ec_t ec;
     conn->socket().connect(endpoint, ec);
-    ASSERT_EQ(ec.value(), 0) << "connect to 127.0.0.1:48080 failed: " << ec.message();
-    conn->socket().set_option(boost::asio::ip::tcp::socket::reuse_address(true));
+    ASSERT_EQ(ec.value(), 0) << "connect to 127.0.0.1:19082 failed: " << ec.message();
     conn->start({}, {});
     context_t context;
     conn->get_context(context);
     event_t handshaked;
     typename messages::handshake::request_t msg{{
       ::config::NETWORK_ID,
-      58080,
+      19083,
     }};
     epee::net_utils::async_invoke_remote_command2<typename messages::handshake::response>(
       context,
@@ -1289,11 +1278,11 @@ TEST(node_server, race_condition)
       boost::program_options::store(
         boost::program_options::command_line_parser({
           "--p2p-bind-ip=127.0.0.1",
-          "--p2p-bind-port=48080",
+          "--p2p-bind-port=19082",
           "--out-peers=0",
           "--data-dir",
           dir.string(),
-          "--add-exclusive-node=127.0.0.1:48080",
+          "--add-exclusive-node=127.0.0.1:19082",
           "--check-updates=disabled",
           "--disable-dns-checkpoints",
         }).options([]{
