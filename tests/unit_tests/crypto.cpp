@@ -387,7 +387,7 @@ TEST(Crypto, torsion_check_hardcoded)
       {"9a7b10563aa266032cd075f4e347f348a3841ae4f41572633351a97dd44066b4", true},
     };
 
-  std::vector<rct::key> all_pts, torsion_free_pts, torsioned_pts;
+  std::vector<rct::key> all_pts, torsion_free_pts, torsioned_pts, torsion_cleared_pts;
   for (const auto &point : torsion_test_points)
   {
     rct::key k;
@@ -409,11 +409,13 @@ TEST(Crypto, torsion_check_hardcoded)
     }
     CHECK_CLEARED(k, cleared);
     all_pts.emplace_back(k);
+    torsion_cleared_pts.emplace_back(rct::pt2rct(cleared));
   }
 
   ASSERT_TRUE(rct::verPointsForTorsion(torsion_free_pts));
   ASSERT_FALSE(rct::verPointsForTorsion(torsioned_pts));
   ASSERT_FALSE(rct::verPointsForTorsion(all_pts));
+  ASSERT_TRUE(rct::verPointsForTorsion(torsion_cleared_pts));
 }
 
 TEST(Crypto, mul8_is_identity_vartime)

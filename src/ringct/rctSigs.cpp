@@ -30,6 +30,8 @@
 
 #include "rctSigs.h"
 
+#include <atomic>
+
 #include "misc_log_ex.h"
 #include "misc_language.h"
 #include "common/perf_timer.h"
@@ -1583,33 +1585,27 @@ namespace rct {
       tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
       tools::threadpool::waiter waiter(tpool);
 
-      std::deque<bool> torsion_free;
-
-      torsion_free.resize(pts.size());
-      for (size_t i = 0; i < pts.size(); i++) {
-        tpool.submit(&waiter, [&pts, &torsion_free, i]
+      std::atomic<bool> invalid_found{false};
+      for (std::size_t i = 0; i < pts.size(); ++i)
+      {
+        tpool.submit(&waiter, [&pts, &invalid_found, i]
           {
             const crypto::ec_point &point = rct::rct2pt(pts[i]);
             crypto::ec_point torsion_cleared_point;
-            if (!fcmp_pp::get_valid_torsion_cleared_point_vartime(point, torsion_cleared_point))
+            if (fcmp_pp::get_valid_torsion_cleared_point_vartime(point, torsion_cleared_point)
+                && point == torsion_cleared_point)
             {
-              torsion_free[i] = false;
+              // Point is torsion free if it's equal to itself after clearing torsion
               return;
             }
-            // Point is torsion free if after clearing torsion, it's equal to itself
-            torsion_free[i] = point == torsion_cleared_point;
+            bool expected = false;
+            invalid_found.compare_exchange_strong(expected, true);
+            return;
           });
       }
 
-      if (!waiter.wait())
-        return false;
-      for (size_t i = 0; i < torsion_free.size(); ++i) {
-        if (!torsion_free[i]) {
-          LOG_PRINT_L1("Torsion check failed for point " << i);
-          return false;
-        }
-      }
-
+      CHECK_AND_ASSERT_MES(waiter.wait(), false, "threadpool waiter failed in torsion check");
+      CHECK_AND_ASSERT_MES(!invalid_found.load(), false, "Torsion check failed");
       return true;
     }
 }
