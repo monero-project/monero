@@ -315,4 +315,26 @@ uint64_t UnsignedTransactionImpl::minMixinCount() const
     return min_mixin;
 }
 
+std::string UnsignedTransactionImpl::signAsString()
+{
+    if(m_wallet.watchOnly())
+    {
+        m_errorString = tr("This is a watch only wallet");
+        m_status = Status_Error;
+        return "";
+    }
+    tools::wallet2::signed_tx_set signed_txes;
+    std::vector<tools::wallet2::pending_tx> ptx;
+    try
+    {
+        return m_wallet.m_wallet->sign_tx_dump_to_str(m_unsigned_tx_set, ptx, signed_txes);
+    }
+    catch (const std::exception &e)
+    {
+        m_errorString = string(tr("Failed to sign transaction ")) + e.what();
+        m_status = Status_Error;
+        return "";
+    }
+}
+
 } // namespace
