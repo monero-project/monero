@@ -131,8 +131,14 @@ TEST(Crypto, tree_branch)
     inputs[n].data[0] = n + 1;
   }
 
-  // empty
+  // invalid input
   ASSERT_FALSE(crypto::tree_branch((const char(*)[32])inputs, 0, crypto::null_hash.data, (char(*)[32])branch, &depth, &path));
+  ASSERT_FALSE(crypto::tree_path(0, 0, &path2));
+  ASSERT_FALSE(crypto::tree_path(1, 1, &path2));
+  ASSERT_FALSE(crypto::tree_path(2, 2, &path2));
+  ASSERT_FALSE(crypto::tree_path(3, 3, &path2));
+  ASSERT_FALSE(crypto::tree_path(3, 4, &path2));
+  ASSERT_FALSE(crypto::tree_path(5, 5, &path2));
 
   // one, matching
   ASSERT_TRUE(crypto::tree_branch((const char(*)[32])inputs, 1, inputs[0].data, (char(*)[32])branch, &depth, &path));

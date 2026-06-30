@@ -107,7 +107,7 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
 
 bool tree_path(size_t count, size_t idx, uint32_t *path)
 {
-  if (count == 0)
+  if (count == 0 || idx >= count)
     return false;
 
   if (count == 1) {
