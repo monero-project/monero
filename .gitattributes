@@ -1,2 +1,3 @@
 .git* export-ignore
 version.cmake export-subst
+tests/data/** -text
