@@ -45,9 +45,8 @@ class Serializer:
 
     @classmethod
     def __is_maybe_array_like(cls, x):
-        return hasattr(x, '__iter__') \
-            and not hasattr(x, 'encode') \
-            and not hasattr(x, 'decode') \
+        return isinstance(x, Sequence) \
+            and not isinstance(x, (str, bytes, bytearray)) \
             and not cls.__is_maybe_dict_like(x)
 
     @classmethod
