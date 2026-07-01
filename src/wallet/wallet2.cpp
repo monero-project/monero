@@ -3592,8 +3592,6 @@ void wallet2::remove_obsolete_pool_txs(const std::unordered_set<crypto::hash> &t
     {
       MDEBUG("Removing " << txid << " from unconfirmed payments");
       m_unconfirmed_payments.erase(pit);
-      if (0 != m_callback)
-        m_callback->on_pool_tx_removed(txid);
     }
   }
 }
