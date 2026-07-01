@@ -87,9 +87,41 @@ unset MINING_NO_MEASUREMENT
 
 # Fuzz tests
 
-Fuzz tests are written using American Fuzzy Lop (AFL), and located under the `tests/fuzz` directory.
+Fuzz tests are located under the `tests/fuzz` directory and can be run with American Fuzzy Lop (AFL) or Clang's libFuzzer.
 
 An additional helper utility is provided `contrib/fuzz_testing/fuzz.sh`. AFL must be installed, and some additional setup may be necessary for the script to run properly.
+
+## libFuzzer
+
+The fuzz tests can also be built locally with Clang's libFuzzer, without using Docker or the OSS-Fuzz helper scripts. This uses the same `OSSFUZZ` CMake path as OSS-Fuzz and provides libFuzzer through `LIB_FUZZING_ENGINE`.
+
+```sh
+$ LIB_FUZZING_ENGINE="-fsanitize=fuzzer" \
+  cmake -S . -B build/libfuzzer -G Ninja \
+    -D OSSFUZZ=ON \
+    -D BUILD_TESTS=ON \
+    -D STATIC=OFF \
+    -D USE_LTO=OFF \
+    -D CMAKE_BUILD_TYPE=RelWithDebInfo \
+    -D CMAKE_C_COMPILER=clang \
+    -D CMAKE_CXX_COMPILER=clang++ \
+    -D CMAKE_C_FLAGS="-fsanitize=fuzzer-no-link,address,undefined" \
+    -D CMAKE_CXX_FLAGS="-fsanitize=fuzzer-no-link,address,undefined" \
+    -D CMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+$ cmake --build build/libfuzzer --target base58_fuzz_tests
+```
+
+Use a Clang toolchain that includes the libFuzzer runtime. Some platform-provided Clang installations do not include it; if linking fails with a missing `libclang_rt.fuzzer` library, install a complete LLVM toolchain and point `CMAKE_C_COMPILER` and `CMAKE_CXX_COMPILER` at that `clang` and `clang++`.
+
+`LIB_FUZZING_ENGINE` is read during CMake configure, so keep it on the `cmake -S ...` command, not only on the later build command.
+
+Run a fuzzer with its existing seed corpus:
+
+```sh
+$ mkdir -p build/libfuzzer/corpus/base58
+$ cp tests/data/fuzz/base58/* build/libfuzzer/corpus/base58/
+$ ./build/libfuzzer/tests/fuzz/base58_fuzz_tests build/libfuzzer/corpus/base58 -max_total_time=60
+```
 
 ## OSS-Fuzz
 
@@ -221,5 +253,27 @@ When writing new tests, please implement all functions in `.cpp` or `.c` files, 
 
 ## Writing fuzz tests
 
-[TODO]
-hash
+Fuzz tests live in `tests/fuzz` and normally use `tests/fuzz/fuzzer.h`.
+Small file-oriented fuzzers should use the helper macros:
+
+```cpp
+#include "fuzzer.h"
+
+BEGIN_INIT_SIMPLE_FUZZER()
+  // Optional one-time setup.
+END_INIT_SIMPLE_FUZZER()
+
+BEGIN_SIMPLE_FUZZER()
+  // Use buf and len as the fuzz input.
+END_SIMPLE_FUZZER()
+```
+
+In normal AFL builds, `BEGIN_SIMPLE_FUZZER` loads one corpus file and provides
+`buf`, `len`, and `s`. In `OSSFUZZ`/libFuzzer builds, it exposes
+`LLVMFuzzerTestOneInput` and provides `buf` and `len` directly.
+
+Add the new source file to `tests/fuzz/CMakeLists.txt`, link only the libraries
+needed by the target, and add small seed inputs under `tests/data/fuzz/<name>`
+when useful. Existing fuzzers such as `base58.cpp`, `load_from_binary.cpp`, and
+`levin.cpp` are good templates. RPC fuzzing has additional structure documented
+in `tests/fuzz/fuzz_rpc/README.md`.
