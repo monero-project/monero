@@ -94,18 +94,18 @@ class Serializer:
     @classmethod
     def __get_auto_int_properties(cls, x):
         signed = x < 0
-        if signed:
-            x_lim = -2 * x
-        else:
-            x_lim = x
+        sizes = (1, 2, 4, 8)
 
-        byte_size = 1
-        while byte_size <= 4:
-            if x_lim <= 2**(byte_size*8)-1:
-                break
-            byte_size *= 2
-        
-        return signed, byte_size
+        for byte_size in sizes:
+            bits = byte_size * 8
+            if signed:
+                if -(1 << (bits - 1)) <= x <= (1 << (bits - 1)) - 1:
+                    return True, byte_size
+            else:
+                if 0 <= x <= (1 << bits) - 1:
+                    return False, byte_size
+
+        raise ValueError("Integer too large to serialize")
 
     def __serialize_varint(self, x):
         if x < 0:
