@@ -104,6 +104,62 @@ TEST(cn_format_utils, add_extra_nonce_to_tx_extra)
     }
 }
 
+TEST(cn_format_utils, payment_id_tx_extra_nonce_roundtrip)
+{
+    const crypto::hash payment_id = crypto::rand<crypto::hash>();
+    std::string extra_nonce;
+    cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+    ASSERT_EQ(sizeof(payment_id) + 1, extra_nonce.size());
+
+    crypto::hash parsed_payment_id = crypto::null_hash;
+    ASSERT_TRUE(cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce, parsed_payment_id));
+    EXPECT_EQ(payment_id, parsed_payment_id);
+
+    const crypto::hash8 encrypted_payment_id = crypto::rand<crypto::hash8>();
+    std::string encrypted_extra_nonce;
+    cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(encrypted_extra_nonce, encrypted_payment_id);
+    ASSERT_EQ(sizeof(encrypted_payment_id) + 1, encrypted_extra_nonce.size());
+
+    crypto::hash8 parsed_encrypted_payment_id = crypto::null_hash8;
+    ASSERT_TRUE(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(encrypted_extra_nonce, parsed_encrypted_payment_id));
+    EXPECT_EQ(encrypted_payment_id, parsed_encrypted_payment_id);
+}
+
+TEST(cn_format_utils, payment_id_tx_extra_nonce_rejects_wrong_tag_or_size)
+{
+    const crypto::hash payment_id = crypto::rand<crypto::hash>();
+    std::string extra_nonce;
+    cryptonote::set_payment_id_to_tx_extra_nonce(extra_nonce, payment_id);
+
+    crypto::hash parsed_payment_id = crypto::null_hash;
+    std::string wrong_tag = extra_nonce;
+    wrong_tag[0] = TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID;
+    EXPECT_FALSE(cryptonote::get_payment_id_from_tx_extra_nonce(wrong_tag, parsed_payment_id));
+
+    std::string wrong_size = extra_nonce;
+    wrong_size.resize(wrong_size.size() - 1);
+    EXPECT_FALSE(cryptonote::get_payment_id_from_tx_extra_nonce(wrong_size, parsed_payment_id));
+    wrong_size = extra_nonce;
+    wrong_size.push_back('\0');
+    EXPECT_FALSE(cryptonote::get_payment_id_from_tx_extra_nonce(wrong_size, parsed_payment_id));
+
+    const crypto::hash8 encrypted_payment_id = crypto::rand<crypto::hash8>();
+    std::string encrypted_extra_nonce;
+    cryptonote::set_encrypted_payment_id_to_tx_extra_nonce(encrypted_extra_nonce, encrypted_payment_id);
+
+    crypto::hash8 parsed_encrypted_payment_id = crypto::null_hash8;
+    wrong_tag = encrypted_extra_nonce;
+    wrong_tag[0] = TX_EXTRA_NONCE_PAYMENT_ID;
+    EXPECT_FALSE(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(wrong_tag, parsed_encrypted_payment_id));
+
+    wrong_size = encrypted_extra_nonce;
+    wrong_size.resize(wrong_size.size() - 1);
+    EXPECT_FALSE(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(wrong_size, parsed_encrypted_payment_id));
+    wrong_size = encrypted_extra_nonce;
+    wrong_size.push_back('\0');
+    EXPECT_FALSE(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(wrong_size, parsed_encrypted_payment_id));
+}
+
 TEST(cn_format_utils, add_mm_merkle_root_to_tx_extra)
 {
     const std::vector<std::uint64_t> depths{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 63, 64, 127, 128, 16383, 16384};

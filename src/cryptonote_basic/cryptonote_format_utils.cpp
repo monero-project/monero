@@ -796,7 +796,7 @@ namespace cryptonote
       return false;
     if(TX_EXTRA_NONCE_PAYMENT_ID != extra_nonce[0])
       return false;
-    payment_id = *reinterpret_cast<const crypto::hash*>(extra_nonce.data() + 1);
+    memcpy(&payment_id, extra_nonce.data() + 1, sizeof(payment_id));
     return true;
   }
   //---------------------------------------------------------------
@@ -806,7 +806,7 @@ namespace cryptonote
       return false;
     if (TX_EXTRA_NONCE_ENCRYPTED_PAYMENT_ID != extra_nonce[0])
       return false;
-    payment_id = *reinterpret_cast<const crypto::hash8*>(extra_nonce.data() + 1);
+    memcpy(&payment_id, extra_nonce.data() + 1, sizeof(payment_id));
     return true;
   }
   //---------------------------------------------------------------
