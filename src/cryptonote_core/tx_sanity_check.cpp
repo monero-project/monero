@@ -62,6 +62,11 @@ bool tx_sanity_check(const cryptonote::blobdata &tx_blob, uint64_t rct_outs_avai
     if (txin.type() != typeid(cryptonote::txin_to_key))
       continue;
     const cryptonote::txin_to_key &in_to_key = boost::get<cryptonote::txin_to_key>(txin);
+    if (!cryptonote::relative_output_offsets_are_non_overflowing(in_to_key.key_offsets))
+    {
+      MERROR("Transaction has non-canonical key offsets");
+      return false;
+    }
     if (in_to_key.amount != 0)
       continue;
     const std::vector<uint64_t> absolute = cryptonote::relative_output_offsets_to_absolute(in_to_key.key_offsets);

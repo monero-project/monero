@@ -30,6 +30,7 @@
 
 #include <atomic>
 #include <boost/algorithm/string.hpp>
+#include <limits>
 #include "wipeable_string.h"
 #include "string_tools.h"
 #include "string_tools_lexical.h"
@@ -1513,6 +1514,18 @@ namespace cryptonote
     for(size_t i = 1; i < res.size(); i++)
       res[i] += res[i-1];
     return res;
+  }
+  //---------------------------------------------------------------
+  bool relative_output_offsets_are_non_overflowing(const std::vector<uint64_t>& off)
+  {
+    uint64_t absolute = 0;
+    for (uint64_t offset: off)
+    {
+      if (std::numeric_limits<uint64_t>::max() - absolute < offset)
+        return false;
+      absolute += offset;
+    }
+    return true;
   }
   //---------------------------------------------------------------
   std::vector<uint64_t> absolute_output_offsets_to_relative(const std::vector<uint64_t>& off)

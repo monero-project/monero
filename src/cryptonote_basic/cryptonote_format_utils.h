@@ -144,6 +144,7 @@ namespace cryptonote
   bool check_inputs_overflow(const transaction& tx);
   uint64_t get_block_height(const block& b);
   std::vector<uint64_t> relative_output_offsets_to_absolute(const std::vector<uint64_t>& off);
+  bool relative_output_offsets_are_non_overflowing(const std::vector<uint64_t>& off);
   std::vector<uint64_t> absolute_output_offsets_to_relative(const std::vector<uint64_t>& off);
   void set_default_decimal_point(unsigned int decimal_point = CRYPTONOTE_DISPLAY_DECIMAL_POINT);
   unsigned int get_default_decimal_point();
