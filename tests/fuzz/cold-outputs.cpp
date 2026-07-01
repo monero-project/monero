@@ -38,9 +38,10 @@
 static tools::wallet2 *wallet = NULL;
 
 BEGIN_INIT_SIMPLE_FUZZER()
-  static tools::wallet2 local_wallet;
+  static tools::wallet2 local_wallet(cryptonote::TESTNET, /*kdf_rounds=*/1, /*unattended=*/true);
   wallet = &local_wallet;
 
+  // Testnet restore height 3031129
   static const char * const spendkey_hex = "f285d4ac9e66271256fc7cde0d3d6b36f66efff6ccd766706c408e86f4997a0d";
   crypto::secret_key spendkey;
   epee::string_tools::hex_to_pod(spendkey_hex, spendkey);
@@ -51,9 +52,6 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
-  binary_archive<false> ar{{buf, len}};
-  ::serialization::serialize(ar, outputs);
-  size_t n_outputs = wallet->import_outputs(outputs);
+  const size_t n_outputs = wallet->import_outputs_from_str({reinterpret_cast<const char*>(buf), len});
   std::cout << boost::lexical_cast<std::string>(n_outputs) << " outputs imported" << std::endl;
 END_SIMPLE_FUZZER()
