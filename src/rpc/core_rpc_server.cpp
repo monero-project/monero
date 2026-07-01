@@ -74,6 +74,8 @@ using namespace epee;
 #define RESTRICTED_SPENT_KEY_IMAGES_COUNT 5000
 #define RESTRICTED_BLOCK_COUNT 1000
 
+static constexpr size_t GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES = 20000;
+
 #define RPC_TRACKER(rpc) \
   PERF_TIMER(rpc); \
   RPCTracker tracker(#rpc, PERF_TIMER_NAME(rpc))
@@ -570,7 +572,6 @@ namespace cryptonote
 
     res.pool_info_extent = COMMAND_RPC_GET_BLOCKS_FAST::NONE;
 
-    size_t cumul_block_data_size = 0;
     if (get_blocks)
     {
       // quick check for noop
@@ -603,7 +604,7 @@ namespace cryptonote
         return true;
       }
 
-      size_t ntxes = 0;
+      size_t size = 0, ntxes = 0;
       res.blocks.reserve(bs.size());
       res.output_indices.reserve(bs.size());
       for(auto& bd: bs)
@@ -611,7 +612,7 @@ namespace cryptonote
         res.blocks.resize(res.blocks.size()+1);
         res.blocks.back().pruned = req.prune;
         res.blocks.back().block = bd.first.first;
-        cumul_block_data_size += bd.first.first.size();
+        size += bd.first.first.size();
         res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
         ntxes += bd.second.size();
         res.output_indices.back().indices.reserve(1 + bd.second.size());
@@ -621,7 +622,7 @@ namespace cryptonote
         for (auto i = bd.second.begin(); i != bd.second.end(); ++i)
         {
           res.blocks.back().txs.emplace_back(std::move(std::get<2>(*i)), std::get<1>(*i));
-          cumul_block_data_size += res.blocks.back().txs.back().blob.size();
+          size += res.blocks.back().txs.back().blob.size();
         }
 
         const size_t n_txes_to_lookup = bd.second.size() + (req.no_miner_tx ? 0 : 1);
@@ -643,7 +644,7 @@ namespace cryptonote
             res.output_indices.back().indices.push_back({std::move(indices[i])});
         }
       }
-      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << cumul_block_data_size);
+      MDEBUG("on_get_blocks: " << bs.size() << " blocks, " << ntxes << " txes, size " << size);
     }
 
     if (get_pool)
@@ -651,58 +652,45 @@ namespace cryptonote
       const bool restricted = m_restricted && ctx;
       const bool request_has_rpc_origin = ctx != NULL;
       const bool allow_sensitive = !request_has_rpc_origin || !restricted;
-      const size_t max_tx_count = restricted ? RESTRICTED_TRANSACTIONS_COUNT : std::numeric_limits<size_t>::max();
+      const size_t max_tx_count = restricted
+        ? std::min<size_t>(RESTRICTED_TRANSACTIONS_COUNT, GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES)
+        : GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES;
 
-      const size_t limit = LEVIN_DEFAULT_MAX_PACKET_SIZE * 0.9;
+      bool incremental;
+      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
+      bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count,
+                                          added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids,
+                                          incremental);
 
-      // If the blocks alone already consume the safe packet budget, skip pool info
-      if (cumul_block_data_size >= limit)
+      if (!success)
       {
-        LOG_ERROR("on_get_blocks: omitting pool info, response already "
-               << cumul_block_data_size << " bytes (limit " << limit << ")");
-        // res.pool_info_extent stays as NONE (set earlier), which tells wallets
-        // that there is no pool info in this response.
+        res.status = "Failed to get pool info";
+        return true;
       }
-      else
+
+      res.added_pool_txs.clear();
+      for (const auto &added_pool_tx: added_pool_txs)
       {
-        const size_t pool_limit = limit - cumul_block_data_size;
-
-        bool incremental;
-        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> added_pool_txs;
-        bool success = m_core.get_pool_info((time_t)req.pool_info_since, allow_sensitive, max_tx_count,
-                                            added_pool_txs, res.remaining_added_pool_txids, res.removed_pool_txids,
-                                            incremental, pool_limit);
-
-        if (!success)
+        COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
+        info.tx_hash = added_pool_tx.first;
+        std::stringstream oss;
+        binary_archive<true> ar(oss);
+        bool r = req.prune
+          ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
+          : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
+        if (!r)
         {
-          res.status = "Failed to get pool info";
+          res.status = "Failed to serialize transaction";
           return true;
         }
-
-        res.added_pool_txs.clear();
-        for (const auto &added_pool_tx: added_pool_txs)
-        {
-          COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
-          info.tx_hash = added_pool_tx.first;
-          std::stringstream oss;
-          binary_archive<true> ar(oss);
-          bool r = req.prune
-            ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-            : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-          if (!r)
-          {
-            res.status = "Failed to serialize transaction";
-            return true;
-          }
-          info.tx_blob = oss.str();
-          info.double_spend_seen = added_pool_tx.second.double_spend_seen;
-          res.added_pool_txs.push_back(std::move(info));
-        }
-
-        res.pool_info_extent = incremental
-          ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL
-          : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
+        info.tx_blob = oss.str();
+        info.double_spend_seen = added_pool_tx.second.double_spend_seen;
+        res.added_pool_txs.push_back(std::move(info));
       }
+
+      res.pool_info_extent = incremental
+        ? COMMAND_RPC_GET_BLOCKS_FAST::INCREMENTAL
+        : COMMAND_RPC_GET_BLOCKS_FAST::FULL;
     }
 
     res.status = CORE_RPC_STATUS_OK;
