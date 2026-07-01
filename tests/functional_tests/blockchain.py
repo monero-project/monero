@@ -389,14 +389,13 @@ class BlockchainTest():
         assert wallet.get_balance().unlocked_balance > dst['amount'] * 2
 
         res = wallet.transfer([dst])
-        balance_1 = wallet.get_balance().unlocked_balance
         res = wallet.transfer([dst])
 
         assert len(daemon.get_transaction_pool_hashes()['tx_hashes']) == 2
 
         daemon.generateblocks(main_address, 1)
 
-        print('Calling /get_blocks.bin and testing response...')
+        print('Calling /get_blocks.bin (blocks only) and testing response...')
 
         res = daemon.get_blocks_fast(0, [target_block_id, genesis_block_id])
         assert len(res.blocks) == N_TO_MINE + 1 + 1

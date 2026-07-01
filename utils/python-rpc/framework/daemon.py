@@ -190,13 +190,15 @@ class Daemon(object):
     get_block_headers_range = getblockheadersrange
 
     def get_blocks_fast(self, start_height, block_ids, requested_info = 0,
-            pool_info_since = 0, prune = True, no_miner_tx = False, max_block_count = 0):
+            pool_info_since = 0, prune = True, no_miner_tx = False,
+            max_block_count = 0, block_ids_exclusive = False):
         get_blocks_fast = {
             'requested_info': requested_info,
             'block_ids': DaemonBinary.hash_list_to_blob(block_ids),
             'start_height': start_height,
             'prune': prune,
             'no_miner_tx': no_miner_tx,
+            'block_ids_exclusive': block_ids_exclusive,
             'pool_info_since': pool_info_since,
             'max_block_count': max_block_count
         }
