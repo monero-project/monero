@@ -128,11 +128,13 @@ class Serializer:
         raise ValueError("Floating point numbers not supported yet")
 
     def __serialize_string(self, x, include_type):
-        if include_type:
-            self.outf.write(bytes([SERIALIZE_TYPE_STRING]))
-        self.__serialize_varint(len(x))
         if isinstance(x, str):
             x = x.encode()
+
+        if include_type:
+            self.outf.write(bytes([SERIALIZE_TYPE_STRING]))
+
+        self.__serialize_varint(len(x))
         self.outf.write(x)
 
     def __dispatch_serialize_scalar(self, x, include_type, signed_override = None, byte_size_override = None):
