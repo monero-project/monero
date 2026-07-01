@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 import io
 
 PORTABLE_STORAGE_SIGNATURE = bytes.fromhex('0111010101010201') # bender's nightmare 
