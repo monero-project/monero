@@ -33,6 +33,8 @@
 #include "serialization/binary_utils.h"
 #include "serialization/string.h"
 
+#include <limits>
+
 TEST(cn_format_utils, add_extra_nonce_to_tx_extra)
 {
     static constexpr std::size_t max_nonce_size = TX_EXTRA_NONCE_MAX_COUNT + 1; // we *can* test higher if desired
@@ -102,6 +104,25 @@ TEST(cn_format_utils, add_extra_nonce_to_tx_extra)
             }
         }
     }
+}
+
+TEST(cn_format_utils, relative_output_offsets_are_non_overflowing)
+{
+    const uint64_t max_offset = std::numeric_limits<uint64_t>::max();
+
+    EXPECT_TRUE(cryptonote::relative_output_offsets_are_non_overflowing({}));
+    EXPECT_TRUE(cryptonote::relative_output_offsets_are_non_overflowing({0}));
+    EXPECT_TRUE(cryptonote::relative_output_offsets_are_non_overflowing({0, 1, 2}));
+    EXPECT_TRUE(cryptonote::relative_output_offsets_are_non_overflowing({max_offset}));
+    EXPECT_TRUE(cryptonote::relative_output_offsets_are_non_overflowing({max_offset - 1, 1}));
+
+    EXPECT_FALSE(cryptonote::relative_output_offsets_are_non_overflowing({max_offset, 1}));
+    EXPECT_FALSE(cryptonote::relative_output_offsets_are_non_overflowing({
+        157397969, 16660, 9681, 7938, 5385, 3831, 1437, 4950,
+        826, 813, 1237, 18446744073709482834ULL,
+        18446744073709534619ULL, 18446744073709550238ULL,
+        18446744073709546177ULL, 18446744073709183958ULL
+    }));
 }
 
 TEST(cn_format_utils, add_mm_merkle_root_to_tx_extra)

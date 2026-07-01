@@ -118,6 +118,17 @@ namespace cryptonote
       if (candidate < next_check.load(std::memory_order_relaxed))
         next_check = candidate;
     }
+
+    bool check_tx_inputs_key_offsets_non_overflowing(const transaction& tx)
+    {
+      for (const auto& in: tx.vin)
+      {
+        CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+        if (!relative_output_offsets_are_non_overflowing(tokey_in.key_offsets))
+          return false;
+      }
+      return true;
+    }
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
@@ -197,6 +208,15 @@ namespace cryptonote
       LOG_PRINT_L1("transaction unlock time is not zero: " << tx.unlock_time);
       tvc.m_verifivation_failed = true;
       tvc.m_nonzero_unlock_time = true;
+      tvc.m_no_drop_offense = true;
+      return false;
+    }
+
+    if (!kept_by_block && !check_tx_inputs_key_offsets_non_overflowing(tx))
+    {
+      LOG_PRINT_L1("transaction has non-canonical key offsets");
+      tvc.m_verifivation_failed = true;
+      tvc.m_invalid_input = true;
       tvc.m_no_drop_offense = true;
       return false;
     }
