@@ -376,7 +376,7 @@ class BlockchainTest():
         assert len(res['in']) > 0
         first_recv_height = res['in'][0]['height']
 
-        N_TO_MINE = 8 + max(0, first_recv_height + 60 - n_blocks)
+        N_TO_MINE = 20 + max(0, first_recv_height + 60 - n_blocks)
         daemon.generateblocks(main_address, N_TO_MINE)
         wallet.refresh()
 
